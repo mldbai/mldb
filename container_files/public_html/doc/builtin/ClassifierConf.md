@@ -20,6 +20,7 @@ This document explains how to use them.
  - [Boosting](#boosting)
  - [Neural Networks](#nnet)
  - [Naive Bayes](#naive)
+ - [Fast Text](#fasttext)
 - [Default configuration file](#defConf)
 - [Training Weighting](#trainWeight)
 
@@ -132,6 +133,15 @@ all the values in two, using the threshold that provides the best separation
 of classes. You can always do you own discretization, for instance using a
 `CASE` expression.
 
+<a name="fasttext"></a>
+### FastText (type=fasttext)
+
+![](%%jmlclassifier fasttext)
+
+Note that our version of the Fast Text Classifier only supports feature counts, and currently
+does not support regression.
+
+*See also* : [fastText on arXiv](https://arxiv.org/abs/1607.01759v2).
 
 <a name="defConf"></a>
 ## Default `configurationFile`
