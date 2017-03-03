@@ -1,5 +1,5 @@
 /* fasttext_tree_generator.h                                       -*- C++ -*-
-   Mathieu Marquis Bolduc, 2 March 2027
+   Mathieu Marquis Bolduc, 2 March 2017
 
    This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 

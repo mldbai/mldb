@@ -59,7 +59,11 @@ FastTest_Classifier::
 swap(FastTest_Classifier & other)
 {
     Classifier_Impl::swap(other);
-    throw Exception("FastTest_Classifier swap: not implemented");
+
+    std::swap(encoding, other.encoding);  ///< How the outputs are represented
+    std::swap(fastText_, other.fastText_);
+    std::swap(features, other.features);
+    std::swap(featureMap, other.featureMap);    
 }
 
 float
@@ -170,7 +174,6 @@ serialize(DB::Store_Writer & store) const
         }
     };
 
-    string id = class_id();
     store << class_id();
     store << compact_size_t(0);  // version
     store << compact_size_t(label_count());
@@ -299,7 +302,8 @@ FastTest_Classifier *
 FastTest_Classifier::
 make_copy() const
 {
-    throw Exception("FastTest_Classifier make_copy: not tested");
+    //as far as I could tell make_copy is only used for bagging
+    throw Exception("FastTest_Classifier: bagging is not yet supported");
     return new FastTest_Classifier(*this);
 }
 

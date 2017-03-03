@@ -1,5 +1,5 @@
 /* fasttext_tree_generator.cc                                       -*- C++ -*-
-   Mathieu Marquis Bolduc, 2 March 2027
+   Mathieu Marquis Bolduc, 2 March 2017
 
    This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 
@@ -142,7 +142,8 @@ FastText_Generator::
     args_->verbose = verbose;
 
 
-    std::shared_ptr<fasttext::Matrix> input_ = std::make_shared<fasttext::Matrix>(features.size()+args_->bucket, args_->dim);
+    std::shared_ptr<fasttext::Matrix> input_ 
+        = std::make_shared<fasttext::Matrix>(features.size()+args_->bucket, args_->dim);
     input_->uniform(1.0 / args_->dim);
     std::shared_ptr<fasttext::Matrix> output_ = std::make_shared<fasttext::Matrix>(numLabels, args_->dim);   
     output_->zero();
@@ -195,8 +196,8 @@ FastText_Generator::
         }       
 
         start++;        
-        if (labels.size() != 0 && line.size() > 0)
-        {
+        if (labels.size() != 0 && line.size() > 0) {
+
             //This for future multicategorical support
             std::uniform_int_distribution<> uniform(0, labels.size() - 1);
             int32_t i = uniform(model.rng); 
@@ -204,11 +205,11 @@ FastText_Generator::
         }
      
         if (localTokenCount > args_->lrUpdateRate) {
-          tokenCount += localTokenCount;
-          localTokenCount = 0;
-          if (threadId == 0 && args_->verbose > 1) {
-            fastTextModel.printInfo(progress, model.getLoss());
-          }
+            tokenCount += localTokenCount;
+            localTokenCount = 0;
+            if (threadId == 0 && args_->verbose > 1) {
+                fastTextModel.printInfo(progress, model.getLoss());
+            }
         }
       }
       if (threadId == 0 && args_->verbose > 0) {
