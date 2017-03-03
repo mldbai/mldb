@@ -66,7 +66,6 @@ class FastTextTest(MldbUnitTest):
             }))
 
             res = mldb.query("SELECT myclassify({features : {tokenize(lower(' hockey '), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens} }) as * ")
-            mldb.log(res)
             self.assertTableResultEquals(res, [
                 [
                     "_rowName",
@@ -75,24 +74,23 @@ class FastTextTest(MldbUnitTest):
                 ],
                 [
                     "result",
-                    -1.975644588470459,
-                    -0.15154990553855896
+                    -0.7370663285255432,
+                    -0.6548283100128174
                 ]
             ]);
 
             res = mldb.query("SELECT myclassify({features : {tokenize(lower(' hillary '), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens} }) as * ")
-            mldb.log(res)
             self.assertTableResultEquals(res, [
-                [
-                    "_rowName",
-                    "scores.\"\"\"Politique\"\"\"",
-                    "scores.\"\"\"Sports\"\"\""
-                ],
-                [
-                    "result",
-                    -0.10275973379611969,
-                    -2.3465042114257812
-                ]
-            ]);
+            [
+                "_rowName",
+                "scores.\"\"\"Politique\"\"\"",
+                "scores.\"\"\"Sports\"\"\""
+            ],
+            [
+                "result",
+                -0.6585947871208191,
+                -0.7329930067062378
+            ]
+        ]);
 
 mldb.run_tests()
