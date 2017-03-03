@@ -49,6 +49,8 @@ LIBBOOSTING_SOURCES := \
         committee.cc \
         boosting_training.cc \
         null_classifier_generator.cc \
+        fasttext_classifier.cc \
+        fasttext_generator.cc \
 	tree.cc \
 	split.cc \
 	training_index_iterators.cc \
@@ -57,7 +59,7 @@ LIBBOOSTING_SOURCES := \
 	label.cc \
 	buckets.cc
 
-LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex
+LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex fasttext
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 

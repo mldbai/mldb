@@ -73,3 +73,6 @@
 [submodule "ext/libgit2"]
 	path = ext/libgit2
 	url = https://github.com/mldbai/libgit2.git
+[submodule "ext/fasttext"]
+	path = ext/fasttext
+	url = git@github.com:mldbai/fastText.git
