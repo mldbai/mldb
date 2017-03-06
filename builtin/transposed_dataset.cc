@@ -51,8 +51,14 @@ struct TransposedDataset::Itl
     std::shared_ptr<ColumnIndex> index;
     size_t columnCount;
 
+    static const shared_ptr<Dataset> & testDatasetPtr(const shared_ptr<Dataset> & dataset)
+    {
+        ExcAssert(dataset);
+        return dataset;
+    }
+
     Itl(MldbServer * server, std::shared_ptr<Dataset> dataset)
-        : dataset(dataset),
+        : dataset(testDatasetPtr(dataset)),
           matrix(dataset->getMatrixView()),
           index(dataset->getColumnIndex()),
           columnCount(dataset->getFlattenedColumnCount())
