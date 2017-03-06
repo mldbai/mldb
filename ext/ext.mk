@@ -2,6 +2,8 @@
 
 EXT_SUBDIRS ?= tinyxml2 googleurl cityhash xxhash lz4 lzma sqlite judy svm libstemmer svdlibc jsoncpp
 
+$(eval $(shell cp ext/protobuf_autogen.sh ext/protobuf/autogen.sh))
+
 $(eval $(call include_sub_makes,$(EXT_SUBDIRS)))
 
 $(eval $(call include_sub_make,hoedown,hoedown,../hoedown.mk))
