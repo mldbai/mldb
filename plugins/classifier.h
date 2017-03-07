@@ -30,10 +30,18 @@ class SqlExpression;
 enum ClassifierMode {
     CM_REGRESSION,
     CM_BOOLEAN,
-    CM_CATEGORICAL
+    CM_CATEGORICAL,
+    CM_MULTILABEL
 };
 
+enum MultilabelStrategy {
+    MULTILABEL_RANDOM,
+    MULTILABEL_DECOMPOSE
+};
+
+
 DECLARE_ENUM_DESCRIPTION(ClassifierMode);
+DECLARE_ENUM_DESCRIPTION(MultilabelStrategy);
 
 struct ClassifierConfig : public ProcedureConfig {
     static constexpr const char * name = "classifier.train";
@@ -67,6 +75,9 @@ struct ClassifierConfig : public ProcedureConfig {
 
     /// What mode to run in
     ClassifierMode mode;
+
+    // Strategy to handle multilabel
+    MultilabelStrategy multilabelStrategy;
 
     // Function name
     Utf8String functionName;

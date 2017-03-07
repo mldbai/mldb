@@ -281,7 +281,33 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 };
             scoreLabelWeight[0].forEachAtom(onAtom);
 
-            auto label = scoreLabelWeight[1].getAtom();
+            CellValue label;
+
+            if (scoreLabelWeight[1].isAtom()) {
+                label = scoreLabelWeight[1].getAtom();
+            }
+            else {
+                //Multilabel
+                std::vector<std::string> labels; //TODO: Utf8
+                std::function<bool (const PathElement & columnName,
+                                    const ExpressionValue & val)> randomStrategy = [&] (const PathElement & columnName,
+                                                                                  const ExpressionValue & val) ->bool
+                    {
+                        if (!val.empty()) {
+                            std::string labelStr = columnName.toUtf8String().utf8String();
+                            labels.push_back(labelStr);
+                        }
+
+                        return true;
+                    };
+
+                scoreLabelWeight[1].forEachColumn(randomStrategy);
+
+                if (labels.size() == 0)
+                    return true;
+
+                label = CellValue(labels[std::rand() % labels.size()]);
+            }
             double weight = scoreLabelWeight[2].toDouble();
 
             accum.get().emplace_back(label, maxLabel, maxLabelScore, weight, row.rowName);
@@ -659,6 +685,8 @@ run(const ProcedureRunConfig & run,
         return runCategorical(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_REGRESSION)
         return runRegression(runAccuracyConf, boundQuery, output);
+    if(runAccuracyConf.mode == CM_MULTILABEL)
+        return runCategorical(runAccuracyConf, boundQuery, output);
 
     throw MLDB::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
 }

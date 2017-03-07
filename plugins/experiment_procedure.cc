@@ -84,6 +84,10 @@ ExperimentProcedureConfigDescription()
              "Model mode: `boolean`, `regression` or `categorical`. "
              "Controls how the label is interpreted and what is the output of the classifier. "
              , CM_BOOLEAN);
+    addField("multilabelStrategy", &ExperimentProcedureConfig::multilabelStrategy,
+             "Multilabel strategy: `random` or `decompose`. "
+             "Controls how examples are prepared to handle multilabel classification. "
+             , MULTILABEL_RANDOM);
     addField("inputData", &ExperimentProcedureConfig::inputData,
              "SQL query which specifies the features, labels and optional weights for the training and testing procedures. "
              "This query is used to create a training and testing set according to the [steps laid "
@@ -384,6 +388,7 @@ run(const ProcedureRunConfig & run,
         clsProcConf.algorithm = runProcConf.algorithm;
         clsProcConf.equalizationFactor = runProcConf.equalizationFactor;
         clsProcConf.mode = runProcConf.mode;
+        clsProcConf.multilabelStrategy = runProcConf.multilabelStrategy;
 
 
         clsProcConf.functionName = MLDB::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
@@ -440,7 +445,8 @@ run(const ProcedureRunConfig & run,
         string scoreExpr;
         if     (runProcConf.mode == CM_BOOLEAN ||
                 runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
-        else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
+        else if(runProcConf.mode == CM_CATEGORICAL ||
+                runProcConf.mode == CM_MULTILABEL) scoreExpr = "\"%s\"({%s})[scores] as score";
         else throw MLDB::Exception("Classifier mode %d not implemented", runProcConf.mode);
 
 

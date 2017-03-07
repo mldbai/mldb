@@ -58,9 +58,18 @@ ClassifierModeDescription()
 {
     addValue("regression",  CM_REGRESSION, "Regression mode (predicting values)");
     addValue("boolean",     CM_BOOLEAN, "Boolean mode (predicting P(true))");
-    addValue("categorical", CM_CATEGORICAL, "Categorical mode (predicting P(category))");
+    addValue("categorical", CM_CATEGORICAL, "Categorical mode (predicting P(category)), examples have a single label");
+    addValue("multilabel", CM_MULTILABEL, "Categorical mode (predicting P(category)), examples can have multiple labels");
 }
 
+DEFINE_ENUM_DESCRIPTION(MultilabelStrategy);
+
+MultilabelStrategyDescription::
+MultilabelStrategyDescription()
+{
+    addValue("random",  MULTILABEL_RANDOM, "Label is selected at random");
+    addValue("decompose", MULTILABEL_DECOMPOSE, "Examples are decomposed in single-label examples");
+}
 
 DEFINE_STRUCTURE_DESCRIPTION(ClassifierConfig);
 
@@ -71,6 +80,10 @@ ClassifierConfigDescription()
              "Model mode: `boolean`, `regression` or `categorical`. "
              "Controls how the label is interpreted and what is the output of the classifier. "
              , CM_BOOLEAN);
+    addField("multilabelStrategy", &ClassifierConfig::multilabelStrategy,
+             "Multilabel strategy: `random` or `decompose`. "
+             "Controls how examples are prepared to handle multilabel classification. "
+             , MULTILABEL_RANDOM);
     addField("trainingData", &ClassifierConfig::trainingData,
              "SQL query which specifies the features, labels and optional weights for training. "
              "The query should be of the form `select {f1, f2} as features, x as label from ds`.\n\n"
@@ -210,6 +223,10 @@ run(const ProcedureRunConfig & run,
         labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
         break;
     case CM_CATEGORICAL:
+        categorical = std::make_shared<ML::Mutable_Categorical_Info>();
+        labelInfo = ML::Feature_Info(categorical);
+        break;
+    case CM_MULTILABEL:
         categorical = std::make_shared<ML::Mutable_Categorical_Info>();
         labelInfo = ML::Feature_Info(categorical);
         break;
@@ -380,7 +397,7 @@ run(const ProcedureRunConfig & run,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
-            CellValue label = extraVals.at(0).getAtom();
+            ExpressionValue label = extraVals.at(0);
             if (label.empty())
                 return true;
 
@@ -389,15 +406,51 @@ run(const ProcedureRunConfig & run,
             float encodedLabel;
             switch (runProcConf.mode) {
             case CM_REGRESSION:
-                encodedLabel = label.toDouble();
+                encodedLabel = label.getAtom().toDouble();
                 break;
             case CM_BOOLEAN:
-                encodedLabel = label.isTrue();
+                encodedLabel = label.getAtom().isTrue();
                 break;
+            case CM_MULTILABEL: {
+                if (!label.isRow())
+                    throw HttpReturnException(400, "Multilabel classification labels requires a row");
+
+                std::vector<float> labels;
+
+                std::function<bool (const PathElement & columnName,
+                                    const ExpressionValue & val)> randomStrategy = [&] (const PathElement & columnName,
+                                                                                  const ExpressionValue & val) ->bool
+                    {
+                        if(!val.empty()) {
+                            std::string labelStr = jsonEncodeStr(columnName);
+                            auto it = thr.categoricalLabels.find(labelStr);
+                            if (it == thr.categoricalLabels.end()) {
+                                size_t labelid = thr.categoricalLabelList.size();
+                                labels.push_back(labelid);
+                                thr.categoricalLabelList.push_back(labelStr);
+                                thr.categoricalLabels.emplace(labelStr, labelid);
+                            }
+                            else {
+                                labels.push_back(it->second);
+                            }
+                        }
+                        
+                        return true;
+                    };
+
+                label.forEachColumn(randomStrategy);
+
+                if (labels.size() == 0)
+                    return true;
+
+                encodedLabel = labels[std::rand() % labels.size()];
+
+                break;
+            }
             case CM_CATEGORICAL: {
                 // Get a list of categorical labels, for this thread.  Later
                 // we map them to the overall list of labels.
-                std::string labelStr = jsonEncodeStr(label);
+                std::string labelStr = jsonEncodeStr(label.getAtom());
                 auto it = thr.categoricalLabels.find(labelStr);
                 if (it == thr.categoricalLabels.end()) {
                     encodedLabel = thr.categoricalLabelList.size();
@@ -416,7 +469,7 @@ run(const ProcedureRunConfig & run,
 
             float weight = extraVals.at(1).toDouble();
 
-            DEBUG_MSG(logger) << "label = " << label << " weight = " << weight;
+            //DEBUG_MSG(logger) << "label = " << label << " weight = " << weight;
             DEBUG_MSG(logger) << "row.columns.size() = " << row.columns.size();
 
             DEBUG_MSG(logger) << "got row " << jsonEncode(row);
@@ -427,6 +480,9 @@ run(const ProcedureRunConfig & run,
 
             unordered_set<Path> unique_known_features;
             for (auto & c: row.columns) {
+
+                //cerr << "column " << std::get<0>(c).toUtf8String() << endl;
+
                 try {
                     featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
                 } MLDB_CATCH_ALL {
@@ -475,7 +531,8 @@ run(const ProcedureRunConfig & run,
 
     std::map<std::string, int> labelMapping;
 
-    if (runProcConf.mode == CM_CATEGORICAL) {
+    if (runProcConf.mode == CM_CATEGORICAL || 
+        runProcConf.mode == CM_MULTILABEL) {
 
         std::set<std::string> allLabels;
 
@@ -572,6 +629,7 @@ run(const ProcedureRunConfig & run,
         num_weight_labels = 2;
         break;
     case CM_CATEGORICAL:
+    case CM_MULTILABEL:
         num_weight_labels = labelMapping.size();
         break;
     default:
@@ -676,6 +734,7 @@ run(const ProcedureRunConfig & run,
             double factor = pow(labelWeights[lbl].total(), -equalizationFactor);
 
             INFO_MSG(logger) << "factor for class " << lbl << " = " << factor;
+            INFO_MSG(logger) << "weight for class " << lbl << " = " << labelWeights[lbl].total();
 
             factor_accum += factor * labelWeights[lbl];
         }
@@ -915,6 +974,7 @@ apply(const FunctionApplier & applier_,
     auto cat = itl->labelInfo.categorical();
     if (!dense.empty() && applier.optInfo) {
         if (cat) {
+
             ML::Label_Dist scores
                 = itl->classifier.impl->predict(dense, applier.optInfo);
             ExcAssertEqual(scores.size(), labelCount);
