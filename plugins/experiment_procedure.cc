@@ -390,7 +390,6 @@ run(const ProcedureRunConfig & run,
         clsProcConf.mode = runProcConf.mode;
         clsProcConf.multilabelStrategy = runProcConf.multilabelStrategy;
 
-
         clsProcConf.functionName = MLDB::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
 
         if(progress == 0) {

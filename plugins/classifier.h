@@ -48,7 +48,8 @@ struct ClassifierConfig : public ProcedureConfig {
 
     ClassifierConfig()
         : equalizationFactor(0.5),
-          mode(CM_BOOLEAN)
+          mode(CM_BOOLEAN),
+          multilabelStrategy(MULTILABEL_RANDOM)
     {
     }
 
