@@ -9,7 +9,7 @@ operation is virtual, in other words, no copy of the initial dataset is made.
 
 ## See also
 
-* [SQL From Expressions](../sql/FromExpression.md)
+* The `sample` function can also be used within [From expressions](../sql/FromExpression.md#sample-function).
 * The ![](%%doclink merged dataset) is another dataset transformation
 * The ![](%%doclink transform procedure) can be used to modify a dataset ready for merging
 * The ![](%%nblink _tutorials/Virtual Manipulation of Datasets Tutorial)
