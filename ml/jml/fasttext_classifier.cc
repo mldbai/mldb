@@ -68,10 +68,31 @@ swap(FastTest_Classifier & other)
 
 float
 FastTest_Classifier::
-predict(int label, const Feature_Set & features,
+predict(int label, const Feature_Set & infeatures,
         PredictionContext * context) const
 {
-    throw Exception("FastTest_Classifier predict(label, features, context): not implemented");
+    std::vector<int32_t> words;
+  
+    for (const auto& feature : infeatures) {
+        auto it = featureMap.find(feature.first);
+        if (it != featureMap.end()) {
+            size_t f = (*it);
+            for (int i = 0; i < feature.second; ++i)
+                words.push_back(f);
+        }
+    }
+
+    if (!words.empty()) {
+        fasttext::Vector hidden(fastText_->args_->dim);
+        fasttext::Vector output(label_count());
+        std::vector<std::pair<fasttext::real,int32_t>> modelPredictions;
+        fastText_->model_->predict(words, label_count(), modelPredictions, hidden, output);
+        for (auto it = modelPredictions.cbegin(); it != modelPredictions.cend(); it++) {
+            return it->first;
+        }
+    }
+
+    return 0.0f;
 }
 
 Label_Dist

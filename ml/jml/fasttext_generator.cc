@@ -28,7 +28,7 @@ using namespace std;
 namespace ML {
 
 /*****************************************************************************/
-/* DECISION_TREE_GENERATOR                                                   */
+/* FASTTEXT_GENERATOR                                                        */
 /*****************************************************************************/
 
 FastText_Generator::
@@ -95,6 +95,12 @@ FastText_Generator::
 {
     Feature predicted = model.predicted();
     int numLabels = model.feature_space()->info(predicted).value_count();
+
+    bool regression_problem
+        = model.feature_space()->info(predicted).type() == REAL;
+
+    if (regression_problem)
+        throw Exception("FastText classifier does not currently support regression mode");
 
     boost::timer timer;
     std::vector<int64_t> labelCount(numLabels);

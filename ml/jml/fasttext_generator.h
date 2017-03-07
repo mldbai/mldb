@@ -18,8 +18,7 @@ namespace ML {
 /* FastText_Generator                                                        */
 /*****************************************************************************/
 
-/** Class to generate a classifier.  The meta-algorithms (bagging, boosting,
-    etc) can use this algorithm to generate weak-learners.
+/** Class to generate a fasttext classifier.  
 */
 
 class FastText_Generator : public Classifier_Generator {
