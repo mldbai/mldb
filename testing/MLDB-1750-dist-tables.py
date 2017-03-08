@@ -310,7 +310,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 'mode': 'bagOfWords',
                 'statistics': ["avg", "max"],
                 'functionName': 'get_bow_stats',
-                'runOnCreation': True
+                'outputDataset': 'bowOutputDataset'
             }
         })
 
@@ -345,6 +345,25 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             """),
             [["_rowName", "price.tag_z.avg", "price.tag_z.max"],
              ["result", 'NaN', 'NaN']])
+
+        self.assertTableResultEquals(
+            mldb.query("""SELECT  * FROM bowOutputDataset ORDER BY rowName()"""),
+            [
+                [
+                    "_rowName",
+                    "price.tag_a.avg",
+                    "price.tag_a.max",
+                    "price.tag_b.avg",
+                    "price.tag_b.max",
+                    "price.tag_c.avg",
+                    "price.tag_c.max"
+                ],
+                [ "row0", NaN, NaN, NaN, NaN, None, None ],
+                [ "row1", None, None, None, None, NaN, NaN ],
+                [ "row2", None, None, None, None, None, None ],
+                [ "row3", None, None, 1, 1, 3, 3 ],
+                [ "row4", 1, 1, 5, 9, 6, 9 ],
+            ])
 
     def test_null_col(self):
         """ when a column is NULL, it is treated as if NULL was a value
