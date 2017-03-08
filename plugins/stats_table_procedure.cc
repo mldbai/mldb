@@ -89,9 +89,9 @@ sample_laplace() const {
     return mu - (b * sgn(U)) * log(1-2*abs(U));
 }
 
-uint64_t 
+int64_t 
 NoiseInjector::
-add_noise(uint count, int64_t max) const {
+add_noise(int64_t count, int64_t max) const {
     double noisy_count = count + sample_laplace();
     if(noisy_count < 0)   return 0;
     if(noisy_count > max) return max;
@@ -119,7 +119,7 @@ increment(const CellValue & val, const vector<uint> & outcomes) {
     auto it = counts.find(key);
     if(it == counts.end()) {
         auto rtn = counts.emplace(
-            key, std::move(make_pair(1, vector<uint64_t>(outcomes.begin(),
+            key, std::move(make_pair(1, vector<int64_t>(outcomes.begin(),
                                                         outcomes.end()))));
         // return inserted value
         return (*(rtn.first)).second;
@@ -482,7 +482,7 @@ apply(const FunctionApplier & applier,
                     return true;
 
                 const auto & counts = st->second.getCounts(val);
-                uint64_t num_trials = functionConfig.injectNoise ? 
+                int64_t num_trials = functionConfig.injectNoise ? 
                                             noise.add_noise(counts.first) :
                                             counts.first;
                 rtnRow.emplace_back(PathElement("trial") + columnName, num_trials, ts);
@@ -903,7 +903,7 @@ StatsTablePosNegFunction(MldbServer * owner,
     }
 
     // sort all the keys by their p(outcome)
-    typedef pair<Utf8String, std::array<uint64_t, 2>> KeyAndCounts;
+    typedef pair<Utf8String, std::array<int64_t, 2>> KeyAndCounts;
     vector<KeyAndCounts> accum;
     for(auto it = statsTable.counts.begin(); it!=statsTable.counts.end(); it++) {
         const StatsTable::BucketCounts & counts = it->second;
@@ -913,7 +913,7 @@ StatsTablePosNegFunction(MldbServer * owner,
 
         accum.emplace_back(
             make_pair(it->first,
-                      std::array<uint64_t, 2>{counts.first,
+                      std::array<int64_t, 2>{counts.first,
                                               counts.second[outcomeToUseIdx]}));
     }
 
@@ -987,7 +987,7 @@ apply(const FunctionApplier & applier,
 
                 float poutcome;
                 if(functionConfig.injectNoise) {
-                    float num_imps = noise.add_noise(it->second[0]);
+                    float num_imps = float(noise.add_noise(it->second[0]));
                     poutcome = ML::xdiv(noise.add_noise(it->second[1], num_imps), num_imps);
                 }
                 else {

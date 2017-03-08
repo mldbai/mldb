@@ -35,7 +35,7 @@ struct NoiseInjector {
 
     double sample_laplace() const;
 
-    uint64_t add_noise(uint count,
+    int64_t add_noise(int64_t count,
                        int64_t max=std::numeric_limits<int64_t>::max()) const;
 
     // http://stackoverflow.com/a/4609795
@@ -56,7 +56,7 @@ struct StatsTable {
     StatsTable(const ColumnPath & colName=ColumnPath("ND"),
             const std::vector<std::string> & outcome_names = {})
         : colName(colName), outcome_names(outcome_names),
-          zeroCounts(std::make_pair(0, std::vector<uint64_t>(outcome_names.size())))
+          zeroCounts(std::make_pair(0, std::vector<int64_t>(outcome_names.size())))
     {
     }
 
@@ -64,7 +64,7 @@ struct StatsTable {
 
     // .first : nb trial
     // .second : nb of occurence of each outcome
-    typedef std::pair<uint64_t, std::vector<uint64_t>> BucketCounts;
+    typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
     const BucketCounts & increment(const CellValue & val,
                                    const std::vector<uint> & outcomes);
     const BucketCounts & getCounts(const CellValue & val) const;
@@ -300,7 +300,7 @@ struct StatsTablePosNegFunction: public Function {
 
     NoiseInjector noise;
 
-    std::map<Utf8String, std::array<uint64_t, 2>> p_outcomes;
+    std::map<Utf8String, std::array<int64_t, 2>> p_outcomes;
 };
 
 
