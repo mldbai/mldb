@@ -21,6 +21,7 @@ SELECT * FROM ds1 OUTER JOIN ds2 ON ds1.rowName() = ds2.rowName()
 
 ## See Also
 
+* The `merge` function can also be used within [From expressions](../sql/FromExpression.md#merge-function).
 * The ![](%%doclink transposed dataset) is another dataset transformation
 * The ![](%%doclink transform procedure) can be used to modify a dataset ready for merging
 
