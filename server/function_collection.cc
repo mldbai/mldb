@@ -306,7 +306,7 @@ initRoutes(RouteManager & manager)
         "'json' is JSON output; 'compat' (default) is structured output "
         "compatible with old versions of MLDB.";
 
-    addRouteAsync(*manager.valueNode, "/application", { "GET" },
+    addRouteAsync(*manager.valueNode, "/application", { "GET", "POST" },
                   "Apply a function to a given set of input values and return the output",
                   //"Output of all values or those selected in the keepValues parameter",
                   &FunctionCollection::applyFunction,

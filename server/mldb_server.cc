@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** mldb_server.cc
     Jeremy Barnes, 12 December 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Server for MLDB.
 */
@@ -197,7 +197,7 @@ initRoutes()
                                     "Must be defined either as a query string "
                                     "parameter or the JSON body.";
         addRouteAsync(
-            versionNode, "/query", { "GET" }, "Select from dataset",
+            versionNode, "/query", { "GET", "POST"}, "Select from dataset",
             &MldbServer::runHttpQuery, this,
             HybridParamDefault<Utf8String>("q", queryStringDef, ""),
             PassConnectionId(),
