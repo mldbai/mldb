@@ -219,7 +219,7 @@ initRoutes()
 
         addRouteAsync(
             versionNode, "/redirect/get", {"POST"}, "Redirect POST as GET with body. "
-            "Use this route only with system that does not support sending a GET with a body.",
+            "Use this route only with systems that do not support sending a GET with a body.",
             &MldbServer::handleRedirectToGet, this,
             JsonParam<std::string>("target", "the URI to redirect to"),
             PassConnectionId(),
