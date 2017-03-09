@@ -1,4 +1,4 @@
-#
+# -*- coding: utf-8 -*-
 # summary_stats_proc_test.py
 # Francois-Michel L Heureux, 2016-07-04
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
@@ -15,7 +15,7 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
         ds.record_row('row1', [
             ['colA', 1, 0],
             ['colB', 2, 0],
-            ['colTxt', 'patate', 0]
+            ['colTxt', 'pataté', 0]
         ])
         ds.record_row('row2', [
             ['colA', 10, 0],
@@ -49,7 +49,7 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
              "value.most_frequent_items.20", "value.most_frequent_items.2",
              "value.most_frequent_items.1", "value.stddev",
              "value.most_frequent_items.10",
-             "value.most_frequent_items.patate"],
+             u"value.most_frequent_items.pataté"],
 
             ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2,
              5.196152422706632, 1, None],
