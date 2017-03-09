@@ -33,10 +33,6 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
 
 
     def test_as_POST_body(self):
-        # res = mldb.post('/v1/functions/query/application', {'input' : {
-        #                     'row' : {"x": 1, "y": 2, "z": "three"}
-        #                 }})
-
         res = mldb.post('/v1/redirect/get', {
             'target' : '/v1/functions/query/application',
             'body' : { 
