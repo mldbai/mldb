@@ -22,7 +22,7 @@ LIBML_SOURCES := \
     randomforest.cc
 
 
-LIBML_LINK := boosting neural boost_filesystem jsoncpp types value_description algebra
+LIBML_LINK := boosting neural boost_filesystem jsoncpp types value_description algebra fasttext
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 

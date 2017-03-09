@@ -131,6 +131,7 @@ $(eval $(call mldb_unit_test,MLDB-390-sql-expression-function.js))
 $(eval $(call mldb_unit_test,MLDB-587-empty-classifier.js))
 $(eval $(call mldb_unit_test,MLDB-620-nonexistant-dataset-messages.js))
 $(eval $(call mldb_unit_test,MLDB-572-error-procedure-config.js))
+$(eval $(call mldb_unit_test,fasttext_test.py))
 
 $(eval $(call mldb_unit_test,plugin_delete_test.py,,manual)) #manual - unclear reason for existence
 $(eval $(call mldb_unit_test,MLDB-573_explain_function_floats.py))
