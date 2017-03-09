@@ -392,7 +392,7 @@ struct CategoricalRowHandler {
                 return true;
             }
             mostFrequents.addItem(make_pair(std::get<1>(cols[0]).toInt(),
-                                            std::get<1>(cols[1]).toString()));
+                                            std::get<1>(cols[1]).toUtf8String()));
             return true;
         };
         BoundGroupByQuery(select,
