@@ -197,7 +197,7 @@ initRoutes()
                                     "Must be defined either as a query string "
                                     "parameter or the JSON body.";
         addRouteAsync(
-            versionNode, "/query", { "GET", "POST"}, "Select from dataset",
+            versionNode, "/query", { "GET" }, "Select from dataset",
             &MldbServer::runHttpQuery, this,
             HybridParamDefault<Utf8String>("q", queryStringDef, ""),
             PassConnectionId(),
@@ -216,6 +216,14 @@ initRoutes()
             HybridParamDefault<bool>("sortColumns",
                                      "Do we sort the column names",
                                      false));
+
+        addRouteAsync(
+            versionNode, "/redirect/get", {"POST"}, "Redirect POST as GET with body. "
+            "Use this route only with system that does not support sending a GET with a body.",
+            &MldbServer::handleRedirectToGet, this,
+            JsonParam<std::string>("target", "the URI to redirect to"),
+            PassConnectionId(),
+            JsonParam<Json::Value>("body", "The body to pass to the redirect"));
 
         this->versionNode = &versionNode;
         return true;
@@ -261,6 +269,32 @@ runHttpQuery(const Utf8String& query,
     MLDB::runHttpQuery(runQuery,
                        connection, format, createHeaders,
                        rowNames, rowHashes, sortColumns);
+}
+
+void
+MldbServer::
+handleRedirectToGet(const string & uri,
+                    RestConnection & connection,
+                    const Json::Value & body) const
+{
+    InProcessRestConnection redirectConnection;
+    HttpHeader header;
+    header.verb = "GET";
+    header.resource = uri;
+
+    RestRequest request(header, jsonEncodeStr(body));
+    handleRequest(redirectConnection, request);
+                             
+    Json::Value redirectResponse;
+    Json::Reader reader;
+    if (!reader.parse(redirectConnection.response, redirectResponse, false))
+        throw HttpReturnException(500, "failed to parse the redirect call");
+  
+    if (200 > redirectConnection.responseCode || redirectConnection.responseCode >= 300)
+        throw HttpReturnException(redirectConnection.responseCode, "failed to redirect call");
+    
+    connection.sendResponse(redirectConnection.responseCode, jsonEncodeStr(redirectResponse),
+                            "application/json");
 }
 
 std::vector<MatrixNamedRow>

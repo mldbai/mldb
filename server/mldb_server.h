@@ -121,6 +121,13 @@ struct MldbServer: public ServicePeer, public EventRecorder {
                       bool rowHashes,
                       bool sortColumns) const;
 
+    /** Redirect POST request as a GET with body.  
+        This is for client that do not support GET with body.
+    */
+    void handleRedirectToGet(const std::string & uri,
+                             RestConnection & connection,
+                             const Json::Value & body) const;
+
     /** Get a type info structure for the given type. */
     Json::Value
     getTypeInfo(const std::string & typeName);

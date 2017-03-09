@@ -29,7 +29,12 @@ class Mldb1717QuerySelectInBodyTest(MldbUnitTest):
         }])
 
     def test_as_POST_body(self):
-        res = mldb.post('/v1/query', data={'q' : "SELECT * FROM ds"})
+        res = mldb.post('/v1/redirect/get', {
+        'target' : '/v1/query', 
+            'body' : {
+                'q' : "SELECT * FROM ds"
+            }
+        })
         self.assertFullResultEquals(res.json(), [{
             'rowName' : 'row1',
             'columns' : [['a', 1, "1970-01-01T00:00:01Z"]]
