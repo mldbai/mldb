@@ -86,6 +86,7 @@ apt-get install -y \
     libssh2-1 \
     libpython2.7 \
     libicu52 \
+    libmagic-dev \
     liblapack3 \
     libblas3 \
     libevent-1.4-2 \
