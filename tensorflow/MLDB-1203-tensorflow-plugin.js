@@ -31,7 +31,7 @@ var fetcherConfig = {
 var fetcher = mldb.createFunction(fetcherConfig);
 mldb.query("SELECT tf_DecodeJpeg(fetch({url: "
            + imgUrlSql
-           + "})[content], {ratio: 8}) as px");
+           + "})[content], {ratio: 8, try_recover_truncated: {bool: 0}}) as px");
 
 // The labels for the Inception classifier live within the zip file
 // downloaded above.  We read them into a dataset so that we can
