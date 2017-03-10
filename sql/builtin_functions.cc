@@ -3441,44 +3441,54 @@ bind(const std::vector<BoundSqlExpression> & args,
 }
 
 
-BoundFunction get_mime_type(const std::vector<BoundSqlExpression> & args)
+BoundFunction mime_type(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
     auto outputInfo = std::make_shared<Utf8StringValueInfo>();
+
+    struct magic_holder {
+        magic_holder() {
+            magic = magic_open(MAGIC_NONE);
+
+            if(magic == NULL) {
+                throw ML::Exception("Unable to initialize the magic library");
+            }
+        }
+
+        ~magic_holder() {
+            magic_close(magic);
+        }
+
+        magic_t magic;
+    };
+
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 const char *mime;
-                magic_t magic;
+                magic_holder magic;
 
-                magic = magic_open(MAGIC_NONE);
-                if(magic == NULL) {
-                    throw ML::Exception("Unable to initialize the magic library");
-                }
-
-                if(magic_load(magic, NULL) != 0) {
-                    magic_close(magic);
-                    throw ML::Exception("Error loading magic database - %s\n", magic_error(magic));
+                if(magic_load(magic.magic, NULL) != 0) {
+                    throw ML::Exception("Error loading magic database - %s\n", magic_error(magic.magic));
                 }
 
                 if(!args[0].isAtom())
                     throw MLDB::Exception("Mime type extraction requires that an atomic value "
-                            "of type BLOB is passed to it. Use the fetcher function to get the file blob.");
+                            "of type BLOB is passed to it.");
 
                 const CellValue & input = args[0].getAtom();
 
                 if(!input.isBlob())
                     throw MLDB::Exception("Mime type extraction requires that an atomic value "
-                            "of type BLOB is passed to it. Use the fetcher function to get the file blob.");
+                            "of type BLOB is passed to it.");
 
                 const unsigned char * data = input.blobData();
                 const size_t len = input.blobLength();
 
-                mime = magic_buffer(magic, data, len);
+                mime = magic_buffer(magic.magic, data, len);
 
                 Utf8String str(mime);
-                magic_close(magic);
 
                 return ExpressionValue(str,
                                        args[0].getEffectiveTimestamp());
@@ -3486,7 +3496,7 @@ BoundFunction get_mime_type(const std::vector<BoundSqlExpression> & args)
             outputInfo
         };
 }
-static RegisterBuiltin registerGetMimeTypeFunction(get_mime_type, "mime_type");
+static RegisterBuiltin registerMimeTypeFunction(mime_type, "mime_type");
 
 BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
 {
