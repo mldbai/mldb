@@ -3346,7 +3346,7 @@ mergeToRowDestructive(StructValue & row)
     row.reserve(row.size() + rowLength());
     
     auto onSubexpr = [&] (PathElement & columnName,
-                          ExpressionValue & val)
+                              ExpressionValue & val)
         {
             row.emplace_back(std::move(columnName), std::move(val));
             return true;
