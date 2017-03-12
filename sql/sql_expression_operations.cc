@@ -17,6 +17,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/sql/sql_utils.h"
 #include "mldb/jml/stats/distribution.h"
+#include "mldb/base/optimized_path.h"
 
 using namespace std;
 
@@ -3719,6 +3720,8 @@ NamedColumnExpression(ColumnPath alias,
 {
 }
 
+static OptimizedPath optimizeSimpleAliasName("mldb.sql.simpleAliasName");
+
 BoundSqlExpression
 NamedColumnExpression::
 bind(SqlBindingScope & scope) const
@@ -3756,6 +3759,41 @@ bind(SqlBindingScope & scope) const
 
         BoundSqlExpression result(exec, this, info);
         return result;
+    }
+    else if (optimizeSimpleAliasName(alias.size() == 1)) {
+        // Optimization for very common case with a simple alias
+
+        PathElement alias0 = alias[0];
+
+        // Simply adds a simple prefix to the given value
+        auto exec = [=] (const SqlRowScope & scope,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                ExpressionValue valStorage;
+                const ExpressionValue & val
+                    = exprBound(scope, valStorage, filter);
+                
+                StructValue row;
+                if (&val == &valStorage) {
+                    // We own the only copy; we can move it
+                    row.emplace_back(alias0, std::move(valStorage));
+                }
+                else {
+                    row.emplace_back(alias0, val);
+                }
+
+                return storage = std::move(row);
+            };
+
+        std::vector<KnownColumn> knownColumns = {
+            KnownColumn(alias, exprBound.info, COLUMN_IS_DENSE) };
+        
+        auto info = std::make_shared<RowValueInfo>
+            (knownColumns, SCHEMA_CLOSED, exprBound.info->isConst());
+
+        return BoundSqlExpression(exec, this, info);
     }
     else {
         auto exec = [=] (const SqlRowScope & scope,
