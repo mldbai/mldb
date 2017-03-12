@@ -13,43 +13,54 @@ namespace MLDB {
 template<typename T, size_t MAX_STACK_ENTRIES=4096/sizeof(T)>
 struct PossiblyDynamicBuffer {
     PossiblyDynamicBuffer(size_t sz)
-    : size_(sz)
+        : size_(sz)
     {
         if (onStack()) {
             std::uninitialized_fill(stackEntries, stackEntries + size_, T());
         } 
         else {
-		heapEntries = new T[size_];
-	    }
-	}
+            heapEntries = new T[size_];
+        }
+    }
 
-	~PossiblyDynamicBuffer()
-	{
-	    if (onStack()) {
-		for (size_t i = 0; i < size_;  ++i) {
-		    stackEntries[i].~T();
-		}
-	    }
-	    else {
-		delete[] heapEntries;
-	    }
-	}
+    ~PossiblyDynamicBuffer()
+    {
+        if (onStack()) {
+            for (size_t i = 0; i < size_;  ++i) {
+                stackEntries[i].~T();
+            }
+        }
+        else {
+            delete[] heapEntries;
+        }
+    }
 
-	size_t size_;
+    size_t size_;
 
-	bool onStack() const { return size_ <= MAX_STACK_ENTRIES; }
+    bool onStack() const { return size_ <= MAX_STACK_ENTRIES; }
 
-	T * data() { return onStack() ? stackEntries: heapEntries; }
-	size_t size() const { return size_; }
+    T * data() { return onStack() ? stackEntries: heapEntries; }
+    const T * data() const { return onStack() ? stackEntries: heapEntries; }
+    size_t size() const { return size_; }
 
-	union {
-	    T stackEntries[MAX_STACK_ENTRIES];
-	    T * heapEntries;
-	};
+    T & operator [] (size_t el)
+    {
+        return data()[el];
+    }
 
-	private:
-	    PossiblyDynamicBuffer(const PossiblyDynamicBuffer & other);
-	    PossiblyDynamicBuffer & operator=(PossiblyDynamicBuffer & other);
+    const T & operator [] (size_t el) const
+    {
+        return data()[el];
+    }
+
+    union {
+        T stackEntries[MAX_STACK_ENTRIES];
+        T * heapEntries;
     };
 
-} // MLDB
+private:
+    PossiblyDynamicBuffer(const PossiblyDynamicBuffer & other);
+    PossiblyDynamicBuffer & operator=(PossiblyDynamicBuffer & other);
+};
+
+} // namespace MLDB
