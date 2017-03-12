@@ -3300,15 +3300,42 @@ void
 ExpressionValue::
 mergeToRowDestructive(StructValue & row)
 {
-    row.reserve(row.size() + rowLength());
+    // This is optimized here because the SelectExpression uses it whenever
+    // merging
+    switch (type_) {
+    case Type::STRUCTURED:
+        if (structured_.unique()) {
+            // We have the only reference in the shared pointer, AND we have
+            // a non-const version of that expression.  This means that it
+            // should be thread-safe to break constness and steal the result,
+            // as otherwise we would have two references from different threads
+            // with at least one non-const, which breaks thread safety.
+            auto & nonConst = const_cast<Structured &>(*structured_);
+            if (row.empty())
+                row.swap(nonConst);
+            else {
+                row.reserve(row.size() + nonConst.size());
+                row.insert(row.end(),
+                           std::make_move_iterator(nonConst.begin()),
+                           std::make_move_iterator(nonConst.end()));
+            }
+            return;
+        }
+        break;
+    default:
+        break;
+    };
 
+    // Default implementation
+    row.reserve(row.size() + rowLength());
+    
     auto onSubexpr = [&] (PathElement & columnName,
-                          ExpressionValue & val)
+                              ExpressionValue & val)
         {
             row.emplace_back(std::move(columnName), std::move(val));
             return true;
         };
-
+    
     forEachColumnDestructiveT(onSubexpr);
 }
 
