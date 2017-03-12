@@ -412,6 +412,14 @@ static MLDB_ALWAYS_INLINE bool isascii(int c)
     return (c & (~127)) == 0;
 }
 
+namespace {
+
+struct ColumnTreatment {
+    ssize_t outputIndex = -1;   ///< Which element should this column go in to? -1 = none
+};
+
+} // file scope
+
 /** Parse a single row of CSV into an array of CellValues.
 
     Carefully designed to not perform any memory allocations in the
@@ -444,6 +452,7 @@ parseFixedWidthCsvRow(const char * & line,
                       size_t length,
                       CellValue * values,
                       size_t numColumns,
+                      const std::vector<ColumnTreatment> & columnTreatment,
                       char separator,
                       char quote,
                       Encoding encoding,
@@ -516,6 +525,8 @@ parseFixedWidthCsvRow(const char * & line,
 
         ExcAssert(line <= lineEnd);
 
+        int outputIndex = columnTreatment[colNum].outputIndex;
+
         if (line == lineEnd) {
             // Empty column at the end
             ++colNum;
@@ -564,7 +575,6 @@ parseFixedWidthCsvRow(const char * & line,
                         buflen *= 2;
                     }
 
-
                     ExcAssertLess(len, buflen);
                     eightBit = eightBit || !isascii(c);
                     s[len++] = c;
@@ -594,7 +604,8 @@ parseFixedWidthCsvRow(const char * & line,
                     }
                 }
                 else {
-                    pushChar(c);
+                    if (outputIndex != -1)
+                        pushChar(c);
                 }
             }
 
@@ -604,7 +615,10 @@ parseFixedWidthCsvRow(const char * & line,
             if (errorMsg)
                 break;
 
-            values[colNum++] = finishString(s, len, eightBit);
+            if (outputIndex != -1)
+                values[outputIndex] = finishString(s, len, eightBit);
+
+            ++colNum;
         }
         else if ((isdigit(c) || c == '-') && !isTextLine) {
             // Special case for something that looks like a number, in order to
@@ -639,13 +653,20 @@ parseFixedWidthCsvRow(const char * & line,
                 }
             }
 
-            if (isInt && sign == -1)
-                values[colNum++] = (int64_t)-num;
-            else if (isInt)  // positive integer
-                values[colNum++] = num;
-            else // get it from the string
-                values[colNum++]
-                    = finishString(start, len, eightBit);
+            if (isInt && sign == -1) {
+                values[outputIndex] = (int64_t)-num;
+            }
+            else if (isInt) { // positive integer
+                values[outputIndex] = num;
+            }
+            else {
+                // get it from the string
+                if (outputIndex != -1)
+                    values[outputIndex]
+                        = finishString(start, len, eightBit);
+            }
+
+            ++colNum;
         }
         else {
             // likely a non-quoted string
@@ -663,7 +684,9 @@ parseFixedWidthCsvRow(const char * & line,
                     eightBit = true;
             }
 
-            values[colNum++] = finishString(start, len, eightBit);
+            if (outputIndex != -1)
+                values[outputIndex] = finishString(start, len, eightBit);
+            ++colNum;
         }
     }
 
@@ -713,6 +736,7 @@ struct ImportTextProcedureWorkInstance
     vector<ColumnPath> inputColumnNames;
     bool isTextLine;
     std::atomic<int> areOutputColumnNamesKnown;
+    std::vector<ColumnTreatment> inputColumnTreatment;
     char separator;
     char quote;
     int replaceInvalidCharactersWith;
@@ -883,18 +907,71 @@ struct ImportTextProcedureWorkInstance
         }
 
         // Early check for duplicate column names in input
-        Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+        std::map<ColumnPath, int> inputColumnIndexes;
         for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
             const ColumnPath & c = inputColumnNames[i];
-            ColumnHash ch(c);
-            if (!inputColumnIndex.insert(make_pair(ch, i)).second)
+            if (!inputColumnIndexes.emplace(c, i).second)
                 throw HttpReturnException(400, "Duplicate column name in CSV file",
                                           "columnName", c);
         }
 
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
-        SqlCsvScope scope(server, inputColumnNames, ts,
+        SqlCsvScope inputScope(server, inputColumnNames, ts,
+                               Utf8String(config.dataFileUrl.toDecodedString()));
+
+        selectBound = config.select.bind(inputScope);
+        whereBound = config.where->bind(inputScope);
+        namedBound = config.named->bind(inputScope);
+        timestampBound = config.timestamp->bind(inputScope);
+
+        cerr << "usedInputColumnNames = " << jsonEncodeStr(inputScope.columnsUsed)
+             << endl;
+
+        // We need to know
+        // a) which columns on the input are read
+        // b) which columns on the output are written
+
+        // Start with the input columns.  We arrange for them to be pre-sorted
+        // once they get in to the rest.
+        inputColumnTreatment.resize(inputColumnNames.size());
+
+        // Which of our input columns are used?
+        std::vector<ColumnPath> usedInputColumns;
+        for (size_t i = 0;  i < inputScope.columnsUsed.size();  ++i) {
+            if (inputScope.columnsUsed[i])
+                usedInputColumns.emplace_back(inputColumnNames[i]);
+        }
+
+        std::sort(usedInputColumns.begin(), usedInputColumns.end());
+
+        cerr << "usedInputColumnNames = " << jsonEncodeStr(usedInputColumns)
+             << endl;
+
+        std::map<ColumnPath, int> usedInputColumnIndexes;
+        for (size_t i = 0;  i < usedInputColumns.size();  ++i) {
+            usedInputColumnIndexes[usedInputColumns[i]] = i;
+        }
+
+
+        for (const ColumnPath & col: inputColumnNames) {
+            if (!usedInputColumnIndexes.count(col))
+                continue;  // column is not used
+            inputColumnTreatment[inputColumnIndexes[col]]
+                .outputIndex = usedInputColumnIndexes[col];
+        }
+
+        for (size_t i = 0;  i < inputColumnTreatment.size();  ++i) {
+            cerr << "input column " << i << " goes to " << inputColumnTreatment[i].outputIndex << endl;
+        }
+
+        // ...
+
+        cerr << "we are using " << usedInputColumnIndexes.size()
+             << " of " << inputColumnIndexes.size() << " columns" << endl;
+
+        // Now re-bind now that we know what columns we need and in what order
+        SqlCsvScope scope(server, usedInputColumns, ts,
                           Utf8String(config.dataFileUrl.toDecodedString()));
 
         selectBound = config.select.bind(scope);
@@ -902,13 +979,7 @@ struct ImportTextProcedureWorkInstance
         namedBound = config.named->bind(scope);
         timestampBound = config.timestamp->bind(scope);
 
-        // Do we have a "select *"?  In that case, we can perform various
-        // optimizations to avoid calling into the SQL layer
-        SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
-        isIdentitySelect = config.select.isIdentitySelect(noContext);  
-
-        // Figure out our output column names from the bound
-        // select clause
+        // Pre-sort the output columns so we don't need to later
 
         if (selectBound.info->getSchemaCompletenessRecursive() != SCHEMA_CLOSED) {
             areOutputColumnNamesKnown = false;
@@ -928,11 +999,30 @@ struct ImportTextProcedureWorkInstance
 
             ColumnHash ch(col.columnName);
             if (!columnIndex.insert(make_pair(ch, i)).second)
-                throw HttpReturnException(400, "Duplicate column name in select expression",
-                                          "columnName", col.columnName);
-
+                throw HttpReturnException
+                    (400, "Duplicate column name in select expression",
+                     "columnName", col.columnName);
+            
             knownColumnNames.emplace_back(col.columnName);
         }
+
+        std::sort(knownColumnNames.begin(), knownColumnNames.end());
+        knownColumnNames.erase(std::unique(knownColumnNames.begin(),
+                                           knownColumnNames.end()),
+                               knownColumnNames.end());
+
+#if 0
+        std::map<ColumnName, size_t> outputColumnNames;
+
+        for (size_t i = 0;  i < knownColumnNames.size();  ++i) {
+            outputColumnNames[knownColumnNames[i]] = i;
+        }
+#endif        
+        
+        // Do we have a "select *"?  In that case, we can perform various
+        // optimizations to avoid calling into the SQL layer
+        SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
+        isIdentitySelect = config.select.isIdentitySelect(noContext);  
 
         if (isIdentitySelect)
             ExcAssertEqual(inputColumnNames, knownColumnNames);
