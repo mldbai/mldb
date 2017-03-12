@@ -228,6 +228,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
     {
         vector<ColumnPath> toKeep;
         std::vector<KnownColumn> columnsWithInfo;
+        size_t numToKeep = 0;
 
         for (unsigned i = 0;  i < columnNames.size();  ++i) {
             const ColumnPath & columnName = columnNames[i];
@@ -240,6 +241,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                 columnsWithInfo.emplace_back(outputName,
                                              std::make_shared<AtomValueInfo>(),
                                              COLUMN_IS_DENSE);
+                ++numToKeep;
             }
         }
 
@@ -259,11 +261,14 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                 auto & row = scope.as<RowScope>();
 
                 RowValue result;
+                result.reserve(numToKeep);
 
                 for (unsigned i = 0;  i < columnNames.size();  ++i) {
                     if (!toKeep[i].empty())
                         result.emplace_back(columnNames[i], row.row[i], row.ts);
                 }
+
+                ExcAssertEqual(result.size(), numToKeep);
 
                 return result;
             };
