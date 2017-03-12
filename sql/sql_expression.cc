@@ -3116,6 +3116,10 @@ parse(const Utf8String & expr,
 // Lets us choose if we optimize single clause selects.
 static OptimizedPath optimizeSingleClauseSelect("mldb.sql.singleClauseSelect");
 
+// Allow the select merging optimization to be turned off or on
+// to help with unit testing.
+static OptimizedPath optimizeSelectMerging("mldb.sql.selectMerging");
+
 BoundSqlExpression
 SelectExpression::
 bind(SqlBindingScope & context) const
@@ -3141,46 +3145,229 @@ bind(SqlBindingScope & context) const
     std::vector<KnownColumn> outputColumns;
 
     bool hasUnknownColumns = false;
+    bool hasSparseColumns = false;
     bool isConstant = true;
+
+    // Ordered is important; don't use unordered_set
+    std::set<PathElement> allPrefixes;
+
     for (auto & c: boundClauses) {
         ExcAssert(c.info);
         isConstant = isConstant && c.info->isConst();
+        if (c.info->isScalar()) {
+            throw HttpReturnException(500, "Internal error: clause "
+                                      + c.expr->surface
+                                      + " returned scalar info in Select");
+        }
+
         if (c.info->getSchemaCompleteness() == SCHEMA_OPEN) {            
             hasUnknownColumns = true;
         }
 
         auto knownColumns = c.info->getKnownColumns();
         
+        for (auto & c: knownColumns) {
+            allPrefixes.insert(c.columnName.at(0));
+            if (c.sparsity == COLUMN_IS_SPARSE) {
+                hasSparseColumns = true;
+            }
+        }
+
         outputColumns.insert(outputColumns.end(),
-                             knownColumns.begin(),
-                             knownColumns.end());
+                             std::make_move_iterator(knownColumns.begin()),
+                             std::make_move_iterator(knownColumns.end()));
     }
 
     isConstant = isConstant && !hasUnknownColumns;
     
-    auto outputInfo = std::make_shared<RowValueInfo>
-        (std::move(outputColumns),
-         hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED,
-         isConstant);
+    if (optimizeSelectMerging.take(!hasUnknownColumns && !hasSparseColumns)) {
+        // We know all of our output columns.  We can make sure that our output
+        // is properly sorted by inserting in the sort order
 
-    auto exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &
-        {
-            StructValue result;
-            result.reserve(boundClauses.size());
-            for (auto & c: boundClauses) {
-                ExpressionValue storage;
-                const ExpressionValue & v = c(context, storage, filter);
-                if (&v == &storage)
-                    storage.mergeToRowDestructive(result);
-                else v.appendToRow(Path(), result);
+        // What index of the output is for each prefix?
+        std::unordered_map<PathElement, int> elementIndexes;
+        for (auto & p: allPrefixes) {
+            int index = elementIndexes.size();
+            elementIndexes[p] = index;
+        }
+
+        // Have we already done this prefix?
+        std::vector<int> donePrefixes(allPrefixes.size(), 0);
+
+        struct ClauseInstruction {
+            ClauseInstruction(PathElement el = PathElement(),
+                              int outputNumber = -1,
+                              bool isFirst = false)
+                : el(std::move(el)),
+                  outputNumber(outputNumber),
+                  isFirst(isFirst)
+            {
             }
-            
-            return storage = ExpressionValue(std::move(result));
+
+            PathElement el;
+            int outputNumber = -1;  ///< Where do we put it?
+            bool isFirst = false;   ///< What do we do with it?
+
+            void addToResult(ExpressionValue row,
+                             StructValue & result) const
+            {
+                if (isFirst) {
+                    result[outputNumber] = std::make_tuple(el, std::move(row));
+                }
+                else {
+                    std::get<1>(result[outputNumber])
+                        = ExpressionValue::superpose({std::get<1>(result[outputNumber]),
+                                                      std::move(row)});
+                }
+            }
         };
 
-    return BoundSqlExpression(exec, this, outputInfo);
+        // For each clause, for each prefix, what do we do with it?
+        struct ClauseInstructions {
+            /// Expression for the clause
+            BoundSqlExpression expr;
+
+            /// Instructions for this particular clause
+            std::vector<ClauseInstruction> clauseInstructions;
+
+            ClauseInstructions(BoundSqlExpression expr,
+                               std::vector<ClauseInstruction> clauseInstructions)
+                : expr(std::move(expr)),
+                  clauseInstructions(std::move(clauseInstructions))
+            {
+            }
+
+            void apply(const SqlRowScope & context,
+                       const VariableFilter & filter,
+                       StructValue & result) const
+            {
+                // 1.  Apply the clause and get its value
+
+                ExpressionValue clauseStorage;
+                const ExpressionValue & v = expr(context, clauseStorage, filter);
+
+                StructValue row;
+                if (&v == &clauseStorage) {
+                    clauseStorage.mergeToRowDestructive(row);
+                }
+                else {
+                    v.appendToRow(Path(), row);
+                }
+
+                //cerr << "clause " << clauses[i]->surface
+                //     << " had result " << jsonEncodeStr(row) << endl;
+
+                // If this throws, the ExpressionValueInfo says that there
+                // are a fixed set of columns, but what returned wasn't
+                // the same (there are more or less of them than expected)
+                if (row.size() != clauseInstructions.size()) {
+                    cerr << "row.size() = " << row.size() << endl;
+                    cerr << "clauseInstructions.size() = "
+                         << clauseInstructions.size() << endl;
+                    cerr << "row = " << jsonEncodeStr(row) << endl;
+                    cerr << "rowInfo = "
+                         << jsonEncodeStr(expr.info) << endl;
+                }
+                ExcAssertEqual(row.size(), clauseInstructions.size());
+                for (size_t j = 0;  j < clauseInstructions.size();  ++j) {
+                    // If this throws, the ExpressionValueInfo says that there
+                    // are a fixed set of columns, but what returned wasn't
+                    // the same (the names don't match)
+                    ExcAssertEqual(std::get<0>(row[j]), clauseInstructions[j].el);
+                    clauseInstructions[j]
+                        .addToResult(std::move(std::get<1>(row[j])), result);
+                }
+            }
+        };
+
+        std::vector<ClauseInstructions> instructions;
+        
+        // Now for each one, either place or merge it with the rest
+        for (size_t i = 0;  i < boundClauses.size();  ++i) {
+            const auto & c = boundClauses[i];
+            auto knownColumns = c.info->getKnownColumns();
+
+            //cerr << "knownColumns are " << jsonEncode(knownColumns) << endl;
+
+            std::set<PathElement> clausePrefixes;
+            for (auto & c: knownColumns)
+                clausePrefixes.insert(c.columnName.at(0));
+            
+            std::vector<ClauseInstruction> clauseInstructions;
+            
+            for (auto & p: clausePrefixes) {
+                int idx = elementIndexes[p];
+                int outputNumber = donePrefixes[idx];
+                ++donePrefixes[idx];
+                //cerr << "clause " << i << " " << clauses[i]->surface
+                //     << " prefix " << p
+                //     << " output " << idx << " output number " << outputNumber
+                //     << endl;
+                clauseInstructions.emplace_back(p, idx, outputNumber == 0);
+            }
+            
+            //cerr << "clauseInstructions.size() = " << clauseInstructions.size()
+            //     << endl;
+
+            instructions.emplace_back(boundClauses[i],
+                                      std::move(clauseInstructions));
+        }
+
+        auto outputInfo = std::make_shared<RowValueInfo>
+            (std::move(outputColumns),
+             hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED,
+             isConstant);
+
+        auto exec = [=] (const SqlRowScope & context,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter) -> const ExpressionValue &
+            {
+                StructValue result;
+                result.resize(allPrefixes.size());
+
+                //cerr << "executing optimized merge clause" << endl;
+
+                for (size_t i = 0;  i < clauses.size();  ++i) {
+                    instructions[i].apply(context, filter, result);
+                }
+
+                //cerr << "merged result is " << jsonEncodeStr(result) << endl;
+
+                // Construct in a way that we don't need to sort anymore
+                return storage = ExpressionValue(std::move(result),
+                                                 ExpressionValue::SORTED,
+                                                 ExpressionValue::NO_DUPLICATES);
+            };
+
+        return BoundSqlExpression(exec, this, outputInfo);
+    }
+    else {
+        // We don't know what our output columns are, so we don't bother
+        // trying to sort the output
+        auto outputInfo = std::make_shared<RowValueInfo>
+            (std::move(outputColumns),
+             hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED,
+             isConstant);
+
+        auto exec = [=] (const SqlRowScope & context,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter) -> const ExpressionValue &
+            {
+                StructValue result;
+                result.reserve(boundClauses.size());
+                for (auto & c: boundClauses) {
+                    ExpressionValue storage;
+                    const ExpressionValue & v = c(context, storage, filter);
+                    if (&v == &storage)
+                        storage.mergeToRowDestructive(result);
+                    else v.appendToRow(Path(), result);
+                }
+            
+                return storage = ExpressionValue(std::move(result));
+            };
+
+        return BoundSqlExpression(exec, this, outputInfo);
+    }
 }
 
 Utf8String
