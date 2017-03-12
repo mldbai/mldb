@@ -15,6 +15,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/types/tuple_description.h"
 #include "mldb/jml/utils/environment.h"
 #include "sql_expression_operations.h"
 #include "table_expression_operations.h"
@@ -25,6 +26,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/value_description.h"
 #include "mldb/jml/utils/string_functions.h"
+#include "mldb/base/optimized_path.h"
 
 #include <mutex>
 #include <numeric>
@@ -3111,6 +3113,9 @@ parse(const Utf8String & expr,
     return select;
 }
 
+// Lets us choose if we optimize single clause selects.
+static OptimizedPath optimizeSingleClauseSelect("mldb.sql.singleClauseSelect");
+
 BoundSqlExpression
 SelectExpression::
 bind(SqlBindingScope & context) const
@@ -3118,6 +3123,20 @@ bind(SqlBindingScope & context) const
     vector<BoundSqlExpression> boundClauses;
     for (auto & c: clauses)
         boundClauses.emplace_back(c->bind(context));
+
+    if (optimizeSingleClauseSelect(boundClauses.size() == 1)) {
+        // Single value in the select.  This is just the same as running
+        // the first clause only, and should eventually be fixed by
+        // rewriting the expression.
+        auto exec = [=] (const SqlRowScope & context,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter) -> const ExpressionValue &
+            {
+                return boundClauses[0](context, storage, filter);
+            };
+
+        return BoundSqlExpression(exec, this, boundClauses[0].info);
+    }
 
     std::vector<KnownColumn> outputColumns;
 
