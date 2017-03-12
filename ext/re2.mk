@@ -17,4 +17,5 @@ $(eval $(call set_compile_option,$(RE2_SOURCES),-I$(CWD) $(RE2_WARNING_FLAGS)))
 
 $(eval $(call library,re2,$(RE2_SOURCES)))
 
+RE2_INCLUDE_PATH := mldb/ext/re2
 
