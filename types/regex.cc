@@ -348,8 +348,13 @@ bool
 Regex::
 operator == (const Regex & other) const
 {
-    return !!impl == !!other.impl
-        && surface() == other.surface()
+    
+    if (initialized() != other.initialized())
+        return false;
+    if (!initialized())
+        return true; // both are null
+
+    return surface() == other.surface()
         && flags() == other.flags();
 }
 
@@ -364,11 +369,20 @@ bool
 Regex::
 operator < (const Regex & other) const
 {
-    return !!impl < !!other.impl
-        || (!!impl == !!other.impl
-            && (surface() < other.surface()
-                || (surface() == other.surface()
-                    && flags() < other.flags())));
+    if (initialized() < other.initialized())
+        return true;
+    if (initialized() > other.initialized())
+        return false;
+    if (!initialized())
+        return true; // both are null
+
+    // If we get here, neither are null
+    ExcAssert(initialized() && other.initialized());
+
+    // Now we compare the surface strings
+    return surface() < other.surface()
+                       || (surface() == other.surface()
+                           && flags() < other.flags());
 }
 
 
