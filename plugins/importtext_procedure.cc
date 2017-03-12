@@ -24,6 +24,7 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/utils/log.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/ext/re2/re2/re2.h"
 
 
 using namespace std;
@@ -768,6 +769,9 @@ struct ImportTextProcedureWorkInstance
 
         encoding = parseEncoding(config.encoding);
 
+        RE2 skipLineRegex(config.skipLineRegex.initialized()
+                          ? config.skipLineRegex.surface().rawData()
+                          : "");
 
         if (isTextLine) {
             //MLDB-1312 optimize if there is no delimiter: only 1 column
@@ -811,7 +815,7 @@ struct ImportTextProcedureWorkInstance
 
                     if (prevHeader.empty()
                         && config.skipLineRegex.initialized()
-                        && regex_match(header, config.skipLineRegex))
+                        && RE2::FullMatch(header, skipLineRegex))
                         continue;
 
                     if(!prevHeader.empty()) {
@@ -1001,6 +1005,8 @@ struct ImportTextProcedureWorkInstance
                                 std::vector<std::pair<ColumnPath, CellValue> > extra)>
             specializedRecorder;
 
+            std::unique_ptr<RE2> skipLineRegex;
+
         };
 
         PerThreadAccumulator<ThreadAccum> accum;
@@ -1056,10 +1062,20 @@ struct ImportTextProcedureWorkInstance
             }
 #endif
 
+
+            auto & threadAccum = accum.get();
+
+
             // Skip lines if we are asked to
-            if (config.skipLineRegex.initialized()
-                && regex_match(Utf8String(line, length), config.skipLineRegex))
-                return true;
+            if (config.skipLineRegex.initialized()) {
+                if (!threadAccum.skipLineRegex) {
+                    threadAccum.skipLineRegex.reset(new RE2(config.skipLineRegex.surface().rawData()));
+                }
+                
+                if (RE2::FullMatch(re2::StringPiece(line, length),
+                                   *threadAccum.skipLineRegex))
+                    return true;
+            }
 
             // MLDB-1111 empty lines are treated as error
             if (length == 0)
@@ -1124,8 +1140,6 @@ struct ImportTextProcedureWorkInstance
                     .coerceToTimestamp().toTimestamp();
 
             //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
-
-            auto & threadAccum = accum.get();
 
             if (isIdentitySelect) {
                 // If it's a select *, we don't really need to run the
