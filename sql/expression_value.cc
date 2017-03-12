@@ -1749,7 +1749,10 @@ ExpressionValue(RowValue row) noexcept
     // Structure a flattened representation.  The range between first
     // and last must all start with the same prefix, of length at least
     // level.
-    std::function<Structured (RowValue::iterator first,
+    //
+    // Returns the flattened representation, and a bool telling whether
+    // or not there are duplicate values in it.
+    std::function<std::pair<Structured, bool> (RowValue::iterator first,
                               RowValue::iterator last,
                               size_t level)>
         doLevel = [&] (RowValue::iterator first,
@@ -1760,23 +1763,39 @@ ExpressionValue(RowValue row) noexcept
             
             // Count how many unique keys there are?
             size_t numUnique = 0;
+            bool hasDuplicates = false;
 
-            for (auto it = first;  it != last;  ++it) {
+            for (auto it = first;  it != last;  /* no inc */) {
                 ExcAssertGreater(std::get<0>(*it).size(), level);
-                
-                if (std::get<0>(*it).size() == level + 1) {
-                    // This is a final value, and so gets its own value
-                    ++numUnique;
-                    continue;
+                // We know the prefix up to level is identical.  Now
+                // see how many output entries we have.
+
+                const PathElement & currentKey = std::get<0>(*it).at(level);
+
+                auto itEnd = it;
+
+                size_t numScalars = 0;
+                size_t numStructures = 0;
+                while (itEnd != last
+                       && std::get<0>(*itEnd).at(level) == currentKey) {
+                    if (std::get<0>(*itEnd).size() == level + 1) {
+                        ++numScalars;
+                    }
+                    else {
+                        ++numStructures;
+                    }
+                    ++itEnd;
                 }
-                // Is the element at this level different from the last
-                // one?  If so, we have a new unique element.
-                if (it == first
-                    || (std::get<0>(*it).at(level)
-                        != std::get<0>(*(std::prev(it))).at(level)))
-                    ++numUnique;
+
+                size_t numUniqueThisEntry
+                    = numScalars + (numStructures > 0);
+
+                numUnique += numUniqueThisEntry;
+                hasDuplicates = hasDuplicates || numUniqueThisEntry > 1;
+
+                it = itEnd;
             }
-            
+
             rowOut.reserve(numUnique);
 
             for (auto it = first;  it != last;  /* no inc */) {
@@ -1796,18 +1815,23 @@ ExpressionValue(RowValue row) noexcept
                        == std::get<0>(*it).at(level))
                     ++it2;
 
-                Structured newValue = doLevel(it, it2, level + 1);
+                auto newValue = doLevel(it, it2, level + 1);
                 rowOut.emplace_back(std::get<0>(*it).at(level),
-                                    std::move(newValue));
+                                    std::move(newValue.first));
 
                 it = it2;
             }
 
-            return rowOut;
+            ExcAssertEqual(numUnique, rowOut.size());
+
+            return std::make_pair(std::move(rowOut), hasDuplicates);
         };
 
-    initStructured(doLevel(row.begin(), row.end(), 0 /* level */),
-                   false /* needs sorting */, true /* has duplicates (TODO) */);
+    auto topLevel = doLevel(row.begin(), row.end(), 0 /* level */);
+
+    initStructured(std::move(topLevel.first),
+                   false /* needs sorting */,
+                   topLevel.second /* has duplicates */);
 }
 
 void
