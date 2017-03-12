@@ -24,6 +24,7 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/utils/log.h"
 #include "mldb/ext/re2/re2/re2.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -1084,14 +1085,14 @@ struct ImportTextProcedureWorkInstance
             // TODO: clang doesn't like a variable length array
             // here.  Find another way to allocate it on the
             // stack.
-            vector<CellValue> values(inputColumnNames.size());
+            PossiblyDynamicBuffer<CellValue> values(inputColumnNames.size());
 
             const char * lineStart = line;
 
             const size_t numInputColumn = inputColumnNames.size();
 
             const char * errorMsg
-                    = parseFixedWidthCsvRow(line, length, &values[0],
+                    = parseFixedWidthCsvRow(line, length, values.data(),
                                             numInputColumn,
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith,
@@ -1115,8 +1116,8 @@ struct ImportTextProcedureWorkInstance
                                            string(line, length));
                 }
 
-            auto row = scope.bindRow(&values[0], ts, actualLineNum,
-                                         0 /* todo: chunk ofs */);
+            auto row = scope.bindRow(values.data(), ts, actualLineNum,
+                                     0 /* todo: chunk ofs */);
 
             ExpressionValue nameStorage;
             RowPath rowName(namedBound(row, nameStorage, GET_ALL)
