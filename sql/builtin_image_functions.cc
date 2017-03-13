@@ -124,13 +124,13 @@ BoundFunction extract_exif(const std::vector<BoundSqlExpression> & args)
 
                 if(!args[0].isAtom())
                     throw MLDB::Exception("EXIF extraction requires that an atomic value "
-                            "of type BLOB is passed to it. Use the fetcher function to get the image.");
+                            "of type BLOB is passed to it.");
 
                 const CellValue & input = args[0].getAtom();
 
                 if(!input.isBlob())
                     throw MLDB::Exception("EXIF extraction requires that an atomic value "
-                            "of type BLOB is passed to it. Use the fetcher function to get the image.");
+                            "of type BLOB is passed to it.");
 
                 const unsigned char * data = input.blobData();
                 const size_t len = input.blobLength();

@@ -143,6 +143,9 @@ struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
             if (v.isMember("type")) {
                 val->set_type(jsonDecode<tensorflow::DataType>(v["type"]));
             }
+            else if (v.isMember("bool")) {
+                val->set_b(v["bool"].asBool());
+            }
             else if (v.isMember("shape")) {
                 throw HttpReturnException(500, "shape attributes not done");
             }

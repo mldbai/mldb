@@ -14,6 +14,7 @@ $(eval $(call include_sub_make,giflib,giflib,../giflib.mk))
 $(eval $(call include_sub_make,tensorflow,tensorflow,../tensorflow.mk))
 $(eval $(call include_sub_make,edlib,edlib,../edlib.mk))
 $(eval $(call include_sub_make,zstd,zstd,../zstd.mk))
+$(eval $(call include_sub_make,fasttext,fasttext,../fasttext.mk))
 
 $(eval $(call include_sub_make,pffft,pffft,../pffft.mk))
 $(eval $(call test,pffft_vectorization_test,pffft,boost))

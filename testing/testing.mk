@@ -131,6 +131,7 @@ $(eval $(call mldb_unit_test,MLDB-390-sql-expression-function.js))
 $(eval $(call mldb_unit_test,MLDB-587-empty-classifier.js))
 $(eval $(call mldb_unit_test,MLDB-620-nonexistant-dataset-messages.js))
 $(eval $(call mldb_unit_test,MLDB-572-error-procedure-config.js))
+$(eval $(call mldb_unit_test,fasttext_test.py))
 
 $(eval $(call mldb_unit_test,plugin_delete_test.py,,manual)) #manual - unclear reason for existence
 $(eval $(call mldb_unit_test,MLDB-573_explain_function_floats.py))
@@ -480,3 +481,4 @@ $(eval $(call mldb_unit_test,square_bracket_accessor_test.py))
 $(eval $(call mldb_unit_test,MLDB-2143-classifier-utf8.py))
 $(eval $(call mldb_unit_test,MLDB-2161-utf8-in-script-apply.py))
 $(eval $(call mldb_unit_test,MLDB-2163-POST-function-application.py))
+$(eval $(call mldb_unit_test,MLDB-2166_mime_type.py))

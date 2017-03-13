@@ -21,6 +21,7 @@ apt-get install -y \
   libcrypto++-dev \
   libcurl4-openssl-dev \
   libffi-dev \
+  libmagic-dev \
   libfreetype6-dev \
   libgoogle-perftools-dev \
   liblapack-dev \

@@ -680,7 +680,7 @@ public:
 
     iterator find(const key_type & key)
     {
-        return judyl_base::find(key);
+        return iterator(iterator_base(judyl_base::find(key)));
     }
     
     const_iterator find(const key_type & key) const
