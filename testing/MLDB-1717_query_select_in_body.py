@@ -28,6 +28,19 @@ class Mldb1717QuerySelectInBodyTest(MldbUnitTest):
             'columns' : [['a', 1, "1970-01-01T00:00:01Z"]]
         }])
 
+    def test_as_POST_body(self):
+        res = mldb.post('/v1/redirect/get', {
+        'target' : '/v1/query', 
+            'body' : {
+                'q' : "SELECT * FROM ds"
+            }
+        })
+        self.assertFullResultEquals(res.json(), [{
+            'rowName' : 'row1',
+            'columns' : [['a', 1, "1970-01-01T00:00:01Z"]]
+        }])
+
+
     def test_query_function(self):
         # Query function now uses body instead of query string
         res = mldb.query("SELECT * FROM ds")

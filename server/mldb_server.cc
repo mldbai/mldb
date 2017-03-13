@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** mldb_server.cc
     Jeremy Barnes, 12 December 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Server for MLDB.
 */
@@ -15,6 +15,7 @@
 #include "mldb/rest/collection_config_store.h"
 #include "mldb/rest/http_rest_endpoint.h"
 #include "mldb/rest/rest_request_binding.h"
+#include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/server/plugin_manifest.h"
@@ -217,6 +218,15 @@ initRoutes()
                                      "Do we sort the column names",
                                      false));
 
+        addRouteAsync(
+            versionNode, "/redirect/get", {"POST"}, "Redirect POST as GET with body. "
+            "Use this route only with systems that do not support sending a GET with a body.",
+            &MldbServer::handleRedirectToGet, this,
+            PassConnectionId(),
+            PassRequest(),
+            JsonParam<std::string>("target", "the URI to redirect to"),
+            JsonParam<Json::Value>("body", "The body to pass to the redirect"));
+
         this->versionNode = &versionNode;
         return true;
     } else {
@@ -261,6 +271,34 @@ runHttpQuery(const Utf8String& query,
     MLDB::runHttpQuery(runQuery,
                        connection, format, createHeaders,
                        rowNames, rowHashes, sortColumns);
+}
+
+void
+MldbServer::
+handleRedirectToGet(RestConnection & connection,
+                    const RestRequest & request,
+                    const string & uri,
+                    const Json::Value & body) const
+{
+    InProcessRestConnection redirectConnection;
+    HttpHeader redirectHeader;
+    redirectHeader.verb = "GET";
+    redirectHeader.resource = uri;
+    redirectHeader.headers = request.header.headers;
+
+    RestRequest redirectRequest(redirectHeader, jsonEncodeStr(body));
+    handleRequest(redirectConnection, redirectRequest);
+                             
+    Json::Value redirectResponse;
+    Json::Reader reader;
+    if (!reader.parse(redirectConnection.response, redirectResponse, false))
+        throw HttpReturnException(500, "failed to parse the redirect call");
+  
+    if (200 > redirectConnection.responseCode || redirectConnection.responseCode >= 300)
+        throw HttpReturnException(redirectConnection.responseCode, "failed to redirect call");
+    
+    connection.sendResponse(redirectConnection.responseCode, jsonEncodeStr(redirectResponse),
+                            "application/json");
 }
 
 std::vector<MatrixNamedRow>

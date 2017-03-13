@@ -619,7 +619,6 @@ initRoutes(RouteManager & manager)
 
     RestRequestRouter::OnProcessRequest getPeerStatusRoute
         = [=] (RestConnection & connection,
-
                const RestRequest & req,
                const RestRequestParsingContext & cxt)
         {
