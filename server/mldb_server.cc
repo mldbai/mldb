@@ -15,6 +15,7 @@
 #include "mldb/rest/collection_config_store.h"
 #include "mldb/rest/http_rest_endpoint.h"
 #include "mldb/rest/rest_request_binding.h"
+#include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/server/plugin_manifest.h"
@@ -221,8 +222,9 @@ initRoutes()
             versionNode, "/redirect/get", {"POST"}, "Redirect POST as GET with body. "
             "Use this route only with system that does not support sending a GET with a body.",
             &MldbServer::handleRedirectToGet, this,
-            JsonParam<std::string>("target", "the URI to redirect to"),
             PassConnectionId(),
+            PassRequest(),
+            JsonParam<std::string>("target", "the URI to redirect to"),
             JsonParam<Json::Value>("body", "The body to pass to the redirect"));
 
         this->versionNode = &versionNode;
@@ -273,17 +275,19 @@ runHttpQuery(const Utf8String& query,
 
 void
 MldbServer::
-handleRedirectToGet(const string & uri,
-                    RestConnection & connection,
+handleRedirectToGet(RestConnection & connection,
+                    const RestRequest & request,
+                    const string & uri,
                     const Json::Value & body) const
 {
     InProcessRestConnection redirectConnection;
-    HttpHeader header;
-    header.verb = "GET";
-    header.resource = uri;
+    HttpHeader redirectHeader;
+    redirectHeader.verb = "GET";
+    redirectHeader.resource = uri;
+    redirectHeader.headers = request.header.headers;
 
-    RestRequest request(header, jsonEncodeStr(body));
-    handleRequest(redirectConnection, request);
+    RestRequest redirectRequest(redirectHeader, jsonEncodeStr(body));
+    handleRequest(redirectConnection, redirectRequest);
                              
     Json::Value redirectResponse;
     Json::Reader reader;
