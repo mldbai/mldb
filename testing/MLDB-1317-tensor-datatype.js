@@ -30,6 +30,30 @@ var expected = [
 
 assertEqual(resp, expected);
 
+var resp = mldb.query("select static_expression_info([ [ 10, 20 ], [ 30, 40 ] ]) as *");
+
+var expected = [{"columns":[["expr","[ [ 10, 20 ], [ 30, 40 ] ]","-Inf"],["info.isConstant",1,"-Inf"],["info.kind","embedding","-Inf"],["info.shape.0",2,"-Inf"],["info.shape.1",2,"-Inf"],["info.type","INT64","-Inf"]],"rowName":"result"}];
+
+assertEqual(resp, expected);
+
+var resp = mldb.query("select static_expression_info(normalize([ [ 10, 20 ], [ 30, 40 ] ], 1) ) as *");
+
+var expected = [{"columns":[["expr","normalize([ [ 10, 20 ], [ 30, 40 ] ], 1)","-Inf"],["info.isConstant",1,"-Inf"],["info.kind","embedding","-Inf"],["info.shape.0",2,"-Inf"],["info.shape.1",2,"-Inf"],["info.type","FLOAT32","-Inf"]],"rowName":"result"}];
+
+assertEqual(resp, expected);
+
+var resp = mldb.query("select normalize([ [ 10, 20 ], [ 30, 40 ] ], 1) as *");
+
+var expected = [{"columns":[["0.0",0.1,"-Inf"],["0.1",0.2,"-Inf"],["1.0",0.3,"-Inf"],["1.1",0.4,"-Inf"]],"rowName":"result"}];
+
+assertEqual(resp, expected);
+
+var resp = mldb.query("select static_expression_info(quantize(normalize([ [ 10, 20 ], [ 30, 40 ] ], 1), 0.1 )) as *");
+
+var expected = [{"columns":[["expr","quantize(normalize([ [ 10, 20 ], [ 30, 40 ] ], 1), 0.1 )","-Inf"],["info.isConstant",0,"-Inf"],["info.kind","embedding","-Inf"],["info.shape.0",2,"-Inf"],["info.shape.1",2,"-Inf"],["info.type","FLOAT64","-Inf"]],"rowName":"result"}];
+
+assertEqual(resp, expected);
+
 var resp = mldb.query("select quantize(normalize([ [ 10, 20 ], [ 30, 40 ] ], 1), 0.1) as *");
 
 mldb.log(resp);
