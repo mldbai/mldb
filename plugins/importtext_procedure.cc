@@ -217,7 +217,8 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
                     auto & row = scope.as<RowScope>();
-                    return storage = ExpressionValue(row.row[index], row.ts);
+                    return storage = ExpressionValue(row.row[index],
+                                                     row.ts);
                 },
                 std::make_shared<AtomValueInfo>()};
     }
@@ -974,6 +975,10 @@ struct ImportTextProcedureWorkInstance
         // call the SQL parser
         bool isWhereTrue = config.where->isConstantTrue();
 
+        // Do we have a "NAMED lineNumber()"?  In that case, we can short
+        // circuit the evaluation of that expression.
+        bool isNamedLineNumber = config.named->surface == "lineNumber()";
+
         std::atomic<uint64_t> numSkipped(0);
         std::atomic<uint64_t> totalLinesProcessed(0);
 
@@ -1125,10 +1130,16 @@ struct ImportTextProcedureWorkInstance
                                      0 /* todo: chunk ofs */);
 
             ExpressionValue nameStorage;
-            RowPath rowName(namedBound(row, nameStorage, GET_ALL)
-                                .toUtf8String());
-            row.rowName = &rowName;
+            RowPath rowName;
 
+            if (isNamedLineNumber) {
+                rowName = Path(actualLineNum);
+            }
+            else {
+                rowName = namedBound(row, nameStorage, GET_ALL).coerceToPath();
+            }
+            row.rowName = &rowName;
+            
             // If it doesn't match the where, don't add it
             if (!isWhereTrue) {
                 ExpressionValue storage;
