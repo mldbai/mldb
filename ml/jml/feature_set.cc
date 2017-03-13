@@ -81,8 +81,15 @@ void Mutable_Feature_Set::add(const Feature & feat, float val)
 void Mutable_Feature_Set::
 replace(const Feature & feat, float val)
 {
+   /* cerr << "feature replace " << feat << "," << val << endl;
+
+    cerr << "before " << endl;
+    for (const auto&f : features) {
+        cerr << f.first << "," << f.second << endl;
+    }*/
+
     if (locked) throw Exception("mutating locked feature set");
-    /*if (is_sorted) {
+    if (is_sorted) {
         // Can do this more sensibly, and keep it sorted... 
         features_type::iterator it
             = std::lower_bound(features.begin(), features.end(),
@@ -91,17 +98,21 @@ replace(const Feature & feat, float val)
         if (it == end() || it->first != feat)
             add(feat, val);
         else {
+          //  cerr << "found" << endl;
             it->second = val;
             ++it;
             int start = it - features.begin();
-            int pos = 0;
+            int pos = start;
 
             // Shift those to delete back to maintain sorted property. 
             int num_to_delete = 0;
             while (pos < features.size() && features[pos].first == feat) {
+              //  cerr << pos << "," << features[pos].first << "," << feat << endl;
                 ++num_to_delete;
                 ++pos;
             }
+
+            //cerr << "num_to_delete " << num_to_delete << endl;
                 
             for (unsigned i = 0;  i < num_to_delete;  ++i)
                 features[start + i] = features[start + i + num_to_delete];
@@ -110,7 +121,7 @@ replace(const Feature & feat, float val)
                 features.pop_back();
         }
     }
-    else*/ {
+    else {
         /* Scan through the entire thing, replacing each one we find. */
         bool done = false;
         for (unsigned i = 0;  i < features.size(); /* no inc */) {
@@ -132,6 +143,11 @@ replace(const Feature & feat, float val)
         }
 
         if (!done) add(feat, val);
+    }
+
+    cerr << "after " << endl;
+    for (const auto&f : features) {
+        cerr << f.first << "," << f.second << endl;
     }
 }
 
