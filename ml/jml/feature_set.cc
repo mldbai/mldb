@@ -82,8 +82,8 @@ void Mutable_Feature_Set::
 replace(const Feature & feat, float val)
 {
     if (locked) throw Exception("mutating locked feature set");
-    if (is_sorted) {
-        /* Can do this more sensibly, and keep it sorted... */
+    /*if (is_sorted) {
+        // Can do this more sensibly, and keep it sorted... 
         features_type::iterator it
             = std::lower_bound(features.begin(), features.end(),
                                make_pair(feat, -INFINITY));
@@ -96,7 +96,7 @@ replace(const Feature & feat, float val)
             int start = it - features.begin();
             int pos = 0;
 
-            /* Shift those to delete back to maintain sorted property. */
+            // Shift those to delete back to maintain sorted property. 
             int num_to_delete = 0;
             while (pos < features.size() && features[pos].first == feat) {
                 ++num_to_delete;
@@ -110,7 +110,7 @@ replace(const Feature & feat, float val)
                 features.pop_back();
         }
     }
-    else {
+    else*/ {
         /* Scan through the entire thing, replacing each one we find. */
         bool done = false;
         for (unsigned i = 0;  i < features.size(); /* no inc */) {

@@ -50,6 +50,9 @@ Training_Data::Training_Data(const Training_Data & other)
     : data_(other.data_), index_(other.index_),
       feature_space_(other.feature_space_), dirty_(other.dirty_)
 {
+    for (auto & fs : data_) {
+        fs.reset(fs->make_copy());
+    }
 }
 
 Training_Data::~Training_Data()
@@ -288,11 +291,11 @@ modify_feature(int example_number,
 {
     std::shared_ptr<Feature_Set> & fs = data_[example_number];
     Mutable_Feature_Set * mut_fs = 0;
-    
+
     float old_val = (*fs)[feature];
 
     if (old_val == new_val) return old_val;
-            
+
     if (!mut_fs)
         mut_fs = dynamic_cast<Mutable_Feature_Set *>(fs.get());
     if (!mut_fs) {

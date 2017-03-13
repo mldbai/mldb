@@ -36,7 +36,8 @@ enum ClassifierMode {
 
 enum MultilabelStrategy {
     MULTILABEL_RANDOM,
-    MULTILABEL_DECOMPOSE
+    MULTILABEL_DECOMPOSE,
+    MULTILABEL_ONEVSALL
 };
 
 

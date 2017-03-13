@@ -49,13 +49,15 @@ LIBBOOSTING_SOURCES := \
         committee.cc \
         boosting_training.cc \
         null_classifier_generator.cc \
-	tree.cc \
-	split.cc \
-	training_index_iterators.cc \
-	feature.cc \
-	bit_compressed_index.cc \
-	label.cc \
-	buckets.cc
+        onevsall.cc \
+        onevsall_generator.cc \
+        tree.cc \
+        split.cc \
+        training_index_iterators.cc \
+        feature.cc \
+        bit_compressed_index.cc \
+        label.cc \
+        buckets.cc
 
 LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex
 
