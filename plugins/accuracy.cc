@@ -86,6 +86,11 @@ AccuracyConfigDescription()
               "test set is very large and aggregate statistics for each unique score is "
               "sufficient, for instance to generate a ROC curve. This has no effect "
               "for other values of `mode`.", false);
+    addField("accuracyOverN", &AccuracyConfig::accuracyOverN,
+              "How many of the top scores should the accuracy be computer over."
+              "Does not apply to boolean or regression modes"
+              , 1);
+    
     addParent<ProcedureConfig>();
 
     onPostValidate = validateQuery(&AccuracyConfig::testingData,
@@ -245,12 +250,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
                std::shared_ptr<Dataset> output)
 {
-    typedef vector<std::tuple<CellValue, CellValue, double, double, RowPath>> AccumBucket;
+    typedef vector<std::tuple<CellValue, CellValue, double>> AccumBucket;
     PerThreadAccumulator<AccumBucket> accum;
 
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
-
 
     auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
@@ -281,36 +285,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 };
             scoreLabelWeight[0].forEachAtom(onAtom);
 
-            CellValue label;
+            CellValue label = scoreLabelWeight[1].getAtom();
 
-            if (scoreLabelWeight[1].isAtom()) {
-                label = scoreLabelWeight[1].getAtom();
-            }
-            else {
-                //Multilabel
-                std::vector<std::string> labels; //TODO: Utf8
-                std::function<bool (const PathElement & columnName,
-                                    const ExpressionValue & val)> randomStrategy = [&] (const PathElement & columnName,
-                                                                                  const ExpressionValue & val) ->bool
-                    {
-                        if (!val.empty()) {
-                            std::string labelStr = columnName.toUtf8String().utf8String();
-                            labels.push_back(labelStr);
-                        }
-
-                        return true;
-                    };
-
-                scoreLabelWeight[1].forEachColumn(randomStrategy);
-
-                if (labels.size() == 0)
-                    return true;
-
-                label = CellValue(labels[std::rand() % labels.size()]);
-            }
             double weight = scoreLabelWeight[2].toDouble();
 
-            accum.get().emplace_back(label, maxLabel, maxLabelScore, weight, row.rowName);
+            accum.get().emplace_back(label, maxLabel/*, maxLabelScore*/, weight);
 
             if(output) {
                 outputRow.emplace_back(ColumnPath("maxLabel"), maxLabel, recordDate);
@@ -354,7 +333,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
-                    const double & weight = std::get<3>(elem);
+                    const double & weight = std::get<2>(elem);
                     confusion_matrix[label][predicted] += weight;
                     real_sums[label] += weight;
                     predicted_sums[predicted] += weight;
@@ -455,6 +434,163 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     }
     
     // cout << results.toStyledString() << endl;
+
+    return Any(results);
+}
+
+RunOutput
+runMultilabel(AccuracyConfig & runAccuracyConf,
+               BoundSelectQuery & selectQuery,
+               std::shared_ptr<Dataset> output,
+               int accuracyOverN)
+{
+    //labels, bestlabels, weight
+    typedef vector<std::tuple<std::vector<CellValue>, std::vector<CellValue>, double>> AccumBucket;
+    PerThreadAccumulator<AccumBucket> accum;
+
+    PerThreadAccumulator<Rows> rowsAccum;
+    Date recordDate = Date::now();
+
+    auto processor = [&] (NamedRowValue & row,
+                           const std::vector<ExpressionValue> & scoreLabelWeight)
+        {
+            std::vector<CellValue> bestlabels;
+            std::vector<std::pair<float, CellValue>> bestlabelsCandidates;
+
+            std::vector<std::tuple<RowPath, CellValue, Date> > outputRow;
+
+            static const ColumnPath score("score");
+
+            auto onAtom = [&] (const Path & columnName,
+                               const Path & prefix,
+                               const CellValue & val,
+                               Date ts)
+                {
+                    auto v = val.toDouble();
+                    CellValue scoreLabel = jsonDecodeStr<CellValue>(columnName.toSimpleName());
+                    bestlabelsCandidates.push_back({v,scoreLabel});
+
+                    if(output) {
+                        outputRow.emplace_back(score + columnName, v, recordDate);
+                    }
+
+                    return true;
+                };
+            scoreLabelWeight[0].forEachAtom(onAtom);
+
+            if (bestlabelsCandidates.size() > accuracyOverN) {
+                std::sort(bestlabelsCandidates.begin(), bestlabelsCandidates.end(), std::greater<std::pair<float, CellValue>>());
+                bestlabelsCandidates.erase(bestlabelsCandidates.begin()+accuracyOverN, bestlabelsCandidates.end());
+            }
+
+            for (const auto& pair : bestlabelsCandidates) {
+                bestlabels.push_back(pair.second);
+            }
+
+            std::vector<CellValue> labels;
+            std::function<bool (const PathElement & columnName,
+                                const ExpressionValue & val)> randomStrategy = [&] (const PathElement & columnName,
+                                                                              const ExpressionValue & val) ->bool
+                {
+                    if (!val.empty()) {
+                        labels.push_back(columnName.toUtf8String());
+                    }
+
+                    return true;
+                };
+
+            scoreLabelWeight[1].forEachColumn(randomStrategy);
+
+            if (labels.size() == 0)
+                return true;
+
+            double weight = scoreLabelWeight[2].toDouble();
+            accum.get().emplace_back(labels, bestlabels, weight);
+
+            if(output) {
+                for (int i = 0; i < labels.size(); ++i) {
+                    outputRow.emplace_back(ColumnPath("label") + ColumnPath(i), labels[i], recordDate);
+                }
+
+                outputRow.emplace_back(ColumnPath("weight"), weight, recordDate);
+
+                rowsAccum.get().emplace_back(row.rowName, std::move(outputRow));
+                if(rowsAccum.get().size() > 1000) {
+                    output->recordRows(rowsAccum.get());
+                    rowsAccum.get().clear();
+                }
+            }
+
+            return true;
+        };
+
+    selectQuery.execute({processor,true/*processInParallel*/},
+            runAccuracyConf.testingData.stm->offset,
+            runAccuracyConf.testingData.stm->limit,
+            nullptr /* progress */);
+
+
+    if(output) {
+        rowsAccum.forEach([&] (Rows * thrRow)
+            {
+                output->recordRows(*thrRow);
+            });
+        output->commit();
+    }
+
+    map<CellValue, double> precisionsums;
+    map<CellValue, double> labelsums;
+
+    double totalWeight = 0;
+    double totalAccurateWeight = 0;
+
+    accum.forEach([&] (AccumBucket * thrBucket)
+            {
+               // gotStuff = true;
+                for(auto & elem : *thrBucket) {
+                    const std::vector<CellValue> & labels = std::get<0>(elem);
+                    const std::vector<CellValue> & topPredicted = std::get<1>(elem);
+                    const double & weight = std::get<2>(elem);
+
+                    if (weight == 0)
+                        continue;
+
+                    for (auto& label : labels) {
+
+                        if (std::find(topPredicted.begin(), topPredicted.end(), label) != topPredicted.end()) {
+                            precisionsums[label] += weight;
+                            totalAccurateWeight += weight;
+                        }
+
+                        labelsums[label] += weight;
+                        totalWeight += weight;
+                    }
+                }
+            });
+
+    // Create per-class statistics
+    Json::Value results;
+    results["labelStatistics"] = Json::Value();
+
+    std::string precisionString = "Precision over top " + std::to_string(accuracyOverN);
+
+    for(const auto & actual_it : labelsums) {
+
+        double precisionSum = 0;
+        auto precision_it = precisionsums.find(actual_it.first);
+        if (precision_it != precisionsums.end())
+            precisionSum = precision_it->second;
+
+        Json::Value class_stats;
+        class_stats[precisionString] = precisionSum / actual_it.second;
+
+        results["labelStatistics"][actual_it.first.toUtf8String()] = class_stats;
+    }
+
+    // Create weighted statistics
+    Json::Value weighted_stats;
+    weighted_stats[precisionString] = totalAccurateWeight / totalWeight;
+    results["weightedStatistics"] = weighted_stats;
 
     return Any(results);
 }
@@ -686,7 +822,7 @@ run(const ProcedureRunConfig & run,
     if(runAccuracyConf.mode == CM_REGRESSION)
         return runRegression(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_MULTILABEL)
-        return runCategorical(runAccuracyConf, boundQuery, output);
+        return runMultilabel(runAccuracyConf, boundQuery, output, runAccuracyConf.accuracyOverN);
 
     throw MLDB::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
 }

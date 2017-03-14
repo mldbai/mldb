@@ -62,35 +62,35 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         dataset = mldb.create_dataset(dataset_config)
         now = datetime.datetime.now()
 
-        #numLabelExample = 5
-        #for i in xrange(numLabelExample):
-        dataset.record_row("u%d" % 1, [["feat1", 5, now],
-                                       ["feat2", 0, now],
-                                       ["feat3", 0, now],
-                                       ["label0", True, now]])
-        dataset.record_row("u%d" % 2, [["feat1", 0, now],
-                                       ["feat2", 5, now],
-                                       ["feat3", 0, now],
-                                       ["label1", True, now]])
-        dataset.record_row("u%d" % 3, [["feat1", 0, now],
-                                       ["feat2", 0, now],
-                                       ["feat3", 5, now],
-                                       ["label2", True, now]])
-        dataset.record_row("u%d" % 4, [["feat1", 5, now],
-                                       ["feat2", 5, now],
-                                       ["feat3", 0, now],
-                                       ["label0", True, now],
-                                       ["label1", True, now]])
-        dataset.record_row("u%d" % 5, [["feat1", 5, now],
-                                       ["feat2", 0, now],
-                                       ["feat3", 5, now],
-                                       ["label0", True, now],
-                                       ["label2", True, now]])
-        dataset.record_row("u%d" % 6, [["feat1", 0, now],
-                                       ["feat2", 5, now],
-                                       ["feat3", 5, now],
-                                       ["label1", True, now],
-                                       ["label2", True, now]])
+        numLabelExample = 20
+        for i in xrange(numLabelExample):
+            dataset.record_row("u%d" % (1+i*6), [["feat1", 5, now],
+                                           ["feat2", 0, now],
+                                           ["feat3", 0, now],
+                                           ["label0", True, now]])
+            dataset.record_row("u%d" % (2+i*6), [["feat1", 0, now],
+                                           ["feat2", 5, now],
+                                           ["feat3", 0, now],
+                                           ["label1", True, now]])
+            dataset.record_row("u%d" % (3+i*6), [["feat1", 0, now],
+                                           ["feat2", 0, now],
+                                           ["feat3", 5, now],
+                                           ["label2", True, now]])
+            dataset.record_row("u%d" % (4+i*6), [["feat1", 5, now],
+                                           ["feat2", 5, now],
+                                           ["feat3", 0, now],
+                                           ["label0", True, now],
+                                           ["label1", True, now]])
+            dataset.record_row("u%d" % (5+i*6), [["feat1", 5, now],
+                                           ["feat2", 0, now],
+                                           ["feat3", 5, now],
+                                           ["label0", True, now],
+                                           ["label2", True, now]])
+            dataset.record_row("u%d" % (6+i*6), [["feat1", 0, now],
+                                           ["feat2", 5, now],
+                                           ["feat3", 5, now],
+                                           ["label1", True, now],
+                                           ["label2", True, now]])
 
         dataset.commit()
 
@@ -169,7 +169,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         mldb.log(js_rez)
 
         self.assertEqual(
-            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["precision"], 1.0)
+            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["Precision over top 1"], 1.0)
 
     def test_decompose_simple(self):
 
@@ -246,7 +246,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         mldb.log(js_rez)
 
         self.assertEqual(
-            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["precision"], 1.0)
+            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["Precision over top 1"], 1.0)
 
     
     def test_onevsall_simple(self):
@@ -332,6 +332,93 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 1
             ]
         ])
+
+    def test_accuracy (self):
+        conf_classifier = {
+            "type": "classifier.train",
+            "params": {
+                "trainingData": "select {* EXCLUDING(label0, label1, label2)} as features, {label0, label1, label2} as label from trivial2",
+                "modelFileUrl": "file://build/x86_64/tmp/multilabel1-$runid.cls",
+                "algorithm": "dt",
+                "mode": "multilabel",
+                "multilabelStrategy": "one-vs-all",
+                "functionName" : "classifyMe",
+                "configuration": {
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "gentle",
+                        "random_feature_propn": 1
+                    }
+                },
+            }
+        }
+
+        mldb.put("/v1/procedures/multilabel_train", conf_classifier)
+
+        accuracyConf = {
+            "type": "classifier.test",
+            "params": {
+                "testingData": """
+                    select classifyMe({{* EXCLUDING(label0, label1, label2)} as features}) as score, {label0, label1, label2} as label from trivial2
+                """,
+                "mode" : "multilabel",
+                "accuracyOverN" : 1,
+                "runOnCreation": True
+            }
+        }
+
+        res = mldb.put("/v1/procedures/multilabel_accuracy", accuracyConf);
+
+        self.assertEquals(res.json()["status"]["firstRun"]["status"], {
+            "weightedStatistics": {
+                "Precision over top 1": 0.5555555555555556
+            },
+            "labelStatistics": {
+                "label0": {
+                    "Precision over top 1": 0.0
+                },
+                "label1": {
+                    "Precision over top 1": 1.0
+                },
+                "label2": {
+                    "Precision over top 1": 0.6666666666666666
+                }
+            }
+        })
+
+        accuracyConf = {
+            "type": "classifier.test",
+            "params": {
+                "testingData": """
+                    select classifyMe({{* EXCLUDING(label0, label1, label2)} as features}) as score, {label0, label1, label2} as label from trivial2
+                """,
+                "mode" : "multilabel",
+                "accuracyOverN" : 2,
+                "runOnCreation": True
+            }
+        }
+
+        res = mldb.put("/v1/procedures/multilabel_accuracy", accuracyConf);
+
+        self.assertEquals(res.json()["status"]["firstRun"]["status"], {
+            "weightedStatistics": {
+                "Precision over top 2": 1.0
+            },
+            "labelStatistics": {
+                "label0": {
+                    "Precision over top 2": 1.0
+                },
+                "label1": {
+                    "Precision over top 2": 1.0
+                },
+                "label2": {
+                    "Precision over top 2": 1.0
+                }
+            }
+        })
+        
 
 if __name__ == '__main__':
     mldb.run_tests()
