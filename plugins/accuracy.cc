@@ -87,8 +87,8 @@ AccuracyConfigDescription()
               "sufficient, for instance to generate a ROC curve. This has no effect "
               "for other values of `mode`.", false);
     addField("accuracyOverN", &AccuracyConfig::accuracyOverN,
-              "How many of the top scores should the accuracy be computer over."
-              "Does not apply to boolean or regression modes"
+              "Calculate a recall score over the top scoring labels."
+              "Does not apply to boolean or regression modes."
               , 1);
     
     addParent<ProcedureConfig>();
@@ -248,9 +248,10 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 RunOutput
 runCategorical(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
-               std::shared_ptr<Dataset> output)
+               std::shared_ptr<Dataset> output,
+               int accuracyOverN)
 {
-    typedef vector<std::tuple<CellValue, CellValue, double>> AccumBucket;
+    typedef vector<std::tuple<CellValue, CellValue, std::vector<CellValue>, double>> AccumBucket;
     PerThreadAccumulator<AccumBucket> accum;
 
     PerThreadAccumulator<Rows> rowsAccum;
@@ -265,6 +266,9 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             std::vector<std::tuple<RowPath, CellValue, Date> > outputRow;
 
             static const ColumnPath score("score");
+
+            std::vector<std::pair<double, CellValue>> bestlabelsCandidates;
+            std::vector<CellValue> bestlabels;
             
             auto onAtom = [&] (const Path & columnName,
                                const Path & prefix,
@@ -281,15 +285,28 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                         outputRow.emplace_back(score + columnName, v, recordDate);
                     }
 
+                    if (accuracyOverN > 1) {
+                        bestlabelsCandidates.emplace_back(v, CellValue(jsonDecodeStr<CellValue>(columnName.toSimpleName())));
+                    }
+
                     return true;
                 };
             scoreLabelWeight[0].forEachAtom(onAtom);
+
+            if (bestlabelsCandidates.size() > accuracyOverN) {
+                std::sort(bestlabelsCandidates.begin(), bestlabelsCandidates.end(), std::greater<std::pair<double, CellValue>>());
+                bestlabelsCandidates.erase(bestlabelsCandidates.begin()+accuracyOverN, bestlabelsCandidates.end());
+            }
+
+            for (const auto& pair : bestlabelsCandidates) {
+                bestlabels.push_back(pair.second);
+            }
 
             CellValue label = scoreLabelWeight[1].getAtom();
 
             double weight = scoreLabelWeight[2].toDouble();
 
-            accum.get().emplace_back(label, maxLabel/*, maxLabelScore*/, weight);
+            accum.get().emplace_back(label, maxLabel, bestlabels , weight);
 
             if(output) {
                 outputRow.emplace_back(ColumnPath("maxLabel"), maxLabel, recordDate);
@@ -322,9 +339,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
 
     // Create confusion matrix (actual / predicted)
+    std::string recallString = "recall over top " + std::to_string(accuracyOverN);
     map<CellValue, map<CellValue, double>> confusion_matrix;
     map<CellValue, double> predicted_sums;
     map<CellValue, double> real_sums;
+    map<CellValue, double> predicted_topn_sums;
     double conf_mat_sum = 0;
     bool gotStuff = false;
     accum.forEach([&] (AccumBucket * thrBucket)
@@ -333,11 +352,15 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
-                    const double & weight = std::get<2>(elem);
+                    const std::vector<CellValue>& toppredicted = std::get<2>(elem);
+                    const double & weight = std::get<3>(elem);
                     confusion_matrix[label][predicted] += weight;
                     real_sums[label] += weight;
                     predicted_sums[predicted] += weight;
                     conf_mat_sum += weight;
+                    if (std::find(toppredicted.begin(), toppredicted.end(), label) != toppredicted.end()){
+                        predicted_topn_sums[label] += weight;
+                    }
                 }
             });
 
@@ -350,6 +373,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
     double total_accuracy = 0;
     double total_precision = 0;
+    double total_recall_topn = 0;
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
     double total_support = 0;
@@ -400,6 +424,12 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         class_stats["f1Score"] = 2 * ML::xdiv(precision * recall,
                                         precision + recall);
         class_stats["support"] = support;
+        if (accuracyOverN > 1) {
+            auto tptopn = predicted_topn_sums[actual_it.first];
+            total_recall_topn += tptopn;
+            class_stats[recallString] = ML::xdiv(tptopn, real_sums[actual_it.first]);
+        }
+
         results["labelStatistics"][actual_it.first.toUtf8String()] = class_stats;
 
         total_accuracy += accuracy * support;
@@ -416,6 +446,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     weighted_stats["recall"] = total_recall / total_support;
     weighted_stats["f1Score"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
+
+    if (accuracyOverN > 1) {
+        weighted_stats[recallString] = total_recall_topn / total_support;
+    }
+
     results["weightedStatistics"] = weighted_stats;
 
 
@@ -538,7 +573,7 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
         output->commit();
     }
 
-    map<CellValue, double> precisionsums;
+    map<CellValue, double> recallsums;
     map<CellValue, double> labelsums;
 
     double totalWeight = 0;
@@ -558,7 +593,7 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                     for (auto& label : labels) {
 
                         if (std::find(topPredicted.begin(), topPredicted.end(), label) != topPredicted.end()) {
-                            precisionsums[label] += weight;
+                            recallsums[label] += weight;
                             totalAccurateWeight += weight;
                         }
 
@@ -572,24 +607,24 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
     Json::Value results;
     results["labelStatistics"] = Json::Value();
 
-    std::string precisionString = "Precision over top " + std::to_string(accuracyOverN);
+    std::string recallString = "recall over top " + std::to_string(accuracyOverN);
 
     for(const auto & actual_it : labelsums) {
 
-        double precisionSum = 0;
-        auto precision_it = precisionsums.find(actual_it.first);
-        if (precision_it != precisionsums.end())
-            precisionSum = precision_it->second;
+        double recallSum = 0;
+        auto recall_it = recallsums.find(actual_it.first);
+        if (recall_it != recallsums.end())
+            recallSum = recall_it->second;
 
         Json::Value class_stats;
-        class_stats[precisionString] = precisionSum / actual_it.second;
+        class_stats[recallString] = recallSum / actual_it.second;
 
         results["labelStatistics"][actual_it.first.toUtf8String()] = class_stats;
     }
 
     // Create weighted statistics
     Json::Value weighted_stats;
-    weighted_stats[precisionString] = totalAccurateWeight / totalWeight;
+    weighted_stats[recallString] = totalAccurateWeight / totalWeight;
     results["weightedStatistics"] = weighted_stats;
 
     return Any(results);
@@ -818,7 +853,7 @@ run(const ProcedureRunConfig & run,
     if(runAccuracyConf.mode == CM_BOOLEAN)
         return runBoolean(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_CATEGORICAL)
-        return runCategorical(runAccuracyConf, boundQuery, output);
+        return runCategorical(runAccuracyConf, boundQuery, output, runAccuracyConf.accuracyOverN);
     if(runAccuracyConf.mode == CM_REGRESSION)
         return runRegression(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_MULTILABEL)
