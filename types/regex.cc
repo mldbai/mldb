@@ -468,7 +468,12 @@ struct RegexDescription
     virtual void printJsonTyped(const Regex * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeStringUtf8(val->surface());
+        if (!val->initialized()) {
+            context.writeNull();
+        }
+        else {
+            context.writeStringUtf8(val->surface());
+        }
     }
 };
 
