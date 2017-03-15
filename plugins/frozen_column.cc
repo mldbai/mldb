@@ -736,7 +736,9 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
                             const ColumnFreezeParameters & params,
                             std::shared_ptr<void> & cachedInfo) const override
     {
-        return true;
+        return column.columnTypes.onlyIntegersAndNulls()
+            && column.columnTypes.maxPositiveInteger
+            <= (uint64_t)std::numeric_limits<int64_t>::max();
     }
 
     virtual ssize_t columnSize(const TabularDatasetColumn & column,
