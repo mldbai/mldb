@@ -13,6 +13,7 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
+#include "mldb/types/value_description.h"
 #include <mutex>
 
 using namespace std;
@@ -58,7 +59,8 @@ struct TableFrozenColumn: public FrozenColumn {
         }
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEachImpl(const ForEachRowFn & onRow,
+                             bool keepNulls) const
     {
         ML::Bit_Extractor<uint32_t> bits(storage.get());
 
@@ -69,6 +71,8 @@ struct TableFrozenColumn: public FrozenColumn {
             if (hasNulls) {
                 if (index > 0)
                     val = table[index - 1];
+                else if (!keepNulls)
+                    continue;  // skip nulls
             }
             else {
                 val = table[index];
@@ -81,9 +85,14 @@ struct TableFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, false /* keep nulls */);
+    }
+
     virtual bool forEachDense(const ForEachRowFn & onRow) const
     {
-        return forEach(onRow);
+        return forEachImpl(onRow, true /* keep nulls */);
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -605,7 +614,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
             int64_t val = bits.extract<uint64_t>(entryBits);
             if (hasNulls) {
                 if (val == 0) {
-                    if (keepNulls && !onRow(i + firstEntry, CellValue()))
+                    if (keepNulls && (!onRow(i + firstEntry, CellValue())))
                         return false;
                 }
                 else {
@@ -651,7 +660,6 @@ struct IntegerFrozenColumn: public FrozenColumn {
             else return result = val + offset - 1;
         }
         else {
-            TRACE_MSG(logger) << "got val " << val << " " << val + offset;
             return result = val + offset;
         }
     }
@@ -687,7 +695,6 @@ struct IntegerFrozenColumn: public FrozenColumn {
             if (val == 0 && hasNulls)
                 continue;
             allVals.push_back(val);
-            bits.advance(entryBits);
         }
 
         std::sort(allVals.begin(), allVals.end());
@@ -762,6 +769,380 @@ RegisterFrozenColumnFormatT<IntegerFrozenColumnFormat> regInteger;
 
 
 /*****************************************************************************/
+/* DOUBLE FROZEN COLUMN                                                     */
+/*****************************************************************************/
+
+/// Frozen column that stores each value as a signed 64 bit double
+struct DoubleFrozenColumn: public FrozenColumn {
+
+    struct SizingInfo {
+        SizingInfo(const TabularDatasetColumn & column)
+        {
+            if (!column.columnTypes.onlyDoublesAndNulls())
+                return;  // can't use this column type
+            numEntries = column.maxRowNumber - column.minRowNumber + 1;
+            hasNulls = column.sparseIndexes.size() < numEntries;
+
+            bytesRequired = sizeof(DoubleFrozenColumn) + numEntries * sizeof(Entry);
+        }
+
+        operator ssize_t () const
+        {
+            return bytesRequired;
+        }
+
+        ssize_t bytesRequired = -1;
+        size_t numEntries;
+        bool hasNulls;
+    };
+    
+    struct Entry {
+        
+        Entry()
+            : val(NULL_BITS)
+        {
+        }
+
+        Entry(double d)
+        {
+            U u { d: d };
+            val = u.bits;
+        }
+
+        uint64_t val;
+
+        static const uint64_t NULL_BITS
+            = 0ULL  << 63 // sign
+            | (0x7ffULL << 53) // exponent is all 1s for NaN
+            | (0xe1a1ULL); // mantissa
+
+        // Type-punning union declared once here so we don't need to
+        // do so everywhere else anonymously.
+        union U {
+            double d;
+            uint64_t bits;
+        };
+
+        bool isNull() const
+        {
+            return val == NULL_BITS;
+        }
+
+        double value() const
+        {
+            U u { bits: val };
+            return u.d;
+        }
+
+        operator CellValue() const
+        {
+            return isNull() ? CellValue() : value();
+        }
+    };
+
+    DoubleFrozenColumn(TabularDatasetColumn & column)
+        : columnTypes(column.columnTypes)
+    {
+        SizingInfo info(column);
+        ExcAssertNotEqual(info.bytesRequired, -1);
+
+        firstEntry = column.minRowNumber;
+        numEntries = info.numEntries;
+
+        // Check it's really feasible
+        ExcAssert(column.columnTypes.onlyDoublesAndNulls());
+        Entry * data = new Entry[info.numEntries];
+        storage = std::shared_ptr<Entry>(data, [] (Entry * p) { delete[] p; });
+
+        for (auto & r_i: column.sparseIndexes) {
+            const CellValue & v = column.indexedVals[r_i.second];
+            if (!v.empty()) {
+                data[r_i.first] = v.toDouble();
+            }
+        }
+    }
+
+    bool forEachImpl(const ForEachRowFn & onRow, bool keepNulls) const
+    {
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            const Entry & entry = storage.get()[i];
+            if (!keepNulls && entry.isNull())
+                continue;
+            if (!onRow(i + firstEntry, entry))
+                return false;
+        }
+
+        return true;
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, false /* keep nulls */);
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, true /* keep nulls */);
+    }
+
+    virtual CellValue get(uint32_t rowIndex) const
+    {
+        CellValue result;
+        if (rowIndex < firstEntry)
+            return result;
+        rowIndex -= firstEntry;
+        if (rowIndex >= numEntries)
+            return result;
+        return storage.get()[rowIndex];
+    }
+
+    virtual size_t size() const
+    {
+        return numEntries;
+    }
+
+    virtual size_t memusage() const
+    {
+        size_t result
+            = sizeof(*this)
+            + (sizeof(Entry) * numEntries);
+
+        return result;
+    }
+
+    template<typename Float>
+    struct safe_less {
+        bool operator () (Float v1, Float v2) const
+        {
+            bool nan1 = std::isnan(v1), nan2 = std::isnan(v2);
+            return (nan1 > nan2)
+                || ((nan1 == nan2) && v1 < v2);
+        }
+    };
+
+    virtual bool
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    {
+        bool hasNulls = false;
+
+        std::vector<double> allVals;
+        allVals.reserve(numEntries);
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            const Entry & entry = storage.get()[i];
+            if (entry.isNull())
+                hasNulls = true;
+            else {
+                allVals.emplace_back(entry.value());
+            }
+        }
+
+        // Handle nulls first so we don't have to do them later
+        if (hasNulls && !fn(CellValue()))
+            return false;
+
+        /** Like std::less<Float>, but has a well defined order for nan
+            values, which allows us to sort ranges that might contain
+            nan values without crashing.
+        */
+        std::sort(allVals.begin(), allVals.end(), safe_less<double>());
+        auto endIt = std::unique(allVals.begin(), allVals.end());
+        
+        for (auto it = allVals.begin();  it != endIt;  ++it) {
+            if (!fn(*it))
+                return false;
+        }
+        
+        return true;
+    }
+
+    std::shared_ptr<const Entry> storage;
+    uint32_t numEntries;
+    uint64_t firstEntry;
+
+    ColumnTypes columnTypes;
+
+    virtual ColumnTypes getColumnTypes() const
+    {
+        return columnTypes;
+    }
+
+    static ssize_t bytesRequired(const TabularDatasetColumn & column)
+    {
+        return SizingInfo(column);
+    }
+};
+
+struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
+    
+    virtual ~DoubleFrozenColumnFormat()
+    {
+    }
+
+    virtual std::string format() const override
+    {
+        return "Double";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return column.columnTypes.onlyDoublesAndNulls();
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        return DoubleFrozenColumn::bytesRequired(column);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new DoubleFrozenColumn(column);
+    }
+};
+
+RegisterFrozenColumnFormatT<DoubleFrozenColumnFormat> regDouble;
+
+
+/*****************************************************************************/
+/* TIMESTAMP FROZEN COLUMN                                                   */
+/*****************************************************************************/
+
+/// Frozen column that stores each value as a timestamp
+struct TimestampFrozenColumn: public FrozenColumn {
+
+    // This stores the underlying doubles or CellValues 
+    std::shared_ptr<const FrozenColumn> unwrapped;
+
+    TimestampFrozenColumn(TabularDatasetColumn & column,
+                          const ColumnFreezeParameters & params)
+        : columnTypes(column.columnTypes)
+    {
+        ExcAssert(!column.isFrozen);
+        // Convert the values to unwrapped doubles
+        column.valueIndex.clear();
+        size_t numNulls = column.columnTypes.numNulls;
+        column.columnTypes = ColumnTypes();
+        for (auto & v: column.indexedVals) {
+            v = v.coerceToNumber();
+            column.columnTypes.update(v);
+        }
+        column.columnTypes.numNulls = numNulls;
+        
+        unwrapped = column.freeze(params);
+    }
+
+    // Wrap a double (or null) into a timestamp (or null)
+    static CellValue wrap(CellValue val)
+    {
+        if (val.empty())
+            return val;
+        return val.coerceToTimestamp();
+    }
+
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        auto onRow2 = [&] (size_t rowNum, const CellValue & val)
+            {
+                return onRow(rowNum, wrap(val));
+            };
+
+        return unwrapped->forEach(onRow2);
+    }
+
+    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    {
+        auto onRow2 = [&] (size_t rowNum, const CellValue & val)
+            {
+                return onRow(rowNum, wrap(val));
+            };
+
+        return unwrapped->forEachDense(onRow2);
+    }
+
+    virtual CellValue get(uint32_t rowIndex) const
+    {
+        return wrap(unwrapped->get(rowIndex));
+    }
+
+    virtual size_t size() const
+    {
+        return unwrapped->size();
+    }
+
+    virtual size_t memusage() const
+    {
+        return sizeof(*this)
+            + unwrapped->memusage();
+    }
+
+    virtual bool
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    {
+        auto fn2 = [&] (const CellValue & v)
+            {
+                return fn(wrap(v));
+            };
+
+        return unwrapped->forEachDistinctValue(fn2);
+    }
+
+    ColumnTypes columnTypes;
+
+    virtual ColumnTypes getColumnTypes() const
+    {
+        return columnTypes;
+    }
+};
+
+struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
+    
+    virtual ~TimestampFrozenColumnFormat()
+    {
+    }
+
+    virtual std::string format() const override
+    {
+        return "Timestamp";
+    }
+
+    virtual bool isFeasible(const TabularDatasetColumn & column,
+                            const ColumnFreezeParameters & params,
+                            std::shared_ptr<void> & cachedInfo) const override
+    {
+        return column.columnTypes.numTimestamps
+            && column.columnTypes.onlyTimestampsAndNulls();
+    }
+
+    virtual ssize_t columnSize(const TabularDatasetColumn & column,
+                               const ColumnFreezeParameters & params,
+                               ssize_t previousBest,
+                               std::shared_ptr<void> & cachedInfo) const override
+    {
+        // Worst case is 8 bytes per timestamp for a double column
+        return sizeof(TimestampFrozenColumn) + 8 * (column.maxRowNumber - column.minRowNumber);
+    }
+    
+    virtual FrozenColumn *
+    freeze(TabularDatasetColumn & column,
+           const ColumnFreezeParameters & params,
+           std::shared_ptr<void> cachedInfo) const override
+    {
+        return new TimestampFrozenColumn(column, params);
+    }
+};
+
+RegisterFrozenColumnFormatT<TimestampFrozenColumnFormat> regTimestamp;
+
+
+/*****************************************************************************/
 /* FROZEN COLUMN FORMAT                                                      */
 /*****************************************************************************/
 
@@ -833,11 +1214,10 @@ FrozenColumn()
 {
 }
 
-
-std::shared_ptr<FrozenColumn>
-FrozenColumn::
-freeze(TabularDatasetColumn & column,
-       const ColumnFreezeParameters & params)
+std::pair<ssize_t, std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column)> >
+FrozenColumnFormat::
+preFreeze(const TabularDatasetColumn & column,
+          const ColumnFreezeParameters & params)
 {
     // Get the current list of formats
     auto formats = getFormats().load();
@@ -859,12 +1239,30 @@ freeze(TabularDatasetColumn & column,
         }
     }
 
-    if (!bestFormat) {
+    if (bestFormat) {
+        return std::make_pair(bestBytes,
+                              [=] (TabularDatasetColumn & column)
+                              {
+                                  return std::shared_ptr<FrozenColumn>
+                                      (bestFormat->freeze(column, params, bestData));
+                              }
+                              );
+    }
+    
+    return std::make_pair(FrozenColumnFormat::NOT_BEST, nullptr);
+}
+
+std::shared_ptr<FrozenColumn>
+FrozenColumn::
+freeze(TabularDatasetColumn & column,
+       const ColumnFreezeParameters & params)
+{
+    ExcAssert(!column.isFrozen);
+    auto res = FrozenColumnFormat::preFreeze(column, params);
+    if (!res.second) {
         throw HttpReturnException(500, "No column format found for column");
     }
-
-    return std::shared_ptr<FrozenColumn>
-        (bestFormat->freeze(column, params, std::move(bestData)));
+    return res.second(column);
 }
 
 
