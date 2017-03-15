@@ -107,6 +107,11 @@ struct FrozenColumnFormat {
                                ssize_t previousBest,
                                std::shared_ptr<void> & cachedInfo) const = 0;
     
+    static std::pair<ssize_t,
+              std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column)> >
+    preFreeze(const TabularDatasetColumn & column,
+              const ColumnFreezeParameters & params);
+
     /** Freeze the given column as this particular column format.  It has access
         to the cachedInfo that isFeasible and columnSize have provided.  This
         method should not fail unless there is an error in the underlying
