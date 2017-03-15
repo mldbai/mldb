@@ -1705,6 +1705,86 @@ parseJson(JsonParsingContext & context,
     }
 }
 
+// Structure a flattened representation.  The range between first
+// and last must all start with the same prefix, of length at least
+// level.
+//
+// Returns the flattened representation, and a bool telling whether
+// or not there are duplicate values in it.
+std::pair<StructValue, bool>
+flattenLevel(RowValue::iterator first,
+             RowValue::iterator last,
+             size_t level)
+{
+    StructValue rowOut;
+
+    // Count how many unique keys there are?
+    size_t numUnique = 0;
+    bool hasDuplicates = false;
+
+    for (auto it = first;  it != last;  /* no inc */) {
+        ExcAssertGreater(std::get<0>(*it).size(), level);
+        // We know the prefix up to level is identical.  Now
+        // see how many output entries we have.
+
+        const PathElement & currentKey = std::get<0>(*it).at(level);
+
+        auto itEnd = it;
+
+        size_t numScalars = 0;
+        size_t numStructures = 0;
+        while (itEnd != last
+               && std::get<0>(*itEnd).at(level) == currentKey) {
+            if (std::get<0>(*itEnd).size() == level + 1) {
+                ++numScalars;
+            }
+            else {
+                ++numStructures;
+            }
+            ++itEnd;
+        }
+
+        size_t numUniqueThisEntry
+            = numScalars + (numStructures > 0);
+
+        numUnique += numUniqueThisEntry;
+        hasDuplicates = hasDuplicates || numUniqueThisEntry > 1;
+
+        it = itEnd;
+    }
+
+    rowOut.reserve(numUnique);
+
+    for (auto it = first;  it != last;  /* no inc */) {
+        if (std::get<0>(*it).size() == level + 1) {
+            // This is a final value.
+
+            rowOut.emplace_back(std::get<0>(*it).back(),
+                                ExpressionValue(std::move(std::get<1>(*it)),
+                                                std::get<2>(*it)));
+            ++it;
+            continue;
+        }
+
+        auto it2 = std::next(it);
+        while (it2 != last
+               && std::get<0>(*it2).at(level)
+               == std::get<0>(*it).at(level))
+            ++it2;
+
+        auto newValue = flattenLevel(it, it2, level + 1);
+        rowOut.emplace_back(std::get<0>(*it).at(level),
+                            std::move(newValue.first));
+
+        it = it2;
+    }
+    
+    ExcAssertEqual(numUnique, rowOut.size());
+
+    return std::make_pair(std::move(rowOut), hasDuplicates);
+};
+
+
 ExpressionValue::
 ExpressionValue(RowValue row) noexcept
 : type_(Type::NONE)
@@ -1746,88 +1826,7 @@ ExpressionValue(RowValue row) noexcept
     if (!isSorted)
         std::sort(row.begin(), row.end());
 
-    // Structure a flattened representation.  The range between first
-    // and last must all start with the same prefix, of length at least
-    // level.
-    //
-    // Returns the flattened representation, and a bool telling whether
-    // or not there are duplicate values in it.
-    std::function<std::pair<Structured, bool> (RowValue::iterator first,
-                              RowValue::iterator last,
-                              size_t level)>
-        doLevel = [&] (RowValue::iterator first,
-                       RowValue::iterator last,
-                       size_t level)
-        {
-            Structured rowOut;
-            
-            // Count how many unique keys there are?
-            size_t numUnique = 0;
-            bool hasDuplicates = false;
-
-            for (auto it = first;  it != last;  /* no inc */) {
-                ExcAssertGreater(std::get<0>(*it).size(), level);
-                // We know the prefix up to level is identical.  Now
-                // see how many output entries we have.
-
-                const PathElement & currentKey = std::get<0>(*it).at(level);
-
-                auto itEnd = it;
-
-                size_t numScalars = 0;
-                size_t numStructures = 0;
-                while (itEnd != last
-                       && std::get<0>(*itEnd).at(level) == currentKey) {
-                    if (std::get<0>(*itEnd).size() == level + 1) {
-                        ++numScalars;
-                    }
-                    else {
-                        ++numStructures;
-                    }
-                    ++itEnd;
-                }
-
-                size_t numUniqueThisEntry
-                    = numScalars + (numStructures > 0);
-
-                numUnique += numUniqueThisEntry;
-                hasDuplicates = hasDuplicates || numUniqueThisEntry > 1;
-
-                it = itEnd;
-            }
-
-            rowOut.reserve(numUnique);
-
-            for (auto it = first;  it != last;  /* no inc */) {
-                if (std::get<0>(*it).size() == level + 1) {
-                    // This is a final value.
-
-                    rowOut.emplace_back(std::get<0>(*it).back(),
-                                        ExpressionValue(std::move(std::get<1>(*it)),
-                                                        std::get<2>(*it)));
-                    ++it;
-                    continue;
-                }
-
-                auto it2 = std::next(it);
-                while (it2 != last
-                       && std::get<0>(*it2).at(level)
-                       == std::get<0>(*it).at(level))
-                    ++it2;
-
-                auto newValue = doLevel(it, it2, level + 1);
-                rowOut.emplace_back(std::get<0>(*it).at(level),
-                                    std::move(newValue.first));
-
-                it = it2;
-            }
-
-            ExcAssertEqual(numUnique, rowOut.size());
-
-            return std::make_pair(std::move(rowOut), hasDuplicates);
-        };
-
-    auto topLevel = doLevel(row.begin(), row.end(), 0 /* level */);
+    auto topLevel = flattenLevel(row.begin(), row.end(), 0 /* level */);
 
     initStructured(std::move(topLevel.first),
                    false /* needs sorting */,
