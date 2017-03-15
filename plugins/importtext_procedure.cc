@@ -654,17 +654,18 @@ parseFixedWidthCsvRow(const char * & line,
                 }
             }
 
-            if (isInt && sign == -1) {
-                values[outputIndex] = (int64_t)-num;
-            }
-            else if (isInt) { // positive integer
-                values[outputIndex] = num;
-            }
-            else {
-                // get it from the string
-                if (outputIndex != -1)
+            if (outputIndex != -1) {
+                if (isInt && sign == -1) {
+                    values[outputIndex] = (int64_t)-num;
+                }
+                else if (isInt) { // positive integer
+                    values[outputIndex] = num;
+                }
+                else {
+                    // get it from the string
                     values[outputIndex]
                         = finishString(start, len, eightBit);
+                }
             }
 
             ++colNum;
