@@ -10,9 +10,11 @@
 
 #include <memory>
 #include "mldb/types/value_description_fwd.h"
+#include <limits>
 
 
 namespace MLDB {
+
 
 struct CellValue;
 struct ExpressionValueInfo;
@@ -36,14 +38,16 @@ struct ColumnTypes {
     std::shared_ptr<ExpressionValueInfo>
     getExpressionValueInfo() const;
 
-    uint64_t numNulls;
-    uint64_t numZeros;
+    uint64_t numNulls = 0;
+    uint64_t numZeros = 0;
     
-    uint64_t numIntegers;
-    int64_t minNegativeInteger;
-    int64_t maxNegativeInteger;
-    uint64_t minPositiveInteger;
-    uint64_t maxPositiveInteger;
+    uint64_t numIntegers = 0;
+
+    int64_t minNegativeInteger = std::numeric_limits<int64_t>::max();
+    int64_t maxNegativeInteger = 0;
+
+    uint64_t minPositiveInteger = std::numeric_limits<uint64_t>::max();
+    uint64_t maxPositiveInteger = 0;
 
     bool hasPositiveIntegers() const
     {
@@ -62,13 +66,42 @@ struct ColumnTypes {
 
     bool onlyIntegersAndNulls() const
     {
-        return numReals == 0 && numStrings == 0 && numBlobs == 0 && numOther == 0;
+        return numReals == 0 && numStrings == 0 && numBlobs == 0
+            && numTimestamps == 0 && numOther == 0;
     }
 
-    uint64_t numReals;
-    uint64_t numStrings;
-    uint64_t numBlobs;
-    uint64_t numOther;  // timestamps, intervals
+    bool onlyDoubles() const
+    {
+        return numNulls == 0 && onlyDoublesAndNulls();
+    }
+
+    bool onlyDoublesAndNulls() const
+    {
+        return numStrings == 0 && numBlobs == 0 && numTimestamps == 0 && numOther == 0
+            && (numIntegers == 0
+                || (minNegativeInteger >= LOWEST_INT_IN_DOUBLE
+                    && maxPositiveInteger <= HIGHEST_INT_IN_DOUBLE));
+    }
+
+    bool onlyTimestamps() const
+    {
+        return numNulls == 0 && onlyTimestampsAndNulls();
+    }
+
+    bool onlyTimestampsAndNulls() const
+    {
+        return numReals == 0 && numIntegers == 0 && numZeros == 0
+            && numStrings == 0 && numBlobs == 0 && numOther == 0;
+    }
+
+    uint64_t numReals = 0;
+    uint64_t numStrings = 0;
+    uint64_t numBlobs = 0;
+    uint64_t numTimestamps = 0;
+    uint64_t numOther = 0;  // intervals
+
+    static constexpr int64_t HIGHEST_INT_IN_DOUBLE = 1ULL << 53;
+    static constexpr int64_t LOWEST_INT_IN_DOUBLE = -HIGHEST_INT_IN_DOUBLE;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ColumnTypes);
