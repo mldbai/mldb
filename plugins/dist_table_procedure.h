@@ -150,6 +150,7 @@ struct DistTableProcedureConfig : public ProcedureConfig {
 
     Optional<PolyConfigT<Dataset> > output;
     static constexpr char const * defaultOutputDatasetType = "tabular";
+    static constexpr char const * defaultBagOfWordsOutputDatasetType = "sparse.mutable";
 
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;

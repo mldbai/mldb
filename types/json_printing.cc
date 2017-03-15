@@ -995,7 +995,7 @@ void
 StructuredJsonPrintingContext::
 writeStringUtf8(const char * p, size_t len)
 {
-    *current = Utf8String(p, p + len);
+    *current = Utf8String(p, len);
 }
 
 void

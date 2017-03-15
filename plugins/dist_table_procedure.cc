@@ -355,13 +355,18 @@ run(const ProcedureRunConfig & run,
         };
 
     std::shared_ptr<Dataset> output;
-    if(runProcConf.output) {
-        if(runProcConf.mode == DT_MODE_BAG_OF_WORDS)
-            throw MLDB::Exception("Cannot use outputDataset when mode=bagOfWords");
-
+    if (runProcConf.output) {
         PolyConfigT<Dataset> outputDataset = *runProcConf.output;
-        if (outputDataset.type.empty())
-            outputDataset.type = DistTableProcedureConfig::defaultOutputDatasetType;
+        if (outputDataset.type.empty()) {
+            // not the same default dataset type depending on the mode
+            if (runProcConf.mode == DT_MODE_FIXED_COLUMNS) {
+                outputDataset.type =
+                    DistTableProcedureConfig::defaultOutputDatasetType;
+            } else {
+                outputDataset.type =
+                    DistTableProcedureConfig::defaultBagOfWordsOutputDatasetType;
+            }
+        }
 
         output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
     }
@@ -392,17 +397,44 @@ run(const ProcedureRunConfig & run,
                 targets[i] = outcome.toDouble();
             }
 
+            std::vector<std::tuple<ColumnPath, CellValue, Date> > output_cols;
 
-            if(runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
+            if (runProcConf.mode == DT_MODE_BAG_OF_WORDS) {
                 // there is only a single table
                 DistTable & distTable = distTablesMap.begin()->second;
-                for(const std::tuple<ColumnPath, CellValue, Date> & col : row.columns) {
-                    distTable.increment(get<0>(col).toUtf8String(), targets);
+
+                for (const std::tuple<ColumnPath, CellValue, Date> & col :
+                        row.columns) {
+
+                    // We only ignore the value if it's NULL. Any other value
+                    // is treated the same, so even x:0 will count as
+                    // "x being present"
+                    const CellValue & value = get<1>(col);
+                    if (value.empty())
+                        continue;
+
+                    // the feature value is in the column name
+                    const Utf8String & colName = get<0>(col).toUtf8String();
+                    const Date & ts = get<2>(col);
+
+                    if (output) {
+                        const auto & stats = distTable.getStats(colName);
+                        for (int i=0; i < nbOutcomes; ++i) {
+                            for (DISTTABLE_STATISTICS sid : activeStats) {
+                                output_cols.emplace_back(
+                                    PathElement(outcome_names[i])
+                                        + colName
+                                        + dtStatsNames[sid],
+                                    CellValue(stats[i].getStat(sid)),
+                                    ts);
+                            }
+                        }
+                    }
+
+                    distTable.increment(colName, targets);
                 }
             }
             else if(runProcConf.mode == DT_MODE_FIXED_COLUMNS) {
-
-                std::vector<std::tuple<ColumnPath, CellValue, Date> > output_cols;
 
                 map<ColumnPath, size_t> column_idx;
                 for (int i=0; i<row.columns.size(); i++) {
@@ -450,12 +482,13 @@ run(const ProcedureRunConfig & run,
                     distTable.increment(featureValue, targets);
                 }
 
-                if(output) {
-                    output->recordRow(ColumnPath(row.rowName), std::move(output_cols));
-                }
             }
             else {
                 throw MLDB::Exception("Unknown distTable mode");
+            }
+
+            if (output) {
+                output->recordRow(ColumnPath(row.rowName), std::move(output_cols));
             }
 
             return true;
