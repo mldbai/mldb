@@ -105,9 +105,11 @@ TabularDatasetColumn::
 freeze(const ColumnFreezeParameters & params)
 {
     ExcAssert(!isFrozen);
+
+    auto result = FrozenColumn::freeze(*this, params);
     isFrozen = true;
 
-    return FrozenColumn::freeze(*this, params);
+    return result;
 }
 
 #if 0

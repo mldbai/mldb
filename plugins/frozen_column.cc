@@ -833,11 +833,10 @@ FrozenColumn()
 {
 }
 
-
-std::shared_ptr<FrozenColumn>
-FrozenColumn::
-freeze(TabularDatasetColumn & column,
-       const ColumnFreezeParameters & params)
+std::pair<ssize_t, std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column)> >
+FrozenColumnFormat::
+preFreeze(const TabularDatasetColumn & column,
+          const ColumnFreezeParameters & params)
 {
     // Get the current list of formats
     auto formats = getFormats().load();
@@ -859,12 +858,30 @@ freeze(TabularDatasetColumn & column,
         }
     }
 
-    if (!bestFormat) {
+    if (bestFormat) {
+        return std::make_pair(bestBytes,
+                              [=] (TabularDatasetColumn & column)
+                              {
+                                  return std::shared_ptr<FrozenColumn>
+                                      (bestFormat->freeze(column, params, bestData));
+                              }
+                              );
+    }
+    
+    return std::make_pair(FrozenColumnFormat::NOT_BEST, nullptr);
+}
+
+std::shared_ptr<FrozenColumn>
+FrozenColumn::
+freeze(TabularDatasetColumn & column,
+       const ColumnFreezeParameters & params)
+{
+    ExcAssert(!column.isFrozen);
+    auto res = FrozenColumnFormat::preFreeze(column, params);
+    if (!res.second) {
         throw HttpReturnException(500, "No column format found for column");
     }
-
-    return std::shared_ptr<FrozenColumn>
-        (bestFormat->freeze(column, params, std::move(bestData)));
+    return res.second(column);
 }
 
 
