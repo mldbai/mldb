@@ -70,6 +70,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
           equalizationFactor(0.5),
           mode(CM_BOOLEAN),
           multilabelStrategy(MULTILABEL_RANDOM),
+          accuracyOverN(1),
           outputAccuracyDataset(true),
           uniqueScoresOnly(false),
           evalTrain(false)
@@ -110,6 +111,8 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
 
     // Strategy to handle multilabel
     MultilabelStrategy multilabelStrategy;
+
+    int accuracyOverN;
 
     bool outputAccuracyDataset;
     bool uniqueScoresOnly;

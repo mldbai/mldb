@@ -46,6 +46,8 @@ configure(const Configuration & config, vector<string> & unparsedKeys)
 {
     Classifier_Generator::configure(config, unparsedKeys);
 
+    config.find(verbosity, "verbosity");
+
     weak_learner = get_trainer("weak_learner", config);
 }
 
@@ -99,7 +101,13 @@ generate(Thread_Context & context,
     ExcAssert(mutable_trainingData->example_count() == training_data.example_count());
     mutable_trainingData->set_feature_space(fs2);
 
+    if (verbosity > 0)
+        cerr << numUniqueLabels << " unique label" << endl;
+
     do {        
+
+        if (verbosity > 0)
+            cerr << "label " << labelValue << " out of " << numUniqueLabels << endl;
 
         //Fix the feature space and training_data for binary classification
         weak_learner->init(fs2, predicted);
