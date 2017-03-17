@@ -757,9 +757,9 @@ struct TensorflowGraphBase: public Function {
                     inputTensors.emplace_back(std::move(inputTensor));
                     inputLayers.emplace_back(std::move(nodeName));
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Fetching tensor for input node `"
+                    rethrowHttpException(-1, "Fetching tensor for input node '"
                                          + nodeName
-                                         + "`: " + getExceptionString());
+                                         + "': " + getExceptionString());
                 }
             }
 
