@@ -12,7 +12,6 @@ function assertEqual(expr, val)
     throw "Assertion failure";
 }
 
-
 var res1 = mldb.query("SELECT tf_Cos(1.23, {T: { type: 'DT_DOUBLE'}}) AS res");
 var res2 = mldb.query("SELECT cos(1.23) AS res");
 
@@ -59,5 +58,9 @@ mldb.log(png);
 
 var conv_output = mldb.query("SELECT tf_Conv2D({input: [[[[1], [1], [1]], [[1], [1], [1]], [[1], [1], [1]]]], filter: [[[[1]], [[2]]], [[[2]], [[1]]]]}, {T: { type: 'DT_FLOAT'}, padding: 'SAME', strides: [ 1, 1, 1, 1] }) AS res")
 mldb.log(conv_output)
+
+//check that we get the name of the node in the error message
+var jpeg = mldb.get('/v1/query', {q: "SELECT tf_EncodeJpeg([[]]) AS *", format: 'table'});
+assertEqual(jpeg.json.error, "Fetching tensor for input node `image`: Can't convert value '' of type 'EMPTY' to unsigned integer")
 
 "success"
