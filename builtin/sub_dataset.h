@@ -66,6 +66,8 @@ struct SubDataset : public Dataset {
 
     virtual ExpressionValue getRowExpr(const RowPath & row) const override;
 
+    Dataset::MultiChunkRecorder getChunkRecorder() override;
+
 private:
     SubDatasetConfig datasetConfig;
     struct Itl;
