@@ -61,6 +61,6 @@ mldb.log(conv_output)
 
 //check that we get the name of the node in the error message
 var jpeg = mldb.get('/v1/query', {q: "SELECT tf_EncodeJpeg([[]]) AS *", format: 'table'});
-assertEqual(jpeg.json.error, "Fetching tensor for input node `image`: Can't convert value '' of type 'EMPTY' to unsigned integer")
+assertEqual(jpeg.json.error, "Fetching tensor for input node 'image': Can't convert value '' of type 'EMPTY' to unsigned integer")
 
 "success"
