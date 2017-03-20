@@ -19,6 +19,7 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
+#include "mldb/types/enum_description.h"
 
 using namespace std;
 using namespace ML;
@@ -42,6 +43,18 @@ double erfinv(double y)
 } // namespace ML
 
 namespace ML {
+
+DEFINE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, ML::Link_Function);
+
+LinkFunctionDescription::
+LinkFunctionDescription()
+{
+    addValue("LOGIT", ML::LOGIT, "Logit, good generic link for probabilistic");
+    addValue("PROBIT", ML::PROBIT, "Probit, advanced usage");
+    addValue("COMP_LOG_LOG", ML::COMP_LOG_LOG, "Also good for probabilistic");
+    addValue("LINEAR", ML::LINEAR, "Linear; makes it solve linear least squares (identity)");
+    addValue("LOG", ML::LOG, "Logarithm; good for transforming the output of boosting");
+}
 
 std::string print(Regularization regularization)
 {

@@ -16,7 +16,12 @@
 #include "decoder.h"
 #include <boost/multi_array.hpp>
 #include "mldb/ml/algebra/irls.h"
+#include "mldb/types/value_description_fwd.h"
+#include "mldb/ml/value_descriptions.h"
 
+namespace spdlog {
+    class logger;
+}
 
 namespace ML {
 
@@ -24,6 +29,27 @@ class Training_Data;
 class Classifier;
 class Classifier_Impl;
 
+/*****************************************************************************/
+/* PROBABILIZER                                                          */
+/*****************************************************************************/
+
+struct ProbabilizerModel
+{
+    ProbabilizerModel();
+    ProbabilizerModel(std::shared_ptr<spdlog::logger> logger);
+
+    //Score, label, weight
+    void train(const std::vector<std::tuple<float, float, float> >& fvs,
+               ML::Link_Function link);    
+
+    std::shared_ptr<spdlog::logger> logger;
+
+    std::string style;
+    ML::Link_Function link;
+    distribution<double> params;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProbabilizerModel);
 
 /*****************************************************************************/
 /* GLZ_PROBABILIZER                                                          */
