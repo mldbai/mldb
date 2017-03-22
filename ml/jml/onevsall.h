@@ -14,6 +14,7 @@
 #include "mldb/ml/jml/classifier.h"
 #include "feature_set.h"
 #include "mldb/ml/jml/feature_map.h"
+#include "mldb/ml/jml/probabilizer.h"
 
 
 namespace ML {
@@ -61,11 +62,13 @@ public:
     virtual OneVsAllClassifier * make_copy() const;
 
 
-    void push(std::shared_ptr<Classifier_Impl> subClassifier) {
+    void push(std::shared_ptr<Classifier_Impl> subClassifier,std::shared_ptr<ProbabilizerModel> probabilizer) {
         subClassifiers.push_back(subClassifier);
+        probabilizers.push_back(probabilizer);
     }
 
     std::vector<std::shared_ptr<Classifier_Impl>> subClassifiers;
+    std::vector<std::shared_ptr<ProbabilizerModel>> probabilizers;
 };
 
 } // namespace ML

@@ -131,9 +131,6 @@ train(const std::vector<std::tuple<float, float, float> >& fvs,
     double correction = -log((1 - trueOneRate) / trueOneRate
                              * sampleOneRate / (1 - sampleOneRate));
 
-    DEBUG_MSG(logger) << "paramBefore = " << probParams[1];
-    DEBUG_MSG(logger) << "correction = " << correction;
-
     probParams[1] += correction;
 
     INFO_MSG(logger) << "paramAfter = " << probParams[1];
@@ -141,6 +138,37 @@ train(const std::vector<std::tuple<float, float, float> >& fvs,
     style = "glz";
     link = link;
     params = probParams;
+
+    glz.link = link;
+    glz.params.resize(1);
+    glz.params[0] = params;
+}
+
+void 
+ProbabilizerModel::
+serialize(DB::Store_Writer & store) const
+{
+    const int version = 0;
+
+    store << version;
+    store << style;
+    store << link;
+    store << params;
+}
+
+void 
+ProbabilizerModel::
+reconstitute(DB::Store_Reader & store)
+{
+    int version = 0;
+    store >> version;
+    store >> style;
+    store >> link;
+    store >> params;
+
+    glz.link = link;
+    glz.params.resize(1);
+    glz.params[0] = params;
 }
 
 /*****************************************************************************/

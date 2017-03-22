@@ -682,13 +682,14 @@ run(const ProcedureRunConfig & run,
 
         auto onThread3 = [&] (ThreadAccum * acc)
             {
-               // std::map<int, int> multilabelMapping;
                 size_t i = 0;
                 for (auto&tuple : acc->multiLabelList) {
                     for (auto & label : tuple) {
-                        //from local category mapping to global category mapping 
+                        //from local category mapping to global category mapping
                         label = acc->labelMapping[label]; 
                     }
+                    //The above broke the sorting
+                    std::sort(tuple.begin(), tuple.end());
                     int globalCombinaisonId = 0;
                     auto it = multiLabelMap.find(tuple);
                     if (it == multiLabelMap.end()) {
@@ -704,8 +705,6 @@ run(const ProcedureRunConfig & run,
                     acc->multilabelMapping[i] = globalCombinaisonId;
                     ++i;
                 }
-                //acc->labelMapping.clear();
-                //acc->labelMapping = multilabelMapping;
             };
 
         accum.forEach(onThread3);
@@ -798,7 +797,8 @@ run(const ProcedureRunConfig & run,
     distribution<float> exampleWeights(nx);
 
     for (unsigned i = 0;  i < nx;  ++i) {
-        float label  = fvs[i].label();
+
+        float label  = fvs[i].label(); //IF MULTILABEL THIS LABEL IS A GLOBAL COMBINAISON LABEL
         float weight = fvs[i].weight();
 
         if (weight < 0)
@@ -818,8 +818,21 @@ run(const ProcedureRunConfig & run,
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
 
         if(runProcConf.mode != CM_REGRESSION) {
-            for(int lbl=0; lbl<num_weight_labels; lbl++) {
-                labelWeights[lbl][i] = weight * (label == lbl);
+
+            if (uniqueMultiLabelList.size() > 0) {
+
+                auto labelCombinaison = uniqueMultiLabelList[label];
+
+                for(int lbl=0; lbl<num_weight_labels; lbl++) {
+                    labelWeights[lbl][i] = std::find(labelCombinaison.begin(), 
+                                                     labelCombinaison.end(), lbl) 
+                                           != labelCombinaison.end() ?  weight : 0;
+                }
+            }
+            else {
+                for(int lbl=0; lbl<num_weight_labels; lbl++) {
+                    labelWeights[lbl][i] = weight * (label == lbl);
+                }
             }
         }
 

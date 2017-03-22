@@ -11,6 +11,8 @@
 #include "onevsall_generator.h"
 #include "mldb/ml/jml/registry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/log_fwd.h"
+#include "mldb/base/parallel.h"
 
 #include "training_index.h"
 
@@ -87,6 +89,8 @@ generate(Thread_Context & context,
          const std::vector<Feature> & features,
          int) const
 {
+    auto logger = MLDB::getMldbLog<OneVsAll_Classifier_Generator>();
+
     std::shared_ptr<OneVsAllClassifier> current = make_shared<OneVsAllClassifier>(model);
 
     ML::Mutable_Feature_Info labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
@@ -125,7 +129,23 @@ generate(Thread_Context & context,
 
         auto subClassifier = weak_learner->generate(context, *mutable_trainingData, weights, features);
 
-        current->push(subClassifier);
+        //Probabilize it
+        std::mutex fvsLock;
+        std::vector<std::tuple<float, float, float> > fvs;
+        fvs.resize(mutable_trainingData->example_count());
+
+        std::function<void (size_t)> doWork = [&] (size_t i) {
+            auto fs = mutable_trainingData->get(i);
+            float score = subClassifier->predict(1, *fs);
+            float weight = weights[i];
+            fvs[i] = std::make_tuple(score, (*fs)[predicted], weight);
+        };
+
+        parallelMap(0, mutable_trainingData->example_count(), doWork);
+
+        auto probabilizer = make_shared<ProbabilizerModel>(logger);
+        probabilizer->train(fvs, LOGIT);
+        current->push(subClassifier, probabilizer);
 
         ++labelValue;
     } while (labelValue < numUniqueLabels);

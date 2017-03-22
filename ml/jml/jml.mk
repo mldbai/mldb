@@ -62,7 +62,7 @@ LIBBOOSTING_SOURCES := \
         buckets.cc
 
 
-LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex fasttext
+LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex fasttext log
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 

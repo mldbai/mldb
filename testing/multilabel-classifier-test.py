@@ -270,7 +270,6 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         self.assertEqual(
             js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["recall over top 1"], 1.0)
 
-    
     def test_onevsall_simple(self):
         conf = {
             "type": "classifier.train",
@@ -304,8 +303,8 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             ],
             [
                 "result",
-                1,
-                -1
+                0.9999726414680481,
+                2.73847472271882e-05
             ]
         ])
 
@@ -343,9 +342,9 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             ],
             [
                 "result",
-                1,
-                -1,
-                1
+                0.9999789595603943,
+                3.6201177863404155e-05,
+                0.9999789595603943
             ]
         ])
 
@@ -385,7 +384,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
         res = mldb.put("/v1/procedures/multilabel_accuracy", accuracyConf);
         self.assertEquals(res.json()["status"]["firstRun"]["status"]["weightedStatistics"], {
-                "recall over top 1": 0.5555555555555556
+                "recall over top 1": 0.6666666666666666
             })
         
         accuracyConf = {
@@ -443,9 +442,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         accuracyConf = {
             "type": "classifier.test",
             "params": {
-                "testingData": """
-                    select classifyMe({{* EXCLUDING(label)} as features}) as score, label from categoricalds
-                """,
+                "testingData": "select classifyMe({{* EXCLUDING(label)} as features}) as score, label from categoricalds",
                 "mode" : "categorical",
                 "accuracyOverN" : 2,
                 "runOnCreation": True
@@ -521,9 +518,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         accuracyConf = {
             "type": "classifier.test",
             "params": {
-                "testingData": """
-                    select classifyMe({{* EXCLUDING(label)} as features}) as score, label from categoricalds
-                """,
+                "testingData": "select classifyMe({{* EXCLUDING(label)} as features}) as score, label from categoricalds",
                 "mode" : "categorical",
                 "accuracyOverN" : 3,
                 "runOnCreation": True
@@ -595,7 +590,6 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 }
             ]
         })
-        
 
 if __name__ == '__main__':
     mldb.run_tests()

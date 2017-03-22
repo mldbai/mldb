@@ -30,28 +30,6 @@ class Classifier;
 class Classifier_Impl;
 
 /*****************************************************************************/
-/* PROBABILIZER                                                          */
-/*****************************************************************************/
-
-struct ProbabilizerModel
-{
-    ProbabilizerModel();
-    ProbabilizerModel(std::shared_ptr<spdlog::logger> logger);
-
-    //Score, label, weight
-    void train(const std::vector<std::tuple<float, float, float> >& fvs,
-               ML::Link_Function link);    
-
-    std::shared_ptr<spdlog::logger> logger;
-
-    std::string style;
-    ML::Link_Function link;
-    distribution<double> params;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(ProbabilizerModel);
-
-/*****************************************************************************/
 /* GLZ_PROBABILIZER                                                          */
 /*****************************************************************************/
 
@@ -358,6 +336,31 @@ operator << (DB::Store_Writer & store, const GLZ_Probabilizer & prob);
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store, GLZ_Probabilizer & prob);
 
+/*****************************************************************************/
+/* PROBABILIZER                                                          */
+/*****************************************************************************/
+
+struct ProbabilizerModel
+{
+    ProbabilizerModel();
+    ProbabilizerModel(std::shared_ptr<spdlog::logger> logger);
+
+    //Score, label, weight
+    void train(const std::vector<std::tuple<float, float, float> >& fvs,
+               ML::Link_Function link);
+
+    void serialize(DB::Store_Writer & store) const;
+    void reconstitute(DB::Store_Reader & store);
+
+    std::shared_ptr<spdlog::logger> logger;
+
+    std::string style;
+    ML::Link_Function link;
+    distribution<double> params;
+    ML::GLZ_Probabilizer glz;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProbabilizerModel);
 
 } // namespace ML
 

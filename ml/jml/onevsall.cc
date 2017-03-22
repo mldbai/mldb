@@ -13,7 +13,7 @@
 #include "mldb/ml/jml/registry.h"
 #include "mldb/jml/db/persistent.h"
 #include "classifier_persist_impl.h"
-
+#include "mldb/ext/jsoncpp/json.h"
 
 
 using namespace std;
@@ -60,7 +60,7 @@ OneVsAllClassifier::predict(const Feature_Set & features,
     for (unsigned i = 0;  i < subClassifiers.size();  ++i) {
 
         Label_Dist sub_result = subClassifiers[i]->predict(features, context);
-        result[i] = sub_result[1];
+        result[i] = probabilizers[i]->glz.apply(ML::Label_Dist(1,sub_result[1]))[0];
     }
 
     return result;
@@ -102,8 +102,12 @@ serialize(DB::Store_Writer & store) const
     store << ONEVSALL_CLASSIFIER_MAGIC << ONEVSALL_CLASSIFIER_VERSION
           << compact_size_t(label_count());
     store << compact_size_t(subClassifiers.size());
-    for (auto& c : subClassifiers)
+    for (auto& c : subClassifiers) {
         c->poly_serialize(store, false /* write_fs */);
+    }
+    for (auto& p : probabilizers) {
+        p->serialize(store);
+    }
 
     feature_space()->serialize(store, predicted());
 }
@@ -130,6 +134,10 @@ reconstitute(DB::Store_Reader & store,
 
     for (size_t i = 0; i < numSub; ++i)
         subClassifiers.push_back(Classifier_Impl::poly_reconstitute(store, feature_space));
+    for (size_t i = 0; i < numSub; ++i) {
+        probabilizers.push_back(std::make_shared<ProbabilizerModel>());
+        probabilizers.back()->reconstitute(store);
+    }
 
     predicted_ = Feature(0, 0, 0);
     feature_space->reconstitute(store, predicted_);
