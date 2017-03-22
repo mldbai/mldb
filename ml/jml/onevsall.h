@@ -24,7 +24,7 @@ namespace ML {
 /* ONEVSALL_CLASSIFIER                                                       */
 /*****************************************************************************/
 
-/** Classifier that always returns the zero label. */
+/** Classifier that trains a binary classifier for each possible label */
 
 class OneVsAllClassifier : public Classifier_Impl {
 public:
