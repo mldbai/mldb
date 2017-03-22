@@ -94,7 +94,7 @@ replace(const Feature & feat, float val)
             it->second = val;
             ++it;
             int start = it - features.begin();
-            int pos = 0;
+            int pos = start;
 
             /* Shift those to delete back to maintain sorted property. */
             int num_to_delete = 0;
