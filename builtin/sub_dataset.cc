@@ -118,14 +118,16 @@ struct SubDataset::Itl
         }
 
         virtual void
-        recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
+        recordRows(const std::vector<std::pair<RowPath, 
+                   std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
         {
             for (auto & r: rows)
                 recordRow(r.first, r.second);
         }
 
         virtual void
-        recordRowsDestructive(std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows) override
+        recordRowsDestructive(std::vector<std::pair<RowPath, 
+                              std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows) override
         {
             for (auto & r: rows)
                 recordRowDestructive(std::move(r.first), std::move(r.second));
@@ -214,9 +216,9 @@ struct SubDataset::Itl
 
     template< typename E >
     static void AddRowInternal(const RowPath & rowName,
-                        E & expr,
-                        Chunk& chunk, 
-                        bool destructive)
+                               E & expr,
+                               Chunk& chunk, 
+                               bool destructive)
     {
         //STACK_PROFILE(AddRowToChunk);
         NamedRowValue newRow;
@@ -302,9 +304,12 @@ struct SubDataset::Itl
         std::lock_guard<std::mutex> lock(recordLock);
         //STACK_PROFILE(commitWrites);
         size_t start = mainChunk.subOutput.size();
-        mainChunk.subOutput.insert( mainChunk.subOutput.begin(), make_move_iterator(newChunk.subOutput.begin()),  make_move_iterator(newChunk.subOutput.end()));
+        mainChunk.subOutput.insert( mainChunk.subOutput.begin(), 
+                                    make_move_iterator(newChunk.subOutput.begin()),  
+                                    make_move_iterator(newChunk.subOutput.end()));
         mainChunk.columnNames.insert( newChunk.columnNames.begin(),  newChunk.columnNames.end());
-        mainChunk.fullFlattenedColumnNames.insert( newChunk.fullFlattenedColumnNames.begin(), newChunk.fullFlattenedColumnNames.end());
+        mainChunk.fullFlattenedColumnNames.insert( newChunk.fullFlattenedColumnNames.begin(), 
+                                                   newChunk.fullFlattenedColumnNames.end());
         for (auto& o : newChunk.rowIndex) {
            mainChunk.rowIndex[o.first] = o.second + start;
         }
@@ -433,9 +438,13 @@ struct SubDataset::Itl
     virtual bool knownColumn(const ColumnPath & column) const
     {
         if (column.size() == 1)
-            return std::find(mainChunk.columnNames.begin(), mainChunk.columnNames.end(), column[0]) != mainChunk.columnNames.end();
+            return std::find(mainChunk.columnNames.begin(), 
+                             mainChunk.columnNames.end(), column[0]) 
+                            != mainChunk.columnNames.end();
         else
-            return std::find(mainChunk.fullFlattenedColumnNames.begin(), mainChunk.fullFlattenedColumnNames.end(), column) != mainChunk.fullFlattenedColumnNames.end();
+            return std::find(mainChunk.fullFlattenedColumnNames.begin(), 
+                             mainChunk.fullFlattenedColumnNames.end(), column) 
+                            != mainChunk.fullFlattenedColumnNames.end();
     }
 
     virtual ColumnPath getColumnPath(ColumnHash columnHash) const
@@ -660,7 +669,8 @@ std::vector<ColumnPath>
 SubDataset::
 getFlattenedColumnNames() const
 {
-    return std::vector<ColumnPath>(itl->mainChunk.fullFlattenedColumnNames.begin(), itl->mainChunk.fullFlattenedColumnNames.end());
+    return std::vector<ColumnPath>(itl->mainChunk.fullFlattenedColumnNames.begin(), 
+                                   itl->mainChunk.fullFlattenedColumnNames.end());
 }
 
 size_t 
