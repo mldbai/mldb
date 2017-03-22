@@ -171,7 +171,7 @@ class FastTextTest(MldbUnitTest):
                 ],
                 [
                     "result",
-                    -0.6585947871208191
+                    -0.7329930067062378
                 ]
             ])
 
