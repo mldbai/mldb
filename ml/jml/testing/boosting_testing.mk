@@ -8,6 +8,7 @@ $(eval $(call test,glz_classifier_test,boosting utils arch,boost))
 $(eval $(call test,probabilizer_test,boosting utils arch,boost))
 $(eval $(call test,feature_info_test,boosting utils arch,boost))
 $(eval $(call test,weighted_training_test,boosting,boost))
+$(eval $(call test,feature_set_test,boosting,boost))
 
 $(eval $(call program,dataset_nan_test,boosting utils arch boosting_tools))
 
