@@ -56,7 +56,8 @@ private:
         int predictedIndex;
     };
 public:
-    Multilabel_Training_Data(const Training_Data & training_data, ML::Feature overrideFeature, std::shared_ptr<const Feature_Space> fs) :
+    Multilabel_Training_Data(const Training_Data & training_data, 
+                             ML::Feature overrideFeature, std::shared_ptr<const Feature_Space> fs) :
     Training_Data(fs),
     overrideFeature(overrideFeature), inner(training_data)  {
         data_.reserve(inner.example_count());

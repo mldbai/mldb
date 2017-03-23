@@ -86,12 +86,7 @@ public:
     {
         return feature_space_;
     }
-
-    void set_feature_space(std::shared_ptr<const Feature_Space> fs)
-    {
-        feature_space_ = fs;
-    }
-    
+   
     /** Dump the training data to a text file.  Exactly what is the format is
         determined by the feature space, but there will be the following
         general format:

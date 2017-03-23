@@ -92,7 +92,8 @@ public:
         { return inner->dense_features(); }
     virtual void freeze() override
         { throw MLDB::Exception("Cannot freeze Info_Override_Feature_Space"); }
-    virtual std::shared_ptr<Training_Data> training_data(const std::shared_ptr<const Feature_Space> & fs) const override
+    virtual std::shared_ptr<Training_Data> 
+        training_data(const std::shared_ptr<const Feature_Space> & fs) const override
         { return inner->training_data(fs); }
 
 private:

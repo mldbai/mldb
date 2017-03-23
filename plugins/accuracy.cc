@@ -286,7 +286,8 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                     }
 
                     if (accuracyOverN > 1) {
-                        bestlabelsCandidates.emplace_back(v, CellValue(jsonDecodeStr<CellValue>(columnName.toSimpleName())));
+                        bestlabelsCandidates.emplace_back(v, 
+                            CellValue(jsonDecodeStr<CellValue>(columnName.toSimpleName())));
                     }
 
                     return true;
@@ -294,7 +295,9 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             scoreLabelWeight[0].forEachAtom(onAtom);
 
             if (bestlabelsCandidates.size() > accuracyOverN) {
-                std::sort(bestlabelsCandidates.begin(), bestlabelsCandidates.end(), std::greater<std::pair<double, CellValue>>());
+                std::sort(bestlabelsCandidates.begin(), 
+                          bestlabelsCandidates.end(), 
+                          std::greater<std::pair<double, CellValue>>());
                 bestlabelsCandidates.erase(bestlabelsCandidates.begin()+accuracyOverN, bestlabelsCandidates.end());
             }
 
@@ -514,7 +517,9 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
             scoreLabelWeight[0].forEachAtom(onAtom);
 
             if (bestlabelsCandidates.size() > accuracyOverN) {
-                std::sort(bestlabelsCandidates.begin(), bestlabelsCandidates.end(), std::greater<std::pair<float, CellValue>>());
+                std::sort(bestlabelsCandidates.begin(), 
+                          bestlabelsCandidates.end(), 
+                          std::greater<std::pair<float, CellValue>>());
                 bestlabelsCandidates.erase(bestlabelsCandidates.begin()+accuracyOverN, bestlabelsCandidates.end());
             }
 

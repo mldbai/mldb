@@ -83,7 +83,7 @@ replace(const Feature & feat, float val)
 {
     if (locked) throw Exception("mutating locked feature set");
     if (is_sorted) {
-        // Can do this more sensibly, and keep it sorted... 
+        /* Can do this more sensibly, and keep it sorted... */
         features_type::iterator it
             = std::lower_bound(features.begin(), features.end(),
                                make_pair(feat, -INFINITY));
@@ -96,7 +96,7 @@ replace(const Feature & feat, float val)
             int start = it - features.begin();
             int pos = start;
 
-            // Shift those to delete back to maintain sorted property. 
+            /* Shift those to delete back to maintain sorted property. */
             int num_to_delete = 0;
             while (pos < features.size() && features[pos].first == feat) {
                 ++num_to_delete;

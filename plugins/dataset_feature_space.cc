@@ -599,6 +599,7 @@ std::ostream & operator << (std::ostream & stream,
     return stream;
 }
 
+
 static ML::Register_Factory<ML::Feature_Space, DatasetFeatureSpace>
 DFS_REG("MLDB::DatasetFeatureSpace");
 
