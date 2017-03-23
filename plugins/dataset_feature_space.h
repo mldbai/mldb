@@ -37,7 +37,7 @@ extern const ML::Feature labelFeature, weightFeature;
     Used to hook MLDB in the the JML machine learning system.
 */
 
-struct DatasetFeatureSpace: public ML::Mutable_Feature_Space {
+struct DatasetFeatureSpace: public ML::Feature_Space {
     DatasetFeatureSpace();
 
     DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
@@ -180,19 +180,8 @@ struct DatasetFeatureSpace: public ML::Mutable_Feature_Space {
 
     void reconstitute(ML::DB::Store_Reader & store);
     virtual void serialize(ML::DB::Store_Writer & store) const override;
+    virtual ML::Feature_Space * make_copy() const;
 
-    /*****************************************************************************/
-    /* MUTABLE_FEATURE_SPACE                                                     */
-    /*****************************************************************************/
-
-
-    virtual void set_info(const ML::Feature & feature, const ML::Feature_Info & info);
-    virtual ML::Feature
-    make_feature(const std::string & name,
-                 const ML::Feature_Info & info = ML::UNKNOWN);
-    virtual ML::Feature get_feature(const std::string & name) const;
-    virtual void import(const ML::Feature_Space & from);
-    virtual ML::Mutable_Feature_Space * make_copy() const;
 };
 
 

@@ -13,6 +13,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/utils/log_fwd.h"
 #include "mldb/base/parallel.h"
+#include "mldb/ml/jml/info_override_feature_space.h"
 
 #include "training_index.h"
 
@@ -97,8 +98,8 @@ generate(Thread_Context & context,
 
     int labelValue = 0; 
 
-    std::shared_ptr<Mutable_Feature_Space> fs2 = std::dynamic_pointer_cast<Mutable_Feature_Space>(make_sp(feature_space->make_copy()));
-    ExcAssert(fs2);
+    std::shared_ptr<Info_Override_Feature_Space> fs2 = std::make_shared<Info_Override_Feature_Space>(feature_space);
+
     fs2->set_info(predicted, labelInfo);
 
     std::shared_ptr<Training_Data> mutable_trainingData(make_sp(training_data.make_copy()));

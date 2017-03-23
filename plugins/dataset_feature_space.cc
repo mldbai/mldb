@@ -512,7 +512,7 @@ type() const
     return ML::SPARSE;
 }
 
-ML::Mutable_Feature_Space *
+ML::Feature_Space *
 DatasetFeatureSpace::
 make_copy() const
 {
@@ -590,41 +590,6 @@ serialize(ML::DB::Store_Writer & store) const
     }
 
     DEBUG_MSG(logger) << "done serializing feature space";
-}
-
-void 
-DatasetFeatureSpace::
-set_info(const ML::Feature & feature, const ML::Feature_Info & info) {
-    if (feature == labelFeature) {
-        labelInfo = info;
-    }
-    else if (feature != ML::MISSING_FEATURE &&
-             feature !=  weightFeature) {
-
-        // Look up the feature info
-        auto it = columnInfo.find(getHash(feature));
-        if (it == columnInfo.end())
-            throw MLDB::Exception("feature " + feature.print() + " not found");
-
-        it->second.info = info;
-    }
-}
-ML::Feature
-DatasetFeatureSpace::
-make_feature(const std::string & name,
-             const ML::Feature_Info & info /*= ML::UNKNOWN*/) {
-    throw MLDB::Exception("Cannot create new features in DatasetFeatureSpace");
-}
-ML::Feature 
-DatasetFeatureSpace::
-get_feature(const std::string & name) const {
-    throw MLDB::Exception("Cannot create new features in DatasetFeatureSpace");
-}
-
-void 
-DatasetFeatureSpace::
-import(const ML::Feature_Space & from) {
-    throw MLDB::Exception("Cannot import feature space to DatasetFeatureSpace");
 }
 
 std::ostream & operator << (std::ostream & stream,
