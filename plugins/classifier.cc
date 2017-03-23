@@ -70,7 +70,7 @@ MultilabelStrategyDescription()
 {
     addValue("random",  MULTILABEL_RANDOM, "Label is selected at random");
     addValue("decompose", MULTILABEL_DECOMPOSE, "Examples are decomposed in single-label examples");
-    addValue("one-vs-all", MULTILABEL_ONEVSALL, "A binary classifier is trained for each label");
+    addValue("one-vs-all", MULTILABEL_ONEVSALL, "A probabilized binary classifier is trained for each label");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(ClassifierConfig);
@@ -85,18 +85,19 @@ ClassifierConfigDescription()
     addField("multilabelStrategy", &ClassifierConfig::multilabelStrategy,
              "Multilabel strategy: `random` or `decompose`. "
              "Controls how examples are prepared to handle multilabel classification. "
-             , MULTILABEL_RANDOM);
+             , MULTILABEL_ONEVSALL);
     addField("trainingData", &ClassifierConfig::trainingData,
              "SQL query which specifies the features, labels and optional weights for training. "
              "The query should be of the form `select {f1, f2} as features, x as label from ds`.\n\n"
              "The select expression must contain these two columns: \n\n"
              "  * `features`: a row expression to identify the features on which to \n"
              "    train, and \n"
-             "  * `label`: one scalar expression to identify the row's label, and whose type "
+             "  * `label`: one expression to identify the row's label(s), and whose type "
              "must match that of the classifier mode. Rows with null labels will be ignored. \n"
              "     * `boolean` mode: a boolean (0 or 1)\n"
              "     * `regression` mode: a real number\n"
              "     * `categorical` mode: any combination of numbers and strings\n\n"
+             "     * `multilabel` mode: a row, in which each non-null column is a separate label\n\n"
              "The select expression can contain an optional `weight` column. The weight "
              "allows the relative importance of examples to be set. It must "
              "be a real number. If the `weight` is not specified each row will have "
