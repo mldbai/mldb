@@ -60,7 +60,8 @@ LIBBOOSTING_SOURCES := \
         bit_compressed_index.cc \
         label.cc \
         buckets.cc \
-        info_override_feature_space.cc
+        info_override_feature_space.cc \
+        multilabel_training_data.cc
 
 
 LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex fasttext log

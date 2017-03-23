@@ -23,6 +23,7 @@ namespace ML {
 
 
 class Dataset_Index;
+class Multilabel_Training_Data;
 
 
 /*****************************************************************************/
@@ -252,6 +253,8 @@ protected:
     }
 
     const Dataset_Index & generate_index() const;
+
+    friend Multilabel_Training_Data;
 };
 
 

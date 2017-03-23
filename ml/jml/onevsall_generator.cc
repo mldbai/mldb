@@ -14,6 +14,7 @@
 #include "mldb/utils/log_fwd.h"
 #include "mldb/base/parallel.h"
 #include "mldb/ml/jml/info_override_feature_space.h"
+#include "mldb/ml/jml/multilabel_training_data.h"
 
 #include "training_index.h"
 
@@ -99,12 +100,11 @@ generate(Thread_Context & context,
     int labelValue = 0; 
 
     std::shared_ptr<Info_Override_Feature_Space> fs2 = std::make_shared<Info_Override_Feature_Space>(feature_space);
-
     fs2->set_info(predicted, labelInfo);
 
-    std::shared_ptr<Training_Data> mutable_trainingData(make_sp(training_data.make_copy()));
+    std::shared_ptr<Multilabel_Training_Data> mutable_trainingData 
+        = make_shared<Multilabel_Training_Data>(training_data, predicted, fs2);
     ExcAssert(mutable_trainingData->example_count() == training_data.example_count());
-    mutable_trainingData->set_feature_space(fs2);
 
     if (verbosity > 0)
         cerr << numUniqueLabels << " unique label" << endl;
@@ -117,16 +117,16 @@ generate(Thread_Context & context,
         //Fix the feature space and training_data for binary classification
         weak_learner->init(fs2, predicted);
 
-        for(size_t i = 0; i < mutable_trainingData->example_count(); ++i) {
-
-           float currentLabelValue = training_data[i][predicted];
+        auto getPredictedScore = [&] (int exampleNumber) {
+           float currentLabelValue = training_data[exampleNumber][predicted];
            int combinaisonIndex = (int)currentLabelValue;
            ExcAssert(combinaisonIndex < multiLabelList.size());
 
            const auto& combinaison = multiLabelList[combinaisonIndex];
-           float new_value = std::count(combinaison.begin(), combinaison.end(), labelValue) > 0 ? 1.0f : 0.0f;
-           mutable_trainingData->modify_feature(i, predicted, new_value);
-        }
+           return std::count(combinaison.begin(), combinaison.end(), labelValue) > 0 ? 1.0f : 0.0f;
+        };
+
+        mutable_trainingData->changePredictedValue(getPredictedScore);
 
         auto subClassifier = weak_learner->generate(context, *mutable_trainingData, weights, features);
 
