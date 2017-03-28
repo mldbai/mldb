@@ -69,7 +69,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
           kfold(0),
           equalizationFactor(0.5),
           mode(CM_BOOLEAN),
-          multilabelStrategy(MULTILABEL_RANDOM),
+          multilabelStrategy(MULTILABEL_ONEVSALL),
           accuracyOverN(1),
           outputAccuracyDataset(true),
           uniqueScoresOnly(false),

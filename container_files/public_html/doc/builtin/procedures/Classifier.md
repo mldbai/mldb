@@ -28,7 +28,8 @@ The `mode` field controls which mode the classifier will operate in:
 - `categorical` mode will use a categorical (multi-class) label, and will
   predict the probability of each of the categories independently.  This
   style therefore produces multiple outputs.
-- `multilabel` mode will use a set of categorical (multi-class) labels, and will
+- `multilabel` mode will do [multi-label classification](https://en.wikipedia.org/wiki/Multi-label_classification) 
+  by using a set of categorical (multi-class) labels, and will
   predict the probability of each of the categories independently.  This
   style therefore produces multiple outputs. The `multilabelStrategy` field
   controls how multilabel classification is handled.

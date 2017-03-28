@@ -342,7 +342,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
 
     // Create confusion matrix (actual / predicted)
-    std::string recallString = "recall over top " + std::to_string(accuracyOverN);
+    std::string recallString = "recall over top N";
     map<CellValue, map<CellValue, double>> confusion_matrix;
     map<CellValue, double> predicted_sums;
     map<CellValue, double> real_sums;
@@ -373,6 +373,8 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     // Create per-class statistics
     Json::Value results;
     results["labelStatistics"] = Json::Value();
+    if (accuracyOverN > 1)
+        results["recallOverN"] = accuracyOverN;
 
     double total_accuracy = 0;
     double total_precision = 0;
@@ -516,12 +518,9 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                 };
             scoreLabelWeight[0].forEachAtom(onAtom);
 
-            if (bestlabelsCandidates.size() > accuracyOverN) {
                 std::sort(bestlabelsCandidates.begin(), 
                           bestlabelsCandidates.end(), 
                           std::greater<std::pair<float, CellValue>>());
-                bestlabelsCandidates.erase(bestlabelsCandidates.begin()+accuracyOverN, bestlabelsCandidates.end());
-            }
 
             for (const auto& pair : bestlabelsCandidates) {
                 bestlabels.push_back(pair.second);
@@ -583,6 +582,7 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
 
     double totalWeight = 0;
     double totalAccurateWeight = 0;
+    double totalCoverageError = 0;
 
     accum.forEach([&] (AccumBucket * thrBucket)
             {
@@ -595,24 +595,37 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                     if (weight == 0)
                         continue;
 
+                    size_t maxRank = 0;
+                    double totalExampleWeight = 0;
+
                     for (auto& label : labels) {
 
-                        if (std::find(topPredicted.begin(), topPredicted.end(), label) != topPredicted.end()) {
-                            recallsums[label] += weight;
-                            totalAccurateWeight += weight;
+                        auto labelScoreIt = std::find(topPredicted.begin(), topPredicted.end(), label);
+                        size_t rank = topPredicted.size();
+                        if ( labelScoreIt != topPredicted.end()) {
+                            rank = labelScoreIt - topPredicted.begin();
+                            if (rank < accuracyOverN) {
+                                recallsums[label] += weight;
+                                totalAccurateWeight += weight;
+                            }
                         }
 
+                        maxRank = std::max(maxRank, rank);
                         labelsums[label] += weight;
                         totalWeight += weight;
+                        totalExampleWeight += weight;
                     }
+
+                    totalCoverageError += (1+maxRank)*totalExampleWeight;
                 }
             });
 
     // Create per-class statistics
     Json::Value results;
     results["labelStatistics"] = Json::Value();
+    results["recallOverN"] = accuracyOverN;
 
-    std::string recallString = "recall over top " + std::to_string(accuracyOverN);
+    std::string recallString = "recall over top N";
 
     for(const auto & actual_it : labelsums) {
 
@@ -630,6 +643,7 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
     // Create weighted statistics
     Json::Value weighted_stats;
     weighted_stats[recallString] = totalAccurateWeight / totalWeight;
+    weighted_stats["coverageError"] = totalCoverageError / totalWeight;
     results["weightedStatistics"] = weighted_stats;
 
     return Any(results);

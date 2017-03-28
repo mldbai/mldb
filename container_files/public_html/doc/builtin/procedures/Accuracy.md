@@ -205,14 +205,14 @@ statistic (e.g. [recall](http://en.wikipedia.org/wiki/Precision_and_recall))
 for the classifier, where the labels with the highest score will be chosen as the
 predictions for each example. I.e, each example will register a positive for 
 each of its label(s) that is found among the set of highest scoring labels returned by the classifier.
-The size of this set is determined by the `accuracyOverN` parameter. It follows that a `1.0` recall rate cannot
-be obtained if any example contains more unique labels than the value of the `accuracyOverN`
+The size of this set is determined by the `recallOverN` parameter. It follows that a `1.0` recall rate cannot
+be obtained if any example contains more unique labels than the value of the `recallOverN`
 parameter.
 
 The `weighted_statistics` represents the average of the 
 per-label statistics.
 
-Here is a sample output, with `accuracyOverN` set to `3`:
+Here is a sample output, with `recallOverN` set to `3`:
 
 ```python
 {
