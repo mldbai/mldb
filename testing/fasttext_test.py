@@ -55,10 +55,7 @@ class FastTextTest(MldbUnitTest):
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",
                 "params": {
-                    "trainingData": """SELECT {tokens.*} as features, 
-                                              Theme as label 
-                                       FROM bag_of_words
-                                    """,
+                    "trainingData": "SELECT {tokens.*} as features, Theme as label FROM bag_of_words",
                     "modelFileUrl": "file://tmp/src_fasttext.cls",
                     "functionName" : 'myclassify',
                     "algorithm": "my_fasttext",
@@ -112,10 +109,7 @@ class FastTextTest(MldbUnitTest):
                 mldb.put("/v1/procedures/trainer", {
                     "type": "classifier.train",
                     "params": {
-                        "trainingData": """SELECT {tokens.*} as features, 
-                                                  rowHash() as label 
-                                           FROM bag_of_words
-                                        """,
+                        "trainingData": "SELECT {tokens.*} as features, rowHash() as label FROM bag_of_words",
                         "modelFileUrl": "file://tmp/src_fasttext_error.cls",
                         "functionName" : 'myclassify',
                         "algorithm": "my_fasttext",
@@ -171,7 +165,7 @@ class FastTextTest(MldbUnitTest):
                 ],
                 [
                     "result",
-                    -0.6585947871208191
+                    -0.7329930067062378
                 ]
             ])
 
