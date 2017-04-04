@@ -7,6 +7,7 @@
 
 
 #include "multilabel_training_data.h"
+#include "training_index.h"
 
 namespace ML {
 
@@ -43,6 +44,19 @@ Multilabel_Training_Data::Multilabel_Feature_Set::
 make_copy() const 
 {
     return new Multilabel_Training_Data::Multilabel_Feature_Set(*this);
+}
+
+Multilabel_Training_Data::
+Multilabel_Training_Data(const Training_Data & training_data, 
+                             ML::Feature overrideFeature, std::shared_ptr<const Feature_Space> fs) :
+    Training_Data(fs),
+    overrideFeature(overrideFeature), inner(training_data)  
+{
+    data_.reserve(inner.example_count());
+    for(size_t i = 0; i < inner.example_count(); ++i) {
+       data_.push_back(std::make_shared<Multilabel_Feature_Set>(training_data.share(i), overrideFeature));           
+    }
+    index_ = std::make_shared<Dataset_Index>(training_data.index());
 }
 
 void 

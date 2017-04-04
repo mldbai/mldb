@@ -6,6 +6,12 @@
    $Source$
 
    onevsall classifier
+
+   This classifier handles classification problems where each example has a set of labels 
+   instead of a single one (for example, tagging content) by training an ensemble of binary sub-classifiers,
+   one for each possible unique label.
+
+   The binary sub-classifiers are probabilized because their score need to be always comparable.
 */
 
 

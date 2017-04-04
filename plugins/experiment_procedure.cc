@@ -85,8 +85,11 @@ ExperimentProcedureConfigDescription()
              "Controls how the label is interpreted and what is the output of the classifier. "
              , CM_BOOLEAN);
     addField("multilabelStrategy", &ExperimentProcedureConfig::multilabelStrategy,
-             "Multilabel strategy: `random` or `decompose`. "
+             "Multilabel strategy: `random`, `decompose` or `onevsall`"
              "Controls how examples are prepared to handle multilabel classification."
+             "  *`random` will select a label at random among the example's set"
+             "  *`decompose` will decompose the multilabel combination into single-label examples"
+             "  *`onevsall` will train a probabilized binary classifier for each label"
              "This only applies if `mode` is equal to `multilabel`"
              , MULTILABEL_ONEVSALL);
     addField("recallOverN", &ExperimentProcedureConfig::accuracyOverN,

@@ -248,8 +248,6 @@ protected:
     }
 
     const Dataset_Index & generate_index() const;
-
-    friend Multilabel_Training_Data;
 };
 
 

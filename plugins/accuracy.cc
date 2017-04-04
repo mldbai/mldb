@@ -33,6 +33,7 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/utils/log.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 #define NO_DATA_ERR_MSG "Cannot run classifier.test procedure on empty test set"
 
@@ -251,8 +252,12 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                std::shared_ptr<Dataset> output,
                int accuracyOverN)
 {
-    typedef vector<std::tuple<CellValue, CellValue, std::vector<CellValue>, double>> AccumBucket;
+    typedef vector<std::tuple<CellValue, CellValue, double>> AccumBucket;
+    typedef vector<std::tuple<CellValue, CellValue, std::vector<CellValue>, double>> AccumBucketWithBestLabels;
+
+    //We use one or the other
     PerThreadAccumulator<AccumBucket> accum;
+    PerThreadAccumulator<AccumBucketWithBestLabels> accumWithBestLabels;
 
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
@@ -267,9 +272,8 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
             static const ColumnPath score("score");
 
-            std::vector<std::pair<double, CellValue>> bestlabelsCandidates;
-            std::vector<CellValue> bestlabels;
-            
+            PossiblyDynamicBuffer<std::pair<double, CellValue>> bestlabelsCandidates(scoreLabelWeight[0].getAtomCount());            
+            size_t labelCount = 0;
             auto onAtom = [&] (const Path & columnName,
                                const Path & prefix,
                                const CellValue & val,
@@ -286,8 +290,8 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                     }
 
                     if (accuracyOverN > 1) {
-                        bestlabelsCandidates.emplace_back(v, 
-                            CellValue(jsonDecodeStr<CellValue>(columnName.toSimpleName())));
+                        bestlabelsCandidates[labelCount] = std::pair<double, CellValue>(v, jsonDecodeStr<CellValue>(columnName.toSimpleName()));
+                        ++labelCount;
                     }
 
                     return true;
@@ -295,21 +299,29 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             scoreLabelWeight[0].forEachAtom(onAtom);
 
             if (bestlabelsCandidates.size() > accuracyOverN) {
-                std::sort(bestlabelsCandidates.begin(), 
-                          bestlabelsCandidates.end(), 
+                std::partial_sort(bestlabelsCandidates.data(), 
+                          bestlabelsCandidates.data() + accuracyOverN,
+                          bestlabelsCandidates.data() + bestlabelsCandidates.size(), 
                           std::greater<std::pair<double, CellValue>>());
-                bestlabelsCandidates.erase(bestlabelsCandidates.begin()+accuracyOverN, bestlabelsCandidates.end());
             }
 
-            for (const auto& pair : bestlabelsCandidates) {
-                bestlabels.push_back(pair.second);
+            size_t numBest = std::min((size_t)accuracyOverN, bestlabelsCandidates.size());
+            PossiblyDynamicBuffer<CellValue> bestlabels(numBest);
+            for (size_t i = 0; i < numBest; ++i) {
+                bestlabels[i] = bestlabelsCandidates[i].second;
             }
 
             CellValue label = scoreLabelWeight[1].getAtom();
-
             double weight = scoreLabelWeight[2].toDouble();
 
-            accum.get().emplace_back(label, maxLabel, bestlabels , weight);
+            if (accuracyOverN > 1) {                
+                accumWithBestLabels.get().emplace_back(label, 
+                                                       maxLabel, 
+                                                       std::vector<CellValue>(bestlabels.data(), bestlabels.data()+numBest), 
+                                                       weight);
+            }
+            else 
+                accum.get().emplace_back(label, maxLabel, weight);
 
             if(output) {
                 outputRow.emplace_back(ColumnPath("maxLabel"), maxLabel, recordDate);
@@ -349,23 +361,40 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     map<CellValue, double> predicted_topn_sums;
     double conf_mat_sum = 0;
     bool gotStuff = false;
-    accum.forEach([&] (AccumBucket * thrBucket)
-            {
-                gotStuff = true;
-                for(auto & elem : *thrBucket) {
-                    const CellValue & label = std::get<0>(elem);
-                    const CellValue & predicted = std::get<1>(elem);
-                    const std::vector<CellValue>& toppredicted = std::get<2>(elem);
-                    const double & weight = std::get<3>(elem);
-                    confusion_matrix[label][predicted] += weight;
-                    real_sums[label] += weight;
-                    predicted_sums[predicted] += weight;
-                    conf_mat_sum += weight;
-                    if (std::find(toppredicted.begin(), toppredicted.end(), label) != toppredicted.end()){
-                        predicted_topn_sums[label] += weight;
-                    }
+    if (accuracyOverN > 1) {
+        accumWithBestLabels.forEach([&] (AccumBucketWithBestLabels * thrBucket)
+        {
+            gotStuff = true;
+            for(auto & elem : *thrBucket) {
+                const CellValue & label = std::get<0>(elem);
+                const CellValue & predicted = std::get<1>(elem);
+                const std::vector<CellValue>& toppredicted = std::get<2>(elem);
+                const double & weight = std::get<3>(elem);
+                confusion_matrix[label][predicted] += weight;
+                real_sums[label] += weight;
+                predicted_sums[predicted] += weight;
+                conf_mat_sum += weight;
+                if (std::find(toppredicted.begin(), toppredicted.end(), label) != toppredicted.end()){
+                    predicted_topn_sums[label] += weight;
                 }
-            });
+            }
+        });
+    }
+    else {
+        accum.forEach([&] (AccumBucket * thrBucket)
+        {
+            gotStuff = true;
+            for(auto & elem : *thrBucket) {
+                const CellValue & label = std::get<0>(elem);
+                const CellValue & predicted = std::get<1>(elem);
+                const double & weight = std::get<2>(elem);
+                confusion_matrix[label][predicted] += weight;
+                real_sums[label] += weight;
+                predicted_sums[predicted] += weight;
+                conf_mat_sum += weight;
+            }
+        });
+    }    
 
     if (!gotStuff) {
         throw MLDB::Exception(NO_DATA_ERR_MSG);

@@ -65,16 +65,8 @@ ProbabilizerModelDescription()
 }
 
 ProbabilizerModel::
-ProbabilizerModel() 
+ProbabilizerModel()
 : link(ML::LOGIT)
-{
-
-}
-
-ProbabilizerModel::
-ProbabilizerModel(std::shared_ptr<spdlog::logger> logger)
-: logger(logger), 
-link(ML::LOGIT)
 {
 
 }
@@ -84,7 +76,7 @@ ProbabilizerModel::
 train(const std::vector<std::tuple<float, float, float> >& fvs,
       ML::Link_Function link) 
 {
-    ExcAssert(logger);
+    auto logger = MLDB::getMldbLog<ProbabilizerModel>();
     size_t nx = fvs.size();
     boost::multi_array<double, 2> outputs(boost::extents[2][nx]);  // value, bias
     distribution<double> correct(nx, 0.0);

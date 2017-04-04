@@ -172,7 +172,7 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
 
-    ProbabilizerModel probabilizer(logger);
+    ProbabilizerModel probabilizer;
     probabilizer.train(fvs, runProcConf.link);
 
     if (!runProcConf.modelFileUrl.toString().empty()) {

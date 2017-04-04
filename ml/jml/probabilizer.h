@@ -343,7 +343,6 @@ operator >> (DB::Store_Reader & store, GLZ_Probabilizer & prob);
 struct ProbabilizerModel
 {
     ProbabilizerModel();
-    ProbabilizerModel(std::shared_ptr<spdlog::logger> logger);
 
     //Score, label, weight
     void train(const std::vector<std::tuple<float, float, float> >& fvs,
@@ -351,8 +350,6 @@ struct ProbabilizerModel
 
     void serialize(DB::Store_Writer & store) const;
     void reconstitute(DB::Store_Reader & store);
-
-    std::shared_ptr<spdlog::logger> logger;
 
     std::string style;
     ML::Link_Function link;

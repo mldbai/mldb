@@ -69,7 +69,7 @@ options() const
 {
     Config_Options result = Classifier_Generator::options();
     result       
-        .subconfig("weak_leaner", weak_learner,
+        .subconfig("binary_classifier", weak_learner,
                    "Binary classifier for each label value");
     
     return result;
@@ -131,7 +131,6 @@ generate(Thread_Context & context,
         auto subClassifier = weak_learner->generate(context, *mutable_trainingData, weights, features);
 
         //Probabilize it
-        std::mutex fvsLock;
         std::vector<std::tuple<float, float, float> > fvs;
         fvs.resize(mutable_trainingData->example_count());
 
@@ -144,7 +143,7 @@ generate(Thread_Context & context,
 
         parallelMap(0, mutable_trainingData->example_count(), doWork);
 
-        auto probabilizer = make_shared<ProbabilizerModel>(logger);
+        auto probabilizer = make_shared<ProbabilizerModel>();
         probabilizer->train(fvs, LOGIT);
         current->push(subClassifier, probabilizer);
 
