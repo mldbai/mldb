@@ -94,8 +94,7 @@ ExperimentProcedureConfigDescription()
              , MULTILABEL_ONEVSALL);
     addField("recallOverN", &ExperimentProcedureConfig::accuracyOverN,
               "Calculate a recall score over the top scoring labels."
-              "Does not apply to boolean or regression modes."
-              , 1);
+              "Does not apply to boolean or regression modes.");
     addField("inputData", &ExperimentProcedureConfig::inputData,
              "SQL query which specifies the features, labels and optional weights for the training and testing procedures. "
              "This query is used to create a training and testing set according to the [steps laid "

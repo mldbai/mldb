@@ -204,7 +204,7 @@ The `status` field will contain the recall among top-N performance
 statistic (e.g. [recall](http://en.wikipedia.org/wiki/Precision_and_recall)) 
 for the classifier, where the labels with the highest score will be chosen as the
 predictions for each example. I.e, each example will register a positive for 
-each of its label(s) that is found among the set of highest scoring labels returned by the classifier.
+each of its label(s) that is found among the set(s) of highest scoring labels returned by the classifier.
 The size of this set is determined by the `recallOverN` parameter. It follows that a `1.0` recall rate cannot
 be obtained if any example contains more unique labels than the value of the `recallOverN`
 parameter.
@@ -212,29 +212,33 @@ parameter.
 The `weighted_statistics` represents the average of the 
 per-label statistics.
 
-Here is a sample output, with `recallOverN` set to `3`:
+Here is a sample output, with `recallOverN` set to `[3, 5]`, to calculate the recall over the top 3 and 5 best labels,
+respectively:
 
 ```python
 {
     "status": {
                 "weightedStatistics": {
-                    "recall over top 3": 0.6666666666666666
+                    "recallOverTopN": [0.6666666666666666, 1.0]
                 },
                 "labelStatistics": {
                     "label0": {
-                        "recall over top 3": 0.3333333333333333
+                        "recallOverTopN": [0.3333333333333333, 1.0]
                     },
                     "label1": {
-                        "recall over top 3": 0.6666666666666666
+                        "recallOverTopN": [0.6666666666666666, 1.0]
                     },
                     "label2": {
-                        "recall over top 3": 1.0
+                        "recallOverTopN": [1.0, 1.0]
                     }
                 }
             },
     "state": "finished"
 }
 ```
+
+This indicates that in this example most true-positive labels are found with the top 3, and 
+all within the top 5. For `label2`, they are always found within the top 3.
 
 The `output` dataset created by this procedure in `multilabel` mode 
 will contain one row per input row, 

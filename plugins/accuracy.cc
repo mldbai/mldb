@@ -87,10 +87,9 @@ AccuracyConfigDescription()
               "test set is very large and aggregate statistics for each unique score is "
               "sufficient, for instance to generate a ROC curve. This has no effect "
               "for other values of `mode`.", false);
-    addField("accuracyOverN", &AccuracyConfig::accuracyOverN,
+    addField("recallOverN", &AccuracyConfig::accuracyOverN,
               "Calculate a recall score over the top scoring labels."
-              "Does not apply to boolean or regression modes."
-              , 1);
+              "Does not apply to boolean or regression modes.");
     
     addParent<ProcedureConfig>();
 
@@ -250,7 +249,7 @@ RunOutput
 runCategorical(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
                std::shared_ptr<Dataset> output,
-               int accuracyOverN)
+               const std::vector<size_t>& accuracyOverN)
 {
     typedef vector<std::tuple<CellValue, CellValue, double>> AccumBucket;
     typedef vector<std::tuple<CellValue, CellValue, std::vector<CellValue>, std::vector<double>,  double>> AccumBucketWithBestLabels;
@@ -261,6 +260,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
+    bool computeTopN = accuracyOverN.size() > 0;
+    size_t maxTopN = 1;
+    for (auto& v : accuracyOverN) {
+        maxTopN = std::max(maxTopN, v);
+    }
 
     auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
@@ -294,7 +298,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                         outputRow.emplace_back(score + columnName, v, recordDate);
                     }
 
-                    if (accuracyOverN > 1) {
+                    if (computeTopN) {
                         bestlabelsCandidates[labelCount] = std::pair<double, CellValue>(v, jsonDecodeStr<CellValue>(columnName.toSimpleName()));
                         ++labelCount;
                     }
@@ -303,14 +307,14 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 };
             scoreLabelWeight[0].forEachAtom(onAtom);
 
-            if (bestlabelsCandidates.size() > accuracyOverN) {
+            if (computeTopN) {
                 //We cannot do a partial sort in case there are ties
                 std::sort(bestlabelsCandidates.data(), 
                           bestlabelsCandidates.data() + bestlabelsCandidates.size(), 
                           std::greater<std::pair<double, CellValue>>());
             }
 
-            size_t numBest = std::min((size_t)accuracyOverN, bestlabelsCandidates.size());
+            size_t numBest = std::min(maxTopN, bestlabelsCandidates.size());
 
             //check for ties
             while (numBest > 0 && numBest < bestlabelsCandidates.size()) {
@@ -330,7 +334,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             CellValue label = scoreLabelWeight[1].getAtom();
             double weight = scoreLabelWeight[2].toDouble();
 
-            if (accuracyOverN > 1) {                
+            if (computeTopN) {                
                 accumWithBestLabels.get().emplace_back(label, 
                                                        maxLabel, 
                                                        std::vector<CellValue>(bestlabels.data(), bestlabels.data()+numBest), 
@@ -375,10 +379,10 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     map<CellValue, map<CellValue, double>> confusion_matrix;
     map<CellValue, double> predicted_sums;
     map<CellValue, double> real_sums;
-    map<CellValue, double> predicted_topn_sums;
+    map<std::pair<CellValue, int>, double> predicted_topn_sums;
     double conf_mat_sum = 0;
     bool gotStuff = false;
-    if (accuracyOverN > 1) {
+    if (computeTopN) {
         accumWithBestLabels.forEach([&] (AccumBucketWithBestLabels * thrBucket)
         {
             gotStuff = true;
@@ -400,19 +404,26 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                     size_t earliestRank = std::find(topPredictedScores.begin(), topPredictedScores.end(), score) - topPredictedScores.begin();
                     size_t ties = std::count(topPredictedScores.begin(), topPredictedScores.end(), score);
                     ExcAssert(ties > 0);
-                    ExcAssert(earliestRank < accuracyOverN);
-                    //do we share last rank?
-                    size_t lastRank = earliestRank + (ties-1);
-                    if (ties > 1 && lastRank >= accuracyOverN) {
-                        //how many "last positions" are there?
-                        size_t numPos = (accuracyOverN - earliestRank);
-                        ExcAssert(numPos < ties);
-                        double correctedWeight = (weight * numPos) / ties;
-                        predicted_topn_sums[label] += correctedWeight;
-                    }
-                    else {
-                        predicted_topn_sums[label] += weight;
-                    }
+
+                    for (int i = 0; i < accuracyOverN.size(); ++i) {
+                        auto limit = accuracyOverN[i];
+
+                        if (earliestRank < limit)
+                        {
+                            //do we share last rank?
+                            size_t lastRank = earliestRank + (ties-1);
+                            if (ties > 1 && lastRank >= limit) {
+                                //how many "last positions" are there?
+                                size_t numPos = (limit - earliestRank);
+                                ExcAssert(numPos < ties);
+                                double correctedWeight = (weight * numPos) / ties;
+                                predicted_topn_sums[{label, i}] += correctedWeight;
+                            }
+                            else {
+                                predicted_topn_sums[{label, i}] += weight;
+                            }
+                        }                        
+                    }                    
                 }
             }
         });
@@ -439,12 +450,12 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     // Create per-class statistics
     Json::Value results;
     results["labelStatistics"] = Json::Value();
-    if (accuracyOverN > 1)
-        results["recallOverN"] = accuracyOverN;
+    if (computeTopN)
+        results["recallOverN"] = jsonEncode(accuracyOverN);
 
     double total_accuracy = 0;
     double total_precision = 0;
-    double total_recall_topn = 0;
+    std::vector<double> total_recall_topn(accuracyOverN.size(), 0);
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
     double total_support = 0;
@@ -495,10 +506,10 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         class_stats["f1Score"] = 2 * ML::xdiv(precision * recall,
                                         precision + recall);
         class_stats["support"] = support;
-        if (accuracyOverN > 1) {
-            auto tptopn = predicted_topn_sums[actual_it.first];
-            total_recall_topn += tptopn;
-            class_stats[recallString] = ML::xdiv(tptopn, real_sums[actual_it.first]);
+        for (int i = 0; i < accuracyOverN.size(); ++i) {
+            auto tptopn = predicted_topn_sums[{actual_it.first,i}];
+            total_recall_topn[i] += tptopn;
+            class_stats[recallString][i] = ML::xdiv(tptopn, real_sums[actual_it.first]);
         }
 
         results["labelStatistics"][actual_it.first.toUtf8String()] = class_stats;
@@ -518,8 +529,8 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     weighted_stats["f1Score"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
 
-    if (accuracyOverN > 1) {
-        weighted_stats[recallString] = total_recall_topn / total_support;
+    for (int i = 0; i < accuracyOverN.size(); ++i) {
+        weighted_stats[recallString][i] = total_recall_topn[i] / total_support;
     }
 
     results["weightedStatistics"] = weighted_stats;
@@ -548,7 +559,7 @@ RunOutput
 runMultilabel(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
                std::shared_ptr<Dataset> output,
-               int accuracyOverN)
+               const std::vector<size_t>& accuracyOverN)
 {
     //labels, bestlabels, weight
     typedef vector<std::tuple<std::vector<CellValue>, std::vector<CellValue>, std::vector<double>, double>> AccumBucket;
@@ -654,11 +665,11 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
         output->commit();
     }
 
-    map<CellValue, double> recallsums;
+    map<std::pair<CellValue, int>, double> recallsums;
     map<CellValue, double> labelsums;
 
     double totalWeight = 0;
-    double totalAccurateWeight = 0;
+    std::vector<double> totalAccurateWeight(accuracyOverN.size(),0);
     double totalCoverageError = 0;
 
     accum.forEach([&] (AccumBucket * thrBucket)
@@ -688,24 +699,31 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                             size_t ties = std::count(topPredictedScores.begin(), topPredictedScores.end(), score);
                             ExcAssert(ties > 0);
                             averageRank = (2.f * earliestRank + (ties - 1)) / 2.0f;
-                            if (earliestRank < accuracyOverN) {
 
-                                //do we share last rank?
-                                size_t lastRank = earliestRank + (ties-1);
-                                if (ties > 1 && lastRank >= accuracyOverN) {
+                            for (int i = 0; i < accuracyOverN.size(); ++i) {
 
-                                    //how many "last positions" are there?
-                                    size_t numPos = (accuracyOverN - earliestRank);
-                                    ExcAssert(numPos < ties);
-                                    double correctedWeight = (weight * numPos) / ties;
-                                    recallsums[label] += correctedWeight;
-                                    totalAccurateWeight += correctedWeight;
+                                size_t limit = accuracyOverN[i];
+
+                                if (earliestRank < limit) {
+
+                                    //do we share last rank?
+                                    size_t lastRank = earliestRank + (ties-1);
+                                    if (ties > 1 && lastRank >= limit) {
+
+                                        //how many "last positions" are there?
+                                        size_t numPos = (limit - earliestRank);
+                                        ExcAssert(numPos < ties);
+                                        double correctedWeight = (weight * numPos) / ties;
+                                        recallsums[{label, i}] += correctedWeight;
+                                        totalAccurateWeight[i] += correctedWeight;
+                                    }
+                                    else {
+                                        recallsums[{label, i}] += weight;
+                                        totalAccurateWeight[i] += weight;
+                                    }
                                 }
-                                else {
-                                    recallsums[label] += weight;
-                                    totalAccurateWeight += weight;
-                                }
-                            }
+
+                            }                            
                         }
 
                         maxRank = std::max(maxRank, averageRank);
@@ -721,26 +739,28 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
     // Create per-class statistics
     Json::Value results;
     results["labelStatistics"] = Json::Value();
-    results["recallOverN"] = accuracyOverN;
+    results["recallOverN"] = jsonEncode(accuracyOverN);
 
     std::string recallString = "recallOverTopN";
 
     for(const auto & actual_it : labelsums) {
-
-        double recallSum = 0;
-        auto recall_it = recallsums.find(actual_it.first);
-        if (recall_it != recallsums.end())
-            recallSum = recall_it->second;
-
         Json::Value class_stats;
-        class_stats[recallString] = recallSum / actual_it.second;
+        for (int i = 0; i < accuracyOverN.size(); ++i) {
+            double recallSum = 0;
+            auto recall_it = recallsums.find({actual_it.first, i});
+            if (recall_it != recallsums.end())
+                recallSum = recall_it->second;
+            
+            class_stats[recallString][i] = recallSum / actual_it.second;            
+        }
 
         results["labelStatistics"][actual_it.first.toUtf8String()] = class_stats;
     }
 
     // Create weighted statistics
     Json::Value weighted_stats;
-    weighted_stats[recallString] = totalAccurateWeight / totalWeight;
+    for (int i = 0; i < accuracyOverN.size(); ++i)
+        weighted_stats[recallString][i] = totalAccurateWeight[i] / totalWeight;
     weighted_stats["coverageError"] = totalCoverageError / totalWeight;
     results["weightedStatistics"] = weighted_stats;
 

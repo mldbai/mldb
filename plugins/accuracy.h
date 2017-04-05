@@ -36,7 +36,7 @@ struct AccuracyConfig : public ProcedureConfig {
     bool uniqueScoresOnly = false;
 
     //check if label is among the 'N' top scores
-    int accuracyOverN = 1;
+    std::vector<size_t> accuracyOverN;
 
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;

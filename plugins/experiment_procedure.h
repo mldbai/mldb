@@ -96,7 +96,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
     // Strategy to handle multilabel
     MultilabelStrategy multilabelStrategy = MULTILABEL_ONEVSALL;
 
-    int accuracyOverN = 1;
+    std::vector<size_t> accuracyOverN;
 
     bool outputAccuracyDataset = true;
     bool uniqueScoresOnly = false;
