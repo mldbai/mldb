@@ -253,7 +253,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                int accuracyOverN)
 {
     typedef vector<std::tuple<CellValue, CellValue, double>> AccumBucket;
-    typedef vector<std::tuple<CellValue, CellValue, std::vector<CellValue>, double>> AccumBucketWithBestLabels;
+    typedef vector<std::tuple<CellValue, CellValue, std::vector<CellValue>, std::vector<double>,  double>> AccumBucketWithBestLabels;
 
     //We use one or the other
     PerThreadAccumulator<AccumBucket> accum;
@@ -299,16 +299,27 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             scoreLabelWeight[0].forEachAtom(onAtom);
 
             if (bestlabelsCandidates.size() > accuracyOverN) {
-                std::partial_sort(bestlabelsCandidates.data(), 
-                          bestlabelsCandidates.data() + accuracyOverN,
+                //We cannot do a partial sort in case there are ties
+                std::sort(bestlabelsCandidates.data(), 
                           bestlabelsCandidates.data() + bestlabelsCandidates.size(), 
                           std::greater<std::pair<double, CellValue>>());
             }
 
             size_t numBest = std::min((size_t)accuracyOverN, bestlabelsCandidates.size());
+
+            //check for ties
+            while (numBest > 0 && numBest < bestlabelsCandidates.size()) {
+                if (bestlabelsCandidates[numBest - 1].second != bestlabelsCandidates[numBest].second)
+                    break;
+
+                numBest++;
+            }
+
             PossiblyDynamicBuffer<CellValue> bestlabels(numBest);
+            PossiblyDynamicBuffer<double> bestscores(numBest);
             for (size_t i = 0; i < numBest; ++i) {
                 bestlabels[i] = bestlabelsCandidates[i].second;
+                bestscores[i] = bestlabelsCandidates[i].first;
             }
 
             CellValue label = scoreLabelWeight[1].getAtom();
@@ -318,6 +329,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 accumWithBestLabels.get().emplace_back(label, 
                                                        maxLabel, 
                                                        std::vector<CellValue>(bestlabels.data(), bestlabels.data()+numBest), 
+                                                       std::vector<double>(bestscores.data(), bestscores.data()+numBest), 
                                                        weight);
             }
             else 
@@ -368,14 +380,34 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             for(auto & elem : *thrBucket) {
                 const CellValue & label = std::get<0>(elem);
                 const CellValue & predicted = std::get<1>(elem);
-                const std::vector<CellValue>& toppredicted = std::get<2>(elem);
-                const double & weight = std::get<3>(elem);
+                const std::vector<CellValue>& topPredicted = std::get<2>(elem);
+                const std::vector<double>& topPredictedScores = std::get<3>(elem);
+                const double & weight = std::get<4>(elem);
                 confusion_matrix[label][predicted] += weight;
                 real_sums[label] += weight;
                 predicted_sums[predicted] += weight;
                 conf_mat_sum += weight;
-                if (std::find(toppredicted.begin(), toppredicted.end(), label) != toppredicted.end()){
-                    predicted_topn_sums[label] += weight;
+                auto it = std::find(topPredicted.begin(), topPredicted.end(), label);
+                if (it != topPredicted.end()){
+
+                    size_t rank = it - topPredicted.begin();
+                    double score = topPredictedScores[rank];
+                    size_t earliestRank = std::find(topPredictedScores.begin(), topPredictedScores.end(), score) - topPredictedScores.begin();
+                    size_t ties = std::count(topPredictedScores.begin(), topPredictedScores.end(), score);
+                    ExcAssert(ties > 0);
+                    ExcAssert(earliestRank < accuracyOverN);
+                    //do we share last rank?
+                    size_t lastRank = earliestRank + (ties-1);
+                    if (ties > 1 && lastRank >= accuracyOverN) {
+                        //how many "last positions" are there?
+                        size_t numPos = (accuracyOverN - earliestRank);
+                        ExcAssert(numPos < ties);
+                        double correctedWeight = (weight * numPos) / ties;
+                        predicted_topn_sums[label] += correctedWeight;
+                    }
+                    else {
+                        predicted_topn_sums[label] += weight;
+                    }
                 }
             }
         });
@@ -514,7 +546,7 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                int accuracyOverN)
 {
     //labels, bestlabels, weight
-    typedef vector<std::tuple<std::vector<CellValue>, std::vector<CellValue>, double>> AccumBucket;
+    typedef vector<std::tuple<std::vector<CellValue>, std::vector<CellValue>, std::vector<double>, double>> AccumBucket;
     PerThreadAccumulator<AccumBucket> accum;
 
     PerThreadAccumulator<Rows> rowsAccum;
@@ -524,7 +556,11 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             std::vector<CellValue> bestlabels;
-            std::vector<std::pair<float, CellValue>> bestlabelsCandidates;
+            std::vector<double> bestlabelsScores;
+            std::vector<std::pair<double, CellValue>> bestlabelsCandidates;
+
+            bestlabels.reserve(scoreLabelWeight[0].getAtomCount());
+            bestlabelsScores.reserve(scoreLabelWeight[0].getAtomCount());
 
             std::vector<std::tuple<RowPath, CellValue, Date> > outputRow;
 
@@ -545,14 +581,16 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
 
                     return true;
                 };
-            scoreLabelWeight[0].forEachAtom(onAtom);
+
+                scoreLabelWeight[0].forEachAtom(onAtom);
 
                 std::sort(bestlabelsCandidates.begin(), 
                           bestlabelsCandidates.end(), 
-                          std::greater<std::pair<float, CellValue>>());
+                          std::greater<std::pair<double, CellValue>>());
 
             for (const auto& pair : bestlabelsCandidates) {
                 bestlabels.push_back(pair.second);
+                bestlabelsScores.push_back(pair.first);
             }
 
             std::vector<CellValue> labels;
@@ -573,7 +611,7 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                 return true;
 
             double weight = scoreLabelWeight[2].toDouble();
-            accum.get().emplace_back(labels, bestlabels, weight);
+            accum.get().emplace_back(labels, bestlabels, bestlabelsScores, weight);
 
             if(output) {
                 for (int i = 0; i < labels.size(); ++i) {
@@ -617,29 +655,50 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
             {
                // gotStuff = true;
                 for(auto & elem : *thrBucket) {
+
                     const std::vector<CellValue> & labels = std::get<0>(elem);
                     const std::vector<CellValue> & topPredicted = std::get<1>(elem);
-                    const double & weight = std::get<2>(elem);
+                    const std::vector<double> & topPredictedScores = std::get<2>(elem);
+                    const double & weight = std::get<3>(elem);
 
                     if (weight == 0)
                         continue;
 
-                    size_t maxRank = 0;
+                    double maxRank = 0;
                     double totalExampleWeight = 0;
 
                     for (auto& label : labels) {
-
                         auto labelScoreIt = std::find(topPredicted.begin(), topPredicted.end(), label);
                         size_t rank = topPredicted.size();
+                        double averageRank = (double)rank;
                         if ( labelScoreIt != topPredicted.end()) {
                             rank = labelScoreIt - topPredicted.begin();
-                            if (rank < accuracyOverN) {
-                                recallsums[label] += weight;
-                                totalAccurateWeight += weight;
+                            double score = topPredictedScores[rank];
+                            size_t earliestRank = std::find(topPredictedScores.begin(), topPredictedScores.end(), score) - topPredictedScores.begin();
+                            size_t ties = std::count(topPredictedScores.begin(), topPredictedScores.end(), score);
+                            ExcAssert(ties > 0);
+                            averageRank = (2.f * earliestRank + (ties - 1)) / 2.0f;
+                            if (earliestRank < accuracyOverN) {
+
+                                //do we share last rank?
+                                size_t lastRank = earliestRank + (ties-1);
+                                if (ties > 1 && lastRank >= accuracyOverN) {
+
+                                    //how many "last positions" are there?
+                                    size_t numPos = (accuracyOverN - earliestRank);
+                                    ExcAssert(numPos < ties);
+                                    double correctedWeight = (weight * numPos) / ties;
+                                    recallsums[label] += correctedWeight;
+                                    totalAccurateWeight += correctedWeight;
+                                }
+                                else {
+                                    recallsums[label] += weight;
+                                    totalAccurateWeight += weight;
+                                }
                             }
                         }
 
-                        maxRank = std::max(maxRank, rank);
+                        maxRank = std::max(maxRank, averageRank);
                         labelsums[label] += weight;
                         totalWeight += weight;
                         totalExampleWeight += weight;

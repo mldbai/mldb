@@ -384,7 +384,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
         res = mldb.put("/v1/procedures/multilabel_accuracy", accuracyConf);
         self.assertEquals(res.json()["status"]["firstRun"]["status"]["weightedStatistics"], {
-                "coverageError": 1.666666666666667,
+                "coverageError": 1.333333333333333,
                 "recall over top N": 0.6666666666666666
             })
         
@@ -402,7 +402,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
         self.assertEquals(res.json()["status"]["firstRun"]["status"], {
             "weightedStatistics": {
-                "coverageError": 1.666666666666667,
+                "coverageError": 1.333333333333333,
                 "recall over top N": 1.0
             },
             "recallOverN": 2,
