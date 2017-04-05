@@ -28,33 +28,30 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct DatasetFoldConfig {
+
     DatasetFoldConfig(
             std::shared_ptr<SqlExpression> trainingWhere = SqlExpression::parse("rowHash()"),
             std::shared_ptr<SqlExpression> testingWhere = SqlExpression::parse("rowHash()"))
         : trainingWhere(trainingWhere),
-          testingWhere(testingWhere),
-          trainingOrderBy(OrderByExpression::parse("true")),
-          testingOrderBy(OrderByExpression::parse("true")),
-          trainingOffset(0), testingOffset(0),
-          trainingLimit(-1), testingLimit(-1)
-    {
-    }
+        testingWhere(testingWhere)
+        {
+        }
 
     /// The WHERE clause for which rows to include from the dataset
     std::shared_ptr<SqlExpression> trainingWhere;
     std::shared_ptr<SqlExpression> testingWhere;
 
     /// How to order the rows when using an offset and a limit
-    OrderByExpression trainingOrderBy;
-    OrderByExpression testingOrderBy;
+    OrderByExpression trainingOrderBy = OrderByExpression::parse("true");
+    OrderByExpression testingOrderBy = OrderByExpression::parse("true");
 
     /// Where to start running
-    ssize_t trainingOffset;
-    ssize_t testingOffset;
+    ssize_t trainingOffset = 0;
+    ssize_t testingOffset = 0;
 
     /// Maximum number of rows to use
-    ssize_t trainingLimit;
-    ssize_t testingLimit;
+    ssize_t trainingLimit = -1;
+    ssize_t testingLimit = -1;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(DatasetFoldConfig);
@@ -64,28 +61,15 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
 
     static constexpr const char * name = "classifier.experiment";
 
-    ExperimentProcedureConfig()
-        : keepArtifacts(false),
-          kfold(0),
-          equalizationFactor(0.5),
-          mode(CM_BOOLEAN),
-          multilabelStrategy(MULTILABEL_ONEVSALL),
-          accuracyOverN(1),
-          outputAccuracyDataset(true),
-          uniqueScoresOnly(false),
-          evalTrain(false)
-    {
-    }
-
     std::string experimentName;
 
-    bool keepArtifacts;
+    bool keepArtifacts = false;
 
     /// SQL query to select the training data
     InputQuery inputData;
     Optional<InputQuery> testingDataOverride;
 
-    ssize_t kfold;
+    ssize_t kfold = 0;
     std::vector<DatasetFoldConfig> datasetFolds;
 
     /// Folder where to save the experiment's result files
@@ -104,19 +88,19 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
     std::string algorithm;
 
     /// Equalization factor for rare classes.  Affects the weighting.
-    double equalizationFactor;
+    double equalizationFactor = 0.5;
 
     /// What mode to run in
-    ClassifierMode mode;
+    ClassifierMode mode = CM_BOOLEAN;
 
     // Strategy to handle multilabel
-    MultilabelStrategy multilabelStrategy;
+    MultilabelStrategy multilabelStrategy = MULTILABEL_ONEVSALL;
 
-    int accuracyOverN;
+    int accuracyOverN = 1;
 
-    bool outputAccuracyDataset;
-    bool uniqueScoresOnly;
-    bool evalTrain;
+    bool outputAccuracyDataset = true;
+    bool uniqueScoresOnly = false;
+    bool evalTrain = false;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ExperimentProcedureConfig);

@@ -342,8 +342,6 @@ operator >> (DB::Store_Reader & store, GLZ_Probabilizer & prob);
 
 struct ProbabilizerModel
 {
-    ProbabilizerModel();
-
     //Score, label, weight
     void train(const std::vector<std::tuple<float, float, float> >& fvs,
                ML::Link_Function link);
@@ -351,8 +349,8 @@ struct ProbabilizerModel
     void serialize(DB::Store_Writer & store) const;
     void reconstitute(DB::Store_Reader & store);
 
-    std::string style;
-    ML::Link_Function link;
+    std::string style = "glz";
+    ML::Link_Function link = ML::LOGIT;
     distribution<double> params;
     ML::GLZ_Probabilizer glz;
 };

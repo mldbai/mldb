@@ -47,13 +47,6 @@ DECLARE_ENUM_DESCRIPTION(MultilabelStrategy);
 struct ClassifierConfig : public ProcedureConfig {
     static constexpr const char * name = "classifier.train";
 
-    ClassifierConfig()
-        : equalizationFactor(0.5),
-          mode(CM_BOOLEAN),
-          multilabelStrategy(MULTILABEL_ONEVSALL)
-    {
-    }
-
     /// Query to select the training data
     InputQuery trainingData;
 
@@ -73,13 +66,13 @@ struct ClassifierConfig : public ProcedureConfig {
     std::string algorithm;
 
     /// Equalization factor for rare classes.  Affects the weighting.
-    double equalizationFactor;
+    double equalizationFactor = 0.5;
 
     /// What mode to run in
-    ClassifierMode mode;
+    ClassifierMode mode = CM_BOOLEAN;
 
     // Strategy to handle multilabel
-    MultilabelStrategy multilabelStrategy;
+    MultilabelStrategy multilabelStrategy = MULTILABEL_ONEVSALL;
 
     // Function name
     Utf8String functionName;

@@ -64,13 +64,6 @@ ProbabilizerModelDescription()
              "Parameterization of probabilizer");
 }
 
-ProbabilizerModel::
-ProbabilizerModel()
-: link(ML::LOGIT)
-{
-
-}
-
 void
 ProbabilizerModel::
 train(const std::vector<std::tuple<float, float, float> >& fvs,
@@ -127,7 +120,6 @@ train(const std::vector<std::tuple<float, float, float> >& fvs,
 
     INFO_MSG(logger) << "paramAfter = " << probParams[1];
 
-    style = "glz";
     link = link;
     params = probParams;
 
