@@ -193,7 +193,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         js_rez = rez.json()
 
         self.assertEqual(
-            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["recall over top N"], 1.0)
+            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["recallOverTopN"], 1.0)
 
     def test_decompose_simple(self):
 
@@ -268,7 +268,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         js_rez = rez.json()
 
         self.assertEqual(
-            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["recall over top N"], 1.0)
+            js_rez["status"]["folds"][0]["resultsTest"]["weightedStatistics"]["recallOverTopN"], 1.0)
 
     def test_onevsall_simple(self):
         conf = {
@@ -385,7 +385,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         res = mldb.put("/v1/procedures/multilabel_accuracy", accuracyConf);
         self.assertEquals(res.json()["status"]["firstRun"]["status"]["weightedStatistics"], {
                 "coverageError": 1.333333333333333,
-                "recall over top N": 0.6666666666666666
+                "recallOverTopN": 0.6666666666666666
             })
         
         accuracyConf = {
@@ -403,18 +403,18 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         self.assertEquals(res.json()["status"]["firstRun"]["status"], {
             "weightedStatistics": {
                 "coverageError": 1.333333333333333,
-                "recall over top N": 1.0
+                "recallOverTopN": 1.0
             },
             "recallOverN": 2,
             "labelStatistics": {
                 "label0": {
-                    "recall over top N": 1.0
+                    "recallOverTopN": 1.0
                 },
                 "label1": {
-                    "recall over top N": 1.0
+                    "recallOverTopN": 1.0
                 },
                 "label2": {
-                    "recall over top N": 1.0
+                    "recallOverTopN": 1.0
                 }
             }
         })
@@ -458,7 +458,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             "weightedStatistics": {
                 "recall": 0.65,
                 "support": 60.0,
-                "recall over top N": 0.8333333333333334,
+                "recallOverTopN": 0.8333333333333334,
                 "precision": 0.8292682926829269,
                 "f1Score": 0.6476980089190377,
                 "accuracy": 0.7666666666666667
@@ -467,7 +467,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 "orange": {
                     "recall": 0.5,
                     "support": 20.0,
-                    "recall over top N": 0.5,
+                    "recallOverTopN": 0.5,
                     "precision": 1.0,
                     "f1Score": 0.6666666666666666,
                     "accuracy": 0.8333333333333334
@@ -475,7 +475,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 "banane": {
                     "recall": 0.45,
                     "support": 20.0,
-                    "recall over top N": 1.0,
+                    "recallOverTopN": 1.0,
                     "precision": 1.0,
                     "f1Score": 0.6206896551724138,
                     "accuracy": 0.8166666666666667
@@ -483,7 +483,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 "pomme": {
                     "recall": 1.0,
                     "support": 20.0,
-                    "recall over top N": 1.0,
+                    "recallOverTopN": 1.0,
                     "precision": 0.4878048780487805,
                     "f1Score": 0.6557377049180327,
                     "accuracy": 0.65
@@ -535,7 +535,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             "weightedStatistics": {
                 "recall": 0.65,
                 "support": 60.0,
-                "recall over top N": 1.0,
+                "recallOverTopN": 1.0,
                 "precision": 0.8292682926829269,
                 "f1Score": 0.6476980089190377,
                 "accuracy": 0.7666666666666667
@@ -544,7 +544,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 "orange": {
                     "recall": 0.5,
                     "support": 20.0,
-                    "recall over top N": 1.0,
+                    "recallOverTopN": 1.0,
                     "precision": 1.0,
                     "f1Score": 0.6666666666666666,
                     "accuracy": 0.8333333333333334
@@ -552,7 +552,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 "banane": {
                     "recall": 0.45,
                     "support": 20.0,
-                    "recall over top N": 1.0,
+                    "recallOverTopN": 1.0,
                     "precision": 1.0,
                     "f1Score": 0.6206896551724138,
                     "accuracy": 0.8166666666666667
@@ -560,7 +560,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 "pomme": {
                     "recall": 1.0,
                     "support": 20.0,
-                    "recall over top N": 1.0,
+                    "recallOverTopN": 1.0,
                     "precision": 0.4878048780487805,
                     "f1Score": 0.6557377049180327,
                     "accuracy": 0.65

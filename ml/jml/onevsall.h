@@ -72,6 +72,8 @@ public:
     }
 
     std::vector<std::shared_ptr<Classifier_Impl>> subClassifiers;
+
+    //We need to probabilize the output of the result classifiers because we need their score to be comparable
     std::vector<std::shared_ptr<ProbabilizerModel>> probabilizers;
 };
 

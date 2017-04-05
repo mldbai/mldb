@@ -280,6 +280,11 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                                Date ts)
                 {
                     auto v = val.toDouble();
+
+                    if (std::isnan(v))
+                        throw MLDB::Exception(MLDB::format("Classifier returned a NaN score ",
+                        columnName.toSimpleName().rawString().c_str()));
+
                     if(v > maxLabelScore) {
                         maxLabelScore = v;
                         maxLabel = jsonDecodeStr<CellValue>(columnName.toSimpleName());
@@ -366,7 +371,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
 
     // Create confusion matrix (actual / predicted)
-    std::string recallString = "recall over top N";
+    std::string recallString = "recallOverTopN";
     map<CellValue, map<CellValue, double>> confusion_matrix;
     map<CellValue, double> predicted_sums;
     map<CellValue, double> real_sums;
@@ -572,6 +577,11 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
                                Date ts)
                 {
                     auto v = val.toDouble();
+
+                    if (std::isnan(v))
+                        throw MLDB::Exception(MLDB::format("Classifier returned a NaN score ",
+                        columnName.toSimpleName().rawString().c_str()));
+
                     CellValue scoreLabel = jsonDecodeStr<CellValue>(columnName.toSimpleName());
                     bestlabelsCandidates.push_back({v,scoreLabel});
 
@@ -713,7 +723,7 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
     results["labelStatistics"] = Json::Value();
     results["recallOverN"] = accuracyOverN;
 
-    std::string recallString = "recall over top N";
+    std::string recallString = "recallOverTopN";
 
     for(const auto & actual_it : labelsums) {
 
