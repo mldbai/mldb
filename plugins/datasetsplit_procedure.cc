@@ -39,11 +39,14 @@ SplitProcedureConfigDescription()
     std::vector<float> splits;
 
     addField("labels", &SplitProcedureConfig::labels,
-             "Specification");
+             "Row of labels to distribute among the splits while keeping their respective proportions");
     addField("outputDatasets", &SplitProcedureConfig::outputDatasets,
              "Configuration for output dataset");
     addField("splits", &SplitProcedureConfig::splits,
-             "splits");
+             "Proportion of rows to put into each dataset. The sum of the input should approximate to 1.0");
+    addField("foldImportance", &SplitProcedureConfig::foldImportance,
+             "Importance of respecting the splits versus the distribution of the labels",
+             1.0f);    
     addParent<ProcedureConfig>();
 }
 
@@ -82,6 +85,7 @@ run(const ProcedureRunConfig & run,
     std::vector<RowPath> rowPaths;
 
     //Get all the row names selected by the specified FROM/WHERE
+    //in a deterministic order
      auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
@@ -100,6 +104,7 @@ run(const ProcedureRunConfig & run,
                  runProcConf.labels.stm->limit,
                  nullptr /* progress */);
 
+    //Shuffle to prevent any aliasing effect
     std::minstd_rand rng;
     std::shuffle(rowPaths.begin(), rowPaths.end(), rng);
 
@@ -110,15 +115,29 @@ run(const ProcedureRunConfig & run,
     SqlExpressionDatasetScope datasetScope(boundDataset.dataset, boundDataset.asName);
     BoundSqlExpression boundSelect = runProcConf.labels.stm->select.bind(datasetScope);
 
+    //Distribute the rows using a greedy approach.
     ExpressionValue storage;
+    size_t numRowsAdded = 0;
     for (const auto& rowPath : rowPaths) {
         MatrixNamedRow row = boundDataset.dataset->getMatrixView()->getRow(rowPath);
         auto rowScope = datasetScope.getRowScope(row);
         auto rowValue = boundSelect(rowScope, storage, GET_ALL);
         size_t bestFold = 0;
         float diff = 0.f;
-        bool unknown = false; 
+        bool unknown = false;
 
+        //check the best fold according to row distribution
+        for (int f = 0; f < numFolds && numRowsAdded > 0; ++f) {
+            float prop = distributions[f].size() / (float)numRowsAdded;
+            float target = runProcConf.splits[f];
+            float splitDiff = runProcConf.foldImportance*(target - prop);
+            if (splitDiff > diff) {
+                diff = splitDiff;
+                bestFold = f;
+            }
+        }
+
+        //check the best fold according to label distribution
         auto onColumn = [&] (const PathElement & columnName,
                              const ExpressionValue & val) {
             auto it = sums.find(columnName);
@@ -137,8 +156,10 @@ run(const ProcedureRunConfig & run,
                 //size of the distribution
                 for (const auto v : labelDistribution) {
                     if (v == 0) {
+                        //This fold does not have the label, give it
                         bestFold = i;
-                        return false;
+                        unknown = true;
+                        return true;
                     }
                     else {
                         labelSum += v;
@@ -184,6 +205,7 @@ run(const ProcedureRunConfig & run,
 
         rowValue.forEachColumn(updateDistribution);
         distributions[bestFold].push_back(rowPath);
+        numRowsAdded++;
     }
 
     size_t i = 0;

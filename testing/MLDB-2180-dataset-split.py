@@ -92,10 +92,10 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         ds2.commit()
 
     #Test that we try to represent every label in every dataset, regardless of distribution
-    """
+
     def test_spread(self):
         mldb.put("/v1/procedures/split", {
-            "type": "split",
+            "type": "split.train",
             "params": {
                 "labels": "SELECT * FROM ds1",
                 "splits": [0.8, 0.2],
@@ -119,7 +119,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
     def test_testnointersection(self):
         mldb.put("/v1/procedures/split", {
-            "type": "split",
+            "type": "split.train",
             "params": {
                 "labels": "SELECT * FROM ds2",
                 "splits": [0.8, 0.2],
@@ -145,7 +145,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                                  ["[]", 3, 1 ]])
 
         mldb.put("/v1/procedures/split", {
-            "type": "split",
+            "type": "split.train",
             "params": {
                 "labels": "SELECT * FROM ds3",
                 "splits": [0.8, 0.2],
@@ -169,14 +169,15 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
         self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y"],
                                  ["[]", 2, 2 ]])
-    """
+
     def test_testintersection(self):
 
         mldb.put("/v1/procedures/split", {
-            "type": "split",
+            "type": "split.train",
             "params": {
                 "labels": "SELECT * FROM ds4",
                 "splits": [0.8, 0.2],
+                "foldImportance" : 1.0,
                 "outputDatasets": [{ "id": "ds_train",
                                    "type": "sparse.mutable" },
                                    { "id": "ds_test",
@@ -185,12 +186,45 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         })   
 
         n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_train", format='atom').json()
-        mldb.log(n)
+        self.assertEqual(18, n)
         n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_test", format='atom').json()
-        mldb.log(n)
+        self.assertEqual(6, n)
 
-        mldb.log(mldb.query("SELECT sum({*}) FROM ds_train"))
-        mldb.log(mldb.query("SELECT sum({*}) FROM ds_test"))
+        res1 = mldb.query("SELECT sum({*}) FROM ds_train")
+        res2 = mldb.query("SELECT sum({*}) FROM ds_test")
+
+        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+                                 ["[]", 8, 12, 7 ]])
+
+        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+                                 ["[]", 2, 3, 2 ]])
+
+        mldb.put("/v1/procedures/split", {
+            "type": "split.train",
+            "params": {
+                "labels": "SELECT * FROM ds4",
+                "splits": [0.8, 0.2],
+                "foldImportance" : 5.0,
+                "outputDatasets": [{ "id": "ds_train",
+                                   "type": "sparse.mutable" },
+                                   { "id": "ds_test",
+                                   "type": "sparse.mutable" }],
+            }
+        })   
+
+        n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_train", format='atom').json()
+        self.assertEqual(19, n)
+        n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_test", format='atom').json()
+        self.assertEqual(5, n)
+
+        res1 = mldb.query("SELECT sum({*}) FROM ds_train")
+        res2 = mldb.query("SELECT sum({*}) FROM ds_test")
+
+        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+                                 ["[]", 8, 12, 8 ]])
+
+        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+                                 ["[]", 2, 3, 1 ]])
 
 if __name__ == '__main__':
     mldb.run_tests()
