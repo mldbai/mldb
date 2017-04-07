@@ -1009,6 +1009,9 @@ getFunctionInfo() const
             featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<StringValueInfo>(),
                                       sparsity);
+
+        case ML::INUTILE:
+            // inutile, ignore it
             break;
 
         default:

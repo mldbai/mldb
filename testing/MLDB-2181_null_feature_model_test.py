@@ -18,7 +18,8 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
 
-    def test_it(self):
+    @classmethod
+    def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'pre_ds', 'type' : 'sparse.mutable'})
         for idx in xrange(10):
             ds.record_row('row{}'.format(idx), [
@@ -26,6 +27,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
                 ['label', 1, 0],
                 ['feature', random.random(), 0],
                 ['noise', random.random(), 0],
+                ['a_or_b', 'a' if random.random() > 0.5 else 'b', 0]
             ])
 
         for idx in xrange(10, 20):
@@ -34,6 +36,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
                 ['label', 0, 0],
                 ['feature', random.random() + 0.6, 0],
                 ['noise', random.random(), 0],
+                ['a_or_b', 'a' if random.random() > 0.5 else 'b', 0]
             ])
         ds.commit()
 
@@ -48,18 +51,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
             }
         })
 
-        ds = mldb.create_dataset({'id' : 'test_ds', 'type' : 'sparse.mutable'})
-        for idx in xrange(10):
-            ds.record_row('row{}'.format(idx), [
-                ['line', idx, 0],
-                ['label', 0, 0],
-                ['feature', random.random() + 0.6, 0],
-                ['noise', random.random(), 0],
-                ['issue', 'STRING', 0]
-            ])
-        ds.commit()
-
-        model_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        cls.model_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
 
         mldb.post('/v1/procedures', {
             "type": "classifier.train",
@@ -89,9 +81,24 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
                     }
                 },
                 "functionName": 'score_it',
-                'modelFileUrl': 'file://' + model_file.name
+                'modelFileUrl': 'file://' + cls.model_file.name
             }
         })
+
+    def test_string_over_null(self):
+        ds = mldb.create_dataset({
+            'id': 'test_string_over_null_ds',
+            'type': 'sparse.mutable'
+        })
+        for idx in xrange(10):
+            ds.record_row('row{}'.format(idx), [
+                ['line', idx, 0],
+                ['label', 0, 0],
+                ['feature', random.random() + 0.6, 0],
+                ['noise', random.random(), 0],
+                ['issue', 'STRING', 0]
+            ])
+        ds.commit()
 
         mldb.post('/v1/procedures', {
             'type': 'classifier.test',
@@ -99,7 +106,57 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
                 'mode': 'boolean',
                 'testingData':
                     'SELECT score_it({features: {feature, noise, issue}})[score] AS score, ' \
-                    'label FROM test_ds'
+                    'label FROM test_string_over_null_ds'
+            }
+        })
+
+    def test_num_over_null(self):
+        ds = mldb.create_dataset({
+            'id': 'test_num_over_null_ds',
+            'type': 'sparse.mutable'
+        })
+        for idx in xrange(10):
+            ds.record_row('row{}'.format(idx), [
+                ['line', idx, 0],
+                ['label', 0, 0],
+                ['feature', random.random() + 0.6, 0],
+                ['noise', random.random(), 0],
+                ['issue', random.random() * 10, 0]
+            ])
+        ds.commit()
+
+        mldb.post('/v1/procedures', {
+            'type': 'classifier.test',
+            'params' : {
+                'mode': 'boolean',
+                'testingData':
+                    'SELECT score_it({features: {feature, noise, issue}})[score] AS score, ' \
+                    'label FROM test_num_over_null_ds'
+            }
+        })
+
+    def test_c_over_a_or_b(self):
+        ds = mldb.create_dataset({
+            'id': 'test_c_over_a_or_b_ds',
+            'type': 'sparse.mutable'
+        })
+        for idx in xrange(10):
+            ds.record_row('row{}'.format(idx), [
+                ['line', idx, 0],
+                ['label', 0, 0],
+                ['feature', random.random() + 0.6, 0],
+                ['noise', random.random(), 0],
+                ['a_or_b', 'c', 0]
+            ])
+        ds.commit()
+
+        mldb.post('/v1/procedures', {
+            'type': 'classifier.test',
+            'params' : {
+                'mode': 'boolean',
+                'testingData':
+                    'SELECT score_it({features: {feature, noise, a_or_b}})[score] AS score, ' \
+                    'label FROM test_c_over_a_or_b_ds'
             }
         })
 
