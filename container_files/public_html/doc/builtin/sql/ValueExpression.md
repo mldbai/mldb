@@ -698,6 +698,8 @@ The following standard SQL aggregation functions are supported. They may only be
 
 - `avg` returns the average of all values in the group.  It works in
   double precision floating point only.
+- `stddev` returns the standard deviation of all values in the group.
+  It works in double precision floating point only.
 - `sum` returns the sum of all values in the group.  It works in
   double precision floating point only.
 - `min` returns the minimum of all values in the group.
