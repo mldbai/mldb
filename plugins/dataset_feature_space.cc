@@ -115,7 +115,7 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
                 result.info = ML::Feature_Info(categorical);
             }
             else if (types.size() == 1 && types.begin()->first == CellValue::EMPTY) {
-                result.info = ML::INUTILE;
+                result.info = ML::UNKNOWN;
             }
             else {
                 result.info = ML::REAL;
@@ -258,7 +258,7 @@ encodeValue(const CellValue & value,
             const ColumnPath & columnName,
             const ML::Feature_Info & info) const
 {
-    if (value.empty() || info.type() == ML::INUTILE)
+    if (value.empty() || info.type() == ML::UNKNOWN)
         return std::numeric_limits<float>::quiet_NaN();
 
     if (info.type() == ML::CATEGORICAL
