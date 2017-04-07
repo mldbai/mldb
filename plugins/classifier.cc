@@ -33,6 +33,7 @@
 #include "mldb/ml/jml/training_index.h"
 #include "mldb/ml/jml/classifier_generator.h"
 #include "mldb/ml/jml/registry.h"
+#include "mldb/ml/jml/onevsall_generator.h"
 #include "mldb/jml/utils/map_reduce.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/server/analytics.h"
@@ -58,9 +59,19 @@ ClassifierModeDescription()
 {
     addValue("regression",  CM_REGRESSION, "Regression mode (predicting values)");
     addValue("boolean",     CM_BOOLEAN, "Boolean mode (predicting P(true))");
-    addValue("categorical", CM_CATEGORICAL, "Categorical mode (predicting P(category))");
+    addValue("categorical", CM_CATEGORICAL, "Categorical mode (predicting P(category)), examples have a single label");
+    addValue("multilabel", CM_MULTILABEL, "Categorical mode (predicting P(category)), examples can have multiple labels");
 }
 
+DEFINE_ENUM_DESCRIPTION(MultilabelStrategy);
+
+MultilabelStrategyDescription::
+MultilabelStrategyDescription()
+{
+    addValue("random",  MULTILABEL_RANDOM, "Label is selected at random");
+    addValue("decompose", MULTILABEL_DECOMPOSE, "Examples are decomposed in single-label examples");
+    addValue("one-vs-all", MULTILABEL_ONEVSALL, "A probabilized binary classifier is trained for each label");
+}
 
 DEFINE_STRUCTURE_DESCRIPTION(ClassifierConfig);
 
@@ -71,17 +82,22 @@ ClassifierConfigDescription()
              "Model mode: `boolean`, `regression` or `categorical`. "
              "Controls how the label is interpreted and what is the output of the classifier. "
              , CM_BOOLEAN);
+    addField("multilabelStrategy", &ClassifierConfig::multilabelStrategy,
+             "Multilabel strategy: `random` or `decompose`. "
+             "Controls how examples are prepared to handle multilabel classification. "
+             , MULTILABEL_ONEVSALL);
     addField("trainingData", &ClassifierConfig::trainingData,
              "SQL query which specifies the features, labels and optional weights for training. "
              "The query should be of the form `select {f1, f2} as features, x as label from ds`.\n\n"
              "The select expression must contain these two columns: \n\n"
              "  * `features`: a row expression to identify the features on which to \n"
              "    train, and \n"
-             "  * `label`: one scalar expression to identify the row's label, and whose type "
+             "  * `label`: one expression to identify the row's label(s), and whose type "
              "must match that of the classifier mode. Rows with null labels will be ignored. \n"
              "     * `boolean` mode: a boolean (0 or 1)\n"
              "     * `regression` mode: a real number\n"
              "     * `categorical` mode: any combination of numbers and strings\n\n"
+             "     * `multilabel` mode: a row, in which each non-null column is a separate label\n\n"
              "The select expression can contain an optional `weight` column. The weight "
              "allows the relative importance of examples to be set. It must "
              "be a real number. If the `weight` is not specified each row will have "
@@ -213,6 +229,10 @@ run(const ProcedureRunConfig & run,
         categorical = std::make_shared<ML::Mutable_Categorical_Info>();
         labelInfo = ML::Feature_Info(categorical);
         break;
+    case CM_MULTILABEL:
+        categorical = std::make_shared<ML::Mutable_Categorical_Info>();
+        labelInfo = ML::Feature_Info(categorical);
+        break;
     default:
         throw HttpReturnException(400, "Unknown classifier mode");
     }
@@ -229,9 +249,17 @@ run(const ProcedureRunConfig & run,
                                   "/opt/bin/classifiers.json");
         classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
     }
-    std::shared_ptr<ML::Classifier_Generator> trainer
-        = ML::get_trainer(runProcConf.algorithm,
+
+    auto algorithm = runProcConf.algorithm;
+
+    std::shared_ptr<ML::Classifier_Generator> trainer = ML::get_trainer(runProcConf.algorithm,
                           classifierConfig);
+
+    std::shared_ptr<ML::OneVsAll_Classifier_Generator> multilabelGenerator;
+    if (runProcConf.mode == CM_MULTILABEL && runProcConf.multilabelStrategy == MULTILABEL_ONEVSALL) {
+        multilabelGenerator = make_shared<OneVsAll_Classifier_Generator>(trainer);
+        trainer = multilabelGenerator;
+    }
 
     labelInfo.set_biased(true);
 
@@ -339,19 +367,34 @@ run(const ProcedureRunConfig & run,
         // we re-map them onto their final values.
         std::map<std::string, int> categoricalLabels;
         std::vector<std::string> categoricalLabelList;
+
+        std::map<std::vector<int>, int> multiLabelMap; //index in multiLabelList
+        std::vector<std::vector<int>> multiLabelList; //list of combinaison found for this thread, index in categoricalLabelList.
+
         std::map<int, int> labelMapping;
+        std::map<int, int> multilabelMapping;
 
         void sort()
         {
-            if (!labelMapping.empty()) {
+            if (!multilabelMapping.empty()) {
+                for (auto & fv: fvs) {
+                    // Modify the explicit label field
+                    float label = fv.label();
+                    ExcAssert(multilabelMapping.count(label));
+                    fv.setLabel(multilabelMapping[label]);
+                }
+            }
+            else if (!labelMapping.empty()) {
                 for (auto & fv: fvs) {
                     // Modify the explicit label field
                     float label = fv.label();
                     ExcAssert(labelMapping.count(label));
                     fv.setLabel(labelMapping[label]);
                 }
-                labelMapping.clear();
             }
+
+            multilabelMapping.clear();
+            labelMapping.clear();
 
             std::sort(fvs.begin(), fvs.end());
         }
@@ -375,29 +418,191 @@ run(const ProcedureRunConfig & run,
 
     PerThreadAccumulator<ThreadAccum> accum;
 
+    auto accumRow = [&] (float weight, const MatrixNamedRow& row, float encodedLabel) {
+
+        ThreadAccum & thr = accum.get();
+
+        //DEBUG_MSG(logger) << "label = " << label << " weight = " << weight;
+        DEBUG_MSG(logger) << "row.columns.size() = " << row.columns.size();
+
+        DEBUG_MSG(logger) << "got row " << jsonEncode(row);
+        ++numRows;
+
+        std::vector<std::pair<ML::Feature, float> > features
+        = { { labelFeature, encodedLabel }, { weightFeature, weight } };
+
+        unordered_set<Path> unique_known_features;
+        for (auto & c: row.columns) {
+
+            //cerr << "column " << std::get<0>(c).toUtf8String() << endl;
+
+            try {
+                featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+            } MLDB_CATCH_ALL {
+                rethrowHttpException
+                    (KEEP_HTTP_CODE,
+                     "Error processing row '" + row.rowName.toUtf8String()
+                     + "' column '" + std::get<0>(c).toUtf8String()
+                     + "': " + getExceptionString(),
+                     "rowName", row.rowName,
+                     "columns", row.columns);
+            }
+
+            if (unique_known_features.count(std::get<0>(c)) != 0) {
+                throw HttpReturnException
+                    (400, "Training dataset cannot have duplicated column '" + 
+                     std::get<0>(c).toUtf8String()
+                     + "' for row '"
+                     +row.rowName.toUtf8String()+"'");
+            }
+            unique_known_features.insert(std::get<0>(c));
+        }
+
+        thr.fvs.emplace_back(row.rowName, std::move(features));
+    };
+
 
     auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
-            CellValue label = extraVals.at(0).getAtom();
+            ExpressionValue label = extraVals.at(0);
             if (label.empty())
                 return true;
 
             ThreadAccum & thr = accum.get();
 
-            float encodedLabel;
             switch (runProcConf.mode) {
             case CM_REGRESSION:
-                encodedLabel = label.toDouble();
+                accumRow(extraVals.at(1).toDouble(), row, label.getAtom().toDouble());
                 break;
             case CM_BOOLEAN:
-                encodedLabel = label.isTrue();
+                accumRow(extraVals.at(1).toDouble(), row, label.getAtom().isTrue());
                 break;
+            case CM_MULTILABEL: {
+                if (!label.isRow())
+                    throw HttpReturnException(400, "Multilabel classification labels requires a row");
+
+                if (runProcConf.multilabelStrategy == MULTILABEL_RANDOM) {
+
+                    std::vector<float> labels;
+
+                    std::function<bool (const PathElement & columnName,
+                                        const ExpressionValue & val)> randomStrategy = 
+                                        [&] (const PathElement & columnName,
+                                             const ExpressionValue & val) ->bool
+                        {
+                            if(!val.empty()) {
+                                std::string labelStr = jsonEncodeStr(columnName);
+                                auto it = thr.categoricalLabels.find(labelStr);
+                                if (it == thr.categoricalLabels.end()) {
+                                    size_t labelid = thr.categoricalLabelList.size();
+                                    labels.push_back(labelid);
+                                    thr.categoricalLabelList.push_back(labelStr);
+                                    thr.categoricalLabels.emplace(labelStr, labelid);
+                                }
+                                else {
+                                    labels.push_back(it->second);
+                                }
+                            }
+                            
+                            return true;
+                        };
+
+                    label.forEachColumn(randomStrategy);
+
+                    if (labels.size() == 0)
+                        return true;
+
+                    accumRow(extraVals.at(1).toDouble(), row, labels[std::rand() % labels.size()]);
+                }
+                else if (runProcConf.multilabelStrategy == MULTILABEL_DECOMPOSE) {
+
+                    std::function<bool (const PathElement & columnName,
+                                        const ExpressionValue & val)> decomposeStrategy = 
+                                        [&] (const PathElement & columnName,
+                                             const ExpressionValue & val) ->bool
+                        {
+                            if(!val.empty()) {
+                                size_t labelid = 0;
+                                std::string labelStr = jsonEncodeStr(columnName);
+                                auto it = thr.categoricalLabels.find(labelStr);
+                                if (it == thr.categoricalLabels.end()) {
+                                    labelid = thr.categoricalLabelList.size();
+                                    thr.categoricalLabelList.push_back(labelStr);
+                                    thr.categoricalLabels.emplace(labelStr, labelid);
+                                }
+                                else {
+                                    labelid = it->second;
+                                }
+
+                                accumRow(extraVals.at(1).toDouble(), row, labelid);
+                            }
+                            
+                            return true;
+                        };
+
+                    label.forEachColumn(decomposeStrategy);
+
+                    return true;
+                }
+                else if (runProcConf.multilabelStrategy == MULTILABEL_ONEVSALL) {
+
+                    std::vector<int> labels;
+
+                    std::function<bool (const PathElement & columnName,
+                                        const ExpressionValue & val)> onevsallStrategy = 
+                                        [&] (const PathElement & columnName,
+                                             const ExpressionValue & val) ->bool
+                        {
+                            if(!val.empty()) {
+                                size_t labelid = 0;
+                                std::string labelStr = jsonEncodeStr(columnName);
+                                auto it = thr.categoricalLabels.find(labelStr);
+                                if (it == thr.categoricalLabels.end()) {
+                                    labelid = thr.categoricalLabelList.size();
+                                    thr.categoricalLabelList.push_back(labelStr);
+                                    thr.categoricalLabels.emplace(labelStr, labelid);
+                                }
+                                else {
+                                    labelid = it->second;
+                                }
+
+                                labels.push_back(labelid);
+                            }
+
+                            return true;
+                        };
+
+                    label.forEachColumn(onevsallStrategy);
+                    std::sort(labels.begin(), labels.end());
+                    int combinaisonId = 0;
+                    auto it = thr.multiLabelMap.find(labels);
+                    if (it == thr.multiLabelMap.end()) {
+                        combinaisonId = thr.multiLabelList.size();
+                        thr.multiLabelList.push_back(labels);
+                        thr.multiLabelMap.emplace(std::move(labels), combinaisonId);
+
+                    }
+                    else {
+                        combinaisonId = it->second;
+                    }
+
+                    accumRow(extraVals.at(1).toDouble(), row, combinaisonId);
+
+                    return true;
+                }
+                 else {
+                    throw HttpReturnException(400, "Unknown multilabel strategy in classifier training");
+                }
+
+                break;
+            }
             case CM_CATEGORICAL: {
                 // Get a list of categorical labels, for this thread.  Later
                 // we map them to the overall list of labels.
-                std::string labelStr = jsonEncodeStr(label);
+                std::string labelStr = jsonEncodeStr(label.getAtom());
+                float encodedLabel = 0;
                 auto it = thr.categoricalLabels.find(labelStr);
                 if (it == thr.categoricalLabels.end()) {
                     encodedLabel = thr.categoricalLabelList.size();
@@ -408,48 +613,14 @@ run(const ProcedureRunConfig & run,
                     encodedLabel = it->second;
                 }
 
+                accumRow(extraVals.at(1).toDouble(), row, encodedLabel);
+
                 break;
             }
             default:
                 throw HttpReturnException(400, "Unknown classifier mode");
             }
 
-            float weight = extraVals.at(1).toDouble();
-
-            DEBUG_MSG(logger) << "label = " << label << " weight = " << weight;
-            DEBUG_MSG(logger) << "row.columns.size() = " << row.columns.size();
-
-            DEBUG_MSG(logger) << "got row " << jsonEncode(row);
-            ++numRows;
-
-            std::vector<std::pair<ML::Feature, float> > features
-            = { { labelFeature, encodedLabel }, { weightFeature, weight } };
-
-            unordered_set<Path> unique_known_features;
-            for (auto & c: row.columns) {
-                try {
-                    featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
-                } MLDB_CATCH_ALL {
-                    rethrowHttpException
-                        (KEEP_HTTP_CODE,
-                         "Error processing row '" + row.rowName.toUtf8String()
-                         + "' column '" + std::get<0>(c).toUtf8String()
-                         + "': " + getExceptionString(),
-                         "rowName", row.rowName,
-                         "columns", row.columns);
-                }
-
-                if (unique_known_features.count(std::get<0>(c)) != 0) {
-                    throw HttpReturnException
-                        (400, "Training dataset cannot have duplicated column '" + 
-                         std::get<0>(c).toUtf8String()
-                         + "' for row '"
-                         +row.rowName.toUtf8String()+"'");
-                }
-                unique_known_features.insert(std::get<0>(c));
-            }
-
-            thr.fvs.emplace_back(row.rowName, std::move(features));
             return true;
         };
 
@@ -475,9 +646,14 @@ run(const ProcedureRunConfig & run,
 
     std::map<std::string, int> labelMapping;
 
-    if (runProcConf.mode == CM_CATEGORICAL) {
+    std::map<std::vector<int>, int> multiLabelMap;
+    std::vector<std::vector<int>> uniqueMultiLabelList;
+
+    if (runProcConf.mode == CM_CATEGORICAL || 
+        runProcConf.mode == CM_MULTILABEL) {
 
         std::set<std::string> allLabels;
+        std::vector<std::vector<int>> multiLabelList;
 
         auto onThread = [&] (ThreadAccum * acc)
             {
@@ -502,6 +678,41 @@ run(const ProcedureRunConfig & run,
             };
 
         accum.forEach(onThread2);
+
+        // Now multilabels 
+
+        auto onThread3 = [&] (ThreadAccum * acc)
+            {
+                size_t i = 0;
+                for (auto&tuple : acc->multiLabelList) {
+                    for (auto & label : tuple) {
+                        //from local category mapping to global category mapping
+                        label = acc->labelMapping[label]; 
+                    }
+                    //The above broke the sorting
+                    std::sort(tuple.begin(), tuple.end());
+                    int globalCombinaisonId = 0;
+                    auto it = multiLabelMap.find(tuple);
+                    if (it == multiLabelMap.end()) {
+                        globalCombinaisonId = uniqueMultiLabelList.size();
+                        uniqueMultiLabelList.push_back(tuple);
+                        multiLabelMap.emplace(std::move(tuple), globalCombinaisonId);
+                    }
+                    else {
+                        globalCombinaisonId = it->second;
+                    }
+
+                    //mapping from local combinaison array to global combinaison array
+                    acc->multilabelMapping[i] = globalCombinaisonId;
+                    ++i;
+                }
+            };
+
+        accum.forEach(onThread3);
+
+        if (multilabelGenerator) {
+           multilabelGenerator->setMultilabelMapping(uniqueMultiLabelList, allLabels.size());
+        }
     }
 
     // Now merge them together in parallel
@@ -572,6 +783,7 @@ run(const ProcedureRunConfig & run,
         num_weight_labels = 2;
         break;
     case CM_CATEGORICAL:
+    case CM_MULTILABEL:
         num_weight_labels = labelMapping.size();
         break;
     default:
@@ -586,7 +798,8 @@ run(const ProcedureRunConfig & run,
     distribution<float> exampleWeights(nx);
 
     for (unsigned i = 0;  i < nx;  ++i) {
-        float label  = fvs[i].label();
+
+        float label  = fvs[i].label(); //IF MULTILABEL THIS LABEL IS A GLOBAL COMBINAISON LABEL
         float weight = fvs[i].weight();
 
         if (weight < 0)
@@ -606,8 +819,21 @@ run(const ProcedureRunConfig & run,
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
 
         if(runProcConf.mode != CM_REGRESSION) {
-            for(int lbl=0; lbl<num_weight_labels; lbl++) {
-                labelWeights[lbl][i] = weight * (label == lbl);
+
+            if (uniqueMultiLabelList.size() > 0) {
+
+                auto labelCombinaison = uniqueMultiLabelList[label];
+
+                for(int lbl=0; lbl<num_weight_labels; lbl++) {
+                    labelWeights[lbl][i] = std::find(labelCombinaison.begin(), 
+                                                     labelCombinaison.end(), lbl) 
+                                           != labelCombinaison.end() ?  weight : 0;
+                }
+            }
+            else {
+                for(int lbl=0; lbl<num_weight_labels; lbl++) {
+                    labelWeights[lbl][i] = weight * (label == lbl);
+                }
             }
         }
 
@@ -676,6 +902,7 @@ run(const ProcedureRunConfig & run,
             double factor = pow(labelWeights[lbl].total(), -equalizationFactor);
 
             INFO_MSG(logger) << "factor for class " << lbl << " = " << factor;
+            INFO_MSG(logger) << "weight for class " << lbl << " = " << labelWeights[lbl].total();
 
             factor_accum += factor * labelWeights[lbl];
         }
@@ -690,6 +917,8 @@ run(const ProcedureRunConfig & run,
     DEBUG_MSG(logger) << "done training classifier";
 
     INFO_MSG(logger) << "trained classifier in " << timer.elapsed();
+
+    ExcAssert(classifier.feature_space());
 
     if (!runProcConf.modelFileUrl.empty()) {
         try {
@@ -915,6 +1144,7 @@ apply(const FunctionApplier & applier_,
     auto cat = itl->labelInfo.categorical();
     if (!dense.empty() && applier.optInfo) {
         if (cat) {
+
             ML::Label_Dist scores
                 = itl->classifier.impl->predict(dense, applier.optInfo);
             ExcAssertEqual(scores.size(), labelCount);

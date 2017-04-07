@@ -28,7 +28,7 @@ struct AccuracyConfig : public ProcedureConfig {
     static constexpr const char * name = "classifier.test";
 
     AccuracyConfig()
-          : mode(CM_BOOLEAN), uniqueScoresOnly(false)
+          : mode(CM_BOOLEAN), uniqueScoresOnly(false), accuracyOverN(1)
     {
     }
 
@@ -39,6 +39,9 @@ struct AccuracyConfig : public ProcedureConfig {
     ClassifierMode mode;
 
     bool uniqueScoresOnly;
+
+    //check if label is among the 'N' top scores
+    int accuracyOverN;
 
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;

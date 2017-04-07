@@ -16,14 +16,18 @@
 #include "decoder.h"
 #include <boost/multi_array.hpp>
 #include "mldb/ml/algebra/irls.h"
+#include "mldb/types/value_description_fwd.h"
+#include "mldb/ml/value_descriptions.h"
 
+namespace spdlog {
+    class logger;
+}
 
 namespace ML {
 
 class Training_Data;
 class Classifier;
 class Classifier_Impl;
-
 
 /*****************************************************************************/
 /* GLZ_PROBABILIZER                                                          */
@@ -332,6 +336,31 @@ operator << (DB::Store_Writer & store, const GLZ_Probabilizer & prob);
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store, GLZ_Probabilizer & prob);
 
+/*****************************************************************************/
+/* PROBABILIZER                                                          */
+/*****************************************************************************/
+
+struct ProbabilizerModel
+{
+    ProbabilizerModel();
+    ProbabilizerModel(std::shared_ptr<spdlog::logger> logger);
+
+    //Score, label, weight
+    void train(const std::vector<std::tuple<float, float, float> >& fvs,
+               ML::Link_Function link);
+
+    void serialize(DB::Store_Writer & store) const;
+    void reconstitute(DB::Store_Reader & store);
+
+    std::shared_ptr<spdlog::logger> logger;
+
+    std::string style;
+    ML::Link_Function link;
+    distribution<double> params;
+    ML::GLZ_Probabilizer glz;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ProbabilizerModel);
 
 } // namespace ML
 
