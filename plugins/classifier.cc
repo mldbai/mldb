@@ -1011,6 +1011,10 @@ getFunctionInfo() const
                                       sparsity);
             break;
 
+        case ML::INUTILE:
+            // inutile, ignore it
+            break;
+
         default:
             throw HttpReturnException(400, "unknown value info");
         }

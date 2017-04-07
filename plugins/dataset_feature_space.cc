@@ -114,6 +114,9 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
                 auto categorical = std::make_shared<ML::Fixed_Categorical_Info>(allValues);
                 result.info = ML::Feature_Info(categorical);
             }
+            else if (types.size() == 1 && types.begin()->first == CellValue::EMPTY) {
+                result.info = ML::INUTILE;
+            }
             else {
                 result.info = ML::REAL;
             }
@@ -255,7 +258,7 @@ encodeValue(const CellValue & value,
             const ColumnPath & columnName,
             const ML::Feature_Info & info) const
 {
-    if (value.empty())
+    if (value.empty() || info.type() == ML::INUTILE)
         return std::numeric_limits<float>::quiet_NaN();
 
     if (info.type() == ML::CATEGORICAL
@@ -276,7 +279,7 @@ encodeValue(const CellValue & value,
                             + columnName.toUtf8String().rawString() + 
                             "' was numeric in training, but is now " +
                             jsonEncodeStr(value));
-        
+
     }
     return value.toDouble();
 
