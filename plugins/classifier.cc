@@ -1011,7 +1011,7 @@ getFunctionInfo() const
                                       sparsity);
             break;
 
-        case ML::UNKNOWN:
+        case ML::INUTILE:
             // inutile, ignore it
             break;
 
