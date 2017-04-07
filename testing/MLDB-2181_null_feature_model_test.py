@@ -86,6 +86,11 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
         })
 
     def test_string_over_null(self):
+        """
+        The primary test.
+        The issue column, which was always null for training, is now having
+        a string values for testing.
+        """
         ds = mldb.create_dataset({
             'id': 'test_string_over_null_ds',
             'type': 'sparse.mutable'
@@ -111,6 +116,10 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
         })
 
     def test_num_over_null(self):
+        """
+        The issue column, which was always null for training, is now having
+        numerical values for testing.
+        """
         ds = mldb.create_dataset({
             'id': 'test_num_over_null_ds',
             'type': 'sparse.mutable'
@@ -136,6 +145,12 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
         })
 
     def test_c_over_a_or_b(self):
+        """
+        This is an alternate test of unknown values. The model was built with
+        column a_or_b having always a value of either a or b. Here, we test
+        with a dataset having always the "never seen value" of c for that
+        column.
+        """
         ds = mldb.create_dataset({
             'id': 'test_c_over_a_or_b_ds',
             'type': 'sparse.mutable'
