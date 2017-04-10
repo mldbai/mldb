@@ -80,6 +80,8 @@ FastTest_Classifier::
 predict(const Feature_Set & infeatures,
         PredictionContext * context) const
 {
+    ExcAssert(fastText_);
+    ExcAssert(fastText_->model_);
     Label_Dist results;
     results.resize(label_count());   
 
@@ -272,7 +274,7 @@ reconstitute(DB::Store_Reader & store,
         break;
     }
     default:
-        throw Exception("FastTest_Classifier: Attempt to reconstitute tree of "
+        throw Exception("FastTest_Classifier: Attempt to reconstitute model of "
                         "unknown version " + ostream_format(version.size_));
     }
 

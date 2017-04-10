@@ -84,6 +84,17 @@ ExperimentProcedureConfigDescription()
              "Model mode: `boolean`, `regression` or `categorical`. "
              "Controls how the label is interpreted and what is the output of the classifier. "
              , CM_BOOLEAN);
+    addField("multilabelStrategy", &ExperimentProcedureConfig::multilabelStrategy,
+             "Multilabel strategy: `random`, `decompose` or `onevsall`"
+             "Controls how examples are prepared to handle multilabel classification."
+             "  *`random` will select a label at random among the example's set"
+             "  *`decompose` will decompose the multilabel combination into single-label examples"
+             "  *`onevsall` will train a probabilized binary classifier for each label"
+             "This only applies if `mode` is equal to `multilabel`"
+             , MULTILABEL_ONEVSALL);
+    addField("recallOverN", &ExperimentProcedureConfig::accuracyOverN,
+              "Calculate a recall score over the top scoring labels."
+              "Does not apply to boolean or regression modes.");
     addField("inputData", &ExperimentProcedureConfig::inputData,
              "SQL query which specifies the features, labels and optional weights for the training and testing procedures. "
              "This query is used to create a training and testing set according to the [steps laid "
@@ -92,11 +103,12 @@ ExperimentProcedureConfigDescription()
              "The select expression must contain these two columns: \n\n"
              "  * `features`: a row expression to identify the features on which to \n"
              "    train, and \n"
-             "  * `label`: one scalar expression to identify the row's label, and whose type "
+             "  * `label`: one expression to identify the row's label(s), and whose type "
              "must match that of the classifier mode. Rows with null labels will be ignored. \n"
              "     * `boolean` mode: a boolean (0 or 1)\n"
              "     * `regression` mode: a real number\n"
-             "     * `categorical` mode: any combination of numbers and strings for\n\n"
+             "     * `categorical` mode: any combination of numbers and strings\n"
+             "     * `multilabel` mode: a row, in which each non-null column is a separate label\n\n"
              "The select expression can contain an optional `weight` column. The weight "
              "allows the relative importance of examples to be set. It must "
              "be a real number. If the `weight` is not specified each row will have "
@@ -384,7 +396,7 @@ run(const ProcedureRunConfig & run,
         clsProcConf.algorithm = runProcConf.algorithm;
         clsProcConf.equalizationFactor = runProcConf.equalizationFactor;
         clsProcConf.mode = runProcConf.mode;
-
+        clsProcConf.multilabelStrategy = runProcConf.multilabelStrategy;        
 
         clsProcConf.functionName = MLDB::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
 
@@ -440,7 +452,8 @@ run(const ProcedureRunConfig & run,
         string scoreExpr;
         if     (runProcConf.mode == CM_BOOLEAN ||
                 runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
-        else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
+        else if(runProcConf.mode == CM_CATEGORICAL ||
+                runProcConf.mode == CM_MULTILABEL) scoreExpr = "\"%s\"({%s})[scores] as score";
         else throw MLDB::Exception("Classifier mode %d not implemented", runProcConf.mode);
 
 
@@ -484,6 +497,7 @@ run(const ProcedureRunConfig & run,
                 AccuracyConfig accuracyConfig;
                 accuracyConfig.mode = runProcConf.mode;
                 accuracyConfig.uniqueScoresOnly = runProcConf.uniqueScoresOnly;
+                accuracyConfig.accuracyOverN = runProcConf.accuracyOverN;
 
                 if(runProcConf.outputAccuracyDataset && onTestSet) {
                     PolyConfigT<Dataset> outputPC;

@@ -19,6 +19,7 @@ The `status` field will contain statistics relevant to the model's mode.
 - <a href="#boolean">Boolean mode</a>
 - <a href="#categorical">Categorical mode</a>
 - <a href="#regression">Regression mode</a>
+- <a href="#multilabel">Multi-label mode</a>
 
 ### <a name="boolean"></a>Boolean mode
 
@@ -160,7 +161,6 @@ with the same row name as in the input, and the following columns:
 * `score.x`: the score the classifier assigned to this row for label `x`
 * `maxLabel`: the label with the maximum score
 
-
 ### <a name="regression"></a>Regression mode
 
 The `status` field will contain the following performance statistics:
@@ -197,6 +197,57 @@ with the same row name as in the input, and the following columns:
 * `label`: the row's actual value
 * `score`: predicted value
 * `weight`: the row's assigned weight
+
+### <a name="multilabel"></a>Multi-label mode
+
+The `status` field will contain the recall among top-N performance 
+statistic (e.g. [recall](http://en.wikipedia.org/wiki/Precision_and_recall)) 
+for the classifier, where the labels with the highest score will be chosen as the
+predictions for each example. I.e, each example will register a positive for 
+each of its label(s) that is found among the set(s) of highest scoring labels returned by the classifier.
+The size of this set is determined by the `recallOverN` parameter. It follows that a `1.0` recall rate cannot
+be obtained if any example contains more unique labels than the value of the `recallOverN`
+parameter.
+
+The `weighted_statistics` represents the average of the 
+per-label statistics.
+
+Here is a sample output, with `recallOverN` set to `[3, 5]`, to calculate the recall over the top 3 and 5 best labels,
+respectively:
+
+```python
+{
+    "status": {
+                "weightedStatistics": {
+                    "recallOverTopN": [0.6666666666666666, 1.0]
+                },
+                "labelStatistics": {
+                    "label0": {
+                        "recallOverTopN": [0.3333333333333333, 1.0]
+                    },
+                    "label1": {
+                        "recallOverTopN": [0.6666666666666666, 1.0]
+                    },
+                    "label2": {
+                        "recallOverTopN": [1.0, 1.0]
+                    }
+                }
+            },
+    "state": "finished"
+}
+```
+
+This indicates that in this example most true-positive labels are found with the top 3, and 
+all within the top 5. For `label2`, they are always found within the top 3.
+
+The `output` dataset created by this procedure in `multilabel` mode 
+will contain one row per input row, 
+with the same row name as in the input, and the following columns:
+
+* `label`: the row's actual label
+* `weight`: the row's assigned weight
+* `score.x`: the score the classifier assigned to this row for label `x`
+* `maxLabel`: the label with the maximum score
 
 ## Examples
 

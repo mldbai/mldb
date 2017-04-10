@@ -27,18 +27,16 @@ class SqlExpression;
 struct AccuracyConfig : public ProcedureConfig {
     static constexpr const char * name = "classifier.test";
 
-    AccuracyConfig()
-          : mode(CM_BOOLEAN), uniqueScoresOnly(false)
-    {
-    }
-
     /// Sql query to select the testing data
     InputQuery testingData;
 
     /// What mode to run in
-    ClassifierMode mode;
+    ClassifierMode mode = CM_BOOLEAN;
 
-    bool uniqueScoresOnly;
+    bool uniqueScoresOnly = false;
+
+    //check if label is among the 'N' top scores
+    std::vector<size_t> accuracyOverN;
 
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;

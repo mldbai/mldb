@@ -225,6 +225,9 @@ FastText_Generator::
     };
 
     parallelMap(0, args_->thread, trainThread);
+
+    //for prediction
+    fastTextModel.model_ = std::make_shared<fasttext::Model>(fastTextModel.input_, fastTextModel.output_, fastTextModel.args_, 0);
    
     return output;
 }

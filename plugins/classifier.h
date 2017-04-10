@@ -30,19 +30,22 @@ class SqlExpression;
 enum ClassifierMode {
     CM_REGRESSION,
     CM_BOOLEAN,
-    CM_CATEGORICAL
+    CM_CATEGORICAL,
+    CM_MULTILABEL
 };
 
+enum MultilabelStrategy {
+    MULTILABEL_RANDOM,
+    MULTILABEL_DECOMPOSE,
+    MULTILABEL_ONEVSALL
+};
+
+
 DECLARE_ENUM_DESCRIPTION(ClassifierMode);
+DECLARE_ENUM_DESCRIPTION(MultilabelStrategy);
 
 struct ClassifierConfig : public ProcedureConfig {
     static constexpr const char * name = "classifier.train";
-
-    ClassifierConfig()
-        : equalizationFactor(0.5),
-          mode(CM_BOOLEAN)
-    {
-    }
 
     /// Query to select the training data
     InputQuery trainingData;
@@ -63,10 +66,13 @@ struct ClassifierConfig : public ProcedureConfig {
     std::string algorithm;
 
     /// Equalization factor for rare classes.  Affects the weighting.
-    double equalizationFactor;
+    double equalizationFactor = 0.5;
 
     /// What mode to run in
-    ClassifierMode mode;
+    ClassifierMode mode = CM_BOOLEAN;
+
+    // Strategy to handle multilabel
+    MultilabelStrategy multilabelStrategy = MULTILABEL_ONEVSALL;
 
     // Function name
     Utf8String functionName;
