@@ -32,7 +32,6 @@ namespace ML {
 using MLDB::getDefaultDescriptionShared;
 
 DEFINE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, ML::Feature_Type);
-DEFINE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, ML::Link_Function);
 DEFINE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, ML::Regularization);
 
 struct ClassifierImplDescription
@@ -60,16 +59,6 @@ FeatureTypeDescription()
     addValue("REAL",        ML::REAL, "Feature is real valued");
     addValue("INUTILE",     ML::INUTILE, "Feature is inutile and should be ignored");
     addValue("STRING",      ML::STRING, "Feature is an open categorical feature");
-}
-
-LinkFunctionDescription::
-LinkFunctionDescription()
-{
-    addValue("LOGIT", ML::LOGIT, "Logit, good generic link for probabilistic");
-    addValue("PROBIT", ML::PROBIT, "Probit, advanced usage");
-    addValue("COMP_LOG_LOG", ML::COMP_LOG_LOG, "Also good for probabilistic");
-    addValue("LINEAR", ML::LINEAR, "Linear; makes it solve linear least squares (identity)");
-    addValue("LOG", ML::LOG, "Logarithm; good for transforming the output of boosting");
 }
 
 RegularizationDescription::

@@ -88,28 +88,8 @@ ProbabilizerConfigDescription()
                            validateFunction<ProbabilizerConfig>());
 }
 
-struct ProbabilizerRepr {
-    std::string style;
-    ML::Link_Function link;
-    distribution<double> params;
-};
-
-DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerRepr);
-
-ProbabilizerReprDescription::
-ProbabilizerReprDescription()
-{
-    addField("style", &ProbabilizerRepr::style,
-             "Style of probabilizer to load");
-    addField("link", &ProbabilizerRepr::link,
-             "Link function for GLZ probabilizer");
-    addField("params", &ProbabilizerRepr::params,
-             "Parameterization of probabilizer");
-}
-
-
 /*****************************************************************************/
-/* PROBABILIZER PROCEDURE                                                     */
+/* PROBABILIZER PROCEDURE                                                    */
 /*****************************************************************************/
 
 ProbabilizerProcedure::
@@ -169,9 +149,7 @@ run(const ProcedureRunConfig & run,
     // ...
 
     std::mutex fvsLock;
-    std::vector<std::tuple<RowPath, float, float, float> > fvs;
-
-    std::atomic<int> numRows(0);
+    std::vector<std::tuple<float, float, float> > fvs;
 
     auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & extraVals)
@@ -179,11 +157,10 @@ run(const ProcedureRunConfig & run,
             float score = extraVals.at(0).toDouble();
             float label = extraVals.at(1).toDouble();
             float weight = extraVals.at(2).toDouble();
-            ++numRows;
 
             std::unique_lock<std::mutex> guard(fvsLock);
 
-            fvs.emplace_back(row.rowName, score, label, weight);
+            fvs.emplace_back(score, label, weight);
             return true;
         };
 
@@ -195,85 +172,12 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
 
-
-    int nx = numRows;
-
-    /* Convert to the correct data structures. */
-
-    boost::multi_array<double, 2> outputs(boost::extents[2][nx]);  // value, bias
-    distribution<double> correct(nx, 0.0);
-    distribution<double> weights(nx, 1.0);
-
-    size_t numTrue = 0;
-
-    for (unsigned x = 0;  x < nx;  ++x) {
-        float score, label, weight;
-        std::tie(std::ignore, score, label, weight) = fvs[x];
-
-        DEBUG_MSG(logger) 
-            << "x = " << x << " score = " << score << " label = " << label
-            << " weight = " << weight;
-
-        outputs[0][x] = score;
-        outputs[1][x] = 1.0;
-        correct[x]    = label;
-        weights[x]    = weight;
-        numTrue      += label == 1;
-    }
-
-#if 0
-    filter_ostream out("prob-in.txt");
-
-    for (unsigned i = 0;  i < nx;  ++i) {
-        out << MLDB::format("%.15f %.16f %d\n",
-                          outputs[0][i],
-                          outputs[1][i],
-                          correct[i]);
-
-    }
-#endif
-
-    double trueOneRate = correct.dotprod(weights) / weights.total();
-    double trueZeroRate = 1.0 - trueOneRate;
-
-    double numExamples = nx;
-    double sampleOneRate = numTrue / numExamples;
-    double sampleZeroRate = 1.0 - sampleOneRate;
-
-    INFO_MSG(logger) << "trueOneRate = " << trueOneRate
-                     << " trueZeroRate = " << trueZeroRate
-                     << " sampleOneRate = " << sampleOneRate
-                     << " sampleZeroRate = " << sampleZeroRate;
-
-    auto link = runProcConf.link;
-
-    ML::Ridge_Regressor regressor;
-    distribution<double> probParams
-        = ML::run_irls(correct, outputs, weights, link, regressor);
-
-    INFO_MSG(logger) << "probParams = " << probParams;
-
-    // http://gking.harvard.edu/files/0s.pdf, section 4.2
-    // Logistic Regression in Rare Events Data (Gary King and Langche Zeng)
-
-    double correction = -log((1 - trueOneRate) / trueOneRate
-                             * sampleOneRate / (1 - sampleOneRate));
-
-    DEBUG_MSG(logger) << "paramBefore = " << probParams[1];
-    DEBUG_MSG(logger) << "correction = " << correction;
-
-    probParams[1] += correction;
-
-    INFO_MSG(logger) << "paramAfter = " << probParams[1];
-
-    ProbabilizerRepr repr;
-    repr.style = "glz";
-    repr.link = link;
-    repr.params = probParams;
+    ProbabilizerModel probabilizer;
+    probabilizer.train(fvs, runProcConf.link);
 
     if (!runProcConf.modelFileUrl.toString().empty()) {
         filter_ostream stream(runProcConf.modelFileUrl);
-        stream << jsonEncode(repr);
+        stream << jsonEncode(probabilizer);
         stream.close();
 
         if(!runProcConf.functionName.empty()) {
@@ -286,13 +190,7 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-#if 0
-    itl->probabilizer.link = link;
-    itl->probabilizer.params.resize(1);
-    itl->probabilizer.params[0] = probParams;
-#endif
-
-    return RunOutput(repr);
+    return RunOutput(probabilizer);
 }
 
 
@@ -324,7 +222,7 @@ ProbabilizeFunction(MldbServer * owner,
     functionConfig = config.params.convert<ProbabilizeFunctionConfig>();
     itl.reset(new Itl());
     filter_istream stream(functionConfig.modelFileUrl);
-    auto repr = jsonDecodeStream<ProbabilizerRepr>(stream);
+    auto repr = jsonDecodeStream<ProbabilizerModel>(stream);
     itl->probabilizer.link = repr.link;
     itl->probabilizer.params.resize(1);
     itl->probabilizer.params[0] = repr.params;

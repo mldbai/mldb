@@ -54,7 +54,6 @@ PREDECLARE_VALUE_DESCRIPTION(ML::Dense_Feature_Space);
 PREDECLARE_VALUE_DESCRIPTION(ML::Feature_Info);
 
 DECLARE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, ML::Feature_Type);
-DECLARE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, ML::Link_Function);
 DECLARE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, ML::Regularization);
 
 PREDECLARE_VALUE_DESCRIPTION(ML::Configuration);

@@ -175,13 +175,13 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     virtual ML::Feature_Space_Type type() const override;
 
-    virtual Feature_Space * make_copy() const override;
-
     using ML::Feature_Space::serialize;
     using ML::Feature_Space::reconstitute;
 
     void reconstitute(ML::DB::Store_Reader & store);
     virtual void serialize(ML::DB::Store_Writer & store) const override;
+    virtual ML::Feature_Space * make_copy() const;
+
 };
 
 
