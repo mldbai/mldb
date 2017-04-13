@@ -62,6 +62,8 @@ public:
     int epoch = 5;
     int dims = 100;
     int verbose = 0;
+    int minCount = 0;
+    int maxCount = 100;
    
 };
 

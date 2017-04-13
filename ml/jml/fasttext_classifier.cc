@@ -17,6 +17,7 @@
 #include "mldb/ext/fasttext/src/fasttext.h"
 #include "mldb/ext/fasttext/src/args.h"
 #include "mldb/ext/fasttext/src/model.h"
+#include "mldb/jml/utils/profile.h"
 
 
 using namespace std;
@@ -80,6 +81,7 @@ FastTest_Classifier::
 predict(const Feature_Set & infeatures,
         PredictionContext * context) const
 {
+    //STACK_PROFILE(FastTest_Classifier_predict);
     ExcAssert(fastText_);
     ExcAssert(fastText_->model_);
     Label_Dist results;
@@ -166,6 +168,7 @@ void
 FastTest_Classifier::
 serialize(DB::Store_Writer & store) const
 {
+    cerr << "FastTest_Classifier serialize" << endl;
     auto serializeFasttextMatrix = [&] (std::shared_ptr<fasttext::Matrix> matrix) {
         ExcAssert(matrix);
         store << matrix->m_;
@@ -183,6 +186,7 @@ serialize(DB::Store_Writer & store) const
     feature_space_->serialize(store, predicted_);
 
     size_t numFeatures = features.size();
+    cerr << "numFeatures" << numFeatures << endl;
     store << numFeatures;
     for (auto& f : features)
         serialize(store, f);
