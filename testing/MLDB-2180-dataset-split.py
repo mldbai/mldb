@@ -45,34 +45,6 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                 ds2.record_row('%d' % i, [['z', 1, 0]])
         ds2.commit()
 
-        """
-        ds2.record_row('0', [['x', 1, 0]])
-        ds2.record_row('1', [['x', 1, 0]])
-        ds2.record_row('2', [['x', 1, 0]])
-        ds2.record_row('3', [['x', 1, 0]])
-        ds2.record_row('4', [['x', 1, 0]])
-        ds2.record_row('5', [['x', 1, 0], ['y', 1, 0]])
-        ds2.record_row('6', [['x', 1, 0], ['y', 1, 0]])
-        ds2.record_row('7', [['x', 1, 0], ['y', 1, 0]])
-        ds2.record_row('8', [['x', 1, 0], ['y', 1, 0], ['z', 1, 0]])
-        ds2.record_row('9', [['x', 1, 0], ['y', 1, 0], ['z', 1, 0]])
-        ds2.record_row('10', [['y', 1, 0]])
-        ds2.record_row('11', [['y', 1, 0]])
-        ds2.record_row('12', [['y', 1, 0]])
-        ds2.record_row('13', [['y', 1, 0]])
-        ds2.record_row('14', [['y', 1, 0]])
-        ds2.record_row('15', [['y', 1, 0]])
-        ds2.record_row('16', [['y', 1, 0]])
-        ds2.record_row('17', [['y', 1, 0], ['z', 1, 0]])
-        ds2.record_row('18', [['y', 1, 0], ['z', 1, 0]])
-        ds2.record_row('19', [['y', 1, 0], ['z', 1, 0]])
-        ds2.record_row('20', [['z', 1, 0]])
-        ds2.record_row('21', [['z', 1, 0]])
-        ds2.record_row('22', [['z', 1, 0]])
-        ds2.record_row('23', [['z', 1, 0]])
-        ds2.commit()
-        """
-
     #Test that we try to represent every label in every dataset, regardless of distribution
 
     def test_spread(self):

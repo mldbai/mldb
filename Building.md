@@ -35,7 +35,9 @@ apt-get install -y \
   libyaml-cpp-dev \
   python-virtualenv \
   unzip \
-  valgrind
+  valgrind \
+  uuid-dev \
+  libxml++2.6-dev
 ```
 ## Installing Docker
 
