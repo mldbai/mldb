@@ -11,60 +11,41 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
-        ds.record_row('0', [['x', 1, 0]])
-        ds.record_row('1', [['x', 1, 0]])
-        ds.record_row('2', [['y', 1, 0]])
-        ds.record_row('3', [['y', 1, 0]])
+        for i in xrange(4):
+            val = 'x' if i < 2 else 'y'
+            ds.record_row('%d' % i, [[val, 1, 0]])
         ds.commit()
 
         ds2 = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
-        ds2.record_row('0', [['x', 1, 0]])
-        ds2.record_row('1', [['x', 1, 0]])
-        ds2.record_row('2', [['x', 1, 0]])
-        ds2.record_row('3', [['x', 1, 0]])
-        ds2.record_row('4', [['x', 1, 0]])
-        ds2.record_row('5', [['x', 1, 0]])
-        ds2.record_row('6', [['x', 1, 0]])
-        ds2.record_row('7', [['x', 1, 0]])
-        ds2.record_row('8', [['x', 1, 0]])
-        ds2.record_row('9', [['x', 1, 0]])
-        ds2.record_row('10', [['x', 1, 0]])
-        ds2.record_row('11', [['x', 1, 0]])
-        ds2.record_row('12', [['x', 1, 0]])
-        ds2.record_row('13', [['x', 1, 0]])
-        ds2.record_row('14', [['x', 1, 0]])
-        ds2.record_row('15', [['x', 1, 0]])
-        ds2.record_row('16', [['y', 1, 0]])
-        ds2.record_row('17', [['y', 1, 0]])
-        ds2.record_row('18', [['y', 1, 0]])
-        ds2.record_row('19', [['y', 1, 0]])
+        for i in xrange(20):
+            val = 'x' if i < 16 else 'y'
+            ds2.record_row('%d' % i, [[val, 1, 0]])
         ds2.commit()
 
         ds2 = mldb.create_dataset({'id' : 'ds3', 'type' : 'sparse.mutable'})
-        ds2.record_row('0', [['x', 1, 0]])
-        ds2.record_row('1', [['x', 1, 0]])
-        ds2.record_row('2', [['x', 1, 0]])
-        ds2.record_row('3', [['x', 1, 0]])
-        ds2.record_row('4', [['x', 1, 0]])
-        ds2.record_row('5', [['x', 1, 0]])
-        ds2.record_row('6', [['x', 1, 0]])
-        ds2.record_row('7', [['x', 1, 0]])
-        ds2.record_row('8', [['x', 1, 0]])
-        ds2.record_row('9', [['x', 1, 0]])
-        ds2.record_row('10', [['y', 1, 0]])
-        ds2.record_row('11', [['y', 1, 0]])
-        ds2.record_row('12', [['y', 1, 0]])
-        ds2.record_row('13', [['y', 1, 0]])
-        ds2.record_row('14', [['y', 1, 0]])
-        ds2.record_row('15', [['y', 1, 0]])
-        ds2.record_row('16', [['y', 1, 0]])
-        ds2.record_row('17', [['y', 1, 0]])
-        ds2.record_row('18', [['y', 1, 0]])
-        ds2.record_row('19', [['y', 1, 0]])
+        for i in xrange(20):
+            val = 'x' if i < 10 else 'y'
+            ds2.record_row('%d' % i, [[val, 1, 0]])
         ds2.commit()
 
         ds2 = mldb.create_dataset({'id' : 'ds4', 'type' : 'sparse.mutable'})
         #10/24 x, 15/24 y, 9 / 24 z
+        for i in xrange(24):
+            if i < 5:
+                ds2.record_row('%d' % i, [['x', 1, 0]])
+            elif i < 8:
+                ds2.record_row('%d' % i, [['x', 1, 0], ['y', 1, 0]])
+            elif i < 10:
+                ds2.record_row('%d' % i, [['x', 1, 0], ['y', 1, 0], ['z', 1, 0]])
+            elif i < 17:
+                ds2.record_row('%d' % i, [['y', 1, 0]])
+            elif i < 20:
+                ds2.record_row('%d' % i, [['y', 1, 0], ['z', 1, 0]])
+            else:
+                ds2.record_row('%d' % i, [['z', 1, 0]])
+        ds2.commit()
+
+        """
         ds2.record_row('0', [['x', 1, 0]])
         ds2.record_row('1', [['x', 1, 0]])
         ds2.record_row('2', [['x', 1, 0]])
@@ -90,6 +71,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         ds2.record_row('22', [['z', 1, 0]])
         ds2.record_row('23', [['z', 1, 0]])
         ds2.commit()
+        """
 
     #Test that we try to represent every label in every dataset, regardless of distribution
 

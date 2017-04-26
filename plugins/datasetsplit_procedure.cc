@@ -41,11 +41,12 @@ SplitProcedureConfigDescription()
     addField("labels", &SplitProcedureConfig::labels,
              "Row of labels to distribute among the splits while keeping their respective proportions");
     addField("outputDatasets", &SplitProcedureConfig::outputDatasets,
-             "Configuration for output dataset");
+             "Configuration for output dataset. The length must match the length of splits.");
     addField("splits", &SplitProcedureConfig::splits,
              "Proportion of rows to put into each dataset. The sum of the input should approximate to 1.0");
     addField("foldImportance", &SplitProcedureConfig::foldImportance,
-             "Importance of respecting the splits versus the distribution of the labels",
+             "Importance of respecting the splits versus the distribution of the labels."
+             "0 will optimize the distribution of the labels only, while 1.0 will weight them equally.",
              1.0f);    
     addParent<ProcedureConfig>();
 }
@@ -77,6 +78,10 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procConfig, run);
+
+    if (runProcConf.splits.size() != runProcConf.outputDatasets.size())
+        throw MLDB::Exception("Number of split requested is different than the number of dataset provided");
+
     SqlExpressionMldbScope context(server);
     ConvertProgressToJson convertProgressToJson(onProgress);
 
