@@ -196,7 +196,7 @@ GET /v1/plugins/myapi/routes/predict { "input": [ 1, 2, 3 ] }
 
 which returns 6.
 
-## Working with APIs unable to send a body with a GET request
+## Working with APIs that are unable to send a body with a GET request
 
 If you need to send a body with a `GET` request to MLDB and your interface
 doesn't support it, you can `POST` to the special route `/v1/redirect/get`,
