@@ -45,6 +45,8 @@ SELECT CAST (fetch({url: 'http://www.google.com'})[content] AS STRING)
 - There is currently no caching mechanism.
 - There is currently no means to fetch a resource only if it has not
   changed since the last time it was fetched.
+- There is currently no means to detemine a maximum number of redirects to
+  follow. It will stop after an arbitrary count.
 
 ## Design notes
 

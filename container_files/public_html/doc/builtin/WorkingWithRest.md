@@ -195,3 +195,27 @@ GET /v1/plugins/myapi/routes/predict { "input": [ 1, 2, 3 ] }
 ```
 
 which returns 6.
+
+## Working with APIs that are unable to send a body with a GET request
+
+If you need to send a body with a `GET` request to MLDB and your interface
+doesn't support it, you can `POST` to the special route `/v1/redirect/get`,
+which was created exactly for that case. It basically acts as a proxy that
+redirects `POST` requests as `GET` to internal MLDB routes.
+
+Here is an example
+
+```JSON
+POST /v1/redirect/get {
+    "target": "/v1/query",
+    "body": {
+        "q": "SELECT 'foo' AS bar"
+    }
+}
+```
+
+Which returns
+
+```JSON
+[{"rowName":"result","columns":[["bar","foo","-Inf"]]}]
+```
