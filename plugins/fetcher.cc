@@ -43,7 +43,7 @@ FetcherFunctionConfigDescription()
     nullAccepted = true;
     addField("maxConcurrentFetch", &FetcherFunctionConfig::maxConcurrentFetch,
              "The maximum number of concurrent fetching operations to allow."
-             "-1 leaves the control to MLDB.", -1);
+             " -1 leaves the control to MLDB.", -1);
 
     onPostValidate = [&] (FetcherFunctionConfig * cfg,
                           JsonParsingContext & context)
@@ -186,10 +186,5 @@ static RegisterFunctionType<FetcherFunction, FetcherFunctionConfig>
 regFetcherFunction(builtinPackage(),
                    "fetcher",
                    "Fetches the contents of a URL each time it's invoked",
-                   "functions/Fetcher.md.html",
-                   nullptr, //static route
-                   { MldbEntity::INTERNAL_ENTITY });
-
+                   "functions/Fetcher.md.html");
 } // namespace MLDB
-
-
