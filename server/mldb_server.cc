@@ -13,6 +13,7 @@
 #include "mldb/rest/asio_peer_server.h"
 #include "mldb/rest/standalone_peer_server.h"
 #include "mldb/rest/collection_config_store.h"
+#include "mldb/rest/rest_collection.h"
 #include "mldb/rest/http_rest_endpoint.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/in_process_rest_connection.h"
@@ -428,6 +429,17 @@ shutdown()
 
     // Graphite logging: just log a message bracketing service shutdown
     recordHit("serviceStopped");
+
+    int tasksBefore = -1;
+    int tasks;
+    while ((tasks = BackgroundTaskBase::getPendingTasks()) != 0) {
+        if (tasks != tasksBefore) {
+            tasksBefore = tasks;
+            INFO_MSG(logger) << "Still waiting for " << tasks
+                             << " task(s)";
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
 }
 
 static bool endsWith(const std::string & str,

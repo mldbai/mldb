@@ -26,7 +26,6 @@
 #include <boost/exception/diagnostic_information.hpp> 
 #include <signal.h>
 
-
 using namespace std;
 
 using namespace MLDB;

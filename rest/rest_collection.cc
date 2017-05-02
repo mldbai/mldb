@@ -648,11 +648,19 @@ BackgroundTaskBase::
 BackgroundTaskBase()
     : running(false), state(State::INITIALIZING)
 {
+    ++pendingTasks;
+    needToDecrementPendingTasks.store(1);
+}
+
+atomic<int> BackgroundTaskBase::pendingTasks{0};
+int BackgroundTaskBase::getPendingTasks() {
+    return BackgroundTaskBase::pendingTasks.load();
 }
 
 BackgroundTaskBase::
 ~BackgroundTaskBase()
 {
+    tryDecrementPendingTasks();
     if (running) {
         cancel();
     }
@@ -670,6 +678,7 @@ bool
 BackgroundTaskBase::
 cancel() noexcept
 {
+    tryDecrementPendingTasks();
     auto old_state = state.exchange(State::CANCELLED);
     if (old_state != State::CANCELLED && old_state != State::FINISHED) {
         try {
@@ -709,10 +718,12 @@ cancel() noexcept
     return old_state != State::CANCELLED;
 }
 
+
 void
 BackgroundTaskBase::
 setError(std::exception_ptr exc)
 {
+    tryDecrementPendingTasks();
     auto old_state = state.exchange(State::ERROR);
     // cerr << "state is now ERROR " << handle << endl;
 
