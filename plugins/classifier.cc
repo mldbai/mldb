@@ -298,11 +298,23 @@ run(const ProcedureRunConfig & run,
 
         for (auto& v : labelUnbound.vars) {
 
-            if (std::find(knownInputColumns.begin(), knownInputColumns.end(), v.first) != knownInputColumns.end())
-                throw HttpReturnException
-                        (400, "Dataset column '" + 
-                         v.first.toUtf8String()
-                         + "' is used in both label and feature ");
+            if (runProcConf.mode != CM_MULTILABEL) {
+                if (std::find(knownInputColumns.begin(), knownInputColumns.end(), v.first) != knownInputColumns.end())
+                    throw HttpReturnException
+                            (400, "Dataset column '" + 
+                             v.first.toUtf8String()
+                             + "' is used in both label and feature ");
+            }
+            else {
+                for (const auto& c : knownInputColumns) {
+                    if (c.startsWith(v.first)) {
+                        throw HttpReturnException
+                                (400, "Dataset column '" + 
+                                 c.toUtf8String()
+                                 + "' is used in both label and feature");
+                    }
+                }
+            }
 
             knownlabelColumns.insert(std::move(v.first));
         }

@@ -155,7 +155,62 @@ class LabelFeatureValidationTest(MldbUnitTest):
                     "configuration": cls_config
                 }
             })
-            
+
+    def test_wrong_excluding_structured(self):
+
+        mldb.put("/v1/procedures/", {
+        "type": "transform",
+        "params": {
+            "inputData": """
+                SELECT *, {tokens.* as *} as label FROM bag_of_words
+            """,
+            "outputDataset": {
+                "id": "bag_of_words2",
+                "type": "sparse.mutable"
+                },
+            }
+        })
+
+        mldb.log(mldb.query("SELECT * FROM bag_of_words2"))
+
+        cls_config = {
+                "my_fasttext": {
+                    "type": "fasttext",
+                    "verbosity" : 0,
+                    "dims" : 4,
+                    "epoch" : 1,
+                }
+            }
+
+        # This is the correct excluding 
+        mldb.put("/v1/procedures/trainer", {
+            "type": "classifier.train",
+            "params": {
+                "trainingData": "SELECT {* EXCLUDING (label.*)} as features, label FROM bag_of_words2",
+                "modelFileUrl": "file://tmp/src_fasttext.cls",
+                "functionName" : 'myclassify',
+                "algorithm": "my_fasttext",
+                "mode": "multilabel",
+                "runOnCreation": True,
+                "configuration": cls_config
+            }
+        }) 
+
+        # This only excludes "label" not "label.alabama" so it should raise
+        with self.assertMldbRaises(expected_regexp="Dataset column 'label.alabama' is used in both label and feature"):
+            mldb.put("/v1/procedures/trainer", {
+                "type": "classifier.train",
+                "params": {
+                    "trainingData": "SELECT {* EXCLUDING (label)} as features, label FROM bag_of_words2",
+                    "modelFileUrl": "file://tmp/src_fasttext.cls",
+                    "functionName" : 'myclassify',
+                    "algorithm": "my_fasttext",
+                    "mode": "multilabel",
+                    "runOnCreation": True,
+                    "configuration": cls_config
+                }
+            })
+
 
 if __name__ == '__main__':
     mldb.run_tests()
