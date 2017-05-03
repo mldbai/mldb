@@ -51,18 +51,17 @@ class MLDB1209StatstableBiasNoiseTest(MldbUnitTest):  # noqa
             "params": {
                 "trainingData": "select host, region from bid_requests",
                 "outcomes": [["label", "label = 1"]],
-                "statsTableFileUrl": "file:///tmp/mldb-1209.st",
+                "statsTableFileUrl": "file://tmp/mldb-1209.st",
                 "runOnCreation": True
             }
         })
-
 
     def test_it(self):
 
         mldb.put("/v1/functions/getRawCounts", {
             "type": "statsTable.getCounts",
             "params": {
-                "statsTableFileUrl": "file:///tmp/mldb-1209.st",
+                "statsTableFileUrl": "file://tmp/mldb-1209.st",
                 "injectNoise": False
             }
         })
@@ -70,7 +69,7 @@ class MLDB1209StatstableBiasNoiseTest(MldbUnitTest):  # noqa
         mldb.put("/v1/functions/getNoisyCounts", {
             "type": "statsTable.getCounts",
             "params": {
-                "statsTableFileUrl": "file:///tmp/mldb-1209.st",
+                "statsTableFileUrl": "file://tmp/mldb-1209.st",
                 "injectNoise": True
             }
         })
@@ -85,6 +84,15 @@ class MLDB1209StatstableBiasNoiseTest(MldbUnitTest):  # noqa
         
         """))
 
+        mldb.log(mldb.query("""
+        select 
+            cnts.counts.label.host / cnts.counts.trial.host as ctr_host,
+            cnts.counts.label.region / cnts.counts.trial.region as ctr_region
+        from (
+            select getNoisyCounts({keys: {*}}) as cnts from bid_requests limit 5
+        )
+        
+        """))
 
         mldb.put("/v1/procedures/transf", {
             "type": "transform",

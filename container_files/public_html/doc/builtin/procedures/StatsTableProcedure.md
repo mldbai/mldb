@@ -4,7 +4,7 @@ This procedure does a rolling sum of keys and one or more outcomes over multiple
 the result of creating statistical tables, one per column, to track co-occurrence of each
 key with each outcome, over all rows in a table.
 
-This procedure is related to the the ![](%%doclink statsTable.bagOfWords.train procedure) but 
+This procedure is related to the ![](%%doclink statsTable.bagOfWords.train procedure) but 
 is different in the sense that the `statsTable.bagOfWords.train` procedure is meant to 
 operate on sparse bags of words. This procedure expects a dense input dataset with a fixed
 number of columns. Each column will have its own stats table. The keys used in the stats table
@@ -24,7 +24,7 @@ and used later on to lookup counts using the ![](%%doclink statsTable.getCounts 
 
 ## Example
 
-Let's assume a dataset made up of data from a real-time bidding online campaign. Each row
+Let's assume a dataset named rt_bidding made up of data from a real-time bidding online campaign. Each row
 represents a bid request and each column represents a field in the bid request. We're interested
 in tracking statistics for each possible values of each field to determine which ones are 
 strongly correlated with the outcomes. The outcomes we want to track are whether there was a click 
@@ -42,7 +42,7 @@ Assume this partial configuration:
 
 ```javascript
 {
-    "trainingData": "* EXCLUDING(click_on_ad, purchase_value)",
+    "trainingData": "SELECT * EXCLUDING(click_on_ad, purchase_value) FROM rt_bidding ORDER BY rowName()",
     "outcomes": [
         ["click", "click_on_ad = 1"],
         ["purchase", "click_on_ad = 1 AND purchase_value > 0"]
@@ -56,8 +56,8 @@ The output dataset will contain:
 |----------|---|---|---|---|---|---|
 | br_1     | 0  | 0 | 0 | 0 | 0 | 0 |
 | br_2     | 0  | 0 | 0 | 0 | 0 | 0 |
-| br_3     | 1  | 0 | 1 | 1 | 1 | 0 |
-| br_4     | 1  | 0 | 1 | 2 | 1 | 1 |
+| br_3     | 1  | 1 | 1 | 1 | 1 | 0 |
+| br_4     | 1  | 1 | 1 | 2 | 1 | 1 |
 
 Note that the effect of a row on the counts is taken into account after the counts
 for that specific row are generated. This is done to prevent introducing bias as the
