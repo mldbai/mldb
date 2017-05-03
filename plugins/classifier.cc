@@ -283,20 +283,48 @@ run(const ProcedureRunConfig & run,
         throw HttpReturnException(400, "trainingData must return a 'features' row and a 'label'");
 
     SelectExpression select({subSelect});
-
     std::set<ColumnPath> knownInputColumns;
     {
+        std::set<ColumnPath> knownlabelColumns;
+
         // Find only those variables used
         SqlExpressionDatasetScope context(boundDataset);
-        
         auto selectBound = select.bind(context);
-
         for (auto & c : selectBound.info->getKnownColumns()) {
             knownInputColumns.insert(c.columnName);
         }
-    }
 
-    DEBUG_MSG(logger) << "knownInputColumns are " << jsonEncode(knownInputColumns);
+        UnboundEntities labelUnbound = label->getUnbound();
+
+        for (auto& v : labelUnbound.vars) {
+
+            if (std::find(knownInputColumns.begin(), knownInputColumns.end(), v.first) != knownInputColumns.end())
+                throw HttpReturnException
+                        (400, "Dataset column '" + 
+                         v.first.toUtf8String()
+                         + "' is used in both label and feature ");
+
+            knownlabelColumns.insert(std::move(v.first));
+        }
+
+        for (const auto& w : labelUnbound.wildcards) {
+            const ColumnPath& prefix = w.second.prefix;
+            for (const auto& c : knownInputColumns) {
+                if (c.startsWith(prefix)) {
+                    throw HttpReturnException
+                        (400, "Dataset column '" + 
+                         c.toUtf8String()
+                         + "' is used in both label and feature "
+                         + "because of label wildcard '" +
+                         prefix.toUtf8String() + 
+                         "'");
+                }
+            }
+        }
+
+        DEBUG_MSG(logger) << "knownInputColumns are " << jsonEncode(knownInputColumns);
+        DEBUG_MSG(logger) << "knownlabelColumns are " << jsonEncode(knownlabelColumns);
+    }
 
     Timer timer;
 

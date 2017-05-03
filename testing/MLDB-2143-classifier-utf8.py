@@ -45,7 +45,7 @@ class MLDB2134classiferUtf8Test(MldbUnitTest):  # noqa
                 "mode": "categorical",
                 "inputData": """
                     select 
-                        {* EXCLUDING (class)} as features,
+                        {* EXCLUDING (label)} as features,
                         label
                     from iris_utf8
                 """,
@@ -63,13 +63,14 @@ class MLDB2134classiferUtf8Test(MldbUnitTest):  # noqa
         })
 
         runResults = rez.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["weightedStatistics"]
+
         self.assertEqual(runResults, {
-        "recall": 1.0,
-        "support": 72.0,
-        "f1Score": 1.0,
-        "precision": 1.0,
-        "accuracy": 1.0
-    })
+            "recall": 0.9444444444444444,
+            "support": 72.0,
+            "f1Score": 0.9446548821548821,
+            "precision": 0.9537037037037037,
+            "accuracy": 0.9645061728395061
+        })
        
 
 if __name__ == '__main__':

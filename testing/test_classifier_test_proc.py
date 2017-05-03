@@ -409,7 +409,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
-                    "inputData": "SELECT {*} AS features, label AS label FROM foo",
+                    "inputData": "SELECT {* EXCLUDING (label)} AS features, label AS label FROM foo",
                     "experimentName": "reg_exp",
                     "keepArtifacts": True,
                     "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",

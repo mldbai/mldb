@@ -146,7 +146,7 @@ def train_classifier(when):
         "type": "classifier.train",
         "params": {
             "trainingData": {
-                "select" : "{*} as features, x as label",
+                "select" : "{* EXCLUDING (x)} as features, x as label",
                 "when" : when,
                 "from" : {"id": "dataset1"}
             },

@@ -118,6 +118,7 @@ $(eval $(call mldb_unit_test,MLDB-534-svd-function-column-errors.js))
 $(eval $(call mldb_unit_test,MLDB-537-hang-on-put-error.js))
 $(eval $(call mldb_unit_test,MLDB-102-select-formats.js))
 $(eval $(call mldb_unit_test,MLDB-543-column-named-zero.js))
+$(eval $(call mldb_unit_test,MLDB-2188-label_feature_validation.py))
 
 $(shell rm -f tmp/MLDB-574-reddit.sqlite) # MLDB-574 fails if the file is already present
 $(eval $(call mldb_unit_test,MLDB-574-sqlite-backend.js))
