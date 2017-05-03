@@ -16,36 +16,12 @@
 #include "sql/sql_expression.h"
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
+#include "mldb/utils/noise_injector.h"
 
 
 namespace MLDB {
 
 
-/*****************************************************************************/
-/* NOISE INJECTOR                                                            */
-/*****************************************************************************/
-
-struct NoiseInjector {
-
-    NoiseInjector() : mu(0), b(3)
-    {
-    }
-
-    double rand_uniform() const;
-
-    double sample_laplace() const;
-
-    int64_t add_noise(int64_t count,
-                       int64_t max=std::numeric_limits<int64_t>::max()) const;
-
-    // http://stackoverflow.com/a/4609795
-    template <typename T> int sgn(T val) const {
-        return (T(0) < val) - (val < T(0));
-    }
-
-    const double mu;
-    const double b;
-};
 
 /*****************************************************************************/
 /* STATS TABLE                                                               */
