@@ -9,6 +9,7 @@
 
 #include "probabilizer.h"
 #include "mldb/ml/jml/registry.h"
+#include "mldb/ml/algebra/irls.h"
 #include "training_data.h"
 #include "training_index.h"
 #include "mldb/ml/jml/classifier.h"
@@ -19,12 +20,18 @@
 #include "mldb/ml/jml/registry.h"
 #include "mldb/jml/utils/environment.h"
 #include "mldb/jml/utils/vector_utils.h"
+#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/ml/value_descriptions.h"
+#include "mldb/types/any_impl.h"
+#include "mldb/types/distribution_description.h"
 #include <cmath>
 #include <fstream>
 
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/arch/simd_vector.h"
+
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -39,6 +46,114 @@ namespace {
 EnvOption<bool> debug("DEBUG_PROBABILIZER", false);
 }
 
+/*****************************************************************************/
+/* PROBABILIZER                                                              */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerModel);
+
+ProbabilizerModelDescription::
+ProbabilizerModelDescription()
+{
+    addField("style", &ProbabilizerModel::style,
+             "Style of probabilizer to load");
+    addField("link", &ProbabilizerModel::link,
+             "Link function for GLZ probabilizer",
+             ML::LOGIT);
+    addField("params", &ProbabilizerModel::params,
+             "Parameterization of probabilizer");
+}
+
+void
+ProbabilizerModel::
+train(const std::vector<std::tuple<float, float, float> >& fvs,
+      ML::Link_Function link) 
+{
+    auto logger = MLDB::getMldbLog<ProbabilizerModel>();
+    size_t nx = fvs.size();
+    boost::multi_array<double, 2> outputs(boost::extents[2][nx]);  // value, bias
+    distribution<double> correct(nx, 0.0);
+    distribution<double> weights(nx, 1.0);
+
+    size_t numTrue = 0;
+
+    for (unsigned x = 0;  x < nx;  ++x) {
+        float score, label, weight;
+        std::tie(score, label, weight) = fvs[x];
+
+        DEBUG_MSG(logger) 
+            << "x = " << x << " score = " << score << " label = " << label
+            << " weight = " << weight;
+
+        outputs[0][x] = score;
+        outputs[1][x] = 1.0;
+        correct[x]    = label;
+        weights[x]    = weight;
+        numTrue      += label == 1;
+    }
+
+    double numExamples = correct.size();
+    double trueOneRate = correct.dotprod(weights) / weights.total();
+    double trueZeroRate = 1.0 - trueOneRate;
+
+    double sampleOneRate = numTrue / numExamples;
+    double sampleZeroRate = 1.0 - sampleOneRate;
+
+    INFO_MSG(logger) << "trueOneRate = " << trueOneRate
+                     << " trueZeroRate = " << trueZeroRate
+                     << " sampleOneRate = " << sampleOneRate
+                     << " sampleZeroRate = " << sampleZeroRate;
+
+    ML::Ridge_Regressor regressor;
+    distribution<double> probParams
+        = ML::run_irls(correct, outputs, weights, link, regressor);
+
+    INFO_MSG(logger) << "probParams = " << probParams;
+
+    // http://gking.harvard.edu/files/0s.pdf, section 4.2
+    // Logistic Regression in Rare Events Data (Gary King and Langche Zeng)
+
+    double correction = -log((1 - trueOneRate) / trueOneRate
+                             * sampleOneRate / (1 - sampleOneRate));
+
+    probParams[1] += correction;
+
+    INFO_MSG(logger) << "paramAfter = " << probParams[1];
+
+    link = link;
+    params = probParams;
+
+    glz.link = link;
+    glz.params.resize(1);
+    glz.params[0] = params;
+}
+
+void 
+ProbabilizerModel::
+serialize(DB::Store_Writer & store) const
+{
+    const int version = 0;
+
+    store << version;
+    store << style;
+    store << link;
+    store << params;
+}
+
+void 
+ProbabilizerModel::
+reconstitute(DB::Store_Reader & store)
+{
+    int version = 0;
+    store >> version;
+    store >> style;
+    store >> link;
+    store >> params;
+
+    glz.link = link;
+    glz.params.resize(1);
+    glz.params[0] = params;
+}
 
 /*****************************************************************************/
 /* GLZ_PROBABILIZER                                                          */

@@ -16,6 +16,7 @@
 #include "mldb/http/http_exception.h"
 #include <unordered_set>
 #include <mutex>
+#include "mldb/jml/utils/profile.h"
 
 using namespace std;
 
@@ -45,12 +46,16 @@ SubDatasetConfigDescription()
 struct SubDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    std::vector<NamedRowValue> subOutput;
-    std::set<PathElement> columnNames;
-    std::set<ColumnPath> fullFlattenedColumnNames;
-    Lightweight_Hash<RowHash, int64_t> rowIndex;
-    Date earliest, latest;
-    std::shared_ptr<ExpressionValueInfo> columnInfo;
+    struct Chunk {
+        std::vector<NamedRowValue> subOutput;
+        std::set<PathElement> columnNames;
+        std::set<ColumnPath> fullFlattenedColumnNames;
+        Lightweight_Hash<RowHash, int64_t> rowIndex;
+        Date earliest, latest;
+        std::shared_ptr<ExpressionValueInfo> columnInfo;
+    };
+
+    Chunk mainChunk;
     std::mutex recordLock;
 
     Itl(SelectStatement statement, MldbServer* owner, const ProgressFunc & onProgress)
@@ -60,7 +65,7 @@ struct SubDataset::Itl
 
             auto pair = queryFromStatementExpr(statement, mldbContext, nullptr /*params*/, onProgress);
 
-            columnInfo = std::move(std::get<1>(pair));
+            mainChunk.columnInfo = std::move(std::get<1>(pair));
 
             init(std::move(std::get<0>(pair)));
         }       
@@ -71,11 +76,91 @@ struct SubDataset::Itl
         init(std::move(rows));
     }
 
+    struct ChunkRecorder: public Recorder {
+
+        Chunk myChunk;
+
+        ChunkRecorder(Itl * itl)
+            : itl(itl)
+        {
+        }
+
+        Itl * itl;
+
+        virtual void
+        recordRowExpr(const RowPath & rowName,
+                      const ExpressionValue & expr) override
+        {
+            Itl::AddRowInternal(rowName, expr, myChunk, false);
+        }
+
+        virtual void
+        recordRowExprDestructive(RowPath rowName,
+                                 ExpressionValue expr) override
+        {
+            Itl::AddRowInternal(rowName, expr, myChunk, true);
+        }
+
+        virtual void
+        recordRow(const RowPath & rowName,
+                  const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
+        {
+            ExpressionValue expr(vals);
+            Itl::AddRowInternal(rowName, expr, myChunk, true);
+        }
+
+        virtual void
+        recordRowDestructive(RowPath rowName,
+                             std::vector<std::tuple<ColumnPath, CellValue, Date> > vals) override
+        {
+            ExpressionValue expr(std::move(vals));
+            Itl::AddRowInternal(rowName, expr, myChunk, true);
+        }
+
+        virtual void
+        recordRows(const std::vector<std::pair<RowPath, 
+                   std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
+        {
+            for (auto & r: rows)
+                recordRow(r.first, r.second);
+        }
+
+        virtual void
+        recordRowsDestructive(std::vector<std::pair<RowPath, 
+                              std::vector<std::tuple<ColumnPath, CellValue, Date> > > > rows) override
+        {
+            for (auto & r: rows)
+                recordRowDestructive(std::move(r.first), std::move(r.second));
+        }
+
+        virtual void
+        recordRowsExpr(const std::vector<std::pair<RowPath, ExpressionValue > > & rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExpr(r.first, r.second);
+            }
+        }
+
+        virtual void
+        recordRowsExprDestructive(std::vector<std::pair<RowPath, ExpressionValue > > rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExprDestructive(std::move(r.first), std::move(r.second));
+            }
+        }
+
+        virtual void finishedChunk() override
+        {
+            itl->commitWrites(myChunk);
+        }
+    };
+
     void init(std::vector<NamedRowValue> rows)
     {
-        this->subOutput = std::move(rows);
+        std::lock_guard<std::mutex> lock(recordLock);
+        mainChunk.subOutput = std::move(rows);
 
-        earliest = latest = Date::notADate();
+        mainChunk.earliest = mainChunk.latest = Date::notADate();
 
         std::unordered_set<PathElement> columnNameSet;
         std::unordered_set<ColumnPath> fullflattenColumnNameSet;
@@ -83,12 +168,12 @@ struct SubDataset::Itl
 
         // Scan all rows for the columns that are there
         
-        for (size_t i = 0;  i < subOutput.size();  ++i) {
-            const NamedRowValue & row = subOutput[i];
+        for (size_t i = 0;  i < mainChunk.subOutput.size();  ++i) {
+            const NamedRowValue & row = mainChunk.subOutput[i];
 
             ExcAssert(row.rowName != RowPath());
 
-            rowIndex[row.rowName] = i;
+            mainChunk.rowIndex[row.rowName] = i;
 
             for (auto& c : row.columns)
             {
@@ -100,12 +185,12 @@ struct SubDataset::Itl
                 
                 if (ts.isADate()) {
                     if (first) {
-                        earliest = latest = ts;
+                        mainChunk.earliest = mainChunk.latest = ts;
                         first = false;
                     }
                     else {
-                        earliest.setMin(ts);
-                        latest.setMax(ts);
+                        mainChunk.earliest.setMin(ts);
+                        mainChunk.latest.setMax(ts);
                     }
                 }
 
@@ -122,43 +207,52 @@ struct SubDataset::Itl
             }
         }
 
-        columnNames.insert(columnNameSet.begin(), columnNameSet.end());
+        mainChunk.columnNames.insert(columnNameSet.begin(), columnNameSet.end());
 
-        fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
+        mainChunk.fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
             fullflattenColumnNameSet.end());
 
     }
 
-    void AddRowInternal(const RowPath & rowName,
-                const ExpressionValue & expr)
+    template< typename E >
+    static void AddRowInternal(const RowPath & rowName,
+                               E & expr,
+                               Chunk& chunk, 
+                               bool destructive)
     {
+        //STACK_PROFILE(AddRowToChunk);
         NamedRowValue newRow;
         newRow.columns.reserve(expr.rowLength());
         auto onSubexpr = [&] (const PathElement & columnName,
                               const ExpressionValue & val)
             {
-                newRow.columns.emplace_back(std::move(columnName), val);
+                newRow.columns.emplace_back(columnName, val);
+                return true;
+            };
+        auto onSubexprDestructive = [&] (PathElement & columnName,
+                                         ExpressionValue & val)
+            {
+                newRow.columns.emplace_back(std::move(columnName), std::move(val));
                 return true;
             };
 
-        expr.forEachColumn(onSubexpr);
+        if (destructive)
+            expr.forEachColumnDestructive(onSubexpr);
+        else
+            expr.forEachColumn(onSubexpr);
+
         newRow.rowName = rowName;
         newRow.rowHash = rowName;
-        {
-            std::lock_guard<std::mutex> lock(recordLock);
-            this->subOutput.push_back(std::move(newRow));
-        }
+        chunk.subOutput.push_back(std::move(newRow));
 
         std::unordered_set<PathElement> columnNameSet;
         std::unordered_set<ColumnPath> fullflattenColumnNameSet;
-        bool first = earliest == Date::notADate() && latest == Date::notADate();
+        bool first = chunk.earliest == Date::notADate() && chunk.latest == Date::notADate();
 
-        const NamedRowValue & row = subOutput.back();
+        const NamedRowValue & row = chunk.subOutput.back();
         ExcAssert(row.rowName != RowPath());
         {
-            std::lock_guard<std::mutex> lock(recordLock);
-                        
-            if (!rowIndex.insert({row.rowHash, this->subOutput.size() - 1}).second) {
+            if (!chunk.rowIndex.insert({row.rowHash, chunk.subOutput.size() - 1}).second) {
                 throw HttpReturnException
                     (400, "Duplicate row name in dataset",
                      "rowName",
@@ -171,7 +265,7 @@ struct SubDataset::Itl
             const PathElement & cName = std::get<0>(c);
 
             if (std::find(columnNameSet.begin(), columnNameSet.end(), cName) == columnNameSet.end()
-                && std::find(columnNames.begin(), columnNames.end(), cName) == columnNames.end()) {
+                && std::find(chunk.columnNames.begin(), chunk.columnNames.end(), cName) == chunk.columnNames.end()) {
                 columnNameSet.insert(cName);
             }
 
@@ -179,12 +273,12 @@ struct SubDataset::Itl
             
             if (ts.isADate()) {
                 if (first) {
-                    earliest = latest = ts;
+                    chunk.earliest = chunk.latest = ts;
                     first = false;
                 }
                 else {
-                    earliest.setMin(ts);
-                    latest.setMax(ts);
+                    chunk.earliest.setMin(ts);
+                    chunk.latest.setMax(ts);
                 }
             }
 
@@ -200,19 +294,34 @@ struct SubDataset::Itl
             std::get<1>(c).forEachAtom(getName, cName);
         }
 
-        {
-            std::lock_guard<std::mutex> lock(recordLock);
-            columnNames.insert(columnNameSet.begin(), columnNameSet.end());
-            fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
-                fullflattenColumnNameSet.end());
-        }
+        chunk.columnNames.insert(columnNameSet.begin(), columnNameSet.end());
+        chunk.fullFlattenedColumnNames.insert(fullflattenColumnNameSet.begin(), 
+            fullflattenColumnNameSet.end());
         
+    }
+
+    void commitWrites(Chunk& newChunk) {
+        std::lock_guard<std::mutex> lock(recordLock);
+        //STACK_PROFILE(commitWrites);
+        size_t start = mainChunk.subOutput.size();
+        mainChunk.subOutput.insert( mainChunk.subOutput.begin(), 
+                                    make_move_iterator(newChunk.subOutput.begin()),  
+                                    make_move_iterator(newChunk.subOutput.end()));
+        mainChunk.columnNames.insert( newChunk.columnNames.begin(),  newChunk.columnNames.end());
+        mainChunk.fullFlattenedColumnNames.insert( newChunk.fullFlattenedColumnNames.begin(), 
+                                                   newChunk.fullFlattenedColumnNames.end());
+        for (auto& o : newChunk.rowIndex) {
+           mainChunk.rowIndex[o.first] = o.second + start;
+        }
+        mainChunk.earliest.setMin(newChunk.earliest);
+        mainChunk.latest.setMax(newChunk.latest);
     }
 
     void AddRow(const RowPath & rowName,
                 const ExpressionValue & expr)
     {
-        AddRowInternal(rowName, expr);
+        std::lock_guard<std::mutex> lock(recordLock);
+        AddRowInternal(rowName, expr, mainChunk, false);
     }
 
     void AddRows(const std::vector<std::pair<RowPath, ExpressionValue> > & rows)
@@ -244,7 +353,7 @@ struct SubDataset::Itl
         }
 
         virtual void initAt(size_t start){
-            iter = source->subOutput.begin() + start;
+            iter = source->mainChunk.subOutput.begin() + start;
         }
 
         virtual RowPath next() {
@@ -267,9 +376,9 @@ struct SubDataset::Itl
         std::vector<RowPath> result;
         
         for (size_t index = start;
-             index < subOutput.size() && (limit == -1 || index < start + limit);
+             index < mainChunk.subOutput.size() && (limit == -1 || index < start + limit);
              ++index) {
-            result.push_back(subOutput[index].rowName);
+            result.push_back(mainChunk.subOutput[index].rowName);
         };
 
         return result;
@@ -281,9 +390,9 @@ struct SubDataset::Itl
         std::vector<RowHash> result;
         
         for (size_t index = start;
-             index < subOutput.size() && (limit == -1 || index < start + limit);
+             index < mainChunk.subOutput.size() && (limit == -1 || index < start + limit);
              ++index) {
-            result.push_back(subOutput[index].rowName);
+            result.push_back(mainChunk.subOutput[index].rowName);
         };
 
         return result;
@@ -291,52 +400,56 @@ struct SubDataset::Itl
 
     virtual bool knownRow(const RowPath & rowName) const
     {
-        return rowIndex.count(rowName);
+        return mainChunk.rowIndex.count(rowName);
     }
 
     virtual MatrixNamedRow getRow(const RowPath & rowName) const
     {
-        auto it = rowIndex.find(rowName);
-        if (it == rowIndex.end()) {
+        auto it = mainChunk.rowIndex.find(rowName);
+        if (it == mainChunk.rowIndex.end()) {
             throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
         }
 
-        return subOutput[it->second].flatten();
+        return mainChunk.subOutput[it->second].flatten();
     }
 
     ExpressionValue
     getRowExpr(const RowPath & rowName) const
     {
 
-        auto it = rowIndex.find(rowName);
-        if (it == rowIndex.end()) {
+        auto it = mainChunk.rowIndex.find(rowName);
+        if (it == mainChunk.rowIndex.end()) {
             throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
         }
 
-        return subOutput[it->second].columns;
+        return mainChunk.subOutput[it->second].columns;
     }
 
     virtual RowPath getRowPath(const RowHash & rowHash) const
     {
-        auto it = rowIndex.find(rowHash);
-        if (it == rowIndex.end()) {
+        auto it = mainChunk.rowIndex.find(rowHash);
+        if (it == mainChunk.rowIndex.end()) {
             throw HttpReturnException(400, "Row not found in sub-table dataset");
         }
 
-        return subOutput[it->second].rowName;
+        return mainChunk.subOutput[it->second].rowName;
     }
 
     virtual bool knownColumn(const ColumnPath & column) const
     {
         if (column.size() == 1)
-            return std::find(columnNames.begin(), columnNames.end(), column[0]) != columnNames.end();
+            return std::find(mainChunk.columnNames.begin(), 
+                             mainChunk.columnNames.end(), column[0]) 
+                            != mainChunk.columnNames.end();
         else
-            return std::find(fullFlattenedColumnNames.begin(), fullFlattenedColumnNames.end(), column) != fullFlattenedColumnNames.end();
+            return std::find(mainChunk.fullFlattenedColumnNames.begin(), 
+                             mainChunk.fullFlattenedColumnNames.end(), column) 
+                            != mainChunk.fullFlattenedColumnNames.end();
     }
 
     virtual ColumnPath getColumnPath(ColumnHash columnHash) const
-    {        
-        for (const auto& c : columnNames)
+    {   
+        for (const auto& c : mainChunk.columnNames)
         {
             if (ColumnHash(ColumnPath(c)) == columnHash)
             {
@@ -351,8 +464,8 @@ struct SubDataset::Itl
     virtual std::vector<ColumnPath> getColumnPaths() const
     {
         std::vector<ColumnPath> fullColumnNames;
-        fullColumnNames.reserve(columnNames.size());
-        for (const auto& c : columnNames)
+        fullColumnNames.reserve(mainChunk.columnNames.size());
+        for (const auto& c : mainChunk.columnNames)
         {
             fullColumnNames.push_back(ColumnPath(c));
         }
@@ -367,7 +480,7 @@ struct SubDataset::Itl
         output.columnHash = columnName;
         output.columnName = columnName;
 
-        for (const auto& row : subOutput)
+        for (const auto& row : mainChunk.subOutput)
         {            
             auto flattened = row.flatten();
 
@@ -392,7 +505,7 @@ struct SubDataset::Itl
     {
         std::vector<std::tuple<RowPath, CellValue> > result; 
 
-        for (const auto& row : subOutput)
+        for (const auto& row : mainChunk.subOutput)
         {
             auto flattened = row.flatten();
 
@@ -416,18 +529,18 @@ struct SubDataset::Itl
 
     virtual size_t getRowCount() const
     {
-        return subOutput.size();
+        return mainChunk.subOutput.size();
     }
 
     virtual size_t getColumnCount() const
     {
-        return columnNames.size();
+        return mainChunk.columnNames.size();
     }   
 
     std::pair<Date, Date>
     getTimestampRange() const
     {
-        return { earliest, latest };
+        return { mainChunk.earliest, mainChunk.latest };
     }
 
 };
@@ -473,8 +586,8 @@ SubDataset::
 getStatus() const
 {
     Json::Value status;
-    status["rowCount"] = itl->subOutput.size();
-    status["columnCount"] = itl->fullFlattenedColumnNames.size();
+    status["rowCount"] = itl->mainChunk.subOutput.size();
+    status["columnCount"] = itl->mainChunk.fullFlattenedColumnNames.size();
 
     return status;
 }
@@ -543,8 +656,8 @@ KnownColumn
 SubDataset::
 getKnownColumnInfo(const ColumnPath & columnName) const
 {
-    if (itl->columnInfo) {
-        std::shared_ptr<ExpressionValueInfo> columnInfo = itl->columnInfo->findNestedColumn(columnName);
+    if (itl->mainChunk.columnInfo) {
+        std::shared_ptr<ExpressionValueInfo> columnInfo = itl->mainChunk.columnInfo->findNestedColumn(columnName);
         if (columnInfo)
             return KnownColumn(columnName, columnInfo, COLUMN_IS_SPARSE);
     }
@@ -556,14 +669,31 @@ std::vector<ColumnPath>
 SubDataset::
 getFlattenedColumnNames() const
 {
-    return std::vector<ColumnPath>(itl->fullFlattenedColumnNames.begin(), itl->fullFlattenedColumnNames.end());
+    return std::vector<ColumnPath>(itl->mainChunk.fullFlattenedColumnNames.begin(), 
+                                   itl->mainChunk.fullFlattenedColumnNames.end());
 }
 
 size_t 
 SubDataset::
 getFlattenedColumnCount() const
 {
-    return itl->fullFlattenedColumnNames.size();
+    return itl->mainChunk.fullFlattenedColumnNames.size();
+}
+
+Dataset::MultiChunkRecorder
+SubDataset::
+getChunkRecorder()
+{
+    MultiChunkRecorder result;
+    result.newChunk = [=] (size_t)
+        {
+            return std::unique_ptr<Recorder>(
+                new SubDataset::Itl::ChunkRecorder(
+                    static_cast<Itl *>(itl.get())));
+        };
+
+    result.commit = [=] () { this->commit(); };
+    return result;
 }
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 

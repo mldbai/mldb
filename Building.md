@@ -21,6 +21,7 @@ apt-get install -y \
   libcrypto++-dev \
   libcurl4-openssl-dev \
   libffi-dev \
+  libmagic-dev \
   libfreetype6-dev \
   libgoogle-perftools-dev \
   liblapack-dev \
@@ -34,7 +35,9 @@ apt-get install -y \
   libyaml-cpp-dev \
   python-virtualenv \
   unzip \
-  valgrind
+  valgrind \
+  uuid-dev \
+  libxml++2.6-dev
 ```
 ## Installing Docker
 

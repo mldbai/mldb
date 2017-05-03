@@ -522,7 +522,8 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
              stm.having,
              stm.rowName,
              stm.offset, stm.limit, 
-             table.asName);
+             table.asName,
+             onProgress);
     }
     else if (table.table.runQuery && stm.from) {
 

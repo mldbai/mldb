@@ -30,7 +30,7 @@ namespace MLDB {
  * boost::iostreams::stream_buffer performs when a streambuf is being
  * destroyed. To be effective, it requires that "close" be called on all
  * streams before destruction. */
-typedef std::function<void ()> OnUriHandlerException;
+typedef std::function<void (const std::exception_ptr & excPtr)> OnUriHandlerException;
 
 typedef std::function<UriHandler
                       (const std::string & scheme,

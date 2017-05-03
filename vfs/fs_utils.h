@@ -12,6 +12,7 @@
 #include <string>
 #include <functional>
 #include <map>
+#include <exception>
 
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/date.h"
@@ -28,7 +29,7 @@ struct UriHandler;
 /*****************************************************************************/
 
 /** This class contains information about an object in some kind of generalized
-    file system.
+    file system. Made to be value copyable, do not extend.
 */
 
 struct FsObjectInfo {

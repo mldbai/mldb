@@ -25,9 +25,22 @@ The `mode` field controls which mode the classifier will operate in:
   the label being true as a single floating point number.
 - `regression` mode will use a numeric label, and will predict the value of
   the label itself.
-- `categorical` model will use a categorical (multi-class) label, and will
+- `categorical` mode will use a categorical (multi-class) label, and will
   predict the probability of each of the categories independently.  This
   style therefore produces multiple outputs.
+- `multilabel` mode will do [multi-label classification](https://en.wikipedia.org/wiki/Multi-label_classification) 
+  by using a set of categorical (multi-class) labels, and will
+  predict the probability of each of the categories independently.  This
+  style therefore produces multiple outputs. The `multilabelStrategy` field
+  controls how multilabel classification is handled.
+
+## Multilabel classification
+
+In all operation modes but `multilabel`, the label is a single scalar value. The `multilabel` handles
+categorial classification problems where each example has a set of labels instead of a single one.
+To this end the `label` input must be a row. In this row each column with a non-null value will be a
+label value in the example's set. The column name is used to identify the label, while the value itself is disregarded.
+This makes multi-label classification easy to use with bag of words, for example.
 
 ## Examples
 

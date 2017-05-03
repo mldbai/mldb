@@ -23,6 +23,7 @@ namespace ML {
 
 
 class Dataset_Index;
+class Multilabel_Training_Data;
 
 
 /*****************************************************************************/
@@ -85,7 +86,7 @@ public:
     {
         return feature_space_;
     }
-    
+   
     /** Dump the training data to a text file.  Exactly what is the format is
         determined by the feature space, but there will be the following
         general format:

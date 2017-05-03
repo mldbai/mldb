@@ -1258,7 +1258,7 @@ struct SelectExpression: public SqlRowExpression {
 
     /** Find any children that is an aggregator call 
     This function perform partial validation of the parse tree for 
-    GROUP BY validatity.  
+    GROUP BY validity.  
     Caller must pass true if there is a GROUP BY clause associated with
     this expression.
     */

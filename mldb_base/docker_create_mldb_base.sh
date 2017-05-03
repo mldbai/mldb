@@ -86,6 +86,7 @@ apt-get install -y \
     libssh2-1 \
     libpython2.7 \
     libicu52 \
+    libmagic-dev \
     liblapack3 \
     libblas3 \
     libevent-1.4-2 \
@@ -96,7 +97,13 @@ apt-get install -y \
     unrar-free \
     libstdc++6 \
     libpq5 \
-    libyaml-cpp0.5
+    libyaml-cpp0.5 \
+    libsigc++-2.0-dev \
+    libglibmm-2.4-dev \
+    libxml++2.6-dev \
+    libxml++2.6-doc \
+    uuid-dev \
+    libboost-log1.54.0
 
 #######################
 # Python dependencies #

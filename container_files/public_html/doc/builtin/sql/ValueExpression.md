@@ -628,6 +628,7 @@ The following functions provide image processing capabilities:
 The following functions are specific to blob data:
 
 - `blob_length(x)` returns the length (in bytes) of the blob `x`
+- `mime_type(x)` returns the mime type of the blob `x`
 
 ### <a name="httpfunctions"></a>Web data functions
 

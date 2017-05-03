@@ -49,15 +49,22 @@ LIBBOOSTING_SOURCES := \
         committee.cc \
         boosting_training.cc \
         null_classifier_generator.cc \
-	tree.cc \
-	split.cc \
-	training_index_iterators.cc \
-	feature.cc \
-	bit_compressed_index.cc \
-	label.cc \
-	buckets.cc
+        fasttext_classifier.cc \
+        fasttext_generator.cc \
+        onevsall.cc \
+        onevsall_generator.cc \
+        tree.cc \
+        split.cc \
+        training_index_iterators.cc \
+        feature.cc \
+        bit_compressed_index.cc \
+        label.cc \
+        buckets.cc \
+        info_override_feature_space.cc \
+        multilabel_training_data.cc
 
-LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex
+
+LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex fasttext log
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 

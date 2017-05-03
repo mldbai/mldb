@@ -143,6 +143,9 @@ struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
             if (v.isMember("type")) {
                 val->set_type(jsonDecode<tensorflow::DataType>(v["type"]));
             }
+            else if (v.isMember("bool")) {
+                val->set_b(v["bool"].asBool());
+            }
             else if (v.isMember("shape")) {
                 throw HttpReturnException(500, "shape attributes not done");
             }
@@ -743,14 +746,21 @@ struct TensorflowGraphBase: public Function {
 
             for (const auto & inputColumn: boundInputs.info->getKnownColumns()) {
                 std::string nodeName = inputColumn.columnName.toUtf8String().rawString();
-                DEBUG_MSG(logger) << "input tensor node name " << nodeName;
-                ExpressionValue field = in.getColumn(nodeName);
-                
-                outputTs.setMax(field.getEffectiveTimestamp());
-                Tensor inputTensor = owner->getTensorFor(nodeName, field);
-                
-                inputTensors.emplace_back(std::move(inputTensor));
-                inputLayers.emplace_back(std::move(nodeName));
+
+                try {
+                    DEBUG_MSG(logger) << "input tensor node name " << nodeName;
+                    ExpressionValue field = in.getColumn(nodeName);
+
+                    outputTs.setMax(field.getEffectiveTimestamp());
+                    Tensor inputTensor = owner->getTensorFor(nodeName, field);
+
+                    inputTensors.emplace_back(std::move(inputTensor));
+                    inputLayers.emplace_back(std::move(nodeName));
+                } MLDB_CATCH_ALL {
+                    rethrowHttpException(-1, "Fetching tensor for input node '"
+                                         + nodeName
+                                         + "': " + getExceptionString());
+                }
             }
 
             vector<std::string> outputLayers;

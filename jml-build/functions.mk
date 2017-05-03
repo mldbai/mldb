@@ -298,7 +298,7 @@ endef
 # $(4): output name; default lib$(1)
 # $(5): output extension; default .so
 # $(6): build name; default SO
-# $(7): output dir; default $(LIB)
+# $(7): output dir; default $(LIB), must NOT end /
 # $(8): extra linker options
 
 define library

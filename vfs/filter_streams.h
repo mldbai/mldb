@@ -185,6 +185,7 @@ private:
     std::unique_ptr<std::ostream> stream;
     std::shared_ptr<void> sink;            ///< Ownership of streambuf
     std::atomic<bool> deferredFailure;
+    std::exception_ptr deferredExcPtr;
     std::map<std::string, std::string> options;
 };
 
@@ -316,13 +317,14 @@ public:
         for example last modified date, etc.
     */
     FsObjectInfo info() const;
-    
+
 private:
     std::unique_ptr<std::istream> stream;
     UriHandlerOptions handlerOptions;
 
     std::shared_ptr<void> sink;            ///< Ownership of streambuf
     std::atomic<bool> deferredFailure;
+    std::exception_ptr deferredExcPtr;
     std::string resource;
     std::shared_ptr<FsObjectInfo> info_;
 };

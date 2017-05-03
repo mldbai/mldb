@@ -193,6 +193,20 @@ struct judy_multi_array_base {
 
     const_iterator begin() const { return array.begin(); }
     const_iterator end() const { return array.end(); }
+
+    iterator find(const Key & key) 
+    {
+        unsigned long key_section = Extractor().template get<Level-1>(key);
+        auto it = array.find(key_section);
+        return iterator(it);
+    }
+
+    const_iterator find(const Key & key) const
+    {
+        unsigned long key_section = Extractor().template get<MaxLevel-1>(key);
+        auto it = array.find(key_section);
+        return const_iterator(it);
+    }
 };
 
 
@@ -275,9 +289,22 @@ struct judy_multi_array_base<Key, Data, Extractor, MaxLevel, MaxLevel> {
 
     iterator begin() { return array.begin(); }
     iterator end() { return array.end(); }
-
     const_iterator begin() const { return array.begin(); }
     const_iterator end() const { return array.end(); }
+
+    iterator find(const Key & key) 
+    {
+        unsigned long key_section = Extractor().template get<MaxLevel-1>(key);
+        auto it = array.find(key_section);
+        return it;
+    }
+
+    const_iterator find(const Key & key) const
+    {
+        unsigned long key_section = Extractor().template get<MaxLevel-1>(key);
+        auto it = array.find(key_section);
+        return it;
+    }
 
     size_t memusage_() const
     {
@@ -344,6 +371,9 @@ struct judy_multi_array {
 
     const_iterator begin() const { return base.begin(); }
     const_iterator end() const { return base.end(); }
+
+    iterator find(const Key & key) { return base.find(key); }
+    const_iterator find(const Key & key) const { return base.find(key); }
 
     size_t memusage_() const
     {

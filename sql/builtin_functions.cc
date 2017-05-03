@@ -32,6 +32,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <magic.h>
 
 using namespace std;
 
@@ -1265,7 +1266,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
                              "info", info,
                              "input", val);
                     }
-                    
+
                     return AggregatorFunc::extract(results.begin()->second);
                 }
                 else {
@@ -1673,7 +1674,7 @@ void normalize(distribution<double>& val, double p)
              size_t numDims = -1;
              if (args[0].info->getSchemaCompleteness() == SCHEMA_CLOSED)
                  numDims = columnNames->size();
-             
+
              return {[=] (const std::vector<ExpressionValue> & args,
                           const SqlRowScope & scope) -> ExpressionValue
                      {
@@ -1932,7 +1933,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
                 if (args.size() == 3) {
                     options = args[2].extractT<TokenizeOptions>();
                 }
-                
+
                 ParseContext pcontext(text.rawData(), text.rawData(), text.rawLength());
 
                 ExpressionValue result;
@@ -2060,7 +2061,7 @@ BoundFunction horizontal_string_agg(const std::vector<BoundSqlExpression> & args
                 if (args.size() == 2) {
                     separator = args.at(1).getAtom()
                         .coerceToString().toUtf8String();
-                }                
+                }
 
                 auto onAtom = [&] (const Path & columnName,
                                    const Path & prefix,
@@ -2076,9 +2077,9 @@ BoundFunction horizontal_string_agg(const std::vector<BoundSqlExpression> & args
                         }
                         return true;
                     };
-                
+
                 args.at(0).forEachAtom(onAtom);
-                
+
                 return ExpressionValue(result, ts);
                 },
             std::make_shared<Utf8StringValueInfo>()};
@@ -2386,7 +2387,7 @@ BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
                 Utf8String fieldName = val1.toUtf8String();
                 // cerr << "extracting " << jsonEncodeStr(val1)
                 //      << " from " << jsonEncodeStr(val2) << endl;
-                
+
                 return args[1].getColumn(fieldName);
             },
             std::make_shared<AnyValueInfo>()
@@ -2447,7 +2448,7 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
                             //"function must be a string");
 
                 return ExpressionValue
-                    (args[0].getAtom().toUtf8String().length(), 
+                    (args[0].getAtom().toUtf8String().length(),
                      args[0].getEffectiveTimestamp());
              },
              std::make_shared<IntegerValueInfo>()
@@ -2465,7 +2466,7 @@ BoundFunction blob_length(const std::vector<BoundSqlExpression> & args)
                 checkArgsSize(args.size(), 1);
 
                 return ExpressionValue
-                    (args[0].getAtom().coerceToBlob().blobLength(), 
+                    (args[0].getAtom().coerceToBlob().blobLength(),
                      args[0].getEffectiveTimestamp());
              },
              std::make_shared<IntegerValueInfo>()
@@ -2506,7 +2507,7 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 auto conf = edlibDefaultAlignConfig();
                 conf.k = maxSize;
 
-                EdlibAlignResult alignRes = 
+                EdlibAlignResult alignRes =
                     edlibAlign(query.c_str(), query.size(),
                                target.c_str(), target.size(), conf);
 
@@ -2564,7 +2565,7 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
         // TODO: infer size and type if known
         auto outputInfo
             = std::make_shared<EmbeddingValueInfo>(ST_ATOM);
-        
+
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
@@ -3439,6 +3440,64 @@ bind(const std::vector<BoundSqlExpression> & args,
     }
 }
 
+
+BoundFunction mime_type(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+    auto outputInfo = std::make_shared<Utf8StringValueInfo>();
+
+    struct magic_holder {
+        magic_holder() {
+            magic = magic_open(MAGIC_NONE);
+
+            if(magic == NULL) {
+                throw ML::Exception("Unable to initialize the magic library");
+            }
+        }
+
+        ~magic_holder() {
+            magic_close(magic);
+        }
+
+        magic_t magic;
+    };
+
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                const char *mime;
+                magic_holder magic;
+
+                if(magic_load(magic.magic, NULL) != 0) {
+                    throw ML::Exception("Error loading magic database - %s\n", magic_error(magic.magic));
+                }
+
+                if(!args[0].isAtom())
+                    throw MLDB::Exception("Mime type extraction requires that an atomic value "
+                            "of type BLOB is passed to it.");
+
+                const CellValue & input = args[0].getAtom();
+
+                if(!input.isBlob())
+                    throw MLDB::Exception("Mime type extraction requires that an atomic value "
+                            "of type BLOB is passed to it.");
+
+                const unsigned char * data = input.blobData();
+                const size_t len = input.blobLength();
+
+                mime = magic_buffer(magic.magic, data, len);
+
+                Utf8String str(mime);
+
+                return ExpressionValue(str,
+                                       args[0].getEffectiveTimestamp());
+            },
+            outputInfo
+        };
+}
+static RegisterBuiltin registerMimeTypeFunction(mime_type, "mime_type");
+
 BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
@@ -3463,8 +3522,6 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                                           { { "mapped", "true" },
                                             { "httpAbortOnSlowConnection", "true"} });
 
-                    FsObjectInfo info = stream.info();
-
                     const char * mappedAddr;
                     size_t mappedSize;
                     std::tie(mappedAddr, mappedSize) = stream.mapped();
@@ -3478,6 +3535,10 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                         streamo << stream.rdbuf();
                         blob = CellValue::blob(streamo.str());
                     }
+                    stream.close();
+
+                    FsObjectInfo info = stream.info();
+                    ExcAssert(info.exists);
                     content = ExpressionValue(std::move(blob),
                                               info.lastModified);
                 }

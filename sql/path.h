@@ -106,7 +106,7 @@ struct PathElement {
         return *this;
     }
 
-    void swap(PathElement & other) noexcept
+    MLDB_ALWAYS_INLINE void swap(PathElement & other) noexcept
     {
         // NOTE: this is only possible because there are no self-referential
         // pointers (ie, this can't point to itself in its contents).

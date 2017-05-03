@@ -576,7 +576,6 @@ uploadFile(const char * start,
                                mbSecInst,
                                mbSecOverall)
                  << endl;
-                               
 
             lastPrint = offset;
             lastTime = now;
@@ -748,8 +747,10 @@ struct SftpStreamingUploadSource {
                                   LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
             
             if (!handle) {
-                onException();
-                throw MLDB::Exception("couldn't open path: " + owner->lastError());
+                auto excPtr = make_exception_ptr(
+                    MLDB::Exception("couldn't open path: " + owner->lastError()));
+                onException(excPtr);
+                throw excPtr;
             }
 
             startDate = Date::now();
@@ -769,8 +770,10 @@ struct SftpStreamingUploadSource {
                 ssize_t rc = libssh2_sftp_write(handle, s + done, n - done);
             
                 if (rc == -1) {
-                    onException();
-                    throw MLDB::Exception("couldn't upload file: " + owner->lastError());
+                    auto excPtr = make_exception_ptr(
+                        MLDB::Exception("couldn't upload file: " + owner->lastError()));
+                    onException(excPtr);
+                    throw excPtr;
                 }
             
                 offset += rc;
@@ -843,7 +846,7 @@ SftpConnection::
 streamingUpload(const std::string & path) const
 {
     filter_ostream result;
-    auto onException = [&] { result.notifyException(); };
+    auto onException = [&](const exception_ptr & excPtr) { result.notifyException(); };
     std::shared_ptr<std::streambuf> buf(streamingUploadStreambuf(path, onException).release());
     result.openFromStreambuf(buf.get(), buf, path);
     
@@ -1051,10 +1054,9 @@ struct SftpUrlFsHandler : public UrlFsHandler {
     {
         string urlStr = url.toDecodedString();
         ExcAssert(urlStr.find("sftp://") == 0);
-        const auto fooFct = [](){};
         const std::map<std::string, std::string> options;
         return RegisterSftpHandler::getSftpHandler(
-            "", urlStr.substr(7), ios::in, options, fooFct);
+            "", urlStr.substr(7), ios::in, options, nullptr);
     }
 
     FsObjectInfo getInfo(const Url & url) const override

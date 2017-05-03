@@ -3403,6 +3403,7 @@ forEachColumn(const std::function<bool (const PathElement & columnName,
     case Type::NONE:
     case Type::ATOM:
         // A non-row doesn't have columns, so this call doesn't make sense
+
         throw HttpReturnException(500, "Expected row expression",
                                   "expression", *this,
                                   "type", (int)type_);
@@ -3691,7 +3692,8 @@ getFiltered(const VariableFilter & filter,
         const ExpressionValue * output = atoms.extract(storage);
         if (output)
             return *output;
-        else return (storage = ExpressionValue::null(Date::notADate()));
+        else
+           return (storage = ExpressionValue(rows));
     }
     else {
         // Atoms get added to rows

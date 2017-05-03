@@ -576,7 +576,7 @@ struct S3Uploader {
         }
         MLDB_CATCH_ALL {
             if (onException) {
-                onException();
+                onException(current_exception());
             }
             throw;
         }
@@ -602,7 +602,7 @@ struct S3Uploader {
         size_t remaining = chunkSize - current.size();
         while (n > 0) {
             if (excPtrHandler.hasException() && onException) {
-                onException();
+                onException(current_exception());
             }
             excPtrHandler.rethrowIfSet();
             size_t toDo = min(remaining, (size_t) n);
@@ -629,7 +629,7 @@ struct S3Uploader {
             ML::futex_wait(activeRqs, activeRqs);
         }
         if (excPtrHandler.hasException() && onException) {
-            onException();
+            onException(current_exception());
         }
         excPtrHandler.rethrowIfSet();
 
@@ -696,7 +696,7 @@ struct S3Uploader {
             ML::futex_wait(activeRqs, activeRqs);
         }
         if (excPtrHandler.hasException() && onException) {
-            onException();
+            onException(current_exception());
         }
         excPtrHandler.rethrowIfSet();
 
@@ -707,7 +707,7 @@ struct S3Uploader {
         }
         MLDB_CATCH_ALL {
             if (onException) {
-                onException();
+                onException(current_exception());
             }
             throw;
         }
