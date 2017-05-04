@@ -1,0 +1,222 @@
+Behaviour matrix
+
+
+Design goals
+- Real time (or small batches at once, eg one second's worth)
+- 100,000 behaviours per second (may be an order of magnitude too hard)
+- Memory mapped for when it crashes
+- Memory efficient
+- Expiring behaviours
+- Generation of a co-occurrence matrix very fast (eg, rapid SVD)
+
+
+Interfaces
+- Update: user X had behaviour Y on date Z
+- Query
+  * what is user X's behaviour profile?
+  * what is user X's likely (eg, smoothed) behaviour profile?
+
+
+
+Three different structures
+1.  User behaviour (given a user, what's their behaviour)
+2.  Behaviour co-occurrences
+3.  Expiry list
+
+
+
+Behaviour (16+ bytes)
+- Timestamp             32 bits
+- User hash             48 bits
+- Behaviour hash        48 bits
+- Metadata              0+ bits
+
+
+Storage of expiry list
+----------------------
+
+100,000 behaviours/second x 16 bytes = 1.6 MB/second in stored behaviours
+  = 131GB/day
+  = 4TB/month
+
+Could however store them in a daily granularity which might halve the amount
+of work to be done.  For example, simply the timestamp and the user ID (and
+so we need an extra lookup to clear, but we would have anyway).
+
+Will be scanned sequentially.
+
+
+Storage of user behaviour
+-------------------------
+
+We could use some kind of inplace hash for the indexing
+
+average of 10 behaviours/user??? -> 8,640,000,000 behaviours/day = 864M uniques, or say 8G uniques over a month
+
+each requiring 12 bytes, load factor of 1/2, so about a 200G hash table just for the index, plus 64 bytes of actual data -> 96 bytes/unique -> 800GB in total for behaviours
+
+(behaviour (timestamp*) )*
+
+Random access won't do; if we're expiring 100,000 per second, we can only do about 100 seeks/second so we're out by 3 orders of magnitude.
+
+USER BEHAVIOUR NEEDS TO HAVE CACHE LOCALITY, both for expiring and for cooccurrences.
+
+
+
+Storage of cooccurrences
+------------------------
+
+behaviour -> 32 bit hash (or 48)?
+behaviour -> behaviour ID
+  - more common behaviours have lower IDs
+
+we need the cooccurrence counts in this matrix.  This is symmetric, so we only
+store one half.
+
+- Cooccurrences are stored along with the *highest* behaviour ID to avoid
+  having to update the low counts all of the time?  OR
+- Cooccurences are stored with the LOWEST behaviour first to allow locality
+  of reference?
+
+
+
+Merging of cooccurrences
+------------------------
+
+Can we infer from matrix A for one time period and matrix B for another what
+would have happened if we had A and B?
+
+no.  
+
+However, merging the two might be quite efficient.  I did some algebra on this.
+
+
+
+Sampling
+--------
+
+If the data is too heavy, we could sample it.
+
+
+
+Metadata
+--------
+
+Do we need to store metadata with a behaviuor?
+
+
+Operations Supported
+--------------------
+
+1.  Record behaviour
+2.  Obtain behaviour for a user
+3.  Obtain cooccurrences (for training)
+
+
+
+Time granualarity
+
+- One hour
+- One day
+- One week
+- One month
+- Three months (eXelate)
+
+Are these inclusive?  Probably best not to be.
+
+We need to be able to reconstruct (or at least store) for replay/simulationn purposes.
+
+eXealate requirements
+---------------------
+
+They want to become a DMP, and so the number of behaviours will increase enormously.
+
+Metric                  now             eventually
+----------------------- --------------- ----------
+behaviours/second avg   10,000          100,000
+behaviours/second max   20,000          200,000
+distinct behaviours     50,000        1,000,000
+
+
+Training
+
+Let's say that we want to train a model for people with behaviour X.  Then we need to obtain a dataset that gives all of the behaviours up to the first behaviour X (converters) and also a random sample of data points over the same time period.
+
+
+
+
+* 20,000 behaviours/second
+* 10,000,000 distinct behaviours (50,000 now; rest for expansion)
+
+
+* full-fidelity representation for training
+
+
+
+Start off with 10k behaviours/second
+
+
+10,000 per second * 100,000 seconds per day * 16 bytes = 16,000,000,000 bytes per day = 16GB/day of data to store raw events
+16GB * 64 days = 0.5TB of data per month
+
+So two months needs 1TB (assuming no compression)
+
+1TB = 32 machines with 32GB each or 20 machines with 56GB each to store it all in RAM
+
+Scanning: in memory, should be in the order of seconds.
+Disk scanning: 1000Mb/second = 100MB/second, so 10,000 seconds for 1TB or 3 hours on a single machine; on 20 machines about 10 minutes.  (this could be used to warm up the dataset into RAM for multiple training models, for example).
+
+There is no point for eXelate in keeping live behaviours around, since we get shipped them with the cookies.  And training needs to look back in time.
+
+If we roll up by behaviour, we only need to store (userid, timestamp) or 10 bytes.  The timestamp would probably compress well; maybe 8 bytes/entry using delta encoding.  Would be useful for dealing with a subset of the models in training.  Not so good for a cooc matrix as we can only get (site, site) coocs from this kind of model.
+
+If we do an SVD, we will need to do it on only a subset of the behaviours, as each prediction task will probably have restrictions on the behaviours that can be used.
+
+
+----
+
+Once behaviours have been extracted for a given time period, they are effectively read-only from that point onwards.  So each hour, we could dump them in a highly compressed, indexed format to disk, and each day, week and month create a merged summary.  Then, accessing historical data for a user is a question of accessing the files that cover the period in question.
+
+Ideally, the staggering process would be done incrementally spread out over the hour to avoid load spikes.
+
+If the system goes down, it would first have to catch up from log files/buffers.  In that time it would only be able to produce imperfect features.
+
+
+----
+
+A "behaviour" represents:
+
+SUBJECT (VERB OBJECT) at time T
+
+The user is represented by some kind of ID.  For example,
+
+(googleid:30948843939) BROWSED (siteid:220303020) at time 102928383.23s
+
+The verb implicitly defines the type of both the subject and the object.  For example, in the BROWSED verb, clearly the subject is a person and the object is a web site.  For intransitive verbs, there will be no object.
+
+The verb and object together is called the "behaviour".
+
+Time is implicit in all of the behaviours.
+
+There can be metadata associated with a state, but this should be very compactly encoded.
+
+Operations:
+
+- Record that a given object had a given behaviour(s) at time X (and, optionally return the list of past behaviours at the given time).
+- Return a list of behaviours for subject S between time T1 and T2.  This is used for many things, including feature vector generation at training time.  The behaviours will always be in order.
+- Given a verb and an object (behaviour), return a list of subjects who had that behaviour (ie, a reverse index).  Used for training, etc.
+- Return a matrix of cooccurrences (or correlations, or ???) over a given time period between the elements of a set of behaviours.  (Possibly by sampling, etc).
+- Basic statistics: for each behaviour, how many distinct users and how many total times; for each user, how many distinct behaviours (?) and how many total behaviours?  (does this make sense, especially if trying to do over a time period?)
+- (need to think about this): merge a set of subjects into one single subject, which can still be accessed by any of its old subject IDs.
+
+More advanced:
+- We want to efficiently be able to deal with chains of behaviours.  For example, a view behaviuor and later on, a conversion behaviour.  We should be able to add a view-through event in this case.  Ideally, this would be done internally (so that replaying would work).  Could be done by storing possible states (of a regex/fsm) in the user-specific part, and then checking if there were any state transitions along the way.
+
+
+We want to deal with accumulation of behaviours in real-time.
+If our behaviour service goes down, we want for it to catch up as soon as possible.
+
+
+
+100,000s/day * 10,000beh/s = 1,000,000,000 beh/day
+at 8 bytes each, that's 8 GB/day
