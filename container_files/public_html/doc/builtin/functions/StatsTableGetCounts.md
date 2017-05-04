@@ -16,7 +16,7 @@ The row will contain two columns for each key, one containing the number of elem
 for the key and one containing the number of labels for that key. For example, for 
  keys in the `host` and `region` stats tables, a row of this form would be returned:
 
-|  rowName   |  imp-host  |  label-host | imp-region  | label-region |
+|  rowName   |  trial.host  |  label.host | trial.region  | label.region |
 |----------|---|---|---|---|
 | row_1     | 25  | 1 | 50 | 0 |
 

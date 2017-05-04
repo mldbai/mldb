@@ -24,7 +24,7 @@ and used later on to lookup counts using the ![](%%doclink statsTable.getCounts 
 
 ## Example
 
-Let's assume a dataset named rt_bidding made up of data from a real-time bidding online campaign. Each row
+Let's assume a dataset named *rt_bidding* made up of data from a real-time bidding online campaign. Each row
 represents a bid request and each column represents a field in the bid request. We're interested
 in tracking statistics for each possible values of each field to determine which ones are 
 strongly correlated with the outcomes. The outcomes we want to track are whether there was a click 
@@ -56,7 +56,7 @@ The output dataset will contain:
 |----------|---|---|---|---|---|---|
 | br_1     | 0  | 0 | 0 | 0 | 0 | 0 |
 | br_2     | 0  | 0 | 0 | 0 | 0 | 0 |
-| br_3     | 1  | 1 | 1 | 1 | 1 | 0 |
+| br_3     | 1  | 1 | 0 | 1 | 1 | 1 |
 | br_4     | 1  | 1 | 1 | 2 | 1 | 1 |
 
 Note that the effect of a row on the counts is taken into account after the counts

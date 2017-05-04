@@ -378,7 +378,7 @@ run(const ProcedureRunConfig & run,
 
 static const std::string INJECT_NOISE_DOC_STR =
      "Inject laplacian noise to counts. This is useful when training "
-     "a classifier on the examples that were used to genereate the counts. "
+     "a classifier on the examples that were used to generate the counts. "
      "Without the addition of noise, there will be label leakage leading "
      "to overfitting.";
 
@@ -634,7 +634,7 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "This parameter is optional unless the `functionName` parameter is used.");
     addField("outputDataset", &BagOfWordsStatsTableProcedureConfig::outputDataset,
              "Output dataset with the total counts for each word along with"
-             " the cooccurrence count with each outcome.", optionalOutputDataset);
+             " the co-occurrence count with each outcome.", optionalOutputDataset);
     addField("functionName", &BagOfWordsStatsTableProcedureConfig::functionName,
              "If specified, an instance of the ![](%%doclink statsTable.bagOfWords.posneg function) "
              "of this name will be created using the trained stats tables and that function type's "
