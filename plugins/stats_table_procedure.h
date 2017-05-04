@@ -16,10 +16,10 @@
 #include "sql/sql_expression.h"
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
+#include "mldb/utils/noise_injector.h"
 
 
 namespace MLDB {
-
 
 
 
@@ -113,10 +113,11 @@ struct StatsTableProcedure: public Procedure {
 
 struct StatsTableFunctionConfig {
     StatsTableFunctionConfig(const Url & modelFileUrl = Url())
-        : modelFileUrl(modelFileUrl)
+        : injectNoise(false), modelFileUrl(modelFileUrl)
     {
     }
 
+    bool injectNoise;
     Url modelFileUrl;
 };
 
@@ -142,6 +143,8 @@ struct StatsTableFunction: public Function {
     StatsTableFunctionConfig functionConfig;
 
     StatsTablesMap statsTables;
+
+    NoiseInjector noise;
 };
 
 
@@ -235,6 +238,7 @@ struct StatsTablePosNegFunctionConfig {
             const std::string & outcomeToUse = "") :
         numPos(50), numNeg(50), minTrials(50),
         outcomeToUse(outcomeToUse),
+        injectNoise(false),
         modelFileUrl(modelFileUrl)
     {
     }
@@ -245,6 +249,7 @@ struct StatsTablePosNegFunctionConfig {
 
     std::string outcomeToUse;
 
+    bool injectNoise;
     Url modelFileUrl;
 };
 
@@ -269,11 +274,10 @@ struct StatsTablePosNegFunction: public Function {
 
     StatsTablePosNegFunctionConfig functionConfig;
 
+    NoiseInjector noise;
 
-    std::map<Utf8String, float> p_outcomes;
+    std::map<Utf8String, std::array<int64_t, 2>> p_outcomes;
 };
-
-
 
 
 } // namespace MLDB

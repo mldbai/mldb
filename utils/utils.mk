@@ -4,6 +4,7 @@ $(eval $(call library,config,config.cc,boost_program_options boost_locale))
 $(eval $(call library,log,log.cc, config))
 $(eval $(call library,progress,progress.cc,))
 $(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types utils highwayhash))
+$(eval $(call library,noise_injector,noise_injector.cc,))
 
 # Runner Common
 
