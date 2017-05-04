@@ -82,6 +82,17 @@ run(const ProcedureRunConfig & run,
     if (runProcConf.splits.size() != runProcConf.outputDatasets.size())
         throw MLDB::Exception("Number of split requested is different than the number of dataset provided");
 
+    if (runProcConf.splits.size() < 2)
+        throw MLDB::Exception("Insufficient number of splits");
+
+    float sumsplit = 0.0f;
+    for (float s : runProcConf.splits)
+        sumsplit += s;
+
+    if (fabs(1.0f-sumsplit) > 0.01f)
+        throw MLDB::Exception("Sum of split factors does not approximate to 1.0, actual sum is: " 
+                              + to_string(sumsplit));
+
     SqlExpressionMldbScope context(server);
     ConvertProgressToJson convertProgressToJson(onProgress);
 

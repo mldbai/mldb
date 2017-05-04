@@ -211,5 +211,34 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         self.assertEquals(res2, [["_rowName", "sum({*}).x"],
                                  ["[]", 1 ]])
 
+    def test_errors(self):
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+                                     "Insufficient number of splits"):
+            res = mldb.put("/v1/procedures/split", {
+                "type": "split.train",
+                "params": {
+                    "labels": "SELECT * FROM ds5",
+                    "splits": [0.8],
+                    "outputDatasets": [{ "id": "ds_train",
+                                       "type": "sparse.mutable" }],
+                }
+            })
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+                                     "Sum of split factors does not approximate to 1.0"):
+            res = mldb.put("/v1/procedures/split", {
+                "type": "split.train",
+                "params": {
+                    "labels": "SELECT * FROM ds5",
+                    "splits": [0.8, 0.1],
+                    "outputDatasets": [{ "id": "ds_train",
+                                       "type": "sparse.mutable" },
+                                       { "id": "ds_test",
+                                       "type": "sparse.mutable" }],
+                }
+            })
+
+
 if __name__ == '__main__':
     mldb.run_tests()
