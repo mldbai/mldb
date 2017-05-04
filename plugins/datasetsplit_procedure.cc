@@ -39,7 +39,7 @@ SplitProcedureConfigDescription()
     std::vector<float> splits;
 
     addField("labels", &SplitProcedureConfig::labels,
-             "Row of labels to distribute among the splits while keeping their respective proportions");
+             "Select expression of labels to distribute among the splits while keeping their respective proportions");
     addField("outputDatasets", &SplitProcedureConfig::outputDatasets,
              "Configuration for output dataset. The length must match the length of splits.");
     addField("splits", &SplitProcedureConfig::splits,
@@ -80,7 +80,7 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(procConfig, run);
 
     if (runProcConf.splits.size() != runProcConf.outputDatasets.size())
-        throw MLDB::Exception("Number of split requested is different than the number of dataset provided");
+        throw MLDB::Exception("Number of splits requested is different than the number of datasets provided");
 
     if (runProcConf.splits.size() < 2)
         throw MLDB::Exception("Insufficient number of splits");
@@ -260,7 +260,7 @@ run(const ProcedureRunConfig & run,
 namespace {
 
 RegisterProcedureType<SplitProcedure, SplitProcedureConfig>
-regMelt(builtinPackage(),
+regSplit(builtinPackage(),
           "Split a dataset in parts with similar label distributions",
           "procedures/SplitProcedure.md.html");
 

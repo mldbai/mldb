@@ -20,7 +20,7 @@ namespace MLDB {
 
 
 struct SplitProcedureConfig : public ProcedureConfig {
-    static constexpr const char * name = "split.train";
+    static constexpr const char * name = "split";
 
     SplitProcedureConfig()
     {

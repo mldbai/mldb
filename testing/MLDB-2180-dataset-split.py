@@ -55,7 +55,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
     def test_spread(self):
         mldb.put("/v1/procedures/split", {
-            "type": "split.train",
+            "type": "split",
             "params": {
                 "labels": "SELECT * FROM ds1",
                 "splits": [0.8, 0.2],
@@ -79,7 +79,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
     def test_testnointersection(self):
         mldb.put("/v1/procedures/split", {
-            "type": "split.train",
+            "type": "split",
             "params": {
                 "labels": "SELECT * FROM ds2",
                 "splits": [0.8, 0.2],
@@ -105,7 +105,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                                  ["[]", 3, 1 ]])
 
         mldb.put("/v1/procedures/split", {
-            "type": "split.train",
+            "type": "split",
             "params": {
                 "labels": "SELECT * FROM ds3",
                 "splits": [0.8, 0.2],
@@ -133,7 +133,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
     def test_testintersection(self):
 
         mldb.put("/v1/procedures/split", {
-            "type": "split.train",
+            "type": "split",
             "params": {
                 "labels": "SELECT * FROM ds4",
                 "splits": [0.8, 0.2],
@@ -160,7 +160,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                                  ["[]", 2, 3, 2 ]])
 
         mldb.put("/v1/procedures/split", {
-            "type": "split.train",
+            "type": "split",
             "params": {
                 "labels": "SELECT * FROM ds4",
                 "splits": [0.8, 0.2],
@@ -186,9 +186,46 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 2, 3, 1 ]])
 
+    def test_threesplits(self):
+
+        mldb.put("/v1/procedures/split", {
+            "type": "split",
+            "params": {
+                "labels": "SELECT * FROM ds4",
+                "splits": [0.8, 0.1, 0.1],
+                "foldImportance" : 1.0,
+                "outputDatasets": [{ "id": "ds_train",
+                                   "type": "sparse.mutable" },
+                                   { "id": "ds_test",
+                                   "type": "sparse.mutable" },
+                                   { "id": "ds_validate",
+                                   "type": "sparse.mutable" }],
+            }
+        })   
+
+        n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_train", format='atom').json()
+        self.assertEqual(18, n)
+        n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_test", format='atom').json()
+        self.assertEqual(3, n)
+        n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_validate", format='atom').json()
+        self.assertEqual(3, n)
+
+        res1 = mldb.query("SELECT sum({*}) FROM ds_train")
+        res2 = mldb.query("SELECT sum({*}) FROM ds_test")
+        res3 = mldb.query("SELECT sum({*}) FROM ds_validate")
+
+        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+                                 ["[]", 8, 12, 7 ]])
+
+        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+                                 ["[]", 1, 1, 1 ]])
+
+        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+                                 ["[]", 1, 1, 1 ]])
+
     def test_incomplete(self):
         res = mldb.put("/v1/procedures/split", {
-            "type": "split.train",
+            "type": "split",
             "params": {
                 "labels": "SELECT * FROM ds5",
                 "splits": [0.8, 0.2],
@@ -214,9 +251,23 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
     def test_errors(self):
 
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+                                     "Number of splits requested is different than the number of datasets provided"):
+            res = mldb.put("/v1/procedures/split", {
+                "type": "split",
+                "params": {
+                    "labels": "SELECT * FROM ds5",
+                    "splits": [0.8, 0.2, 0.3],
+                    "outputDatasets": [{ "id": "ds_train",
+                                       "type": "sparse.mutable" },
+                                       { "id": "ds_test",
+                                       "type": "sparse.mutable" }],
+                }
+            })
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
                                      "Insufficient number of splits"):
             res = mldb.put("/v1/procedures/split", {
-                "type": "split.train",
+                "type": "split",
                 "params": {
                     "labels": "SELECT * FROM ds5",
                     "splits": [0.8],
@@ -228,7 +279,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
                                      "Sum of split factors does not approximate to 1.0"):
             res = mldb.put("/v1/procedures/split", {
-                "type": "split.train",
+                "type": "split",
                 "params": {
                     "labels": "SELECT * FROM ds5",
                     "splits": [0.8, 0.1],

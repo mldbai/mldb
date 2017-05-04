@@ -5,7 +5,7 @@ of the presence of one or several labels.
 
 This can be used, for example, to split a dataset with multiple labels
 between training, testing and validation sets. This contrasts with what 
-is done in the classifier.experiment(link) procedure where a random split 
+is done in the [classifier.experiment](ExperimentProcedure.md) procedure where a random split 
 is done in the data. A random split can lead to a highly unbalanced training 
 and testing sets when looking at each label individually. 
 It might however be necessary to calibrate the predictions using a 
@@ -16,7 +16,7 @@ It might however be necessary to calibrate the predictions using a
 The procedure uses a greedy algorithm and is not guaranteed to return the optimal solution.
 The algorithm will try to assure than every label is represented in all splits.
 If a label is represented in fewer rows than there are splits, the rows will be placed in the 
-firsts splits.
+first splits.
 
 ## Output
 
