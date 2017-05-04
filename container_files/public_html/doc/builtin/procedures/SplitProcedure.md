@@ -18,6 +18,12 @@ The algorithm will try to assure than every label is represented in all splits.
 If a label is represented in fewer rows than there are splits, the rows will be placed in the 
 firsts splits.
 
+## Output
+
+The procedure output will list all labels that were present but could not be represented in all splits
+under `incompleteLabels`. This can only happen if the number of rows where the label is present is
+non-zero but smaller than the number of splits.
+
 ## Configuration
 
 ![](%%config procedure split.train)

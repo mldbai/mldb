@@ -45,6 +45,12 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                 ds2.record_row('%d' % i, [['z', 1, 0]])
         ds2.commit()
 
+        ds = mldb.create_dataset({'id' : 'ds5', 'type' : 'sparse.mutable'})
+        for i in xrange(4):
+            val = 'x' if i < 3 else 'y'
+            ds.record_row('%d' % i, [[val, 1, 0]])
+        ds.commit()
+
     #Test that we try to represent every label in every dataset, regardless of distribution
 
     def test_spread(self):
@@ -179,6 +185,31 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
         self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 2, 3, 1 ]])
+
+    def test_incomplete(self):
+        res = mldb.put("/v1/procedures/split", {
+            "type": "split.train",
+            "params": {
+                "labels": "SELECT * FROM ds5",
+                "splits": [0.8, 0.2],
+                "outputDatasets": [{ "id": "ds_train",
+                                   "type": "sparse.mutable" },
+                                   { "id": "ds_test",
+                                   "type": "sparse.mutable" }],
+            }
+        })
+
+        self.assertEquals(res.json()["status"]["firstRun"]["status"]["incompleteLabels"], 
+                          ["y"])
+
+        res1 = mldb.query("SELECT sum({*}) FROM ds_train")
+        res2 = mldb.query("SELECT sum({*}) FROM ds_test")
+
+        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y"],
+                                 ["[]", 2, 1]])
+
+        self.assertEquals(res2, [["_rowName", "sum({*}).x"],
+                                 ["[]", 1 ]])
 
 if __name__ == '__main__':
     mldb.run_tests()

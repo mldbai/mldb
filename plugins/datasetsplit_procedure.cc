@@ -235,7 +235,17 @@ run(const ProcedureRunConfig & run,
         ++i;   
     }
 
-    return RunOutput();
+    Json::Value results;
+    std::vector<Utf8String> incompleteLabels;
+    //find labels that couldnt be placed in every 
+    for (const auto& pair : sums) {
+        if (pair.second.back() == 0)
+            incompleteLabels.push_back(pair.first.toUtf8String());
+    }
+
+    results["incompleteLabels"] = jsonEncode(incompleteLabels);
+
+    return RunOutput(results);
 }
 
 
