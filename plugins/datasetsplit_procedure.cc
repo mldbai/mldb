@@ -93,6 +93,21 @@ run(const ProcedureRunConfig & run,
         throw MLDB::Exception("Sum of split factors does not approximate to 1.0, actual sum is: " 
                               + to_string(sumsplit));
 
+    std::vector<std::shared_ptr<Dataset>> datasets;
+    for (auto& datasetName : runProcConf.outputDatasets) {
+
+        std::shared_ptr<Dataset> outputDataset;
+        if (!datasetName.type.empty() || !datasetName.id.empty()) {
+            outputDataset = createDataset(server, datasetName, nullptr, true /** overwrite **/);
+        }
+
+        if(!outputDataset) {
+            throw MLDB::Exception("Unable to obtain output dataset");
+        }
+
+        datasets.push_back(outputDataset);
+    }
+
     SqlExpressionMldbScope context(server);
     ConvertProgressToJson convertProgressToJson(onProgress);
 
@@ -125,7 +140,7 @@ run(const ProcedureRunConfig & run,
     std::shuffle(rowPaths.begin(), rowPaths.end(), rng);
 
     size_t numFolds = runProcConf.splits.size();
-    std::vector<std::vector<RowPath>> distributions(numFolds); //Rows per Fold
+    std::vector<size_t> distributions(numFolds); //Rows per Fold
     std::map<PathElement, std::vector<size_t>> sums; //distribution per label
 
     SqlExpressionDatasetScope datasetScope(boundDataset.dataset, boundDataset.asName);
@@ -144,7 +159,7 @@ run(const ProcedureRunConfig & run,
 
         //check the best fold according to row distribution
         for (int f = 0; f < numFolds && numRowsAdded > 0; ++f) {
-            float prop = distributions[f].size() / (float)numRowsAdded;
+            float prop = distributions[f] / (float)numRowsAdded;
             float target = runProcConf.splits[f];
             float splitDiff = runProcConf.foldImportance*(target - prop);
             if (splitDiff > diff) {
@@ -220,31 +235,13 @@ run(const ProcedureRunConfig & run,
         };
 
         rowValue.forEachColumn(updateDistribution);
-        distributions[bestFold].push_back(rowPath);
+        distributions[bestFold]++;
+        datasets[bestFold]->recordRow(rowPath, row.columns);
         numRowsAdded++;
     }
 
-    size_t i = 0;
-    for (auto& datasetName : runProcConf.outputDatasets) {
-
-        std::shared_ptr<Dataset> outputDataset;
-        if (!datasetName.type.empty() || !datasetName.id.empty()) {
-            outputDataset = createDataset(server, datasetName, nullptr, true /** overwrite **/);            
-        }
-
-        if(!outputDataset) {
-            throw MLDB::Exception("Unable to obtain output dataset");
-        }
-
-        for (auto& rowPath : distributions[i]) {
-            MatrixNamedRow row = boundDataset.dataset->getMatrixView()->getRow(rowPath);
-            outputDataset->recordRow(rowPath, row.columns);
-        }
-
+    for (auto& outputDataset : datasets)
         outputDataset->commit();
-
-        ++i;   
-    }
 
     Json::Value results;
     std::vector<Utf8String> incompleteLabels;
