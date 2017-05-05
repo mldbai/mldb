@@ -65,8 +65,6 @@ $(eval $(call mldb_unit_test,MLDBFB-422_sql_invalid_count_issue.py))
 $(eval $(call mldb_unit_test,MLDBFB-530_continuous_window_fails_on_restart.py))
 $(eval $(call mldb_unit_test,MLDBFB-545-incorrect_result_on_merged_ds.py,,manual))
 $(eval $(call mldb_unit_test,beh_type_check_on_load_test.py))
-$(eval $(call mldb_unit_test,reddit_benchmark.py,,manual))
-$(eval $(call mldb_unit_test,stackoverflow_benchmark.py,,manual))
 
 $(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
 $(eval $(call test,mldb_startup_test,mldb,boost))
