@@ -362,7 +362,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     }
 
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
-    static constexpr size_t ROW_INDEX_SHARDS=32;
+    static constexpr size_t ROW_INDEX_SHARDS=256;
     Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex
         [ROW_INDEX_SHARDS];
     std::string filename;
@@ -812,6 +812,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         std::mutex rowIndexLock[ROW_INDEX_SHARDS];
 
         Timer rowIndexTimer;
+
+        for (size_t i = 0;  i < ROW_INDEX_SHARDS;  ++i) {
+            rowIndex[i].reserve(totalRows / ROW_INDEX_SHARDS);
+        }
 
         auto indexChunk = [&] (int chunkNum)
             {
