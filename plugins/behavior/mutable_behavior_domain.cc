@@ -14,6 +14,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/value_description.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 using namespace std;
 using namespace ML;
@@ -107,12 +108,12 @@ MutableBehaviorDomain::
 
     auto behRoot = behaviorRoot();
     for (unsigned i = 0;  i < behRoot->size;  ++i)
-        delete behRoot->entries[i];
+        delete behRoot->entries[i].load();
 
     for (unsigned s = 0;  s < NUM_SUBJECT_ROOTS;  ++s) {
         auto subRoot = subjectRoots[s]->subjectEntryPtr();
         for (unsigned i = 0;  i < subRoot->size;  ++i)
-            delete subRoot->entries[i];
+            delete subRoot->entries[i].load();
     }
 }
 
@@ -564,7 +565,7 @@ getBehaviorStream(size_t start) const
 {
     std::unique_ptr<BehaviorDomain::BehaviorStream> result
         (new MutableBehaviorDomainBehaviorStream(this, start));
-    return std::move(result);
+    return result;
 }
 
 struct MutableBehaviorDomainSubjectStream
@@ -648,7 +649,7 @@ getSubjectStream(size_t start) const
 {
     std::unique_ptr<BehaviorDomain::SubjectStream> result
         (new MutableBehaviorDomainSubjectStream(this, start));
-    return std::move(result);
+    return result;
 }
 
 std::vector<SH>
@@ -2323,16 +2324,9 @@ sortUnlocked(GcLock & rootLock, bool immutable,
 
     // Copy them before sorting to make it more efficient
 
-    // Allocate array to sort unsorted entries  on the heap if not too big,
-    // otherwise on the stack.
     int numToAlloc = unsortedSize - unsorted->mergedUpTo;
-    int numToStackAlloc = numToAlloc > 1024 ? 0 : numToAlloc;
-    SubjectEntry unsorted2_stack[numToStackAlloc];
-    SubjectEntry * unsorted2_heap = nullptr;
-    if (numToAlloc > 1024)
-        unsorted2_heap = new SubjectEntry[numToAlloc];
-    SubjectEntry * unsorted2
-        = unsorted2_heap ? unsorted2_heap : unsorted2_stack;
+    PossiblyDynamicBuffer<SubjectEntry> unsorted2Storage(numToAlloc);
+    SubjectEntry * unsorted2 = unsorted2Storage.data();
 
     int unsorted2Size = 0;
     for (unsigned i = unsorted->mergedUpTo;  i != unsortedSize;  ++i) {
@@ -2347,16 +2341,9 @@ sortUnlocked(GcLock & rootLock, bool immutable,
 
     size_t sortedSize = (sorted ? sorted->size() : 0);
 
-    // Allocate array for new sorted version on the heap if not too big,
-    // otherwise on the stack.
     numToAlloc = unsorted2Size + sortedSize;
-    numToStackAlloc = numToAlloc > 1024 ? 0 : numToAlloc;
-    SubjectEntry newSorted_stack[numToStackAlloc];
-    SubjectEntry * newSorted_heap = nullptr;
-    if (numToAlloc > 1024)
-        newSorted_heap = new SubjectEntry[numToAlloc];
-    SubjectEntry * newSorted
-        = newSorted_heap ? newSorted_heap : newSorted_stack;
+    PossiblyDynamicBuffer<SubjectEntry> newSortedStorage(numToAlloc);
+    SubjectEntry * newSorted = newSortedStorage.data();
     uint32_t newSortedSize = 0;
 
     // Perform a merge of the old sorted and newly inserted values.  Note
@@ -2458,10 +2445,6 @@ sortUnlocked(GcLock & rootLock, bool immutable,
     //sorted->dump();
     
     ExcAssertEqual(sorted->size(), newSortedSize);
-
-    // Again, could be deferred
-    delete[] unsorted2_heap;
-    delete[] newSorted_heap;
 }
 
 void

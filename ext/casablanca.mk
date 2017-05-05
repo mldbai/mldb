@@ -240,6 +240,7 @@ CASABLANCA_SOURCE := \
 
 CASABLANCA_FLAGS := \
     -D_DEBUG \
+    -DBOOST_ASIO_HAS_CLANG_LIBCXX \
     -Imldb/ext/casablanca/Release/src/pch \
     -Imldb/ext/casablanca/Release/include \
     -Imldb/ext/casablanca/Release/libs \

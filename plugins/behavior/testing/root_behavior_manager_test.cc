@@ -204,9 +204,13 @@ TemporaryMount::
 unmountVolume()
     noexcept
 {
-    ExcAssert(mounted_);
-    ExcAssert(!volume_.empty());
-    ExcAssert(!mountPoint_.empty());
+    try {
+        ExcAssert(mounted_);
+        ExcAssert(!volume_.empty());
+        ExcAssert(!mountPoint_.empty());
+    } catch (...) {
+        std::terminate();
+    }
     int res = umount(mountPoint_.c_str());
     if (res == -1) {
         perror("TemporaryMount::unmountVolume");
@@ -238,8 +242,12 @@ TemporaryMount::
 detachVolume()
     noexcept
 {
-    ExcAssert(attached_);
-    ExcAssert(!loopDevice_.empty());
+    try {
+        ExcAssert(attached_);
+        ExcAssert(!loopDevice_.empty());
+    } catch (...) {
+        std::terminate();
+    }
     auto runRes = execute({LOSETUP, "--detach", loopDevice_});
     if (runRes.processStatus() != 0) {
         perror("detaching loop device");

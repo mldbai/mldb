@@ -1,6 +1,5 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* -*- C++ -*- */
+// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #if 0
 template<int start, int end>
@@ -273,7 +272,6 @@ void testEquivalent(BehaviorDomain & behs1,
         int i = 0;
         auto onBeh2 = [&] (BH beh, Date ts, uint32_t count)
             {
-                auto beh2 = std::make_tuple(beh, ts, count);
                 BOOST_REQUIRE(i < behs.size());
                 BOOST_CHECK_EQUAL(std::get<0>(behs[i]), beh);
                 BOOST_CHECK_EQUAL(std::get<1>(behs[i]), ts);
@@ -404,7 +402,8 @@ void createTestBehaviors(const std::shared_ptr<Dom>& mut)
     }
     cerr << endl;
 
-    auto dumpMut = [&] ()
+
+    auto dumpMut MLDB_UNUSED = [&] ()
         {
             cerr << hex;
 

@@ -145,7 +145,7 @@ pass(BH beh, const BehaviorStats & stats) const
         return false;
 
     if (minSubjectCount != -1) {
-        ExcAssertGreaterEqual(stats.subjectCount, 0);
+        ExcAssertGreaterEqual((int)stats.subjectCount, 0);
         if (stats.subjectCount < minSubjectCount)
             return false;
     }
@@ -1054,21 +1054,6 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
 
     int numSubjectsAtOnce = 100;
 
-    auto serializeSubjects = [&] (int i) -> vector<SubjectToWrite>
-        {
-            vector<SubjectToWrite> result;
-
-            int start = i * numSubjectsAtOnce;
-            int end = std::min<int>(start + numSubjectsAtOnce,
-                                    allSubjects.size());
-
-            for (unsigned j = start;  j < end;  ++j) {
-                result.push_back(serializeSubject(j));
-            }
-
-            return result;
-        };
-
     // Take a subject that was prepared for serialization and actually
     // write it to disk.  This happens serially and in order of the
     // i values.
@@ -1101,19 +1086,6 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
             }
         };
 
-    auto writeSerializedSubjects = [&] (int i, vector<SubjectToWrite> & subjects)
-        {
-            for (unsigned j = 0;  j < subjects.size();  ++j) {
-                writeSerializedSubject(i * numSubjectsAtOnce + j, subjects[j]);
-            }
-        };
-
-
-    //parallelMapInOrderReduce(0, allSubjects.size(), serializeSubject,
-    //                         writeSerializedSubject);
-    //parallelMapInOrderReduce(0, (allSubjects.size() / numSubjectsAtOnce) + 1,
-    //                         serializeSubjects,
-    //                         writeSerializedSubjects);
     parallelMapInOrderReduceChunked(0, allSubjects.size(), serializeSubject,
                                     writeSerializedSubject, numSubjectsAtOnce);
     

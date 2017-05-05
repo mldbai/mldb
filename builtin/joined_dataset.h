@@ -54,21 +54,21 @@ struct JoinedDataset: public Dataset {
 
     virtual ~JoinedDataset();
 
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
     
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-    virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
 
-    virtual void getChildAliases(std::vector<Utf8String>&) const;
+    virtual void getChildAliases(std::vector<Utf8String>&) const override;
 
     virtual BoundFunction
     overrideFunction(const Utf8String & tableName,
                      const Utf8String & functionName,
-                     SqlBindingScope & scope) const;
+                     SqlBindingScope & scope) const override;
 
     virtual RowPath getOriginalRowName(const Utf8String& tableName,
-                                       const RowPath & name) const;
+                                       const RowPath & name) const override;
 
     virtual int getChainedJoinDepth() const;
 

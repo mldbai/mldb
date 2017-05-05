@@ -78,7 +78,7 @@
 	url = git@github.com:mldbai/fastText.git
 [submodule "ext/casablanca"]
 	path = ext/casablanca
-	url = git@github.com:Microsoft/cpprestsdk.git
+	url = git@github.com:mldbai/cpprestsdk.git
 [submodule "ext/azure-storage-cpp"]
 	path = ext/azure-storage-cpp
 	url = git@github.com:mldbai/azure-storage-cpp.git

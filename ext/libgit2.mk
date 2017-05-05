@@ -171,6 +171,6 @@ LIBGIT2_DEFINES_aarch64:=-D_GNU_SOURCE -DGIT_ARCH_64 -DGIT_CURL -DGIT_OPENSSL -D
 LIBGIT2_DEFINES:=$(LIBGIT2_DEFINES_$(ARCH))
 $(if $(LIBGIT2_DEFINES),,$(error LIBGIT2_DEFINES_$(ARCH) not defined (unknown arch $(ARCH)).  Please define in libgit2.mk))
 
-$(eval $(call set_compile_option,$(LIBGIT2_SOURCE),-Imldb/ext/libgit2/include -Imldb/ext/libgit2/src -Imldb/ext/libgit2/deps/http-parser $(LIBGIT2_DEFINES)))
+$(eval $(call set_compile_option,$(LIBGIT2_SOURCE),-Imldb/ext/libgit2/include -Imldb/ext/libgit2/src -Imldb/ext/libgit2/deps/http-parser $(LIBGIT2_DEFINES) -Wno-maybe-uninitialized))
 
 $(eval $(call library,git2,$(LIBGIT2_SOURCE)))

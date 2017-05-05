@@ -51,7 +51,7 @@ public:
              const Training_Data & training_data,
              const distribution<float> & weights,
              const std::vector<Feature> & features,
-             int recursion = 0) const;
+             int recursion = 0) const override;
     
 
     /* Once init has been called, we clone our potential models from this

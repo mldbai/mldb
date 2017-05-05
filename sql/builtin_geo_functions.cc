@@ -89,7 +89,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
                 throw MLDB::Exception("Cound not find required column '"+
                         columnName.toUtf8String().rawString()+"'");
             }
-            return std::move(col);
+            return col;
         };
 
         if(!args[0].isRow()) {

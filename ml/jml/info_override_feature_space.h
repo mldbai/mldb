@@ -1,7 +1,6 @@
-// This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
-
 /* info_override_feature_space.h                                 -*- C++ -*-
    Mathieu Marquis Bolduc, 22 March 2017
+   This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 
    Feature space that wraps a const feature place and allow feature info to be 
    overriden
@@ -47,7 +46,7 @@ public:
     
     virtual void serialize(DB::Store_Writer & store) const override;
     virtual void reconstitute(DB::Store_Reader & store,
-                            const std::shared_ptr<const Feature_Space> & fs);
+                              const std::shared_ptr<const Feature_Space> & fs) override;
     virtual std::string class_id() const override;    
     virtual Feature_Space * make_copy() const override;
 
