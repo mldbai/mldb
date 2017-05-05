@@ -18,6 +18,8 @@ AZURE_BLOB_STORAGE_OPTIONS := \
     -Wno-overloaded-virtual \
     -Wno-reorder \
     -Wno-unused-value \
+    -Wno-unknown-pragmas
+
 $(eval $(call set_compile_option,azure_blob_storage.cc,$(AZURE_BLOB_STORAGE_OPTIONS)))
 
 $(eval $(call library,vfs_handlers,$(LIBVFS_HANDLERS_SOURCES),$(LIBVFS_HANDLERS_LINK)))

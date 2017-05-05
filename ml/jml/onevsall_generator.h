@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
-
 /* onevsall_generator.h                                          -*- C++ -*-
    Mathieu Marquis Bolduc, 8 March 2017
    Copyright (c) 2017 MLDB.ai  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 
    Generator for a onevsall classifier
 */
@@ -52,7 +50,7 @@ public:
              const Training_Data & training_data,
              const distribution<float> & weights,
              const std::vector<Feature> & features,
-             int recursion = 0) const;
+             int recursion = 0) const override;
 
     void setMultilabelMapping(const std::vector<std::vector<int>>& uniqueMultiLabelList, size_t numUniqueLabels_) {
         multiLabelList = uniqueMultiLabelList;

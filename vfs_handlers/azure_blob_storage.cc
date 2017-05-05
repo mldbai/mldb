@@ -288,7 +288,6 @@ struct AzureBlobStorageUploadSource {
                 blob.append_block(append_input_stream, utility::string_t());
                 append_input_stream.close().wait();
 
-                Date now = Date::now();
                 offset += n;
             }
             catch (...) {

@@ -477,28 +477,12 @@ enum FileType {
     FT_FILE_INACCESSIBLE = FTW_NS
 };
 
-std::string print(FileType type);
-
-std::ostream & operator << (std::ostream & stream, const FileType & type);
-
 typedef std::function<FileAction (std::string dir,
                                     std::string basename,
                                     const struct stat & stats,
                                     FileType type,
                                     int depth)>
     OnFileFound;
-
-std::string print(FileType type)
-{
-    switch (type) {
-    case FT_FILE: return "FILE";
-    case FT_DIR:  return "DIR";
-    case FT_DIR_INACCESSIBLE: return "DIR_INACCESSIBLE";
-    case FT_FILE_INACCESSIBLE: return "FILE_INACCESSIBLE";
-    default:
-        return MLDB::format("FileType(%d)", type);
-    }
-}
 
 struct ScanFilesData;
 
@@ -710,7 +694,7 @@ cacheRemoteFile(const string & filename, uint64_t fileSize,
         ::close(fd);
     });
 
-    Date start = Date::now();
+    //Date start = Date::now();
 
     if (onProgress)
         if (!onProgress(totalRead))
@@ -873,7 +857,7 @@ getRemote(const std::string & filename,
     }
 
     auto contents = std::make_shared<string>();
-    *contents = move(readFile(filename, onFileProgress));
+    *contents = readFile(filename, onFileProgress);
     if (cancelled)
         return nullptr;
 
@@ -912,7 +896,7 @@ getFile(const std::string & filename,
                 return true;  // continue
             };
 
-        *contents = move(readFile(filename, onFileProgress));
+        *contents = readFile(filename, onFileProgress);
         if (cancelled)
             return nullptr;
 

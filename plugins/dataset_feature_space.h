@@ -180,7 +180,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     void reconstitute(ML::DB::Store_Reader & store);
     virtual void serialize(ML::DB::Store_Writer & store) const override;
-    virtual ML::Feature_Space * make_copy() const;
+    virtual ML::Feature_Space * make_copy() const override;
 
 };
 

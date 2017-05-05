@@ -175,7 +175,7 @@ toPathElement(const Id & id)
         //some legacy data contains null chars in the string, lets skip the check for now.
         PathElement coord;
         coord.initStringUnchecked(id.toUtf8String());
-        return std::move(coord);
+        return coord;
     }
 }
 

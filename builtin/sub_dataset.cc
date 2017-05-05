@@ -237,7 +237,7 @@ struct SubDataset::Itl
             };
 
         if (destructive)
-            expr.forEachColumnDestructive(onSubexpr);
+            expr.forEachColumnDestructive(onSubexprDestructive);
         else
             expr.forEachColumn(onSubexpr);
 

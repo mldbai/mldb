@@ -332,8 +332,6 @@ struct MappedBehaviorDomain::EventTable {
         //cerr << "timeBits " << timeBits << " behBits " << behBits << " cntBits "
         //     << cntBits << endl;
 
-        ML::Bit_Extractor<uint32_t> extractor = this->extractor;
-
         BehaviorTable behs = owner->getBehaviorTable(subj);
         TimestampTable tst  = owner->getTimestampTable(subj);
      
@@ -1678,7 +1676,7 @@ getBehaviorStream(size_t start) const
 {
     std::unique_ptr<BehaviorDomain::BehaviorStream> result
         (new MappedBehaviorDomainBehaviorStream(this, start));
-    return std::move(result);
+    return result;
 }
 
 struct MappedBehaviorDomainSubjectStream : BehaviorDomain::SubjectStream
@@ -1732,7 +1730,7 @@ getSubjectStream(size_t start) const
 {
     std::unique_ptr<BehaviorDomain::SubjectStream> result
         (new MappedBehaviorDomainSubjectStream(this, start));
-    return std::move(result);
+    return result;
 }
 
 int
@@ -1896,9 +1894,6 @@ coIterateBehaviorsLookup(BI behi1, BI behi2,
                           SH maxSubject,
                           const OnBehaviors & onBehaviors) const
 {
-    BH beh1 = e1.hash;
-    BH beh2 = e2.hash;
-
     int numSubjectBits = ML::highest_bit(md->numSubjects - 1, -1) + 1;
 
     auto getExtractor = [&] (BI beh)

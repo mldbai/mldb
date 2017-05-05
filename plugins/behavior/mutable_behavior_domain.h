@@ -656,8 +656,8 @@ public:  // for testing
             std::atomic<uint32_t> firstNotDone_;
             uint32_t subjectBits:8;   // Bits required to hold a subject
             uint32_t timestampBits:8; // Bits required to hold a time offset
-            uint32_t unused:16;
-            uint32_t unused2;
+            uint32_t unused:16 MLDB_UNUSED_PRIVATE_FIELD;
+            uint32_t unused2 MLDB_UNUSED_PRIVATE_FIELD;
 
             // Layout of entries:
             // 1 bit: present (0 = no, 1 = yes)

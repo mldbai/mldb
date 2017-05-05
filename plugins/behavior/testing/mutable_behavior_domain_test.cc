@@ -180,7 +180,7 @@ BOOST_AUTO_TEST_CASE( test_subject_info_sort1 )
 
                 int numEntries = context.random() % 50 + 1;
 
-                MutableBehaviorDomain::ManyEntryInt entries[numEntries];
+                std::vector<MutableBehaviorDomain::ManyEntryInt> entries(numEntries);
             
                 Date tsBase = Date(2014, 1, 1);
 
@@ -194,7 +194,7 @@ BOOST_AUTO_TEST_CASE( test_subject_info_sort1 )
                     entry.count = 1;
                 }
 
-                behs.recordMany(Id(subj), entries, numEntries);
+                behs.recordMany(Id(subj), entries.data(), numEntries);
 
                 ++subjDone;
                 behsDone += numEntries;
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE( test_recordManySubjects )
 
                 int numEntries = context.random() % 50 + 1;
 
-                MutableBehaviorDomain::ManySubjectId entries[numEntries];
+                std::vector<MutableBehaviorDomain::ManySubjectId> entries(numEntries);
             
                 Date tsBase = Date(2014, 1, 1);
 
@@ -291,7 +291,7 @@ BOOST_AUTO_TEST_CASE( test_recordManySubjects )
                     entry.count = 1;
                 }
 
-                behs.recordManySubjects(beh, entries, numEntries);
+                behs.recordManySubjects(beh, entries.data(), numEntries);
 
                 ++behsDone;
                 subjDone += numEntries;

@@ -1,15 +1,10 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* probabilizer.h                                                  -*- C++ -*-
    Jeremy Barnes, 13 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
-#ifndef __boosting__probabilizer_h__
-#define __boosting__probabilizer_h__
-
+#pragma once
 
 #include "mldb/jml/db/persistent.h"
 #include "mldb/jml/stats/distribution.h"
@@ -358,8 +353,3 @@ struct ProbabilizerModel
 DECLARE_STRUCTURE_DESCRIPTION(ProbabilizerModel);
 
 } // namespace ML
-
-
-
-#endif /* __boosting__probabilizer_h__ */
-

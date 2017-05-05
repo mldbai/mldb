@@ -120,7 +120,7 @@ train(const std::vector<std::tuple<float, float, float> >& fvs,
 
     INFO_MSG(logger) << "paramAfter = " << probParams[1];
 
-    link = link;
+    this->link = link;
     params = probParams;
 
     glz.link = link;

@@ -339,7 +339,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         /* set where the stream should start*/
         virtual void initAt(size_t start)
         {
-            shStream = std::move(source->behs->getSubjectStream(start));
+            shStream = source->behs->getSubjectStream(start);
         }
 
         virtual MLDB::RowPath next()

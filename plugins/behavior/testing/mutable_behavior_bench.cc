@@ -28,7 +28,7 @@ genIds(int numIds)
         ids.push_back(Id(randomString(20)));
     }
 
-    return move(ids);
+    return ids;
 }
 
 int main(int argc, char * argv[])
