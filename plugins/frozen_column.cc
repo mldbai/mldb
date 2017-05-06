@@ -1079,7 +1079,8 @@ struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
                             const ColumnFreezeParameters & params,
                             std::shared_ptr<void> & cachedInfo) const override
     {
-        return column.columnTypes.onlyTimestampsAndNulls();
+        return column.columnTypes.numTimestamps
+            && column.columnTypes.onlyTimestampsAndNulls();
     }
 
     virtual ssize_t columnSize(const TabularDatasetColumn & column,
