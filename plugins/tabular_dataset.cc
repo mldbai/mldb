@@ -66,7 +66,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                      TabularDatasetConfig config,
                      shared_ptr<spdlog::logger> logger)
         : server(server),
-          serializer(/*"tabular-dataset.dat"*/),
+          serializer("tabular-dataset.dat"),
           rowCount(0), config(std::move(config)),
           backgroundJobsActive(0), logger(logger)
     {
@@ -75,8 +75,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     MldbServer * server;
 
     /// This is used to allocate mapped memory when chunks are frozen
-    //FileSerializer serializer;
-    MemorySerializer serializer;
+    FileSerializer serializer;
+    //MemorySerializer serializer;
 
     /** A stream of row names used to incrementally query available rows
         without creating an entire list in memory.

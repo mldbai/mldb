@@ -223,6 +223,8 @@ MemorySerializer::
 allocateWritable(uint64_t bytesRequired,
                  size_t alignment)
 {
+    cerr << "allocate " << bytesRequired << " bytes" << endl;
+        
     void * mem = nullptr;
     ExcAssertEqual((size_t)bytesRequired, bytesRequired);
     if (alignment < sizeof(void *)) {
@@ -268,12 +270,13 @@ struct FileSerializer::Itl {
     
     ~Itl()
     {
-        cerr << "destroying file serializer" << endl;
-        int res = ::ftruncate(fd, currentOffset);
-        if (res == -1) {
-            cerr << "ftruncate failed: " << strerror(errno) << endl;
-        }
-        ::munmap(addr, mappedLength);
+        if (arenas.empty())
+            return;
+
+        commit();
+
+        arenas.clear();
+
         ::close(fd);
     }
 
@@ -286,7 +289,12 @@ struct FileSerializer::Itl {
 
     void commit()
     {
-        int res = ::ftruncate(fd, currentOffset);
+        if (arenas.empty())
+            return;
+
+        size_t realLength = arenas.back().startOffset + arenas.back().currentOffset;
+
+        int res = ::ftruncate(fd, realLength);
         if (res == -1) {
             throw HttpReturnException
                 (500, "ftruncate failed: " + string(strerror(errno)));
@@ -296,68 +304,116 @@ struct FileSerializer::Itl {
     std::shared_ptr<void>
     allocateWritableImpl(uint64_t bytesRequired, size_t alignment)
     {
-        size_t extraBytes = currentOffset % alignment;
-        if (extraBytes > 0)
-            extraBytes = alignment - extraBytes;
+        if (bytesRequired == 0)
+            return nullptr;
 
-        if (currentOffset + bytesRequired + extraBytes <= mappedLength) {
-            char * data = reinterpret_cast<char *>(addr) + extraBytes + currentOffset;
-            currentOffset += extraBytes + bytesRequired;
-            cerr << "returning data " << (void *)data << endl;
-
-            return std::shared_ptr<void>(data, [] (void *) {});
+        if (arenas.empty()) {
+            createNewArena(bytesRequired + alignment);
+        }
+        
+        void * allocated = nullptr;
+        
+        while ((allocated = arenas.back().allocate(bytesRequired, alignment)) == nullptr) {
+            if (!expandLastArena(bytesRequired + alignment)) {
+                createNewArena(bytesRequired + alignment);
+            }
         }
 
-        cerr << "couldn't allocate " << bytesRequired << " bytes plus "
-             << extraBytes << " padding" << endl;
+        return std::shared_ptr<void>(allocated, [] (void *) {});
+    }
 
-        // We need to expand the mapping
-        // First try to mremap in the same place
+    void createNewArena(size_t bytesRequired)
+    {
+        size_t newLength = std::max<size_t>
+            ((bytesRequired + page_size - 1) / page_size,
+             10000 * page_size);
 
-        size_t newLength
-            = std::max<size_t>(currentOffset + bytesRequired + extraBytes,
-                               mappedLength + 10000 * page_size);
-
-        cerr << "moving from " << mappedLength << " to " << newLength << " bytes" << endl;
-
-        int res = ::ftruncate(fd, newLength);
-
+        int res = ::ftruncate(fd, currentOffset + newLength);
         if (res == -1) {
             throw HttpReturnException
                 (500, "ftruncate failed: " + string(strerror(errno)));
         }
 
+        void * addr = mmap(nullptr, newLength, PROT_READ | PROT_WRITE, MAP_SHARED,
+                           fd, currentOffset);
         if (addr == nullptr) {
-            addr = mmap(nullptr, newLength, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0 /* offset */);
-            if (addr == nullptr) {
-                throw HttpReturnException
-                    (400, "Failed to open memory map file: "
-                     + string(strerror(errno)));
-            }
-        }
-        else {
-            void * newAddr = mremap(addr, mappedLength, newLength, 0 /* flags */);
-
-            if (newAddr != addr) {
-                // New mapping couldn't be done, we need to mmap another area
-                // altogether
-                throw HttpReturnException
-                    (500, "mremap failed: " + string(strerror(errno)));
-            }
-            
-            ExcAssertEqual(newAddr, (void *)addr);
+            throw HttpReturnException
+                (400, "Failed to open memory map file: "
+                 + string(strerror(errno)));
         }
 
-        mappedLength = newLength;
-        return allocateWritableImpl(bytesRequired, alignment);
+        arenas.emplace_back(addr, currentOffset, newLength);
+
+        currentOffset += newLength;
+    }
+
+    bool expandLastArena(size_t bytesRequired)
+    {
+        size_t newLength
+            = arenas.back().length
+            + std::max<size_t>((bytesRequired + page_size - 1) / page_size,
+                               10000 * page_size);
+        
+        int res = ::ftruncate(fd, currentOffset + newLength);
+        if (res == -1) {
+            throw HttpReturnException
+                (500, "ftruncate failed: " + string(strerror(errno)));
+        }
+
+        void * newAddr = mremap(arenas.back().addr,
+                                arenas.back().length,
+                                newLength,
+                                0 /* flags */);
+
+        if (newAddr != arenas.back().addr) {
+            // undo the expansion
+            ftruncate(fd, currentOffset);
+            return false;
+        }
+
+        arenas.back().length = newLength;
+
+        return true;
     }
 
     std::mutex mutex;
     Utf8String filename;
     int fd = -1;
-    void * addr = nullptr;
     size_t mappedLength = 0;
     size_t currentOffset = 0;
+
+    struct Arena {
+        Arena(void * addr, size_t startOffset, size_t length)
+            : addr(addr), startOffset(startOffset), length(length)
+        {
+        }
+
+        ~Arena()
+        {
+            ::munmap(addr, length);
+        }
+
+        void * addr = nullptr;
+        size_t startOffset = 0;
+        size_t length = 0;
+        size_t currentOffset = 0;
+
+        void * allocate(size_t bytes, size_t alignment)
+        {
+            size_t extraBytes = currentOffset % alignment;
+            if (extraBytes > 0)
+                extraBytes = alignment - extraBytes;
+
+            if (currentOffset + bytes + extraBytes > length)
+                return nullptr;
+
+            char * data = reinterpret_cast<char *>(addr) + extraBytes + currentOffset;
+            currentOffset += extraBytes + bytes;
+            return data;
+        }
+    };
+
+    std::vector<Arena> arenas;
 };
 
 FileSerializer::
@@ -384,7 +440,8 @@ allocateWritable(uint64_t bytesRequired,
                  size_t alignment)
 {
     auto handle = itl->allocateWritable(bytesRequired, alignment);
-    return {std::move(handle), (char *)handle.get(), (size_t)bytesRequired, this };
+    char * mem = (char *)handle.get();
+    return {std::move(handle), mem, (size_t)bytesRequired, this };
 }
 
 FrozenMemoryRegion
@@ -579,6 +636,8 @@ struct TableFrozenColumn: public FrozenColumn {
         size_t numWords = (indexBits * numEntries + 31) / 32;
         auto mutableStorage = serializer.allocateWritableT<uint32_t>(numWords);
         uint32_t * data = mutableStorage.data();
+
+        cerr << "table: data is " << data << endl;
 
         if (!hasNulls) {
             // Contiguous rows
