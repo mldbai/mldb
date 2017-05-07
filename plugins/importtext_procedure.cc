@@ -1028,8 +1028,8 @@ struct ImportTextProcedureWorkInstance
         SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
         isIdentitySelect = config.select.isIdentitySelect(noContext);  
 
-        if (isIdentitySelect)
-            ExcAssertEqual(inputColumnNames, knownColumnNames);
+        //if (isIdentitySelect)
+        //    ExcAssertEqual(inputColumnNames, knownColumnNames);
 
         DEBUG_MSG(logger)
             << "reading " << inputColumnNames.size() << " columns "
