@@ -291,6 +291,7 @@ struct CaptureAudioSensor: public Sensor {
              << endl;
         cerr << "planar = " << av_sample_fmt_is_planar(audio_dec_ctx->sample_fmt);
 
+#if 0
         size_t bytesPerSample = av_get_bytes_per_sample(audio_dec_ctx->sample_fmt);
 
         auto decodeOnePacked = [&] (const uint8_t * & start)
@@ -344,6 +345,7 @@ struct CaptureAudioSensor: public Sensor {
                 }
                 
             };
+#endif
 
         AVFrame * frame = avcodec_alloc_frame();
         if (!frame) {
