@@ -1011,6 +1011,16 @@ struct DoubleFrozenColumn: public FrozenColumn {
     {
         return SizingInfo(column);
     }
+
+    virtual std::string format() const
+    {
+        return "D";
+    }
+
+    virtual void serialize(MappedSerializer & serializer)
+    {
+        throw HttpReturnException(600, "DoubleFrozenColumn::serialize()");
+    }
 };
 
 struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
@@ -1045,6 +1055,12 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
            std::shared_ptr<void> cachedInfo) const override
     {
         return new DoubleFrozenColumn(column);
+    }
+
+    virtual FrozenColumn *
+    reconstitute(MappedReconstituter & reconstituter) const override
+    {
+        throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -1140,6 +1156,16 @@ struct TimestampFrozenColumn: public FrozenColumn {
     {
         return columnTypes;
     }
+
+    virtual std::string format() const
+    {
+        return "T";
+    }
+
+    virtual void serialize(MappedSerializer & serializer)
+    {
+        throw HttpReturnException(600, "TimestampFrozenColumn::serialize()");
+    }
 };
 
 struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
@@ -1176,6 +1202,12 @@ struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
            std::shared_ptr<void> cachedInfo) const override
     {
         return new TimestampFrozenColumn(column, params);
+    }
+
+    virtual FrozenColumn *
+    reconstitute(MappedReconstituter & reconstituter) const override
+    {
+        throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
 };
 
