@@ -1195,6 +1195,7 @@ struct ImportTextProcedureWorkInstance
             const char * errorMsg
                     = parseFixedWidthCsvRow(line, length, values.data(),
                                             numInputColumn,
+                                            inputColumnTreatment,
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith,
                                             isTextLine,
