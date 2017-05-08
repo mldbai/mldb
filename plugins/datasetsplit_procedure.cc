@@ -118,8 +118,9 @@ run(const ProcedureRunConfig & run,
 
     //Get all the row names selected by the specified FROM/WHERE
     //in a deterministic order
-     auto processor = [&] (NamedRowValue & row_,
-                           const std::vector<ExpressionValue> & extraVals)
+    auto processor = [&] (int64_t rowNumber,
+                          NamedRowValue & row_,
+                          const std::vector<ExpressionValue> & extraVals)
         {
             rowPaths.push_back(std::move(row_.rowName));
             return true;            

@@ -572,8 +572,9 @@ runMultilabel(AccuracyConfig & runAccuracyConf,
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
 
-    auto processor = [&] (NamedRowValue & row,
-                           const std::vector<ExpressionValue> & scoreLabelWeight)
+    auto processor = [&] (int64_t rowNumber,
+                          NamedRowValue & row,
+                          const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             std::vector<CellValue> bestlabels;
             std::vector<double> bestlabelsScores;
