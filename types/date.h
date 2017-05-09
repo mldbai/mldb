@@ -126,7 +126,15 @@ struct Date {
 
     bool operator == (const Date & other) const
     {
-        return secondsSinceEpoch_ == other.secondsSinceEpoch_;
+        bool nad1 = std::isnan(secondsSinceEpoch_);
+        bool nad2 = std::isnan(other.secondsSinceEpoch_);
+
+        switch (nad1 + 2 * nad2) {
+        case 3: return true;
+        case 2: return false;
+        case 1: return false;
+        default: return secondsSinceEpoch_ == other.secondsSinceEpoch_;
+        }
     }
 
     bool operator != (const Date & other) const
@@ -136,22 +144,38 @@ struct Date {
 
     bool operator <  (const Date & other) const
     {
-        return secondsSinceEpoch_ < other.secondsSinceEpoch_;
+        bool nad1 = std::isnan(secondsSinceEpoch_);
+        bool nad2 = std::isnan(other.secondsSinceEpoch_);
+        
+        switch (nad1 + 2 * nad2) {
+        case 3: return false;
+        case 2: return false;
+        case 1: return true;
+        default: return secondsSinceEpoch_ < other.secondsSinceEpoch_;
+        }
     }
 
     bool operator <= (const Date & other) const
     {
-        return secondsSinceEpoch_ <= other.secondsSinceEpoch_;
+        bool nad1 = std::isnan(secondsSinceEpoch_);
+        bool nad2 = std::isnan(other.secondsSinceEpoch_);
+        
+        switch (nad1 + 2 * nad2) {
+        case 3: return true;
+        case 2: return false;
+        case 1: return true;
+        default: return secondsSinceEpoch_ <= other.secondsSinceEpoch_;
+        }
     }
 
     bool operator >  (const Date & other) const
     {
-        return secondsSinceEpoch_ > other.secondsSinceEpoch_;
+        return ! operator <= (other);
     }
 
     bool operator >= (const Date & other) const
     {
-        return secondsSinceEpoch_ >= other.secondsSinceEpoch_;
+        return ! operator < (other);
     }
 
     double operator + (const Date & other) const
