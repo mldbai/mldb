@@ -369,7 +369,7 @@ struct FrozenColumnFormat {
                                std::shared_ptr<void> & cachedInfo) const = 0;
     
     static std::pair<ssize_t,
-              std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column)> >
+                     std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column, MappedSerializer & serializer)> >
     preFreeze(const TabularDatasetColumn & column,
               const ColumnFreezeParameters & params);
 

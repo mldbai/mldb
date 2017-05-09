@@ -1673,6 +1673,7 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
     
     virtual FrozenColumn *
     freeze(TabularDatasetColumn & column,
+           MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
            std::shared_ptr<void> cachedInfo) const override
     {
@@ -1700,6 +1701,7 @@ struct TimestampFrozenColumn: public FrozenColumn {
     std::shared_ptr<const FrozenColumn> unwrapped;
 
     TimestampFrozenColumn(TabularDatasetColumn & column,
+                          MappedSerializer & serializer,
                           const ColumnFreezeParameters & params)
         : columnTypes(column.columnTypes)
     {
@@ -1713,8 +1715,8 @@ struct TimestampFrozenColumn: public FrozenColumn {
             column.columnTypes.update(v);
         }
         column.columnTypes.numNulls = numNulls;
-        
-        unwrapped = column.freeze(params);
+
+        unwrapped = column.freeze(serializer, params);
     }
 
     // Wrap a double (or null) into a timestamp (or null)
@@ -1820,10 +1822,11 @@ struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
     
     virtual FrozenColumn *
     freeze(TabularDatasetColumn & column,
+           MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
            std::shared_ptr<void> cachedInfo) const override
     {
-        return new TimestampFrozenColumn(column, params);
+        return new TimestampFrozenColumn(column, serializer, params);
     }
 
     virtual FrozenColumn *
@@ -1908,7 +1911,9 @@ FrozenColumn()
 {
 }
 
-std::pair<ssize_t, std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column)> >
+std::pair<ssize_t, std::function<std::shared_ptr<FrozenColumn>
+                                 (TabularDatasetColumn & column,
+                                  MappedSerializer & Serializer)> >
 FrozenColumnFormat::
 preFreeze(const TabularDatasetColumn & column,
           const ColumnFreezeParameters & params)
@@ -1958,10 +1963,11 @@ preFreeze(const TabularDatasetColumn & column,
 
     if (bestFormat) {
         return std::make_pair(bestBytes,
-                              [=] (TabularDatasetColumn & column)
+                              [=] (TabularDatasetColumn & column,
+                                   MappedSerializer & serializer)
                               {
                                   return std::shared_ptr<FrozenColumn>
-                                      (bestFormat->freeze(column, params, bestData));
+                                      (bestFormat->freeze(column, serializer, params, bestData));
                               }
                               );
     }
@@ -1973,6 +1979,7 @@ preFreeze(const TabularDatasetColumn & column,
 std::shared_ptr<FrozenColumn>
 FrozenColumn::
 freeze(TabularDatasetColumn & column,
+       MappedSerializer & serializer,
        const ColumnFreezeParameters & params)
 {
     ExcAssert(!column.isFrozen);
@@ -1980,7 +1987,7 @@ freeze(TabularDatasetColumn & column,
     if (!res.second) {
         throw HttpReturnException(500, "No column format found for column");
     }
-    return res.second(column);
+    return res.second(column, serializer);
 }
 
 
