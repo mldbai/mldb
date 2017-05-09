@@ -629,3 +629,17 @@ BOOST_AUTO_TEST_CASE( test_cast_to_int_same_as_quantize_to_second )
 
     }
 }
+
+BOOST_AUTO_TEST_CASE( test_NaD_sorting )
+{
+    Date d1 = Date::notADate();
+    Date d2;
+
+    BOOST_CHECK_EQUAL(d1, d1);
+    BOOST_CHECK_EQUAL(d2, d2);
+    BOOST_CHECK_NE(d1, d2);
+    BOOST_CHECK(!(d1 < d1));
+    BOOST_CHECK_LE(d1, d1);
+    BOOST_CHECK_LT(d1, d2);
+    BOOST_CHECK_GE(d2, d1);
+}
