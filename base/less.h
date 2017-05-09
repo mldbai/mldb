@@ -1,18 +1,16 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* less.h                                                          -*- C++ -*-
    Jeremy Barnes, 5 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Functions to implement an operator <.
 */
 
-#ifndef __utils__less_h__
-#define __utils__less_h__
+#pragma once
 
 #include <algorithm>
 
-namespace ML {
+namespace MLDB {
 
 template<typename T1>
 bool less_all(const T1 & x1, const T1 & y1)
@@ -105,8 +103,5 @@ typename Compare::result_type compare_sorted( T & x, T & y, Compare comp) {
     return comp(x,y);
 }
 
-} // namespace ML
-
-#endif /* __utils__less_h__ */
-
+} // namespace MLDB
 

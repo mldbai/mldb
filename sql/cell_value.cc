@@ -21,6 +21,7 @@
 #include "path.h"
 #include "mldb/ext/s2/s2.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/base/less.h"
 
 using namespace std;
 

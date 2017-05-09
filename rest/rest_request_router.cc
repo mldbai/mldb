@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/environment.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/less.h"
+#include "mldb/base/less.h"
 #include "mldb/types/value_description.h"
 
 
@@ -146,7 +146,7 @@ bool
 RequestParamFilter::
 operator < (const RequestParamFilter & other) const
 {
-    return  ML::less_all(location, other.location,
+    return  MLDB::less_all(location, other.location,
                  param, other.param,
                  value, other.value);
 }

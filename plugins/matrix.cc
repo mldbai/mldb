@@ -14,7 +14,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/jml/utils/less.h"
+#include "mldb/base/less.h"
 #include "mldb/utils/log.h"
 #include "mldb/rest/cancellation_exception.h"
 #include <mutex>
@@ -292,7 +292,7 @@ extractFeaturesFromRows(const SelectExpression & select,
                       [] (const ExtractedRow & r1,
                           const ExtractedRow & r2) -> bool
                           {
-                              return ML::less_all(r1.rowHash, r2.rowHash,
+                              return MLDB::less_all(r1.rowHash, r2.rowHash,
                                                   ((const std::vector<float> &)r1.continuous),
                                                   ((const std::vector<float> &)r2.continuous),
                                                   r1.sparse, r2.sparse);
