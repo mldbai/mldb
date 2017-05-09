@@ -19,7 +19,7 @@ class BuiltinHashFctTest(MldbUnitTest):  # noqa
         self.assertEqual(res[1][1], 9281407066453831864)
 
         res = mldb.query("SELECT hash({a: 12, b: 'coco'})")
-        self.assertEqual(res[1][1], 12351211796938911870)
+        self.assertEqual(res[1][1], 17779398697240081926)
 
         res = mldb.query("SELECT hash(NULL)")
         self.assertEqual(res[1][1], None)
