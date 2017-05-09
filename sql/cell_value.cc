@@ -65,6 +65,13 @@ CellValue(const Path & path)
         return;
     }
 
+    if (path.size() == 0) {
+        type = ST_SHORT_PATH;
+        strLength = 0;
+        strFlags = 0;
+        return;
+    }
+
     Utf8String u = path.toUtf8String();
 
     strLength = u.rawLength();
@@ -659,6 +666,9 @@ coerceToPath() const
             PathBuilder builder;
             return builder.add(stringChars(), toStringLength()).extract();
         }
+        else if (strFlags == 0) {
+            return Path();
+        }
         return Path::parse(stringChars(), toStringLength());
     }
     else if (type == ST_ASCII_SHORT_STRING || type == ST_ASCII_LONG_STRING
@@ -859,7 +869,7 @@ int
 CellValue::
 compare(const CellValue & other) const
 {
-    if (bits1 == other.bits1 && bits2 == other.bits2)
+    if (type == other.type && bits1 == other.bits1 && bits2 == other.bits2)
         return 0;
 
     return (*this < other) ? -1 : (*this == other) ? 0 : 1;
@@ -869,12 +879,10 @@ bool
 CellValue::
 operator == (const CellValue & other) const
 {
-    if (other.type != type)
-    {
+    if (other.type != type) {
         return false;
     }
-    if (type == other.type && bits1 == other.bits1 && bits2 == other.bits2)
-    {
+    if (bits1 == other.bits1 && bits2 == other.bits2) {
         return true;
     }
 
@@ -892,6 +900,7 @@ operator == (const CellValue & other) const
     case ST_SHORT_BLOB:
     case ST_SHORT_PATH:
         return strLength == other.strLength
+            && strFlags == other.strFlags
             && strncmp(shortString, other.shortString, strLength) == 0;
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
@@ -901,17 +910,20 @@ operator == (const CellValue & other) const
             && strncmp(longString->repr, other.longString->repr, strLength) == 0;
     case ST_TIMESTAMP:
         return toTimestamp() == other.toTimestamp();
-    case ST_TIMEINTERVAL:
-    {
-        bool sign1 = signbit(timeInterval.seconds);
-        bool sign2 = signbit(other.timeInterval.seconds);
+    case ST_TIMEINTERVAL: {
+        bool nan1 = std::isnan(timeInterval.seconds);
+        bool nan2 = std::isnan(other.timeInterval.seconds);
 
-        if (sign1 != sign2)
-            return false;
-
-        return timeInterval.months == other.timeInterval.months && 
-               timeInterval.days == other.timeInterval.days && 
-               timeInterval.seconds == other.timeInterval.seconds;
+        if (nan1 || nan2) {
+            return timeInterval.months == other.timeInterval.months && 
+                timeInterval.days == other.timeInterval.days && 
+                nan1 == nan2;
+        }
+        else {
+            return timeInterval.months == other.timeInterval.months && 
+                timeInterval.days == other.timeInterval.days && 
+                timeInterval.seconds == other.timeInterval.seconds;
+        }
     }
         
     default:
@@ -925,8 +937,9 @@ operator <  (const CellValue & other) const
 {
     // Sort order:
     // 1.  EMPTY
-    // 2.  INTEGER or FLOAT, compared numerically
+    // 2.  INTEGER or FLOAT, compared numerically with NaN first
     // 3.  STRING or BLOB, compared lexicographically
+    // 4.  Rest of types
 
     try {
         if (MLDB_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
@@ -948,11 +961,13 @@ operator <  (const CellValue & other) const
                 return toInt() < other.toInt();
             if (other.type == ST_UNSIGNED)
                 return true;
-            double d = other.toDouble();
-            if (std::isnan(d))
-                return false;
-
-            return toInt() < d;
+            if (other.type == ST_FLOAT) {
+                double d = other.toDouble();
+                if (std::isnan(d))
+                    return false;
+                return toInt() < d;
+            }
+            return type < other.type;
         }
         case ST_UNSIGNED: {
             if (other.type == ST_EMPTY)
@@ -963,45 +978,56 @@ operator <  (const CellValue & other) const
                 return false;  // ST_UNSIGNED represents out of range positive integers
             if (other.type == ST_UNSIGNED)
                 return toUInt() < other.toUInt();
-            double d = other.toDouble();
-            if (std::isnan(d))
-                return false;
+            if (other.type == ST_FLOAT) {
+                double d = other.toDouble();
+                if (std::isnan(d))
+                    return false;
 
-            return toUInt() < d;
+                return toUInt() < d;
+            }
+            return type < other.type;
         }
         case ST_FLOAT: {
             if (other.type == ST_EMPTY)
                 return false;
-            if (other.isString())
-                return true;
             double d = toDouble();
             if (other.type == ST_FLOAT) {
                 double d2 = other.toDouble();
-                if (std::isnan(d) && !std::isnan(d2))
-                    return true;
+                bool nan1 = std::isnan(d);
+                bool nan2 = std::isnan(d2);
+                if (nan1 != nan2) {
+                    return nan1 > nan2;
+                }
                 return d < d2;
             }
-            if (std::isnan(d))
-                return true;
-            if (other.type == ST_UNSIGNED) {
-                return d < other.toUInt();
+            if (other.type == ST_INTEGER || other.type == ST_UNSIGNED) {
+                if (std::isnan(d))
+                    return true;
+                if (other.type == ST_UNSIGNED) {
+                    return d < other.toUInt();
+                }
+                return d < other.toInt();
             }
-            return d < other.toInt();
+            return type < other.type;
         }
+
         case ST_ASCII_SHORT_STRING:
         case ST_ASCII_LONG_STRING:
         case ST_UTF8_SHORT_STRING:
         case ST_UTF8_LONG_STRING:
-            if (!isStringType((StorageType)other.type))
-                return false;
+            if (isStringType((StorageType)other.type)) {
+                return std::lexicographical_compare
+                    (stringChars(), stringChars() + toStringLength(),
+                     other.stringChars(), other.stringChars() + other.toStringLength());
+            }
+            return type < other.type;
 
-            return std::lexicographical_compare
-                (stringChars(), stringChars() + toStringLength(),
-                 other.stringChars(), other.stringChars() + other.toStringLength());
         case ST_TIMESTAMP:  
-            return toTimestamp() < other.toTimestamp();
+            if (other.type == ST_TIMESTAMP)
+                return toTimestamp() < other.toTimestamp();
+            return type < other.type;
         case ST_TIMEINTERVAL:
-            {
+            if (other.type == ST_TIMEINTERVAL) {
                 bool sign1 = signbit(timeInterval.seconds);
                 bool sign2 = signbit(other.timeInterval.seconds);
 
@@ -1010,29 +1036,53 @@ operator <  (const CellValue & other) const
                 else if (sign2 && !sign1)
                     return false;
 
-                bool smaller = timeInterval.months < other.timeInterval.months || 
-                   (timeInterval.months == other.timeInterval.months && timeInterval.days < other.timeInterval.days) ||
-                   (timeInterval.months == other.timeInterval.months && timeInterval.days == other.timeInterval.days 
-                    && abs(timeInterval.seconds) < abs(other.timeInterval.seconds));
+                bool nan1 = std::isnan(timeInterval.seconds);
+                bool nan2 = std::isnan(other.timeInterval.seconds);
 
-                return sign1 ? !smaller : smaller;
+                if (nan1 || nan2) {
+                    bool smaller = less_all(timeInterval.months,
+                                            other.timeInterval.months,
+                                            timeInterval.days,
+                                            other.timeInterval.days,
+                                            nan1, nan2);
+
+                    return sign1 ? !smaller : smaller;
+                }
+                else {
+                    bool smaller = less_all(timeInterval.months,
+                                            other.timeInterval.months,
+                                            timeInterval.days,
+                                            other.timeInterval.days,
+                                            std::abs(timeInterval.seconds),
+                                            std::abs(other.timeInterval.seconds));
+                    return sign1 ? !smaller : smaller;
+                }
             }
+            return type < other.type;
         case ST_SHORT_BLOB:
         case ST_LONG_BLOB:
-            if (!isBlobType((StorageType)other.type))
-                return false;
+            if (isBlobType((StorageType)other.type)) {
+                return std::lexicographical_compare
+                    (blobData(), blobData() + blobLength(),
+                     other.blobData(), other.blobData() + other.blobLength());
+            }
+            return type < other.type;
 
-            return std::lexicographical_compare
-                (blobData(), blobData() + blobLength(),
-                 other.blobData(), other.blobData() + other.blobLength());
         case ST_SHORT_PATH:
         case ST_LONG_PATH:
-            if (!isPathType((StorageType)other.type))
-                return false;
+            if (isPathType((StorageType)other.type)) {
+                // The length zero versus length one with one empty element
+                // can't be distinguished using just the string version
+                if (strFlags == 0 || other.strFlags == 0)
+                    return strFlags < other.strFlags;
+                return std::lexicographical_compare
+                    (stringChars(), stringChars() + toStringLength(),
+                     other.stringChars(),
+                     other.stringChars() + other.toStringLength());
+            }
+            
+            return type < other.type;
 
-            return std::lexicographical_compare
-                (stringChars(), stringChars() + toStringLength(),
-                 other.stringChars(), other.stringChars() + other.toStringLength());
         default:
             throw HttpReturnException(400, "unknown CellValue type");
         }

@@ -346,6 +346,7 @@ BOOST_AUTO_TEST_CASE (test_exception_messages)
     auto cv = CellValue(Utf8String("françois"));
 
     auto returnExceptCheck = exceptionCheck<std::exception>("value 'fran");
+    MLDB_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_EXCEPTION( cv.toString(), std::exception, returnExceptCheck);
     BOOST_CHECK_EXCEPTION( cv.toDouble(), std::exception, returnExceptCheck);
     BOOST_CHECK_EXCEPTION( cv.toInt(), std::exception, returnExceptCheck);
@@ -372,4 +373,88 @@ BOOST_AUTO_TEST_CASE (test_path)
     Path p2 = cv.coerceToPath();
 
     BOOST_CHECK_EQUAL(p1, p2);
+}
+
+BOOST_AUTO_TEST_CASE (test_sorting_absolute_order)
+{
+    // This list should have examples of each type of CellValue, as it
+    // tests that there is a global absolute order.
+    std::vector<CellValue> vals = {
+        CellValue(),
+        0,
+        1,
+        -1,
+        0.5,
+        -0.5,
+        std::numeric_limits<double>::quiet_NaN(),
+        INFINITY,
+        -INFINITY,
+        std::numeric_limits<double>::min(),
+        std::numeric_limits<double>::max(),
+        std::numeric_limits<uint64_t>::max(),
+        std::numeric_limits<int64_t>::min(),
+        "",
+        "1",
+        "one",
+        "123",
+        "123456789abcdefghijllmnop",
+        Utf8String("123456789abcdefg1235dubé"),
+        Utf8String("é"),
+        Date::now(),
+        Date(),
+        Date::negativeInfinity(),
+        Date::positiveInfinity(),
+        Date::notADate(),
+        CellValue::blob("123"),
+        CellValue::blob("12345678123asdasdberassada"),
+        CellValue::blob("12345678123\0asdasdberassada", 25),
+        CellValue::blob(""),
+        Path(),
+        Path("1"),
+        Path("a"),
+        Path(""),
+        Path::parse("a.b"),
+        Path::parse("1.asdasdsadasasd.2.sadasdsadsadasdsdasd"),
+        CellValue::fromMonthDaySecond(0, 0, 0.0),
+        CellValue::fromMonthDaySecond(100, 12, 34.56),
+        CellValue::fromMonthDaySecond(100, 12, std::numeric_limits<double>::quiet_NaN()),
+        CellValue::fromMonthDaySecond(100, 12, INFINITY),
+        CellValue::fromMonthDaySecond(100, 12, -INFINITY)
+    };
+
+    std::sort(vals.begin(), vals.end());
+
+    for (auto & v: vals) {
+        cerr << jsonEncodeStr(v) << endl;
+    }
+
+    for (size_t i = 0;  i < vals.size();  ++i) {
+        // check that comparing this with all before gives the right
+        // result.
+
+        //cerr << "testing " << jsonEncodeStr(vals[i]) << endl;
+
+        BOOST_CHECK_EQUAL(vals[i], vals[i]);
+        BOOST_CHECK_EQUAL(vals[i].compare(vals[i]), 0);
+
+        for (size_t j = 0;  j < i;  ++j) {
+            //cerr << "  comparing lt " << jsonEncodeStr(vals[j]) << endl;
+            BOOST_CHECK_EQUAL(vals[j].compare(vals[i]), -1);
+            BOOST_CHECK_LT(vals[j], vals[i]);
+            BOOST_CHECK_LE(vals[j], vals[i]);
+            BOOST_CHECK_NE(vals[j], vals[i]);
+            BOOST_CHECK_GT(vals[i], vals[j]);
+            BOOST_CHECK_GE(vals[i], vals[j]);
+        }
+
+        for (size_t j = i + 1;  j < vals.size();  ++j) {
+            //cerr << "  comparing gt " << jsonEncodeStr(vals[j]) << endl;
+            BOOST_CHECK_EQUAL(vals[j].compare(vals[i]), 1);
+            BOOST_CHECK_LT(vals[i], vals[j]);
+            BOOST_CHECK_LE(vals[i], vals[j]);
+            BOOST_CHECK_NE(vals[i], vals[j]);
+            BOOST_CHECK_GT(vals[j], vals[i]);
+            BOOST_CHECK_GE(vals[j], vals[i]);
+        }
+    }
 }

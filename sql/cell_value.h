@@ -310,29 +310,19 @@ struct CellValue {
     bool isNaN() const
     {
         CellType t = cellType();
-        if (t == INTEGER) {
-            return std::isnan(toInt());
-        }
-        else if (t == FLOAT) {
+        if (t == FLOAT) {
             return std::isnan(toDouble());
         }
-        else {
-            return false;
-        }
+        return false;
     }
 
     bool isInf() const
     {
         CellType t = cellType();
-        if (t == INTEGER) {
-            return std::isinf(toInt());
-        }
-        else if (t == FLOAT) {
+        if (t == FLOAT) {
             return std::isinf(toDouble());
         }
-        else {
-            return false;
-        }
+        return false;
     }
 
     CellValue coerceToInteger() const;
@@ -444,6 +434,10 @@ private:
 
     Utf8String trimmedExceptionString() const;
 
+    /// All of the different types of storage format for the
+    /// CellValue class.  Note that every time something is
+    /// added to this list, examples should be added to the
+    /// test_sorting_absolute_order test in cell_value_test.
     enum StorageType {
         ST_EMPTY,
         ST_INTEGER,
