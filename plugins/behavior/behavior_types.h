@@ -10,7 +10,7 @@
 #include "mldb/types/date.h"
 #include "mldb/arch/exception.h"
 #include "mldb/utils/compact_vector.h"
-#include "mldb/jml/utils/less.h"
+#include "mldb/base/less.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/ext/jsoncpp/json.h"
 
@@ -33,7 +33,7 @@ struct SubjectBehavior {
 
     bool operator < (const SubjectBehavior & other) const
     {
-        return ML::less_all(timestamp, other.timestamp,
+        return MLDB::less_all(timestamp, other.timestamp,
                             behavior, other.behavior,
                             count, other.count);
     }

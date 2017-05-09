@@ -11,7 +11,7 @@
 #include "mldb/plugins/behavior/behavior_utils.h"
 
 #include "mldb/arch/timers.h"
-#include "mldb/jml/utils/less.h"
+#include "mldb/base/less.h"
 #include "mldb/base/parallel.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/utils/hex_dump.h"
@@ -83,7 +83,7 @@ struct BehaviorValueInfo {
 
     bool operator < (const BehaviorValueInfo & other) const
     {
-        return ML::less_all(rowCount, other.rowCount,
+        return MLDB::less_all(rowCount, other.rowCount,
                             itl, other.itl);
     }
 };

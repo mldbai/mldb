@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/utils/less.h"
+#include "mldb/base/less.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/jml/utils/rng.h"
 #include "mldb/ext/jsoncpp/json.h"
@@ -217,7 +217,7 @@ struct ScoredStats {
 
         bool operator < (const ScoredEntry & other) const
         {
-            return ML::less_all(-score, -other.score, label, other.label);
+            return MLDB::less_all(-score, -other.score, label, other.label);
         }
     };
 

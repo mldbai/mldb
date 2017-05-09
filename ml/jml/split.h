@@ -9,7 +9,7 @@
 #pragma once
 
 #include "split_fwd.h"
-#include "mldb/jml/utils/less.h"
+#include "mldb/base/less.h"
 #include "feature.h"
 #include "mldb/jml/db/persistent_fwd.h"
 #include <cmath>

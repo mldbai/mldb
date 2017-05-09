@@ -12,7 +12,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/less.h"
+#include "mldb/base/less.h"
 #include "mldb/types/value_description.h"
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/ext/cityhash/src/city.h" // Google city hash function
@@ -714,7 +714,7 @@ complexLess(const Id & other) const
         return std::lexicographical_compare(data1, data1 + len1, data2, data2 + len2);
     }
     else if (type == COMPOUND2) {
-        return ML::less_all(compoundId1(), other.compoundId1(),
+        return MLDB::less_all(compoundId1(), other.compoundId1(),
                             compoundId2(), other.compoundId2());
     }
     else throw MLDB::Exception("unknown Id type");

@@ -1974,7 +1974,7 @@ sortUnlocked(bool immutable, const MutableBehaviorDomain *owner)
 
         bool operator < (const Entry & other) const
         {
-            return ML::less_all(timestamp, other.timestamp,
+            return MLDB::less_all(timestamp, other.timestamp,
                                 behavior, other.behavior,
                                 count, other.count);
         }
