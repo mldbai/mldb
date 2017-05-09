@@ -25,6 +25,7 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/utils/compact_vector.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/ext/highwayhash.h"
 
 using namespace std;
 
@@ -4124,14 +4125,36 @@ hash() const
 {
     switch (type_) {
     case Type::NONE:
-        return CellValue().hash();
+        return CellValue().hash();  // note: timestamp not counted
     case Type::ATOM:
-        return cell_.hash();
+        return cell_.hash();        // again, timestamp not counted
     case Type::STRUCTURED:
     case Type::EMBEDDING:
-    case Type::SUPERPOSITION:
-        // TODO: a more reasonable speed in hashing
-        return jsonHash(jsonEncode(*this));
+    case Type::SUPERPOSITION: {
+        std::vector<std::pair<PathElement, uint64_t> > vals;
+        vals.reserve(rowLength());
+        auto onValue = [&] (const PathElement & el,
+                            const ExpressionValue & val)
+            {
+                vals.emplace_back(el, val.hash());
+                return true;
+            };
+
+        forEachColumn(onValue);
+
+        std::vector<uint64_t> allHashes;
+        allHashes.reserve(vals.size() * 2);
+
+        for (auto & v: vals) {
+            allHashes.push_back(v.first.hash());
+            allHashes.push_back(v.second);
+        }
+
+        return MLDB::highwayHash(MLDB::defaultHashSeedStable.u64,
+                                 (const char *)allHashes.data(),
+                                 8 * allHashes.size());
+        
+    }
     }
     throw HttpReturnException(500, "Unknown expression type",
                               "expression", *this,
