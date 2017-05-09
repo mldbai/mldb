@@ -58,8 +58,10 @@ struct SubDataset::Itl
 
     Chunk mainChunk;
     std::mutex recordLock;
+    MldbServer * owner;
 
     Itl(SelectStatement statement, MldbServer* owner, const ProgressFunc & onProgress)
+        : owner(owner)
     {
         if (statement.from) {
              SqlExpressionMldbScope mldbContext(owner);
@@ -72,21 +74,19 @@ struct SubDataset::Itl
         }       
     }
 
-    Itl(MldbServer * server,
+    Itl(MldbServer * owner,
         std::vector<NamedRowValue> rows)
-        : server(server)
+        : owner(owner)
     {
         init(std::move(rows));
     }
 
-    MldbServer * server;
-    
     struct ChunkRecorder: public Recorder {
 
         Chunk myChunk;
 
         ChunkRecorder(Itl * itl)
-            : Recorder(itl->server),
+            : Recorder(itl->owner),
               itl(itl)
         {
         }
