@@ -78,7 +78,7 @@ class LikeTest(MldbUnitTest):
         res1 = mldb.query("select rightRowName() from ds1 left join ds2 on ds1.a = ds2.a + 1")
         mldb.log(res1)
 
-        expected = [["_rowName", "rightRowName()"], ["[x]-[]", '""']]
+        expected = [["_rowName", "rightRowName()"], ["[x]-[]", '']]
 
         self.assertEqual(res1, expected);
 

@@ -29,7 +29,7 @@ var res = fn.call({ x: 10 });
 
 mldb.log(res);
 
-assertEqual(res[0][0], [ "y", [ 100, 'NaD' ]]);
+assertEqual(res[0][0], [ "y", [ 100, '-Inf' ]]);
 
 var procConfig = {
     type: "null",

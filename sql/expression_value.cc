@@ -4264,14 +4264,10 @@ ExpressionValue::
 initStructured(std::shared_ptr<const Structured> value) noexcept
 {
     assertType(Type::NONE);
-    ts_ = Date();
-    if (value->size() == 0) {
-        ts_ = Date::notADate();
-    }
-    else {
-        for (auto& r : *value) {
-            ts_ = std::max(std::get<1>(r).getEffectiveTimestamp(), ts_);
-        }
+
+    ts_ = Date::notADate();
+    for (auto& r : *value) {
+        ts_ = std::max(std::get<1>(r).getEffectiveTimestamp(), ts_);
     }
 
     // In the case of a superposition, this isn't true
