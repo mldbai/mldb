@@ -70,7 +70,7 @@ var expected = [
             {
                "path" : [ "[result]-[0]" ]
             },
-            "-Inf"
+            "NaD"
          ],
          [ "x.1", 1, "-Inf" ],
          [ "y.column", { path: ["x"] }, "-Inf" ],
