@@ -51,7 +51,6 @@ class FastTextTest(MldbUnitTest):
                 }
             }
 
-            mldb.log(
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",
                 "params": {
@@ -63,7 +62,7 @@ class FastTextTest(MldbUnitTest):
                     "runOnCreation": True,
                     "configuration": cls_config
                 }
-            }))
+            })
 
             res = mldb.query("SELECT myclassify({features : {tokenize(lower(' hockey '), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens} }) as * ")
             self.assertTableResultEquals(res, [
@@ -169,4 +168,63 @@ class FastTextTest(MldbUnitTest):
                 ]
             ])
 
+        def test_fasttext_explain(self):
+
+            mldb.log("explain")
+
+            cls_config = {
+                "my_fasttext": {
+                    "type": "fasttext",
+                    "verbosity" : 0,
+                    "dims" : 4,
+                    "epoch" : 5,
+                }
+            }
+
+            mldb.put("/v1/procedures/trainer", {
+                "type": "classifier.train",
+                "params": {
+                    "trainingData": "SELECT {tokens.*} as features, Theme as label FROM bag_of_words",
+                    "modelFileUrl": "file://tmp/src_fasttext_explain.cls",
+                    "functionName" : 'myclassify',
+                    "algorithm": "my_fasttext",
+                    "mode": "categorical",
+                    "runOnCreation": True,
+                    "configuration": cls_config
+                }
+            })
+            
+            mldb.put("/v1/functions/explain", {
+                "type": "classifier.explain",
+                "params": {
+                    "modelFileUrl": "file://tmp/src_fasttext_explain.cls",
+                }
+            })
+
+            res = mldb.query("""SELECT explain({features : {tokenize(lower(' hockey Alabama Futbol'), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens},
+                                                label : 'Politique'}) as * 
+                            """)
+
+            self.assertTableResultEquals(res, [
+                [
+                    "_rowName",
+                    "bias",
+                    "explanation.tokens.alabama",
+                    "explanation.tokens.futbol",
+                    "explanation.tokens.hockey"
+                ],
+                [
+                    "result",
+                    0,
+                    -0.006820799317210913,
+                    -0.07053825259208679,
+                    -0.08547607064247131
+                ]
+            ]);
+
+            with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "label not in model"):
+                res = mldb.query("""SELECT explain({features : {tokenize(lower(' hockey Alabama Futbol'), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens},
+                                                    label : 'Futurama'}) as * 
+                                """)
+ 
 mldb.run_tests()

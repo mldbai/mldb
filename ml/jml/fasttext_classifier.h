@@ -49,6 +49,11 @@ public:
     predict(const Feature_Set & features,
             PredictionContext * context = 0) const;
 
+    virtual Explanation explain(const Feature_Set & feature_set,
+                                const ML::Label & label,
+                                double weight = 1.0,
+                                PredictionContext * context = 0) const;
+
     /** Is optimization supported by the classifier? */
     virtual bool optimization_supported() const;
 

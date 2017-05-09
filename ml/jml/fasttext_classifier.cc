@@ -109,6 +109,46 @@ predict(const Feature_Set & infeatures,
     return results;
 }
 
+Explanation 
+FastTest_Classifier::
+explain(const Feature_Set & feature_set,
+        const ML::Label & label,
+        double weight,
+        PredictionContext * context) const
+{
+    if (label < 0 || label > fastText_->output_->n_)
+        throw Exception("FastTest_Classifier explain : label not in model");
+
+    Explanation result;
+    auto dims = fastText_->args_->dim;
+
+    auto getEl = [] (const fasttext::Matrix& mat, size_t i, size_t j) -> float {
+        return mat.data_[i * mat.n_ + j];
+    };
+
+    fasttext::Vector outputVector(dims);
+    outputVector.zero();
+    outputVector.addRow(*(fastText_->output_), label);
+
+    for (const auto&f : feature_set) {
+        auto feature = f.first;
+        auto it = featureMap.find(feature);
+        if (it != featureMap.end()) {
+            size_t f = (*it);
+            float sum = 0.0f;
+            for (int dim = 0; dim < fastText_->args_->dim; ++dim) {
+                sum += getEl(*fastText_->input_, f, dim)*outputVector[dim];
+        }
+
+        result.feature_weights[feature] = sum;
+        }
+    }
+
+    result.bias = 0.f;
+
+    return result;
+}
+
 bool
 FastTest_Classifier::
 optimization_supported() const
