@@ -153,7 +153,7 @@ private:
     }
 
     static constexpr uint32_t MagicConst = 0x184D2204;
-    uint32_le magic;
+    LittleEndianPod<uint32_t> magic;
     uint8_t options[2];
     uint8_t checkBits;
 };
