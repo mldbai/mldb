@@ -289,6 +289,7 @@ struct FileSerializer::Itl {
 
     void commit()
     {
+        std::unique_lock<std::mutex> guard(mutex);
         if (arenas.empty())
             return;
 
@@ -319,42 +320,81 @@ struct FileSerializer::Itl {
             }
         }
 
+        ExcAssertEqual(((size_t)allocated) % alignment, 0);
+        
+#if 0
+        const char * cp = (const char *)allocated;
+        
+        for (size_t i = 0;  i < bytesRequired;  ++i) {
+            ExcAssertEqual(cp[i], 0);
+        }
+#endif
+
         return std::shared_ptr<void>(allocated, [] (void *) {});
     }
 
     void createNewArena(size_t bytesRequired)
     {
-        size_t newLength = std::max<size_t>
-            ((bytesRequired + page_size - 1) / page_size,
-             10000 * page_size);
+        verifyLength();
 
-        int res = ::ftruncate(fd, currentOffset + newLength);
+        size_t numPages
+            = std::max<size_t>
+            ((bytesRequired + page_size - 1) / page_size,
+             1024);
+        // Make sure we grow geometrically (doubling every 4 updates) to
+        // amortize overhead.
+        numPages = std::max<size_t>
+            (numPages, (currentlyAllocated + page_size - 1) / page_size / 8);
+
+        size_t newLength = numPages * page_size;
+        
+        cerr << "new arena with " << newLength * 0.000001 << " MB" << endl;
+        
+        int res = ::ftruncate(fd, currentlyAllocated + newLength);
         if (res == -1) {
             throw HttpReturnException
                 (500, "ftruncate failed: " + string(strerror(errno)));
         }
 
-        void * addr = mmap(nullptr, newLength, PROT_READ | PROT_WRITE, MAP_SHARED,
-                           fd, currentOffset);
-        if (addr == nullptr) {
+        void * addr = mmap(nullptr, newLength,
+                           PROT_READ | PROT_WRITE, MAP_SHARED,
+                           fd, currentlyAllocated);
+        if (addr == MAP_FAILED) {
             throw HttpReturnException
                 (400, "Failed to open memory map file: "
                  + string(strerror(errno)));
         }
 
-        arenas.emplace_back(addr, currentOffset, newLength);
+        arenas.emplace_back(addr, currentlyAllocated, newLength);
 
-        currentOffset += newLength;
+        currentlyAllocated += newLength;
+
+        verifyLength();
+    }
+
+    void verifyLength() const
+    {
+        struct stat st;
+        int res = fstat(fd, &st);
+        if (res == -1) {
+            throw HttpReturnException(500, "fstat");
+        }
+        ExcAssertEqual(st.st_size, currentlyAllocated);
     }
 
     bool expandLastArena(size_t bytesRequired)
     {
+        verifyLength();
+
         size_t newLength
             = arenas.back().length
             + std::max<size_t>((bytesRequired + page_size - 1) / page_size,
                                10000 * page_size);
         
-        int res = ::ftruncate(fd, currentOffset + newLength);
+        cerr << "expanding from " << arenas.back().length
+             << " to " << newLength << endl;
+
+        int res = ::ftruncate(fd, currentlyAllocated + newLength - arenas.back().length);
         if (res == -1) {
             throw HttpReturnException
                 (500, "ftruncate failed: " + string(strerror(errno)));
@@ -366,12 +406,22 @@ struct FileSerializer::Itl {
                                 0 /* flags */);
 
         if (newAddr != arenas.back().addr) {
+            cerr << "expansion failed with " << strerror(errno) << endl;
+            cerr << "newAddr = " << newAddr << endl;
+            cerr << "arenas.back().addr = " << arenas.back().addr << endl;
+            cerr << "wasting " << arenas.back().freeSpace() << endl;
             // undo the expansion
-            ftruncate(fd, currentOffset);
+            if (ftruncate(fd, currentlyAllocated) == -1) {
+                throw HttpReturnException(500, "Ftruncate failed: " + string(strerror(errno)));
+            }
+            verifyLength();
             return false;
         }
 
+        currentlyAllocated += newLength - arenas.back().length;
         arenas.back().length = newLength;
+
+        verifyLength();
 
         return true;
     }
@@ -379,8 +429,7 @@ struct FileSerializer::Itl {
     std::mutex mutex;
     Utf8String filename;
     int fd = -1;
-    size_t mappedLength = 0;
-    size_t currentOffset = 0;
+    size_t currentlyAllocated = 0;
 
     struct Arena {
         Arena(void * addr, size_t startOffset, size_t length)
@@ -390,9 +439,20 @@ struct FileSerializer::Itl {
 
         ~Arena()
         {
-            ::munmap(addr, length);
+            if (addr)
+                ::munmap(addr, length);
         }
 
+        Arena(const Arena &) = delete;
+        void operator = (const Arena &) = delete;
+
+        Arena(Arena && other)
+            : addr(other.addr), startOffset(other.startOffset),
+              length(other.length)
+        {
+            other.addr = nullptr;
+        }
+        
         void * addr = nullptr;
         size_t startOffset = 0;
         size_t length = 0;
@@ -407,9 +467,15 @@ struct FileSerializer::Itl {
             if (currentOffset + bytes + extraBytes > length)
                 return nullptr;
 
-            char * data = reinterpret_cast<char *>(addr) + extraBytes + currentOffset;
+            char * data
+                = reinterpret_cast<char *>(addr) + extraBytes + currentOffset;
             currentOffset += extraBytes + bytes;
             return data;
+        }
+
+        size_t freeSpace() const
+        {
+            return length - currentOffset;
         }
     };
 
