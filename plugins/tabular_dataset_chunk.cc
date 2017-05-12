@@ -36,7 +36,7 @@ memusage() const
 
     result += rowNames->memusage();
 
-    DEBUG_MSG(logger) << rowNames.size() << " row names took "
+    DEBUG_MSG(logger) << rowNames->size() << " row names took "
                       << result - before;
     before = result;
 
