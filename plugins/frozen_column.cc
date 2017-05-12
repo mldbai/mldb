@@ -353,7 +353,7 @@ MemorySerializer::
 allocateWritable(uint64_t bytesRequired,
                  size_t alignment)
 {
-    cerr << "allocate " << bytesRequired << " bytes" << endl;
+    //cerr << "allocating " << bytesRequired << " bytes" << endl;
         
     void * mem = nullptr;
     ExcAssertEqual((size_t)bytesRequired, bytesRequired);
@@ -1408,14 +1408,14 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
         if (!hasNulls) {
             // Contiguous rows
-            DEBUG_MSG(logger) << "fill with contiguous";
+            //DEBUG_MSG(logger) << "fill with contiguous";
             ML::Bit_Writer<uint64_t> writer(data);
             for (size_t i = 0;  i < column.sparseIndexes.size();  ++i) {
                 ExcAssertEqual(column.sparseIndexes[i].first, i);
                 int64_t val
                     = column.indexedVals[column.sparseIndexes[i].second].toInt();
-                DEBUG_MSG(logger) << "writing " << val << " - " << offset << " = "
-                                  << val - offset << " at " << i;
+                //DEBUG_MSG(logger) << "writing " << val << " - " << offset << " = "
+                //                  << val - offset << " at " << i;
                 writer.write(val - offset, entryBits);
             }
         }
