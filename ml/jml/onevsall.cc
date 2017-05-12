@@ -57,7 +57,8 @@ OneVsAllClassifier::~OneVsAllClassifier()
 }
 
 distribution<float>
-OneVsAllClassifier::predict(const Feature_Set & features,
+OneVsAllClassifier::
+predict(const Feature_Set & features,
                          PredictionContext * context) const
 {
     ExcAssert(label_count() == subClassifiers.size());
@@ -70,6 +71,19 @@ OneVsAllClassifier::predict(const Feature_Set & features,
     }
 
     return result;
+}
+
+Explanation 
+OneVsAllClassifier::
+explain(const Feature_Set & feature_set,
+        const ML::Label & label,
+        double weight,
+        PredictionContext * context) const
+{
+    if (label < 0 || label >= subClassifiers.size())
+        throw Exception("OneVsAllClassifier explain : label not in model");
+
+    return subClassifiers[(size_t)label]->explain(feature_set, ML::Label(1), weight, context);    
 }
 
 std::string OneVsAllClassifier::print() const
