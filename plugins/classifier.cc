@@ -303,7 +303,7 @@ run(const ProcedureRunConfig & run,
                     throw HttpReturnException
                             (400, "Dataset column '" + 
                              v.first.toUtf8String()
-                             + "' is used in both label and feature ");
+                             + "' cannot be used in both label and feature ");
             }
             else {
                 for (const auto& c : knownInputColumns) {
@@ -311,7 +311,7 @@ run(const ProcedureRunConfig & run,
                         throw HttpReturnException
                                 (400, "Dataset column '" + 
                                  c.toUtf8String()
-                                 + "' is used in both label and feature");
+                                 + "' cannot be used in both label and feature");
                     }
                 }
             }
@@ -326,7 +326,7 @@ run(const ProcedureRunConfig & run,
                     throw HttpReturnException
                         (400, "Dataset column '" + 
                          c.toUtf8String()
-                         + "' is used in both label and feature "
+                         + "' cannot be used in both label and feature "
                          + "because of label wildcard '" +
                          prefix.toUtf8String() + 
                          "'");

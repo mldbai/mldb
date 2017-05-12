@@ -52,7 +52,7 @@ class LabelFeatureValidationTest(MldbUnitTest):
                 }
             }
 
-        with self.assertMldbRaises(expected_regexp="Dataset column 'Theme' is used in both label and feature"):
+        with self.assertMldbRaises(expected_regexp="Dataset column 'Theme' cannot be used in both label and feature"):
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",
                 "params": {
@@ -102,7 +102,8 @@ class LabelFeatureValidationTest(MldbUnitTest):
                 }
             }
 
-        with self.assertMldbRaises(expected_regexp="Dataset column 'tokens.alabama' is used in both label and feature because of label wildcard 'tokens'"):
+        with self.assertMldbRaises(expected_regexp=
+    "Dataset column 'tokens.alabama' cannot be used in both label and feature because of label wildcard 'tokens'"):
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",
                 "params": {
@@ -131,7 +132,9 @@ class LabelFeatureValidationTest(MldbUnitTest):
         mldb.put("/v1/procedures/trainer", {
             "type": "classifier.train",
             "params": {
-                "trainingData": "SELECT {* EXCLUDING (tokens.*)} as features, {tokens.* as *} as label FROM bag_of_words",
+                "trainingData": """
+                        SELECT {* EXCLUDING (tokens.*)} as features, {tokens.* as *} as label FROM bag_of_words
+                    """,
                 "modelFileUrl": "file://tmp/src_fasttext.cls",
                 "functionName" : 'myclassify',
                 "algorithm": "my_fasttext",
@@ -142,11 +145,15 @@ class LabelFeatureValidationTest(MldbUnitTest):
         })
 
         # This only excludes "tokens" not "tokens.alabama" so it should raise
-        with self.assertMldbRaises(expected_regexp="Dataset column 'tokens.alabama' is used in both label and feature because of label wildcard 'tokens'"):
+        with self.assertMldbRaises(expected_regexp=
+        "Dataset column 'tokens.alabama' cannot be used in both label and feature because of label wildcard 'tokens'"
+            ):
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",
                 "params": {
-                    "trainingData": "SELECT {* EXCLUDING (tokens)} as features, {tokens.* as *} as label FROM bag_of_words",
+                    "trainingData": """
+                        SELECT {* EXCLUDING (tokens)} as features, {tokens.* as *} as label FROM bag_of_words
+                        """,
                     "modelFileUrl": "file://tmp/src_fasttext.cls",
                     "functionName" : 'myclassify',
                     "algorithm": "my_fasttext",
@@ -197,7 +204,7 @@ class LabelFeatureValidationTest(MldbUnitTest):
         }) 
 
         # This only excludes "label" not "label.alabama" so it should raise
-        with self.assertMldbRaises(expected_regexp="Dataset column 'label.alabama' is used in both label and feature"):
+        with self.assertMldbRaises(expected_regexp="Dataset column 'label.alabama' cannot be used in both label and feature"):
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",
                 "params": {
