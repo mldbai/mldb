@@ -77,12 +77,8 @@ struct MutablePathIndex {
                 for (auto & e: toInsert[shard]) {
                     uint64_t hash = e.first;
                     int32_t indexInChunk = e.second;
-                        
-                    if (!owner->index[shard].insert({hash,
-                                    { chunkNumber, indexInChunk }}).second) {
-                        throw HttpReturnException
-                            (400, "Duplicate row hash in tabular dataset");
-                    }
+                    owner->index[shard]
+                        .emplace_back(hash, chunkNumber, indexInChunk);
                 }
             }
         }
@@ -101,7 +97,7 @@ struct MutablePathIndex {
 
     /// Index from hash to (chunk, indexInChunk)
     std::mutex indexLock[INDEX_SHARDS];
-    Lightweight_Hash<uint64_t, std::pair<int, int> > index[INDEX_SHARDS];
+    std::vector<std::tuple<uint64_t, int, int> > index[INDEX_SHARDS];
 
     static int getShard(uint64_t hash)
     {
@@ -114,59 +110,146 @@ struct MutablePathIndex {
 /* PATH INDEX                                                                */
 /*****************************************************************************/
 
+struct PathIndexShard {
+    
+    size_t getBucket(uint64_t hash) const
+    {
+        size_t bucket = hash * factor;
+        ExcAssertGreaterEqual(bucket, 0);
+        ExcAssertLess(bucket, entries.size());
+        return bucket;
+    }
+
+    PathIndexShard()
+    {
+    }
+
+    PathIndexShard(std::vector<std::tuple<uint64_t, int, int> > input)
+    {
+        std::sort(input.begin(), input.end());
+        int maxChunk = 0;
+        int maxIndex = 0;
+     
+        entries.resize(input.size() * 2, { -1, -1 });
+
+        factor = 2.0 * input.size() / std::numeric_limits<uint64_t>::max();
+
+        int collisions = 0;
+        size_t maxOffset = 0;
+        size_t totalOffset = 0;
+
+        for (auto & i: input) {
+            uint64_t hash = std::get<0>(i);
+            size_t bucket = getBucket(hash);
+
+            collisions += entries[bucket].first != -1;
+
+            size_t offset = 0;
+            int chunkNumber = std::get<1>(i);
+            int indexInChunk = std::get<2>(i);
+
+            maxChunk = std::max(maxChunk, chunkNumber);
+            maxIndex = std::max(maxIndex, chunkNumber);
+
+            while (true) {
+                if (entries[bucket].first == -1) {
+                    // empty
+                    entries[bucket].first = chunkNumber;
+                    entries[bucket].second = indexInChunk;
+                    break;
+                }
+                else {
+                    ++bucket;
+                    ++offset;
+                    if (bucket == entries.size())
+                        bucket = 0;
+                }
+            }
+
+            maxOffset = std::max(maxOffset, offset);
+            totalOffset += offset;
+        }
+
+        cerr << "collision rate = " << 100.0 * collisions / input.size()
+             << "%" << endl;
+        cerr << "max offset = " << maxOffset << endl;
+        cerr << "avg offset = " << 1.0 * totalOffset / input.size() << endl;
+    }
+
+    compact_vector<std::pair<int, int>, 4>
+    pathPossibleChunks(const Path & path) const
+    {
+        return pathPossibleChunks(path.hash());
+    }
+
+    compact_vector<std::pair<int, int>, 4>
+    pathPossibleChunks(uint64_t hash) const
+    {
+        compact_vector<std::pair<int, int>, 4> result;
+        if (entries.empty())
+            return result;
+        size_t bucket = hash * factor;
+        while (entries[bucket].first != -1) {
+            result.push_back(entries[bucket]);
+            ++bucket;
+            if (bucket == entries.size())
+                bucket = 0;
+        }
+        
+        return result;
+    }
+
+    size_t memusage() const
+    {
+        size_t result
+            = entries.capacity()
+            * sizeof(entries[0]);
+        return result;
+    }
+
+    // Hash is implicit via position in the entry map (we take the top x bits)
+    // It returns the chunk number that contains that hash portion
+    // linear chaining
+    std::vector<std::pair<uint32_t, uint32_t> > entries;
+
+    // Factor to multiply by to turn a hash value into an entry number
+    double factor;
+};
+
+
 struct PathIndex {
     static constexpr size_t INDEX_SHARDS=MutablePathIndex::INDEX_SHARDS;
 
-    std::pair<int, int> tryLookupPath(const Path & path) const
+    compact_vector<std::pair<int, int>, 4>
+    pathPossibleChunks(const Path & path) const
     {
-        size_t hash = path.hash();
-        int shard = MutablePathIndex::getShard(hash);
-        auto it = index[shard].find(hash);
-        if (it == index[shard].end())
-            return { -1, -1 };
-        return it->second;
+        return pathPossibleChunks(path.hash());
     }
 
-    std::pair<int, int> lookupPath(const Path & path) const
+    compact_vector<std::pair<int, int>, 4>
+    pathPossibleChunks(uint64_t hash) const
     {
-        size_t hash = path.hash();
         int shard = MutablePathIndex::getShard(hash);
-        auto it = index[shard].find(hash);
-        if (it == index[shard].end()) {
-            throw HttpReturnException
-                (400, "Row not found in tabular dataset: "
-                 + path.toUtf8String(),
-                 "path", path);
-        }
-        return it->second;
-    }
-
-    std::pair<int, int> lookupPath(const RowHash & rowHash) const
-    {
-        int shard = MutablePathIndex::getShard(rowHash);
-        auto it = index[shard].find(rowHash);
-        if (it == index[shard].end()) {
-            throw HttpReturnException
-                (400, "Row not found in tabular dataset");
-        }
-        return it->second;
+        return shards[shard].pathPossibleChunks(hash);
     }
 
     size_t memusage() const
     {
         size_t result = sizeof(*this);
-        for (auto & shard: index) {
-            result += shard.capacity() * 16;
+        for (auto & shard: shards) {
+            result += shard.memusage();
         }
         return result;
     }
 
-    Lightweight_Hash<uint64_t, std::pair<int, int> > index[INDEX_SHARDS];
+    // Hash is implicit via position in the entry map (we take the top x bits)
+    // It returns the chunk number that contains that hash portion
+    // linear chaining
+    PathIndexShard shards[INDEX_SHARDS];
 };
 
 MutablePathIndex::
 MutablePathIndex(const PathIndex & frozen)
-    : index(frozen.index)
 {
 }
 
@@ -175,9 +258,14 @@ MutablePathIndex::
 freeze(MappedSerializer & serializer)
 {
     PathIndex result;
-    for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
-        result.index[i] = std::move(index[i]);
-    }
+
+    auto onShard = [&] (int shardNumber)
+        {
+            result.shards[shardNumber] = PathIndexShard(index[shardNumber]);
+        };
+
+    parallelMap(0, INDEX_SHARDS, onShard);
+
     return result;
 }
 
@@ -764,7 +852,18 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     std::pair<int, int> tryLookupRow(const RowPath & rowName) const
     {
-        return rowIndex.tryLookupPath(rowName);
+        auto chunks = rowIndex.pathPossibleChunks(rowName);
+        for (auto & c: chunks) {
+            int chunkNumber = c.first;
+            int indexInChunk = c.second;
+
+            Path storage;
+            if (indexInChunk < this->chunks[chunkNumber].rowCount()
+                && this->chunks[chunkNumber].getRowPath(indexInChunk, storage)
+                   == rowName)
+                return {chunkNumber, indexInChunk};
+        }
+        return {-1,-1};
     }
     
     std::pair<int, int> lookupRow(const RowPath & rowName) const
@@ -780,7 +879,20 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     std::pair<int, int> lookupRow(const RowHash & rowHash) const
     {
-        return rowIndex.lookupPath(rowHash);
+        auto chunks = rowIndex.pathPossibleChunks(rowHash);
+        for (auto & c: chunks) {
+            int chunkNumber = c.first;
+            int indexInChunk = c.second;
+
+            Path storage;
+            if (indexInChunk < this->chunks[chunkNumber].rowCount()
+                && this->chunks[chunkNumber]
+                      .getRowPath(indexInChunk, storage).hash()
+                == rowHash.hash())
+                return {chunkNumber, indexInChunk};
+        }
+        throw HttpReturnException
+            (400, "Row not found in tabular dataset");
     }
 
     virtual bool knownRow(const RowPath & rowName) const override
