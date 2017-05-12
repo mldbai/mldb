@@ -26,20 +26,51 @@ using namespace std;
 
 namespace MLDB {
 
-struct FrozenIntegerTable {
-    int64_t getSigned(size_t i) const;
-    uint64_t getUnsigned(size_t i) const;
+/** How many bits are required to hold a number up from zero up to count - 1
+    inclusive?
+*/
+static uint8_t bitsToHoldCount(size_t count)
+{
+    return ML::highest_bit(std::max<size_t>(count, 1) - 1, -1) + 1;
+}
 
-    FrozenMemoryRegion data;
+struct FrozenIntegerTable {
+    //int64_t getSigned(size_t i) const;
+    uint64_t getUnsigned(size_t i) const
+    {
+        ExcAssertLess(i, length);
+        ML::Bit_Extractor<uint64_t> bits(storage.data());
+        bits.advance(i * entryBits);
+        int64_t val = bits.extract<uint64_t>(entryBits);
+        return val + offset;
+    }
+
+    FrozenMemoryRegionT<uint64_t> storage;
+    size_t length = 0;
+    uint8_t entryBits = 0;
+    uint64_t offset = 0;
 
     size_t memusage() const
     {
-        return data.memusage();
+        return storage.memusage();
+    }
+
+    size_t size() const
+    {
+        return length;
     }
 };
 
 struct MutableIntegerTable {
-    uint64_t add(uint64_t val) const;
+    uint64_t add(uint64_t val)
+    {
+        values.emplace_back(val);
+        minValue = std::min(minValue, val);
+        monotonic = monotonic && val >= maxValue;
+        maxValue = std::max(maxValue, val);
+        return values.size() - 1;
+    }
+
     uint64_t add(int64_t val) const;
 
     template<typename T>
@@ -56,7 +87,41 @@ struct MutableIntegerTable {
         add((int64_t)val);
     }
 
-    FrozenIntegerTable freeze(MappedSerializer & serializer);
+    void reserve(size_t numValues)
+    {
+        values.reserve(numValues);
+    }
+
+    std::vector<uint64_t> values;
+    uint64_t minValue = -1;
+    uint64_t maxValue = 0;
+    bool monotonic = true;
+
+    FrozenIntegerTable freeze(MappedSerializer & serializer)
+    {
+        FrozenIntegerTable result;
+        uint64_t range = maxValue - minValue;
+        uint8_t bits = bitsToHoldCount(range + 1);
+        result.offset = minValue;
+        result.entryBits = bits;
+        result.length = values.size();
+
+        size_t numWords = (bits * values.size() + 63) / 64;
+        auto mutableStorage = serializer.allocateWritableT<uint64_t>(numWords);
+        uint64_t * data = mutableStorage.data();
+
+        ML::Bit_Writer<uint64_t> writer(data);
+        for (size_t i = 0;  i < values.size();  ++i) {
+            writer.write(values[i] - minValue, bits);
+        }
+
+        values.clear();
+        values.shrink_to_fit();
+
+        result.storage = mutableStorage.freeze();
+
+        return result;
+    }
 };
 
 struct FrozenBlobTable {
@@ -674,13 +739,6 @@ struct DirectFrozenColumnFormat: public FrozenColumnFormat {
 
 RegisterFrozenColumnFormatT<DirectFrozenColumnFormat> regDirect;
 
-/** How many bits are required to hold a number up from zero up to count - 1
-    inclusive?
-*/
-static uint8_t bitsToHoldCount(size_t count)
-{
-    return ML::highest_bit(std::max<size_t>(count, 1) - 1, -1) + 1;
-}
 
 
 /*****************************************************************************/
