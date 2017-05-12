@@ -149,23 +149,33 @@ struct MutableStringTable {
     FrozenIntegerTable freeze(MappedSerializer & serializer);
 };
 
+#define SERIALIZE_CELLS 1
+
 struct FrozenCellValueTable {
-#if 0 // for when it's really frozen...
+#if SERIALIZE_CELLS // for when it's really frozen...
     CellValue operator [] (size_t index) const
     {
         static uint8_t format = CellValue::serializationFormat(true /* known length */);
-        const char * data;
-        size_t len;
-        std::tie(data, len) = blobs[index];
+        size_t offset0 = (index == 0 ? 0 : offsets.getUnsigned(index - 1));
+        size_t offset1 = offsets.getUnsigned(index);
+
+        const char * data = cells.data() + offset0;
+        size_t len = offset1 - offset0;
         return CellValue::reconstitute(data, len, format, true /* known length */).first;
     }
 
     uint64_t memusage() const
     {
-        return blobs.memusage() + sizeof(*this);
+        return offsets.memusage() + cells.memusage() + sizeof(*this);
     }
 
-    FrozenBlobTable blobs;
+    size_t size() const
+    {
+        return offsets.size();
+    }
+
+    FrozenIntegerTable offsets;
+    FrozenMemoryRegion cells;
 #else
     CellValue operator [] (size_t index) const
     {
@@ -179,12 +189,30 @@ struct FrozenCellValueTable {
             result += v.memusage();
         return result;
     }
+
+    size_t size() const
+    {
+        return values.size();
+    }
     
     std::vector<CellValue> values;
 #endif
 };
 
 struct MutableCellValueTable {
+    MutableCellValueTable()
+    {
+    }
+
+    template<typename It>
+    MutableCellValueTable(It begin, It end)
+    {
+        reserve(std::distance(begin, end));
+        for (auto it = begin; it != end;  ++it) {
+            add(std::move(*it));
+        }
+    }
+
     void reserve(size_t numValues)
     {
         values.reserve(numValues);
@@ -202,6 +230,43 @@ struct MutableCellValueTable {
         values[index] = std::move(val);
     }
 
+#if SERIALIZE_CELLS
+    FrozenCellValueTable
+    freeze(MappedSerializer & serializer)
+    {
+        MutableIntegerTable offsets;
+        size_t totalOffset = 0;
+        
+        for (size_t i = 0;  i < values.size();  ++i) {
+            totalOffset += values[i].serializedBytes(true /* exact length */);
+            offsets.add(totalOffset);
+        }
+
+        FrozenIntegerTable frozenOffsets
+            = offsets.freeze(serializer);
+        MutableMemoryRegion region
+            = serializer.allocateWritable(totalOffset, 8);
+
+        char * c = region.data();
+
+        size_t currentOffset = 0;
+
+        for (size_t i = 0;  i < values.size();  ++i) {
+            size_t length = frozenOffsets.getUnsigned(i) - currentOffset;
+            c = values[i].serialize(c, length, true /* exact length */);
+            currentOffset += length;
+            ExcAssertEqual(c - region.data(), currentOffset);
+        }
+
+        ExcAssertEqual(c - region.data(), totalOffset);
+        ExcAssertEqual(currentOffset, totalOffset);
+
+        FrozenCellValueTable result;
+        result.offsets = std::move(frozenOffsets);
+        result.cells = region.freeze();
+        return result;
+    }
+#else
     FrozenCellValueTable
     freeze(MappedSerializer & serializer)
     {
@@ -209,7 +274,7 @@ struct MutableCellValueTable {
         result.values = std::move(values);
         return result;
     }
-
+#endif
     std::vector<CellValue> values;
 };
 
@@ -750,9 +815,13 @@ RegisterFrozenColumnFormatT<DirectFrozenColumnFormat> regDirect;
 struct TableFrozenColumn: public FrozenColumn {
     TableFrozenColumn(TabularDatasetColumn & column,
                       MappedSerializer & serializer)
-        : table(std::move(column.indexedVals)),
-          columnTypes(std::move(column.columnTypes))
+        : columnTypes(std::move(column.columnTypes))
     {
+        MutableCellValueTable mutableTable
+            (std::make_move_iterator(column.indexedVals.begin()),
+             std::make_move_iterator(column.indexedVals.end()));
+        table = mutableTable.freeze(serializer);
+
         firstEntry = column.minRowNumber;
         numEntries = column.maxRowNumber - column.minRowNumber + 1;
         hasNulls = column.sparseIndexes.size() < numEntries;
@@ -761,7 +830,8 @@ struct TableFrozenColumn: public FrozenColumn {
         auto mutableStorage = serializer.allocateWritableT<uint32_t>(numWords);
         uint32_t * data = mutableStorage.data();
 
-        cerr << "table: data is " << data << endl;
+        //cerr << "table: data is " << data << " for " << numWords << " words"
+        //     << endl;
 
         if (!hasNulls) {
             // Contiguous rows
@@ -858,8 +928,7 @@ struct TableFrozenColumn: public FrozenColumn {
             = sizeof(*this)
             + (indexBits * numEntries + 31) / 8;
 
-        for (auto & v: table)
-            result += v.memusage();
+        result += table.memusage();
 
         return result;
     }
@@ -871,11 +940,11 @@ struct TableFrozenColumn: public FrozenColumn {
             if (!fn(CellValue()))
                 return false;
         }
-        for (auto & v: table) {
-            if (!fn(v))
+        for (size_t i = 0;  i < table.size();  ++i) {
+            if (!fn(table[i]))
                 return false;
         }
-
+        
         return true;
     }
 
@@ -885,7 +954,7 @@ struct TableFrozenColumn: public FrozenColumn {
     uint64_t firstEntry;
     
     bool hasNulls;
-    std::vector<CellValue> table;
+    FrozenCellValueTable table;
     ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
