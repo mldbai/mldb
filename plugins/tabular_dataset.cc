@@ -777,26 +777,33 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         // NOTE: must be called with the lock held
 
         rowCount = totalRows;
+
+        size_t numChunksBefore = chunks.size();
         
-        chunks.reserve(inputChunks.size());
+        chunks.reserve(numChunksBefore + inputChunks.size());
 
         for (auto & c: inputChunks) {
             chunks.emplace_back(std::move(c));
         }
 
-        columns.reserve(fixedColumns.size());
-        for (size_t i = 0;  i < fixedColumns.size();  ++i) {
-            const ColumnPath & c = fixedColumns[i];
-            ColumnEntry entry;
-            entry.columnName = c;
-            columns.emplace_back(entry);
-            columnIndex[c.oldHash()] = i;
-            columnHashIndex[c] = i;
+        // Make sure they aren't reused
+        inputChunks.clear();
+
+        if (columns.empty()) {
+            columns.reserve(fixedColumns.size());
+            for (size_t i = 0;  i < fixedColumns.size();  ++i) {
+                const ColumnPath & c = fixedColumns[i];
+                ColumnEntry entry;
+                entry.columnName = c;
+                columns.emplace_back(entry);
+                columnIndex[c.oldHash()] = i;
+                columnHashIndex[c] = i;
+            }
         }
 
         // Create the column index.  This should be rapid, as there shouldn't
         // be too many columns.
-        for (size_t i = 0;  i < chunks.size();  ++i) {
+        for (size_t i = numChunksBefore;  i < chunks.size();  ++i) {
             const TabularDatasetChunk & chunk = chunks[i];
             ExcAssertEqual(fixedColumns.size(), chunk.fixedColumnCount());
             for (size_t j = 0;  j < chunk.columns.size();  ++j) {
@@ -861,8 +868,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 }
             };
         
-        parallelMap(0, chunks.size(), indexChunk);
-        
+        parallelMap(numChunksBefore, chunks.size(), indexChunk);
+
 #if 0
         rowIndex.reserve(4 * totalRows / 3);
         for (unsigned i = 0;  i < chunks.size();  ++i) {
@@ -1206,12 +1213,16 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         // on it without any problem.
 
         // Freeze all of the uncommitted chunks
-        std::atomic<size_t> totalRows(0);
+        std::atomic<size_t> totalRows(rowCount);
 
-        for (auto & c: frozenChunks)
+        cerr << "commiting " << frozenChunks.size() << " frozen chunks"
+             << endl;
+
+        for (auto & c: frozenChunks) {
             totalRows += c.rowCount();
+        }
 
-        finalize(frozenChunks, totalRows);
+        finalize(frozenChunks, rowCount + totalRows);
 
         size_t mem = 0;
         for (auto & c: chunks) {
@@ -1232,7 +1243,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         INFO_MSG(logger) << "total mem usage is " << mem << " bytes" << " for "
              << totalRows << " rows and " << columns.size() << " columns for "
-             << 1.0 * mem / rowCount << " bytes/row";
+             << 1.0 * mem / totalRows << " bytes/row";
         INFO_MSG(logger) << "column memory is " << columnMem;
 
     }
