@@ -35,6 +35,152 @@ namespace MLDB {
 
 static constexpr size_t NUM_PARALLEL_CHUNKS=8;
 
+struct PathIndex;
+
+
+/*****************************************************************************/
+/* MUTABLE PATH INDEX                                                        */
+/*****************************************************************************/
+
+struct MutablePathIndex {
+    static constexpr size_t INDEX_SHARDS=32;
+
+    MutablePathIndex()
+    {
+    }
+
+    MutablePathIndex(const PathIndex & frozen);
+
+    struct Recorder {
+
+        Recorder(int chunkNumber,
+                 MutablePathIndex * owner)
+            : chunkNumber(chunkNumber),
+              owner(owner)
+        {
+        }
+
+        void record(const Path & path,
+                    int indexInChunk)
+        {
+            uint64_t hash = path.hash();
+            int shard = getShard(hash);
+            toInsert[shard].emplace_back(hash, indexInChunk);
+        }
+
+        void commit()
+        {
+            for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
+                size_t shard = (i + chunkNumber) % INDEX_SHARDS;
+                std::unique_lock<std::mutex> guard(owner->indexLock[shard]);
+                    
+                for (auto & e: toInsert[shard]) {
+                    uint64_t hash = e.first;
+                    int32_t indexInChunk = e.second;
+                        
+                    if (!owner->index[shard].insert({hash,
+                                    { chunkNumber, indexInChunk }}).second) {
+                        throw HttpReturnException
+                            (400, "Duplicate row hash in tabular dataset");
+                    }
+                }
+            }
+        }
+
+        std::vector<std::pair<uint64_t, uint32_t> > toInsert[INDEX_SHARDS];
+        int chunkNumber;
+        MutablePathIndex * owner;
+    };
+
+    Recorder getRecorder(int chunkNumber)
+    {
+        return Recorder(chunkNumber, this);
+    }
+
+    PathIndex freeze(MappedSerializer & serializer);
+
+    /// Index from hash to (chunk, indexInChunk)
+    std::mutex indexLock[INDEX_SHARDS];
+    Lightweight_Hash<uint64_t, std::pair<int, int> > index[INDEX_SHARDS];
+
+    static int getShard(uint64_t hash)
+    {
+        return (hash >> 23) % INDEX_SHARDS;
+    }
+};
+
+
+/*****************************************************************************/
+/* PATH INDEX                                                                */
+/*****************************************************************************/
+
+struct PathIndex {
+    static constexpr size_t INDEX_SHARDS=MutablePathIndex::INDEX_SHARDS;
+
+    std::pair<int, int> tryLookupPath(const Path & path) const
+    {
+        size_t hash = path.hash();
+        int shard = MutablePathIndex::getShard(hash);
+        auto it = index[shard].find(hash);
+        if (it == index[shard].end())
+            return { -1, -1 };
+        return it->second;
+    }
+
+    std::pair<int, int> lookupPath(const Path & path) const
+    {
+        size_t hash = path.hash();
+        int shard = MutablePathIndex::getShard(hash);
+        auto it = index[shard].find(hash);
+        if (it == index[shard].end()) {
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset: "
+                 + path.toUtf8String(),
+                 "path", path);
+        }
+        return it->second;
+    }
+
+    std::pair<int, int> lookupPath(const RowHash & rowHash) const
+    {
+        int shard = MutablePathIndex::getShard(rowHash);
+        auto it = index[shard].find(rowHash);
+        if (it == index[shard].end()) {
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset");
+        }
+        return it->second;
+    }
+
+    size_t memusage() const
+    {
+        size_t result = sizeof(*this);
+        for (auto & shard: index) {
+            result += shard.capacity() * 16;
+        }
+        return result;
+    }
+
+    Lightweight_Hash<uint64_t, std::pair<int, int> > index[INDEX_SHARDS];
+};
+
+MutablePathIndex::
+MutablePathIndex(const PathIndex & frozen)
+    : index(frozen.index)
+{
+}
+
+PathIndex
+MutablePathIndex::
+freeze(MappedSerializer & serializer)
+{
+    PathIndex result;
+    for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
+        result.index[i] = std::move(index[i]);
+    }
+    return result;
+}
+
 
 /*****************************************************************************/
 /* TABULAR DATA STORE                                                        */
@@ -366,15 +512,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     // Everything below here is protected by the dataset lock
     std::vector<TabularDatasetChunk> frozenChunks;
 
-    static int getRowShard(RowHash rowHash)
-    {
-        return (rowHash.hash() >> 23) % ROW_INDEX_SHARDS;
-    }
+    // Lets us look up which chunk and row number contains a row
+    PathIndex rowIndex;
 
-    /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
-    static constexpr size_t ROW_INDEX_SHARDS=32;
-    Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex
-        [ROW_INDEX_SHARDS];
     std::string filename;
     Date earliestTs, latestTs;
 
@@ -391,7 +531,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                                       "columnHash", column,
                                       "knownColumns", getColumnPaths(0, -1));
         }
-
+        
         MatrixColumn result;
         result.columnHash = result.columnName = column;
 
@@ -624,11 +764,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     std::pair<int, int> tryLookupRow(const RowPath & rowName) const
     {
-        int shard = getRowShard(rowName);
-        auto it = rowIndex[shard].find(rowName);
-        if (it == rowIndex[shard].end())
-            return { -1, -1 };
-        return it->second;
+        return rowIndex.tryLookupPath(rowName);
     }
     
     std::pair<int, int> lookupRow(const RowPath & rowName) const
@@ -640,6 +776,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                  + rowName.toUtf8String(),
                  "rowName", rowName);
         return result;
+    }
+
+    std::pair<int, int> lookupRow(const RowHash & rowHash) const
+    {
+        return rowIndex.lookupPath(rowHash);
     }
 
     virtual bool knownRow(const RowPath & rowName) const override
@@ -657,47 +798,36 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         result.rowHash = rowName;
         result.rowName = rowName;
 
-        int shard = getRowShard(result.rowHash);
-
-        auto it = rowIndex[shard].find(rowName);
-        if (it == rowIndex[shard].end()) {
-            throw HttpReturnException
-                (400, "Row not found in tabular dataset: "
-                 + rowName.toUtf8String(),
-                 "rowName", rowName);
-        }
+        int chunkNumber;
+        int rowInChunk;
+        std::tie(chunkNumber, rowInChunk)
+            = lookupRow(rowName);
 
         result.columns
-            = chunks.at(it->second.first)
-            .getRow(it->second.second, fixedColumns);
+            = chunks.at(chunkNumber)
+            .getRow(rowInChunk, fixedColumns);
         return result;
     }
 
     virtual ExpressionValue getRowExpr(const RowPath & rowName) const
     {
-        RowHash rowHash(rowName);
-        int shard = getRowShard(rowHash);
-        auto it = rowIndex[shard].find(rowHash);
-        if (it == rowIndex[shard].end()) {
-            throw HttpReturnException
-                (400, "Row not found in tabular dataset: "
-                 + rowName.toUtf8String(),
-                 "rowName", rowName);
-        }
+        int chunkNumber;
+        int rowInChunk;
+        std::tie(chunkNumber, rowInChunk)
+            = lookupRow(rowName);
 
-        return chunks.at(it->second.first)
-            .getRowExpr(it->second.second, fixedColumns);
+        return chunks.at(chunkNumber)
+            .getRowExpr(rowInChunk, fixedColumns);
     }
 
     virtual RowPath getRowPath(const RowHash & rowHash) const override
     {
-        int shard = getRowShard(rowHash);
-        auto it = rowIndex[shard].find(rowHash);
-        if (it == rowIndex[shard].end()) {
-            throw HttpReturnException(400, "Row not found in tabular dataset");
-        }
-
-        return chunks.at(it->second.first).getRowPath(it->second.second);
+        int chunkNumber;
+        int rowInChunk;
+        std::tie(chunkNumber, rowInChunk)
+            = lookupRow(rowHash);
+        return chunks.at(chunkNumber)
+            .getRowPath(rowInChunk);
     }
 
     virtual ColumnPath getColumnPath(ColumnHash column) const override
@@ -826,65 +956,34 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         ExcAssertEqual(columns.size(), columnIndex.size());
         ExcAssertEqual(columns.size(), columnHashIndex.size());
 
-        // We create the row index in multiple chunks
-
-        std::mutex rowIndexLock[ROW_INDEX_SHARDS];
-
-        Timer rowIndexTimer;
-
-        auto indexChunk = [&] (int chunkNum)
-            {
-                std::vector<std::pair<RowHash, uint32_t> >
-                    toInsert[ROW_INDEX_SHARDS];
-                
-                // First, extract and sort them
-                for (unsigned j = 0;  j < chunks[chunkNum].rowCount();  ++j) {
-                    RowPath rowNameStorage;
-                    const RowPath & rowName
-                        = chunks[chunkNum].getRowPath(j, rowNameStorage);
-                    RowHash rowHash = rowName;
-                    
-                    int shard = getRowShard(rowHash);
-                    toInsert[shard].emplace_back(rowHash, j);
-                }
-
-                // Secondly, add them to the row index
-                for (size_t i = 0;  i < ROW_INDEX_SHARDS;  ++i) {
-                    size_t shard = (i + chunkNum) % ROW_INDEX_SHARDS;
-                    std::unique_lock<std::mutex> guard(rowIndexLock[shard]);
-                    
-                    for (auto & e: toInsert[shard]) {
-                        RowHash rowHash = e.first;
-                        int32_t indexInChunk = e.second;
-                        
-                        if (!rowIndex[shard].insert({rowHash,
-                                        { chunkNum, indexInChunk }}).second) {
-                            throw HttpReturnException
-                                (400, "Duplicate row name in tabular dataset",
-                                 "rowName",
-                                 chunks[chunkNum].getRowPath(indexInChunk));
-                        }
-                    }
-                }
-            };
         
-        parallelMap(numChunksBefore, chunks.size(), indexChunk);
+        if (numChunksBefore != chunks.size()) {
+            MutablePathIndex index(rowIndex);
 
-#if 0
-        rowIndex.reserve(4 * totalRows / 3);
-        for (unsigned i = 0;  i < chunks.size();  ++i) {
-            for (unsigned j = 0;  j < chunks[i].rowCount();  ++j) {
-                RowPath rowNameStorage;
-                if (!rowIndex.insert({ chunks[i].getRowPath(j, rowNameStorage),
-                                { i, j } }).second)
-                    throw HttpReturnException
-                        (400, "Duplicate row name in tabular dataset",
-                         "rowName", chunks[i].getRowPath(j));
-            }
+            // We create the row index in multiple chunks
+
+            Timer rowIndexTimer;
+
+            auto indexChunk = [&] (int chunkNum)
+                {
+                    auto recorder = index.getRecorder(chunkNum);
+                    for (unsigned j = 0;  j < chunks[chunkNum].rowCount();  ++j) {
+                        RowPath rowNameStorage;
+                        const RowPath & rowName
+                            = chunks[chunkNum].getRowPath(j, rowNameStorage);
+                        recorder.record(rowName, j);
+                    }
+                
+                    recorder.commit();
+                };
+        
+            parallelMap(numChunksBefore, chunks.size(), indexChunk);
+
+            rowIndex = index.freeze(serializer);
+            cerr << "rowIndex.memusage() = " << rowIndex.memusage()
+                 << endl;
+            INFO_MSG(logger) << "row index took " << rowIndexTimer.elapsed();
         }
-#endif
-        INFO_MSG(logger) << "row index took " << rowIndexTimer.elapsed();
-
     }
 
     void initialize(vector<ColumnPath> columnNames)
@@ -1225,9 +1324,19 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         finalize(frozenChunks, rowCount + totalRows);
 
         size_t mem = 0;
+        size_t rowNameMem = 0, timestampMem = 0;
         for (auto & c: chunks) {
             mem += c.memusage();
+            rowNameMem += c.rowNames->memusage();
+            timestampMem += c.timestamps->memusage();
         }
+
+        INFO_MSG(logger) << "row name usage is " << rowNameMem
+                         << " bytes at "
+                         << 1.0 * rowNameMem / totalRows << " per row";
+        INFO_MSG(logger) << "timestamp usage is " << timestampMem
+                         << " bytes at "
+                         << 1.0 * timestampMem / totalRows << " per row";
 
         size_t columnMem = 0;
         for (auto & c: columns) {
@@ -1235,11 +1344,18 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             for (auto & chunk: c.chunks) {
                 bytesUsed += chunk.second->memusage();
             }
-            TRACE_MSG(logger) << "column " << c.columnName << " used "
+            INFO_MSG(logger) << "column " << c.columnName << " used "
                  << bytesUsed << " bytes at "
                  << 1.0 * bytesUsed / totalRows << " per row";
             columnMem += bytesUsed;
         }
+
+        size_t rowIndexMem = rowIndex.memusage();
+        mem += rowIndexMem;
+
+        INFO_MSG(logger) << "row index usage is " << rowIndexMem
+                         << " bytes at "
+                         << 1.0 * rowIndexMem / totalRows << " per row";
 
         INFO_MSG(logger) << "total mem usage is " << mem << " bytes" << " for "
              << totalRows << " rows and " << columns.size() << " columns for "
