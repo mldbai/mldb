@@ -119,6 +119,10 @@ private:
 struct MappedSerializer;
 
 struct MutableMemoryRegion {
+    MutableMemoryRegion()
+    {
+    }
+
     MutableMemoryRegion(std::shared_ptr<void> handle,
                         char * data,
                         size_t length,
@@ -141,12 +145,16 @@ struct MutableMemoryRegion {
 private:
     struct Itl;
     std::shared_ptr<Itl> itl;
-    char * const data_;
-    size_t const length_;
+    char * const data_ = nullptr;
+    size_t const length_ = 0;
 };
 
 template<typename T>
 struct MutableMemoryRegionT {
+    MutableMemoryRegionT()
+    {
+    }
+
     MutableMemoryRegionT(MutableMemoryRegion raw)
         : raw(std::move(raw)),
           data_(reinterpret_cast<T *>(this->raw.data())),
