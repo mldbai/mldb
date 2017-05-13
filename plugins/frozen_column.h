@@ -102,7 +102,7 @@ struct FrozenMemoryRegionT {
     
     size_t memusage() const
     {
-        return length();
+        return length() * sizeof(T);
     }
 
 private:
