@@ -26,6 +26,7 @@
 #include "mldb/jml/utils/floating_point.h"
 #include "mldb/utils/log.h"
 #include "mldb/server/dataset_utils.h"
+#include "mldb/arch/bit_range_ops.h"
 #include <mutex>
 
 using namespace std;
@@ -53,7 +54,7 @@ struct MutablePathIndex {
 
     struct Recorder {
 
-        Recorder(int chunkNumber,
+        Recorder(uint32_t chunkNumber,
                  MutablePathIndex * owner)
             : chunkNumber(chunkNumber),
               owner(owner)
@@ -61,11 +62,12 @@ struct MutablePathIndex {
         }
 
         void record(const Path & path,
-                    int indexInChunk)
+                    uint32_t indexInChunk)
         {
             uint64_t hash = path.hash();
             int shard = getShard(hash);
             toInsert[shard].emplace_back(hash, indexInChunk);
+            maxChunkIndex = std::max(maxChunkIndex, indexInChunk);
         }
 
         void commit()
@@ -73,7 +75,14 @@ struct MutablePathIndex {
             for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
                 size_t shard = (i + chunkNumber) % INDEX_SHARDS;
                 std::unique_lock<std::mutex> guard(owner->indexLock[shard]);
-                    
+
+                if (i == 0) {
+                    owner->maxChunkIndex
+                        = std::max(owner->maxChunkIndex, maxChunkIndex);
+                    owner->maxChunkNumber
+                        = std::max(owner->maxChunkNumber, chunkNumber);
+                }
+
                 for (auto & e: toInsert[shard]) {
                     uint64_t hash = e.first;
                     int32_t indexInChunk = e.second;
@@ -84,8 +93,9 @@ struct MutablePathIndex {
         }
 
         std::vector<std::pair<uint64_t, uint32_t> > toInsert[INDEX_SHARDS];
-        int chunkNumber;
+        uint32_t chunkNumber;
         MutablePathIndex * owner;
+        uint32_t maxChunkIndex = 0;
     };
 
     Recorder getRecorder(int chunkNumber)
@@ -98,6 +108,8 @@ struct MutablePathIndex {
     /// Index from hash to (chunk, indexInChunk)
     std::mutex indexLock[INDEX_SHARDS];
     std::vector<std::tuple<uint64_t, int, int> > index[INDEX_SHARDS];
+    uint32_t maxChunkIndex = 0;
+    uint32_t maxChunkNumber = 0;
 
     static int getShard(uint64_t hash)
     {
@@ -116,7 +128,7 @@ struct PathIndexShard {
     {
         size_t bucket = hash * factor;
         ExcAssertGreaterEqual(bucket, 0);
-        ExcAssertLess(bucket, entries.size());
+        ExcAssertLess(bucket, numEntries);
         return bucket;
     }
 
@@ -124,16 +136,41 @@ struct PathIndexShard {
     {
     }
 
-    PathIndexShard(std::vector<std::tuple<uint64_t, int, int> > input)
+    void init(MappedSerializer & serializer,
+              std::vector<std::tuple<uint64_t, int, int> > input,
+              size_t numChunks,
+              size_t maxChunkSize)
     {
         std::sort(input.begin(), input.end());
-        int maxChunk = 0;
-        int maxIndex = 0;
-     
-        entries.resize(input.size() * 2, { -1, -1 });
+
+        chunkBits = ML::highest_bit(numChunks, -1) + 1;
+        offsetBits = ML::highest_bit(maxChunkSize - 1, -1) + 1;
+
+        numEntries = input.size() * 2;
+
+        size_t wordsRequired
+            = (numEntries * (chunkBits + offsetBits) + 31) / 32;
+        
+        auto storage = serializer.allocateWritableT<uint32_t>(wordsRequired);
 
         factor = 2.0 * input.size() / std::numeric_limits<uint64_t>::max();
 
+        auto setEntry = [&] (size_t bucket, int chunkNumber, int indexInChunk)
+            {
+                ML::Bit_Writer<uint32_t> writer(storage.data());
+                writer.skip((chunkBits + offsetBits) * bucket);
+                writer.write(chunkNumber + 1, chunkBits);
+                writer.write(indexInChunk, offsetBits);
+            };
+
+        auto entryIsOccupied = [&] (size_t bucket) -> bool
+            {
+                ML::Bit_Extractor<uint32_t> bits(storage.data());
+                bits.advance((chunkBits + offsetBits) * bucket);
+                uint32_t chunk = bits.extract<uint32_t>(chunkBits);
+                return chunk > 0;
+            };
+     
         int collisions = 0;
         size_t maxOffset = 0;
         size_t totalOffset = 0;
@@ -142,26 +179,22 @@ struct PathIndexShard {
             uint64_t hash = std::get<0>(i);
             size_t bucket = getBucket(hash);
 
-            collisions += entries[bucket].first != -1;
+            collisions += entryIsOccupied(bucket);
 
             size_t offset = 0;
             int chunkNumber = std::get<1>(i);
             int indexInChunk = std::get<2>(i);
 
-            maxChunk = std::max(maxChunk, chunkNumber);
-            maxIndex = std::max(maxIndex, chunkNumber);
-
             while (true) {
-                if (entries[bucket].first == -1) {
+                if (!entryIsOccupied(bucket)) {
                     // empty
-                    entries[bucket].first = chunkNumber;
-                    entries[bucket].second = indexInChunk;
+                    setEntry(bucket, chunkNumber, indexInChunk);
                     break;
                 }
                 else {
                     ++bucket;
                     ++offset;
-                    if (bucket == entries.size())
+                    if (bucket == numEntries)
                         bucket = 0;
                 }
             }
@@ -174,6 +207,8 @@ struct PathIndexShard {
              << "%" << endl;
         cerr << "max offset = " << maxOffset << endl;
         cerr << "avg offset = " << 1.0 * totalOffset / input.size() << endl;
+
+        this->storage = storage.freeze();
     }
 
     compact_vector<std::pair<int, int>, 4>
@@ -186,13 +221,13 @@ struct PathIndexShard {
     pathPossibleChunks(uint64_t hash) const
     {
         compact_vector<std::pair<int, int>, 4> result;
-        if (entries.empty())
+        if (numEntries == 0)
             return result;
         size_t bucket = hash * factor;
-        while (entries[bucket].first != -1) {
-            result.push_back(entries[bucket]);
+        while (entryIsOccupied(bucket)) {
+            result.push_back(getEntry(bucket));
             ++bucket;
-            if (bucket == entries.size())
+            if (bucket == numEntries)
                 bucket = 0;
         }
         
@@ -201,19 +236,41 @@ struct PathIndexShard {
 
     size_t memusage() const
     {
-        size_t result
-            = entries.capacity()
-            * sizeof(entries[0]);
-        return result;
+        return sizeof(*this) + storage.memusage();
+    }
+
+    std::pair<uint32_t, uint32_t>
+    getEntry(size_t bucket) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.data());
+        bits.advance((chunkBits + offsetBits) * bucket);
+        uint32_t chunk = bits.extract<uint32_t>(chunkBits) - 1;
+        uint32_t offset = bits.extract<uint32_t>(offsetBits);
+        return {chunk, offset};
+    }
+
+    bool entryIsOccupied(size_t bucket) const
+    {
+        ML::Bit_Extractor<uint32_t> bits(storage.data());
+        bits.advance((chunkBits + offsetBits) * bucket);
+        uint32_t chunk = bits.extract<uint32_t>(chunkBits);
+        return chunk > 0;
     }
 
     // Hash is implicit via position in the entry map (we take the top x bits)
     // It returns the chunk number that contains that hash portion
     // linear chaining
-    std::vector<std::pair<uint32_t, uint32_t> > entries;
+    int chunkBits;
+    int offsetBits;
+
+    // How many entries are in storage?
+    size_t numEntries;
 
     // Factor to multiply by to turn a hash value into an entry number
     double factor;
+
+    // Actual storage for bit-packed values
+    FrozenMemoryRegionT<uint32_t> storage;
 };
 
 
@@ -259,9 +316,12 @@ freeze(MappedSerializer & serializer)
 {
     PathIndex result;
 
+    // Index each shard in parallel
     auto onShard = [&] (int shardNumber)
         {
-            result.shards[shardNumber] = PathIndexShard(index[shardNumber]);
+            result.shards[shardNumber]
+                .init(serializer, index[shardNumber],
+                      maxChunkNumber + 1, maxChunkIndex + 1);
         };
 
     parallelMap(0, INDEX_SHARDS, onShard);
