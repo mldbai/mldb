@@ -35,20 +35,21 @@ static uint8_t bitsToHoldCount(size_t count)
 }
 
 struct FrozenIntegerTable {
-    //int64_t getSigned(size_t i) const;
+
     uint64_t getUnsigned(size_t i) const
     {
         ExcAssertLess(i, length);
         ML::Bit_Extractor<uint64_t> bits(storage.data());
         bits.advance(i * entryBits);
         int64_t val = bits.extract<uint64_t>(entryBits);
-        return val + offset;
+        return uint64_t(slope * i) + val + offset;
     }
 
     FrozenMemoryRegionT<uint64_t> storage;
     size_t length = 0;
     uint8_t entryBits = 0;
-    uint64_t offset = 0;
+    int64_t offset = 0;
+    double slope = 0.0f;
 
     size_t memusage() const
     {
@@ -102,17 +103,77 @@ struct MutableIntegerTable {
         FrozenIntegerTable result;
         uint64_t range = maxValue - minValue;
         uint8_t bits = bitsToHoldCount(range + 1);
+
         result.offset = minValue;
         result.entryBits = bits;
         result.length = values.size();
+        result.slope = 0.0;
 
-        size_t numWords = (bits * values.size() + 63) / 64;
+        if (values.size() > 1 && monotonic) {
+            // TODO: what we are really trying to do here is find the
+            // slope and intercept such that all values are above
+            // the line, and the infinity norm is minimised.  We can
+            // do that in a more principled way...
+            double slope = (values.back() - values[0]) / (values.size() - 1.0);
+
+            //static std::mutex mutex;
+            //std::unique_lock<std::mutex> guard(mutex);
+            
+            //cerr << "monotonic " << values.size() << " from "
+            //     << minValue << " to " << maxValue << " has slope "
+            //     << slope << endl;
+
+            uint64_t maxNegOffset = 0, maxPosOffset = 0;
+            for (size_t i = 1;  i < values.size();  ++i) {
+                uint64_t predicted = minValue + i * slope;
+                uint64_t actual = values[i];
+
+                //cerr << "i = " << i << " predicted " << predicted
+                //     << " actual " << actual << endl;
+
+                if (predicted < actual) {
+                    maxPosOffset = std::max(maxPosOffset, actual - predicted);
+                }
+                else {
+                    maxNegOffset = std::max(maxNegOffset, predicted - actual);
+                }
+            }
+
+            uint8_t offsetBits = bitsToHoldCount(maxNegOffset + maxPosOffset + 2);
+            if (offsetBits < bits) {
+                result.offset = minValue - maxNegOffset;
+                result.entryBits = offsetBits;
+                result.slope = slope;
+
+#if 0
+                cerr << "integer range with slope " << slope
+                     << " goes from " << (int)bits << " to "
+                     << (int)offsetBits << " bits per entry" << endl;
+                cerr << "maxNegOffset = " << maxNegOffset << endl;
+                cerr << "maxPosOffset = " << maxPosOffset << endl;
+                cerr << "minValue = " << minValue << endl;
+                cerr << "offset = " << result.offset << endl;
+                cerr << "slope = " << result.slope << endl;
+#endif
+            }
+        }
+
+        size_t numWords = (result.entryBits * values.size() + 63) / 64;
         auto mutableStorage = serializer.allocateWritableT<uint64_t>(numWords);
         uint64_t * data = mutableStorage.data();
 
         ML::Bit_Writer<uint64_t> writer(data);
         for (size_t i = 0;  i < values.size();  ++i) {
-            writer.write(values[i] - minValue, bits);
+            int64_t predicted = result.offset + uint64_t(i * result.slope);
+            int64_t residual = values[i] - predicted;
+            ExcAssertGreaterEqual(residual, 0);
+            ExcAssertLess(residual, 1 << result.entryBits);
+            if (result.slope != 0.0) {
+                //cerr << "predicted " << predicted << " val " << values[i]
+                //     << endl;
+                //cerr << "residual " << residual << " for entry " << i << endl;
+            }
+            writer.write(residual, result.entryBits);
         }
 
         values.clear();
