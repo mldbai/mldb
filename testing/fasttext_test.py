@@ -4,6 +4,8 @@
 # Mathieu Marquis Bolduc, March 2nd 2017
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 # ##
+import os
+import tempfile
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -181,11 +183,13 @@ class FastTextTest(MldbUnitTest):
                 }
             }
 
+            tmp_file =  tempfile.NamedTemporaryFile(prefix=os.getcwd() + '/build/x86_64/tmp/')
+
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",
                 "params": {
                     "trainingData": "SELECT {tokens.*} as features, Theme as label FROM bag_of_words",
-                    "modelFileUrl": "file://tmp/src_fasttext_explain.cls",
+                    "modelFileUrl": "file:///" + tmp_file.name,
                     "functionName" : 'myclassify',
                     "algorithm": "my_fasttext",
                     "mode": "categorical",
@@ -197,7 +201,7 @@ class FastTextTest(MldbUnitTest):
             mldb.put("/v1/functions/explain", {
                 "type": "classifier.explain",
                 "params": {
-                    "modelFileUrl": "file://tmp/src_fasttext_explain.cls",
+                    "modelFileUrl": "file:///" + tmp_file.name,
                 }
             })
 

@@ -138,9 +138,9 @@ explain(const Feature_Set & feature_set,
             float sum = 0.0f;
             for (int dim = 0; dim < fastText_->args_->dim; ++dim) {
                 sum += getEl(*fastText_->input_, f, dim)*outputVector[dim];
-        }
+            }
 
-        result.feature_weights[feature] = sum;
+            result.feature_weights[feature] = sum;
         }
     }
 
