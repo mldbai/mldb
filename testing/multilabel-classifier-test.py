@@ -13,6 +13,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(self):
         # Create toy dataset
+        seed(12345)
         for dataset_id in ["toy", "toy2"]:
             dataset_config = {
                 'type'    : 'sparse.mutable',
@@ -125,7 +126,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         conf = {
             "type": "classifier.train",
             "params": {
-                "trainingData": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",                
+                "trainingData": """
+                                    select {* EXCLUDING(label0, label1)} as features, 
+                                    {label0, label1} as label from toy
+                                """,                
                 "modelFileUrl": "file://build/x86_64/tmp/multilabel1-$runid.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
@@ -164,7 +168,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             "params": {
                 "experimentName": "my_test_exp",
                 "inputData": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",
-                "testingDataOverride": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",
+                "testingDataOverride": """
+                                          select {* EXCLUDING(label0, label1)} as features, 
+                                          {label0, label1} as label from toy
+                                       """,
                 "datasetFolds" : [
                     {
                         "trainingWhere": "rowHash() % 10 < 7",
@@ -240,7 +247,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             "params": {
                 "experimentName": "my_test_exp",
                 "inputData": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",
-                "testingDataOverride": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",
+                "testingDataOverride": """
+                                          select {* EXCLUDING(label0, label1)} as features, 
+                                          {label0, label1} as label from toy
+                                       """,
                 "datasetFolds" : [
                     {
                         "trainingWhere": "rowHash() % 10 < 7",
@@ -276,7 +286,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         conf = {
             "type": "classifier.train",
             "params": {
-                "trainingData": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from trivial",
+                "trainingData": """
+                                   select {* EXCLUDING(label0, label1)} as features, 
+                                   {label0, label1} as label from trivial
+                                """,
                 "modelFileUrl": "file://build/x86_64/tmp/multilabel1-$runid.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
@@ -286,7 +299,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                     "dt": {
                         "type": "decision_tree",
                         "max_depth": 8,
-                        "verbosity": 3,
+                        "verbosity": 0,
                         "update_alg": "gentle",
                         "random_feature_propn": 1
                     }
@@ -314,7 +327,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         conf = {
             "type": "classifier.train",
             "params": {
-                "trainingData": "select {* EXCLUDING(label0, label1, label2)} as features, {label0, label1, label2} as label from trivial2",
+                "trainingData": """
+                                   select {* EXCLUDING(label0, label1, label2)} as features, 
+                                   {label0, label1, label2} as label from trivial2
+                                """,
                 "modelFileUrl": "file://build/x86_64/tmp/multilabel1-$runid.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
@@ -324,7 +340,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                     "dt": {
                         "type": "decision_tree",
                         "max_depth": 8,
-                        "verbosity": 3,
+                        "verbosity": 0,
                         "update_alg": "gentle",
                         "random_feature_propn": 1
                     }
@@ -354,7 +370,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         conf_classifier = {
             "type": "classifier.train",
             "params": {
-                "trainingData": "select {* EXCLUDING(label0, label1, label2)} as features, {label0, label1, label2} as label from trivial2",
+                "trainingData": """
+                                   select {* EXCLUDING(label0, label1, label2)} as features, 
+                                   {label0, label1, label2} as label from trivial2
+                                """,
                 "modelFileUrl": "file://build/x86_64/tmp/multilabel1-$runid.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
@@ -364,7 +383,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                     "dt": {
                         "type": "decision_tree",
                         "max_depth": 8,
-                        "verbosity": 3,
+                        "verbosity": 0,
                         "update_alg": "gentle",
                         "random_feature_propn": 1
                     }
@@ -377,7 +396,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         accuracyConf = {
             "type": "classifier.test",
             "params": {
-                "testingData": "select classifyMe({{* EXCLUDING(label0, label1, label2)} as features}) as score, {label0, label1, label2} as label from trivial2",
+                "testingData": """
+                                  select classifyMe({{* EXCLUDING(label0, label1, label2)} as features}) as score,
+                                  {label0, label1, label2} as label from trivial2
+                               """,
                 "mode" : "multilabel",
                 "recallOverN" : [1, 2],
                 "runOnCreation": True
@@ -433,7 +455,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                     "dt": {
                         "type": "decision_tree",
                         "max_depth": 2,
-                        "verbosity": 3,
+                        "verbosity": 0,
                         "update_alg": "gentle",
                         "random_feature_propn": 1
                     }
@@ -446,7 +468,9 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         accuracyConf = {
             "type": "classifier.test",
             "params": {
-                "testingData": "select classifyMe({{* EXCLUDING(label)} as features}) as score, label from categoricalds",
+                "testingData": """select classifyMe({{* EXCLUDING(label)} as features}) as score, 
+                                  label from categoricalds
+                               """,
                 "mode" : "categorical",
                 "recallOverN" : [2,3],
                 "runOnCreation": True
@@ -533,7 +557,104 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                         "predicted": "pomme"
                     }
                 ]
-            })       
+            })
+
+    def test_decompose_explain(self):
+
+        conf = {
+            "type": "classifier.train",
+            "params": {
+                "trainingData": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",
+                "modelFileUrl": "file://build/x86_64/tmp/multilabel_decompose_explain.cls",
+                "algorithm": "dt",
+                "mode": "multilabel",
+                "multilabelStrategy": "decompose",
+                "functionName" : "classifyMe",
+                "configuration": {
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 0,
+                        "update_alg": "gentle",
+                        "random_feature_propn": 1,
+                    }
+                },
+            }
+        }
+
+        mldb.put("/v1/procedures/multilabel_train", conf)
+
+        mldb.put("/v1/functions/explain", {
+                "type": "classifier.explain",
+                "params": {
+                    "modelFileUrl": "file://build/x86_64/tmp/multilabel_decompose_explain.cls",
+                }
+            })
+
+        res = mldb.query("""SELECT explain({features : {5 as feat1, 0 as feat2},
+                                                label : 'label0'}) as * 
+                         """)
+
+        self.assertEquals(res,[
+            [
+                "_rowName",
+                "bias",
+                "explanation.feat2"
+            ],
+            [
+                "result",
+                0.0012001146096736193,
+                0.9987998604774475
+            ]
+        ])
+
+    def test_onevsall_explain(self):
+        conf = {
+            "type": "classifier.train",
+            "params": {
+                "trainingData": """select {* EXCLUDING(label0, label1)} as features, 
+                                   {label0, label1} as label from trivial
+                                """,
+                "modelFileUrl": "file://build/x86_64/tmp/multilabel_onevsall_explain.cls",
+                "algorithm": "dt",
+                "mode": "multilabel",
+                "multilabelStrategy": "one-vs-all",
+                "functionName" : "classifyMe",
+                "configuration": {
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 0,
+                        "update_alg": "gentle",
+                        "random_feature_propn": 1
+                    }
+                },
+            }
+        }
+
+        mldb.put("/v1/procedures/multilabel_train", conf)
+
+        mldb.put("/v1/functions/explain", {
+                "type": "classifier.explain",
+                "params": {
+                    "modelFileUrl": "file://build/x86_64/tmp/multilabel_onevsall_explain.cls",
+                }
+            })
+
+        res = mldb.query("SELECT explain({features : {5 as feat1, 0 as feat2}, label : 'label0'}) as *")
+
+        self.assertEquals(res,[
+            [
+                "_rowName",
+                "bias",
+                "explanation.feat2"
+            ],
+            [
+                "result",
+                0,
+                1
+            ]
+        ])
 
 if __name__ == '__main__':
     mldb.run_tests()
