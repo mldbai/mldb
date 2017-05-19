@@ -29,24 +29,20 @@ namespace MLDB {
 /** How many bits are required to hold a number up from zero up to count - 1
     inclusive?
 */
-static uint8_t bitsToHoldCount(size_t count)
+static uint8_t bitsToHoldCount(uint64_t count)
 {
-    return ML::highest_bit(std::max<size_t>(count, 1) - 1, -1) + 1;
+    return ML::highest_bit(std::max<uint64_t>(count, 1) - 1, -1) + 1;
+}
+
+static uint8_t bitsToHoldRange(uint64_t count)
+{
+    return ML::highest_bit(count, -1) + 1;
 }
 
 struct FrozenIntegerTable {
 
-    uint64_t getUnsigned(size_t i) const
-    {
-        ExcAssertLess(i, length);
-        ML::Bit_Extractor<uint64_t> bits(storage.data());
-        bits.advance(i * entryBits);
-        int64_t val = bits.extract<uint64_t>(entryBits);
-        return uint64_t(slope * i) + val + offset;
-    }
-
     FrozenMemoryRegionT<uint64_t> storage;
-    size_t length = 0;
+    size_t numEntries = 0;
     uint8_t entryBits = 0;
     int64_t offset = 0;
     double slope = 0.0f;
@@ -58,7 +54,57 @@ struct FrozenIntegerTable {
 
     size_t size() const
     {
-        return length;
+        return numEntries;
+    }
+
+    uint64_t decode(uint64_t i, uint64_t val) const
+    {
+        return uint64_t(i * slope) + val + offset;
+    }
+
+    template<typename Fn>
+    bool forEach(Fn && onVal) const
+    {
+        ML::Bit_Extractor<uint64_t> bits(storage.data());
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            int64_t val = bits.extract<uint64_t>(entryBits);
+            //cerr << "got " << val << " for entry " << i << endl;
+            if (!onVal(i, decode(i, val)))
+                return false;
+        }
+        return true;
+    }
+
+    template<typename Fn>
+    bool forEachDistinctValue(Fn && onValue) const
+    {
+        std::vector<uint64_t> allValues;
+        allValues.reserve(size());
+        forEach([&] (int, uint64_t val) { allValues.push_back(val); return true;});
+        // TODO: shouldn't need to do 3 passes through, and we can also
+        // make use of when it's monotonic...
+        std::sort(allValues.begin(), allValues.end());
+        auto endIt = std::unique(allValues.begin(), allValues.end());
+
+        for (auto it = allValues.begin();  it != endIt; ++it) {
+            if (!onValue(*it))
+                return false;
+        }
+
+        return true;
+    }
+
+    uint64_t get(size_t i) const
+    {
+        ExcAssertLess(i, numEntries);
+        ML::Bit_Extractor<uint64_t> bits(storage.data());
+        bits.advance(i * entryBits);
+        int64_t val = bits.extract<uint64_t>(entryBits);
+        //cerr << "getting element " << i << " gave val " << val
+        //     << " yielding " << decode(i, val) << " with offset "
+        //     << offset << " and slope " << slope << endl;
+        return decode(i, val);
     }
 };
 
@@ -72,25 +118,14 @@ struct MutableIntegerTable {
         return values.size() - 1;
     }
 
-    uint64_t add(int64_t val) const;
-
-    template<typename T>
-    void add(T val, typename std::enable_if<std::is_unsigned<T>::value>::type * en
-             = nullptr)
-    {
-        add((uint64_t)val);
-    }
-
-    template<typename T>
-    void add(T val, typename std::enable_if<!std::is_unsigned<T>::value>::type * en
-             = nullptr)
-    {
-        add((int64_t)val);
-    }
-
     void reserve(size_t numValues)
     {
         values.reserve(numValues);
+    }
+
+    size_t size() const
+    {
+        return values.size();
     }
 
     std::vector<uint64_t> values;
@@ -98,15 +133,37 @@ struct MutableIntegerTable {
     uint64_t maxValue = 0;
     bool monotonic = true;
 
+    size_t bytesRequired() const
+    {
+        // TODO: calculate with slope
+        uint64_t range = maxValue - minValue;
+        uint8_t bits = bitsToHoldRange(range);
+        size_t numWords = (bits * values.size() + 63) / 64;
+#if 0
+        cerr << "**** MIT bytes required" << endl;
+        cerr << "range = " << range << " minValue = " << minValue
+             << " maxValue = " << maxValue << " bits = " << bits
+             << " numWords = " << numWords << " values.size() = "
+             << values.size() << endl;
+#endif
+        return numWords * 8;
+    }
+
     FrozenIntegerTable freeze(MappedSerializer & serializer)
     {
         FrozenIntegerTable result;
         uint64_t range = maxValue - minValue;
-        uint8_t bits = bitsToHoldCount(range + 1);
+        uint8_t bits = bitsToHoldRange(range);
 
+#if 0
+        cerr << "*** Freezing integer table" << endl;
+        cerr << "minValue = " << minValue << " maxValue = "
+             << maxValue << " range = " << range << endl;
+        cerr << "bits = " << (int)bits << endl;
+#endif
         result.offset = minValue;
         result.entryBits = bits;
-        result.length = values.size();
+        result.numEntries = values.size();
         result.slope = 0.0;
 
         if (values.size() > 1 && monotonic) {
@@ -164,10 +221,12 @@ struct MutableIntegerTable {
 
         ML::Bit_Writer<uint64_t> writer(data);
         for (size_t i = 0;  i < values.size();  ++i) {
-            int64_t predicted = result.offset + uint64_t(i * result.slope);
-            int64_t residual = values[i] - predicted;
-            ExcAssertGreaterEqual(residual, 0);
-            ExcAssertLess(residual, 1 << result.entryBits);
+            uint64_t predicted = result.offset + uint64_t(i * result.slope);
+            uint64_t residual = values[i] - predicted;
+            //cerr << "value = " << values[i] << endl;
+            //cerr << "predicted = " << predicted << endl;
+            //cerr << "storing residual " << residual << " at " << i << endl;
+
             if (result.slope != 0.0) {
                 //cerr << "predicted " << predicted << " val " << values[i]
                 //     << endl;
@@ -194,8 +253,8 @@ struct FrozenBlobTable {
     std::pair<const char *, size_t>
     operator [] (size_t index) const
     {
-        uint64_t offset = offsets.getUnsigned(index);
-        uint64_t length = offsets.getUnsigned(index + 1);
+        uint64_t offset = offsets.get(index);
+        uint64_t length = offsets.get(index + 1);
         return { mem.data() + offset, length };
     }
 
@@ -210,15 +269,12 @@ struct MutableStringTable {
     FrozenIntegerTable freeze(MappedSerializer & serializer);
 };
 
-#define SERIALIZE_CELLS 1
-
 struct FrozenCellValueTable {
-#if SERIALIZE_CELLS // for when it's really frozen...
     CellValue operator [] (size_t index) const
     {
         static uint8_t format = CellValue::serializationFormat(true /* known length */);
-        size_t offset0 = (index == 0 ? 0 : offsets.getUnsigned(index - 1));
-        size_t offset1 = offsets.getUnsigned(index);
+        size_t offset0 = (index == 0 ? 0 : offsets.get(index - 1));
+        size_t offset1 = offsets.get(index);
 
         const char * data = cells.data() + offset0;
         size_t len = offset1 - offset0;
@@ -235,29 +291,26 @@ struct FrozenCellValueTable {
         return offsets.size();
     }
 
+    template<typename Fn>
+    bool forEachDistinctValue(Fn && fn) const
+    {
+        std::vector<CellValue> vals;
+        vals.reserve(size());
+        for (size_t i = 0;  i < size();  ++i) {
+            vals.emplace_back(operator [] (i));
+        }
+        std::sort(vals.begin(), vals.end());
+        for (size_t i = 0;  i < vals.size();  ++i) {
+            if (i > 0 && vals[i] == vals[i - 1])
+                continue;
+            if (!fn(vals[i]))
+                return false;
+        }
+        return true;
+    }
+
     FrozenIntegerTable offsets;
     FrozenMemoryRegion cells;
-#else
-    CellValue operator [] (size_t index) const
-    {
-        return values.at(index);
-    }
-
-    uint64_t memusage() const
-    {
-        uint64_t result = 0;
-        for (auto & v: values)
-            result += v.memusage();
-        return result;
-    }
-
-    size_t size() const
-    {
-        return values.size();
-    }
-    
-    std::vector<CellValue> values;
-#endif
 };
 
 struct MutableCellValueTable {
@@ -291,7 +344,6 @@ struct MutableCellValueTable {
         values[index] = std::move(val);
     }
 
-#if SERIALIZE_CELLS
     FrozenCellValueTable
     freeze(MappedSerializer & serializer)
     {
@@ -313,7 +365,7 @@ struct MutableCellValueTable {
         size_t currentOffset = 0;
 
         for (size_t i = 0;  i < values.size();  ++i) {
-            size_t length = frozenOffsets.getUnsigned(i) - currentOffset;
+            size_t length = frozenOffsets.get(i) - currentOffset;
             c = values[i].serialize(c, length, true /* exact length */);
             currentOffset += length;
             ExcAssertEqual(c - region.data(), currentOffset);
@@ -327,15 +379,7 @@ struct MutableCellValueTable {
         result.cells = region.freeze();
         return result;
     }
-#else
-    FrozenCellValueTable
-    freeze(MappedSerializer & serializer)
-    {
-        FrozenCellValueTable result;
-        result.values = std::move(values);
-        return result;
-    }
-#endif
+
     std::vector<CellValue> values;
 };
 
@@ -735,22 +779,35 @@ struct DirectFrozenColumn: public FrozenColumn {
 
     virtual std::string format() const
     {
-        return "D";
+        return "d";
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    bool forEachImpl(const ForEachRowFn & onRow, bool keepNulls) const
     {
-        for (size_t i = 0;  i < numEntries;  ++i) {
-            if (!onRow(i + firstEntry, values[i]))
+        for (size_t i = 0;  i < values.size();  ++i) {
+            if (keepNulls || !values[i].empty()) {
+                if (!onRow(i + firstEntry, values[i]))
+                    return false;
+            }
+        }
+
+        // Do any trailing nulls
+        for (size_t i = values.size();  i < numEntries && keepNulls; ++i) {
+            if (!onRow(i + firstEntry, CellValue()))
                 return false;
         }
 
         return true;
     }
 
+    virtual bool forEach(const ForEachRowFn & onRow) const
+    {
+        return forEachImpl(onRow, false /* keep nulls */);
+    }
+
     virtual bool forEachDense(const ForEachRowFn & onRow) const
     {
-        return forEach(onRow);
+        return forEachImpl(onRow, true /* keep nulls */);
     }
 
     virtual CellValue get(uint32_t rowIndex) const
@@ -759,8 +816,8 @@ struct DirectFrozenColumn: public FrozenColumn {
         if (rowIndex < firstEntry)
             return result;
         rowIndex -= firstEntry;
-        if (rowIndex >= numEntries)
-            return result;
+        if (rowIndex >= values.size())
+            return result; // nulls at the end
         ExcAssertLess(rowIndex, numEntries);
         return values[rowIndex];
     }
@@ -783,8 +840,22 @@ struct DirectFrozenColumn: public FrozenColumn {
     virtual bool
     forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
     {
-        throw HttpReturnException
-            (600, "Tabular frozen column direct forEachDistinctValue");
+        bool doneNull = false;
+        auto fn2 = [&] (const CellValue & val)
+            {
+                if (val.empty())
+                    doneNull = true;
+                return fn(val);
+            };
+        if (!values.forEachDistinctValue(fn))
+            return false;
+
+        // Trailing nulls?
+        if (values.size() < numEntries && !doneNull) {
+            return fn(CellValue());
+        }
+       
+        return true;
     }
 
     uint32_t numEntries;
@@ -811,7 +882,7 @@ struct DirectFrozenColumnFormat: public FrozenColumnFormat {
 
     virtual std::string format() const override
     {
-        return "D";
+        return "d";
     }
 
     virtual bool isFeasible(const TabularDatasetColumn & column,
@@ -1170,6 +1241,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
             if (!onRow(firstEntry + rowNum, table[index]))
                 return false;
+            ++lastRowNum;
         }
 
         while (firstEntry + lastRowNum <= lastEntry) {
@@ -1205,9 +1277,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             uint32_t rowNum, index;
             std::tie(rowNum, index) = getAtIndex(middle);
 
+#if 0
             TRACE_MSG(logger) << "first = " << first << " middle = " << middle
                               << " last = " << last << " rowNum = " << rowNum
                               << " looking for " << rowIndex;
+#endif
 
             if (rowNum == rowIndex) {
                 ExcAssertLess(index, table.size());
@@ -1232,7 +1306,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual size_t size() const
     {
-        return numEntries;
+        return lastEntry - firstEntry + 1;
     }
 
     virtual size_t memusage() const
@@ -1250,8 +1324,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     virtual bool
     forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
     {
-        if (!fn(CellValue()))
-            return false;
+        // Detect nulls which implicitly means a gap in the indexes
+        if (firstEntry + numEntries != lastEntry + 1) {
+            if (!fn(CellValue()))
+                return false;
+        }
         for (auto & v: table) {
             if (!fn(v))
                 return false;
@@ -1391,7 +1468,40 @@ struct IntegerFrozenColumn: public FrozenColumn {
             // use this kind of column.
             if (range == -1 && hasNulls)
                 return;
-                
+
+            uint64_t doneRows = 0;
+            for (auto & v: column.sparseIndexes) {
+                uint32_t rowNumber = v.first;
+                const CellValue & val = column.indexedVals[v.second];
+                uint64_t intVal = 0;
+                if (!val.empty()) {
+                    intVal = val.toInt() - offset + hasNulls;
+                }
+                while (rowNumber < doneRows) {
+                    table.add(0);  // for the null
+                    ++doneRows;
+                }
+                table.add(intVal);
+                ++doneRows;
+            }
+
+            // Handle nulls at the end
+            while (doneRows < numEntries) {
+                table.add(0);  // for the null
+                ++doneRows;
+            }
+
+            this->bytesRequired = table.bytesRequired() + sizeof(IntegerFrozenColumn);
+
+#if 0
+            cerr << "table.size() = " << table.size() << endl;
+            cerr << "hasNulls = " << hasNulls << endl;
+            cerr << "numEntries = " << numEntries << endl;
+            cerr << "bytes required = " << this->bytesRequired << endl;
+#endif
+
+            return;
+
 #if 0 // later on... we should look for a common multiple to reduce bits used
    
             // Check for common multiple
@@ -1426,9 +1536,17 @@ struct IntegerFrozenColumn: public FrozenColumn {
                 TRACE_MSG(logger) << "  " << offsets[i];
             }
 #endif
+
             entryBits = bitsToHoldCount(range + hasNulls);
+            cerr << "entryBits = " << entryBits << endl;
             numWords = (entryBits * numEntries + 63) / 64;
+            cerr << "numWords = " << numWords << endl;
             bytesRequired = sizeof(IntegerFrozenColumn) + numWords * 8;
+            cerr << "sizeof(IntegerFrozenColumn) = "
+                 << sizeof(IntegerFrozenColumn) << endl;
+            cerr << "sizeof(FrozenColumn) = " << sizeof(FrozenColumn) << endl;
+            cerr << "sizeof(ColumnTypes) = " << sizeof(ColumnTypes) << endl;
+            cerr << "bytesReqired = " << bytesRequired << endl;
         }
 
         operator ssize_t () const
@@ -1443,16 +1561,24 @@ struct IntegerFrozenColumn: public FrozenColumn {
         bool hasNulls;
         size_t numWords;
         int entryBits;
+
+        MutableIntegerTable table;
     };
     
     IntegerFrozenColumn(TabularDatasetColumn & column,
-                        const SizingInfo & info,
+                        SizingInfo & info,
                         MappedSerializer & serializer)
         : columnTypes(std::move(column.columnTypes))
     {
         ExcAssertNotEqual(info.bytesRequired, -1);
 
-        firstEntry = column.minRowNumber;
+        this->firstEntry = column.minRowNumber;
+        this->hasNulls = info.hasNulls;
+
+        this->table = info.table.freeze(serializer);
+        this->offset = info.offset;
+
+#if 0
         numEntries = info.numEntries;
 
         // Check it's really feasible
@@ -1502,34 +1628,32 @@ struct IntegerFrozenColumn: public FrozenColumn {
                            column.indexedVals.at(i.second));
         }
 #endif
+#endif
+    }
+    
+    CellValue decode(uint64_t val) const
+    {
+        return (val == 0 && hasNulls)
+            ? CellValue()
+            : CellValue(int64_t(val) + offset - hasNulls);
+            
     }
 
     bool forEachImpl(const ForEachRowFn & onRow, bool keepNulls) const
     {
-        ML::Bit_Extractor<uint64_t> bits(storage.data());
+        auto onRow2 = [&] (size_t i, uint64_t val) -> bool
+            {
+                CellValue decoded = decode(val);
+                //cerr << "decoding " << val << " at entry " << i << " gave "
+                //     << decoded << endl;
+                if (decoded.empty() && !keepNulls)
+                    return true;
+                return onRow(i + firstEntry, decoded);
+            };
 
-        for (size_t i = 0;  i < numEntries;  ++i) {
-            int64_t val = bits.extract<uint64_t>(entryBits);
-            if (hasNulls) {
-                if (val == 0) {
-                    if (keepNulls && (!onRow(i + firstEntry, CellValue())))
-                        return false;
-                }
-                else {
-                    if (!onRow(i + firstEntry, val + offset - 1))
-                        return false;
-                }
-            }
-            else {
-                if (!onRow(i + firstEntry, val + offset))
-                    return false;
-            }
-        }
-
-        return true;
-
+        return table.forEach(onRow2);
     }
-
+    
     virtual std::string format() const
     {
         return "I";
@@ -1551,73 +1675,36 @@ struct IntegerFrozenColumn: public FrozenColumn {
         if (rowIndex < firstEntry)
             return result;
         rowIndex -= firstEntry;
-        if (rowIndex >= numEntries)
+        if (rowIndex >= table.size())
             return result;
-        ExcAssertLess(rowIndex, numEntries);
-        ML::Bit_Extractor<uint64_t> bits(storage.data());
-        bits.advance(rowIndex * entryBits);
-        int64_t val = bits.extract<uint64_t>(entryBits);
-        if (hasNulls) {
-            if (val == 0)
-                return result;
-            else return result = val + offset - 1;
-        }
-        else {
-            return result = val + offset;
-        }
+        return decode(table.get(rowIndex));
     }
 
     virtual size_t size() const
     {
-        return numEntries;
+        return table.size();
     }
 
     virtual size_t memusage() const
     {
-        size_t result
-            = sizeof(*this)
-            + (entryBits * numEntries + 63) / 8;
-
-        return result;
+        return table.memusage();
     }
 
     virtual bool
     forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
     {
-        // Handle nulls first so we don't have to do them later
-        if (hasNulls && !fn(CellValue()))
-            return false;
+        auto onVal = [&] (uint64_t val) -> bool
+            {
+                return fn(decode(val));
+            };
 
-        std::vector<int64_t> allVals;
-        allVals.reserve(numEntries);
-
-        ML::Bit_Extractor<uint64_t> bits(storage.data());
-        
-        for (size_t i = 0;  i < numEntries;  ++i) {
-            int64_t val = bits.extract<uint64_t>(entryBits);
-            if (val == 0 && hasNulls)
-                continue;
-            allVals.push_back(val);
-        }
-
-        std::sort(allVals.begin(), allVals.end());
-        auto endIt = std::unique(allVals.begin(), allVals.end());
-
-        for (auto it = allVals.begin();  it != endIt;  ++it) {
-            if (!fn(*it + offset - hasNulls))
-                return false;
-        }
-
-        return true;
+        return table.forEachDistinctValue(onVal);
     }
 
-    FrozenMemoryRegionT<uint64_t> storage;
-    uint32_t entryBits;
-    uint32_t numEntries;
+    FrozenIntegerTable table;
+    bool hasNulls;
     uint64_t firstEntry;
     int64_t offset;
-
-    bool hasNulls;
     ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
@@ -1907,7 +1994,7 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
 
     virtual std::string format() const override
     {
-        return "Double";
+        return "D";
     }
 
     virtual bool isFeasible(const TabularDatasetColumn & column,

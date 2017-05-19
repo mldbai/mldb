@@ -13,13 +13,15 @@
 #include "mldb/plugins/tabular_dataset_column.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/arch/timers.h"
+#include "mldb/types/set_description.h"
+#include "mldb/types/vector_description.h"
 
 using namespace std;
 
 using namespace MLDB;
 
 std::shared_ptr<FrozenColumn>
-freezeAndTest(const std::vector<CellValue> & cells)
+freezeAndTest(const std::vector<CellValue> & cells, size_t offset = 0)
 {
     TabularDatasetColumn col;
     MemorySerializer serializer;
@@ -27,32 +29,36 @@ freezeAndTest(const std::vector<CellValue> & cells)
     BOOST_CHECK_EQUAL(col.columnTypes.numStrings, 0);
 
     for (size_t i = 0;  i < cells.size();  ++i) {
-        col.add(i, cells[i]);
+        col.add(i + offset, cells[i]);
     }
 
     ColumnFreezeParameters params;
     std::shared_ptr<FrozenColumn> frozen = col.freeze(serializer, params);
 
-    cerr << "testing " << MLDB::type_name(*frozen) << endl;
+    cerr << "testing " << MLDB::type_name(*frozen) << " with "
+         << cells.size() << " values and offset " << offset << endl;
+    if (cells.size() < 100)
+        cerr << jsonEncodeStr(cells) << endl;
 
     ExcAssertEqual(frozen->size(), cells.size());
 
     for (size_t i = 0;  i < cells.size();  ++i) {
-        BOOST_REQUIRE_EQUAL(frozen->get(i), cells[i]);
+        BOOST_REQUIRE_EQUAL(frozen->get(i + offset), cells[i]);
     }
 
     {
         std::vector<CellValue> outVals(cells.size());
-        std::vector<int8_t> done(cells.size());
+        std::set<int64_t> done;
         size_t numDone = 0;
 
         auto onEntry = [&] (int64_t rowNum, CellValue val)
             {
-                BOOST_CHECK_GE(rowNum, 0);
-                BOOST_CHECK_LT(rowNum, cells.size());
-                BOOST_CHECK_EQUAL(done[rowNum], false);
-                done[rowNum] = true;
-                outVals[rowNum] = std::move(val);
+                //cerr << "got " << val << " at row " << rowNum << endl;
+                BOOST_CHECK_GE(rowNum, offset);
+                BOOST_CHECK_LT(rowNum, offset + cells.size());
+                BOOST_CHECK_EQUAL(done.count(rowNum), false);
+                done.insert(rowNum);
+                outVals[rowNum - offset] = std::move(val);
                 ++numDone;
                 return true;
             };
@@ -68,19 +74,19 @@ freezeAndTest(const std::vector<CellValue> & cells)
 
     {
         std::vector<CellValue> outVals(cells.size());
-        std::vector<int8_t> done(cells.size());
+        std::set<int64_t> done;
         
         auto onEntry = [&] (int64_t rowNum, CellValue val)
             {
                 if (val.empty()) {
                     cerr << "rowNum " <<rowNum << " has null" << endl;
                 }
-                BOOST_CHECK_GE(rowNum, 0);
-                BOOST_CHECK_LT(rowNum, cells.size());
-                BOOST_CHECK_EQUAL(done[rowNum], false);
+                BOOST_CHECK_GE(rowNum, offset);
+                BOOST_CHECK_LT(rowNum, offset + cells.size());
+                BOOST_CHECK_EQUAL(done.count(rowNum), false);
                 BOOST_CHECK(!val.empty());
-                done[rowNum] = true;
-                outVals[rowNum] = std::move(val);
+                done.insert(rowNum);
+                outVals[rowNum - offset] = std::move(val);
                 return true;
             };
         
@@ -114,7 +120,13 @@ freezeAndTest(const std::vector<CellValue> & cells)
             cellVals.insert(c);
         }
 
-        BOOST_CHECK(vals == cellVals);
+        if (vals != cellVals) {
+            cerr << jsonEncodeStr(vals) << endl;
+            cerr << jsonEncodeStr(cellVals) << endl;
+        }
+
+        BOOST_CHECK_EQUAL_COLLECTIONS(vals.begin(), vals.end(),
+                                      cellVals.begin(), cellVals.end());
     }
     
     BOOST_REQUIRE_EQUAL(frozen->size(), cells.size());
@@ -126,7 +138,7 @@ freezeAndTest(const std::vector<CellValue> & cells)
 BOOST_AUTO_TEST_CASE( test_frozen_ints_only )
 {
     std::vector<CellValue> vals;
-    for (unsigned i = 0;  i < 1000;  ++i) {
+    for (unsigned i = 0;  i < 100;  ++i) {
         vals.push_back(i);
     }
 
@@ -134,13 +146,15 @@ BOOST_AUTO_TEST_CASE( test_frozen_ints_only )
 
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple positive and null integers
 BOOST_AUTO_TEST_CASE( test_frozen_ints_and_nulls_only )
 {
     std::vector<CellValue> vals;
-    for (int i = 0;  i < 1000;  ++i) {
+    for (int i = 0;  i < 100;  ++i) {
         vals.push_back(i);
     }
     vals.emplace_back();  // add a null
@@ -149,13 +163,15 @@ BOOST_AUTO_TEST_CASE( test_frozen_ints_and_nulls_only )
 
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple negative, positive and null integers
 BOOST_AUTO_TEST_CASE( test_frozen_neg_ints )
 {
     std::vector<CellValue> vals;
-    for (int i = 0;  i < 1000;  ++i) {
+    for (int i = 0;  i < 100;  ++i) {
         vals.push_back(i);
         vals.push_back(-i);
     }
@@ -164,13 +180,15 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_ints )
 
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple negative, positive and null integers
 BOOST_AUTO_TEST_CASE( test_frozen_neg_ints_and_nulls_only )
 {
     std::vector<CellValue> vals;
-    for (int i = 0;  i < 1000;  ++i) {
+    for (int i = 0;  i < 100;  ++i) {
         vals.push_back(i);
         vals.push_back(-i);
     }
@@ -180,13 +198,15 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_ints_and_nulls_only )
 
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple negative, positive and null integers
 BOOST_AUTO_TEST_CASE( test_frozen_neg_only_ints_and_nulls )
 {
     std::vector<CellValue> vals;
-    for (int i = 0;  i < 1000;  ++i) {
+    for (int i = 0;  i < 100;  ++i) {
         vals.push_back(-i-1);
     }
     vals.emplace_back();  // add a null
@@ -195,6 +215,8 @@ BOOST_AUTO_TEST_CASE( test_frozen_neg_only_ints_and_nulls )
 
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple negative, positive and null integers
@@ -203,11 +225,13 @@ BOOST_AUTO_TEST_CASE( test_large_positive_ints )
     std::vector<CellValue> vals;
 
     // Check for large integers (we have uint64_t so we end up with overflow
-    for (uint64_t i = 0;  i < 1000;  ++i) {
+    for (uint64_t i = 0;  i < 100;  ++i) {
         vals.push_back(-i);
     }
 
     freezeAndTest(vals);
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple negative, positive and null integers
@@ -216,12 +240,14 @@ BOOST_AUTO_TEST_CASE( test_large_positive_ints_and_nulls )
     std::vector<CellValue> vals;
 
     // Check for large integers (we have uint64_t so we end up with overflow
-    for (uint64_t i = 0;  i < 1000;  ++i) {
+    for (uint64_t i = 0;  i < 100;  ++i) {
         vals.push_back(-i);
     }
     vals.emplace_back();  // add a null
 
     freezeAndTest(vals);
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple negative, positive and null integers
@@ -230,12 +256,14 @@ BOOST_AUTO_TEST_CASE( test_big_range )
     std::vector<CellValue> vals;
 
     // Check for large integers (we have uint64_t so we end up with overflow
-    for (uint64_t i = 0;  i < 1000;  ++i) {
+    for (uint64_t i = 0;  i < 100;  ++i) {
         vals.push_back(-i);
     }
     vals.emplace_back();  // add a null
 
     freezeAndTest(vals);
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Simple negative, positive and null integers
@@ -244,7 +272,7 @@ BOOST_AUTO_TEST_CASE( test_big_pos_neg_range )
     std::vector<CellValue> vals;
 
     // Check for large integers (we have uint64_t so we end up with overflow
-    for (int64_t i = 0;  i < 1000;  ++i) {
+    for (int64_t i = 0;  i < 100;  ++i) {
         vals.push_back(std::numeric_limits<int64_t>::min() + i);
         vals.push_back(std::numeric_limits<int64_t>::max() - i);
     }
@@ -253,6 +281,8 @@ BOOST_AUTO_TEST_CASE( test_big_pos_neg_range )
 
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                    "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 // Full range and nulls.  Not enough 64 bit integers to represent all values.
@@ -261,20 +291,22 @@ BOOST_AUTO_TEST_CASE( test_big_pos_neg_range_and_nulls )
     std::vector<CellValue> vals;
 
     // Check for large integers (we have uint64_t so we end up with overflow
-    for (int64_t i = 0;  i < 1000;  ++i) {
+    for (int64_t i = 0;  i < 100;  ++i) {
         vals.push_back(std::numeric_limits<int64_t>::min() + i);
         vals.push_back(std::numeric_limits<int64_t>::max() - i);
     }
     vals.emplace_back();
 
     freezeAndTest(vals);
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 BOOST_AUTO_TEST_CASE( test_double_basics )
 {
     std::vector<CellValue> vals;
 
-    for (int64_t i = 0;  i < 1000;  ++i) {
+    for (int64_t i = 0;  i < 100;  ++i) {
         vals.push_back(i * 0.5);
     }
         
@@ -282,6 +314,7 @@ BOOST_AUTO_TEST_CASE( test_double_basics )
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::DoubleFrozenColumn");
     
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 BOOST_AUTO_TEST_CASE( test_double_special_values )
@@ -301,6 +334,8 @@ BOOST_AUTO_TEST_CASE( test_double_special_values )
     auto frozen = freezeAndTest(vals);
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::DoubleFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 BOOST_AUTO_TEST_CASE( test_double_basics_null )
@@ -308,7 +343,7 @@ BOOST_AUTO_TEST_CASE( test_double_basics_null )
     std::vector<CellValue> vals;
     vals.emplace_back();
 
-    for (int64_t i = 0;  i < 1000;  ++i) {
+    for (int64_t i = 0;  i < 100;  ++i) {
         vals.push_back(i * 0.5);
         vals.emplace_back();
         vals.push_back(-(i * 0.5));
@@ -318,13 +353,15 @@ BOOST_AUTO_TEST_CASE( test_double_basics_null )
     auto frozen = freezeAndTest(vals);
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::DoubleFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 BOOST_AUTO_TEST_CASE( test_timestamp_basics )
 {
     std::vector<CellValue> vals;
 
-    for (int64_t i = 0;  i < 10;  ++i) {
+    for (int64_t i = 0;  i < 100;  ++i) {
         vals.push_back(Date::now().plusSeconds(i * 0.5));
     }
         
@@ -332,6 +369,7 @@ BOOST_AUTO_TEST_CASE( test_timestamp_basics )
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::TimestampFrozenColumn");
     
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 BOOST_AUTO_TEST_CASE( test_timestamp_special_values )
@@ -350,6 +388,8 @@ BOOST_AUTO_TEST_CASE( test_timestamp_special_values )
     auto frozen = freezeAndTest(vals);
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::TimestampFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }
 
 BOOST_AUTO_TEST_CASE( test_timestamp_basics_null )
@@ -357,7 +397,7 @@ BOOST_AUTO_TEST_CASE( test_timestamp_basics_null )
     std::vector<CellValue> vals;
     vals.emplace_back();
 
-    for (int64_t i = 0;  i < 10;  ++i) {
+    for (int64_t i = 0;  i < 100;  ++i) {
         vals.push_back(Date::now().plusSeconds(i * 0.5));
         vals.emplace_back();
         vals.push_back(Date::now().plusSeconds(-i * 0.5));
@@ -367,4 +407,6 @@ BOOST_AUTO_TEST_CASE( test_timestamp_basics_null )
     auto frozen = freezeAndTest(vals);
     BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
                       "MLDB::TimestampFrozenColumn");
+
+    freezeAndTest(vals, 1020 /* offset */);
 }

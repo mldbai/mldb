@@ -1505,10 +1505,12 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         INFO_MSG(logger) << "row name usage is " << rowNameMem
                          << " bytes at "
-                         << 1.0 * rowNameMem / totalRows << " per row";
+                         << 1.0 * rowNameMem / totalRows << " per row with "
+                         << ML::type_name(*chunks[0].rowNames);
         INFO_MSG(logger) << "timestamp usage is " << timestampMem
                          << " bytes at "
-                         << 1.0 * timestampMem / totalRows << " per row";
+                         << 1.0 * timestampMem / totalRows << " per row with "
+                         << ML::type_name(*chunks[0].timestamps);
 
         size_t columnMem = 0;
         for (auto & c: columns) {
@@ -1516,9 +1518,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             for (auto & chunk: c.chunks) {
                 bytesUsed += chunk.second->memusage();
             }
-            INFO_MSG(logger) << "column " << c.columnName << " used "
-                 << bytesUsed << " bytes at "
-                 << 1.0 * bytesUsed / totalRows << " per row";
+            INFO_MSG(logger)
+                << "column " << c.columnName << " used "
+                << bytesUsed << " bytes at "
+                << 1.0 * bytesUsed / totalRows << " per row with "
+                << ML::type_name(*c.chunks[0].second);
             columnMem += bytesUsed;
         }
 
