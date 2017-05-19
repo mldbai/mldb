@@ -957,33 +957,30 @@ struct TableFrozenColumn: public FrozenColumn {
         firstEntry = column.minRowNumber;
         numEntries = column.maxRowNumber - column.minRowNumber + 1;
         hasNulls = column.sparseIndexes.size() < numEntries;
-        indexBits = bitsToHoldCount(table.size() + hasNulls);
-        size_t numWords = (indexBits * numEntries + 31) / 32;
-        auto mutableStorage = serializer.allocateWritableT<uint32_t>(numWords);
-        uint32_t * data = mutableStorage.data();
 
-        //cerr << "table: data is " << data << " for " << numWords << " words"
-        //     << endl;
+        MutableIntegerTable mutableIndexes;
 
         if (!hasNulls) {
             // Contiguous rows
-            ML::Bit_Writer<uint32_t> writer(data);
             for (size_t i = 0;  i < column.sparseIndexes.size();  ++i) {
                 ExcAssertEqual(column.sparseIndexes[i].first, i);
-                writer.write(column.sparseIndexes[i].second, indexBits);
+                mutableIndexes.add(column.sparseIndexes[i].second);
             }
         }
         else {
             // Non-contiguous; leave gaps with a zero (null) value
-            std::fill(data, data + numWords, 0);
+            size_t index = 0;
             for (auto & r_i: column.sparseIndexes) {
-                ML::Bit_Writer<uint32_t> writer(data);
-                writer.skip(r_i.first * indexBits);
-                writer.write(r_i.second + 1, indexBits);
+                while (index < r_i.first) {
+                    mutableIndexes.add(0);
+                    ++index;
+                }
+                mutableIndexes.add(r_i.second + 1);
+                ++index;
             }
         }
 
-        storage = mutableStorage.freeze();
+        indexes = mutableIndexes.freeze(serializer);
     }
 
     virtual std::string format() const
@@ -994,10 +991,8 @@ struct TableFrozenColumn: public FrozenColumn {
     virtual bool forEachImpl(const ForEachRowFn & onRow,
                              bool keepNulls) const
     {
-        ML::Bit_Extractor<uint32_t> bits(storage.data());
-
         for (size_t i = 0;  i < numEntries;  ++i) {
-            int index = bits.extract<uint32_t>(indexBits);
+            uint64_t index = indexes.get(i);
 
             CellValue val;
             if (hasNulls) {
@@ -1036,9 +1031,7 @@ struct TableFrozenColumn: public FrozenColumn {
         if (rowIndex >= numEntries)
             return result;
         ExcAssertLess(rowIndex, numEntries);
-        ML::Bit_Extractor<uint32_t> bits(storage.data());
-        bits.advance(rowIndex * indexBits);
-        int index = bits.extract<uint32_t>(indexBits);
+        uint64_t index = indexes.get(rowIndex);
         if (hasNulls) {
             if (index == 0)
                 return result;
@@ -1056,11 +1049,9 @@ struct TableFrozenColumn: public FrozenColumn {
 
     virtual size_t memusage() const
     {
-        size_t result
-            = sizeof(*this)
-            + (indexBits * numEntries + 31) / 8;
-
+        size_t result = sizeof(*this);
         result += table.memusage();
+        result += indexes.memusage();
 
         return result;
     }
@@ -1080,8 +1071,7 @@ struct TableFrozenColumn: public FrozenColumn {
         return true;
     }
 
-    FrozenMemoryRegionT<uint32_t> storage;
-    uint32_t indexBits;
+    FrozenIntegerTable indexes;
     uint32_t numEntries;
     uint64_t firstEntry;
     
