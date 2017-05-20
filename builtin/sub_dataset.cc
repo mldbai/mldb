@@ -17,6 +17,7 @@
 #include <unordered_set>
 #include <mutex>
 #include "mldb/jml/utils/profile.h"
+#include "mldb/server/dataset_utils.h"
 
 using namespace std;
 
@@ -466,16 +467,14 @@ struct SubDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
-        std::vector<ColumnPath> fullColumnNames;
-        fullColumnNames.reserve(mainChunk.columnNames.size());
-        for (const auto& c : mainChunk.columnNames)
-        {
-            fullColumnNames.push_back(ColumnPath(c));
-        }
+        std::vector<ColumnPath> fullColumnNames
+            (mainChunk.columnNames.begin(),
+             mainChunk.columnNames.end());
 
-        return fullColumnNames;
+        return applyOffsetLimit(offset, limit, fullColumnNames);
     }
 
     /** Return the value of the column for all rows and timestamps. */

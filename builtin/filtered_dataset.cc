@@ -160,9 +160,10 @@ struct FilteredDataset::Itl
         return matrixView->knownColumn(column);
     }
 
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
-        return matrixView->getColumnPaths();
+        return matrixView->getColumnPaths(offset, limit);
     }   
 
     virtual size_t getColumnCount() const

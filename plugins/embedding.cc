@@ -27,6 +27,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/bucket.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/server/dataset_utils.h"
 #include <boost/algorithm/clamp.hpp>
 #include "mldb/utils/log.h"
 
@@ -458,13 +459,16 @@ struct EmbeddingDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const override
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const override
     {
         auto repr = committed();
         if (!repr->initialized())
             return {};
-        
-        return repr->columnNames;
+        if (offset == 0 && limit == -1)
+            return repr->columnNames;
+        auto result = repr->columnNames;
+        return applyOffsetLimit(offset, limit, result);
     }
 
     virtual size_t getRowCount() const override

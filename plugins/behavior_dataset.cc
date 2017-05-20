@@ -26,6 +26,7 @@
 #include "mldb/types/map_description.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "behavior/behavior_utils.h"
+#include "mldb/server/dataset_utils.h"
 #include <future>
 
 using namespace std;
@@ -516,12 +517,13 @@ struct BehaviorColumnIndex: public ColumnIndex {
         return index->columnInfo.count(column);
     }
 
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
         std::vector<ColumnPath> result;
-        for (auto col: index->columnInfo)
+        for (auto & col: index->columnInfo)
             result.emplace_back(col.second.columnName);
-        return result;
+        return applyOffsetLimit(offset, limit, result);
     }
 
     virtual std::vector<RowPath>
@@ -651,12 +653,13 @@ struct BehaviorMatrixView: public MatrixView {
         return it->second.columnName;
     }
 
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
         std::vector<ColumnPath> result;
-        for (auto col: kvIndex->columnInfo)
+        for (auto & col: kvIndex->columnInfo)
             result.emplace_back(col.second.columnName);
-        return result;
+        return applyOffsetLimit(offset, limit, result);
     }
 
     virtual size_t getRowCount() const

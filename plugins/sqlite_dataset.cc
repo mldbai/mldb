@@ -416,9 +416,16 @@ struct SqliteSparseDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t start, ssize_t limit) const
     {
-        return runQuery<ColumnPath>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
+        string query = "SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash";
+        if (start != 0)
+            query += " OFFSET " + to_string(start);
+        if (limit != -1)
+            query += " LIMIT " + to_string(limit);
+
+        return runQuery<ColumnPath>(query);
     }
 
     virtual size_t getRowCount() const

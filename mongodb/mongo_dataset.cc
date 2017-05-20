@@ -72,9 +72,9 @@ struct MongoMatrixView : MatrixView {
         throw HttpReturnException(500, "Unimplemented getColumnPath");
     }
 
-    vector<Path> getColumnPaths() const override
+    vector<Path> getColumnPaths(ssize_t first, ssize_t limit) const override
     {
-        return vector<Path>{};
+        throw HttpReturnException(400, "Unimplemented method: getColumnPaths");
     }
 
     size_t getColumnCount() const override
@@ -103,9 +103,9 @@ struct MongoColumnIndex : ColumnIndex {
         return false;
     }
 
-    vector<Path> getColumnPaths() const override
+    vector<Path> getColumnPaths(ssize_t first, ssize_t last) const override
     {
-        return vector<Path>{};
+        throw HttpReturnException(400, "Unimplemented method: getColumnPaths");
     }
 
     vector<Path> getRowPaths(ssize_t start = 0,

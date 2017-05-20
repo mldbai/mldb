@@ -13,6 +13,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/server/dataset_utils.h"
 
 using namespace std;
 
@@ -272,14 +273,21 @@ struct UnionDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual vector<ColumnPath> getColumnPaths() const
+    virtual vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
-        std::set<ColumnPath> preResult;
+        std::vector<ColumnPath> preResult;
         for (const auto & d: datasets) {
             auto columnPaths = d->getColumnPaths();
-            preResult.insert(columnPaths.begin(), columnPaths.end());
+            preResult.insert(preResult.end(),
+                             std::make_move_iterator(columnPaths.begin()),
+                             std::make_move_iterator(columnPaths.end()));
         }
-        return vector<ColumnPath>(preResult.begin(), preResult.end());
+
+        std::sort(preResult.begin(), preResult.end());
+        preResult.erase(std::unique(preResult.begin(), preResult.end()),
+                        preResult.end());
+        return applyOffsetLimit(offset, limit, preResult);
     }
 
     virtual MatrixColumn getColumn(const ColumnPath & columnPath) const

@@ -25,6 +25,7 @@
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/jml/utils/floating_point.h"
 #include "mldb/utils/log.h"
+#include "mldb/server/dataset_utils.h"
 #include <mutex>
 
 using namespace std;
@@ -383,7 +384,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", getColumnPaths());
+                                      "knownColumns", getColumnPaths(0, -1));
         }
 
         MatrixColumn result;
@@ -404,7 +405,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given name",
                                       "columnName", column,
-                                      "knownColumns", getColumnPaths());
+                                      "knownColumns", getColumnPaths(0, -1));
         }
 
         const ColumnEntry & entry = columns[it->second];
@@ -434,7 +435,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given name",
                                       "columnName", column,
-                                      "knownColumns", getColumnPaths());
+                                      "knownColumns", getColumnPaths(0, -1));
         }
 
         std::atomic<size_t> totalRows(0);
@@ -528,15 +529,17 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return columnIndex.count(column.oldHash());
     }
 
-    virtual std::vector<ColumnPath> getColumnPaths() const override
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const override
     {
         std::vector<ColumnPath> result;
         result.reserve(columns.size());
         for (auto & c: columns)
             result.push_back(c.columnName);
-        return result;
-    }
-
+        std::sort(result.begin(), result.end());
+        return applyOffsetLimit(offset, limit, result);
+    }    
+    
     // TODO: we know more than this...
     virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const
     {
@@ -544,7 +547,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnName", columnName,
-                                      "knownColumns", getColumnPaths());
+                                      "knownColumns", getColumnPaths(0, -1));
         }
 
         ColumnTypes types;
@@ -698,7 +701,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnHashIndex.end())
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", getColumnPaths());
+                                      "knownColumns", getColumnPaths(0, -1));
         return columns[it->second].columnName;
     }
 
@@ -713,7 +716,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnPath", column,
-                                      "knownColumns", getColumnPaths());
+                                      "knownColumns", getColumnPaths(0, -1));
         }
 
         stats = ColumnStats();

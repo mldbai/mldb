@@ -21,6 +21,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/utils/compact_vector.h"
+#include "mldb/server/dataset_utils.h"
 #include <functional>
 
 using namespace std;
@@ -320,7 +321,7 @@ struct JoinedDataset::Itl
             cerr << "total of " << columnIndex.size() << " columns and "
                  << rows.size() << " rows returned from join" << endl;
                 
-            cerr << jsonEncode(getColumnPaths());
+            cerr << jsonEncode(getColumnPaths(0, -1));
         }
     }
 
@@ -798,7 +799,8 @@ struct JoinedDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
         std::vector<ColumnPath> result;
 
@@ -808,7 +810,7 @@ struct JoinedDataset::Itl
 
         std::sort(result.begin(), result.end());
 
-        return result;
+        return applyOffsetLimit(offset, limit, result);
     }
 
     /** Return the value of the column for all rows and timestamps. */

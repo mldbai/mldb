@@ -12,6 +12,7 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/server/dataset_utils.h"
 
 using namespace std;
 
@@ -234,7 +235,8 @@ struct TransposedDataset::Itl
         return std::move(col.rows);
     }
 
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
         std::vector<ColumnPath> result;
         result.reserve(matrix->getColumnCount());
@@ -242,7 +244,7 @@ struct TransposedDataset::Itl
         for (auto & c: matrix->getRowPaths())
             result.emplace_back(rowToCol(c));
         
-        return result;
+        return applyOffsetLimit(offset, limit, result);
     }
 
     virtual const ColumnStats &

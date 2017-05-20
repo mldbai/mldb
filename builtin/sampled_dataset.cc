@@ -217,9 +217,10 @@ struct SampledDataset::Itl
         return matrix->getColumnPath(column);
     }
 
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
-        return matrix->getColumnPaths();
+        return matrix->getColumnPaths(offset, limit);
     }
 
     virtual uint64_t getRowColumnCount(const RowPath & row) const
