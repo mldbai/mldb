@@ -19,6 +19,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 
 using namespace std;
@@ -1176,19 +1177,20 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             writer.write(i.second, indexBits);
         }
 
-        if (logger->should_log(spdlog::level::debug)) {
+        if (false) {
             size_t mem = memusage();
             if (mem > 30000) {
                 using namespace std;
-                logger->debug() << "table with " << column.sparseIndexes.size()
-                                << " entries from "
-                                << column.minRowNumber << " to " << column.maxRowNumber
-                                << " and " << table.size()
-                                << " uniques takes " << mem << " memory";
+                cerr << "table with " << column.sparseIndexes.size()
+                     << " entries from "
+                     << column.minRowNumber << " to " << column.maxRowNumber
+                     << " and " << table.size()
+                     << " uniques takes " << mem << " memory" << endl;
                 
                 for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
-                    logger->debug() << "  " << table[i];
+                    cerr << "  " << table[i];
                 }
+                cerr << endl;
             }
         }
 
@@ -2238,7 +2240,6 @@ registerFormat(std::shared_ptr<FrozenColumnFormat> format)
 
 FrozenColumn::
 FrozenColumn()
-    : logger(getMldbLog<TabularDataset>()) // this class is only used by the tabular dataset
 {
 }
 

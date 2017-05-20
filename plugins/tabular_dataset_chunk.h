@@ -12,7 +12,6 @@
 #include "mldb/types/path.h"
 #include "mldb/types/date.h"
 #include "tabular_dataset_column.h"
-#include "mldb/utils/log.h"
 #include "tabular_dataset.h"
 #include <mutex>
 
@@ -35,8 +34,7 @@ struct ExpressionValue;
 struct TabularDatasetChunk: public MappedObject {
 
     TabularDatasetChunk(size_t numColumns = 0)
-        : columns(numColumns),
-          logger(getMldbLog<TabularDataset>())  // this is only used by the tabular dataset
+        : columns(numColumns)
     {
     }
 
@@ -57,7 +55,6 @@ struct TabularDatasetChunk: public MappedObject {
         sparseColumns.swap(other.sparseColumns);
         rowNames.swap(other.rowNames);
         std::swap(timestamps, other.timestamps);
-        logger.swap(other.logger);
     }
 
     size_t rowCount() const
@@ -121,7 +118,6 @@ private:
     std::unordered_map<Path, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
     std::shared_ptr<FrozenColumn> rowNames;
     std::shared_ptr<FrozenColumn> timestamps;
-    std::shared_ptr<spdlog::logger> logger;
 
     friend class TabularDataset;
     friend class MutableTabularDatasetChunk;
