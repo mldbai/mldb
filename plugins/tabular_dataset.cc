@@ -27,6 +27,7 @@
 #include "mldb/utils/log.h"
 #include "mldb/server/dataset_utils.h"
 #include "mldb/arch/bit_range_ops.h"
+#include "mldb/rest/rest_request_binding.h"
 #include <mutex>
 
 using namespace std;
@@ -1073,6 +1074,26 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
+    RestRequestRouter router;
+
+    void initRoutes()
+    {
+        addRouteSyncJsonReturn(router, "/saves", {"POST"},
+                               "Save the dataset to the given artifact",
+                               "Information about the saved artifact",
+                               &TabularDataStore::save,
+                               this,
+                               JsonParam<Url>("dataFileUrl", "URI of artifact to save under"));
+    }
+
+    virtual RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const
+    {
+        return router.processRequest(connection, request, context);
+    }
+
     void finalize(std::vector<TabularDatasetChunk> & inputChunks,
                   uint64_t totalRows)
     {
@@ -1170,6 +1191,46 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                                           "Duplicate column name in tabular dataset",
                                           "columnName", fixedColumns[i]);
         }
+    }
+
+    PolyConfigT<Dataset> save(Url dataFileUrl) const
+    {
+        PolyConfigT<Dataset> result;
+        MLDB::makeUriDirectory(dataFileUrl.toString());
+
+        filter_stream outStream(dataFileUrl);
+
+#if 0
+    // Reading of this data structure is not protected by any lock
+    // Writing is protected by the dataset mutex
+    atomic_shared_ptr<ChunkList> mutableChunks;
+
+    // Everything below here is protected by the dataset lock
+    std::vector<TabularDatasetChunk> frozenChunks;
+
+    // Lets us look up which chunk and row number contains a row
+    PathIndex rowIndex;
+
+    std::string filename;
+    Date earliestTs, latestTs;
+
+    std::mutex datasetMutex;
+
+    TabularDatasetConfig config;
+#endif
+
+
+
+
+
+        PolyConfigT<Dataset> result;
+        result.type = "tabular";
+
+        PersistentDatasetConfig params;
+        params.dataFileUrl = dataFileUrl;
+        result.params = params;
+
+        return result;
     }
 
     /** This is a recorder that allows parallel records from multiple
@@ -1903,7 +1964,12 @@ handleRequest(RestConnection & connection,
               const RestRequest & request,
               RestRequestParsingContext & context) const
 {
-    return Dataset::handleRequest(connection, request, context);
+    RestRequestMatchResult result
+        = itl->handleRequest(connection, request, context);
+    if (result == MR_NO) {
+        result = Dataset::handleRequest(connection, request, context);
+    }
+    return result;
 }
 
 

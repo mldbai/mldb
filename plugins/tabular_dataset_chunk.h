@@ -118,7 +118,7 @@ struct TabularDatasetChunk: public MappedObject {
 
 private:
     std::vector<std::shared_ptr<FrozenColumn> > columns;
-    std::unordered_map<Path, std::shared_ptr<FrozenColumn>, PathNewHasher > sparseColumns;
+    std::unordered_map<Path, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
     std::shared_ptr<FrozenColumn> rowNames;
     std::shared_ptr<FrozenColumn> timestamps;
     std::shared_ptr<spdlog::logger> logger;

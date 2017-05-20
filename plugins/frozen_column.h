@@ -202,7 +202,7 @@ struct MappedSerializer {
 
     /** Allocate a writable block of memory with the given size and
         alignment.  The memory in the block can be written until the
-        commit() method is called.
+        freeze() method is called.
     */
     virtual MutableMemoryRegion
     allocateWritable(uint64_t bytesRequired, size_t alignment) = 0;

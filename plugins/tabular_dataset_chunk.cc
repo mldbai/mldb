@@ -182,6 +182,13 @@ addToColumn(int columnIndex,
     }
 }
 
+void
+TabularDatasetChunk::
+serialize(MappedSerializer & serializer) const
+{
+    
+}
+
 
 /*****************************************************************************/
 /* MUTABLE TABULAR DATASET CHUNK                                             */
