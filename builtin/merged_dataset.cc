@@ -14,6 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/server/dataset_utils.h"
 #include "mldb/utils/log.h"
 #include <thread>
 #include <sstream>
@@ -194,7 +195,7 @@ struct MergedDataset::Itl
 
         DEBUG_MSG(logger) << "merged dataset has " 
                           << this->getRowHashes().size() << " rows and " 
-                          << this->getColumnPaths().size() << " columns";
+                          << this->getColumnPaths(0, -1).size() << " columns";
     }
 
     struct MergedRowStream : public RowStream {
@@ -446,7 +447,8 @@ struct MergedDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
         std::vector<ColumnPath> result;
 
@@ -462,7 +464,7 @@ struct MergedDataset::Itl
         
         columnIndex.forEach(onColumn);
         
-        return result;
+        return applyOffsetLimit(offset, limit, result);
     }
 
 #if 0  // default version in dataset.cc is correct but less efficient

@@ -98,7 +98,8 @@ struct MatrixView {
     virtual ColumnPath getColumnPath(ColumnHash column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const = 0;
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
     /** Return the number of distinct columns known. */
     virtual size_t getColumnCount() const = 0;
@@ -203,7 +204,8 @@ struct ColumnIndex {
     virtual bool knownColumn(const ColumnPath & column) const = 0;
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const = 0;
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
     /** Return the number of rows that have this column set.  Default
         implementation uses getColumnStats.

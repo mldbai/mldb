@@ -110,7 +110,7 @@ getRow(const RowPath & row) const
 
 std::vector<ColumnPath>
 MergedMatrixView::
-getColumnPaths() const
+getColumnPaths(ssize_t offset, ssize_t limit) const
 {
     std::vector<ColumnPath> result;
 
@@ -122,14 +122,14 @@ getColumnPaths() const
     std::sort(result.begin(), result.end());
     result.erase(std::unique(result.begin(), result.end()), result.end());
 
-    return result;
+    return applyOffsetLimit(offset, limit, result);
 }
 
 size_t
 MergedMatrixView::
 getColumnCount() const
 {
-    return getColumnPaths().size();
+    return getColumnPaths(0, -1).size();
 }
 
 bool
@@ -189,7 +189,7 @@ knownColumn(const ColumnPath & column) const
 
 std::vector<ColumnPath>
 MergedColumnIndex::
-getColumnPaths() const
+getColumnPaths(ssize_t offset, ssize_t limit) const
 {
     std::vector<ColumnPath> result;
 
@@ -201,7 +201,7 @@ getColumnPaths() const
     std::sort(result.begin(), result.end());
     result.erase(std::unique(result.begin(), result.end()), result.end());
 
-    return result;
+    return applyOffsetLimit(offset, limit, result);
 }
 
 } // namespace MLDB

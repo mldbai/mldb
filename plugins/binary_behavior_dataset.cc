@@ -26,6 +26,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/utils/profile.h"
 #include "behavior/behavior_utils.h"
+#include "mldb/server/dataset_utils.h"
 #include <future>
 
 
@@ -150,7 +151,8 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         return behs->knownBehavior(BH(column.hash()));
     }
 
-    virtual std::vector<ColumnPath> getColumnPaths() const
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const
     {
         std::vector<ColumnPath> result;
 
@@ -161,11 +163,11 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
             };
         
         behs->forEachBehaviorParallel(onBehavior,
-                                       BehaviorDomain::ALL_BEHAVIORS,
-                                       BehaviorDomain::BS_ID,
-                                       ORDERED);
+                                      BehaviorDomain::ALL_BEHAVIORS,
+                                      BehaviorDomain::BS_ID,
+                                      ORDERED);
         
-        return result;
+        return applyOffsetLimit(offset, limit, result);
     }
 
     virtual std::vector<RowPath>
@@ -390,7 +392,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         else {
             auto info = std::make_shared<BooleanValueInfo>();
             std::vector<KnownColumn> columns;
-            for (auto & c: getColumnPaths()) {
+            for (auto & c: getColumnPaths(0 /* offset */, -1 /* limit */)) {
                 columns.emplace_back(std::move(c), info, COLUMN_IS_SPARSE);
             }
             auto result = std::make_shared<RowValueInfo>(std::move(columns),

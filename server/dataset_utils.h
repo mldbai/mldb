@@ -12,6 +12,29 @@
 
 namespace MLDB {
 
+template<typename T>
+std::vector<T> applyOffsetLimit(ssize_t offset, ssize_t limit,
+                                std::vector<T> & vals)
+{
+    if (offset >= vals.size()) {
+        vals.clear();
+        return std::move(vals);
+    }
+    else {
+        vals.erase(vals.begin(), vals.begin() + offset);
+    }
+    if (limit == -1)
+        return std::move(vals);
+    if (limit >= vals.size()) {
+        vals.clear();
+    }
+    else {
+        vals.erase(vals.begin() + limit, vals.end());
+    }
+    return std::move(vals);
+}
+
+
 /******************************************************************************/
 /* MERGED MATRIX VIEW                                                         */
 /******************************************************************************/
@@ -36,7 +59,7 @@ struct MergedMatrixView : public MatrixView
     MatrixNamedRow getRow(const RowPath & row) const;
 
     bool knownColumn(const ColumnPath & column) const;
-    std::vector<ColumnPath> getColumnPaths() const;
+    std::vector<ColumnPath> getColumnPaths(ssize_t offset, ssize_t limit) const;
     size_t getColumnCount() const;
 
 private:
@@ -59,7 +82,7 @@ struct MergedColumnIndex : public ColumnIndex
 
     MatrixColumn getColumn(const ColumnPath & column) const;
     bool knownColumn(const ColumnPath & column) const;
-    std::vector<ColumnPath> getColumnPaths() const;
+    std::vector<ColumnPath> getColumnPaths(ssize_t offset, ssize_t limit) const;
 
 private:
     std::vector< std::shared_ptr<ColumnIndex> > indexes;

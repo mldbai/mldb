@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** sparse_matrix_dataset.cc
     Jeremy Barnes, 9 February 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of sparseMatrix database.
 */
@@ -20,6 +19,7 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/server/dataset_utils.h"
 #include "mldb/utils/log.h"
 #include <mutex>
 
@@ -728,7 +728,8 @@ struct SparseMatrixDataset::Itl
     }
 
     /** Return a list of all columns. */
-    virtual std::vector<ColumnPath> getColumnPaths() const override
+    virtual std::vector<ColumnPath>
+    getColumnPaths(ssize_t offset, ssize_t limit) const override
     {
         std::vector<ColumnPath> result;
         auto trans = getReadTransaction();
@@ -741,8 +742,7 @@ struct SparseMatrixDataset::Itl
                           });
         
         std::sort(result.begin(), result.end());
-
-        return result;
+        return applyOffsetLimit(offset, limit, result);
     }
 
     virtual KnownColumn
