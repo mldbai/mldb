@@ -1029,7 +1029,7 @@ struct TableFrozenColumn: public FrozenColumn {
         if (rowIndex < firstEntry)
             return result;
         rowIndex -= firstEntry;
-        if (rowIndex >= numEntries)
+        if (rowIndex >= indexes.size())
             return result;
         ExcAssertLess(rowIndex, numEntries);
         uint64_t index = indexes.get(rowIndex);
