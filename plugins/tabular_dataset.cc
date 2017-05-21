@@ -28,7 +28,11 @@
 #include "mldb/server/dataset_utils.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/rest/rest_request_binding.h"
+#include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
+#include "mldb/server/dataset_utils.h"
 #include <mutex>
+
 
 using namespace std;
 
@@ -46,12 +50,6 @@ struct PathIndex;
 
 struct MutablePathIndex {
     static constexpr size_t INDEX_SHARDS=32;
-
-    MutablePathIndex()
-    {
-    }
-
-    MutablePathIndex(const PathIndex & frozen);
 
     struct Recorder {
 
@@ -131,10 +129,6 @@ struct PathIndexShard {
         ExcAssertGreaterEqual(bucket, 0);
         ExcAssertLess(bucket, numEntries);
         return bucket;
-    }
-
-    PathIndexShard()
-    {
     }
 
     void init(MappedSerializer & serializer,
@@ -261,14 +255,14 @@ struct PathIndexShard {
     // Hash is implicit via position in the entry map (we take the top x bits)
     // It returns the chunk number that contains that hash portion
     // linear chaining
-    int chunkBits;
-    int offsetBits;
+    int chunkBits = 0;
+    int offsetBits = 0;
 
     // How many entries are in storage?
-    size_t numEntries;
+    size_t numEntries = 0;
 
     // Factor to multiply by to turn a hash value into an entry number
-    double factor;
+    double factor = 0.0;
 
     // Actual storage for bit-packed values
     FrozenMemoryRegionT<uint32_t> storage;
@@ -306,11 +300,6 @@ struct PathIndex {
     PathIndexShard shards[INDEX_SHARDS];
 };
 
-MutablePathIndex::
-MutablePathIndex(const PathIndex & frozen)
-{
-}
-
 PathIndex
 MutablePathIndex::
 freeze(MappedSerializer & serializer)
@@ -321,8 +310,9 @@ freeze(MappedSerializer & serializer)
     auto onShard = [&] (int shardNumber)
         {
             result.shards[shardNumber]
-                .init(serializer, index[shardNumber],
-                      maxChunkNumber + 1, maxChunkIndex + 1);
+            .init(serializer,
+                  index[shardNumber],
+                  maxChunkNumber + 1, maxChunkIndex + 1);
         };
 
     parallelMap(0, INDEX_SHARDS, onShard);
@@ -339,7 +329,8 @@ freeze(MappedSerializer & serializer)
     column view to the underlying data.
 */
 
-struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
+struct TabularDataset::TabularDataStore
+    : public ColumnIndex, public MatrixView {
 
     // Find the optimal chunk size.  For narrow datasets, we want
     // big chunks because it means less overhead.  However, for
@@ -362,9 +353,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                      shared_ptr<spdlog::logger> logger)
         : server(server),
           serializer("tabular-dataset.dat"),
-          rowCount(0), config(std::move(config)),
-          backgroundJobsActive(0), logger(logger)
+          currentState(std::make_shared<CurrentState>(this, logger)),
+          config(std::move(config)),
+          backgroundJobsActive(0), logger(std::move(logger))
     {
+        ExcAssert(this->logger);
     }
 
     MldbServer * server;
@@ -373,34 +366,520 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     FileSerializer serializer;
     //MemorySerializer serializer;
 
+    /// Provides information about a column
+    struct ColumnEntry {
+        ColumnPath columnName;
+
+        /// The number of non-null values of this row
+        size_t rowCount = 0;
+
+        /// The set of chunks that contain the column.  This may not be all
+        /// chunks for sparse columns.
+        std::vector<std::pair<uint32_t, std::shared_ptr<const FrozenColumn> > > chunks;
+    };
+
+    /// Holds the entire state of the dataset.  Each of these is
+    /// immutable once committed.
+    struct CurrentState
+        : public ColumnIndex, public MatrixView, public Dataset,
+          public std::enable_shared_from_this<CurrentState> {
+
+        CurrentState(TabularDataStore * owner,
+                     shared_ptr<spdlog::logger> logger)
+            : Dataset(owner->server),
+              owner(owner)
+        {
+            this->logger = logger;
+            ExcAssert(this->logger);
+        }
+
+        /// Our owner
+        TabularDataStore * owner;
+
+        /// Lets us look up which chunk and row number contains a row
+        PathIndex rowIndex;
+
+        /// Total number of rows in the dataset
+        int64_t rowCount = 0;
+
+        /// This indexes column names to their index, using new (fast) hash
+        Lightweight_Hash<uint64_t, int> columnIndex;
+
+        /// Same index, but using the old (slow) hash.  Useful only for when
+        /// we are forced to lookup on ColumnHash.
+        Lightweight_Hash<ColumnHash, int> columnHashIndex;
+
+        /// List of all columns in the dataset
+        std::vector<ColumnEntry> columns;
+    
+        /// List of all chunks in the dataset
+        std::vector<std::shared_ptr<const TabularDatasetChunk> > chunks;
+
+        Date earliestTs = Date::positiveInfinity();
+        Date  latestTs = Date::negativeInfinity();
+
+        virtual Any getStatus() const override
+        {
+            Json::Value status;
+            status["rowCount"] = rowCount;
+            status["columnCount"] = columns.size();
+            return status;
+        }
+
+        virtual std::shared_ptr<MatrixView>
+        getMatrixView() const
+        {
+            auto thisPtr = this->shared_from_this();
+            std::shared_ptr<const MatrixView> viewPtr
+                = thisPtr;
+           return std::const_pointer_cast<MatrixView>(viewPtr);
+        }
+
+        virtual std::shared_ptr<ColumnIndex>
+        getColumnIndex() const
+        {
+            auto thisPtr = this->shared_from_this();
+            std::shared_ptr<const ColumnIndex> indexPtr
+                = thisPtr;
+            return std::const_pointer_cast<ColumnIndex>(indexPtr);
+        }
+
+        // Return the value of the column for all rows
+        virtual MatrixColumn getColumn(const ColumnPath & column) const override
+        {
+            auto it = columnIndex.find(column.oldHash());
+            if (it == columnIndex.end()) {
+                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                                          "columnHash", column,
+                                          "knownColumns", getColumnPaths(0, -1));
+            }
+        
+            MatrixColumn result;
+            result.columnHash = result.columnName = column;
+
+            for (auto & c: columns[it->second].chunks) {
+                chunks.at(c.first)->addToColumn(it->second, column, result.rows,
+                                                false /* dense */);
+            }
+        
+            return result;
+        }
+
+        virtual std::vector<CellValue>
+        getColumnDense(const ColumnPath & column) const override
+        {
+            auto it = columnIndex.find(column.oldHash());
+            if (it == columnIndex.end()) {
+                throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                                          "columnName", column,
+                                          "knownColumns", getColumnPaths(0, -1));
+            }
+
+            const ColumnEntry & entry = columns[it->second];
+
+            std::vector<CellValue> result;
+            result.reserve(entry.rowCount);
+
+            // Go through each chunk with a non-null value
+            for (auto & c: entry.chunks) {
+                auto onValue = [&] (size_t n, CellValue val)
+                    {
+                        if (!val.empty())
+                            result.emplace_back(std::move(val));
+                        return true;
+                    };
+            
+                c.second->forEach(onValue);
+            }
+        
+            return result;
+        }
+
+        virtual std::tuple<BucketList, BucketDescriptions>
+        getColumnBuckets(const ColumnPath & column, int maxNumBuckets) const override
+        {
+            auto it = columnIndex.find(column.oldHash());
+            if (it == columnIndex.end()) {
+                throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                                          "columnName", column,
+                                          "knownColumns", getColumnPaths(0, -1));
+            }
+
+            std::atomic<size_t> totalRows(0);
+
+            std::vector<std::vector<double> > numerics(chunks.size());
+            std::vector<std::vector<Utf8String> > strings(chunks.size());
+            std::atomic<bool> hasNulls(false);
+
+            auto onChunk = [&] (size_t i)
+                {
+                    auto onValue = [&] (const CellValue & val)
+                    {
+                        if (val.empty()) {
+                            if (!hasNulls)
+                                hasNulls = true;
+                        }
+                        else if (val.isNumber()) {
+                            numerics[i].emplace_back(val.toDouble());
+                        }
+                        else if (val.isString()) {
+                            strings[i].emplace_back(val.toUtf8String());
+                        }
+                        else {
+                            throw HttpReturnException
+                            (400, "Can only bucketize numbers and strings, not "
+                             + jsonEncodeStr(val));
+                        }
+                        return true;
+                    };
+
+                    chunks[i]->getColumnByIndex(it->second).forEachDistinctValue(onValue);
+                
+                    totalRows += chunks[i]->rowCount();
+                };
+        
+            parallelMap(0, chunks.size(), onChunk);
+
+            DEBUG_MSG(logger) << chunks.size() << " chunks and " << totalRows << " rows";
+
+            auto sortedNumerics = parallelMergeSortUnique(numerics, ML::safe_less<double>());
+            auto sortedStrings = parallelMergeSortUnique(strings);
+
+            BucketDescriptions desc;
+            desc.initialize(hasNulls,
+                            std::move(sortedNumerics),
+                            std::move(sortedStrings),
+                            maxNumBuckets);
+
+            WritableBucketList buckets(totalRows, desc.numBuckets());
+
+            size_t numWritten = 0;
+
+            auto onChunk2 = [&] (size_t i)
+                {
+
+                    auto onRow = [&] (size_t rowNum, const CellValue & val)
+                    {
+                        uint32_t bucket = desc.getBucket(val);
+                        buckets.write(bucket);
+                        ++numWritten;
+                        return true;
+                    };
+                
+                    chunks[i]->columns[it->second]->forEachDense(onRow);
+                };
+        
+            for (size_t i = 0;  i < chunks.size();  ++i)
+                onChunk2(i);
+
+            if (numWritten != totalRows) {
+                throw HttpReturnException
+                    (500, "Column " + column.toUtf8String()
+                     + " had wrong number written ("
+                     + to_string(numWritten) + " vs " + to_string(totalRows)
+                     + "); internal error (contact support with your script and "
+                     + "dataset if possible");
+            }
+
+            ExcAssertEqual(numWritten, totalRows);
+
+            return std::make_tuple(std::move(buckets), std::move(desc));
+        }
+
+        virtual uint64_t getColumnRowCount(const ColumnPath & column) const override
+        {
+            return rowCount;
+        }
+
+        virtual bool knownColumn(const ColumnPath & column) const override
+        {
+            return columnIndex.count(column.oldHash());
+        }
+
+        virtual std::vector<ColumnPath>
+        getColumnPaths(ssize_t offset, ssize_t limit) const override
+        {
+            std::vector<ColumnPath> result;
+            result.reserve(columns.size());
+            for (auto & c: columns)
+                result.push_back(c.columnName);
+            std::sort(result.begin(), result.end());
+            return applyOffsetLimit(offset, limit, result);
+        }
+
+        // TODO: we know more than this...
+        virtual KnownColumn
+        getKnownColumnInfo(const ColumnPath & columnName) const
+        {
+            auto it = columnIndex.find(columnName.oldHash());
+            if (it == columnIndex.end()) {
+                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                                          "columnName", columnName,
+                                          "knownColumns", getColumnPaths(0, -1));
+            }
+
+            ColumnTypes types;
+
+            const ColumnEntry & entry = columns.at(it->second);
+
+            // Go through each chunk with a non-null value
+            for (auto & c: entry.chunks) {
+                types.update(c.second->getColumnTypes());
+            }
+
+            ExcAssert(this->logger);
+
+            DEBUG_MSG(logger) << "knownColumnInfo for " << columnName << " is "
+                              << jsonEncodeStr(types.getExpressionValueInfo());
+            //DEBUG_MSG(logger) << "hasNulls = " << types.hasNulls << endl;
+            //DEBUG_MSG(logger) << "hasIntegers = " << types.hasIntegers << endl;
+            DEBUG_MSG(logger) << "minNegativeInteger = " << types.minNegativeInteger;
+            DEBUG_MSG(logger) << "maxPositiveInteger = " << types.maxPositiveInteger;
+            //DEBUG_MSG(logger) << "hasReals = " << types.hasReals << endl;
+            //DEBUG_MSG(logger) << "hasStrings = " << types.hasStrings << endl;
+            //DEBUG_MSG(logger) << "hasOther = " << types.hasOther << endl;
+
+            return KnownColumn(columnName, types.getExpressionValueInfo(),
+                               COLUMN_IS_DENSE);
+        }
+
+        template<typename T>
+        std::vector<T>
+        getRowPathsT(ssize_t start, ssize_t limit) const
+        {
+            std::vector<T> result;
+            if (limit == -1)
+                result.reserve(std::min<ssize_t>(0, rowCount - start));
+            else result.reserve(limit);
+
+            size_t n = 0;
+            for (size_t chunk = 0;  chunk < chunks.size();
+                 n += chunks[chunk++]->rowCount()) {
+                const TabularDatasetChunk & c = *chunks[chunk];
+
+                if (limit != -1 && n >= start + limit)
+                    break;
+                if (n + c.rowCount() < start)
+                    continue;
+
+                size_t chunkStart = std::max<ssize_t>(0, start - n);
+                size_t chunkEnd = c.rowCount();
+                if (limit != -1)
+                    chunkEnd = std::min<size_t>(chunkEnd, chunkStart + limit);
+
+                for (size_t i = chunkStart;  i < chunkEnd;  ++i) {
+                    result.emplace_back(c.getRowPath(i));
+                }
+            }
+
+            return result;
+        }
+
+        virtual std::vector<RowPath>
+        getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
+        {
+            return getRowPathsT<RowPath>(start, limit);
+        }
+
+        virtual std::vector<RowHash>
+        getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
+        {
+            return getRowPathsT<RowHash>(start, limit);
+        }
+
+        std::pair<int, int> tryLookupRow(const RowPath & rowName) const
+        {
+            auto chunks = rowIndex.pathPossibleChunks(rowName);
+            for (auto & c: chunks) {
+                int chunkNumber = c.first;
+                int indexInChunk = c.second;
+
+                Path storage;
+                if (indexInChunk < this->chunks[chunkNumber]->rowCount()
+                    && this->chunks[chunkNumber]->getRowPath(indexInChunk, storage)
+                    == rowName)
+                    return {chunkNumber, indexInChunk};
+            }
+            return {-1,-1};
+        }
+    
+        std::pair<int, int> lookupRow(const RowPath & rowName) const
+        {
+            auto result = tryLookupRow(rowName);
+            if (result.first == -1)
+                throw HttpReturnException
+                    (400, "Row not found in tabular dataset: "
+                     + rowName.toUtf8String(),
+                     "rowName", rowName);
+            return result;
+        }
+
+        std::pair<int, int> lookupRow(const RowHash & rowHash) const
+        {
+            auto chunks = rowIndex.pathPossibleChunks(rowHash);
+            for (auto & c: chunks) {
+                int chunkNumber = c.first;
+                int indexInChunk = c.second;
+
+                Path storage;
+                if (indexInChunk < this->chunks[chunkNumber]->rowCount()
+                    && this->chunks[chunkNumber]
+                    ->getRowPath(indexInChunk, storage).hash()
+                    == rowHash.hash())
+                    return {chunkNumber, indexInChunk};
+            }
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset");
+        }
+
+        virtual bool knownRow(const RowPath & rowName) const override
+        {
+            int chunkIndex;
+            int rowIndex;
+
+            std::tie(chunkIndex, rowIndex) = tryLookupRow(rowName);
+            return chunkIndex >= 0;
+        }
+
+        virtual MatrixNamedRow getRow(const RowPath & rowName) const override
+        {
+            MatrixNamedRow result;
+            result.rowHash = rowName;
+            result.rowName = rowName;
+
+            int chunkNumber;
+            int rowInChunk;
+            std::tie(chunkNumber, rowInChunk)
+                = lookupRow(rowName);
+
+            result.columns
+                = chunks.at(chunkNumber)
+                ->getRow(rowInChunk, owner->fixedColumns);
+            return result;
+        }
+
+        virtual ExpressionValue getRowExpr(const RowPath & rowName) const
+        {
+            int chunkNumber;
+            int rowInChunk;
+            std::tie(chunkNumber, rowInChunk)
+                = lookupRow(rowName);
+
+            return chunks.at(chunkNumber)
+                ->getRowExpr(rowInChunk, owner->fixedColumns);
+        }
+
+        virtual RowPath getRowPath(const RowHash & rowHash) const override
+        {
+            int chunkNumber;
+            int rowInChunk;
+            std::tie(chunkNumber, rowInChunk)
+                = lookupRow(rowHash);
+            return chunks.at(chunkNumber)
+                ->getRowPath(rowInChunk);
+        }
+
+        virtual ColumnPath getColumnPath(ColumnHash column) const override
+        {
+            auto it = columnHashIndex.find(column);
+            if (it == columnHashIndex.end())
+                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                                          "columnHash", column,
+                                          "knownColumns", getColumnPaths(0, -1));
+            return columns[it->second].columnName;
+        }
+
+        virtual const ColumnStats &
+        getColumnStats(const ColumnPath & column, ColumnStats & stats) const override
+        {
+            // WARNING: we don't calculate the correct value here; we don't
+            // correctly record the row counts.  We should probably remove it
+            // from the interface, since it's hard for any dataset to get it
+            // right.
+            auto it = columnIndex.find(column.oldHash());
+            if (it == columnIndex.end()) {
+                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                                          "columnPath", column,
+                                          "knownColumns", getColumnPaths(0, -1));
+            }
+
+            stats = ColumnStats();
+
+            bool isNumeric = true;
+
+            for (auto & c: columns.at(it->second).chunks) {
+
+                auto onValue = [&] (const CellValue & value)
+                    {
+                        if (!value.isNumber())
+                            isNumeric = false;
+                        stats.values[value].rowCount_ += 1;
+                        return true;
+                    };
+                                
+                c.second->forEachDistinctValue(onValue);
+            }
+
+            stats.isNumeric_ = isNumeric && !chunks.empty();
+            stats.rowCount_ = rowCount;
+            return stats;
+        }
+
+        virtual size_t getRowCount() const override
+        {
+            return rowCount;
+        }
+
+        virtual size_t getColumnCount() const override
+        {
+            return columns.size();
+        }
+
+        virtual std::pair<Date, Date> getTimestampRange() const
+        {
+            return { earliestTs, latestTs };
+        }
+
+        virtual GenerateRowsWhereFunction
+        generateRowsWhere(const SqlBindingScope & context,
+                          const Utf8String& alias,
+                          const SqlExpression & where,
+                          ssize_t offset,
+                          ssize_t limit) const
+        {
+            GenerateRowsWhereFunction result;
+            return result;
+        }
+    };
+
     /** A stream of row names used to incrementally query available rows
         without creating an entire list in memory.
     */
     struct TabularDataStoreRowStream : public RowStream {
 
-        TabularDataStoreRowStream(TabularDataStore * store)
-            : store(store)
+        TabularDataStoreRowStream(std::shared_ptr<const CurrentState> state)
+            : state(state)
         {
         }
 
         virtual std::shared_ptr<RowStream> clone() const override
         {
-            return std::make_shared<TabularDataStoreRowStream>(store);
+            return std::make_shared<TabularDataStoreRowStream>(state);
         }
 
         virtual void initAt(size_t start) override
         {
             size_t sum = 0;
-            chunkiter = store->chunks.begin();
-            while (chunkiter != store->chunks.end()
-                   && start >= sum + chunkiter->rowCount())  {
-                sum += chunkiter->rowCount();
+            chunkiter = state->chunks.begin();
+            while (chunkiter != state->chunks.end()
+                   && start >= sum + (*chunkiter)->rowCount())  {
+                sum += (*chunkiter)->rowCount();
                 ++chunkiter;
             }
 
-            if (chunkiter != store->chunks.end()) {
+            if (chunkiter != state->chunks.end()) {
                 rowIndex = (start - sum);
-                rowCount = chunkiter->rowCount();
+                rowCount = (*chunkiter)->rowCount();
             }
         }
 
@@ -417,16 +896,16 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 streamOffsets->clear();
 
             ssize_t startAt = 0;
-            for (auto it = store->chunks.begin();  it != store->chunks.end();
+            for (auto it = state->chunks.begin();  it != state->chunks.end();
                  ++it) {
                 if (streamOffsets)
                     streamOffsets->push_back(startAt);
-                startAt += it->rowCount();
+                startAt += (*it)->rowCount();
 
-                auto stream = std::make_shared<TabularDataStoreRowStream>(store);
+                auto stream = std::make_shared<TabularDataStoreRowStream>(state);
                 stream->chunkiter = it;
                 stream->rowIndex = 0;
-                stream->rowCount = it->rowCount();
+                stream->rowCount = (*it)->rowCount();
 
                 streams.emplace_back(stream);
             }
@@ -435,9 +914,6 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 streamOffsets->push_back(startAt);
 
             ExcAssertEqual(startAt, rowStreamTotalRows);
-
-            DEBUG_MSG(store->logger) << "returned " << streams.size() << " streams with offsets "
-                                     << jsonEncode(*streamOffsets);
 
             return streams;
         }
@@ -449,7 +925,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         virtual const RowPath & rowName(RowPath & storage) const override
         {
-            return chunkiter->getRowPath(rowIndex, storage);
+            return (*chunkiter)->getRowPath(rowIndex, storage);
         }
 
         virtual RowPath next() override
@@ -468,9 +944,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             rowIndex++;
             if (rowIndex == rowCount) {
                 ++chunkiter;
-                if (chunkiter != store->chunks.end()) {
+                if (chunkiter != state->chunks.end()) {
                     rowIndex = 0;
-                    rowCount = chunkiter->rowCount();
+                    rowCount = (*chunkiter)->rowCount();
                     ExcAssertGreater(rowCount, 0);
                 }
             }
@@ -496,8 +972,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             std::vector<int> columnIndexes;
             columnIndexes.reserve(columnNames.size());
             for (auto & c: columnNames) {
-                auto it = store->columnIndex.find(c.oldHash());
-                if (it == store->columnIndex.end()) {
+                auto it = state->columnIndex.find(c.oldHash());
+                if (it == state->columnIndex.end()) {
                     columnIndexes.emplace_back(-1);
                 }
                 else {
@@ -512,8 +988,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 columns.reserve(columnNames.size());
                 for (size_t i = 0;  i < columnNames.size();  ++i) {
                     columns.push_back
-                        (chunkiter->maybeGetColumn(columnIndexes[i],
-                                                   columnNames[i]));
+                        ((*chunkiter)->maybeGetColumn(columnIndexes[i],
+                                                      columnNames[i]));
                     if (!columns.back())
                         throw HttpReturnException
                             (400,
@@ -555,48 +1031,12 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             return extractT<CellValue>(numValues, columnNames, output);
         }
 
-        TabularDataStore* store;
-        std::vector<TabularDatasetChunk>::const_iterator chunkiter;
+        std::shared_ptr<const CurrentState> state;
+        std::vector<std::shared_ptr<const TabularDatasetChunk> >
+            ::const_iterator chunkiter;
         size_t rowIndex;   ///< Number of row within this chunk
         size_t rowCount;   ///< Total number of rows within this chunk
     };
-
-    int64_t rowCount;
-
-    /// This indexes column names to their index, using new (fast) hash
-    Lightweight_Hash<uint64_t, int> columnIndex;
-
-    /// Same index, but using the old (slow) hash.  Useful only for when
-    /// we are forced to lookup on ColumnHash.
-    Lightweight_Hash<ColumnHash, int> columnHashIndex;
-
-    struct ColumnEntry {
-        ColumnEntry()
-            : rowCount(0)
-        {
-        }
-
-        ColumnPath columnName;
-
-        /// The number of non-null values of this row
-        size_t rowCount;
-
-        /// The set of chunks that contain the column.  This may not be all
-        /// chunks for sparse columns.
-        std::vector<std::pair<uint32_t, std::shared_ptr<const FrozenColumn> > > chunks;
-    };
-
-    /// List of all columns in the dataset
-    std::vector<ColumnEntry> columns;
-    
-    /// List of the names of the fixed columns in the dataset
-    std::vector<ColumnPath> fixedColumns;
-
-    /// Index of just the fixed columns
-    Lightweight_Hash<uint64_t, int> fixedColumnIndex;
-
-    /// List of all chunks in the dataset
-    std::vector<TabularDatasetChunk> chunks;
 
     /** This structure handles a list of chunks that allows for them to be
         recorded in parallel.  It's used for the old recordRow interface.
@@ -658,423 +1098,146 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     // Writing is protected by the dataset mutex
     atomic_shared_ptr<ChunkList> mutableChunks;
 
-    // Everything below here is protected by the dataset lock
-    std::vector<TabularDatasetChunk> frozenChunks;
+    /// Holds the current state of everything.  Writing is protected
+    /// by the datasetMutex; reading is unprotected as it's constant
+    atomic_shared_ptr<const CurrentState> currentState;
 
-    // Lets us look up which chunk and row number contains a row
-    PathIndex rowIndex;
-
-    std::string filename;
-    Date earliestTs, latestTs;
-
+    /// Everything below here is protected by the dataset lock
+    /// Mutex to make changes in the current state
     std::mutex datasetMutex;
 
+    /// List of the names of the fixed columns in the dataset.  This is
+    /// set on the first time a row is added or in initialization and is
+    /// immutable afterwards.
+    std::vector<ColumnPath> fixedColumns;
+
+    /// Index of just the fixed columns, to look them up by hash
+    Lightweight_Hash<uint64_t, int> fixedColumnIndex;
+
+    /// All chunks we've added but haven't yet committed
+    std::vector<std::shared_ptr<TabularDatasetChunk> > frozenChunks;
+
+    /// Configuration passed in.  Constant after initialization.
     TabularDatasetConfig config;
+
+    /// The number of background jobs that we're currently waiting for
+    std::atomic<size_t> backgroundJobsActive;
+
+    /// Logger instance for this class
+    shared_ptr<spdlog::logger> logger;
+
+    /// Handler for special routes called on this dataset
+    RestRequestRouter router;
 
     // Return the value of the column for all rows
     virtual MatrixColumn getColumn(const ColumnPath & column) const override
     {
-        auto it = columnIndex.find(column.oldHash());
-        if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
-                                      "columnHash", column,
-                                      "knownColumns", getColumnPaths(0, -1));
-        }
-        
-        MatrixColumn result;
-        result.columnHash = result.columnName = column;
-
-        for (auto & c: columns[it->second].chunks) {
-            chunks.at(c.first).addToColumn(it->second, column, result.rows,
-                                           false /* dense */);
-        }
-        
-        return result;
+        return currentState.load()->getColumn(column);
     }
 
     virtual std::vector<CellValue>
     getColumnDense(const ColumnPath & column) const override
     {
-        auto it = columnIndex.find(column.oldHash());
-        if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "Tabular dataset contains no column with given name",
-                                      "columnName", column,
-                                      "knownColumns", getColumnPaths(0, -1));
-        }
-
-        const ColumnEntry & entry = columns[it->second];
-
-        std::vector<CellValue> result;
-        result.reserve(entry.rowCount);
-
-        // Go through each chunk with a non-null value
-        for (auto & c: entry.chunks) {
-            auto onValue = [&] (size_t n, CellValue val)
-                {
-                    if (!val.empty())
-                        result.emplace_back(std::move(val));
-                    return true;
-                };
-            
-            c.second->forEach(onValue);
-        }
-        
-        return result;
+        return currentState.load()->getColumnDense(column);
     }
 
     virtual std::tuple<BucketList, BucketDescriptions>
-    getColumnBuckets(const ColumnPath & column, int maxNumBuckets) const override
+    getColumnBuckets(const ColumnPath & column,
+                     int maxNumBuckets) const override
     {
-        auto it = columnIndex.find(column.oldHash());
-        if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "Tabular dataset contains no column with given name",
-                                      "columnName", column,
-                                      "knownColumns", getColumnPaths(0, -1));
-        }
-
-        std::atomic<size_t> totalRows(0);
-
-        std::vector<std::vector<double> > numerics(chunks.size());
-        std::vector<std::vector<Utf8String> > strings(chunks.size());
-        std::atomic<bool> hasNulls(false);
-
-        auto onChunk = [&] (size_t i)
-            {
-                auto onValue = [&] (const CellValue & val)
-                {
-                    if (val.empty()) {
-                        if (!hasNulls)
-                            hasNulls = true;
-                    }
-                    else if (val.isNumber()) {
-                        numerics[i].emplace_back(val.toDouble());
-                    }
-                    else if (val.isString()) {
-                        strings[i].emplace_back(val.toUtf8String());
-                    }
-                    else {
-                        throw HttpReturnException
-                        (400, "Can only bucketize numbers and strings, not "
-                         + jsonEncodeStr(val));
-                    }
-                    return true;
-                };
-
-                chunks[i].getColumnByIndex(it->second).forEachDistinctValue(onValue);
-                
-                totalRows += chunks[i].rowCount();
-            };
-        
-        parallelMap(0, chunks.size(), onChunk);
-
-        DEBUG_MSG(logger) << chunks.size() << " chunks and " << totalRows << " rows";
-
-        auto sortedNumerics = parallelMergeSortUnique(numerics, ML::safe_less<double>());
-        auto sortedStrings = parallelMergeSortUnique(strings);
-
-        BucketDescriptions desc;
-        desc.initialize(hasNulls,
-                        std::move(sortedNumerics),
-                        std::move(sortedStrings),
-                        maxNumBuckets);
-
-        WritableBucketList buckets(totalRows, desc.numBuckets());
-
-        size_t numWritten = 0;
-
-        auto onChunk2 = [&] (size_t i)
-            {
-
-                auto onRow = [&] (size_t rowNum, const CellValue & val)
-                {
-                    uint32_t bucket = desc.getBucket(val);
-                    buckets.write(bucket);
-                    ++numWritten;
-                    return true;
-                };
-                
-                chunks[i].columns[it->second]->forEachDense(onRow);
-            };
-        
-        for (size_t i = 0;  i < chunks.size();  ++i)
-            onChunk2(i);
-
-        if (numWritten != totalRows) {
-            throw HttpReturnException
-                (500, "Column " + column.toUtf8String()
-                 + " had wrong number written ("
-                 + to_string(numWritten) + " vs " + to_string(totalRows)
-                 + "); internal error (contact support with your script and "
-                 + "dataset if possible");
-        }
-
-        ExcAssertEqual(numWritten, totalRows);
-
-        return std::make_tuple(std::move(buckets), std::move(desc));
+        return currentState.load()->getColumnBuckets(column, maxNumBuckets);
     }
 
-    virtual uint64_t getColumnRowCount(const ColumnPath & column) const override
+    virtual uint64_t
+    getColumnRowCount(const ColumnPath & column) const override
     {
-        return rowCount;
+        return currentState.load()->getColumnRowCount(column);
     }
 
     virtual bool knownColumn(const ColumnPath & column) const override
     {
-        return columnIndex.count(column.oldHash());
+        return currentState.load()->knownColumn(column);
     }
 
     virtual std::vector<ColumnPath>
     getColumnPaths(ssize_t offset, ssize_t limit) const override
     {
-        std::vector<ColumnPath> result;
-        result.reserve(columns.size());
-        for (auto & c: columns)
-            result.push_back(c.columnName);
-        std::sort(result.begin(), result.end());
-        return applyOffsetLimit(offset, limit, result);
-    }    
-    
-    // TODO: we know more than this...
-    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const
-    {
-        auto it = columnIndex.find(columnName.oldHash());
-        if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
-                                      "columnName", columnName,
-                                      "knownColumns", getColumnPaths(0, -1));
-        }
-
-        ColumnTypes types;
-
-        const ColumnEntry & entry = columns.at(it->second);
-
-        // Go through each chunk with a non-null value
-        for (auto & c: entry.chunks) {
-            types.update(c.second->getColumnTypes());
-        }
-
-        DEBUG_MSG(logger) << "knownColumnInfo for " << columnName << " is "
-             << jsonEncodeStr(types.getExpressionValueInfo());
-        //DEBUG_MSG(logger) << "hasNulls = " << types.hasNulls << endl;
-        //DEBUG_MSG(logger) << "hasIntegers = " << types.hasIntegers << endl;
-        DEBUG_MSG(logger) << "minNegativeInteger = " << types.minNegativeInteger;
-        DEBUG_MSG(logger) << "maxPositiveInteger = " << types.maxPositiveInteger;
-        //DEBUG_MSG(logger) << "hasReals = " << types.hasReals << endl;
-        //DEBUG_MSG(logger) << "hasStrings = " << types.hasStrings << endl;
-        //DEBUG_MSG(logger) << "hasOther = " << types.hasOther << endl;
-
-        return KnownColumn(columnName, types.getExpressionValueInfo(),
-                           COLUMN_IS_DENSE);
+        return currentState.load()->getColumnPaths(offset, limit);
     }
 
-    template<typename T>
-    std::vector<T>
-    getRowPathsT(ssize_t start, ssize_t limit) const
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const
     {
-        std::vector<T> result;
-        if (limit == -1)
-            result.reserve(std::min<ssize_t>(0, rowCount - start));
-        else result.reserve(limit);
-
-        size_t n = 0;
-        for (size_t chunk = 0;  chunk < chunks.size();
-             n += chunks[chunk++].rowCount()) {
-            const TabularDatasetChunk & c = chunks[chunk];
-
-            if (limit != -1 && n >= start + limit)
-                break;
-            if (n + c.rowCount() < start)
-                continue;
-
-            size_t chunkStart = std::max<ssize_t>(0, start - n);
-            size_t chunkEnd = c.rowCount();
-            if (limit != -1)
-                chunkEnd = std::min<size_t>(chunkEnd, chunkStart + limit);
-
-            for (size_t i = chunkStart;  i < chunkEnd;  ++i) {
-                result.emplace_back(c.getRowPath(i));
-            }
-        }
-
-        return result;
+        return currentState.load()->getKnownColumnInfo(columnName);
     }
 
     virtual std::vector<RowPath>
     getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
-        return getRowPathsT<RowPath>(start, limit);
+        return currentState.load()->getRowPaths(start, limit);
     }
 
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
-        return getRowPathsT<RowHash>(start, limit);
-    }
-
-    std::pair<int, int> tryLookupRow(const RowPath & rowName) const
-    {
-        auto chunks = rowIndex.pathPossibleChunks(rowName);
-        for (auto & c: chunks) {
-            int chunkNumber = c.first;
-            int indexInChunk = c.second;
-
-            Path storage;
-            if (indexInChunk < this->chunks[chunkNumber].rowCount()
-                && this->chunks[chunkNumber].getRowPath(indexInChunk, storage)
-                   == rowName)
-                return {chunkNumber, indexInChunk};
-        }
-        return {-1,-1};
-    }
-    
-    std::pair<int, int> lookupRow(const RowPath & rowName) const
-    {
-        auto result = tryLookupRow(rowName);
-        if (result.first == -1)
-            throw HttpReturnException
-                (400, "Row not found in tabular dataset: "
-                 + rowName.toUtf8String(),
-                 "rowName", rowName);
-        return result;
-    }
-
-    std::pair<int, int> lookupRow(const RowHash & rowHash) const
-    {
-        auto chunks = rowIndex.pathPossibleChunks(rowHash);
-        for (auto & c: chunks) {
-            int chunkNumber = c.first;
-            int indexInChunk = c.second;
-
-            Path storage;
-            if (indexInChunk < this->chunks[chunkNumber].rowCount()
-                && this->chunks[chunkNumber]
-                      .getRowPath(indexInChunk, storage).hash()
-                == rowHash.hash())
-                return {chunkNumber, indexInChunk};
-        }
-        throw HttpReturnException
-            (400, "Row not found in tabular dataset");
+        return currentState.load()->getRowHashes(start, limit);
     }
 
     virtual bool knownRow(const RowPath & rowName) const override
     {
-        int chunkIndex;
-        int rowIndex;
-
-        std::tie(chunkIndex, rowIndex) = tryLookupRow(rowName);
-        return chunkIndex >= 0;
+        return currentState.load()->knownRow(rowName);
     }
 
     virtual MatrixNamedRow getRow(const RowPath & rowName) const override
     {
-        MatrixNamedRow result;
-        result.rowHash = rowName;
-        result.rowName = rowName;
-
-        int chunkNumber;
-        int rowInChunk;
-        std::tie(chunkNumber, rowInChunk)
-            = lookupRow(rowName);
-
-        result.columns
-            = chunks.at(chunkNumber)
-            .getRow(rowInChunk, fixedColumns);
-        return result;
+        return currentState.load()->getRow(rowName);
     }
 
     virtual ExpressionValue getRowExpr(const RowPath & rowName) const
     {
-        int chunkNumber;
-        int rowInChunk;
-        std::tie(chunkNumber, rowInChunk)
-            = lookupRow(rowName);
-
-        return chunks.at(chunkNumber)
-            .getRowExpr(rowInChunk, fixedColumns);
+        return currentState.load()->getRowExpr(rowName);
     }
 
     virtual RowPath getRowPath(const RowHash & rowHash) const override
     {
-        int chunkNumber;
-        int rowInChunk;
-        std::tie(chunkNumber, rowInChunk)
-            = lookupRow(rowHash);
-        return chunks.at(chunkNumber)
-            .getRowPath(rowInChunk);
+        return currentState.load()->getRowPath(rowHash);
     }
 
     virtual ColumnPath getColumnPath(ColumnHash column) const override
     {
-        auto it = columnHashIndex.find(column);
-        if (it == columnHashIndex.end())
-            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
-                                      "columnHash", column,
-                                      "knownColumns", getColumnPaths(0, -1));
-        return columns[it->second].columnName;
+        return currentState.load()->getColumnPath(column);
     }
 
     virtual const ColumnStats &
     getColumnStats(const ColumnPath & column, ColumnStats & stats) const override
     {
-        // WARNING: we don't calculate the correct value here; we don't
-        // correctly record the row counts.  We should probably remove it
-        // from the interface, since it's hard for any dataset to get it
-        // right.
-        auto it = columnIndex.find(column.oldHash());
-        if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
-                                      "columnPath", column,
-                                      "knownColumns", getColumnPaths(0, -1));
-        }
-
-        stats = ColumnStats();
-
-        bool isNumeric = true;
-
-        for (auto & c: columns.at(it->second).chunks) {
-
-            auto onValue = [&] (const CellValue & value)
-                {
-                    if (!value.isNumber())
-                        isNumeric = false;
-                    stats.values[value].rowCount_ += 1;
-                    return true;
-                };
-                                
-            c.second->forEachDistinctValue(onValue);
-        }
-
-        stats.isNumeric_ = isNumeric && !chunks.empty();
-        stats.rowCount_ = rowCount;
-        return stats;
+        return currentState.load()->getColumnStats(column, stats);
     }
 
     virtual size_t getRowCount() const override
     {
-        return rowCount;
+        return currentState.load()->getRowCount();
     }
 
     virtual size_t getColumnCount() const override
     {
-        return columns.size();
+        return currentState.load()->getColumnCount();
     }
 
     virtual std::pair<Date, Date> getTimestampRange() const
     {
-        return { earliestTs, latestTs };
+        return currentState.load()->getTimestampRange();
     }
 
-    GenerateRowsWhereFunction
+    virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
+                      const Utf8String & alias,
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const
     {
-        GenerateRowsWhereFunction result;
-        return result;
+        return currentState.load()
+            ->generateRowsWhere(context, alias, where, offset, limit);
     }
-
-    RestRequestRouter router;
 
     void initRoutes()
     {
@@ -1094,64 +1257,82 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return router.processRequest(connection, request, context);
     }
 
-    void finalize(std::vector<TabularDatasetChunk> & inputChunks,
-                  uint64_t totalRows)
+    /// Create a new current state from the old one plus the extra
+    /// chunks.
+    std::shared_ptr<CurrentState>
+    finalize(std::shared_ptr<const CurrentState> oldState,
+             std::vector<std::shared_ptr<TabularDatasetChunk> > & inputChunks)
     {
         // NOTE: must be called with the lock held
 
-        rowCount = totalRows;
+        size_t totalRows = oldState->rowCount;
 
-        size_t numChunksBefore = chunks.size();
-        
-        chunks.reserve(numChunksBefore + inputChunks.size());
+        cerr << "commiting " << frozenChunks.size() << " frozen chunks"
+             << endl;
 
         for (auto & c: inputChunks) {
-            chunks.emplace_back(std::move(c));
+            totalRows += c->rowCount();
+        }
+
+        auto newState = std::make_shared<CurrentState>(*oldState);
+
+        newState->rowCount = totalRows;
+        
+        size_t numChunksBefore = newState->chunks.size();
+        
+        newState->chunks.reserve(numChunksBefore + inputChunks.size());
+
+        for (auto & c: inputChunks) {
+            newState->chunks.emplace_back(std::move(c));
         }
 
         // Make sure they aren't reused
         inputChunks.clear();
 
-        if (columns.empty()) {
-            columns.reserve(fixedColumns.size());
+        // This will only happen when this is the first commit
+        if (newState->columns.empty()) {
+            newState->columns.reserve(fixedColumns.size());
             for (size_t i = 0;  i < fixedColumns.size();  ++i) {
                 const ColumnPath & c = fixedColumns[i];
                 ColumnEntry entry;
                 entry.columnName = c;
-                columns.emplace_back(entry);
-                columnIndex[c.oldHash()] = i;
-                columnHashIndex[c] = i;
+                newState->columns.emplace_back(entry);
+                newState->columnIndex[c.oldHash()] = i;
+                newState->columnHashIndex[c] = i;
             }
         }
 
         // Create the column index.  This should be rapid, as there shouldn't
         // be too many columns.
-        for (size_t i = numChunksBefore;  i < chunks.size();  ++i) {
-            const TabularDatasetChunk & chunk = chunks[i];
+        for (size_t i = numChunksBefore;  i < newState->chunks.size();  ++i) {
+            const TabularDatasetChunk & chunk = *newState->chunks[i];
             ExcAssertEqual(fixedColumns.size(), chunk.fixedColumnCount());
             for (size_t j = 0;  j < chunk.columns.size();  ++j) {
-                columns[j].chunks.emplace_back(i, chunk.columns[j]);
+                newState->columns[j].chunks.emplace_back(i, chunk.columns[j]);
             }
             for (auto & c: chunk.sparseColumns) {
-                auto it = columnIndex.insert(make_pair(c.first.oldHash(),
-                                                       columns.size()))
+                auto it = newState->columnIndex
+                    .insert(make_pair(c.first.oldHash(),
+                                      newState->columns.size()))
                     .first;
-                if (it->second == columns.size()) {
+                if (it->second == newState->columns.size()) {
                     ColumnEntry entry;
                     entry.columnName = c.first;
-                    columns.emplace_back(entry);
-                    columnHashIndex[c.first] = it->second;
+                    newState->columns.emplace_back(entry);
+                    newState->columnHashIndex[c.first] = it->second;
                 }
-                columns[it->second].chunks.emplace_back(i, c.second);
+                newState->columns[it->second].chunks.emplace_back(i, c.second);
             }
         }
-
-        ExcAssertEqual(columns.size(), columnIndex.size());
-        ExcAssertEqual(columns.size(), columnHashIndex.size());
+        
+        ExcAssertEqual(newState->columns.size(), newState->columnIndex.size());
+        ExcAssertEqual(newState->columns.size(),
+                       newState->columnHashIndex.size());
 
         
-        if (numChunksBefore != chunks.size()) {
-            MutablePathIndex index(rowIndex);
+        // Recreate the index if a new chunk has been added
+        if (numChunksBefore != newState->chunks.size()) {
+            MutablePathIndex index;
 
             // We create the row index in multiple chunks
 
@@ -1160,23 +1341,33 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             auto indexChunk = [&] (int chunkNum)
                 {
                     auto recorder = index.getRecorder(chunkNum);
-                    for (unsigned j = 0;  j < chunks[chunkNum].rowCount();  ++j) {
+                    for (unsigned j = 0;
+                         j < newState->chunks[chunkNum]->rowCount();
+                         ++j) {
                         RowPath rowNameStorage;
                         const RowPath & rowName
-                            = chunks[chunkNum].getRowPath(j, rowNameStorage);
+                            = newState->chunks[chunkNum]
+                            ->getRowPath(j, rowNameStorage);
                         recorder.record(rowName, j);
                     }
                 
                     recorder.commit();
                 };
         
-            parallelMap(numChunksBefore, chunks.size(), indexChunk);
+            // NOTE: we currently re-index everything from the
+            // previous chunks; this is a big scalability problem.
+            // We should not do that once multiple commits become
+            // an important use case
+            parallelMap(0, newState->chunks.size(), indexChunk);
 
-            rowIndex = index.freeze(serializer);
-            cerr << "rowIndex.memusage() = " << rowIndex.memusage()
+            newState->rowIndex
+                = index.freeze(serializer);
+            cerr << "rowIndex.memusage() = " << newState->rowIndex.memusage()
                  << endl;
             INFO_MSG(logger) << "row index took " << rowIndexTimer.elapsed();
         }
+
+        return newState;
     }
 
     void initialize(vector<ColumnPath> columnNames)
@@ -1195,34 +1386,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     PolyConfigT<Dataset> save(Url dataFileUrl) const
     {
-        PolyConfigT<Dataset> result;
         MLDB::makeUriDirectory(dataFileUrl.toString());
 
-        filter_stream outStream(dataFileUrl);
-
-#if 0
-    // Reading of this data structure is not protected by any lock
-    // Writing is protected by the dataset mutex
-    atomic_shared_ptr<ChunkList> mutableChunks;
-
-    // Everything below here is protected by the dataset lock
-    std::vector<TabularDatasetChunk> frozenChunks;
-
-    // Lets us look up which chunk and row number contains a row
-    PathIndex rowIndex;
-
-    std::string filename;
-    Date earliestTs, latestTs;
-
-    std::mutex datasetMutex;
-
-    TabularDatasetConfig config;
-#endif
-
-
-
-
-
+        filter_ostream outStream(dataFileUrl);
+        
         PolyConfigT<Dataset> result;
         result.type = "tabular";
 
@@ -1540,41 +1707,40 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         // to access it.
         std::unique_lock<std::mutex> guard(datasetMutex);
 
+        // Now we have a lock, we now that nobody else can come along and
+        // modify anything.  First, grab the current state.  Others may
+        // still access this state to read while we're working, but it
+        // will not change as we have the lock.
+        auto oldState = currentState.load();
+
         // At this point, nobody can see oldMutableChunks or its contents
         // apart from this thread.  So we can perform operations unlocked
         // on it without any problem.
 
-        // Freeze all of the uncommitted chunks
-        std::atomic<size_t> totalRows(rowCount);
+        auto newState = finalize(oldState, frozenChunks);
 
-        cerr << "commiting " << frozenChunks.size() << " frozen chunks"
-             << endl;
-
-        for (auto & c: frozenChunks) {
-            totalRows += c.rowCount();
-        }
-
-        finalize(frozenChunks, rowCount + totalRows);
-
+        currentState.store(newState);
+        
+        uint64_t totalRows = newState->rowCount;
         size_t mem = 0;
         size_t rowNameMem = 0, timestampMem = 0;
-        for (auto & c: chunks) {
-            mem += c.memusage();
-            rowNameMem += c.rowNames->memusage();
-            timestampMem += c.timestamps->memusage();
+        for (auto & c: newState->chunks) {
+            mem += c->memusage();
+            rowNameMem += c->rowNames->memusage();
+            timestampMem += c->timestamps->memusage();
         }
 
         INFO_MSG(logger) << "row name usage is " << rowNameMem
                          << " bytes at "
                          << 1.0 * rowNameMem / totalRows << " per row with "
-                         << ML::type_name(*chunks[0].rowNames);
+                         << ML::type_name(*newState->chunks[0]->rowNames);
         INFO_MSG(logger) << "timestamp usage is " << timestampMem
                          << " bytes at "
                          << 1.0 * timestampMem / totalRows << " per row with "
-                         << ML::type_name(*chunks[0].timestamps);
+                         << ML::type_name(*newState->chunks[0]->timestamps);
 
         size_t columnMem = 0;
-        for (auto & c: columns) {
+        for (auto & c: newState->columns) {
             size_t bytesUsed = 0;
             for (auto & chunk: c.chunks) {
                 bytesUsed += chunk.second->memusage();
@@ -1587,7 +1753,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             columnMem += bytesUsed;
         }
 
-        size_t rowIndexMem = rowIndex.memusage();
+        size_t rowIndexMem = newState->rowIndex.memusage();
         mem += rowIndexMem;
 
         INFO_MSG(logger) << "row index usage is " << rowIndexMem
@@ -1595,15 +1761,13 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                          << 1.0 * rowIndexMem / totalRows << " per row";
 
         INFO_MSG(logger) << "total mem usage is " << mem << " bytes" << " for "
-             << totalRows << " rows and " << columns.size() << " columns for "
-             << 1.0 * mem / totalRows << " bytes/row";
+                         << totalRows << " rows and "
+                         << newState->columns.size()
+                         << " columns for "
+                         << 1.0 * mem / totalRows << " bytes/row";
         INFO_MSG(logger) << "column memory is " << columnMem;
 
     }
-
-    /// The number of background jobs that we're currently waiting for
-    std::atomic<size_t> backgroundJobsActive;
-    shared_ptr<spdlog::logger> logger;
 
     // freezes a new chunk in the background, and adds it to frozenChunks.
     // Updates the number of background jobs atomically so that we can know
@@ -1634,9 +1798,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
         ExcAssertNotEqual(frozen.rowCount(), 0);
         std::unique_lock<std::mutex> guard(datasetMutex);
-        frozenChunks.emplace_back(std::move(frozen));
+        frozenChunks.emplace_back
+            (new TabularDatasetChunk(std::move(frozen)));
     }
-
+    
     std::shared_ptr<MutableTabularDatasetChunk>
     createNewChunk(ssize_t expectedSize = -1)
     {
@@ -1737,9 +1902,6 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     void recordRow(RowPath rowName,
                    Vals&& vals)
     {
-        if (rowCount > 0)
-            HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
-
         auto mc = mutableChunks.load();
 
         if (!mc) {
@@ -1786,52 +1948,6 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             }
         }
     }
-
-    void serialize(MappedSerializer & serializer) const
-    {
-        for (auto & chunk: chunks) {
-            chunk.serialize(serializer);
-        }
-
-#if 0
-        int64_t rowCount;
-
-        /// This indexes column names to their index, using new (fast) hash
-        Lightweight_Hash<uint64_t, int> columnIndex;
-
-        /// Same index, but using the old (slow) hash.  Useful only for when
-        /// we are forced to lookup on ColumnHash.
-        Lightweight_Hash<ColumnHash, int> columnHashIndex;
-
-        struct ColumnEntry {
-            ColumnEntry()
-                : rowCount(0)
-            {
-            }
-
-            ColumnPath columnName;
-
-            /// The number of non-null values of this row
-            size_t rowCount;
-
-            /// The set of chunks that contain the column.  This may not be all
-            /// chunks for sparse columns.
-            std::vector<std::pair<uint32_t, std::shared_ptr<const FrozenColumn> > > chunks;
-        };
-
-        /// List of all columns in the dataset
-        std::vector<ColumnEntry> columns;
-    
-        /// List of the names of the fixed columns in the dataset
-        std::vector<ColumnPath> fixedColumns;
-
-        /// Index of just the fixed columns
-        Lightweight_Hash<uint64_t, int> fixedColumnIndex;
-
-        /// List of all chunks in the dataset
-        std::vector<TabularDatasetChunk> chunks;
-#endif        
-    }
 };
 
 TabularDataset::
@@ -1855,10 +1971,7 @@ Any
 TabularDataset::
 getStatus() const
 {
-    Json::Value status;
-    status["rowCount"] = itl->rowCount;
-    status["columnCount"] = itl->columns.size();
-    return status;
+    return itl->currentState.load()->getStatus();
 }
 
 std::pair<Date, Date>
@@ -1887,7 +2000,7 @@ TabularDataset::
 getRowStream() const 
 { 
     return std::make_shared<TabularDataStore::TabularDataStoreRowStream>
-        (itl.get()); 
+        (itl->currentState.load()); 
 } 
 
 ExpressionValue
@@ -1906,7 +2019,7 @@ generateRowsWhere(const SqlBindingScope & context,
                   ssize_t limit) const
 {
     GenerateRowsWhereFunction fn
-        = itl->generateRowsWhere(context, where, offset, limit);
+        = itl->generateRowsWhere(context, alias, where, offset, limit);
     if (!fn)
         fn = Dataset::generateRowsWhere(context, alias, where, offset, limit);
     return fn;
@@ -2018,4 +2131,3 @@ regTabular(builtinPackage(),
 } // file scope
 
 } // MLDB
-
