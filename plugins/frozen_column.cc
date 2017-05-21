@@ -1679,7 +1679,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
     virtual size_t memusage() const
     {
-        return table.memusage();
+        return sizeof(*this) + table.memusage();
     }
 
     virtual bool
