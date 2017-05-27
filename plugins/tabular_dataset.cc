@@ -807,9 +807,10 @@ struct TabularDataset::TabularDataStore
         {
             auto it = columnHashIndex.find(column);
             if (it == columnHashIndex.end())
-                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
-                                          "columnHash", column,
-                                          "knownColumns", getColumnPaths(0, -1));
+                throw HttpReturnException
+                    (400, "Tabular dataset contains no column with given hash",
+                     "columnHash", column,
+                     "knownColumns", getColumnPaths(0, -1));
             return columns[it->second].columnName;
         }
 
