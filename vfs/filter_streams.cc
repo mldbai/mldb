@@ -189,8 +189,6 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
                 numWritten += numGenerated;
 
                 // Everything else gets buffered for next time
-                ExcAssertEqual(outbuf.size(), 0);
-                ExcAssertEqual(outbufPos, 0);
                 outbuf.append(data + numGenerated, dataLength - numGenerated);
 
                 return dataLength;  // we always consume all of the characters
