@@ -774,7 +774,7 @@ struct DirectFrozenColumn: public FrozenColumn {
         for (auto & v: column.sparseIndexes) {
             mutableValues.set(v.first, column.indexedVals[v.second]);
         }
-
+        numNonNullEntries = column.sparseIndexes.size();
         values = mutableValues.freeze(serializer);
     }
 
@@ -859,8 +859,14 @@ struct DirectFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const override
+    {
+        return numNonNullEntries;
+    }
+
     uint32_t numEntries;
     uint64_t firstEntry;
+    uint32_t numNonNullEntries = 0;
     FrozenCellValueTable values;
     ColumnTypes columnTypes;
 
@@ -981,6 +987,7 @@ struct TableFrozenColumn: public FrozenColumn {
             }
         }
 
+        numNonNullEntries = column.sparseIndexes.size();
         indexes = mutableIndexes.freeze(serializer);
     }
 
@@ -1072,9 +1079,15 @@ struct TableFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const override
+    {
+        return numNonNullEntries;
+    }
+
     FrozenIntegerTable indexes;
     uint32_t numEntries;
     uint64_t firstEntry;
+    uint32_t numNonNullEntries = 0;
     
     bool hasNulls;
     FrozenCellValueTable table;
@@ -1329,6 +1342,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const override
+    {
+        return numEntries;
+    }
+
     virtual ColumnTypes getColumnTypes() const
     {
         return columnTypes;
@@ -1468,6 +1486,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
                 uint64_t intVal = 0;
                 if (!val.empty()) {
                     intVal = val.toInt() - offset + hasNulls;
+                    ++numNonNullRows;
                 }
                 while (rowNumber < doneRows) {
                     table.add(0);  // for the null
@@ -1553,6 +1572,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
         bool hasNulls;
         size_t numWords;
         int entryBits;
+        uint32_t numNonNullRows = 0;
 
         MutableIntegerTable table;
     };
@@ -1569,58 +1589,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
         this->table = info.table.freeze(serializer);
         this->offset = info.offset;
-
-#if 0
-        numEntries = info.numEntries;
-
-        // Check it's really feasible
-        ExcAssert(column.columnTypes.onlyIntegersAndNulls());
-        ExcAssertLessEqual(column.columnTypes.maxPositiveInteger,
-                           (uint64_t)std::numeric_limits<int64_t>::max());
-
-        hasNulls = info.hasNulls;
-        entryBits = info.entryBits;
-        offset = info.offset;
-
-        auto mutableStorage = serializer.allocateWritableT<uint64_t>(info.numWords);
-        uint64_t * data = mutableStorage.data();
-
-        if (!hasNulls) {
-            // Contiguous rows
-            //DEBUG_MSG(logger) << "fill with contiguous";
-            ML::Bit_Writer<uint64_t> writer(data);
-            for (size_t i = 0;  i < column.sparseIndexes.size();  ++i) {
-                ExcAssertEqual(column.sparseIndexes[i].first, i);
-                int64_t val
-                    = column.indexedVals[column.sparseIndexes[i].second].toInt();
-                //DEBUG_MSG(logger) << "writing " << val << " - " << offset << " = "
-                //                  << val - offset << " at " << i;
-                writer.write(val - offset, entryBits);
-            }
-        }
-        else {
-            // Non-contiguous; leave gaps with a zero (null) value
-            std::fill(data, data + info.numWords, 0);
-            for (auto & r_i: column.sparseIndexes) {
-                int64_t val
-                    = column.indexedVals[r_i.second].toInt();
-                ML::Bit_Writer<uint64_t> writer(data);
-                writer.skip(r_i.first * entryBits);
-                writer.write(val - offset + 1, entryBits);
-            }
-        }
-
-        storage = mutableStorage.freeze();
-#if 0
-        // Check that we got the right thing
-        for (auto & i: column.sparseIndexes) {
-            DEBUG_MSG(logger) << "getting " << i.first << " with value "
-                              << column.indexedVals.at(i.second);
-            ExcAssertEqual(get(i.first + firstEntry),
-                           column.indexedVals.at(i.second));
-        }
-#endif
-#endif
+        this->numNonNullRows = info.numNonNullRows;
     }
     
     CellValue decode(uint64_t val) const
@@ -1693,10 +1662,16 @@ struct IntegerFrozenColumn: public FrozenColumn {
         return table.forEachDistinctValue(onVal);
     }
 
+    virtual size_t nonNullRowCount() const override
+    {
+        return numNonNullRows;
+    }
+
     FrozenIntegerTable table;
-    bool hasNulls;
-    uint64_t firstEntry;
-    int64_t offset;
+    bool hasNulls = false;
+    uint64_t firstEntry = 0;
+    int64_t offset = 0;
+    uint32_t numNonNullRows = 0;
     ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
@@ -1852,6 +1827,7 @@ struct DoubleFrozenColumn: public FrozenColumn {
         for (auto & r_i: column.sparseIndexes) {
             const CellValue & v = column.indexedVals[r_i.second];
             if (!v.empty()) {
+                ++numNonNullRows;
                 data[r_i.first] = v.toDouble();
             }
         }
@@ -1951,9 +1927,15 @@ struct DoubleFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const override
+    {
+        return numNonNullRows;
+    }
+
     std::shared_ptr<const Entry> storage;
-    uint32_t numEntries;
-    uint64_t firstEntry;
+    uint32_t numEntries = 0;
+    uint64_t firstEntry = 0;
+    uint32_t numNonNullRows = 0;
 
     ColumnTypes columnTypes;
 
@@ -2105,6 +2087,11 @@ struct TimestampFrozenColumn: public FrozenColumn {
             };
 
         return unwrapped->forEachDistinctValue(fn2);
+    }
+
+    virtual size_t nonNullRowCount() const override
+    {
+        return unwrapped->nonNullRowCount();
     }
 
     ColumnTypes columnTypes;

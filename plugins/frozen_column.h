@@ -323,6 +323,8 @@ struct FrozenColumn: public MappedObject {
 
     virtual ColumnTypes getColumnTypes() const = 0;
 
+    virtual size_t nonNullRowCount() const = 0;
+
     /** Freeze the given column into the best fitting frozen column type. */
     static std::shared_ptr<FrozenColumn>
     freeze(TabularDatasetColumn & column,
