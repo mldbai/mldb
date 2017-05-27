@@ -1477,14 +1477,20 @@ RegisterFrozenColumnFormatT<TableFrozenColumnFormat> regTable;
 struct SparseTableFrozenColumn: public FrozenColumn {
     SparseTableFrozenColumn(TabularDatasetColumn & column,
                             MappedSerializer & serializer)
-        : table(column.indexedVals.size()),
-          columnTypes(std::move(column.columnTypes))
+        : columnTypes(std::move(column.columnTypes))
     {
         firstEntry = column.minRowNumber;
         lastEntry = column.maxRowNumber;
-        std::move(std::make_move_iterator(column.indexedVals.begin()),
-                  std::make_move_iterator(column.indexedVals.end()),
-                  table.begin());
+
+        MutableCellValueTable mutableTable;
+        mutableTable.reserve(column.indexedVals.size());
+
+        for (auto & v: column.indexedVals) {
+            mutableTable.add(v);
+        }
+
+        this->table = mutableTable.freeze(serializer);
+        
         indexBits = bitsToHoldCount(table.size());
         rowNumBits = bitsToHoldCount(column.maxRowNumber - column.minRowNumber);
         numEntries = column.sparseIndexes.size();
@@ -1630,8 +1636,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             = sizeof(*this)
             + ((indexBits + rowNumBits) * numEntries + 31) / 8;
 
-        for (auto & v: table)
-            result += v.memusage();
+        result += table.memusage();
 
         return result;
     }
@@ -1644,12 +1649,8 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             if (!fn(CellValue()))
                 return false;
         }
-        for (auto & v: table) {
-            if (!fn(v))
-                return false;
-        }
-        
-        return true;
+
+        return table.forEachDistinctValue(fn);
     }
 
     virtual size_t nonNullRowCount() const override
@@ -1670,7 +1671,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     }
 
     FrozenMemoryRegionT<uint32_t> storage;
-    compact_vector<CellValue, 0> table;
+    FrozenCellValueTable table;
     uint8_t rowNumBits;
     uint8_t indexBits;
     uint32_t numEntries;
