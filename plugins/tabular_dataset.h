@@ -79,10 +79,10 @@ struct TabularDataset : public Dataset {
     recordRows(const std::vector<std::pair<RowPath,
                std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
     
-    RestRequestMatchResult
+    virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
                   const RestRequest & request,
-                  RestRequestParsingContext & context) const;
+                  RestRequestParsingContext & context) const override;
 
 protected:
     // To initialize from a subclass

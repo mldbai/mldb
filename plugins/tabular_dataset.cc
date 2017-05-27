@@ -381,9 +381,10 @@ struct TabularDataset::TabularDataStore
           backgroundJobsActive(0), logger(std::move(logger))
     {
         ExcAssert(this->logger);
+        initRoutes();
     }
 
-    MldbServer * server;
+    MldbServer * server = nullptr;
 
     /// This is used to allocate mapped memory when chunks are frozen
     FileSerializer serializer;
