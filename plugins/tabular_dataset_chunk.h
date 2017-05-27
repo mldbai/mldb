@@ -111,7 +111,7 @@ struct TabularDatasetChunk: public MappedObject {
     }
 
     /** Serialize to the given serializer. */
-    void serialize(MappedSerializer & serializer) const;
+    void serialize(StructuredSerializer & serializer) const;
 
 private:
     std::vector<std::shared_ptr<FrozenColumn> > columns;

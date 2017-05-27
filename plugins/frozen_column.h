@@ -16,7 +16,8 @@
 namespace MLDB {
 
 struct TabularDatasetColumn;
-
+struct filter_ostream;
+struct MappedSerializer;
 
 /*****************************************************************************/
 /* MAPPED DEVICE                                                             */
@@ -68,6 +69,9 @@ struct FrozenMemoryRegion {
         return length();
     }
 
+    /** Re-serialize the block to the other serializer. */
+    void reserialize(MappedSerializer & serializer) const;
+
 private:
     const char * data_ = nullptr;
     size_t length_ = 0;
@@ -102,6 +106,12 @@ struct FrozenMemoryRegionT {
     size_t memusage() const
     {
         return length() * sizeof(T);
+    }
+
+    /** Re-serialize the block to the other serializer. */
+    void reserialize(MappedSerializer & serializer) const
+    {
+        raw.reserialize(serializer);
     }
 
 private:
@@ -206,6 +216,13 @@ struct MappedSerializer {
     virtual MutableMemoryRegion
     allocateWritable(uint64_t bytesRequired, size_t alignment) = 0;
 
+    template<typename T>
+    MutableMemoryRegionT<T>
+    allocateWritableT(size_t numItems)
+    {
+        return allocateWritable(numItems * sizeof(T), alignof(T));
+    }
+
     /** Freeze the given block of writable memory into a fixed, frozen
         representation of the same data.  For memory that is backed by
         disk, this may also mean writing it out in whatever is its
@@ -216,13 +233,17 @@ struct MappedSerializer {
     */
     virtual FrozenMemoryRegion
     freeze(MutableMemoryRegion & region) = 0;
-    
-    template<typename T>
-    MutableMemoryRegionT<T>
-    allocateWritableT(size_t numItems)
-    {
-        return allocateWritable(numItems * sizeof(T), alignof(T));
-    }
+
+    /** Return a stream, that can be used to write an (unknown) number of
+        bytes to the serializer.
+
+        The stream must have close() called once it's finished being
+        written to.
+
+        Note that the filter_ostream is also a std::ostream, and so anything
+        that can be done to one of those can be done to it.
+    */
+    virtual filter_ostream getStream();
 };
 
 
@@ -269,6 +290,58 @@ struct FileSerializer: public MappedSerializer {
 
 private:
     struct Itl;
+    std::unique_ptr<Itl> itl;
+};
+
+
+/*****************************************************************************/
+/* STRUCTURED SERIALIZER                                                     */
+/*****************************************************************************/
+
+/** Serializer that structures its entries (like a Zip file). */
+
+struct StructuredSerializer {
+    virtual std::shared_ptr<StructuredSerializer>
+    newStructure(const Utf8String & name) = 0;
+
+    virtual std::shared_ptr<MappedSerializer>
+    newEntry(const Utf8String & name) = 0;
+
+    virtual filter_ostream
+    newStream(const Utf8String & name) = 0;
+
+    virtual void commit() = 0;
+};
+
+
+/*****************************************************************************/
+/* ZIP STRUCTURED SERIALIZER                                                 */
+/*****************************************************************************/
+
+/** Structured serializer that writes a zip file. */
+
+struct ZipStructuredSerializer: public StructuredSerializer {
+    ZipStructuredSerializer(Utf8String filename);
+    ~ZipStructuredSerializer();
+
+    virtual std::shared_ptr<StructuredSerializer>
+    newStructure(const Utf8String & name);
+
+    virtual std::shared_ptr<MappedSerializer>
+    newEntry(const Utf8String & name);
+
+    virtual filter_ostream
+    newStream(const Utf8String & name);
+
+    virtual void commit();
+
+    ZipStructuredSerializer(ZipStructuredSerializer * parent,
+                            Utf8String relativePath);
+private:
+    struct Itl;
+    struct BaseItl;
+    struct RelativeItl;
+    struct EntrySerializer;
     std::unique_ptr<Itl> itl;
 };
 
@@ -331,7 +404,7 @@ struct FrozenColumn: public MappedObject {
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params);
 
-    virtual void serialize(MappedSerializer & serializer) = 0;
+    virtual void serialize(MappedSerializer & serializer) const = 0;
 };
 
 

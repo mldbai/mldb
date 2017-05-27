@@ -15,12 +15,15 @@
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/arch/vm.h"
+#include "mldb/vfs/filter_streams.h"
 #include <mutex>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+#include <archive.h>
+#include <archive_entry.h>
 
 using namespace std;
 
@@ -106,6 +109,11 @@ struct FrozenIntegerTable {
         //     << " yielding " << decode(i, val) << " with offset "
         //     << offset << " and slope " << slope << endl;
         return decode(i, val);
+    }
+
+    void serialize(MappedSerializer & serializer) const
+    {
+        storage.reserialize(serializer);
     }
 };
 
@@ -310,6 +318,12 @@ struct FrozenCellValueTable {
         return true;
     }
 
+    void serialize(MappedSerializer & serializer) const
+    {
+        offsets.serialize(serializer);
+        cells.reserialize(serializer);
+    }
+
     FrozenIntegerTable offsets;
     FrozenMemoryRegion cells;
 };
@@ -386,6 +400,40 @@ struct MutableCellValueTable {
 
 
 /*****************************************************************************/
+/* MAPPED SERIALIZER                                                         */
+/*****************************************************************************/
+
+struct SerializerStreamHandler {
+    MappedSerializer * owner = nullptr;
+    std::ostringstream stream;
+    std::shared_ptr<void> baggage;  /// anything we need to stay alive
+
+    ~SerializerStreamHandler()
+    {
+        // we now need to write our stream to the serializer
+        auto mem = owner->allocateWritable(stream.str().size(),
+                                           1 /* alignment */);
+        std::memcpy(mem.data(), stream.str().data(), stream.str().size());
+        mem.freeze();
+    }
+};
+
+
+filter_ostream
+MappedSerializer::
+getStream()
+{
+    auto handler = std::make_shared<SerializerStreamHandler>();
+    handler->owner = this;
+
+    filter_ostream result;
+    result.openFromStreambuf(handler->stream.rdbuf(), handler);
+    
+    return result;
+}
+
+
+/*****************************************************************************/
 /* FROZEN MEMORY REGION                                                      */
 /*****************************************************************************/
 
@@ -395,6 +443,17 @@ FrozenMemoryRegion(std::shared_ptr<void> handle,
                    size_t length)
     : data_(data), length_(length), handle_(std::move(handle))
 {
+}
+
+void
+FrozenMemoryRegion::
+reserialize(MappedSerializer & serializer) const
+{
+    // TODO: let the serializer handle it; no need to double allocate and
+    // copy here
+    auto serializeTo = serializer.allocateWritable(length_, 1 /* alignment */);
+    std::memcpy(serializeTo.data(), data_, length_);
+    serializeTo.freeze();
 }
 
 
@@ -755,6 +814,254 @@ freeze(MutableMemoryRegion & region)
 
 
 /*****************************************************************************/
+/* ZIP STRUCTURED SERIALIZER                                                 */
+/*****************************************************************************/
+
+struct ZipStructuredSerializer::Itl {
+    virtual ~Itl()
+    {
+    }
+
+    virtual void commit() = 0;
+
+    virtual Path path() const = 0;
+
+    virtual BaseItl * base() const = 0;
+};
+
+struct ZipStructuredSerializer::BaseItl: public Itl {
+    BaseItl(Utf8String filename)
+    {
+        stream.open(filename.rawString());
+        a.reset(archive_write_new(),
+                [] (struct archive * a) { archive_write_free(a); });
+        if (!a.get()) {
+            throw HttpReturnException
+                (500, "Couldn't create archive object");
+        }
+        archive_op(archive_write_set_format_zip);
+
+        // We compress each one individually using zstandard or not
+        // at all if we want to mmap.
+        archive_op(archive_write_zip_set_compression_deflate);
+        archive_op(archive_write_open, this,
+                   &BaseItl::openCallback,
+                   &BaseItl::writeCallback,
+                   &BaseItl::closeCallback);
+    }
+
+    // Perform a libarchive operation
+    template<typename Fn, typename... Args>
+    void archive_op(Fn&& op, Args&&... args)
+    {
+        int res = op(a.get(), std::forward<Args>(args)...);
+        if (res != ARCHIVE_OK) {
+            throw HttpReturnException
+                (500, string("Error writing zip file: ")
+                 + archive_error_string(a.get()));
+        }
+    }
+
+    struct Entry {
+        Entry()
+        {
+            entry.reset(archive_entry_new(),
+                        [] (archive_entry * e) { archive_entry_free(e); });
+            if (!entry.get()) {
+                throw HttpReturnException
+                    (500, "Couldn't create archive entry");
+            }
+        }
+
+        template<typename Fn, typename... Args>
+        void op(Fn&& op, Args&&... args)
+        {
+            /*int res =*/ op(entry.get(), std::forward<Args>(args)...);
+            /*
+            if (res != ARCHIVE_OK) {
+                throw HttpReturnException
+                    (500, string("Error writing zip file: ")
+                     + archive_error_string(entry.get()));
+            }
+            */
+        }
+        
+        std::shared_ptr<struct archive_entry> entry;
+    };
+
+    void writeEntry(Path name, FrozenMemoryRegion region)
+    {
+        Entry entry;
+        entry.op(archive_entry_set_pathname, name.toUtf8String().rawData());
+        entry.op(archive_entry_set_size, region.length());
+        entry.op(archive_entry_set_filetype, AE_IFREG);
+        archive_op(archive_write_header, entry.entry.get());
+        auto written = archive_write_data(a.get(), region.data(), region.length());
+        if (written != region.length()) {
+            throw HttpReturnException(500, "Not all data written");
+        }
+    }
+
+    virtual void commit()
+    {
+    }
+
+    virtual Path path() const
+    {
+        return Path();
+    }
+
+    virtual BaseItl * base() const
+    {
+        return const_cast<BaseItl *>(this);
+    }
+    
+    static int openCallback(struct archive * a, void * voidThis)
+
+    {
+        // Nothing to do here
+        return ARCHIVE_OK;
+    }
+
+    static int closeCallback(struct archive * a, void * voidThis)
+    {
+        // Nothing to do here
+        return ARCHIVE_OK;
+    }
+
+    /** Callback from libarchive when it needs to write some data to the
+        output file.  This simply hooks it into the filter ostream.
+    */
+    static __LA_SSIZE_T	writeCallback(struct archive * a,
+                                      void * voidThis,
+                                      const void * buffer,
+                                      size_t length)
+    {
+        BaseItl * that = reinterpret_cast<BaseItl *>(voidThis);
+        that->stream.write((const char *)buffer, length);
+        if (!that->stream)
+            return -1;
+        return length;
+    }
+
+    filter_ostream stream;
+    std::shared_ptr<struct archive> a;
+};
+
+struct ZipStructuredSerializer::RelativeItl: public Itl {
+    RelativeItl(Itl * parent,
+                Utf8String relativePath)
+        : base_(parent->base()), parent(parent), relativePath(relativePath)
+    {
+    }
+
+    virtual void commit()
+    {
+        cerr << "commiting " << path() << endl;
+        // nothing to do; each entry will have been committed as it
+        // was written
+    }
+
+    virtual Path path() const
+    {
+        return parent->path() + relativePath;
+    }
+
+    virtual BaseItl * base() const
+    {
+        return base_;
+    }
+
+    BaseItl * base_;
+    Itl * parent;
+    Utf8String relativePath;
+};
+
+struct ZipStructuredSerializer::EntrySerializer: public MemorySerializer {
+    EntrySerializer(Itl * itl, Utf8String entryName)
+        : itl(itl), entryName(std::move(entryName))
+    {
+    }
+
+    virtual ~EntrySerializer()
+    {
+        Path name = itl->path() + entryName;
+        cerr << "finishing entry " << name << " with "
+             << frozen.length() << " bytes" << endl;
+        itl->base()->writeEntry(name, frozen);
+    }
+
+    virtual void commit() override
+    {
+    }
+
+    virtual FrozenMemoryRegion freeze(MutableMemoryRegion & region) override
+    {
+        return frozen = MemorySerializer::freeze(region);
+    }
+
+    Itl * itl;
+    Utf8String entryName;
+    FrozenMemoryRegion frozen;
+};
+
+ZipStructuredSerializer::
+ZipStructuredSerializer(Utf8String filename)
+    : itl(new BaseItl(filename))
+{
+}
+
+ZipStructuredSerializer::
+ZipStructuredSerializer(ZipStructuredSerializer * parent,
+                        Utf8String relativePath)
+    : itl(new RelativeItl(parent->itl.get(), relativePath))
+{
+}
+
+ZipStructuredSerializer::
+~ZipStructuredSerializer()
+{
+}
+
+std::shared_ptr<StructuredSerializer>
+ZipStructuredSerializer::
+newStructure(const Utf8String & name)
+{
+    return std::make_shared<ZipStructuredSerializer>(this, name);
+}
+
+std::shared_ptr<MappedSerializer>
+ZipStructuredSerializer::
+newEntry(const Utf8String & name)
+{
+    return std::make_shared<EntrySerializer>(itl.get(), name);
+}
+
+filter_ostream
+ZipStructuredSerializer::
+newStream(const Utf8String & name)
+{
+    auto entry = newEntry(name);
+
+    auto handler = std::make_shared<SerializerStreamHandler>();
+    handler->owner = entry.get();
+    handler->baggage = entry;
+
+    filter_ostream result;
+    result.openFromStreambuf(handler->stream.rdbuf(), handler);
+    
+    return result;
+}
+
+void
+ZipStructuredSerializer::
+commit()
+{
+    itl->commit();
+}
+
+
+/*****************************************************************************/
 /* DIRECT FROZEN COLUMN                                                      */
 /*****************************************************************************/
 
@@ -875,9 +1182,10 @@ struct DirectFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer)
+    virtual void serialize(MappedSerializer & serializer) const
     {
-        throw HttpReturnException(600, "DirectFrozenColumn::serialize()");
+        // TODO: finish
+        values.serialize(serializer);
     }
 };
 
@@ -1098,9 +1406,11 @@ struct TableFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer)
+    virtual void serialize(MappedSerializer & serializer) const
     {
-        throw HttpReturnException(600, "TableFrozenColumn::serialize()");
+        // TODO: finish
+        indexes.serialize(serializer);
+        table.serialize(serializer);
     }
 };
 
@@ -1352,9 +1662,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer)
+    virtual void serialize(MappedSerializer & serializer) const
     {
-        throw HttpReturnException(600, "SparseTableFrozenColumn::serialize()");
+        // TODO: finish
+        storage.reserialize(serializer);
+        //throw HttpReturnException(600, "SparseTableFrozenColumn::serialize()");
     }
 
     FrozenMemoryRegionT<uint32_t> storage;
@@ -1679,9 +1991,10 @@ struct IntegerFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer)
+    virtual void serialize(MappedSerializer & serializer) const
     {
-        throw HttpReturnException(600, "IntegerFrozenColumn::serialize()");
+        // TODO: finish
+        table.serialize(serializer);
     }
 };
 
@@ -1954,7 +2267,7 @@ struct DoubleFrozenColumn: public FrozenColumn {
         return "D";
     }
 
-    virtual void serialize(MappedSerializer & serializer)
+    virtual void serialize(MappedSerializer & serializer) const
     {
         throw HttpReturnException(600, "DoubleFrozenColumn::serialize()");
     }
@@ -2106,9 +2419,9 @@ struct TimestampFrozenColumn: public FrozenColumn {
         return "T";
     }
 
-    virtual void serialize(MappedSerializer & serializer)
+    virtual void serialize(MappedSerializer & serializer) const
     {
-        throw HttpReturnException(600, "TimestampFrozenColumn::serialize()");
+        unwrapped->serialize(serializer);
     }
 };
 

@@ -183,9 +183,26 @@ addToColumn(int columnIndex,
 
 void
 TabularDatasetChunk::
-serialize(MappedSerializer & serializer) const
+serialize(StructuredSerializer & serializer) const
 {
+    auto serializeAs = [&] (Utf8String name,
+                            const FrozenColumn & col)
+        {
+            col.serialize(*serializer.newEntry(name));
+        };
     
+    for (size_t i = 0;  i < columns.size();  ++i) {
+        serializeAs(to_string(i), *columns[i]);
+    }
+
+    if (!sparseColumns.empty()) {
+        auto sparseSerializer = serializer.newStructure("sp");
+        for (auto & c: sparseColumns) {
+            c.second->serialize(*sparseSerializer->newEntry(c.first.toUtf8String()));
+        }
+    }
+    serializeAs("rn", *rowNames);
+    serializeAs("ts", *timestamps);
 }
 
 

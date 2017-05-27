@@ -31,6 +31,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/dataset_utils.h"
+#include "mldb/jml/db/persistent.h"
 #include <mutex>
 
 
@@ -252,6 +253,20 @@ struct PathIndexShard {
         return chunk > 0;
     }
 
+    void serialize(MappedSerializer & serializer) const
+    {
+        filter_ostream stream = serializer.getStream();
+        ML::DB::Store_Writer store(stream);
+        store
+            << uint8_t(1) // version
+            << uint8_t(chunkBits)
+            << uint8_t(offsetBits)
+            << ML::DB::compact_size_t(numEntries)
+            << factor;
+        stream.close();
+        storage.reserialize(serializer);
+    }
+
     // Hash is implicit via position in the entry map (we take the top x bits)
     // It returns the chunk number that contains that hash portion
     // linear chaining
@@ -294,7 +309,15 @@ struct PathIndex {
         return result;
     }
 
-    // Hash is implicit via position in the entry map (we take the top x bits)
+    void serialize(MappedSerializer & serializer) const
+    {
+        for (auto & sh: shards) {
+            sh.serialize(serializer);
+        }
+    }
+
+    // Hash is implicit via position in the entry map (we rescale the
+    // hash range)
     // It returns the chunk number that contains that hash portion
     // linear chaining
     PathIndexShard shards[INDEX_SHARDS];
@@ -850,6 +873,38 @@ struct TabularDataset::TabularDataStore
             GenerateRowsWhereFunction result;
             return result;
         }
+
+        void serialize(StructuredSerializer & serializer) const
+        {
+            // Chunks first.  This allows us to rewrite the indexes if
+            // new chunks are added.
+
+            {
+                auto chunkSerializer
+                    = serializer.newStructure("ch");
+
+                for (size_t i = 0;  i < chunks.size();  ++i) {
+                    chunks[i]->serialize
+                        (*chunkSerializer->newStructure(to_string(i)));
+                }
+                chunkSerializer->commit();
+            }
+
+            // Now the things that change, such as column lists, indexes
+            // etc
+
+            rowIndex.serialize(*serializer.newEntry("ri"));
+
+            {
+                auto colSerializer = serializer.newEntry("cs");
+                
+            }
+
+            {
+                auto mdSerializer = serializer.newStream("md");
+                mdSerializer << earliestTs << latestTs;
+            }
+        }
     };
 
     /** A stream of row names used to incrementally query available rows
@@ -1388,12 +1443,20 @@ struct TabularDataset::TabularDataStore
         }
     }
 
+    void serialize(StructuredSerializer & serializer) const
+    {
+        auto cs = currentState.load();
+        cs->serialize(serializer);
+    }
+
     PolyConfigT<Dataset> save(Url dataFileUrl) const
     {
         MLDB::makeUriDirectory(dataFileUrl.toString());
 
-        filter_ostream outStream(dataFileUrl);
-        
+        ZipStructuredSerializer serializer(dataFileUrl.toUtf8String());
+
+        serialize(serializer);
+
         PolyConfigT<Dataset> result;
         result.type = "tabular";
 
