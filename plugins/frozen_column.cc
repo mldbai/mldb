@@ -1530,7 +1530,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual bool forEach(const ForEachRowFn & onRow) const
     {
-        for (size_t i = 0;  i < numEntries;  ++i) {
+        for (size_t i = 0;  i < numEntries();  ++i) {
             auto rowNum = this->rowNum.get(i);
             auto index = this->index.get(i);
             if (!onRow(rowNum + firstEntry, table[index]))
@@ -1543,7 +1543,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     virtual bool forEachDense(const ForEachRowFn & onRow) const
     {
         size_t lastRowNum = 0;
-        for (size_t i = 0;  i < numEntries;  ++i) {
+        for (size_t i = 0;  i < numEntries();  ++i) {
             auto rowNum = this->rowNum.get(i);
             auto index = this->index.get(i);
 
@@ -1582,17 +1582,19 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             };
 
         uint32_t first = 0;
-        uint32_t last  = numEntries;
+        uint32_t last  = numEntries();
 
         while (first != last) {
             uint32_t middle = (first + last) / 2;
+            //cerr << "first = " << first << " middle = " << middle
+            //     << " last = " << last << endl;
             uint32_t rowNum, index;
             std::tie(rowNum, index) = getAtIndex(middle);
 
 #if 0
-            TRACE_MSG(logger) << "first = " << first << " middle = " << middle
-                              << " last = " << last << " rowNum = " << rowNum
-                              << " looking for " << rowIndex;
+            cerr << "first = " << first << " middle = " << middle
+                 << " last = " << last << " rowNum = " << rowNum
+                 << " looking for " << rowIndex;
 #endif
 
             if (rowNum == rowIndex) {
@@ -1637,7 +1639,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
     {
         // Detect nulls which implicitly means a gap in the indexes
-        if (firstEntry + numEntries != lastEntry + 1) {
+        if (firstEntry + numEntries() != lastEntry + 1) {
             if (!fn(CellValue()))
                 return false;
         }
@@ -1647,7 +1649,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual size_t nonNullRowCount() const override
     {
-        return numEntries;
+        return numEntries();
     }
 
     virtual ColumnTypes getColumnTypes() const
@@ -1673,7 +1675,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     /// rowNum
     FrozenIntegerTable index;
 
-    uint32_t numEntries;
+    uint32_t numEntries() const { return rowNum.size(); }
     size_t firstEntry;
     size_t lastEntry;  // WARNING: this is the number, not number + 1
     ColumnTypes columnTypes;
