@@ -1490,21 +1490,19 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         }
 
         this->table = mutableTable.freeze(serializer);
-        
-        indexBits = bitsToHoldCount(table.size());
-        rowNumBits = bitsToHoldCount(column.maxRowNumber - column.minRowNumber);
-        numEntries = column.sparseIndexes.size();
-        size_t numWords = ((indexBits + rowNumBits) * numEntries + 31) / 32;
-        
-        auto mutableStorage = serializer.allocateWritableT<uint32_t>(numWords);
-        uint32_t * data = mutableStorage.data();
-            
-        ML::Bit_Writer<uint32_t> writer(data);
+
+        MutableIntegerTable mutableRowNum, mutableIndex;
+        mutableRowNum.reserve(column.sparseIndexes.size());
+        mutableIndex.reserve(column.sparseIndexes.size());
+
         for (auto & i: column.sparseIndexes) {
-            writer.write(i.first, rowNumBits);
+            mutableRowNum.add(i.first);
             ExcAssertLess(i.second, table.size());
-            writer.write(i.second, indexBits);
+            mutableIndex.add(i.second);
         }
+
+        rowNum = mutableRowNum.freeze(serializer);
+        index = mutableIndex.freeze(serializer);
 
         if (false) {
             size_t mem = memusage();
@@ -1522,8 +1520,6 @@ struct SparseTableFrozenColumn: public FrozenColumn {
                 cerr << endl;
             }
         }
-
-        storage = mutableStorage.freeze();
     }
 
     virtual std::string format() const
@@ -1533,11 +1529,9 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual bool forEach(const ForEachRowFn & onRow) const
     {
-        ML::Bit_Extractor<uint32_t> bits(storage.data());
-
         for (size_t i = 0;  i < numEntries;  ++i) {
-            uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
-            uint32_t index = bits.extract<uint32_t>(indexBits);
+            auto rowNum = this->rowNum.get(i);
+            auto index = this->index.get(i);
             if (!onRow(rowNum + firstEntry, table[index]))
                 return false;
         }
@@ -1547,12 +1541,10 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual bool forEachDense(const ForEachRowFn & onRow) const
     {
-        ML::Bit_Extractor<uint32_t> bits(storage.data());
-
         size_t lastRowNum = 0;
         for (size_t i = 0;  i < numEntries;  ++i) {
-            uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
-            uint32_t index = bits.extract<uint32_t>(indexBits);
+            auto rowNum = this->rowNum.get(i);
+            auto index = this->index.get(i);
 
             while (lastRowNum < rowNum) {
                 if (!onRow(firstEntry + lastRowNum, CellValue()))
@@ -1583,10 +1575,8 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
         auto getAtIndex = [&] (uint32_t n)
             {
-                ML::Bit_Extractor<uint32_t> bits(storage.data());
-                bits.advance(n * (indexBits + rowNumBits));
-                uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
-                uint32_t index = bits.extract<uint32_t>(indexBits);
+                auto rowNum = this->rowNum.get(n);
+                auto index = this->index.get(n);
                 return std::make_pair(rowNum, index);
             };
 
@@ -1633,11 +1623,12 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     virtual size_t memusage() const
     {
         size_t result
-            = sizeof(*this)
-            + ((indexBits + rowNumBits) * numEntries + 31) / 8;
+            = sizeof(*this);
 
         result += table.memusage();
-
+        result += index.memusage();
+        result += rowNum.memusage();
+        
         return result;
     }
 
@@ -1665,15 +1656,22 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual void serialize(MappedSerializer & serializer) const
     {
-        // TODO: finish
-        storage.reserialize(serializer);
-        //throw HttpReturnException(600, "SparseTableFrozenColumn::serialize()");
+        table.serialize(serializer);
+
+        rowNum.serialize(serializer);
+        index.serialize(serializer);
     }
 
-    FrozenMemoryRegionT<uint32_t> storage;
+    /// Set of distinct values in the column chunk
     FrozenCellValueTable table;
-    uint8_t rowNumBits;
-    uint8_t indexBits;
+
+    /// Row numbers (in increasing order) per non-null cell
+    FrozenIntegerTable rowNum;
+
+    /// Table index per non-null cell, corresponding to entries in
+    /// rowNum
+    FrozenIntegerTable index;
+
     uint32_t numEntries;
     size_t firstEntry;
     size_t lastEntry;  // WARNING: this is the number, not number + 1
