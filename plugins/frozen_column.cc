@@ -15,6 +15,7 @@
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/arch/vm.h"
+#include "mldb/arch/endian.h"
 #include "mldb/vfs/filter_streams.h"
 #include <mutex>
 #include <string.h>
@@ -2091,7 +2092,7 @@ struct DoubleFrozenColumn: public FrozenColumn {
             val = u.bits;
         }
 
-        uint64_t val;
+        uint64_le val;
 
         static const uint64_t NULL_BITS
             = 0ULL  << 63 // sign
@@ -2122,7 +2123,8 @@ struct DoubleFrozenColumn: public FrozenColumn {
         }
     };
 
-    DoubleFrozenColumn(TabularDatasetColumn & column)
+    DoubleFrozenColumn(TabularDatasetColumn & column,
+                       MappedSerializer & serializer)
         : columnTypes(column.columnTypes)
     {
         SizingInfo info(column);
@@ -2131,10 +2133,14 @@ struct DoubleFrozenColumn: public FrozenColumn {
         firstEntry = column.minRowNumber;
         numEntries = info.numEntries;
 
+        MutableMemoryRegionT<Entry> mutableData
+            = serializer.allocateWritableT<Entry>(info.numEntries);
+
         // Check it's really feasible
         ExcAssert(column.columnTypes.onlyDoublesAndNulls());
-        Entry * data = new Entry[info.numEntries];
-        storage = std::shared_ptr<Entry>(data, [] (Entry * p) { delete[] p; });
+        Entry * data = mutableData.data();
+        
+        std::fill(data, data + info.numEntries, Entry());
 
         for (auto & r_i: column.sparseIndexes) {
             const CellValue & v = column.indexedVals[r_i.second];
@@ -2143,12 +2149,14 @@ struct DoubleFrozenColumn: public FrozenColumn {
                 data[r_i.first] = v.toDouble();
             }
         }
+
+        this->storage = mutableData.freeze();
     }
 
     bool forEachImpl(const ForEachRowFn & onRow, bool keepNulls) const
     {
         for (size_t i = 0;  i < numEntries;  ++i) {
-            const Entry & entry = storage.get()[i];
+            const Entry & entry = storage[i];
             if (!keepNulls && entry.isNull())
                 continue;
             if (!onRow(i + firstEntry, entry))
@@ -2176,7 +2184,7 @@ struct DoubleFrozenColumn: public FrozenColumn {
         rowIndex -= firstEntry;
         if (rowIndex >= numEntries)
             return result;
-        return storage.get()[rowIndex];
+        return storage[rowIndex];
     }
 
     virtual size_t size() const
@@ -2212,7 +2220,7 @@ struct DoubleFrozenColumn: public FrozenColumn {
         allVals.reserve(numEntries);
 
         for (size_t i = 0;  i < numEntries;  ++i) {
-            const Entry & entry = storage.get()[i];
+            const Entry & entry = storage[i];
             if (entry.isNull())
                 hasNulls = true;
             else {
@@ -2244,7 +2252,8 @@ struct DoubleFrozenColumn: public FrozenColumn {
         return numNonNullRows;
     }
 
-    std::shared_ptr<const Entry> storage;
+    FrozenMemoryRegionT<Entry> storage;
+
     uint32_t numEntries = 0;
     uint64_t firstEntry = 0;
     uint32_t numNonNullRows = 0;
@@ -2304,7 +2313,7 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
            const ColumnFreezeParameters & params,
            std::shared_ptr<void> cachedInfo) const override
     {
-        return new DoubleFrozenColumn(column);
+        return new DoubleFrozenColumn(column, serializer);
     }
 
     virtual FrozenColumn *

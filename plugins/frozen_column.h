@@ -114,6 +114,12 @@ struct FrozenMemoryRegionT {
         raw.reserialize(serializer);
     }
 
+    const T & operator [] (size_t index) const
+    {
+        ExcAssertLess(index, length_);
+        return data()[index];
+    }
+
 private:
     const T * data_;
     size_t length_;
