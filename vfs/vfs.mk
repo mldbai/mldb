@@ -5,9 +5,10 @@ LIBVFS_SOURCES := \
         filter_streams.cc \
 	http_streambuf.cc \
 	compressor.cc \
-	zstandard.cc
+	zstandard.cc \
+	snappy.cc
 
-LIBVFS_LINK := arch boost_iostreams lzmapp types boost_filesystem http lz4 xxhash zstd
+LIBVFS_LINK := arch boost_iostreams lzmapp types boost_filesystem http lz4 xxhash zstd snappy
 
 $(eval $(call library,vfs,$(LIBVFS_SOURCES),$(LIBVFS_LINK)))
 
