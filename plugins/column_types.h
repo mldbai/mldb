@@ -97,6 +97,18 @@ struct ColumnTypes {
             && numBlobs == 0 && numOther == 0;
     }
 
+    bool onlyStrings() const
+    {
+        return numNulls == 0 && onlyStringsAndNulls();
+    }
+
+    bool onlyStringsAndNulls() const
+    {
+        return numReals == 0 && numIntegers == 0 && numZeros == 0
+            && numTimestamps == 0 && numPaths == 0
+            && numBlobs == 0 && numOther == 0;
+    }
+
     uint64_t numReals = 0;
     uint64_t numStrings = 0;
     uint64_t numBlobs = 0;
