@@ -151,8 +151,27 @@ struct PolyEntity {
     Utf8String type_;
 };
 
+/** Simple structure used to tag that something is a default type
+    for a poly config.
+*/
+struct DefaultType {
+    DefaultType(Utf8String type)
+        : type(std::move(type))
+    {
+    }
+
+    Utf8String type;
+};
+
 template<typename Entity>
 struct PolyConfigT: public PolyConfig {
+    PolyConfigT() = default;
+
+    PolyConfigT(const DefaultType & def)
+    {
+        this->type = def.type;
+    }
+
     void operator = (const PolyConfig & config)
     {
         *(PolyConfig *)this = config;
