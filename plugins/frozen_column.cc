@@ -1910,7 +1910,7 @@ struct DoubleFrozenColumn: public FrozenColumn {
 
     virtual void serialize(MappedSerializer & serializer) const
     {
-        throw HttpReturnException(600, "DoubleFrozenColumn::serialize()");
+        storage.reserialize(serializer);
     }
 };
 
