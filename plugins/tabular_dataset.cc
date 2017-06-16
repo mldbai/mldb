@@ -199,10 +199,10 @@ struct PathIndexShard {
             totalOffset += offset;
         }
 
-        cerr << "collision rate = " << 100.0 * collisions / input.size()
-             << "%" << endl;
-        cerr << "max offset = " << maxOffset << endl;
-        cerr << "avg offset = " << 1.0 * totalOffset / input.size() << endl;
+        //cerr << "collision rate = " << 100.0 * collisions / input.size()
+        //     << "%" << endl;
+        //cerr << "max offset = " << maxOffset << endl;
+        //cerr << "avg offset = " << 1.0 * totalOffset / input.size() << endl;
 
         this->storage = storage.freeze();
     }
@@ -1799,14 +1799,16 @@ struct TabularDataset::TabularDataStore
             timestampMem += c->timestamps->memusage();
         }
 
-        INFO_MSG(logger) << "row name usage is " << rowNameMem
-                         << " bytes at "
-                         << 1.0 * rowNameMem / totalRows << " per row with "
-                         << ML::type_name(*newState->chunks[0]->rowNames);
-        INFO_MSG(logger) << "timestamp usage is " << timestampMem
-                         << " bytes at "
-                         << 1.0 * timestampMem / totalRows << " per row with "
-                         << ML::type_name(*newState->chunks[0]->timestamps);
+        if (!newState->chunks.empty()) {
+            INFO_MSG(logger) << "row name usage is " << rowNameMem
+                             << " bytes at "
+                             << 1.0 * rowNameMem / totalRows << " per row with "
+                             << ML::type_name(*newState->chunks[0]->rowNames);
+            INFO_MSG(logger) << "timestamp usage is " << timestampMem
+                             << " bytes at "
+                             << 1.0 * timestampMem / totalRows << " per row with "
+                             << ML::type_name(*newState->chunks[0]->timestamps);
+        }
 
         size_t columnMem = 0;
         for (auto & c: newState->columns) {
