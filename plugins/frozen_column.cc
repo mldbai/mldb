@@ -475,7 +475,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
 
         // We compress each one individually using zstandard or not
         // at all if we want to mmap.
-        archive_op(archive_write_zip_set_compression_deflate);
+        archive_op(archive_write_zip_set_compression_store);
         archive_op(archive_write_open, this,
                    &BaseItl::openCallback,
                    &BaseItl::writeCallback,
