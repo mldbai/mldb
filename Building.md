@@ -37,7 +37,8 @@ apt-get install -y \
   unzip \
   valgrind \
   uuid-dev \
-  libxml++2.6-dev
+  libxml++2.6-dev \
+  libsnappy-dev
 ```
 ## Installing Docker
 
