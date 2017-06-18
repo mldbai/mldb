@@ -101,7 +101,6 @@ struct MutableMemoryRegion::Itl {
         : handle(std::move(handle)), data(data), length(length), owner(owner)
     {
     }
-
     
     std::shared_ptr<void> handle;
     char * data;
@@ -896,10 +895,16 @@ struct TableFrozenColumn: public FrozenColumn {
                       MappedSerializer & serializer)
         : columnTypes(std::move(column.columnTypes))
     {
-        MutableCellValueTable mutableTable
+        MutableCellValueSet mutableTable
             (std::make_move_iterator(column.indexedVals.begin()),
              std::make_move_iterator(column.indexedVals.end()));
-        table = mutableTable.freeze(serializer);
+
+        std::vector<uint32_t> remapping;
+
+        // Freezing is allowed to reorder them for efficiency, so we
+        // need to also keep a table remapping old indexes to new ones
+        std::tie(table, remapping)
+            = mutableTable.freeze(serializer);
 
         firstEntry = column.minRowNumber;
         numEntries = column.maxRowNumber - column.minRowNumber + 1;
@@ -911,7 +916,7 @@ struct TableFrozenColumn: public FrozenColumn {
             // Contiguous rows
             for (size_t i = 0;  i < column.sparseIndexes.size();  ++i) {
                 ExcAssertEqual(column.sparseIndexes[i].first, i);
-                mutableIndexes.add(column.sparseIndexes[i].second);
+                mutableIndexes.add(remapping.at(column.sparseIndexes[i].second));
             }
         }
         else {
@@ -922,7 +927,7 @@ struct TableFrozenColumn: public FrozenColumn {
                     mutableIndexes.add(0);
                     ++index;
                 }
-                mutableIndexes.add(r_i.second + 1);
+                mutableIndexes.add(remapping.at(r_i.second) + 1);
                 ++index;
             }
         }
@@ -1030,7 +1035,7 @@ struct TableFrozenColumn: public FrozenColumn {
     uint32_t numNonNullEntries = 0;
     
     bool hasNulls;
-    FrozenCellValueTable table;
+    FrozenCellValueSet table;
     ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
@@ -1114,14 +1119,16 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         firstEntry = column.minRowNumber;
         lastEntry = column.maxRowNumber;
 
-        MutableCellValueTable mutableTable;
+        MutableCellValueSet mutableTable;
         mutableTable.reserve(column.indexedVals.size());
 
         for (auto & v: column.indexedVals) {
             mutableTable.add(v);
         }
 
-        this->table = mutableTable.freeze(serializer);
+        std::vector<uint32_t> remapping;
+        std::tie(this->table, remapping)
+            = mutableTable.freeze(serializer);
 
         MutableIntegerTable mutableRowNum, mutableIndex;
         mutableRowNum.reserve(column.sparseIndexes.size());
@@ -1130,7 +1137,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         for (auto & i: column.sparseIndexes) {
             mutableRowNum.add(i.first);
             ExcAssertLess(i.second, table.size());
-            mutableIndex.add(i.second);
+            mutableIndex.add(remapping.at(i.second));
         }
 
         rowNum = mutableRowNum.freeze(serializer);
@@ -1297,7 +1304,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     }
 
     /// Set of distinct values in the column chunk
-    FrozenCellValueTable table;
+    FrozenCellValueSet table;
 
     /// Row numbers (in increasing order) per non-null cell
     FrozenIntegerTable rowNum;
@@ -1711,51 +1718,9 @@ struct DoubleFrozenColumn: public FrozenColumn {
         size_t numEntries;
         bool hasNulls;
     };
+
+    typedef FrozenDoubleTable::Entry Entry;
     
-    struct Entry {
-        
-        Entry()
-            : val(NULL_BITS)
-        {
-        }
-
-        Entry(double d)
-        {
-            U u { d: d };
-            val = u.bits;
-        }
-
-        uint64_le val;
-
-        static const uint64_t NULL_BITS
-            = 0ULL  << 63 // sign
-            | (0x7ffULL << 53) // exponent is all 1s for NaN
-            | (0xe1a1ULL); // mantissa
-
-        // Type-punning union declared once here so we don't need to
-        // do so everywhere else anonymously.
-        union U {
-            double d;
-            uint64_t bits;
-        };
-
-        bool isNull() const
-        {
-            return val == NULL_BITS;
-        }
-
-        double value() const
-        {
-            U u { bits: val };
-            return u.d;
-        }
-
-        operator CellValue() const
-        {
-            return isNull() ? CellValue() : value();
-        }
-    };
-
     DoubleFrozenColumn(TabularDatasetColumn & column,
                        MappedSerializer & serializer)
         : columnTypes(column.columnTypes)
