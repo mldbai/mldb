@@ -30,6 +30,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	fetcher.cc \
 	importtext_procedure.cc \
 	tabular_dataset.cc \
+	memory_region.cc \
 	frozen_column.cc \
 	frozen_tables.cc \
 	string_frozen_column.cc \
