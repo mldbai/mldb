@@ -121,7 +121,7 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
 
     virtual std::string format() const
     {
-        return "T";
+        return "Sc";
     }
 
     virtual void serialize(MappedSerializer & serializer) const
@@ -138,7 +138,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
 
     virtual std::string format() const override
     {
-        return "CompressedString";
+        return "Sc";
     }
 
     struct CachedInfo {
@@ -266,12 +266,14 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
              << "% compression at "
              << numSamples / elapsed << "/s" << endl;
 
-        return sizeof(CompressedStringFrozenColumn)
+        ssize_t totalBytesRequired = sizeof(CompressedStringFrozenColumn)
             + dictionarySize
             + compressedBytes
             + 4 * column.indexedVals.size();
 
-        return -1;
+        cerr << "result is " << totalBytesRequired << endl;
+
+        return result;
     }
     
     virtual FrozenColumn *
@@ -290,6 +292,6 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
     }
 };
 
-static RegisterFrozenColumnFormatT<CompressedStringFrozenColumnFormat> regCompressedString;
+//static RegisterFrozenColumnFormatT<CompressedStringFrozenColumnFormat> regCompressedString;
 
 } // namespace MLDB
