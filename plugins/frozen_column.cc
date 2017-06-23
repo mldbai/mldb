@@ -37,6 +37,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 /// Frozen column that simply stores the values directly
+/// No deduplication is done
 
 struct DirectFrozenColumn: public FrozenColumn {
     DirectFrozenColumn(TabularDatasetColumn & column,

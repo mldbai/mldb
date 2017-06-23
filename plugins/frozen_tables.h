@@ -300,7 +300,7 @@ struct MutableDoubleTable {
 
     size_t add(double val);
 
-    FrozenDoubleTable freeze(MappedSerializer & serializer) const;
+    FrozenDoubleTable freeze(MappedSerializer & serializer);
 };
 
 
@@ -310,20 +310,48 @@ struct MutableDoubleTable {
 /*****************************************************************************/
 
 struct FrozenBlobTable {
-    uint8_t format;
+    FrozenBlobTable();
+
+    enum Format {
+        UNCOMPRESSED = 0,
+        ZSTD = 1
+    };
+
+    uint8_t format = UNCOMPRESSED;
     FrozenMemoryRegion formatData;
-    FrozenMemoryRegion stringData;
+    FrozenMemoryRegion blobData;
     FrozenIntegerTable offset;
+
+    size_t getSize(uint32_t index) const;
+    size_t getBufferSize(uint32_t index) const;
+    bool needsBuffer(uint32_t index) const;
+    const char * getContents(uint32_t index,
+                             char * tempBuffer,
+                             size_t tempBufferSize) const;
+    
+    size_t memusage() const;
+    size_t size() const;
+    void serialize(MappedSerializer & serializer) const;
+
+    struct Itl;
+    std::shared_ptr<Itl> itl;
 };
 
 
 struct MutableBlobTable {
 
-    size_t add(const char * contents, size_t length);
+    size_t add(std::string blob);
 
-    std::vector<std::pair<const char *, size_t> > strings;
+    size_t size() const { return blobs.size(); }
 
-    FrozenBlobTable freeze(MappedSerializer & serializer) const;
+    MutableIntegerTable offsets;
+    std::vector<std::string> blobs;
+    uint64_t totalBytes = 0;
+
+    FrozenBlobTable freeze(MappedSerializer & serializer);
+
+    FrozenBlobTable freezeCompressed(MappedSerializer & serializer);
+    FrozenBlobTable freezeUncompressed(MappedSerializer & serializer);
 };
 
 
@@ -344,7 +372,7 @@ struct MutableStringTable {
     std::vector<std::pair<const char *, size_t> > strings;
     std::vector<std::string> ownedStrings;
 
-    FrozenStringTable freeze(MappedSerializer & serializer) const;
+    FrozenStringTable freeze(MappedSerializer & serializer);
 };
 
 
@@ -362,7 +390,7 @@ struct MutablePathTable {
 
     size_t add(Path path);
 
-    FrozenPathTable freeze(MappedSerializer & serializer) const;
+    FrozenPathTable freeze(MappedSerializer & serializer);
 };
 
 
@@ -379,7 +407,7 @@ struct MutableTimestampTable {
 
     size_t add(Date ts);
 
-    FrozenTimestampTable freeze(MappedSerializer & serializer) const;
+    FrozenTimestampTable freeze(MappedSerializer & serializer);
 };
 
 
@@ -388,27 +416,11 @@ struct MutableTimestampTable {
 /*****************************************************************************/
 
 struct FrozenCellValueTable {
-    CellValue operator [] (size_t index) const
-    {
-        static uint8_t format
-            = CellValue::serializationFormat(true /* known length */);
-        size_t offset0 = (index == 0 ? 0 : offsets.get(index - 1));
-        size_t offset1 = offsets.get(index);
+    CellValue operator [] (size_t index) const;
 
-        const char * data = cells.data() + offset0;
-        size_t len = offset1 - offset0;
-        return CellValue::reconstitute(data, len, format, true /* known length */).first;
-    }
+    uint64_t memusage() const;
 
-    uint64_t memusage() const
-    {
-        return offsets.memusage() + cells.memusage() + sizeof(*this);
-    }
-
-    size_t size() const
-    {
-        return offsets.size();
-    }
+    size_t size() const;
 
     template<typename Fn>
     bool forEachDistinctValue(Fn && fn) const
@@ -428,14 +440,9 @@ struct FrozenCellValueTable {
         return true;
     }
 
-    void serialize(MappedSerializer & serializer) const
-    {
-        offsets.serialize(serializer);
-        cells.reserialize(serializer);
-    }
+    void serialize(MappedSerializer & serializer) const;
 
-    FrozenIntegerTable offsets;
-    FrozenMemoryRegion cells;
+    FrozenBlobTable blobs;
 };
 
 struct MutableCellValueTable {
@@ -452,27 +459,16 @@ struct MutableCellValueTable {
         }
     }
 
-    void reserve(size_t numValues)
-    {
-        values.reserve(numValues);
-    }
+    void reserve(size_t numValues);
 
-    void add(CellValue val)
-    {
-        values.emplace_back(std::move(val));
-    }
+    size_t add(const CellValue & val);
 
-    void set(uint64_t index, CellValue val)
-    {
-        if (index >= values.size())
-            values.resize(index + 1);
-        values[index] = std::move(val);
-    }
+    void set(uint64_t index, const CellValue & val);
 
     FrozenCellValueTable
     freeze(MappedSerializer & serializer);
 
-    std::vector<CellValue> values;
+    MutableBlobTable blobs;
 };
 
 
