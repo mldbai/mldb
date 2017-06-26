@@ -76,6 +76,7 @@ FrozenMemoryRegion(std::shared_ptr<void> handle,
 {
 }
 
+#if 0
 void
 FrozenMemoryRegion::
 reserialize(MappedSerializer & serializer) const
@@ -86,6 +87,7 @@ reserialize(MappedSerializer & serializer) const
     std::memcpy(serializeTo.data(), data_, length_);
     serializeTo.freeze();
 }
+#endif
 
 
 /*****************************************************************************/
@@ -174,6 +176,24 @@ MemorySerializer::
 freeze(MutableMemoryRegion & region)
 {
     return FrozenMemoryRegion(region.handle(), region.data(), region.length());
+}
+
+
+/*****************************************************************************/
+/* STRUCTURED SERIALIZER                                                     */
+/*****************************************************************************/
+
+void
+StructuredSerializer::
+addRegion(const FrozenMemoryRegion & region,
+          const Utf8String & name)
+{
+    auto entry = newEntry(name);
+    // TODO: let the serializer handle it; no need to double allocate and
+    // copy here
+    auto serializeTo = entry->allocateWritable(region.length(), 1 /* alignment */);
+    std::memcpy(serializeTo.data(), region.data(), region.length());
+    serializeTo.freeze();
 }
 
 

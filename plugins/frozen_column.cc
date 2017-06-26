@@ -41,7 +41,7 @@ namespace MLDB {
 
 struct DirectFrozenColumn: public FrozenColumn {
     DirectFrozenColumn(TabularDatasetColumn & column,
-                      MappedSerializer & serializer)
+                       MappedSerializer & serializer)
         : columnTypes(std::move(column.columnTypes))
     {
         firstEntry = column.minRowNumber;
@@ -154,7 +154,7 @@ struct DirectFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const
     {
         // TODO: finish
         values.serialize(serializer);
@@ -384,11 +384,11 @@ struct TableFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const
     {
         // TODO: finish
-        indexes.serialize(serializer);
-        table.serialize(serializer);
+        indexes.serialize(*serializer.newStructure("index"));
+        table.serialize(*serializer.newStructure("table"));
     }
 };
 
@@ -636,12 +636,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const
     {
-        table.serialize(serializer);
-
-        rowNum.serialize(serializer);
-        index.serialize(serializer);
+        table.serialize(*serializer.newStructure("table"));
+        rowNum.serialize(*serializer.newStructure("rn"));
+        index.serialize(*serializer.newStructure("idx"));
     }
 
     /// Set of distinct values in the column chunk
@@ -972,7 +971,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
         return columnTypes;
     }
 
-    virtual void serialize(MappedSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const
     {
         // TODO: finish
         table.serialize(serializer);
@@ -1214,9 +1213,9 @@ struct DoubleFrozenColumn: public FrozenColumn {
         return "D";
     }
 
-    virtual void serialize(MappedSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const
     {
-        storage.reserialize(serializer);
+        serializer.addRegion(storage, "doubles");
     }
 };
 
@@ -1366,9 +1365,9 @@ struct TimestampFrozenColumn: public FrozenColumn {
         return "T";
     }
 
-    virtual void serialize(MappedSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const
     {
-        unwrapped->serialize(serializer);
+        unwrapped->serialize(*serializer.newStructure("ul"));
     }
 };
 

@@ -188,7 +188,7 @@ serialize(StructuredSerializer & serializer) const
     auto serializeAs = [&] (Utf8String name,
                             const FrozenColumn & col)
         {
-            col.serialize(*serializer.newEntry(name));
+            col.serialize(*serializer.newStructure(name));
         };
     
     for (size_t i = 0;  i < columns.size();  ++i) {
@@ -198,7 +198,7 @@ serialize(StructuredSerializer & serializer) const
     if (!sparseColumns.empty()) {
         auto sparseSerializer = serializer.newStructure("sp");
         for (auto & c: sparseColumns) {
-            c.second->serialize(*sparseSerializer->newEntry(c.first.toUtf8String()));
+            c.second->serialize(*sparseSerializer->newStructure(c.first.toUtf8String()));
         }
     }
     serializeAs("rn", *rowNames);

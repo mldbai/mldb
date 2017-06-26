@@ -18,6 +18,7 @@ namespace MLDB {
 
 struct filter_ostream;
 struct MappedSerializer;
+struct StructuredSerializer;
 
 /*****************************************************************************/
 /* MAPPED DEVICE                                                             */
@@ -74,8 +75,14 @@ struct FrozenMemoryRegion {
         return length();
     }
 
+#if 0
     /** Re-serialize the block to the other serializer. */
     void reserialize(MappedSerializer & serializer) const;
+
+    /** Re-serialize the block to the structured serializer, in the root
+        of the current path. */
+    void reserialize(StructuredSerializer & serializer) const;
+#endif
 
 private:
     const char * data_ = nullptr;
@@ -94,7 +101,7 @@ struct FrozenMemoryRegionT {
     FrozenMemoryRegionT(FrozenMemoryRegion raw)
         : data_((const T *)raw.data()),
           length_(raw.length() / sizeof(T)),
-          raw(std::move(raw))
+          raw_(std::move(raw))
     {
     }
 
@@ -113,11 +120,30 @@ struct FrozenMemoryRegionT {
         return length() * sizeof(T);
     }
 
+    const FrozenMemoryRegion & raw() const
+    {
+        return raw_;
+    }
+
+    operator const FrozenMemoryRegion & () const
+    {
+        return raw();
+    }
+
+#if 0
     /** Re-serialize the block to the other serializer. */
     void reserialize(MappedSerializer & serializer) const
     {
         raw.reserialize(serializer);
     }
+
+    /** Re-serialize the block to the structured serializer, in the root
+        of the current path. */
+    void reserialize(StructuredSerializer & serializer) const
+    {
+        raw.reserialize(serializer);
+    }
+#endif
 
     const T & operator [] (size_t index) const
     {
@@ -128,15 +154,13 @@ struct FrozenMemoryRegionT {
 private:
     const T * data_;
     size_t length_;
-    FrozenMemoryRegion raw;
+    FrozenMemoryRegion raw_;
 };
 
 
 /*****************************************************************************/
 /* MUTABLE MEMORY REGION                                                     */
 /*****************************************************************************/
-
-struct MappedSerializer;
 
 struct MutableMemoryRegion {
     MutableMemoryRegion()
@@ -320,6 +344,9 @@ struct StructuredSerializer {
 
     virtual filter_ostream
     newStream(const Utf8String & name) = 0;
+
+    virtual void addRegion(const FrozenMemoryRegion & region,
+                           const Utf8String & name);
 
     virtual void commit() = 0;
 };

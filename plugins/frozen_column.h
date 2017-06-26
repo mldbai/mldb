@@ -66,7 +66,7 @@ struct FrozenColumn: public MappedObject {
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params);
 
-    virtual void serialize(MappedSerializer & serializer) const = 0;
+    virtual void serialize(StructuredSerializer & serializer) const = 0;
 };
 
 

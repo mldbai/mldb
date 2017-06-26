@@ -174,12 +174,11 @@ size() const
 
 void
 FrozenBlobTable::
-serialize(MappedSerializer & serializer) const
+serialize(StructuredSerializer & serializer) const
 {
-    cerr << "serializing blob table" << endl;
-    formatData.reserialize(serializer);
-    blobData.reserialize(serializer);
-    offset.serialize(serializer);
+    serializer.addRegion(formatData, "fmt");
+    serializer.addRegion(blobData, "blob");
+    offset.serialize(*serializer.newStructure("offsets"));
 }
 
 
@@ -427,7 +426,7 @@ size() const
 
 void
 FrozenCellValueTable::
-serialize(MappedSerializer & serializer) const
+serialize(StructuredSerializer & serializer) const
 {
     blobs.serialize(serializer);
 }

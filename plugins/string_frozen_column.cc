@@ -124,7 +124,7 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
         return "Sc";
     }
 
-    virtual void serialize(MappedSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const
     {
         unwrapped->serialize(serializer);
     }
