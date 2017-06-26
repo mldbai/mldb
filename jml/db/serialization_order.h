@@ -13,8 +13,7 @@
    the opposite to the hton and ntoh macros.
 */
 
-#ifndef __db__serialization_order_h__
-#define __db__serialization_order_h__
+#pragma once
 
 #include <stdint.h>
 #include "mldb/compiler/compiler.h"
@@ -106,5 +105,3 @@ MLDB_ALWAYS_INLINE int64_t serialization_order(int64_t val)
 
 } // namespace DB
 } // namespace ML
-
-#endif /* __db__serialization_order_h__ */

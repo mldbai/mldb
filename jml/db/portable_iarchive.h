@@ -12,17 +12,27 @@
 #pragma once
 
 #include <algorithm>
-#include "serialization_order.h"
-#include "mldb/jml/utils/floating_point.h"
 #include "mldb/arch/exception.h"
+#include "mldb/arch/endian.h"
 #include "compact_size_types.h"
-#include <vector>
-#include <map>
-#include <unordered_map>
-#include <set>
-#include <boost/array.hpp>
-#include "mldb/jml/utils/string_functions.h"
 #include <memory>
+#include <sstream>
+
+namespace std {
+
+template<class T, class A>
+class vector;
+
+template<class K, class V, class L, class A>
+class map;
+
+template<class K, class V, class H, class P, class A>
+class unordered_map;
+
+template<class V, class L, class A>
+class set;
+
+} // namespace std
 
 namespace boost {
 
@@ -124,228 +134,12 @@ public:
     portable_bin_iarchive(std::istream & stream);
     portable_bin_iarchive(const char * c, size_t sz);
 
-    void load(unsigned char & x)
-    {
-        load_binary(&x, 1);
-    }
-
-    void load(signed char & x)
-    {
-        load_binary(&x, 1);
-    }
-
-    void load(char & x)
-    {
-        load_binary(&x, 1);
-    }
-
-    void load(unsigned short & x)
-    {
-        uint16_t xx;
-        load_binary(&xx, 2);
-        x = native_order(xx);
-    }
-
-    void load(signed short & x)
-    {
-        int16_t xx;
-        load_binary(&xx, 2);
-        x = native_order(xx);
-    }
-
-    void load(unsigned int & x)
-    {
-        uint32_t xx;
-        load_binary(&xx, 4);
-        x = native_order(xx);
-    }
-
-    void load(signed int & x)
-    {
-        int32_t xx;
-        load_binary(&xx, 4);
-        x = native_order(xx);
-    }
-
-    void load(unsigned long & x)
-    {
-        compact_size_t sz(*this);
-        x = sz;
-    }
-
-    void load(signed long & x)
-    {
-        compact_int_t sz(*this);
-        x = sz;
-    }
-
-    void load(unsigned long long & x)
-    {
-        compact_size_t sz(*this);
-        x = sz;
-    }
-
-    void load(signed long long & x)
-    {
-        compact_int_t sz(*this);
-        x = sz;
-    }
-    
-    void load(bool & x)
-    {
-        unsigned char xx;
-        load_binary(&xx, 1);
-        x = xx;
-    }
-    
-    void load(float & x)
-    {
-        // Saved as the 4 bytes in network order
-        uint32_t xx;
-        load_binary(&xx, 4);
-        xx = native_order(xx);
-        x = reinterpret_as_float(xx);
-    }
-    
-    void load(double & x)
-    {
-        // Saved as the 8 bytes in network order
-        uint64_t xx;
-        load_binary(&xx, 8);
-        xx = native_order(xx);
-        x = reinterpret_as_double(xx);
-    }
-    
-    void load(long double & x)
-    {
-        throw Exception("long double not supported yet");
-    }
-
-    void load(std::string & str)
-    {
-        compact_size_t size(*this);
-        str.resize(size);
-        load_binary(&str[0], size);
-    }
-
-    void load(const char * & str)
-    {
-        compact_size_t size(*this);
-        char * res = new char[size];  // keep track of this?
-        load_binary(res, size);
-        str = res;
-    }
-
-    template<class T, class A>
-    void load(std::vector<T, A> & vec)
-    {
-        compact_size_t sz(*this);
-
-        std::vector<T, A> v;
-        v.reserve(sz);
-        for (unsigned i = 0;  i < sz;  ++i) {
-            T t;
-            *this >> t;
-            v.push_back(t);
-        }
-        vec.swap(v);
-    }
-
-    template<class K, class V, class L, class A>
-    void load(std::map<K, V, L, A> & res)
-    {
-        compact_size_t sz(*this);
-
-        std::map<K, V, L, A> m;
-        for (unsigned i = 0;  i < sz;  ++i) {
-            K k;
-            *this >> k;
-            V v;
-            *this >> v;
-            m.insert(std::make_pair(k, v));
-        }
-        res.swap(m);
-    }
-
-    template<class K, class V, class H, class P, class A>
-    void load(std::unordered_map<K, V, H, P, A> & res)
-    {
-        compact_size_t sz(*this);
-
-        std::unordered_map<K, V, H, P, A> m;
-        for (unsigned i = 0;  i < sz;  ++i) {
-            K k;
-            *this >> k;
-            V v;
-            *this >> v;
-            m.insert(std::make_pair(k, v));
-        }
-        res.swap(m);
-    }
-
-    template<class V, class L, class A>
-    void load(std::set<V, L, A> & res)
-    {
-        compact_size_t sz(*this);
-
-        std::set<V, L, A> m;
-        for (unsigned i = 0;  i < sz;  ++i) {
-            V v;
-            *this >> v;
-            m.insert(v);
-        }
-        res.swap(m);
-    }
-
-    template<typename T1, typename T2>
-    void load(std::pair<T1, T2> & p)
-    {
-        load(p.first);
-        load(p.second);
-    }
-
-    template<typename T, std::size_t NumDims, class Allocator>
-    void load(boost::multi_array<T, NumDims, Allocator> & arr)
-    {
-        using namespace std;
-        char version;
-        load(version);
-        if (version != 1)
-            throw Exception("unknown multi array version");
-
-        char nd;
-        load(nd);
-        if (nd != NumDims)
-            throw Exception("NumDims wrong");
-
-        boost::array<size_t, NumDims> sizes;
-        for (unsigned i = 0;  i < NumDims;  ++i) {
-            compact_size_t sz(*this);
-            sizes[i] = sz;
-        }
-
-        arr.resize(sizes);
-
-        size_t ne = arr.num_elements();
-        T * el = arr.data();
-        for (unsigned i = 0;  i < ne;  ++i, ++el)
-            *this >> *el;
-    }
-
     void load_binary(void * address, size_t size)
     {
         must_have(size);
         std::copy(pos(), pos() + size,
                   reinterpret_cast<char *>(address));
         skip(size);
-    }
-
-    // Anything with a serialize() method gets to be serialized
-    template<typename T>
-    void load(T & obj,
-         decltype(((T *)0)->reconstitute(*(portable_bin_iarchive *)0)) * = 0)
-    {
-        obj.reconstitute(*this);
     }
 
 #if 0
@@ -356,6 +150,220 @@ public:
     }
 #endif
 };
+
+inline void load(portable_bin_iarchive & archive, unsigned char & x)
+{
+    archive.load_binary(&x, 1);
+}
+
+inline void load(portable_bin_iarchive & archive, signed char & x)
+{
+    archive.load_binary(&x, 1);
+}
+
+inline void load(portable_bin_iarchive & archive, char & x)
+{
+    archive.load_binary(&x, 1);
+}
+
+inline void load(portable_bin_iarchive & archive, unsigned short & x)
+{
+    uint16_t xx;
+    archive.load_binary(&xx, 2);
+    x = le_to_host(xx);
+}
+
+inline void load(portable_bin_iarchive & archive, signed short & x)
+{
+    int16_t xx;
+    archive.load_binary(&xx, 2);
+    x = le_to_host(xx);
+}
+
+inline void load(portable_bin_iarchive & archive, unsigned int & x)
+{
+    uint32_t xx;
+    archive.load_binary(&xx, 4);
+    x = le_to_host(xx);
+}
+
+inline void load(portable_bin_iarchive & archive, signed int & x)
+{
+    int32_t xx;
+    archive.load_binary(&xx, 4);
+    x = le_to_host(xx);
+}
+
+inline void load(portable_bin_iarchive & archive, unsigned long & x)
+{
+    compact_size_t sz(archive);
+    x = sz;
+}
+
+inline void load(portable_bin_iarchive & archive, signed long & x)
+{
+    compact_int_t sz(archive);
+    x = sz;
+}
+
+inline void load(portable_bin_iarchive & archive, unsigned long long & x)
+{
+    compact_size_t sz(archive);
+    x = sz;
+}
+
+inline void load(portable_bin_iarchive & archive, signed long long & x)
+{
+    compact_int_t sz(archive);
+    x = sz;
+}
+    
+inline void load(portable_bin_iarchive & archive, bool & x)
+{
+    unsigned char xx;
+    archive.load_binary(&xx, 1);
+    x = xx;
+}
+    
+inline void load(portable_bin_iarchive & archive, float & x)
+{
+    archive.load_binary(&x, 4);
+    x = le_to_host(x);
+}
+    
+inline void load(portable_bin_iarchive & archive, double & x)
+{
+    archive.load_binary(&x, 8);
+    x = le_to_host(x);
+}
+    
+inline void load(portable_bin_iarchive & archive, long double & x)
+{
+    throw Exception("long double not supported yet");
+}
+
+inline void load(portable_bin_iarchive & archive, std::string & str)
+{
+    compact_size_t size(archive);
+    str.resize(size);
+    archive.load_binary(&str[0], size);
+}
+
+inline void load(portable_bin_iarchive & archive, const char * & str)
+{
+    compact_size_t size(archive);
+    char * res = new char[size];  // keep track of this?
+    archive.load_binary(res, size);
+    str = res;
+}
+
+template<class T, class A>
+void load(portable_bin_iarchive & archive, std::vector<T, A> & vec)
+{
+    compact_size_t sz(archive);
+
+    std::vector<T, A> v;
+    v.reserve(sz);
+    for (unsigned i = 0;  i < sz;  ++i) {
+        T t;
+        archive >> t;
+        v.push_back(t);
+    }
+    vec.swap(v);
+}
+
+template<class K, class V, class L, class A>
+void load(portable_bin_iarchive & archive, std::map<K, V, L, A> & res)
+{
+    compact_size_t sz(archive);
+
+    std::map<K, V, L, A> m;
+    for (unsigned i = 0;  i < sz;  ++i) {
+        K k;
+        archive >> k;
+        V v;
+        archive >> v;
+        m.insert(std::make_pair(k, v));
+    }
+    res.swap(m);
+}
+
+template<class K, class V, class H, class P, class A>
+void load(portable_bin_iarchive & archive,
+          std::unordered_map<K, V, H, P, A> & res)
+{
+    compact_size_t sz(archive);
+
+    std::unordered_map<K, V, H, P, A> m;
+    for (unsigned i = 0;  i < sz;  ++i) {
+        K k;
+        archive >> k;
+        V v;
+        archive >> v;
+        m.insert(std::make_pair(k, v));
+    }
+    res.swap(m);
+}
+
+template<class V, class L, class A>
+void load(portable_bin_iarchive & archive, std::set<V, L, A> & res)
+{
+    compact_size_t sz(archive);
+
+    std::set<V, L, A> m;
+    for (unsigned i = 0;  i < sz;  ++i) {
+        V v;
+        archive >> v;
+        m.insert(v);
+    }
+    res.swap(m);
+}
+
+template<typename T1, typename T2>
+void load(portable_bin_iarchive & archive, std::pair<T1, T2> & p)
+{
+    load(archive, p.first);
+    load(archive, p.second);
+}
+
+template<typename T, std::size_t NumDims, class Allocator>
+void load(portable_bin_iarchive & archive,
+          boost::multi_array<T, NumDims, Allocator> & arr)
+{
+    using namespace std;
+    char version;
+    load(archive, version);
+    if (version != 1)
+        throw Exception("unknown multi array version");
+
+    char nd;
+    load(archive, nd);
+    if (nd != NumDims)
+        throw Exception("NumDims wrong");
+
+    std::array<size_t, NumDims> sizes;
+    for (unsigned i = 0;  i < NumDims;  ++i) {
+        compact_size_t sz(archive);
+        sizes[i] = sz;
+    }
+
+    arr.resize(sizes);
+
+    size_t ne = arr.num_elements();
+    T * el = arr.data();
+    for (unsigned i = 0;  i < ne;  ++i, ++el)
+        archive >> *el;
+}
+
+// Anything with a serialize() method gets to be serialized
+template<typename T>
+void load(portable_bin_iarchive & archive,
+          T & obj,
+          decltype(((T *)0)->reconstitute(*(portable_bin_iarchive *)0)) * = 0)
+{
+    obj.reconstitute(archive);
+}
+
 
 } // namespace DB
 } // namespace ML

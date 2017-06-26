@@ -11,8 +11,7 @@
    Forward declarations for persistence functions.
 */
 
-#ifndef __db__persistent_fwd_h__
-#define __db__persistent_fwd_h__
+#pragma once
 
 namespace ML {
 namespace DB {
@@ -135,8 +134,4 @@ reconstitute_compact_size(Store_Reader & store);
 
 } // namespace DB
 } // namespace ML
-
-
-#endif /* __db__persistent_fwd_h__ */
-
 
