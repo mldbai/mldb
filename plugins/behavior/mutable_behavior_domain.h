@@ -426,7 +426,7 @@ public:  // for testing
     // Records information for each subject
     // std::vector<SubjectEntry *> subjects;
 
-    struct BehaviorEntry: public boost::noncopyable {
+    struct BehaviorEntry {
 
         BehaviorEntry()
             : earliest(std::numeric_limits<uint64_t>::max()),
@@ -443,6 +443,9 @@ public:  // for testing
             if (unsorted)
                 deleteDataNode(unsorted);
         }
+
+        BehaviorEntry(const BehaviorEntry &) = delete;
+        void operator = (const BehaviorEntry &) = delete;
 
         std::atomic<uint64_t> earliest;  /// Absolute offset of first entry
         std::atomic<uint64_t> latest;    /// Same for last entry

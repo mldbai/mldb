@@ -11,7 +11,7 @@
 #include "feature_space.h"
 #include "feature_set.h"
 #include "mldb/ml/jml/feature_info.h"
-
+#include <map>
 
 namespace ML {
 

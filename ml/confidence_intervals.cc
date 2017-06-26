@@ -11,6 +11,7 @@
 #include "mldb/ml/jml/thread_context.h"
 #include <math.h>
 #include "mldb/arch/exception.h"
+#include "mldb/jml/utils/string_functions.h"
 
 
 using namespace std;

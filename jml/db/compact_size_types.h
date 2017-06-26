@@ -11,9 +11,7 @@
    Compact serialization of integers.
 */
 
-#ifndef __db__compact_size_types_h__
-#define __db__compact_size_types_h__
-
+#pragma once
 
 #include "persistent_fwd.h"
 #include <iostream>
@@ -95,5 +93,3 @@ IMPL_SERIALIZE_RECONSTITUTE(compact_int_t);
 
 } // namespace DB
 } // namespace ML
-
-#endif /* __db__compact_size_types_h__ */
