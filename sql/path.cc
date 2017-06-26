@@ -1173,14 +1173,14 @@ operator + (PathElement && other) const
         .extract();
 }
 
-Path::operator RowHash() const
+Path::operator HashWrapper<1>() const
 {
-    return RowHash(hash());
+    return HashWrapper<1>(hash());
 }
 
-Path::operator ColumnHash() const
+Path::operator HashWrapper<3>() const
 {
-    return ColumnHash(hash());
+    return HashWrapper<3>(hash());
 }
 
 bool
