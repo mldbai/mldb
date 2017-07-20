@@ -91,3 +91,6 @@
 [submodule "ext/concurrentqueue"]
 	path = ext/concurrentqueue
 	url = git@github.com:mldbai/concurrentqueue.git
+[submodule "ext/cmake"]
+	path = ext/cmake
+	url = https://github.com/mldbai/CMake.git
