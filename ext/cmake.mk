@@ -15,6 +15,7 @@ $(TMP)/$(HOSTARCH)/cmake/bootstrap: $(TMP)/$(HOSTARCH)/.dir_exists
 	@cp -r mldb/ext/cmake $(TMP)/$(HOSTARCH)/cmake-tmp
 	@mv $(TMP)/$(HOSTARCH)/cmake-tmp $(TMP)/$(HOSTARCH)/cmake
 
-CMAKE := $(HOSTBIN)/cmake
+CMAKE := $(PWD)/$(HOSTBIN)/cmake
+DEPENDS_ON_CMAKE := $(HOSTBIN)/cmake
 
 endif
