@@ -12,6 +12,7 @@ $(eval $(call include_sub_make,git))
 $(eval $(call include_sub_make,sqlite))
 $(eval $(call include_sub_make,sparse))
 $(eval $(call include_sub_make,embedding))
+$(eval $(call include_sub_make,llvm))
 
 # These have already been packaged as full plugins
 $(eval $(call include_mldb_plugin,html))
