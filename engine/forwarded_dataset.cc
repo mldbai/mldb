@@ -48,18 +48,17 @@ void
 ForwardedDataset::
 setUnderlying(std::shared_ptr<Dataset> underlying)
 {
-    /// We can only set the underlying dataset once, as we don't do any kind
-    /// of locking.  Make sure that the user isn't misusing the dataset.
-    ExcAssert(!this->underlying);
-    this->underlying = std::move(underlying);
+    ExcAssert(underlying);
+    this->underlying.store(std::move(underlying));
 }
 
 Any
 ForwardedDataset::
 getStatus() const
 {
-    ExcAssert(underlying);
-    return underlying->getStatus();
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getStatus();
 }
 
 void
@@ -67,16 +66,18 @@ ForwardedDataset::
 recordRowItl(const RowPath & rowName,
              const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
-    ExcAssert(underlying);
-    underlying->recordRowItl(rowName, vals);
+    auto current = underlying.load();
+    ExcAssert(current);
+    current->recordRowItl(rowName, vals);
 }
 
 void
 ForwardedDataset::
 recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
-    ExcAssert(underlying);
-    underlying->recordRows(rows);
+    auto current = underlying.load();
+    ExcAssert(current);
+    current->recordRows(rows);
 }
 
 void
@@ -84,40 +85,45 @@ ForwardedDataset::
 recordColumn(const ColumnPath & columnName,
              const std::vector<std::tuple<RowPath, CellValue, Date> > & vals)
 {
-    ExcAssert(underlying);
-    underlying->recordColumn(columnName, vals);
+    auto current = underlying.load();
+    ExcAssert(current);
+    current->recordColumn(columnName, vals);
 }
     
 void
 ForwardedDataset::
 recordColumns(const std::vector<std::pair<ColumnPath, std::vector<std::tuple<RowPath, CellValue, Date> > > > & cols)
 {
-    ExcAssert(underlying);
-    underlying->recordColumns(cols);
+    auto current = underlying.load();
+    ExcAssert(current);
+    current->recordColumns(cols);
 }
 
 KnownColumn
 ForwardedDataset::
 getKnownColumnInfo(const ColumnPath & columnName) const
 {
-    ExcAssert(underlying);
-    return underlying->getKnownColumnInfo(columnName);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getKnownColumnInfo(columnName);
 }
 
 std::shared_ptr<RowValueInfo>
 ForwardedDataset::
 getRowInfo() const
 {
-    ExcAssert(underlying);
-    return underlying->getRowInfo();
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getRowInfo();
 }
 
 void
 ForwardedDataset::
 commit()
 {
-    ExcAssert(underlying);
-    underlying->commit();
+    auto current = underlying.load();
+    ExcAssert(current);
+    current->commit();
 }
 
 std::vector<MatrixNamedRow>
@@ -133,8 +139,9 @@ queryStructured(const SelectExpression & select,
                 ssize_t limit,
                 Utf8String alias) const
 {
-    ExcAssert(underlying);
-    return underlying->queryStructured(select, when, where, orderBy,
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->queryStructured(select, when, where, orderBy,
             groupBy, having, rowName, offset, limit, alias);
 }
 
@@ -142,8 +149,9 @@ std::vector<MatrixNamedRow>
 ForwardedDataset::
 queryString(const Utf8String & query) const
 {
-    ExcAssert(underlying);
-    return underlying->queryString(query);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->queryString(query);
 }
     
 Json::Value
@@ -151,16 +159,18 @@ ForwardedDataset::
 selectExplainString(const Utf8String & select,
                     const Utf8String & where) const
 {
-    ExcAssert(underlying);
-    return underlying->selectExplainString(select, where);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->selectExplainString(select, where);
 }
 
 std::vector<ColumnPath>
 ForwardedDataset::
 getColumnPaths(ssize_t offset, ssize_t limit) const
 {
-    ExcAssert(underlying);
-    return underlying->getColumnPaths(offset, limit);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getColumnPaths(offset, limit);
 }
 
 BoundFunction
@@ -169,8 +179,9 @@ overrideFunction(const Utf8String & tableName,
                  const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
-    ExcAssert(underlying);
-    return underlying->overrideFunction(tableName, functionName, context);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->overrideFunction(tableName, functionName, context);
 }
 
 GenerateRowsWhereFunction
@@ -181,8 +192,9 @@ generateRowsWhere(const SqlBindingScope & context,
                   ssize_t offset,
                   ssize_t limit) const
 {
-    ExcAssert(underlying);
-    return underlying->generateRowsWhere(context, alias, where, offset, limit);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->generateRowsWhere(context, alias, where, offset, limit);
 }
 
 BasicRowGenerator
@@ -195,8 +207,9 @@ queryBasic(const SqlBindingScope & context,
            ssize_t offset,
            ssize_t limit) const
 {
-    ExcAssert(underlying);
-    return underlying->queryBasic(context, select, when, where, orderBy, offset, limit);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->queryBasic(context, select, when, where, orderBy, offset, limit);
 }
 
 RestRequestMatchResult
@@ -205,55 +218,63 @@ handleRequest(RestConnection & connection,
               const RestRequest & request,
               RestRequestParsingContext & context) const
 {
-    ExcAssert(underlying);
-    return underlying->handleRequest(connection, request, context);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->handleRequest(connection, request, context);
 }
 
 void
 ForwardedDataset::
 getChildAliases(std::vector<Utf8String> & aliases) const
 {
-    ExcAssert(underlying);
-    underlying->getChildAliases(aliases);
+    auto current = underlying.load();
+    ExcAssert(current);
+    current->getChildAliases(aliases);
 }
 
 std::pair<Date, Date>
 ForwardedDataset::
 getTimestampRange() const
 {
-    ExcAssert(underlying);
-    return underlying->getTimestampRange();
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getTimestampRange();
 }
 
 Date
 ForwardedDataset::
 quantizeTimestamp(Date timestamp) const
 {
-    ExcAssert(underlying);
-    return underlying->quantizeTimestamp(timestamp);
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->quantizeTimestamp(timestamp);
 }
 
 std::shared_ptr<MatrixView>
 ForwardedDataset::
 getMatrixView() const
 {
-    ExcAssert(underlying);
-    return underlying->getMatrixView();
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getMatrixView();
 }
 
 std::shared_ptr<ColumnIndex>
 ForwardedDataset::
 getColumnIndex() const
 {
-    ExcAssert(underlying);
-    return underlying->getColumnIndex();
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getColumnIndex();
 }
 
 std::shared_ptr<RowStream> 
 ForwardedDataset::
 getRowStream() const
 {
-    return underlying->getRowStream();
+    auto current = underlying.load();
+    ExcAssert(current);
+    return current->getRowStream();
 }
 
 

@@ -9,6 +9,7 @@
 */
 
 #include "mldb/core/dataset.h"
+#include "mldb/utils/atomic_shared_ptr.h"
 
 #pragma once
 
@@ -21,9 +22,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 /** This abstract dataset implementation forwards all operations to a concrete
-    dataset implementation behind the scenes.  Note that the concrete
-    implementation is not changeable after the initialization of the
-    dataset.
+    dataset implementation behind the scenes.
 */
 
 struct ForwardedDataset: public Dataset {
@@ -116,7 +115,7 @@ struct ForwardedDataset: public Dataset {
     virtual std::shared_ptr<RowStream> getRowStream() const;
 
 private:
-    std::shared_ptr<Dataset> underlying;
+    atomic_shared_ptr<Dataset> underlying;
 };
 
 
