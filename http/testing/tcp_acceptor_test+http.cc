@@ -84,7 +84,8 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_test )
              + to_string(acceptor.effectiveTCPv4Port())
              + "\n");
     BOOST_REQUIRE_GT(acceptor.effectiveTCPv4Port(), 0);
-    BOOST_REQUIRE_EQUAL(acceptor.effectiveTCPv6Port(), -1);
+    // If ipv6 is there, then this may not be -1
+    //BOOST_REQUIRE_EQUAL(acceptor.effectiveTCPv6Port(), -1);
     HttpRestProxy proxy("http://localhost:"
                         + to_string(acceptor.effectiveTCPv4Port()));
     auto resp = proxy.get("/v1/ping");
