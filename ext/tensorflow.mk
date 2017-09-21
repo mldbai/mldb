@@ -124,8 +124,15 @@ $(CWD)/%.pb_text.cc $(CWD)/%.pb_text.h $(CWD)/%.pb_text-impl.h:	$(CWD)/%.proto |
 
 
 # CUDA base defines, used even with no CUDA support
-CUDA_VERSION?=8.0
-CUDNN_VERSION?=5
+
+# Detect version of CUDA installed from the symlink
+CUDA_VERSION_DETECTED:=$(shell readlink /usr/local/cuda | sed 's/cuda-//')
+
+# Detect version of CUDNN installed from the symlink
+CUDNN_VERSION_DETECTED:=$(shell ls /usr/include/x86_64-linux-gnu/cudnn_v*.h | tail -n1 | sed 's/.*cudnn_v\(.*\).h/\1/')
+
+CUDA_VERSION?=$(CUDA_VERSION_DETECTED)
+CUDNN_VERSION?=$(CUDNN_VERSION_DETECTED)
 
 # Which CUDA capabilities do we want to pre-build for?
 # https://developer.nvidia.com/cuda-gpus
@@ -138,7 +145,7 @@ CUDNN_VERSION?=5
 #   3.0                    K10, Grid K520 (AWS G2)
 #   Other Nvidia shader models should work, but they will require extra startup
 #   time as the code is pre-optimized for them.
-CUDA_MODELS=30 35 37 52 60 61
+CUDA_MODELS?=30 35 37 52 60 61
 
 # Which CUDA compute capabilities do we support?  3.0 is needed for the
 # AWS g2 instances; this is the lowest common denominator
@@ -180,7 +187,7 @@ $(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
 	@mkdir -p $(dir $@)
 	@ln -sf $(CUDA_BASE_DIR)/extras $@
 
-$(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudnn_v5.h
+$(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudnn_v$(CUDNN_VERSION).h
 	@mkdir -p $(dir $@)
 	@ln -s $< $@
 
