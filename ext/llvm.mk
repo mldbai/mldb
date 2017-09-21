@@ -20,4 +20,7 @@ $(LIB)/libLLVM.so:	$(TMP)/llvm/Makefile
 	@+make -j -C $(TMP)/llvm install > $(TMP)/llvm-make.log 2>&1 || (cat $(TMP)/llvm-make.log && echo "$(COLOR_RED)Error building llvm$(COLOR_RESET)" && false)
 	@echo "   $(COLOR_BLUE)[DONE EXTERN]$(COLOR_RESET)                      	llvm"
 
+LIB_LLVM_SO:=$(LIB)/libLLVM.so
+LIB_LLVM_DEPS:=$(LIB)/libLLVM.so
+
 endif
