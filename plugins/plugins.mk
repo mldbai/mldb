@@ -76,6 +76,6 @@ $(eval $(call include_sub_make,misc))
 $(eval $(call include_sub_make,ui))
 
 
-$(LIB)/libmldb_builtin_plugins.so: $(LIB)/libmldb_lang_plugins.so $(LIB)/libmldb_js_plugin.so $(LIB)/libmldb_misc_plugins.so $(LIB)/libmldb_ui_plugins.so
+$(LIB)/libmldb_builtin_plugins.so: $(LIB)/libmldb_lang_plugins.so $(LIB)/libmldb_js_plugin.so $(LIB)/libmldb_misc_plugins.so $(LIB)/libmldb_ui_plugins.so $(LIB)/libmldb_opencl_plugin.so
 
 
