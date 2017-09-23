@@ -1,18 +1,17 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* parameters_impl.h                                               -*- C++ -*-
    Jeremy Barnes, 6 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Implementation of parameters template members.
 */
 
-#ifndef __jml__neural__parameters_impl_h__
-#define __jml__neural__parameters_impl_h__
+#pragma once
 
 #include "parameters.h"
 #include "layer.h"
 #include <iostream>
+#include <cmath>
 
 namespace ML {
 
@@ -25,7 +24,7 @@ bool need_update(const F * vals, size_t size)
 #if 0 // check the whole range for NaN
     bool result = false;
     for (unsigned i = 0;  i < size;  ++i) {
-        if (isnan(vals[i]))
+        if (std::isnan(vals[i]))
             throw Exception("updating with range containing NaN");
         if (vals[i] != 0.0)
             result = true;
@@ -33,7 +32,7 @@ bool need_update(const F * vals, size_t size)
     return result;
 #else // check for NaN until we find a single non-zero value
     for (unsigned i = 0;  i < size;  ++i) {
-        if (isnan(vals[i]))
+        if (std::isnan(vals[i]))
             throw Exception("updating with range containing NaN");
         if (vals[i] != 0.0) return true;
     }
@@ -944,6 +943,3 @@ make_copy() const
 }
 
 } // namespace ML
-
-
-#endif /* __jml__neural__parameters_impl_h__ */

@@ -223,6 +223,6 @@ distribution<bool> isnan(const distribution<F, Underlying> & dist)
     return result;
 }
 
-using ::isnan;
+using std::isnan;
 
 } // namespace MLDB

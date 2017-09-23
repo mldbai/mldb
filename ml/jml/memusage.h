@@ -8,16 +8,15 @@
    Functions to calculate the memory usage of various data structures.
 */
 
-#ifndef __boosting__memusage_h__
-#define __boosting__memusage_h__
+#pragma once
 
+#include <string>
 
 namespace std {
 
 template<class Key, class Data, class Compare, class Alloc> class map;
 template<class First, class Second> class pair;
 template<class T, class Alloc> class vector;
-template<class Char, class Traits, class Alloc> class basic_string;
 
 };
 
@@ -131,5 +130,3 @@ size_t memusage(const std::basic_string<Char, Traits, Alloc> & str)
 }
 
 } // namespace ML
-
-#endif /* __boosting__memusage_h__ */

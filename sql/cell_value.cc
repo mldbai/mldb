@@ -19,6 +19,7 @@
 #include "mldb/compiler/compiler.h"
 #include "interval.h"
 #include "path.h"
+#include <math.h>
 #include "mldb/ext/s2/s2.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/base/less.h"
