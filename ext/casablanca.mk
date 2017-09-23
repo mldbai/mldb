@@ -268,7 +268,8 @@ $(eval $(call set_compile_option,$(PPLX_SOURCE),$(PPLX_FLAGS)))
 $(eval $(call library,pplx,$(PPLX_SOURCE)))
 
 CASABLANCA_UNITTESTPP_SOURCE := \
-    $(shell cd mldb/ext/casablanca && ls Release/tests/common/UnitTestpp/src/*.cpp) \
+
+#    $(shell cd mldb/ext/casablanca && ls Release/tests/common/UnitTestpp/src/*.cpp) \
     $(shell cd mldb/ext/casablanca && ls Release/tests/common/UnitTestpp/src/Posix/*.cpp) \
 
 
@@ -343,8 +344,8 @@ CASABLANCA_TEST_FLAGS := \
     -Wno-delete-non-virtual-dtor \
 
 $(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call set_compile_option,Release/tests/$(file),$(CASABLANCA_TEST_FLAGS))))
-$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call library,$(basename $(notdir $(file))),Release/tests/$(file),casablanca pplx unittestpp,$(basename $(notdir $(file))),,,$(TESTS)/casablanca/$(patsubst %/,%,$(dir $(file))))))
-$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call casablanca_test,$(basename $(file)))))
+#$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call library,$(basename $(notdir $(file))),Release/tests/$(file),casablanca pplx unittestpp,$(basename $(notdir $(file))),,,$(TESTS)/casablanca/$(patsubst %/,%,$(dir $(file))))))
+#$(foreach file,$(CASABLANCA_TEST_FILES),$(eval $(call casablanca_test,$(basename $(file)))))
 
 endif
 
@@ -362,4 +363,4 @@ TEST_RUNNER_FLAGS := \
     -Wno-reorder \
 
 $(eval $(call set_compile_option,$(TEST_RUNNER_SOURCE),$(TEST_RUNNER_FLAGS)))
-$(eval $(call program,test_runner,boost_filesystem unittestpp,$(TEST_RUNNER_SOURCE)))
+#$(eval $(call program,test_runner,boost_filesystem unittestpp,$(TEST_RUNNER_SOURCE)))
