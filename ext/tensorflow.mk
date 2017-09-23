@@ -57,7 +57,7 @@ TENSORFLOW_PROTO_TEXT_FILES := $(PROTO_TEXT_CC_FILES)
 
 $(TENSORFLOW_PROTO_TEXT_FILES:%=$(CWD)/%): | $(TENSORFLOW_INCLUDES) $(DEPENDS_ON_PROTOBUF_INCLUDES) $(CWD)/tensorflow/core/lib/core/error_codes.pb.h $(CWD)/tensorflow/core/framework/summary.pb.h
 
-$(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field -Wno-unused-const-variable))
+$(eval $(call set_compile_option,$(TENSORFLOW_PROTO_TEXT_FILES),$(TENSORFLOW_BASE_INCLUDE_FLAGS) -Wno-unused-private-field -Wno-unused-const-variable -Wno-unused-variable))
 
 $(eval $(call program,proto_text,protobuf3 z,$(TENSORFLOW_PROTO_TEXT_FILES)))
 
