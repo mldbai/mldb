@@ -870,8 +870,6 @@ int
 CellValue::
 compare(const CellValue & other) const
 {
-    if (type == other.type && bits1 == other.bits1 && bits2 == other.bits2)
-        return 0;
 
     return (*this < other) ? -1 : (*this == other) ? 0 : 1;
 }
@@ -883,9 +881,6 @@ operator == (const CellValue & other) const
     if (other.type != type) {
         return false;
     }
-    if (bits1 == other.bits1 && bits2 == other.bits2) {
-        return true;
-    }
 
     switch (type) {
     case ST_EMPTY:
@@ -895,7 +890,7 @@ operator == (const CellValue & other) const
     case ST_UNSIGNED:
         return toUInt() == other.toUInt();
     case ST_FLOAT:
-        return toDouble() == other.toDouble();
+        return std::memcmp(&floatVal, &other.floatVal, sizeof(floatVal)) == 0;
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_SHORT_BLOB:
