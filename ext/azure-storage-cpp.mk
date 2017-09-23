@@ -64,6 +64,7 @@ AZURE_STORAGE_CPP_FLAGS := \
     -I/usr/include/glib-2.0 \
     -I/usr/lib/x86_64-linux-gnu/glib-2.0/include \
     -I/usr/lib/libxml++-2.6/include \
+    -I/usr/lib/x86_64-linux-gnu/libxml++-2.6/include \
     -Wno-overloaded-virtual \
     -Wno-unused-value \
     -Wno-switch \
