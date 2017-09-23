@@ -1924,7 +1924,7 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
     
     //Collect aggregators AND verify validity at the same time.
 
-    std::vector<Utf8String> culprit;
+    std::vector<Utf8String> culprits;
 
     /**
        For a SELECT expression to be valid in presence of a GROUP BY or an aggregator,
@@ -1948,10 +1948,10 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
                 if (subchildren.size() == 0  && (*it)->isWildcard()) {
                     return false;
                 }
-                culprit.push_back((*it)->surface);
+                culprits.push_back((*it)->surface);
                 bool result = wildcardNestedInAggregator(subchildren.begin(), subchildren.end());
-                culprit.pop_back();
                 if (!result) return result;
+                culprits.pop_back();
             }
         }
         return true;
@@ -1960,10 +1960,11 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
     bool wildcardInAggs = wildcardNestedInAggregator(children.begin(), children.end());
  
     if (!wildcardInAggs && (output.size() != 0 || withGroupBy)) {
+        ExcAssert(!culprits.empty());
         throw HttpReturnException(400, (withGroupBy ?
-                                        "Non-aggregator '" + culprit.front() + 
+                                        "Non-aggregator '" + culprits.front() + 
                                         "' with GROUP BY clause is not allowed" :
-                                        "Mixing non-aggregator '" + culprit.front() + 
+                                        "Mixing non-aggregator '" + culprits.front() + 
                                         "' with aggregators is not allowed"));
     }
     
