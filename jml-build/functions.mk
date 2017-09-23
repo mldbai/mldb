@@ -65,7 +65,7 @@ hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=
 
 command_key = $(subst $(RPARAN),_,$(subst $(LPARAN),_,$(subst $(SEMICOLON),_,$(subst $(QUOTE),_,$(subst =,_,$(subst $(SPACE),_,$(subst $(DOLLAR),_,$(subst \,,$(strip $(1))))))))))
 
-hash_command = $(eval KEY=$(call command_key,$(1)))$(if $($(KEY)_hash),,$(warning hash cache miss on $(KEY))$(call hash_command1,$(KEY)))$(if $($(KEY)_hash),,$(error hash_command1 didnt set variable $(KEY)_hash))$($(KEY)_hash)
+hash_command = $(eval KEY=$(call command_key,$(1)))$(if $($(KEY)_hash),,$(call hash_command1,$(KEY)))$(if $($(KEY)_hash),,$(error hash_command1 didnt set variable $(KEY)_hash))$($(KEY)_hash)
 
 endif
 
