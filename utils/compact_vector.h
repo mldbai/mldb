@@ -43,7 +43,9 @@ public:
     typedef Data value_type;
     typedef Data & reference;
     typedef const Data & const_reference;
-    enum { Internal = Internal_ };
+    static constexpr size_t Internal = Internal_;
+    static constexpr bool IS_NOTHROW_DESTRUCTIBLE = std::is_nothrow_destructible<Data>::value;
+    static constexpr bool IS_NOTHROW_MOVE_CONSTRUCTIBLE = std::is_nothrow_move_constructible<Data>::value;
     
     compact_vector()
         : size_(0), is_internal_(true)
@@ -78,7 +80,7 @@ public:
     }
 
     ~compact_vector()
-        noexcept(true /*std::is_nothrow_destructible<Data>::value*/)
+        noexcept(IS_NOTHROW_DESTRUCTIBLE)
     {
         clear();
     }
@@ -90,7 +92,7 @@ public:
     }
 
     compact_vector(compact_vector && other)
-        noexcept(std::is_nothrow_move_constructible<Data>::value && std::is_nothrow_destructible<Data>::value)
+        noexcept(IS_NOTHROW_MOVE_CONSTRUCTIBLE && IS_NOTHROW_DESTRUCTIBLE)
         : size_(other.size_), is_internal_(other.is_internal_)
     {
         if (other.is_internal_) {
@@ -123,8 +125,8 @@ public:
     }
 
     void swap(compact_vector & other)
-        noexcept(std::is_nothrow_move_constructible<Data>::value
-                 /* && std::is_nothrow_destructible<Data>::value*/)
+        noexcept(IS_NOTHROW_MOVE_CONSTRUCTIBLE
+                 && IS_NOTHROW_DESTRUCTIBLE)
 
     {
         // Both external: easy case (swapping only)
@@ -192,7 +194,7 @@ public:
     }
 
     void clear()
-        noexcept(true /*std::is_nothrow_destructible<Data>::value*/) 
+        noexcept(IS_NOTHROW_DESTRUCTIBLE) 
     {
         Data * p = data();
         for (size_type i = 0;  i < size_;  ++i)
@@ -260,7 +262,7 @@ public:
     void emplace_back(Args&&... args)
     {
         if (size_ >= capacity())
-            reserve(size_ * 2);
+            reserve(std::max<size_t>(size_ * 2, 1));
 
         new (data() + size_) Data(std::forward<Args>(args)...);
         ++size_;
@@ -504,7 +506,7 @@ private:
 
     template<class InputIterator>
     void init_move(InputIterator first, InputIterator last, size_t to_alloc)
-        noexcept(std::is_nothrow_move_constructible<Data>::value)
+        noexcept(IS_NOTHROW_MOVE_CONSTRUCTIBLE)
     {
         init(to_alloc);
 

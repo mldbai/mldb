@@ -569,3 +569,16 @@ BOOST_AUTO_TEST_CASE( check_c11_ops )
 
     BOOST_CHECK_EQUAL(constructed, destroyed);
 }
+
+BOOST_AUTO_TEST_CASE( check_zero_internal )
+{
+    compact_vector<std::string, 0, uint32_t> vec;
+    BOOST_CHECK_EQUAL(vec.size(), 0);
+    BOOST_CHECK_EQUAL(vec.capacity(), 0);
+    vec.push_back("hello");
+    BOOST_CHECK_EQUAL(vec.size(), 1);
+    BOOST_CHECK_EQUAL(vec.capacity(), 1);
+    vec.clear();
+    BOOST_CHECK_EQUAL(vec.size(), 0);
+    BOOST_CHECK_EQUAL(vec.capacity(), 0);
+}
