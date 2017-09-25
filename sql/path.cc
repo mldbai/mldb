@@ -196,8 +196,8 @@ compareElements(const char * s0, size_t l0,
 
 PathElement::
 PathElement()
-    : words{0, 0, 0}
 {
+    std::memset(this, 0, sizeof(PathElement));
 }
 
 PathElement::
@@ -227,14 +227,6 @@ PathElement(const char * str, size_t len)
 PathElement::
 PathElement(const char * str, size_t len, int digits)
 {
-#if 0
-    if (digits != calcDigits(str, len)) {
-        cerr << "for string '" << string(str, len) << "' with length " << len
-             << ": digits = " << digits
-             << endl;
-    }
-    ExcAssertEqual(digits, calcDigits(str, len));
-#endif
     initChars(str, len, digits);
 }
 
@@ -355,8 +347,9 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
             }
         }
         size_t sz = start - p;
-        if (sz == 0)
+        if (sz == 0) {
             return { PathElement(""), true };
+        }
         PathElement result(p, sz);
         p = start;
         return { std::move(result), true };
@@ -504,9 +497,10 @@ Utf8String
 PathElement::
 toUtf8String() const
 {
-    if (complex_)
-        return getComplex();
-    else return Utf8String(data(), dataLength(), true /* is valid UTF-8 */);
+    if (empty()) {
+        return Utf8String();
+    }
+    return Utf8String(storage_.data(), storage_.length(), true);
 }
 
 Utf8String
@@ -516,7 +510,7 @@ toEscapedUtf8String() const
     if (null()) {
         return "";
     }
-    if (complex_ == 1 && str.str.empty()) {
+    if (empty()) {
         return "\"\"";
     }
 
@@ -676,48 +670,21 @@ std::string
 PathElement::
 getBytes() const
 {
-    if (complex_)
-        return str.str.rawString();
-    else return std::string(data(), data() + dataLength());
+    return std::string(data(), data() + dataLength());
 }
 
 std::string
 PathElement::
 stealBytes()
 {
-    if (complex_)
-        return str.str.stealRawString();
-    else return std::string(data(), data() + dataLength());
+    return getBytes();
 }
 
 size_t
 PathElement::
 memusage() const
 {
-    if (complex_)
-        return sizeof(*this) + getComplex().rawLength();
-    else return sizeof(*this);
-}
-
-void
-PathElement::
-complexDestroy()
-{
-    getComplex().~Utf8String();
-}
-
-void
-PathElement::
-complexCopyConstruct(const PathElement & other)
-{
-    new (&str.str) Utf8String(other.getComplex());
-}
-
-void
-PathElement::
-complexMoveConstruct(PathElement && other)
-{
-    new (&str.str) Utf8String(std::move(other.getComplex()));
+    return sizeof(PathElement) + storage_.externalMemusage();
 }
 
 namespace {
@@ -760,18 +727,17 @@ initStringUnchecked(T && str)
 {
     // This method is used only for when we know we may have invalid
     // characters, for example when importing legacy files.
-    words[0] = words[1] = words[2] = 0;
-    digits_ = calcDigits(rawData(str), rawLength(str));
-    if (rawLength(str) > 0 && rawLength(str) <= INTERNAL_BYTES - 1) {
-        complex_ = 0;
-        simpleLen_ = rawLength(str);
-        std::copy(rawData(str), rawData(str) + rawLength(str),
-                  bytes + 1);
+    const char * d = rawData(str);
+    size_t l = rawLength(str);
+    digits_ = calcDigits(d, l);
+    if (l == 0) {
+        storage_.append("\0", 1);
     }
     else {
-        complex_ = 1;
-        new (&this->str.str) Utf8String(std::move(str));
+        storage_.append(d, l);
     }
+
+    //ExcAssertEqual(toUtf8String(), str);
 }
 
 template void PathElement::initStringUnchecked<Utf8String>(Utf8String && str);
@@ -783,22 +749,17 @@ void
 PathElement::
 initChars(const char * str, size_t len, int digits)
 {
-    //cerr << "str = " << string(str, str + len) << " len = " << len
-    //     << " digits = " << digits << endl;
-    //ExcAssert(digits != 0 || len == 0);
-    //cerr << "len = " << len << endl;
     ExcAssertLess(len, 1ULL << 32);
-    words[0] = words[1] = words[2] = 0;
-    digits_ = digits;
-    if (len > 0 && len <= INTERNAL_BYTES - 1) {
-        complex_ = 0;
-        simpleLen_ = len;
-        std::copy(str, str + len, bytes + 1);
+
+    if (len == 0) {
+        storage_.append("\0", 1);
     }
     else {
-        complex_ = 1;
-        new (&this->str.str) Utf8String(str, len);
+        storage_.append(str, len);
     }
+    digits_ = digits;
+
+    //ExcAssertEqual(toUtf8String(), Utf8String(str, len));
 }
 
 void
@@ -812,18 +773,16 @@ const char *
 PathElement::
 data() const
 {
-    if (complex_)
-        return getComplex().rawData();
-    else return (const char *)bytes + 1;
+    return storage_.data();
 }
 
 size_t
 PathElement::
 dataLength() const
 {
-    if (complex_)
-        return getComplex().rawLength();
-    else return simpleLen_;
+    if (empty())
+        return 0;
+    return storage_.length();
 }
 
 int
@@ -854,24 +813,10 @@ compare(const PathElement & other) const
                            digits_, other.digits_);
 }
 
-const Utf8String &
-PathElement::
-getComplex() const
-{
-    ExcAssert(complex_);
-    return str.str;
-}
-
-Utf8String &
-PathElement::
-getComplex()
-{
-    ExcAssert(complex_);
-    return str.str;
-}
-
 std::ostream & operator << (std::ostream & stream, const PathElement & path)
 {
+    if (path.null())
+        return stream << "<<NULL PATH ELEMENT>>";
     return stream << path.toUtf8String();
 }
 
@@ -904,8 +849,8 @@ add(PathElement && element)
         return *this;
     }
 
-    if (bytes.empty() && element.hasExternalStorage()) {
-        bytes = element.stealBytes();
+    if (bytes.empty()) {
+        bytes = std::move(element.storage_);
     }
     else {
         auto v = element.getStringView();
@@ -995,8 +940,6 @@ extract()
     result.length_ = indexes.size() - 1;
     result.digits_ = digits_;
 
-    //bool isExternal = result.externalOfs();
-
     if (isExternal) {
         result.ofsPtr_ = new uint32_t[indexes.size()];
         std::copy(indexes.begin(), indexes.end(), result.ofsPtr_);
@@ -1021,13 +964,8 @@ Path::Path(PathElement && path)
         length_ = 0;
         return;
     }
-    if (path.hasExternalStorage()) {
-        bytes_ = path.stealBytes();
-    }
-    else {
-        auto v = path.getStringView();
-        bytes_.append(v.first, v.first + v.second);
-    }
+    bytes_ = std::move(path.storage_);
+
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
         ofsPtr_[0] = 0;
@@ -1040,19 +978,13 @@ Path::Path(PathElement && path)
 }
 
 Path::Path(const PathElement & path)
-    : length_(1), digits_(path.digits_),
+    : bytes_(path.storage_),
+      length_(1), digits_(path.digits_),
       ofsBits_(0)
 {
     if (path.null()) {
         length_ = 0;
         return;
-    }
-    if (path.hasExternalStorage()) {
-        bytes_ = path.getBytes();
-    }
-    else {
-        auto v = path.getStringView();
-        bytes_.append(v.first, v.first + v.second);
     }
     if (externalOfs()) {
         ofsPtr_ = new uint32_t[2];
@@ -1135,7 +1067,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
             return { Path(), false };
         }
         builder.add(std::move(el));
-
+        
         if (p < e) {
             if (*p != '.') {
                 if (exceptions) {
@@ -1153,7 +1085,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
             ++p;
         }
     }
-
+    
     if (str != e && e[-1] == '.') {
         builder.add(PathElement(""));
     }

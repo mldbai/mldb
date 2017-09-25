@@ -10,8 +10,10 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/utils/compact_vector.h"
+#include "mldb/utils/interned_string.h"
 #include <vector>
 #include <cstring>
+#include <iostream>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -49,25 +51,13 @@ struct PathElement {
     {
     }
 
-    PathElement(const PathElement & other)
-        : words{other.words[0], other.words[1], other.words[2] }
-    {
-        if (other.complex_) {
-            complexCopyConstruct(other);
-        }
-    }
+    PathElement(const PathElement & other) = default;
 
     PathElement(PathElement && other) noexcept
-        : words{other.words[0], other.words[1], other.words[2] }
+        : storage_(std::move(other.storage_)), digits_(other.digits_)
     {
-        if (other.complex_) {
-            complexMoveConstruct(std::move(other));
-        }
-        else {
-            other.words[0] = 0;
-        }
     }
-
+    
     template<size_t N>
     inline PathElement(const char (&str)[N])
         : PathElement(str, (N && str[N - 1])?N:N-1)  // remove null char from end
@@ -95,30 +85,25 @@ struct PathElement {
 
     ~PathElement()
     {
-        if (complex_)
-            complexDestroy();
     }
 
-    PathElement & operator = (PathElement && other) noexcept
+    MLDB_ALWAYS_INLINE PathElement & operator = (PathElement && other) noexcept
     {
-        PathElement newMe(std::move(other));
-        swap(newMe);
+        storage_ = std::move(other.storage_);
+        digits_ = other.digits_;
         return *this;
     }
 
     MLDB_ALWAYS_INLINE void swap(PathElement & other) noexcept
     {
-        // NOTE: this is only possible because there are no self-referential
-        // pointers (ie, this can't point to itself in its contents).
-        std::swap(words[0], other.words[0]);
-        std::swap(words[1], other.words[1]);
-        std::swap(words[2], other.words[2]);
+        storage_.swap(other.storage_);
+        std::swap(digits_, other.digits_);
     }
 
     PathElement & operator = (const PathElement & other) noexcept
     {
-        PathElement newMe(other);
-        swap(newMe);
+        storage_ = other.storage_;
+        digits_ = other.digits_;
         return *this;
     }
 
@@ -146,10 +131,8 @@ struct PathElement {
 
 
     Utf8String toUtf8String() const;
-
     Utf8String toEscapedUtf8String() const;
 
-    bool hasExternalStorage() const { return complex_; }
     std::string stealBytes();
     std::string getBytes() const;
     
@@ -198,10 +181,15 @@ struct PathElement {
 
     inline bool null() const
     {
-        // The empty string is not a null PathElement
-        return complex_ == 0 && simpleLen_ == 0;
+        return storage_.empty();
     }
 
+    bool empty() const
+    {
+        return storage_.length() == 1
+            && storage_.data()[0] == '\0';
+    }
+    
     Path operator + (const PathElement & other) const;
     Path operator + (PathElement && other) const;
     Path operator + (const Path & other) const;
@@ -229,39 +217,20 @@ struct PathElement {
     int compareStringNullTerminated(const char * str) const;
 
     int compare(const PathElement & other) const;
-    
-    const Utf8String & getComplex() const;
-    Utf8String & getComplex();
-
-    struct Itl;
-
-    struct Str {
-        uint64_t md;
-        Utf8String str;
-        uint64_t savedHash;
-    };
 
     static constexpr int EMPTY = 0;
     static constexpr int DIGITS_ONLY = 1;
     static constexpr int NO_DIGITS = 2;
     static constexpr int SOME_DIGITS = 3;
 
-    static constexpr size_t INTERNAL_WORDS = 3;
-    static constexpr size_t INTERNAL_BYTES = 8 * INTERNAL_WORDS;
+    // A null value is stored with length 0
+    // An empty value is stored with length 1 and the first character \0
+    // Other values are stored as a normal string
+    
+    InternedString<27> storage_;
+    uint8_t digits_;
 
-    union {
-        // The complex_ flag means we can't simply copy the words around;
-        // we need to do some more work. (Empty strings are considered complex)
-        struct {
-            uint8_t complex_: 1;   ///< If true, we're stored in an external string
-            uint8_t simpleLen_:5;  ///< If complex_ is false, this is the length
-            uint8_t digits_:2;     ///< Do we have digits in our path element?
-        };
-        uint8_t bytes[INTERNAL_BYTES];
-        uint64_t words[INTERNAL_WORDS];
-        Str str;
-    };
-};
+} MLDB_PACKED;
 
 std::ostream & operator << (std::ostream & stream, const PathElement & id);
 
@@ -351,190 +320,6 @@ struct PathElementNewHasher
     {
         return path.newHash();
     }
-};
-
-
-/*****************************************************************************/
-/* INTERNED STRING                                                           */
-/*****************************************************************************/
-
-template<size_t Bytes, typename Char = char>
-struct InternedString {
-    InternedString()
-        : intLength_(0)
-    {
-    }
-
-    InternedString(const InternedString & other)
-        : InternedString()
-    {
-        append(other.data(), other.length());
-    }
-
-    template<size_t OtherBytes>
-    InternedString(const InternedString<OtherBytes, Char> & other)
-        : InternedString()
-    {
-        append(other.data(), other.length());
-    }
-
-    template<size_t OtherBytes>
-    InternedString(InternedString<OtherBytes, Char> && other) noexcept
-        : InternedString()
-    {
-        if (other.length() > Bytes) {
-            // Can't fit internally.  If the other is external, steal it
-            if (other.isExt()) {
-                intLength_ = IS_EXT;
-                extLength_ = other.extLength_;
-                extCapacity_ = other.extCapacity_;
-                extBytes_ = other.extBytes_;
-                other.intLength_ = 0;
-                return;
-            }
-        }
-
-        // Otherwise, simply append it
-        append(other.data(), other.size());
-    }
-
-    InternedString(const std::basic_string<Char> & other)
-        : InternedString()
-    {
-        append(other.data(), other.length());
-    }
-
-    InternedString & operator = (const InternedString & other)
-    {
-        InternedString newMe(other);
-        swap(newMe);
-        return *this;
-    }
-
-    InternedString & operator = (InternedString && other) noexcept
-    {
-        InternedString newMe(std::move(other));
-        swap(newMe);
-        return *this;
-    }
-
-    ~InternedString()
-    {
-        if (isExt())
-            deleteExt();
-    }
-
-    const Char * data() const
-    {
-        return isExt() ? extBytes_ : intBytes_;
-    }
-
-    void swap(InternedString & other) noexcept
-    {
-        std::swap(intLength_, other.intLength_);
-        std::swap(intBytes_[0], other.intBytes_[0]);
-        std::swap(intBytes_[1], other.intBytes_[1]);
-        std::swap(intBytes_[2], other.intBytes_[2]);
-        for (unsigned i = 0;  i < NUM_WORDS * 2 - 1;  ++i) {
-            std::swap(internalWords[i], other.internalWords[i]);
-        }
-    }
-
-    size_t size() const
-    {
-        return isExt() ? extLength_ : intLength_;
-    }
-
-    size_t length() const
-    {
-        return size();
-    }
-
-    bool empty() const
-    {
-        return size() == 0;
-    }
-
-    void reserve(size_t newCapacity)
-    {
-        if (newCapacity < capacity())
-            return;
-
-        bool wasExt = isExt();
-
-        char * newBytes = new Char[newCapacity];
-        size_t l = size();
-        std::memcpy(newBytes, data(), l);
-        intLength_ = IS_EXT;
-        extLength_ = l;
-        extCapacity_ = newCapacity;
-
-        if (wasExt)
-            delete[] extBytes_;
-
-        extBytes_ = newBytes;
-    }
-
-    size_t capacity() const
-    {
-        return isExt() ? extCapacity_ : Bytes;
-    }
-
-    void append(const Char * start, const Char * end)
-    {
-        append(start, end - start);
-    }
-
-    void append(const Char * bytes, size_t n)
-    {
-        if (n + size() > capacity()) {
-            reserve(std::max(capacity() * 2, capacity() + n));
-        }
-        ExcAssertGreaterEqual(capacity(), size() + n);
-        std::memcpy((Char *)(data() + size()), bytes, n);
-        if (isExt()) {
-            extLength_ += n;
-        }
-        else intLength_ += n;
-    }
-
-private:
-    template<size_t OtherBytes, typename OtherChar>
-    friend class InternedString;
-
-public:
-    bool isExt() const noexcept { return intLength_ == IS_EXT; }
-
-private:
-    void deleteExt()
-    {
-        delete[] extBytes_;
-    }
-
-    static constexpr uint8_t IS_EXT = 255;
-    static constexpr size_t INTERNAL_BYTES = Bytes;
-    static constexpr size_t NUM_WORDS = (Bytes + 9) / 8;
-
-public:
-    union {
-        struct {
-            // NOTE: these need to be OUTSIDE of the internal/external union
-            // as otherwise clang gets undefined behavior 
-            uint8_t intLength_;  // if -1, it's external.
-            char intBytes_[3];
-            union {
-                struct {
-                    Char restOfIntBytes_[Bytes - 3];
-                } MLDB_PACKED;
-                struct {
-                    uint32_t extLength_;
-                    uint32_t extCapacity_;
-                    Char * extBytes_;
-                } MLDB_PACKED;
-                uint32_t internalWords[NUM_WORDS * 2 - 1];
-            } MLDB_PACKED;
-        } MLDB_PACKED;
-    };
 };
 
 
