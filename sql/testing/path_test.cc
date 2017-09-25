@@ -27,10 +27,12 @@ using namespace std;
 
 using namespace MLDB;
 
-
 BOOST_AUTO_TEST_CASE( test_size )
 {
     BOOST_CHECK_EQUAL(sizeof(Path), 64);
+    BOOST_CHECK_EQUAL(sizeof(std::string), 32);
+    BOOST_CHECK_EQUAL(sizeof(Utf8String), 32);
+    //BOOST_CHECK_EQUAL(sizeof(PathElement), 32);
 }
 
 BOOST_AUTO_TEST_CASE(test_element_compare)
@@ -160,6 +162,19 @@ BOOST_AUTO_TEST_CASE(test_coord_parsing)
 
 BOOST_AUTO_TEST_CASE(test_coords_parsing)
 {
+    PathElement el0("");
+    cerr << "el0 = " << el0 << endl;
+
+    PathElement el;
+    cerr << "el = " << el << endl;
+    el = PathElement("");
+    cerr << "el = " << el << endl;
+
+    {
+        Path coords1 = Path::parse("..");
+        BOOST_CHECK_EQUAL(coords1.size(), 3);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\".\"\".\"\"");
+    }
     {
         Path coords1 = Path::parse("x");
         BOOST_CHECK_EQUAL(coords1.toUtf8String(), "x");
@@ -188,11 +203,6 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
     {
         Path coords1 = Path::parse("é");
         BOOST_CHECK_EQUAL(coords1.toUtf8String(), "é");
-    }
-    {
-        Path coords1 = Path::parse("..");
-        BOOST_CHECK_EQUAL(coords1.size(), 3);
-        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\".\"\".\"\"");
     }
 
     {
@@ -370,63 +380,6 @@ BOOST_AUTO_TEST_CASE(test_path_builder)
     PathBuilder builder;
     builder.add(elem);
     Path path = builder.extract();
-}
-
-// MLDB-1936
-BOOST_AUTO_TEST_CASE(test_ordered2)
-{
-    vector<Path> paths;
-
-    vector<int> lengthBuckets;
-
-    filter_istream stream("mldb/sql/testing/path_test_columns.txt");
-    while (stream) {
-        std::string s;
-        getline(stream, s);
-        if (s.empty())
-            continue;
-        paths.emplace_back(Path::parse(s));
-        int l = paths.back().size();
-        if (l >= lengthBuckets.size())
-            lengthBuckets.resize(l + 1);
-        lengthBuckets[l] += 1;
-    }
-   
-    cerr << "got " << paths.size() << " paths" << endl;
-    cerr << jsonEncodeStr(lengthBuckets) << endl;
-
-    for (unsigned i = 0;  i < 10;  ++i) {
-        std::random_shuffle(paths.begin(), paths.end());
-        std::unordered_set<Path> unordered;
-        std::unordered_set<uint64_t> unorderedHashes;
-        std::set<Path> ordered;
-        std::set<uint64_t> orderedHashes;
-
-        for (const Path & p: paths) {
-            BOOST_CHECK(!ordered.count(p));
-            BOOST_CHECK(!unordered.count(p));
-            BOOST_CHECK(unordered.insert(p).second);
-            BOOST_CHECK(unorderedHashes.insert(p.hash()).second);
-            BOOST_CHECK(ordered.insert(p).second);
-            BOOST_CHECK(orderedHashes.insert(p.hash()).second);
-            BOOST_CHECK(ordered.count(p));
-            BOOST_CHECK(unordered.count(p));
-        }
-
-        BOOST_CHECK_EQUAL(ordered.size(), paths.size());
-        BOOST_CHECK_EQUAL(unordered.size(), paths.size());
-        BOOST_CHECK_EQUAL(orderedHashes.size(), paths.size());
-        BOOST_CHECK_EQUAL(unorderedHashes.size(), paths.size());
-
-        for (const Path & p: paths) {
-            if (!ordered.count(p))
-                cerr << "missing path " << p << endl;
-            BOOST_CHECK(ordered.count(p));
-            BOOST_CHECK(unordered.count(p));
-            BOOST_CHECK(orderedHashes.count(p.hash()));
-            BOOST_CHECK(unorderedHashes.count(p.hash()));
-        }
-    }
 }
 
 BOOST_AUTO_TEST_CASE(test_null)

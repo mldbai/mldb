@@ -203,7 +203,7 @@ toId(const PathElement & coord)
         // ExcAssertEqual(id.type, Id::NULLID);
         return Id(coord.data(), coord.dataLength(), Id::NULLID);
     }
-    else if (!coord.complex_ && coord.dataLength() < 16) {  // length 16 might be BASE64_96 - handled below
+    else if (coord.dataLength() < 16) {  // length 16 might be BASE64_96 - handled below
         // ExcAssertEqual(id.type, Id::SHORTSTR);
         return Id(coord.data(), coord.dataLength(), Id::SHORTSTR);
     }
