@@ -189,7 +189,7 @@ $(INC)/third_party/gpus/cuda/extras:	| $(CUDA_BASE_DIR)/extras
 
 $(INC)/third_party/gpus/cuda/include/cudnn.h: /usr/include/x86_64-linux-gnu/cudnn_v$(CUDNN_VERSION).h
 	@mkdir -p $(dir $@)
-	@ln -s $< $@
+	@ln -sf $< $@
 
 # Anything that's to do with Cuda depends on these header files, so set
 # up the dependency.
@@ -388,7 +388,7 @@ $(eval $(call library,tensorflow-ops,,$(foreach op,$(TENSORFLOW_OPS),tensorflow_
 
 
 # Now the kernels
-TENSORFLOW_KERNEL_CC_FILES:=$(shell find $(CWD)/tensorflow/core/kernels -name "*.cc" | grep -v test | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v 'fact_op\.cc' | grep -v '\#' | grep -v 'debug_ops')
+TENSORFLOW_KERNEL_CC_FILES:=$(shell find $(CWD)/tensorflow/core/kernels -name "*.cc" | grep -v test | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v 'fact_op\.cc' | grep -v '\#' | grep -v 'debug_ops' | grep -v '\.pb_text\.cc')
 
 TENSORFLOW_KERNEL_CC_BUILD:=$(sort $(TENSORFLOW_KERNEL_CC_FILES:$(CWD)/%=%))
 
