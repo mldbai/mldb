@@ -27,7 +27,7 @@ var resp = mldb.put("/v1/procedures/csv_proc", config)
 
 mldb.log(resp);
 
-assertEqual(resp.json.details.runError.error, "Opening file ./thisfiledoesnotexist: failed opening file: No such file or directory");
+assertEqual(resp.json.details.runError.error.indexOf("Opening file ./thisfiledoesnotexist: failed opening file: No such file or directory"), 0);
 
 "success"
 
