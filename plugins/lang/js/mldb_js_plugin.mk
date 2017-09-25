@@ -1,6 +1,9 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+# Include the lsb-release file to know what version of v8 to link with
+include /etc/lsb-release
 
+V8_RELEASE_CODENAME?=$(if $(DISTRIB_CODENAME),$(DISTRIB_CODENAME),$(error No distribution codename found; does /etc/lsb-release exist and define DISTRIB_CODENAME?))
 
 V8_ARCH_x86_64:=x64
 V8_ARCH_aarch64:=arm64
@@ -8,17 +11,17 @@ V8_ARCH_arm:=arm
 
 V8_ARCH:=$(V8_ARCH_$(ARCH))
 
-$(if $(V8_ARCH),,$(error couldnt find v8 architecture for $(ARCH)))
+$(if $(V8_ARCH),,$(error couldnt find v8 architecture for $(ARCH); set V8_ARCH_$(ARCH) in mldb_js_plugin.mk))
 
-$(LIB)/libv8$(so): mldb/ext/v8-cross-build-output/$(V8_ARCH)/libv8.so
+$(LIB)/libv8$(so): mldb/ext/v8-cross-build-output/$(V8_RELEASE_CODENAME)/$(V8_ARCH)/libv8.so
 	@cp $< $@~ && mv $@~ $@
 
 ifneq ($(PREMAKE),1)
 
-$(LIB)/natives_blob.bin: mldb/ext/v8-cross-build-output/$(V8_ARCH)/natives_blob.bin
+$(LIB)/natives_blob.bin: mldb/ext/v8-cross-build-output/$(V8_RELEASE_CODENAME)/$(V8_ARCH)/natives_blob.bin
 	@cp $< $@~ && mv $@~ $@
 
-$(LIB)/snapshot_blob.bin: mldb/ext/v8-cross-build-output/$(V8_ARCH)/snapshot_blob.bin
+$(LIB)/snapshot_blob.bin: mldb/ext/v8-cross-build-output/$(V8_RELEASE_CODENAME)/$(V8_ARCH)/snapshot_blob.bin
 	@cp $< $@~ && mv $@~ $@
 
 endif
