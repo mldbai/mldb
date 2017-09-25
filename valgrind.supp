@@ -1034,3 +1034,12 @@
    ...
    fun:_ZN5boost6locale8impl_icu20icu_formatters_cacheC1ERKN6icu_556LocaleE
 }
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   ...
+   fun:__static_initialization_and_destruction_0
+   fun:_GLOBAL__sub_I_json_diff.cc
+}
