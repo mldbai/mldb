@@ -359,7 +359,8 @@ struct SqliteSparseDataset::Itl
     {
         try {
             auto rowNum = runScalarQuery<int>("SELECT rowNum FROM rows WHERE rowHash = ? AND rowName = ?",
-                                              RowHash(rowName), rowName);
+                                              RowHash(rowName), rowName.toUtf8String().rawString().c_str());
+
             auto cols = runQuery<std::tuple<ColumnPath, CellValue, Date> >
                 ("SELECT cols.colName, vals.val, vals.ts FROM vals JOIN cols ON vals.colNum = cols.colNum WHERE rowNum = ?", rowNum);
 
@@ -387,7 +388,9 @@ struct SqliteSparseDataset::Itl
                 explanation.append(record);
             }
 
-            INFO_MSG(logger) << queryStr << "\n" << explanation;
+            cerr << "rowHash = " << int64_t(RowHash(rowName)) << endl;
+            cerr << "rowName = " << rowName << endl;
+            cerr << queryStr << "\n" << explanation << endl;
             abort();
 
             throw;
@@ -480,8 +483,9 @@ struct SqliteSparseDataset::Itl
 
 
 
-        sqlite3pp::query query(db, "SELECT rowNum FROM rows WHERE rowHash = ? LIMIT 1");
+        sqlite3pp::query query(db, "SELECT rowNum FROM rows WHERE rowHash = ? AND rowName = ? LIMIT 1");
         bindArg(query, 1, rowHash);
+        bindArg(query, 2, rowNameStr.c_str());
         for (sqlite3pp::query::iterator i = query.begin(); i != query.end(); ++i) {
             return (*i).get<int>(0);
         }
@@ -627,13 +631,13 @@ struct SqliteSparseDataset::Itl
         doCommand("CREATE TABLE IF NOT EXISTS rows ("
                   "  rowNum INTEGER PRIMARY KEY, "
                   "  rowHash INT NOT NULL, "
-                  "  rowName INT NOT NULL "
+                  "  rowName TEXT NOT NULL "
                   ")");
 
         doCommand("CREATE TABLE IF NOT EXISTS cols ("
                   "  colNum INTEGER PRIMARY KEY, "
                   "  colHash INT NOT NULL, "
-                  "  colName INT NOT NULL "
+                  "  colName TEXT NOT NULL "
                   ")");
 
         doCommand("CREATE UNIQUE INDEX IF NOT EXISTS byrow ON vals (rowNum, colNum, val, ts)");
