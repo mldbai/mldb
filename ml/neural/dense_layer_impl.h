@@ -7,8 +7,7 @@
    Implementation of dense layer class.
 */
 
-#ifndef __jml__neural__dense_layer_impl_h__
-#define __jml__neural__dense_layer_impl_h__
+#pragma once
 
 #include "dense_layer.h"
 #include "mldb/jml/db/persistent.h"
@@ -342,7 +341,7 @@ activation(const F * inputs, F * activations) const
     for (unsigned i = 0;  i < ni;  ++i) {
         const Float * w;
         double input;
-        if (!isnan(inputs[i])) {
+        if (!std::isnan(inputs[i])) {
             input = inputs[i];
             w = &weights[i][0];
         }
@@ -557,7 +556,7 @@ bbprop(const F * inputs,
         ddweights = &dgradient->matrix(0, "weights");
 
     for (unsigned i = 0;  i < ni;  ++i) {
-        bool was_missing = isnan(inputs[i]);
+        bool was_missing = std::isnan(inputs[i]);
         if (input_errors) input_errors[i] = 0.0;
 
         if (!was_missing) {
@@ -817,7 +816,7 @@ validate() const
                  * pe = missing_activations.data()
                  + missing_activations.num_elements();
              p != pe;  ++p)
-            if (isnan(*p))
+            if (std::isnan(*p))
                 throw Exception("missing_activations is not finite");
         break;
     default:
@@ -926,7 +925,3 @@ typename Dense_Layer<Float>::RegisterMe
 Dense_Layer<Float>::register_me;
 
 } // namespace ML
-
-
-
-#endif /* __jml__neural__dense_layer_impl_h__ */

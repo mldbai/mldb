@@ -60,7 +60,7 @@ struct QuadtreeNode {
     QuadtreeNode(DB::Store_Reader & store,
                  int version);
 
-    ~QuadtreeNode()
+    ~QuadtreeNode() noexcept
     {
         for (auto & q: quadrants)
             if (q)
