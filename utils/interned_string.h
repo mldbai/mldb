@@ -29,6 +29,11 @@ struct InternedString {
     static_assert(Bytes < 256, "First template parameter for InternedString "
                   "must be 255 or less");
 
+    // Only POD types can be used so that Reserve can use memcpy and
+    // not need to handle exceptions
+    static_assert(std::is_pod<Char>::value, "InternedString can only hold POD "
+                  "types");
+    
     InternedString()
         : intLength_(0)
     {
@@ -109,17 +114,17 @@ struct InternedString {
         }
     }
 
-    size_t size() const
+    size_t size() const noexcept
     {
         return isExt() ? extLength_ : intLength_;
     }
 
-    size_t length() const
+    size_t length() const noexcept
     {
         return size();
     }
 
-    bool empty() const
+    bool empty() const noexcept
     {
         return size() == 0;
     }
@@ -132,6 +137,11 @@ struct InternedString {
         bool wasExt = isExt();
 
         char * newBytes = new Char[newCapacity];
+
+        // No possibility of exception from here on because Char is a
+        // POD type.  So we don't need to use a smart pointer to guarantee
+        // that newBytes is destroyed.
+
         size_t l = size();
         std::memcpy(newBytes, data(), l);
         intLength_ = IS_EXT;
