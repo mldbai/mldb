@@ -1,0 +1,74 @@
+{
+  "_comment": "This this mostly based on https://github.com/shiguredo/packer-templates/blob/develop/ubuntu-14.04/template.json",
+  "variables": {
+    "vbox_ssh_pass" : null,
+    "packer_output" : null
+  },
+  "provisioners": [
+    {
+      "type": "shell",
+      "execute_command": "echo '{{user `vbox_ssh_pass`}}'|sudo -S sh '{{.Path}}'",
+      "override": {
+        "vbox": {
+          "scripts": [
+            "files/base.sh",
+            "files/cleanup.sh"
+          ]
+        }
+      }
+    }
+  ],
+  "builders": [
+    {
+      "name": "vbox",
+      "type": "virtualbox-iso",
+      "headless": true,
+      "http_directory": "files",
+      "iso_url": "http://releases.ubuntu.com/14.04/ubuntu-14.04.3-server-amd64.iso",
+      "iso_checksum_type": "md5",
+      "iso_checksum": "9e5fecc94b3925bededed0fdca1bd417",
+      "boot_command": [
+        "<esc><wait>",
+        "<esc><wait>",
+        "<enter><wait>",
+        "/install/vmlinuz",
+        " auto",
+        " console-setup/ask_detect=false",
+        " console-setup/layoutcode=us",
+        " console-setup/modelcode=pc105",
+        " debian-installer=en_US",
+        " fb=false",
+        " initrd=/install/initrd.gz",
+        " kbd-chooser/method=us",
+        " keyboard-configuration/layout=USA",
+        " keyboard-configuration/variant=USA",
+        " locale=en_US",
+        " netcfg/get_hostname=ubuntu-1404",
+        " netcfg/get_domain=vagrantup.com",
+        " noapic",
+        " preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg",
+        " -- ",
+        "<enter>"
+      ],
+      "boot_wait": "10s",
+      "guest_os_type": "Ubuntu_64",
+      "ssh_username": "ubuntu",
+      "ssh_password": "{{user `vbox_ssh_pass`}}",
+      "ssh_wait_timeout": "10m",
+      "shutdown_command": "echo '{{user `vbox_ssh_pass`}}' | sudo -S shutdown -P now",
+      "guest_additions_mode": "disable",
+      "vm_name": "vbox-MLDB-base",
+      "format": "ova",
+      "output_directory": "{{user `packer_output`}}/vbox-mldb-base/vbox-mldb-base-{{user `mldb_docker_tag`}}",
+      "disk_size": "65535",
+      "export_opts": [
+        "--manifest",
+        "--vsys",           "0",
+        "--product",        "MLDB - base",
+        "--producturl",     "http://mldb.ai",
+        "--vendor",         "mldb.ai inc.",
+        "--vendorurl",      "http://datacratic.com"
+      ]
+    }
+  ]
+}

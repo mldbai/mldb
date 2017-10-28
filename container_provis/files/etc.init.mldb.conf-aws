@@ -1,0 +1,11 @@
+# On the first boot, this will pull the latest mldb Container
+# subsequent executions will keep running the same (pulled) version
+description "MLDB Container"
+author "mldb.ai inc."
+start on filesystem and started docker
+stop on runlevel [!2345]
+respawn
+script
+    /usr/bin/docker run -a stdin -a stdout -a stderr -v /mldb_data:/mldb_data -e MLDB_IDS="`id ubuntu`" -p 127.0.0.1:80:80 quay.io/mldb/mldb:latest
+end script
+

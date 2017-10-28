@@ -83,3 +83,6 @@
 	path = ext/azure-storage-cpp
 	url = git@github.com:mldbai/azure-storage-cpp.git
 
+[submodule "pymldb"]
+	path = pymldb
+	url = git@github.com:datacratic/pymldb.git
