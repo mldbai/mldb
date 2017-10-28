@@ -1,0 +1,5 @@
+{
+    "host": "<your mldb host>"
+    "prefix": "movielens_latest_small",
+    "data_dir": "file://data"
+}

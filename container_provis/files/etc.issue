@@ -1,0 +1,13 @@
+
+
+
+
+    The Virtual Appliance has booted, but you do not need to log into the
+    appliance to use MLDB.
+
+    Once MLDB has launched inside the appliance, which might take a few 
+    moments, you will be able to browse to the following URL:
+    
+                            http://localhost:8080
+
+

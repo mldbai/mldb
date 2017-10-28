@@ -1,0 +1,4 @@
+{
+    "vbox_ssh_pass" : "mldb",
+    "packer_output" : "./packer_output"
+}
