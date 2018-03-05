@@ -15,142 +15,19 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/sql/sql_expression.h"
-
+//#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
 
 namespace MLDB {
-
-
-/*****************************************************************************/
-/* LLVM FUNCTION                                                             */
-/*****************************************************************************/
-
-DEFINE_STRUCTURE_DESCRIPTION(LlvmFunctionConfig);
-
-LlvmFunctionConfigDescription::
-LlvmFunctionConfigDescription()
-{
-    addField("query", &LlvmFunctionConfig::query,
-             "SQL query to compile.  The values in the dataset, as "
-             "well as the input values, will be available for the expression "
-             "calculation");
-}
-
-LlvmFunction::
-LlvmFunction(MldbServer * owner,
-             PolyConfig config,
-             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner, config)
-{
-    functionConfig = config.params.convert<LlvmFunctionConfig>();
-}
-
-Any
-LlvmFunction::
-getStatus() const
-{
-    Json::Value result;
-    return result;
-}
-
-/** Structure that does all the work of the SQL expression function. */
-struct LlvmFunctionApplier: public FunctionApplier {
-    LlvmFunctionApplier(const LlvmFunction * function,
-                        const LlvmFunctionConfig & config)
-        : FunctionApplier(function), function(function)
-    {
-        std::set<Utf8String> inputParams;
-        
-        // Called when we bind a parameter, to get its information
-        auto getParamInfo = [&] (const Utf8String & paramName)
-            {
-                inputParams.insert(paramName);
-                return std::make_shared<AnyValueInfo>();
-            };
-
-        pipeline
-            = PipelineElement::root
-            (std::make_shared<SqlExpressionMldbScope>(function->server))
-            ->statement(*config.query.stm, getParamInfo);
-
-        // Bind the pipeline; this populates the input parameters
-        boundPipeline = pipeline->bind();
-
-        std::vector<KnownColumn> inputColumns;
-        inputColumns.reserve(inputParams.size());
-        for (auto & p: inputParams) {
-            inputColumns.emplace_back(PathElement(p),
-                                      std::make_shared<AnyValueInfo>(),
-                                      COLUMN_IS_SPARSE);
-        }
-
-        if (!inputColumns.empty())
-            this->info.input.emplace_back(new RowValueInfo(std::move(inputColumns),
-                                                           SCHEMA_CLOSED));
-        
-
-        // What type does the pipeline return?
-        this->info.output = ExpressionValueInfo::toRow
-            (boundPipeline->outputScope()->outputInfo().back());
-    }
-
-    virtual ~LlvmFunctionApplier()
-    {
-    }
-
-    ExpressionValue apply(const ExpressionValue & context) const
-    {
-        // 1.  Run our generator, finding all rows
-        BoundParameters params
-            = [&] (const Utf8String & name) -> ExpressionValue
-            {
-                return context.getColumn(name);
-            };
-
-        StructValue result;
-        
-        return std::move(result);
-    }
-
-    const LlvmFunction * function;
-    std::shared_ptr<PipelineElement> pipeline;
-    std::shared_ptr<BoundPipelineElement> boundPipeline;
-};
-
-std::unique_ptr<FunctionApplier>
-LlvmFunction::
-bind(SqlBindingScope & outerContext,
-     const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
-{
-    std::unique_ptr<LlvmFunctionApplier> result
-        (new LlvmFunctionApplier(this, functionConfig));
-
-    result->info.checkInputCompatibility(input);
-
-    return std::move(result);
-}
-
-ExpressionValue
-LlvmFunction::
-apply(const FunctionApplier & applier,
-      const ExpressionValue & context) const
-{
-    return static_cast<const LlvmFunctionApplier &>(applier)
-        .apply(context);
-}
-
-FunctionInfo
-LlvmFunction::
-getFunctionInfo() const
-{
-    LlvmFunctionApplier applier(this, functionConfig);
-    return applier.info;
-}
-
-static RegisterFunctionType<LlvmFunction, LlvmFunctionConfig>
-regLlvmFunction(builtinPackage(),
-                    "llvm.query",
-                    "Run a single row SQL query against a dataset",
-                    "functions/LlvmFunction.md.html");
 
 
 /*****************************************************************************/
