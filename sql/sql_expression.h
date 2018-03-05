@@ -78,6 +78,7 @@ struct BasicRowGenerator;
 struct WhenExpression;
 struct TableOperations;
 struct RowStream;
+struct LLVMValue;
 
 extern const OrderByExpression ORDER_BY_NOTHING;
 
@@ -178,6 +179,7 @@ struct BoundSqlExpression {
     
     operator bool () const { return !!exec; };
 
+    std::shared_ptr<LLVMValue> value;
     ExecFunction exec;
     std::shared_ptr<const SqlExpression> expr;
 
