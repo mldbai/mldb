@@ -38,10 +38,10 @@ S2_CC_FILES:= \
 	util/math/mathutil.cc
 
 ifeq ($(toolchain),gcc)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses
+S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs
 endif
 ifeq ($(toolchain),gcc5)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses
+S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs
 endif
 ifeq ($(toolchain),gcc6)
 S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs

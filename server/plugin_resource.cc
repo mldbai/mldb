@@ -231,7 +231,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
             urlToClone = urlToClone.substr(0, hashLocation);
         }
 
-        cerr << MLDB::format("Cloning GIST %s -> %s", urlToClone, plugin_working_dir.string()) << endl;
+        cerr << MLDB::format("Cloning GIST %s -> %s at %s", urlToClone, plugin_working_dir.string(), commitHash) << endl;
 
         git_libgit2_init();
 
@@ -326,9 +326,13 @@ LoadedPluginResource::
 void LoadedPluginResource::
 cleanup()
 {
-    if(scriptType == SCRIPT && fs::exists(plugin_working_dir)) {
+    int tries = 0;
+    while(scriptType == SCRIPT && fs::exists(plugin_working_dir) && tries++ ) {
         cerr << " Cleaning up " + plugin_working_dir.string() << endl;
-        fs::remove_all(plugin_working_dir);
+        try {
+            fs::remove_all(plugin_working_dir);
+        } MLDB_CATCH_ALL {
+        }
     }
 }
 
