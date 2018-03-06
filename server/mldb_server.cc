@@ -418,11 +418,16 @@ shutdown()
     // Clear first, so that anything running async will not encounter a
     // dangling pointer in this object while it's waiting to get to a
     // cancellation point.
-    procedures->clear();
-    datasets->clear();
-    functions->clear();
-    credentials->clear();
-    plugins->clear();
+    if (procedures)
+        procedures->clear();
+    if (datasets)
+        datasets->clear();
+    if (functions)
+        functions->clear();
+    if (credentials)
+        credentials->clear();
+    if (plugins)
+        plugins->clear();
 
     // Now we can clear things
     datasets.reset();
