@@ -364,13 +364,15 @@ print "a"
     BOOST_REQUIRE(getResult.body().find("<h1>My markdown doc") != string::npos);
 
 
+    int n = 0;
+    
     //// checking out specific revision for a plugin
     auto checkCode = [&] (const std::string & url, int code)
     {
         plugRes.address = url;
         pluginConfig2.params = plugRes;
-        putStatus = proxy.put("/v1/plugins/test_git_plugin",
-                                   jsonEncode(pluginConfig2));
+        putStatus = proxy.put(MLDB::format("/v1/plugins/test_git_plugin%d", ++n),
+                              jsonEncode(pluginConfig2));
 
         // if we're expecting a failure
         if(code == -1) {
@@ -378,14 +380,20 @@ print "a"
             BOOST_REQUIRE_EQUAL(putStatus.code(), 400);
         }
         else {
-            getResult = proxy.get("/v1/plugins/test_git_plugin/routes");
+            getResult = proxy.get("/v1/plugins/test_git_plugin" + to_string(n) + "/routes");
+            cerr << getResult.jsonBody() << endl;
             BOOST_REQUIRE_EQUAL(getResult.code(), 200);
             BOOST_REQUIRE_EQUAL(getResult.jsonBody()["version"].asInt(), code);
         }
+
+        proxy.perform("DELETE", "/v1/plugins/test_git_plugin" + to_string(n));
     };
 
+    cerr << "************ HEAD **************" << endl;
     checkCode("git://github.com/mldbai/test_git_plugin.git", 2); // HEAD
+    cerr << "************ VERSION 1 **************" << endl;
     checkCode("git://github.com/mldbai/test_git_plugin.git#6057a0d7cd370adc45eb40de97ebc00e79a7aef1", 1);
+    cerr << "************ VERSION 2 **************" << endl;
     checkCode("git://github.com/mldbai/test_git_plugin.git#5787ed0a4ac8b2b100fbd473b6f03251b929aca5", 2);
     checkCode("git://github.com/mldbai/test_git_plugin.git#patate", -1);
 
