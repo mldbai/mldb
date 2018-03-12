@@ -1881,6 +1881,16 @@ struct VariantExpressionValueInfo: public ExpressionValueInfoT<ExpressionValue> 
 
 
 /*****************************************************************************/
+/* MAP VALUE INFO                                                            */
+/*****************************************************************************/
+
+/** Make an expression value info for the given map type. */
+std::shared_ptr<ExpressionValueInfo>
+makeMapValueInfo(std::shared_ptr<ExpressionValueInfo> keyInfo,
+                 std::shared_ptr<ExpressionValueInfo> valueInfo);
+
+
+/*****************************************************************************/
 /* NAMED ROW VALUE                                                           */
 /*****************************************************************************/
 
