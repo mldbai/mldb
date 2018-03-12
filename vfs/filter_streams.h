@@ -277,6 +277,8 @@ public:
 
         When this is true, tellg() and seekg() with any arguments will
         work.
+
+        Note that to be random seekable, a stream must be forward seekable.
     */
     bool isRandomSeekable() const;
 
@@ -285,8 +287,6 @@ public:
         this one, without needing to redo any expensive work.  If true,
         then streams can be split into multiple parts and processed in
         parallel.
-
-        Note that to be random seekable, a stream must be forward seekable.
     */
     bool isForkable() const;
 
