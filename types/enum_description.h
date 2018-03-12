@@ -98,7 +98,9 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     void addValue(const std::string & name, Enum value)
     {
         if (!parse.insert(make_pair(name, value)).second)
-            throw MLDB::Exception("double added name to enum");
+            throw MLDB::Exception("double added name '" + name + "' to enum '"
+                                  + this->typeName + "'");
+        
         print.insert({ value, { name, "" } });
     }
 
