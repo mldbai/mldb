@@ -4942,6 +4942,7 @@ template class ExpressionValueInfoT<int64_t>;
 template class ExpressionValueInfoT<uint64_t>;
 template class ExpressionValueInfoT<char>;
 template class ExpressionValueInfoT<Date>;
+template class ExpressionValueInfoT<TimeInterval>;
 template class ScalarExpressionValueInfoT<float>;
 template class ScalarExpressionValueInfoT<double>;
 template class ScalarExpressionValueInfoT<CellValue>;
@@ -4953,6 +4954,7 @@ template class ScalarExpressionValueInfoT<int64_t>;
 template class ScalarExpressionValueInfoT<uint64_t>;
 template class ScalarExpressionValueInfoT<char>;
 template class ScalarExpressionValueInfoT<Date>;
+template class ScalarExpressionValueInfoT<TimeInterval>;
 
 template class ExpressionValueInfoT<RowValue>;
 template class ExpressionValueInfoT<ExpressionValue>;

@@ -109,6 +109,16 @@ DECLARE_ENUM_DESCRIPTION(JsonArrayHandling);
 /** Vector of dimensions for an embedding. */
 typedef compact_vector<size_t, 4> DimsVector;
 
+
+struct TimeInterval {
+    uint16_t months;
+    uint16_t days;
+    float seconds;
+};
+
+DECLARE_ENUM_DESCRIPTION(TimeInterval);
+
+
 /*****************************************************************************/
 /* STORAGE TYPE                                                              */
 /*****************************************************************************/
@@ -164,6 +174,7 @@ SPECIALIZE_STORAGE_TYPE(Utf8String,           ST_UTF8STRING);
 SPECIALIZE_STORAGE_TYPE(CellValue,            ST_ATOM);
 SPECIALIZE_STORAGE_TYPE(bool,                 ST_BOOL);
 SPECIALIZE_STORAGE_TYPE(Date,                 ST_TIMESTAMP);
+SPECIALIZE_STORAGE_TYPE(TimeInterval,         ST_TIMEINTERVAL);
 SPECIALIZE_STORAGE_TYPE(Path,                 ST_ATOM);
 
 /** Return the ExpressionValueInfo type for the given storage type. */
@@ -1421,6 +1432,7 @@ extern template class ExpressionValueInfoT<int64_t>;
 extern template class ExpressionValueInfoT<uint64_t>;
 extern template class ExpressionValueInfoT<char>;
 extern template class ExpressionValueInfoT<Date>;
+extern template class ExpressionValueInfoT<TimeInterval>;
 extern template class ScalarExpressionValueInfoT<float>;
 extern template class ScalarExpressionValueInfoT<double>;
 extern template class ScalarExpressionValueInfoT<CellValue>;
@@ -1432,6 +1444,7 @@ extern template class ScalarExpressionValueInfoT<int64_t>;
 extern template class ScalarExpressionValueInfoT<uint64_t>;
 extern template class ScalarExpressionValueInfoT<char>;
 extern template class ScalarExpressionValueInfoT<Date>;
+extern template class ScalarExpressionValueInfoT<TimeInterval>;
 
 extern template class ExpressionValueInfoT<RowValue>;
 extern template class ExpressionValueInfoT<ExpressionValue>;
@@ -1589,6 +1602,16 @@ struct TimestampValueInfo: public ScalarExpressionValueInfoT<Date> {
     TimestampValueInfo(bool isconst) : ScalarExpressionValueInfoT<Date>(isconst) {}
     virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
         return std::make_shared<TimestampValueInfo>(constant);
+    }
+};
+
+struct TimeIntervalValueInfo: public ScalarExpressionValueInfoT<TimeInterval> {
+    TimeIntervalValueInfo() : ScalarExpressionValueInfoT<TimeInterval>() {}
+    TimeIntervalValueInfo(bool isconst)
+        : ScalarExpressionValueInfoT<TimeInterval>(isconst) {}
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const
+    {
+        return std::make_shared<TimeIntervalValueInfo>(constant);
     }
 };
 
