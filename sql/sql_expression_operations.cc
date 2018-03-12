@@ -3696,7 +3696,7 @@ wildcards() const
 
 bool
 WildcardExpression::
-isIdentitySelect(SqlExpressionDatasetScope & scope) const
+isIdentitySelect(SqlBindingScope & scope) const
 {
     // A select * is identified like this
     return prefix.empty()

@@ -75,7 +75,6 @@ struct SqlBindingScope;
 struct MldbServer;
 struct BasicRowGenerator;
 struct WhenExpression;
-struct SqlExpressionDatasetScope;
 struct TableOperations;
 struct RowStream;
 
@@ -1068,7 +1067,7 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         Default implementation returns false; the subclasses which could be
         a SELECT * should override.
     */
-    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
+    virtual bool isIdentitySelect(SqlBindingScope & context) const;
 
     virtual bool isAggregator() const {return false; }
     virtual bool isWildcard() const {return false; }
@@ -1243,7 +1242,7 @@ struct SelectExpression: public SqlRowExpression {
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
-    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
+    virtual bool isIdentitySelect(SqlBindingScope & context) const;
 
     virtual bool isConstant() const;
 
