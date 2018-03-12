@@ -221,6 +221,54 @@ finish(const OnData & onData)
 
 static Compressor::Register<NullCompressor>
 registerNullCompressor("null", {});
+static Compressor::Register<NullCompressor>
+registerNoneCompressor("none", {});
+
+
+/*****************************************************************************/
+/* NULL DECOMPRESSOR                                                           */
+/*****************************************************************************/
+
+struct NullDecompressor : public Decompressor {
+
+    virtual ~NullDecompressor();
+
+    virtual size_t decompress(const char * data, size_t len,
+                              const OnData & onData) override;
+
+    virtual size_t finish(const OnData & onData) override;
+};
+
+NullDecompressor::
+~NullDecompressor()
+{
+}
+
+size_t
+NullDecompressor::
+decompress(const char * data, size_t len, const OnData & onData)
+{
+    size_t done = 0;
+
+    while (done < len)
+        done += onData(data + done, len - done);
+    
+    ExcAssertEqual(done, len);
+
+    return done;
+}
+    
+size_t
+NullDecompressor::
+finish(const OnData & onData)
+{
+    return 0;
+}
+
+static Decompressor::Register<NullDecompressor>
+registerNullDecompressor("null", {});
+static Decompressor::Register<NullDecompressor>
+registerNoneDecompressor("none", {});
 
 
 /*****************************************************************************/
