@@ -387,8 +387,7 @@ SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer,
                           std::shared_ptr<ExpressionValueInfo> inputInfo)
     : outer(outer),
-      inputInfo(inputInfo),
-      wildcardsInInput(false)
+      inputInfo(inputInfo)
 {
     ExcAssert(this->inputInfo);
     this->functionStackDepth = outer.functionStackDepth + 1;
@@ -396,10 +395,16 @@ SqlExpressionExtractScope(SqlBindingScope & outer,
 
 SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer)
-    : outer(outer),
-      wildcardsInInput(false)
+    : outer(outer)
 {
     this->functionStackDepth = outer.functionStackDepth + 1;
+}
+
+void
+SqlExpressionExtractScope::
+init(std::shared_ptr<ExpressionValueInfo> inputInfo)
+{
+    this->inputInfo = std::move(inputInfo);
 }
 
 void
@@ -462,6 +467,8 @@ doGetColumn(const Utf8String & tableName,
             //auto outer = ReadThroughBindingScope
             //    ::doGetColumn(tableName, columnName);
 
+            inferredInputs.insert(columnName);
+
             return {[=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
                          const VariableFilter & filter)
@@ -480,6 +487,8 @@ doGetColumn(const Utf8String & tableName,
              "columnName", columnName,
              "inputInfo", inputInfo);
     }
+
+    inferredInputs.insert(columnName);
 
     // Found the column.  Get it from our scope.
     return {[=] (const SqlRowScope & scope,
@@ -556,6 +565,8 @@ doGetAllColumns(const Utf8String & tableName,
         toKeep[c.columnName] = outputColumnName;
         c.columnName = outputColumnName;
 
+        inferredInputs.insert(c.columnName);
+
         outputColumns.emplace_back(std::move(c));
     }
 
@@ -604,6 +615,12 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
+    if (customFunctions && tableName == "") {
+        BoundFunction result = customFunctions(functionName, args);
+        if (result)
+            return result;
+    }
+
     // Get function from the outer scope
     return outer.doGetFunction(tableName, functionName, args, argScope);
 }

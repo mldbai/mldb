@@ -346,6 +346,9 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
     */
     SqlExpressionExtractScope(SqlBindingScope & outer);
 
+    /** Set up a known input info. */
+    void init(std::shared_ptr<ExpressionValueInfo> inputInfo);
+
     /// Outer scope from which we resolve function references
     SqlBindingScope & outer;
 
@@ -353,12 +356,17 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
     /// when the input is unknown.
     std::shared_ptr<ExpressionValueInfo> inputInfo;
 
-    /// Set of column names that we're inferring
+    /// Set of column names that we're inferring must exist
     std::unordered_set<ColumnPath> inferredInputs;
 
     /// Do we have wildcards in our input?  If so, we can't have a closed
     /// schema for our inputs.
-    bool wildcardsInInput;
+    bool wildcardsInInput = false;
+
+    /// Lambda to resolve extra functions
+    std::function<BoundFunction (const Utf8String & functionName,
+                                 const std::vector<BoundSqlExpression> & args)>
+    customFunctions;
 
     /** Once we're done binding, we call this method to fill in the
         inputInfo from the inferredInputs.  It will modify the inputInfo
@@ -384,17 +392,20 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
                        Utf8String & tableName) const;
 
     struct RowScope: public SqlRowScope {
-        RowScope(const ExpressionValue & input)
-            : input(input)
+        RowScope(const ExpressionValue & input,
+                 const void * context = nullptr)
+            : input(input), context(context)
         {
         }
 
         const ExpressionValue & input;
+        const void * context;
     };
 
-    RowScope getRowScope(const ExpressionValue & input) const
+    RowScope getRowScope(const ExpressionValue & input,
+                         const void * context = nullptr) const
     {
-        return RowScope(input);
+        return RowScope(input, context);
     }
 };
 
