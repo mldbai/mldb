@@ -13,6 +13,7 @@
 #include <memory>
 #include "mldb/types/string.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/types/path.h"
 
 namespace MLDB {
 

@@ -12,7 +12,7 @@
 #include "mldb/arch/vm.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/sql/path.h"
+#include "mldb/types/path.h"
 #include "mldb/types/basic_value_descriptions.h"
 
 #include <fcntl.h>
