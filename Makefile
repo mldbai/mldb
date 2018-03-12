@@ -66,7 +66,7 @@ export BUILD
 export TEST_TMP
 export TMP
 
-$(if $(wildcard $(JML_BUILD)/$(toolchain).mk),,$(error toolchain $(toolchain) is unknown.  Currently 'gcc', 'gcc5', 'gcc6' and 'clang' are supported.))
+$(if $(wildcard $(JML_BUILD)/$(toolchain).mk),,$(error toolchain $(toolchain) is unknown.  Currently 'gcc', 'gcc5', 'gcc6' and 'clang' are supported [looking for $(JML_BUILD)/$(toolchain).mk].))
 
 include $(JML_BUILD)/arch/$(ARCH).mk
 include $(JML_BUILD)/$(toolchain).mk
