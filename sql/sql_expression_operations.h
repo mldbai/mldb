@@ -438,7 +438,7 @@ struct WildcardExpression: public SqlRowExpression {
     std::map<ScopedName, UnboundWildcard>
     wildcards() const;
 
-    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
+    virtual bool isIdentitySelect(SqlBindingScope & context) const;
 
     virtual bool isWildcard() const {return true; }
 };
