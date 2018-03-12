@@ -81,6 +81,58 @@ struct Utf32StringDescription
 
 template class ValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription>;
 
+struct CharDescription
+    : public ValueDescriptionI<char, ValueKind::INTEGER, CharDescription> {
+
+    virtual void parseJsonTyped(char * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const char * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(*val);
+    }
+};
+
+template class ValueDescriptionI<char, ValueKind::INTEGER, CharDescription>;
+
+struct SignedCharDescription
+    : public ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription> {
+
+    virtual void parseJsonTyped(signed char * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const signed char * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(*val);
+    }
+};
+
+template class ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription>;
+
+struct UnsignedCharDescription
+    : public ValueDescriptionI<unsigned char, ValueKind::INTEGER, UnsignedCharDescription> {
+
+    virtual void parseJsonTyped(unsigned char * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const unsigned char * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(*val);
+    }
+};
+
 struct SignedIntDescription
     : public ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription> {
 
@@ -266,6 +318,9 @@ struct BoolDescription
 DEFINE_VALUE_DESCRIPTION(std::string, StringDescription);
 DEFINE_VALUE_DESCRIPTION(Utf8String, Utf8StringDescription);
 DEFINE_VALUE_DESCRIPTION(Utf32String, Utf32StringDescription);
+DEFINE_VALUE_DESCRIPTION(char, CharDescription);
+DEFINE_VALUE_DESCRIPTION(signed char, SignedCharDescription);
+DEFINE_VALUE_DESCRIPTION(unsigned char, UnsignedCharDescription);
 DEFINE_VALUE_DESCRIPTION(signed int, SignedIntDescription);
 DEFINE_VALUE_DESCRIPTION(unsigned int, UnsignedIntDescription);
 DEFINE_VALUE_DESCRIPTION(signed long, SignedLongDescription);

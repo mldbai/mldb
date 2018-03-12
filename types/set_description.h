@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** set_description.h                                        -*- C++ -*-
     Jeremy Barnes, 21 August 2015
-    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Base class for a std::set
 */
@@ -106,6 +104,11 @@ struct SetDescription
     virtual const ValueDescription & contained() const override
     {
         return *this->inner;
+    }
+
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    {
+        return this->inner;
     }
 
     virtual void initialize() override

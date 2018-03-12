@@ -96,6 +96,11 @@ struct CompactVectorDescription
         return *this->inner;
     }
 
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    {
+        return this->inner;
+    }
+
     virtual void initialize() override
     {
         this->inner = getDefaultDescriptionSharedT<T>();

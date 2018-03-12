@@ -39,6 +39,23 @@ struct StructureDescriptionBase {
     bool nullAccepted;
     ValueDescription * owner;
 
+    int version = -1;   ///< The version number of this structure
+
+    struct OldVersion {
+        int version = -1;
+        std::shared_ptr<ValueDescription> desc;
+        std::function<void (const void *, void *)> convert;
+    };
+
+    void setVersion(int versionNumber)
+    {
+        this->version = versionNumber;
+    }
+
+    /// Current set of old versions of the structure
+    std::vector<OldVersion> oldVersions;
+
+
     typedef ValueDescription::FieldDescription FieldDescription;
 
     // Comparison object to allow const char * objects to be looked up
@@ -281,6 +298,22 @@ struct StructureDescription
         if (it != fields.end())
             return it->second;
         throw MLDB::Exception("structure has no field " + field);
+    }
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const
+    {
+        for (auto & f: fields) {
+            if (f.second.fieldNum == fieldNum)
+                return f.second;
+        }
+
+        throw MLDB::Exception("structure has no field with given number");
+    }
+
+    virtual int getVersion() const override
+    {
+        return this->version;
     }
 
     virtual void parseJson(void * val, JsonParsingContext & context) const

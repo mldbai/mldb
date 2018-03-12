@@ -154,6 +154,13 @@ contained() const
     throw MLDB::Exception("type '" + typeName + "' does not contain another");
 }
 
+std::shared_ptr<const ValueDescription>
+ValueDescription::
+containedPtr() const
+{
+    throw MLDB::Exception("type '" + typeName + "' does not contain another");
+}
+
 OwnershipModel
 ValueDescription::
 getOwnershipModel() const
@@ -204,6 +211,13 @@ getField(const std::string & field) const
     throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
 }
 
+const ValueDescription::FieldDescription & 
+ValueDescription::
+getFieldByNumber(int fieldNum) const
+{
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+}
+
 const std::vector<std::string>
 ValueDescription::
 getEnumKeys() const
@@ -216,6 +230,13 @@ ValueDescription::
 getEnumValues() const
 {
     throw MLDB::Exception("type '" + typeName + "' is not an enum");
+}
+
+int
+ValueDescription::
+getVersion() const
+{
+    return -1;
 }
 
 bool

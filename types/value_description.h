@@ -89,6 +89,7 @@ struct ValueDescription {
     */
     virtual const ValueDescription & getKeyValueDescription() const;
     virtual const ValueDescription & contained() const;
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const;
 
     virtual OwnershipModel getOwnershipModel() const;
 
@@ -132,10 +133,15 @@ struct ValueDescription {
     virtual const FieldDescription & 
     getField(const std::string & field) const;
 
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const;
+
     virtual const std::vector<std::string> getEnumKeys() const;
 
     virtual std::vector<std::tuple<int, std::string, std::string> >
     getEnumValues() const;
+
+    virtual int getVersion() const;
 
     // Storage to cache Javascript converters
     mutable JSConverters * jsConverters;
@@ -622,6 +628,9 @@ inline Json::Value jsonEncode(const char * str)
 extern template struct ValueDescriptionT<std::string>;
 extern template struct ValueDescriptionT<Utf8String>;
 extern template struct ValueDescriptionT<Utf32String>;
+extern template struct ValueDescriptionT<signed char>;
+extern template struct ValueDescriptionT<unsigned char>;
+extern template struct ValueDescriptionT<char>;
 extern template struct ValueDescriptionT<signed int>;
 extern template struct ValueDescriptionT<unsigned int>;
 extern template struct ValueDescriptionT<signed long>;
