@@ -39,14 +39,32 @@ namespace MLDB {
 /// Frozen column that simply stores the values directly
 /// No deduplication is done
 
-struct DirectFrozenColumn: public FrozenColumn {
+struct DirectFrozenColumnMetadata {
+    uint32_t numEntries = 0;
+    uint64_t firstEntry = 0;
+    uint32_t numNonNullEntries = 0;
+    ColumnTypes columnTypes;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(DirectFrozenColumnMetadata)
+{
+    setVersion(1);
+    addField("numEntries", &DirectFrozenColumnMetadata::numEntries, "");
+    addField("firstEntry", &DirectFrozenColumnMetadata::firstEntry, "");
+    addField("numNonNullEntries", &DirectFrozenColumnMetadata::numNonNullEntries, "");
+    addField("columnTypes", &DirectFrozenColumnMetadata::columnTypes, "");
+}
+
+struct DirectFrozenColumn
+    : public FrozenColumn,
+      public DirectFrozenColumnMetadata {
     DirectFrozenColumn(TabularDatasetColumn & column,
                        MappedSerializer & serializer)
-        : columnTypes(std::move(column.columnTypes))
     {
+        this->columnTypes = std::move(column.columnTypes);
         firstEntry = column.minRowNumber;
         numEntries = column.maxRowNumber - column.minRowNumber + 1;
-
+        
         MutableCellValueTable mutableValues;
         mutableValues.reserve(column.sparseIndexes.size());
 
@@ -111,8 +129,13 @@ struct DirectFrozenColumn: public FrozenColumn {
     {
         size_t result
             = sizeof(*this);
-        
+
         result += values.memusage();
+
+        cerr << "Direct memusage is " << result << " for " 
+             << numEntries << " entries at "
+             << 1.0 * values.memusage() / numEntries << " per entry"
+             << endl;
         
         return result;
     }
@@ -143,11 +166,7 @@ struct DirectFrozenColumn: public FrozenColumn {
         return numNonNullEntries;
     }
 
-    uint32_t numEntries;
-    uint64_t firstEntry;
-    uint32_t numNonNullEntries = 0;
     FrozenCellValueTable values;
-    ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
     {
@@ -156,8 +175,8 @@ struct DirectFrozenColumn: public FrozenColumn {
 
     virtual void serialize(StructuredSerializer & serializer) const
     {
-        // TODO: finish
-        values.serialize(serializer);
+        serializeMetadataT<DirectFrozenColumnMetadata>(serializer, *this);
+        values.serialize(*serializer.newStructure("values"));
     }
 };
 
@@ -229,13 +248,33 @@ RegisterFrozenColumnFormatT<DirectFrozenColumnFormat> regDirect;
 /* TABLE FROZEN COLUMN                                                       */
 /*****************************************************************************/
 
+struct TableFrozenColumnMetadata {
+    uint32_t numEntries = 0;
+    uint64_t firstEntry = 0;
+    uint32_t numNonNullEntries = 0;
+    bool hasNulls = false;
+    ColumnTypes columnTypes;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(TableFrozenColumnMetadata)
+{
+    setVersion(1);
+    addField("numEntries", &TableFrozenColumnMetadata::numEntries, "");
+    addField("firstEntry", &TableFrozenColumnMetadata::firstEntry, "");
+    addField("numNonNullEntries", &TableFrozenColumnMetadata::numNonNullEntries, "");
+    addField("hasNulls", &TableFrozenColumnMetadata::hasNulls, "");
+    addField("columnTypes", &TableFrozenColumnMetadata::columnTypes, "");
+}
+
 /// Frozen column that finds each value in a lookup table
 /// Useful when there are lots of duplicates
-struct TableFrozenColumn: public FrozenColumn {
+struct TableFrozenColumn
+    : public FrozenColumn,
+      public TableFrozenColumnMetadata {
     TableFrozenColumn(TabularDatasetColumn & column,
                       MappedSerializer & serializer)
-        : columnTypes(std::move(column.columnTypes))
     {
+        this->columnTypes = std::move(column.columnTypes);
         MutableCellValueSet mutableTable
             (std::make_move_iterator(column.indexedVals.begin()),
              std::make_move_iterator(column.indexedVals.end()));
@@ -371,13 +410,7 @@ struct TableFrozenColumn: public FrozenColumn {
     }
 
     FrozenIntegerTable indexes;
-    uint32_t numEntries;
-    uint64_t firstEntry;
-    uint32_t numNonNullEntries = 0;
-    
-    bool hasNulls;
     FrozenCellValueSet table;
-    ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
     {
@@ -386,7 +419,7 @@ struct TableFrozenColumn: public FrozenColumn {
 
     virtual void serialize(StructuredSerializer & serializer) const
     {
-        // TODO: finish
+        serializeMetadataT<TableFrozenColumnMetadata>(serializer, *this);
         indexes.serialize(*serializer.newStructure("index"));
         table.serialize(*serializer.newStructure("table"));
     }
@@ -448,15 +481,32 @@ RegisterFrozenColumnFormatT<TableFrozenColumnFormat> regTable;
 
 
 /*****************************************************************************/
-/* SPARSE FROZEN COLUMN                                                      */
+/* SPARSE TABLE FROZEN COLUMN                                                */
 /*****************************************************************************/
 
+struct SparseTableFrozenColumnMetadata {
+    size_t firstEntry = 0;
+    size_t lastEntry = 0;  // WARNING: this is the number, not number + 1
+    ColumnTypes columnTypes;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(SparseTableFrozenColumnMetadata)
+{
+    setVersion(1);
+    addField("firstEntry", &SparseTableFrozenColumnMetadata::firstEntry, "");
+    addField("lastEntry", &SparseTableFrozenColumnMetadata::lastEntry, "");
+    addField("columnTypes", &SparseTableFrozenColumnMetadata::columnTypes, "");
+}
+
 /// Sparse frozen column that finds each value in a lookup table
-struct SparseTableFrozenColumn: public FrozenColumn {
+struct SparseTableFrozenColumn
+    : public FrozenColumn,
+      public SparseTableFrozenColumnMetadata {
+
     SparseTableFrozenColumn(TabularDatasetColumn & column,
                             MappedSerializer & serializer)
-        : columnTypes(std::move(column.columnTypes))
     {
+        columnTypes = std::move(column.columnTypes);
         firstEntry = column.minRowNumber;
         lastEntry = column.maxRowNumber;
 
@@ -638,6 +688,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual void serialize(StructuredSerializer & serializer) const
     {
+        serializeMetadataT<SparseTableFrozenColumnMetadata>(serializer, *this);
         table.serialize(*serializer.newStructure("table"));
         rowNum.serialize(*serializer.newStructure("rn"));
         index.serialize(*serializer.newStructure("idx"));
@@ -654,9 +705,6 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     FrozenIntegerTable index;
 
     uint32_t numEntries() const { return rowNum.size(); }
-    size_t firstEntry;
-    size_t lastEntry;  // WARNING: this is the number, not number + 1
-    ColumnTypes columnTypes;
 };
 
 struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
@@ -719,8 +767,29 @@ RegisterFrozenColumnFormatT<SparseTableFrozenColumnFormat> regSparseTable;
 /* INTEGER FROZEN COLUMN                                                     */
 /*****************************************************************************/
 
+struct IntegerFrozenColumnMetadata {
+    bool hasNulls = false;
+    uint64_t firstEntry = 0;
+    int64_t offset = 0;
+    uint32_t numNonNullRows = 0;
+    ColumnTypes columnTypes;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(IntegerFrozenColumnMetadata)
+{
+    setVersion(1);
+    addField("hasNulls", &IntegerFrozenColumnMetadata::hasNulls, "");
+    addField("firstEntry", &IntegerFrozenColumnMetadata::firstEntry, "");
+    addField("offset", &IntegerFrozenColumnMetadata::offset, "");
+    addField("nonNumNullRows",
+             &IntegerFrozenColumnMetadata::numNonNullRows, "");
+    addField("columnTypes", &IntegerFrozenColumnMetadata::columnTypes, "");
+}
+
 /// Frozen column that stores each value as a signed 64 bit integer
-struct IntegerFrozenColumn: public FrozenColumn {
+struct IntegerFrozenColumn
+    : public FrozenColumn,
+      public IntegerFrozenColumnMetadata {
 
     struct SizingInfo {
         SizingInfo(const TabularDatasetColumn & column)
@@ -872,8 +941,8 @@ struct IntegerFrozenColumn: public FrozenColumn {
     IntegerFrozenColumn(TabularDatasetColumn & column,
                         SizingInfo & info,
                         MappedSerializer & serializer)
-        : columnTypes(std::move(column.columnTypes))
     {
+        this->columnTypes = std::move(column.columnTypes);
         ExcAssertNotEqual(info.bytesRequired, -1);
 
         this->firstEntry = column.minRowNumber;
@@ -960,11 +1029,6 @@ struct IntegerFrozenColumn: public FrozenColumn {
     }
 
     FrozenIntegerTable table;
-    bool hasNulls = false;
-    uint64_t firstEntry = 0;
-    int64_t offset = 0;
-    uint32_t numNonNullRows = 0;
-    ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
     {
@@ -973,8 +1037,8 @@ struct IntegerFrozenColumn: public FrozenColumn {
 
     virtual void serialize(StructuredSerializer & serializer) const
     {
-        // TODO: finish
-        table.serialize(serializer);
+        serializeMetadataT<IntegerFrozenColumnMetadata>(serializer, *this);
+        table.serialize(*serializer.newStructure("table"));
     }
 };
 
@@ -1035,8 +1099,27 @@ RegisterFrozenColumnFormatT<IntegerFrozenColumnFormat> regInteger;
 /* DOUBLE FROZEN COLUMN                                                     */
 /*****************************************************************************/
 
+struct DoubleFrozenColumnMetadata {
+    uint32_t numEntries = 0;
+    uint64_t firstEntry = 0;
+    uint32_t numNonNullRows = 0;
+    ColumnTypes columnTypes;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(DoubleFrozenColumnMetadata)
+{
+    setVersion(1);
+    addField("numEntries", &DoubleFrozenColumnMetadata::numEntries, "");
+    addField("firstEntry", &DoubleFrozenColumnMetadata::firstEntry, "");
+    addField("numNonNullRows",
+             &DoubleFrozenColumnMetadata::numNonNullRows, "");
+    addField("columnTypes", &DoubleFrozenColumnMetadata::columnTypes, "");
+}
+
 /// Frozen column that stores each value as a signed 64 bit double
-struct DoubleFrozenColumn: public FrozenColumn {
+struct DoubleFrozenColumn
+    : public FrozenColumn,
+      public DoubleFrozenColumnMetadata {
 
     struct SizingInfo {
         SizingInfo(const TabularDatasetColumn & column)
@@ -1063,8 +1146,8 @@ struct DoubleFrozenColumn: public FrozenColumn {
     
     DoubleFrozenColumn(TabularDatasetColumn & column,
                        MappedSerializer & serializer)
-        : columnTypes(column.columnTypes)
     {
+        this->columnTypes = column.columnTypes;
         SizingInfo info(column);
         ExcAssertNotEqual(info.bytesRequired, -1);
 
@@ -1192,12 +1275,6 @@ struct DoubleFrozenColumn: public FrozenColumn {
 
     FrozenMemoryRegionT<Entry> storage;
 
-    uint32_t numEntries = 0;
-    uint64_t firstEntry = 0;
-    uint32_t numNonNullRows = 0;
-
-    ColumnTypes columnTypes;
-
     virtual ColumnTypes getColumnTypes() const
     {
         return columnTypes;
@@ -1215,6 +1292,7 @@ struct DoubleFrozenColumn: public FrozenColumn {
 
     virtual void serialize(StructuredSerializer & serializer) const
     {
+        serializeMetadataT<DoubleFrozenColumnMetadata>(serializer, *this);
         serializer.addRegion(storage, "doubles");
     }
 };
@@ -1268,8 +1346,20 @@ RegisterFrozenColumnFormatT<DoubleFrozenColumnFormat> regDouble;
 /* TIMESTAMP FROZEN COLUMN                                                   */
 /*****************************************************************************/
 
+struct TimestampFrozenColumnMetadata {
+    ColumnTypes columnTypes;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(TimestampFrozenColumnMetadata)
+{
+    setVersion(1);
+    addField("columnTypes", &TimestampFrozenColumnMetadata::columnTypes, "");
+}
+
 /// Frozen column that stores each value as a timestamp
-struct TimestampFrozenColumn: public FrozenColumn {
+struct TimestampFrozenColumn
+    : public FrozenColumn,
+      public TimestampFrozenColumnMetadata {
 
     // This stores the underlying doubles or CellValues 
     std::shared_ptr<const FrozenColumn> unwrapped;
@@ -1277,8 +1367,8 @@ struct TimestampFrozenColumn: public FrozenColumn {
     TimestampFrozenColumn(TabularDatasetColumn & column,
                           MappedSerializer & serializer,
                           const ColumnFreezeParameters & params)
-        : columnTypes(column.columnTypes)
     {
+        this->columnTypes = column.columnTypes;
         ExcAssert(!column.isFrozen);
         // Convert the values to unwrapped doubles
         column.valueIndex.clear();
@@ -1353,8 +1443,6 @@ struct TimestampFrozenColumn: public FrozenColumn {
         return unwrapped->nonNullRowCount();
     }
 
-    ColumnTypes columnTypes;
-
     virtual ColumnTypes getColumnTypes() const
     {
         return columnTypes;
@@ -1367,6 +1455,7 @@ struct TimestampFrozenColumn: public FrozenColumn {
 
     virtual void serialize(StructuredSerializer & serializer) const
     {
+        serializeMetadataT<TimestampFrozenColumnMetadata>(serializer, *this);
         unwrapped->serialize(*serializer.newStructure("ul"));
     }
 };
@@ -1527,6 +1616,7 @@ preFreeze(const TabularDatasetColumn & column,
     cerr << "chose format " << bestFormat->format() << " with "
          << column.indexedVals.size() << " unique and "
          << column.sparseIndexes.size() << " populated" << endl;
+#if 0
     for (size_t i = 0;  i < column.indexedVals.size() && i < 10;  ++i) {
         cerr << " " << column.indexedVals[i];
     }
@@ -1537,6 +1627,7 @@ preFreeze(const TabularDatasetColumn & column,
         cerr << " " << column.indexedVals[i];
     }
     cerr << endl;
+#endif
 #endif
 
     if (bestFormat) {
@@ -1566,6 +1657,40 @@ freeze(TabularDatasetColumn & column,
         throw HttpReturnException(500, "No column format found for column");
     }
     return res.second(column, serializer);
+}
+
+void
+FrozenColumn::
+serializeMetadata(StructuredSerializer & serializer,
+                  const void * md,
+                  const ValueDescription * desc) const
+{
+    Utf8String printed;
+    {
+        Utf8StringJsonPrintingContext context(printed);
+        context.startObject();
+        context.startMember("fmt");
+        context.writeString(format());
+        if (md) {
+            context.startMember("type");
+            context.writeString(desc->typeName);
+            context.startMember("ver");
+            context.writeInt(desc->getVersion());
+            context.startMember("data");
+            ExcAssert(desc);
+            desc->printJson(md, context);
+        }
+        context.endObject();
+    }
+
+    //cerr << "got metadata " << printed << endl;
+
+    auto entry = serializer.newEntry("md.json");
+    auto serializeTo = entry->allocateWritable(printed.rawLength(),
+                                               1 /* alignment */);
+    
+    std::memcpy(serializeTo.data(), printed.rawData(), printed.rawLength());
+    serializeTo.freeze();
 }
 
 

@@ -186,13 +186,33 @@ freeze(MutableMemoryRegion & region)
 void
 StructuredSerializer::
 addRegion(const FrozenMemoryRegion & region,
-          const Utf8String & name)
+          const PathElement & name)
 {
     auto entry = newEntry(name);
     // TODO: let the serializer handle it; no need to double allocate and
     // copy here
     auto serializeTo = entry->allocateWritable(region.length(), 1 /* alignment */);
     std::memcpy(serializeTo.data(), region.data(), region.length());
+    serializeTo.freeze();
+}
+
+void
+StructuredSerializer::
+newObject(const PathElement & name,
+          const void * val,
+          const ValueDescription & desc)
+{
+    Utf8String printed;
+    {
+        Utf8StringJsonPrintingContext context(printed);
+        desc.printJson(val, context);
+    }
+    //cerr << "doing metadata " << printed << endl;
+    auto entry = newEntry("md.json");
+    auto serializeTo = entry->allocateWritable(printed.rawLength(),
+                                               1 /* alignment */);
+    
+    std::memcpy(serializeTo.data(), printed.rawData(), printed.rawLength());
     serializeTo.freeze();
 }
 
@@ -545,6 +565,12 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
         entry.op(archive_entry_set_pathname, name.toUtf8String().rawData());
         entry.op(archive_entry_set_size, region.length());
         entry.op(archive_entry_set_filetype, AE_IFREG);
+#if 0
+        for (auto & a: attrs) {
+            entry.op(archive_entry_xattr_add_entry, a.first.c_str(),
+                     a.second.data(), a.second.length());
+        }
+#endif
         archive_op(archive_write_header, entry.entry.get());
         auto written = archive_write_data(a.get(), region.data(), region.length());
         if (written != region.length()) {
@@ -600,7 +626,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
 
 struct ZipStructuredSerializer::RelativeItl: public Itl {
     RelativeItl(Itl * parent,
-                Utf8String relativePath)
+                PathElement relativePath)
         : base_(parent->base()), parent(parent), relativePath(relativePath)
     {
     }
@@ -624,11 +650,11 @@ struct ZipStructuredSerializer::RelativeItl: public Itl {
 
     BaseItl * base_;
     Itl * parent;
-    Utf8String relativePath;
+    PathElement relativePath;
 };
 
 struct ZipStructuredSerializer::EntrySerializer: public MemorySerializer {
-    EntrySerializer(Itl * itl, Utf8String entryName)
+    EntrySerializer(Itl * itl, PathElement entryName)
         : itl(itl), entryName(std::move(entryName))
     {
     }
@@ -636,8 +662,8 @@ struct ZipStructuredSerializer::EntrySerializer: public MemorySerializer {
     virtual ~EntrySerializer()
     {
         Path name = itl->path() + entryName;
-        cerr << "finishing entry " << name << " with "
-             << frozen.length() << " bytes" << endl;
+        //cerr << "finishing entry " << name << " with "
+        //     << frozen.length() << " bytes" << endl;
         itl->base()->writeEntry(name, std::move(frozen));
     }
 
@@ -651,7 +677,7 @@ struct ZipStructuredSerializer::EntrySerializer: public MemorySerializer {
     }
 
     Itl * itl;
-    Utf8String entryName;
+    PathElement entryName;
     FrozenMemoryRegion frozen;
 };
 
@@ -663,7 +689,7 @@ ZipStructuredSerializer(Utf8String filename)
 
 ZipStructuredSerializer::
 ZipStructuredSerializer(ZipStructuredSerializer * parent,
-                        Utf8String relativePath)
+                        PathElement relativePath)
     : itl(new RelativeItl(parent->itl.get(), relativePath))
 {
 }
@@ -675,21 +701,21 @@ ZipStructuredSerializer::
 
 std::shared_ptr<StructuredSerializer>
 ZipStructuredSerializer::
-newStructure(const Utf8String & name)
+newStructure(const PathElement & name)
 {
     return std::make_shared<ZipStructuredSerializer>(this, name);
 }
 
 std::shared_ptr<MappedSerializer>
 ZipStructuredSerializer::
-newEntry(const Utf8String & name)
+newEntry(const PathElement & name)
 {
     return std::make_shared<EntrySerializer>(itl.get(), name);
 }
 
 filter_ostream
 ZipStructuredSerializer::
-newStream(const Utf8String & name)
+newStream(const PathElement & name)
 {
     auto entry = newEntry(name);
 

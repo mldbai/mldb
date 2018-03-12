@@ -24,34 +24,32 @@ DEFINE_STRUCTURE_DESCRIPTION(ColumnTypes);
 ColumnTypesDescription::
 ColumnTypesDescription()
 {
-    addField("numNulls", &ColumnTypes::numNulls,
-             "Number of null values in the column");
-    addField("numZeros", &ColumnTypes::numZeros,
-             "Number of zero values in the column");
-    addField("numIntegers", &ColumnTypes::numIntegers,
-             "Number of 64 bit integral values in the column");
-    addField("minNegativeInteger", &ColumnTypes::minNegativeInteger,
-             "Minimum negative integer value in the column",
-             std::numeric_limits<int64_t>::max());
-    addField("maxNegativeInteger", &ColumnTypes::maxNegativeInteger,
-             "Maximum negative integer value in the column", (int64_t)0);
-    addField("minPositiveInteger", &ColumnTypes::minPositiveInteger,
-             "Minimum positive integer value in the column",
-             std::numeric_limits<uint64_t>::max());
-    addField("maxPositiveInteger", &ColumnTypes::maxPositiveInteger,
-             "Maximum positive integer value in the column", (uint64_t)0);
-    addField("numReals", &ColumnTypes::numReals,
-             "Number of real-valued (non-64 bit integral) values in the column");
-    addField("numStrings", &ColumnTypes::numStrings,
-             "Number of string values in the column");
-    addField("numBlobs", &ColumnTypes::numBlobs,
-             "Number of blob values in the column");
-    addField("numTimestamps", &ColumnTypes::numTimestamps,
-             "Number of timestamp values in the column");
-    addField("numPaths", &ColumnTypes::numPaths,
-             "Number of path values in the column");
-    addField("numOther", &ColumnTypes::numOther,
-             "Number of other typed values in the column");
+    addAuto("numNulls", &ColumnTypes::numNulls,
+            "Number of null values in the column");
+    addAuto("numZeros", &ColumnTypes::numZeros,
+            "Number of zero values in the column");
+    addAuto("numIntegers", &ColumnTypes::numIntegers,
+            "Number of 64 bit integral values in the column");
+    addAuto("minNegativeInteger", &ColumnTypes::minNegativeInteger,
+            "Minimum negative integer value in the column");
+    addAuto("maxNegativeInteger", &ColumnTypes::maxNegativeInteger,
+            "Maximum negative integer value in the column");
+    addAuto("minPositiveInteger", &ColumnTypes::minPositiveInteger,
+            "Minimum positive integer value in the column");
+    addAuto("maxPositiveInteger", &ColumnTypes::maxPositiveInteger,
+            "Maximum positive integer value in the column");
+    addAuto("numReals", &ColumnTypes::numReals,
+            "Number of real-valued (non-64 bit integral) values in the column");
+    addAuto("numStrings", &ColumnTypes::numStrings,
+            "Number of string values in the column");
+    addAuto("numBlobs", &ColumnTypes::numBlobs,
+            "Number of blob values in the column");
+    addAuto("numTimestamps", &ColumnTypes::numTimestamps,
+            "Number of timestamp values in the column");
+    addAuto("numPaths", &ColumnTypes::numPaths,
+            "Number of path values in the column");
+    addAuto("numOther", &ColumnTypes::numOther,
+            "Number of other typed values in the column");
 }
 
 /** This is an accumulator that keeps statistics on the types of values that

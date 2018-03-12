@@ -122,7 +122,30 @@ struct MutablePathIndex {
 /* PATH INDEX                                                                */
 /*****************************************************************************/
 
-struct PathIndexShard {
+struct PathIndexMetadata {
+    // Bits required to serialize a chunk number
+    uint8_t chunkBits = 0;
+
+    // Bits required to serialize an offset
+    uint8_t offsetBits = 0;
+
+    // How many entries are in storage?
+    uint64_t numEntries = 0;
+
+    // Factor to multiply by to turn a hash value into an entry number
+    double factor = 0.0;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(PathIndexMetadata)
+{
+    setVersion(1);
+    addField("chunkBits", &PathIndexMetadata::chunkBits, "");
+    addField("offsetBits", &PathIndexMetadata::offsetBits, "");
+    addField("numEntries", &PathIndexMetadata::numEntries, "");
+    addField("factor", &PathIndexMetadata::factor, "");
+}
+
+struct PathIndexShard: public PathIndexMetadata {
     
     size_t getBucket(uint64_t hash) const
     {
@@ -255,29 +278,13 @@ struct PathIndexShard {
 
     void serialize(StructuredSerializer & serializer) const
     {
-        filter_ostream stream = serializer.newStream("md");
-        ML::DB::Store_Writer store(stream);
-        store
-            << uint8_t(1) // version
-            << uint8_t(chunkBits)
-            << uint8_t(offsetBits)
-            << ML::DB::compact_size_t(numEntries)
-            << factor;
-        stream.close();
+        serializer.newObject<PathIndexMetadata>("md.json", *this);
         serializer.addRegion(storage, "rowindex");
     }
 
     // Hash is implicit via position in the entry map (we take the top x bits)
     // It returns the chunk number that contains that hash portion
     // linear chaining
-    int chunkBits = 0;
-    int offsetBits = 0;
-
-    // How many entries are in storage?
-    size_t numEntries = 0;
-
-    // Factor to multiply by to turn a hash value into an entry number
-    double factor = 0.0;
 
     // Actual storage for bit-packed values
     FrozenMemoryRegionT<uint32_t> storage;
@@ -312,8 +319,7 @@ struct PathIndex {
     void serialize(StructuredSerializer & serializer) const
     {
         for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
-            shards[i].serialize
-                (*serializer.newStructure("shard" + std::to_string(i)));
+            shards[i].serialize(*serializer.newStructure(i));
         }
     }
 

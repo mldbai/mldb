@@ -66,6 +66,21 @@ struct FrozenColumn: public MappedObject {
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params);
 
+    // Serialize the metadata.  Should be called first from serialize().
+    void serializeMetadata(StructuredSerializer & serializer,
+                           const void * md,
+                           const ValueDescription * desc) const;
+
+    template<typename T>
+    void
+    serializeMetadataT(StructuredSerializer & serializer,
+                       const T & md,
+                       const std::shared_ptr<const ValueDescriptionT<T> > & desc
+                       = getDefaultDescriptionSharedT<T>()) const
+    {
+        serializeMetadata(serializer, &md, desc.get());
+    }
+
     virtual void serialize(StructuredSerializer & serializer) const = 0;
 };
 

@@ -13,6 +13,7 @@
 #include <memory>
 #include "mldb/types/string.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/types/path.h"
 
 namespace MLDB {
@@ -334,20 +335,38 @@ private:
 /* STRUCTURED SERIALIZER                                                     */
 /*****************************************************************************/
 
-/** Serializer that structures its entries (like a Zip file). */
+/** Serializer that structures its entries (like a Zip file).  This broadly
+    corresponds to a directory (it can contain other entries, but not
+    data).
+*/
 
 struct StructuredSerializer {
     virtual std::shared_ptr<StructuredSerializer>
-    newStructure(const Utf8String & name) = 0;
+    newStructure(const PathElement & name) = 0;
 
     virtual std::shared_ptr<MappedSerializer>
-    newEntry(const Utf8String & name) = 0;
+    newEntry(const PathElement & name) = 0;
 
     virtual filter_ostream
-    newStream(const Utf8String & name) = 0;
+    newStream(const PathElement & name) = 0;
 
     virtual void addRegion(const FrozenMemoryRegion & region,
-                           const Utf8String & name);
+                           const PathElement & name);
+
+    //virtual void addValue(const PathElement & name);
+
+    template<typename T>
+    void newObject(const PathElement & name,
+                   const T & val,
+                   const std::shared_ptr<const ValueDescriptionT<T> > & desc
+                       = getDefaultDescriptionSharedT<T>())
+    {
+        newObject(name, &val, *desc);
+    }
+
+    virtual void newObject(const PathElement & name,
+                           const void * val,
+                           const ValueDescription & desc);
 
     virtual void commit() = 0;
 };
@@ -364,18 +383,18 @@ struct ZipStructuredSerializer: public StructuredSerializer {
     ~ZipStructuredSerializer();
 
     virtual std::shared_ptr<StructuredSerializer>
-    newStructure(const Utf8String & name);
+    newStructure(const PathElement & name);
 
     virtual std::shared_ptr<MappedSerializer>
-    newEntry(const Utf8String & name);
+    newEntry(const PathElement & name);
 
     virtual filter_ostream
-    newStream(const Utf8String & name);
+    newStream(const PathElement & name);
 
     virtual void commit();
 
     ZipStructuredSerializer(ZipStructuredSerializer * parent,
-                            Utf8String relativePath);
+                            PathElement relativePath);
 private:
     struct Itl;
     struct BaseItl;

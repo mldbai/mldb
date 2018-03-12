@@ -7,6 +7,7 @@
 #include "frozen_tables.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/types/basic_value_descriptions.h"
 
 #include "mldb/ext/zstd/lib/dictBuilder/zdict.h"
 #include "mldb/ext/zstd/lib/zstd.h"
@@ -19,8 +20,208 @@ namespace MLDB {
 
 
 /*****************************************************************************/
+/* FROZEN INTEGER TABLE                                                      */
+/*****************************************************************************/
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenIntegerTableMetadata)
+{
+    setVersion(1);
+    addAuto("numEntries", &FrozenIntegerTableMetadata::numEntries, "");
+    addAuto("entryBits", &FrozenIntegerTableMetadata::entryBits, "");
+    addAuto("offset", &FrozenIntegerTableMetadata::offset, "");
+    addAuto("slope", &FrozenIntegerTableMetadata::slope, "");
+}
+
+size_t
+FrozenIntegerTable::
+memusage() const
+{
+    return storage.memusage();
+}
+
+size_t
+FrozenIntegerTable::
+size() const
+{
+    return md.numEntries;
+}
+
+uint64_t
+FrozenIntegerTable::
+get(size_t i) const
+{
+    ExcAssertLess(i, md.numEntries);
+    ML::Bit_Extractor<uint64_t> bits(storage.data());
+    bits.advance(i * md.entryBits);
+    int64_t val = bits.extract<uint64_t>(md.entryBits);
+    //cerr << "getting element " << i << " gave val " << val
+    //     << " yielding " << decode(i, val) << " with offset "
+    //     << offset << " and slope " << slope << endl;
+    return decode(i, val);
+}
+
+void
+FrozenIntegerTable::
+serialize(StructuredSerializer & serializer) const
+{
+    serializer.newObject("md.json", md);
+    serializer.addRegion(storage, "ints");
+}
+
+
+/*****************************************************************************/
+/* MUTABLE INTEGER TABLE                                                     */
+/*****************************************************************************/
+
+uint64_t
+MutableIntegerTable::
+add(uint64_t val)
+{
+    values.emplace_back(val);
+    minValue = std::min(minValue, val);
+    monotonic = monotonic && val >= maxValue;
+    maxValue = std::max(maxValue, val);
+    return values.size() - 1;
+}
+
+void
+MutableIntegerTable::
+reserve(size_t numValues)
+{
+    values.reserve(numValues);
+}
+    
+size_t
+MutableIntegerTable::
+size() const
+{
+    return values.size();
+}
+
+size_t
+MutableIntegerTable::
+bytesRequired() const
+{
+    // TODO: calculate with slope
+    uint64_t range = maxValue - minValue;
+    uint8_t bits = bitsToHoldRange(range);
+    size_t numWords = (bits * values.size() + 63) / 64;
+#if 0
+    cerr << "**** MIT bytes required" << endl;
+    cerr << "range = " << range << " minValue = " << minValue
+         << " maxValue = " << maxValue << " bits = " << bits
+         << " numWords = " << numWords << " values.size() = "
+         << values.size() << endl;
+#endif
+    return numWords * 8;
+}
+
+FrozenIntegerTable
+MutableIntegerTable::
+freeze(MappedSerializer & serializer)
+{
+    FrozenIntegerTable result;
+    uint64_t range = maxValue - minValue;
+    uint8_t bits = bitsToHoldRange(range);
+
+#if 0
+    cerr << "*** Freezing integer table" << endl;
+    cerr << "minValue = " << minValue << " maxValue = "
+         << maxValue << " range = " << range << endl;
+    cerr << "bits = " << (int)bits << endl;
+#endif
+    result.md.offset = minValue;
+    result.md.entryBits = bits;
+    result.md.numEntries = values.size();
+    result.md.slope = 0.0;
+
+    if (values.size() > 1 && monotonic) {
+        // TODO: what we are really trying to do here is find the
+        // slope and intercept such that all values are above
+        // the line, and the infinity norm is minimised.  We can
+        // do that in a more principled way...
+        double slope = (values.back() - values[0]) / (values.size() - 1.0);
+
+        //static std::mutex mutex;
+        //std::unique_lock<std::mutex> guard(mutex);
+            
+        //cerr << "monotonic " << values.size() << " from "
+        //     << minValue << " to " << maxValue << " has slope "
+        //     << slope << endl;
+
+        uint64_t maxNegOffset = 0, maxPosOffset = 0;
+        for (size_t i = 1;  i < values.size();  ++i) {
+            uint64_t predicted = minValue + i * slope;
+            uint64_t actual = values[i];
+
+            //cerr << "i = " << i << " predicted " << predicted
+            //     << " actual " << actual << endl;
+
+            if (predicted < actual) {
+                maxPosOffset = std::max(maxPosOffset, actual - predicted);
+            }
+            else {
+                maxNegOffset = std::max(maxNegOffset, predicted - actual);
+            }
+        }
+
+        uint8_t offsetBits = bitsToHoldCount(maxNegOffset + maxPosOffset + 2);
+        if (offsetBits < bits) {
+            result.md.offset = minValue - maxNegOffset;
+            result.md.entryBits = offsetBits;
+            result.md.slope = slope;
+
+#if 0
+            cerr << "integer range with slope " << slope
+                 << " goes from " << (int)bits << " to "
+                 << (int)offsetBits << " bits per entry" << endl;
+            cerr << "maxNegOffset = " << maxNegOffset << endl;
+            cerr << "maxPosOffset = " << maxPosOffset << endl;
+            cerr << "minValue = " << minValue << endl;
+            cerr << "offset = " << result.offset << endl;
+            cerr << "slope = " << result.slope << endl;
+#endif
+        }
+    }
+
+    size_t numWords = (result.md.entryBits * values.size() + 63) / 64;
+    auto mutableStorage = serializer.allocateWritableT<uint64_t>(numWords);
+    uint64_t * data = mutableStorage.data();
+
+    ML::Bit_Writer<uint64_t> writer(data);
+    for (size_t i = 0;  i < values.size();  ++i) {
+        uint64_t predicted = result.md.offset + uint64_t(i * result.md.slope);
+        uint64_t residual = values[i] - predicted;
+        //cerr << "value = " << values[i] << endl;
+        //cerr << "predicted = " << predicted << endl;
+        //cerr << "storing residual " << residual << " at " << i << endl;
+
+        if (result.md.slope != 0.0) {
+            //cerr << "predicted " << predicted << " val " << values[i]
+            //     << endl;
+            //cerr << "residual " << residual << " for entry " << i << endl;
+        }
+        writer.write(residual, result.md.entryBits);
+    }
+
+    values.clear();
+    values.shrink_to_fit();
+
+    result.storage = mutableStorage.freeze();
+
+    return result;
+}
+
+
+/*****************************************************************************/
 /* FROZEN BLOB TABLE                                                         */
 /*****************************************************************************/
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenBlobTableMetadata)
+{
+    setVersion(1);
+    addAuto("format", &FrozenBlobTableMetadata::format, "");
+}
 
 struct FrozenBlobTable::Itl {
     Itl()
@@ -59,7 +260,7 @@ getSize(uint32_t index) const
     size_t offset1 = offset.get(index);
     size_t storageSize = offset1 - offset0;
  
-    switch (format) {
+    switch (md.format) {
     case UNCOMPRESSED:
         return storageSize;
     case ZSTD: {
@@ -80,7 +281,7 @@ size_t
 FrozenBlobTable::
 getBufferSize(uint32_t index) const
 {
-    switch (format) {
+    switch (md.format) {
     case UNCOMPRESSED:
         return 0;
     case ZSTD: {
@@ -104,7 +305,7 @@ bool
 FrozenBlobTable::
 needsBuffer(uint32_t index) const
 {
-    return format == ZSTD;
+    return md.format == ZSTD;
 }
 
 const char *
@@ -115,7 +316,7 @@ getContents(uint32_t index,
 {
     size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
 
-    switch (format) {
+    switch (md.format) {
     case UNCOMPRESSED:
         return blobData.data() + offset0;
     case ZSTD: {
@@ -176,6 +377,7 @@ void
 FrozenBlobTable::
 serialize(StructuredSerializer & serializer) const
 {
+    serializer.newObject("md.json", md);
     serializer.addRegion(formatData, "fmt");
     serializer.addRegion(blobData, "blob");
     offset.serialize(*serializer.newStructure("offsets"));
@@ -308,7 +510,7 @@ freezeCompressed(MappedSerializer & serializer)
         = serializer.allocateWritable(dictionary.length(), 1);
     std::memcpy(dictRegion.data(), dictionary.data(), dictionary.length());
     result.formatData = dictRegion.freeze();
-    result.format = FrozenBlobTable::ZSTD;
+    result.md.format = ZSTD;
     result.blobData = std::move(frozenCompressedBlobs.blobData);
     result.offset = std::move(frozenCompressedBlobs.offset);
 
