@@ -4960,6 +4960,14 @@ template class ExpressionValueInfoT<RowValue>;
 template class ExpressionValueInfoT<ExpressionValue>;
 template class ExpressionValueInfoT<distribution<double, std::vector<double> > >;
 
+/** Make an expression value info for the given map type. */
+std::shared_ptr<ExpressionValueInfo>
+makeMapValueInfo(std::shared_ptr<ExpressionValueInfo> keyInfo,
+                 std::shared_ptr<ExpressionValueInfo> valueInfo)
+{
+    return std::make_shared<UnknownRowValueInfo>();
+}
+
 
 /*****************************************************************************/
 /* SEARCH ROW                                                                */
