@@ -1465,6 +1465,49 @@ expectJson(ParseContext & context)
 }
 
 Json::Value
+skipJson(ParseContext & context)
+{
+    context.skip_whitespace();
+    if (*context == '"')
+        return expectJsonStringUtf8(context);
+    else if (context.match_literal("null"))
+        return Json::Value();
+    else if (context.match_literal("true"))
+        return Json::Value(true);
+    else if (context.match_literal("false"))
+        return Json::Value(false);
+    else if (*context == '[') {
+        Json::Value result(Json::arrayValue);
+        expectJsonArray(context,
+                        [&] (int i, ParseContext & context)
+                        {
+                            result[i] = expectJson(context);
+                        });
+        return result;
+    } else if (*context == '{') {
+        Json::Value result(Json::objectValue);
+        expectJsonObject(context,
+                         [&] (const std::string & key, ParseContext & context)
+                         {
+                             result[key] = expectJson(context);
+                         });
+        return result;
+    } else {
+        JsonNumber number = expectJsonNumber(context);
+        switch (number.type) {
+        case JsonNumber::UNSIGNED_INT:
+            return number.uns;
+        case JsonNumber::SIGNED_INT:
+            return number.sgn;
+        case JsonNumber::FLOATING_POINT:
+            return number.fp;
+        default:
+            throw MLDB::Exception("logic error in expectJson");
+        }
+    }
+}
+
+Json::Value
 expectJsonAscii(ParseContext & context)
 {
     context.skip_whitespace();
