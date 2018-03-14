@@ -6,7 +6,7 @@
 */
 
 #include "sql_utils.h"
-#include "path.h"
+#include "mldb/types/path.h"
 #include "http/http_exception.h"
 #include <iostream>
 

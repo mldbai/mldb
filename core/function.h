@@ -13,7 +13,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/sql/path.h"
+#include "mldb/types/path.h"
 
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes

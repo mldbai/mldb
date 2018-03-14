@@ -14,7 +14,7 @@
 #include "mldb/server/script_output.h"
 #include <mutex>
 #include "mldb/rest/rest_request_router.h"
-#include "mldb/sql/path.h"
+#include "mldb/types/path.h"
 
 #pragma once
 

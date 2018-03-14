@@ -2,7 +2,6 @@
 
 SQL_TYPES_SOURCES := \
 	cell_value.cc \
-	path.cc \
 	dataset_types.cc \
 	interval.cc \
 

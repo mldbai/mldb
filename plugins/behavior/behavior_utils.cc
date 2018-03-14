@@ -11,7 +11,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/types/json_parsing.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/sql/path.h"
+#include "mldb/types/path.h"
 #include <algorithm>
 
 

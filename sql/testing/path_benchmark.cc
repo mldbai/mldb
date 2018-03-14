@@ -7,7 +7,7 @@
     Test of coordinate classes.
 */
 
-#include "mldb/sql/path.h"
+#include "mldb/types/path.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"

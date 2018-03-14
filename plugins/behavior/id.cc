@@ -19,7 +19,7 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include <iostream>
 #include "mldb/ext/jsoncpp/value.h"
-#include "mldb/sql/path.h"  // so we can hash Id the same way as Path
+#include "mldb/types/path.h"  // so we can hash Id the same way as Path
 
 #if MLDB_BITS == 32
 #include <boost/multiprecision/cpp_int.hpp>

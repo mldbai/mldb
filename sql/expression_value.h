@@ -9,7 +9,7 @@
 #pragma once
 
 #include "dataset_fwd.h"
-#include "path.h"
+#include "mldb/types/path.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/date.h"
 #include "mldb/arch/demangle.h"

@@ -10,7 +10,7 @@
 #include "cell_value.h"
 #include "dataset_fwd.h"
 #include "mldb/types/date.h"
-#include "path.h"
+#include "mldb/types/path.h"
 
 
 
