@@ -8,7 +8,7 @@
 */
 
 #include "mldb/sql/cell_value.h"
-#include "mldb/sql/path.h"
+#include "mldb/types/path.h"
 #include "mldb/types/value_description.h"
 #include "http/http_exception.h"
 

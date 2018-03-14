@@ -9,7 +9,7 @@
 
 #include <unordered_map>
 #include "frozen_column.h"
-#include "mldb/sql/path.h"
+#include "mldb/types/path.h"
 #include "mldb/types/date.h"
 #include "tabular_dataset_column.h"
 #include "mldb/utils/log.h"

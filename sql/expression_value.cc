@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include "expression_value.h"
 #include "sql_expression.h"
-#include "path.h"
+#include "mldb/types/path.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"

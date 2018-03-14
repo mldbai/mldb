@@ -5,7 +5,7 @@
     This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 */
 
-#include "path.h"
+#include "mldb/types/path.h"
 #include <cstring>
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/value_description.h"

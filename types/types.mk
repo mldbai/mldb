@@ -32,10 +32,11 @@ LIBTYPES_SOURCES := \
 	periodic_utils.cc \
 	dtoa.c \
 	regex.cc \
-	periodic_utils_value_descriptions.cc
+	periodic_utils_value_descriptions.cc \
+	path.cc
 
 LIBTYPES_LINK := \
-	rt boost_locale boost_regex boost_date_time jsoncpp googleurl cityhash value_description
+	rt boost_locale boost_regex boost_date_time jsoncpp googleurl cityhash value_description highwayhash
 
 $(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
 
