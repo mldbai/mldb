@@ -19,6 +19,8 @@ using namespace std;
 
 namespace {
 
+static constexpr const size_t MAX_JSON_NESTING = 10000;
+
 /* This is a duplicate of ML::trim, reimplemented here in order to avoid a
  * circular dependency between libvalue_description and libutils. */
 
@@ -421,10 +423,31 @@ matchJsonNull(ParseContext & context)
     return context.match_literal("null");
 }
 
+struct JsonNestingTracker {
+    static thread_local int nesting;
+    JsonNestingTracker()
+    {
+        ++nesting;
+        if (nesting == MAX_JSON_NESTING) {
+            throw MLDB::Exception("Maximum JSON nesting exceeded");
+        }
+    }
+
+    ~JsonNestingTracker()
+    {
+        --nesting;
+        ExcAssertGreaterEqual(nesting, 0);
+    }
+};
+
+thread_local int JsonNestingTracker::nesting = 0;
+
 void
 expectJsonArray(ParseContext & context,
                 const std::function<void (int, ParseContext &)> & onEntry)
 {
+    JsonNestingTracker tracker;
+    
     skipJsonWhitespace(context);
 
     if (context.match_literal("null"))
@@ -452,6 +475,8 @@ void
 expectJsonObject(ParseContext & context,
                  const std::function<void (const std::string &, ParseContext &)> & onEntry)
 {
+    JsonNestingTracker tracker;
+
     skipJsonWhitespace(context);
 
     if (context.match_literal("null"))
@@ -489,6 +514,8 @@ void
 expectJsonObjectAscii(ParseContext & context,
                       const std::function<void (const char *, ParseContext &)> & onEntry)
 {
+    JsonNestingTracker tracker;
+
     skipJsonWhitespace(context);
 
     if (context.match_literal("null"))
@@ -530,6 +557,8 @@ bool
 matchJsonObject(ParseContext & context,
                 const std::function<bool (const std::string &, ParseContext &)> & onEntry)
 {
+    JsonNestingTracker tracker;
+
     skipJsonWhitespace(context);
 
     if (context.match_literal("null"))
@@ -874,6 +903,8 @@ JsonParsingContext::
 pushPath(JsonPathEntry entry, int memberNumber)
 {
     path->push(std::move(entry), memberNumber);
+    if (path->size() > MAX_JSON_NESTING)
+        exception("JSON nested too deep");
 }
 
 void
