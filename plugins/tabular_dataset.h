@@ -13,6 +13,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
+#include "memory_region.h"
 
 
 namespace MLDB {
@@ -71,10 +72,14 @@ struct TabularDataset : public Dataset {
 
     virtual MultiChunkRecorder getChunkRecorder();
 
-    virtual void recordRowItl(const RowPath & rowName, const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
+    virtual void
+    recordRowItl(const RowPath & rowName,
+                 const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
 
-    virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
-
+    virtual void
+    recordRows(const std::vector<std::pair<RowPath,
+               std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
+    
 protected:
     // To initialize from a subclass
     TabularDataset(MldbServer * owner);

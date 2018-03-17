@@ -24,30 +24,27 @@ memusage() const
     for (auto & c: columns)
         result += c->memusage();
         
-    DEBUG_MSG(logger) << columns.size() << " columns took " << result - before;
+    //cerr << columns.size() << " columns took " << result - before << endl;
     before = result;
         
     for (auto & c: sparseColumns)
         result += c.first.memusage() + c.second->memusage();
 
-    DEBUG_MSG(logger) << sparseColumns.size() << " sparse columns took "
-                      << result - before;
+    //cerr << sparseColumns.size() << " sparse columns took "
+    //     << result - before << endl;
     before = result;
 
-    for (auto & r: rowNames)
-        result += r.memusage();
-    result += integerRowNames.capacity() * sizeof(uint64_t);
+    result += rowNames->memusage();
 
-    DEBUG_MSG(logger) << rowNames.size() << " row names took "
-                      << result - before;
+    //cerr << rowNames->size() << " row names took "
+    //     << result - before << endl;
     before = result;
 
     result += timestamps->memusage();
 
-    DEBUG_MSG(logger) << "timestamps took "
-                      << result - before;
+    //cerr << "timestamps took " << result - before << endl;
 
-    DEBUG_MSG(logger) << "total memory is " << result;
+    //cerr << "total memory is " << result << endl;
     return result;
 }
 
@@ -71,10 +68,7 @@ RowPath
 TabularDatasetChunk::
 getRowPath(size_t index) const
 {
-    if (rowNames.empty()) {
-        return PathElement(integerRowNames.at(index));
-    }
-    else return rowNames.at(index);
+    return rowNames->get(index).coerceToPath();
 }
 
 /// Return a reference to the rowName, stored in storage if it's a temp
@@ -82,10 +76,7 @@ const RowPath &
 TabularDatasetChunk::
 getRowPath(size_t index, RowPath & storage) const
 {
-    if (rowNames.empty()) {
-        return storage = PathElement(integerRowNames.at(index));
-    }
-    else return rowNames.at(index);
+    return storage = getRowPath(index);
 }
 
 const FrozenColumn *
@@ -202,7 +193,7 @@ MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
       addFailureNotified(false)
 {
     timestamps.reserve(maxSize);
-    integerRowNames.reserve(maxSize);
+    rowNames.reserve(maxSize);
     for (unsigned i = 0;  i < numColumns;  ++i)
         columns[i].reserve(maxSize);
 }
@@ -225,9 +216,7 @@ freeze(const ColumnFreezeParameters & params)
         result.sparseColumns.emplace(c.first, c.second.freeze(params));
 
     result.timestamps = timestamps.freeze(params);
-
-    result.rowNames = std::move(rowNames);
-    result.integerRowNames = std::move(integerRowNames);
+    result.rowNames = rowNames.freeze(params);
 
     isFrozen = true;
 
@@ -257,23 +246,12 @@ add(RowPath & rowName,
     }
 
     ExcAssertEqual(columns.size(), numVals);
+    ssize_t index = rowName.toIndex();
+    if (index != -1)
+        rowNames.add(numRows, index);
+    else
+        rowNames.add(numRows, std::move(rowName));
 
-    uint64_t intRowName;
-
-    if (!rowNames.empty() || (intRowName = rowName.toIndex()) == -1) {
-        // Non-integer row name
-        if (rowNames.empty()) {
-            rowNames.reserve(maxSize);
-            for (auto & n: integerRowNames)
-                rowNames.emplace_back(n);
-            integerRowNames.clear();
-        }
-        rowNames.emplace_back(std::move(rowName));
-    }
-    else {
-        // Still integer row names
-        integerRowNames.emplace_back(intRowName);
-    }
     timestamps.add(numRows, ts.secondsSinceEpoch());
 
     for (unsigned i = 0;  i < columns.size();  ++i) {

@@ -149,6 +149,11 @@ struct TableFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const
+    {
+        return numEntries;
+    }
+
     std::shared_ptr<const uint32_t> storage;
     uint32_t indexBits;
     uint32_t numEntries;
@@ -383,6 +388,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const
+    {
+        return numEntries;
+    }
+
     virtual ColumnTypes getColumnTypes() const
     {
         return columnTypes;
@@ -496,7 +506,9 @@ struct IntegerFrozenColumn: public FrozenColumn {
             // use this kind of column.
             if (range == -1 && hasNulls)
                 return;
-                
+
+            numNonNullRows = column.sparseIndexes.size();
+            
 #if 0 // later on... we should look for a common multiple to reduce bits used
    
             // Check for common multiple
@@ -548,6 +560,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
         bool hasNulls;
         size_t numWords;
         int entryBits;
+        uint32_t numNonNullRows = 0;
     };
     
     IntegerFrozenColumn(TabularDatasetColumn & column)
@@ -565,6 +578,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
                            (uint64_t)std::numeric_limits<int64_t>::max());
 
         hasNulls = info.hasNulls;
+        numNonNullRows = info.numNonNullRows;
         entryBits = info.entryBits;
         offset = info.offset;
         uint64_t * data = new uint64_t[info.numWords];
@@ -708,6 +722,11 @@ struct IntegerFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const
+    {
+        return numNonNullRows;
+    }
+
     std::shared_ptr<const uint64_t> storage;
     uint32_t entryBits;
     uint32_t numEntries;
@@ -715,6 +734,7 @@ struct IntegerFrozenColumn: public FrozenColumn {
     int64_t offset;
 
     bool hasNulls;
+    size_t numNonNullRows;
     ColumnTypes columnTypes;
 
     virtual ColumnTypes getColumnTypes() const
@@ -956,6 +976,11 @@ struct DoubleFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual size_t nonNullRowCount() const
+    {
+        return numEntries;
+    }
+
     std::shared_ptr<const Entry> storage;
     uint32_t numEntries;
     uint64_t firstEntry;
@@ -1092,6 +1117,11 @@ struct TimestampFrozenColumn: public FrozenColumn {
             };
 
         return unwrapped->forEachDistinctValue(fn2);
+    }
+
+    virtual size_t nonNullRowCount() const
+    {
+        return unwrapped->nonNullRowCount();
     }
 
     ColumnTypes columnTypes;
