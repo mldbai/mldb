@@ -181,6 +181,30 @@ addToColumn(int columnIndex,
     }
 }
 
+void
+TabularDatasetChunk::
+serialize(StructuredSerializer & serializer) const
+{
+    auto serializeAs = [&] (Utf8String name,
+                            const FrozenColumn & col)
+        {
+            col.serialize(*serializer.newStructure(name));
+        };
+    
+    for (size_t i = 0;  i < columns.size();  ++i) {
+        serializeAs(to_string(i), *columns[i]);
+    }
+
+    if (!sparseColumns.empty()) {
+        auto sparseSerializer = serializer.newStructure("sp");
+        for (auto & c: sparseColumns) {
+            c.second->serialize(*sparseSerializer->newStructure(c.first.toUtf8String()));
+        }
+    }
+    serializeAs("rn", *rowNames);
+    serializeAs("ts", *timestamps);
+}
+
 
 /*****************************************************************************/
 /* MUTABLE TABULAR DATASET CHUNK                                             */
@@ -200,7 +224,8 @@ MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
 
 TabularDatasetChunk
 MutableTabularDatasetChunk::
-freeze(const ColumnFreezeParameters & params)
+freeze(MappedSerializer & serializer,
+       const ColumnFreezeParameters & params)
 {
     std::unique_lock<std::mutex> guard(mutex);
 
@@ -211,12 +236,12 @@ freeze(const ColumnFreezeParameters & params)
     result.sparseColumns.reserve(sparseColumns.size());
 
     for (unsigned i = 0;  i < columns.size();  ++i)
-        result.columns[i] = columns[i].freeze(params);
+        result.columns[i] = columns[i].freeze(serializer, params);
     for (auto & c: sparseColumns)
-        result.sparseColumns.emplace(c.first, c.second.freeze(params));
+        result.sparseColumns.emplace(c.first, c.second.freeze(serializer, params));
 
-    result.timestamps = timestamps.freeze(params);
-    result.rowNames = rowNames.freeze(params);
+    result.timestamps = timestamps.freeze(serializer, params);
+    result.rowNames = rowNames.freeze(serializer, params);
 
     isFrozen = true;
 

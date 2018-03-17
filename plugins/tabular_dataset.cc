@@ -316,6 +316,12 @@ struct PathIndexShard: public PathIndexMetadata {
         return chunk > 0;
     }
 
+    void serialize(StructuredSerializer & serializer) const
+    {
+        serializer.newObject<PathIndexMetadata>("md.json", *this);
+        serializer.addRegion(storage, "rowindex");
+    }
+
     // Hash is implicit via position in the entry map (we take the top x bits)
     // It returns the chunk number that contains that hash portion
     // linear chaining
@@ -348,6 +354,13 @@ struct PathIndex {
             result += shard.memusage();
         }
         return result;
+    }
+
+    void serialize(StructuredSerializer & serializer) const
+    {
+        for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
+            shards[i].serialize(*serializer.newStructure(i));
+        }
     }
 
     // Hash is implicit via position in the entry map (we rescale the
@@ -425,6 +438,7 @@ struct TabularDataset::TabularDataStore
           backgroundJobsActive(0), logger(std::move(logger))
     {
         ExcAssert(this->logger);
+        initRoutes();
     }
 
     MldbServer * server = nullptr;
@@ -917,6 +931,38 @@ struct TabularDataset::TabularDataStore
             GenerateRowsWhereFunction result;
             return result;
         }
+
+        void serialize(StructuredSerializer & serializer) const
+        {
+            // Chunks first.  This allows us to rewrite the indexes if
+            // new chunks are added.
+
+            {
+                auto chunkSerializer
+                    = serializer.newStructure("ch");
+
+                for (size_t i = 0;  i < chunks.size();  ++i) {
+                    chunks[i]->serialize
+                        (*chunkSerializer->newStructure(to_string(i)));
+                }
+                chunkSerializer->commit();
+            }
+
+            // Now the things that change, such as column lists, indexes
+            // etc
+
+            rowIndex.serialize(*serializer.newStructure("ri"));
+
+            {
+                auto colSerializer = serializer.newEntry("cs");
+                
+            }
+
+            {
+                auto mdSerializer = serializer.newStream("md");
+                mdSerializer << earliestTs << latestTs;
+            }
+        }
     };
 
     /** A stream of row names used to incrementally query available rows
@@ -1193,6 +1239,9 @@ struct TabularDataset::TabularDataStore
     /// Logger instance for this class
     shared_ptr<spdlog::logger> logger;
 
+    /// Handler for special routes called on this dataset
+    RestRequestRouter router;
+
     // Return the value of the column for all rows
     virtual MatrixColumn getColumn(const ColumnPath & column) const override
     {
@@ -1301,6 +1350,24 @@ struct TabularDataset::TabularDataStore
     {
         return currentState.load()
             ->generateRowsWhere(context, alias, where, offset, limit);
+    }
+
+    void initRoutes()
+    {
+        addRouteSyncJsonReturn(router, "/saves", {"POST"},
+                               "Save the dataset to the given artifact",
+                               "Information about the saved artifact",
+                               &TabularDataStore::save,
+                               this,
+                               JsonParam<Url>("dataFileUrl", "URI of artifact to save under"));
+    }
+
+    virtual RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const
+    {
+        return router.processRequest(connection, request, context);
     }
 
     /// Create a new current state from the old one plus the extra
@@ -1471,6 +1538,30 @@ struct TabularDataset::TabularDataStore
                                           "Duplicate column name in tabular dataset",
                                           "columnName", fixedColumns[i]);
         }
+    }
+
+    void serialize(StructuredSerializer & serializer) const
+    {
+        auto cs = currentState.load();
+        cs->serialize(serializer);
+    }
+
+    PolyConfigT<Dataset> save(Url dataFileUrl) const
+    {
+        MLDB::makeUriDirectory(dataFileUrl.toString());
+
+        ZipStructuredSerializer serializer(dataFileUrl.toUtf8String());
+
+        serialize(serializer);
+
+        PolyConfigT<Dataset> result;
+        result.type = "tabular";
+
+        PersistentDatasetConfig params;
+        params.dataFileUrl = dataFileUrl;
+        result.params = params;
+
+        return result;
     }
 
     /** This is a recorder that allows parallel records from multiple
@@ -1680,7 +1771,7 @@ struct TabularDataset::TabularDataStore
             if (!chunk || chunk->rowCount() == 0)
                 return;
             ColumnFreezeParameters params;
-            auto frozen = chunk->freeze(params);
+            auto frozen = chunk->freeze(store->serializer, params);
             store->addFrozenChunk(std::move(frozen));
         }
 
@@ -1856,7 +1947,7 @@ struct TabularDataset::TabularDataStore
         auto job = [=] ()
             {
                 Scope_Exit(--this->backgroundJobsActive);
-                auto frozen = chunk->freeze(params);
+                auto frozen = chunk->freeze(serializer, params);
                 addFrozenChunk(std::move(frozen));
             };
         
@@ -2144,6 +2235,20 @@ recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPat
 {
     for (auto & r: rows)
         itl->recordRow(r.first, r.second);
+}
+
+RestRequestMatchResult
+TabularDataset::
+handleRequest(RestConnection & connection,
+              const RestRequest & request,
+              RestRequestParsingContext & context) const
+{
+    RestRequestMatchResult result
+        = itl->handleRequest(connection, request, context);
+    if (result == MR_NO) {
+        result = Dataset::handleRequest(connection, request, context);
+    }
+    return result;
 }
 
 

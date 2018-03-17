@@ -24,6 +24,7 @@ std::shared_ptr<FrozenColumn>
 freezeAndTest(const std::vector<CellValue> & cells, size_t offset = 0)
 {
     TabularDatasetColumn col;
+    MemorySerializer serializer;
 
     BOOST_CHECK_EQUAL(col.columnTypes.numStrings, 0);
 
@@ -32,7 +33,7 @@ freezeAndTest(const std::vector<CellValue> & cells, size_t offset = 0)
     }
 
     ColumnFreezeParameters params;
-    std::shared_ptr<FrozenColumn> frozen = col.freeze(params);
+    std::shared_ptr<FrozenColumn> frozen = col.freeze(serializer, params);
 
     cerr << "testing " << MLDB::type_name(*frozen) << " with "
          << cells.size() << " values and offset " << offset << endl;

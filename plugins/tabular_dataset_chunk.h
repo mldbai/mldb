@@ -31,7 +31,7 @@ struct ExpressionValue;
     each named, with a set of columns (either dense or sparse) attached.
 */
 
-struct TabularDatasetChunk {
+struct TabularDatasetChunk: public MappedObject {
 
     TabularDatasetChunk(size_t numColumns = 0)
         : columns(numColumns)
@@ -110,6 +110,9 @@ struct TabularDatasetChunk {
         return columns.size() + sparseColumns.size();
     }
 
+    /** Serialize to the given serializer. */
+    void serialize(StructuredSerializer & serializer) const;
+
 private:
     std::vector<std::shared_ptr<FrozenColumn> > columns;
     std::unordered_map<Path, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
@@ -136,7 +139,8 @@ struct MutableTabularDatasetChunk {
     MutableTabularDatasetChunk(MutableTabularDatasetChunk && other) noexcept = delete;
     MutableTabularDatasetChunk & operator = (MutableTabularDatasetChunk && other) noexcept = delete;
 
-    TabularDatasetChunk freeze(const ColumnFreezeParameters & params);
+    TabularDatasetChunk freeze(MappedSerializer & serializer,
+                               const ColumnFreezeParameters & params);
 
     /// Protect access in a multithreaded context
     mutable std::mutex mutex;

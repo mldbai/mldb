@@ -23,6 +23,29 @@ struct MappedSerializer;
 struct StructuredSerializer;
 
 /*****************************************************************************/
+/* MAPPED DEVICE                                                             */
+/*****************************************************************************/
+
+/** Represents a single device onto which data structures can be mapped. */
+
+struct MappedDevice {
+};
+
+
+/*****************************************************************************/
+/* MAPPED OBJECT                                                             */
+/*****************************************************************************/
+
+struct MappedObject {
+
+    virtual ~MappedObject()
+    {
+    }
+
+};
+
+
+/*****************************************************************************/
 /* FROZEN MEMORY REGION                                                      */
 /*****************************************************************************/
 
@@ -379,6 +402,16 @@ private:
     struct EntrySerializer;
     std::unique_ptr<Itl> itl;
 };
+
+
+/*****************************************************************************/
+/* MAPPED RECONSTITUTER                                                      */
+/*****************************************************************************/
+
+struct MappedReconstituter {
+    virtual ~MappedReconstituter();
+};
+
 
 
 } // namespace MLDB

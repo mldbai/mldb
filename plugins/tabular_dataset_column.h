@@ -59,7 +59,8 @@ struct TabularDatasetColumn {
     bool isFrozen;
 
     std::shared_ptr<FrozenColumn>
-    freeze(const ColumnFreezeParameters & params);
+    freeze(MappedSerializer & serializer,
+           const ColumnFreezeParameters & params);
 
     size_t memusage() const;
 };

@@ -8,16 +8,14 @@
 
 #pragma once
 
+#include "memory_region.h"
 #include "column_types.h"
-#include "mldb/utils/log.h"
 #include "mldb/plugins/tabular_dataset.h"
-#include <memory>
 
 
 namespace MLDB {
 
 struct TabularDatasetColumn;
-
 
 /*****************************************************************************/
 /* COLUMN FREEZE PARAMETERS                                                  */
@@ -33,11 +31,14 @@ struct ColumnFreezeParameters {
 /*****************************************************************************/
 
 /// Base class for a frozen column
-struct FrozenColumn {
+struct FrozenColumn: public MappedObject {
     FrozenColumn();
+
     virtual ~FrozenColumn()
     {
     }
+
+    virtual std::string format() const = 0;
 
     virtual CellValue get(uint32_t rowIndex) const = 0;
 
@@ -63,14 +64,30 @@ struct FrozenColumn {
     /** Freeze the given column into the best fitting frozen column type. */
     static std::shared_ptr<FrozenColumn>
     freeze(TabularDatasetColumn & column,
+           MappedSerializer & serializer,
            const ColumnFreezeParameters & params);
 
-    std::shared_ptr<spdlog::logger> logger;
+    // Serialize the metadata.  Should be called first from serialize().
+    void serializeMetadata(StructuredSerializer & serializer,
+                           const void * md,
+                           const ValueDescription * desc) const;
+
+    template<typename T>
+    void
+    serializeMetadataT(StructuredSerializer & serializer,
+                       const T & md,
+                       const std::shared_ptr<const ValueDescriptionT<T> > & desc
+                       = getDefaultDescriptionSharedT<T>()) const
+    {
+        serializeMetadata(serializer, &md, desc.get());
+    }
+
+    virtual void serialize(StructuredSerializer & serializer) const = 0;
 };
 
 
 /*****************************************************************************/
-/* FROZEN COLUMN FORMAT                                                        */
+/* FROZEN COLUMN FORMAT                                                      */
 /*****************************************************************************/
 
 /** This describes a format of frozen column.  These can be registered to
@@ -111,7 +128,7 @@ struct FrozenColumnFormat {
                                std::shared_ptr<void> & cachedInfo) const = 0;
     
     static std::pair<ssize_t,
-              std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column)> >
+                     std::function<std::shared_ptr<FrozenColumn> (TabularDatasetColumn & column, MappedSerializer & serializer)> >
     preFreeze(const TabularDatasetColumn & column,
               const ColumnFreezeParameters & params);
 
@@ -123,8 +140,13 @@ struct FrozenColumnFormat {
     */
     virtual FrozenColumn *
     freeze(TabularDatasetColumn & column,
+           MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
            std::shared_ptr<void> cachedInfo) const = 0;
+    
+    /** Reconstitute a mapped version of the given frozen column. */
+    virtual FrozenColumn *
+    reconstitute(MappedReconstituter & reconstituter) const = 0;
     
     /** Register a new column format.  Returns a handle that, once released,
         will de-register the column format.

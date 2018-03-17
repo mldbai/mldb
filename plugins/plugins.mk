@@ -31,6 +31,8 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	importtext_procedure.cc \
 	tabular_dataset.cc \
 	frozen_column.cc \
+	frozen_tables.cc \
+	string_frozen_column.cc \
 	column_types.cc \
 	tabular_dataset_column.cc \
 	tabular_dataset_chunk.cc \
