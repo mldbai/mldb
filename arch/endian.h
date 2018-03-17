@@ -366,7 +366,7 @@ struct BigEndianPod {
 template<typename Base>
 struct BigEndian: public BigEndianPod<Base> {
     constexpr BigEndian(Base val = Base())
-        : BigEndianPod<Base>(host_to_be(val))
+        : BigEndianPod<Base>{host_to_be(val)}
     {
     }
 

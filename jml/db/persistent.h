@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* persistent.h                                                    -*- C++ -*-
    Jeremy Barnes, 27 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
    ---
@@ -11,8 +9,7 @@
    Persistence functions.
 */
 
-#ifndef __db__persistent_h__
-#define __db__persistent_h__
+#pragma once
 
 #include "persistent_fwd.h"
 #include "portable_iarchive.h"
@@ -66,6 +63,3 @@ T reconstituteFromString(const std::string & str)
 
 } // namespace DB
 } // namespace ML
-
-#endif /* __db__persistent_h__ */
-
