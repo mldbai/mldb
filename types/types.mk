@@ -36,9 +36,10 @@ LIBTYPES_SOURCES := \
 	path.cc
 
 LIBTYPES_LINK := \
-	rt boost_locale boost_regex boost_date_time jsoncpp googleurl cityhash value_description highwayhash
+	rt boost_locale boost_regex boost_date_time jsoncpp googleurl cityhash value_description highwayhash re2
 
 $(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
+$(eval $(call set_compile_option,regex.cc,-I$(RE2_INCLUDE_PATH)))
 
 ifneq ($(PREMAKE),1)
 $(LIB)/libtypes.so: $(LIB)/date_timezone_spec.csv

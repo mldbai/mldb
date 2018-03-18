@@ -187,4 +187,9 @@ bool regex_match(const Utf8String & str,
                  std::regex_constants::match_flag_type flags
                      = std::regex_constants::match_default);
 
+bool regex_match(const char * utf8Str, size_t len,
+                 const Regex & regex,
+                 std::regex_constants::match_flag_type flags
+                     = std::regex_constants::match_default);
+
 } // namespace MLDB

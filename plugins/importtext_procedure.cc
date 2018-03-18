@@ -23,7 +23,6 @@
 #include "mldb/utils/progress.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/utils/log.h"
-#include "mldb/ext/re2/re2/re2.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "sql_csv_scope.h"
 
@@ -569,10 +568,6 @@ struct ImportTextProcedureWorkInstance
 
         encoding = parseEncoding(config.encoding);
 
-        RE2 skipLineRegex(config.skipLineRegex.initialized()
-                          ? config.skipLineRegex.surface().rawData()
-                          : "");
-
         if (isTextLine) {
             //MLDB-1312 optimize if there is no delimiter: only 1 column
             if (config.headers.empty()) {
@@ -615,9 +610,9 @@ struct ImportTextProcedureWorkInstance
 
                     if (prevHeader.empty()
                         && config.skipLineRegex.initialized()
-                        && RE2::FullMatch(header, skipLineRegex))
+                        && regex_match(header, config.skipLineRegex))
                         continue;
-
+                    
                     if(!prevHeader.empty()) {
                         prevHeader += ' ' + header;
                         header.assign(std::move(prevHeader));
@@ -732,11 +727,11 @@ struct ImportTextProcedureWorkInstance
         if (isIdentitySelect)
             ExcAssertEqual(inputColumnNames, knownColumnNames);
 
-        DEBUG_MSG(logger)
+        INFO_MSG(logger)
             << "reading " << inputColumnNames.size() << " columns "
             << jsonEncodeStr(inputColumnNames);
 
-        DEBUG_MSG(logger)
+        INFO_MSG(logger)
             << "writing " << knownColumnNames.size() << " columns "
             << jsonEncodeStr(knownColumnNames);
 
@@ -808,9 +803,6 @@ struct ImportTextProcedureWorkInstance
                                 size_t numVals,
                                 std::vector<std::pair<ColumnPath, CellValue> > extra)>
             specializedRecorder;
-
-            std::unique_ptr<RE2> skipLineRegex;
-
         };
 
         PerThreadAccumulator<ThreadAccum> accum;
@@ -869,15 +861,11 @@ struct ImportTextProcedureWorkInstance
 
             // Skip lines if we are asked to
             if (config.skipLineRegex.initialized()) {
-                if (!threadAccum.skipLineRegex) {
-                    threadAccum.skipLineRegex.reset(new RE2(config.skipLineRegex.surface().rawData()));
-                }
-                
-                if (RE2::FullMatch(re2::StringPiece(line, length),
-                                   *threadAccum.skipLineRegex))
+                if (regex_match(line, length,
+                                config.skipLineRegex))
                     return true;
             }
-
+            
             // MLDB-1111 empty lines are treated as error
             if (length == 0)
                 return handleError("empty line", actualLineNum, 0, "");
