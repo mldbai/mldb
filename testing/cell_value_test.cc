@@ -368,11 +368,31 @@ BOOST_AUTO_TEST_CASE (test_exception_messages)
 
 BOOST_AUTO_TEST_CASE (test_path)
 {
-    Path p1(PathElement(1));
-    auto cv = CellValue(p1);
-    Path p2 = cv.coerceToPath();
+    {
+        Path p1(PathElement(1));
+        auto cv = CellValue(p1);
+        Path p2 = cv.coerceToPath();
+        
+        BOOST_CHECK_EQUAL(p1, p2);
+    }
 
-    BOOST_CHECK_EQUAL(p1, p2);
+    {
+        const std::string s("[\"d5\",1]");
+        PathElement e(s);
+        BOOST_CHECK_EQUAL(e.toUtf8String(), s);
+        BOOST_CHECK_EQUAL(e.toEscapedUtf8String(), "\"[\"\"d5\"\",1]\"");
+        cerr << jsonEncodeStr(e) << endl;
+        Path p1(e);
+        cerr << jsonEncodeStr(p1) << endl;
+        auto cv = CellValue(p1);
+        cerr << jsonEncodeStr(cv) << endl;
+        Path p2 = cv.coerceToPath();
+        
+        BOOST_CHECK_EQUAL(p1, p2);
+    }
+
+
+
 }
 
 BOOST_AUTO_TEST_CASE (test_sorting_absolute_order)
@@ -415,6 +435,7 @@ BOOST_AUTO_TEST_CASE (test_sorting_absolute_order)
         Path(""),
         Path::parse("a.b"),
         Path::parse("1.asdasdsadasasd.2.sadasdsadsadasdsdasd"),
+        Path(PathElement("[\"d5\",1]")),
         CellValue::fromMonthDaySecond(0, 0, 0.0),
         CellValue::fromMonthDaySecond(100, 12, 34.56),
         CellValue::fromMonthDaySecond(100, 12, std::numeric_limits<double>::quiet_NaN()),

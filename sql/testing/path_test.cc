@@ -244,6 +244,12 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
         BOOST_CHECK_EQUAL(coords1.size(), 1);
         BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\"");
     }
+
+    {
+        Path coords1{{PathElement("d5"), PathElement(1)} };
+        BOOST_CHECK_EQUAL(coords1.size(), 2);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "d5.1");
+    }
 }
 
 BOOST_AUTO_TEST_CASE(test_wildcards)

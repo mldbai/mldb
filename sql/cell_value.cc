@@ -1581,9 +1581,10 @@ enum CellValueTag {
     CVT_UTF8_LONG_STRING   = CVC_UTF8_STRING   * 16 + 15,
     CVT_SHORT_BLOB         = CVC_BLOB          * 16 +  0,
     CVT_LONG_BLOB          = CVC_BLOB          * 16 + 15,
-    CVT_NULL_PATH          = CVC_PATH          * 16 +  0,
-    CVT_SHORT_PATH         = CVC_PATH          * 16 +  0,
-    CVT_LONG_PATH          = CVC_PATH          * 16 + 15
+    CVT_NULL_PATH          = CVC_PATH          * 16 +  0,  // len 0
+    CVT_SIMPLE_PATH        = CVC_PATH          * 16 +  1,  // len 1, 0-13 chars
+    CVT_LONG_SIMPLE_PATH   = CVC_PATH          * 16 +  14, // len 1, 14+ chars
+    CVT_COMPLEX_PATH       = CVC_PATH          * 16 +  15, // len > 1
 };
 
 template<typename T>
@@ -1687,11 +1688,31 @@ serializedBytes(bool exactBytesAvailable) const
     case ST_SHORT_PATH:
     case ST_LONG_PATH: {
         size_t len = toStringLength();
-        if (len < 15) {
-            return len + 1;
-        } else {
-            return 1 + len
-                + needToSerializeLength * compactEncodeLength(len);
+
+        if (strFlags == 0) {
+            // Null (length 0)
+            return 1;
+        }
+        else if (strFlags == 1 && len == 1 && stringChars()[0] == '\0') {
+            // One empty string
+            return 1;
+        }
+        else if (strFlags == 1) {
+            // Length 1
+            if (len < 14) {
+                return len + 1;
+            }
+            else {
+                return 1 // flag byte
+                    + needToSerializeLength * compactEncodeLength(len) // len
+                    + len; // characters
+            }
+        }
+        else {
+            // Length > 1,
+            return 1  // flag byte
+                + needToSerializeLength * compactEncodeLength(len) // len
+                + len; // characters
         }
     }
     }
@@ -1765,15 +1786,12 @@ serialize(char * start, size_t bytesAvailable,
     case ST_SHORT_BLOB:
     case ST_LONG_BLOB:
     case ST_UTF8_SHORT_STRING:
-    case ST_UTF8_LONG_STRING:
-    case ST_SHORT_PATH:
-    case ST_LONG_PATH: {
+    case ST_UTF8_LONG_STRING: {
         size_t len;
 
         switch (cellType()) {
         case ASCII_STRING:
         case UTF8_STRING:
-        case PATH:
             len = toStringLength();
             break;
         case BLOB:
@@ -1792,8 +1810,6 @@ serialize(char * start, size_t bytesAvailable,
                 typeByte = CVT_UTF8_SHORT_STRING + len;  break;
             case BLOB:
                 typeByte = CVT_SHORT_BLOB + len;  break;
-            case PATH:
-                typeByte = CVT_SHORT_PATH + len;  break;
             default:
                 throw HttpReturnException(500, "unknown type in CellValue serialization");
             }
@@ -1808,8 +1824,6 @@ serialize(char * start, size_t bytesAvailable,
                 typeByte = CVT_UTF8_LONG_STRING;  break;
             case BLOB:
                 typeByte = CVT_LONG_BLOB;  break;
-            case PATH:
-                typeByte = CVT_LONG_PATH;  break;
             default:
                 throw HttpReturnException(500, "unknown type in CellValue serialization");
             }
@@ -1820,7 +1834,6 @@ serialize(char * start, size_t bytesAvailable,
         switch (cellType()) {
         case ASCII_STRING:
         case UTF8_STRING:
-        case PATH:
             memcpy(start, stringChars(), len);
             break;
         case BLOB:
@@ -1832,6 +1845,40 @@ serialize(char * start, size_t bytesAvailable,
         }
         start += len;
         break;
+
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH: {
+        size_t len = toStringLength();
+
+        if (strFlags == 0) {
+            *start++ = CVT_NULL_PATH;
+            break;
+        }
+        else if (strFlags == 1) {
+            // Simple encoding where we don't escape anything
+            if (len == 0 || len == 1 && stringChars()[0] == '\0') {
+                *start++ = CVT_SIMPLE_PATH;
+                len = 0;
+            }
+            else if (len < 14) {
+                *start++ = CVT_SIMPLE_PATH + len;
+            }
+            else {
+                *start++ = CVT_LONG_SIMPLE_PATH;
+                if (!exactBytesAvailable)
+                    compactEncode(start, start + len, len);
+            }
+        }
+        else {
+            // Non-simple encoding
+            *start++ = CVT_COMPLEX_PATH;
+            if (!exactBytesAvailable)
+                compactEncode(start, start + len, len);
+        }
+        memcpy(start, stringChars(), len);
+        start += len;
+        break;
+    }
     }
     default:
         throw HttpReturnException(400, "unknown CellValue type");
@@ -1855,7 +1902,9 @@ serialize(char * start, size_t bytesAvailable,
         ExcAssertEqual(numBytes, bytesRequired);
     } catch (...) {
         cerr << "trying to reconstitute " << jsonEncodeStr(*this)
-             << endl;
+             << ": " << getExceptionString() << endl;
+        cerr << "bytesAvailable = " << bytesAvailable
+             << " numBytes = " << numBytes << endl;
         ML::hex_dump(oldStart, start - oldStart);
     }
 
@@ -2013,18 +2062,18 @@ reconstitute(const char * buf,
     }
         
     case CVC_PATH: {
-        size_t length = indicator & 15;
-        if (length == 0) {
-            result = CellValue(Path());
+        size_t length;
+
+        if (indicator == CVT_NULL_PATH) {
+            result = Path();
             break;
         }
-        if (length == 1 && buf[0] == '\0') {
-            // Handle the special case of a single empty element
-            result = CellValue(Path(PathElement("")));
-            buf += 1;
+        else if (indicator == CVT_SIMPLE_PATH) {
+            result = Path(PathElement(""));
             break;
         }
-        if (length == 15) {
+        else if (indicator == CVT_COMPLEX_PATH
+                 || indicator == CVT_LONG_SIMPLE_PATH) {
             if (exactBytesAvailable) {
                 length = bytesAvailable - 1;
             }
@@ -2032,7 +2081,16 @@ reconstitute(const char * buf,
                 length = compactDecode(buf, buf + bytesAvailable);
             }
         }
-        result = CellValue(Path::parse(buf, length));
+        else {
+            length = (indicator & 15) - 1;
+        }
+
+        if (indicator == CVT_COMPLEX_PATH) {
+            result = CellValue(Path::parse(buf, length));
+        }
+        else {
+            result = CellValue(Path(PathElement(buf, length)));
+        }
         buf += length;
         break;
     }   
