@@ -64,6 +64,7 @@ struct ParseContext;
 */
 
 struct SqlExpression;
+struct BoundSqlExpression;
 struct KnownColumn;
 struct SqlRowScope;
 struct SqlRowExpression;
@@ -98,8 +99,46 @@ DECLARE_ENUM_DESCRIPTION(OrderByDirection);
 
 typedef std::function<ExpressionValue (const Utf8String & paramName)> BoundParameters;
 
+
 /*****************************************************************************/
-/* BOUND ROW EXPRESSION                                                      */
+/* DECOMPOSED CLAUSE                                                         */
+/*****************************************************************************/
+
+/** For row expressions, it's possible to get much more information
+    about the bound expression.  The information here is filled in
+    by certain expressions (wildcards, etc) that have many parts that
+    can operate.  For each, there are a set of input variables (or
+    wildcards, if unknown), an expression, and a set of output variables
+    that are written.
+*/
+
+struct DecomposedClause {
+    /// Input column names
+    std::set<ColumnPath> inputs;
+
+    /// Input column wildcards, for when there are dynamic columns in the input
+    std::set<ColumnPath> inputWildcards;
+
+    /// Expression that is run on the given inputs to produce the output
+    std::shared_ptr<SqlExpression> expr;
+
+    /// Names that this clause outputs (or look in expr->info)
+    std::vector<ColumnPath> outputs;
+
+    /// Does this clause write out wildcards?
+    bool outputWildcards = false;
+
+    /** Initialize the output variables from the DecomposedClause from
+        the ExpressionValueInfo of the result.
+    */
+    void initializeOutput(const ExpressionValueInfo & result);
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(DecomposedClause);
+
+
+/*****************************************************************************/
+/* BOUND SQL EXPRESSION                                                      */
 /*****************************************************************************/
 
 /** Represents the output of the binding process for row expressions.  This
@@ -129,7 +168,13 @@ struct BoundSqlExpression {
 
     BoundSqlExpression(ExecFunction exec,
                        const SqlExpression * expr,
-                       std::shared_ptr<ExpressionValueInfo> info);
+                       std::shared_ptr<ExpressionValueInfo> info,
+                       std::vector<DecomposedClause> decomposition);
+    
+    BoundSqlExpression(ExecFunction exec,
+                       const SqlExpression * expr,
+                       std::shared_ptr<ExpressionValueInfo> info,
+                       std::shared_ptr<std::vector<DecomposedClause> > decomposition = nullptr);
     
     operator bool () const { return !!exec; };
 
@@ -163,6 +208,23 @@ struct BoundSqlExpression {
         return res;
     }
 
+    /** Independent clauses that need to run to be equivalent to calling
+        exec; useful for code that needs to dig deeper (eg, can optimize
+        by not running certain clauses).
+
+        If this clause is set, it means that any of the sub-clauses can
+        be run independently zero or more times with the same effect as
+        running the whole clause once, with the exception of possibly
+        less output columns being created.
+
+        If this is not set, then it is not possible to decompose the
+        clause into simpler, independent operations.  If it is set but
+        empty, it means that the expression has no effect and can be
+        safely not run at all.  This can occur, for example, when an
+        expression can be statically determined to always produce an
+        empty row due to the data types or ranges within the expression.
+    */
+    std::shared_ptr<std::vector<DecomposedClause> > decomposition;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BoundSqlExpression);

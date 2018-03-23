@@ -26,6 +26,9 @@
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "sql_csv_scope.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/sql/sql_expression_operations.h"
+#include "mldb/base/optimized_path.h"
+
 
 using namespace std;
 
@@ -479,6 +482,11 @@ parseFixedWidthCsvRow(const char * & line,
 /* Manages all the temporary data and work to load a text file               */
 /*****************************************************************************/
 
+// Allow the move into place optimization to be turned on or off to aid
+// in unit esting.
+
+static OptimizedPath moveIntoOutputs("mldb.textual.importText.moveIntoOutputs");
+    
 struct ImportTextProcedureWorkInstance
 {
     ImportTextProcedureWorkInstance(std::shared_ptr<spdlog::logger> logger)
@@ -499,6 +507,7 @@ struct ImportTextProcedureWorkInstance
 
     std::shared_ptr<spdlog::logger> logger;
     vector<ColumnPath> knownColumnNames;
+    LightweightHash<ColumnHash, int> inputColumnIndex;
     LightweightHash<ColumnHash, int> columnIndex; //To check for duplicates column names
     int64_t lineOffset;
     // Column names in the CSV file.  This is distinct from the
@@ -673,7 +682,6 @@ struct ImportTextProcedureWorkInstance
         }
 
         // Early check for duplicate column names in input
-        LightweightHash<ColumnHash, int> inputColumnIndex;
         for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
             const ColumnPath & c = inputColumnNames[i];
             ColumnHash ch(c);
@@ -705,6 +713,19 @@ struct ImportTextProcedureWorkInstance
         }
 
         auto cols = selectBound.info->getKnownColumns();
+
+        // Figure out the effect of each of the clauses in the select
+        // statement
+
+        cerr << "select is " << config.select.print() << endl;
+        auto children = config.select.getChildren();
+        cerr << "has " << children.size() << " children" << endl;
+        if (selectBound.decomposition) {
+            cerr << "decomposition has " << selectBound.decomposition->size()
+                 << " entries" << endl;
+            cerr << jsonEncode(selectBound.decomposition) << endl;
+        }
+        else cerr << "no decomposition available" << endl;
 
         for (unsigned i = 0;  i < cols.size();  ++i) {
             const auto& col = cols[i];
@@ -758,6 +779,160 @@ struct ImportTextProcedureWorkInstance
             make_pair("iterating", "lines"),
         });
 
+        // Describes any operations that transform a single column into
+        // another single column; these can be run in-place.
+        // This is in order of the input columns; only single input to
+        // single output operations are run.
+        struct ColumnOperation {
+            int clauseNum = -1;      ///< Which index in decomposed we belong to?
+            int outCol = -1;         ///< Output column number
+            std::vector<int> inputCols;
+            bool moveInputs = false;   ///< Can we move inputs into place?
+            BoundSqlExpression bound;  ///< Expression to compute column; null mesans
+        };
+
+        // We split into three different types of operations, run in
+        // order:
+        // 1.  Clauses that can't be optimized generically
+        // 2.  Clauses that run a function over the inputs returning a single col
+        // 3.a Clauses that copy a single input to a single output
+        // 3.b Clauses that move a single intput to a single output
+
+        
+        std::vector<BoundSqlExpression> otherClauses;
+        std::vector<ColumnOperation> ops;
+
+        bool canUseDecomposed = false;
+
+        if (selectBound.decomposition) {
+            canUseDecomposed = true;
+
+            // Which is the last clause using each input?
+            std::map<Path, int> lastClauseUsingInput;
+            
+            for (size_t i = 0;  i < selectBound.decomposition->size();  ++i) {
+                auto & d = (*selectBound.decomposition)[i];
+
+                // What can be optimized?
+                // select input_column [as output_name] --> copy or move in place
+                // select expr(input_column) [ as output_name ] --> run destructive
+                
+                cerr << "scanning clause " << i << ": " << jsonEncode(d) << endl;
+                
+                // Only single input to single output clauses can be run
+                // in place like this
+                // TODO: later, we can expand to multiple-input clauses...
+                if (d.inputs.size() != 1 || d.inputWildcards.size() != 0
+                    || d.outputs.size() != 1 || d.outputWildcards) {
+                    cerr << "    clause fails" << endl;
+                    canUseDecomposed = false;
+                    otherClauses.emplace_back(d.expr->bind(scope));
+                    continue;
+                }
+
+                // Operation to execute to run this column
+                ColumnOperation exec;
+                exec.clauseNum = i;
+                
+                cerr << "clause passes" << endl;
+
+                // Record whether we're the last input or not
+                for (const Path & input: d.inputs) {
+                    lastClauseUsingInput[input] = i;
+                }
+                
+                ColumnPath inputName = *d.inputs.begin();
+                ColumnPath outputName = d.outputs[0];
+
+                auto it = inputColumnIndex.find(inputName);
+            
+                if (it == inputColumnIndex.end()) {
+                    otherClauses.emplace_back(d.expr->bind(scope));
+                    continue;
+                }
+
+                int inputIndex = it->second;
+
+                it = columnIndex.find(outputName);
+                if (it == columnIndex.end())
+                    throw AnnotatedException(500, "Output column name not found");
+            
+                int outputIndex = it->second;
+
+                exec.inputCols.emplace_back(inputIndex);
+                exec.outCol = outputIndex;
+
+                if (d.expr->getType() == "selectExpr") {
+                    // simple copy
+                    auto op
+                        = static_cast<const NamedColumnExpression *>(d.expr.get());
+
+                    // Simply reading a variable can just make a copy.  Later
+                    // we see if we can move instead of copy.
+                    if (op->expression->getType() == "variable") {
+                        const ColumnPath & varName
+                            = static_cast<const ReadColumnExpression *>
+                            (op->expression.get())->columnName;
+
+                        ExcAssertEqual(varName, inputName);
+                        
+                        cerr << "op " << ops.size() << ": copy "
+                             << inputName << " at " << inputIndex
+                             << " to " << outputName << " at " << outputIndex
+                             << endl;
+                        ops.emplace_back(std::move(exec));
+                        continue;
+                    }
+                    
+                    // Bind a much simpler value
+                    exec.bound = op->expression->bind(scope);
+                
+                    cerr << "op " << ops.size() << ": compute "
+                         << outputName << " at " << outputIndex
+                         << " from " << inputName << " with "
+                         << op->expression->print() << endl;
+
+                    ops.emplace_back(std::move(exec));
+                    continue;
+                }
+
+                cerr << "*** not a select ***" << endl;
+            
+                cerr << "warning: operation " << d.expr->print() << " unhandled"
+                     << endl;
+
+                otherClauses.emplace_back(d.expr->bind(scope));
+                canUseDecomposed = false;
+                ExcAssert(false);
+            }
+
+            if (moveIntoOutputs.take()) {
+                // Analyze if we're the last operation using a given input.
+                // If so, we can move our inputs to our outputs instead of
+                // copying them.   This is a pure optimization.
+                for (auto & op: ops) {
+                    int clauseNum = op.clauseNum;
+                    const auto & d = (*selectBound.decomposition)[clauseNum];
+                    op.moveInputs = true;
+                    for (const Path & input: d.inputs) {
+                        int lastUsed = lastClauseUsingInput[input];
+                        if (lastUsed > clauseNum) {
+                            op.moveInputs = false;
+                            break;
+                        }
+                    }
+
+                    if (op.moveInputs) {
+                        cerr << "turning clause " << clauseNum
+                             << " from copy into move" << endl;
+                    }
+                }
+            }
+        }
+        
+        cerr << "with " << otherClauses.size() << " other clauses" << endl;
+        cerr << "canUseDecomposed = " << canUseDecomposed << endl;
+        
         // Do we have a "where true'?  In that case, we don't need to
         // call the SQL parser
         bool isWhereTrue = config.where->isConstantTrue();
@@ -811,10 +986,10 @@ struct ImportTextProcedureWorkInstance
             {
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
-                if (isIdentitySelect)
+                if (isIdentitySelect || canUseDecomposed)
                     threadAccum.specializedRecorder
                         = threadAccum.threadRecorder
-                        ->specializeRecordTabular(inputColumnNames);
+                        ->specializeRecordTabular(knownColumnNames);
                 return true;
             };
 
@@ -828,6 +1003,8 @@ struct ImportTextProcedureWorkInstance
                 return true;
             };
 
+        cerr << "outputColumnNames = " << jsonEncode(knownColumnNames) << endl;
+        
         atomic<ssize_t> lineCount(0);
         atomic<ssize_t> byteCount(0);
         auto onLine = [&] (const char * line,
@@ -872,9 +1049,6 @@ struct ImportTextProcedureWorkInstance
 
 
             // Values that come in from the CSV file
-            // TODO: clang doesn't like a variable length array
-            // here.  Find another way to allocate it on the
-            // stack.
             PossiblyDynamicBuffer<CellValue> values(inputColumnNames.size());
 
             const char * lineStart = line;
@@ -937,15 +1111,136 @@ struct ImportTextProcedureWorkInstance
 
             if (isIdentitySelect) {
                 // If it's a select *, we don't really need to run the
-                // select clause.  We simply go for it.
+                // select clause.  We simply record the values directly.
                 threadAccum.specializedRecorder(std::move(rowName),
                                                 rowTs, values.data(),
                                                 values.size(), {});
             }
-            else {
-                // TODO: optimization for
-                // SELECT * excluding (...)
+            else if (canUseDecomposed) {
+                std::vector<CellValue> outputValues(knownColumnNames.size());
+                std::vector<bool> outputValueSet(knownColumnNames.size(), false);
 
+                // Apply the operations one by one
+                for (size_t i = 0;  i < ops.size();  ++i) {
+                    const ColumnOperation & op = ops[i];
+
+                    // Process this input
+                    if (op.bound) {
+                        ExpressionValue opStorage;
+                        const ExpressionValue & newVal
+                            = op.bound(row, opStorage, GET_ALL);
+
+                        // We record the output if it is used.  This would only
+                        // not be true for operations that have no output but
+                        // do cause side effects.
+                        if (op.outCol != -1) {
+                            if (&newVal == &opStorage)
+                                outputValues[op.outCol] = opStorage.stealAtom();
+                            else outputValues[op.outCol] = newVal.getAtom();
+                            outputValueSet[op.outCol] = true;
+                        }
+                    }
+                    else {
+                        ExcAssertEqual(op.inputCols.size(), 1);
+                        int inCol = op.inputCols[0];
+
+                        // Copy or move value directly from input to output
+                        if (op.moveInputs) {
+                            outputValues[op.outCol] = std::move(values[inCol]);
+                        }
+                        else {
+                            outputValues[op.outCol] = values[inCol];
+                        }
+                        outputValueSet[op.outCol] = true;
+                    }
+                }
+
+                // Extra values we couldn't analyze statically, which will
+                // be recorded when one of the columns has extra values
+                std::vector<std::pair<ColumnPath, CellValue> > extra;
+                
+                for (auto & clause: otherClauses) {
+                    ExpressionValue clauseStorage;
+                    const ExpressionValue & clauseOutput
+                        = clause(row, clauseStorage, GET_ALL);
+
+                    // This must be a row output, since it's going to be
+                    // merged together
+                    if (&clauseOutput == &clauseStorage) {
+                        auto recordAtom = [&] (Path & columnName,
+                                               CellValue & value,
+                                               Date ts) -> bool
+                            {
+                                // Is it the first time we've set this column?
+                                auto it = columnIndex.find(columnName);
+                                if (it != columnIndex.end()
+                                    && !outputValueSet.at(it->second)) {
+                                    // If so, put it in output values
+                                    outputValues[it->second] = std::move(value);
+                                    outputValueSet[it->second] = true;
+                                }
+                                else {
+                                    // If not, put it in the extra values
+                                    extra.emplace_back(std::move(columnName),
+                                                       std::move(value));
+                                }
+                                return true;
+                            };
+                        
+                        clauseStorage.forEachAtomDestructive(recordAtom);
+                    }
+                    else {
+                        // We don't own the output, so we need to copy
+                        // things before we record them.
+                        
+                        auto recordAtom = [&] (const Path & columnName_,
+                                               const Path & prefix,
+                                               const CellValue & value,
+                                               Date ts) -> bool
+                            {
+                                Path columnName2;
+                                if (!prefix.empty()) {
+                                    columnName2 = prefix + columnName_;
+                                }
+                                const Path & columnName
+                                    = prefix.empty()
+                                    ? columnName_
+                                    : columnName2;
+                                
+                                // Is it the first time we've set this column?
+                                auto it = columnIndex.find(columnName);
+                                if (it != columnIndex.end()
+                                    && !outputValueSet.at(it->second)) {
+                                    // If so, put it in output values
+                                    outputValues[it->second] = value;
+                                    outputValueSet[it->second] = true;
+                                }
+                                else {
+                                    // If not, put it in the extra values
+                                    if (prefix.empty()) {
+                                        extra.emplace_back(std::move(columnName2),
+                                                           value);
+                                    }
+                                    else {
+                                        extra.emplace_back(std::move(columnName),
+                                                           value);
+                                    }
+                                }
+
+                                return true;
+                            };
+                        
+                        clauseStorage.forEachAtom(recordAtom);
+                        
+                    }
+                }
+                
+                threadAccum.specializedRecorder(std::move(rowName),
+                                                rowTs, outputValues.data(),
+                                                outputValues.size(),
+                                                std::move(extra));
+            }
+            else {
                 ExpressionValue selectStorage;
                 const ExpressionValue & selectOutput
                         = selectBound(row, selectStorage, GET_ALL);

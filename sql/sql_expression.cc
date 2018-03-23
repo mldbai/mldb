@@ -17,6 +17,8 @@
 #include "mldb/types/map_description.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/utils/environment.h"
+#include "mldb/types/pointer_description.h"
+#include "mldb/types/set_description.h"
 #include "sql_expression_operations.h"
 #include "table_expression_operations.h"
 #include "interval.h"
@@ -91,8 +93,31 @@ GenerateRowsWhereFunctionDescription()
              "Describe how values are ordered");
 }
 
+
 /*****************************************************************************/
-/* BOUND ROW EXPRESSION                                                      */
+/* DECOMPOSED CLAUSE                                                         */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(DecomposedClause);
+
+DecomposedClauseDescription::
+DecomposedClauseDescription()
+{
+    addField("inputs", &DecomposedClause::inputs,
+             "Columns that are inputs to this clause");
+    addField("inputWildcards", &DecomposedClause::inputWildcards,
+             "Wildcard prefixes that are inputs to this clause");
+    addField("expr", &DecomposedClause::expr,
+             "Expression that is run to produce this part of the output");
+    addField("outputs", &DecomposedClause::outputs,
+             "Names of fields that are produced as output");
+    addAuto("outputWildcards", &DecomposedClause::outputWildcards,
+            "If true, this expression outputs columns not mentioned in outputs");
+}
+
+
+/*****************************************************************************/
+/* BOUND SQL EXPRESSION                                                      */
 /*****************************************************************************/
 
 // HACK; remove
@@ -107,10 +132,23 @@ getExpressionFromPtr(const SqlExpression * expr)
 BoundSqlExpression::
 BoundSqlExpression(ExecFunction exec,
                    const SqlExpression * expr,
-                   std::shared_ptr<ExpressionValueInfo> info)
+                   std::shared_ptr<ExpressionValueInfo> info,
+                   std::vector<DecomposedClause> decomposition)
+    : BoundSqlExpression(std::move(exec), expr, std::move(info),
+                         std::make_shared<std::vector<DecomposedClause> >
+                         (std::move(decomposition)))
+{
+}
+
+BoundSqlExpression::
+BoundSqlExpression(ExecFunction exec,
+                   const SqlExpression * expr,
+                   std::shared_ptr<ExpressionValueInfo> info,
+                   std::shared_ptr<std::vector<DecomposedClause> > decomposition)
     : exec(std::move(exec)),
       expr(getExpressionFromPtr(expr)),
-      info(std::move(info))
+      info(std::move(info)),
+      decomposition(std::move(decomposition))
 {
     if (this->info->isConst()){
         auto value = std::make_shared<ExpressionValue>(constantValue());
@@ -142,6 +180,8 @@ BoundSqlExpressionDescription()
              "Information on the result returned from the expression");
     addField("expr", &BoundSqlExpression::expr,
              "Expression that was bound");
+    addField("decomposition", &BoundSqlExpression::decomposition,
+             "Decomposition of a row expression into component parts");
 }
 
 
@@ -3125,22 +3165,60 @@ BoundSqlExpression
 SelectExpression::
 bind(SqlBindingScope & context) const
 {
+    // First, we bind each of the clauses
+    
     vector<BoundSqlExpression> boundClauses;
-    for (auto & c: clauses)
-        boundClauses.emplace_back(c->bind(context));
+    boundClauses.reserve(clauses.size());
+    auto decomposition
+        = std::make_shared<std::vector<DecomposedClause> >();
+    cerr << "doing " << clauses.size() << " clauses" << endl;
 
+    for (auto & c: clauses) {
+        boundClauses.emplace_back(c->bind(context));
+        if (!boundClauses.back().decomposition) {
+            // can't provide a decomposition for this clause
+            // If it's the only clause, we can't provide a decomposition
+            // if it's not the only clause, we may still be able to avoid
+            // running it; we can know what it requires and produces by
+            // looking into the info of the bound clause.
+
+            cerr << "warning: " << c->print()
+                 << " has no decomposition; halting decomposition analysis"
+                 << endl;
+
+            // FOR NOW.  Later, those clauses should return a single element
+            // decomposition that we can use to continue the analysis.
+            decomposition.reset();
+        }
+        else if (decomposition) {
+            cerr << "clause " << c->print() << " has "
+                 << boundClauses.back().decomposition->size()
+                 << " decompositions" << endl;
+            cerr << jsonEncodeStr(*boundClauses.back().decomposition) << endl;
+
+            decomposition->insert(decomposition->end(),
+                                  boundClauses.back().decomposition->begin(),
+                                  boundClauses.back().decomposition->end());
+        }
+    }
+
+    if (decomposition)
+        cerr << "decomposition->size() = " << decomposition->size() << endl;
+    
     if (optimizeSingleClauseSelect(boundClauses.size() == 1)) {
         // Single value in the select.  This is just the same as running
         // the first clause only, and should eventually be fixed by
         // rewriting the expression.
         auto exec = [=] (const SqlRowScope & context,
                          ExpressionValue & storage,
-                         const VariableFilter & filter) -> const ExpressionValue &
+                         const VariableFilter & filter)
+            -> const ExpressionValue &
             {
                 return boundClauses[0](context, storage, filter);
             };
 
-        return BoundSqlExpression(exec, this, boundClauses[0].info);
+        return BoundSqlExpression(exec, this, boundClauses[0].info,
+                                  std::move(decomposition));
     }
 
     std::vector<KnownColumn> outputColumns;
@@ -3340,7 +3418,8 @@ bind(SqlBindingScope & context) const
                                                  ExpressionValue::NO_DUPLICATES);
             };
 
-        return BoundSqlExpression(exec, this, outputInfo);
+        return BoundSqlExpression(exec, this, outputInfo,
+                                  std::move(decomposition));
     }
     else {
         // We don't know what our output columns are, so we don't bother
@@ -3367,7 +3446,8 @@ bind(SqlBindingScope & context) const
                 return storage = ExpressionValue(std::move(result));
             };
 
-        return BoundSqlExpression(exec, this, outputInfo);
+        return BoundSqlExpression(exec, this, outputInfo,
+                                  std::move(decomposition));
     }
 }
 

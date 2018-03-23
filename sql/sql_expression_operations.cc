@@ -11,6 +11,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/compact_vector_description.h"
+#include "mldb/types/set_description.h"
 #include "table_expression_operations.h"
 #include <unordered_set>
 #include "mldb/engine/dataset_scope.h"
@@ -2315,6 +2316,35 @@ bindBuiltinFunction(SqlBindingScope & scope,
 {
     bool isAggregate = tryLookupAggregator(functionName) != nullptr;
 
+    // Our decomposition takes the union of inputs from all of the bound
+    // arguments, and outputs whatever the functions says is there.
+
+#if 0 // functions can't be usefully decomposed in a generic manner, so
+      // we can't do anything useful here that's generic.
+    DecomposedClause decomposition;
+
+    decomposition.expr
+        = std::const_pointer_cast<SqlExpression>(this->shared_from_this());
+    
+    for (auto & a: boundArgs) {
+        for (auto & d: a.decomposition) {
+            decomposition.inputs.insert(d.inputs.begin(),
+                                        d.inputs.end());
+            decomposition.inputWildcards.insert(d.inputWildcards.begin(),
+                                                d.inputWildcards.end());
+        }
+    }
+
+    if (fn.resultInfo->couldBeRow()) {
+        decomposition.outputWildcards
+            = fn.resultInfo->getSchemaCompletenessRecursive() == SCHEMA_OPEN;
+
+        for (auto & c: fn.resultInfo->getKnownColumns()) {
+            decomposition.outputs.emplace_back(std::move(c.columnName));
+        }
+    }
+#endif
+    
     if (isAggregate) {
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
@@ -2327,7 +2357,8 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo};
+                fn.resultInfo
+        };
     }
     else {
         return {[=] (const SqlRowScope & row,
@@ -2342,7 +2373,8 @@ bindBuiltinFunction(SqlBindingScope & scope,
                     return storage = fn(evaluatedArgs, row);
                 },
                 this,
-                fn.resultInfo};
+                fn.resultInfo
+        };
     }
 }
 
@@ -3570,13 +3602,23 @@ bind(SqlBindingScope & scope) const
     ColumnPath simplifiedPrefix = prefix;
     Utf8String resolvedTableName;
 
-    //cerr << "binding wildcard expression " << print() << endl;
-    //cerr << "prefix = " << prefix << endl;
-    //cerr << "asPrefix = " << asPrefix << endl;
+    cerr << "binding wildcard expression " << print() << endl;
+    cerr << "prefix = " << prefix << endl;
+    cerr << "asPrefix = " << asPrefix << endl;
 
     ColumnFilter newColumnName = ColumnFilter::identity();
 
-    if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()){
+    struct DecompositionInfo {
+        bool active = true;
+        std::vector<std::pair<ColumnPath, ColumnPath> > mapping;
+    };
+
+    // We can't bind by reference in newColumnName, so this structure is
+    // kept via a pointer.  When we're done with it, we set active to
+    // false;
+    auto dInfo = std::make_shared<DecompositionInfo>();
+    
+    if (!prefix.empty() || !excluding.empty() || !asPrefix.empty()) {
        
         if (!prefix.empty())
             simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
@@ -3588,7 +3630,7 @@ bind(SqlBindingScope & scope) const
         // then it returns the empty column name
         newColumnName = ColumnFilter([=] (const ColumnPath & inputColumnName) -> ColumnPath
             {
-                //cerr << "input column name " << inputColumnName << endl;
+                cerr << "input column name " << inputColumnName << endl;
 
                 // First, check it matches the prefix
                 // We have to check the simplified prefix for regular datasets
@@ -3623,17 +3665,46 @@ bind(SqlBindingScope & scope) const
                         // << " with " << asPrefix << " on " << inputColumnName << endl;
                         //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
 
-                        return inputColumnName.replaceWildcard(prefix, asPrefix);
+
+                        auto outputName = inputColumnName.replaceWildcard(prefix, asPrefix);
+                        if (dInfo->active) {
+                            // Record that this column goes through with a new name
+                            dInfo->mapping.emplace_back(inputColumnName,
+                                                        outputName);
+                        }
+
+                        cerr << "renamed to " << outputName << endl;
+                        return outputName;
+
                     }
                 }
 
-                //cerr << "kept" << endl;
+                if (dInfo->active) {
+                    // Record that this column goes through unmchanged
+                    dInfo->mapping.emplace_back(inputColumnName,
+                                                inputColumnName);
+                }
+                
+                cerr << "kept" << endl;
                 return inputColumnName;
             });
     }   
-
+    else {
+        newColumnName = ColumnFilter([=] (const ColumnPath & inputColumnName) -> ColumnPath
+            {
+                if (dInfo->active) {
+                    // Record that this column goes through unchanged
+                    dInfo->mapping.emplace_back(inputColumnName,
+                                                inputColumnName);
+                }
+                return inputColumnName;
+            });
+    }
+    
     auto allColumns = scope.doGetAllAtoms(resolvedTableName, newColumnName);
 
+    dInfo->active = false;
+    
     auto exec = [=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
@@ -3644,6 +3715,31 @@ bind(SqlBindingScope & scope) const
 
     BoundSqlExpression result(exec, this, allColumns.info);
 
+    cerr << "mapping has " << dInfo->mapping.size() << " entries" << endl;
+
+    result.decomposition = std::make_shared<std::vector<DecomposedClause> >();
+    
+    /* Now fill in the individual clauses this could be decomposed into. */
+    for (auto & i: dInfo->mapping) {
+
+        DecomposedClause clause;
+        clause.inputs.insert(i.first);
+        clause.outputs.emplace_back(i.second);
+
+        //auto input = scope.doGetColumn(i.first);
+        // Equivalent expression is x AS y
+        auto inputVar = std::make_shared<ReadColumnExpression>(i.first);
+        auto expr = std::make_shared<NamedColumnExpression>(i.second, inputVar);
+
+        expr->surface = "\"" + i.first.toUtf8String() + "\" AS \"" + i.second.toUtf8String() + "\"";
+        
+        cerr << expr->print() << endl;
+        clause.expr = expr;
+
+        result.decomposition->emplace_back(std::move(clause));
+    }
+    dInfo->mapping.clear();
+    
     return result;
 }
 
@@ -3734,7 +3830,6 @@ bind(SqlBindingScope & scope) const
 
     //cerr << "binding " << print() << " surface " << surface << " " << jsonEncode(exprBound.info)
     //<< endl;
-
     if (alias.empty()) {
         // This must be a row-returning function, and we merge the row with the
         // output.  Extract what the row is producing to be merged.
@@ -3757,12 +3852,38 @@ bind(SqlBindingScope & scope) const
                 return val;
             };
 
-        BoundSqlExpression result(exec, this, info);
+#if 0        
+        if (exprBound.decomposition.empty()) {
+            throw AnnotatedException(400, "decomposition for "
+                                     + expression->print() + " is empty",
+                                     "expr", expression);
+        }
+#endif
+        
+        // This is a simple merge, so we take the decomposition unchanged
+        BoundSqlExpression result(exec, this, info, exprBound.decomposition);
         return result;
     }
-    else if (optimizeSimpleAliasName(alias.size() == 1)) {
-        // Optimization for very common case with a simple alias
 
+    std::vector<DecomposedClause> decomposition;
+
+    DecomposedClause clause;
+    clause.outputs.emplace_back(alias);
+    clause.expr = std::make_shared<NamedColumnExpression>(alias, expression);
+    clause.expr->surface = expression->surface + " AS \"" + alias.toUtf8String() + "\"";
+    auto unbound = expression->getUnbound();
+    for (auto & v: unbound.vars) {
+        clause.inputs.emplace(v.first);
+    }
+    for (auto & v: unbound.wildcards) {
+        clause.inputWildcards.emplace(v.first);
+    }
+    decomposition.emplace_back(std::move(clause));
+
+    if (optimizeSimpleAliasName(alias.size() == 1)) {
+        // Optimization for very common case with a simple alias
+        // <expr> AS y, not <expr> as y.z or <expr> as *
+        
         PathElement alias0 = alias[0];
 
         // Simply adds a simple prefix to the given value
@@ -3793,7 +3914,7 @@ bind(SqlBindingScope & scope) const
         auto info = std::make_shared<RowValueInfo>
             (knownColumns, SCHEMA_CLOSED, exprBound.info->isConst());
 
-        return BoundSqlExpression(exec, this, info);
+        return BoundSqlExpression(exec, this, info, decomposition);
     }
     else {
         auto exec = [=] (const SqlRowScope & scope,
@@ -3836,7 +3957,7 @@ bind(SqlBindingScope & scope) const
         auto info = std::make_shared<RowValueInfo>
             (knownColumns, SCHEMA_CLOSED, exprBound.info->isConst());
 
-        return BoundSqlExpression(exec, this, info);
+        return BoundSqlExpression(exec, this, info, decomposition);
     }
 }
 
