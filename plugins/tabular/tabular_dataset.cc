@@ -331,8 +331,14 @@ struct PathIndexShard: public PathIndexMetadata {
 
     void serialize(StructuredSerializer & serializer) const
     {
-        serializer.newObject<PathIndexMetadata>("md.json", *this);
-        serializer.addRegion(storage, "rowindex");
+        serializer.newObject<PathIndexMetadata>("md", *this);
+        serializer.addRegion(storage, "ri");
+    }
+
+    void reconstitute(StructuredReconstituter & reconstituter)
+    {
+        reconstituter.getObject<PathIndexMetadata>("md", *this);
+        storage = reconstituter.getRegionT<uint32_t>("ri");
     }
 
     // Hash is implicit via position in the entry map (we take the top x bits)
@@ -373,6 +379,16 @@ struct PathIndex {
     {
         for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
             shards[i].serialize(*serializer.newStructure(i));
+        }
+    }
+
+    void reconstitute(StructuredReconstituter & reconstituter)
+    {
+        // TODO: make it possible to reconstitute a different number of
+        // shards.
+        ExcAssertEqual(reconstituter.getDirectory().size(), INDEX_SHARDS);
+        for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
+            shards[i].reconstitute(*reconstituter.getStructure(i));
         }
     }
 
@@ -418,6 +434,26 @@ freeze(MappedSerializer & serializer)
 
 
 /*****************************************************************************/
+/* TABULAR DATA STORE METADATA                                               */
+/*****************************************************************************/
+
+struct TabularDataStoreMetadata {
+    std::vector<ColumnPath> columns;
+    Date earliestTs = Date::notADate();
+    Date latestTs = Date::notADate();
+    uint32_t numFixedColumns = 0;
+};
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(TabularDataStoreMetadata)
+{
+    setVersion(1);
+    addField("columns", &TabularDataStoreMetadata::columns, "");
+    addField("earliestTs", &TabularDataStoreMetadata::earliestTs, "");
+    addField("latestTs", &TabularDataStoreMetadata::latestTs, "");
+    addField("numFixedColumns", &TabularDataStoreMetadata::numFixedColumns, "");
+}
+
+/*****************************************************************************/
 /* TABULAR DATA STORE                                                        */
 /*****************************************************************************/
 
@@ -448,18 +484,23 @@ struct TabularDataset::TabularDataStore
                      TabularDatasetConfig config,
                      shared_ptr<spdlog::logger> logger)
         : engine(engine),
+          serializer(new MemorySerializer),
           currentState(std::make_shared<CurrentState>(this, logger)),
           config(std::move(config)),
           backgroundJobsActive(0), logger(std::move(logger))
     {
         ExcAssert(this->logger);
         initRoutes();
+
+        if (!config.dataFileUrl.empty()) {
+            load(config.dataFileUrl);
+        }
     }
 
     MldbEngine * engine = nullptr;
 
     /// This is used to allocate mapped memory when chunks are frozen
-    MemorySerializer serializer;
+    std::unique_ptr<MappedSerializer> serializer;
 
     /// Provides information about a column
     struct ColumnEntry {
@@ -996,15 +1037,204 @@ struct TabularDataset::TabularDataStore
 
             rowIndex.serialize(*serializer.newStructure("ri"));
 
-            {
-                auto colSerializer = serializer.newEntry("cs");
-                
+            TabularDataStoreMetadata md;
+            md.columns.reserve(columns.size());
+            for (auto & c: columns) {
+                md.columns.push_back(c.columnName);
             }
 
-            {
-                auto mdSerializer = serializer.newStream("md");
-                mdSerializer << earliestTs << latestTs;
+            md.earliestTs = earliestTs;
+            md.latestTs = latestTs;
+            md.numFixedColumns = owner->fixedColumns.size();
+            
+            serializer.newObject("md", md);
+        }
+
+        void reconstitute(StructuredReconstituter & reconstituter)
+        {
+            // Read the metadata ahead of everything else, so we can
+            // handle the fixed columns
+            TabularDataStoreMetadata md;
+            reconstituter.getObject("md", md);
+
+            this->earliestTs = md.earliestTs;
+            this->latestTs = md.latestTs;
+
+            ExcAssertGreaterEqual(md.numFixedColumns, 0);
+            ExcAssertLessEqual(md.numFixedColumns, md.columns.size());
+
+            // TODO: ugly reaching into the owner like this; refactor
+            for (size_t i = 0;  i < md.numFixedColumns;  ++i) {
+                owner->fixedColumns.emplace_back(md.columns[i]);
+                owner->fixedColumnIndex[md.columns[i].oldHash()] = i;
             }
+            
+            auto chunkStructure = reconstituter.getStructure("ch");
+            auto entries = chunkStructure->getDirectory();
+                
+            std::vector<std::shared_ptr<TabularDatasetChunk> > newChunks;
+            newChunks.resize(entries.size());
+         
+            for (auto & e: entries) {
+                int chunkNumber = e.name.toIndex();
+                if (chunkNumber < 0 || chunkNumber >= newChunks.size()) {
+                    throw HttpReturnException
+                        (400, "Corrupt Tabular Dataset: chunk index out of range");
+                }
+                if (newChunks[chunkNumber]) {
+                    throw HttpReturnException
+                        (400, "Corrupt Tabular Dataset: duplicate chunk index");
+                }
+
+                newChunks[chunkNumber].reset(new TabularDatasetChunk(*e.getStructure()));
+            }
+
+            // Add these chunks properly...
+            addChunks(newChunks);
+
+            // ... and map the row index in place
+            rowIndex.reconstitute(*reconstituter.getStructure("ri"));
+        }
+
+        void addChunks(std::vector<std::shared_ptr<TabularDatasetChunk> > & inputChunks)
+        {
+            for (auto & c: inputChunks) {
+                rowCount += c->rowCount();
+            }
+
+            size_t numChunksBefore = chunks.size();
+        
+            chunks.reserve(numChunksBefore + inputChunks.size());
+
+            for (auto & c: inputChunks) {
+                chunks.emplace_back(std::move(c));
+            }
+
+            // Make sure they aren't reused
+            inputChunks.clear();
+
+            // This will only happen when this is the first commit
+            if (columns.empty()) {
+                columns.reserve(owner->fixedColumns.size());
+                for (size_t i = 0;  i < owner->fixedColumns.size();  ++i) {
+                    const ColumnPath & c = owner->fixedColumns[i];
+                    ColumnEntry entry;
+                    entry.columnName = c;
+                    columns.emplace_back(entry);
+                    columnIndex[c.oldHash()] = i;
+                    columnHashIndex[c] = i;
+                }
+            }
+
+            // Create the column index.  This should be rapid, as there shouldn't
+            // be too many columns.
+            for (size_t i = numChunksBefore;  i < chunks.size();  ++i) {
+                const TabularDatasetChunk & chunk = *chunks[i];
+                ExcAssertEqual(owner->fixedColumns.size(),
+                               chunk.fixedColumnCount());
+                for (size_t j = 0;  j < chunk.columns.size();  ++j) {
+                    columns[j].chunks.emplace_back(i, chunk.columns[j]);
+                    columns[j].nonNullRowCount
+                        += chunk.columns[j]->nonNullRowCount();
+                }
+                for (auto & c: chunk.sparseColumns) {
+                    auto it = columnIndex
+                        .insert(make_pair(c.first.oldHash(),
+                                          columns.size()))
+                        .first;
+                    if (it->second == columns.size()) {
+                        ColumnEntry entry;
+                        entry.columnName = c.first;
+                        columns.emplace_back(entry);
+                        columnHashIndex[c.first] = it->second;
+                    }
+                    columns[it->second].chunks.emplace_back(i, c.second);
+                    columns[it->second].nonNullRowCount
+                        += c.second->nonNullRowCount();
+                }
+            }
+        
+            ExcAssertEqual(columns.size(), columnIndex.size());
+            ExcAssertEqual(columns.size(),
+                           columnHashIndex.size());
+        }
+
+        void reIndex()
+        {
+            cerr << "indexing " << chunks.size() << " chunks" << endl;
+
+            MutablePathIndex index;
+
+            // We create the row index in multiple chunks
+
+            Timer rowIndexTimer;
+
+            auto indexChunk = [&] (int chunkNum)
+                {
+                    auto recorder = index.getRecorder(chunkNum);
+                    for (unsigned j = 0;
+                         j < chunks[chunkNum]->rowCount();
+                         ++j) {
+                        RowPath rowNameStorage;
+                        const RowPath & rowName
+                            = chunks[chunkNum]
+                            ->getRowPath(j, rowNameStorage);
+                        recorder.record(rowName, j);
+                    }
+                
+                    recorder.commit();
+                };
+        
+            // NOTE: we currently re-index everything from the
+            // previous chunks; this is a big scalability problem.
+            // We should not do that once multiple commits become
+            // an important use case
+            parallelMap(0, chunks.size(), indexChunk);
+
+            std::vector<std::tuple<int, int, int, int> > possibleCollisions;
+            std::tie(rowIndex, possibleCollisions)
+                = index.freeze(*owner->serializer);
+
+            cerr << possibleCollisions.size() << " possible collisions"
+                 << endl;
+
+            std::set<Path> duplicateRowNames;
+            bool extraDuplicates = false;
+            
+            for (auto & c: possibleCollisions) {
+                Path name1 = chunks[std::get<0>(c)]->getRowPath(std::get<1>(c));
+                Path name2 = chunks[std::get<2>(c)]->getRowPath(std::get<3>(c));
+                if (name1 == name2) {
+                    duplicateRowNames.emplace(std::move(name1));
+                }
+                if (duplicateRowNames.size() > 1000) {
+                    extraDuplicates = true;
+                    break;
+                }
+            }
+
+            if (!duplicateRowNames.empty()) {
+                Utf8String duplicateNames;
+                for (auto & n: duplicateRowNames) {
+                    if (!duplicateNames.empty())
+                        duplicateNames += ", ";
+                    duplicateNames += n.toUtf8String();
+                    if (duplicateNames.length() > 100) {
+                        extraDuplicates = true;
+                        break;
+                    }
+                }
+                if (extraDuplicates)
+                    duplicateNames += "...";
+                throw HttpReturnException
+                    (400, "Duplicate row name(s) in tabular dataset: "
+                     + duplicateNames,
+                     "duplicates", duplicateRowNames);
+            }
+            
+            cerr << "rowIndex.memusage() = " << rowIndex.memusage()
+                 << endl;
+            cerr << "row index took " << rowIndexTimer.elapsed();
         }
     };
 
@@ -1415,24 +1645,22 @@ struct TabularDataset::TabularDataStore
 
     /// Create a new current state from the old one plus the extra
     /// chunks.
-    std::shared_ptr<CurrentState>
+    std::shared_ptr<const CurrentState>
     finalize(std::shared_ptr<const CurrentState> oldState,
              std::vector<std::shared_ptr<TabularDatasetChunk> > & inputChunks)
     {
         // NOTE: must be called with the lock held
-
-        size_t totalRows = oldState->rowCount;
+        if (inputChunks.empty()) {
+            return oldState;
+        }
 
         cerr << "commiting " << frozenChunks.size() << " frozen chunks"
              << endl;
 
-        for (auto & c: inputChunks) {
-            totalRows += c->rowCount();
-        }
-
         auto newState = std::make_shared<CurrentState>(*oldState);
 
-        newState->rowCount = totalRows;
+        newState->addChunks(inputChunks);
+        newState->reIndex();
         
         size_t numChunksBefore = newState->chunks.size();
         
@@ -1653,7 +1881,7 @@ struct TabularDataset::TabularDataStore
 
         PolyConfigT<Dataset> result;
         result.type = "tabular";
-
+        
         PersistentDatasetConfig params;
         params.dataFileUrl = dataFileUrl;
         result.params = params;
@@ -1661,6 +1889,22 @@ struct TabularDataset::TabularDataStore
         return result;
     }
 
+    void reconstitute(StructuredReconstituter & reconstituter)
+    {
+        auto newCurrentState = std::make_shared<CurrentState>
+            (this, this->logger);
+        newCurrentState->reconstitute(reconstituter);
+
+        currentState.store(std::move(newCurrentState));
+    }
+
+    void load(Url dataFileUrl)
+    {
+        ZipStructuredReconstituter reconstituter(dataFileUrl);
+
+        reconstitute(reconstituter);
+    }
+    
     /** This is a recorder that allows parallel records from multiple
         threads. */
     struct BasicRecorder: public Recorder {
@@ -1868,7 +2112,7 @@ struct TabularDataset::TabularDataStore
             if (!chunk || chunk->rowCount() == 0)
                 return;
             ColumnFreezeParameters params;
-            auto frozen = chunk->freeze(store->serializer, params);
+            auto frozen = chunk->freeze(*store->serializer, params);
             store->addFrozenChunk(std::move(frozen));
         }
 
@@ -2044,7 +2288,7 @@ struct TabularDataset::TabularDataStore
         auto job = [=] ()
             {
                 Scope_Exit(--this->backgroundJobsActive);
-                auto frozen = chunk->freeze(serializer, params);
+                auto frozen = chunk->freeze(*serializer, params);
                 addFrozenChunk(std::move(frozen));
             };
         
@@ -2353,12 +2597,6 @@ handleRequest(RestConnection & connection,
 /* TABULAR DATASET                                                           */
 /*****************************************************************************/
 
-TabularDatasetConfig::
-TabularDatasetConfig()
-{
-    unknownColumns = UC_ERROR;
-}
-
 DEFINE_ENUM_DESCRIPTION(UnknownColumnAction);
 
 UnknownColumnActionDescription::
@@ -2376,11 +2614,16 @@ TabularDatasetConfigDescription()
 {
     nullAccepted = true;
 
-    addField("unknownColumns", &TabularDatasetConfig::unknownColumns,
-             "Action to take on unknown columns.  Values are 'ignore', "
+    addAuto("unknownColumns", &TabularDatasetConfig::unknownColumns,
+            "Action to take on unknown columns.  Values are 'ignore', "
              "'error' (default), or 'add' which will allow an unlimited "
-             "number of sparse columns to be added.",
-             UC_ERROR);
+            "number of sparse columns to be added.");
+    addField("dataFileUrl", &TabularDatasetConfig::dataFileUrl,
+             "URL (which must currently be on the local filesystem, ie "
+             "file://...) from which the data will be memory mapped.  In "
+             "the case that the given URL does not exist, it will be "
+             "created and the file used as a memory mapped backing for "
+             "the data file.");
 }
 
 namespace {
@@ -2388,7 +2631,7 @@ namespace {
 RegisterDatasetType<TabularDataset, TabularDatasetConfig>
 regTabular(builtinPackage(),
            "tabular",
-           "Dense dataset which can be recorded to",
+           "Columnar dataset which can be recorded to",
            "datasets/TabularDataset.md.html");
 
 } // file scope
