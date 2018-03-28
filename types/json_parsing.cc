@@ -1949,5 +1949,34 @@ StringJsonParsingContext(std::string str_,
     init(filename, str.c_str(), str.c_str() + str.size());
 }
 
+StringJsonParsingContext::
+StringJsonParsingContext(const char * str,
+                         size_t len,
+                         const std::string & filename)
+{
+    init(filename, str, len);
+}
+
+
+/*****************************************************************************/
+/* UTF8 STRING JSON PARSING CONTEXT                                          */
+/*****************************************************************************/
+
+Utf8StringJsonParsingContext::
+Utf8StringJsonParsingContext(Utf8String str_,
+                             const std::string & filename)
+    : str(std::move(str_))
+{
+    init(filename, str.rawData(), str.rawData() + str.rawLength());
+}
+
+Utf8StringJsonParsingContext::
+Utf8StringJsonParsingContext(const char * str,
+                             size_t len,
+                             const std::string & filename)
+{
+    init(filename, str, len);
+}
+
 
 }  // namespace MLDB

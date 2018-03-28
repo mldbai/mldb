@@ -637,7 +637,35 @@ struct StringJsonParsingContext
     StringJsonParsingContext(std::string str_,
                              const std::string & filename = "<<internal>>");
 
+    // Note: str must outlive this object
+    StringJsonParsingContext(const char * str,
+                             size_t len,
+                             const std::string & filename = "<<internal>>");
+
+private:
+    // Holds the data, when initialized form a string
     std::string str;
+};
+
+
+/*****************************************************************************/
+/* UTF8 STRING JSON PARSING CONTEXT                                          */
+/*****************************************************************************/
+
+struct Utf8StringJsonParsingContext
+    : public StreamingJsonParsingContext  {
+
+    Utf8StringJsonParsingContext(Utf8String str_,
+                                 const std::string & filename = "<<internal>>");
+
+    // Note: str must outlive this object
+    Utf8StringJsonParsingContext(const char * str,
+                                 size_t len,
+                                 const std::string & filename = "<<internal>>");
+
+private:
+    // Holds the data, when initialized from a Utf8String
+    Utf8String str;
 };
 
 

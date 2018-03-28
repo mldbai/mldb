@@ -165,3 +165,11 @@ BOOST_AUTO_TEST_CASE(test_utf8_bad_string)
     ParseContext context(s, s.c_str(), s.c_str() + s.length());
     BOOST_CHECK_THROW(testExpectStringUtf8(&context), ParseContext::Exception);
 }
+
+BOOST_AUTO_TEST_CASE(test_utf8_parsing)
+{
+    Utf8String s = "\"hellô\"";
+    Utf8StringJsonParsingContext context(s);
+
+    BOOST_CHECK_EQUAL(context.expectStringUtf8(), "hellô");
+}
