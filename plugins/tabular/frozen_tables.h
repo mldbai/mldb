@@ -91,6 +91,8 @@ struct FrozenIntegerTable {
     uint64_t get(size_t i) const;
 
     void serialize(StructuredSerializer & serializer) const;
+
+    void reconstitute(StructuredReconstituter & reconstituter);
 };
 
 struct MutableIntegerTable {
@@ -206,6 +208,7 @@ struct FrozenBlobTable {
     size_t memusage() const;
     size_t size() const;
     void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
 
     struct Itl;
     std::shared_ptr<Itl> itl;
@@ -315,6 +318,7 @@ struct FrozenCellValueTable {
     }
 
     void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
 
     FrozenBlobTable blobs;
 };
@@ -392,11 +396,9 @@ struct FrozenCellValueSet {
         return true;
     }
 
-    void serialize(StructuredSerializer & serializer) const
-    {
-        offsets.serialize(serializer);
-        serializer.addRegion(cells, "cells");
-    }
+    void serialize(StructuredSerializer & serializer) const;
+
+    void reconstitute(StructuredReconstituter & reconstituter);
 
     FrozenIntegerTable offsets;
     FrozenMemoryRegion cells;

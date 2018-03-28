@@ -38,6 +38,8 @@ struct TabularDatasetChunk {
     {
     }
 
+    TabularDatasetChunk(StructuredReconstituter & reconstituter);
+    
     TabularDatasetChunk(TabularDatasetChunk && other) noexcept
     {
         swap(other);

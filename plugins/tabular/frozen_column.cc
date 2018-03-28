@@ -31,6 +31,55 @@ namespace MLDB {
 
 
 /*****************************************************************************/
+/* FROZEN COLUMN                                                             */
+/*****************************************************************************/
+
+void
+FrozenColumn::
+reconstituteMetadataHelper(StructuredReconstituter & reconstituter,
+                           void * md,
+                           const std::type_info & mdType)
+{
+    FrozenMemoryRegion mdRegion = reconstituter.getRegion("md");
+
+    Utf8StringJsonParsingContext context
+        (mdRegion.data(), mdRegion.length(),
+         (reconstituter.getContext() + "/md").rawString());
+        
+    std::shared_ptr<const ValueDescription> desc
+        = ValueDescription::get(mdType);
+    ExcAssert(desc);
+
+    int version = 0;
+    std::shared_ptr<void> mdObject;
+    
+    auto onMember = [&] ()
+        {
+            if (std::strcmp(context.fieldNamePtr(), "fmt") == 0) {
+                context.skip();
+            }
+            else if (std::strcmp(context.fieldNamePtr(), "type") == 0) {
+                context.skip();
+                //std::string structType = context.expectStringAscii();
+                // TODO: make sure it matches
+                //desc = ValueDescription::getType(structType);
+                // TODO: get the correct version too...
+            }
+            else if (std::strcmp(context.fieldNamePtr(), "ver") == 0) {
+                version = context.expectInt();
+            }
+            else if (std::strcmp(context.fieldNamePtr(), "data") == 0) {
+                desc->parseJson(md, context);
+            }
+        };
+        
+    context.forEachMember(onMember);
+
+
+}
+
+
+/*****************************************************************************/
 /* DIRECT FROZEN COLUMN                                                      */
 /*****************************************************************************/
 
@@ -176,6 +225,12 @@ struct DirectFrozenColumn
         serializeMetadataT<DirectFrozenColumnMetadata>(serializer, *this);
         values.serialize(*serializer.newStructure("values"));
     }
+
+    DirectFrozenColumn(StructuredReconstituter & reconstituter)
+    {
+        reconstituteMetadataT<DirectFrozenColumnMetadata>(reconstituter, *this);
+        values.reconstitute(*reconstituter.getStructure("values"));
+    }
 };
 
 struct DirectFrozenColumnFormat: public FrozenColumnFormat {
@@ -222,7 +277,7 @@ struct DirectFrozenColumnFormat: public FrozenColumnFormat {
         return result;
     }
     
-    virtual FrozenColumn *
+    virtual DirectFrozenColumn *
     freeze(TabularDatasetColumn & column,
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
@@ -231,10 +286,10 @@ struct DirectFrozenColumnFormat: public FrozenColumnFormat {
         return new DirectFrozenColumn(column, serializer);
     }
 
-    virtual FrozenColumn *
+    virtual DirectFrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw AnnotatedException(600, "Tabular reconstitution not finished");
+        return new DirectFrozenColumn(reconstituter); 
     }
 };
 
@@ -419,8 +474,16 @@ struct TableFrozenColumn
     virtual void serialize(StructuredSerializer & serializer) const
     {
         serializeMetadataT<TableFrozenColumnMetadata>(serializer, *this);
-        indexes.serialize(*serializer.newStructure("index"));
-        table.serialize(*serializer.newStructure("table"));
+        indexes.serialize(*serializer.newStructure("ix"));
+        table.serialize(*serializer.newStructure("t"));
+    }
+
+    /// Reconstitute constructor
+    TableFrozenColumn(StructuredReconstituter & reconstituter)
+    {
+        reconstituteMetadataT<TableFrozenColumnMetadata>(reconstituter, *this);
+        indexes.reconstitute(*reconstituter.getStructure("ix"));
+        table.reconstitute(*reconstituter.getStructure("t"));
     }
 };
 
@@ -460,7 +523,7 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
         return result;
     }
     
-    virtual FrozenColumn *
+    virtual TableFrozenColumn *
     freeze(TabularDatasetColumn & column,
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
@@ -469,10 +532,10 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
         return new TableFrozenColumn(column, serializer);
     }
 
-    virtual FrozenColumn *
+    virtual TableFrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw AnnotatedException(600, "Tabular reconstitution not finished");
+        return new TableFrozenColumn(reconstituter);
     }
 };
 
@@ -688,11 +751,21 @@ struct SparseTableFrozenColumn
     virtual void serialize(StructuredSerializer & serializer) const
     {
         serializeMetadataT<SparseTableFrozenColumnMetadata>(serializer, *this);
-        table.serialize(*serializer.newStructure("table"));
+        table.serialize(*serializer.newStructure("t"));
         rowNum.serialize(*serializer.newStructure("rn"));
-        index.serialize(*serializer.newStructure("idx"));
+        index.serialize(*serializer.newStructure("ix"));
     }
 
+    /// Reconstitute constructor
+    SparseTableFrozenColumn(StructuredReconstituter & reconstituter)
+    {
+        reconstituteMetadataT<SparseTableFrozenColumnMetadata>
+            (reconstituter, *this);
+        table.reconstitute(*reconstituter.getStructure("t"));
+        rowNum.reconstitute(*reconstituter.getStructure("rn"));
+        index.reconstitute(*reconstituter.getStructure("ix"));
+    }
+    
     /// Set of distinct values in the column chunk
     FrozenCellValueSet table;
 
@@ -743,7 +816,7 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
         return result;
     }
     
-    virtual FrozenColumn *
+    virtual SparseTableFrozenColumn *
     freeze(TabularDatasetColumn & column,
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
@@ -752,10 +825,10 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
         return new SparseTableFrozenColumn(column, serializer);
     }
 
-    virtual FrozenColumn *
+    virtual SparseTableFrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw AnnotatedException(600, "Tabular reconstitution not finished");
+        return new SparseTableFrozenColumn(reconstituter);
     }
 };
 
@@ -1039,7 +1112,15 @@ struct IntegerFrozenColumn
     virtual void serialize(StructuredSerializer & serializer) const
     {
         serializeMetadataT<IntegerFrozenColumnMetadata>(serializer, *this);
-        table.serialize(*serializer.newStructure("table"));
+        table.serialize(*serializer.newStructure("t"));
+    }
+
+    /// Reconstitute constructor
+    IntegerFrozenColumn(StructuredReconstituter & reconstituter)
+    {
+        reconstituteMetadataT<IntegerFrozenColumnMetadata>
+            (reconstituter, *this);
+        table.reconstitute(*reconstituter.getStructure("t"));
     }
 };
 
@@ -1074,7 +1155,7 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
         return result;
     }
     
-    virtual FrozenColumn *
+    virtual IntegerFrozenColumn *
     freeze(TabularDatasetColumn & column,
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
@@ -1086,10 +1167,10 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
         return new IntegerFrozenColumn(column, *infoCast, serializer);
     }
 
-    virtual FrozenColumn *
+    virtual IntegerFrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw AnnotatedException(600, "Tabular reconstitution not finished");
+        return new IntegerFrozenColumn(reconstituter);
     }
 };
 
@@ -1294,7 +1375,14 @@ struct DoubleFrozenColumn
     virtual void serialize(StructuredSerializer & serializer) const
     {
         serializeMetadataT<DoubleFrozenColumnMetadata>(serializer, *this);
-        serializer.addRegion(storage, "doubles");
+        serializer.addRegion(storage, "d");
+    }
+
+    /// Reconstitute constructor
+    DoubleFrozenColumn(StructuredReconstituter & reconstituter)
+    {
+        reconstituteMetadataT<DoubleFrozenColumnMetadata>(reconstituter, *this);
+        storage = reconstituter.getRegion("d");
     }
 };
 
@@ -1324,7 +1412,7 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
         return DoubleFrozenColumn::bytesRequired(column);
     }
     
-    virtual FrozenColumn *
+    virtual DoubleFrozenColumn *
     freeze(TabularDatasetColumn & column,
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
@@ -1333,10 +1421,10 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
         return new DoubleFrozenColumn(column, serializer);
     }
 
-    virtual FrozenColumn *
+    virtual DoubleFrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw AnnotatedException(600, "Tabular reconstitution not finished");
+        return new DoubleFrozenColumn(reconstituter);
     }
 };
 
@@ -1459,6 +1547,15 @@ struct TimestampFrozenColumn
         serializeMetadataT<TimestampFrozenColumnMetadata>(serializer, *this);
         unwrapped->serialize(*serializer.newStructure("ul"));
     }
+
+    /// Reconstitute constructor
+    TimestampFrozenColumn(StructuredReconstituter & reconstituter)
+    {
+        reconstituteMetadataT<TimestampFrozenColumnMetadata>
+            (reconstituter, *this);
+        unwrapped.reset(FrozenColumnFormat::thaw
+                        (*reconstituter.getStructure("ul")));
+    }
 };
 
 struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
@@ -1489,7 +1586,7 @@ struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
         return sizeof(TimestampFrozenColumn) + 8 * (column.maxRowNumber - column.minRowNumber);
     }
     
-    virtual FrozenColumn *
+    virtual TimestampFrozenColumn *
     freeze(TabularDatasetColumn & column,
            MappedSerializer & serializer,
            const ColumnFreezeParameters & params,
@@ -1498,10 +1595,10 @@ struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
         return new TimestampFrozenColumn(column, serializer, params);
     }
 
-    virtual FrozenColumn *
+    virtual TimestampFrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw AnnotatedException(600, "Tabular reconstitution not finished");
+        return new TimestampFrozenColumn(reconstituter);
     }
 };
 
@@ -1567,6 +1664,21 @@ registerFormat(std::shared_ptr<FrozenColumnFormat> format)
             return std::shared_ptr<void>(format.get(), deregister);
         }
     }
+}
+
+std::shared_ptr<const FrozenColumnFormat>
+FrozenColumnFormat::
+getFormat(const std::string & formatName)
+{
+    auto formats = getFormats().load();
+
+    auto it = formats->find(formatName);
+    if (it == formats->end()) {
+        throw AnnotatedException
+            (400, "Frozen column format " + formatName + " not found");
+    }
+
+    return it->second;
 }
 
 
@@ -1686,12 +1798,80 @@ serializeMetadata(StructuredSerializer & serializer,
 
     //cerr << "got metadata " << printed << endl;
 
-    auto entry = serializer.newEntry("md.json");
+    auto entry = serializer.newEntry("md");
     auto serializeTo = entry->allocateWritable(printed.rawLength(),
                                                1 /* alignment */);
     
     std::memcpy(serializeTo.data(), printed.rawData(), printed.rawLength());
     serializeTo.freeze();
+}
+
+FrozenColumn *
+FrozenColumnFormat::
+thaw(StructuredReconstituter & reconstituter)
+{
+    // TODO: this is user generated data; we can't trust it.  We need to
+    // ensure that things align properly between the types
+
+    // 1.  Get the metadata
+    FrozenMemoryRegion md = reconstituter.getRegion("md");
+
+    //cerr << "md = " << std::string(md.data(), md.data() + md.length())
+    //     << endl;
+    
+    Utf8StringJsonParsingContext context
+        (md.data(), md.length(),
+         (reconstituter.getContext() + "/md").rawString());
+
+    std::string fmt;
+
+    auto onMember = [&] ()
+        {
+            if (std::strcmp(context.fieldNamePtr(), "fmt") == 0) {
+                fmt = context.expectStringAscii();
+            }
+            else {
+                context.skip();
+            }
+        };
+
+    context.forEachMember(onMember);
+
+    std::shared_ptr<const FrozenColumnFormat> format
+        = FrozenColumnFormat::getFormat(fmt);
+
+    return format->reconstitute(reconstituter);
+
+#if 0
+    std::shared_ptr<const ValueDescription> desc;
+    int version = 0;
+    std::shared_ptr<void> mdObject;
+    
+    auto onMember = [&] ()
+        {
+            if (std::strcmp(context.fieldNamePtr(), "fmt") == 0) {
+                fmt = context.expectStringAscii();
+            }
+            else if (std::strcmp(context.fieldNamePtr(), "type") == 0) {
+                std::string structType = context.expectStringAscii();
+                desc = ValueDescription::getType(structType);
+                // TODO: get the correct version too...
+            }
+            else if (std::strcmp(context.fieldNamePtr(), "ver") == 0) {
+                version = context.expectInt();
+            }
+            else if (std::strcmp(context.fieldNamePtr(), "data") == 0) {
+                ExcAssert(desc);
+                mdObject.reset(desc->constructDefault(),
+                               [=] (void * obj) { desc->destroy(obj); });
+                desc->parseJson(mdObject.get(), context);
+            }
+        };
+    
+    context.forEachMember(onMember);
+#endif
+    
+    
 }
 
 

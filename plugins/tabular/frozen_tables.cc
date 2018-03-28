@@ -66,8 +66,16 @@ void
 FrozenIntegerTable::
 serialize(StructuredSerializer & serializer) const
 {
-    serializer.newObject("md.json", md);
-    serializer.addRegion(storage, "ints");
+    serializer.newObject("md", md);
+    serializer.addRegion(storage, "i");
+}
+
+void
+FrozenIntegerTable::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    reconstituter.getObject("md", md);
+    storage = reconstituter.getRegion("i");
 }
 
 
@@ -394,10 +402,20 @@ void
 FrozenBlobTable::
 serialize(StructuredSerializer & serializer) const
 {
-    serializer.newObject("md.json", md);
-    serializer.addRegion(formatData, "fmt");
-    serializer.addRegion(blobData, "blob");
-    offset.serialize(*serializer.newStructure("offsets"));
+    serializer.newObject("md", md);
+    serializer.addRegion(formatData, "fm");
+    serializer.addRegion(blobData, "bl");
+    offset.serialize(*serializer.newStructure("of"));
+}
+
+void
+FrozenBlobTable::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    reconstituter.getObject("md", md);
+    formatData = reconstituter.getRegion("fm");
+    blobData = reconstituter.getRegion("bl");
+    offset.reconstitute(*reconstituter.getStructure("of"));
 }
 
 
@@ -654,6 +672,13 @@ serialize(StructuredSerializer & serializer) const
     blobs.serialize(serializer);
 }
 
+void
+FrozenCellValueTable::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    blobs.reconstitute(reconstituter);
+}
+
 
 /*****************************************************************************/
 /* MUTABLE CELL VALUE TABLE                                                  */
@@ -785,6 +810,27 @@ add(CellValue val)
 
     throw AnnotatedException
         (500, "Couldn't add unknown cell to MutableCellValueSet");
+}
+
+
+/*****************************************************************************/
+/* FROZEN CELL VALUE SET                                                     */
+/*****************************************************************************/
+
+void
+FrozenCellValueSet::
+serialize(StructuredSerializer & serializer) const
+{
+    offsets.serialize(serializer);
+    serializer.addRegion(cells, "c");
+}
+
+void
+FrozenCellValueSet::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    offsets.reconstitute(reconstituter);
+    cells = reconstituter.getRegion("c");
 }
 
 } // namespace MLDB
