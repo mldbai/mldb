@@ -21,6 +21,9 @@ The following protocols are available for URLs:
    working directory of MLDB, that is the `mldb_data` directory.  An absolute path has
    three slashes after the `file:`, and will create a path relative to the root
    directory of the MLDB container (for example, `file:///mldb_data/filename.txt`).
+- `mem://` Refers to an object that will be kept in memory, and will be lost
+  when the container stops.  These are normally used for testing or to hold
+  temporary data.
 
 A URL that is passed without a protocol will cause an error.
 
@@ -29,10 +32,18 @@ For examples of how to use the above protocol handlers, take a look at the
 
 ## Compression support
 
-MLDB supports decompression of files using the gzip, bzip2, xz and lz4 algorithms.
-In addition, it supports most compression schemes including zip and rar when
+MLDB supports compression and decompression of files using the `gzip`, `bzip2`,
+`xz`, `zstd` and `lz4` algorithms.  These are chosen and transparently applied
+based upon the file extension.
+
+In addition, it supports most compression schemes including `zip` and `rar` when
 opening archives (see below).  This decompression is performed transparently
 to the user.
+
+It is recommended that `zstd` be used for most purposes, as it provides a
+very good tradeoff between speed and compression ratio.  See
+[the Zstandard page](https://facebook.github.io/zstd/)
+for more information and a comparison table.
 
 ## Accessing files inside archives
 
