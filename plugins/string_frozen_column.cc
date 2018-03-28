@@ -286,7 +286,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
     }
 
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const override
+    reconstitute(StructuredReconstituter & reconstituter) const override
     {
         throw HttpReturnException(600, "Tabular reconstitution not finished");
     }

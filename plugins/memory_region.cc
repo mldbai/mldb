@@ -14,6 +14,8 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/path.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/arch/vm.h"
+#include "mldb/arch/timers.h"
 
 #include <fcntl.h>
 
@@ -37,7 +39,7 @@ namespace MLDB {
 struct SerializerStreamHandler {
     MappedSerializer * owner = nullptr;
     std::ostringstream stream;
-    std::shared_ptr<void> baggage;  /// anything we need to stay alive
+    std::shared_ptr<void> baggage;  /// anything we need to keep to stay alive
 
     ~SerializerStreamHandler()
     {
@@ -49,6 +51,14 @@ struct SerializerStreamHandler {
     }
 };
 
+FrozenMemoryRegion
+MappedSerializer::
+copy(const FrozenMemoryRegion & region)
+{
+    auto serializeTo = allocateWritable(region.length(), 1 /* alignment */);
+    std::memcpy(serializeTo.data(), region.data(), region.length());
+    return serializeTo.freeze();
+}
 
 filter_ostream
 MappedSerializer::
@@ -74,6 +84,17 @@ FrozenMemoryRegion(std::shared_ptr<void> handle,
                    size_t length)
     : data_(data), length_(length), handle_(std::move(handle))
 {
+}
+
+FrozenMemoryRegion
+FrozenMemoryRegion::
+range(size_t start, size_t end) const
+{
+    //cerr << "returning range from " << start << " to " << end
+    //     << " of " << length() << endl;
+    ExcAssertGreaterEqual(end, start);
+    ExcAssertLessEqual(end, length());
+    return FrozenMemoryRegion(handle_, data() + start, end - start);
 }
 
 #if 0
@@ -135,6 +156,63 @@ freeze()
 }
 
 
+FrozenMemoryRegion
+mapFile(const Url & filename, size_t startOffset, ssize_t length)
+{
+    if (filename.scheme() != "file") {
+        throw HttpReturnException
+            (500, "only file:// entities can be memory mapped (for now)");
+    }
+    
+    // TODO: not only files...
+    int fd = open(filename.path().c_str(), O_RDONLY);
+    if (fd == -1) {
+        throw HttpReturnException
+            (400, "Couldn't open mmap file " + filename.toUtf8String()
+             + ": " + strerror(errno));
+    }
+
+    if (length == -1) {
+        struct stat buf;
+        int res = fstat(fd, &buf);
+        if (res == -1) {
+            close(fd);
+            throw HttpReturnException
+                (400, "Couldn't stat mmap file " + filename.toUtf8String()
+                 + ": " + strerror(errno));
+        }
+        length = buf.st_size;
+    }
+
+    cerr << "file goes from 0 for " << length << " bytes" << endl;
+    
+    size_t mapOffset = startOffset & ~(page_size - 1);
+    size_t mapLength = (length - mapOffset + page_size -1) & ~(page_size - 1);
+    
+    cerr << "mapping from " << mapOffset << " for " << mapLength << " bytes"
+         << endl;
+
+    std::shared_ptr<void> addr
+        (mmap(nullptr, mapLength,
+              PROT_READ, MAP_SHARED, fd, mapOffset),
+         [=] (void * p) { munmap(p, mapLength); close(fd); });
+
+    if (addr.get() == MAP_FAILED) {
+        throw HttpReturnException
+            (400, "Failed to open memory map file: "
+             + string(strerror(errno)));
+    }
+
+    const char * start = reinterpret_cast<const char *>(addr.get());
+    start += (startOffset % page_size);
+
+    cerr << "taking off " << (startOffset % page_size) << " bytes" << endl;
+    cerr << "length = " << length << endl;
+    
+    return FrozenMemoryRegion(std::move(addr), start, length);
+}
+
+
 /*****************************************************************************/
 /* MEMORY SERIALIZER                                                         */
 /*****************************************************************************/
@@ -188,12 +266,7 @@ StructuredSerializer::
 addRegion(const FrozenMemoryRegion & region,
           const PathElement & name)
 {
-    auto entry = newEntry(name);
-    // TODO: let the serializer handle it; no need to double allocate and
-    // copy here
-    auto serializeTo = entry->allocateWritable(region.length(), 1 /* alignment */);
-    std::memcpy(serializeTo.data(), region.data(), region.length());
-    serializeTo.freeze();
+    newEntry(name)->copy(region);
 }
 
 void
@@ -208,7 +281,7 @@ newObject(const PathElement & name,
         desc.printJson(val, context);
     }
     //cerr << "doing metadata " << printed << endl;
-    auto entry = newEntry("md.json");
+    auto entry = newEntry("md");
     auto serializeTo = entry->allocateWritable(printed.rawLength(),
                                                1 /* alignment */);
     
@@ -514,12 +587,18 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
         // We compress each one individually using zstandard or not
         // at all if we want to mmap.
         archive_op(archive_write_zip_set_compression_store);
+        archive_op(archive_write_set_bytes_per_block, 65536);
         archive_op(archive_write_open, this,
                    &BaseItl::openCallback,
                    &BaseItl::writeCallback,
                    &BaseItl::closeCallback);
     }
 
+    ~BaseItl()
+    {
+        archive_op(archive_write_close);
+    }
+    
     // Perform a libarchive operation
     template<typename Fn, typename... Args>
     void archive_op(Fn&& op, Args&&... args)
@@ -565,6 +644,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
         entry.op(archive_entry_set_pathname, name.toUtf8String().rawData());
         entry.op(archive_entry_set_size, region.length());
         entry.op(archive_entry_set_filetype, AE_IFREG);
+        entry.op(archive_entry_set_perm, 0440);
 #if 0
         for (auto & a: attrs) {
             entry.op(archive_entry_xattr_add_entry, a.first.c_str(),
@@ -734,6 +814,314 @@ ZipStructuredSerializer::
 commit()
 {
     itl->commit();
+}
+
+
+/*****************************************************************************/
+/* STRUCTURED RECONSTITUTER                                                  */
+/*****************************************************************************/
+
+StructuredReconstituter::
+~StructuredReconstituter()
+{
+}
+
+FrozenMemoryRegion
+StructuredReconstituter::
+getRegionRecursive(const Path & name) const
+{
+    ExcAssert(!name.empty());
+    if (name.size() == 1)
+        return getRegion(name.head());
+    return getStructure(name.head())->getRegionRecursive(name.tail());
+}
+
+struct ReconstituteStreamHandler: std::streambuf {
+    ReconstituteStreamHandler(const char * start, const char * end)
+        : start(const_cast<char *>(start)), end(const_cast<char *>(end))
+    {
+        setg(this->start, this->start, this->end);
+    }
+
+    ReconstituteStreamHandler(const char * buf, size_t length)
+        : ReconstituteStreamHandler(buf, buf + length)
+    {
+    }
+
+    ReconstituteStreamHandler(FrozenMemoryRegion region)
+        : ReconstituteStreamHandler(region.data(), region.length())
+    {
+        this->region = std::move(region);
+    }
+    
+    virtual pos_type
+    seekoff(off_type off, std::ios_base::seekdir dir,
+            std::ios_base::openmode which) override
+    {
+        switch (dir) {
+        case std::ios_base::cur:
+            gbump(off);
+            break;
+        case std::ios_base::end:
+            setg(start, end + off, end);
+            break;
+        case std::ios_base::beg:
+            setg(start, start+off, end);
+            break;
+        default:
+            throw Exception("Streambuf invalid seakoff dir");
+        }
+        
+        return gptr() - eback();
+    }
+    
+    virtual pos_type
+    seekpos(streampos pos, std::ios_base::openmode mode) override
+    {
+        return seekoff(pos - pos_type(off_type(0)), std::ios_base::beg, mode);
+    }
+
+    // NOTE: these are non-const due to the somewhat archaic streambuf
+    // interface
+    /*const*/ char * start;
+    /*const*/ char * end;
+    FrozenMemoryRegion region;
+};
+
+filter_istream
+StructuredReconstituter::
+getStream(const PathElement & name) const
+{
+    auto handler
+        = std::make_shared<ReconstituteStreamHandler>(getRegion(name));
+    
+    filter_istream result;
+    result.openFromStreambuf(handler.get(),
+                             std::move(handler),
+                             name.toUtf8String().stealRawString());
+                             
+    return result;
+}
+
+filter_istream
+StructuredReconstituter::
+getStreamRecursive(const Path & name) const
+{
+    ExcAssert(!name.empty());
+    if (name.size() == 1)
+        return getStream(name.head());
+    return getStructure(name.head())->getStreamRecursive(name.tail());
+}
+    
+std::shared_ptr<StructuredReconstituter>
+StructuredReconstituter::
+getStructureRecursive(const Path & name) const
+{
+    std::shared_ptr<StructuredReconstituter> result;
+    const StructuredReconstituter * current = this;
+    
+    for (auto el: name) {
+        result = current->getStructure(el);
+        current = result.get();
+    }
+
+    return result;
+}
+
+void
+StructuredReconstituter::
+getObjectHelper(const PathElement & name, void * obj,
+                const std::shared_ptr<const ValueDescription> & desc) const
+{
+    auto entry = getRegion(name);
+    Utf8StringJsonParsingContext context
+        (entry.data(), entry.length(), "getObjectHelper");
+    desc->parseJson(obj, context);
+}
+
+
+/*****************************************************************************/
+/* ZIP STRUCTURED RECONSTITUTER                                              */
+/*****************************************************************************/
+
+struct ZipStructuredReconstituter::Itl {
+
+    // Zip file entry
+    struct Entry {
+        Path path;
+        std::map<PathElement, Entry> children;
+        FrozenMemoryRegion region;
+    };
+
+    const Entry * root = nullptr;
+    Entry rootStorage;
+
+    Itl(const Entry * root)
+        : root(root)
+    {
+    }
+    
+    Itl(FrozenMemoryRegion region_)
+        : region(std::move(region_))
+    {
+        Timer timer;
+        
+        a.reset(archive_read_new(),
+                [] (struct archive * a) { archive_read_free(a); });
+        if (!a.get()) {
+            throw HttpReturnException
+                (500, "Couldn't create archive object");
+        }
+        archive_op(archive_read_support_format_zip);
+        archive_op(archive_read_open_memory, (void *)region.data(),
+                   region.length());
+        
+        // Read the archive header
+        archive_entry * entry = nullptr;
+        
+        // Read the entire zip file directory, and index where the files are
+        while (archive_op(archive_read_next_header, &entry)) {
+            const void * currentBlock;
+            size_t length;
+            __LA_INT64_T currentOffset;
+            archive_read_data_block
+                (a.get(), &currentBlock, &length, &currentOffset);
+            ssize_t offset = (const char *)currentBlock - region.data();
+            if (offset >= 0 && offset <= region.length()) {
+                //cerr << "calculated offset = " << offset << endl;
+            }
+            else if (length == 0) {
+                offset = 0;
+            }
+            else {
+                // TODO: take decompressed data, or find something else to do
+                cerr << "length = " << length << endl;
+                cerr << "calculated offset = " << offset << endl;
+                ExcAssert(false);
+            }
+
+            Path path = Path::parse(archive_entry_pathname(entry));
+
+            // Insert into index
+            Entry * current = &rootStorage;
+            
+            for (auto e: path) {
+                current = &current->children[e];
+            }
+            
+            current->path = std::move(path);
+            current->region = this->region.range(offset, offset + length);
+        }
+
+        this->root = &rootStorage;
+
+        cerr << "reading Zip entries took " << timer.elapsed() << endl;
+    }
+
+    // Perform a libarchive operation
+    template<typename Fn, typename... Args>
+    bool archive_op(Fn&& op, Args&&... args)
+    {
+        int res = op(a.get(), std::forward<Args>(args)...);
+        if (res == ARCHIVE_EOF)
+            return false;
+        if (res != ARCHIVE_OK) {
+            throw HttpReturnException
+                (500, string("Error reading zip file: ")
+                 + archive_error_string(a.get()));
+        }
+        return true;
+    }
+    
+    FrozenMemoryRegion region;
+    ssize_t currentOffset = 0;
+    std::shared_ptr<struct archive> a;
+};
+
+ZipStructuredReconstituter::
+ZipStructuredReconstituter(const Url & path)
+    : itl(new Itl(mapFile(path)))
+{
+}
+
+ZipStructuredReconstituter::
+ZipStructuredReconstituter(FrozenMemoryRegion buf)
+    : itl(new Itl(std::move(buf)))
+{
+}
+
+ZipStructuredReconstituter::
+ZipStructuredReconstituter(Itl * itl)
+    : itl(itl)
+{
+}
+
+ZipStructuredReconstituter::
+~ZipStructuredReconstituter()
+{
+}
+    
+Utf8String
+ZipStructuredReconstituter::
+getContext() const
+{
+    return "zip://<some file>/" + itl->root->path.toUtf8String();
+}
+
+std::vector<StructuredReconstituter::Entry>
+ZipStructuredReconstituter::
+getDirectory() const
+{
+    std::vector<StructuredReconstituter::Entry> result;
+    result.reserve(itl->root->children.size());
+    
+    for (auto & ch: itl->root->children) {
+        StructuredReconstituter::Entry entry;
+        entry.name = ch.first;
+
+        if (ch.second.region.data()) {
+            FrozenMemoryRegion region = ch.second.region;
+            entry.getBlock = [=] () { return region; };
+        }
+
+        if (!ch.second.children.empty()) {
+            entry.getStructure = [=] ()
+                {
+                    return std::shared_ptr<ZipStructuredReconstituter>
+                        (new ZipStructuredReconstituter(new Itl(&ch.second)));
+                };
+        }
+
+        result.emplace_back(std::move(entry));
+    }
+
+    return result;
+}
+
+std::shared_ptr<StructuredReconstituter>
+ZipStructuredReconstituter::
+getStructure(const PathElement & name) const
+{
+    auto it = itl->root->children.find(name);
+    if (it == itl->root->children.end()) {
+        throw HttpReturnException
+            (400, "Child structure " + name.toUtf8String() + " not found at "
+             + itl->root->path.toUtf8String());
+    }
+    return std::shared_ptr<ZipStructuredReconstituter>
+        (new ZipStructuredReconstituter(new Itl(&it->second)));
+}
+
+FrozenMemoryRegion
+ZipStructuredReconstituter::
+getRegion(const PathElement & name) const
+{
+    auto it = itl->root->children.find(name);
+    if (it == itl->root->children.end()) {
+        throw HttpReturnException
+            (400, "Child structure " + name.toUtf8String() + " not found");
+    }
+    return it->second.region;
 }
 
 } // namespace MLDB

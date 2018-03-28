@@ -234,7 +234,7 @@ struct DirectFrozenColumnFormat: public FrozenColumnFormat {
     }
 
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const override
+    reconstitute(StructuredReconstituter & reconstituter) const override
     {
         throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
@@ -472,7 +472,7 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
     }
 
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const override
+    reconstitute(StructuredReconstituter & reconstituter) const override
     {
         throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
@@ -755,7 +755,7 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
     }
 
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const override
+    reconstitute(StructuredReconstituter & reconstituter) const override
     {
         throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
@@ -1089,7 +1089,7 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
     }
 
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const override
+    reconstitute(StructuredReconstituter & reconstituter) const override
     {
         throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
@@ -1336,7 +1336,7 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
     }
 
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const override
+    reconstitute(StructuredReconstituter & reconstituter) const override
     {
         throw HttpReturnException(600, "Tabular reconstitution not finished");
     }
@@ -1501,7 +1501,7 @@ struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
     }
 
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const override
+    reconstitute(StructuredReconstituter & reconstituter) const override
     {
         throw HttpReturnException(600, "Tabular reconstitution not finished");
     }

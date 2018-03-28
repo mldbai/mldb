@@ -146,7 +146,7 @@ struct FrozenColumnFormat {
     
     /** Reconstitute a mapped version of the given frozen column. */
     virtual FrozenColumn *
-    reconstitute(MappedReconstituter & reconstituter) const = 0;
+    reconstitute(StructuredReconstituter & reconstituter) const = 0;
     
     /** Register a new column format.  Returns a handle that, once released,
         will de-register the column format.

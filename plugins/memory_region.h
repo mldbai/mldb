@@ -15,10 +15,12 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/path.h"
+#include "mldb/types/url.h"
 
 namespace MLDB {
 
 struct filter_ostream;
+struct filter_istream;
 struct MappedSerializer;
 struct StructuredSerializer;
 
@@ -77,6 +79,11 @@ struct FrozenMemoryRegion {
         return length();
     }
 
+    /** Return another frozen memory region that points to a subset
+        range of the current one.
+    */
+    FrozenMemoryRegion range(size_t start, size_t end) const;
+    
 #if 0
     /** Re-serialize the block to the other serializer. */
     void reserialize(MappedSerializer & serializer) const;
@@ -93,7 +100,7 @@ private:
 };
 
 /*****************************************************************************/
-/* FROZEN MEMORY REGION                                                      */
+/* FROZEN MEMORY REGION TYPED                                                */
 /*****************************************************************************/
 
 template<typename T>
@@ -158,6 +165,11 @@ private:
     size_t length_;
     FrozenMemoryRegion raw_;
 };
+
+
+FrozenMemoryRegion
+mapFile(const Url & filename, size_t startOffset = 0,
+        ssize_t length = -1);
 
 
 /*****************************************************************************/
@@ -271,6 +283,17 @@ struct MappedSerializer {
     virtual FrozenMemoryRegion
     freeze(MutableMemoryRegion & region) = 0;
 
+    /** Copy the given memory region into the current serializer.  In certain
+        circumstances (between two files or two memory buffers aligned on
+        page boundaries), this can be very efficient as the filsystem or
+        virtual memory subsystem can do part of the work.
+
+        Default implementation simply creates a new region, copies the
+        memory, and writes it back.
+    */
+    virtual FrozenMemoryRegion
+    copy(const FrozenMemoryRegion & region);
+    
     /** Return a stream, that can be used to write an (unknown) number of
         bytes to the serializer.
 
@@ -350,9 +373,10 @@ struct StructuredSerializer {
     virtual filter_ostream
     newStream(const PathElement & name) = 0;
 
-    virtual void addRegion(const FrozenMemoryRegion & region,
-                           const PathElement & name);
-
+    virtual void
+    addRegion(const FrozenMemoryRegion & region,
+              const PathElement & name);
+    
     //virtual void addValue(const PathElement & name);
 
     template<typename T>
@@ -405,13 +429,123 @@ private:
 
 
 /*****************************************************************************/
-/* MAPPED RECONSTITUTER                                                      */
+/* STRUCTURED RECONSTITUTER                                                  */
 /*****************************************************************************/
 
-struct MappedReconstituter {
-    virtual ~MappedReconstituter();
+struct StructuredReconstituter {
+    virtual ~StructuredReconstituter();
+
+    struct Entry {
+        PathElement name;
+        std::function<FrozenMemoryRegion ()> getBlock;
+        std::function<std::shared_ptr<StructuredReconstituter> ()> getStructure;
+    };
+
+    virtual std::vector<Entry> getDirectory() const = 0;
+
+    virtual Utf8String getContext() const = 0;
+    
+    virtual filter_istream
+    getStream(const PathElement & name) const;
+
+    virtual filter_istream
+    getStreamRecursive(const Path & name) const;
+    
+    virtual std::shared_ptr<StructuredReconstituter>
+    getStructure(const PathElement & name) const = 0;
+
+    virtual std::shared_ptr<StructuredReconstituter>
+    getStructureRecursive(const Path & name) const;
+
+    template<typename T>
+    void getObject(const PathElement & name, T & obj,
+                   std::shared_ptr<const ValueDescription> desc
+                   = getDefaultDescriptionSharedT<T>()) const
+    {
+        this->getObjectHelper(name, &obj, desc);
+    }
+
+    virtual FrozenMemoryRegion
+    getRegion(const PathElement & name) const = 0;
+
+    virtual FrozenMemoryRegion
+    getRegionRecursive(const Path & name) const;
+
+    template<typename T>
+    FrozenMemoryRegionT<T>
+    getRegionT(const PathElement & name) const
+    {
+        return getRegion(name);
+    }
+
+    template<typename T>
+    FrozenMemoryRegionT<T>
+    getRegionRecursiveT(const Path & name) const
+    {
+        return getRegionRecursive(name);
+    }
+
+private:
+    void
+    getObjectHelper(const PathElement & name, void * obj,
+                    const std::shared_ptr<const ValueDescription> & desc) const;
 };
 
+
+/*****************************************************************************/
+/* FILESYSTEM STRUCTURED RECONSTITUTER                                       */
+/*****************************************************************************/
+
+struct FilesystemStructuredReconstituter: public StructuredReconstituter {
+
+    FilesystemStructuredReconstituter(const Utf8String & path);
+
+    virtual ~FilesystemStructuredReconstituter();
+    
+    virtual Utf8String getContext() const;
+    
+    virtual std::vector<Entry> getDirectory() const;
+
+    virtual std::shared_ptr<StructuredReconstituter>
+    getStructure(const PathElement & name) const;
+
+    virtual FrozenMemoryRegion
+    getRegion(const PathElement & name) const;
+
+private:
+    struct Itl;
+    std::unique_ptr<Itl> itl;
+};
+
+
+/*****************************************************************************/
+/* ZIP STRUCTURED RECONSTITUTER                                              */
+/*****************************************************************************/
+
+struct ZipStructuredReconstituter: public StructuredReconstituter {
+
+    ZipStructuredReconstituter(const Url & path);
+
+    ZipStructuredReconstituter(FrozenMemoryRegion buf);
+    
+    virtual ~ZipStructuredReconstituter();
+    
+    virtual Utf8String getContext() const;
+    
+    virtual std::vector<Entry> getDirectory() const;
+
+    virtual std::shared_ptr<StructuredReconstituter>
+    getStructure(const PathElement & name) const;
+
+    virtual FrozenMemoryRegion
+    getRegion(const PathElement & name) const;
+
+private:
+    struct Itl;
+    std::unique_ptr<Itl> itl;
+
+    ZipStructuredReconstituter(Itl * itl);
+};
 
 
 } // namespace MLDB
