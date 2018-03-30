@@ -53,7 +53,7 @@ doRequest(LegacyEventLoop & legacyLoop,
 
     HttpClient client(legacyLoop, baseUrl, 4);
 
-    int done(false);
+    std::atomic<int> done(false);
     auto onResponse = [&] (const HttpRequest & rq,
                            HttpClientError error,
                            int status,
@@ -113,7 +113,7 @@ doUploadRequest(LegacyEventLoop & loop,
 
     HttpClient client(loop, baseUrl, 4);
 
-    int done(false);
+    std::atomic<int> done(false);
     auto onResponse = [&] (const HttpRequest & rq,
                            HttpClientError error,
                            int status,
@@ -344,7 +344,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
 
     HttpClient client(legacyLoop, baseUrl);
     size_t maxRequests(500);
-    int done(0);
+    std::atomic<int> done(0);
 
     auto makeBody = [&] (size_t i) {
         int multiplier = (i < maxRequests / 2) ? -2 : 2;
@@ -414,7 +414,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 
         HttpClient client(legacyLoop, baseUrl, numParallel);
         int maxReqs(30000), numReqs(0), missedReqs(0);
-        int numResponses(0);
+        std::atomic<int> numResponses(0);
 
         auto onDone = [&] (const HttpRequest & rq,
                            HttpClientError errorCode, int status,
@@ -479,7 +479,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     legacyLoop.start();
 
     auto doGet = [&] (HttpClient & getClient) {
-        int done(false);
+        std::atomic<int> done(false);
 
         auto onDone = [&] (const HttpRequest & rq,
                            HttpClientError errorCode, int status,
@@ -535,7 +535,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
     HttpClient client(legacyLoop, baseUrl, 4, 0);
 
     atomic<int> pending(0);
-    int done(0);
+    std::atomic<int> done(0);
 
     function<void(int)> doGet = [&] (int level) {
         pending++;
@@ -583,7 +583,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_timeout )
     HttpClient client(legacyLoop, baseUrl, 1);
     client.enableDebug(true);
 
-    int done(0);
+    std::atomic<int> done(0);
     auto onDone = [&] (const HttpRequest & rq,
                        HttpClientError errorCode, int status,
                        string && headers, string && body) {
@@ -622,7 +622,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
     {
         cerr << "* connection-close\n";
         HttpClient client(legacyLoop, baseUrl, 1);
-        int done(0);
+        std::atomic<int> done(0);
         auto onDone = [&] (const HttpRequest & rq,
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
@@ -670,7 +670,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
     {
         cerr << "* no response at all\n";
         HttpClient client(legacyLoop, baseUrl, 1);
-        int done(0);
+        std::atomic<int> done(0);
         auto onDone = [&] (const HttpRequest & rq,
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {

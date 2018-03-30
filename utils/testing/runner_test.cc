@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
                       "helper: exit with code 0\n");
     expectedStdErr = "hello stderr\n";
 
-    int done = false;
+    std::atomic<int> done(false);
     auto onTerminate = [&] (const RunResult & result) {
         done = true;
         ML::futex_wake(done);

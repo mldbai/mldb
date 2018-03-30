@@ -48,8 +48,8 @@ struct RingBufferBase {
 
     std::vector<Request> ring;
     int bufferSize;
-    int readPosition;
-    int writePosition;
+    std::atomic<int> readPosition;
+    std::atomic<int> writePosition;
 
     void init(size_t numEntries)
     {

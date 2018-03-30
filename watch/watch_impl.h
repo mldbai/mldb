@@ -246,7 +246,7 @@ struct UnknownTypeWatchData: public WatchData {
     std::list<Maybe> saved;
 
     /// Number of saved events.  Used as a futex.
-    volatile int numSaved;
+    std::atomic<int> numSaved;
 
     /// Function that gets the triggers
     std::function<void (const Any &)> boundFn;
@@ -372,7 +372,7 @@ struct WatchDataT: public WatchData {
     std::list<Maybe> saved;
 
     /// Number of saved events.  Used as a futex.
-    volatile int numSaved;
+    std::atomic<int> numSaved;
 
     /// Function that does the watching
     std::function<void (const T &...)> boundFn;

@@ -193,7 +193,7 @@ struct TestPeer: public ServicePeer {
 
     int pulseValue;
     std::unique_ptr<std::thread> pulseThread;
-    int shutdown_;
+    std::atomic<int> shutdown_;
 
     RestCollection<string, string> valueCollection;
 

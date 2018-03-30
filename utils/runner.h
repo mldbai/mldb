@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* runner.h                                                        -*- C++ -*-
    Wolfgang Sourdeau, September 2013
    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A command runner class that hides the specifics of the underlying unix
    system calls and can intercept input and output.
@@ -234,8 +233,8 @@ private:
     void attemptTaskTermination();
 
     int runRequests_;
-    int activeRequest_;
-    int32_t running_;
+    std::atomic<int> activeRequest_;
+    std::atomic<int32_t> running_;
 
     Date startDate_;
     Date endDate_;
@@ -244,8 +243,10 @@ private:
         -1 means the child has not launched yet
         -2 means there was a launch error
         -3 means the child has exited
+
+        Used as a futex, so it's atomic
     */
-    pid_t childPid_;
+    std::atomic<pid_t> childPid_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
     int childStdinFd_;

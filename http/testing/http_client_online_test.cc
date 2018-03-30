@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_chunked_encoding )
     LegacyEventLoop loop;
     loop.start();
 
-    int done(false);
+    std::atomic<int> done(false);
     HttpClientError error;
     int status;
     string body;

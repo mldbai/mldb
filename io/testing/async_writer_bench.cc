@@ -140,7 +140,7 @@ void doBench(const string & label,
     writerLoop.start();
     Date lastWrite;
     Date lastWriteResult;
-    int numWriteResults(0);
+    std::atomic<int> numWriteResults(0);
     int numWritten(0);
     int numMissed(0);
     auto onWriteResult = [&] (AsyncWriteResult result) {

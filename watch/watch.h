@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/types/value_description_fwd.h"
-//#include "mldb/types/tuple_description.h"
+#include <atomic>
 #include <math.h>
 #include <mutex>
 #include <thread>

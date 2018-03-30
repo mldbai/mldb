@@ -781,18 +781,10 @@ deferBarrier()
         // TODO: this is a very inefficient implementation... we could do a lot
         // better especially in the non-contended case
         
-        union {
-            std::atomic<int> a;
-            int i;
-        } lock;
-        
-        lock.i = 0;
-
-        defer(futex_unlock, &lock.i);
-        
-        lock.a -= 1;
-        
-        futex_wait(lock.i, -1);
+        std::atomic<int> lock(0);
+        defer(futex_unlock, &lock);
+        --lock;
+        futex_wait(lock, -1);
     }
 
     // If certain threads aren't allowed to execute deferred work

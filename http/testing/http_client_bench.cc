@@ -44,7 +44,7 @@ AsyncModelBench(HttpMethod method,
                 const string & baseUrl, const string & payload,
                 int maxReqs, int concurrency)
 {
-    int numReqs, numResponses(0), numMissed(0);
+    std::atomic<int> numReqs, numResponses(0), numMissed(0);
     LegacyEventLoop loop;
     loop.start();
 

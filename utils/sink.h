@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* sink.h                                                          -*- C++ -*-
    Wolfgang Sourdeau, September 2013
    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A sink mechanism for writing to input or output "pipes".
  */
@@ -12,6 +11,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <atomic>
 
 #include "mldb/io/async_event_source.h"
 #include "mldb/io/async_writer_source.h"
@@ -58,7 +58,7 @@ struct OutputSink {
 
     void waitState(int expectedState);
 
-    int state;
+    std::atomic<int> state;
 
     void doClose();
 

@@ -1,19 +1,17 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* async_event_source.h                                            -*- C++ -*-
    Jeremy Barnes, 9 November 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Source of asynchronous events; a bit like a reactor.
 */
 
-#ifndef __service__async_event_source_h__
-#define __service__async_event_source_h__
-
+#pragma once
 
 #include <functional>
 #include "mldb/arch/exception.h"
 #include <thread>
+#include <atomic>
 
 namespace MLDB {
 
@@ -33,7 +31,7 @@ struct AsyncEventSource {
     }
 
     AsyncEventSource(AsyncEventSource && other)
-        : needsPoll(other.needsPoll), debug_(other.debug_), parent_(nullptr), connectionState_(other.connectionState_)
+        : needsPoll(other.needsPoll), debug_(other.debug_), parent_(nullptr), connectionState_(other.connectionState_.load())
     {
         if (other.parent_ != nullptr) {
             fprintf(stderr,
@@ -131,7 +129,7 @@ struct AsyncEventSource {
     MessageLoop * parent_;
 
     /** The connection state to the message loop. */
-    int connectionState_;
+    std::atomic<int> connectionState_;
 };
 
 
@@ -200,6 +198,3 @@ private:
 #endif
 
 } // namespace MLDB
-
-
-#endif /* __service__async_event_source_h__ */

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* message_loop.h                                                  -*- C++ -*-
    Jeremy Barnes, 31 May 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Base class for loop that listens for various types of messages.
 */
@@ -93,7 +92,7 @@ struct MessageLoop : public Epoller {
                      std::function<void (uint64_t)> toRun,
                      int priority = 0);
     
-    typedef std::function<void (volatile int & shutdown_,
+    typedef std::function<void (std::atomic<int> & shutdown_,
                                 int64_t threadId)> SubordinateThreadFn;
 
     /** Start a subordinate thread that runs the given function,
@@ -198,7 +197,7 @@ private:
     std::vector<std::thread> threads;
     
     /** Global flag to shutdown. */
-    volatile int shutdown_;
+    std::atomic<int> shutdown_;
 
     /** Do we debug? */
     bool debug_;

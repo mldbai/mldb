@@ -31,9 +31,8 @@ template<typename T>
 void
 test_futex()
 {
-    T value;
+    T value(0);
     // To avoid LLVM 3.4 ICE
-    value = 0;
 
     std::function<void ()> wakerFn = [&] () {
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
@@ -63,20 +62,6 @@ test_futex_timeout()
     ML::futex_wait(value, 0, 2.0);
     time_t now = ::time(nullptr);
     BOOST_CHECK(now >= (start + 1));
-}
-
-// use the above helpers for "int"
-BOOST_AUTO_TEST_CASE( test_futex_int )
-{
-    test_futex<int>();
-    test_futex_timeout<int>();
-}
-
-// use the above helpers for "volatile int"
-BOOST_AUTO_TEST_CASE( test_futex_volatile_int )
-{
-    test_futex<volatile int>();
-    test_futex_timeout<volatile int>();
 }
 
 // use the above helpers for "atomic<int>"
