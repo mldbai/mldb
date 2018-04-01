@@ -7,7 +7,7 @@
    Copy a large object from on S3 location to another.
 */
 
-#include "mldb/soa/service/s3.h"
+#include "mldb/vfs_handlers/aws/s3.h"
 #include "mldb/vfs/filter_streams.h"
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>

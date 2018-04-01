@@ -17,7 +17,6 @@
 #include <boost/make_shared.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 
-#include "soa/service/s3.h"
 #include "mldb/utils/testing/benchmarks.h"
 
 #include "mldb/plugins/behavior/behavior_manager.h"
@@ -109,18 +108,12 @@ inline void increaseLimit(int & limit)
 int
 main(int argc, char ** argv)
 {
-    string s3Bucket;
     string s3CacheDir("/mnt/s3cache");
-    string s3KeyId;
-    string s3Key;
     vector<string> inputFiles;
     int upperLimit(0);
 
     po::options_description all_opt;
     all_opt.add_options()
-        ("s3-key-id,I", po::value<string>(&s3KeyId), "S3 access id")
-        ("s3-key,K", po::value<string>(&s3Key), "S3 access id key")
-        ("s3-bucket,B", po::value<string>(&s3Bucket), "S3 bucket")
         ("s3-cache-directory,C", po::value<string>(&s3CacheDir), "S3 cache directory")
         ("input-file,i", po::value(&inputFiles),
          "File to read")
@@ -145,13 +138,6 @@ main(int argc, char ** argv)
     }
 
     BehaviorManager behManager;
-
-    if (!s3KeyId.empty()) {
-        if (s3Bucket.empty())
-            registerS3Buckets(s3KeyId, s3Key);
-        else
-            registerS3Bucket(s3Bucket, s3KeyId, s3Key);
-    }
 
     if (!s3CacheDir.empty()) {
         behManager.setS3CacheDir(s3CacheDir);

@@ -28,22 +28,4 @@ LIBSERVICES_LINK := opstats
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 
 
-# AWS
-
-LIBAWS_SOURCES := \
-	xml_helpers.cc \
-	s3.cc \
-	sns.cc \
-	aws.cc \
-	sqs.cc \
-
-#	hdfs.cc
-
-LIBAWS_LINK := credentials hash crypto++ tinyxml2
-
-
-$(eval $(call library,aws,$(LIBAWS_SOURCES),$(LIBAWS_LINK)))
-
-$(eval $(call program,sns_send,aws boost_program_options utils))
-
 $(eval $(call include_sub_make,service_testing,testing,service_testing.mk))

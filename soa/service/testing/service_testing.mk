@@ -2,6 +2,3 @@
 
 $(eval $(call test,statsd_connector_test,opstats,boost  manual))
 
-$(eval $(call test,aws_test,aws,boost))
-$(eval $(call test,sns_mock_test,aws services,boost))
-

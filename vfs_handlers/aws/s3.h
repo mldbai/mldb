@@ -15,7 +15,7 @@
 #include <vector>
 #include <map>
 #include "mldb/ext/tinyxml2/tinyxml2.h"
-#include "mldb/soa/service/aws.h"
+#include "mldb/vfs_handlers/aws/aws.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/http/http_header.h"

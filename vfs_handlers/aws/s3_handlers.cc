@@ -20,7 +20,7 @@
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs_handlers/exception_ptr.h"
-#include "mldb/soa/service/s3.h"
+#include "mldb/vfs_handlers/aws/s3.h"
 
 using namespace std;
 using namespace MLDB;

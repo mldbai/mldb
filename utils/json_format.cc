@@ -13,7 +13,6 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/soa/service/s3.h"
 #include "mldb/types/value_description.h"
 #include "command_expression.h"
 
@@ -30,8 +29,6 @@ int main(int argc, char ** argv)
     std::string expression;
     std::vector<std::string> inputFiles;
     std::string outputFile;
-    string s3KeyId;
-    string s3Key;
     bool outputJson = false;
 
     configuration_options.add_options()
@@ -41,8 +38,6 @@ int main(int argc, char ** argv)
          "File to load (can be multiple)")
         ("output-file,o", value(&outputFile),
          "File to write")
-        ("s3-key-id,I", value(&s3KeyId), "S3 key id")
-        ("s3-key,K", value(&s3Key), "S3 key")
         ("output-json", value(&outputJson)->default_value(outputJson),
          "Output JSON instead of a string");
     
@@ -76,19 +71,6 @@ int main(int argc, char ** argv)
         //Display the options_description
         cout << all_opt << "\n";
         return showHelp ? 0 : 1;
-    }
-
-    if (!s3KeyId.empty()) {
-        if(outputFile.substr(0, 5) == "s3://"){
-            size_t pos = outputFile.substr(5).find("/");
-            registerS3Bucket(outputFile.substr(5, pos), s3KeyId, s3Key);
-        }
-        for (auto f: inputFiles){
-            if(f.substr(0, 5) == "s3://"){
-                size_t pos = f.substr(5).find("/");
-                registerS3Bucket(f.substr(5, pos), s3KeyId, s3Key);
-            }
-        }
     }
 
     if (inputFiles.empty()) {

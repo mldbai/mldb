@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** s3.cc
     Jeremy Barnes, 3 July 2012
     Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Code to talk to s3.
 */
@@ -19,11 +18,11 @@
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/utils/testing/print_utils.h"
-#include "mldb/soa/service/xml_helpers.h"
+#include "mldb/vfs_handlers/aws/xml_helpers.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/fs_utils.h"
 
-#include "mldb/soa/service/s3.h"
+#include "mldb/vfs_handlers/aws/s3.h"
 
 
 using namespace std;

@@ -7,7 +7,7 @@
     Send an SNS message.
 */
 
-#include "mldb/soa/service/sns.h"
+#include "mldb/vfs_handlers/aws/sns.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/exception.h"
 #include <boost/program_options/cmdline.hpp>

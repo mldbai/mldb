@@ -14,8 +14,8 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/exception.h"
-#include "mldb/soa/service/aws.h"
-#include "mldb/soa/service/s3.h"
+#include "mldb/vfs_handlers/aws/aws.h"
+#include "mldb/vfs_handlers/aws/s3.h"
 #include "mldb/utils/testing/print_utils.h"
 #include "mldb/vfs/filter_streams.h"
 

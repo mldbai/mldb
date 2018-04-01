@@ -4,7 +4,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
-#include "mldb/soa/service/sns.h"
+#include "mldb/vfs_handlers/aws/sns.h"
 #include "mldb/arch/exception.h"
 
 using namespace std;
