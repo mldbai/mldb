@@ -61,12 +61,12 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	behavior_dataset.cc \
 	binary_behavior_dataset.cc \
 	sql_csv_scope.cc \
-	memory_region.cc
+
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,python_plugin_loader.cc,-I$(PYTHON_INCLUDE_PATH)))
 
-$(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),datacratic_sqlite ml mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins tsne svm libstemmer edlib algebra svdlibc uap behavior))
+$(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),datacratic_sqlite ml mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins tsne svm libstemmer edlib algebra svdlibc uap behavior block))
 $(eval $(call library_forward_dependency,mldb_builtin_plugins,mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins))
 
 $(eval $(call include_sub_make,lang))

@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "memory_region.h"
+#include "mldb/block/memory_region.h"
 #include "column_types.h"
 #include "mldb/plugins/tabular_dataset.h"
 
@@ -31,7 +31,7 @@ struct ColumnFreezeParameters {
 /*****************************************************************************/
 
 /// Base class for a frozen column
-struct FrozenColumn: public MappedObject {
+struct FrozenColumn {
     FrozenColumn();
 
     virtual ~FrozenColumn()

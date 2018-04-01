@@ -24,28 +24,6 @@ struct filter_istream;
 struct MappedSerializer;
 struct StructuredSerializer;
 
-/*****************************************************************************/
-/* MAPPED DEVICE                                                             */
-/*****************************************************************************/
-
-/** Represents a single device onto which data structures can be mapped. */
-
-struct MappedDevice {
-};
-
-
-/*****************************************************************************/
-/* MAPPED OBJECT                                                             */
-/*****************************************************************************/
-
-struct MappedObject {
-
-    virtual ~MappedObject()
-    {
-    }
-
-};
-
 
 /*****************************************************************************/
 /* FROZEN MEMORY REGION                                                      */
@@ -98,6 +76,7 @@ private:
     size_t length_ = 0;
     std::shared_ptr<void> handle_;
 };
+
 
 /*****************************************************************************/
 /* FROZEN MEMORY REGION TYPED                                                */
@@ -327,32 +306,6 @@ struct MemorySerializer: public MappedSerializer {
                      size_t alignment);
 };
 
-/*****************************************************************************/
-/* FILE SERIALIZER                                                           */
-/*****************************************************************************/
-
-/** Mapped serializer that allocates things from a file that is then memory
-    mapped.  This allows for unused data to be paged out.
-*/
-
-struct FileSerializer: public MappedSerializer {
-    FileSerializer(Utf8String filename);
-
-    virtual ~FileSerializer();
-
-    virtual void commit();
-
-    virtual MutableMemoryRegion
-    allocateWritable(uint64_t bytesRequired,
-                     size_t alignment);
-
-    virtual FrozenMemoryRegion freeze(MutableMemoryRegion & region);
-
-private:
-    struct Itl;
-    std::unique_ptr<Itl> itl;
-};
-
 
 /*****************************************************************************/
 /* STRUCTURED SERIALIZER                                                     */
@@ -393,38 +346,6 @@ struct StructuredSerializer {
                            const ValueDescription & desc);
 
     virtual void commit() = 0;
-};
-
-
-/*****************************************************************************/
-/* ZIP STRUCTURED SERIALIZER                                                 */
-/*****************************************************************************/
-
-/** Structured serializer that writes a zip file. */
-
-struct ZipStructuredSerializer: public StructuredSerializer {
-    ZipStructuredSerializer(Utf8String filename);
-    ~ZipStructuredSerializer();
-
-    virtual std::shared_ptr<StructuredSerializer>
-    newStructure(const PathElement & name);
-
-    virtual std::shared_ptr<MappedSerializer>
-    newEntry(const PathElement & name);
-
-    virtual filter_ostream
-    newStream(const PathElement & name);
-
-    virtual void commit();
-
-    ZipStructuredSerializer(ZipStructuredSerializer * parent,
-                            PathElement relativePath);
-private:
-    struct Itl;
-    struct BaseItl;
-    struct RelativeItl;
-    struct EntrySerializer;
-    std::unique_ptr<Itl> itl;
 };
 
 
@@ -490,62 +411,5 @@ private:
     getObjectHelper(const PathElement & name, void * obj,
                     const std::shared_ptr<const ValueDescription> & desc) const;
 };
-
-
-/*****************************************************************************/
-/* FILESYSTEM STRUCTURED RECONSTITUTER                                       */
-/*****************************************************************************/
-
-struct FilesystemStructuredReconstituter: public StructuredReconstituter {
-
-    FilesystemStructuredReconstituter(const Utf8String & path);
-
-    virtual ~FilesystemStructuredReconstituter();
-    
-    virtual Utf8String getContext() const;
-    
-    virtual std::vector<Entry> getDirectory() const;
-
-    virtual std::shared_ptr<StructuredReconstituter>
-    getStructure(const PathElement & name) const;
-
-    virtual FrozenMemoryRegion
-    getRegion(const PathElement & name) const;
-
-private:
-    struct Itl;
-    std::unique_ptr<Itl> itl;
-};
-
-
-/*****************************************************************************/
-/* ZIP STRUCTURED RECONSTITUTER                                              */
-/*****************************************************************************/
-
-struct ZipStructuredReconstituter: public StructuredReconstituter {
-
-    ZipStructuredReconstituter(const Url & path);
-
-    ZipStructuredReconstituter(FrozenMemoryRegion buf);
-    
-    virtual ~ZipStructuredReconstituter();
-    
-    virtual Utf8String getContext() const;
-    
-    virtual std::vector<Entry> getDirectory() const;
-
-    virtual std::shared_ptr<StructuredReconstituter>
-    getStructure(const PathElement & name) const;
-
-    virtual FrozenMemoryRegion
-    getRegion(const PathElement & name) const;
-
-private:
-    struct Itl;
-    std::unique_ptr<Itl> itl;
-
-    ZipStructuredReconstituter(Itl * itl);
-};
-
 
 } // namespace MLDB

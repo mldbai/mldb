@@ -33,6 +33,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/dataset_utils.h"
 #include "mldb/jml/db/persistent.h"
+#include "mldb/block/zip_serializer.h"
 #include <mutex>
 
 

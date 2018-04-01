@@ -31,7 +31,7 @@ struct ExpressionValue;
     each named, with a set of columns (either dense or sparse) attached.
 */
 
-struct TabularDatasetChunk: public MappedObject {
+struct TabularDatasetChunk {
 
     TabularDatasetChunk(size_t numColumns = 0)
         : columns(numColumns)
