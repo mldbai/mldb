@@ -72,21 +72,24 @@ struct S3Api : public AwsApi {
     /** Set up the API to called with the given credentials. */
     S3Api(const std::string & accessKeyId,
           const std::string & accessKey,
-          double bandwidthToServiceMbps = defaultBandwidthToServiceMbps,
-          const std::string & defaultProtocol = "http",
-          const std::string & serviceUri = "s3.amazonaws.com");
+          double bandwidthToServiceMbps,
+          const std::string & defaultProtocol,
+          const std::string & serviceUri,
+          const std::string & bucketUri);
 
     /** Set up the API to called with the given credentials. */
     void init(const std::string & accessKeyId,
               const std::string & accessKey,
-              double bandwidthToServiceMbps = defaultBandwidthToServiceMbps,
-              const std::string & defaultProtocol = "http",
-              const std::string & serviceUri = "s3.amazonaws.com");
+              double bandwidthToServiceMbps,
+              const std::string & defaultProtocol,
+              const std::string & serviceUri,
+              const std::string & bucketUri);
 
     std::string accessKeyId;
     std::string accessKey;
     std::string defaultProtocol;
     std::string serviceUri;
+    std::string bucketUri;
     double bandwidthToServiceMbps;
 
     struct Range {
@@ -136,7 +139,6 @@ struct S3Api : public AwsApi {
         std::unique_ptr<tinyxml2::XMLDocument> bodyXml() const;
         operator std::unique_ptr<tinyxml2::XMLDocument>() const;
         std::string bodyXmlStr() const;
-        std::string getHeader(const std::string & name) const;
 
         long code_;
         std::string body_;
@@ -182,13 +184,10 @@ struct S3Api : public AwsApi {
     /** Signed request that can be executed. */
     struct SignedRequest {
         RequestParams params;
-        std::string auth;
+        AwsApi::BasicRequest signedRequest;
         std::string resource;
         double bandwidthToServiceMbps;
     };
-
-    /** Calculate the signature for a given request. */
-    std::string signature(const RequestParams & request) const;
 
     /** Prepare a request to be executed. */
     std::shared_ptr<SignedRequest> prepare(const RequestParams
@@ -465,6 +464,15 @@ struct S3Api : public AwsApi {
     //easy handle for v8 wrapping
     void setDefaultBandwidthToServiceMbps(double mpbs);
 
+    /** Which service provides this S3 implementation?  Possible values
+        are "AWS" for Amazon, "PS" for PureStorage, "" for unknown, and
+        potentially (many) others.
+    */
+    std::string getProvider() const;
+
+    /** What is the provider for the given bucket? */
+    static std::string getProviderForBucket(const std::string & bucket);
+    
 private:
     ObjectInfo tryGetObjectInfoShort(const std::string & bucket,
                                      const std::string & object) const;
@@ -478,6 +486,13 @@ private:
     /// Static variable to hold the default redundancy to be used
     static Redundancy defaultRedundancy;
 
+    struct S3RequestState;
+    struct S3RequestCallbacks;
+    static void
+    performStateRequest(const std::shared_ptr<S3RequestState> & state);
+
+    std::pair<std::string, bool>
+    getHostnameForBucket(const std::string & bucketName) const;
 };
 
 /** S3 support for filter_ostream opens.  Register the bucket name here, and
@@ -487,9 +502,11 @@ private:
 void registerS3Bucket(const std::string & bucketName,
                       const std::string & accessKeyId,
                       const std::string & accessKey,
-                      double bandwidthToServiceMbps = S3Api::defaultBandwidthToServiceMbps,
-                      const std::string & protocol = "http",
-                      const std::string & serviceUri = "s3.amazonaws.com");
+                      double bandwidthToServiceMbps
+                          = S3Api::defaultBandwidthToServiceMbps,
+                      const std::string & protocol = "https",
+                      const std::string & serviceUri = "s3.amazonaws.com",
+                      const std::string & bucketUri = "");
 
 /** S3 support for filter_ostream opens.  Register the bucket name here, and
     you can open it directly from s3.  Queries and iterates over all
@@ -498,9 +515,11 @@ void registerS3Bucket(const std::string & bucketName,
 
 void registerS3Buckets(const std::string & accessKeyId,
                        const std::string & accessKey,
-                       double bandwidthToServiceMbps = S3Api::defaultBandwidthToServiceMbps,
-                       const std::string & protocol = "http",
-                       const std::string & serviceUri = "s3.amazonaws.com");
+                       double bandwidthToServiceMbps
+                           = S3Api::defaultBandwidthToServiceMbps,
+                       const std::string & protocol = "https",
+                       const std::string & serviceUri = "s3.amazonaws.com",
+                       const std::string & bucketUri = "");
 
 /** Returns an S3Api constructed to access the given URI.  Will look up its
     own credentials using registered credential providers, or one which was

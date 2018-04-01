@@ -44,46 +44,7 @@ struct AwsApi {
     static std::string base64EncodeDigest(const std::string & digest);
 
     static std::string hexEncodeDigest(const std::string & digest);
-
-    /** Get the digest string (the one that needs to be signed) from a set
-        of s3 parameters.  Directly implements the procedure in the
-        s3 documentation.
-
-        This variant can deal with multiple copies of each of the http
-        headers.
-    */
-    static std::string
-    getStringToSignV2Multi(const std::string & verb,
-                           const std::string & bucket,
-                           const std::string & resource,
-                           const std::string & subResource,
-                           const std::string & contentType,
-                           const std::string & contentMd5,
-                           const std::string & date,
-                           const std::vector<std::pair<std::string, std::string> > & headers);
     
-    /** Get the digest string (the one that needs to be signed) from a set
-        of s3 parameters.  Directly implements the procedure in the
-        s3 documentation.
-
-        This variant can only accept one of each kind of http header.
-    */
-    static std::string
-    getStringToSignV2(const std::string & verb,
-                      const std::string & bucket,
-                      const std::string & resource,
-                      const std::string & subResource,
-                      const std::string & contentType,
-                      const std::string & contentMd5,
-                      const std::string & date,
-                      const std::map<std::string, std::string> & headers);
-
-    /** Sign the given digest string with the given access key and return
-        a base64 encoded signature.
-    */
-    static std::string signV2(const std::string & stringToSign,
-                              const std::string & accessKey);
-
     /** URI encode the given string according to RFC 3986 */
     static std::string uriEncode(const std::string & str);
 
@@ -115,6 +76,12 @@ struct AwsApi {
         RestParams headers;
         std::string payload;
     };
+
+    enum PayloadDigest {
+        PLD_IMPLICIT,   ///< Perform an implicit payload digest (old behavior)
+        PLD_ON,         ///< Payload digest is on (default)
+        PLD_OFF         ///< Payload digest is off (faster but less safe)
+    };
     
     static void
     addSignatureV4(BasicRequest & request,
@@ -122,7 +89,8 @@ struct AwsApi {
                    std::string region,
                    std::string accessKeyId,
                    std::string accessKey,
-                   Date now = Date::now());
+                   Date now = Date::now(),
+                   PayloadDigest digest = PLD_ON);
 };
 
 
@@ -161,22 +129,36 @@ struct AwsBasicApi : public AwsApi {
 
     std::string performPost(RestParams && params, const std::string & resource,
                             const std::string & resultSelector,
-                            double timeoutSeconds = 10.0);
+                            double timeoutSeconds = 10.0,
+                            Date date = Date::now(),
+                            PayloadDigest digest = PLD_ON);
     std::string performGet(RestParams && params, const std::string & resource,
                            const std::string & resultSelector,
-                           double timeoutSeconds = 10.0);
+                           double timeoutSeconds = 10.0,
+                           Date date = Date::now(),
+                           PayloadDigest digest = PLD_ON);
 
     std::unique_ptr<tinyxml2::XMLDocument>
     performPost(RestParams && params, const std::string & resource,
-                double timeoutSeconds = 10.0);
+                double timeoutSeconds = 10.0,
+                Date date = Date::now(),
+                PayloadDigest digest = PLD_ON);
 
     std::unique_ptr<tinyxml2::XMLDocument>
     performGet(RestParams && params, const std::string & resource,
-               double timeoutSeconds = 10.0);
+               double timeoutSeconds = 10.0,
+               Date date = Date::now(),
+               PayloadDigest digest = PLD_ON);
     
-    BasicRequest signPost(RestParams && params, const std::string & resource = "");
-    BasicRequest signGet(RestParams && params, const std::string & resource = "");
-
+    BasicRequest signPost(RestParams && params,
+                          const std::string & resource = "",
+                          Date date = Date::now(),
+                          PayloadDigest digest = PLD_ON);
+    BasicRequest signGet(RestParams && params,
+                         const std::string & resource = "",
+                         Date date = Date::now(),
+                         PayloadDigest digest = PLD_ON);
+    
     HttpRestProxy proxy;
 };
 

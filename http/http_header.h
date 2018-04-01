@@ -86,7 +86,9 @@ struct HttpHeader {
 
     void swap(HttpHeader & other);
 
-    void parse(const std::string & headerAndData, bool checkBodyLength = true);
+    void parse(const std::string & headerAndData,
+               bool checkBodyLength = true,
+               bool includesFirstLine = true);
 
     std::string verb;       // GET, PUT, etc
     std::string resource;   // after the get

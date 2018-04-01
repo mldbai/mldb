@@ -78,6 +78,8 @@ FsObjectInfoDescription()
              "Name of owner");
     addField("contentType", &FsObjectInfo::contentType,
              "Content type of object");
+    addField("version", &FsObjectInfo::version,
+             "Version of object (for MVCC stores, eg S3)");
     addField("objectMetadata", &FsObjectInfo::objectMetadata,
              "Metadata about the object");
     addField("userMetadata", &FsObjectInfo::userMetadata,

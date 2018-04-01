@@ -309,16 +309,25 @@ addSignatureV4(BasicRequest & request,
                std::string region,
                std::string accessKeyId,
                std::string accessKey,
-               Date now)
+               Date now,
+               PayloadDigest digest)
 {
     std::string dateStr = now.print("%Y%m%dT%H%M%SZ");
 
     //cerr << "dateStr = " << dateStr << endl;
 
-    request.headers.push_back({"X-Amz-Date", dateStr});
+    request.headers.push_back({"x-amz-date", dateStr});
 
-    std::string canonicalHeaders;
-    std::string signedHeaders;
+    string payloadHash;
+    if (digest == PLD_ON || digest == PLD_IMPLICIT)
+        payloadHash = hexEncodeDigest(sha256Digest(request.payload));
+    else payloadHash = "UNSIGNED-PAYLOAD";
+
+    if (digest != PLD_IMPLICIT)
+        request.headers.push_back({"x-amz-content-sha256", payloadHash});
+    
+    string canonicalHeaders;
+    string signedHeaders;
 
     if (!request.headers.empty()) {
         RestParams headers = request.headers;
@@ -351,10 +360,14 @@ addSignatureV4(BasicRequest & request,
     //cerr << "payload = " << request.payload << endl;
 
     std::string payloadHash = hexEncodeDigest(sha256Digest(request.payload));
+    string relativeUri
+        = (!request.relativeUri.empty() && request.relativeUri[0] == '/')
+        ? request.relativeUri
+        : "/" + request.relativeUri;
     
     std::string canonicalRequest
         = request.method + "\n"
-        + "/" + request.relativeUri + "\n"
+        + relativeUri + "\n"
         + canonicalQueryParams + "\n"
         + canonicalHeaders + "\n"
         + signedHeaders + "\n"
@@ -369,19 +382,6 @@ addSignatureV4(BasicRequest & request,
     auto addParam = [&] (std::string key, std::string value)
         {
             authHeader += key + "=" + value + ", ";
-
-#if 0
-            if (request.method == "POST") {
-                authHeader
-
-                if (!request.payload.empty())
-                    request.payload += "&";
-                request.payload += uriEncode(key) + "=" + uriEncode(value);
-            }
-            else if (request.method == "GET") {
-                request.queryParams.push_back({key, value});
-            }
-#endif
         };
 
 
@@ -489,7 +489,8 @@ setCredentials(const std::string & accessKeyId,
 
 AwsBasicApi::BasicRequest
 AwsBasicApi::
-signPost(RestParams && params, const std::string & resource)
+signPost(RestParams && params, const std::string & resource,
+         Date date, PayloadDigest digest)
 {
     BasicRequest result;
     result.method = "POST";
@@ -511,7 +512,8 @@ signPost(RestParams && params, const std::string & resource)
 
     result.payload = encodedPayload;
     
-    addSignatureV4(result, serviceName, region, accessKeyId, accessKey);
+    addSignatureV4(result, serviceName, region, accessKeyId, accessKey,
+                   date, digest);
 
     return result;
 
@@ -519,7 +521,8 @@ signPost(RestParams && params, const std::string & resource)
 
 AwsBasicApi::BasicRequest
 AwsBasicApi::
-signGet(RestParams && params, const std::string & resource)
+signGet(RestParams && params, const std::string & resource,
+        Date date, PayloadDigest digest)
 {
     BasicRequest result;
     result.method = "GET";
@@ -527,7 +530,8 @@ signGet(RestParams && params, const std::string & resource)
     result.headers.push_back({"Host", serviceHost});
     result.queryParams = params;
 
-    addSignatureV4(result, serviceName, region, accessKeyId, accessKey);
+    addSignatureV4(result, serviceName, region, accessKeyId, accessKey,
+                   date, digest);
 
     return result;
 }
@@ -536,9 +540,11 @@ std::unique_ptr<tinyxml2::XMLDocument>
 AwsBasicApi::
 performPost(RestParams && params,
             const std::string & resource,
-            double timeoutSeconds)
+            double timeoutSeconds,
+            Date date, PayloadDigest digest)
 {
-    return perform(signPost(std::move(params), resource), timeoutSeconds, 3);
+    return perform(signPost(std::move(params), resource, date, digest),
+                   timeoutSeconds, 3);
 }
 
 std::string
@@ -546,9 +552,12 @@ AwsBasicApi::
 performPost(RestParams && params,
             const std::string & resource,
             const std::string & resultSelector,
-            double timeoutSeconds)
+            double timeoutSeconds,
+            Date date,
+            PayloadDigest digest)
 {
-    return extract<string>(*performPost(std::move(params), resource, timeoutSeconds),
+    return extract<string>(*performPost(std::move(params), resource,
+                                        timeoutSeconds, date, digest),
                            resultSelector);
 }
 
@@ -556,9 +565,12 @@ std::unique_ptr<tinyxml2::XMLDocument>
 AwsBasicApi::
 performGet(RestParams && params,
            const std::string & resource,
-           double timeoutSeconds)
+           double timeoutSeconds,
+           Date date,
+           PayloadDigest digest)
 {
-    return perform(signGet(std::move(params), resource), timeoutSeconds, 3);
+    return perform(signGet(std::move(params), resource, date, digest),
+                   timeoutSeconds, 3);
 }
 
 std::unique_ptr<tinyxml2::XMLDocument>
@@ -602,9 +614,12 @@ AwsBasicApi::
 performGet(RestParams && params,
            const std::string & resource,
            const std::string & resultSelector,
-           double timeoutSeconds)
+           double timeoutSeconds,
+           Date date,
+           PayloadDigest digest)
 {
-    return extract<std::string>(*performGet(std::move(params), resource, timeoutSeconds),
+    return extract<string>(*performGet(std::move(params), resource,
+                                       timeoutSeconds, date, digest),
                            resultSelector);
 }
 

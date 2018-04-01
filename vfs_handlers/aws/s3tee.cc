@@ -70,7 +70,9 @@ int main(int argc, char* argv[])
         if(f.substr(0, 5) == "s3://"){
             size_t pos = f.substr(5).find("/");
             if (s3KeyId != "")
-                registerS3Bucket(f.substr(5, pos), s3KeyId, s3Key);
+                registerS3Bucket(f.substr(5, pos), s3KeyId, s3Key,
+                                 S3Api::defaultBandwidthToServiceMbps,
+                                 "http", "s3.amazonaws.com", "");
         }
     }
 

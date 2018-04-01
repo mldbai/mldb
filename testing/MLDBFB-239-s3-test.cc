@@ -27,7 +27,9 @@ using namespace MLDB;
 #define ENABLE_LONG_TESTS 1
 string bucket = "private-mldb-ai";
 
+std::string s3Provider = S3Api::getProviderForBucket(bucket);
 
+#if 1
 /* ensures that reduced redundancy is properly set when specified for S3 objects
    and that we can properly set up a publicly readable ACL, via the
    filter_istream interface.
@@ -52,30 +54,35 @@ BOOST_AUTO_TEST_CASE( test_s3_attributes )
     auto s3Api = getS3ApiForUri(filename);
 
     auto info = s3Api->getObjectInfo(filename, S3ObjectInfoTypes::FULL_INFO);
-    ExcAssert(info);
+    BOOST_REQUIRE(info);
 
-    BOOST_CHECK_EQUAL(info.storageClass, "REDUCED_REDUNDANCY");
+    if (s3Provider != "PS") {
+        // Pure storage doesn't do reduced redundancy; it transparently
+        // ignores it
+        BOOST_CHECK_EQUAL(info.storageClass, "REDUCED_REDUNDANCY");
 
-    // test we can make a file public
-    {
-        filter_ostream stream(filename, { { "aws-acl", "public-read" } });
+        // test we can make a file public
+        {
+            filter_ostream stream(filename, { { "aws-acl", "public-read" } });
     
-        stream << "HELLO" << endl;
+            stream << "HELLO" << endl;
+        }
+    
+        string publicName = S3Api::getPublicUri(filename, "http");
+
+        cerr << "public name = " << publicName << endl;
+
+        // Get it via HTTP and check that it's OK
+        HttpRestProxy proxy;
+        auto resp = proxy.get(publicName);
+
+        cerr << "resp = " << resp << endl;
+
+        BOOST_CHECK_EQUAL(resp.code(), 200);
+        BOOST_CHECK_EQUAL(resp.body(), "HELLO\n");
     }
-    
-    string publicName = S3Api::getPublicUri(filename, "http");
-
-    cerr << "public name = " << publicName << endl;
-
-    // Get it via HTTP and check that it's OK
-    HttpRestProxy proxy;
-    auto resp = proxy.get(publicName);
-
-    cerr << "resp = " << resp << endl;
-
-    BOOST_CHECK_EQUAL(resp.code(), 200);
-    BOOST_CHECK_EQUAL(resp.body(), "HELLO\n");
 }
+#endif
 
 #if 1
 /* Test s3 uploads with small payloads */
@@ -127,8 +134,8 @@ BOOST_AUTO_TEST_CASE( test_s3_uploads )
 }
 #endif
 
-
 #if ENABLE_LONG_TESTS
+
 /* Test three aspects of large (100MB) uploads and downloads:
    - ensure that the multiple upload and download requests result in
      correctly ordered transfers
@@ -174,7 +181,7 @@ BOOST_AUTO_TEST_CASE( test_s3_large_files )
         auto info = tryGetUriObjectInfo(fileUrl);
         BOOST_CHECK_EQUAL(info.size, contents.size());
         auto resp = s3Api->get(bucket, basename, info.size);
-        ExcAssertEqual(resp.body_, contents);
+        BOOST_CHECK_EQUAL(resp.body_, contents);
     }
 
     /* download with filter_istream (S3DownloadSource, S3Downloader) */
@@ -187,7 +194,7 @@ BOOST_AUTO_TEST_CASE( test_s3_large_files )
         while (!stream.eof()) {
             stream.read(buffer, sizeof(buffer));
             int res = ::memcmp(buffer, src + offset, stream.gcount());
-            ExcAssertEqual(res, 0);
+            BOOST_REQUIRE_EQUAL(res, 0);
             offset += stream.gcount();
         }
         stream.close();
@@ -195,7 +202,7 @@ BOOST_AUTO_TEST_CASE( test_s3_large_files )
 }
 #endif
 
-
+#if 1
 /* ensures that operations on s3 resources with space are performed properly */
 BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
 {
@@ -217,9 +224,18 @@ BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
     size_t bufferSize(1024*10);
     string randomData = randomString(bufferSize);
 
-    s3Api->erase(bucket, resource);
-    s3Api->erase(bucket, escapedResource);
-
+    // try to delete both objects
+    try {
+        MLDB_TRACE_EXCEPTIONS(false);
+        s3Api->eraseObject(bucket, resource);
+    } MLDB_CATCH_ALL {
+    }
+    try {
+        MLDB_TRACE_EXCEPTIONS(false);
+        s3Api->tryEraseObject(bucket, escapedResource);
+    } MLDB_CATCH_ALL {
+    }
+    
     /* streaming upload */
     auto guard = ScopeExit(std::move(cleanupFn));
 
@@ -242,8 +258,9 @@ BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
     string contents = download.readAll();
     BOOST_CHECK_EQUAL(contents, randomData);
 }
+#endif
 
-
+#if 1
 BOOST_AUTO_TEST_CASE( test_s3_foreach_bucket )
 {
     set<string> buckets;
@@ -260,8 +277,9 @@ BOOST_AUTO_TEST_CASE( test_s3_foreach_bucket )
     BOOST_CHECK_EQUAL(buckets.count(bucket), 1);
     BOOST_CHECK_EQUAL(res, true);
 }
+#endif
 
-
+#if 1
 BOOST_AUTO_TEST_CASE( test_s3_foreach_object )
 {
     string prefix = "s3-test-foreach-" + randomString(6);
@@ -397,16 +415,17 @@ BOOST_AUTO_TEST_CASE( test_s3_getObjectInfo )
         BOOST_CHECK_EQUAL(info.size, 20);
         BOOST_CHECK_NE(info.etag, "");
         if (isShort) {
-
-
             BOOST_CHECK_EQUAL(info.storageClass, "");
             BOOST_CHECK_EQUAL(info.ownerId, "");
             BOOST_CHECK_EQUAL(info.ownerName, "");
         }
         else {
             BOOST_CHECK_NE(info.storageClass, "");
-            BOOST_CHECK_NE(info.ownerId, "");
-            BOOST_CHECK_NE(info.ownerName, "");
+            if (s3Provider != "PS") {
+                // Currently, the FlashBlade doesn't hook owners into S3
+                BOOST_CHECK_NE(info.ownerId, "");
+                BOOST_CHECK_NE(info.ownerName, "");
+            }
         }
     };
 
@@ -427,11 +446,14 @@ BOOST_AUTO_TEST_CASE( test_s3_getObjectInfo )
         checkInfo(info, false);
 
         /* unexisting object */
-        BOOST_CHECK_THROW(s3Api->getObjectInfo(bucket, filename + "-missing"),
-                          MLDB::Exception);
-        BOOST_CHECK_THROW(s3Api->getObjectInfo(bucket, filename + "-missing",
-                                               S3ObjectInfoTypes::FULL_INFO),
-                          MLDB::Exception);
+        {
+            MLDB_TRACE_EXCEPTIONS(false);
+            BOOST_CHECK_THROW(s3Api->getObjectInfo(bucket, filename + "-missing"),
+                              MLDB::Exception);
+            BOOST_CHECK_THROW(s3Api->getObjectInfo(bucket, filename + "-missing",
+                                                   S3ObjectInfoTypes::FULL_INFO),
+                              MLDB::Exception);
+        }
 
         /* "try" versions on unexisting */
         info = s3Api->tryGetObjectInfo(bucket, filename + "-missing");
@@ -520,3 +542,5 @@ BOOST_AUTO_TEST_CASE( test_s3_url_credentials )
         BOOST_CHECK_EQUAL(contents, testContents);
     }
 }
+
+#endif

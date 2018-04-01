@@ -92,8 +92,9 @@ uriEscaped() const
         if (i == 0)
             uri += "?";
         else uri += "&";
-        uri += urlEscape((*this)[i].first)
-            + "=" + urlEscape((*this)[i].second);
+        uri += urlEscape((*this)[i].first);
+        if (!(*this)[i].second.empty())
+            uri += "=" + urlEscape((*this)[i].second);
     }
 
     return uri;
@@ -223,7 +224,8 @@ expectUrlEncodedString(ParseContext & context,
 
 void
 HttpHeader::
-parse(const std::string & headerAndData, bool checkBodyLength)
+parse(const std::string & headerAndData, bool checkBodyLength,
+      bool includesFirstLine)
 {
     try {
         HttpHeader parsed;
@@ -234,24 +236,26 @@ parse(const std::string & headerAndData, bool checkBodyLength)
                                   headerAndData.c_str()
                                       + headerAndData.length());
 
-        parsed.verb = context.expect_text(" \n");
-        context.expect_literal(' ');
-        parsed.resource = context.expect_text(" ?");
-        if (context.match_literal('?')) {
-            do {
-                string key = expectUrlEncodedString(context, "=& ");
-                if (context.match_literal('=')) {
-                    string value = expectUrlEncodedString(context, "& ");
-                    queryParams.push_back(make_pair(key, value));
-                } else {
-                    queryParams.push_back(make_pair(key, ""));
-                }
-            } while (context.match_literal('&'));
+        if (includesFirstLine) {
+            parsed.verb = context.expect_text(" \n");
+            context.expect_literal(' ');
+            parsed.resource = context.expect_text(" ?");
+            if (context.match_literal('?')) {
+                do {
+                    string key = expectUrlEncodedString(context, "=& ");
+                    if (context.match_literal('=')) {
+                        string value = expectUrlEncodedString(context, "& ");
+                        queryParams.push_back(make_pair(key, value));
+                    } else {
+                        queryParams.push_back(make_pair(key, ""));
+                    }
+                } while (context.match_literal('&'));
+            }
+            context.expect_literal(' ');
+            parsed.version = context.expect_text('\r');
+            context.expect_eol();
         }
-        context.expect_literal(' ');
-        parsed.version = context.expect_text('\r');
-        context.expect_eol();
-
+            
         while (!context.match_literal("\r\n")) {
             string name = context.expect_text("\r\n:");
             for (auto & c: name)

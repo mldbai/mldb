@@ -165,8 +165,7 @@ addFd(int fd, bool isMod, bool input, bool output)
 
 void
 HttpClientImplV1::
-removeFd(int fd)
-    const
+removeFd(int fd) const
 {
     poller_->removeFd(fd);
 }
@@ -256,7 +255,7 @@ handleWakeupEvent()
 
     size_t numAvail = avlConnections_.size() - nextAvail_;
     if (numAvail > 0) {
-        vector<shared_ptr<HttpRequest>> requests = popRequests(numAvail);
+        vector<shared_ptr<HttpRequest> > requests = popRequests(numAvail);
         for (auto & request: requests) {
             HttpConnection *conn = getConnection();
             conn->request_ = move(request);
@@ -444,13 +443,13 @@ releaseConnection(HttpConnection * oldConnection)
 HttpClientImplV1::
 HttpConnection::
 HttpConnection()
-    : onHeader_([&] (const char * data, size_t ofs1, size_t ofs2) {
+    : onHeader_([=] (const char * data, size_t ofs1, size_t ofs2) {
           return this->onCurlHeader(data, ofs1 * ofs2);
       }),
-      onWrite_([&] (const char * data, size_t ofs1, size_t ofs2) {
+      onWrite_([=] (const char * data, size_t ofs1, size_t ofs2) {
           return this->onCurlWrite(data, ofs1 * ofs2);
       }),
-      onRead_([&] (char * data, size_t ofs1, size_t ofs2) {
+      onRead_([=] (char * data, size_t ofs1, size_t ofs2) {
           return this->onCurlRead(data, ofs1 * ofs2);
       }),
       afterContinue_(false), uploadOffset_(0)

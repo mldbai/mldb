@@ -42,7 +42,8 @@ struct FsObjectInfo {
     std::string ownerId;        ///< ID of the owner (uid or identifier)
     std::string ownerName;      ///< Name of owner
     std::string contentType;    ///< Content-type of object if known
-
+    std::string version;        ///< Version of object if supported
+    
     std::map<std::string, Json::Value> userMetadata;  ///< Metadata from user
     std::map<std::string, Json::Value> objectMetadata;  ///< Metadata from obj
 

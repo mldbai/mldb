@@ -165,7 +165,11 @@ struct S3Downloader {
         maxChunkSize = api->bandwidthToServiceMbps * 3.0 * 1000000;
         size_t sysMemory = getTotalSystemMemory();
         maxChunkSize = std::min(maxChunkSize, sysMemory / 100);
-
+        maxChunkSize = std::min<size_t>(maxChunkSize, 256 * 1024 * 1024);
+        
+        //cerr << "sysMemory = " << sysMemory << endl;
+        //cerr << "maxChunkSize = " << maxChunkSize << endl;
+        
         /* The maximum number of concurrent requests is set depending on
            the total size of the stream. */
         maxRqs = 1;
@@ -222,14 +226,12 @@ struct S3Downloader {
         return toDo;
     }
 
-    uint64_t getDownloadSize()
-        const
+    uint64_t getDownloadSize() const
     {
         return downloadSize;
     }
 
-    bool endOfDownload()
-        const
+    bool endOfDownload() const
     {
         return (readOffset == downloadSize);
     }
@@ -243,8 +245,7 @@ struct S3Downloader {
         excPtrHandler.rethrowIfSet();
     }
 
-    const FsObjectInfo & info()
-        const
+    const FsObjectInfo & info() const
     {
         return fileInfo;
     }
@@ -263,51 +264,63 @@ private:
         {
         }
 
+        Chunk(const Chunk & other) = delete;
+        
         Chunk(Chunk && other) noexcept
             : state(other.state.load()),
               data(std::move(other.data))
         {
+            ExcAssertEqual(state.load(), IDLE);
+            ExcAssert(data.empty());
         }
 
+        Chunk & operator = (const Chunk & other) = delete;
+        Chunk & operator = (Chunk && other) = delete;
+        
         void setQuerying()
         {
-            ExcAssertEqual(state, IDLE);
-            setState(QUERY);
+            setState(IDLE, QUERY);
         }
 
         void assign(string newData)
         {
-            ExcAssertEqual(state, QUERY);
+            //cerr << "chunk " << this
+            //     << " assigning data of length " << newData.size()
+            //     << " to chunk" << endl;
             data = move(newData);
-            setState(RESPONSE);
+            setState(QUERY, RESPONSE);
             MLDB::wake_by_address(state);
         }
 
         std::string retrieve()
         {
-            ExcAssertEqual(state, RESPONSE);
+            setState(RESPONSE, IDLE);
             string chunkData = std::move(data);
-            setState(IDLE);
+            data = "";
             return chunkData;
         }
 
-        void setState(int newState)
+        void setState(State oldState, State newState)
         {
+            //cerr << "setting state of " << this << " from "
+            //     << state << " to " << newState << endl;
+            ExcAssertEqual(state, oldState);
             state = newState;
             MLDB::wake_by_address(state);
         }
 
-        bool isIdle()
-            const
+        bool isIdle() const
         {
             return (state == IDLE);
         }
 
-        bool waitResponse(double timeout)
-            const
+        bool waitResponse(double timeout) const
         {
+            //cerr << "chunk " << this
+            //     << " waitResponse with timeout " << timeout << " and state "
+            //     << state << endl;
             if (timeout > 0.0) {
-                int old = state;
+                State old = state;
                 if (state != RESPONSE) {
                     MLDB::wait_on_address(state, old, timeout);
                 }
@@ -317,12 +330,13 @@ private:
         }
 
     private:
-        mutable std::atomic<int> state;  // mutable since we wait on it
+        mutable std::atomic<State> state; // mutable since we wait on it
         string data;
     };
 
     void waitNextPart()
     {
+        ExcAssertEqual(readPartOffset, -1);
         unsigned int chunkNr(currentChunk % maxRqs);
         Chunk & chunk = chunks[chunkNr];
         while (!excPtrHandler.hasException() && !chunk.waitResponse(1.0));
@@ -371,7 +385,7 @@ private:
         chunk.setQuerying();
 
         auto onResponse
-            = [&, chunkNr, chunkSize] (S3Api::Response && response,
+            = [this, chunkNr, chunkSize] (S3Api::Response && response,
                                        std::exception_ptr excPtr) {
             this->handleResponse(chunkNr, chunkSize, std::move(response), excPtr);
         };
@@ -401,7 +415,7 @@ private:
             /* It can sometimes happen that a file changes during download i.e
                it is being overwritten. Make sure we check for this condition
                and throw an appropriate exception. */
-            string chunkEtag = response.getHeader("etag");
+            string chunkEtag = response.header_.getHeader("etag");
             if (chunkEtag != fileInfo.etag) {
                 throw MLDB::Exception("chunk etag '%s' differs from original"
                                     " etag '%s' of file '%s'",
@@ -419,8 +433,7 @@ private:
         MLDB::wake_by_address(activeRqs);
     }
 
-    size_t getChunkSize(unsigned int chunkNbr)
-        const
+    size_t getChunkSize(unsigned int chunkNbr) const
     {
         size_t chunkSize = std::min(baseChunkSize * (1 << (chunkNbr / 2)),
                                     maxChunkSize);
@@ -634,8 +647,8 @@ struct S3Uploader {
         excPtrHandler.rethrowIfSet();
 
         unsigned int rqNbr(currentRq);
-        auto onResponse = [&, rqNbr] (S3Api::Response && response,
-                                      std::exception_ptr excPtr) {
+        auto onResponse = [this, rqNbr] (S3Api::Response && response,
+                                         std::exception_ptr excPtr) {
             this->handleResponse(rqNbr, std::move(response), excPtr);
         };
 
@@ -645,10 +658,10 @@ struct S3Uploader {
         }
 
         activeRqs++;
-        api->putAsync(onResponse, bucket, resource,
-                      MLDB::format("partNumber=%d&uploadId=%s",
-                                 partNumber, uploadId),
-                      {}, {}, current);
+        api->putAsync(onResponse, bucket, resource, "",
+                      {}, {{"partNumber", std::to_string(partNumber)},
+                           {"uploadId", uploadId}},
+                      current);
 
         if (currentRq % 5 == 0 && chunkSize < maxChunkSize)
             chunkSize *= 2;
@@ -671,7 +684,7 @@ struct S3Uploader {
                 throw MLDB::Exception("put didn't work: %d", (int)response.code_);
             }
 
-            string etag = response.getHeader("etag");
+            string etag = response.header_.getHeader("etag");
             ExcAssert(etag.size() > 0);
             etags[rqNbr] = etag;
         }

@@ -49,7 +49,11 @@ int main(int argc, char* argv[])
     cerr << "The output uri is " << outputFile << endl;
     cerr << "s3KeyId " << s3KeyId << endl;
     cerr<<  "s3Key " << s3Key << endl;
-    MLDB::S3Api s3(s3KeyId, s3Key);
+    MLDB::S3Api s3(s3KeyId, s3Key,
+                   S3Api::defaultBandwidthToServiceMbps,
+                   "https",
+                   "s3.amazonaws.com",
+                   "");
     string bucket,object;
     std::tie(bucket,object) = S3Api::parseUri(outputFile);
     cerr << "Bucket : " << bucket << " object " << object << endl;
