@@ -11,9 +11,6 @@
 #include "mldb/arch/exception.h"
 #include <boost/iterator/iterator_facade.hpp>
 #include <iostream> // debug
-#include "mldb/jml/utils/hash_specializations.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/pair_utils.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/bitops.h"
 #include <string>
@@ -34,21 +31,21 @@ namespace MLDB {
 */
 
 template<typename Key, typename Value, class Hash, class ConstKeyBucket>
-class Lightweight_Hash_Iterator
-    : public boost::iterator_facade<Lightweight_Hash_Iterator<Key, Value, Hash, ConstKeyBucket>,
+class LightweightHashIterator
+    : public boost::iterator_facade<LightweightHashIterator<Key, Value, Hash, ConstKeyBucket>,
                                     ConstKeyBucket,
                                     boost::bidirectional_traversal_tag> {
 
-    typedef boost::iterator_facade<Lightweight_Hash_Iterator<Key, Value, Hash, ConstKeyBucket>,
+    typedef boost::iterator_facade<LightweightHashIterator<Key, Value, Hash, ConstKeyBucket>,
                                    ConstKeyBucket,
                                    boost::bidirectional_traversal_tag> Base;
 public:    
-    Lightweight_Hash_Iterator()
+    LightweightHashIterator()
         : hash(0), index(-1)
     {
     }
 
-    Lightweight_Hash_Iterator(Hash * hash, ssize_t index)
+    LightweightHashIterator(Hash * hash, ssize_t index)
         : hash(hash), index(index)
     {
         if (index != hash->capacity())
@@ -56,14 +53,14 @@ public:
     }
 
     template<typename K2, typename V2, typename H2, typename CB2>
-    Lightweight_Hash_Iterator(const Lightweight_Hash_Iterator<K2, V2, H2, CB2> & other)
+    LightweightHashIterator(const LightweightHashIterator<K2, V2, H2, CB2> & other)
         : hash(other.hash), index(other.index)
     {
     }
 
     std::string print() const
     {
-        return format("Lightweight_Hash_Iterator: hash %p index %d",
+        return format("LightweightHashIterator: hash %p index %d",
                       hash, index);
     }
 
@@ -78,7 +75,7 @@ public:
     friend class boost::iterator_core_access;
     
     template<typename K2, typename V2, typename H2, typename CB2>
-    bool equal(const Lightweight_Hash_Iterator<K2, V2, H2, CB2> & other) const
+    bool equal(const LightweightHashIterator<K2, V2, H2, CB2> & other) const
     {
         if (hash != other.hash)
             throw Exception("comparing incompatible iterators");
@@ -109,13 +106,13 @@ public:
     }
     
     template<typename K2, typename V2, typename H2, typename CB2>
-    friend class Lightweight_Hash_Iterator;
+    friend class LightweightHashIterator;
 };
 
 template<typename Key, typename Value, class Hash, class CB>
 std::ostream &
 operator << (std::ostream & stream,
-             const Lightweight_Hash_Iterator<Key, Value, Hash, CB> & it)
+             const LightweightHashIterator<Key, Value, Hash, CB> & it)
 {
     return stream << it.print();
 }
@@ -357,9 +354,9 @@ allocator;
 /*****************************************************************************/
 
 template<class Key, class Bucket, class Ops, class Storage>
-struct Lightweight_Hash_Base {
+struct LightweightHashBase {
 
-    Lightweight_Hash_Base()
+    LightweightHashBase()
         : size_(0)
     {
         //using namespace std;
@@ -367,7 +364,7 @@ struct Lightweight_Hash_Base {
     }
 
     template<class Iterator>
-    Lightweight_Hash_Base(Iterator first, Iterator last, size_t capacity = 0)
+    LightweightHashBase(Iterator first, Iterator last, size_t capacity = 0)
         : storage_(capacity), size_(0)
     {
         //using namespace std;
@@ -387,7 +384,7 @@ struct Lightweight_Hash_Base {
             this->find_or_insert(*first);
     }
 
-    Lightweight_Hash_Base(const Lightweight_Hash_Base & other,
+    LightweightHashBase(const LightweightHashBase & other,
                           size_t capacity)
         : storage_(capacity), size_(0)
     {
@@ -430,7 +427,7 @@ struct Lightweight_Hash_Base {
         ExcAssertEqual(size_, other.size_);
     }
 
-    Lightweight_Hash_Base(const Lightweight_Hash_Base & other)
+    LightweightHashBase(const LightweightHashBase & other)
         : storage_(other.capacity()), size_(other.size_)
     {
         //using namespace std;
@@ -453,7 +450,7 @@ struct Lightweight_Hash_Base {
         ExcAssertEqual(inserted, other.size());
     }
 
-    Lightweight_Hash_Base(Lightweight_Hash_Base && other)
+    LightweightHashBase(LightweightHashBase && other)
         : storage_(std::move(other.storage_)), size_(other.size_)
     {
         //using namespace std;
@@ -462,28 +459,28 @@ struct Lightweight_Hash_Base {
         other.size_ = 0;
     }
 
-    ~Lightweight_Hash_Base()
+    ~LightweightHashBase()
     {
         //using namespace std;
         //cerr << "destroying " << this << endl;
         destroy();
     }
 
-    Lightweight_Hash_Base & operator = (const Lightweight_Hash_Base & other)
+    LightweightHashBase & operator = (const LightweightHashBase & other)
     {
-        Lightweight_Hash_Base new_me(other);
+        LightweightHashBase new_me(other);
         swap(new_me);
         return *this;
     }
 
-    Lightweight_Hash_Base & operator = (Lightweight_Hash_Base && other)
+    LightweightHashBase & operator = (LightweightHashBase && other)
     {
-        Lightweight_Hash_Base new_me(std::move(other));
+        LightweightHashBase new_me(std::move(other));
         swap(new_me);
         return *this;
     }
 
-    void swap(Lightweight_Hash_Base & other)
+    void swap(LightweightHashBase & other)
     {
         storage_.swap(other.storage_);
         std::swap(size_, other.size_);
@@ -540,24 +537,40 @@ struct Lightweight_Hash_Base {
         if (new_capacity < capacity() * 2)
             new_capacity = capacity() * 2;
 
-        Lightweight_Hash_Base new_me(*this, new_capacity);
+        LightweightHashBase new_me(*this, new_capacity);
         auto size_before = size();
         ExcAssertEqual(new_me.size(), size_before);
         swap(new_me);
         ExcAssertEqual(size(), size_before);
     }
 
+    template<typename F, typename S>
+    static void dumpBucket(std::ostream & stream,
+                           const std::pair<F, S> & p)
+    {
+        stream << p.first << "-->" << p.second;
+    }
+
+    template<typename T>
+    static void dumpBucket(std::ostream & stream,
+                           const T & val)
+    {
+        stream << val;
+    }
+    
     void dump(std::ostream & stream) const
     {
         using namespace std;
-        stream << "Lightweight_Hash: " << this << " size " << size_ << " capacity "
+        stream << "LightweightHash: " << this << " size " << size_ << " capacity "
                << capacity() << endl;
         for (ssize_t i = -1;  i < capacity();  ++i) {
             bool full = Ops::bucketIsFull(this->storage_, i);
             stream << "  bucket " << i << ": hash "
                    << Ops::hashKey(storage_[i], capacity(), storage_)
                    << " full " << full
-                   << " bucket " << storage_[i] << endl;
+                   << " bucket ";
+            dumpBucket(stream, storage_[i]);
+            stream << endl;
         }
     }
 
@@ -810,9 +823,9 @@ protected:
 
 #if 0
 template<class Key, class Bucket, class Ops, class Storage>
-uint64_t Lightweight_Hash_Base<Key, Bucket, Ops, Storage>::numCalls = 0;
+uint64_t LightweightHashBase<Key, Bucket, Ops, Storage>::numCalls = 0;
 template<class Key, class Bucket, class Ops, class Storage>
-uint64_t Lightweight_Hash_Base<Key, Bucket, Ops, Storage>::numHops = 0;
+uint64_t LightweightHashBase<Key, Bucket, Ops, Storage>::numHops = 0;
 #endif
 
 
@@ -917,52 +930,52 @@ template<typename Key,
          class ConstKeyBucket = std::pair<const Key, Value>,
          class Ops = PairOps<Key, Value>,
          class Storage = LogMemStorage<Bucket> >
-struct Lightweight_Hash
-    : public Lightweight_Hash_Base<Key, Bucket, Ops, Storage> {
+struct LightweightHash
+    : public LightweightHashBase<Key, Bucket, Ops, Storage> {
 
-    typedef Lightweight_Hash_Iterator<Key, const Value, const Lightweight_Hash,
+    typedef LightweightHashIterator<Key, const Value, const LightweightHash,
                                       const Bucket>
     const_iterator;
-    typedef Lightweight_Hash_Iterator<Key, Value, Lightweight_Hash,
+    typedef LightweightHashIterator<Key, Value, LightweightHash,
                                       ConstKeyBucket> iterator;
 
-    typedef Lightweight_Hash_Base<Key, Bucket, Ops, Storage> Base;
+    typedef LightweightHashBase<Key, Bucket, Ops, Storage> Base;
 
-    Lightweight_Hash()
+    LightweightHash()
     {
     }
 
     template<class Iterator>
-    Lightweight_Hash(Iterator first, Iterator last, size_t capacity = 0)
+    LightweightHash(Iterator first, Iterator last, size_t capacity = 0)
         : Base(first, last, capacity)
     {
     }
 
-    Lightweight_Hash(const Lightweight_Hash & other)
+    LightweightHash(const LightweightHash & other)
         : Base(other)
     {
     }
 
-    Lightweight_Hash(Lightweight_Hash && other)
+    LightweightHash(LightweightHash && other)
         : Base(std::move(other))
     {
     }
 
-    Lightweight_Hash & operator = (const Lightweight_Hash & other)
+    LightweightHash & operator = (const LightweightHash & other)
     {
-        Lightweight_Hash new_me(other);
+        LightweightHash new_me(other);
         swap(new_me);
         return *this;
     }
 
-    Lightweight_Hash & operator = (Lightweight_Hash && other)
+    LightweightHash & operator = (LightweightHash && other)
     {
-        Lightweight_Hash new_me(std::move(other));
+        LightweightHash new_me(std::move(other));
         swap(new_me);
         return *this;
     }
 
-    void swap(Lightweight_Hash & other)
+    void swap(LightweightHash & other)
     {
         Base::swap(other);
     }
@@ -1044,7 +1057,7 @@ struct Lightweight_Hash
 
 private:
     template<typename K, typename V, class H, class CB>
-    friend class Lightweight_Hash_Iterator;
+    friend class LightweightHashIterator;
 
     using Base::dereference;
     ConstKeyBucket & dereference(ssize_t bucket)
@@ -1064,7 +1077,7 @@ public:
     void dump(std::ostream & stream) const
     {
         using namespace std;
-        stream << "Lightweight_Hash: " << this << " size " << this->size_ << " capacity "
+        stream << "LightweightHash: " << this << " size " << this->size_ << " capacity "
                << this->capacity() << endl;
         for (ssize_t i = -1;  i < this->capacity();  ++i) {
             bool full = Ops::bucketIsFull(this->storage_, i);
@@ -1177,56 +1190,56 @@ template<typename Key, class Hash = std::hash<Key>,
          class Bucket = Key,
          class Ops = ScalarOps<Key, Hash>,
          class Storage = LogMemStorage<Bucket> >
-struct Lightweight_Hash_Set
-    : public Lightweight_Hash_Base<Key, Bucket, Ops, Storage> {
+struct LightweightHash_Set
+    : public LightweightHashBase<Key, Bucket, Ops, Storage> {
 
-    typedef Lightweight_Hash_Iterator<Key, const Key, const Lightweight_Hash_Set,
+    typedef LightweightHashIterator<Key, const Key, const LightweightHash_Set,
                                       const Bucket>
     const_iterator;
     typedef const_iterator iterator;
 
-    typedef Lightweight_Hash_Base<Key, Bucket, Ops, Storage> Base;
+    typedef LightweightHashBase<Key, Bucket, Ops, Storage> Base;
 
-    Lightweight_Hash_Set()
+    LightweightHash_Set()
     {
     }
 
-    Lightweight_Hash_Set(const std::initializer_list<Key> & init)
+    LightweightHash_Set(const std::initializer_list<Key> & init)
         : Base(init.begin(), init.end(), init.size())
     {
     }
 
     template<class Iterator>
-    Lightweight_Hash_Set(Iterator first, Iterator last, size_t capacity = 0)
+    LightweightHash_Set(Iterator first, Iterator last, size_t capacity = 0)
         : Base(first, last, capacity)
     {
     }
 
-    Lightweight_Hash_Set(const Lightweight_Hash_Set & other)
+    LightweightHash_Set(const LightweightHash_Set & other)
         : Base(other)
     {
     }
 
-    Lightweight_Hash_Set(Lightweight_Hash_Set && other)
+    LightweightHash_Set(LightweightHash_Set && other)
         : Base(std::move(other))
     {
     }
 
-    Lightweight_Hash_Set & operator = (const Lightweight_Hash_Set & other)
+    LightweightHash_Set & operator = (const LightweightHash_Set & other)
     {
-        Lightweight_Hash_Set new_me(other);
+        LightweightHash_Set new_me(other);
         swap(new_me);
         return *this;
     }
 
-    Lightweight_Hash_Set & operator = (Lightweight_Hash_Set && other)
+    LightweightHash_Set & operator = (LightweightHash_Set && other)
     {
-        Lightweight_Hash_Set new_me(std::move(other));
+        LightweightHash_Set new_me(std::move(other));
         swap(new_me);
         return *this;
     }
 
-    void swap(Lightweight_Hash_Set & other)
+    void swap(LightweightHash_Set & other)
     {
         Base::swap(other);
     }
@@ -1276,7 +1289,7 @@ struct Lightweight_Hash_Set
 
 private:
     template<typename K, typename V, class H, class CB>
-    friend class Lightweight_Hash_Iterator;
+    friend class LightweightHashIterator;
 };
 
 

@@ -472,7 +472,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
 
     // Now create a mapping from behavior hash to integer index
     std::unordered_map<BH, BehaviorInfo> allInfo;
-    Lightweight_Hash<BH, unsigned> behToIndex;
+    LightweightHash<BH, unsigned> behToIndex;
     std::vector<BH> behByIndex;
     std::vector<KVEntry<BH, uint32_t> >
         behaviorToIndex(nKept);
@@ -600,7 +600,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
 
     uint64_t fileEarliest = quantizeTime(earliestTime());
 
-    Lightweight_Hash<SH, int64_t> subjectToIndex;
+    LightweightHash<SH, int64_t> subjectToIndex;
 
     struct SubjectToWrite {
         SubjectToWrite(uint32_t * buf = 0, uint32_t numWords = 0,
@@ -630,7 +630,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                     = quantizeTime(getSubjectTimestampRange(subj).first);
             
                 std::map<std::pair<uint64_t, int>, int> entryCounts; // (time, beh) -> count
-                Lightweight_Hash_Set<uint64_t> timestamps;
+                LightweightHash_Set<uint64_t> timestamps;
 
                 std::map<int, int> behCounts;
                 int maxBeh = 0, maxCount = 0, maxEntryCount = 0;
@@ -979,7 +979,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                 
                 ExcAssertEqual(bitsDone, e.numBehaviorTableBits());
 
-                Lightweight_Hash<uint64_t, uint32_t>
+                LightweightHash<uint64_t, uint32_t>
                     timeOfsToIndex;
                 
                 if (hasTimestampTable) {
@@ -1774,7 +1774,7 @@ forEachSubjectTimestamp(SH subject, const OnSubjectTimestampMap & onTs,
         // the same timestamp.
         Date currentTs;
         bool hasCurrent = false;
-        Lightweight_Hash<BH, int> current;
+        LightweightHash<BH, int> current;
 
         EventFilter filter(earliest, latest);
 
@@ -1814,7 +1814,7 @@ forEachSubjectTimestamp(SH subject, const OnSubjectTimestampMap & onTs,
         // the same timestamp.
         Date currentTs;
         bool hasCurrent = false;
-        Lightweight_Hash<BH, int> current;
+        LightweightHash<BH, int> current;
 
         EventFilter filter(earliest, latest);
 
@@ -1844,11 +1844,11 @@ forEachSubjectTimestamp(SH subject, const OnSubjectTimestampMap & onTs,
     }
 }
 
-Lightweight_Hash<BH, int>
+LightweightHash<BH, int>
 BehaviorDomain::
 getSubjectTimestamp(SH subject, Date atTs) const
 {
-    Lightweight_Hash<BH, int> result;
+    LightweightHash<BH, int> result;
     
     EventFilter filter(atTs, atTs.plusSeconds(1));
 
@@ -1955,8 +1955,8 @@ Date
 BehaviorDomain::
 updateUnbiasedSubjectBehaviorCounts
     (SH subject,
-     const Lightweight_Hash_Set<BH> & conv,
-     const Lightweight_Hash_Set<BH> & ignore,
+     const LightweightHash_Set<BH> & conv,
+     const LightweightHash_Set<BH> & ignore,
      BehaviorCounts & counts,
      Date earliest,
      const FixDate & fixDate) const
@@ -2035,8 +2035,8 @@ BehaviorCounts
 BehaviorDomain::
 getUnbiasedSubjectBehaviorCountsFixedDate
     (SH subject,
-     const Lightweight_Hash_Set<BH> & converters,
-     const Lightweight_Hash_Set<BH> & ignored,
+     const LightweightHash_Set<BH> & converters,
+     const LightweightHash_Set<BH> & ignored,
      BehaviorCounts & counts,
      Date earliestDate,
      Date latestDate) const
@@ -2325,7 +2325,7 @@ BehaviorDomain::
 forEachSubjectGetTimestamps(const std::function<bool (SH subject,
                                                       const SubjectIterInfo & info,
                                                       const SubjectStats & stats,
-                                                      const std::vector<std::pair<Date, Lightweight_Hash<BH, int> > > & onSubject) > & onSubject,
+                                                      const std::vector<std::pair<Date, LightweightHash<BH, int> > > & onSubject) > & onSubject,
                             const SubjectFilter & subjectFilter,
                             EventFilter eventFilter,
                             Order resultOrder,
@@ -2334,14 +2334,14 @@ forEachSubjectGetTimestamps(const std::function<bool (SH subject,
 {
     auto onSubject2 = [&] (SH subject, const SubjectIterInfo & info, const SubjectStats & stats)
         {
-            std::vector<std::pair<Date, Lightweight_Hash<BH, int> > > atTs;
+            std::vector<std::pair<Date, LightweightHash<BH, int> > > atTs;
 
-            auto onTs = [&] (Date ts, const Lightweight_Hash<BH, int> & events)
+            auto onTs = [&] (Date ts, const LightweightHash<BH, int> & events)
             {
                 if (eventFilter.passAll())
                     atTs.emplace_back(ts, events);
                 else {
-                    Lightweight_Hash<BH, int> eventsOut;
+                    LightweightHash<BH, int> eventsOut;
                     for (auto & ev: events) {
                         if (eventFilter.pass(ev.first, ts, ev.second))
                             eventsOut.insert(ev);
@@ -2372,7 +2372,7 @@ getSubjectBehaviorCountsFiltered(SH subj,
     if (filter.passAll())
         return getSubjectBehaviorCounts(subj, order);
 
-    Lightweight_Hash<BH, uint32_t> result;
+    LightweightHash<BH, uint32_t> result;
 
     auto onBeh = [&] (BH beh, Date ts, int count)
         {
@@ -2504,7 +2504,7 @@ forEachBehaviorGetSubjects(const OnBehaviorSubjects & onBehavior,
                             Order order,
                             Parallelism parallelism) const
 {
-    Lightweight_Hash_Set<SH> keepSubs;
+    LightweightHash_Set<SH> keepSubs;
     bool passAllSubs = true;
 
     // Create a list of viable subjects to filter with

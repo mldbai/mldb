@@ -12,7 +12,7 @@
 #include "mldb/server/function_collection.h"
 #include "mldb/server/dataset_collection.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/sql/sql_utils.h"
 
 using namespace std;
@@ -196,7 +196,7 @@ ExpressionValue
 SqlExpressionDatasetScope::RowScope::
 getColumnCount() const
 {
-    Lightweight_Hash_Set<ColumnHash> columns;
+    LightweightHash_Set<ColumnHash> columns;
     Date ts = Date::negativeInfinity();
 
     if (row) {

@@ -13,7 +13,7 @@
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/vector_description.h"
@@ -200,10 +200,10 @@ struct EmbeddingDatasetRepr {
     
     std::vector<ColumnPath> columnNames;
     std::vector<std::vector<float> > columns;
-    Lightweight_Hash<ColumnHash, int> columnIndex;
+    LightweightHash<ColumnHash, int> columnIndex;
 
     std::vector<Row> rows;
-    Lightweight_Hash<uint64_t, int> rowIndex;
+    LightweightHash<uint64_t, int> rowIndex;
     
     std::unique_ptr<ML::VantagePointTreeT<int> > vpTree;
     std::unique_ptr<DistanceMetric> distance;

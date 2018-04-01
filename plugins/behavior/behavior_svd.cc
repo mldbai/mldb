@@ -373,7 +373,7 @@ updateBehaviorCache(const BehaviorDomain & behs,
     // Make a dense set of subjects
     vector<SH> subjects = behs.allSubjectHashes(maxSubject, true /* sorted */);
 
-    Lightweight_Hash<SH, int> indexes;
+    LightweightHash<SH, int> indexes;
     int index = 0;
     for (auto & s: subjects)
         indexes[s] = ++index;

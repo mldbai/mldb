@@ -22,7 +22,7 @@
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/base/less.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/utils/compact_vector.h"
 #include "mldb/base/optimized_path.h"
 #include "mldb/ext/highwayhash.h"
@@ -2857,7 +2857,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
     int currentIndex = 0;
 
     /// If they're not in order, we create this index
-    Lightweight_Hash<uint64_t, int> columnIndex;
+    LightweightHash<uint64_t, int> columnIndex;
     
     /// Add a CellValue we extracted to the output.  This will also
     /// deal with non-ordered column names.
@@ -3917,7 +3917,7 @@ joinColumns(const ExpressionValue & val1,
 
         // Assume they have the same keys and exactly one of each; if not we
         // have to restart
-        Lightweight_Hash_Set<uint64_t> colsFound;
+        LightweightHash_Set<uint64_t> colsFound;
 
         for (size_t i = 0;  i < row1.size(); ++i) {
             const ColumnPath & col1 = std::get<0>(row1[i]);

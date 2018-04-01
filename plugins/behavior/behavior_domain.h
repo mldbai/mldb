@@ -107,7 +107,7 @@ private:
     friend class BehaviorDomain;
     std::string includeRegexStr;
     std::unique_ptr<boost::regex> includeRegex;
-    Lightweight_Hash_Set<SH> inList;
+    LightweightHash_Set<SH> inList;
     bool hasFilterList;
     std::vector<SH> theList;
 };
@@ -180,7 +180,7 @@ private:
     friend class BehaviorDomain;
     std::string includeRegexStr;
     std::unique_ptr<boost::regex> includeRegex;
-    Lightweight_Hash_Set<BH> inList;
+    LightweightHash_Set<BH> inList;
     bool hasFilterList;
     int minSubjectCount;
 };
@@ -239,7 +239,7 @@ struct EventFilter {
             throw MLDB::Exception("Attempt to filter events with empty beh list");
     }
 
-    Lightweight_Hash_Set<BH> behs;
+    LightweightHash_Set<BH> behs;
     bool hasFilterList;
     Date earliest;
     Date latest;
@@ -255,7 +255,7 @@ enum Order {
     ANYORDER   // Any order, with counts not necessarily aggregated
 };
 
-typedef Lightweight_Hash<BH, uint32_t> BehaviorCounts;
+typedef LightweightHash<BH, uint32_t> BehaviorCounts;
 
 enum Parallelism {
     PARALLEL,      ///< Parallelized across threads, in any order
@@ -711,7 +711,7 @@ struct BehaviorDomain {
         (const std::function<bool (SH subject,
                                    const SubjectIterInfo & info,
                                    const SubjectStats & stats,
-                                   const std::vector<std::pair<Date, Lightweight_Hash<BH, int> > > & onSubject) > & onSubject,
+                                   const std::vector<std::pair<Date, LightweightHash<BH, int> > > & onSubject) > & onSubject,
          const SubjectFilter & subjectFilter,
          EventFilter eventFilter,
          Order resultOrder = ANYORDER,
@@ -756,7 +756,7 @@ struct BehaviorDomain {
     };
 
     /** Function used to tell what we do per timestamp for a given subject. */
-    typedef std::function<bool (Date, const Lightweight_Hash<BH, int> &)>
+    typedef std::function<bool (Date, const LightweightHash<BH, int> &)>
         OnSubjectTimestampMap;
 
     /** Call the given callback on each individual timestamp for the given
@@ -793,7 +793,7 @@ struct BehaviorDomain {
     /** Return all events that occurred for the given subject on the given
         timestamp.
     */
-    virtual Lightweight_Hash<BH, int>
+    virtual LightweightHash<BH, int>
     getSubjectTimestamp(SH subject, Date ts) const;
 
     /** Return the entire set of behaviors for the given subject. */
@@ -827,8 +827,8 @@ struct BehaviorDomain {
     */
     virtual Date updateUnbiasedSubjectBehaviorCounts
         (SH subject,
-         const Lightweight_Hash_Set<BH> & converters,
-         const Lightweight_Hash_Set<BH> & ignored,
+         const LightweightHash_Set<BH> & converters,
+         const LightweightHash_Set<BH> & ignored,
          BehaviorCounts & counts,
          Date earliestDate = Date::negativeInfinity(),
          const FixDate & fixDate = FixDate()) const;
@@ -837,8 +837,8 @@ struct BehaviorDomain {
     virtual BehaviorCounts
     getUnbiasedSubjectBehaviorCountsFixedDate
         (SH subject,
-         const Lightweight_Hash_Set<BH> & converters,
-         const Lightweight_Hash_Set<BH> & ignored,
+         const LightweightHash_Set<BH> & converters,
+         const LightweightHash_Set<BH> & ignored,
          BehaviorCounts & counts,
          Date earliestDate = Date::negativeInfinity(),
          Date latestDate = Date::positiveInfinity()) const;

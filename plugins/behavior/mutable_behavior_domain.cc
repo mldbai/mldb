@@ -1251,8 +1251,8 @@ updatePartialCache()
 {
     auto root = behaviorRoot();
 
-    std::unique_ptr<Lightweight_Hash<BH, BehaviorEntry *> >
-        newCache(new Lightweight_Hash<BH, BehaviorEntry *>
+    std::unique_ptr<LightweightHash<BH, BehaviorEntry *> >
+        newCache(new LightweightHash<BH, BehaviorEntry *>
                  (*behaviorPartialCache()));
             
     for (unsigned i = newCache->size();  i < root->size;  ++i)
@@ -1432,8 +1432,8 @@ obtainSubjectEntryAndIndex(const Id & subject)
                 }
 
                 // Expand it
-                unique_ptr<Lightweight_Hash<uint64_t, uint32_t> >
-                    newEntries(new Lightweight_Hash<uint64_t, uint32_t>(*subjectIndex));
+                unique_ptr<LightweightHash<uint64_t, uint32_t> >
+                    newEntries(new LightweightHash<uint64_t, uint32_t>(*subjectIndex));
                 newEntries->insert(make_pair(subjectHash, idx));
                 
                 if (!subjectRoot.subjectIndexPtr.cmp_xchg(subjectIndex, newEntries))
@@ -1600,7 +1600,7 @@ getSubjectStats(bool needDistinctBehaviors,
     // Get the distinct behaviors
     if (needDistinctBehaviors) {
 
-        Lightweight_Hash_Set<int> distinctBehaviors;
+        LightweightHash_Set<int> distinctBehaviors;
 
         auto onBeh = [&] (BI beh, uint64_t ts, int)
             {

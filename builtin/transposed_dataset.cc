@@ -9,7 +9,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "transposed_dataset.h"
 #include "mldb/builtin/sub_dataset.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/server/dataset_utils.h"
@@ -254,7 +254,7 @@ struct TransposedDataset::Itl
 
         stats = ColumnStats();
 
-        Lightweight_Hash_Set<ColumnHash> columns;
+        LightweightHash_Set<ColumnHash> columns;
         bool oneOnly = true;
         bool isNumeric = true;
 

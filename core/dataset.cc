@@ -15,7 +15,7 @@
 #include "mldb/server/analytics.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_utils.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/jml/utils/profile.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
@@ -272,7 +272,7 @@ uint64_t
 MatrixView::
 getRowColumnCount(const RowPath & row) const
 {
-    Lightweight_Hash_Set<ColumnHash> cols;
+    LightweightHash_Set<ColumnHash> cols;
     for (auto & c: getRow(row).columns)
         cols.insert(std::get<0>(c));
     return cols.size();
@@ -304,7 +304,7 @@ getColumnStats(const ColumnPath & column, ColumnStats & stats) const
 
     stats = ColumnStats();
 
-    Lightweight_Hash_Set<RowHash> rows;
+    LightweightHash_Set<RowHash> rows;
     bool oneOnly = true;
     bool isNumeric = true;
 

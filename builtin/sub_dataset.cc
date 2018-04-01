@@ -11,7 +11,7 @@
 #include "mldb/server/analytics.h"
 #include "sub_dataset.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/http/http_exception.h"
 #include <unordered_set>
@@ -51,7 +51,7 @@ struct SubDataset::Itl
         std::vector<NamedRowValue> subOutput;
         std::set<PathElement> columnNames;
         std::set<ColumnPath> fullFlattenedColumnNames;
-        Lightweight_Hash<RowHash, int64_t> rowIndex;
+        LightweightHash<RowHash, int64_t> rowIndex;
         Date earliest, latest;
         std::shared_ptr<ExpressionValueInfo> columnInfo;
     };

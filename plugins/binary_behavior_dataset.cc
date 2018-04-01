@@ -260,7 +260,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
 
     virtual MatrixEvent getEvent(const RowHash & rowHash, Date ts) const
     {
-        Lightweight_Hash<BH, int> ev = behs->getSubjectTimestamp(rowHash, ts);
+        LightweightHash<BH, int> ev = behs->getSubjectTimestamp(rowHash, ts);
 
         MatrixEvent result;
         result.rowName = toPathElement(behs->getSubjectId(rowHash));
@@ -590,9 +590,9 @@ void
 MutableBinaryBehaviorDataset::
 recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
-    Lightweight_Hash<RowHash, int64_t> rowIndex;
+    LightweightHash<RowHash, int64_t> rowIndex;
     std::vector<Id> rowNames;
-    Lightweight_Hash<ColumnHash, int64_t> columnIndex;
+    LightweightHash<ColumnHash, int64_t> columnIndex;
     std::vector<Id> columnNames;
 
     auto getRowIndex = [&] (const RowPath & name)

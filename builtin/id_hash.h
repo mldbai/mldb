@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 
 namespace MLDB {
 
@@ -129,7 +129,7 @@ struct IdHashOps : public PairOps<uint64_t, uint32_t, IdHashFn, IdHashBucket> {
 };
 
 #if 1
-typedef Lightweight_Hash<uint64_t,
+typedef LightweightHash<uint64_t,
                              uint32_t,
                              IdHashBucket,
                              IdHashBucket,
@@ -137,7 +137,7 @@ typedef Lightweight_Hash<uint64_t,
                              LogMemStorage<IdHashBucket> > 
 IdHash;
 #else
-typedef Lightweight_Hash<uint64_t,
+typedef LightweightHash<uint64_t,
                              uint32_t,
                              IdHashBucket,
                              IdHashBucket,

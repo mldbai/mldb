@@ -8,7 +8,7 @@
 #include "importtext_procedure.h"
 #include "mldb/arch/timers.h"
 #include "mldb/jml/utils/csv.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/plugins/for_each_line.h"
@@ -499,7 +499,7 @@ struct ImportTextProcedureWorkInstance
 
     std::shared_ptr<spdlog::logger> logger;
     vector<ColumnPath> knownColumnNames;
-    Lightweight_Hash<ColumnHash, int> columnIndex; //To check for duplicates column names
+    LightweightHash<ColumnHash, int> columnIndex; //To check for duplicates column names
     int64_t lineOffset;
     // Column names in the CSV file.  This is distinct from the
     // output column names that will be created once parsing has
@@ -673,7 +673,7 @@ struct ImportTextProcedureWorkInstance
         }
 
         // Early check for duplicate column names in input
-        Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+        LightweightHash<ColumnHash, int> inputColumnIndex;
         for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
             const ColumnPath & c = inputColumnNames[i];
             ColumnHash ch(c);

@@ -18,7 +18,7 @@
 #include "mldb/arch/exception_handler.h"
 #include "mldb/arch/demangle.h"
 #include <set>
-#include "live_counting_obj.h"
+#include "mldb/utils/testing/live_counting_obj.h"
 
 using namespace ML;
 using namespace std;

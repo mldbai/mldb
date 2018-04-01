@@ -12,7 +12,7 @@
 #include "mldb/ml/jml/thread_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "utils/json_utils.h"
 #include "mldb/ext/highwayhash.h"
@@ -100,7 +100,7 @@ call(FeatureGeneratorInput input) const
 {
     distribution<float> result(numBuckets());
 
-    Lightweight_Hash_Set<uint64_t> doneHashes;
+    LightweightHash_Set<uint64_t> doneHashes;
 
     Date ts = Date::negativeInfinity();
 

@@ -483,11 +483,11 @@ struct TabularDataset::TabularDataStore
         int64_t rowCount = 0;
 
         /// This indexes column names to their index, using new (fast) hash
-        Lightweight_Hash<uint64_t, int> columnIndex;
+        LightweightHash<uint64_t, int> columnIndex;
 
         /// Same index, but using the old (slow) hash.  Useful only for when
         /// we are forced to lookup on ColumnHash.
-        Lightweight_Hash<ColumnHash, int> columnHashIndex;
+        LightweightHash<ColumnHash, int> columnHashIndex;
 
         /// List of all columns in the dataset
         std::vector<ColumnEntry> columns;
@@ -1225,7 +1225,7 @@ struct TabularDataset::TabularDataStore
     std::vector<ColumnPath> fixedColumns;
 
     /// Index of just the fixed columns, to look them up by hash
-    Lightweight_Hash<uint64_t, int> fixedColumnIndex;
+    LightweightHash<uint64_t, int> fixedColumnIndex;
 
     /// All chunks we've added but haven't yet committed
     std::vector<std::shared_ptr<TabularDatasetChunk> > frozenChunks;
@@ -1992,7 +1992,7 @@ struct TabularDataset::TabularDataStore
             vector<ColumnPath> columnNames;
 
             //The first recorded row will determine the columns
-            Lightweight_Hash<uint64_t, int> inputColumnIndex;
+            LightweightHash<uint64_t, int> inputColumnIndex;
             for (unsigned i = 0;  i < vals.size();  ++i) {
                 const ColumnPath & c = std::get<0>(vals[i]);
                 uint64_t ch(c.oldHash());

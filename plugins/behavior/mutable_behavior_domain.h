@@ -8,7 +8,7 @@
 #pragma once
 
 #include "behavior_domain.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/spinlock.h"
 #include "mldb/arch/gc_lock.h"
@@ -309,7 +309,7 @@ private:
     typedef Spinlock IndexLock;
     //typedef std::mutex IndexLock;
     mutable IndexLock behaviorIndexLock;
-    Lightweight_Hash<uint64_t, uint32_t> behaviorIndex;
+    LightweightHash<uint64_t, uint32_t> behaviorIndex;
 
     // Independent lock for writing to subjectIndex
     std::atomic<double> earliest_, latest_;
@@ -788,7 +788,7 @@ private:
         }
 
         mutable IndexLock subjectIndexWriteLock;
-        RcuProtected<Lightweight_Hash<uint64_t, uint32_t> > subjectIndexPtr;
+        RcuProtected<LightweightHash<uint64_t, uint32_t> > subjectIndexPtr;
         RcuProtected<Root<SubjectEntry> > subjectEntryPtr;
     };
 
@@ -797,15 +797,15 @@ private:
 
     // This is a cache of the mapping of behaviors to their corresponding
     // entry.  It's shared amongst all threads.
-    RcuProtected<Lightweight_Hash<BH, BehaviorEntry *> > behaviorPartialCache;
+    RcuProtected<LightweightHash<BH, BehaviorEntry *> > behaviorPartialCache;
     std::vector<std::shared_ptr<SubjectRoot> > subjectRoots;
 
     // GC lock for the behavior and subject roots
     mutable GcLock rootLock;
 
     struct ThreadInfo {
-        Lightweight_Hash<uint64_t, SubjectEntry *> subjectCache;
-        Lightweight_Hash<uint64_t, BehaviorEntry *> behaviorCache;
+        LightweightHash<uint64_t, SubjectEntry *> subjectCache;
+        LightweightHash<uint64_t, BehaviorEntry *> behaviorCache;
     };
 
     ML::ThreadSpecificInstanceInfo<ThreadInfo, MutableBehaviorDomain>

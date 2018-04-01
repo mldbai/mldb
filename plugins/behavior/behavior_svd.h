@@ -14,7 +14,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "behavior_domain.h"
 #include <map>
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/ml/svd_utils.h"
 
 
@@ -47,7 +47,7 @@ struct BehaviorSvd {
     int numSingularValues;
     std::vector<BH> denseBehaviors;
     std::vector<BH> sparseBehaviors;
-    Lightweight_Hash_Set<uint64_t> biasedBehaviors;
+    LightweightHash_Set<uint64_t> biasedBehaviors;
 
     SvdSpace space;
     bool calcLongTail;
@@ -62,7 +62,7 @@ struct BehaviorSvd {
     std::vector<BH> allBehaviors;
 
     /** Index of behavior -> index */
-    Lightweight_Hash<BH, int> behaviorIndex;
+    LightweightHash<BH, int> behaviorIndex;
 
     /** Singular vector for each of the dense behaviors. */
     std::vector<distribution<float> > denseVectors;
@@ -152,7 +152,7 @@ struct BehaviorSvd {
     struct BehaviorCache {
         std::vector<BH> behaviors;
         std::vector<SvdColumnEntry> subjects;
-        Lightweight_Hash<BH, int> behToIndex;
+        LightweightHash<BH, int> behToIndex;
     };
 
     void updateBehaviorCache(const BehaviorDomain & behs,

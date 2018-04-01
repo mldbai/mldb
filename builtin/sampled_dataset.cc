@@ -6,7 +6,7 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "sampled_dataset.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/server/dataset_context.h"

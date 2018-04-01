@@ -16,7 +16,7 @@
 #include "mldb/ext/sqlite/sqlite3.h"
 #include "mldb/ext/sqlite/sqlite3pp.h"
 #include "mldb/ext/sqlite/sqlite3ppext.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/utils/log.h"
 
@@ -655,8 +655,8 @@ struct SqliteSparseDataset::Itl
     }
 
     // Protected by the write lock
-    Lightweight_Hash<RowHash, int> rowNumCache;
-    Lightweight_Hash<ColumnHash, int> colNumCache;
+    LightweightHash<RowHash, int> rowNumCache;
+    LightweightHash<ColumnHash, int> colNumCache;
 
     // Unfortunately...
     mutable std::mutex writeLock;

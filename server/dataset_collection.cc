@@ -12,7 +12,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/rest/rest_request_binding.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/vector_description.h"
@@ -165,7 +165,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 
         // First, find all columns
         std::vector<ColumnPath> columns;
-        Lightweight_Hash<ColumnHash, int> columnIndex;
+        LightweightHash<ColumnHash, int> columnIndex;
         for (auto & o: sparseOutput) {
             for (auto & c: o.columns) {
                 auto & columnName = std::get<0>(c);

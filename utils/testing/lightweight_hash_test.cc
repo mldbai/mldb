@@ -11,7 +11,7 @@
 #define BOOST_TEST_DYN_LINK
 #undef NDEBUG
 
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/jml/utils/string_functions.h"
 #include <boost/test/unit_test.hpp>
 #include <iostream>
@@ -27,8 +27,8 @@ using namespace std;
 
 BOOST_AUTO_TEST_CASE(test1)
 {
-    Lightweight_Hash<int, int> h;
-    const Lightweight_Hash<int, int> & ch = h;
+    LightweightHash<int, int> h;
+    const LightweightHash<int, int> & ch = h;
 
     BOOST_CHECK_EQUAL(h.empty(), true);
     BOOST_CHECK_EQUAL(h.size(), 0);
@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE(test3)
     for (unsigned j = 0;  j < nobj;  ++j)
         objects.push_back(malloc(50));
 
-    Lightweight_Hash<void *, Entry> h;
+    LightweightHash<void *, Entry> h;
     
     for (unsigned i = 0;  i < nobj;  ++i) {
         h[objects[i]].val = true;
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(test3_log)
     for (unsigned j = 0;  j < nobj;  ++j)
         objects.push_back(malloc(50));
     
-    Lightweight_Hash<void *, Entry,
+    LightweightHash<void *, Entry,
                      std::pair<void *, Entry>,
                      std::pair<const void *, Entry>,
                      PairOps<void *, Entry>,
@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE(test_set)
     for (unsigned j = 0;  j < nobj;  ++j)
         objects.push_back(random());
 
-    Lightweight_Hash_Set<int> s;
+    LightweightHash_Set<int> s;
 
     BOOST_CHECK_EQUAL(s.size(), 0);
 
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(test_set)
     cerr << "before copy" << endl;
     s.dump(cerr);
 
-    Lightweight_Hash_Set<int> s2 = s;
+    LightweightHash_Set<int> s2 = s;
 
     cerr << "after copy" << endl;
     s2.dump(cerr);
@@ -208,7 +208,7 @@ BOOST_AUTO_TEST_CASE(test_insert_guard_object)
 
     int nobj = 100;
 
-    Lightweight_Hash<int, int> h;
+    LightweightHash<int, int> h;
         
     for (unsigned j = 0;  j < nobj;  ++j) {
         BOOST_CHECK_EQUAL(h.size(), j);

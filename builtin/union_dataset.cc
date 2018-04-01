@@ -51,7 +51,7 @@ std::shared_ptr<Dataset> createUnionDataset(
 struct UnionDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    Lightweight_Hash<RowHash, pair<int, RowHash> > rowIndex;
+    LightweightHash<RowHash, pair<int, RowHash> > rowIndex;
     IdHashes columnIndex;
 
     // Datasets that it was constructed with

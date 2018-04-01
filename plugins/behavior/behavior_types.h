@@ -11,7 +11,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/utils/compact_vector.h"
 #include "mldb/base/less.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/ext/jsoncpp/json.h"
 
 namespace MLDB {
@@ -104,7 +104,7 @@ struct BehaviorInfo {
     //typedef compact_vector<SubjectId> Subjects;
     // Each subject along with the earliest timestamp for the subject and
     // behavior
-    typedef Lightweight_Hash<SubjectId, Date> Subjects;
+    typedef LightweightHash<SubjectId, Date> Subjects;
 
     Subjects subjects;  ///< Sorted list of all subjects with this behavior
     uint64_t seen;      ///< Total number of times this behavior has been seen

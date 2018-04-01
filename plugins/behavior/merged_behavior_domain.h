@@ -9,7 +9,7 @@
 
 
 #include "behavior_domain.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/builtin/id_hash.h"
 
 namespace MLDB {

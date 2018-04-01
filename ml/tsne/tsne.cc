@@ -13,7 +13,7 @@
 #include "mldb/jml/stats/distribution_simd.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/ml/algebra/matrix_ops.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/spinlock.h"
@@ -1415,7 +1415,7 @@ std::vector<TsneSparseProbs>
 symmetrize(const std::vector<TsneSparseProbs> & input)
 {
     // 1.  Convert to a sparse matrix format, and accumulate
-    std::vector<Lightweight_Hash<int, float> > probs(input.size());
+    std::vector<LightweightHash<int, float> > probs(input.size());
     
     for (unsigned j = 0;  j < input.size();  ++j) {
         const TsneSparseProbs & p = input[j];

@@ -12,7 +12,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/sql/execution_pipeline_impl.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/jml/utils/profile.h"
 #include "mldb/sql/join_utils.h"
 #include "mldb/types/any_impl.h"
@@ -100,7 +100,7 @@ struct JoinedDataset::Itl
     std::vector<RowEntry> rows;
 
     /// Map from row hash to the row
-    Lightweight_Hash<RowHash, int64_t> rowIndex;
+    LightweightHash<RowHash, int64_t> rowIndex;
 
     /// Index of a row hash for a left or right dataset to a list of
     /// rows it's part of in the output.

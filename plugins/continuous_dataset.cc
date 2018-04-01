@@ -14,7 +14,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/watch/watch.h"

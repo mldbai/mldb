@@ -10,7 +10,7 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/utils/compact_vector.h"
-#include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/types/basic_value_descriptions.h"

@@ -497,7 +497,7 @@ struct BehaviorColumnIndex: public ColumnIndex {
 
         // Now for each value we need to fill it in
 
-        Lightweight_Hash_Set<SH> rows;
+        LightweightHash_Set<SH> rows;
 
         // For each value
         for (auto & v: info.values) {
@@ -624,7 +624,7 @@ struct BehaviorMatrixView: public MatrixView {
     {
         throw MLDB::Exception("getEvent() function is buggy... doesn't return correct values");
 
-        Lightweight_Hash<BH, int> ev = behs->getSubjectTimestamp(rowHash, ts);
+        LightweightHash<BH, int> ev = behs->getSubjectTimestamp(rowHash, ts);
 
         MatrixEvent result;
         result.rowName = toPathElement(behs->getSubjectId(rowHash));
@@ -937,9 +937,9 @@ void
 MutableBehaviorDataset::
 recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows)
 {
-    Lightweight_Hash<RowHash, int64_t> rowIndex;
+    LightweightHash<RowHash, int64_t> rowIndex;
     std::vector<Id> rowNames;
-    Lightweight_Hash<ColumnHash, int64_t> columnIndex;
+    LightweightHash<ColumnHash, int64_t> columnIndex;
     std::vector<Id> columnNames;
 
     auto getRowIndex = [&] (const RowPath & name)
