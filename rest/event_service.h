@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* event_service.h                                                 -*- C++ -*-
    Jeremy Barnes, 12 December 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Service for high frequency logging of events.
 */
 
 #pragma once
 
-#include "mldb/soa/service/stats_events.h"
+#include "stats_events.h"
 #include "mldb/arch/format.h"
 #include <map>
 #include <string>
@@ -62,10 +61,30 @@ struct NullEventService : public EventService {
                          std::initializer_list<int> extra = DefaultOutcomePercentiles);
 
     virtual void dump(std::ostream & stream) const;
+};
+
+
+ #if 0
+/*****************************************************************************/
+/* AGGREGATOR EVENT SERVICE                                                  */
+/*****************************************************************************/
+
+struct AggregatorEventService : public EventService {
+
+    AggregatorEventService();
+    ~AggregatorEventService();
+    
+    virtual void onEvent(const std::string & name,
+                         const char * event,
+                         EventType type,
+                         float value,
+                         std::initializer_list<int> extra = DefaultOutcomePercentiles);
+
+    virtual void dump(std::ostream & stream) const;
 
     std::unique_ptr<MultiAggregator> stats;
 };
-
+#endif
 
 /*****************************************************************************/
 /* EVENT RECORDER                                                            */

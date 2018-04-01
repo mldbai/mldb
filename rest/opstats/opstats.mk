@@ -16,16 +16,3 @@ LIBOPSTATS_LINK := \
 
 $(eval $(call library,opstats,$(LIBOPSTATS_SOURCES),$(LIBOPSTATS_LINK)))
 
-
-
-# Services
-
-LIBSERVICES_SOURCES := \
-	event_service.cc \
-
-LIBSERVICES_LINK := opstats
-
-$(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
-
-
-$(eval $(call include_sub_make,service_testing,testing,service_testing.mk))

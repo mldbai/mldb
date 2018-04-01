@@ -5,7 +5,7 @@
 
 */
 
-#include "mldb/soa/service/statsd_connector.h"
+#include "mldb/rest/opstats/statsd_connector.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
 #include <iostream>
@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string.h>
-#include "mldb/soa/service/connectfd.h"
+#include "connectfd.h"
 #include <unistd.h>
 
 

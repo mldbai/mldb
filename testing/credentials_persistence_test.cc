@@ -13,7 +13,7 @@
 #include "mldb/rest/collection_config_store.h"
 #include "mldb/utils/runner.h"
 #include "mldb/io/message_loop.h"
-#include "mldb/soa/credentials/credentials.h"
+#include "mldb/credentials/credentials.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/http/http_rest_proxy.h"
 #include <boost/algorithm/string.hpp>

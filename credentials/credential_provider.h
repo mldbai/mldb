@@ -7,7 +7,7 @@
    Credential provider structure and registration.
 */
 
-#include "mldb/soa/credentials/credentials.h"
+#include "mldb/credentials/credentials.h"
 
 #pragma once
 

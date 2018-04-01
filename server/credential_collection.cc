@@ -11,7 +11,7 @@
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/pointer_description.h"
-#include "mldb/soa/credentials/credential_provider.h"
+#include "mldb/credentials/credential_provider.h"
 #include "mldb/utils/log.h"
 #include "mldb/utils/json_utils.h"
 #include <signal.h>

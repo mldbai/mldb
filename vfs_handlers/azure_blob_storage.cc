@@ -14,7 +14,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/soa/credentials/credential_provider.h"
+#include "mldb/credentials/credential_provider.h"
 #include "mldb/types/date.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/filter_streams_registry.h"

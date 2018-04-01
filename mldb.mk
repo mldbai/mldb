@@ -8,9 +8,9 @@ MLDB_SUBDIRS := \
 	logging \
 	io \
 	http \
+	credentials \
 	vfs \
 	jml \
-	soa \
 	ml \
 	vfs_handlers \
 	utils \

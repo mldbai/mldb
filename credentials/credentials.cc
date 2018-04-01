@@ -6,7 +6,7 @@
 
 */
 
-#include "credentials.h"
+#include "mldb/credentials/credentials.h"
 #include "mldb/types/structure_description.h"
 
 using namespace std;

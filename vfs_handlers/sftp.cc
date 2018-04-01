@@ -25,7 +25,7 @@
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/soa/credentials/credential_provider.h"
+#include "mldb/credentials/credential_provider.h"
 #include <thread>
 #include <unordered_map>
 

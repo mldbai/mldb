@@ -12,7 +12,7 @@
 #include "mldb/rest/service_peer.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/string.h"
-#include "mldb/soa/service/event_service.h"
+#include "mldb/rest/event_service.h"
 #include "mldb/utils/log_fwd.h"
 
 

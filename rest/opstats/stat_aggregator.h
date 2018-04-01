@@ -11,7 +11,7 @@
 
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/types/date.h"
-#include "stats_events.h"
+#include "mldb/rest/stats_events.h"
 #include <unordered_map>
 #include <map>
 #include <deque>

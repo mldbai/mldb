@@ -8,7 +8,7 @@
 */
 
 
-#include "mldb/soa/service/process_stats.h"
+#include "process_stats.h"
 #include "mldb/arch/exception.h"
 
 #include <boost/algorithm/string/split.hpp>

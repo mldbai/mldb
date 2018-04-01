@@ -7,7 +7,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "mldb/core/dataset.h"
-#include "mldb/soa/credentials/credentials.h"
+#include "mldb/credentials/credentials.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 

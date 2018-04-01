@@ -7,8 +7,7 @@
    Different types of stats events.
 */
 
-#ifndef __logger__stats_events_h__
-#define __logger__stats_events_h__
+#pragma once
 
 #include <utility>
 
@@ -27,6 +26,3 @@ static constexpr std::initializer_list<int> DefaultOutcomePercentiles =
 
 } // namespace MLDB
 
-
-
-#endif /* __logger__stats_events_h__ */

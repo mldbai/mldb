@@ -97,7 +97,7 @@ class CredentialTest(MldbUnitTest):
         with open(join(expanduser('~'), '.cloud_credentials')) as f:
             creds = f.readlines()
             for idx, cred in enumerate(creds):
-                type, version, key, secret = cred.split('\t')
+                type, version, key, secret,_,_,_,_ = cred.split('\t')
 
                 # store the credential for a specific path
                 resp = mldb.put("/v1/credentials/testcred" + str(idx), {

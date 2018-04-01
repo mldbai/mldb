@@ -14,8 +14,8 @@
 #include "mldb/server/credential_collection.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/config.h"
-#include "mldb/soa/credentials/credential_provider.h"
-#include "mldb/soa/credentials/credentials.h"
+#include "mldb/credentials/credential_provider.h"
+#include "mldb/credentials/credentials.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>

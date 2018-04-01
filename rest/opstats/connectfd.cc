@@ -10,7 +10,6 @@
 
 #include <netdb.h>
 #include <string.h>
-#include "mldb/soa/service/connectfd.h"
 #include "mldb/arch/exception.h"
 #include <unistd.h>
 

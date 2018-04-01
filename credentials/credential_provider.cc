@@ -7,7 +7,7 @@
    Basic functionality to get credentials.
 */
 
-#include "credential_provider.h"
+#include "mldb/credentials/credential_provider.h"
 #include "mldb/types/optional.h"
 #include "mldb/base/exc_assert.h"
 #include <mutex>

@@ -8,7 +8,7 @@
 */
 
 #include "event_service.h"
-#include "multi_aggregator.h"
+//#include "multi_aggregator.h"
 #include <iostream>
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
@@ -60,13 +60,13 @@ get(std::ostream & output) const {
     return result;
 }
 
+
 /*****************************************************************************/
 /* NULL EVENT SERVICE                                                        */
 /*****************************************************************************/
 
 NullEventService::
 NullEventService()
-    : stats(new MultiAggregator())
 {
 }
 
@@ -83,15 +83,48 @@ onEvent(const std::string & name,
         float value,
         std::initializer_list<int>)
 {
-    stats->record(name + "." + event, type, value);
 }
 
 void
 NullEventService::
 dump(std::ostream & stream) const
 {
+}
+
+#if 0
+/*****************************************************************************/
+/* AGGREGATOR EVENT SERVICE                                                  */
+/*****************************************************************************/
+
+AggregatorEventService::
+AggregatorEventService()
+    : stats(new MultiAggregator())
+{
+}
+
+AggregatorEventService::
+~AggregatorEventService()
+{
+}
+
+void
+AggregatorEventService::
+onEvent(const std::string & name,
+        const char * event,
+        EventType type,
+        float value,
+        std::initializer_list<int>)
+{
+    stats->record(name + "." + event, type, value);
+}
+
+void
+AggregatorEventService::
+dump(std::ostream & stream) const
+{
     stats->dumpSync(stream);
 }
+#endif
 
 
 /*****************************************************************************/

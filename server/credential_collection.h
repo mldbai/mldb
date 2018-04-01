@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include "mldb/soa/service/event_service.h"
+#include "mldb/rest/event_service.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/rest/rest_service_endpoint.h"
-#include "mldb/soa/credentials/credentials.h"
+#include "mldb/credentials/credentials.h"
 #include "mldb/rest/rest_collection.h"
 #include "mldb/utils/log_fwd.h"
 
