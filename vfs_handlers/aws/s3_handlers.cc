@@ -342,6 +342,18 @@ private:
         while (!excPtrHandler.hasException() && !chunk.waitResponse(1.0));
         excPtrHandler.rethrowIfSet();
         readPart = chunk.retrieve();
+
+        size_t nullCount = 0;
+        for (char c: readPart) {
+            if (!c)
+                ++nullCount;
+        }
+
+        cerr << "retrieving chunk " << currentChunk << " in slot "
+             << chunkNr << " with "
+             << readPart.size() << " bytes and " << nullCount << " nulls"
+             << endl;
+        
         readPartOffset = 0;
         currentChunk++;
     }
@@ -400,6 +412,14 @@ private:
                         S3Api::Response && response,
                         std::exception_ptr excPtr)
     {
+        size_t nullCount = 0;
+        for (char c: response.body_) {
+            if (!c)
+                ++nullCount;
+        }
+
+        cerr << "handling response from chunk " << chunkNr << " of size "
+             << chunkSize << " with " << nullCount << " nulls" << endl;
         try {
             if (excPtr) {
                 rethrow_exception(excPtr);
