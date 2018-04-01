@@ -12,7 +12,7 @@
 #include <boost/timer.hpp>
 #include <boost/progress.hpp>
 #include "mldb/ml/jml/training_index.h"
-#include "mldb/jml/stats/distribution_simd.h"
+#include "mldb/utils/distribution_simd.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/ml/algebra/lapack.h"
 #include "mldb/ml/algebra/matrix_ops.h"

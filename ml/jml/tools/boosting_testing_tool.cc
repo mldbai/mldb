@@ -27,13 +27,13 @@
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/sgi_numeric.h"
 #include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/jml/math/selection.h"
 #include <boost/progress.hpp>
 #include "mldb/jml/sections/sink_stream.h"
 #include "mldb/jml/utils/metrics.h"
 #include <boost/regex.hpp>
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_ops.h"
 #include "mldb/ml/jml/evaluation.h"
 
 #include <iterator>

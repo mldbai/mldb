@@ -34,7 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "svdlib.h"
 #include "svdutil.h"
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <iostream>
 #include <string.h>
 

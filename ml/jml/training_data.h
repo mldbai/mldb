@@ -11,7 +11,7 @@
 
 #include "feature_set.h"
 #include "mldb/ml/jml/feature_space.h"
-#include "mldb/jml/stats/sparse_distribution.h"
+#include "mldb/ml/stats/sparse_distribution.h"
 #include <map>
 #include <cmath>
 #include "mldb/arch/math.h"

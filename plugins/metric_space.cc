@@ -8,7 +8,7 @@
 */
 
 #include "metric_space.h"
-#include "mldb/jml/stats/distribution_simd.h"
+#include "mldb/utils/distribution_simd.h"
 #include "ml/value_descriptions.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/distribution_description.h"

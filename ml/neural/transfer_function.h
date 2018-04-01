@@ -9,7 +9,7 @@
 #pragma once
 
 #include "perceptron_defs.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/jml/db/persistent_fwd.h"
 #include <memory>
 

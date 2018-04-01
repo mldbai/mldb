@@ -13,7 +13,7 @@ using namespace std;
 #include <fstream>
 #include "mldb/arch/exception.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/vfs/filter_streams.h"
 #include "confidence_intervals.h"
 #include <math.h>

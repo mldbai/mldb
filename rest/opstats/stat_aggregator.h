@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/types/date.h"
 #include "mldb/rest/stats_events.h"
 #include <unordered_map>

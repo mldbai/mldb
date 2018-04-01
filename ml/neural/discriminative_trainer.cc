@@ -15,7 +15,7 @@
 
 #include "mldb/arch/threads.h"
 #include "mldb/arch/timers.h"
-#include "mldb/jml/stats/auc.h"
+#include "mldb/ml/stats/auc.h"
 
 using namespace std;
 

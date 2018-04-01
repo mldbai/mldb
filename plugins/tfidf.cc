@@ -11,7 +11,7 @@
 #include "matrix.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/dataset.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/pair_utils.h"

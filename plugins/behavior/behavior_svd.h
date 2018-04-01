@@ -11,7 +11,7 @@
 #define __behavior__behavior_svd_h__
 
 #include <vector>
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "behavior_domain.h"
 #include <map>
 #include "mldb/utils/lightweight_hash.h"

@@ -13,8 +13,8 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include <boost/thread/thread.hpp>
 #include "mldb/jml/db/persistent.h"
-#include "mldb/jml/stats/distribution_simd.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_simd.h"
+#include "mldb/utils/distribution_ops.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/arch/timers.h"

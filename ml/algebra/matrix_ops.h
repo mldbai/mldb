@@ -9,7 +9,7 @@
 #pragma once
 
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/arch/exception.h"
 #include <boost/multi_array.hpp>
 #include <iostream>

@@ -11,7 +11,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include "mldb/plugins/behavior/mutable_behavior_domain.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/ml/jml/thread_context.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/demangle.h"

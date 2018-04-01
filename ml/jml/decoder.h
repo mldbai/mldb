@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <string>
 #include "mldb/jml/db/persistent.h"
 #include "mldb/ml/jml/classifier.h"

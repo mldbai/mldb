@@ -16,7 +16,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/base/scope.h"
 #include "mldb/sql/sql_utils.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/base/optimized_path.h"
 
 using namespace std;

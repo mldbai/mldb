@@ -12,7 +12,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/utils/log.h"
 #include "mldb/server/dataset_context.h"

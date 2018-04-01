@@ -18,7 +18,7 @@
 #include "mldb/types/tuple_description.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/base/less.h"

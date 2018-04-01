@@ -18,8 +18,8 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include <iomanip>
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/stats/distribution_simd.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_simd.h"
+#include "mldb/utils/distribution_ops.h"
 #include "mldb/ml/jml/evaluation.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/ml/algebra/lapack.h"

@@ -17,8 +17,8 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/ml/jml/registry.h"
 #include "mldb/jml/utils/multi_array_utils.h"
-#include "mldb/jml/stats/distribution_ops.h"
-#include "mldb/jml/stats/distribution_simd.h"
+#include "mldb/utils/distribution_ops.h"
+#include "mldb/utils/distribution_simd.h"
 
 
 namespace ML {

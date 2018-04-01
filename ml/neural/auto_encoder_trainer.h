@@ -13,7 +13,7 @@
 
 #include "auto_encoder.h"
 #include "auto_encoder_stack.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <vector>
 
 

@@ -10,7 +10,7 @@
 
 #include "mldb/ml/jml/feature_info.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/ml/algebra/irls.h"
 
 namespace ML {

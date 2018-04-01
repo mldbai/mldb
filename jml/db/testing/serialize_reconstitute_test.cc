@@ -20,7 +20,7 @@
 #include <sstream>
 #include <boost/multi_array.hpp>
 #include "mldb/ml/algebra/matrix_ops.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 
 using namespace ML;

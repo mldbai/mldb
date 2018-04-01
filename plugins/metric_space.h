@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 
 namespace MLDB {

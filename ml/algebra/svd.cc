@@ -12,8 +12,8 @@
 
 #include "svd.h"
 #include "eigenvalues.h"
-#include "mldb/jml/stats/distribution.h"
-#include "mldb/jml/stats/distribution_simd.h"
+#include "mldb/utils/distribution.h"
+#include "mldb/utils/distribution_simd.h"
 #include "mldb/arch/exception.h"
 #include <boost/timer.hpp>
 #include <iostream>

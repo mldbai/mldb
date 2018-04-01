@@ -9,7 +9,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/tuple_description.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/http/http_exception.h"
 
 #define BOOST_TEST_MAIN

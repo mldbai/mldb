@@ -7,7 +7,7 @@
 #pragma once
 
 #include "mldb/jml/db/persistent.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "decoder.h"
 #include <boost/multi_array.hpp>
 #include "mldb/ml/algebra/irls.h"

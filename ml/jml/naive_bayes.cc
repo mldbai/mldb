@@ -11,7 +11,7 @@
 #include "naive_bayes.h"
 #include "classifier_persist_impl.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_ops.h"
 #include "stump_training.h"
 #include "mldb/jml/utils/vector_utils.h"
 

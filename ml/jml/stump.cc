@@ -20,7 +20,7 @@
 #include "mldb/jml/utils/environment.h"
 
 #include "boosted_stumps.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_ops.h"
 #include "mldb/jml/utils/profile.h"
 
 using namespace std;

@@ -17,7 +17,7 @@
 #ifndef __jml__tsne__tsne_h__
 #define __jml__tsne__tsne_h__
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "vantage_point_tree.h"
 #include "quadtree.h"

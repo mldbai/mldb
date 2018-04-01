@@ -11,7 +11,7 @@
 #include "irls.h"
 #include "glz.h"
 #include <boost/timer.hpp>
-#include "mldb/jml/stats/distribution_simd.h"
+#include "mldb/utils/distribution_simd.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/timers.h"

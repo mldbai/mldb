@@ -10,7 +10,7 @@
 
 #include <boost/any.hpp>
 #include <map>
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/ml/jml/classifier.h"
 
 namespace MLDB {

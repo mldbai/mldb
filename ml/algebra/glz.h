@@ -14,8 +14,8 @@
 
 #include <cmath>
 #include <utility>
-#include "mldb/jml/stats/distribution.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution.h"
+#include "mldb/utils/distribution_ops.h"
 #include <boost/multi_array.hpp>
 #include "irls.h"
 #include "least_squares.h"

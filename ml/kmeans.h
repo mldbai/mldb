@@ -9,7 +9,7 @@
 
 #include <vector>
 #include <mutex>
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/parallel.h"

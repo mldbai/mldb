@@ -16,7 +16,7 @@
 #include <boost/ptr_container/ptr_vector.hpp>
 #include "mldb/ml/jml/thread_context.h"
 #include "mldb/jml/db/persistent_fwd.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/arch/simd_vector.h"
 
 namespace ML {

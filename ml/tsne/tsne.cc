@@ -8,9 +8,9 @@
 */
 
 #include "tsne.h"
-#include "mldb/jml/stats/distribution.h"
-#include "mldb/jml/stats/distribution_ops.h"
-#include "mldb/jml/stats/distribution_simd.h"
+#include "mldb/utils/distribution.h"
+#include "mldb/utils/distribution_ops.h"
+#include "mldb/utils/distribution_simd.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/utils/lightweight_hash.h"

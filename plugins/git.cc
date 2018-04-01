@@ -14,7 +14,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/base/parallel.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/http/http_exception.h"

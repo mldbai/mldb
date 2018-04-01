@@ -14,9 +14,9 @@
 #include "boosting_tool_common.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/stats/moments.h"
+#include "mldb/ml/stats/moments.h"
 #include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/stats/sparse_distribution.h"
+#include "mldb/ml/stats/sparse_distribution.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/jml/utils/floating_point.h"
 

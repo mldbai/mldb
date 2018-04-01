@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/jml/math/bound.h"
 #include "mldb/jml/math/round.h"
 #include "mldb/jml/math/xdiv.h"

@@ -12,7 +12,7 @@
 
 #include "perceptron_defs.h"
 #include "mldb/ml/jml/thread_context.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "parameters.h"
 #include "transfer_function.h"

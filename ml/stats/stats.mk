@@ -1,7 +1,6 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 LIBSTATS_SOURCES := \
-        distribution.cc \
 	auc.cc
 
 $(eval $(call add_sources,$(LIBSTATS_SOURCES)))

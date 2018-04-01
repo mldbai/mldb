@@ -7,7 +7,7 @@
    Area under the curve code.
 */
 
-#include "auc.h"
+#include "mldb/ml/stats/auc.h"
 #include <algorithm>
 
 

@@ -11,7 +11,7 @@
    Implementation of static distribution functions.
 */
 
-#include "distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/arch/exception.h"
 
 namespace ML {

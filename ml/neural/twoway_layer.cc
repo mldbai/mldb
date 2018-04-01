@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/check_not_nan.h"
 #include "mldb/ml/jml/registry.h"
 #include "mldb/ml/algebra/matrix_ops.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_ops.h"
 
 using namespace std;
 

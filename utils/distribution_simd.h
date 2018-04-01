@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/compiler/compiler.h"
 

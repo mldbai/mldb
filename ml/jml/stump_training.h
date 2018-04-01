@@ -11,7 +11,7 @@
 
 #include <string>
 #include <vector>
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/arch/exception.h"
 #include <numeric>

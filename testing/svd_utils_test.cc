@@ -18,7 +18,7 @@
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/base/parallel.h"
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <cmath>
 
 using namespace std;

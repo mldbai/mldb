@@ -2,7 +2,7 @@
 
 # ml.mk
 
-$(eval $(call include_sub_makes,algebra jml neural tsne))
+$(eval $(call include_sub_makes,algebra stats jml neural tsne))
 
 LIBML_SOURCES := \
 	dense_classifier.cc \

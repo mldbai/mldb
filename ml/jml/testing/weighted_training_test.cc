@@ -9,7 +9,7 @@
 
 #include "mldb/ml/jml/classifier.h"
 #include "mldb/ml/jml/dense_features.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 using namespace ML;
 using namespace std;

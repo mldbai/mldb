@@ -6,7 +6,7 @@
 #include "feature_generators.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/parallel.h"
 #include "mldb/ml/jml/thread_context.h"

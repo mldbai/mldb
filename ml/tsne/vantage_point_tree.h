@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/utils/compact_vector.h"

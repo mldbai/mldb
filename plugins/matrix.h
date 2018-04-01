@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/server/dataset_context.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/ml/svd_utils.h"
 #include "mldb/utils/log_fwd.h"
 #include "mldb/utils/progress.h"

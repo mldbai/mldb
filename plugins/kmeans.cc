@@ -6,12 +6,12 @@
     Implementation of an KMEANS algorithm for embedding of a dataset.
 */
 
-#include "mldb/jml/stats/distribution_simd.h"
+#include "mldb/utils/distribution_simd.h"
 #include "kmeans.h"
 #include "matrix.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/dataset.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/parallel.h"

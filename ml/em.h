@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/db/persistent.h"
 #include "mldb/vfs/filter_streams.h"

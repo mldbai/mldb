@@ -12,7 +12,7 @@
 #define __algebra__svd_h__
 
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 
 

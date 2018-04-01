@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "mldb/jml/stats/sparse_distribution.h"
+#include "mldb/ml/stats/sparse_distribution.h"
 #include "mldb/jml/utils/sorted_vector.h"
 #include <stdint.h>
 

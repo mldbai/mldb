@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/parallel.h"

@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/profile.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 using namespace std;
 

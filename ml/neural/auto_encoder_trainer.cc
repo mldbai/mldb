@@ -20,7 +20,7 @@
 #include "mldb/arch/timers.h"
 #include "auto_encoder_stack.h"
 #include "mldb/jml/utils/check_not_nan.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_ops.h"
 
 
 using namespace std;

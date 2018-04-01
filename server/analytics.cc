@@ -18,7 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
 #include "mldb/server/parallel_merge_sort.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <mutex>
 #include <functional>
 

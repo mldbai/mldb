@@ -8,7 +8,7 @@
 #pragma once
 
 #include "mldb/types/list_description_base.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 namespace ML {
 

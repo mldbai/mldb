@@ -13,7 +13,7 @@
 #include <vector>
 #include <stdint.h>
 #include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 namespace MLDB {
 

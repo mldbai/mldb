@@ -21,7 +21,7 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include <boost/progress.hpp>
 #include <boost/timer.hpp>
-#include "mldb/jml/stats/moments.h"
+#include "mldb/ml/stats/moments.h"
 #include "datasets.h"
 #include "mldb/jml/utils/info.h"
 

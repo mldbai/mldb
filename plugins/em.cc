@@ -13,7 +13,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
-#include "jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "jml/utils/guard.h"
 #include "base/parallel.h"

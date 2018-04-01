@@ -11,7 +11,7 @@
 
 
 #include "feature_set.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "split.h"
 
 namespace ML {

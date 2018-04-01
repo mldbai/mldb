@@ -25,7 +25,7 @@
 #include "mldb/ml/jml/data_aliases.h"
 #include "mldb/ml/jml/weighted_training.h"
 #include "mldb/jml/math/xdiv.h"
-#include "mldb/jml/stats/distribution_ops.h"
+#include "mldb/utils/distribution_ops.h"
 #include <memory>
 
 

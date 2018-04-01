@@ -10,7 +10,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/base/parallel.h"
 #include "mldb/builtin/merge_hash_entries.h"

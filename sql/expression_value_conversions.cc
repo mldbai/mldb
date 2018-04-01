@@ -1,7 +1,7 @@
 #include "expression_value.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 
 namespace MLDB {

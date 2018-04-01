@@ -9,7 +9,7 @@
 
 #include "feature_set.h"
 #include "training_data.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/arch/demangle.h"
 //#include "mldb/utils/compact_vector.h"
 #include <map>

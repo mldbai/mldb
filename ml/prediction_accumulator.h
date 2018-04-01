@@ -12,7 +12,7 @@
 #include <map>
 #include <unordered_map>
 
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 #include "mldb/ml/separation_stats.h"
 
 namespace MLDB {

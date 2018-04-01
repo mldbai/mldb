@@ -13,7 +13,7 @@
 #include <vector>
 #include "mldb/ml/jml/training_data.h"
 #include "mldb/ml/jml/feature_space.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 
 namespace ML {

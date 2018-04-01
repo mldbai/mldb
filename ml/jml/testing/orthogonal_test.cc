@@ -11,7 +11,7 @@
 #include <iostream>
 #include "mldb/ml/jml/config_impl.h"
 #include <boost/multi_array.hpp>
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/utils/distribution.h"
 
 using namespace std;
 
