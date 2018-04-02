@@ -9,8 +9,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
-#include "mldb/plugins/frozen_column.h"
-#include "mldb/plugins/tabular_dataset_column.h"
+#include "mldb/plugins/tabular/frozen_column.h"
+#include "mldb/plugins/tabular/tabular_dataset_column.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/set_description.h"

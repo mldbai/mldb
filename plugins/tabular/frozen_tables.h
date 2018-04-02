@@ -12,6 +12,7 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/endian.h"
+#include "mldb/sql/cell_value.h"
 
 namespace MLDB {
 

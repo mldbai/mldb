@@ -1,6 +1,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 $(eval $(call include_sub_make,behavior))
+$(eval $(call include_sub_make,tabular))
 
 # Behavioral dataset plugin
 LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
@@ -29,13 +30,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	ranking_procedure.cc \
 	fetcher.cc \
 	importtext_procedure.cc \
-	tabular_dataset.cc \
-	frozen_column.cc \
-	frozen_tables.cc \
-	string_frozen_column.cc \
-	column_types.cc \
-	tabular_dataset_column.cc \
-	tabular_dataset_chunk.cc \
 	randomforest_procedure.cc \
 	classifier.cc \
 	sql_functions.cc \
@@ -66,7 +60,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,python_plugin_loader.cc,-I$(PYTHON_INCLUDE_PATH)))
 
-$(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),datacratic_sqlite ml mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins tsne svm libstemmer edlib algebra svdlibc uap behavior block))
+$(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),datacratic_sqlite ml mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins mldb_tabular_plugin tsne svm libstemmer edlib algebra svdlibc uap behavior))
 $(eval $(call library_forward_dependency,mldb_builtin_plugins,mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins))
 
 $(eval $(call include_sub_make,lang))
