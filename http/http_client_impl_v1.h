@@ -122,7 +122,7 @@ private:
     bool noSSLChecks_;
 
     int fd_;
-    ML::Wakeup_Fd wakeup_;
+    WakeupFd wakeup_;
     int timerFd_;
 
     struct CurlMultiCleanup {

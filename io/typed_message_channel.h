@@ -83,7 +83,7 @@ struct TypedMessageSink: public AsyncEventSource {
     }
     uint64_t size() const { return buf.ring.size() ; }
 private:
-    ML::Wakeup_Fd wakeup;
+    ML::WakeupFd wakeup;
     ML::RingBufferSRMW<Message> buf;
 };
 
@@ -203,7 +203,7 @@ private:
     std::queue<Message> queue_;
     size_t maxMessages_;
 
-    ML::Wakeup_Fd wakeup_;
+    ML::WakeupFd wakeup_;
 
     /* notifications are pending */
     bool pending_;

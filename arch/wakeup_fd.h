@@ -1,39 +1,37 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* wakeup_fd.h                                                     -*- C++ -*-
    Jeremy Barnes, 23 January 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Simple class that provides an FD that we can use to wake something
    up.  A generalization of the self-pipe trick.
 */
 
-#ifndef __jml__arch__wakeup_fd_h__
-#define __jml__arch__wakeup_fd_h__
+#pragma once
 
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include "exception.h"
 
-namespace ML {
+namespace MLDB {
 
-struct Wakeup_Fd {
-    Wakeup_Fd(int flags = 0)
+struct WakeupFd {
+    WakeupFd(int flags = 0)
     {
         fd_ = ::eventfd(0, flags);
         if (fd_ == -1)
             throw MLDB::Exception(errno, "eventfd");
     }
 
-    Wakeup_Fd(const Wakeup_Fd & other) = delete;
-    Wakeup_Fd(Wakeup_Fd && other)
+    WakeupFd(const WakeupFd & other) = delete;
+    WakeupFd(WakeupFd && other)
         noexcept
         : fd_(other.fd_)
     {
         other.fd_ = -1;
     }
 
-    ~Wakeup_Fd()
+    ~WakeupFd()
     {
         if (fd_ != -1)
             ::close(fd_);
@@ -79,8 +77,8 @@ struct Wakeup_Fd {
         return tryRead(val);
     }
 
-    Wakeup_Fd & operator = (const Wakeup_Fd & other) = delete;
-    Wakeup_Fd & operator = (Wakeup_Fd && other)
+    WakeupFd & operator = (const WakeupFd & other) = delete;
+    WakeupFd & operator = (WakeupFd && other)
         noexcept
     {
         fd_ = other.fd_;
@@ -93,9 +91,4 @@ struct Wakeup_Fd {
 };
 
 
-
 } // namespace MLDB
-
-
-
-#endif /* __jml__arch__wakeup_fd_h__ */
