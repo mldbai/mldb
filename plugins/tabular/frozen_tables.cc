@@ -5,14 +5,14 @@
 */
 
 #include "frozen_tables.h"
+#include "transducer.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/types/basic_value_descriptions.h"
 
-#include "mldb/ext/zstd/lib/dictBuilder/zdict.h"
-#include "mldb/ext/zstd/lib/zstd.h"
 #include "mldb/base/scope.h"
 #include <mutex>
+#include <bitset>
 
 
 using namespace std;
@@ -227,30 +227,121 @@ freeze(MappedSerializer & serializer)
 /* FROZEN BLOB TABLE                                                         */
 /*****************************************************************************/
 
+struct FrozenBlobTableMetadata {
+};
+
 IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenBlobTableMetadata)
 {
     setVersion(1);
-    addAuto("format", &FrozenBlobTableMetadata::format, "");
 }
 
 struct FrozenBlobTable::Itl {
     Itl()
-        : dict(nullptr)
     {
     }
 
     ~Itl()
     {
-        ZSTD_DDict * prev = dict.exchange(nullptr);
-        if (prev) {
-            ZSTD_freeDDict(prev);
-        }
     }
 
-    std::atomic<ZSTD_DDict *> dict;
+    FrozenBlobTableMetadata md;
+    FrozenMemoryRegion blobData;
+    FrozenIntegerTable offset;
+    FrozenIntegerTable length;  // How much longer is uncompressed than cmprsd
+    std::shared_ptr<StringTransducer> transducer;
 
-    std::mutex contextPoolLock;
-    std::vector<std::shared_ptr<ZSTD_DCtx> > contextPool;
+    // We have six interfaces that we need to handle in a device independent
+    // manner:
+    // - getSize(index, offset)
+    // - getContents(index)
+    // - getBufferSize(index), which is trivial
+    // - needsBuffer(index), which is trivial
+    // - size, which is trivial
+
+    size_t
+    getSize(uint32_t index) const
+    {
+        size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
+        size_t offset1 = offset.get(index);
+        size_t compressedLength = offset1 - offset0;
+        const char * data = blobData.data() + offset0;
+        if (transducer->canGetOutputLength()) {
+            return transducer
+                ->getOutputLength(string_view(data, compressedLength));
+        }
+        else {
+            size_t decompressedLength = compressedLength + length.get(index);
+            return decompressedLength;
+        }
+    }
+    
+    size_t
+    getBufferSize(uint32_t index) const
+    {
+        size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
+        size_t offset1 = offset.get(index);
+        size_t compressedLength = offset1 - offset0;
+        const char * data = blobData.data() + offset0;
+        size_t decompressedLength = compressedLength + length.get(index);
+        return transducer
+            ->getTemporaryBufferSize(string_view(data, compressedLength),
+                                     decompressedLength);
+    }
+
+    bool
+    needsBuffer(uint32_t index) const
+    {
+        return transducer->needsTemporaryBuffer();
+    }
+
+    string_view
+    getContents(uint32_t index,
+                char * tempBuffer,
+                size_t tempBufferSize) const
+    {
+        size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
+        size_t offset1 = offset.get(index);
+        size_t compressedLength = offset1 - offset0;
+        std::string_view input(blobData.data() + offset0, compressedLength);
+        return transducer->generateAll(input, tempBuffer, tempBufferSize);
+    }
+
+    size_t
+    memusage() const
+    {
+        size_t result
+            = blobData.memusage()
+            + offset.memusage()
+            + length.memusage()
+            + transducer->memusage();
+        return result;
+    }
+
+    size_t
+    size() const
+    {
+        return offset.size();
+    }
+
+    void
+    serialize(StructuredSerializer & serializer) const
+    {
+        serializer.newObject("md", md);
+        serializer.addRegion(blobData, "bl");
+        offset.serialize(*serializer.newStructure("of"));
+        length.serialize(*serializer.newStructure("l"));
+        transducer->serialize(*serializer.newStructure("tr"));
+    }
+
+    void
+    reconstitute(StructuredReconstituter & reconstituter)
+    {
+        reconstituter.getObject("md", md);
+        blobData = reconstituter.getRegion("bl");
+        offset.reconstitute(*reconstituter.getStructure("of"));
+        length.reconstitute(*reconstituter.getStructure("l"));
+        transducer = StringTransducer::thaw(*reconstituter.getStructure("tr"));
+    }
 };
 
 FrozenBlobTable::
@@ -259,163 +350,84 @@ FrozenBlobTable()
 {
 }
 
+FrozenBlobTable::
+~FrozenBlobTable()
+{
+}
+
 size_t
 FrozenBlobTable::
 getSize(uint32_t index) const
 {
-    size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
-    size_t offset1 = offset.get(index);
-    size_t storageSize = offset1 - offset0;
- 
-    switch (md.format) {
-    case UNCOMPRESSED:
-        return storageSize;
-    case ZSTD: {
-        const char * data = blobData.data() + offset0;
-        auto res = ZSTD_getDecompressedSize(data, storageSize);
-        if (ZSTD_isError(res)) {
-            throw AnnotatedException(500, "Error with decompressing: "
-                                      + string(ZSTD_getErrorName(res)));
-        }
-        return res;
-    }
-    }
-
-    throw AnnotatedException(600, "Invalid format for frozen blob table");
+    return itl->getSize(index);
 }
     
 size_t
 FrozenBlobTable::
 getBufferSize(uint32_t index) const
 {
-    switch (md.format) {
-    case UNCOMPRESSED:
-        return 0;
-    case ZSTD: {
-        size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
-        size_t offset1 = offset.get(index);
-        size_t storageSize = offset1 - offset0;
-        const char * data = blobData.data() + offset0;
-        auto res = ZSTD_getDecompressedSize(data, storageSize);
-        if (ZSTD_isError(res)) {
-            throw AnnotatedException(500, "Error with decompressing: "
-                                      + string(ZSTD_getErrorName(res)));
-        }
-        return res;
-    }
-    }
-
-    throw AnnotatedException(600, "Invalid format for frozen blob table");
+    return itl->getBufferSize(index);
 }
 
 bool
 FrozenBlobTable::
 needsBuffer(uint32_t index) const
 {
-    return md.format == ZSTD;
+    return itl->needsBuffer(index);
 }
 
-const char *
+string_view
 FrozenBlobTable::
 getContents(uint32_t index,
             char * tempBuffer,
             size_t tempBufferSize) const
 {
-    size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
-
-    switch (md.format) {
-    case UNCOMPRESSED:
-        return blobData.data() + offset0;
-    case ZSTD: {
-        size_t offset1 = offset.get(index);
-        size_t storageSize = offset1 - offset0;
-        const char * data = blobData.data() + offset0;
-
-        std::shared_ptr<ZSTD_DCtx> context;
-
-        {
-            std::unique_lock<std::mutex> guard(itl->contextPoolLock);
-            if (!itl->contextPool.empty()) {
-                context = itl->contextPool.back();
-                itl->contextPool.pop_back();
-            }
-        }
-
-        auto freeContext = [&] ()
-            {
-                if (!context)
-                    return;
-                std::unique_lock<std::mutex> guard(itl->contextPoolLock);
-                itl->contextPool.emplace_back(std::move(context));
-            };
-
-        Scope_Exit(freeContext());
-                    
-        if (!context) {
-            context.reset(ZSTD_createDCtx(),
-                          [] (ZSTD_DCtx * context) { ZSTD_freeDCtx(context); });
-        }
-
-        if (!itl->dict.load()) {
-            ZSTD_DDict * dict = ZSTD_createDDict(formatData.data(),
-                                                 formatData.length());
-            ZSTD_DDict * previous = nullptr;
-            if (!itl->dict.compare_exchange_strong(previous, dict)) {
-                ZSTD_freeDDict(dict);
-            }
-        }
-
-        auto res = ZSTD_decompress_usingDDict(context.get(),
-                                              tempBuffer,
-                                              tempBufferSize,
-                                              data, storageSize,
-                                              itl->dict.load());
-        
-        if (ZSTD_isError(res)) {
-            throw AnnotatedException(500, "Error with decompressing: "
-                                      + string(ZSTD_getErrorName(res)));
-        }
-        return tempBuffer;
-    }
-    }
-
-    throw AnnotatedException(600, "Invalid format for frozen blob table");
+    return itl->getContents(index, tempBuffer, tempBufferSize);
 }
 
 size_t
 FrozenBlobTable::
 memusage() const
 {
-    return formatData.memusage()
-        + blobData.memusage()
-        + offset.memusage();
+    return itl->memusage();
 }
 
 size_t
 FrozenBlobTable::
 size() const
 {
-    return offset.size();
+    return itl->size();
 }
 
 void
 FrozenBlobTable::
 serialize(StructuredSerializer & serializer) const
 {
-    serializer.newObject("md", md);
-    serializer.addRegion(formatData, "fm");
-    serializer.addRegion(blobData, "bl");
-    offset.serialize(*serializer.newStructure("of"));
+    itl->serialize(serializer);
 }
 
 void
 FrozenBlobTable::
 reconstitute(StructuredReconstituter & reconstituter)
 {
-    reconstituter.getObject("md", md);
-    formatData = reconstituter.getRegion("fm");
-    blobData = reconstituter.getRegion("bl");
-    offset.reconstitute(*reconstituter.getStructure("of"));
+    itl->reconstitute(reconstituter);
+}
+
+void
+StringStats::
+add(std::string_view blob)
+{
+    totalBytes += blob.size();
+    if (blob.size() <= 255) {
+        uniqueShortLengths += (shortLengthDistribution[blob.size()]++ == 0);
+    }
+    else {
+        uniqueLongLengths += (longLengthDistribution[blob.size()]++ == 0);
+    }
+
+    for (unsigned char c: blob) {
+        uniqueBytes += (byteDistribution[c - 0U]++ == 0);
+    }
 }
 
 
@@ -423,110 +435,137 @@ reconstitute(StructuredReconstituter & reconstituter)
 /* MUTABLE BLOB TABLE                                                        */
 /*****************************************************************************/
 
+MutableBlobTable::
+MutableBlobTable()
+{
+}
+
 size_t
 MutableBlobTable::
-add(std::string blob)
+add(std::string && blob)
 {
     size_t result = blobs.size();
-    totalBytes += blob.size();
-    offsets.add(totalBytes);
+    stats.add(blob);
     blobs.emplace_back(std::move(blob));
+    offsets.add(stats.totalBytes);
     return result;
+}
+
+size_t
+MutableBlobTable::
+add(std::string_view blob)
+{
+    return add(std::string(blob.cbegin(), blob.cend()));
 }
 
 FrozenBlobTable
 MutableBlobTable::
-freezeCompressed(MappedSerializer & serializer)
+freeze(MappedSerializer & serializer)
 {
-    // Let the dictionary size be 5% of the total
-    size_t dictionarySize = 131072;//32768; //info->totalBytes / 20;
+    //cerr << "freezing with " << uniqueShortLengths << " short lengths"
+    //     << " and " << uniqueBytes << " unique bytes" << endl;
 
-    std::string dictionary(dictionarySize, '\0');
+    double bytesPerEntry = 1.0 * stats.totalBytes / blobs.size();
 
-    static constexpr size_t TOTAL_SAMPLE_SIZE = 1024 * 1024;
+    std::shared_ptr<StringTransducer> forward, reverse;
+    
+    if (stats.totalBytes > 10000000 // 10MB
+        && bytesPerEntry > 64) {
+        std::tie(forward, reverse)
+            = ZstdStringTransducer::train(blobs, serializer);
+    }
+    if (!forward
+        && stats.uniqueLongLengths == 0
+        && stats.uniqueShortLengths == 1) {
 
-    // Give it the first 1MB to train on
-    std::string sampleBuffer;
-    sampleBuffer.reserve(2 * TOTAL_SAMPLE_SIZE);
-
-    std::vector<size_t> sampleSizes;
-    size_t currentOffset = 0;
-    size_t valNumber = 0;
-
-    // Accumulate the first 1MB of strings in a contiguous buffer
-
-    for (auto & v: blobs) {
-        if (currentOffset > TOTAL_SAMPLE_SIZE)
-            break;
-        size_t sampleSize = v.length();
-        sampleBuffer.append(v);
-        sampleSizes.push_back(sampleSize);
-        currentOffset += sampleSize;
-        valNumber += 1;
+        std::tie(forward, reverse)
+            = trainIdTransducer(blobs, stats, serializer);
+    }
+    if (!forward) {
+        return freezeUncompressed(serializer);
     }
 
-    Date before = Date::now();
+    MutableBlobTable compressedBlobs;
 
-    // Perform the dictionary training
-    size_t res = ZDICT_trainFromBuffer(&dictionary[0],
-                                       dictionary.size(),
-                                       sampleBuffer.data(),
-                                       sampleSizes.data(),
-                                       sampleSizes.size());
-    if (ZDICT_isError(res)) {
-        throw AnnotatedException(500, "Error with dictionary: "
-                                  + string(ZDICT_getErrorName(res)));
-    }
-        
-    Date after = Date::now();
-    double elapsed = after.secondsSince(before);
-    before = after;
+#if 0    
+    std::function<void ()> compress = compressor.getHost("generateAll");
+    std::function<void ()> length = compressor.getHost("length");
 
-    dictionary.resize(res);
+    // The pipeline we create for this operation is as follows:
+    // in order map over i = 0..blobs.size()
+    //    extract offset[i] as end
+    //    extract offset[i - 1] as start
+    //    length = end - start
+    //    add length to lengths
+    //    data = compress from (offset[i] to offset[i - 1])
+    //    add data to blobs
+    //
+    // (parallel map [i 0 blobs.size()]
+    //  (let [end offset(i)
+    //        start offset(- i 1)
+    //        len (- end start)
+    //        bl blob(data start end)
+    //        data compress(bl)]
+    //   (insert lengths i length)
+    //   (insert blobs i blob)))
+    //
+    // FOREACH
 
-    cerr << "created dictionary of " << res << " bytes from "
-         << currentOffset << " bytes of samples in "
-         << elapsed << " seconds" << endl;
+    Parameter<uint32_t> i("i");
+    Constant<uint32_t> one(1);
+    Function<uint64_t (uint64_t)> getOffset = offsets.getFunction("get");
+    Plus<uint64_t> iPlusOne(i, one);
+    
+    
+    Function<void (size_t)> mapper("mapper", blob);
 
-    // Now compress another 1MB to see what the ratio is...
-    std::shared_ptr<ZSTD_CDict> dict
-        (ZSTD_createCDict(dictionary.data(), res, 1 /* compression level */),
-         ZSTD_freeCDict);
-        
-    std::shared_ptr<ZSTD_CCtx> context
-        (ZSTD_createCCtx(), ZSTD_freeCCtx);
+    Parameter<size_t> i("i");
+    Function mapper("mapper", i);
+    Variable start = mapper.local<uint64_t>("start");
+    Variable end = mapper.local<uint64_t>("end");
+    Variable length = mapper.local<uint64_t>("length");
+    Assign a1(start, Call(getOffset, i - 1));
+    Assign a2(end, Call(getOffset, i));
+    Assign a3(length, end - start);
+    
+    Operation operation
+        = parallelMapInOrderReduce(Range(0, i), mapper, reducer);
+
+#endif
 
     size_t compressedBytes = 0;
     size_t numSamples = 0;
     size_t uncompressedBytes = 0;
 
-    MutableBlobTable compressedBlobs;
+    Date before = Date::now();
 
+    // How much longer the uncompressed version is than the compressed
+    MutableIntegerTable lengths;
+    
     for (size_t i = 0 /*valNumber*/;  i < blobs.size();  ++i) {
         const std::string & v = blobs[i];
         size_t len = v.length();
-        PossiblyDynamicBuffer<char, 65536> buf(ZSTD_compressBound(len));
-
-        size_t res
-            = ZSTD_compress_usingCDict(context.get(),
-                                       buf.data(), buf.size(),
-                                       v.data(), len,
-                                       dict.get());
-
-        if (ZSTD_isError(res)) {
-            throw AnnotatedException(500, "Error with compressing: "
-                                      + string(ZSTD_getErrorName(res)));
-        }
-
-        compressedBlobs.add(std::string(buf.data(), res));
+        size_t bufferLen
+            = forward->getTemporaryBufferSize(string_view(v.data(), len),
+                                              len);
+        
+        PossiblyDynamicBuffer<char, 65536> buf(bufferLen);
+        
+        std::string_view res
+            = forward->generateAll(string_view(v.data(), len),
+                                   buf.data(), bufferLen);
 
         uncompressedBytes += len;
-        compressedBytes += res;
+        compressedBytes += res.size();
         numSamples += 1;
+
+        compressedBlobs.add(res);
+        lengths.add(len - res.size());
+        offsets.add(compressedBytes);
     }
 
-    after = Date::now();
-    elapsed = after.secondsSince(before);
+    Date after = Date::now();
+    double elapsed = after.secondsSince(before);
 
     cerr << "compressed " << numSamples << " samples with "
          << uncompressedBytes << " bytes to " << compressedBytes
@@ -536,54 +575,22 @@ freezeCompressed(MappedSerializer & serializer)
 
     FrozenBlobTable frozenCompressedBlobs
         = compressedBlobs.freezeUncompressed(serializer);
-
+    
     cerr << "frozenCompressedBlobs.memusage() = "
          << frozenCompressedBlobs.memusage() << endl;
 
     FrozenBlobTable result;
-    MutableMemoryRegion dictRegion
-        = serializer.allocateWritable(dictionary.length(), 1);
-    std::memcpy(dictRegion.data(), dictionary.data(), dictionary.length());
-    result.formatData = dictRegion.freeze();
-    result.md.format = ZSTD;
-    result.blobData = std::move(frozenCompressedBlobs.blobData);
-    result.offset = std::move(frozenCompressedBlobs.offset);
 
-    cerr << "result.memusage() = "
-         << result.memusage() << endl;
-
-    return result;
+    result.itl->blobData = std::move(frozenCompressedBlobs.itl->blobData);
+    result.itl->offset = std::move(frozenCompressedBlobs.itl->offset);
+    result.itl->length = lengths.freeze(serializer);
+    result.itl->transducer = std::move(reverse);
     
+
 #if 0
-    ssize_t totalBytesRequired = sizeof(CompressedStringFrozenColumn)
-        + dictionarySize
-        + compressedBytes
-        + 4 * column.indexedVals.size();
+    MutableBlobTable compressedBlobs;
 
-    cerr << "result is " << totalBytesRequired << endl;
-
-    return result;
-#endif
-}
-
-FrozenBlobTable
-MutableBlobTable::
-freeze(MappedSerializer & serializer)
-{
-    double bytesPerEntry = 1.0 * totalBytes / blobs.size();
     
-    if (totalBytes > 10000000 // 10MB
-        && bytesPerEntry > 64) {
-        return freezeCompressed(serializer);
-    }
-
-    return freezeUncompressed(serializer);
-}
-
-FrozenBlobTable
-MutableBlobTable::
-freezeUncompressed(MappedSerializer & serializer)
-{
     FrozenIntegerTable frozenOffsets
         = offsets.freeze(serializer);
     MutableMemoryRegion region
@@ -604,8 +611,32 @@ freezeUncompressed(MappedSerializer & serializer)
     ExcAssertEqual(currentOffset, totalBytes);
 
     FrozenBlobTable result;
-    result.blobData = region.freeze();
-    result.offset = std::move(frozenOffsets);
+    result.itl->blobData = region.freeze();
+    result.itl->offset = std::move(frozenOffsets);
+#endif
+
+    return result;
+}
+
+FrozenBlobTable
+MutableBlobTable::
+freezeUncompressed(MappedSerializer & serializer)
+{
+    auto buf = serializer.allocateWritable(stats.totalBytes, 1 /* alignment */);
+
+    char * data = buf.data();
+
+    for (size_t i = 0 /*valNumber*/;  i < blobs.size();  ++i) {
+        const std::string & v = blobs[i];
+        size_t len = v.length();
+        std::memcpy(data, v.data(), len);
+        data += len;
+    }
+
+    FrozenBlobTable result;
+    result.itl->blobData = buf.freeze();
+    result.itl->offset = offsets.freeze(serializer);
+    result.itl->transducer.reset(new IdentityStringTransducer());
     return result;
 }
 
@@ -631,14 +662,16 @@ operator [] (size_t index) const
 
         // Create a buffer for the blob, and reconstitute it
         PossiblyDynamicBuffer<char, 4096> buf(bytesRequired);
-        const char * contents = blobs.getContents(index, buf.data(), buf.size());
+        std::string_view contents
+            = blobs.getContents(index, buf.data(), buf.size());
         // Decode the output
-        return CellValue::reconstitute(contents, bytesRequired, format,
+        return CellValue::reconstitute(contents.data(), contents.length(),
+                                       format,
                                        true /* known length */).first;
     }
     else {
-        const char * contents = blobs.getContents(index, nullptr, 0);
-        size_t length = blobs.getSize(index);
+        std::string_view contents = blobs.getContents(index, nullptr, 0);
+        size_t length = contents.length();
 
         // Nulls are serialized as zero byte blobs; all others take at least
         // one byte so there is no ambiguity
@@ -646,7 +679,8 @@ operator [] (size_t index) const
             return CellValue();
 
         // Decode the output directly in place
-        return CellValue::reconstitute(contents, length, format,
+        return CellValue::reconstitute(contents.data(), contents.length(),
+                                       format,
                                        true /* known length */).first;
     }
 }
