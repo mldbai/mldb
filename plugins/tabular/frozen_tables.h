@@ -8,11 +8,14 @@
 
 #pragma once
 
+#include "transducer.h"
 #include "frozen_column.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/endian.h"
 #include "mldb/sql/cell_value.h"
+#include "mldb/compiler/string_view.h"
+
 
 namespace MLDB {
 
@@ -181,53 +184,44 @@ struct MutableDoubleTable {
 /* BLOB TABLES                                                               */
 /*****************************************************************************/
 
-enum FrozenBlobTableFormat {
-    UNCOMPRESSED = 0,
-    ZSTD = 1
-};
-
-struct FrozenBlobTableMetadata {
-    uint8_t /* FrozenBlobTableFormat */ format = UNCOMPRESSED;
-};
-
 struct FrozenBlobTable {
     FrozenBlobTable();
-
-    FrozenBlobTableMetadata md;
-    FrozenMemoryRegion formatData;
-    FrozenMemoryRegion blobData;
-    FrozenIntegerTable offset;
-
+    ~FrozenBlobTable();
+    
     size_t getSize(uint32_t index) const;
     size_t getBufferSize(uint32_t index) const;
     bool needsBuffer(uint32_t index) const;
-    const char * getContents(uint32_t index,
-                             char * tempBuffer,
-                             size_t tempBufferSize) const;
+    std::string_view
+    getContents(uint32_t index,
+                char * tempBuffer,
+                size_t tempBufferSize) const;
     
     size_t memusage() const;
     size_t size() const;
     void serialize(StructuredSerializer & serializer) const;
     void reconstitute(StructuredReconstituter & reconstituter);
 
+private:
     struct Itl;
     std::shared_ptr<Itl> itl;
+    friend class MutableBlobTable;
 };
-
 
 struct MutableBlobTable {
 
-    size_t add(std::string blob);
+    MutableBlobTable();
+    
+    size_t add(std::string && blob);
+    size_t add(std::string_view blob);
 
     size_t size() const { return blobs.size(); }
 
     MutableIntegerTable offsets;
     std::vector<std::string> blobs;
-    uint64_t totalBytes = 0;
 
+    StringStats stats;
+    
     FrozenBlobTable freeze(MappedSerializer & serializer);
-
-    FrozenBlobTable freezeCompressed(MappedSerializer & serializer);
     FrozenBlobTable freezeUncompressed(MappedSerializer & serializer);
 };
 

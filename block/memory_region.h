@@ -392,6 +392,16 @@ struct StructuredReconstituter {
         this->getObjectHelper(name, &obj, desc);
     }
 
+    template<typename T>
+    T getObject(const PathElement & name,
+                std::shared_ptr<const ValueDescription> desc
+                   = getDefaultDescriptionSharedT<T>()) const
+    {
+        T result;
+        this->getObjectHelper(name, &result, desc);
+        return result;
+    }
+
     virtual FrozenMemoryRegion
     getRegion(const PathElement & name) const = 0;
 

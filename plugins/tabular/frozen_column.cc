@@ -74,8 +74,6 @@ reconstituteMetadataHelper(StructuredReconstituter & reconstituter,
         };
         
     context.forEachMember(onMember);
-
-
 }
 
 
@@ -179,10 +177,10 @@ struct DirectFrozenColumn
 
         result += values.memusage();
 
-        cerr << "Direct memusage is " << result << " for " 
-             << numEntries << " entries at "
-             << 1.0 * values.memusage() / numEntries << " per entry"
-             << endl;
+        //cerr << "Direct memusage is " << result << " for " 
+        //     << numEntries << " entries at "
+        //     << 1.0 * values.memusage() / numEntries << " per entry"
+        //     << endl;
         
         return result;
     }
