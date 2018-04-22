@@ -1905,13 +1905,13 @@ serialize(char * start, size_t bytesAvailable,
              << ": " << getExceptionString() << endl;
         cerr << "bytesAvailable = " << bytesAvailable
              << " numBytes = " << numBytes << endl;
-        ML::hex_dump(oldStart, start - oldStart);
+        hex_dump(oldStart, start - oldStart);
     }
 
     if (reconstituted != *this) {
         cerr << "should be: " << jsonEncodeStr(*this) << " type " << type << endl;
         cerr << "got: " << jsonEncodeStr(reconstituted) << " type " << reconstituted.type << endl;
-        ML::hex_dump(oldStart, start - oldStart);
+        hex_dump(oldStart, start - oldStart);
 
         ExcAssertEqual(*this, reconstituted);
     }

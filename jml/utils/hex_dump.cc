@@ -14,7 +14,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 void hex_dump(const void * mem, size_t total_memory, size_t max_size)
 {
@@ -40,6 +40,11 @@ void hex_dump(const void * mem, size_t total_memory, size_t max_size)
         }
         cerr << endl;
     }
+}
+
+void hex_dump(std::string_view mem, size_t max_size)
+{
+    hex_dump(mem.data(), mem.length(), max_size);
 }
 
 } // namespace ML

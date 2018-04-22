@@ -9,13 +9,14 @@
 
 #pragma once
 #include <stddef.h>
+#include "mldb/compiler/string_view.h"
 
-namespace ML {
+namespace MLDB {
 
 /** Dump the given range of memory (up to a minimum of total_memory and
     max_size) as a hex/ascii dump to the screen.
 */
 void hex_dump(const void * mem, size_t total_memory, size_t max_size = 1024);
+void hex_dump(std::string_view mem, size_t max_size = 1024);
 
-
-} // namespace ML
+} // namespace MLDB
