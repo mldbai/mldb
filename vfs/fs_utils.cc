@@ -19,6 +19,8 @@
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/arch/vm.h"
+#include "mldb/arch/userfault.h"
 
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/scope.h"
@@ -29,6 +31,15 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <sys/types.h>
+#include <linux/userfaultfd.h>
+
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+
+#include <thread>
 
 using namespace std;
 using namespace MLDB;
@@ -179,6 +190,213 @@ static FsObjectInfo extractInfo(const std::string & path, const fs::directory_en
 }
 
 /* LOCALURLFSHANDLER */
+
+
+/*****************************************************************************/
+/* URL FS HANDLER                                                            */
+/*****************************************************************************/
+
+UrlFsHandler::
+~UrlFsHandler()
+{
+}
+
+namespace {
+
+} // file scope
+
+UrlFsHandler::Mapping
+UrlFsHandler::
+memoryMap(const Url & url,
+          int flags,
+          uint64_t start,
+          int64_t end) const
+{
+    Mapping result;
+    
+    // 1.  Create a filter stream for the given object
+    auto stream = std::make_shared<filter_istream>(url);
+
+    result.info = stream->info();
+    ExcAssertGreaterEqual(result.info.size, 0);
+    
+    // 2.  Fix up the file range and verify validity
+    if (end == -1) {
+        end = result.info.size;
+    }
+    ExcAssertGreaterEqual(end, start);
+    ExcAssertLessEqual(end, result.info.size);
+    
+    size_t length = end - start;
+    
+    // 3.  If it's mapped, then we can simply reuse the given
+    //     block
+    std::pair<const char *, size_t> mapping = stream->mapped();
+    if (mapping.first) {
+        
+        ExcAssertEqual(result.info.size, mapping.second);
+
+        result.data = mapping.first + start;
+        result.length = length;
+        result.handle = stream;
+        
+        return result;
+    }
+    else {
+        static PageFaultHandler & faultHandler = PageFaultHandler::instance();
+
+        std::shared_ptr<PageFaultHandler::RangeHandler> range
+            = faultHandler.addRange(length);
+        
+
+#if 0
+        auto range = PageFaultHandler::allocateBackingRange(length);
+        
+        result.data = range.get();
+        result.length = length;
+#endif
+        
+        struct Info {
+            Info(std::shared_ptr<PageFaultHandler::RangeHandler> handle,
+                 uint64_t start,
+                 size_t length,
+                 std::shared_ptr<filter_istream> stream)
+                : handle(std::move(handle)),
+                  stream(std::move(stream)),
+                  start(start), length(length),
+                  thread([=] () { this->run(); })
+            {
+            }
+
+            ~Info()
+            {
+                thread.join();
+            }
+            
+            std::shared_ptr<PageFaultHandler::RangeHandler> handle;
+            std::shared_ptr<filter_istream> stream;
+            uint64_t start;
+            size_t length;
+            std::thread thread;
+
+            void run()
+            {
+                if (start)
+                    stream->seekg(start);
+
+#if 0                
+                //size_t padded_length
+                //    = (length + page_size - 1) / page_size * page_size;
+
+                constexpr size_t buffer_size = page_size * 256;
+                
+                void * buf = mmap(nullptr, buffer_size, PROT_READ | PROT_WRITE,
+                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+                if (!buf) {
+                    throw Exception("mmap for read buffer: %s",
+                                    strerror(errno));
+                }
+
+                Scope_Exit(munmap(buf, buffer_size));
+#endif
+
+#if 0                
+                size_t pos = 0;
+                size_t bufPos = 0;
+                char * buf = handle->getBackingStart();
+
+                constexpr size_t numPagesToRead = 1;
+#endif
+                
+                while (!stream->eof() && !stream->bad()) {
+                    // Get a mapped region we can put into place
+
+#if 0                    
+                    stream->read((char *)buf + bufPos,
+                                 std::min(buffer_size - bufPos,
+                                          numPagesToRead * page_size));
+
+                    size_t numAvail = stream->gcount() + bufPos;
+                    size_t numPagesAvail = numAvail / page_size;
+                    size_t numInIncompleteLastPage
+                        = numAvail - numPagesAvail * page_size;
+
+                    ExcAssertLessEqual(pos + numAvail, length);
+                    
+                    if (pos + numAvail == length
+                        && numInIncompleteLastPage > 0) {
+                        // This is the last page.  We allow an incompletely
+                        // filled page to pass through; the data after the
+                        // end shouldn't be read.
+                        ++numPagesAvail;
+                    }
+                    
+                    if (numPagesAvail > 0) {
+                        //cerr << "read " << numPagesAvail << " pages" << endl;
+                        handle->copyPages(buf, outbuf.get() + pos,
+                                          numPagesAvail);
+                        pos += numPagesAvail * page_size;
+                        
+                        // Copy non-page aligned data back to the start so
+                        // we can fill up the page next time
+                        std::memmove(buf,
+                                     (const char *)buf
+                                         + numPagesAvail * page_size,
+                                     numInIncompleteLastPage);
+                        bufPos = numInIncompleteLastPage;
+                    }
+
+                    if (pos >= length)
+                        break;
+#endif
+                    throw Exception("need to fix up stream mapping");
+                    
+                    if (stream->bad()) {
+                        // big bad problem...
+                        // we can't throw an exception, so we need instead
+                        // to handle this with a page fault
+                    }
+                }
+
+                stream.reset();
+            };
+
+        };
+
+        result.handle = std::make_shared<Info>
+            (range, start, length, stream);
+    }
+
+    // Advise call goes straight to madvise
+    result.advise = [=] (const char * start, size_t len, int advice)
+        {
+            ExcAssertGreaterEqual(start, mapping.first);
+            ExcAssertLessEqual(start + len, mapping.first + mapping.second);
+            int madvice = 0;
+            if ((advice & MAP_NORMAL) == MAP_NORMAL)
+                madvice |= MADV_NORMAL;
+            if ((advice & MAP_RANDOM) == MAP_RANDOM)
+                madvice |= MADV_RANDOM;
+            if ((advice & MAP_SEQUENTIAL) == MAP_SEQUENTIAL)
+                madvice |= MADV_SEQUENTIAL;
+            if ((advice & MAP_WILLNEED) == MAP_WILLNEED)
+                madvice |= MADV_WILLNEED;
+            if ((advice & MAP_DONTNEED) == MAP_DONTNEED)
+                madvice |= MADV_DONTNEED;
+
+            int result = madvise((void *)start, len, advice);
+            if (result == -1) {
+                throw Exception("madvise: " + string(strerror(errno)));
+            }
+        };
+
+    // If we set up the mapping with special flags, then do them
+    if (flags) {
+        result.advise(result.data, result.length, flags);
+    }
+    
+    return result;
+}
 
 struct LocalUrlFsHandler : public UrlFsHandler {
 
@@ -425,6 +643,17 @@ bool forEachUriObject(const std::string & urlPrefix,
     Url realUrl = makeUrl(urlPrefix);
     return findFsHandler(realUrl.scheme())
         ->forEach(realUrl, onObject, onSubdir, delimiter, startAt);
+}
+
+UrlFsHandler::Mapping
+mapUri(const std::string & url,
+       int flags,
+       uint64_t start,
+       uint64_t end)
+{
+    Url realUrl = makeUrl(url);
+    return findFsHandler(realUrl.scheme())
+        ->memoryMap(realUrl, flags, start, end);
 }
 
 string

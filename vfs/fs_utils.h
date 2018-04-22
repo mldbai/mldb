@@ -110,7 +110,40 @@ struct UrlFsHandler {
                          const OnUriSubdir & onSubdir,
                          const std::string & delimiter,
                          const std::string & startAt) const = 0;
+
+    /** Flags used to advise the memory mapping.  These map the MADV_*
+        flags for the madvise() system call.
+    */
+    enum {
+        MAP_NORMAL = 0,     ///< No special treatment
+        MAP_RANDOM = 1,     ///< Access will be random
+        MAP_SEQUENTIAL = 2, ///< Access will be sequential
+        MAP_WILLNEED = 4,   ///< We will need this straight away
+        MAP_DONTNEED = 8    ///< We don't need this any more
+    };
+
+    /** Memory map the given object. */
+    struct Mapping {
+        const char * data;
+        size_t length;
+        FsObjectInfo info;
+        std::function<void (const char * start, size_t len, int advice)> advise;
+
+        std::shared_ptr<void> handle;
+    };
+
+    /** Map the given memory into memory.  This works across all kinds of
+        URLs.
+
+        If it's not supported directly, then a user space pagefault
+        mechanism will be used to access the mapping.
+    */
+    virtual Mapping memoryMap(const Url & url,
+                              int flags = MAP_NORMAL,
+                              uint64_t start = 0,
+                              int64_t end = -1) const;
 };
+
 
 /** Register a new handler for handling URIs of the given scheme. */
 void registerUrlFsHandler(const std::string & scheme,
@@ -185,6 +218,13 @@ bool forEachUriObject(const std::string & uriPrefix,
                       const std::string & delimiter = "/",
                       const std::string & startAt = "");
 
+
+/** Memory map the given URI. */
+UrlFsHandler::Mapping
+mapUri(const std::string & url,
+       int flags = UrlFsHandler::MAP_NORMAL,
+       uint64_t start = 0,
+       uint64_t end = -1);
 
 // wrappers around "basename" and "dirname" from the libc
 std::string baseName(const std::string & filename);
