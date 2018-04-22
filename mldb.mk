@@ -8,13 +8,13 @@ MLDB_SUBDIRS := \
 	logging \
 	io \
 	http \
-	credentials \
 	vfs \
 	block \
 	jml \
 	ml \
-	vfs_handlers \
 	utils \
+	credentials \
+	vfs_handlers \
 	rest \
 	sql \
 	core \

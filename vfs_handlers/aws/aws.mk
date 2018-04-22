@@ -19,7 +19,7 @@ $(eval $(call set_compile_option,aws.cc,-fpermissive))
 
 $(eval $(call program,s3tee,aws_vfs_handlers boost_program_options utils))
 $(eval $(call program,s3cp,aws_vfs_handlers boost_program_options utils))
-$(eval $(call program,s3_multipart_cmd,vfs_handlers boost_program_options utils))
+$(eval $(call program,s3_multipart_cmd,aws_vfs_handlers boost_program_options utils))
 $(eval $(call program,s3cat,aws_vfs_handlers boost_program_options utils))
 
 
