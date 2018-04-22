@@ -7,7 +7,7 @@ CC:=$(COMPILER_CACHE) $(GCC)
 
 GXXWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -Woverloaded-virtual -Wno-deprecated-declarations -Wno-deprecated -Winit-self -Wno-unused-but-set-variable -Wno-psabi -Wno-unknown-pragmas
 
-CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GXXWARNINGFLAGS)$(if $(GCC_VERSION_WARNING_FLAGS), $(GCC_VERSION_WARNING_FLAGS),) -pipe -ggdb $(foreach dir,$(LOCAL_INCLUDE_DIR),-I$(dir)) -std=c++0x
+CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GXXWARNINGFLAGS)$(if $(GCC_VERSION_WARNING_FLAGS), $(GCC_VERSION_WARNING_FLAGS),) -pipe -ggdb $(foreach dir,$(LOCAL_INCLUDE_DIR),-I$(dir)) -std=c++1y
 CXXNODEBUGFLAGS := -O3 -DBOOST_DISABLE_ASSERTS -DNDEBUG 
 CXXDEBUGFLAGS := -O0 -g3
 
