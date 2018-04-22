@@ -29,6 +29,10 @@ ifeq ($(OSNAME)-$(ARCH),Darwin-arm64)
 $(eval $(call test,tick_counter_test,arch,boost))
 endif
 
+$(eval $(call test,userfault_test,arch,boost))
+$(eval $(call test,segv_test,arch,boost))
+
+
 ifeq ($(WITH_CUDA),1)
 #$(eval $(call set_compile_option,cuda_device_query_test.cc,-I$(INC)))
 

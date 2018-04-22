@@ -24,8 +24,9 @@ LIBARCH_SOURCES := \
         file_functions.cc \
 		wait_on_address.cc \
 		wakeup_fd.cc \
-		thread_specific.cc
-
+		thread_specific.cc \
+	userfault.cc \
+	segv.cc \
 
 ifeq ($(ARCH),x86_64)
 LIBARCH_SOURCES += simd_vector_avx.cc
