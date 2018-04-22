@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** watchdog.h                                                     -*- C++ -*-
     Jeremy Barnes, 16 May 2011
     Copyright (c) 2011 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Watchdog timer class.
 */
 
-#ifndef __jml_testing__watchdog_h__
-#define __jml_testing__watchdog_h__
+#pragma once
 
 #include <thread>
 #include <iostream>
@@ -63,6 +61,3 @@ struct Watchdog {
 };
 
 } // namespace ML
-
-#endif /* __jml_testing__watchdog_h__ */
-
