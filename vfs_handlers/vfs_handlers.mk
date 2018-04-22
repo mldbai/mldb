@@ -11,7 +11,7 @@ LIBVFS_HANDLERS_SOURCES := \
 
 #	hdfs.cc
 
-LIBVFS_HANDLERS_LINK := hash archive ssh2 azure_storage_cpp aws_vfs_handlers
+LIBVFS_HANDLERS_LINK := hash $(LIBARCHIVE_LIB_NAME) ssh2 azure_storage_cpp aws_vfs_handlers
 
 AZURE_BLOB_STORAGE_OPTIONS := \
     -Imldb/ext/casablanca/Release/include \

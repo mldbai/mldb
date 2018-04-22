@@ -15,8 +15,8 @@
 #include <sstream>
 
 // libarchive support
-#include <archive.h>
-#include <archive_entry.h>
+#include "mldb/ext/libarchive/libarchive/archive.h"
+#include "mldb/ext/libarchive/libarchive/archive_entry.h"
 
 
 

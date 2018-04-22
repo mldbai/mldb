@@ -91,3 +91,6 @@
 [submodule "ext/concurrentqueue"]
 	path = ext/concurrentqueue
 	url = git@github.com:mldbai/concurrentqueue.git
+[submodule "ext/libarchive"]
+	path = ext/libarchive
+	url = git@github.com:mldbai/libarchive.git

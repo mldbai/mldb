@@ -26,5 +26,7 @@ EASYEXIF_CC_FILES:= easyexif/exif.cpp
 $(eval $(call set_compile_option,$(EASYEXIF_CC_FILES),$(EASYEXIF_WARNING_OPTIONS)))
 $(eval $(call library,easyexif,$(EASYEXIF_CC_FILES)))
 $(eval $(call include_sub_make,libgit2,libgit2,../libgit2.mk))
+$(eval $(call include_sub_make,libarchive,libarchive,../libarchive.mk))
+
 $(eval $(call include_sub_make,casablanca,casablanca,../casablanca.mk))
 $(eval $(call include_sub_make,azure-storage-cpp,azure-storage-cpp,../azure-storage-cpp.mk))

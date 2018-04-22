@@ -11,9 +11,9 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
 
-
-#include <archive.h>
-#include <archive_entry.h>
+// libarchive support
+#include "mldb/ext/libarchive/libarchive/archive.h"
+#include "mldb/ext/libarchive/libarchive/archive_entry.h"
 
 
 using namespace std;

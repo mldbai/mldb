@@ -14,7 +14,6 @@ apt-get install -y \
   autoconf \
   build-essential \
   language-pack-en \
-  libarchive-dev \
   libblas-dev \
   libboost-all-dev \
   libcap-dev \

@@ -24,10 +24,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-#include <archive.h>
-#include <archive_entry.h>
-
 using namespace std;
+
 
 namespace MLDB {
 
