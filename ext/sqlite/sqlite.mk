@@ -4,16 +4,16 @@
 #
 # Support functions for javascript
 
-LIBDATACRATIC_SQLITE_SOURCES := \
+LIBSQLITE_SOURCES := \
 	sqlite3ppext.cc \
 	sqlite3pp.cc \
 	sqlite3.c
 
-LIBDATACRATIC_SQLITE_LINK := 
+LIBSQLITE_LINK := 
 
 # gcc 4.7 and above require this
 $(eval $(call set_compile_option,sqlite3.c,-Wno-array-bounds -Wno-unused-const-variable))
 
-$(eval $(call library,datacratic_sqlite,$(LIBDATACRATIC_SQLITE_SOURCES),$(LIBDATACRATIC_SQLITE_LINK)))
+$(eval $(call library,sqlite-mldb,$(LIBSQLITE_SOURCES),$(LIBSQLITE_LINK)))
 
-$(eval $(call program,sqliteShell,datacratic_sqlite,shell.c))
+$(eval $(call program,sqliteShell,sqlite-mldb,shell.c))
