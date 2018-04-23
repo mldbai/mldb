@@ -21,7 +21,7 @@ $(eval $(call mldb_builtin_plugin,mongodb,mldb_mongodb_plugin,doc))
 
 $(eval $(call library,mongo_tmp_server,mongo_temporary_server.cc,runner))
 
-$(eval $(call python_addon,python_mongo_temp_server_wrapping,mongo_temp_server_wrapping.cc,mongo_tmp_server boost_filesystem))
+$(eval $(call python_addon,python_mongo_temp_server_wrapping,mongo_temp_server_wrapping.cc,mongo_tmp_server $(STD_FILESYSTEM_LIBNAME)))
 $(eval $(call python_module,mongo_temp_server_wrapping,$(notdir $(wildcard $(CWD)/*.py)),python_mongo_temp_server_wrapping))
 
 $(eval $(call include_sub_make,testing))

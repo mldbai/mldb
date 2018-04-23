@@ -363,4 +363,4 @@ TEST_RUNNER_FLAGS := \
     -Wno-reorder \
 
 $(eval $(call set_compile_option,$(TEST_RUNNER_SOURCE),$(TEST_RUNNER_FLAGS)))
-#$(eval $(call program,test_runner,boost_filesystem unittestpp,$(TEST_RUNNER_SOURCE)))
+#$(eval $(call program,test_runner,$(STD_FILESYSTEM_LIBNAME) unittestpp,$(TEST_RUNNER_SOURCE)))
