@@ -12,6 +12,7 @@
 #include "mldb/io/event_loop_impl.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "asio_peer_connection.h"
+#include <boost/asio.hpp>
 
 using namespace std;
 

@@ -8,8 +8,9 @@
 #pragma once
 
 #include "peer_connection.h"
-#include <boost/asio.hpp>
 #include <atomic>
+#include <memory>
+#include <boost/asio/ip/tcp.hpp>
 
 namespace MLDB {
 
@@ -44,36 +45,7 @@ struct AsioPeerConnection: public PeerConnection {
     virtual void postWorkAsync(std::function<void ()> work);
 
 private:
-
-    struct Itl {
-
-        Itl(std::shared_ptr<boost::asio::ip::tcp::socket> sock,
-            AsioPeerConnection * connection);
-
-
-        PeerConnectionStatus getStatus() const;
-
-        std::atomic<bool> shutdown_;
-
-        std::shared_ptr<boost::asio::ip::tcp::socket> sock;
-        boost::asio::strand strand;
-        AsioPeerConnection * connection;
-        PeerConnectionState currentState;
-        std::string currentError;
-        std::function<bool (std::string & data)> onSend;
-
-        // This mutex only protects changes in internal object state.  The
-        // asio strand protects the actual reading and writing.
-        mutable std::recursive_mutex mutex;  // TODO: should be able to get rid of it
-
-        uint64_t currentPacketLength;
-        std::string currentPacket;
-        std::unique_ptr<std::string> bufferedRead;
-
-        std::atomic<bool> currentlyReading;
-        std::atomic<bool> currentlyWriting;
-    };
-
+    struct Itl;
     std::shared_ptr<Itl> itl;
 
     static void doStartReading(std::shared_ptr<Itl> itl);
