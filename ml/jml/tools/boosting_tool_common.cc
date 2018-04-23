@@ -16,7 +16,7 @@
 #include "mldb/ml/jml/probabilizer.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include <boost/timer.hpp>
-#include <boost/regex.hpp>
+#include <regex>
 #include "mldb/ml/jml/null_classifier.h"
 #include "mldb/ml/jml/null_feature_space.h"
 #include "mldb/ml/jml/evaluation.h"
@@ -669,14 +669,14 @@ void do_features(const Training_Data & data,
                 }
 
                 /* Add it as a regular expression. */
-                boost::regex regex(regex_str);
+                std::regex regex(regex_str);
 
                 /* Check out all of the variable names. */
                 int matched = 0;
                 for (unsigned j = 0;  j < features.size();  ++j) {
                     const string & name = feature_names[j];
 
-                    bool match = boost::regex_match(name, regex);
+                    bool match = std::regex_match(name, regex);
                     if ((match && !negative) || (!match && negative)) {
                         std::swap(features[j], features.back());
                         std::swap(feature_names[j], feature_names.back());
@@ -717,14 +717,14 @@ void do_features(const Training_Data & data,
             }
             else {
                 /* Add it as a regular expression. */
-                boost::regex regex(optional_features[i]);
+                std::regex regex(optional_features[i]);
 
                 /* Check out all of the variable names. */
                 int matched = 0;
                 for (unsigned j = 0;  j < features.size();  ++j) {
                     const string & name = feature_names[j];
 
-                    if (boost::regex_match(name, regex)) {
+                    if (std::regex_match(name, regex)) {
                         Mutable_Feature_Info info = feature_space->info(features[j]);
                         info.set_optional(true);
                         feature_space->set_info(features[j], info);
@@ -790,14 +790,14 @@ void do_features(const Training_Data & data,
             string result(type_overrides[i], pos + 1);
 
             /* Add it as a regular expression. */
-            boost::regex regex(match);
+            std::regex regex(match);
             
             /* Check out all of the variable names. */
             int matched = 0;
             for (unsigned j = 0;  j < features.size();  ++j) {
                 const string & name = feature_names[j];
                 
-                if (boost::regex_match(name, regex)) {
+                if (std::regex_match(name, regex)) {
                     Mutable_Feature_Info info = feature_space->info(features[j]);
                     
                     if (result == "CATEGORICAL")

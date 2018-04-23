@@ -47,7 +47,7 @@ train(const DataPartition & partition,
       std::shared_ptr<DenseFeatureGenerator> featureGenerator,
       int randomSeed,
       float equalizationFactor,
-      const boost::regex & excludeFeatures)
+      const std::regex & excludeFeatures)
 {
     std::shared_ptr<ML::Dense_Feature_Space>
         training_fs(new ML::Dense_Feature_Space());
@@ -72,7 +72,7 @@ train(const DataPartition & partition,
         string featureName = training_fs->print(allFeatures[i]);
         //cerr << "featureName = " << featureName << endl;
 #if 0
-        if (boost::regex_match(featureName, excludeFeatures)
+        if (std::regex_match(featureName, excludeFeatures)
             || featureName == "LABEL") {
             cerr << "excluding feature " << featureName << " from training"
                  << endl;

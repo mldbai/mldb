@@ -79,7 +79,7 @@ pass(SH subject, const SubjectStats & stats) const
 
     if (includeRegex) {
         ExcAssert(stats.id.notNull());
-        if (!boost::regex_match(stats.id.toString(), *includeRegex))
+        if (!std::regex_match(stats.id.toString(), *includeRegex))
             return false;
     }
 
@@ -101,7 +101,7 @@ void
 SubjectFilter::
 filterByRegex(const std::string & expression)
 {
-    includeRegex.reset(new boost::regex(expression));
+    includeRegex.reset(new std::regex(expression));
     includeRegexStr = expression;
 }
 
@@ -152,7 +152,7 @@ pass(BH beh, const BehaviorStats & stats) const
     
     if (includeRegex) {
         ExcAssert(stats.id.notNull());
-        if (!boost::regex_match(stats.id.toString(), *includeRegex))
+        if (!std::regex_match(stats.id.toString(), *includeRegex))
             return false;
     }
     
@@ -170,7 +170,7 @@ void
 BehaviorFilter::
 filterByRegex(const std::string & expression)
 {
-    includeRegex.reset(new boost::regex(expression));
+    includeRegex.reset(new std::regex(expression));
     includeRegexStr = expression;
 }
 

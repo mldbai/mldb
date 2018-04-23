@@ -12,7 +12,7 @@
 #include <sstream>
 #include "boost/lexical_cast.hpp"
 #include "boolean_expression_parser.h"
-#include <boost/regex.hpp>
+#include <regex>
 #include <mutex>
 #include "mldb/base/parallel.h"
 

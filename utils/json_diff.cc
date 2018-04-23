@@ -14,7 +14,7 @@
 #include "mldb/types/pair_description.h"
 #include "mldb/base/parse_context.h"
 
-#include <boost/regex.hpp>
+#include <regex>
 
 using namespace std;
 
@@ -50,7 +50,7 @@ void
 JsonDiff::
 ignore(const std::string & toIgnoreRegex, bool debug)
 {
-    boost::regex regex(toIgnoreRegex);
+    std::regex regex(toIgnoreRegex);
 
     std::function<bool (JsonDiff & diff, const std::string & path)> process
         = [&] (JsonDiff & diff, const std::string & path) -> bool
@@ -91,7 +91,7 @@ ignore(const std::string & toIgnoreRegex, bool debug)
 
                 //cerr << "testing " << toMatch << endl;
 
-                return boost::regex_match(toMatch, regex);
+                return std::regex_match(toMatch, regex);
             }
         };
 

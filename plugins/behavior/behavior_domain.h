@@ -16,7 +16,7 @@
 #include <functional>
 #include "mldb/jml/db/persistent.h"
 
-#include <boost/regex.hpp>
+#include <regex>
 #include "mldb/types/hash_wrapper.h"
 
 #include "mldb/core/dataset.h"
@@ -106,7 +106,7 @@ struct SubjectFilter {
 private:
     friend class BehaviorDomain;
     std::string includeRegexStr;
-    std::unique_ptr<boost::regex> includeRegex;
+    std::unique_ptr<std::regex> includeRegex;
     LightweightHash_Set<SH> inList;
     bool hasFilterList;
     std::vector<SH> theList;
@@ -179,7 +179,7 @@ struct BehaviorFilter {
 private:
     friend class BehaviorDomain;
     std::string includeRegexStr;
-    std::unique_ptr<boost::regex> includeRegex;
+    std::unique_ptr<std::regex> includeRegex;
     LightweightHash_Set<BH> inList;
     bool hasFilterList;
     int minSubjectCount;

@@ -17,7 +17,7 @@
 #include "mldb/arch/exception.h"
 #include "dtoa.h"
 #include <chrono>
-#include <boost/regex.hpp>
+#include <regex>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 

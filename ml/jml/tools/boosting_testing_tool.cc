@@ -32,7 +32,7 @@
 #include <boost/progress.hpp>
 #include "mldb/jml/sections/sink_stream.h"
 #include "mldb/jml/utils/metrics.h"
-#include <boost/regex.hpp>
+#include <regex>
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/ml/jml/evaluation.h"
 

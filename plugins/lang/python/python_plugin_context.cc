@@ -13,7 +13,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/optimized_path.h"
 #include "mldb/utils/log.h"
-#include <boost/regex.hpp>
+#include <regex>
 #include <boost/algorithm/string.hpp>
 #include <memory>
 
@@ -155,11 +155,11 @@ convertException(PythonSubinterpreter & pyControl,
        boost::starts_with(result.stack[0].where.rawString(), "SyntaxError")) {
 
         // SyntaxError: ('invalid syntax', ('<string>', 2, 3, 'a b\\n'))
-        boost::regex pattern("SyntaxError: \\('invalid syntax', \\('.*', ([\\d]+), ([\\d]+), '(.*)'\\)\\)\n");
+        static std::regex pattern("SyntaxError: \\('invalid syntax', \\('.*', ([\\d]+), ([\\d]+), '(.*)'\\)\\)\n");
 
-        boost::smatch what;
-        if(boost::regex_match(result.stack[0].where.rawString(),
-                              what, pattern, boost::match_extra)) {
+        std::smatch what;
+        if(std::regex_match(result.stack[0].where.rawString(),
+                            what, pattern /*, std::match_extra redundant?*/)) {
             result.lineNumber = std::stoi(what[1]);
             result.columnStart = std::stoi(what[2]);
             result.lineContents = what[3];

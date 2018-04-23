@@ -22,7 +22,7 @@ LIBNEURAL_SOURCES := \
 	reconstruct_layer_adaptor.cc \
 	output_encoder.cc
 
-LIBNEURAL_LINK :=	utils db algebra arch judy boost_regex boosting stats
+LIBNEURAL_LINK :=	utils db algebra arch judy boosting stats
 
 $(eval $(call library,neural,$(LIBNEURAL_SOURCES),$(LIBNEURAL_LINK)))
 

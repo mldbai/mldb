@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* dense_classifier_scorer.h                                       -*- C++ -*-
    Jeremy Barnes, 13 May 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A scorer is a classifier + a feature generator.
 */
@@ -17,7 +16,7 @@
 #include "mldb/ml/jml/classifier_generator.h"
 #include "mldb/ml/jml/probabilizer.h"
 #include "mldb/jml/db/persistent_fwd.h"
-#include <boost/regex.hpp>
+#include <regex>
 #include <tuple>
 
 
@@ -48,7 +47,7 @@ struct DenseClassifierScorer : virtual public Scorer {
                std::shared_ptr<DenseFeatureGenerator> featureGenerator,
                int randomSeed = 1,
                float equalizationFactor = 0.0,
-               const boost::regex & excludeFeatures = boost::regex());
+               const std::regex & excludeFeatures = std::regex());
 
     /** Generate a dataset over the selected partition. */
     ML::Training_Data
@@ -172,7 +171,7 @@ struct DenseClassifierScorerT
                std::shared_ptr<DenseFeatureGeneratorT<Args...> > featureGenerator,
                int randomSeed = 1,
                float equalizationFactor = 0.0,
-               const boost::regex & excludeFeatures = boost::regex())
+               const std::regex & excludeFeatures = std::regex())
     {
         this->featureGenerator = this->featureGeneratorCast = featureGenerator;
         DenseClassifierScorer::train(partition, trainer, featureGenerator,

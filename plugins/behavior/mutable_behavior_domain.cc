@@ -2038,7 +2038,7 @@ sortUnlocked(bool immutable, const MutableBehaviorDomain *owner)
                     //     << curr.count << " for beh " << bin.behavior << endl;
                     uint64_t sum64(curr.count);
                     sum64 += bin.count;
-                    if (sum64 > UINT_MAX) {
+                    if (sum64 > std::numeric_limits<uint32_t>::max()) {
                         throw MLDB::Exception("adding %u to %u would cause an"
                                             " uint32_t overflow: n_bits(%lu) on behavior id (%s)"
                                             " > 32",
@@ -2750,7 +2750,7 @@ allocate(uint32_t capacity, uint64_t timeBase,
     size_t wordsRequired = (63 + bitsRequired) / 64;
     size_t bitsObtained = 64 * wordsRequired;
     size_t realCapacity = bitsObtained / (1 + subjectBits + timestampBits);
-    if (realCapacity > UINT_MAX) {
+    if (realCapacity > std::numeric_limits<uint32_t>::max()) {
         throw MLDB::Exception("capacity must hold in a uint32_t");
     }
 
@@ -2788,7 +2788,7 @@ allocate(uint32_t capacity, uint64_t timeBase,
 
     if (node->size_ > 0) {
         uint64_t maxBits64 = uint64_t(node->size_) * node->bitsPerEntry();
-        if (maxBits64 > UINT_MAX) {
+        if (maxBits64 > std::numeric_limits<uint32_t>::max()) {
             throw MLDB::Exception("using position %lu would overflow in bitops"
                                 " with %d bits/entry",
                                 node->size_.load(), node->bitsPerEntry());

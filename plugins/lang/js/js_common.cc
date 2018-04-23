@@ -15,7 +15,7 @@
 #include "mldb/ext/v8-cross-build-output/include/libplatform/libplatform.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
+#include <regex>
 #include "mldb/compiler/filesystem.h"
 #include <thread>
 #include <queue>
@@ -451,18 +451,18 @@ parseV8StackFrame(const std::string & v8StackFrameMessage)
 {
     ScriptStackFrame result;
 
-    static boost::regex format1("[ ]*at (.*) \\((.*):([0-9]+):([0-9]+)\\)");
-    static boost::regex format2("[ ]*at (.*):([0-9]+):([0-9]+)");
+    static std::regex format1("[ ]*at (.*) \\((.*):([0-9]+):([0-9]+)\\)");
+    static std::regex format2("[ ]*at (.*):([0-9]+):([0-9]+)");
 
-    boost::smatch what;
-    if (boost::regex_match(v8StackFrameMessage, what, format1)) {
+    std::smatch what;
+    if (std::regex_match(v8StackFrameMessage, what, format1)) {
         ExcAssertEqual(what.size(), 5);
         result.functionName = what[1];
         result.scriptUri = what[2];
         result.lineNumber = std::stoi(what[3]);
         result.columnStart = std::stoi(what[4]);
     }
-    else if (boost::regex_match(v8StackFrameMessage, what, format2)) {
+    else if (std::regex_match(v8StackFrameMessage, what, format2)) {
         ExcAssertEqual(what.size(), 4);
         result.scriptUri = what[1];
         result.lineNumber = std::stoi(what[2]);
