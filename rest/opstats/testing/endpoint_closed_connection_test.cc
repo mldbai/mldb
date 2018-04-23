@@ -20,9 +20,8 @@
 #include <thread>
 #include "mldb/http/http_endpoint.h"
 #include "mldb/soa/service/json_endpoint.h"
-#include <boost/thread/thread.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/barrier.hpp>
+#include <thread>
+#include "mldb/utils/thread_barrier.h"
 #include "mldb/soa/service/connectfd.h"
 
 #include <poll.h>
@@ -69,7 +68,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
 
     int nClientThreads = 10;
 
-    boost::thread_group tg;
+    std::vector<std::thread> tg;
 
     int shutdown = false;
 
@@ -202,7 +201,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
     
     
     for (unsigned i = 0;  i <= nClientThreads;  ++i)
-        tg.create_thread(doReadyThread);
+        tg.emplace_back(doReadyThread);
 
     for (unsigned i = 0;  i < 10;  ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

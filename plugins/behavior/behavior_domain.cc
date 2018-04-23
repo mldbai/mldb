@@ -20,7 +20,6 @@
 #include "mapped_behavior_domain.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/base/parallel.h"
-#include <boost/thread/mutex.hpp>
 #include <boost/shared_array.hpp>
 #include "mldb/jml/utils/map_reduce.h"
 #include "mldb/types/jml_serialization.h"

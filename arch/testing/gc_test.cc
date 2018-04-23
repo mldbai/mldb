@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         cerr << "single shared" << endl;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
-        tg.create_thread(sharedThread);
+        tg.emplace_back(sharedThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(sharedThread);
+            tg.emplace_back(sharedThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         cerr << "single exclusive" << endl;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
-        tg.create_thread(exclusiveThread);
+        tg.emplace_back(exclusiveThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(exclusiveThread);
+            tg.emplace_back(exclusiveThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -187,9 +187,9 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(sharedThread);
+            tg.emplace_back(sharedThread);
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(exclusiveThread);
+            tg.emplace_back(exclusiveThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         gcLockStartingEpoch = 0xFFFFFFF0;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
-        tg.create_thread(sharedThread);
+        tg.emplace_back(sharedThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         gcLockStartingEpoch = 0x7FFFFFF0;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
-        tg.create_thread(sharedThread);
+        tg.emplace_back(sharedThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         gcLockStartingEpoch = 0xBFFFFFF0;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
         ThreadGroup tg;
-        tg.create_thread(sharedThread);
+        tg.emplace_back(sharedThread);
         sleep(1);
         finished = true;
         tg.join_all();
@@ -345,7 +345,7 @@ BOOST_AUTO_TEST_CASE ( test_defer_race )
 
 
     for (unsigned i = 0;  i < nthreads;  ++i)
-        tg.create_thread(doTestThread);
+        tg.emplace_back(doTestThread);
 
     int runTime = 1;
 

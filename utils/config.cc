@@ -12,18 +12,15 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/lexical_cast.hpp>
 #include <set>
-#include <boost/locale.hpp>
 
 namespace {
-    static std::set<std::string> trueValues({"true", "1"});
+static std::set<std::string> trueValues({"true", "True", "TRUE", "1"});
 }
 
 namespace boost {
     template<> 
     bool lexical_cast<bool, std::string>(const std::string& arg) {
-        boost::locale::generator gen;
-        std::locale loc=gen("en_US.UTF-8"); 
-        return trueValues.find(boost::locale::to_lower(arg, loc)) != trueValues.end();
+        return trueValues.find(arg) != trueValues.end();
     }
 }
 

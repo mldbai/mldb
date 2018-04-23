@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* string.cc
    Sunil Rottoo, 27 April 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -13,9 +12,10 @@
 #include <unicode/unistr.h>
 #include "mldb/base/exc_assert.h"
 #include <boost/algorithm/string.hpp>
-#include <boost/locale.hpp>
+#include <locale>
 #include "mldb/arch/demangle.h"
 #include <cxxabi.h>
+#include <unicode/unistr.h>
 
 using namespace std;
 
@@ -589,14 +589,24 @@ Utf8String
 Utf8String::
 toLower() const
 {
-    return boost::locale::to_lower(data_);
+    // TODO: less copying
+    icu::UnicodeString us(data_.c_str());
+    us.toLower();
+    Utf8String result;
+    us.toUTF8String(result.data_);
+    return result;
 }
 
 Utf8String
 Utf8String::
 toUpper() const
 {
-    return boost::locale::to_upper(data_);
+    // TODO: less copying
+    icu::UnicodeString us(data_.c_str());
+    us.toUpper();
+    Utf8String result;
+    us.toUTF8String(result.data_);
+    return result;
 }
 
 Utf8String::iterator
@@ -660,9 +670,8 @@ namespace {
 struct AtInit {
     AtInit()
     {
-        boost::locale::generator gen;
-        locale loc=gen("en_US.UTF-8"); 
-        locale::global(loc); 
+        std::setlocale(LC_ALL, "en_US.UTF-8");
+        std::locale loc("en_US.UTF-8");
         cout.imbue(loc);
         cerr.imbue(loc);
     }

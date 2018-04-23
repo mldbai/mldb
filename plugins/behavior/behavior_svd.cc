@@ -11,7 +11,6 @@
 #include "mldb/ext/svdlibc/svdlib.h"
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/vector_utils.h"
-#include <boost/thread/thread.hpp>
 #include "mldb/jml/db/persistent.h"
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/utils/distribution_ops.h"
@@ -861,7 +860,7 @@ calcLongTailVectors(const BehaviorDomain & behs,
                 numZeros += 1;
 
             if (v.two_norm() == 0 && false) {
-                static boost::mutex mutex;
+                static std::mutex mutex;
                 mutex.lock();
 
                 debugMergedBehaviors = true;

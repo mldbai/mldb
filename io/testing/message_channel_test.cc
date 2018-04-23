@@ -22,7 +22,6 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include <chrono>
 #include <thread>
-#include <boost/thread/thread.hpp>
 #include "mldb/utils/testing/watchdog.h"
 
 
@@ -69,21 +68,23 @@ BOOST_AUTO_TEST_CASE( test_message_channel )
 
         finished = false;
 
-        boost::thread_group pushThreads;
+        std::vector<std::thread> pushThreads;
         for (unsigned i = 0;  i < numPushThreads;  ++i)
-            pushThreads.create_thread(pushThread);
+            pushThreads.emplace_back(pushThread);
 
-        boost::thread_group processThreads;
+        std::vector<std::thread> processThreads;
         for (unsigned i = 0;  i < numProcessThreads;  ++i)
-            processThreads.create_thread(processThread);
-    
-        pushThreads.join_all();
+            processThreads.emplace_back(processThread);
+
+        for (auto & t: pushThreads)
+            t.join();
 
         cerr << "finished push threads" << endl;
     
         finished = true;
 
-        processThreads.join_all();
+        for (auto & t: processThreads)
+            t.join();
     }
 }
 

@@ -12,8 +12,8 @@
 #define MLDB_TESTING_PERCEPTRON
 
 #include <boost/test/unit_test.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/barrier.hpp>
+#include <thread>
+#include "mldb/utils/thread_barrier.h"
 #include <vector>
 #include <stdint.h>
 #include <iostream>

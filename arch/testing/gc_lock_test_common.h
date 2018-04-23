@@ -18,7 +18,7 @@
 #pragma once
 
 struct ThreadGroup {
-    void create_thread(std::function<void ()> fn)
+    void emplace_back(std::function<void ()> fn)
     {
         threads.emplace_back(std::move(fn));
     }
@@ -375,13 +375,13 @@ struct TestBase {
         ThreadGroup tg;
 
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(std::bind<void>(&TestBase::doReadThread, this, i));
+            tg.emplace_back(std::bind<void>(&TestBase::doReadThread, this, i));
 
         for (unsigned i = 0;  i < nthreads;  ++i)
-            tg.create_thread(std::bind<void>(allocFn, i));
+            tg.emplace_back(std::bind<void>(allocFn, i));
 
         for (unsigned i = 0;  i < nSpinThreads;  ++i)
-            tg.create_thread(std::bind<void>(&TestBase::doSpinThread, this));
+            tg.emplace_back(std::bind<void>(&TestBase::doSpinThread, this));
 
         std::this_thread::sleep_for(std::chrono::seconds(runTime));
 
