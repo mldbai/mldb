@@ -34,3 +34,5 @@ $(if $(findstring x4.8,x$(GCC_VERSION)),$(eval CXXFLAGS += -Wno-unused-local-typ
 $(if $(findstring x4.9,x$(GCC_VERSION)),$(eval CXXFLAGS += -Wno-unused-local-typedefs))
 $(if $(findstring x5.1,x$(CXX_VERSION)),$(eval CXXFLAGS += -Wno-unused-local-typedefs -Wno-unused-variable))
 
+# Library name of filesystem
+STD_FILESYSTEM_LIBNAME:=stdc++fs

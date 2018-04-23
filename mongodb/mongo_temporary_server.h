@@ -19,7 +19,7 @@
 #include <sys/socket.h>
 #include <sys/prctl.h>
 #include <signal.h>
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 
 #include "mldb/jml/utils/environment.h"
 #include "mldb/jml/utils/file_functions.h"

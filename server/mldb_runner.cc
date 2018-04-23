@@ -16,7 +16,7 @@
 #include "mldb/utils/config.h"
 #include "mldb/credentials/credential_provider.h"
 #include "mldb/credentials/credentials.h"
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
@@ -30,7 +30,7 @@
 using namespace std;
 
 using namespace MLDB;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 
 constexpr int minimumWorkerThreads(4);

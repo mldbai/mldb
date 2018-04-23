@@ -12,10 +12,11 @@
 #include "mldb/ext/libgit2/include/git2/clone.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/utils/tmpdir.h"
 
 using namespace std;
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 
 namespace MLDB {
@@ -129,7 +130,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     }
     // if we're a script, create a temporary folder so we can do the checkout if required
     else {
-        plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
+        plugin_working_dir = make_unique_directory(fs::temp_directory_path());
     }
 
     // if we're passing in the source
@@ -141,8 +142,13 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
     // TODO what is the folder already exists?! we could create two different plugins
     // with the same id, which would clash... ?
-    if(fs::exists(plugin_working_dir))
-        fs::remove_all(plugin_working_dir);
+    if(fs::exists(plugin_working_dir)) {
+        try {
+            MLDB_TRACE_EXCEPTIONS(false);
+            fs::remove_all(plugin_working_dir);
+        } MLDB_CATCH_ALL {
+        }
+    }
 
     version.address = url.path();
 
@@ -330,6 +336,7 @@ cleanup()
     while(scriptType == SCRIPT && fs::exists(plugin_working_dir) && tries++ ) {
         cerr << " Cleaning up " + plugin_working_dir.string() << endl;
         try {
+            MLDB_TRACE_EXCEPTIONS(false);
             fs::remove_all(plugin_working_dir);
         } MLDB_CATCH_ALL {
         }
@@ -432,7 +439,7 @@ getScriptUri(PackageElement elem) const
 fs::path LoadedPluginResource::
 getPluginDir() const
 {
-    return fs::absolute(plugin_working_dir).normalize();
+    return fs::absolute(plugin_working_dir);
 }
 
 

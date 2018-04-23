@@ -14,11 +14,11 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/any_impl.h"
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <dlfcn.h>
 #include <mutex>
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 
 namespace MLDB {

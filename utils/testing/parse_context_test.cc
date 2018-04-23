@@ -21,7 +21,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/ext/utf8cpp/source/utf8.h"
 #include <boost/test/unit_test.hpp>
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <sstream>
 #include <iomanip>
 #include <fstream>
@@ -337,7 +337,7 @@ BOOST_AUTO_TEST_CASE( test1 )
 BOOST_AUTO_TEST_CASE( test2 )
 {
     string tmp_filename = "tmp/parse_context_test_file";
-    boost::filesystem::create_directory("tmp");
+    std::filesystem::create_directory("tmp");
     Call_Guard guard;
     {
         ofstream stream(tmp_filename.c_str());

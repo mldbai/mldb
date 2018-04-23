@@ -11,7 +11,7 @@
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/rest/collection_config_store.h"
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <thread>
 #include <chrono>
 
@@ -29,7 +29,7 @@ using namespace MLDB;
 BOOST_AUTO_TEST_CASE( test_plugin_loading )
 {
     string configPath = "file://tmp/mldb_config_persistence_test/";
-    boost::filesystem::remove_all("./tmp/mldb_config_persistence_test");
+    std::filesystem::remove_all("./tmp/mldb_config_persistence_test");
 
     // 1.  Load a plugin and a dataset
     {

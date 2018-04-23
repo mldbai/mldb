@@ -22,11 +22,11 @@
 #include "static_content_macro.h"
 #include "mldb/base/scope.h"
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 
 
 using namespace std;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 
 namespace MLDB {

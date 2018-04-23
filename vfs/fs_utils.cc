@@ -14,7 +14,7 @@
 #include <map>
 #include <mutex>
 
-#include "boost/filesystem.hpp"
+#include "mldb/compiler/filesystem.h"
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/map_description.h"
@@ -32,7 +32,7 @@
 using namespace std;
 using namespace MLDB;
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -293,14 +293,14 @@ struct LocalUrlFsHandler : public UrlFsHandler {
     
     virtual void makeDirectory(const Url & url) const
     {
-        boost::system::error_code ec;
+        std::error_code ec;
         string path = url.path();
 
         // Ignore return code; it tells us about the work done, not
-        // the poscondition.  We check for success in the error
+        // the postcondition.  We check for success in the error
         // code.
         fs::create_directories(path, ec);
-        if (ec.value() != boost::system::errc::success) {
+        if (ec) {
             throw MLDB::Exception(ec.message());
         }
     }

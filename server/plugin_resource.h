@@ -15,7 +15,7 @@
 #include "mldb/core/plugin.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/url.h"
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 
 
 namespace MLDB {
@@ -169,18 +169,18 @@ struct LoadedPluginResource {
     Utf8String getScriptUri(PackageElement elem) const;
     std::string getFilenameForErrorMessages() const;
 
-    boost::filesystem::path getPluginDir() const;
+    std::filesystem::path getPluginDir() const;
 
     ScriptLanguage pluginLanguage;
     ScriptType scriptType;
     Location pluginLocation;
 
     PackageElementSources source;
-    boost::filesystem::path plugin_working_dir;
+    std::filesystem::path plugin_working_dir;
 
     PluginVersion version;
 
-    const boost::filesystem::path MLDB_ROOT;
+    const std::filesystem::path MLDB_ROOT;
 };
 
 } // namespace MLDB

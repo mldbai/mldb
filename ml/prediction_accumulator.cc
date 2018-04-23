@@ -18,7 +18,7 @@ using namespace std;
 #include <limits>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include "confidence_intervals.h"
 
 namespace MLDB {
@@ -359,10 +359,10 @@ dumpClassHistogram(const string& out_path,
     classBuckets.push_back( getBucketsForClass(ppc.pos, bC) );
 
     // Figure out filename of histogram
-    //boost::filesystem::path dir(outfolder);
+    //std::filesystem::path dir(outfolder);
     //string modelfn = MLDB::format("chist-%s.js", modelname.c_str());
-    //boost::filesystem::path file(modelfn);
-    //boost::filesystem::path full_path = dir / file;
+    //std::filesystem::path file(modelfn);
+    //std::filesystem::path full_path = dir / file;
     cout << "  Writing histogram to: " << out_path << endl;
 
     // Write output to file

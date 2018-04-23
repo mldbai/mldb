@@ -21,7 +21,7 @@
 #include <ftw.h>
 
 #include <boost/algorithm/string/split.hpp>
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 
 #include "mldb/arch/fslock.h"
 #include "mldb/arch/timers.h"
@@ -43,7 +43,7 @@
 #include "behavior_manager.h"
 
 using namespace std;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 using namespace ML;
 using namespace MLDB;
 

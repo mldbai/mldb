@@ -9,7 +9,7 @@
 
 #include "svm.h"
 
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/dataset.h"
@@ -24,10 +24,11 @@
 #include "mldb/base/scope.h"
 
 #include "mldb/ext/svm/svm.h"
+#include "mldb/utils/tmpdir.h"
 
 using namespace std;
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 
 namespace MLDB {
@@ -320,7 +321,7 @@ run(const ProcedureRunConfig & run,
     }
     Scope_Exit(svm_free_and_destroy_model(&model));
 
-    auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
+    auto plugin_working_dir = make_unique_directory(fs::temp_directory_path());
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_a.svm");
     try {
         if (svm_save_model(model_tmp_name.c_str(),model))
@@ -396,7 +397,7 @@ SVMFunction(MldbServer * owner,
 
     itl->model = nullptr;
 
-    auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
+    auto plugin_working_dir = make_unique_directory(fs::temp_directory_path());
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_b.svm");
     try {
         filter_istream in(functionConfig.modelFileUrl);

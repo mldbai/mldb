@@ -8,7 +8,7 @@ LIBVFS_SOURCES := \
 	zstandard.cc \
 	snappy.cc
 
-LIBVFS_LINK := arch boost_iostreams lzmapp types boost_filesystem http lz4 xxhash zstd snappy
+LIBVFS_LINK := arch boost_iostreams lzmapp types $(STD_FILESYSTEM_LIBNAME) http lz4 xxhash zstd snappy
 
 $(eval $(call library,vfs,$(LIBVFS_SOURCES),$(LIBVFS_LINK)))
 

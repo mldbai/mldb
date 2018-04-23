@@ -16,7 +16,7 @@
 #include "mldb/base/thread_pool.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <thread>
 #include <queue>
 #include <condition_variable>
@@ -328,7 +328,7 @@ V8Init(MldbServer * server)
             (400, "Couldn't path to the MLDB executable; "
              "is the /proc filesystem mounted?  ("
              + string(strerror(errno)) + ")");
-    boost::filesystem::path path(exePath, exePath + pathLen);
+    std::filesystem::path path(exePath, exePath + pathLen);
     auto libPath = path.parent_path().parent_path() / "lib" / "libv8.so";
 
     v8::V8::InitializeExternalStartupData(libPath.c_str());

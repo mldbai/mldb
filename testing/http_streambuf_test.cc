@@ -21,14 +21,14 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/http/http_rest_proxy.h"
 
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <boost/test/unit_test.hpp>
 #include <vector>
 #include <iostream>
 
 
 using namespace std;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 using namespace ML;
 using namespace MLDB;
 

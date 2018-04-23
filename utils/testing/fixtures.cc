@@ -10,11 +10,13 @@
 
 #include "mldb/utils/testing/fixtures.h"
 
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <iostream>
+#include <unistd.h>
+#include "mldb/arch/exception.h"
 
 using namespace std;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 namespace MLDB {
 
@@ -37,8 +39,15 @@ TestFolderFixture(const string& name) :
 {
     path = tmpDir + name + "_" + to_string(testCount++);
 
-    if (fs::is_directory(path))
-        fs::remove_all(path);
+    if (fs::is_directory(path)) {
+        try {
+            MLDB_TRACE_EXCEPTIONS(false);
+            fs::remove_all(path);
+        } catch (const std::filesystem::filesystem_error & err) {
+            // ignore, probably a nfs entry still hanging around
+        }
+    }
+        
     fs::create_directories(path);
 
     oldPath = fs::current_path().string();
@@ -49,7 +58,12 @@ TestFolderFixture::
 ~TestFolderFixture()
 {
     fs::current_path(oldPath);
-    fs::remove_all(path);
+    try {
+        MLDB_TRACE_EXCEPTIONS(false);
+        fs::remove_all(path);
+    } catch (const std::filesystem::filesystem_error & err) {
+        // ignore, probably a nfs entry still hanging around
+    }
 }
 
 string

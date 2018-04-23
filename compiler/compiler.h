@@ -48,6 +48,14 @@
 #  endif
 #endif
 
+#if __GNUC__ == 5
+#  if __CNUC_MINOR__ < 5
+#     define MLDB_FILESYSTEM_REMOVE_ALL_BUG 1
+#  else
+#     undef  MLDB_FILESYSTEM_REMOVE_ALL_BUG
+#  endif
+#endif
+
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 #  define jml_typeof(x) decltype(x)
 #  define MLDB_HAS_RVALUE_REFERENCES 1

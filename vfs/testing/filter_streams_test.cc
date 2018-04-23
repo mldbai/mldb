@@ -17,7 +17,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/arch/exception_handler.h"
 
-#include <boost/filesystem.hpp>
+#include "mldb/compiler/filesystem.h"
 #include <boost/iostreams/stream_buffer.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/thread.hpp>
@@ -33,7 +33,7 @@
 #include "mldb/arch/demangle.h"
 
 using namespace std;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 using namespace ML;
 using namespace MLDB;
 
