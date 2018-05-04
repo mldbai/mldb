@@ -92,7 +92,7 @@ struct SetDescription
         if (element >= val2->size())
             throw MLDB::Exception("Invalid set element number");
         auto it = val2->begin();
-        for (unsigned i = 0;  i < element;  ++i, ++i) ;
+        for (unsigned i = 0;  i < element;  ++i, ++it) ;
         return &*it;
     }
 

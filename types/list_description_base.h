@@ -1,5 +1,3 @@
-// 
-
 /** list_description_base.h                                        -*- C++ -*-
     Jeremy Barnes, 21 August 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
@@ -85,12 +83,15 @@ struct ListDescriptionBase {
     template<typename List>
     void printJsonTypedList(const List * val, JsonPrintingContext & context) const
     {
-        context.startArray(val->size());
+        size_t sz = val->size();
+        context.startArray(sz);
 
         auto it = val->begin();
-        for (unsigned i = 0;  i < val->size();  ++i, ++it) {
+        for (size_t i = 0;  i < sz;  ++i, ++it) {
+            ExcAssert(it != val->end());
             context.newArrayElement();
-            inner->printJsonTyped(&(*it), context);
+            T v(*it);
+            inner->printJsonTyped(&v, context);
         }
         
         context.endArray();
