@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* xml_helpers.h                                                   -*- C++ -*-
    Jeremy Barnes, 12 May 2013
    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
    
    Helper functions to deal with XML.   
 */
 
 #include <string>
 #include "mldb/ext/tinyxml2/tinyxml2.h"
-#include <boost/lexical_cast.hpp>
+#include "mldb/rest/rest_request_params.h"
 #include "mldb/arch/exception.h"
 #include "mldb/utils/string_functions.h"
 
@@ -34,9 +33,9 @@ T extract(const tinyxml2::XMLNode * element, const std::string & path)
     auto text = tinyxml2::XMLHandle(const_cast<tinyxml2::XMLNode *>(p)).FirstChild().ToText();
 
     if (!text) {
-        return boost::lexical_cast<T>("");
+        return T();
     }
-    return boost::lexical_cast<T>(text->Value());
+    return restDecode(std::string(text->Value()), (T *)0);
 }
 
 template<typename T>
@@ -59,7 +58,7 @@ T extractDef(const tinyxml2::XMLNode * element, const std::string & path,
 
     if (!text) return ifMissing;
 
-    return boost::lexical_cast<T>(text->Value());
+    return restDecode(std::string(text->Value()), (T *)0);
 }
 
 template<typename T>

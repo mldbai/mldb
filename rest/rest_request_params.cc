@@ -7,8 +7,80 @@
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/rest/rest_request_params.h"
 #include "mldb/types/annotated_exception.h"
+#include <cstdlib>
 
 namespace MLDB {
+
+template<typename Int, typename Res>
+static Int doParseInt(const Utf8String & str,
+                      Res (&fn) (const std::string &, std::size_t *, int))
+{
+    size_t n;
+    Res res = fn(str.rawString(), &n, 10 /* base */);
+    if (n != str.rawLength()) {
+        throw std::invalid_argument("string does not contain an integer");
+    }
+    Int res2 = res;
+    if ((Res)res2 != res) {
+        throw std::out_of_range("integer is out of range");
+    }
+    return res2;
+}
+
+unsigned char restDecode(const Utf8String & str, unsigned char *)
+{
+    return doParseInt<unsigned char>(str, std::stoi);
+}
+
+signed char restDecode(const Utf8String & str, signed char *)
+{
+    return doParseInt<signed char>(str, std::stoi);
+}
+
+char restDecode(const Utf8String & str, char *)
+{
+    return doParseInt<char>(str, std::stoi);
+}
+
+unsigned short restDecode(const Utf8String & str, unsigned short *)
+{
+    return doParseInt<unsigned short>(str, std::stoul);
+}
+
+signed short restDecode(const Utf8String & str, signed short *)
+{
+    return doParseInt<signed short>(str, std::stoi);
+}
+
+unsigned int restDecode(const Utf8String & str, unsigned int *)
+{
+    return doParseInt<unsigned int>(str, std::stoul);
+}
+
+signed int restDecode(const Utf8String & str, signed int *)
+{
+    return doParseInt<signed int>(str, std::stoi);
+}
+
+unsigned long restDecode(const Utf8String & str, unsigned long *)
+{
+    return doParseInt<unsigned long>(str, std::stoul);
+}
+
+signed long restDecode(const Utf8String & str, signed long *)
+{
+    return doParseInt<signed long>(str, std::stol);
+}
+
+unsigned long long restDecode(const Utf8String & str, unsigned long long *)
+{
+    return doParseInt<unsigned long long>(str, std::stoull);
+}
+
+signed long long restDecode(const Utf8String & str, signed long long *)
+{
+    return doParseInt<signed long long>(str, std::stoll);
+}
 
 Utf8String restEncode(const Utf8String & str)
 {

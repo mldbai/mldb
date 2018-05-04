@@ -13,7 +13,6 @@
 
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/arch/demangle.h"
-#include <boost/lexical_cast.hpp>
 #include "json_codec.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/json_printing.h"

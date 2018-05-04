@@ -7,7 +7,7 @@ LIBAWS_SOURCES := \
 	aws.cc \
 	sqs.cc \
 
-LIBAWS_LINK := credentials hash crypto++ tinyxml2 http
+LIBAWS_LINK := credentials hash crypto++ tinyxml2 http rest
 
 $(eval $(call library,aws,$(LIBAWS_SOURCES),$(LIBAWS_LINK)))
 

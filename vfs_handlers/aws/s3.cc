@@ -1849,7 +1849,7 @@ struct RegisterS3CredProvider {
 
                     double bw = S3Api::defaultBandwidthToServiceMbps;
                     if (bandwidth != "")
-                        bw = boost::lexical_cast<double>(bandwidth);
+                        bw = std::stod(bandwidth);
                     if (protocol == "")
                         protocol = "http";
                     if (serviceUri == "")

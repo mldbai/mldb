@@ -13,7 +13,6 @@
 #include "mldb/base/exc_assert.h"
 #include "value_description.h"
 #include "structure_description.h"
-#include <boost/lexical_cast.hpp>
 
 
 using namespace std;
@@ -855,44 +854,60 @@ initialize()
 /* UTILITY FUNCTIONS                                                         */
 /*****************************************************************************/
 
+template<typename Int, typename Res>
+static Int doParseInt(const std::string & str,
+                      Res (&fn) (const std::string &, std::size_t *, int))
+{
+    size_t n;
+    Res res = fn(str, &n, 10 /* base */);
+    if (n != str.size()) {
+        throw std::invalid_argument("string does not contain an integer");
+    }
+    Int res2 = res;
+    if ((Res)res2 != res) {
+        throw std::out_of_range("integer is out of range");
+    }
+    return res2;
+}
+
 short int stringToKey(const std::string & str, short int *)
 {
-    return boost::lexical_cast<short int>(str);
+    return doParseInt<short int>(str, std::stoi);
 }
 
 unsigned short int stringToKey(const std::string & str, unsigned short int *)
 {
-    return boost::lexical_cast<unsigned short int>(str);
+    return doParseInt<unsigned short int>(str, std::stoul);
 }
 
 int stringToKey(const std::string & str, int *)
 {
-    return boost::lexical_cast<int>(str);
+    return doParseInt<int>(str, std::stoi);
 }
 
 unsigned int stringToKey(const std::string & str, unsigned int *)
 {
-    return boost::lexical_cast<unsigned int>(str);
+    return doParseInt<unsigned int>(str, std::stoul);
 }
 
 long int stringToKey(const std::string & str, long int *)
 {
-    return boost::lexical_cast<long int>(str);
+    return doParseInt<long int>(str, std::stol);
 }
 
 unsigned long int stringToKey(const std::string & str, unsigned long int *)
 {
-    return boost::lexical_cast<unsigned long int>(str);
+    return doParseInt<unsigned long int>(str, std::stoul);
 }
 
 long long int stringToKey(const std::string & str, long long int *)
 {
-    return boost::lexical_cast<long long int>(str);
+    return doParseInt<long long int>(str, std::stoll);
 }
 
 unsigned long long int stringToKey(const std::string & str, unsigned long long int *)
 {
-    return boost::lexical_cast<unsigned long long int>(str);
+    return doParseInt<unsigned long long int>(str, std::stoull);
 }
 
 

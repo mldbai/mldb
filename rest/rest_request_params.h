@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <boost/lexical_cast.hpp>
 #include "json_codec.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/json_printing.h"
@@ -19,29 +18,25 @@ namespace MLDB {
 /* REST CODEC                                                                */
 /*****************************************************************************/
 
-/** Default parameter encoder / decoder that uses a lexical cast to convert
-    to the required type.
-*/
-template<typename T>
-decltype(boost::lexical_cast<T>(std::declval<std::string>()))
-restDecode(const std::string & str, T * = 0)
-{
-    return boost::lexical_cast<T>(str);
-}
-
-template<typename T>
-decltype(boost::lexical_cast<T>(std::declval<std::string>()))
-restDecode(const Utf8String & str, T * = 0)
-{
-    return boost::lexical_cast<T>(str.rawString());
-}
+unsigned char restDecode(const Utf8String & str, unsigned char *);
+signed char restDecode(const Utf8String & str, signed char *);
+char restDecode(const Utf8String & str, char *);
+unsigned short restDecode(const Utf8String & str, unsigned short *);
+signed short restDecode(const Utf8String & str, signed short *);
+unsigned int restDecode(const Utf8String & str, unsigned int *);
+signed int restDecode(const Utf8String & str, signed int *);
+unsigned long restDecode(const Utf8String & str, unsigned long *);
+signed long restDecode(const Utf8String & str, signed long *);
+unsigned long long restDecode(const Utf8String & str, unsigned long long *);
+signed long long restDecode(const Utf8String & str, signed long long *);
 
 template<typename T>
 Utf8String restEncode(const T & val,
-                      decltype(boost::lexical_cast<std::string>(std::declval<T>())) * = 0)
+                      decltype(std::to_string(std::declval<T>())) * = 0)
 {
     // TODO: don't go through std::string
-    return Utf8String(boost::lexical_cast<std::string>(val));
+    using std::to_string;
+    return to_string(val);
 }
 
 Utf8String restEncode(const Utf8String & str);

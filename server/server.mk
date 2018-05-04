@@ -22,7 +22,8 @@ LIBMLDB_LINK:= \
 	command_expression \
 	vfs_handlers \
 	mldb_core \
-	mldb_engine
+	mldb_engine \
+	rest \
 
 
 $(eval $(call library,mldb,$(LIBMLDB_SOURCES),$(LIBMLDB_LINK)))

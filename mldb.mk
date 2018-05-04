@@ -12,8 +12,8 @@ MLDB_SUBDIRS := \
 	block \
 	utils \
 	credentials \
-	vfs_handlers \
 	rest \
+	vfs_handlers \
 	sql \
 	core \
 	engine \
