@@ -67,7 +67,8 @@ sudo apt install -y \
   libavcodec-dev \
   libavformat-dev \
   libavdevice-dev \
-  libv8-dev
+  libv8-dev \
+  ocl-icd-opencl-dev
 ```
 ## Installing Docker
 

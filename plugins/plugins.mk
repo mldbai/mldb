@@ -28,7 +28,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:=
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,python_plugin_loader.cc,-I$(PYTHON_INCLUDE_PATH)))
-#$(eval $(call set_compile_option,llvm.cc,-I$(LLVM_INCLUDE_PATH)))
+$(eval $(call set_compile_option,llvm.cc,-I$(LLVM_INCLUDE_PATH)))
 
 LIBMLDB_BUILTIN_PLUGIN_LINK:= \
 	mldb_tabular_plugin \
