@@ -114,6 +114,7 @@ struct ValueDescription {
         std::string comment;
         std::shared_ptr<const ValueDescription > description;
         int offset;
+        int width;
         int fieldNum;
 
         void* getFieldPtr(void* obj) const
@@ -132,6 +133,9 @@ struct ValueDescription {
     virtual const FieldDescription *
     hasField(const void * val, const std::string & name) const;
 
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const;
+    
     virtual void forEachField(const void * val,
                               const std::function<void (const FieldDescription &)> & onField) const;
 

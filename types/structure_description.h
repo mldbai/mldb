@@ -210,6 +210,7 @@ struct StructureDescription
         fd.description = description;
         Struct * p = nullptr;
         fd.offset = (size_t)&(p->*field);
+        fd.width = sizeof(V);
         fd.fieldNum = fields.size() - 1;
         orderedFields.push_back(it);
         //using namespace std;
@@ -244,6 +245,7 @@ struct StructureDescription
         fd.description = std::move(desc);
         Struct * p = nullptr;
         fd.offset = (size_t)&(p->*field);
+        fd.width = sizeof(V);
         fd.fieldNum = fields.size() - 1;
         orderedFields.push_back(it);
     }
@@ -283,6 +285,18 @@ struct StructureDescription
         return nullptr;
     }
 
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const
+    {
+        ssize_t offset = (const char *)field - (const char *)val;
+        for (auto & f: fields) {
+            if (f.second.offset >= offset
+                && f.second.offset + f.second.width <= offset)
+                return &f.second;
+        }
+        return nullptr;
+    }
+    
     virtual void forEachField(const void * val,
                               const std::function<void (const FieldDescription &)> & onField) const
     {
@@ -408,6 +422,7 @@ addParent(ValueDescriptionT<V> * description_)
         fd.description = std::move(ofd.description);
         
         fd.offset = ofd.offset + ofs;
+        fd.width = ofd.width;
         fd.fieldNum = fields.size() - 1;
         orderedFields.push_back(it);
     }

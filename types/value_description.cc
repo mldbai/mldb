@@ -216,6 +216,13 @@ hasField(const void * val, const std::string & name) const
     throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
 }
 
+const ValueDescription::FieldDescription *
+ValueDescription::
+getFieldDescription(const void * val, const void * field) const
+{
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+}
+
 void
 ValueDescription::
 forEachField(const void * val,
@@ -533,7 +540,7 @@ printJson(const void * input, JsonPrintingContext & context) const
     for (const auto & it: orderedFields) {
         auto & fd = it->second;
 
-        auto mbr = addOffset(input, fd.offset);
+        const void * mbr = addOffset(input, fd.offset);
         if (fd.description->isDefault(mbr))
             continue;
         context.startMember(it->first);
