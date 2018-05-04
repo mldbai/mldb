@@ -175,7 +175,11 @@ getDefaultDescriptionUninitialized(T *)
 #define DEFINE_STRUCTURE_DESCRIPTION(Type)                      \
     DEFINE_STRUCTURE_DESCRIPTION_NAMED(Type##Description, Type)
 
-#define IMPLEMENT_STRUCTURE_DESCRIPTION(type) \
+#define DEFINE_STRUCTURE_DESCRIPTION_INLINE(type) \
+    DEFINE_STRUCTURE_DESCRIPTION(type) \
+    type##Description::type##Description()
+
+#define IMPLEMENT_STRUCTURE_DESCRIPTION(type)   \
     DECLARE_STRUCTURE_DESCRIPTION(type) \
     DEFINE_STRUCTURE_DESCRIPTION(type) \
     type##Description::type##Description()
@@ -215,7 +219,11 @@ getDefaultDescriptionUninitialized(T *)
 #define DEFINE_ENUM_DESCRIPTION(Type)                           \
     DEFINE_ENUM_DESCRIPTION_NAMED(Type##Description, Type)
 
-#define IMPLEMENT_ENUM_DESCRIPTION(type) \
+#define DEFINE_ENUM_DESCRIPTION_INLINE(type) \
+    DEFINE_ENUM_DESCRIPTION(type) \
+    type##Description::type##Description()
+
+#define IMPLEMENT_ENUM_DESCRIPTION(type)        \
     DECLARE_ENUM_DESCRIPTION(type) \
     DEFINE_ENUM_DESCRIPTION(type) \
     type##Description::type##Description()
