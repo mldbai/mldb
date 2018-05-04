@@ -131,8 +131,8 @@ LIBARCHIVE_FLAGS:= \
 
 # NOTE: to find this, run cmake in the ext/libarchive directory, and then
 # cat config.h | grep '#define' | sed 's/#define /-D/' | sed 's/ /=/' | tr '\n' ' '
-LIBARCHIVE_DEFINES_x86_64:='-DPLATFORM_CONFIG_H="mldb/ext/libarchive-config-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) $(LIBARCHIVE_FLAGS)
-LIBARCHIVE_LIBS_x86_64:= attr bz2 z xml2 dl icuuc m icudata
+LIBARCHIVE_DEFINES_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR)
+LIBARCHIVE_LIBS_x86_64:=z xml2 dl icuuc m icudata
 
 LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(ARCH))
 LIBARCHIVE_LIBS:=$(LIBARCHIVE_LIBS_$(ARCH))
