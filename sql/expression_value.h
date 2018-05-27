@@ -738,9 +738,60 @@ struct ExpressionValue {
                     DimsVector shape = DimsVector());
 
     // Construct from a pure embedding
-    ExpressionValue(std::vector<int> values,
+    ExpressionValue(std::vector<signed char> values,
                     Date ts,
                     DimsVector shape = DimsVector());
+    
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<unsigned char> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<char> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<signed short int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+    
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<unsigned short int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<signed int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+    
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<unsigned int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<signed long int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+    
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<unsigned long int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<signed long long int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+    
+    // Construct from a pure embedding
+    ExpressionValue(std::vector<unsigned long long int> values,
+                    Date ts,
+                    DimsVector shape = DimsVector());
+
     
     /** Construct from a generalized uniform embedding, which is stored as
         a contiguous (flat), column-major array (ie, standard c storage).
@@ -1228,6 +1279,12 @@ struct ExpressionValue {
 private:
     void extractImpl(void * obj, const ValueDescription & desc) const;
 
+    // Helper function for the embedding constructor
+    template<typename T>
+    void initEmbedding(std::vector<T> values,
+                       Date ts,
+                       DimsVector shape);
+    
     void initInt(int64_t intValue, Date ts);
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept

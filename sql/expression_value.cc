@@ -1987,25 +1987,35 @@ ExpressionValue(const std::vector<double> & values,
     v.swap(*this);
 }
 
+template<typename T>
+void
 ExpressionValue::
-ExpressionValue(std::vector<CellValue> values,
-                Date ts,
-                DimsVector shape)
-    : type_(Type::NONE), ts_(ts)
+initEmbedding(std::vector<T> values,
+              Date ts,
+              DimsVector shape)
 {
     // This avoids needing to reallocate... it essentially allows us to create
     // a shared_ptr that owns the storage of a vector
-    auto movedVals = std::make_shared<std::vector<CellValue> >(std::move(values));
-    std::shared_ptr<CellValue> vals(movedVals, movedVals->data());
+    auto movedVals = std::make_shared<std::vector<T> >(std::move(values));
+    std::shared_ptr<T> vals(movedVals, movedVals->data());
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
-    content->storageType_ = ST_ATOM;
+    content->storageType_ = GetStorageType<T>::val;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
         content->dims_ = { movedVals->size() };
 
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<CellValue> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
 }
 
 ExpressionValue::
@@ -2013,40 +2023,7 @@ ExpressionValue(std::vector<float> values, Date ts,
                 DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
-    // This avoids needing to reallocate... it essentially allows us to create
-    // a shared_ptr that owns the storage of a vector
-    auto movedVals = std::make_shared<std::vector<float> >(std::move(values));
-    std::shared_ptr<float> vals(movedVals, movedVals->data());
-    std::shared_ptr<Embedding> content(new Embedding());
-    content->data_ = std::move(vals);
-    content->storageType_ = ST_FLOAT32;
-    content->dims_ = std::move(shape);
-    if (content->dims_.empty())
-        content->dims_ = { movedVals->size() };
-
-    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
-    type_ = Type::EMBEDDING;
-}
-
-ExpressionValue::
-ExpressionValue(std::vector<int> values,
-                Date ts,
-                DimsVector shape)
-    : type_(Type::NONE), ts_(ts)
-{
-    // This avoids needing to reallocate... it essentially allows us to create
-    // a shared_ptr that owns the storage of a vector
-    auto movedVals = std::make_shared<std::vector<int> >(std::move(values));
-    std::shared_ptr<int> vals(movedVals, movedVals->data());
-    std::shared_ptr<Embedding> content(new Embedding());
-    content->data_ = std::move(vals);
-    content->storageType_ = ST_INT32;
-    content->dims_ = std::move(shape);
-    if (content->dims_.empty())
-        content->dims_ = { movedVals->size() };
-    
-    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
-    type_ = Type::EMBEDDING;
+    initEmbedding(std::move(values), ts, std::move(shape));
 }
 
 ExpressionValue::
@@ -2054,20 +2031,108 @@ ExpressionValue(std::vector<double> values, Date ts,
                 DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
-    // This avoids needing to reallocate... it essentially allows us to create
-    // a shared_ptr that owns the storage of a vector
-    auto movedVals = std::make_shared<std::vector<double> >(std::move(values));
-    std::shared_ptr<double> vals(movedVals, movedVals->data());
-    std::shared_ptr<Embedding> content(new Embedding());
-    content->data_ = std::move(vals);
-    content->storageType_ = ST_FLOAT64;
-    content->dims_ = std::move(shape);
-    if (content->dims_.empty())
-        content->dims_ = { movedVals->size() };
-    
-    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
-    type_ = Type::EMBEDDING;
+    initEmbedding(std::move(values), ts, std::move(shape));
 }
+
+ExpressionValue::
+ExpressionValue(std::vector<char> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<signed char> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<unsigned char> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<signed short int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<unsigned short int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<signed int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<unsigned int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<signed long int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<unsigned long int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<signed long long int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
+ExpressionValue::
+ExpressionValue(std::vector<unsigned long long int> values,
+                Date ts,
+                DimsVector shape)
+    : type_(Type::NONE), ts_(ts)
+{
+    initEmbedding(std::move(values), ts, std::move(shape));
+}
+
 
 ExpressionValue
 ExpressionValue::
