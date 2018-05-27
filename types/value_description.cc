@@ -73,6 +73,26 @@ setTypeName(const std::string & newName)
     this->typeName = newName;
 }
 
+Json::Value
+ValueDescription::
+printJsonStructured(const void * val) const
+{
+    Json::Value result;
+    StructuredJsonPrintingContext context(result);
+    printJson(val, context);
+    return result;
+}
+
+Utf8String
+ValueDescription::
+printJsonString(const void * val) const
+{
+    Utf8String result;
+    Utf8StringJsonPrintingContext context(result);
+    printJson(val, context);
+    return result;
+}
+
 void *
 ValueDescription::
 optionalMakeValue(void * val) const

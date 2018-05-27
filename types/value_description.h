@@ -52,6 +52,8 @@ struct ValueDescription {
 
     virtual void parseJson(void * val, JsonParsingContext & context) const = 0;
     virtual void printJson(const void * val, JsonPrintingContext & context) const = 0;
+    Json::Value printJsonStructured(const void * val) const;
+    Utf8String printJsonString(const void * val) const;
     virtual bool isDefault(const void * val) const = 0;
     virtual void setDefault(void * val) const = 0;
     virtual void copyValue(const void * from, void * to) const = 0;
@@ -278,6 +280,16 @@ struct ValueDescriptionT : public ValueDescription {
     virtual void printJsonTyped(const T * val, JsonPrintingContext & context) const
     {
         return printJson(val, context);
+    }
+
+    Json::Value printJsonStructured(const T & val) const
+    {
+        return ValueDescription::printJsonStructured(&val);
+    }
+    
+    Utf8String printJsonString(const T & val) const
+    {
+        return ValueDescription::printJsonString(&val);
     }
 
     virtual bool isDefault(const void * val) const override
