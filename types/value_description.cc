@@ -605,6 +605,22 @@ constructDefault() const
     return impl->constructDefault();
 }
 
+void *
+BridgedValueDescription::
+constructCopy(const void * from) const
+{
+    ExcAssert(impl);
+    return impl->constructCopy(from);
+}
+
+void *
+BridgedValueDescription::
+constructMove(void * from) const
+{
+    ExcAssert(impl);
+    return impl->constructMove(from);
+}
+
 void
 BridgedValueDescription::
 destroy(void * val) const

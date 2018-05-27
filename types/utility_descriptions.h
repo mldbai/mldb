@@ -32,6 +32,8 @@ struct BridgedValueDescription: public ValueDescription {
     virtual void moveValue(void * from, void * to) const override;
     virtual void swapValues(void * from, void * to) const override;
     virtual void * constructDefault() const override;
+    virtual void * constructCopy(const void * from) const override;
+    virtual void * constructMove(void * from) const override;
     virtual void destroy(void *) const override;
     virtual void * optionalMakeValue(void * val) const override;
     virtual const void * optionalGetValue(const void * val) const override;
@@ -89,6 +91,8 @@ struct PureValueDescription : public ValueDescriptionT<T> {
     virtual void moveValue(void * from, void * to) const {}
     virtual void swapValues(void * from, void * to) const {}
     virtual void * constructDefault() const {return nullptr;}
+    virtual void * constructCopy(const void *) const {return nullptr;}
+    virtual void * constructMove(void *) const {return nullptr;}
     virtual void destroy(void *) const {}
 
 };
