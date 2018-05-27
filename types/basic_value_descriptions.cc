@@ -133,6 +133,42 @@ struct UnsignedCharDescription
     }
 };
 
+struct SignedShortIntDescription
+    : public ValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription> {
+
+    virtual void parseJsonTyped(signed short int * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const signed short int * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(*val);
+    }
+};
+
+template class ValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription>;
+
+struct UnsignedShortIntDescription
+    : public ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription> {
+
+    virtual void parseJsonTyped(unsigned short int * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const unsigned short int * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(*val);
+    }
+};
+
+template class ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription>;
+
 struct SignedIntDescription
     : public ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription> {
 
@@ -321,6 +357,8 @@ DEFINE_VALUE_DESCRIPTION(Utf32String, Utf32StringDescription);
 DEFINE_VALUE_DESCRIPTION(char, CharDescription);
 DEFINE_VALUE_DESCRIPTION(signed char, SignedCharDescription);
 DEFINE_VALUE_DESCRIPTION(unsigned char, UnsignedCharDescription);
+DEFINE_VALUE_DESCRIPTION(signed short int, SignedShortIntDescription);
+DEFINE_VALUE_DESCRIPTION(unsigned short int, UnsignedShortIntDescription);
 DEFINE_VALUE_DESCRIPTION(signed int, SignedIntDescription);
 DEFINE_VALUE_DESCRIPTION(unsigned int, UnsignedIntDescription);
 DEFINE_VALUE_DESCRIPTION(signed long, SignedLongDescription);

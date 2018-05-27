@@ -682,6 +682,8 @@ extern template struct ValueDescriptionT<Utf32String>;
 extern template struct ValueDescriptionT<signed char>;
 extern template struct ValueDescriptionT<unsigned char>;
 extern template struct ValueDescriptionT<char>;
+extern template struct ValueDescriptionT<signed short int>;
+extern template struct ValueDescriptionT<unsigned short int>;
 extern template struct ValueDescriptionT<signed int>;
 extern template struct ValueDescriptionT<unsigned int>;
 extern template struct ValueDescriptionT<signed long>;
