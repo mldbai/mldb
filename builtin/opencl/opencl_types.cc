@@ -28,7 +28,10 @@ std::string
 OpenCLException::
 printCode(cl_int returnCode)
 {
-    return jsonEncode(OpenCLStatus(returnCode)).asString();
+    auto j = jsonEncode(OpenCLStatus(returnCode));
+    if (j.isString())
+        return j.asString();
+    else return std::to_string(j.asInt());
 }
 
 void checkOpenCLError(cl_int returnCode,
