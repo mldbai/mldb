@@ -3,7 +3,8 @@
 LIBBLOCK_SOURCES:= \
 	memory_region.cc \
 	zip_serializer.cc \
-	file_serializer.cc
+	file_serializer.cc \
+	operation.cc
 
 $(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description))
 
