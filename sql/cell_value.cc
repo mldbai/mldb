@@ -927,6 +927,13 @@ isFalse() const
     throw AnnotatedException(400, "unknown CellValue type");
 }
 
+bool
+CellValue::
+isFunction() const
+{
+    return type == ST_SIMPLE_FUNCTION;
+}
+
 const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 template<typename T>

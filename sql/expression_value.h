@@ -1612,6 +1612,37 @@ struct PathValueInfo: public ScalarExpressionValueInfoT<Path> {
     }
 };
 
+struct FunctionValue {
+};
+
+struct FunctionValueInfo: public ExpressionValueInfoT<FunctionValue> {
+
+    FunctionValueInfo(bool isConstant = false)
+        : ExpressionValueInfoT<FunctionValue>(isConstant)
+    {
+    }
+
+    virtual bool isScalar() const
+    {
+        return true;
+    }
+
+    /// Is the other value compatible with this info?
+    virtual bool isCompatible(const ExpressionValue & value) const
+    {
+        return value.isAtom() && value.getAtom().isFunction();
+    }
+
+    virtual std::string getScalarDescription() const
+    {
+        return "function";
+    }
+
+    virtual std::shared_ptr<ExpressionValueInfo> getConst(bool constant) const {
+        return std::make_shared<FunctionValueInfo>(constant);
+    }
+};
+
 struct BooleanValueInfo: public ScalarExpressionValueInfoT<char> {
     BooleanValueInfo() : ScalarExpressionValueInfoT<char>() {}
     BooleanValueInfo(bool isconst) : ScalarExpressionValueInfoT<char>(isconst) {}

@@ -527,6 +527,19 @@ private:
                         BoundFunction& fn) const;
 };
 
+/** Represents a function (callable).  Either a reference to an inbuilt
+    function or a lambda function.
+*/
+struct FunctionExpression: public SqlRowExpression {
+    Utf8String tableName;
+    Utf8String functionName;
+};
+
+/** Represents a function call with a lambda function. */
+struct LambdaEpression: public FunctionExpression {
+
+};
+
 /** Represents extracting or rewriting an object. */
 struct ExtractExpression: public SqlRowExpression {
     ExtractExpression(std::shared_ptr<SqlExpression> from,

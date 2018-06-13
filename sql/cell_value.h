@@ -247,6 +247,8 @@ struct CellValue {
 
     bool isFalse() const;
 
+    bool isFunction() const;
+    
     /// Broad categorization of types, independent of storage
     enum CellType {
         EMPTY,
@@ -258,6 +260,7 @@ struct CellValue {
         TIMEINTERVAL,
         BLOB,
         PATH,
+        FUNCTION,
         NUM_CELL_TYPES
     };
 
@@ -504,7 +507,8 @@ private:
         ST_SHORT_BLOB,
         ST_LONG_BLOB,
         ST_SHORT_PATH,
-        ST_LONG_PATH
+        ST_LONG_PATH,
+        ST_SIMPLE_FUNCTION
     };
 
     struct StringRepr {
@@ -522,7 +526,11 @@ private:
         uint16_t months;
         uint16_t days;
         double   seconds;
-    } __attribute__((__packed__));
+    } MLDB_PACKED;
+
+    struct FunctionTableRepr {
+        // ...
+    } MLDB_PACKED;
     
     /// How many bytes to provide for internal strings
     static constexpr size_t INTERNAL_LENGTH = 12;
@@ -536,6 +544,7 @@ private:
         StringRepr * longString;
         double timestamp;
         TimeIntervalRepr timeInterval;
+        FunctionTableRepr function;
     } __attribute__((__packed__));
 
     union {

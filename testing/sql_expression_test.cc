@@ -1288,3 +1288,16 @@ BOOST_AUTO_TEST_CASE(test_alignment)
 
     BOOST_CHECK_EQUAL(sizeof(ExpressionValue), 32);
 }
+
+BOOST_AUTO_TEST_CASE(check_function)
+{
+    auto run = [] (const Utf8String & str)
+        {
+            TestBindingContext context;
+            auto parsed = SqlExpression::parse(str);
+            auto expr = parsed->bind(context);
+            return expr(createRow({}), GET_LATEST).getAtom();
+        };
+
+    BOOST_CHECK_EQUAL(run("(x -> x*x)(3)"), 9);
+}

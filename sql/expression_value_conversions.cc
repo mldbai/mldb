@@ -654,6 +654,8 @@ StorageType valueStorageType(const CellValue & value)
         return ST_BLOB;
     case CellValue::PATH:
         return ST_ATOM;
+    case CellValue::FUNCTION:
+        return ST_ATOM;
     case CellValue::NUM_CELL_TYPES:
         break;
     }

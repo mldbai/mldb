@@ -4615,6 +4615,8 @@ getSpecializedValueInfo(bool constant) const
             return std::make_shared<BlobValueInfo>(constant);
         case CellValue::PATH:
             return std::make_shared<PathValueInfo>(constant);
+        case CellValue::FUNCTION:
+            return std::make_shared<FunctionValueInfo>(constant);
         case CellValue::NUM_CELL_TYPES:
             throw AnnotatedException(500, "Can't specialize unknown cell type");
         }
