@@ -6,11 +6,11 @@
 */
 
 #include "mldb/sql/builtin_functions.h"
-#include "mldb/ext/s2/s2.h"
-#include "mldb/ext/s2/s2latlng.h"
-#include "mldb/ext/s2/s2polygon.h"
-#include "mldb/ext/s2/s2loop.h"
-#include "mldb/ext/s2/s2polygonbuilder.h"
+#include "mldb/ext/s2geometry/src/s2/s2latlng.h"
+#include "mldb/ext/s2geometry/src/s2/s2polygon.h"
+#include "mldb/ext/s2geometry/src/s2/s2loop.h"
+#include "mldb/ext/s2geometry/src/s2/s2builder.h"
+#include "mldb/ext/s2geometry/src/s2/s2builderutil_s2polygon_layer.h"
 #include "mldb/types/basic_value_descriptions.h"
 
 
@@ -105,8 +105,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
 
         ExpressionValue coordsCol = getCol(args[0], "coordinates");
 
-        vector<S2Loop*> loops;
-        auto parsePolygon = [&loops] (S2PolygonBuilder & polyBuilder, const ExpressionValue& coords)
+        auto parsePolygon = [] (S2Builder & polyBuilder, const ExpressionValue& coords)
         {
             size_t numLoop = coords.rowLength();
 
@@ -131,20 +130,21 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
                 };
 
                 coordi.forEachColumn(onPoint);
-                loops.push_back(new S2Loop(points));
+                S2Loop loop(points);
                 if(i>0) 
-                    loops.back()->set_depth(1);
+                    loop.set_depth(1);
 
-                polyBuilder.AddLoop(loops.back());
+                polyBuilder.AddLoop(std::move(loop));
             }          
         };
 
-        S2PolygonBuilderOptions options;
-        S2PolygonBuilder polyBuilder(options);
+        S2Builder::Options options;
+        S2Builder polyBuilder(options);
+        S2Polygon poly;
+        polyBuilder.StartLayer
+            (absl::make_unique<s2builderutil::S2PolygonLayer>(&poly));
 
-        vector<S2Polygon*> polygons;
         if(geomType == "Polygon") {
-
             parsePolygon(polyBuilder, coordsCol);
         }
         else if(geomType == "MultiPolygon") {
@@ -154,15 +154,19 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
             onPolygon = [&] (const PathElement & columnName,
                            const ExpressionValue & val) -> bool
             {
-                S2PolygonBuilder multiPolyBuilder(options);                
+                S2Builder multiPolyBuilder(options);                
+                S2Polygon poly;
+                multiPolyBuilder.StartLayer
+                    (absl::make_unique<s2builderutil::S2PolygonLayer>(&poly));
                 parsePolygon(multiPolyBuilder, val);
 
-                polygons.push_back(new S2Polygon);//S2Polygon poly;
-                S2PolygonBuilder::EdgeList unused_edges;
-                if(!multiPolyBuilder.AssemblePolygon(polygons.back(), &unused_edges)) {
-                    throw MLDB::Exception("unable to assemble polygon!");
+                S2Error error;
+                if (!multiPolyBuilder.Build(&error)) {
+                    throw MLDB::Exception("unable to assemble polygon: "
+                                          + error.text());
                 }
-                polyBuilder.AddPolygon(polygons.back());
+
+                polyBuilder.AddPolygon(std::move(poly));
 
                 return true;
             };
@@ -174,13 +178,13 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
         else {
             ExcAssert(false); //tested above
         }
-
-        S2Polygon poly;
-        S2PolygonBuilder::EdgeList unused_edges;
-        if(!polyBuilder.AssemblePolygon(&poly, &unused_edges)) {
-            throw MLDB::Exception("unable to assemble polygon!");
+        
+        S2Error error;
+        if (!polyBuilder.Build(&error)) {
+            throw MLDB::Exception("unable to assemble polygon: "
+                                  + error.text());
         }
-
+        
         double lat1 = args[1].getAtom().toDouble();
         double lon1 = args[2].getAtom().toDouble();
 
