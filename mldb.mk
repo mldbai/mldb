@@ -22,10 +22,11 @@ MLDB_SUBDIRS := \
 	plugins \
 	server \
 	sdk \
-	tensorflow \
-	postgresql \
-	mongodb \
 	html \
 	testing
+
+#	postgresql \
+#	mongodb \
+#	tensorflow \
 
 $(eval $(call include_sub_makes,$(MLDB_SUBDIRS)))

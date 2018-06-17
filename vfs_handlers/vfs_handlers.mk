@@ -5,13 +5,19 @@ $(eval $(call include_sub_make,aws))
 LIBVFS_HANDLERS_SOURCES := \
 	exception_ptr.cc \
 	sftp.cc \
-	azure_blob_storage.cc \
 	archive.cc \
-	docker.cc
+	docker.cc \
 
+#	azure_blob_storage.cc \
 #	hdfs.cc
 
-LIBVFS_HANDLERS_LINK := hash $(LIBARCHIVE_LIB_NAME) ssh2 azure_storage_cpp aws_vfs_handlers
+LIBVFS_HANDLERS_LINK := \
+	hash \
+	$(LIBARCHIVE_LIB_NAME) \
+	ssh2 \
+	aws_vfs_handlers \
+
+#       azure_storage_cpp
 
 AZURE_BLOB_STORAGE_OPTIONS := \
     -Imldb/ext/casablanca/Release/include \
