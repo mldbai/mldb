@@ -85,7 +85,7 @@ sort()
     if (out < behaviors.size() - 1) {
         //cerr << "trimming from " << behaviors.size() << " to "
         //     << out + 1 << endl;
-        behaviors.erase(behaviors.begin() + out + 1, behaviors.end());
+      behaviors.erase(behaviors.begin() + out + 1, behaviors.end());
     }
 
     //if (!std::is_sorted(behaviors.begin(), behaviors.end()))

@@ -64,6 +64,7 @@
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
+#include <functional>
 #include "mldb/types/date.h"
 
 namespace MLDB {

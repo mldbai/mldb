@@ -25,9 +25,12 @@
 #include "crypto++/hex.h"
 #pragma GCC diagnostic pop
 
-
-using namespace std;
 using namespace ML;
+using std::string;
+using std::map;
+using std::cout;
+using std::cerr;
+using std::endl;
 
 namespace MLDB {
 
@@ -93,14 +96,14 @@ encodeDigest(const std::string & digest)
     Encoder encoder;
     encoder.Put((byte *)digest.c_str(), digest.size());
     encoder.MessageEnd();
-    size_t got = encoder.Get((byte *)outBuf, 256);
+    size_t got = encoder.Get((::byte *)outBuf, 256);
     outBuf[got] = 0;
 
     //cerr << "signing " << digest.size() << " characters" << endl;
     //cerr << "last character is " << (int)outBuf[got - 1] << endl;
     //cerr << "got " << got << " characters" << endl;
 
-    string result(outBuf, outBuf + got);
+    std::string result(outBuf, outBuf + got);
     boost::trim(result);
     return result;
 }
@@ -130,13 +133,13 @@ getStringToSignV2Multi(const std::string & verb,
                        const std::string & date,
                        const std::vector<std::pair<std::string, std::string> > & headers)
 {
-    map<string, string> canonHeaders;
+    std::map<std::string, std::string> canonHeaders;
     for (auto it = headers.begin(), end = headers.end();
          it != end;  ++it) {
-        string key = ML::lowercase(it->first);
+        std::string key = ML::lowercase(it->first);
         if (key.find("x-amz") != 0) continue;
 
-        string value = it->second;
+        std::string value = it->second;
         if (canonHeaders.count(key))
             canonHeaders[key] += ",";
         canonHeaders[key] += value;
@@ -186,27 +189,27 @@ getStringToSignV2(const std::string & verb,
                   const std::string & date,
                   const std::map<std::string, std::string> & headers)
 {
-    string canonHeaderString;
+    std::string canonHeaderString;
 
     for (auto it = headers.begin(), end = headers.end();
          it != end;  ++it) {
-        string key = ML::lowercase(it->first);
+        std::string key = ML::lowercase(it->first);
         if (key.find("x-amz") != 0) continue;
 
-        string value = it->second;
+        std::string value = it->second;
 
         canonHeaderString += key + ":" + value + "\n";
     }
 
     //cerr << "bucket = " << bucket << " resource = " << resource << endl;
 
-    string canonResource
+    std::string canonResource
         = (bucket == "" ? "" : "/" + bucket)
         + resource
         + (subResource.empty() ? "" : "?")
         + subResource;
 
-    string stringToSign
+    std::string stringToSign
         = verb + "\n"
         + contentMd5 + "\n"
         + contentType + "\n"
@@ -275,7 +278,7 @@ signingKeyV4(const std::string & accessKey,
             return hmacSha256Digest(data, key);
         };
     
-    string signingKey
+    std::string signingKey
         = hmac(hmac(hmac(hmac("AWS4" + accessKey,
                               date),
                          region),
@@ -294,7 +297,7 @@ signV4(const std::string & stringToSign,
        const std::string & signing)
 {
     
-    string signingKey = signingKeyV4(accessKey, date, region, service, signing);
+    std::string signingKey = signingKeyV4(accessKey, date, region, service, signing);
     //cerr << "signingKey " << hexEncodeDigest(signingKey) << endl;
     return hexEncodeDigest(hmacSha256Digest(stringToSign, signingKey));
 }
@@ -308,14 +311,14 @@ addSignatureV4(BasicRequest & request,
                std::string accessKey,
                Date now)
 {
-    string dateStr = now.print("%Y%m%dT%H%M%SZ");
+    std::string dateStr = now.print("%Y%m%dT%H%M%SZ");
 
     //cerr << "dateStr = " << dateStr << endl;
 
     request.headers.push_back({"X-Amz-Date", dateStr});
 
-    string canonicalHeaders;
-    string signedHeaders;
+    std::string canonicalHeaders;
+    std::string signedHeaders;
 
     if (!request.headers.empty()) {
         RestParams headers = request.headers;
@@ -333,7 +336,7 @@ addSignatureV4(BasicRequest & request,
         signedHeaders.erase(signedHeaders.size() - 1);
     }
 
-    string canonicalQueryParams;
+    std::string canonicalQueryParams;
 
     if (!request.queryParams.empty()) {
         RestParams queryParams = request.queryParams;
@@ -347,9 +350,9 @@ addSignatureV4(BasicRequest & request,
 
     //cerr << "payload = " << request.payload << endl;
 
-    string payloadHash = hexEncodeDigest(sha256Digest(request.payload));
+    std::string payloadHash = hexEncodeDigest(sha256Digest(request.payload));
     
-    string canonicalRequest
+    std::string canonicalRequest
         = request.method + "\n"
         + "/" + request.relativeUri + "\n"
         + canonicalQueryParams + "\n"
@@ -361,9 +364,9 @@ addSignatureV4(BasicRequest & request,
 
     RestParams authParams;
 
-    string authHeader = "AWS4-HMAC-SHA256 ";
+    std::string authHeader = "AWS4-HMAC-SHA256 ";
 
-    auto addParam = [&] (string key, string value)
+    auto addParam = [&] (std::string key, std::string value)
         {
             authHeader += key + "=" + value + ", ";
 
@@ -383,7 +386,7 @@ addSignatureV4(BasicRequest & request,
 
 
 
-    string credentialScope = string(dateStr, 0, 8) + "/" + region + "/" + service + "/" + "aws4_request";
+    std::string credentialScope = std::string(dateStr, 0, 8) + "/" + region + "/" + service + "/" + "aws4_request";
     
     addParam("Credential", accessKeyId + "/" + credentialScope);
     addParam("SignedHeaders", signedHeaders);
@@ -391,9 +394,10 @@ addSignatureV4(BasicRequest & request,
     //addParam("SignatureVersion", "4");
     //addParam("SignatureMethod", "AWS4-HMAC-SHA256");
 
-    string hashedCanonicalRequest = hexEncodeDigest(sha256Digest(canonicalRequest));
+    std::string hashedCanonicalRequest
+        = hexEncodeDigest(sha256Digest(canonicalRequest));
     
-    string stringToSign
+    std::string stringToSign
         = "AWS4-HMAC-SHA256\n"
         + dateStr + "\n"
         + credentialScope + "\n"
@@ -401,7 +405,9 @@ addSignatureV4(BasicRequest & request,
 
     //cerr << "stringToSign = " << stringToSign << endl;
 
-    string signature = AwsApi::signV4(stringToSign, accessKey, string(dateStr, 0, 8), region, service);
+    std::string signature = AwsApi::signV4(stringToSign, accessKey,
+                                           std::string(dateStr, 0, 8),
+                                           region, service);
     addParam("Signature", signature);
 
     authHeader.erase(authHeader.size() - 2);
@@ -598,7 +604,7 @@ performGet(RestParams && params,
            const std::string & resultSelector,
            double timeoutSeconds)
 {
-    return extract<string>(*performGet(std::move(params), resource, timeoutSeconds),
+    return extract<std::string>(*performGet(std::move(params), resource, timeoutSeconds),
                            resultSelector);
 }
 

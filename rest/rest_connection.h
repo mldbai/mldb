@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/http/http_header.h"
 

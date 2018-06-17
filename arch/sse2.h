@@ -57,9 +57,9 @@ MLDB_ALWAYS_INLINE v4sf vec_d2f(v2df low, v2df high)
 
 MLDB_ALWAYS_INLINE void vec_f2d(v4sf ffff, v2df & low, v2df & high)
 {
-    low  = __builtin_ia32_cvtps2pd(ffff);
+    low  = _mm_cvtps_pd(ffff);
     ffff = _mm_shuffle_ps(ffff, ffff, 14);
-    high = __builtin_ia32_cvtps2pd(ffff);
+    high = _mm_cvtps_pd(ffff);
 }
 
 inline std::ostream & operator << (std::ostream & stream, const v2df & val)

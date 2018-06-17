@@ -27,6 +27,8 @@ namespace ML {
 
 class KMeansMetric {
 public:
+    virtual ~KMeansMetric() = default;
+
     // Distance between two points
     virtual double distance(const distribution<float> & x,
                             const distribution<float> & y) const = 0;

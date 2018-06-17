@@ -2869,7 +2869,7 @@ lockWaitAndReturnSize()
     overlapping writes.
 */
 template<typename Data>
-MLDB_ALWAYS_INLINE MLDB_PURE_FN
+MLDB_ALWAYS_INLINE
 void confined_set_bits(std::atomic<Data> & in, Data val, shift_t bit, shift_t bits)
 {
     // Create a mask with the bits to modify

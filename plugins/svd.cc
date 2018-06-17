@@ -700,8 +700,6 @@ run(const ProcedureRunConfig & run,
             });
 
 
-    mutex progressMutex;
-
     ClassifiedColumns columns = classifyColumns(runProcConf.trainingData.stm->select,
                                                 *dataset,
                                                 runProcConf.trainingData.stm->when,

@@ -1051,7 +1051,7 @@ struct RegisterFileHandler {
     static UriHandler
     getFileHandler(const std::string & scheme,
                    std::string resource,
-                   std::ios_base::open_mode mode,
+                   std::ios_base::openmode mode,
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
@@ -1253,7 +1253,7 @@ struct RegisterMemHandler {
     static UriHandler
     getMemHandler(const string & scheme,
                   string resource,
-                  ios_base::open_mode mode,
+                  ios_base::openmode mode,
                   const map<string, string> & options,
                   const OnUriHandlerException & onException)
     {

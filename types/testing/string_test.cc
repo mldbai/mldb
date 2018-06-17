@@ -42,8 +42,6 @@ BOOST_AUTO_TEST_CASE( test_print_format )
    	}
    	BOOST_CHECK_EQUAL(numAccentedChars, 4);
    	string theString(utf8.rawData(), utf8.rawLength());
-   	size_t found = raw.find(L'é') ;
-   	BOOST_CHECK_EQUAL(found, string::npos);
    	// We do a normal regex first
    	boost::regex reg("é");
    	std::string raw4 = "saint-jérôme";

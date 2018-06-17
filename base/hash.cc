@@ -23,6 +23,8 @@ using namespace std;
 
 namespace MLDB {
 
+using byte = ::byte;
+
 std::string base64Encode(const std::string & str)
 {
     return base64Encode(str.c_str(), str.length());

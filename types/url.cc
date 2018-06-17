@@ -308,7 +308,7 @@ decodeUri(Utf8String in)
             c = (c - 0xD7C0) << 10;
             c += (data[++i] - 0xDC00);
         }
-        char frontPad = 128;
+        unsigned char frontPad = 128;
         frontPad = frontPad >> (size - 1);
         for (int pos = index + size - 1; pos > index; --pos){
             buffer[pos] = c % 64 + 128;

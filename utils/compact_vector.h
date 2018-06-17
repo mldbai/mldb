@@ -25,6 +25,7 @@
 #include <utility>
 #include <initializer_list>
 #include <stdint.h>
+#include <cstring>
 
 namespace MLDB {
 
@@ -47,8 +48,8 @@ public:
     static constexpr bool IS_NOTHROW_DESTRUCTIBLE = std::is_nothrow_destructible<Data>::value;
     static constexpr bool IS_NOTHROW_MOVE_CONSTRUCTIBLE = std::is_nothrow_move_constructible<Data>::value;
     
-    compact_vector()
-        : size_(0), is_internal_(true)
+    constexpr compact_vector()
+      : ext{0}, size_(0), is_internal_(true)
     {
 #if 0
         using namespace std;
@@ -62,31 +63,42 @@ public:
     template<class ForwardIterator>
     compact_vector(ForwardIterator first,
                    ForwardIterator last)
-        : size_(0), is_internal_(true)
+        : compact_vector()
     {
         init_copy(first, last, std::distance(first, last));
     }
 
     compact_vector(std::initializer_list<Data> list)
-        : size_(0), is_internal_(true)
+        : compact_vector()
     {
         init_copy(list.begin(), list.end(), list.size());
     }
 
     compact_vector(size_t initialSize, const Data & element = Data())
-        : size_(0), is_internal_(true)
+        : compact_vector()
     {
-        resize(initialSize, element);
+        init(initialSize);
+        Data * p = data();
+
+	try {
+	    while (size_ < initialSize) {
+	        new (p + size_) Data(element);
+	        ++size_;
+	    }
+	} catch (...) {
+	    clear();
+	    throw;
+	}
     }
 
-    ~compact_vector()
+   ~compact_vector()
         noexcept(IS_NOTHROW_DESTRUCTIBLE)
     {
         clear();
     }
 
     compact_vector(const compact_vector & other)
-        : size_(0), is_internal_(true)
+        : compact_vector()
     {
         init_copy(other.begin(), other.end(), other.size());
     }
@@ -196,10 +208,12 @@ public:
     void clear()
         noexcept(IS_NOTHROW_DESTRUCTIBLE) 
     {
-        Data * p = data();
-        for (size_type i = 0;  i < size_;  ++i)
-            p[i].~Data();
-
+        if (size_ > 0) {
+            Data * p = data();
+            for (size_type i = 0;  i < size_;  ++i)
+                p[i].~Data();
+        }
+      
         if (!is_internal()) {
             bool debug MLDB_UNUSED = false;
             using namespace std;
@@ -364,10 +378,18 @@ public:
         if (!is_internal() && new_size <= Internal) {
             /* If we become small enough to be internal, then we need to copy
                to avoid becoming smaller */
-            compact_vector new_me;
-            new_me.init_move(begin(), first, new_size);
-            new_me.insert(new_me.end(), last, end());
-            swap(new_me);
+
+	  compact_vector new_me;
+	  new_me.init(new_size);
+	  Pointer newp = new_me.data();
+
+	  std::uninitialized_copy(std::make_move_iterator(begin()),
+				  std::make_move_iterator(first),
+				  newp);
+	  std::uninitialized_copy(std::make_move_iterator(last),
+				  std::make_move_iterator(end()),
+				  newp + (first - begin()));
+	  swap(new_me);
             return begin() + firstindex;
         }
 
@@ -428,16 +450,16 @@ public:
     }
 
     iterator begin()              { return iterator(data()); }
-    const_iterator cbegin() const { return const_iterator(data()); }
-    const_iterator begin() const  { return cbegin(); }
+    constexpr const_iterator cbegin() const { return const_iterator(data()); }
+    constexpr const_iterator begin() const  { return cbegin(); }
 
     iterator end()              { return iterator(data() + size_); }
-    const_iterator cend() const { return const_iterator(data() + size_); }
-    const_iterator end() const  { return cend(); }
+    constexpr const_iterator cend() const { return const_iterator(data() + size_); }
+    constexpr const_iterator end() const  { return cend(); }
 
-    size_type size() const { return size_; }
-    bool empty() const { return size_ == 0; }
-    size_type capacity() const { return is_internal() ? Internal : ext.capacity_; }
+    constexpr size_type size() const { return size_; }
+    constexpr bool empty() const { return size_ == 0; }
+    constexpr size_type capacity() const { return is_internal() ? Internal : ext.capacity_; }
     size_type max_size() const
     {
         return std::numeric_limits<Size>::max();
@@ -462,11 +484,11 @@ private:
         Size is_internal_ : 1;
     } MLDB_PACKED;
 
-    bool is_internal() const { return is_internal_; }
+    constexpr bool is_internal() const { return is_internal_; }
     Data * internal() { return (Data *)(itl.internal_); }
-    const Data * internal() const { return (Data *)(itl.internal_); }
+    constexpr const Data * internal() const { return (Data *)(itl.internal_); }
     Data * data() { return is_internal() ? internal() : ext.pointer_; }
-    const Data * data() const { return is_internal() ? internal() : ext.pointer_; }
+    constexpr const Data * data() const { return is_internal() ? internal() : ext.pointer_; }
 
     void check_index(size_type index) const
     {
@@ -476,8 +498,7 @@ private:
 
     void init(size_t to_alloc)
     {
-        clear();
-
+        size_ = 0;
         if (to_alloc > max_size())
             throw MLDB::Exception("compact_vector can't grow that big");
         

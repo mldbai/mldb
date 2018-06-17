@@ -477,7 +477,7 @@ struct RegisterHttpHandler {
     static UriHandler
     getHttpHandler(const std::string & scheme,
                    const std::string & resource,
-                   std::ios_base::open_mode mode,
+                   std::ios_base::openmode mode,
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {

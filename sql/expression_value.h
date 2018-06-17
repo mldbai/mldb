@@ -17,6 +17,7 @@
 #include "mldb/utils/compact_vector.h"
 #include "cell_value.h"
 #include <cstdint>
+#include <functional>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.

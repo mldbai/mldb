@@ -47,6 +47,9 @@ __thread int QueryThreadTracker::depth = 0;
 /*****************************************************************************/
 
 struct BoundSelectQuery::Executor {
+
+    virtual ~Executor() = default;
+    
     virtual bool execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int bucketNum)> processor,

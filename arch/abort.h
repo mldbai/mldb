@@ -1,5 +1,3 @@
-// 
-
 /** abort.h                                 -*- C++ -*-
     Rémi Attab, 13 Nov 2012
     Copyright (c) 2012 mldb.ai inc.  All rights reserved.

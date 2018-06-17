@@ -7,6 +7,9 @@
     Plugin loader for Python plugins.
 */
 
+// Python includes aren't ready for c++17 which doesn't support register
+#define register 
+
 #include <Python.h>
 
 #include "mldb/server/mldb_server.h"
@@ -41,6 +44,8 @@
 #include "mldb/types/any_impl.h"
 
 #include "datetime.h"
+
+#include <signal.h>
 
 using namespace std;
 using namespace MLDB::Python;

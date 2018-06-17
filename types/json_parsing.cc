@@ -433,7 +433,7 @@ struct JsonNestingTracker {
         }
     }
 
-    ~JsonNestingTracker()
+    ~JsonNestingTracker() noexcept(false)
     {
         --nesting;
         ExcAssertGreaterEqual(nesting, 0);

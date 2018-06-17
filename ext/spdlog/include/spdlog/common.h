@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <chrono>
 #include <memory>
+#include <functional>
 
 //visual studio does not support noexcept yet
 #ifndef _MSC_VER

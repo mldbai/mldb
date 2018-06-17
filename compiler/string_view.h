@@ -9,10 +9,15 @@
 
 #pragma once
 
-#include <experimental/string_view>
+#if __has_include(<string_view>) && __cplusplus >= 201703L
+#include <string_view>
+#else
+#  include <experimental/string_view>
 
 namespace std {
 
 using std::experimental::string_view;
 
 } // namespace std
+
+#endif // string_view polyfill

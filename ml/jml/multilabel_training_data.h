@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
-
 /* multilabel_training_data.h                                     -*- C++ -*-
    Mathieu Marquis Bolduc, 23 mars 2017
 
+   This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
    Training set, to hold a list of features from a sentence/paragraph.
 */
 
 #pragma once
 
 #include "mldb/ml/jml/training_data.h"
-
+#include <functional>
 
 namespace ML {
 

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* peer_connection.h                                               -*- C++ -*-
    Jeremy Barnes, 31 May 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Connection between two peers.
 */
@@ -66,6 +65,8 @@ DECLARE_STRUCTURE_DESCRIPTION(PeerConnectionStatus);
 
 struct PeerConnection {
 
+    virtual ~PeerConnection() = default;
+  
     virtual void startReading(std::function<bool (std::string && data)> onRecv);
     virtual void stopReading();
 
@@ -169,6 +170,8 @@ struct MirrorPeerConnection : public PeerConnection {
 
 struct PeerServer {
 
+    virtual ~PeerServer() = default;
+    
     /** Listem, updating our peer info for this server. */
     virtual PeerInfo listen(PeerInfo info) = 0;
 

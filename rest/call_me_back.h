@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* call_me_back.h                                                  -*- C++ -*-
    Jeremy Barnes, 21 January 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Code to implement functionality to call a call back later in another
    thread.  Used to defer processing that can't happen in a given thread.
@@ -35,7 +34,7 @@ struct CallMeBackLater {
     /** Run the given function some time later (but probably very soon)
         in a different thread from the calling thread.  See add().
     */
-    void operator () (std::function<void () noexcept> fn)
+    void operator () (std::function<void ()> fn)
     {
         add(std::move(fn));
     }
@@ -51,7 +50,7 @@ struct CallMeBackLater {
         will be aborted.  You should catch any exceptions and handle them
         within the callback function.
     */
-    void add(std::function<void () noexcept> fn);
+    void add(std::function<void ()> fn);
 
     /** Start up the main thread.  Normally this will be done on the first
         call to add().  Thread safe.

@@ -1402,7 +1402,6 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
 
     uint64_t metadataOffset = store.offset();
     MappedBehaviorDomain::Metadata metadata;
-    memset(&metadata, 0, sizeof(metadata));
     metadata.magic = magicStr("BehsHour");
     metadata.version = 5;
     metadata.subjectDataOffset = subjectDataOffset;

@@ -1,14 +1,11 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* dense_layer.h                                                   -*- C++ -*-
    Jeremy Barnes, 2 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
-#ifndef __neural__dense_layer_h__
-#define __neural__dense_layer_h__
-
+#pragma once
 
 #include "layer.h"
 #include "transfer_function.h"
@@ -264,5 +261,3 @@ extern template class Layer_Stack<Dense_Layer<double> >;
 } // namespace ML
 
 DECLARE_ENUM_INFO(ML::Missing_Values, 4);
-
-#endif /* __neural__dense_layer_h__ */

@@ -20,7 +20,7 @@
 #include "mldb/types/regex.h"
 #include "mldb/http/http_exception.h"
 #include <set>
-
+#include <functional>
 
 namespace MLDB {
 
@@ -266,7 +266,7 @@ struct RestRequestParsingContext {
     struct ObjectEntry {
         ObjectEntry(void * obj = nullptr,
                     const std::type_info * type = nullptr,
-                    std::function<void (void *) noexcept> deleter = nullptr) noexcept
+                    std::function<void (void *)> deleter = nullptr) noexcept
             : obj(obj), type(type), deleter(std::move(deleter))
         {
         }
@@ -279,7 +279,7 @@ struct RestRequestParsingContext {
 
         void * obj;
         const std::type_info * type;
-        std::function<void (void *) noexcept> deleter;
+        std::function<void (void *)> deleter;
 
         ObjectEntry(const ObjectEntry &) = delete;
         void operator = (const ObjectEntry &) = delete;

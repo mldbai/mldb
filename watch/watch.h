@@ -17,6 +17,7 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <functional>
 #include "tuple_utils.h"
 #include "mldb/types/any.h"
 #include "mldb/arch/demangle.h"

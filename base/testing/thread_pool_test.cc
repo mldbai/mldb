@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE (thread_pool_no_busy_looping)
 
     Timer timer;
 
-    threadPool.add([&] () {std::this_thread::sleep_for(std::chrono::milliseconds(100)); finished = 1;});
+    threadPool.add([&] () {std::this_thread::sleep_for(std::chrono::milliseconds(1000)); finished = 1;});
  
     threadPool.waitForAll();
 
@@ -263,7 +263,8 @@ BOOST_AUTO_TEST_CASE(BasicsWithWraparoundINT_MINPlusOne) {
 
 // Test driver for one element races.  This is testing the low-level
 // consistency of the lockless deque used for job queuing.
-void TestRaceForOneElement(int num_stealing_threads, bool pop_element_in_race) {
+void TestRaceForOneElement(int num_stealing_threads, bool pop_element_in_race,
+                           const std::string & test) {
     // In this test, we push one single element and set up a race
     // to pop or steal it.
     // We test the invariants that:
@@ -271,7 +272,7 @@ void TestRaceForOneElement(int num_stealing_threads, bool pop_element_in_race) {
     // - the data structure is consistent afterwards
     // - the element returned is the one pushed
 
-    constexpr int kNumTrials = 50000;
+    constexpr int kNumTrials = 5000;
 
     Int64ThreadQueue q;
 
@@ -329,12 +330,31 @@ void TestRaceForOneElement(int num_stealing_threads, bool pop_element_in_race) {
 
         void AwaitAcknowledgement() {
             while (acknowledged_epoch != current_epoch->load())
-                ;
+                sched_yield();
         }
     };
 
+    // If there are more stealing threads than real cores, then the
+    // context switching overhead is vastly higher than the amount
+    // of work done, and the test runs for a long time.
+    // We cap it at the number of cpus / 2 (guess at number of real cores)
+    // minus one (for the pushing thread).  That way there is always a
+    // real core for each part of the work to run on.
+    int max_stealing_threads = numCpus() / 2 - 1;
+    if (max_stealing_threads < 2)
+        max_stealing_threads = 2;
+
+    if (num_stealing_threads > max_stealing_threads) {
+        cerr << "warning: running test " << test << " with "
+             << max_stealing_threads << " stealing threads instead of "
+             << num_stealing_threads << " due to lack of physical cores"
+             << endl;
+        num_stealing_threads = max_stealing_threads;
+    }
+    
     // Steal threads are run outside of the trial loop to avoid
-    // starting threads on every new trial.
+    // starting threads on every new trial.  They are more like coroutines
+    // under this model, synchronized via the epoch counter.
     std::vector<StealThread> steal_threads(num_stealing_threads);
     for (auto& t : steal_threads) {
         t.Start(&q, &current_epoch);
@@ -359,7 +379,15 @@ void TestRaceForOneElement(int num_stealing_threads, bool pop_element_in_race) {
         }
 
         // Wait for the steal threads to acknowledge they've finished the epoch
+        int n MLDB_UNUSED = 0;
         for (auto& t : steal_threads) {
+#if 0
+            if (current_epoch != t.acknowledged_epoch) {
+                cerr << "waiting for thread " << (n++) << " to acknowledge in "
+                     << current_epoch << " currently in " << t.acknowledged_epoch
+                     << " of " << kNumTrials << " in " << test << endl;
+            }
+#endif
             t.AwaitAcknowledgement();
         }
 
@@ -403,35 +431,41 @@ void TestRaceForOneElement(int num_stealing_threads, bool pop_element_in_race) {
 
 // Make sure that elements can be pushed then popped
 BOOST_AUTO_TEST_CASE(PopOneElement) {
-    TestRaceForOneElement(0 /* steal thread */, true /* pop elements */);
+    TestRaceForOneElement(0 /* steal thread */, true /* pop elements */,
+                          "PoOneElement");
 }
 
 // Make sure that elements can be pushed then stolen
 BOOST_AUTO_TEST_CASE(StealOneElement) {
-    TestRaceForOneElement(1 /* steal thread */, false /* pop elements */);
+    TestRaceForOneElement(1 /* steal thread */, false /* pop elements */,
+                          "StealOneElement");
 }
 
 // Make sure that in a race between one popping thread and one stealing
 // thread, exactly one of them wins.
 BOOST_AUTO_TEST_CASE(PopAndOneStealThreadRaceForLastElement) {
-    TestRaceForOneElement(1 /* steal thread */, true /* pop elements */);
+    TestRaceForOneElement(1 /* steal thread */, true /* pop elements */,
+                          "PopAndOneStealThreadRaceForLastElement");
 }
 
 // Make sure that in a race between two stealing threads, exactly one
 // wins.  Two threads gives the highest likelyhood of catching a situation
 // where none of them win.
 BOOST_AUTO_TEST_CASE(TwoStealThreadsRaceForLastElement) {
-    TestRaceForOneElement(2 /* steal threads */, false /* pop elements */);
+    TestRaceForOneElement(2 /* steal threads */, false /* pop elements */,
+                          "TwoStealThreadsRaceForLastElement");
 }
 
 // Make sure that multiple stealing threads competing against each other work.
 BOOST_AUTO_TEST_CASE(ManyStealThreadsRaceForLastElement) {
-    TestRaceForOneElement(8 /* steal threads */, false /* pop elements */);
+    TestRaceForOneElement(8 /* steal threads */, false /* pop elements */,
+                          "ManyStealThreadsRaceForLastElement");
 }
 
 // Many stealing threads competing with a pop thread
 BOOST_AUTO_TEST_CASE(PopAndManyStealThreadsRaceForLastElement) {
-    TestRaceForOneElement(8 /* steal threads */, true /* pop elements */);
+    TestRaceForOneElement(8 /* steal threads */, true /* pop elements */,
+                          "PopAndManyStealThreadsRaceForLastElement");
 }
 
 // A more involved test, that includes testing the queue when it's filled

@@ -29,15 +29,17 @@ Environment::Environment()
         if (!p) break;
         //cerr << "p = " << (void *)p << endl;
         //cerr << "p = " << p << endl;
-        string s = p;
-        //cerr << "s = " << s << endl;
-        string::size_type equal_pos = s.find('=');
-        if (equal_pos == string::npos) operator [] (s) = "";
-        else {
-            string key(s, 0, equal_pos);
-            string val(s, equal_pos + 1);
-            operator [] (key) = val;
-        }
+        const char * s = p;
+        while (p && *p != '=')
+            ++p;
+        const char * e = p;
+        while (p && *p)
+            ++p;
+
+        string key(s, e);
+        string val(*e == '=' ? e + 1 : e, p);
+
+        this->emplace(std::move(key), std::move(val));
     }
 }
 

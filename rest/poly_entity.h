@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <functional>
 #include "mldb/rest/rest_request_fwd.h"
 #include "mldb/types/any.h"
 #include "mldb/ext/jsoncpp/value.h"

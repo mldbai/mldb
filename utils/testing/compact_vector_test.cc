@@ -358,7 +358,6 @@ BOOST_AUTO_TEST_CASE( check_swap_finishes )
     compact_vector<Obj, 1, uint16_t> v1, v2;
     v1.push_back(1);
     v2.push_back(2);
-
     v1.swap(v2);
 
     BOOST_CHECK(v1.size() == 1);

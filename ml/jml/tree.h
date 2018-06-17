@@ -91,7 +91,7 @@ struct Tree {
             : pred(pred), examples(examples) {}
 
         distribution<float> pred;  ///< Probs for class, means for regress
-        float examples;    ///< Num examples at this point
+        float examples = 0.0;    ///< Num examples at this point
 
         void serialize(DB::Store_Writer & store) const;
         void reconstitute(DB::Store_Reader & store);

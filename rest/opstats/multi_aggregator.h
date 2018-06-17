@@ -12,6 +12,7 @@
 #include <mutex>
 #include <thread>
 #include <condition_variable>
+#include <functional>
 #include "stat_aggregator.h"
 #include "mldb/arch/thread_specific.h"
 #include <iostream>

@@ -14,6 +14,17 @@
 
 namespace MLDB {
 
+// Frustrating, but clang doesn't ever like taking addresses of
+// packed fields (even if they are certainly aligned) whereas
+// gcc doesn't pack things that contain non-packed structures.
+// No way I found to cleanly deal with it, and it's dealing with
+// on-disk values so it's important that we maintain the layout.
+#if !defined(__clang__) && defined(__GNUC__)
+#  define MLDB_PACKED_IF_GCC MLDB_PACKED
+#else
+#  define MLDB_PACKED_IF_GCC 
+#endif
+
 
 /*****************************************************************************/
 /* MAPPED BEHAVIOR DOMAIN                                                   */
@@ -51,10 +62,13 @@ struct MappedBehaviorDomain: public BehaviorDomain {
         union {
             struct {
                 uint32_t offsetLow;        ///< Offset in file
+
                 uint32_t earliestTime:27;  ///< Offset of earliest timestamp
                 uint32_t behBits:5;        ///< Number of bits in beh number
+
                 uint32_t numBehaviors:27; ///< Total number of beh events
                 uint32_t indexCountBits:5; ///< 
+
                 uint32_t numDistinctBehaviors:19;
                 uint32_t version:3;
                 uint32_t timeBits:5; ///< Num bits used for time offset
@@ -104,7 +118,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
         {
             return ML::highest_bit(numDistinctBehaviors - 1, -1) + 1;
         }
-    } MLDB_PACKED;
+    } MLDB_PACKED_IF_GCC;
 
     struct SubjectIndexEntry2 {
         SubjectIndexEntry2()
@@ -137,7 +151,6 @@ struct MappedBehaviorDomain: public BehaviorDomain {
                 uint64_t bits2;
                 uint64_t bits3;
             };
-
         };
 
         uint64_t offset() const
@@ -190,7 +203,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
                 return ML::highest_bit(numDistinctTimestamps - 1, -1) + 1;
             else return timeBits;
         }
-    } MLDB_PACKED;
+    }  MLDB_PACKED_IF_GCC;
 
     typedef SubjectIndexEntry2 SubjectIndexEntry;
 
@@ -415,31 +428,31 @@ struct MappedBehaviorDomain: public BehaviorDomain {
                                 const OnBehaviors & onBehaviors) const;
 
     struct Metadata {
-        uint64_t magic;
-        uint64_t version;
-        uint64_t behaviorIndexOffset;
-        uint64_t behaviorIdOffset;
-        uint64_t behaviorIdIndexOffset;
-        uint64_t behaviorInfoOffset;
-        uint64_t behaviorToSubjectsIndexOffset;
-        uint64_t behaviorSubjectsOffset;
-        uint64_t subjectDataOffset;
-        uint64_t subjectIndexOffset;
-        uint64_t earliest, latest;
+        uint64_t magic = 0;
+        uint64_t version = 0;
+        uint64_t behaviorIndexOffset = 0;
+        uint64_t behaviorIdOffset = 0;
+        uint64_t behaviorIdIndexOffset = 0;
+        uint64_t behaviorInfoOffset = 0;
+        uint64_t behaviorToSubjectsIndexOffset = 0;
+        uint64_t behaviorSubjectsOffset = 0;
+        uint64_t subjectDataOffset = 0;
+        uint64_t subjectIndexOffset = 0;
+        uint64_t earliest = 0, latest = 0;
         Date     nominalStart;  ///< Nominal start time (seconds since UTC)
         Date     nominalEnd;    ///< Nominal end time (seconds since UTC)
-        uint32_t numBehaviors;
-        uint32_t numSubjects;
-        uint32_t minSubjects;
-        double   timeQuantum;
-        uint64_t subjectIdDataOffset;
-        uint64_t subjectIdIndexOffset;
-        uint64_t behaviorToSubjectTimestampsIndexOffset;
-        uint64_t behaviorToSubjectTimestampsOffset;
-        uint64_t idSpaceDeprecated;
-        uint64_t fileMetadataOffset;
-        uint64_t totalEventsRecorded;
-        uint64_t forExpansion[504];
+        uint32_t numBehaviors = 0;
+        uint32_t numSubjects = 0;
+        uint32_t minSubjects = 0;
+        double   timeQuantum = 0;
+        uint64_t subjectIdDataOffset = 0;
+        uint64_t subjectIdIndexOffset = 0;
+        uint64_t behaviorToSubjectTimestampsIndexOffset = 0;
+        uint64_t behaviorToSubjectTimestampsOffset = 0;
+        uint64_t idSpaceDeprecated = 0;
+        uint64_t fileMetadataOffset = 0;
+        uint64_t totalEventsRecorded = 0;
+        uint64_t forExpansion[504] = {0};
     };
 
     /** This is the format into which behavior stats are mapped. */
