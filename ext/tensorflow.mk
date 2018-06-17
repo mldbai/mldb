@@ -302,6 +302,9 @@ endif
 ifeq ($(toolchain),gcc6)
 TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-ignored-attributes -Wno-nonnull-compare -Wno-narrowing -Wno-strict-aliasing
 endif
+ifeq ($(toolchain),gcc7)
+TENSORFLOW_WARNING_FLAGS := -Wno-reorder -Wno-return-type -Wno-overflow -Wno-overloaded-virtual -Wno-parentheses -Wno-maybe-uninitialized -Wno-array-bounds -Wno-unused-function -Wno-unused-variable -Wno-uninitialized -Wno-comment -Wno-ignored-attributes -Wno-nonnull-compare -Wno-narrowing -Wno-strict-aliasing
+endif
 ifeq ($(toolchain),clang)
 # -Wno-error should not be used but so far it seems like the only way to mute
 # warning: braces around scalar initializer
