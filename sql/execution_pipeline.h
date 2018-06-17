@@ -103,7 +103,7 @@ struct PipelineExpressionScope:
     
     PipelineExpressionScope(std::shared_ptr<SqlBindingScope> outerScope);
 
-    ~PipelineExpressionScope();
+    virtual ~PipelineExpressionScope();
     
     /** Return a new scope, with the given table added to the scope. */
     std::shared_ptr<PipelineExpressionScope>
@@ -185,12 +185,12 @@ private:
         GetAllColumnsOutput
         doGetAllColumns(const Utf8String & tableName, const ColumnFilter& keep) const;
 
-        virtual BoundFunction
+        BoundFunction
         doGetFunction(const Utf8String & functionName,
                       const std::vector<BoundSqlExpression> & args,
                       SqlBindingScope & argsScope) const;
 
-         virtual std::set<Utf8String> tableNames() const;
+        std::set<Utf8String> tableNames() const;
     };
 
     /** The outer scope, with the scope for the current element. */

@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <ostream>
+#include <functional>
 #include "mldb/jml/utils/string_functions.h"
 
 #include <type_traits>
@@ -324,6 +325,52 @@ DIST_DIST_OP(|);
 DIST_DIST_OP(&&);
 DIST_DIST_OP(||);
 #undef DIST_DIST_OP
+
+// Specialization for bool to avoid gcc7 complaining about * in boolean
+// context.
+template<class Underlying1, class Underlying2>
+distribution<bool, Underlying1>
+operator * (const distribution<bool, Underlying1> & d1,
+            const distribution<bool, Underlying2> & d2)
+{
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("*", d1.size(), d2.size());
+    distribution<bool, Underlying1>
+        result(d1.size());
+    for (unsigned i = 0;  i < d1.size();  ++i)
+      result[i] = d1[i] && d2[i];
+    return result;
+}
+
+template<class Underlying1, typename F2, class Underlying2>
+distribution<F2, Underlying1>
+operator * (const distribution<bool, Underlying1> & d1,
+            const distribution<F2, Underlying2> & d2)
+{
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("*", d1.size(), d2.size());
+    distribution<F2, Underlying1>
+        result(d1.size());
+    for (unsigned i = 0;  i < d1.size();  ++i) {
+      F2 v1 = d1[i], v2 = d2[i];
+      result[i] = std::multiplies<F2>()(v1, v2);
+    }
+    return result;
+}
+
+template<typename F1, class Underlying1, class Underlying2>
+distribution<F1, Underlying1>
+operator * (const distribution<F1, Underlying1> & d1,
+            const distribution<bool, Underlying2> & d2)
+{
+    if (d1.size() != d2.size())
+        wrong_sizes_exception("*", d1.size(), d2.size());
+    distribution<F1, Underlying1>
+        result(d1.size());
+    for (unsigned i = 0;  i < d1.size();  ++i)
+      result[i] = d1[i] * (int)d2[i];
+    return result;
+}
 
 // NOTE: cannot make the two types different here, as then
 // distribution-distribution operations get caught.  Need to use a MPL

@@ -121,7 +121,8 @@ void ICUCharsetConverter::ConvertFromUTF16(const char16* input,
     UErrorCode err = U_ZERO_ERROR;
     char* dest = &output->data()[begin_offset];
     int required_capacity = ucnv_fromUChars(converter_, dest, dest_capacity,
-                                            input, input_len, &err);
+                                            (const UChar *)input,
+					    input_len, &err);
     if (err != U_BUFFER_OVERFLOW_ERROR) {
       output->set_length(begin_offset + required_capacity);
       return;
@@ -149,7 +150,8 @@ bool IDNToASCII(const char16* src, int src_len, CanonOutputW* output) {
     // the spec (which do exist). This does not present any risk and is a
     // little more future proof.
     UErrorCode err = U_ZERO_ERROR;
-    int num_converted = uidna_IDNToASCII(src, src_len, output->data(),
+    int num_converted = uidna_IDNToASCII((const UChar *)src, src_len,
+					 (UChar *)output->data(),
                                          output->capacity(),
                                          UIDNA_ALLOW_UNASSIGNED, NULL, &err);
     if (err == U_ZERO_ERROR) {

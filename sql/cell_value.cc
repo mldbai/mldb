@@ -22,7 +22,6 @@
 #include "interval.h"
 #include <math.h>
 #include "mldb/types/path.h"
-#include "mldb/ext/s2/s2.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/base/less.h"
 #include "mldb/jml/utils/hex_dump.h"

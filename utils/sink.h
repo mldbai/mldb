@@ -42,6 +42,8 @@ struct OutputSink {
         : state(OPEN), onClose_(onClose)
     {}
 
+    virtual ~OutputSink() = default;
+  
     /* Write data to the output. Returns true when successful. */
     virtual bool write(std::string && data) = 0;
 
@@ -126,6 +128,8 @@ private:
  */
 
 struct InputSink {
+    virtual ~InputSink() = default;
+
     /* Notify that data has been received and transfers it. */
     virtual void notifyReceived(std::string && data) = 0;
 
@@ -159,7 +163,7 @@ struct CallbackInputSink : public InputSink {
                       const OnClose & onClose = nullptr)
         : onData_(onData), onClose_(onClose)
     {}
-
+    
     virtual void notifyReceived(std::string && data);
     virtual void notifyClosed();
 

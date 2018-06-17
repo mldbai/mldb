@@ -871,7 +871,6 @@ queryStructuredExpr(const SelectExpression & select,
 {
     ExcAssert(having);
     ExcAssert(rowName);
-    std::mutex lock;
     std::vector<NamedRowValue> output;
     std::shared_ptr<ExpressionValueInfo> structureInfo;
 

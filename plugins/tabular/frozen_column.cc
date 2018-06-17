@@ -148,7 +148,7 @@ struct DirectFrozenColumn
                     doneNull = true;
                 return fn(val);
             };
-        if (!values.forEachDistinctValue(fn))
+        if (!values.forEachDistinctValue(fn2))
             return false;
 
         // Trailing nulls?

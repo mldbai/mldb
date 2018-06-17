@@ -24,7 +24,6 @@ void parallelMap(size_t first, size_t last,
 
     std::atomic<int> hasException(0);
     std::atomic<size_t> index(first);
-    std::mutex exc_mutex;
     std::exception_ptr exc;
 
     // This creates a thread pool that runs jobs on the default thread pool
@@ -76,7 +75,6 @@ bool parallelMapHaltable(size_t first, size_t last,
     std::atomic<int> hasException(0);
     std::atomic<int> stop(0);
     std::atomic<size_t> index(first);
-    std::mutex exc_mutex;
     std::exception_ptr exc;
 
     // This creates a thread pool that runs jobs on the default thread pool
@@ -136,7 +134,6 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
 
     std::atomic<int> hasException(0);
     std::atomic<size_t> index(first);
-    std::mutex exc_mutex;
     std::exception_ptr exc;
 
     // This creates a thread pool that runs jobs on the default thread pool

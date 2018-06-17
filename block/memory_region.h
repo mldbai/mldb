@@ -11,6 +11,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 #include "mldb/types/string.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/value_description_fwd.h"
@@ -317,6 +318,8 @@ struct MemorySerializer: public MappedSerializer {
 */
 
 struct StructuredSerializer {
+    virtual ~StructuredSerializer() = default;
+    
     virtual std::shared_ptr<StructuredSerializer>
     newStructure(const PathElement & name) = 0;
 

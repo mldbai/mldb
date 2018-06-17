@@ -10,7 +10,7 @@
 
 #include "mldb/block/memory_region.h"
 #include "column_types.h"
-
+#include <functional>
 
 namespace MLDB {
 

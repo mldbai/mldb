@@ -13,6 +13,7 @@
 #include "mldb/arch/thread_specific.h"
 #include <vector>
 #include <memory>
+#include <functional>
 
 /** Deterministic memory reclamation is a fundamental problem in lock-free
     algorithms and data structures.

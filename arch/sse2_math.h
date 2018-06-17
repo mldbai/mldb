@@ -95,12 +95,11 @@ v4sf sse2_frexpf( v4sf x, v4si & exp)
     return sse2_frexpf_nodn(x, exp);
 }
 
-
 inline v2df sse2_floor_unsafe(v2df x)
 {
-    v4si tr       = __builtin_ia32_cvttpd2dq(x);
+    v2di tr       = (v2di)__builtin_ia32_cvttpd2dq(x);
     v2di neg      = (v2di)_mm_cmplt_pd(x, vec_splat(0.0));
-    v2df res      = __builtin_ia32_cvtdq2pd(tr);
+    v2df res      = _mm_cvtepi32_pd(tr);
     v2df fix1     = _mm_and_pd((v2df)neg, vec_splat(1.0));
     v2di exact    = (v2di)_mm_cmpeq_pd(res, x);
     v2df fix      = _mm_andnot_pd((v2df)exact, (v2df)fix1);

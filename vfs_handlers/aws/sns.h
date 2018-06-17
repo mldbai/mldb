@@ -67,6 +67,8 @@ struct SnsApiWrapper {
             this->defaultTopicArn = defaultTopicArn;
         }
 
+        virtual ~SnsApiWrapper() = default;
+    
         virtual void init(const std::string & accessKeyId,
                           const std::string & accessKey,
                           const std::string & defaultTopicArn) {

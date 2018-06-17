@@ -36,7 +36,7 @@ struct IdHashBucket {
 inline std::ostream &
 operator << (std::ostream & stream, const IdHashBucket & bucket)
 {
-    return stream << std::make_pair(bucket.first, bucket.second);
+    return stream << "(" << bucket.first << "," <<  bucket.second << ")";
 }
 
 struct IdHashFn {

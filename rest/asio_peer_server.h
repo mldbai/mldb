@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* asio_peer_server.h                                          -*- C++ -*-
    Jeremy Barnes, 1 June 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -21,7 +19,7 @@ namespace MLDB {
 struct AsioPeerServer: public PeerServer {
 
     AsioPeerServer();
-    ~AsioPeerServer();
+    virtual ~AsioPeerServer();
 
     void init(PortRange bindPort, const std::string & bindHost,
               int publishPort = -1, std::string publishHost = "");

@@ -56,7 +56,6 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
         calls.push_back(url + "/routes/classifier-list");
     }
 
-    std::atomic<int> pwet(0);
     auto doCall = [&] (int i)
         {
             int rtn = system(calls[i].c_str());

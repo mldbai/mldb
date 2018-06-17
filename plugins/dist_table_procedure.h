@@ -16,8 +16,7 @@
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/string.h"
-#include <boost/thread/shared_mutex.hpp>
-
+#include <shared_mutex>
 
 namespace MLDB {
 
@@ -238,7 +237,7 @@ struct DistTableFunction: public Function {
                   const RestRequest & request,
                   RestRequestParsingContext & context) const override;
 
-    mutable boost::shared_mutex _access;
+    mutable std::shared_mutex _access;
 
     DistTableFunctionConfig functionConfig;
     DistTableMode mode;

@@ -15,7 +15,7 @@
 
 namespace MLDB {
 
-typedef std::function<void () noexcept> ThreadJob;
+typedef std::function<void ()> ThreadJob;
 
 /** Return the number of CPUs in the system. */
 int numCpus();

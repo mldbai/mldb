@@ -140,7 +140,7 @@ struct StructureDescription
     /// Function to be called after parsing and validation
     std::function<void (Struct *, JsonParsingContext & context)> onPostValidate;
 
-    virtual bool onEntry(void * output, JsonParsingContext & context) const
+    virtual bool onEntry(void * output, JsonParsingContext & context) const override
     {
         if (onEntryHandler) {
             if (!onEntryHandler((Struct *)output, context))
@@ -153,7 +153,7 @@ struct StructureDescription
         return true;
     }
     
-    virtual void onExit(void * output, JsonParsingContext & context) const
+    virtual void onExit(void * output, JsonParsingContext & context) const override
     {
         if (onUnknownField)
             context.onUnknownFieldHandlers.pop_back();
@@ -269,7 +269,7 @@ struct StructureDescription
     void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0));
 
-    virtual size_t getFieldCount(const void * val) const
+    virtual size_t getFieldCount(const void * val) const override
     {
         return fields.size();
     }

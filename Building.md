@@ -25,7 +25,7 @@ apt-get install -y \
   libgoogle-perftools-dev \
   liblapack-dev \
   liblzma-dev \
-  libpng12-dev \
+  libpng-dev \
   libpq-dev \
   libpython-dev \
   libsasl2-dev \
@@ -37,7 +37,10 @@ apt-get install -y \
   valgrind \
   uuid-dev \
   libxml++2.6-dev \
-  libsnappy-dev
+  libsnappy-dev \
+  libssl-dev \
+  libbz2-dev \
+  libattr1-dev
 ```
 ## Installing Docker
 

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* boolean_expression_parser.h                                     -*- C++ -*-
    Jeremy Barnes, 23 November 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -22,6 +21,8 @@ struct BooleanExpressionParser;
 
 struct UnaryOperatorParser {
 
+    virtual ~UnaryOperatorParser() = default;
+    
     virtual std::string getOperator() const = 0;
 
     virtual BoolExprPtr
@@ -35,6 +36,8 @@ struct UnaryOperatorParser {
 /*****************************************************************************/
 
 struct BinaryOperatorParser {
+    virtual ~BinaryOperatorParser() = default;
+    
     virtual std::string getOperator() const = 0;
 
     virtual BoolExprPtr parse(BoolExprPtr lhs,
@@ -47,6 +50,8 @@ struct BinaryOperatorParser {
 /*****************************************************************************/
 
 struct SegmentExpressionParser {
+    virtual ~SegmentExpressionParser() = default;
+    
     virtual BoolExprPtr parse(ParseContext & context,
                               const BooleanExpressionParser & parser) const = 0;
 };
@@ -57,6 +62,8 @@ struct SegmentExpressionParser {
 /*****************************************************************************/
 
 struct FunctionalExpressionParser {
+    virtual ~FunctionalExpressionParser() = default;
+    
     virtual std::string getFunctionName() const = 0;
     virtual BoolExprPtr parse(ParseContext & context,
                               const BooleanExpressionParser & parser) const = 0;
@@ -75,6 +82,8 @@ struct BooleanExpressionParser {
 
     BooleanExpressionParser();
 
+    virtual ~BooleanExpressionParser() = default;
+    
 
     /*************************************************************************/
     /* PARSING API                                                           */

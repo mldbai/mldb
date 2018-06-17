@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* rest_entity.h                                                   -*- C++ -*-
    Jeremy Barnes, 8 June 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Basic definitions for entities accessible via REST.
 */
@@ -115,15 +114,10 @@ typedef std::vector<ResourceSpecEntry> ResourceSpec;
 
 /// Watch result for a child watch
 struct RestEntityChildEvent {
-    RestEntityChildEvent()
-        : parent(nullptr), entity(nullptr), object(nullptr)
-    {
-    }
-
-    RestEntity * parent;  /// <Parent entity, or null
+    RestEntity * parent = nullptr;  /// <Parent entity, or null
     Utf8String name;     /// <Name of the child
-    RestEntity * entity;  /// <Child entity watched (set if convertible)
-    void * object;        /// <Child object watched (always set)
+    RestEntity * entity = nullptr;  /// <Child entity watched (set if convertible)
+    void * object = nullptr;        /// <Child object watched (always set)
     CollectionEvent event;
 };
 

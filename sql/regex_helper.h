@@ -22,6 +22,8 @@ namespace MLDB {
 struct RegexHelper {
     RegexHelper();
 
+    virtual ~RegexHelper() = default;
+    
     /// Must be called by child constructor.  This performs the actual
     /// compilation, etc.  It can't be done in the real constructor as
     /// then the compile method would be bound to this one, not the one

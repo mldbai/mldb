@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* tcp_acceptor.h                                                  -*- C++ -*-
    Wolfgang Sourdeau, September 2015
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -39,7 +38,7 @@ struct TcpAcceptor {
 
     TcpAcceptor(EventLoop & eventLoop,
                 const OnNewConnection & onNewConnection);
-    ~TcpAcceptor();
+    virtual ~TcpAcceptor();
 
     /* Starts listening on either of the given ports (in ascending order) and
      * interface. Returns the effective port of the listening socket. */

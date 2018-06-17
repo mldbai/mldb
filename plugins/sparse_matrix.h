@@ -74,6 +74,8 @@ struct MatrixReadTransaction {
 
     struct Stream {       
 
+        virtual ~Stream() = default;
+
         virtual std::shared_ptr<MatrixReadTransaction::Stream> clone() const = 0;
 
         virtual void initAt(size_t start) = 0;
@@ -120,9 +122,7 @@ struct MatrixWriteTransaction: virtual public MatrixReadTransaction {
 DECLARE_STRUCTURE_DESCRIPTION(BaseEntry);
 
 struct BaseMatrix {
-    virtual ~BaseMatrix()
-    {
-    }
+    virtual ~BaseMatrix() = default;
 
     virtual std::shared_ptr<MatrixReadTransaction> startReadTransaction() const = 0;
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() = 0;

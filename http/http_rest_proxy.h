@@ -8,6 +8,7 @@
 #pragma once
 
 #include <mutex>
+#include <functional>
 #include "mldb/http/http_header.h"
 
 namespace Json {

@@ -2047,7 +2047,9 @@ public:
         typedef typename BasicWriter<Char>::CharPtr CharPtr;
         Char fill = internal::CharTraits<Char>::cast(spec_.fill());
         CharPtr out = CharPtr();
+#ifndef CHAR_WIDTH
         const unsigned CHAR_WIDTH = 1;
+#endif
         if (spec_.width_ > CHAR_WIDTH)
         {
             out = writer_.grow_buffer(spec_.width_);

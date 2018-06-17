@@ -93,6 +93,8 @@ OnUriObject;
 /** Handles dealing with objects in a generalized file system. */
 
 struct UrlFsHandler {
+    virtual ~UrlFsHandler() = default;
+
     virtual FsObjectInfo getInfo(const Url & url) const = 0;
     virtual FsObjectInfo tryGetInfo(const Url & url) const = 0;
 

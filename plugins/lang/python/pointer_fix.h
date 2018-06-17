@@ -16,7 +16,7 @@
 #include <memory>
 #include <boost/get_pointer.hpp>
 
-#ifdef __clang__
+#if defined(__clang__) && __clang_major__ < 6
 
 // clang 3.4 and boost 1.52 don't detect std::shared_ptr properly
 namespace std {

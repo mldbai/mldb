@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* layer.h                                                         -*- C++ -*-
    Jeremy Barnes, 20 October 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Layers for perceptrons and other similar beasts.
 */
 
-#ifndef __jml__layer_h__
-#define __jml__layer_h__
+#pragma once
 
 #include "perceptron_defs.h"
 #include "mldb/ml/jml/thread_context.h"
@@ -47,6 +45,7 @@ protected:
     bool operator == (const Layer & other) const;
 
 public:
+    virtual ~Layer() = default;
     
     /*************************************************************************/
     /* INFO                                                                  */
@@ -616,5 +615,3 @@ inline std::ostream & operator << (std::ostream & stream, const Layer & layer)
 }
 
 } // namespace ML
-
-#endif /* __jml__layer_h__ */

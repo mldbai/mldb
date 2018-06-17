@@ -1,10 +1,11 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* fs_lock.cc
    Wolfgang Sourdeau, December 2013
    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
+#include <functional>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

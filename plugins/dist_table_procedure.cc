@@ -683,7 +683,7 @@ increment(const vector<pair<Utf8String, Utf8String>> & keys,
           const vector<double> & outcomes) const
 {
     // get exclusive access
-    boost::unique_lock<boost::shared_mutex> uniqueLock(_access);
+    std::unique_lock<std::shared_mutex> uniqueLock(_access);
 
     for(const auto & key : keys) {
         Path pKey(key.first);
@@ -704,7 +704,7 @@ persist(const Url & modelFileUrl) const
     // get exclusive access
     DistTablesMap copiedMap;
     {
-        boost::shared_lock<boost::shared_mutex> uniqueLock(_access);
+        std::shared_lock<std::shared_mutex> uniqueLock(_access);
         copiedMap = DistTablesMap(distTablesMap);
     }
 
@@ -799,7 +799,7 @@ apply(const FunctionApplier & applier,
 
     // get reader lock
     {
-        boost::shared_lock<boost::shared_mutex> lock(_access);
+        std::shared_lock<std::shared_mutex> lock(_access);
         switch(mode) {
             case DT_MODE_FIXED_COLUMNS:
                 arg.forEachAtom(onAtomFixedColumns);

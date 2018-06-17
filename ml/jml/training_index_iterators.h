@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* training_index_iterators.h                                      -*- C++ -*-
    Jeremy Barnes, 19 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Iterators over a training index.
 */
 
-#ifndef __boosting__training_index_iterator_h__
-#define __boosting__training_index_iterator_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <vector>
@@ -174,6 +172,15 @@ public:
     }
 
     MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator & operator -- () { --n;  return *this; }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator operator -- (int)
+    {
+        Index_Iterator result(*this);  operator -- ();  return result;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
     Index_Iterator & operator += (int i) { n += i;  return *this; }
 
     MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
@@ -281,6 +288,3 @@ private:
 } // namespace ML
 
 #include "training_index_iterators_impl.h"
-
-#endif /* __boosting__training_index_iterator_h__ */
-

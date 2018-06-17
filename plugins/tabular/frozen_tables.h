@@ -130,7 +130,7 @@ struct FrozenDoubleTable: public FrozenDoubleTableMetadata {
 
         Entry(double d)
         {
-            U u { d: d };
+            U u { .d = d };
             val = u.bits;
         }
 
@@ -155,7 +155,7 @@ struct FrozenDoubleTable: public FrozenDoubleTableMetadata {
 
         double value() const
         {
-            U u { bits: val };
+            U u { .bits = val };
             return u.d;
         }
 

@@ -12,7 +12,7 @@
 
 #include "mldb/compiler/compiler.h"
 
-#if __has_include(<filesystem>)
+#if __has_include(<filesystem>) && __cplusplus >= 201703L
 #  include <filesystem>
 #elif __has_include(<experimental/filesystem>)
 #  include <experimental/filesystem>
@@ -23,7 +23,6 @@ namespace std {
 
 namespace filesystem {
 
-using namespace std::experimental::filesystem;
 
 // will need to eventually guard this against old gcc versions... it's
 // needed for 5.4.0

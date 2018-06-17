@@ -55,7 +55,7 @@ ContinuousDatasetConfigDescription()
 /* CONTINUOUS INTERNAL REPRESENTATION                                        */
 /*****************************************************************************/
 
-struct ContinuousDataset::Itl {
+struct ContinuousDataset::Itl final {
     Itl(MldbServer * server, const ContinuousDatasetConfig & config)
         : server(server),
           current(gcLock),

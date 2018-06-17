@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** peer_discovery.h                                               -*- C++ -*-
     Jeremy Barnes, 1 June 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Service for peer discovery.
 */
@@ -23,6 +22,8 @@ struct PeerDiscovery {
 
     PeerDiscovery(RestEntity * owner);
 
+    virtual ~PeerDiscovery() = default;
+  
     virtual void publish(PeerInfo info) = 0;
 
     virtual void shutdown() = 0;

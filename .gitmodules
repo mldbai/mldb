@@ -94,3 +94,6 @@
 [submodule "ext/libarchive"]
 	path = ext/libarchive
 	url = git@github.com:mldbai/libarchive.git
+[submodule "ext/s2geometry"]
+	path = ext/s2geometry
+	url = https://github.com/mldbai/s2geometry.git

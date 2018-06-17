@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** mapped_value.h                                                 -*- C++ -*-
     Jeremy Barnes, 28 March 2012
     Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Basic memory mapped structure support.
 */

@@ -261,7 +261,7 @@ parseFixedWidthCsvRow(const char * & line,
 
     size_t colNum = 0;
 
-    auto finishString = [encoding,replaceInvalidCharactersWith,&logger]
+    auto finishString = [encoding,replaceInvalidCharactersWith]
         (const char * start, size_t len, bool eightBit)
         {
             if (!eightBit) {
@@ -276,33 +276,33 @@ parseFixedWidthCsvRow(const char * & line,
             // Parse differently based upon encoding
             switch (encoding) {
             case ASCII:
-            throw MLDB::Exception("non-ASCII character in ASCII text file");
+                throw MLDB::Exception("non-ASCII character in ASCII text file");
             case LATIN1:
-            return CellValue(Utf8String::fromLatin1(string(start, len)));
+                return CellValue(Utf8String::fromLatin1(string(start, len)));
             case UTF8:
-            if (replaceInvalidCharactersWith != -1) {
-                const char * end = utf8::find_invalid(start, start + len);
-                if (end == start + len)
-                    return CellValue(start, len, STRING_UNKNOWN);
-                else {
-                    static constexpr int BUF_PADDING = 64; // defensive; only 5 chars should be needed
-                    char buf[len + BUF_PADDING];
-                    char * end
-                        = utf8::replace_invalid(start, start + len, buf,
-                                                replaceInvalidCharactersWith);
+                if (replaceInvalidCharactersWith != -1) {
+                    const char * end = utf8::find_invalid(start, start + len);
+                    if (end == start + len)
+                        return CellValue(start, len, STRING_UNKNOWN);
+                    else {
+                        static constexpr int BUF_PADDING = 64; // defensive; only 5 chars should be needed
+                        char buf[len + BUF_PADDING];
+                        char * end
+                            = utf8::replace_invalid(start, start + len, buf,
+                                                    replaceInvalidCharactersWith);
 
-                    if (end < buf || end > buf + len + BUF_PADDING) {
-                        // Abort immediately without unwinding as stack has
-                        // been smashed
-                        ::fprintf(stderr, "Replace invalid smashed stack");
-                        abort();
+                        if (end < buf || end > buf + len + BUF_PADDING) {
+                            // Abort immediately without unwinding as stack has
+                            // been smashed
+                            ::fprintf(stderr, "Replace invalid smashed stack");
+                            abort();
+                        }
+                        return CellValue(buf, end - buf, STRING_UNKNOWN);
                     }
-                    return CellValue(buf, end - buf, STRING_UNKNOWN);
                 }
-            }
-            return CellValue(start, len, STRING_UNKNOWN);
+                return CellValue(start, len, STRING_UNKNOWN);
             default:
-            ExcAssert(false);
+                ExcAssert(false);
             }
         };
 

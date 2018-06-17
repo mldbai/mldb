@@ -483,17 +483,17 @@ double calc_D_row(float * Di, int n)
             xxxx0      = one / xxxx0;
             v4sf xxxx2 = _mm_loadu_ps(Di + i + 8);
             xxxx1      = one / xxxx1;
-            __builtin_ia32_storeups(Di + i + 0, xxxx0);
+            _mm_storeu_ps(Di + i + 0, xxxx0);
             xxxx2      = xxxx2 + one;
             v2df xx0a, xx0b;  vec_f2d(xxxx0, xx0a, xx0b);
-            __builtin_ia32_storeups(Di + i + 4, xxxx1);
+            _mm_storeu_ps(Di + i + 4, xxxx1);
             xx0a       = xx0a + xx0b;
             rr         = rr + xx0a;
             v4sf xxxx3 = _mm_loadu_ps(Di + i + 12);
             v2df xx1a, xx1b;  vec_f2d(xxxx1, xx1a, xx1b);
             xxxx2      = one / xxxx2;
             xx1a       = xx1a + xx1b;
-            __builtin_ia32_storeups(Di + i + 8, xxxx2);
+            _mm_storeu_ps(Di + i + 8, xxxx2);
             rr         = rr + xx1a;
             v2df xx2a, xx2b;  vec_f2d(xxxx2, xx2a, xx2b);
             xxxx3      = xxxx3 + one;
@@ -501,7 +501,7 @@ double calc_D_row(float * Di, int n)
             xxxx3      = one / xxxx3;
             rr         = rr + xx2a;
             v2df xx3a, xx3b;  vec_f2d(xxxx3, xx3a, xx3b);
-            __builtin_ia32_storeups(Di + i + 12, xxxx3);
+            _mm_storeu_ps(Di + i + 12, xxxx3);
             xx3a       = xx3a + xx3b;
             rr         = rr + xx3a;
         }
@@ -510,7 +510,7 @@ double calc_D_row(float * Di, int n)
             v4sf xxxx0 = _mm_loadu_ps(Di + i + 0);
             xxxx0      = xxxx0 + one;
             xxxx0      = one / xxxx0;
-            __builtin_ia32_storeups(Di + i + 0, xxxx0);
+            _mm_storeu_ps(Di + i + 0, xxxx0);
 
             v2df xx0a, xx0b;
             vec_f2d(xxxx0, xx0a, xx0b);
@@ -609,7 +609,7 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
             v4sf pppp0 = _mm_loadu_ps(Pi + i + 0);
             v4sf qqqq0 = __builtin_ia32_maxps(mmmm, dddd0 * ffff);
             v4sf ssss0 = (pppp0 - qqqq0) * dddd0;
-            __builtin_ia32_storeups(Di + i + 0, ssss0);
+            _mm_storeu_ps(Di + i + 0, ssss0);
             if (MLDB_LIKELY(!calc_costs)) continue;
 
             v4sf pqpq0  = pppp0 / qqqq0;
@@ -772,8 +772,8 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
         totals23 += xxxx23;
     }
 
-    __builtin_ia32_storeups(&dY[i][0], totals01);
-    __builtin_ia32_storeups(&dY[i + 2][0], totals23);
+    _mm_storeu_ps(&dY[i][0], totals01);
+    _mm_storeu_ps(&dY[i + 2][0], totals23);
 
 #else // MLDB_INTEL_ISA
     enum { b = 4 };

@@ -32,7 +32,7 @@ CallMeBackLater::
 
 void
 CallMeBackLater::
-add(std::function<void () noexcept> fn)
+add(std::function<void ()> fn)
 {
     if (!thread) {
         start();

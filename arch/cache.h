@@ -60,7 +60,8 @@ inline void streaming_copy_from_strided(float * output, const float * input,
 {
     unsigned i = 0;
 
-#if MLDB_INTEL_ISA
+// Clang 6 has different builtins for non-temporal loads from gcc
+#if MLDB_INTEL_ISA && !defined(__clang__)
     for (; i < n && !aligned(output + i, 4);  ++i)
         store_non_temporal(*(output + i), input[i * stride]);
 
@@ -91,7 +92,8 @@ inline void streaming_copy_from_strided(double * output, const double * input,
 {
     unsigned i = 0;
 
-#if MLDB_INTEL_ISA
+// Clang 6 has different builtins for non-temporal loads from gcc
+#if MLDB_INTEL_ISA && !defined(__clang__)
     for (; i < n && !aligned(output + i, 4);  ++i)
         store_non_temporal(*(output + i), input[i * stride]);
     
