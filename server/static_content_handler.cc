@@ -180,6 +180,8 @@ std::string renderMarkdown(const std::string & str, const MacroData & macroData)
 RestRequestRouter::OnProcessRequest
 getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities)
 {
+    //cerr << "getting dir " << dir << endl;
+
     if (dir.find("://") == string::npos)
         dir = "file://" + dir;
 
@@ -193,7 +195,9 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 throw MLDB::Exception("not dealing with path with .. in it");
             }
 
-            string filename = (fs::path(dir) / fs::path(path)).string();
+            //cerr << "path is " << path << " " << fs::path(path).string() << endl;
+            
+            string filename = dir + fs::path(path).string();
 
             //cerr << "looking for " << filename << " for resource " << path << endl;
 
