@@ -26,7 +26,7 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-var resp = mldb.get("/v1/query", { q: 'SELECT x,y,label from test', format: 'table' });
+var resp = mldb.get("/v1/query", { q: 'SELECT x,y,label FROM test ORDER BY rowName() DESC', format: 'table' });
 assertEqual(resp.responseCode, 200);
 
 plugin.log(resp.json);
@@ -44,7 +44,7 @@ assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
 
 // Now with a transformed row name
 var resp = mldb.get("/v1/query",
-                    {q:"select x,y,label NAMED rowName() + '_transformed' from test", 
+                    {q:"select x,y,label NAMED rowName() + '_transformed' FROM test ORDER BY rowName() DESC", 
                      format: 'table'});
 plugin.log(resp);
 

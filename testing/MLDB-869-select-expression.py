@@ -27,25 +27,25 @@ else:
 
 #MLDB-835
 
-result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x limit 3')
+result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x ORDER BY rowName() DESC LIMIT 3')
 
 expected = [
-    {
-        "rowName": "row_8",
-        "columns": [
-            [
-                "x",
-                8,
-                "1970-01-01T00:00:00Z"
-            ]
-        ]
-    },
     {
         "rowName": "row_9",
         "columns": [
             [
                 "x",
                 9,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    },
+    {
+        "rowName": "row_8",
+        "columns": [
+            [
+                "x",
+                8,
                 "1970-01-01T00:00:00Z"
             ]
         ]

@@ -54,7 +54,8 @@ function createAndRunProcedure(config, name)
 }
 
 // transform our 4 elements with limit=3 (MLDB-799)
-// Note: Transform is not ordering-stable.
+// Note: Transform is not ordering-stable, so without order by
+// it's not deterministic.
 var transform_config = {
     type: 'transform',
     params: {
@@ -62,6 +63,7 @@ var transform_config = {
             select: "x, y, x * 10 AS z, y + 6 AS q",
             from: 'test',
             named: "rowName() + '_transformed'",
+            orderBy: "rowName()",
             limit: 3
         },
         outputDataset: { id: 'transformed', type: 'sparse.mutable' },
@@ -77,9 +79,9 @@ plugin.log("transform limit 3 query result", resp.json);
 
 var expected = [
    [ "_rowName", "q", "x", "y", "z" ],
+   [ "ex1_transformed", 6, 0, 0, 0 ],
    [ "ex2_transformed", 7, 1, 1, 10 ],
    [ "ex3_transformed", 8, 1, 2, 10 ],
-   [ "ex4_transformed", 12, 6, 6, 60 ]
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},

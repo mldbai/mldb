@@ -104,7 +104,7 @@ class Mldb1119(MldbUnitTest):
         # have no columns because we removed them in the transform above.
         res = mldb.get(
             "/v1/query",
-            q="select poolz({words: {*}})[embedding] as word2vec from bag_o_words_nulls")
+            q="select poolz({words: {*}})[embedding] as word2vec from bag_o_words_nulls order by rowName() desc")
         mldb.log(res.json())
 
         expected = [
