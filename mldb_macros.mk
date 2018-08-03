@@ -1,3 +1,10 @@
+$(foreach plugin,$(MLDB_ENABLED_PLUGINS),$(eval MLDB_ENABLED_PLUGIN_$(plugin):=1))
+
+plugin_is_enabled=$(MLDB_ENABLED_PLUGIN_$(1))
+plugin_is_enabled_01=$(if $(call plugin_is_enabled,$(1)),1,0)
+all_true_01=$(if $(findstring 0,$(1)),,1)
+all_plugins_are_enabled=$(call all_true_01,$(foreach plugin,$(1),$(call plugin_is_enabled_01,$(plugin))))
+
 # add a mldb unit test case
 # $(1) file in the test (.js or .py)
 # $(2) plugins that are used in the testcase
@@ -5,7 +12,7 @@
 #      - manual: run the test manually
 #      - virtualenv: set up the Python virtualenv even for a non-python test
 #      - valgrind: run the test within valgrind
-# $(4) TODO: used but undocumented
+# $(4) Extra targets under which this is run
 # $(5) Passed to mldb_runner as --script-args $(5) if defined
 #
 
@@ -41,9 +48,9 @@ $(1):	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$(MLDB_PLUGIN_FIL
 	$$(TEST_$(1)_SETUP) $$(TEST_$(1)_RAW_COMMAND) $$(TEST_$(1)_ARGS)
 
 .PHONY: $(1)
-mldb_unit_tests: $(1)
+$(if $(call all_plugins_are_enabled,$(2)),$(eval mldb_unit_tests: $(1)))
 
-$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $(CWD)_test_all $(4):	$(TESTS)/$(1).passed
+$(if $(call all_plugins_are_enabled,$(2)),$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $(CWD)_test_all $(4)):	$(TESTS)/$(1).passed
 endif
 endef
 
@@ -61,7 +68,7 @@ endef
 #    $(4): <libDeps>: dependency libraries to link with
 
 define mldb_plugin_library
-$$(eval $$(call library,$(2),$(3),$(4),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR_RESET)",$(PLUGINS)/$(1)/lib))
+$$(eval $$(call library,$(2),$(3),$(4),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR_RESET)",$(PLUGINS)/$(1)/lib,$$(MLDB_PLUGIN_EXTRA_LINK_OPTIONS)))
 mldb_plugins: $(PLUGINS)/$(1)/lib/lib$(2).so
 endef
 
