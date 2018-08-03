@@ -22,14 +22,17 @@ def timed(f):
 class MLDB408TaskCancellation(MldbUnitTest):  # noqa
 
     def run_procedure_async(self, name, config):
+        mldb.log('running async ' + name)
         mldb.put("/v1/procedures/" + name, config)
         response = mldb.post_async("/v1/procedures/" + name + "/runs")
         mldb.log(response)
         return response.headers['Location']
         
     def run_and_cancel(self, name, config):
+        mldb.log('running ' + name)
         location = self.run_procedure_async(name, config)
 
+        mldb.log('cancelling ' + name)
         resp = mldb.put(location + "/state", {'state': 'cancelled'})
 
         self.assertEquals(resp.status_code, 200)
