@@ -310,7 +310,9 @@ mldb.log(js_rez)
 
 assert_for_rows(js_rez, "d", "probs.red.label", 1)
 assert_for_rows(js_rez, "a", "probs.I.label", 0.5)
+assert_for_rows(js_rez, "a", "probs.like.label", 0.5)
 assert_for_rows(js_rez, "b", "probs.I.label", 0.5)
+assert_for_rows(js_rez, "b", "probs.like.label", 0.5)
 
 
 # lets try with the function we created at procedure run time
