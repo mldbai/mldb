@@ -16,7 +16,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/bound_queries.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/pro/pro_plugin.h"
 

@@ -18,7 +18,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/sql/builtin_functions.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"

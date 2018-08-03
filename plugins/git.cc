@@ -7,7 +7,7 @@
 
 #include "mldb/core/procedure.h"
 #include "mldb/core/dataset.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/types/url.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"

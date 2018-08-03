@@ -10,7 +10,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/base/parallel.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
