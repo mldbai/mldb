@@ -10,10 +10,17 @@ result = mldb.perform("PUT", "/v1/datasets/rcp", [], {
 })
 assert result["statusCode"] < 400, result["response"]
 
+mldb.log(result)
+
+out = mldb.perform("GET", "/v1/query", [
+    ["q", "select * from rcp order by rowName() limit 20" ], ["format", "sparse"] ], {})
+
+mldb.log(out);
+
 result = mldb.perform("PUT", "/v1/procedures/svd1", [], {
     'type' : 'svd.train',
     'params' : {
-        'trainingData': {'from' : {'id':'rcp'}},
+        'trainingData': {'from' : {'id':'rcp'}, 'limit': 1000},
         'columnOutputDataset': {'id': 'svd1','type':'embedding'}
     }
 })
@@ -25,7 +32,7 @@ assert result["statusCode"] < 400, result["response"]
 result = mldb.perform("PUT", "/v1/procedures/svd2", [], {
     'type' : 'svd.train',
     'params' : {
-        'trainingData': {'from' : {'id':'rcp'}},
+        'trainingData': {'from' : {'id':'rcp'}, 'limit': 1000},
         'columnOutputDataset': {'id': 'svd2','type':'embedding'}
     }
 })

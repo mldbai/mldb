@@ -12,7 +12,7 @@ mldb.put("/v1/procedures/airline", {
         "outputDataset": {
             "id": "airline"
         },
-       # "limit" : 10,
+        "limit" : 10000,
         "runOnCreation": True        
     }
 })
@@ -28,7 +28,7 @@ mldb.put("/v1/procedures/airline", {
         "outputDataset": {
             "id": "airline_test"
         },
-       # "limit" : 10,
+        # "limit" : 10,
         "runOnCreation": True        
     }
 })
@@ -69,11 +69,11 @@ accuracyConf = {
 
 res = mldb.put("/v1/procedures/trainer3", accuracyConf);
 
-mldb.log(res);
+mldb.log(res.json());
 
 mldb.log(datetime.datetime.now() - start)
 
-assert res.json()["status"]["firstRun"]["status"]["auc"] > 0.7
+assert res.json()["status"]["firstRun"]["status"]["auc"] > 0.65
 
 #### try with a non-tabular dataset
 
@@ -81,7 +81,7 @@ start = datetime.datetime.now();
 mldb.put("/v1/procedures/airline", {
     "type": "transform",
     "params": {
-        "inputData": "SELECT * FROM airline",
+        "inputData": "SELECT * FROM airline LIMIT 10000",
         "outputDataset": {
             "id": "airline_embedding",
             "type" : "sparse.mutable"
@@ -126,10 +126,10 @@ accuracyConf = {
 
 res = mldb.put("/v1/procedures/trainer4", accuracyConf);
 
-mldb.log(res)
+mldb.log(res.json())
 
 mldb.log(datetime.datetime.now() - start)
 
-assert res.json()["status"]["firstRun"]["status"]["auc"] > 0.7
+assert res.json()["status"]["firstRun"]["status"]["auc"] > 0.65
 
 mldb.script.set_return('success')

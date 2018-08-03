@@ -11,7 +11,7 @@ import unittest
 class ImportTextToSparseTest(unittest.TestCase):
 
     def test_sparse(self):
-        res = mldb.put('/v1/procedures/import_reddit', { 
+        res = mldb.put('/v1/procedures/import_iris', { 
             "type": "import.text",  
             "params": { 
                 "dataFileUrl": "file://mldb/testing/dataset/iris.data",
@@ -38,7 +38,7 @@ class ImportTextToSparseTest(unittest.TestCase):
         self.assertEqual(res, expected)
 
     def test_sparse_excluding(self):
-        res = mldb.put('/v1/procedures/import_reddit', {
+        res = mldb.put('/v1/procedures/import_iris', {
             "type": "import.text",
             "params": {
                 "dataFileUrl": "file://mldb/testing/dataset/iris.data",
@@ -67,6 +67,7 @@ class ImportTextToSparseTest(unittest.TestCase):
                 "quoteChar": "",
                 "select": "tokenize(lineText, {offset: 1, value: 1}) as *",
                 'outputDataset': {'id': 'reddit', 'type': 'sparse.mutable'},
+                "limit": 100000,
                 'runOnCreation': True
             } 
         })
@@ -74,7 +75,7 @@ class ImportTextToSparseTest(unittest.TestCase):
         res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL ORDER BY rowName() LIMIT 1')
 
         expected = [["_rowName","gonewild"],
-                    ["100030",1]]
+                    ["10017",1]]
         self.assertEqual(res, expected)
 
     # MLDB-1513
