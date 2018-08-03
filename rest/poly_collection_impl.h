@@ -12,6 +12,7 @@
 #include "poly_collection.h"
 #include "mldb/types/meta_value_description_impl.h"
 #include "mldb/types/pointer_description.h"
+#include "mldb/http/http_exception.h"
 
 namespace MLDB {
 
@@ -230,7 +231,7 @@ struct PolyCollection<Entity>::Registry {
 
         if (!it->second.docRoute) {
             connection.sendErrorResponse(404, "type " + type + " has no documentation registered");
-            return RestRequestRouter::MR_YES;
+            return MR_YES;
         }
         return it->second.docRoute(server, connection, req, const_cast<RestRequestParsingContext &>(cxt));
     }
@@ -282,7 +283,7 @@ struct PolyCollection<Entity>::Registry {
     {
         Json::Value result = getTypeInfo(nounPlural, type);
         connection.sendResponse(200, result);
-        return RestRequestRouter::MR_YES;
+        return MR_YES;
     }
 
     RestRequestMatchResult
@@ -305,7 +306,7 @@ struct PolyCollection<Entity>::Registry {
 
         if (!it->second.customRoute) {
             connection.sendErrorResponse(404, "type " + type + " has no custom route handler registered");
-            return RestRequestRouter::MR_YES;
+            return MR_YES;
         }
         return it->second.customRoute(server, connection, req, const_cast<RestRequestParsingContext &>(cxt));
     }

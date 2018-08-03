@@ -12,6 +12,7 @@
 
 #include "mldb/types/json_parsing.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/types/string.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/test/auto_unit_test.hpp>
 #include <math.h>

@@ -17,7 +17,10 @@
 #include <future>
 #include <boost/algorithm/string.hpp>
 #include "mldb/types/any_impl.h"
-
+#include "mldb/rest/rest_request.h"
+#include "mldb/types/value_description.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/rest/rest_request_router.h"
 
 using namespace std;
 using namespace MLDB::PluginCommand;

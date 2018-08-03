@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** sqlite.cc
     Jeremy Barnes, 9 February 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of sqlite database.
 */
@@ -19,6 +18,7 @@
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/utils/log.h"
+#include "mldb/types/structure_description.h"
 
 using namespace std;
 

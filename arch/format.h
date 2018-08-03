@@ -9,7 +9,7 @@
 #pragma once
 
 #include <string>
-#include "stdarg.h"
+#include <stdarg.h>
 #include "mldb/compiler/compiler.h"
 
 namespace MLDB {

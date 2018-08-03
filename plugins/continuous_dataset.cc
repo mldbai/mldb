@@ -22,6 +22,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/builtin/merged_dataset.h"
 #include "mldb/utils/log.h"
+#include "mldb/types/structure_description.h"
 
 
 using namespace std;

@@ -12,6 +12,7 @@
 #include "mldb/server/plugin_resource.h"
 #include "mldb/rest/collection_config_store.h"
 #include "mldb/compiler/filesystem.h"
+#include "mldb/types/value_description.h"
 #include <thread>
 #include <chrono>
 

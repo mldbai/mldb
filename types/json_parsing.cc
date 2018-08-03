@@ -12,7 +12,7 @@
 #include "value_description.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/ext/jsoncpp/json.h"
-
+#include "mldb/types/string.h"
 
 using namespace std;
 

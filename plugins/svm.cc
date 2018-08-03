@@ -17,6 +17,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/enum_description.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/vfs/fs_utils.h"

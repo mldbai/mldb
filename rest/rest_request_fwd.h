@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** rest_request_fwd.h                                             -*- C++ -*-
     Jeremy Barnes, 26 April 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Forward definitions for REST requests.
 */
@@ -21,7 +20,7 @@ enum RestRequestMatchResult {
 struct RestConnection;
 struct RestRequest;
 struct RestRequestParsingContext;
-
+struct RestRequestRouter;
 
 } // namespace MLDB
 

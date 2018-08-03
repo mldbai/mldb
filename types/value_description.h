@@ -21,6 +21,7 @@
 #include "json_parsing.h"
 #include "json_printing.h"
 #include "mldb/ext/jsoncpp/value.h"
+#include "mldb/types/string.h"
 
 namespace MLDB {
 

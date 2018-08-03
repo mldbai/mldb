@@ -5,6 +5,7 @@
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/base/parallel.h"
+#include "mldb/types/value_description.h"
 
 #include <chrono>
 #include <thread>

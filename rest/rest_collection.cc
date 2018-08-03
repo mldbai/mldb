@@ -17,7 +17,8 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
-
+#include "mldb/types/basic_value_descriptions.h"
+#include "rest_request_router.h"
 
 using namespace std;
 

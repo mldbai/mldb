@@ -12,12 +12,10 @@
 #include "mldb/watch/watch.h"
 #include "mldb/rest/http_rest_service.h"
 #include "mldb/utils/log_fwd.h"
+#include "rest_request_router.h"
+
 
 namespace MLDB {
-
-
-struct RestRequestRouter;
-
 
 
 /*****************************************************************************/

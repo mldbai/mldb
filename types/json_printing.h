@@ -12,13 +12,14 @@
 #include <string>
 #include <ostream>
 #include <vector>
-#include "mldb/types/string.h"
 
 namespace Json {
 struct Value;
 } // namespace Json
 
 namespace MLDB {
+
+struct Utf8String;
 
 std::string jsonEscape(const std::string & str);
 

@@ -10,6 +10,7 @@
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/plugins/script_procedure.h"
+#include "mldb/types/value_description.h"
 
 #include <chrono>
 #include <thread>

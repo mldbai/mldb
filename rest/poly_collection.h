@@ -10,6 +10,8 @@
 #include "mldb/types/any.h"
 #include "poly_entity.h"
 #include "mldb/rest/rest_collection.h"
+#include <set>
+
 
 #pragma once
 
