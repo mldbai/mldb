@@ -26,7 +26,7 @@ function createDataset()
 
     var stream = mldb.openStream(dataset_address);
 
-    var numLines = 5000;
+    var numLines = 2000;
 
     var lineNum = 0;
 
@@ -66,9 +66,8 @@ function createDataset()
 
 var dataset = createDataset();
 
-var res = mldb.get("/v1/query", {q: "select * from reddit_dataset limit 10"});
-
-plugin.log(res);
+//var res = mldb.get("/v1/query", {q: "select * from reddit_dataset limit 10"});
+//plugin.log(res);
 
 
 
@@ -119,9 +118,6 @@ var userCountsConfig = {
 };
 
 createAndTrainProcedure(userCountsConfig, "reddit_user_counts");
-
-plugin.log(mldb.get("/v1/datasets/reddit_user_counts/query", {limit:100}));
-
 
 // Create a SVD procedure.  We only want to embed the 1,000 columns with the
 // highest row counts.
@@ -176,6 +172,8 @@ var mergedConfig = {
 
 var merged = mldb.createDataset(mergedConfig);
 
-plugin.log(mldb.get("/v1/datasets/reddit_merged/query", {select:'*', limit:100}).json);
+//plugin.log(mldb.get("/v1/datasets/reddit_merged/query", {select:'*', limit:100}).json);
+
+// TODO: do something with this...
 
 "success"

@@ -12,7 +12,7 @@ class Mldb2110MergeProgressTest(MldbUnitTest):
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
-        for i in range(0,500000):
+        for i in range(0,50000):
             ds.record_row('row'+str(i), [['a', i, 4], ['b', -i, 4]]) 
 
         ds.commit()

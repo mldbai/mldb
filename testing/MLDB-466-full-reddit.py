@@ -17,7 +17,7 @@ class RedditTest(MldbUnitTest):
                 'delimiter':'', 
                 'quoteChar':'',
                 'outputDataset': 'reddit_raw',
-                'limit': 2000,
+                'limit': 1000,
                 'runOnCreation': True
             } 
         })

@@ -55,7 +55,7 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
         # create a dummy dataset
         ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
 
-        row_count = 1000000
+        row_count = 20000
         for i in xrange(row_count):
             # row name is x's value
             ds.record_rows([ [str(i*10+1), [['x', i*10 + 1, 0], ['y', i*10 + 3, 0]]],

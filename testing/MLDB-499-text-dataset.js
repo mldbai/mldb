@@ -59,6 +59,7 @@ function createDataset(datasetType)
                 type: datasetType
             },
             runOnCreation: true,
+            limit: 100000,
             "quoteChar": "",
             "delimiter": "",
         }
