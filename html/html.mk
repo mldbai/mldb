@@ -11,7 +11,7 @@ LIBMLDB_HTML_PLUGIN_SOURCES:= \
 
 $(eval $(call set_compile_option,$(LIBMLDB_HTML_PLUGIN_SOURCES),-Imldb/html/ext))
 
-$(eval $(call mldb_plugin_library,html,mldb_html_plugin,$(LIBMLDB_HTML_PLUGIN_SOURCES),hubbub mldb tinyxpath))
+$(eval $(call mldb_plugin_library,html,mldb_html_plugin,$(LIBMLDB_HTML_PLUGIN_SOURCES),hubbub tinyxpath))
 
 $(eval $(call mldb_builtin_plugin,html,mldb_html_plugin,doc))
 
