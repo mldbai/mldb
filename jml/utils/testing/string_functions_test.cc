@@ -23,6 +23,8 @@ BOOST_AUTO_TEST_CASE( test_antoi )
     BOOST_CHECK(antoi(d, d + 2) == -1);
 
     const char * p = "patate";
+
+    MLDB_TRACE_EXCEPTIONS(false);
     BOOST_CHECK_THROW(antoi(p, p + 6), MLDB::Exception);
 }
 
@@ -124,9 +126,11 @@ BOOST_AUTO_TEST_CASE( test_string_split )
     BOOST_REQUIRE_EQUAL(res[0], "a");
     BOOST_REQUIRE_EQUAL(res[1], "b");
     BOOST_REQUIRE_EQUAL(res[2], "c");
-
-    BOOST_REQUIRE_THROW(ML::split("a-b-c", '-', 0), std::exception);
-    BOOST_REQUIRE_THROW(ML::split("a-b-c", '-', -2), std::exception);
+    {
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_REQUIRE_THROW(ML::split("a-b-c", '-', 0), std::exception);
+        BOOST_REQUIRE_THROW(ML::split("a-b-c", '-', -2), std::exception);
+    }
 
     res = ML::split("a-b-c", '-', 1);
     BOOST_REQUIRE_EQUAL(res.size(), 1);
