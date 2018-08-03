@@ -16,6 +16,7 @@
 #include "mldb/credentials/credentials.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/types/value_description.h"
 #include <boost/algorithm/string.hpp>
 
 #include <future>

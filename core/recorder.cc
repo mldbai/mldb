@@ -6,6 +6,7 @@
 #include "recorder.h"
 #include "mldb/rest/poly_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
+#include "mldb/types/structure_description.h"
 
 
 namespace MLDB {

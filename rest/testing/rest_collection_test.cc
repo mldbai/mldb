@@ -11,6 +11,9 @@
 #include "mldb/rest/rest_collection.h"
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/types/tuple_description.h"
+#include "mldb/types/map_description.h"
 #include "mldb/rest/cancellation_exception.h"
 #include <thread>
 

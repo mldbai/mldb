@@ -12,7 +12,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
-
+#include "mldb/types/value_description.h"
 
 using namespace std;
 

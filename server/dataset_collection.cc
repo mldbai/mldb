@@ -16,6 +16,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/pair_description.h"
 #include "mldb/types/pointer_description.h"
 #include "mldb/types/tuple_description.h"
 

@@ -10,8 +10,9 @@
 #pragma once
 
 #include "rest_entity.h"
-#include "mldb/rest/rest_request_router.h"
+#include "rest_request_fwd.h"
 #include "mldb/rest/rest_request_params.h"
+#include "mldb/rest/rest_connection.h"
 #include "mldb/watch/watch.h"
 #include "link.h"
 #include <map>
@@ -19,7 +20,6 @@
 
 
 namespace MLDB {
-
 
 template<typename Object, int Index>
 inline static std::function<Object &

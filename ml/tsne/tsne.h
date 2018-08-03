@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* tsne.h                                                          -*- C++ -*-
    Jeremy Barnes, 16 January 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Implementation of the TSNE dimensionality reduction algorithm, particularly
    useful for visualization of data.
@@ -14,8 +13,7 @@
    Journal of Machine Learning Research 9(Nov):2579-2605, 2008.
 */
 
-#ifndef __jml__tsne__tsne_h__
-#define __jml__tsne__tsne_h__
+#pragma once
 
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
@@ -345,5 +343,3 @@ retsneApproxFromCoords(const distribution<float> & coords,
 
 
 } // namespace ML
-
-#endif /* __jml__tsne__tsne_h__ */

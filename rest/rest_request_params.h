@@ -10,6 +10,8 @@
 #include <boost/lexical_cast.hpp>
 #include "json_codec.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/types/json_printing.h"
+#include "mldb/types/json_parsing.h"
 
 namespace MLDB {
 

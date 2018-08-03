@@ -15,8 +15,10 @@
 #include "collection_config_store.h"
 #include "mldb/types/utility_descriptions.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/tuple_description.h"
+#include "mldb/types/pointer_description.h"
 #include "mldb/rest/cancellation_exception.h"
-
+#include "rest_request_router.h"
 
 namespace MLDB {
 

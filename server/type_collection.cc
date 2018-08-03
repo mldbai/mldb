@@ -16,7 +16,7 @@
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/server/external_plugin.h"
 #include "mldb/rest/rest_request_binding.h"
-
+#include "mldb/types/pair_description.h"
 
 using namespace std;
 

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* json_codec.h                                                    -*- C++ -*-
    Jeremy Banres, 26 November 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    JSON encoding/decoding code.
 */
@@ -14,7 +13,7 @@
 #include <map>
 #include <unordered_map>
 #include "mldb/base/exc_assert.h"
-#include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace MLDB {
 

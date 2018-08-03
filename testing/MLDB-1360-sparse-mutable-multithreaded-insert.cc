@@ -12,6 +12,7 @@
 #include "mldb/plugins/sparse_matrix_dataset.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/arch/timers.h"
+#include "mldb/types/value_description.h"
 
 using namespace std;
 

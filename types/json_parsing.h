@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include "mldb/types/string.h"
 #include <memory>
 #include <vector>
 #include <functional>
@@ -19,6 +18,7 @@ struct Value;
 
 namespace MLDB {
 
+struct Utf8String;
 struct ParseContext;
 struct JsonParsingContext;
 struct ValueDescription;
@@ -663,9 +663,11 @@ struct Utf8StringJsonParsingContext
                                  size_t len,
                                  const std::string & filename = "<<internal>>");
 
+    ~Utf8StringJsonParsingContext();
+    
 private:
     // Holds the data, when initialized from a Utf8String
-    Utf8String str;
+    std::unique_ptr<Utf8String> str;
 };
 
 

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* remote_peer.h                                                   -*- C++ -*-
    Jeremy Barnes, 12 May 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -13,6 +12,7 @@
 #include "peer_message.h"
 #include "peer_connection.h"
 #include <atomic>
+#include <set>
 
 namespace MLDB {
 

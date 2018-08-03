@@ -9,6 +9,7 @@
 #include "mldb/server/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
+#include "mldb/types/any_impl.h"
 #include <signal.h>
 
 

@@ -1,10 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* string_functions.h                                              -*- C++ -*-
    Jeremy Barnes, 30 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
