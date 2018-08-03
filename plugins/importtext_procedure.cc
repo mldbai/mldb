@@ -13,7 +13,7 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"

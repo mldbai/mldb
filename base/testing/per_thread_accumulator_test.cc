@@ -13,7 +13,7 @@
 #include <iostream>
 
 #include "mldb/base/exc_assert.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 
 #include <boost/test/unit_test.hpp>
 

@@ -18,7 +18,7 @@
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/jml/utils/profile.h"
 #include "mldb/server/dataset_context.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/server/bucket.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/utils/environment.h"

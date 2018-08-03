@@ -16,7 +16,7 @@
 #include "mldb/sql/execution_pipeline.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"

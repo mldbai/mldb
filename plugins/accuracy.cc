@@ -26,7 +26,7 @@
 #include "mldb/ml/separation_stats.h"
 #include "mldb/server/analytics.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/plugins/sql_config_validator.h"

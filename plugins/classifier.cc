@@ -37,7 +37,7 @@
 #include "mldb/jml/utils/map_reduce.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/server/analytics.h"
-#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/ml/jml/feature_info.h"
 #include "mldb/types/any_impl.h"
