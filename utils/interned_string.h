@@ -80,51 +80,106 @@ struct InternedString {
 
     InternedString & operator = (const InternedString & other)
     {
-        InternedString newMe(other);
-        swap(newMe);
+        if (MLDB_UNLIKELY(&other == this))
+            return *this;
+        clear();
+        append(other.data(), other.length());
         return *this;
     }
 
     InternedString & operator = (InternedString && other) noexcept
     {
-        InternedString newMe(std::move(other));
-        swap(newMe);
+        // NOTE: it's valid to assume that self move assignment will
+        // never happen.
+
+        // Kill earlier contents
+        clear();
+        
+        if (MLDB_UNLIKELY(other.isExt())) {
+            // Optimize to move pointer to data
+            intLength_ = other.intLength_;
+            extLength_ = other.extLength_;
+            extCapacity_ = other.extCapacity_;
+            extBytes_ = other.extBytes_;
+            other.intLength_ = 0;
+        }
+        else {
+            intLength_ = other.intLength_;
+            std::memmove(intBytes_, other.intBytes_, intLength_);
+        }
         return *this;
     }
 
-    ~InternedString()
+    ~InternedString() noexcept
     {
-        if (isExt())
-            deleteExt();
+        clear();
     }
 
-    const Char * data() const
+    const Char * data() const noexcept
     {
         return isExt() ? extBytes_ : intBytes_;
     }
 
     void swap(InternedString & other) noexcept
     {
-        std::swap(intLength_, other.intLength_);
-        std::swap(intBytes_[0], other.intBytes_[0]);
-        std::swap(intBytes_[1], other.intBytes_[1]);
-        std::swap(intBytes_[2], other.intBytes_[2]);
-        for (unsigned i = 0;  i < NUM_WORDS * 2 - 1;  ++i) {
-            std::swap(internalWords[i], other.internalWords[i]);
+        // NOTE: this swap operator is complicated to avoid violating
+        // strict aliasing rules.  For that reason, it's not used in
+        // the implementation of any of the underlying functionality.
+
+        if (MLDB_LIKELY(!this->isExt())) {
+            if (MLDB_LIKELY(!other.isExt())) {
+                // Both internal
+                std::swap(intLength_, other.intLength_);
+                std::swap(intBytes_[0], other.intBytes_[0]);
+                std::swap(intBytes_[1], other.intBytes_[1]);
+                std::swap(intBytes_[2], other.intBytes_[2]);
+                // TODO: maybe could swap less words if the string is
+                // short to improve performance
+                for (unsigned i = 0;  i < NUM_WORDS * 2 - 1;  ++i) {
+                    std::swap(internalWords[i], other.internalWords[i]);
+                }
+            }
+            else {
+                // Swapping an internal (this) and an external (other)
+                // We copy the external, and use the move constructor
+                InternedString tmp(std::move(other));
+                other = std::move(*this);
+                *this = std::move(tmp);
+            }
+        }
+        else {
+            if (MLDB_LIKELY(other.isExt())) {
+                // std:swap needs addresses and gcc doesn't want to give
+                // addresses of packed fields, so do it the long way here
+#define MLDB_INTERNED_STRING_SWAP(x, y) do { auto t = x;  x = y;  y = t; } while (0)
+                // Both external
+                MLDB_INTERNED_STRING_SWAP(intLength_, other.intLength_);
+                MLDB_INTERNED_STRING_SWAP(extLength_, other.extLength_);
+                MLDB_INTERNED_STRING_SWAP(extCapacity_, other.extCapacity_);
+                MLDB_INTERNED_STRING_SWAP(extBytes_, other.extBytes_);
+#undef MLDB_INTERNED_STRING_SWAP
+            }
+            else {
+                // Swapping an internal (other) and an external (this)
+                // We copy the external, and use the move constructor
+                InternedString tmp(std::move(*this));
+                *this = std::move(other);
+                other = std::move(tmp);
+            }
         }
     }
 
-    size_t size() const noexcept
+    constexpr size_t size() const noexcept
     {
         return isExt() ? extLength_ : intLength_;
     }
 
-    size_t length() const noexcept
+    constexpr size_t length() const noexcept
     {
         return size();
     }
 
-    bool empty() const noexcept
+    constexpr bool empty() const noexcept
     {
         return size() == 0;
     }
@@ -154,11 +209,18 @@ struct InternedString {
         extBytes_ = newBytes;
     }
 
-    size_t capacity() const
+    size_t capacity() const noexcept
     {
         return isExt() ? extCapacity_ : Bytes;
     }
 
+    void clear() noexcept
+    {
+        if (isExt())
+            deleteExt();
+        intLength_ = 0;
+    }
+    
     void append(const Char * start, const Char * end)
     {
         append(start, end - start);
@@ -177,14 +239,14 @@ struct InternedString {
         else intLength_ += n;
     }
 
-    size_t externalMemusage() const
+    size_t externalMemusage() const noexcept
     {
         if (isExt())
             return length();
         return 0;
     }
 
-    size_t memusage() const
+    size_t memusage() const noexcept
     {
         return sizeof(InternedString) + externalMemusage();
     }

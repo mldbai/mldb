@@ -581,3 +581,39 @@ BOOST_AUTO_TEST_CASE( check_zero_internal )
     BOOST_CHECK_EQUAL(vec.size(), 0);
     BOOST_CHECK_EQUAL(vec.capacity(), 0);
 }
+
+void test_erase(std::vector<int> init,
+                int first,
+                int last)
+{
+    BOOST_REQUIRE_EQUAL(constructed, destroyed);
+    {
+        compact_vector<Obj, 4> v(init.begin(), init.end());
+        BOOST_CHECK_EQUAL(v.size(), init.size());
+        v.erase(v.begin() + first, v.begin() + last);
+        init.erase(init.begin() + first, init.begin() + last);
+        
+        BOOST_CHECK_EQUAL(v.size(), init.size());
+        
+        BOOST_CHECK_EQUAL_COLLECTIONS(v.begin(), v.end(), init.begin(), init.end());
+    }
+    BOOST_CHECK_EQUAL(constructed, destroyed);
+}
+
+BOOST_AUTO_TEST_CASE(check_erase_external_to_internal)
+{
+    test_erase({1,2,3,4,5,6,7,8}, 2, 6);
+    test_erase({1,2,3,4,5,6,7,8}, 0, 6);
+    test_erase({1,2,3,4,5,6,7,8}, 0, 3);
+    test_erase({1,2,3,4,5,6,7,8}, 4, 7);
+    test_erase({1,2,3,4,5,6,7,8}, 0, 7);
+    test_erase({1,2,3,4,5,6,7,8}, 3, 7);
+    test_erase({1,2,3,4,5,6,7,8}, 3, 4);
+    test_erase({1,2,3,4,5,6,7,8}, 3, 6);
+    test_erase({1,2,3,4,5,6,7,8}, 0, 0);
+    test_erase({1,2,3,4,5,6,7,8}, 1, 1);
+    test_erase({1,2,3,4,5,6,7,8}, 3, 3);
+    test_erase({1,2,3,4,5,6,7,8}, 4, 4);
+    test_erase({1,2,3,4,5,6,7,8}, 7, 7);
+    test_erase({1,2,3,4,5,6,7,8}, 8, 8);
+}

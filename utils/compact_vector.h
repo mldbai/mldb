@@ -379,17 +379,18 @@ public:
             /* If we become small enough to be internal, then we need to copy
                to avoid becoming smaller */
 
-	  compact_vector new_me;
-	  new_me.init(new_size);
-	  Pointer newp = new_me.data();
+            compact_vector new_me;
+            new_me.init(new_size);
+            Pointer newp = new_me.data();
 
-	  std::uninitialized_copy(std::make_move_iterator(begin()),
-				  std::make_move_iterator(first),
-				  newp);
-	  std::uninitialized_copy(std::make_move_iterator(last),
-				  std::make_move_iterator(end()),
-				  newp + (first - begin()));
-	  swap(new_me);
+            std::uninitialized_copy(std::make_move_iterator(begin()),
+                                    std::make_move_iterator(first),
+                                    newp);
+            std::uninitialized_copy(std::make_move_iterator(last),
+                                    std::make_move_iterator(end()),
+                                    newp + (first - begin()));
+            new_me.size_ = new_size;
+            swap(new_me);
             return begin() + firstindex;
         }
 
