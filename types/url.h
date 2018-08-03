@@ -1,16 +1,14 @@
-
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* url.h                                                           -*- C++ -*-
    Jeremy Barnes, 16 March 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    URL class.
 */
 
 #pragma once
 
-#define TOLERATE_URL_BAD_ENCODING 1
+#define TOLERATE_URL_BAD_ENCODING 0
 #include <string>
 #include <memory>
 #include "value_description_fwd.h"
