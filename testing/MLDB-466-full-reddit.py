@@ -127,7 +127,8 @@ class RedditTest(MldbUnitTest):
             "params" : {
                 "trainingData" : "select * from reddit_svd_embedding",
                 "rowOutputDataset" : "reddit_tsne_embedding",
-                "runOnCreation": True
+                "runOnCreation": True,
+                "maxIterations": 200
             }
         })
         mldb.query("select * from reddit_tsne_embedding limit 5")
