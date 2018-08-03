@@ -88,6 +88,12 @@ TsneConfigDescription()
              "If specified, an instance of the ![](%%doclink tsne.embedRow function) of this name will be created using "
              "the trained model. Note that to use this parameter, the `modelFileUrl` must "
              "also be provided.");
+    addAuto("minIterations", &TsneConfig::minIterations,
+            "Minimum number of t-SNE iterations to run.  Making this too "
+            "small may lead to spurious early stopping.");
+    addAuto("maxIterations", &TsneConfig::maxIterations,
+            "Maximum number of t-SNE iterations to run (it will stop if "
+            "convergance is obtained before this number of iterations). ");
     addParent<ProcedureConfig>();
 
     onPostValidate = chain(validateQuery(&TsneConfig::trainingData,
@@ -241,10 +247,14 @@ run(const ProcedureRunConfig & run,
     itl->params.perplexity = runProcConf.perplexity;
     itl->params.tolerance = runProcConf.tolerance;
     itl->params.eta = runProcConf.learningRate;
-
+    itl->params.min_iter = runProcConf.minIterations;
+    itl->params.max_iter = runProcConf.maxIterations;
+    
     DEBUG_MSG(logger) << "perplexity = " << itl->params.perplexity;
     DEBUG_MSG(logger) << "tolerance = " << itl->params.tolerance;
     DEBUG_MSG(logger) << "learningRate = " << itl->params.eta;
+    DEBUG_MSG(logger) << "minIterations = " << itl->params.min_iter;
+    DEBUG_MSG(logger) << "maxIterations = " << itl->params.max_iter;    
     DEBUG_MSG(logger) << "doing t-SNE";
 
 

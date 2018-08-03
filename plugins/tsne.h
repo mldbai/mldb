@@ -23,27 +23,21 @@ struct TsneItl;
 struct TsneConfig : public ProcedureConfig {
     static constexpr const char * name = "tsne.train";
 
-    TsneConfig()
-        : numInputDimensions(-1),
-          numOutputDimensions(2),
-          tolerance(1e-5),
-          perplexity(30.0),
-          learningRate(500.0)
-    {
-        output.withType("embedding");
-    }
-
     InputQuery trainingData;
-    PolyConfigT<Dataset> output;   ///< Dataset config to hold the output embedding
+
+    /// Dataset config to hold the output embedding
+    PolyConfigT<Dataset> output = DefaultType("embedding");
 
     Url modelFileUrl;  ///< URI to save the artifact output by t-SNE training
 
-    int numInputDimensions;
-    int numOutputDimensions;
-    double tolerance;
-    double perplexity;
-    double learningRate;
-
+    int numInputDimensions = -1;
+    int numOutputDimensions = 2;
+    double tolerance = 1e-5;
+    double perplexity = 30.0;
+    double learningRate = 500.0;
+    int minIterations = 200;
+    int maxIterations = 1000;
+    
     Utf8String functionName;
 };
 
@@ -111,7 +105,6 @@ struct TsneEmbed: public ValueFunctionT<TsneInput, TsneOutput> {
     TsneEmbedConfig functionConfig;
     std::shared_ptr<TsneItl> itl;
 };
-
 
 } // namespace MLDB
 
