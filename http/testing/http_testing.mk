@@ -1,7 +1,6 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 $(eval $(call test,http_header_test,http,boost manual))
-$(eval $(call test,MLDB-1016-http-connection-overflow,http,boost))
 $(eval $(call test,http_parsers_test,http,boost valgrind))
 $(eval $(call test,tcp_acceptor_test+http,http,boost))
 $(eval $(call test,tcp_acceptor_threaded_test+http,http,boost))
