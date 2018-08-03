@@ -45,3 +45,8 @@ boto==2.39.0
 
 # Mongo plugin
 pymongo==3.3.0
+
+# Ubuntu 18.04
+pyOpenSSL==18.0.0
+pip=10.0.1
+
