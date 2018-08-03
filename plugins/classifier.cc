@@ -408,6 +408,20 @@ run(const ProcedureRunConfig & run,
         std::map<std::string, int> categoricalLabels;
         std::vector<std::string> categoricalLabelList;
 
+        int getCategoricalLabel(const std::string & labelStr)
+        {
+            auto it = categoricalLabels.find(labelStr);
+            if (it == categoricalLabels.end()) {
+                int encodedLabel = categoricalLabelList.size();
+                categoricalLabelList.push_back(labelStr);
+                categoricalLabels.emplace(std::move(labelStr), encodedLabel);
+                return encodedLabel;
+            }
+            else {
+                return it->second;
+            }
+        }
+        
         std::map<std::vector<int>, int> multiLabelMap; //index in multiLabelList
         std::vector<std::vector<int>> multiLabelList; //list of combinaison found for this thread, index in categoricalLabelList.
 
@@ -458,9 +472,10 @@ run(const ProcedureRunConfig & run,
 
     PerThreadAccumulator<ThreadAccum> accum;
 
-    auto accumRow = [&] (float weight, const MatrixNamedRow& row, float encodedLabel) {
-
-        ThreadAccum & thr = accum.get();
+    auto accumRow = [&] (float weight,
+                         const MatrixNamedRow& row,
+                         float encodedLabel,
+                         ThreadAccum & thr) {
 
         //DEBUG_MSG(logger) << "label = " << label << " weight = " << weight;
         DEBUG_MSG(logger) << "row.columns.size() = " << row.columns.size();
@@ -514,10 +529,10 @@ run(const ProcedureRunConfig & run,
 
             switch (runProcConf.mode) {
             case CM_REGRESSION:
-                accumRow(extraVals.at(1).toDouble(), row, label.getAtom().toDouble());
+                accumRow(extraVals.at(1).toDouble(), row, label.getAtom().toDouble(), thr);
                 break;
             case CM_BOOLEAN:
-                accumRow(extraVals.at(1).toDouble(), row, label.getAtom().isTrue());
+                accumRow(extraVals.at(1).toDouble(), row, label.getAtom().isTrue(), thr);
                 break;
             case CM_MULTILABEL: {
                 if (!label.isRow())
@@ -554,7 +569,7 @@ run(const ProcedureRunConfig & run,
                     if (labels.size() == 0)
                         return true;
 
-                    accumRow(extraVals.at(1).toDouble(), row, labels[std::rand() % labels.size()]);
+                    accumRow(extraVals.at(1).toDouble(), row, labels[std::rand() % labels.size()], thr);
                 }
                 else if (runProcConf.multilabelStrategy == MULTILABEL_DECOMPOSE) {
 
@@ -576,7 +591,7 @@ run(const ProcedureRunConfig & run,
                                     labelid = it->second;
                                 }
 
-                                accumRow(extraVals.at(1).toDouble(), row, labelid);
+                                accumRow(extraVals.at(1).toDouble(), row, labelid, thr);
                             }
                             
                             return true;
@@ -628,7 +643,7 @@ run(const ProcedureRunConfig & run,
                         combinaisonId = it->second;
                     }
 
-                    accumRow(extraVals.at(1).toDouble(), row, combinaisonId);
+                    accumRow(extraVals.at(1).toDouble(), row, combinaisonId, thr);
 
                     return true;
                 }
@@ -642,18 +657,8 @@ run(const ProcedureRunConfig & run,
                 // Get a list of categorical labels, for this thread.  Later
                 // we map them to the overall list of labels.
                 std::string labelStr = jsonEncodeStr(label.getAtom());
-                float encodedLabel = 0;
-                auto it = thr.categoricalLabels.find(labelStr);
-                if (it == thr.categoricalLabels.end()) {
-                    encodedLabel = thr.categoricalLabelList.size();
-                    thr.categoricalLabelList.push_back(labelStr);
-                    thr.categoricalLabels.emplace(labelStr, encodedLabel);
-                }
-                else {
-                    encodedLabel = it->second;
-                }
-
-                accumRow(extraVals.at(1).toDouble(), row, encodedLabel);
+                float encodedLabel = thr.getCategoricalLabel(std::move(labelStr));
+                accumRow(extraVals.at(1).toDouble(), row, encodedLabel, thr);
 
                 break;
             }
@@ -665,7 +670,8 @@ run(const ProcedureRunConfig & run,
         };
 
     // If no order by or limit, the order doesn't matter
-    if (runProcConf.trainingData.stm->limit == -1 && runProcConf.trainingData.stm->offset == 0)
+    if (runProcConf.trainingData.stm->limit == -1
+        && runProcConf.trainingData.stm->offset == 0)
         runProcConf.trainingData.stm->orderBy.clauses.clear();
 
     timer.restart();
@@ -712,6 +718,7 @@ run(const ProcedureRunConfig & run,
         auto onThread2 = [&] (ThreadAccum * acc)
             {
                 for (auto & labelStr: acc->categoricalLabelList) {
+                    ExcAssert(labelMapping.count(labelStr));
                     acc->labelMapping[acc->categoricalLabels[labelStr] ]
                         = labelMapping[labelStr];
                 }

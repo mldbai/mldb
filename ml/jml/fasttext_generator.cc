@@ -201,7 +201,12 @@ FastText_Generator::
             ++it;
         }       
 
-        start++;        
+        start++;
+
+        // TODO: if we have no diversity in our label, then fasttext will
+        // get into an infinite loop looking for a negative example.  We
+        // should refuse to train in that situation.
+        
         if (labels.size() != 0 && line.size() > 0) {
 
             //This for future multicategorical support
