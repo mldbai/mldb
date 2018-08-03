@@ -181,3 +181,19 @@ BOOST_AUTO_TEST_CASE( test_multi_instance )
 
     Data::validate();
 }
+
+BOOST_AUTO_TEST_CASE(test_multi_get)
+{
+    ThreadSpecificInstanceInfo<std::shared_ptr<int>, void> info;
+
+    bool hadInfo = false;
+    std::shared_ptr<int> & i1 = *info.get(&hadInfo);
+    BOOST_CHECK_EQUAL(hadInfo, false);
+    BOOST_CHECK(!i1);
+    i1.reset(new int(0));
+    std::shared_ptr<int> & i2 = *info.get(&hadInfo);
+    BOOST_CHECK_EQUAL(hadInfo, true);
+    BOOST_CHECK_EQUAL(i1, i2);
+    *i2 = 1;
+    BOOST_CHECK_EQUAL(*i1, *i2);
+}

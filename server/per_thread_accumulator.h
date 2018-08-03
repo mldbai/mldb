@@ -52,6 +52,13 @@ struct PerThreadAccumulator {
             threads.emplace_back(*payload);
         }
 
+#if 0        
+        // verify that thread specific accesses work...
+        std::shared_ptr<Payload> * payload2 = payloadPerThread.get(&hadInfo);
+        ExcAssertEqual(payload, payload2);
+        ExcAssertEqual(hadInfo, true);
+#endif        
+        
         return **payload;
     }
 

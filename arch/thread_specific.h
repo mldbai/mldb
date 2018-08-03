@@ -129,12 +129,12 @@ struct ThreadSpecificInstanceInfo
 
     static PerThreadInfo * getThisThread(bool * hadThreadInfo = nullptr)
     {
-        return staticInfo.get(hadThreadInfo);
+        return getStaticInfo(hadThreadInfo);
     }
 
     T * get(PerThreadInfo * & info, bool * hadInfo = nullptr) const
     {
-        if (!info) info = staticInfo.get();
+        if (!info) info = getStaticInfo();
         return load(info, hadInfo);
     }
 
@@ -146,12 +146,41 @@ struct ThreadSpecificInstanceInfo
     /** Return the data for this thread for this instance of the class. */
     T * get(bool * hadInfo = nullptr) const
     {
-        PerThreadInfo * info = staticInfo.get();
+        PerThreadInfo * info = getStaticInfo();
         return load(info, hadInfo);
     }
 
 private:
 
+    // Return the static info for the calling thread.  If hadThreadInfo is
+    // non-null, then return a bool saying whether it was already there
+    // (false) or newly created (true).
+    //
+    // This is a static function due to some changes between Ubuntu 16.04
+    // and 18.04 (probably a bug in the thread support library) which mean
+    // that a static thread_local member of a templated class always returns
+    // a different thread specific object per access.  Putting it into a
+    // method-local static variable fixes the problem, and has the added
+    // bonus of improving performance.
+    
+    static PerThreadInfo * getStaticInfo(bool * hadThreadInfo = nullptr)
+    {
+        static thread_local std::unique_ptr<PerThreadInfo> info_;
+        std::unique_ptr<PerThreadInfo> & info = info_;
+        
+        if (MLDB_LIKELY(info.get() != nullptr)) {
+            if (MLDB_UNLIKELY(hadThreadInfo != nullptr))
+                *hadThreadInfo = true;
+            return info.get();
+        }
+
+        info.reset(new PerThreadInfo());
+        if (MLDB_UNLIKELY(hadThreadInfo != nullptr))
+            *hadThreadInfo = false;
+        return info.get();
+        
+    }
+    
     T * load(PerThreadInfo * info, bool * hadInfo) const
     {
         while (info->size() <= index)
@@ -174,8 +203,6 @@ private:
         return &val.storage.value;
     }
 
-    static thread_local std::unique_ptr<PerThreadInfo> staticInfo;
-
     static Spinlock freeIndexLock;
     static std::deque<size_t> freeIndexes;
     static unsigned nextIndex;
@@ -184,10 +211,6 @@ private:
     mutable Spinlock freeSetLock;
     mutable std::unordered_set<Value*> freeSet;
 };
-
-template<typename T, typename Tag>
-thread_local std::unique_ptr<typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo>
-ThreadSpecificInstanceInfo<T, Tag>::staticInfo(new typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo());
 
 template<typename T, typename Tag>
 Spinlock
