@@ -9,7 +9,7 @@
 
 #include "tfidf.h"
 #include "matrix.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/jml/utils/guard.h"
@@ -166,7 +166,7 @@ TfidfConfigDescription()
 /*****************************************************************************/
 
 TfidfProcedure::
-TfidfProcedure(MldbServer * owner,
+TfidfProcedure(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -308,7 +308,7 @@ TfidfFunctionConfigDescription()
 /*****************************************************************************/
 
 TfidfFunction::
-TfidfFunction(MldbServer * owner,
+TfidfFunction(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)

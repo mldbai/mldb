@@ -12,7 +12,7 @@
 
 #include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
-#include "server/mldb_server.h"
+#include "core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 #include "sql/sql_expression.h"
 #include "plugins/classifier.h"
@@ -132,7 +132,7 @@ struct JsStatsStatsGenerator {
 
 struct ExperimentProcedure: public Procedure {
 
-    ExperimentProcedure(MldbServer * owner,
+    ExperimentProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 

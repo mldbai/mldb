@@ -9,7 +9,7 @@
 
 #include "accuracy.h"
 #include "matrix.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/sql_expression.h"
@@ -107,7 +107,7 @@ AccuracyConfigDescription()
 /*****************************************************************************/
 
 AccuracyProcedure::
-AccuracyProcedure(MldbServer * owner,
+AccuracyProcedure(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

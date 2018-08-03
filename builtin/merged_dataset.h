@@ -36,12 +36,12 @@ DECLARE_STRUCTURE_DESCRIPTION(MergedDatasetConfig);
 
 struct MergedDataset: public Dataset {
 
-    MergedDataset(MldbServer * owner,
+    MergedDataset(MldbEngine * owner,
                   PolyConfig config,
                   const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a tree of merged datasets */
-    MergedDataset(MldbServer * owner,
+    MergedDataset(MldbEngine * owner,
                   std::vector<std::shared_ptr<Dataset> > datasetsToMerge);
 
     virtual ~MergedDataset();

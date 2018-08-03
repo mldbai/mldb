@@ -24,7 +24,7 @@ namespace MLDB {
 struct RestRequestRouter;
 struct CellValue;
 struct ExpressionValue;
-struct MldbServer;
+struct MldbEngine;
 struct LoadedPluginResource;
 
 extern Logging::Category mldbJsCategory;
@@ -71,7 +71,7 @@ struct JsIsolate {
 };
 
 struct V8Init {
-    V8Init(MldbServer * server);
+    V8Init(MldbEngine * server);
 };
 
 void to_js(JS::JSValue & value, const CellValue & val);
@@ -121,7 +121,7 @@ struct JsPluginContext {
         a null pointer if the context is for a JS function rather than
         an actual plugin.
     */
-    JsPluginContext(const Utf8String & pluginName, MldbServer * server,
+    JsPluginContext(const Utf8String & pluginName, MldbEngine * server,
                     std::shared_ptr<LoadedPluginResource> pluginResource);
     ~JsPluginContext();
 
@@ -139,7 +139,7 @@ struct JsPluginContext {
     std::function<Json::Value ()> getStatus;
     RestRequestRouter router;
     RestRequestRouter::OnProcessRequest handleRequest;
-    MldbServer * server;
+    MldbEngine * server;
 
     std::shared_ptr<LoadedPluginResource> pluginResource;
 

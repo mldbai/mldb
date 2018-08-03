@@ -19,7 +19,7 @@
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/watch/watch.h"
 #include "mldb/watch/watch_impl.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/builtin/merged_dataset.h"
 #include "mldb/utils/log.h"
 #include "mldb/types/structure_description.h"
@@ -57,7 +57,7 @@ ContinuousDatasetConfigDescription()
 /*****************************************************************************/
 
 struct ContinuousDataset::Itl final {
-    Itl(MldbServer * server, const ContinuousDatasetConfig & config)
+    Itl(MldbEngine * server, const ContinuousDatasetConfig & config)
         : server(server),
           current(gcLock),
           lastCommit(Date::now().secondsSinceEpoch()),
@@ -114,7 +114,7 @@ struct ContinuousDataset::Itl final {
     {
     }
 
-    MldbServer * server;
+    MldbEngine * server;
 
     WatchT<Date> timer;
 
@@ -345,7 +345,7 @@ struct ContinuousDataset::Itl final {
 /*****************************************************************************/
 
 ContinuousDataset::
-ContinuousDataset(MldbServer * owner,
+ContinuousDataset(MldbEngine * owner,
                   PolyConfig config,
                   const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -536,7 +536,7 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
 }
 
 ContinuousWindowDataset::
-ContinuousWindowDataset(MldbServer * owner,
+ContinuousWindowDataset(MldbEngine * owner,
                         PolyConfig config_,
                         const ProgressFunc & onProgress)
     : ForwardedDataset(owner)

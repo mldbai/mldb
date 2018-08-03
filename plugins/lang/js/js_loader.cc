@@ -10,7 +10,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/core/plugin.h"
 #include "mldb/core/dataset.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/sql/cell_value.h"
@@ -18,6 +18,7 @@
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/rest/rest_entity.h"
 
 #include "js_common.h"
 #include "mldb_js.h"
@@ -46,7 +47,7 @@ struct JsPluginContext;
 struct ScriptOutput;
 
 struct JavascriptPlugin: public Plugin {
-    JavascriptPlugin(MldbServer * server,
+    JavascriptPlugin(MldbEngine * server,
                      PolyConfig config,
                      std::function<bool (const Json::Value & progress)> onProgress);
     
@@ -60,7 +61,7 @@ struct JavascriptPlugin: public Plugin {
                   RestRequestParsingContext & context) const;
 
     static ScriptOutput
-    runJavascriptScript(MldbServer * server,
+    runJavascriptScript(MldbEngine * server,
                         const PluginResource & scriptConfig);
 
     static RestRequestMatchResult
@@ -357,7 +358,7 @@ struct JsPluginJS {
 
 JsPluginContext::
 JsPluginContext(const Utf8String & pluginName,
-                MldbServer * server,
+                MldbEngine * server,
                 std::shared_ptr<LoadedPluginResource> pluginResource)
     : categoryName(pluginName.rawString() + " plugin"),
       loaderName(pluginName.rawString() + " loader"),
@@ -424,7 +425,7 @@ JsPluginContext::
 /*****************************************************************************/
 
 JavascriptPlugin::
-JavascriptPlugin(MldbServer * server,
+JavascriptPlugin(MldbEngine * server,
                  PolyConfig config,
                  std::function<bool (const Json::Value & progress)> onProgress)
     : Plugin(server)
@@ -544,7 +545,7 @@ handleTypeRoute(RestDirectory * server,
         
         auto scriptConfig = jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
         
-        auto result = runJavascriptScript(static_cast<MldbServer *>(server),
+        auto result = runJavascriptScript(dynamic_cast<MldbEngine *>(server),
                                           scriptConfig);
         conn.sendResponse(result.exception ? 400 : 200,
                           jsonEncodeStr(result), "application/json");
@@ -556,7 +557,7 @@ handleTypeRoute(RestDirectory * server,
 
 ScriptOutput
 JavascriptPlugin::
-runJavascriptScript(MldbServer * server,
+runJavascriptScript(MldbEngine * server,
                     const PluginResource & scriptConfig)
 {
     using namespace v8;

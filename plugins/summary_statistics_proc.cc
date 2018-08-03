@@ -5,7 +5,7 @@
  **/
 #include "summary_statistics_proc.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -95,7 +95,7 @@ SummaryStatisticsProcedureConfigDescription()
 }
 
 SummaryStatisticsProcedure::
-SummaryStatisticsProcedure(MldbServer * owner,
+SummaryStatisticsProcedure(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

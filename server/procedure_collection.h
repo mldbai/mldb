@@ -20,7 +20,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct ProcedureCollection: public PolyCollection<Procedure> {
-    ProcedureCollection(MldbServer * server);
+    ProcedureCollection(MldbEngine * server);
 
     static void initRoutes(RouteManager & manager);
 
@@ -35,7 +35,7 @@ struct ProcedureCollection: public PolyCollection<Procedure> {
 
 private:
     virtual PolyStatus handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool async);
-    MldbServer * mldb;
+    MldbEngine * mldb;
 };
 
 extern template class PolyCollection<Procedure>;

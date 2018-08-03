@@ -33,12 +33,12 @@ DECLARE_STRUCTURE_DESCRIPTION(DockerPluginStartupConfig);
 
 struct DockerPluginStartup: public ExternalPluginStartup {
 
-    DockerPluginStartup(MldbServer * server,
+    DockerPluginStartup(MldbEngine * server,
                         PolyConfig pconfig,
                         std::function<bool (const Json::Value & progress)> onProgress);
 
     DockerPluginStartupConfig config;
-    MldbServer * server;
+    MldbEngine * server;
 
     virtual std::shared_ptr<ExternalPluginCommunication> start();
 };

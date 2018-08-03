@@ -6,7 +6,7 @@
 */
 
 #include "sql_functions.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/dataset_context.h"
@@ -51,7 +51,7 @@ filterEmptyColumns(MatrixNamedRow & row) {
 }
 
 std::shared_ptr<PipelineElement>
-getMldbRoot(MldbServer * server)
+getMldbRoot(MldbEngine * server)
 {
     return PipelineElement::root(std::make_shared<SqlExpressionMldbScope>(server));
 }
@@ -94,7 +94,7 @@ SqlQueryFunctionConfigDescription()
 }
 
 SqlQueryFunction::
-SqlQueryFunction(MldbServer * owner,
+SqlQueryFunction(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)
@@ -365,7 +365,7 @@ SqlExpressionFunctionConfigDescription()
 }
 
 SqlExpressionFunction::
-SqlExpressionFunction(MldbServer * owner,
+SqlExpressionFunction(MldbEngine * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config),
@@ -649,7 +649,7 @@ TransformDatasetConfigDescription()
 }
 
 TransformDataset::
-TransformDataset(MldbServer * owner,
+TransformDataset(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

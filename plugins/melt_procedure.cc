@@ -4,6 +4,7 @@
 */
 
 #include "melt_procedure.h"
+#include "mldb/http/http_exception.h"
 #include "types/basic_value_descriptions.h"
 #include "types/distribution_description.h"
 #include "types/map_description.h"
@@ -20,6 +21,7 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/sparse_matrix_dataset.h"
 #include "mldb/server/bound_queries.h"
+#include "mldb/http/http_exception.h"
 
 using namespace std;
 
@@ -78,7 +80,7 @@ MeltProcedureConfigDescription()
 /*****************************************************************************/
 
 MeltProcedure::
-MeltProcedure(MldbServer * owner,
+MeltProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

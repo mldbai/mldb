@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** function_collection.cc
     Jeremy Barnes, 24 November 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Collection of functions.
 */
@@ -10,12 +9,12 @@
 #include "mldb/server/function_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/map_description.h"
-
+#include "mldb/types/vector_description.h"
 
 
 using namespace std;
@@ -25,27 +24,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbServer * server, RestRouteManager & routeManager)
+createFunctionCollection(MldbEngine * server, RestRouteManager & routeManager)
 {
     return createCollection<FunctionCollection>(2, "function", "functions",
-                                                server, routeManager);
+                                                server->getDirectory(),
+                                                routeManager);
 }
 
 std::shared_ptr<Function>
-obtainFunction(MldbServer * server,
+obtainFunction(MldbEngine * server,
             const PolyConfig & config,
-            const MldbServer::OnProgress & onProgress)
+            const MldbEngine::OnProgress & onProgress)
 {
-    return server->functions->obtainEntitySync(config, onProgress);
+    return server->obtainFunctionSync(config, onProgress);
 }
 
 std::shared_ptr<Function>
-createFunction(MldbServer * server,
+createFunction(MldbEngine * server,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress,
               bool overwrite)
 {
-    return server->functions->createEntitySync(config, onProgress, overwrite);
+    return server->createFunctionSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<FunctionType>
@@ -137,8 +137,8 @@ call(const ExpressionValue & input) const
 /*****************************************************************************/
 
 FunctionCollection::
-FunctionCollection(MldbServer * server)
-    : PolyCollection<Function>("function", "functions", server)
+FunctionCollection(MldbEngine * server)
+    : PolyCollection<Function>("function", "functions", server->getDirectory())
 {
 }
 

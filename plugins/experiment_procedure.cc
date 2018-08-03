@@ -283,7 +283,7 @@ generateStatistics(const Json::Value & js,
 /*****************************************************************************/
 
 ExperimentProcedure::
-ExperimentProcedure(MldbServer * owner,
+ExperimentProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

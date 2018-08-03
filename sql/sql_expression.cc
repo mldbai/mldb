@@ -429,9 +429,9 @@ doResolveTableName(const ColumnPath & fullColumnName,
     return fullColumnName;
 }
 
-MldbServer *
+MldbEngine *
 SqlBindingScope::
-getMldbServer() const
+getMldbEngine() const
 {
     return nullptr;
 }

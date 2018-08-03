@@ -27,7 +27,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MockProcedureConfig);
 struct MockProcedure: public Procedure {
 
     MockProcedure(
-        MldbServer * owner,
+        MldbEngine * owner,
         PolyConfig polyConfig,
         const std::function<bool (const Json::Value &)> & onProgress);
 

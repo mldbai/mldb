@@ -47,7 +47,7 @@ DECLARE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
 
 
 struct SqlQueryFunction: public Function {
-    SqlQueryFunction(MldbServer * owner,
+    SqlQueryFunction(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -82,7 +82,7 @@ struct SqlExpressionFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(SqlExpressionFunctionConfig);
 
 struct SqlExpressionFunction: public Function {
-    SqlExpressionFunction(MldbServer * owner,
+    SqlExpressionFunction(MldbEngine * owner,
                           PolyConfig config,
                           const std::function<bool (const Json::Value &)> & onProgress);
     ~SqlExpressionFunction();
@@ -142,7 +142,7 @@ DECLARE_STRUCTURE_DESCRIPTION(TransformDatasetConfig);
 
 struct TransformDataset: public Procedure {
 
-    TransformDataset(MldbServer * owner,
+    TransformDataset(MldbEngine * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
 

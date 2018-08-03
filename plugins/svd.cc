@@ -9,7 +9,7 @@
 
 #include "svd.h"
 #include "matrix.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
@@ -652,7 +652,7 @@ calcRightSingular(const ClassifiedColumns & columns,
 /*****************************************************************************/
 
 SvdProcedure::
-SvdProcedure(MldbServer * owner,
+SvdProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -967,7 +967,7 @@ SvdOutputDescription()
 
 
 SvdEmbedRow::
-SvdEmbedRow(MldbServer * owner,
+SvdEmbedRow(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

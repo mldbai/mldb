@@ -47,7 +47,7 @@ DECLARE_STRUCTURE_DESCRIPTION(Document);
 /*****************************************************************************/
 
 struct ApplyStopWordsFunction: public ValueFunctionT<Words, Words> {
-    ApplyStopWordsFunction(MldbServer * owner,
+    ApplyStopWordsFunction(MldbEngine * owner,
                            PolyConfig config,
                            const std::function<bool (const Json::Value &)> & onProgress);
     
@@ -80,7 +80,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StemmerFunctionConfig);
 /*****************************************************************************/
 
 struct StemmerFunction: public ValueFunctionT<Words, Words> {
-    StemmerFunction(MldbServer * owner,
+    StemmerFunction(MldbEngine * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress);
    
@@ -90,7 +90,7 @@ struct StemmerFunction: public ValueFunctionT<Words, Words> {
 };
 
 struct StemmerOnDocumentFunction: public ValueFunctionT<Document, Document> {
-    StemmerOnDocumentFunction(MldbServer * owner,
+    StemmerOnDocumentFunction(MldbEngine * owner,
                               PolyConfig config,
                               const std::function<bool (const Json::Value &)> & onProgress);
     

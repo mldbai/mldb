@@ -45,7 +45,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ContinuousDatasetConfig);
 
 struct ContinuousDataset: public Dataset {
 
-    ContinuousDataset(MldbServer * owner,
+    ContinuousDataset(MldbEngine * owner,
                       PolyConfig config,
                       const ProgressFunc & onProgress);
     
@@ -105,7 +105,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ContinuousWindowDatasetConfig);
 */
 
 struct ContinuousWindowDataset: public ForwardedDataset {
-    ContinuousWindowDataset(MldbServer * owner,
+    ContinuousWindowDataset(MldbEngine * owner,
                             PolyConfig config,
                             const ProgressFunc & onProgress);
     /// Dataset in which our metadata lives

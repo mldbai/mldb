@@ -21,7 +21,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct FunctionCollection: public PolyCollection<Function> {
-    FunctionCollection(MldbServer * server);
+    FunctionCollection(MldbEngine * server);
 
     static void initRoutes(RouteManager & manager);
 
@@ -42,7 +42,7 @@ struct FunctionCollection: public PolyCollection<Function> {
                     const std::string & outputFormat,
                     RestConnection & connection) const;
     
-    static ExpressionValue call(MldbServer * server,
+    static ExpressionValue call(MldbEngine * server,
                                const Function * function,
                                const std::map<Utf8String, ExpressionValue> & input,
                                const std::vector<Utf8String> & keepPins);

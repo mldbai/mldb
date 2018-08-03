@@ -58,9 +58,9 @@ struct SubDataset::Itl
 
     Chunk mainChunk;
     std::mutex recordLock;
-    MldbServer * owner;
+    MldbEngine * owner;
 
-    Itl(SelectStatement statement, MldbServer* owner, const ProgressFunc & onProgress)
+    Itl(SelectStatement statement, MldbEngine* owner, const ProgressFunc & onProgress)
         : owner(owner)
     {
         if (statement.from) {
@@ -74,7 +74,7 @@ struct SubDataset::Itl
         }       
     }
 
-    Itl(MldbServer * owner,
+    Itl(MldbEngine * owner,
         std::vector<NamedRowValue> rows)
         : owner(owner)
     {
@@ -555,7 +555,7 @@ struct SubDataset::Itl
 /*****************************************************************************/
 
 SubDataset::
-SubDataset(MldbServer * owner,
+SubDataset(MldbEngine * owner,
            PolyConfig config,
            const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -566,14 +566,14 @@ SubDataset(MldbServer * owner,
 }
 
 SubDataset::
-SubDataset(MldbServer * owner, SubDatasetConfig config, const ProgressFunc & onProgress)
+SubDataset(MldbEngine * owner, SubDatasetConfig config, const ProgressFunc & onProgress)
     : Dataset(owner)
 {
     itl.reset(new Itl(config.statement, owner, onProgress));
 }
 
 SubDataset::
-SubDataset(MldbServer * owner, std::vector<NamedRowValue> rows)
+SubDataset(MldbEngine * owner, std::vector<NamedRowValue> rows)
     : Dataset(owner)
 {
     itl.reset(new Itl(owner, std::move(rows)));
@@ -708,26 +708,26 @@ regSub(builtinPackage(),
        nullptr,
        {MldbEntity::INTERNAL_ENTITY});
 
-extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, 
+extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbEngine *, 
                                                        const SubDatasetConfig &, 
                                                        const ProgressFunc &);
-extern std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbServer *, const std::vector<NamedRowValue>&);
+extern std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbEngine *, const std::vector<NamedRowValue>&);
 
-std::shared_ptr<Dataset> createSubDataset(MldbServer * server, 
+std::shared_ptr<Dataset> createSubDataset(MldbEngine * server, 
                                           const SubDatasetConfig & config, 
                                           const ProgressFunc & onProgress)
 {
     return std::make_shared<SubDataset>(server, config, onProgress);
 }
 
-std::shared_ptr<Dataset> createSubDatasetFromRows(MldbServer * server, const std::vector<NamedRowValue>& rows)
+std::shared_ptr<Dataset> createSubDatasetFromRows(MldbEngine * server, const std::vector<NamedRowValue>& rows)
 {
     return std::make_shared<SubDataset>(server, rows);
 }
 
 
 std::vector<NamedRowValue>
-querySubDataset(MldbServer * server,
+querySubDataset(MldbEngine * server,
                 std::vector<NamedRowValue> rows,
                 const SelectExpression & select,
                 const WhenExpression & when,
@@ -769,7 +769,7 @@ querySubDataset(MldbServer * server,
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 extern std::vector<NamedRowValue>
-(*querySubDatasetFn) (MldbServer * server,
+(*querySubDatasetFn) (MldbEngine * server,
                       std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,

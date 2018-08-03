@@ -9,7 +9,7 @@
 #include "pro_plugin.h"
 #include <iostream>
 #include "mldb/plugins/behavior/behavior_manager.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 
 using namespace std;
 
@@ -33,7 +33,7 @@ const Package & proPackage()
 // Plugin entry point.  This is called by MLDB once the plugin is loaded.
 // Sets up the cache directory for beh files.
 MLDB::Plugin *
-mldbPluginEnterV100(MLDB::MldbServer * server)
+mldbPluginEnterV100(MLDB::MldbEngine * server)
 {
     string cacheDir = server->getCacheDirectory();
     if (!cacheDir.empty()) {

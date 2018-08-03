@@ -408,7 +408,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
 /*****************************************************************************/
 
 BinaryBehaviorDataset::
-BinaryBehaviorDataset(MldbServer * owner,
+BinaryBehaviorDataset(MldbEngine * owner,
                        PolyConfig config,
                        const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -436,7 +436,7 @@ BinaryBehaviorDataset(MldbServer * owner,
 }
 
 BinaryBehaviorDataset::
-BinaryBehaviorDataset(MldbServer * owner)
+BinaryBehaviorDataset(MldbEngine * owner)
     : Dataset(owner)
 {
 }
@@ -540,7 +540,7 @@ MutableBinaryBehaviorDatasetConfigDescription()
 
 
 MutableBinaryBehaviorDataset::
-MutableBinaryBehaviorDataset(MldbServer * owner,
+MutableBinaryBehaviorDataset(MldbEngine * owner,
                               PolyConfig config,
                               const ProgressFunc & onProgress)
     : BinaryBehaviorDataset(owner)

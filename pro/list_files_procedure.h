@@ -27,7 +27,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ListFilesProcedureConfig);
 struct ListFilesProcedure: public Procedure {
 
     ListFilesProcedure(
-        MldbServer * owner,
+        MldbEngine * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress);
 

@@ -61,7 +61,7 @@ DECLARE_STRUCTURE_DESCRIPTION(SVMConfig);
 
 struct SVMProcedure: public Procedure {
 
-    SVMProcedure(MldbServer * owner,
+    SVMProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -102,7 +102,7 @@ struct SVMExpressionValue {
 DECLARE_STRUCTURE_DESCRIPTION(SVMExpressionValue);
 
 struct SVMFunction: public ValueFunctionT<SVMFunctionArgs, SVMExpressionValue>  {
-    SVMFunction(MldbServer * owner,
+    SVMFunction(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 

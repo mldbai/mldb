@@ -430,7 +430,7 @@ struct TabularDataset::TabularDataStore
         return rowsPerChunk;
     }
 
-    TabularDataStore(MldbServer * server,
+    TabularDataStore(MldbEngine * server,
                      TabularDatasetConfig config,
                      shared_ptr<spdlog::logger> logger)
         : server(server),
@@ -442,7 +442,7 @@ struct TabularDataset::TabularDataStore
         initRoutes();
     }
 
-    MldbServer * server = nullptr;
+    MldbEngine * server = nullptr;
 
     /// This is used to allocate mapped memory when chunks are frozen
     MemorySerializer serializer;
@@ -2118,7 +2118,7 @@ struct TabularDataset::TabularDataStore
 };
 
 TabularDataset::
-TabularDataset(MldbServer * owner,
+TabularDataset(MldbEngine * owner,
                PolyConfig config,
                const ProgressFunc & onProgress)
     : Dataset(owner)

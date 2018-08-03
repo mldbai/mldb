@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** procedure_run_collection.h                                 -*- C++ -*-
     Jeremy Barnes, 4 December 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Procedure training infrastructure.
 */
@@ -26,9 +25,9 @@ struct ProcedureRunCollection
                                         ProcedureRunConfig,
                                         ProcedureRunStatus> {
 
-    ProcedureRunCollection(ServicePeer * server, Procedure * owner);
+    ProcedureRunCollection(RestDirectory * server, Procedure * owner);
     
-    ServicePeer * server;
+    RestDirectory * server;
     Procedure * procedure;
         
     static void initRoutes(RouteManager & manager);

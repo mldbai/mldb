@@ -38,12 +38,12 @@ DECLARE_STRUCTURE_DESCRIPTION(SampledDatasetConfig);
 
 struct SampledDataset: public Dataset {
 
-    SampledDataset(MldbServer * owner,
+    SampledDataset(MldbEngine * owner,
                       PolyConfig config,
                       const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a temporary sample */
-    SampledDataset(MldbServer * owner,
+    SampledDataset(MldbEngine * owner,
                    std::shared_ptr<Dataset> dataset,
                    const ExpressionValue & options);
 

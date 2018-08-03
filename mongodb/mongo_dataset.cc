@@ -151,7 +151,7 @@ struct MongoDataset: Dataset {
     string collection;
     mutable mutex mut;
 
-    MongoDataset(MldbServer * owner,
+    MongoDataset(MldbEngine * owner,
                  PolyConfig config,
                  const ProgressFunc & onProgress)
         : Dataset(owner)

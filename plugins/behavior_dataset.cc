@@ -679,7 +679,7 @@ struct BehaviorMatrixView: public MatrixView {
 /*****************************************************************************/
 
 BehaviorDataset::
-BehaviorDataset(MldbServer * owner,
+BehaviorDataset(MldbEngine * owner,
                  PolyConfig config,
                  const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -842,7 +842,7 @@ MutableBehaviorDatasetConfigDescription()
 /*****************************************************************************/
 
 MutableBehaviorDataset::
-MutableBehaviorDataset(MldbServer * owner,
+MutableBehaviorDataset(MldbEngine * owner,
                         PolyConfig config,
                         const ProgressFunc & onProgress)
     : Dataset(owner)

@@ -4,7 +4,7 @@
 */
 
 #include "feature_generators.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/jml/utils/guard.h"
@@ -75,7 +75,7 @@ FeatureGeneratorOutputDescription::FeatureGeneratorOutputDescription()
 }
 
 HashedColumnFeatureGenerator::
-HashedColumnFeatureGenerator(MldbServer * owner,
+HashedColumnFeatureGenerator(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

@@ -37,9 +37,9 @@ typedef EntityType<Recorder> RecorderType;
 /** A recorder is used to record data into a dataset or another abstraction. */
 
 struct Recorder: public MldbEntity {
-    Recorder(MldbServer * server);
+    Recorder(MldbEngine * server);
 
-    MldbServer * server;
+    MldbEngine * server;
 
     virtual ~Recorder()
     {
@@ -145,7 +145,7 @@ struct Recorder: public MldbEntity {
 /*****************************************************************************/
 
 std::shared_ptr<Recorder>
-createRecorder(MldbServer * server,
+createRecorder(MldbEngine * server,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress);
 

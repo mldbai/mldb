@@ -28,7 +28,7 @@ struct RestDirectory;
 
 namespace MLDB {
 
-struct MldbServer;
+struct MldbEngine;
 struct Procedure;
 
 typedef EntityType<Procedure> ProcedureType;
@@ -105,11 +105,11 @@ DECLARE_STRUCTURE_DESCRIPTION(RunOutput);
 */
 
 struct Procedure: public MldbEntity, public RestEntity {
-    Procedure(MldbServer * server);
+    Procedure(MldbEngine * server);
 
     virtual ~Procedure();
 
-    MldbServer * server;
+    MldbEngine * server;
 
     virtual Any getStatus() const = 0;
 
@@ -201,7 +201,7 @@ DECLARE_STRUCTURE_DESCRIPTION(NullProcedureConfig);
 /** Null procedure, that does nothing when run. */
 
 struct NullProcedure: public Procedure {
-    NullProcedure(MldbServer * server, const PolyConfig & config,
+    NullProcedure(MldbEngine * server, const PolyConfig & config,
                  const std::function<bool (const Json::Value &)> & onProgress);
 
     virtual ~NullProcedure();
@@ -243,7 +243,7 @@ struct SerialProcedureStatus {
 DECLARE_STRUCTURE_DESCRIPTION(SerialProcedureStatus);
 
 struct SerialProcedure: public Procedure {
-    SerialProcedure(MldbServer * server,
+    SerialProcedure(MldbEngine * server,
                    const PolyConfig & config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -287,7 +287,7 @@ DECLARE_STRUCTURE_DESCRIPTION(CreateEntityProcedureOutput);
 
 struct CreateEntityProcedure: public Procedure {
     CreateEntityProcedure
-        (MldbServer * server,
+        (MldbEngine * server,
          const PolyConfig & config,
          const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -308,13 +308,13 @@ struct CreateEntityProcedure: public Procedure {
 /*****************************************************************************/
 
 std::shared_ptr<Procedure>
-createProcedure(MldbServer * server,
+createProcedure(MldbEngine * server,
                 const PolyConfig & config,
                 const std::function<bool (const Json::Value & progress)> & onProgress,
                 bool overwrite);
 
 std::shared_ptr<Procedure>
-obtainProcedure(MldbServer * server,
+obtainProcedure(MldbEngine * server,
                 const PolyConfig & config,
                 const std::function<bool (const Json::Value & progress)> & onProgress
                     = nullptr);

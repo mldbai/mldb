@@ -47,7 +47,7 @@ MockProcedureConfigDescription()
 }
 
 MockProcedure::
-MockProcedure(MldbServer * owner,
+MockProcedure(MldbEngine * owner,
               PolyConfig polyConfig,
               const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

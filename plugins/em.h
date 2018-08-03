@@ -58,7 +58,7 @@ DECLARE_STRUCTURE_DESCRIPTION(EMConfig);
 
 struct EMProcedure: public Procedure {
 
-    EMProcedure(MldbServer * owner,
+    EMProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -99,7 +99,7 @@ struct EMOutput {
 DECLARE_STRUCTURE_DESCRIPTION(EMOutput);
 
 struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
-    EMFunction(MldbServer * owner,
+    EMFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress);
 

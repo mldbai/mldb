@@ -14,7 +14,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/date.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/server/dataset_context.h"
@@ -49,7 +49,7 @@ DatasetStatsProcedureConfigDescription()
 
 DatasetStatsProcedure::
 DatasetStatsProcedure(
-    MldbServer * owner,
+    MldbEngine * owner,
     PolyConfig config,
     const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

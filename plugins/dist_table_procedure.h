@@ -9,13 +9,14 @@
 
 #include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
-#include "server/mldb_server.h"
+#include "core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "sql/sql_expression.h"
 #include "mldb/jml/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/string.h"
+#include "mldb/rest/rest_request_router.h"
 #include <shared_mutex>
 
 namespace MLDB {
@@ -174,7 +175,7 @@ typedef std::map<ColumnPath, DistTable> DistTablesMap;
 
 struct DistTableProcedure: public Procedure {
 
-    DistTableProcedure(MldbServer * owner,
+    DistTableProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -211,7 +212,7 @@ struct DistTableFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(DistTableFunctionConfig);
 
 struct DistTableFunction: public Function {
-    DistTableFunction(MldbServer * owner,
+    DistTableFunction(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 

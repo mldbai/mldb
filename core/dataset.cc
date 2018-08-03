@@ -502,7 +502,7 @@ DatasetRecorder(Dataset * dataset)
 }
 
 DatasetRecorder::
-DatasetRecorder(MldbServer * server,
+DatasetRecorder(MldbEngine * server,
                 PolyConfig config,
                 std::function<bool (Json::Value)> onProgress)
     : Recorder(server),
@@ -562,7 +562,7 @@ regLogger(builtinPackage(),
 /*****************************************************************************/
 
 Dataset::
-Dataset(MldbServer * server)
+Dataset(MldbEngine * server)
     : server(server)
 {
 }

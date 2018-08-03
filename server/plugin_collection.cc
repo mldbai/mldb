@@ -9,7 +9,8 @@
 
 #include "mldb/server/plugin_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
+#include "mldb/rest/rest_request_router.h"
 
 using namespace std;
 
@@ -18,26 +19,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<PluginCollection>
-createPluginCollection(MldbServer * server, RestRouteManager & routeManager)
+createPluginCollection(MldbEngine * server, RestRouteManager & routeManager)
 {
     return createCollection<PluginCollection>(2, L"plugin", L"plugins",
-                                              server, routeManager);
+                                              server->getDirectory(),
+                                              routeManager);
 }
 
 std::shared_ptr<Plugin>
-obtainPlugin(MldbServer * server,
+obtainPlugin(MldbEngine * server,
              const PolyConfig & config,
-             const MldbServer::OnProgress & onProgress)
+             const MldbEngine::OnProgress & onProgress)
 {
-    return server->plugins->obtainEntitySync(config, onProgress);
+    return server->obtainPluginSync(config, onProgress);
 }
 
 std::shared_ptr<Plugin>
-createPlugin(MldbServer * server,
+createPlugin(MldbEngine * server,
              const PolyConfig & config,
-             const std::function<bool (const Json::Value & progress)> & onProgress)
+             const std::function<bool (const Json::Value & progress)> & onProgress,
+             bool overwrite)
 {
-    return server->plugins->createEntitySync(config, onProgress);
+    return server->createPluginSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<PluginType>
@@ -63,8 +66,8 @@ registerPluginType(const Package & package,
 /*****************************************************************************/
 
 PluginCollection::
-PluginCollection(MldbServer * server)
-    : PolyCollection<Plugin>("plugin", "plugins", server)
+PluginCollection(MldbEngine * server)
+    : PolyCollection<Plugin>("plugin", "plugins", server->getDirectory())
 {
 }
 

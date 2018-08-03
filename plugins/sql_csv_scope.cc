@@ -22,7 +22,7 @@ namespace MLDB {
 */
 
 SqlCsvScope::
-SqlCsvScope(MldbServer * server,
+SqlCsvScope(MldbEngine * server,
             const std::vector<ColumnPath> & columnNames,
             Date fileTimestamp, Utf8String dataFileUrl)
     : SqlExpressionMldbScope(server), columnNames(columnNames),

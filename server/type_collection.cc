@@ -8,7 +8,7 @@
 */
 
 #include "type_collection.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/function_collection.h"
 #include "mldb/server/plugin_collection.h"
 #include "mldb/server/procedure_collection.h"
@@ -26,7 +26,7 @@ namespace MLDB {
 
 
 std::shared_ptr<TypeClassCollection>
-createTypeClassCollection(MldbServer * server, RestRouteManager & routeManager)
+createTypeClassCollection(MldbEngine * server, RestRouteManager & routeManager)
 {
     auto result = std::make_shared<TypeClassCollection>(server);
 
@@ -46,7 +46,7 @@ createTypeClassCollection(MldbServer * server, RestRouteManager & routeManager)
     // Save our child route
     routeManager.childRoutes["types"] = collectionRouteManager;
 
-    server->addEntity("types", *result);
+    server->addEntity("types", result);
 
     return result;
 }
@@ -63,7 +63,7 @@ template<typename Base>
 struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
     TypeCollection(const Utf8String & nounSingular,
                    const Utf8String & nounPlural,
-                   MldbServer * server, RestEntity * parent)
+                   MldbEngine * server, RestEntity * parent)
         : RestCollection<Utf8String, TypeEntry>(nounSingular, nounPlural, parent),
           parent(parent), name(MLDB::type_name<Base>()),
           server(server)
@@ -94,11 +94,12 @@ struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
                                 const RestRequest & req,
                                 const RestRequestParsingContext & cxt)
             {
-                auto & server = cxt.getObjectAs<MldbServer>(0);
+                auto & server = cxt.getObjectAs<MldbEngine>(0);
                 auto type = result.getKey(cxt);
                 
                 return PolyCollection<Base>
-                    ::handleDocRequest(&server, type, connection, req, cxt);
+                ::handleDocRequest(server.getDirectory(),
+                                   type, connection, req, cxt);
             };
 
         Json::Value help;
@@ -113,11 +114,11 @@ struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
                                 const RestRequest & req,
                                 const RestRequestParsingContext & cxt)
             {
-                auto & server = cxt.getObjectAs<MldbServer>(0);
+                auto & server = cxt.getObjectAs<MldbEngine>(0);
                 auto type = result.getKey(cxt);
                 
                 return PolyCollection<Base>
-                ::handleInfoRequest(&server, result.nounPlural,
+                ::handleInfoRequest(server.getDirectory(), result.nounPlural,
                                     type, connection, req, cxt);
             };
         
@@ -132,11 +133,12 @@ struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
                                    const RestRequest & req,
                                    const RestRequestParsingContext & cxt)
             {
-                auto & server = cxt.getObjectAs<MldbServer>(0);
+                auto & server = cxt.getObjectAs<MldbEngine>(0);
                 auto type = result.getKey(cxt);
                 
                 return PolyCollection<Base>
-                    ::handleCustomRequest(&server, type, connection, req, cxt);
+                ::handleCustomRequest(server.getDirectory(),
+                                      type, connection, req, cxt);
             };
 
         help["result"] = "Output of requested custom route";
@@ -175,7 +177,7 @@ struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
     RestEntity * parent;
     Utf8String name;
     WatchT<Utf8String> entryWatch;
-    MldbServer * server;
+    MldbEngine * server;
 
     /** This is called by the watch when a new instance of the given type
         appears.
@@ -191,8 +193,9 @@ struct TypeCollection: public RestCollection<Utf8String, TypeEntry> {
 /*****************************************************************************/
 
 TypeClassCollection::
-TypeClassCollection(MldbServer * server)
-    : RestDirectory(server, "Operations on classes of types registered in MLDB"),
+TypeClassCollection(MldbEngine * server)
+    : RestDirectory(server->getDirectory(),
+                    "Operations on classes of types registered in MLDB"),
       plugins(new TypeCollection<Plugin>("plugin", "plugins", server, this)),
       datasets(new TypeCollection<Dataset>("dataset", "datasets", server, this)),
       procedures(new TypeCollection<Procedure>("procedure", "procedures", server, this)),

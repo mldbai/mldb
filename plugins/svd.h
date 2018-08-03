@@ -128,7 +128,7 @@ DECLARE_STRUCTURE_DESCRIPTION(SvdBasis);
 // or externally
 struct SvdProcedure: public Procedure {
 
-    SvdProcedure(MldbServer * owner,
+    SvdProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -186,7 +186,7 @@ struct SvdOutput {
 DECLARE_STRUCTURE_DESCRIPTION(SvdOutput);
 
 struct SvdEmbedRow: public ValueFunctionT<SvdInput, SvdOutput> {
-    SvdEmbedRow(MldbServer * owner,
+    SvdEmbedRow(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
     

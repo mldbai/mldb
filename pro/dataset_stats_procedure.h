@@ -25,7 +25,7 @@ DECLARE_STRUCTURE_DESCRIPTION(DatasetStatsProcedureConfig);
 struct DatasetStatsProcedure: public Procedure {
 
     DatasetStatsProcedure(
-        MldbServer * owner,
+        MldbEngine * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress);
 

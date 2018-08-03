@@ -987,7 +987,7 @@ struct JoinedDataset::Itl
 /*****************************************************************************/
 
 JoinedDataset::
-JoinedDataset(MldbServer * owner,
+JoinedDataset(MldbEngine * owner,
               PolyConfig config,
               const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -1032,7 +1032,7 @@ JoinedDataset(SqlBindingScope & scope,
               BoundTableExpression right,
               std::shared_ptr<SqlExpression> on,
               JoinQualification qualification)
-    : Dataset(scope.getMldbServer())
+    : Dataset(scope.getMldbEngine())
 {
     JoinedDatasetConfig config;
     config.left = leftExpr;

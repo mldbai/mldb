@@ -320,11 +320,11 @@ getTableNames() const
     return result;
 }
 
-MldbServer * 
+MldbEngine * 
 PipelineExpressionScope::
-getMldbServer() const
+getMldbEngine() const
 {
-    return outerScope_->getMldbServer();
+    return outerScope_->getMldbEngine();
 }
 
 std::shared_ptr<Dataset>

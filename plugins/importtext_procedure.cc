@@ -12,7 +12,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/plugins/for_each_line.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -526,7 +526,7 @@ struct ImportTextProcedureWorkInstance
     /*    Load a text file and filter according to the configuration  */
     void loadText(const ImportTextConfig& config,
                   std::shared_ptr<Dataset> dataset,
-                  MldbServer * server,
+                  MldbEngine * server,
                   const std::function<bool (const Json::Value &)> & onProgress)
     {
         string filename = config.dataFileUrl.toDecodedString();
@@ -1033,7 +1033,7 @@ struct ImportTextProcedureWorkInstance
 /*****************************************************************************/
 
 ImportTextProcedure::
-ImportTextProcedure(MldbServer * owner,
+ImportTextProcedure(MldbEngine * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

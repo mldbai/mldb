@@ -9,7 +9,7 @@
 
 #include "tsne.h"
 #include "matrix.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
@@ -206,7 +206,7 @@ struct TsneItl {
 };
 
 TsneProcedure::
-TsneProcedure(MldbServer * owner,
+TsneProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -416,7 +416,7 @@ TsneOutputDescription::TsneOutputDescription()
 
 
 TsneEmbed::
-TsneEmbed(MldbServer * owner,
+TsneEmbed(MldbEngine * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

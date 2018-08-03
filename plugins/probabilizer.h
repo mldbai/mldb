@@ -57,7 +57,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ProbabilizerConfig);
 
 struct ProbabilizerProcedure: public Procedure {
 
-    ProbabilizerProcedure(MldbServer * owner,
+    ProbabilizerProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -86,11 +86,11 @@ struct ProbabilizeFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(ProbabilizeFunctionConfig);
 
 struct ProbabilizeFunction: public Function {
-    ProbabilizeFunction(MldbServer * owner,
+    ProbabilizeFunction(MldbEngine * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
 
-    ProbabilizeFunction(MldbServer * owner, const ML::GLZ_Probabilizer & in);
+    ProbabilizeFunction(MldbEngine * owner, const ML::GLZ_Probabilizer & in);
 
     ~ProbabilizeFunction();
 

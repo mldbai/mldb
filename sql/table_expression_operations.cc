@@ -407,7 +407,7 @@ SelectSubtableExpression::
 
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
-std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, 
+std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbEngine *, 
                                                 const SubDatasetConfig &,
                                                 const ProgressFunc &);
 
@@ -417,7 +417,7 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     SubDatasetConfig config;
     config.statement = statement;
-    auto ds = createSubDatasetFn(context.getMldbServer(), config, onProgress);
+    auto ds = createSubDatasetFn(context.getMldbEngine(), config, onProgress);
 
     return bindDataset(ds, asName);
 }
@@ -637,7 +637,7 @@ RowTableExpression::
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 std::vector<NamedRowValue>
-(*querySubDatasetFn) (MldbServer * server,
+(*querySubDatasetFn) (MldbEngine * server,
                       std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
@@ -657,7 +657,7 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     ExcAssert(querySubDatasetFn);
 
-    MldbServer * server = context.getMldbServer();
+    MldbEngine * server = context.getMldbEngine();
     ExcAssert(server);
 
     auto boundExpr = expr->bind(context);

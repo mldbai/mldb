@@ -317,7 +317,7 @@ const Package & tensorflowPackage()
 
 struct TensorflowGraphBase: public Function {
 
-    TensorflowGraphBase(MldbServer * owner, PolyConfig config)
+    TensorflowGraphBase(MldbEngine * owner, PolyConfig config)
         : Function(owner, config)
     {
     }
@@ -1540,7 +1540,7 @@ struct TensorflowOp: public TensorflowGraphBase {
 
     TensorflowOpConfig functionConfig;
 
-    TensorflowOp(MldbServer * owner,
+    TensorflowOp(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
         : TensorflowGraphBase(owner, config)
@@ -1663,7 +1663,7 @@ struct TensorflowGraph: public TensorflowGraphBase {
 
     TensorflowGraphConfig functionConfig;
 
-    TensorflowGraph(MldbServer * owner,
+    TensorflowGraph(MldbEngine * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
         : TensorflowGraphBase(owner, config)
@@ -1714,7 +1714,7 @@ regTensorflowGraph(tensorflowPackage(),
 // We initialize the TensorFlow system.
 
 struct TensorflowPlugin: public Plugin {
-    TensorflowPlugin(MldbServer * server)
+    TensorflowPlugin(MldbEngine * server)
         : Plugin(server)
     {
         
@@ -2226,7 +2226,7 @@ tf_extract_constant (const Utf8String &functionName,
     // Return an escaped string from a path
     checkArgsSize(args.size(), 2);
 
-    MldbServer * server = context.getMldbServer();
+    MldbEngine * server = context.getMldbEngine();
 
     auto exec = [=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
@@ -2288,7 +2288,7 @@ static RegisterFunction registerTfExtractConstant("tf_extract_constant", tf_extr
 
 
 MLDB::Plugin *
-mldbPluginEnterV100(MLDB::MldbServer * server)
+mldbPluginEnterV100(MLDB::MldbEngine * server)
 {
     return new MLDB::TensorflowPlugin(server);
 }

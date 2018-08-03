@@ -20,12 +20,13 @@
 #include "mldb/core/plugin.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/script_output.h"
 
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/logging/logging.h"
 #include "mldb/rest/in_process_rest_connection.h"
+#include "mldb/rest/rest_request_router.h"
 
 
 //using namespace Python;
@@ -110,7 +111,7 @@ struct PythonRestRequest {
 struct MldbPythonContext;
 
 struct PythonContext {
-    PythonContext(const Utf8String &  name, MldbServer * server,
+    PythonContext(const Utf8String &  name, MldbEngine * server,
             std::shared_ptr<LoadedPluginResource> pluginResource)
     : categoryName(name + " plugin"),
       loaderName(name + " loader"),
@@ -135,7 +136,7 @@ struct PythonContext {
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader;
 
-    MldbServer * server;
+    MldbEngine * server;
     RestRequestRouter router;
 
     std::mutex guard;
@@ -208,7 +209,7 @@ getHttpBoundAddress(MldbPythonContext * mldbCon);
 
 struct PythonPluginContext: public PythonContext  {
     PythonPluginContext(const Utf8String & pluginName,
-                        MldbServer * server,
+                        MldbEngine * server,
                         std::shared_ptr<LoadedPluginResource> pluginResource,
                         std::mutex & routeHandlingMutex)
         : PythonContext(pluginName, server, pluginResource),
@@ -245,7 +246,7 @@ struct PythonPluginContext: public PythonContext  {
 /****************************************************************************/
 
 struct PythonScriptContext: public PythonContext  {
-    PythonScriptContext(const std::string & pluginName, MldbServer * server,
+    PythonScriptContext(const std::string & pluginName, MldbEngine * server,
             std::shared_ptr<LoadedPluginResource> pluginResource)
     : PythonContext(pluginName, server, pluginResource)
     {

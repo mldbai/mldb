@@ -1,11 +1,11 @@
+/*  -*- C++ -*- */
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-/*  -*- C++ -*- */
 #pragma once
 
 #include "mldb/core/function.h"
 #include "mldb/types/value_description.h"
-
+#include "mldb/server/mldb_server.h"
 
 namespace MLDB {
 
@@ -20,9 +20,9 @@ struct TestFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(TestFunctionConfig);
 
 struct TestFunction: public Function {
-    TestFunction(MldbServer * owner,
-              PolyConfig config,
-              const std::function<bool (const Json::Value &)> & onProgress);
+    TestFunction(MldbEngine * owner,
+                 PolyConfig config,
+                 const std::function<bool (const Json::Value &)> & onProgress);
     
     ~TestFunction();
     

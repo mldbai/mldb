@@ -43,7 +43,7 @@ regUnion(builtinPackage(),
           "datasets/UnionDataset.md.html");
 
 std::shared_ptr<Dataset> createUnionDataset(
-    MldbServer * server, vector<std::shared_ptr<Dataset> > datasets)
+    MldbEngine * server, vector<std::shared_ptr<Dataset> > datasets)
 {
     return std::make_shared<UnionDataset>(server, datasets);
 }
@@ -57,7 +57,7 @@ struct UnionDataset::Itl
     // Datasets that it was constructed with
     vector<std::shared_ptr<Dataset> > datasets;
 
-    Itl(MldbServer * server, vector<std::shared_ptr<Dataset> > datasets) {
+    Itl(MldbEngine * server, vector<std::shared_ptr<Dataset> > datasets) {
         if (datasets.empty()) {
             throw MLDB::Exception("Attempt to unify no datasets together");
         }
@@ -367,7 +367,7 @@ struct UnionDataset::Itl
 
 
 UnionDataset::
-UnionDataset(MldbServer * owner,
+UnionDataset(MldbEngine * owner,
              PolyConfig config,
              const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -384,7 +384,7 @@ UnionDataset(MldbServer * owner,
 }
 
 UnionDataset::
-UnionDataset(MldbServer * owner,
+UnionDataset(MldbEngine * owner,
               vector<std::shared_ptr<Dataset> > datasetsToMerge)
     : Dataset(owner)
 {

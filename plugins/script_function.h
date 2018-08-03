@@ -34,7 +34,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptFunctionConfig);
 /*****************************************************************************/
 
 struct ScriptFunction: public Function {
-    ScriptFunction(MldbServer * owner,
+    ScriptFunction(MldbEngine * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
     

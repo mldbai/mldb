@@ -43,7 +43,7 @@ struct BehaviorDataset: public Dataset {
     friend class PandasRollupPlugin;
     friend class BehaviorDatasetRowStream;
 
-    BehaviorDataset(MldbServer * owner,
+    BehaviorDataset(MldbEngine * owner,
                      PolyConfig config,
                      const ProgressFunc & onProgress);
     
@@ -90,7 +90,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MutableBehaviorDatasetConfig);
 
 struct MutableBehaviorDataset: public Dataset {
 
-    MutableBehaviorDataset(MldbServer * owner,
+    MutableBehaviorDataset(MldbEngine * owner,
                             PolyConfig config,
                             const ProgressFunc & onProgress);
     

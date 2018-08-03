@@ -5,7 +5,7 @@
 */
 
 #include "useragent_function.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"
 
@@ -66,7 +66,7 @@ ParsedUserAgentDescription::ParsedUserAgentDescription()
 /*****************************************************************************/
                       
 ParseUserAgentFunction::
-ParseUserAgentFunction(MldbServer * owner,
+ParseUserAgentFunction(MldbEngine * owner,
                        PolyConfig config,
                        const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

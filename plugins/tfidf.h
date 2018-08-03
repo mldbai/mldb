@@ -58,7 +58,7 @@ DECLARE_STRUCTURE_DESCRIPTION(TfidfConfig);
 
 struct TfidfProcedure: public Procedure {
 
-    TfidfProcedure(MldbServer * owner,
+    TfidfProcedure(MldbEngine * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -90,7 +90,7 @@ struct TfidfFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(TfidfFunctionConfig);
 
 struct TfidfFunction: public Function {
-    TfidfFunction(MldbServer * owner,
+    TfidfFunction(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 

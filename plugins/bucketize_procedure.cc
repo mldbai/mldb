@@ -5,7 +5,7 @@
  **/
 
 #include "bucketize_procedure.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -102,7 +102,7 @@ BucketizeProcedureConfigDescription()
 }
 
 BucketizeProcedure::
-BucketizeProcedure(MldbServer * owner,
+BucketizeProcedure(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

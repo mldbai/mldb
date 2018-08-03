@@ -72,7 +72,7 @@ createDataset(MldbPythonContext * mldbContext, const Json::Value & rawConfig)
 /****************************************************************************/
 
 PythonProcedure::
-PythonProcedure(MldbServer * owner,
+PythonProcedure(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -146,7 +146,7 @@ createPythonProcedure(MldbPythonContext * c,
 /****************************************************************************/
 
 PythonFunction::
-PythonFunction(MldbServer * owner,
+PythonFunction(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)

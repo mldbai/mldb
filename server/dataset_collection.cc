@@ -9,7 +9,7 @@
 */
 #include "mldb/server/dataset_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/utils/lightweight_hash.h"
@@ -27,27 +27,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<DatasetCollection>
-createDatasetCollection(MldbServer * server, RestRouteManager & routeManager)
+createDatasetCollection(MldbEngine * server, RestRouteManager & routeManager)
 {
     return createCollection<DatasetCollection>(2, L"dataset", L"datasets",
-                                               server, routeManager);
+                                               server->getDirectory(),
+                                               routeManager);
 }
 
 std::shared_ptr<Dataset>
-obtainDataset(MldbServer * server,
+obtainDataset(MldbEngine * server,
               const PolyConfig & config,
-              const MldbServer::OnProgress & onProgress)
+              const MldbEngine::OnProgress & onProgress)
 {
-    return server->datasets->obtainEntitySync(config, onProgress);
+    return server->obtainDatasetSync(config, onProgress);
 }
 
 std::shared_ptr<Dataset>
-createDataset(MldbServer * server,
+createDataset(MldbEngine * server,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress,
               bool overwrite)
 {
-    return server->datasets->createEntitySync(config, onProgress, overwrite);
+    return server->createDatasetSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<DatasetType>
@@ -290,8 +291,8 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 /*****************************************************************************/
 
 DatasetCollection::
-DatasetCollection(MldbServer * server)
-    : PolyCollection<Dataset>(L"dataset", L"datasets", server)
+DatasetCollection(MldbEngine * server)
+    : PolyCollection<Dataset>(L"dataset", L"datasets", server->getDirectory())
 {
 }
 

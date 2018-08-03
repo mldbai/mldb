@@ -33,15 +33,15 @@ DECLARE_STRUCTURE_DESCRIPTION(SubDatasetConfig);
 
 struct SubDataset : public Dataset {
 
-    SubDataset(MldbServer * owner,
+    SubDataset(MldbEngine * owner,
                PolyConfig config,
                const ProgressFunc & onProgress);
 
-    SubDataset(MldbServer * owner, 
+    SubDataset(MldbEngine * owner, 
                SubDatasetConfig config,
                const ProgressFunc & onProgress);
 
-    SubDataset(MldbServer * owner,
+    SubDataset(MldbEngine * owner,
                std::vector<NamedRowValue> rows);
 
     virtual ~SubDataset();

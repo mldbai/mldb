@@ -17,7 +17,7 @@
 
 
 namespace MLDB {
-struct MldbServer;
+struct MldbEngine;
 
 /*****************************************************************************/
 /* CREDENTIAL RULE                                                           */
@@ -50,7 +50,7 @@ struct CredentialRuleCollection
                                        CredentialRuleConfig,
                                        CredentialRuleStatus> Base;
 
-    CredentialRuleCollection(MLDB::MldbServer * owner);
+    CredentialRuleCollection(MLDB::MldbEngine * owner);
     ~CredentialRuleCollection();
 
     void init(RestRequestRouter & parentNode);

@@ -17,7 +17,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 Recorder::
-Recorder(MldbServer * server)
+Recorder(MldbEngine * server)
     : server(server)
 {
 }
@@ -111,7 +111,7 @@ recordTabularImpl(RowPath rowName,
 /*****************************************************************************/
 
 std::shared_ptr<Recorder>
-createRecorder(MldbServer * server,
+createRecorder(MldbEngine * server,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress)
 {

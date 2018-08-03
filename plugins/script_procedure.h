@@ -10,7 +10,7 @@
 
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/server/plugin_resource.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 
 
@@ -43,7 +43,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptProcedureConfig);
 
 struct ScriptProcedure: public Procedure {
 
-    ScriptProcedure(MldbServer * owner,
+    ScriptProcedure(MldbEngine * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress);
 

@@ -35,7 +35,7 @@ DECLARE_STRUCTURE_DESCRIPTION(RankingProcedureConfig);
 struct RankingProcedure: public Procedure {
 
     RankingProcedure(
-        MldbServer * owner,
+        MldbEngine * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress);
 

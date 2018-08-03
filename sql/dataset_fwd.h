@@ -12,7 +12,7 @@ namespace MLDB {
 template<typename Int, int Domain> struct IntWrapper;
 template<int Domain> struct HashWrapper;
 
-struct MldbServer;
+struct MldbEngine;
 
 struct SqlExpression;
 struct SqlRowExpression;

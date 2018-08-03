@@ -36,9 +36,9 @@ struct BoundTableExpression;
 
 struct SqlExpressionMldbScope: public SqlBindingScope {
 
-    SqlExpressionMldbScope(const MldbServer * mldb);
+    SqlExpressionMldbScope(const MldbEngine * mldb);
 
-    MldbServer * mldb;
+    MldbEngine * mldb;
       
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -55,7 +55,7 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
     virtual TableOperations
     doGetTable(const Utf8String & tableName) override;
 
-    virtual MldbServer * getMldbServer() const override;
+    virtual MldbEngine * getMldbEngine() const override;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                      const ColumnPath & columnName) override;

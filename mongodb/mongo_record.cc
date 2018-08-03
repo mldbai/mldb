@@ -58,7 +58,7 @@ struct MongoRecord: Dataset {
     mongocxx::database db;
     string collection;
 
-    MongoRecord(MldbServer * owner,
+    MongoRecord(MldbEngine * owner,
                  PolyConfig config,
                  const ProgressFunc & onProgress)
         : Dataset(owner)

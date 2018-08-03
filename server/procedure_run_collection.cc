@@ -26,7 +26,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 ProcedureRunCollection::
-ProcedureRunCollection(ServicePeer * server, Procedure * procedure)
+ProcedureRunCollection(RestDirectory * server, Procedure * procedure)
     : RestConfigurableCollection<Utf8String, ProcedureRun,
                                  ProcedureRunConfig, ProcedureRunStatus>
       ("run", "runs", procedure),

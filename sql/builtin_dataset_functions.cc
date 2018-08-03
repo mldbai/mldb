@@ -18,13 +18,13 @@ typedef std::function<BoundTableExpression (const std::vector<BoundTableExpressi
 
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
-std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
-std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbServer *, const TableOperations& table);
-std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> >);
-std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
+std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbEngine *, std::shared_ptr<Dataset> dataset);
+std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbEngine *, const TableOperations& table);
+std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbEngine *, std::vector<std::shared_ptr<Dataset> >);
+std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbEngine *,
                                                     std::shared_ptr<Dataset> dataset,
                                                     const ExpressionValue & options);
-std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbServer *, const std::vector<NamedRowValue> &);
+std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbEngine *, const std::vector<NamedRowValue> &);
 
 // defined in table_expression_operations.cc
 BoundTableExpression
@@ -94,11 +94,11 @@ BoundTableExpression transpose(const SqlBindingScope & context,
 
     std::shared_ptr<Dataset> ds;
     if (args[0].dataset) {
-        ds = createTransposedDatasetFn(context.getMldbServer(), args[0].dataset);
+        ds = createTransposedDatasetFn(context.getMldbEngine(), args[0].dataset);
     }
     else {
         ExcAssert(args[0].table);
-        ds = createTransposedTableFn(context.getMldbServer(), args[0].table);
+        ds = createTransposedTableFn(context.getMldbEngine(), args[0].table);
     }
 
     return bindDataset(ds, alias); 
@@ -159,13 +159,13 @@ BoundTableExpression merge(const SqlBindingScope & context,
             // Generate all outputs of the query
             std::vector<NamedRowValue> rows
                 = generator(-1, fakeRowScope);
-            auto subDataset = createSubDatasetFromRowsFn(context.getMldbServer(), rows);
+            auto subDataset = createSubDatasetFromRowsFn(context.getMldbEngine(), rows);
 
             datasets.push_back(subDataset);
         }
     }
 
-    auto ds = createMergedDatasetFn(context.getMldbServer(), datasets);
+    auto ds = createMergedDatasetFn(context.getMldbEngine(), datasets);
 
     return bindDataset(ds, alias);
 }
@@ -203,7 +203,7 @@ BoundTableExpression sample(const SqlBindingScope & context,
                 "the 'sample' function");
     }
 
-    auto ds = createSampledDatasetFn(context.getMldbServer(),
+    auto ds = createSampledDatasetFn(context.getMldbEngine(),
                                      args[0].dataset,
                                      options);
 

@@ -165,7 +165,7 @@ struct PipelineExpressionScope:
         return outputInfo_;
     }
 
-    virtual MldbServer * getMldbServer() const;
+    virtual MldbEngine * getMldbEngine() const;
 
     virtual std::shared_ptr<Dataset> doGetDataset(const Utf8String & datasetName);
     virtual std::shared_ptr<Dataset> doGetDatasetFromConfig(const Any & datasetConfig);

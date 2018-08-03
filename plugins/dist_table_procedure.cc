@@ -277,7 +277,7 @@ DistTableProcedureConfigDescription()
 /*****************************************************************************/
     
 DistTableProcedure::
-DistTableProcedure(MldbServer * owner,
+DistTableProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -598,7 +598,7 @@ DistTableFunctionConfigDescription()
 }
 
 DistTableFunction::
-DistTableFunction(MldbServer * owner,
+DistTableFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)

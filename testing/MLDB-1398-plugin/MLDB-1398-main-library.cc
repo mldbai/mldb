@@ -7,6 +7,7 @@
 
 #include "mldb/core/plugin.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/server/mldb_server.h"
 #include <iostream>
 
 using namespace std;
