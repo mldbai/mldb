@@ -14,7 +14,7 @@ ds1.commit()
 #Despite this being an optimized path, we dont test for time because for 1M row its *only*
 #2 or 3 times faster and this would make the unit test too slow
 #but we do want a test for correctness
-res = mldb.get('/v1/query', q="SELECT * FROM dataset1 WHERE (x IS NOT null) AND rowName() != 'row_1'")
+res = mldb.get('/v1/query', q="SELECT * FROM dataset1 WHERE (x IS NOT null) AND rowName() != 'row_1' order by rowName() desc")
 
 expected = [
     {

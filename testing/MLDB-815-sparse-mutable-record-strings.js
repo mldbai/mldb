@@ -31,7 +31,7 @@ recordExample("ex3", 1, 2, "cat");
 dataset.commit()
 
 // Testcase will fail here until issue is fixed
-var resp = mldb.get("/v1/query", {q : 'SELECT * FROM test', format: 'table'});
+var resp = mldb.get("/v1/query", {q : 'SELECT * FROM test ORDER BY rowName() DESC', format: 'table'});
 
 plugin.log(resp.json);
 
