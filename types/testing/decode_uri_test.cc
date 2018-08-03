@@ -109,7 +109,7 @@ BOOST_AUTO_TEST_CASE(test_utf8)
 BOOST_AUTO_TEST_CASE(test_utf8_repetitions)
 {
     Utf8String in = "%C3%A9%C3%A9";
-    Utf8String expected = "éé";
+    Utf8String expected = u8"éé";
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
 }
 #endif
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(test_invalid_utf8)
     MLDB_TRACE_EXCEPTIONS(false);
     Utf8String in = "%C3";
 #if TOLERATE_URL_BAD_ENCODING
-    Utf8String expected = "Ã";
+    Utf8String expected = u8"Ã";
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
 #else
     BOOST_CHECK_THROW(Url::decodeUri(in), MLDB::Exception);
