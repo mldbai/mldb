@@ -36,31 +36,30 @@ class RowAggregatorTest(MldbUnitTest):
 
         
     def test_min_max(self):
-        resp = mldb.get("/v1/query", q = "SELECT min({*}) AS min, max({*}) AS max FROM test GROUP BY label");
+        resp = mldb.get("/v1/query", q = "SELECT min({*}) AS min, max({*}) AS max FROM test GROUP BY label ORDER BY rowName()");
+        self.maxDiff = None
         self.assertFullResultEquals(resp.json(),
                                     [
                                         {
                                             "columns" : [
-                                                [ "min.label", "cat", self.after_ts ],
-                                                [ "min.x", 0, self.ts ],
-                                                [ "min.y", 0, self.ts ],
-                                                [ "max.label", "cat", self.after_ts ],
+                                                [ "max.label", "cat", self.ts ],
                                                 [ "max.x", 1, self.after_ts ],
-                                                [ "max.y", 2, self.after_ts ]
+                                                [ "max.y", 2, self.after_ts ],
+                                                [ "min.label", "cat", self.ts ],
+                                                [ "min.x", 0, self.ts ],
+                                                [ "min.y", 0, self.ts ]
                                             ],
-                                            "rowHash" : "554f96c80ea05ddb",
                                             "rowName" : "\"[\"\"cat\"\"]\""
                                         },
                                         {
                                             "columns" : [
-                                                [ "min.label", "dog", self.before_ts ],
-                                                [ "min.x", 1, self.before_ts ],
-                                                [ "min.y", 1, self.before_ts ],
                                                 [ "max.label", "dog", self.before_ts ],
                                                 [ "max.x", 1, self.before_ts ],
-                                                [ "max.y", 1, self.before_ts ]
+                                                [ "max.y", 1, self.before_ts ],
+                                                [ "min.label", "dog", self.before_ts ],
+                                                [ "min.x", 1, self.before_ts ],
+                                                [ "min.y", 1, self.before_ts ]
                                             ],
-                                            "rowHash" : "d55e0e284796f79e",
                                             "rowName" : "\"[\"\"dog\"\"]\""
                                     }
                                     ]);
@@ -72,12 +71,10 @@ class RowAggregatorTest(MldbUnitTest):
                                     [
                                         {
                                             "rowName": "[0]",
-                                            "rowHash": "1d9a5ddf40663f6b",
                                             "columns": [ [ "sum", 0, self.ts ] ]
                                         },
                                         {
                                             "rowName": "[1]",
-                                            "rowHash": "2d7ea86e36813b82",
                                             "columns": [ [ "sum", 2, self.after_ts ] ]
                                         }
                                     ]);

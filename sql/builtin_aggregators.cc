@@ -722,8 +722,16 @@ struct MinMaxAccum {
         else {
             auto atom = val.getAtom();
             if (Cmp()(atom, value)) {
+                // less, simply replace it
                 value = atom;
                 ts = val.getEffectiveTimestamp();
+            }
+            else if (atom == value) {
+                // Equal, take the earliest timestamp so that the
+                // result is independent of order.  The minimum (or maximum)
+                // is equal to one of those values as soon as the first one
+                // is seen, so we take the minimum.
+                ts.setMin(val.getEffectiveTimestamp());
             }
         }
         //cerr << "ts now " << ts << endl;
@@ -741,9 +749,15 @@ struct MinMaxAccum {
             first = src->first;
             ts = src->ts;
         } 
-        else if (!src->first && Cmp()(src->value, value)) {
-            value = src->value;
-            ts = src->ts;
+        else if (!src->first) {
+            if (Cmp()(src->value, value)) {
+                value = src->value;
+                ts = src->ts;
+            }
+            else if (src->value == value) {
+                // Again, take the minimum timestamp (see comment in process)
+                ts.setMin(src->ts);
+            }
         }
     }
 
