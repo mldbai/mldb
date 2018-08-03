@@ -21,7 +21,7 @@
 #define MLDB_PURE_FN __attribute__((__pure__))
 #define MLDB_CONST_FN __attribute__((__const__))
 #define MLDB_WEAK_FN __attribute__((__weak__))
-#define MLDB_LIKELY(x) __builtin_expect((x), true)
+#define MLDB_LIKELY(x) __builtin_expect(bool(x), true)
 #define MLDB_UNLIKELY(x) __builtin_expect((x), false)
 #define MLDB_DEPRECATED __attribute__((__deprecated__))
 #define MLDB_ALIGNED(x) __attribute__((__aligned__(x)))
