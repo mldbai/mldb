@@ -157,6 +157,21 @@
 }
 
 {
+   ValueDescription recursive leak for Ubuntu 18.04
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znam
+   fun:getDefaultDescriptionUninitialized
+   ...
+   fun:RegisterValueDescriptionI
+   fun:__cxx_global_var_init.48
+   fun:call_init
+   fun:_dl_init
+   ...
+}
+
+
+{
    <insert_a_suppression_name_here>
    Memcheck:Leak
    fun:_Znwm
@@ -1042,4 +1057,11 @@
    ...
    fun:__static_initialization_and_destruction_0
    fun:_GLOBAL__sub_I_json_diff.cc
+}
+
+{
+   Gperftools github issue 792 false positive (mismatched free/delete in tcmalloc on purpose for performance reasons)
+   Memcheck:Free
+   fun:free
+   ...
 }
