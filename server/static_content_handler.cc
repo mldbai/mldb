@@ -184,7 +184,9 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
 
     if (dir.find("://") == string::npos)
         dir = "file://" + dir;
-
+    if (!dir.empty() && dir[dir.size()] != '/')
+        dir += '/';
+    
     return [dir, server, hideInternalEntities] (RestConnection & connection,
                   const RestRequest & request,
                   const RestRequestParsingContext & context)
