@@ -25,6 +25,9 @@ function assertEqual(expr, val, msg)
     if (JSON.stringify(expr) == JSON.stringify(val))
         return;
 
+    mldb.log("expected", val);
+    mldb.log("received", expr);
+    
     throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
         + " not equal to " + JSON.stringify(val);
 }
