@@ -1965,9 +1965,9 @@ StringJsonParsingContext(const char * str,
 Utf8StringJsonParsingContext::
 Utf8StringJsonParsingContext(Utf8String str_,
                              const std::string & filename)
-    : str(std::move(str_))
+    : str(new Utf8String(std::move(str_)))
 {
-    init(filename, str.rawData(), str.rawData() + str.rawLength());
+    init(filename, str->rawData(), str->rawData() + str->rawLength());
 }
 
 Utf8StringJsonParsingContext::
@@ -1978,5 +1978,9 @@ Utf8StringJsonParsingContext(const char * str,
     init(filename, str, len);
 }
 
+Utf8StringJsonParsingContext::
+~Utf8StringJsonParsingContext()
+{
+}
 
 }  // namespace MLDB
