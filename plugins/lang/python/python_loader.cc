@@ -971,8 +971,40 @@ class MldbUnitTest(unittest.TestCase):
 
     )code"; //this is python code
 
+#if 0    
+    boost::python::dict d(pyControl.main_namespace);
+
+    cerr << "main namespace values" << endl;
+    for (boost::python::stl_input_iterator<std::string> it(d.keys()), end;  it != end;  ++it) {
+            cerr << *it << endl;
+    }
+
+    boost::python::dict builtins(d["__builtins__"].attr("__dict__"));
+    
+    cerr << "builtin values" << endl;
+    for (boost::python::stl_input_iterator<std::string> it(builtins.keys()), end;  it != end;  ++it) {
+            cerr << *it << endl;
+    }
+#endif
+    
+    PyObject * out = PyRun_String(code.c_str(), Py_file_input, pyControl.main_namespace.ptr(), pyControl.main_namespace.ptr());
+    
+    if (!out) {
+        PyErr_Print();
+        throw boost::python::error_already_set();
+    }
+    else {
+        Py_DECREF(out);
+        cerr << "succeeded running string" << endl;
+    }
+
+
+#if 0    
+    
     auto pyCode = boost::python::str(code);
+    
     boost::python::exec(pyCode, pyControl.main_namespace);
+#endif
 }
 
 

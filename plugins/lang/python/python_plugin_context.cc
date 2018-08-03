@@ -61,10 +61,11 @@ PythonSubinterpreter::
 {
     acquireGil();
 
-    // release thread state
-    PyThreadState_Swap(NULL);
 
     PyThreadState_Clear(threadState);
+
+    // release thread state
+    PyThreadState_Swap(NULL);
     PyThreadState_Delete(threadState);
 
     // destroy the interpreter
