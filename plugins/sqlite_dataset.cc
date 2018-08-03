@@ -122,34 +122,92 @@ struct SqliteSparseDataset::Itl
         }
     };
 
-    struct Connection: public std::unique_ptr<Database> {
-        Connection(const Itl * owner, Database * db)
-            : std::unique_ptr<Database>(db), owner(owner)
+    struct ConnectionPool {
+        struct Connection: public std::unique_ptr<Database> {
+            Connection(const ConnectionPool * owner, Database * db)
+                : std::unique_ptr<Database>(db), owner(owner)
+            {
+            }
+
+            ~Connection()
+            {
+                owner->recycleConnection(release());
+            }
+
+            Connection(Connection &&) = default;
+
+            const ConnectionPool * owner;
+        };
+
+        std::string filename;
+        Utf8String id;
+
+        // Protects our connection pool
+        mutable std::mutex connectionsMutex;
+
+        // Connections go here to await for someone to reuse them
+        mutable std::vector<std::unique_ptr<Database> > unusedConnections;
+
+        ConnectionPool(const Url & url, const Utf8String & id,
+                       shared_ptr<spdlog::logger> logger)
         {
+            if (url.scheme() != "file" && !url.empty())
+                throw HttpReturnException(400, "SQLite database requires file:// "
+                                          "URI, passed '" + url.toUtf8String() + "'");
+            
+            this->filename = url.path();
+            this->id = id;
+        }
+        
+        void recycleConnection(Database * connection) const
+        {
+            if (!connection)
+                return;
+            std::unique_lock<std::mutex> guard(connectionsMutex);
+            unusedConnections.emplace_back(connection);
         }
 
-        ~Connection()
+        void initConnection(Database & connection) const
         {
-            owner->recycleConnection(release());
+            auto doCommand = [&] (const std::string & command)
+                {
+                    int res = connection.execute(command.c_str());
+                    if (res != SQLITE_OK) {
+                        throw MLDB::Exception("Error setting up connection: executing %s: %s",
+                                              command.c_str(), connection.error_msg());
+                    }
+                };
+
+            doCommand("PRAGMA busy_timeout=10000");
+            doCommand("PRAGMA journal_mode=WAL");
+            doCommand("PRAGMA synchronous=NORMAL");
+            doCommand("PRAGMA locking_mode=NORMAL");
+            doCommand("PRAGMA foreign_keys=ON");
+            doCommand("PRAGMA mmap_size=10000000000");
         }
 
-        Connection(Connection &&) = default;
-
-        const Itl * owner;
-
+        Connection getConnection() const
+        {
+            std::unique_lock<std::mutex> guard(connectionsMutex);
+            std::unique_ptr<Database> conn;
+            if (unusedConnections.empty()) {
+                conn.reset(new Database(filename, id));
+                initConnection(*conn);
+            }
+            else {
+                conn = std::move(unusedConnections.back());
+                unusedConnections.pop_back();
+            }
+            return Connection(this, conn.release());
+        }
     };
-
+    
     Itl(const Url & url, const Utf8String & id,
-        shared_ptr<spdlog::logger> logger) : logger(logger)
+        shared_ptr<spdlog::logger> logger)
+        : logger(logger),
+          connectionPool(url, id, logger)
     {
         initRoutes();
-
-        if (url.scheme() != "file" && !url.empty())
-            throw HttpReturnException(400, "SQLite database requires file:// "
-                                      "URI, passed '" + url.toUtf8String() + "'");
-
-        this->filename = url.path();
-        this->id = id;
 
         initDatabase();
     }
@@ -158,12 +216,12 @@ struct SqliteSparseDataset::Itl
     {
     }
 
-    std::string filename;
-    Utf8String id;
     shared_ptr<spdlog::logger> logger;
 
     RestRequestRouter router;
 
+    ConnectionPool connectionPool;
+    
     void initRoutes()
     {
     }
@@ -264,8 +322,10 @@ struct SqliteSparseDataset::Itl
     std::vector<Result>
     runQuery(const std::string & queryStr, Args&&... args) const
     {
-        auto db = getConnection();
+        auto db = connectionPool.getConnection();
 
+        //Date start = Date::now();
+        
         if (false) {
             string explainQuery = "EXPLAIN QUERY PLAN " + queryStr;
 
@@ -289,6 +349,8 @@ struct SqliteSparseDataset::Itl
 
         sqlite3pp::query query(*db, queryStr.c_str());
 
+        //Date prepared = Date::now();
+        
         bindArgs(query, 1, std::forward<Args>(args)...);
 
         std::vector<Result> result;
@@ -305,6 +367,10 @@ struct SqliteSparseDataset::Itl
             result.emplace_back(decodeQuery(*i, (Result *)0));
         }
 
+        //Date done = Date::now();
+
+        //cerr << "query " << queryStr << " time " << done.secondsSince(start) * 1000 << "ms" << " preparing " << prepared.secondsSince(start) * 1000 << "ms" << endl;
+        
         return result;
     }
 
@@ -317,6 +383,18 @@ struct SqliteSparseDataset::Itl
         return res[0];
     }
 
+    template<typename Result, typename... Args>
+    Result
+    runScalarQueryDefault(const std::string & queryStr, Result def,
+                          Args&&... args) const
+    {
+        auto res = runQuery<Result>(queryStr, std::forward<Args>(args)...);
+        if (res.size() == 0)
+            return def;
+        ExcAssertEqual(res.size(), 1);
+        return res[0];
+    }
+    
     virtual std::vector<RowPath>
     getRowPaths(ssize_t start = 0, ssize_t limit = -1) const
     {
@@ -373,7 +451,8 @@ struct SqliteSparseDataset::Itl
 
             string queryStr = "SELECT rowNum,rowName,rowHash FROM rows WHERE rowHash = ?";
 
-            sqlite3pp::query query(*getConnection(), queryStr.c_str());
+            auto connection = connectionPool.getConnection();            
+            sqlite3pp::query query(*connection, queryStr.c_str());
             bindArgs(query, 1, RowHash(rowName));
             
             Json::Value explanation;
@@ -441,17 +520,40 @@ struct SqliteSparseDataset::Itl
     /** Return the value of the column for all rows and timestamps. */
     virtual MatrixColumn getColumn(const ColumnPath & column) const
     {
+        //cerr << "getColumn " << column << " of " << getColumnCount() << endl;
         //auto colNum = runQuery<int>("SELECT colNum FROM cols WHERE colHash = ?",
         //                            column);
         auto rows = runQuery<std::tuple<RowPath, CellValue, Date> >
-            ("SELECT rows.rowName, vals.val, vals.ts FROM vals JOIN  rows ON vals.rowNum = rows.rowNum AND vals.colNum = (SELECT colNum FROM cols WHERE colName=?)",
-             column);
+            ("SELECT rows.rowName, vals.val, vals.ts FROM vals JOIN  rows ON vals.rowNum = rows.rowNum AND vals.colNum = (SELECT colNum FROM cols WHERE colHash =? AND colName=?)",
+             ColumnHash(column.hash()), column);
         MatrixColumn result;
         result.rows = std::move(rows);
         result.columnHash = result.columnName = column;
         return result;
     }
 
+    virtual uint64_t getColumnRowCount(const ColumnPath & column) const
+    {
+#if 0
+        int colNum = runScalarQueryDefault<int>("SELECT colNum FROM cols WHERE colHash = ? AND colName = ?", -1, ColumnHash(column), column);
+        if (colNum == -1)
+            return 0;
+        return runScalarQuery<size_t>("SELECT count(*) FROM vals WHERE colNum = ?", colNum);
+#endif
+
+        // Way faster, but unfortunately inaccurate...
+        //return runScalarQuery<size_t>("SELECT count(*) FROM vals WHERE colNum = (SELECT colNum FROM cols WHERE colHash = ? AND colName = ?)",
+        //                              ColumnHash(column), column);
+        return runScalarQuery<size_t>("SELECT count(DISTINCT rowNum) FROM vals WHERE colNum = (SELECT colNum FROM cols WHERE colHash = ? AND colName = ?)",
+                                      ColumnHash(column), column);
+    }
+    
+    virtual uint64_t getRowColumnCount(const RowPath & row) const
+    {
+        return runScalarQuery<size_t>("SELECT count(DISTINCT colNum) FROM vals WHERE rowNum = (SELECT rowNum FROM rows WHERE rowHash = ? AND rowName = ?)",
+                                      RowHash(row), row);
+    }
+    
     virtual int getRowNum(sqlite3pp::database & db, const RowPath & rowName)
     {
         RowHash rowHash(rowName);
@@ -540,7 +642,7 @@ struct SqliteSparseDataset::Itl
     {
         std::unique_lock<std::mutex> guard(writeLock);
 
-        auto db = getConnection();
+        auto db = connectionPool.getConnection();
 
         sqlite3pp::transaction trans(*db);
 
@@ -614,7 +716,7 @@ struct SqliteSparseDataset::Itl
     {
         std::unique_lock<std::mutex> guard(writeLock);
 
-        auto db = getConnection();
+        auto db = connectionPool.getConnection();
 
         auto doCommand = [&] (const std::string & command)
             {
@@ -660,54 +762,6 @@ struct SqliteSparseDataset::Itl
 
     // Unfortunately...
     mutable std::mutex writeLock;
-
-    // Protects our connection pool
-    mutable std::mutex connectionsMutex;
-
-    // Connections go here to await for someone to reuse them
-    mutable std::vector<std::unique_ptr<Database> > unusedConnections;
-
-    void recycleConnection(Database * connection) const
-    {
-        if (!connection)
-            return;
-        std::unique_lock<std::mutex> guard(connectionsMutex);
-        unusedConnections.emplace_back(connection);
-    }
-
-    void initConnection(Database & connection) const
-    {
-        auto doCommand = [&] (const std::string & command)
-            {
-                int res = connection.execute(command.c_str());
-                if (res != SQLITE_OK) {
-                    throw MLDB::Exception("Error setting up connection: executing %s: %s",
-                                        command.c_str(), connection.error_msg());
-                }
-            };
-
-        doCommand("PRAGMA busy_timeout=10000");
-        doCommand("PRAGMA journal_mode=WAL");
-        doCommand("PRAGMA synchronous=NORMAL");
-        doCommand("PRAGMA locking_mode=NORMAL");
-        doCommand("PRAGMA foreign_keys=ON");
-        doCommand("PRAGMA mmap_size=10000000000");
-    }
-
-    Connection getConnection() const
-    {
-        std::unique_lock<std::mutex> guard(connectionsMutex);
-        std::unique_ptr<Database> conn;
-        if (unusedConnections.empty()) {
-            conn.reset(new Database(filename, id));
-            initConnection(*conn);
-        }
-        else {
-            conn = std::move(unusedConnections.back());
-            unusedConnections.pop_back();
-        }
-        return Connection(this, conn.release());
-    }
 };
 
 

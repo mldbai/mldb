@@ -10,7 +10,6 @@ function createDataset()
         type: 'sqliteSparse',
         id: 'reddit_dataset',
         params: {
-            //dataFileUrl: 'file:///mnt/s3cache/jeremy/MLDB-574-reddit.sqlite'
             dataFileUrl: 'file://tmp/MLDB-574-reddit.sqlite'
         }
     };
@@ -87,6 +86,9 @@ function assertSucceeded(process, response)
 
 function createAndTrainProcedure(config, name)
 {
+    plugin.log("running procedure " + name);
+    config.params.runOnCreation = false;
+    
     var start = new Date();
 
     var createOutput = mldb.put("/v1/procedures/" + name, config);
@@ -127,6 +129,8 @@ var svdConfig = {
     params: {
         trainingData: { "from" : {"id": "reddit_dataset" },
                         "select": "COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000)"             
+                        //"select": "COLUMN EXPR (AS columnName() ORDER BY columnName() LIMIT 200)"
+                        //"select": "transpose(SELECT * FROM transpose(reddit_dataset) WHERE columnCount() > 100 ORDER BY columnCount() DESC, rowName() LIMIT 1000)"             
                       },
         columnOutputDataset: { "id": "reddit_svd_embedding", type: "embedding" }
     }
