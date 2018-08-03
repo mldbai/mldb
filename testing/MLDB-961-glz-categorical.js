@@ -1,11 +1,88 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+function appendPath(path, key)
+{
+    if (typeof key == 'string') {
+        return path + "." + key;
+    }
+    else if (typeof key == 'number') {
+        return path + '[' + key + ']';
+    }
+    throw new Error("can't append path");
+}
+
+function assertNearlyEqual(v1, v2, path, relativeError)
+{
+    if (v1 === v2)
+        return true;
+
+    //mldb.log("v1 = ", typeof v1, " v2 = ", typeof v2);
+    
+    if (typeof v1 != typeof v2) {
+        mldb.log("objects differ in type at path " + path + ": "
+                 + typeof v1 + " vs " + typeof v2);
+        return false;
+    }
+
+    if (typeof v1 == 'number') {
+        var av1 = Math.abs(v1);
+        var av2 = Math.abs(v2);
+        var smallest = av1 < av2 ? av1 : av2;
+        var largest = av1 < av2 ? av2 : av2;
+
+        var diff = Math.abs(v1 - v2);
+        var relative = diff / largest;
+
+        if (relative < relativeError)
+            return true;
+        
+        var percent = relative * 100.0;
+
+        mldb.log("numbers differ at path " + path + ": " + v1 + " vs " + v2
+                 + " has " + percent + "% relative error");
+        return false;
+    }
+    if (typeof v1 == 'string') {
+        mldb.log("strings differ at path " + path + ": " + v1 + " vs " + v2);
+        return false;
+    }
+    
+    var k1 = Object.getOwnPropertyNames(v1);
+    var k2 = Object.getOwnPropertyNames(v2);
+
+    var all = {};
+    for (var i = 0;  i < k1.length;  ++i) {
+        var k = k1[i];
+        all[k] = [v1[k], undefined ];
+    }
+    for (var i = 0;  i < k2.length;  ++i) {
+        var k = k2[i];
+        if (all.hasOwnProperty(k)) {
+            all[k] = [ all[k][0], v2[k] ];
+        }
+        else {
+            all[k] = [ undefined, v2[k] ];
+        }
+    }
+
+    var result = true;
+    
+    for (k in all) {
+        //mldb.log('key ', k, ' all[k]', all[k]);
+        if (!assertNearlyEqual(all[k][0], all[k][1], appendPath(path, k),
+                              relativeError)) {
+            result = false;
+        }
+    }
+
+    return result;
+}
+
 function assertEqual(expr, val, msg)
 {
-    if (expr == val)
+    if (assertNearlyEqual(expr, val, "", 0.0001)) {
         return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
+    }
 
     plugin.log("expected", val);
     plugin.log("received", expr);
@@ -80,7 +157,7 @@ var trainClassifierProcedureConfig = {
                 verbosity: 3,
                 normalize: false,
                 link_function: 'linear',
-                regularization: 'none',
+                regularization: 'l2',
                 condition: true
             }
         },
