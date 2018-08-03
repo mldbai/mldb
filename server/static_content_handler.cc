@@ -17,12 +17,13 @@
 #include "mldb/ext/hoedown/src/document.h"
 #include "mldb/ext/hoedown/src/escape.h"
 #include "mldb/rest/in_process_rest_connection.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/mldb_entity.h"
 #include "static_content_macro.h"
 #include "mldb/base/scope.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/compiler/filesystem.h"
+#include <sys/stat.h>
 
 
 using namespace std;
@@ -178,7 +179,7 @@ std::string renderMarkdown(const std::string & str, const MacroData & macroData)
 }
 
 RestRequestRouter::OnProcessRequest
-getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities)
+getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities)
 {
     //cerr << "getting dir " << dir << endl;
 
@@ -221,7 +222,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                     ML::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
-                    boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->httpBaseUrl);
+                    boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->prefixUrl("").rawString());
                     connection.sendResponse(200, result, mimeType);
                     return RestRequestRouter::MR_YES;
                 };
@@ -268,11 +269,11 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "<head>\n";
                 result += "<meta charset='utf-8' />\n";
                 result += "<title>MLDB Documentation</title>\n";
-                result += "<script src='" + server->prefixUrl("/resources/js/mathjax_TeX-AMS-MML_HTMLorMML.js") + "'></script>\n";
-                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/prism.css") + "'>\n";
-                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/doc.css") + "'>\n";
-                result += "<script src='" + server->prefixUrl("/resources/js/jquery-1.11.2.min.js") + "'></script>\n";
-                result += "<script src='" + server->prefixUrl("/resources/js/prism.js") + "'></script>\n";
+                result += "<script src='" + server->prefixUrl("/resources/js/mathjax_TeX-AMS-MML_HTMLorMML.js").rawString() + "'></script>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/prism.css").rawString() + "'>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/doc.css").rawString() + "'>\n";
+                result += "<script src='" + server->prefixUrl("/resources/js/jquery-1.11.2.min.js").rawString() + "'></script>\n";
+                result += "<script src='" + server->prefixUrl("/resources/js/prism.js").rawString() + "'></script>\n";
                 result += "<script>\n";
                 result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";
                 result += "  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n";
@@ -290,7 +291,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "</body>\n";
                 result += "</html>\n";
 
-                boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->httpBaseUrl);
+                boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->prefixUrl());
                 connection.sendResponse(200, result, mimeType);
                 return RestRequestRouter::MR_YES;
             }
@@ -352,7 +353,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
 void serveDocumentationDirectory(RestRequestRouter & parent,
                                  const std::string & route,
                                  const std::string & dir,
-                                 MldbServer * server,
+                                 MldbEngine * server,
                                  bool hideInternalEntities)
 {
     parent.addRoute(Rx(route + "(/.*)", "<resource>"),

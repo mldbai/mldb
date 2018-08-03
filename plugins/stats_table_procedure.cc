@@ -188,7 +188,7 @@ StatsTableProcedureConfigDescription()
 /*****************************************************************************/
 
 StatsTableProcedure::
-StatsTableProcedure(MldbServer * owner,
+StatsTableProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -383,7 +383,7 @@ StatsTableFunctionConfigDescription()
 }
 
 StatsTableFunction::
-StatsTableFunction(MldbServer * owner,
+StatsTableFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)
@@ -505,7 +505,7 @@ StatsTableDerivedColumnsGeneratorProcedureConfigDescription()
 
 
 StatsTableDerivedColumnsGeneratorProcedure::
-StatsTableDerivedColumnsGeneratorProcedure(MldbServer * owner,
+StatsTableDerivedColumnsGeneratorProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -640,7 +640,7 @@ BagOfWordsStatsTableProcedureConfigDescription()
 /*****************************************************************************/
 
 BagOfWordsStatsTableProcedure::
-BagOfWordsStatsTableProcedure(MldbServer * owner,
+BagOfWordsStatsTableProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -834,7 +834,7 @@ StatsTablePosNegFunctionConfigDescription()
 }
 
 StatsTablePosNegFunction::
-StatsTablePosNegFunction(MldbServer * owner,
+StatsTablePosNegFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)

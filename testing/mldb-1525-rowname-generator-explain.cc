@@ -10,6 +10,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
 #include "mldb/builtin/sub_dataset.h"
+#include "mldb/server/mldb_server.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

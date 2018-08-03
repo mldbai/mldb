@@ -108,7 +108,7 @@ struct SampledDataset::Itl
     std::vector<RowPath> sampledRows;
     std::vector<RowHash> sampledRowsHash;
 
-    Itl(MldbServer * server, std::shared_ptr<Dataset> dataset,
+    Itl(MldbEngine * server, std::shared_ptr<Dataset> dataset,
             const SampledDatasetConfig config)
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
@@ -286,7 +286,7 @@ struct SampledDataset::Itl
 /*****************************************************************************/
 
 SampledDataset::
-SampledDataset(MldbServer * owner,
+SampledDataset(MldbEngine * owner,
                   PolyConfig config,
                   const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -304,7 +304,7 @@ SampledDataset(MldbServer * owner,
 }
 
 SampledDataset::
-SampledDataset(MldbServer * owner,
+SampledDataset(MldbEngine * owner,
                std::shared_ptr<Dataset> dataset,
                const ExpressionValue & options)
     : Dataset(owner)
@@ -369,11 +369,11 @@ regSampled(builtinPackage(),
               "Dataset that samples another dataset",
               "datasets/SampledDataset.md.html");
 
-extern std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
+extern std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbEngine *,
                                                            std::shared_ptr<Dataset> dataset,
                                                            const ExpressionValue & options);
 
-std::shared_ptr<Dataset> createSampledDataset(MldbServer * server,
+std::shared_ptr<Dataset> createSampledDataset(MldbEngine * server,
                                               std::shared_ptr<Dataset> dataset,
                                               const ExpressionValue & options)
 {

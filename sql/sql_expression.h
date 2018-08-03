@@ -72,7 +72,7 @@ struct TupleExpression;
 struct GenerateRowsWhereFunction;
 struct SelectExpression;
 struct SqlBindingScope;
-struct MldbServer;
+struct MldbEngine;
 struct BasicRowGenerator;
 struct WhenExpression;
 struct TableOperations;
@@ -684,7 +684,7 @@ struct SqlBindingScope {
     /** Return the MLDB server behind this context.  Default returns a null
         pointer which means we're running outside of MLDB.
     */
-    virtual MldbServer * getMldbServer() const;
+    virtual MldbEngine * getMldbEngine() const;
 
     size_t functionStackDepth;
 };

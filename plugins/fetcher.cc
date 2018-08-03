@@ -94,7 +94,7 @@ FetcherOutputDescription::FetcherOutputDescription()
 }
 
 struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
-    FetcherFunction(MldbServer * owner,
+    FetcherFunction(MldbEngine * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
         : BaseT(owner, config)

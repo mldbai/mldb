@@ -22,7 +22,7 @@ struct hoedown_renderer_data;
 namespace MLDB {
 
 
-struct MldbServer;
+struct MldbEngine;
 
 
 /*****************************************************************************/
@@ -33,7 +33,7 @@ struct MacroData {
     MacroData() : server(nullptr) {}
     std::string dir;            ///< Base directory for serving
     bool hideInternalEntities;  ///< Are internal entities hidden from doc?
-    MldbServer * server;        ///< MLDB server we're running inside of
+    MldbEngine * server;        ///< MLDB server we're running inside of
 };
 
 

@@ -8,7 +8,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/function_collection.h"
 #include "mldb/server/dataset_collection.h"
 #include "mldb/http/http_exception.h"
@@ -27,8 +27,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 SqlExpressionMldbScope::
-SqlExpressionMldbScope(const MldbServer * mldb)
-    : mldb(const_cast<MldbServer *>(mldb))
+SqlExpressionMldbScope(const MldbEngine * mldb)
+    : mldb(const_cast<MldbEngine *>(mldb))
 {
     ExcAssert(mldb);
 }
@@ -43,7 +43,7 @@ doGetFunction(const Utf8String & tableName,
     // User functions don't live in table scope
     if (tableName.empty()) {
         // 1.  Try to get a function entity
-        auto fn = mldb->functions->tryGetExistingEntity(functionName.rawString());
+        auto fn = mldb->tryGetFunction(functionName);
 
         if (fn) {
             // We found one.  Now wrap it up as a normal function.
@@ -90,7 +90,7 @@ std::shared_ptr<Dataset>
 SqlExpressionMldbScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    return mldb->datasets->getExistingEntity(datasetName.rawString());
+    return mldb->getDataset(datasetName);
 }
 
 std::shared_ptr<Dataset>
@@ -111,9 +111,9 @@ doGetTable(const Utf8String & tableName)
     return bindDataset(doGetDataset(tableName), Utf8String()).table;
 }
 
-MldbServer *
+MldbEngine *
 SqlExpressionMldbScope::
-getMldbServer() const
+getMldbEngine() const
 {
     return mldb;
 }

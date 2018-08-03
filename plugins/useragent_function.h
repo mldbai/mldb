@@ -61,7 +61,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ParsedUserAgent);
 
 
 struct ParseUserAgentFunction: public ValueFunctionT<UserAgentParserArgs, ParsedUserAgent> {
-    ParseUserAgentFunction(MldbServer * owner,
+    ParseUserAgentFunction(MldbEngine * owner,
                            PolyConfig config,
                            const std::function<bool (const Json::Value &)> & onProgress);
 

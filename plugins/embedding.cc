@@ -1031,7 +1031,7 @@ struct EmbeddingDataset::Itl
 /*****************************************************************************/
 
 EmbeddingDataset::
-EmbeddingDataset(MldbServer * owner,
+EmbeddingDataset(MldbEngine * owner,
                  PolyConfig config,
                  const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -1239,7 +1239,7 @@ NearestNeighborsOutputDescription()
 }
 
 NearestNeighborsFunction::
-NearestNeighborsFunction(MldbServer * owner,
+NearestNeighborsFunction(MldbEngine * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)
@@ -1447,7 +1447,7 @@ ReadPixelsOutputDescription()
 }
 
 ReadPixelsFunction::
-ReadPixelsFunction(MldbServer * owner,
+ReadPixelsFunction(MldbEngine * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)
@@ -1562,7 +1562,7 @@ ProximateVoxelsOutputDescription()
 }
 
 ProximateVoxelsFunction::
-ProximateVoxelsFunction(MldbServer * owner,
+ProximateVoxelsFunction(MldbEngine * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

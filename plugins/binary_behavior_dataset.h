@@ -25,7 +25,7 @@ namespace MLDB {
 
 struct BinaryBehaviorDataset: public Dataset {
 
-    BinaryBehaviorDataset(MldbServer * owner,
+    BinaryBehaviorDataset(MldbEngine * owner,
                            PolyConfig config,
                            const ProgressFunc & onProgress);
     
@@ -57,7 +57,7 @@ struct BinaryBehaviorDataset: public Dataset {
 
 protected:
     // To initialize from a subclass
-    BinaryBehaviorDataset(MldbServer * owner);
+    BinaryBehaviorDataset(MldbEngine * owner);
 
     struct Itl;
     std::shared_ptr<Itl> itl;
@@ -87,7 +87,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MutableBinaryBehaviorDatasetConfig);
 
 struct MutableBinaryBehaviorDataset: public BinaryBehaviorDataset {
 
-    MutableBinaryBehaviorDataset(MldbServer * owner,
+    MutableBinaryBehaviorDataset(MldbEngine * owner,
                                   PolyConfig config,
                                   const ProgressFunc & onProgress);
     

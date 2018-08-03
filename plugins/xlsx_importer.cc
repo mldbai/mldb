@@ -668,7 +668,7 @@ struct Sheet {
 
 struct XlsxImporter: public Procedure {
 
-    XlsxImporter(MldbServer * owner,
+    XlsxImporter(MldbEngine * owner,
                  PolyConfig config_,
                  const std::function<bool (const Json::Value &)> & onProgress)
         : Procedure(owner)

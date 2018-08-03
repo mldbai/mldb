@@ -10,7 +10,7 @@
 
 #include "types/value_description_fwd.h"
 #include "server/plugin_resource.h"
-#include "server/mldb_server.h"
+#include "core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "sql/sql_expression.h"
@@ -94,7 +94,7 @@ typedef std::map<ColumnPath, StatsTable> StatsTablesMap;
 
 struct StatsTableProcedure: public Procedure {
 
-    StatsTableProcedure(MldbServer * owner,
+    StatsTableProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -123,7 +123,7 @@ struct StatsTableFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(StatsTableFunctionConfig);
 
 struct StatsTableFunction: public Function {
-    StatsTableFunction(MldbServer * owner,
+    StatsTableFunction(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -168,7 +168,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StatsTableDerivedColumnsGeneratorProcedureConfig);
 
 struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 
-    StatsTableDerivedColumnsGeneratorProcedure(MldbServer * owner,
+    StatsTableDerivedColumnsGeneratorProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -213,7 +213,7 @@ DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
 
 struct BagOfWordsStatsTableProcedure: public Procedure {
 
-    BagOfWordsStatsTableProcedure(MldbServer * owner,
+    BagOfWordsStatsTableProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -250,7 +250,7 @@ struct StatsTablePosNegFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);
 
 struct StatsTablePosNegFunction: public Function {
-    StatsTablePosNegFunction(MldbServer * owner,
+    StatsTablePosNegFunction(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 

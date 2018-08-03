@@ -8,7 +8,7 @@
 
 #include "probabilizer.h"
 #include "mldb/ml/jml/probabilizer.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
@@ -93,7 +93,7 @@ ProbabilizerConfigDescription()
 /*****************************************************************************/
 
 ProbabilizerProcedure::
-ProbabilizerProcedure(MldbServer * owner,
+ProbabilizerProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -214,7 +214,7 @@ struct ProbabilizeFunction::Itl {
 };
 
 ProbabilizeFunction::
-ProbabilizeFunction(MldbServer * owner,
+ProbabilizeFunction(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)
@@ -229,7 +229,7 @@ ProbabilizeFunction(MldbServer * owner,
 }
 
 ProbabilizeFunction::
-ProbabilizeFunction(MldbServer * owner,
+ProbabilizeFunction(MldbEngine * owner,
                    const ML::GLZ_Probabilizer & in)
     : Function(owner, PolyConfig())
 {

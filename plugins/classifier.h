@@ -87,7 +87,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ClassifierConfig);
 
 struct ClassifierProcedure: public Procedure {
 
-    ClassifierProcedure(MldbServer * owner,
+    ClassifierProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -116,7 +116,7 @@ struct ClassifyFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(ClassifyFunctionConfig);
 
 struct ClassifyFunction: public Function {
-    ClassifyFunction(MldbServer * owner,
+    ClassifyFunction(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -165,7 +165,7 @@ struct ClassifyFunction: public Function {
 /*****************************************************************************/
 
 struct ExplainFunction: public ClassifyFunction {
-    ExplainFunction(MldbServer * owner,
+    ExplainFunction(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 

@@ -71,7 +71,7 @@ struct SparseMatrixDataset: public Dataset {
 protected:
     struct Itl;
     std::shared_ptr<Itl> itl;
-    SparseMatrixDataset(MldbServer * owner);
+    SparseMatrixDataset(MldbEngine * owner);
 };
 
 
@@ -117,7 +117,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MutableSparseMatrixDatasetConfig);
 /** Live recordable and queryable sparse matrix dataset. */
 
 struct MutableSparseMatrixDataset: public SparseMatrixDataset {
-    MutableSparseMatrixDataset(MldbServer * owner,
+    MutableSparseMatrixDataset(MldbEngine * owner,
                                PolyConfig config,
                                const ProgressFunc & onProgress);
 

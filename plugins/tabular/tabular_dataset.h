@@ -39,7 +39,7 @@ DECLARE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
 
 struct TabularDataset : public Dataset {
 
-    TabularDataset(MldbServer * owner,
+    TabularDataset(MldbEngine * owner,
                    PolyConfig config,
                    const ProgressFunc & onProgress);
 
@@ -86,7 +86,7 @@ struct TabularDataset : public Dataset {
 
 protected:
     // To initialize from a subclass
-    TabularDataset(MldbServer * owner);
+    TabularDataset(MldbEngine * owner);
 
     struct TabularDataStore;
     std::shared_ptr<TabularDataStore> itl;

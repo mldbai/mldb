@@ -37,7 +37,7 @@ DECLARE_STRUCTURE_DESCRIPTION(TokenSplitConfig);
 /*****************************************************************************/
 
 struct TokenSplit: public Function {
-    TokenSplit(MldbServer * owner,
+    TokenSplit(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
     

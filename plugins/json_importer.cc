@@ -125,7 +125,7 @@ struct JsonRowScope : SqlRowScope {
 struct JsonScope : SqlExpressionMldbScope {
 
 
-    JsonScope(MldbServer * server) : SqlExpressionMldbScope(server){}
+    JsonScope(MldbEngine * server) : SqlExpressionMldbScope(server){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
                                 const ColumnPath & columnName) override
@@ -202,7 +202,7 @@ struct JsonScope : SqlExpressionMldbScope {
 
 struct JSONImporter: public Procedure {
 
-    JSONImporter(MldbServer * owner,
+    JSONImporter(MldbEngine * owner,
                  PolyConfig config_,
                  const std::function<bool (const Json::Value &)> & onProgress)
         : Procedure(owner)

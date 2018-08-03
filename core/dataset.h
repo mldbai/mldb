@@ -26,7 +26,7 @@
 
 namespace MLDB {
 
-struct MldbServer;
+struct MldbEngine;
 
 struct SqlExpression;
 struct SqlRowExpression;
@@ -358,7 +358,7 @@ struct DatasetRecorder: public Recorder {
     
     DatasetRecorder(Dataset * dataset);
 
-    DatasetRecorder(MldbServer * server,
+    DatasetRecorder(MldbEngine * server,
                     PolyConfig config,
                     std::function<bool (Json::Value)> onProgress);
 
@@ -390,11 +390,11 @@ private:
 /*****************************************************************************/
 
 struct Dataset: public MldbEntity {
-    Dataset(MldbServer * server);
+    Dataset(MldbEngine * server);
 
     virtual ~Dataset();
 
-    MldbServer * server;
+    MldbEngine * server;
     
     virtual Any getStatus() const = 0;
 
@@ -745,13 +745,13 @@ DECLARE_STRUCTURE_DESCRIPTION(PersistentDatasetConfig);
 /*****************************************************************************/
 
 std::shared_ptr<Dataset>
-obtainDataset(MldbServer * server,
+obtainDataset(MldbEngine * server,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress
                   = nullptr);
 
 std::shared_ptr<Dataset>
-createDataset(MldbServer * server,
+createDataset(MldbEngine * server,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress
               = nullptr,

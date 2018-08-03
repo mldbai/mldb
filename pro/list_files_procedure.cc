@@ -6,7 +6,7 @@
 
 #include "list_files_procedure.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -49,7 +49,7 @@ ListFilesProcedureConfigDescription()
 }
 
 ListFilesProcedure::
-ListFilesProcedure(MldbServer * owner,
+ListFilesProcedure(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

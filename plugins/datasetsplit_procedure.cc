@@ -68,7 +68,7 @@ SplitProcedureConfigDescription()
 /*****************************************************************************/
 
 SplitProcedure::
-SplitProcedure(MldbServer * owner,
+SplitProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

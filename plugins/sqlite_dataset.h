@@ -38,7 +38,7 @@ DECLARE_STRUCTURE_DESCRIPTION(SqliteSparseDatasetConfig);
 
 struct SqliteSparseDataset: public Dataset {
 
-    SqliteSparseDataset(MldbServer * owner,
+    SqliteSparseDataset(MldbEngine * owner,
                      PolyConfig config,
                      const ProgressFunc & onProgress);
     

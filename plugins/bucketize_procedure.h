@@ -30,7 +30,7 @@ DECLARE_STRUCTURE_DESCRIPTION(BucketizeProcedureConfig);
 struct BucketizeProcedure: public Procedure {
 
     BucketizeProcedure(
-        MldbServer * owner,
+        MldbEngine * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress);
 

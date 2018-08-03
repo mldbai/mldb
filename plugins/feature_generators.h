@@ -53,7 +53,7 @@ struct FeatureGeneratorOutput {
 DECLARE_STRUCTURE_DESCRIPTION(FeatureGeneratorOutput);
 
 struct HashedColumnFeatureGenerator: public ValueFunctionT<FeatureGeneratorInput, FeatureGeneratorOutput>  {
-    HashedColumnFeatureGenerator(MldbServer * owner,
+    HashedColumnFeatureGenerator(MldbEngine * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
     

@@ -55,7 +55,7 @@ DECLARE_STRUCTURE_DESCRIPTION(TsneConfig);
 // or externally
 struct TsneProcedure: public Procedure {
 
-    TsneProcedure(MldbServer * owner,
+    TsneProcedure(MldbEngine * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -96,7 +96,7 @@ struct TsneOutput {
 DECLARE_STRUCTURE_DESCRIPTION(TsneOutput);
 
 struct TsneEmbed: public ValueFunctionT<TsneInput, TsneOutput> {
-    TsneEmbed(MldbServer * owner,
+    TsneEmbed(MldbEngine * owner,
               PolyConfig config,
               const std::function<bool (const Json::Value &)> & onProgress);
     

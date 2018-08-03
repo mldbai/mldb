@@ -58,7 +58,7 @@ SentiWordNetImporterConfigDescription()
 
 struct SentiWordNetImporter: public Procedure {
 
-    SentiWordNetImporter(MldbServer * owner,
+    SentiWordNetImporter(MldbEngine * owner,
                  PolyConfig config_,
                  const std::function<bool (const Json::Value &)> & onProgress)
         : Procedure(owner)

@@ -40,7 +40,7 @@ DECLARE_STRUCTURE_DESCRIPTION(EmbeddingDatasetConfig);
 
 struct EmbeddingDataset: public Dataset {
 
-    EmbeddingDataset(MldbServer * owner,
+    EmbeddingDataset(MldbEngine * owner,
                      PolyConfig config,
                      const ProgressFunc & onProgress);
     
@@ -130,7 +130,7 @@ DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsOutput);
 struct NearestNeighborsFunction
     : public ValueFunctionT<NearestNeighborsInput, NearestNeighborsOutput> {
 
-    NearestNeighborsFunction(MldbServer * owner,
+    NearestNeighborsFunction(MldbEngine * owner,
                              PolyConfig config,
                              const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -180,7 +180,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ReadPixelsOutput);
 struct ReadPixelsFunction
     : public ValueFunctionT<ReadPixelsInput, ReadPixelsOutput> {
 
-    ReadPixelsFunction(MldbServer * owner,
+    ReadPixelsFunction(MldbEngine * owner,
                              PolyConfig config,
                              const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -233,7 +233,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsOutput);
 struct ProximateVoxelsFunction
     : public ValueFunctionT<ProximateVoxelsInput, ProximateVoxelsOutput> {
 
-    ProximateVoxelsFunction(MldbServer * owner,
+    ProximateVoxelsFunction(MldbEngine * owner,
                              PolyConfig config,
                              const std::function<bool (const Json::Value &)> & onProgress);
 

@@ -11,7 +11,7 @@
 
 #include "mldb/compiler/filesystem.h"
 
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/server/analytics.h"
 #include "mldb/plugins/sql_config_validator.h"
@@ -217,7 +217,7 @@ struct MLDBSVM_Problem : svm_problem
 /* SVM PROCEDURE                                                             */
 /*****************************************************************************/
 SVMProcedure::
-SVMProcedure(MldbServer * owner,
+SVMProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -387,7 +387,7 @@ struct SVMFunction::Itl {
 };
 
 SVMFunction::
-SVMFunction(MldbServer * owner,
+SVMFunction(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

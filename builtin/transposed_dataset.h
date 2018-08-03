@@ -30,12 +30,12 @@ DECLARE_STRUCTURE_DESCRIPTION(TransposedDatasetConfig);
 
 struct TransposedDataset: public Dataset {
 
-    TransposedDataset(MldbServer * owner,
+    TransposedDataset(MldbEngine * owner,
                       PolyConfig config,
                       const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a temporary transposition. */
-    TransposedDataset(MldbServer * owner,
+    TransposedDataset(MldbEngine * owner,
                       std::shared_ptr<Dataset> dataset);
 
     virtual ~TransposedDataset();

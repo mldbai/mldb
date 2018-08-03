@@ -4,7 +4,7 @@
 
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-    JS bindings for MLDB.
+    Javascript bindings for MLDB.
 */
 
 #include "mldb_js.h"
@@ -14,10 +14,12 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/server/dataset_context.h"
+#include "mldb/server/analytics.h"
 #include "procedure_js.h"
 #include "function_js.h"
 #include "dataset_js.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_utils.h"
 #include <random>
 
@@ -612,7 +614,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
             PolyConfig config = jsonDecode<PolyConfig>(configJson);
 
@@ -643,7 +645,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
             PolyConfig config = jsonDecode<PolyConfig>(configJson);
 
@@ -672,7 +674,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
             PolyConfig config = jsonDecode<PolyConfig>(configJson);
 
@@ -707,7 +709,7 @@ struct MldbJS::Methods {
         } HANDLE_JS_EXCEPTIONS(args);
     }
 
-    static v8::Handle<v8::Object> doPerform(MldbServer * server,
+    static v8::Handle<v8::Object> doPerform(MldbEngine * server,
                                             const std::string & verb,
                                             const Utf8String & resource,
                                             const RestParams & params,
@@ -762,7 +764,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
 
             RestParams params = JS::getArg<RestParams>(args, 1, {}, "params");
@@ -780,7 +782,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
             RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
@@ -794,7 +796,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
             RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
@@ -809,7 +811,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
             RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
@@ -823,7 +825,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             Json::Value payload = JS::getArg<Json::Value>(args, 1, Json::Value(), "payload");
             RestParams headers = JS::getArg<RestParams>(args, 2, RestParams(), "headers");
@@ -838,7 +840,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Utf8String resource = JS::getArg<Utf8String>(args, 0, "resource");
             RestParams headers = JS::getArg<RestParams>(args, 1, RestParams(), "headers");
 
@@ -853,7 +855,7 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             string verb = JS::getArg<std::string>(args, 0, "verb");
             Utf8String resource = JS::getArg<Utf8String>(args, 1, "resource");
             RestParams params = JS::getArg<RestParams>(args, 2, {}, "params");
@@ -1079,9 +1081,15 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
+            MldbEngine * server = MldbJS::getShared(args.This());
             Utf8String query = JS::getArg<Utf8String>(args, 0, "sql");
-            std::vector<MatrixNamedRow> result = server->query(query);
+
+
+            auto stm = SelectStatement::parse(query.rawString());
+            SqlExpressionMldbScope mldbContext(server);
+
+            std::vector<MatrixNamedRow> result
+                = queryFromStatement(stm, mldbContext, nullptr /*onProgress*/);
 
             args.GetReturnValue().Set(scope.Escape(JS::toJS(jsonEncode(result))));
         } HANDLE_JS_EXCEPTIONS(args);
@@ -1093,8 +1101,8 @@ struct MldbJS::Methods {
         v8::Isolate* isolate = args.GetIsolate();
         v8::EscapableHandleScope scope(isolate);
         try {
-            MldbServer * server = MldbJS::getShared(args.This());
-            args.GetReturnValue().Set(scope.Escape(JS::toJS(server->httpBoundAddress)));
+            MldbEngine * server = MldbJS::getShared(args.This());
+            args.GetReturnValue().Set(scope.Escape(JS::toJS(server->getHttpBoundAddress())));
         } HANDLE_JS_EXCEPTIONS(args);
     }
 
@@ -1128,11 +1136,11 @@ struct MldbJS::Methods {
     }
 };
 
-MldbServer *
+MldbEngine *
 MldbJS::
 getShared(const v8::Handle<v8::Object> & val)
 {
-    return reinterpret_cast<MldbServer *>
+    return reinterpret_cast<MldbEngine *>
         (v8::Handle<v8::External>::Cast
          (val->GetInternalField(0))->Value());
 }

@@ -66,7 +66,7 @@ struct MergedDataset::Itl
 
     shared_ptr<spdlog::logger> logger;
 
-    Itl(MldbServer * server, std::vector<std::shared_ptr<Dataset> > datasets)
+    Itl(MldbEngine * server, std::vector<std::shared_ptr<Dataset> > datasets)
         : logger(getMldbLog<MergedDataset>())
     {
         // 1.  Sort them so that the biggest ones are at the start
@@ -646,7 +646,7 @@ struct MergedDataset::Itl
 /*****************************************************************************/
 
 MergedDataset::
-MergedDataset(MldbServer * owner,
+MergedDataset(MldbEngine * owner,
               PolyConfig config,
               const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -663,7 +663,7 @@ MergedDataset(MldbServer * owner,
 }
 
 MergedDataset::
-MergedDataset(MldbServer * owner,
+MergedDataset(MldbEngine * owner,
               std::vector<std::shared_ptr<Dataset> > datasetsToMerge)
     : Dataset(owner)
 {
@@ -719,9 +719,9 @@ regMerged(builtinPackage(),
           "Merges together several datasets into one virtual dataset",
           "datasets/MergedDataset.md.html");
 
-extern std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> > datasets);
+extern std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbEngine *, std::vector<std::shared_ptr<Dataset> > datasets);
 
-std::shared_ptr<Dataset> createMergedDataset(MldbServer * server, std::vector<std::shared_ptr<Dataset> > datasets)
+std::shared_ptr<Dataset> createMergedDataset(MldbEngine * server, std::vector<std::shared_ptr<Dataset> > datasets)
 {
     return std::make_shared<MergedDataset>(server, datasets);
 }

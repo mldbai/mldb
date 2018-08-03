@@ -54,7 +54,7 @@ DECLARE_STRUCTURE_DESCRIPTION(AccuracyConfig);
 
 struct AccuracyProcedure: public Procedure {
 
-    AccuracyProcedure(MldbServer * owner,
+    AccuracyProcedure(MldbEngine * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
 

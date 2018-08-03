@@ -55,23 +55,23 @@ bool supportsSystemRequirements() {
 
 // Creation functions exposed elsewhere
 std::shared_ptr<PluginCollection>
-createPluginCollection(MldbServer * server, RestRouteManager & routeManager);
+createPluginCollection(MldbEngine * server, RestRouteManager & routeManager);
 
 std::shared_ptr<DatasetCollection>
-createDatasetCollection(MldbServer * server, RestRouteManager & routeManager);
+createDatasetCollection(MldbEngine * server, RestRouteManager & routeManager);
 
 std::shared_ptr<ProcedureCollection>
-createProcedureCollection(MldbServer * server, RestRouteManager & routeManager);
+createProcedureCollection(MldbEngine * server, RestRouteManager & routeManager);
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbServer * server, RestRouteManager & routeManager);
+createFunctionCollection(MldbEngine * server, RestRouteManager & routeManager);
 
 std::shared_ptr<CredentialRuleCollection>
-createCredentialCollection(MldbServer * server, RestRouteManager & routeManager,
+createCredentialCollection(MldbEngine * server, RestRouteManager & routeManager,
                       std::shared_ptr<CollectionConfigStore> configStore);
 
 std::shared_ptr<TypeClassCollection>
-createTypeClassCollection(MldbServer * server, RestRouteManager & routeManager);
+createTypeClassCollection(MldbEngine * server, RestRouteManager & routeManager);
 
 
 /*****************************************************************************/
@@ -576,28 +576,15 @@ getCacheDirectory() const
 
 Utf8String
 MldbServer::
-prefixUrl(Utf8String url) const
+prefixUrl(const Utf8String & url) const
 {
+    if (url.empty())
+        return httpBaseUrl;
+    
     if (url.startsWith("/")) {
         return httpBaseUrl + url;
     }
     return url;
-}
-
-string
-MldbServer::
-prefixUrl(string url) const
-{
-    Utf8String str(url);
-    return prefixUrl(str).rawString();
-}
-
-string
-MldbServer::
-prefixUrl(const char* url) const
-{
-    Utf8String str(url);
-    return prefixUrl(str).rawString();
 }
 
 InProcessRestConnection

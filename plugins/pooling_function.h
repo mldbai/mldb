@@ -7,7 +7,7 @@
 #pragma once
 
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/value_function.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/optional.h"
@@ -51,7 +51,7 @@ struct PoolingOutput {
 DECLARE_STRUCTURE_DESCRIPTION(PoolingOutput);
 
 struct PoolingFunction: public ValueFunctionT<PoolingInput, PoolingOutput> {
-    PoolingFunction(MldbServer * owner,
+    PoolingFunction(MldbEngine * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 

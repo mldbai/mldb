@@ -19,7 +19,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 ForwardedDataset::
-ForwardedDataset(MldbServer * server)
+ForwardedDataset(MldbEngine * server)
     : Dataset(server)
 {
 }

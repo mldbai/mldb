@@ -61,7 +61,7 @@ DECLARE_STRUCTURE_DESCRIPTION(KmeansConfig);
 
 struct KmeansProcedure: public Procedure {
 
-    KmeansProcedure(MldbServer * owner,
+    KmeansProcedure(MldbEngine * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -98,7 +98,7 @@ struct KmeansExpressionValue {
 DECLARE_STRUCTURE_DESCRIPTION(KmeansExpressionValue);
 
 struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansExpressionValue>  {
-    KmeansFunction(MldbServer * owner,
+    KmeansFunction(MldbEngine * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
     

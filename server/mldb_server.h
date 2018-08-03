@@ -10,6 +10,7 @@
 #pragma once
 
 #include "mldb/rest/service_peer.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/string.h"
 #include "mldb/rest/event_service.h"
@@ -47,7 +48,7 @@ struct MatrixNamedRow;
     the utility functions they require, and handles REST requests.
 */
 
-struct MldbServer: public ServicePeer, public EventRecorder {
+struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
 
     MldbServer(const std::string & serviceName = "mldb",
                const std::string & etcdUri = "",
@@ -146,10 +147,6 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     std::string httpBoundAddress;
     std::string httpBaseUrl;
 
-    Utf8String prefixUrl(Utf8String url) const;
-    std::string prefixUrl(std::string url) const;
-    std::string prefixUrl(const char* url) const;
-    
     InProcessRestConnection restPerform(
         const std::string & verb,
         const Utf8String & resource,
@@ -172,6 +169,86 @@ struct MldbServer: public ServicePeer, public EventRecorder {
         const RestParams & params = RestParams(),
         const Json::Value payload = Json::Value()) const;
 
+    virtual WatchT<Date> getTimer(Date nextExpiry, double period = -0.0,
+                                  std::function<void (Date)> toBind = nullptr)
+        override;
+
+
+    virtual RestDirectory * getDirectory() override;
+
+    virtual Utf8String prefixUrl(const Utf8String & url) const override;
+
+    virtual std::string getHttpBoundAddress() const override;
+    
+    virtual void addEntity(Utf8String name,
+                           std::shared_ptr<RestEntity> entity) override;
+    
+    virtual void handleRequest(RestConnection & connection,
+                               const RestRequest & request) const override;
+
+    virtual std::shared_ptr<Plugin>
+    obtainPluginSync(PolyConfig config,
+                     const OnProgress & onProgress) override;
+    
+    virtual std::shared_ptr<Plugin>
+    createPluginSync(PolyConfig config,
+                     const OnProgress & onProgress, bool overwrite = false)
+        override;
+
+    virtual std::shared_ptr<Plugin>
+    tryGetPlugin(const Utf8String & pluginName) const override;
+    
+    virtual std::shared_ptr<Plugin>
+    getPlugin(const Utf8String & pluginName) const override;
+        
+    virtual std::shared_ptr<Dataset>
+    obtainDatasetSync(PolyConfig config,
+                      const OnProgress & onProgress) override;
+
+    virtual std::shared_ptr<Dataset>
+    createDatasetSync(PolyConfig config,
+                      const OnProgress & onProgress, bool overwrite = false)
+        override;
+
+    virtual std::shared_ptr<Dataset>
+    tryGetDataset(const Utf8String & datasetName) const override;
+    
+    virtual std::shared_ptr<Dataset>
+    getDataset(const Utf8String & datasetName) const override;
+    
+    virtual std::shared_ptr<Function>
+    obtainFunctionSync(PolyConfig config,
+                       const OnProgress & onProgress) override;
+    
+    virtual std::shared_ptr<Function>
+    createFunctionSync(PolyConfig config,
+                       const OnProgress & onProgress, bool overwrite = false)
+        override;
+    
+    virtual std::shared_ptr<Function>
+    tryGetFunction(const Utf8String & functionName) const override;
+    
+    virtual std::shared_ptr<Function>
+    getFunction(const Utf8String & functionName) const override;
+    
+    virtual std::shared_ptr<Procedure>
+    obtainProcedureSync(PolyConfig config,
+                        const OnProgress & onProgress) override;
+
+    virtual std::shared_ptr<Procedure>
+    createProcedureSync(PolyConfig config,
+                        const OnProgress & onProgress, bool overwrite = false)
+        override;
+    
+    virtual std::shared_ptr<Procedure>
+    tryGetProcedure(const Utf8String & procedureName) const override;
+    
+    virtual std::shared_ptr<Procedure>
+    getProcedure(const Utf8String & procedureName) const override;
+
+    virtual RestEntity *
+    getProcedureCollection() const override;
+    
 private:
     void preInit();
     bool initRoutes();

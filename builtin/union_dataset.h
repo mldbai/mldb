@@ -29,12 +29,12 @@ DECLARE_STRUCTURE_DESCRIPTION(UnionDatasetConfig);
 
 struct UnionDataset: public Dataset {
 
-    UnionDataset(MldbServer * owner,
+    UnionDataset(MldbEngine * owner,
                  PolyConfig config,
                  const ProgressFunc & onProgress);
     
     /** Constructor used internally when creating a datasets */
-    UnionDataset(MldbServer * owner,
+    UnionDataset(MldbEngine * owner,
                  std::vector<std::shared_ptr<Dataset> > datasetsToMerge);
 
     virtual ~UnionDataset() override;

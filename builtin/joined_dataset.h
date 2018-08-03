@@ -37,7 +37,7 @@ DECLARE_STRUCTURE_DESCRIPTION(JoinedDatasetConfig);
 
 struct JoinedDataset: public Dataset {
 
-    JoinedDataset(MldbServer * owner,
+    JoinedDataset(MldbEngine * owner,
                   PolyConfig config,
                   const ProgressFunc & onProgress);
     

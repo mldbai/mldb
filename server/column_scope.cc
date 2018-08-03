@@ -26,7 +26,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 ColumnScope::
-ColumnScope(MldbServer * server, std::shared_ptr<Dataset> dataset)
+ColumnScope(MldbEngine * server, std::shared_ptr<Dataset> dataset)
     : SqlExpressionMldbScope(server), dataset(dataset)
 {
 }

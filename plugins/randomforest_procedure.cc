@@ -18,7 +18,7 @@
 #include "mldb/plugins/classifier.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/bound_queries.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/set_description.h"
@@ -87,7 +87,7 @@ RandomForestProcedureConfigDescription()
 /*****************************************************************************/
 
 RandomForestProcedure::
-RandomForestProcedure(MldbServer * owner,
+RandomForestProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

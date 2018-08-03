@@ -28,7 +28,7 @@
 namespace MLDB {
 
 struct Function;
-struct MldbServer;
+struct MldbEngine;
 struct SqlExpression;
 struct SqlRowExpression;
 struct ExpressionValueInfo;
@@ -139,11 +139,11 @@ struct FunctionApplier {
 
 struct Function: public MldbEntity {
 
-    Function(MldbServer * server, const PolyConfig& config);
+    Function(MldbEngine * server, const PolyConfig& config);
 
     virtual ~Function();
 
-    MldbServer * server;
+    MldbEngine * server;
     
     virtual Any getStatus() const = 0;
 
@@ -216,13 +216,13 @@ struct Function: public MldbEntity {
 
 
 std::shared_ptr<Function>
-createFunction(MldbServer * server,
+createFunction(MldbEngine * server,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress,
                bool overwrite);
 
 std::shared_ptr<Function>
-obtainFunction(MldbServer * server,
+obtainFunction(MldbEngine * server,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress
                    = nullptr);

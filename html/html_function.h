@@ -27,7 +27,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ParseHtmlConfig);
 /*****************************************************************************/
 
 struct ParseHtml: public Function {
-    ParseHtml(MldbServer * owner,
+    ParseHtml(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
     

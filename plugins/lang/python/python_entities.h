@@ -59,7 +59,7 @@ struct DatasetPy {
 
 struct PythonProcedure: public Procedure {
 
-    PythonProcedure(MldbServer * owner,
+    PythonProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -86,7 +86,7 @@ struct PythonProcedure: public Procedure {
 
 struct PythonFunction: public Function {
 
-    PythonFunction(MldbServer * owner,
+    PythonFunction(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 

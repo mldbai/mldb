@@ -38,7 +38,7 @@ Logging::Category mldbJsCategory("javascript");
  * initializing the rest of V8.
  */
 struct V8MldbPlatform: public v8::Platform {
-    V8MldbPlatform(MldbServer * server)
+    V8MldbPlatform(MldbEngine * server)
         : start(std::chrono::steady_clock::now()),
           shutdown(false),
           foregroundMessageLoop(std::bind(&V8MldbPlatform::runForegroundLoop,
@@ -63,7 +63,7 @@ struct V8MldbPlatform: public v8::Platform {
     }
 
     std::chrono::time_point<std::chrono::steady_clock> start;
-    MldbServer * server;
+    MldbEngine * server;
 
     /**
      * Gets the number of threads that are used to execute background tasks. Is
@@ -300,7 +300,7 @@ init(bool forThisThreadOnly)
 }
 
 V8Init::
-V8Init(MldbServer * server)
+V8Init(MldbEngine * server)
 {
     static std::atomic<bool> alreadyDone(false);
     if (alreadyDone)

@@ -9,7 +9,7 @@
 #pragma once
 
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 
 
@@ -40,7 +40,7 @@ DECLARE_STRUCTURE_DESCRIPTION(PermutationProcedureConfig);
 
 struct PermutationProcedure: public Procedure {
 
-    PermutationProcedure(MldbServer * owner,
+    PermutationProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 

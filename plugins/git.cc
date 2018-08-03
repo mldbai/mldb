@@ -194,7 +194,7 @@ GitImporterConfigDescription()
 
 struct GitImporter: public Procedure {
 
-    GitImporter(MldbServer * owner,
+    GitImporter(MldbEngine * owner,
                 PolyConfig config_,
                 const std::function<bool (const Json::Value &)> & onProgress)
         : Procedure(owner)

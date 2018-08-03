@@ -7,7 +7,7 @@
 */
 
 #include "nlp.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/sql/tokenize.h"
@@ -54,7 +54,7 @@ ApplyStopWordsFunctionConfigDescription()
 /*****************************************************************************/
                       
 ApplyStopWordsFunction::
-ApplyStopWordsFunction(MldbServer * owner,
+ApplyStopWordsFunction(MldbEngine * owner,
                        PolyConfig config,
                        const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)
@@ -124,7 +124,7 @@ StemmerFunctionConfigDescription()
 /*****************************************************************************/
 
 StemmerFunction::
-StemmerFunction(MldbServer * owner,
+StemmerFunction(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)
@@ -213,7 +213,7 @@ regStemmerFunction(builtinPackage(),
 /*****************************************************************************/
 
 StemmerOnDocumentFunction::
-StemmerOnDocumentFunction(MldbServer * owner,
+StemmerOnDocumentFunction(MldbEngine * owner,
                           PolyConfig config,
                           const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

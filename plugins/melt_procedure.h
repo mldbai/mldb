@@ -6,7 +6,7 @@
 #pragma once
 
 #include "types/value_description_fwd.h"
-#include "server/mldb_server.h"
+#include "core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 #include "sql/sql_expression.h"
 
@@ -46,7 +46,7 @@ DECLARE_STRUCTURE_DESCRIPTION(MeltProcedureConfig);
 
 struct MeltProcedure: public Procedure {
 
-    MeltProcedure(MldbServer * owner,
+    MeltProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 

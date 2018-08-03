@@ -77,7 +77,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ImportTextConfig);
 
 struct ImportTextProcedure: public Procedure {
 
-    ImportTextProcedure(MldbServer * owner,
+    ImportTextProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 

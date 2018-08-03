@@ -36,7 +36,7 @@ DECLARE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
 struct CsvExportProcedure: public Procedure {
 
     CsvExportProcedure(
-        MldbServer * owner,
+        MldbEngine * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress);
 

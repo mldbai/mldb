@@ -10,7 +10,7 @@
 #include "em.h"
 #include "mldb/ml/em.h"
 #include "matrix.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
 #include "mldb/utils/distribution.h"
@@ -108,7 +108,7 @@ EMConfigDescription()
 /*****************************************************************************/
 
 EMProcedure::
-EMProcedure(MldbServer * owner,
+EMProcedure(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -320,7 +320,7 @@ struct EMFunction::Impl {
 };
 
 EMFunction::
-EMFunction(MldbServer * owner,
+EMFunction(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

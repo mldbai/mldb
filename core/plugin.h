@@ -25,7 +25,7 @@ struct RestRequestParsingContext;
 
 namespace MLDB {
 
-struct MldbServer;
+struct MldbEngine;
 struct Plugin;
 
 typedef EntityType<Plugin> PluginType;
@@ -36,11 +36,11 @@ typedef EntityType<Plugin> PluginType;
 /*****************************************************************************/
 
 struct Plugin: MldbEntity {
-    Plugin(MldbServer * server);
+    Plugin(MldbEngine * server);
 
     virtual ~Plugin();
 
-    MldbServer * server;
+    MldbEngine * server;
     
     virtual std::string getKind() const
     {
@@ -98,7 +98,7 @@ struct SharedLibraryConfig {
 DECLARE_STRUCTURE_DESCRIPTION(SharedLibraryConfig);
 
 struct SharedLibraryPlugin: public Plugin {
-    SharedLibraryPlugin(MldbServer * server,
+    SharedLibraryPlugin(MldbEngine * server,
                         PolyConfig config,
                         std::function<bool (const Json::Value & progress)> onProgress);
 
@@ -128,7 +128,7 @@ struct SharedLibraryPlugin: public Plugin {
     // if not the given object will be used for the status, version
     // and request calls and for the documentation and static route calls
     // if no directory is configured in the configuration.
-    typedef Plugin * (*MldbPluginEnterV100) (MldbServer * server);
+    typedef Plugin * (*MldbPluginEnterV100) (MldbEngine * server);
 private:
     struct Itl;
 
@@ -141,13 +141,13 @@ private:
 /*****************************************************************************/
 
 std::shared_ptr<Plugin>
-obtainPlugin(MldbServer * server,
+obtainPlugin(MldbEngine * server,
              const PolyConfig & config,
              const std::function<bool (const Json::Value & progress)> & onProgress
                  = nullptr);
 
 std::shared_ptr<Plugin>
-createPlugin(MldbServer * server,
+createPlugin(MldbEngine * server,
              const PolyConfig & config,
              const std::function<bool (const Json::Value & progress)> & onProgress
                  = nullptr);

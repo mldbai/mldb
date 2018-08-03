@@ -26,7 +26,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ParseHtmlConfig);
 /*****************************************************************************/
 
 struct ParseHtml: public Function {
-    ParseHtml(MldbServer * owner,
+    ParseHtml(MldbEngine * owner,
               PolyConfig config,
               const std::function<bool (const Json::Value &)> & onProgress);
     
@@ -56,7 +56,7 @@ struct ExtractLinksConfig {
 DECLARE_STRUCTURE_DESCRIPTION(ExtractLinksConfig);
 
 struct ExtractLinks: public Function {
-    ExtractLinks(MldbServer * owner,
+    ExtractLinks(MldbEngine * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress);
     

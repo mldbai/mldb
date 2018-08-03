@@ -12,7 +12,7 @@
 
 #include <Python.h>
 
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/plugin.h"
 #include "mldb/core/procedure.h"
@@ -35,6 +35,7 @@
 #include "mldb/http/http_exception.h"
 
 #include "mldb/rest/rest_request_binding.h"
+#include "mldb/rest/rest_entity.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/dtoa.h"
 
@@ -46,6 +47,7 @@
 #include "datetime.h"
 
 #include <signal.h>
+#include <fcntl.h>
 
 using namespace std;
 using namespace MLDB::Python;
@@ -196,7 +198,7 @@ pyExec(Utf8String code,
 /*****************************************************************************/
 
 struct PythonPlugin: public Plugin {
-    PythonPlugin(MldbServer * server,
+    PythonPlugin(MldbEngine * server,
                      PolyConfig config,
                      std::function<bool (const Json::Value & progress)> onProgress);
     
@@ -250,7 +252,7 @@ struct PythonPlugin: public Plugin {
 
 
 PythonPlugin::
-PythonPlugin(MldbServer * server,
+PythonPlugin(MldbEngine * server,
              PolyConfig config,
              std::function<bool (const Json::Value & progress)> onProgress)
     : Plugin(server), initialGetStatus(true)
@@ -504,7 +506,7 @@ handleTypeRoute(RestDirectory * server,
                                                    "", scriptConfig);
         try {
             scriptCtx = std::make_shared<PythonScriptContext>(
-                "script runner", static_cast<MldbServer *>(server), pluginRez);
+                "script runner", dynamic_cast<MldbEngine *>(server), pluginRez);
         }
         catch(const std::exception & exc) {
             conn.sendResponse(

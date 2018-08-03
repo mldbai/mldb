@@ -9,7 +9,7 @@
 
 #include "mldb/core/plugin.h"
 #include "mldb/server/plugin_collection.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/rest/rest_request_router.h"
@@ -29,8 +29,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 Plugin::
-Plugin(MldbServer * server)
-    : server(static_cast<MldbServer *>(server))
+Plugin(MldbEngine * server)
+    : server(static_cast<MldbEngine *>(server))
 {
 }
 
@@ -171,7 +171,7 @@ struct SharedLibraryPlugin::Itl {
 
         dlerror();  // clear existing error
 
-        auto * fn = (MldbPluginEnterV100 )dlsym(handle, "_Z19mldbPluginEnterV100PN4MLDB10MldbServerE");
+        auto * fn = (MldbPluginEnterV100 )dlsym(handle, "_Z19mldbPluginEnterV100PN4MLDB10MldbEngineE");
 
         if (fn) {
             Plugin * plugin = fn(owner->server);
@@ -194,7 +194,7 @@ struct SharedLibraryPlugin::Itl {
 };
 
 SharedLibraryPlugin::
-SharedLibraryPlugin(MldbServer * server,
+SharedLibraryPlugin(MldbEngine * server,
                     PolyConfig config,
                     std::function<bool (const Json::Value & progress)> onProgress)
     : Plugin(server),

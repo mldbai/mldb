@@ -70,7 +70,7 @@ DECLARE_STRUCTURE_DESCRIPTION(RandomForestProcedureConfig);
 
 struct RandomForestProcedure: public Procedure {
 
-    RandomForestProcedure(MldbServer * owner,
+    RandomForestProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 

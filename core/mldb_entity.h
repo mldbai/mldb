@@ -19,7 +19,7 @@ struct ServicePeer;
 
 namespace MLDB {
 
-struct MldbServer;
+struct MldbEngine;
 
 
 /** This is the builtin package, which comes linked in to MLDB.  All
@@ -46,19 +46,24 @@ struct MldbEntity: public PolyEntity {
 
     virtual std::string getKind() const = 0;
 
-    static MldbServer * getOwner(RestDirectory * peer)
+    static MldbEngine * getOwner(RestDirectory * peer)
     {
         // TODO: go through proper upcast that knows both types in cc file
-        return (MldbServer *)peer;
+        return (MldbEngine *)peer;
     }
 
-    static MldbServer * getOwner(ServicePeer * peer)
+    static MldbEngine * getOwner(ServicePeer * peer)
     {
         // TODO: go through proper upcast that knows both types in cc file
-        return (MldbServer *)peer;
+        return (MldbEngine *)peer;
     }
 
-    static RestDirectory * getPeer(MldbServer * server)
+    static MldbEngine * getOwner(MldbEngine * peer)
+    {
+        return peer;
+    }
+
+    static RestDirectory * getPeer(MldbEngine * server)
     {
         // TODO: go through proper downcast
         return (RestDirectory *)server;

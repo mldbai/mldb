@@ -10,7 +10,7 @@
 #include "classifier.h"
 #include "mldb/ml/jml/classifier.h"
 #include "dataset_feature_space.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/sql_expression.h"
@@ -155,7 +155,7 @@ ClassifierConfigDescription()
 /*****************************************************************************/
 
 ClassifierProcedure::
-ClassifierProcedure(MldbServer * owner,
+ClassifierProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -1020,7 +1020,7 @@ struct ClassifyFunction::Itl {
 };
 
 ClassifyFunction::
-ClassifyFunction(MldbServer * owner,
+ClassifyFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config)
@@ -1359,7 +1359,7 @@ getFunctionInfo() const
 /*****************************************************************************/
 
 ExplainFunction::
-ExplainFunction(MldbServer * owner,
+ExplainFunction(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress)
     : ClassifyFunction(owner, config, onProgress)

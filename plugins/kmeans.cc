@@ -9,7 +9,7 @@
 #include "mldb/utils/distribution_simd.h"
 #include "kmeans.h"
 #include "matrix.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
@@ -121,7 +121,7 @@ ML::KMeansMetric * makeMetric(MetricSpace metric)
 /*****************************************************************************/
 
 KmeansProcedure::
-KmeansProcedure(MldbServer * owner,
+KmeansProcedure(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -359,7 +359,7 @@ struct KmeansFunction::Impl {
 };
 
 KmeansFunction::
-KmeansFunction(MldbServer * owner,
+KmeansFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner, config)

@@ -15,7 +15,7 @@
 
 namespace MLDB {
 
-struct MldbServer;
+struct MldbEngine;
 
 
 /*****************************************************************************/
@@ -98,12 +98,12 @@ struct RandomNumberGeneratorJS: public JsObjectBase {
 
 struct MldbJS: public JsObjectBase {
 
-    std::shared_ptr<MldbServer> mldb;
+    std::shared_ptr<MldbEngine> mldb;
 
     static v8::Handle<v8::Object>
-    create(std::shared_ptr<MldbServer> mldb, JsPluginContext * context);
+    create(std::shared_ptr<MldbEngine> mldb, JsPluginContext * context);
 
-    static MldbServer *
+    static MldbEngine *
     getShared(const v8::Handle<v8::Object> & val);
 
     static JsPluginContext * getContext(const v8::Handle<v8::Object> & val);

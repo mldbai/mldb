@@ -52,7 +52,7 @@ struct TransposedDataset::Itl
     std::shared_ptr<ColumnIndex> index;
     size_t columnCount;
 
-    Itl(MldbServer * server, std::shared_ptr<Dataset> dataset)
+    Itl(MldbEngine * server, std::shared_ptr<Dataset> dataset)
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
           index(dataset->getColumnIndex()),
@@ -323,7 +323,7 @@ struct TransposedDataset::Itl
 /*****************************************************************************/
 
 TransposedDataset::
-TransposedDataset(MldbServer * owner,
+TransposedDataset(MldbEngine * owner,
                   PolyConfig config,
                   const ProgressFunc & onProgress)
     : Dataset(owner)
@@ -337,7 +337,7 @@ TransposedDataset(MldbServer * owner,
 }
 
 TransposedDataset::
-TransposedDataset(MldbServer * owner,
+TransposedDataset(MldbEngine * owner,
                   std::shared_ptr<Dataset> dataset)
     : Dataset(owner)
 {
@@ -397,15 +397,15 @@ regTransposed(builtinPackage(),
               "Dataset that interchanges rows and columns",
               "datasets/TransposedDataset.md.html");
 
-extern std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
-extern std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbServer *, const TableOperations& table);
+extern std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbEngine *, std::shared_ptr<Dataset> dataset);
+extern std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbEngine *, const TableOperations& table);
 
-std::shared_ptr<Dataset> createTransposedDataset(MldbServer * server, std::shared_ptr<Dataset> dataset)
+std::shared_ptr<Dataset> createTransposedDataset(MldbEngine * server, std::shared_ptr<Dataset> dataset)
 {  
     return std::make_shared<TransposedDataset>(server, dataset);
 }
 
-std::shared_ptr<Dataset> createTransposedTable(MldbServer * server, const TableOperations& table)
+std::shared_ptr<Dataset> createTransposedTable(MldbEngine * server, const TableOperations& table)
 {
     SqlBindingScope dummyScope;
     auto generator = table.runQuery(dummyScope,

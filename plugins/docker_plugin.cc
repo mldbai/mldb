@@ -105,7 +105,7 @@ struct InternalPluginCommunication: public ExternalPluginCommunication {
 /*****************************************************************************/
 
 DockerPluginStartup::
-DockerPluginStartup(MldbServer * server,
+DockerPluginStartup(MldbEngine * server,
                     PolyConfig pconfig,
                     std::function<bool (const Json::Value & progress)> onProgress)
     : server(server)
@@ -147,7 +147,7 @@ start()
 
     dlerror();  // clear existing error
 
-    typedef Plugin * (*RegisterFnType) (MldbServer *);
+    typedef Plugin * (*RegisterFnType) (MldbEngine *);
 
     auto registerPlugin =  (RegisterFnType) dlsym(handle, "mldbPluginEnter");
     

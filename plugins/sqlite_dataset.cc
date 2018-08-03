@@ -770,7 +770,7 @@ struct SqliteSparseDataset::Itl
 /*****************************************************************************/
 
 SqliteSparseDataset::
-SqliteSparseDataset(MldbServer * owner,
+SqliteSparseDataset(MldbEngine * owner,
                     PolyConfig config,
                     const ProgressFunc & onProgress)
     : Dataset(owner)

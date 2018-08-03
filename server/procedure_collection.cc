@@ -10,7 +10,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/poly_collection_impl.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/server/procedure_collection.h"
 #include "procedure_run_collection.h"
 #include "mldb/rest/in_process_rest_connection.h"
@@ -24,27 +24,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<ProcedureCollection>
-createProcedureCollection(MldbServer * server, RestRouteManager & routeManager)
+createProcedureCollection(MldbEngine * server, RestRouteManager & routeManager)
 {
     return createCollection<ProcedureCollection>(2, "procedure", "procedures",
-                                                 server, routeManager);
+                                                 server->getDirectory(),
+                                                 routeManager);
 }
 
 std::shared_ptr<Procedure>
-obtainProcedure(MldbServer * server,
+obtainProcedure(MldbEngine * server,
                 const PolyConfig & config,
-                const MldbServer::OnProgress & onProgress)
+                const MldbEngine::OnProgress & onProgress)
 {
-    return server->procedures->obtainEntitySync(config, onProgress);
+    return server->obtainProcedureSync(config, onProgress);
 }
 
 std::shared_ptr<Procedure>
-createProcedure(MldbServer * server,
+createProcedure(MldbEngine * server,
                 const PolyConfig & config,
                 const std::function<bool (const Json::Value & progress)> & onProgress,
                 bool overwrite)
 {
-    return server->procedures->createEntitySync(config, onProgress, overwrite);
+    return server->createProcedureSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<ProcedureType>
@@ -71,8 +72,9 @@ registerProcedureType(const Package & package,
 /*****************************************************************************/
 
 ProcedureCollection::
-ProcedureCollection(MldbServer * server)
-    : PolyCollection<Procedure>("procedure", "procedures", server),
+ProcedureCollection(MldbEngine * server)
+    : PolyCollection<Procedure>("procedure", "procedures",
+                                server->getDirectory()),
       mldb(server)
 {
 }

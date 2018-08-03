@@ -13,7 +13,7 @@
 
 namespace MLDB {
 
-struct MldbServer;
+struct MldbEngine;
 struct Plugin;
 struct Algorithm;
 struct Procedure;
@@ -32,7 +32,7 @@ template<typename Base> struct TypeCollection;
 /** Our collection of types, categorized by parent type. */
 
 struct TypeClassCollection: public RestDirectory {
-    TypeClassCollection(MldbServer * server);
+    TypeClassCollection(MldbEngine * server);
 
     static void initRoutes(RouteManager & manager);
 

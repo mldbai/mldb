@@ -47,7 +47,7 @@ struct JsFunctionThreadData {
 };
 
 struct JsFunctionData {
-    MldbServer * server;
+    MldbEngine * server;
     ThreadSpecificInstanceInfo<JsFunctionThreadData, void> threadInfo;
     Utf8String scriptSource;
     std::string filenameForErrorMessages;
@@ -231,7 +231,7 @@ BoundFunction bindJsEval(const Utf8String & name,
 
     // 2.  Create the runner, including test compiling the script
     auto runner = std::make_shared<JsFunctionData>();
-    runner->server = context.getMldbServer();
+    runner->server = context.getMldbEngine();
     runner->scriptSource = scriptSource;
     runner->filenameForErrorMessages = "<<eval>>";
     runner->context.reset(new JsPluginContext(name, runner->server,

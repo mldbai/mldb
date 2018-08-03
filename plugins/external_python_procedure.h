@@ -37,7 +37,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ExternalPythonProcedureConfig);
 
 struct ExternalPythonProcedure: public Procedure {
 
-    ExternalPythonProcedure(MldbServer * owner,
+    ExternalPythonProcedure(MldbEngine * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 

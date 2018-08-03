@@ -73,9 +73,9 @@ struct ReadThroughBindingScope: public SqlBindingScope {
     virtual std::shared_ptr<Dataset>
     doGetDatasetFromConfig(const Any & datasetConfig);
 
-    virtual MldbServer * getMldbServer() const
+    virtual MldbEngine * getMldbEngine() const
     {
-        return outer.getMldbServer();
+        return outer.getMldbEngine();
     }
 };
 
@@ -131,9 +131,9 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
         return ColumnScope(columnName, val);
     }
     
-    virtual MldbServer * getMldbServer() const
+    virtual MldbEngine * getMldbEngine() const
     {
-        return outer.getMldbServer();
+        return outer.getMldbEngine();
     }
 
     // Only so we can return a good error message

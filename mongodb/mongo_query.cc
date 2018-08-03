@@ -67,7 +67,7 @@ MongoQueryConfigDescription()
 
 struct MongoQueryFunction: Function {
     MongoQueryFunction(
-        MldbServer * owner,
+        MldbEngine * owner,
         PolyConfig config,
         const std::function<bool (const Json::Value &)> & onProgress)
             : Function(owner, config)

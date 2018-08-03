@@ -18,7 +18,7 @@
 using namespace std;
 
 MLDB::Plugin *
-mldbPluginEnterV100(MLDB::MldbServer * server)
+mldbPluginEnterV100(MLDB::MldbEngine * server)
 {
     return nullptr;
 }
@@ -119,7 +119,7 @@ struct PostgresqlDataset: public Dataset {
 
     PostgresqlDatasetConfig config_;
 
-    PostgresqlDataset(MldbServer * owner,
+    PostgresqlDataset(MldbEngine * owner,
                  PolyConfig config,
                  const ProgressFunc & onProgress)
         : Dataset(owner)
@@ -352,7 +352,7 @@ struct PostgresqlRecorderDataset: public Dataset {
         return startPostgresqlConnection(config_.databaseName, config_.host, config_.port);
     }
 
-    PostgresqlRecorderDataset(MldbServer * owner,
+    PostgresqlRecorderDataset(MldbEngine * owner,
                  PolyConfig config,
                  const ProgressFunc & onProgress)
         : Dataset(owner)
@@ -606,7 +606,7 @@ struct PostgresqlImportProcedure: public Procedure {
 
     PostgresqlImportConfig procedureConfig;
 
-    PostgresqlImportProcedure(MldbServer * server,
+    PostgresqlImportProcedure(MldbEngine * server,
                          const PolyConfig & config,
                          std::function<bool (Json::Value)> onProgress)
         : Procedure(server)
@@ -714,7 +714,7 @@ struct PostgresqlQueryFunction : public Function
 {
     PostgresqlQueryFunctionConfig functionConfig;
 
-    PostgresqlQueryFunction(MldbServer * owner,
+    PostgresqlQueryFunction(MldbEngine * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress)
         : Function(owner, config)

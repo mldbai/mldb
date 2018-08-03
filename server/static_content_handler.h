@@ -17,11 +17,11 @@ struct RestRequestRouter;
 
 namespace MLDB {
 
-struct MldbServer;
+struct MldbEngine;
 
 RestRequestRouter::OnProcessRequest
 getStaticRouteHandler(std::string dir,
-                      MldbServer * server,
+                      MldbEngine * server,
                       bool hideInternalEntities = false);
 
 /** Serve up the given directory for documentation.  This will transform
@@ -31,7 +31,7 @@ getStaticRouteHandler(std::string dir,
 void serveDocumentationDirectory(RestRequestRouter & parent,
                                  const std::string & route,
                                  const std::string & dir,
-                                 MldbServer * server,
+                                 MldbEngine * server,
                                  bool hideInternalEntities = false);
 
 } // namespace MLDB

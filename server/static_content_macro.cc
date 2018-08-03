@@ -13,13 +13,13 @@
 #include "mldb/ext/hoedown/src/document.h"
 #include "mldb/ext/hoedown/src/escape.h"
 #include "mldb/rest/in_process_rest_connection.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/mldb_entity.h"
 #include "mldb/base/scope.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/types/value_description.h"
-
+#include "mldb/http/http_exception.h"
 
 using namespace std;
 
@@ -50,12 +50,12 @@ std::string insertAfterFragment(const std::string & uri, const std::string & toI
 }
 
 static std::string getTypeName(const ValueDescription & description,
-                               MldbServer * server)
+                               MldbEngine * server)
 {
     std::string resultSoFar;
     std::string closing;
     if (!description.documentationUri.empty()) {
-        resultSoFar += "<a href=\"" + server->prefixUrl(insertAfterFragment(description.documentationUri, ".html")) + "\">";
+        resultSoFar += "<a href=\"" + server->prefixUrl(insertAfterFragment(description.documentationUri, ".html")).rawString() + "\">";
         closing = "</a>";
     }
 

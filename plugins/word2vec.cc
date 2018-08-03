@@ -43,7 +43,7 @@ struct SqlWord2VecScope: public SqlExpressionMldbScope {
         Date ts;
     };
 
-    SqlWord2VecScope(MldbServer * server,
+    SqlWord2VecScope(MldbEngine * server,
                 Date fileTimestamp)
         : SqlExpressionMldbScope(server),
           fileTimestamp(fileTimestamp)
@@ -154,7 +154,7 @@ Word2VecImporterConfigDescription()
 
 struct Word2VecImporter: public Procedure {
 
-    Word2VecImporter(MldbServer * owner,
+    Word2VecImporter(MldbEngine * owner,
                  PolyConfig config_,
                  const std::function<bool (const Json::Value &)> & onProgress)
         : Procedure(owner)

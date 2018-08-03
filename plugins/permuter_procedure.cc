@@ -46,7 +46,7 @@ PermutationProcedureConfigDescription()
 /*****************************************************************************/
 
 PermutationProcedure::
-PermutationProcedure(MldbServer * owner,
+PermutationProcedure(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)

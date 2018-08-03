@@ -7,7 +7,7 @@
 
 #include "html_plugin.h"
 #include "parse_html.h"
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/html/ext/hubbub/parser.h"
@@ -295,7 +295,7 @@ ParseHtmlConfigDescription()
 }
 
 ParseHtml::
-ParseHtml(MldbServer * owner,
+ParseHtml(MldbEngine * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)

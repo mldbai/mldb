@@ -981,7 +981,7 @@ struct SparseMatrixDataset::Itl
 /*****************************************************************************/
 
 SparseMatrixDataset::
-SparseMatrixDataset(MldbServer * owner)
+SparseMatrixDataset(MldbEngine * owner)
     : Dataset(owner)
 {
 }
@@ -1776,7 +1776,7 @@ MutableSparseMatrixDatasetConfigDescription()
 struct MutableSparseMatrixDataset::Itl
     : public SparseMatrixDataset::Itl {
 
-    Itl(MldbServer * server,
+    Itl(MldbEngine * server,
         double timeQuantumSeconds,
         WriteTransactionLevel consistencyLevel,
         TransactionFavor favor) 
@@ -1796,7 +1796,7 @@ struct MutableSparseMatrixDataset::Itl
              std::make_shared<MutableBaseMatrix>(mode));
     }
 
-    MldbServer * server;
+    MldbEngine * server;
     
     /** This is a recorder that is designed to have each thread record
         chunks in a deterministic manner.
@@ -1886,7 +1886,7 @@ struct MutableSparseMatrixDataset::Itl
 /** Live recordable and queryable sparse matrix dataset. */
 
 MutableSparseMatrixDataset::
-MutableSparseMatrixDataset(MldbServer * owner,
+MutableSparseMatrixDataset(MldbEngine * owner,
                            PolyConfig config,
                            const ProgressFunc & onProgress)
     : SparseMatrixDataset(owner)

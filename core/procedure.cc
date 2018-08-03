@@ -12,7 +12,7 @@
 #include "mldb/server/procedure_run_collection.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include <mutex>
-#include "mldb/server/mldb_server.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/plugin.h"
 #include "mldb/core/function.h"
@@ -117,9 +117,9 @@ RunOutputDescription()
 /*****************************************************************************/
 
 Procedure::
-Procedure(MldbServer * server)
-    : server(static_cast<MldbServer *>(server)),
-      runs(new ProcedureRunCollection(server, this))
+Procedure(MldbEngine * server)
+    : server(static_cast<MldbEngine *>(server)),
+      runs(new ProcedureRunCollection(server->getDirectory(), this))
 {
 }
 
@@ -161,7 +161,7 @@ RestEntity *
 Procedure::
 getParent() const
 {
-    return server->procedures.get();
+    return server->getProcedureCollection();
 }
 
 Any
@@ -209,7 +209,7 @@ NullProcedureConfigDescription()
 }
 
 NullProcedure::
-NullProcedure(MldbServer * server, const PolyConfig & config,
+NullProcedure(MldbEngine * server, const PolyConfig & config,
              const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(server)
 {
@@ -278,7 +278,7 @@ SerialProcedureStatusDescription()
 }
 
 SerialProcedure::
-SerialProcedure(MldbServer * server, const PolyConfig & config,
+SerialProcedure(MldbEngine * server, const PolyConfig & config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(server)
 {
@@ -393,7 +393,7 @@ CreateEntityProcedureOutputDescription()
 DECLARE_STRUCTURE_DESCRIPTION(CreateEntityProcedureOutput);
 
 CreateEntityProcedure::
-CreateEntityProcedure(MldbServer * server, const PolyConfig & config,
+CreateEntityProcedure(MldbEngine * server, const PolyConfig & config,
                      const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(server)
 {
