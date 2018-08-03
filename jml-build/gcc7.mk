@@ -1,7 +1,7 @@
-GCC?=gcc-7
-GXX?=g++-7
+GXX_VERSION_MAJOR:=7
+GCC?=$(COMPILER_CACHE) gcc-7
+GXX?=$(COMPILER_CACHE) g++-7
 
 include $(JML_BUILD)/gcc.mk
 
 GCC_VERSION_WARNING_FLAGS:=-Wno-noexcept-type
-GXX_VERSION_MAJOR:=7

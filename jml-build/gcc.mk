@@ -1,7 +1,11 @@
+ifneq ($(GCC_MK_INCLUDED),1)
+GCC_MK_INCLUDED:=1
 GCC?=$(if $(DEFAULTGCC),$(DEFAULTGCC),gcc)
 GXX?=$(if $(DEFAULTGXX),$(DEFAULTGXX),g++)
 GCC_VERSION:=$(shell $(GXX) --version | head -n1 | sed 's/.* //g')
 CXX_VERSION?=$(GCC_VERSION)
+GXX_VERSION_MAJOR?=$(strip $(shell $(GXX) -dM -E - < /dev/null | grep __GNUC__ | sed 's/.* //g'))
+$(warning GXX_VERSION_MAJOR=$(GXX_VERSION_MAJOR))
 CXX:=$(COMPILER_CACHE) $(GXX)
 CC:=$(COMPILER_CACHE) $(GCC)
 BUILDING_WITH_GCC:=1
@@ -37,3 +41,7 @@ $(if $(findstring x5.1,x$(CXX_VERSION)),$(eval CXXFLAGS += -Wno-unused-local-typ
 
 # Library name of filesystem
 STD_FILESYSTEM_LIBNAME:=stdc++fs
+
+include $(JML_BUILD)/gcc$(GXX_VERSION_MAJOR).mk
+
+endif
