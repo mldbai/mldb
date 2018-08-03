@@ -26,7 +26,6 @@
             std::string msg__ =                                         \
                 MLDB::format("%s: %s", message, #condition);              \
             MLDB::do_abort();                                             \
-	    std::terminate();						\
             throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,          \
                     __FILE__, __LINE__);                                \
         }                                                               \
@@ -46,7 +45,6 @@
                     message, #value1, #value2, v1__.c_str(),            \
                     v2__.c_str());                                      \
             MLDB::do_abort();                                             \
-	    std::terminate();						\
             throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,	\
                                         __FILE__, __LINE__);            \
         }                                                               \
@@ -59,7 +57,6 @@
             std::string msg__ = MLDB::format("%s: %s(%d)",                \
                     message, strerror(errno), errno);                   \
             MLDB::do_abort();                                             \
-	    std::terminate();						\
             throw exc_type(msg__.c_str(), __PRETTY_FUNCTION__,	\
                     __FILE__, __LINE__);                                \
         }                                                               \
