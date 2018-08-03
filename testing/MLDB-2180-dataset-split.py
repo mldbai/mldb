@@ -58,6 +58,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
             "type": "split",
             "params": {
                 "labels": "SELECT * FROM ds1",
+                "reproducible": True,
                 "splits": [0.8, 0.2],
                 "outputDatasets": [{ "id": "ds_train",
                                    "type": "sparse.mutable" },
@@ -66,21 +67,22 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
             }
         })   
 
-        res1 = mldb.query("SELECT * FROM ds_train")
-        res2 = mldb.query("SELECT * FROM ds_test")
+        res1 = mldb.query("SELECT * FROM ds_train ORDER BY rowName() DESC")
+        res2 = mldb.query("SELECT * FROM ds_test ORDER BY rowName() DESC")
 
         self.assertEquals(res1, [["_rowName", "y", "x"],
                                  ["3", 1, None ],
-                                 ["1", None, 1 ]])
+                                 ["0", None, 1 ]])
 
         self.assertEquals(res2, [["_rowName", "y", "x"],
                                  ["2", 1, None ],
-                                 ["0", None, 1 ]])
+                                 ["1", None, 1 ]])
 
     def test_testnointersection(self):
         mldb.put("/v1/procedures/split", {
             "type": "split",
             "params": {
+                "reproducible": True,
                 "labels": "SELECT * FROM ds2",
                 "splits": [0.8, 0.2],
                 "outputDatasets": [{ "id": "ds_train",
@@ -107,6 +109,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         mldb.put("/v1/procedures/split", {
             "type": "split",
             "params": {
+                "reproducible": True,
                 "labels": "SELECT * FROM ds3",
                 "splits": [0.8, 0.2],
                 "outputDatasets": [{ "id": "ds_train",
@@ -135,6 +138,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         mldb.put("/v1/procedures/split", {
             "type": "split",
             "params": {
+                "reproducible": True,
                 "labels": "SELECT * FROM ds4",
                 "splits": [0.8, 0.2],
                 "foldImportance" : 1.0,
@@ -146,22 +150,23 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         })   
 
         n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_train", format='atom').json()
-        self.assertEqual(18, n)
+        self.assertEqual(19, n)
         n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_test", format='atom').json()
-        self.assertEqual(6, n)
+        self.assertEqual(5, n)
 
         res1 = mldb.query("SELECT sum({*}) FROM ds_train")
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
 
         self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
-                                 ["[]", 8, 12, 7 ]])
+                                 ["[]", 8, 11, 7 ]])
 
         self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
-                                 ["[]", 2, 3, 2 ]])
+                                 ["[]", 2, 4, 2 ]])
 
         mldb.put("/v1/procedures/split", {
             "type": "split",
             "params": {
+                "reproducible": True,
                 "labels": "SELECT * FROM ds4",
                 "splits": [0.8, 0.2],
                 "foldImportance" : 5.0,
@@ -181,16 +186,17 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
 
         self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
-                                 ["[]", 8, 12, 8 ]])
+                                 ["[]", 8, 11, 6 ]])
 
         self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
-                                 ["[]", 2, 3, 1 ]])
+                                 ["[]", 2, 4, 3 ]])
 
     def test_threesplits(self):
 
         mldb.put("/v1/procedures/split", {
             "type": "split",
             "params": {
+                "reproducible": True,
                 "labels": "SELECT * FROM ds4",
                 "splits": [0.8, 0.1, 0.1],
                 "foldImportance" : 1.0,
@@ -204,9 +210,9 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         })   
 
         n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_train", format='atom').json()
-        self.assertEqual(18, n)
+        self.assertEqual(19, n)
         n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_test", format='atom').json()
-        self.assertEqual(3, n)
+        self.assertEqual(2, n)
         n = mldb.get('/v1/query', q="SELECT count(*) FROM ds_validate", format='atom').json()
         self.assertEqual(3, n)
 
@@ -215,18 +221,19 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res3 = mldb.query("SELECT sum({*}) FROM ds_validate")
 
         self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
-                                 ["[]", 8, 12, 7 ]])
+                                 ["[]", 8, 11, 7 ]])
 
         self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
-                                 ["[]", 1, 1, 1 ]])
+                                 ["[]", 1, 2, 1 ]])
 
         self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
-                                 ["[]", 1, 1, 1 ]])
+                                 ["[]", 1, 2, 1 ]])
 
     def test_incomplete(self):
         res = mldb.put("/v1/procedures/split", {
             "type": "split",
             "params": {
+                "reproducible": True,
                 "labels": "SELECT * FROM ds5",
                 "splits": [0.8, 0.2],
                 "outputDatasets": [{ "id": "ds_train",
@@ -255,6 +262,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
                 "params": {
+                    "reproducible": True,
                     "labels": "SELECT * FROM ds5",
                     "splits": [0.8, 0.2, 0.3],
                     "outputDatasets": [{ "id": "ds_train",
@@ -269,6 +277,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
                 "params": {
+                    "reproducible": True,
                     "labels": "SELECT * FROM ds5",
                     "splits": [0.8],
                     "outputDatasets": [{ "id": "ds_train",
@@ -281,6 +290,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
                 "params": {
+                    "reproducible": True,
                     "labels": "SELECT * FROM ds5",
                     "splits": [0.8, 0.1],
                     "outputDatasets": [{ "id": "ds_train",

@@ -49,6 +49,16 @@ SplitProcedureConfigDescription()
              "Importance of respecting the splits versus the distribution of the labels."
              "0 will optimize the distribution of the labels only, while 1.0 will weight them equally.",
              1.0f);    
+    addAuto("reproducible", &SplitProcedureConfig::reproducible,
+            "Use a lower performance random shuffle algorithm that is "
+            "guaranteed to give the same results for all platforms on "
+            "which MLDB runs.  This is primarily useful for tests.  Note "
+            "that the algorithm is always deterministic no matter what "
+            "the setting of `reproducible`.");
+    addAuto("randomSeed", &SplitProcedureConfig::randomSeed,
+            "Random number seed used for split.  Zero means do not seed. "
+            "Changing this number will result in a different random "
+            "partition being produced.");
     addParent<ProcedureConfig>();
 }
 
@@ -72,6 +82,28 @@ getStatus() const
 {
     return Any();
 }
+
+namespace {
+
+// From here https://en.cppreference.com/w/cpp/algorithm/random_shuffle
+// License: https://en.cppreference.com/w/Cppreference:FAQ
+// CC-BY-SA 3.0 and GFDL dual licensed, so no issues with using it
+template<class RandomIt, class URBG>
+void reproducible_shuffle(RandomIt first, RandomIt last, URBG&& g)
+{
+    typedef typename std::iterator_traits<RandomIt>::difference_type diff_t;
+    typedef std::uniform_int_distribution<diff_t> distr_t;
+    typedef typename distr_t::param_type param_t;
+ 
+    distr_t D;
+    diff_t n = last - first;
+    for (diff_t i = 1; i < n; ++i) {
+        using std::swap;
+        swap(first[i], first[D(g, param_t(0, i))]);
+    }
+}
+
+} // file scope
 
 RunOutput
 SplitProcedure::
@@ -138,7 +170,16 @@ run(const ProcedureRunConfig & run,
 
     //Shuffle to prevent any aliasing effect
     std::minstd_rand rng;
-    std::shuffle(rowPaths.begin(), rowPaths.end(), rng);
+    if (runProcConf.randomSeed != 0)
+        rng.seed(runProcConf.randomSeed);
+
+    if (!runProcConf.reproducible) {
+        std::shuffle(rowPaths.begin(), rowPaths.end(), rng);
+    }
+    else {
+        // reproducible (basic) shuffle algorithm
+        reproducible_shuffle(rowPaths.begin(), rowPaths.end(), rng);
+    }
 
     size_t numFolds = runProcConf.splits.size();
     std::vector<size_t> distributions(numFolds); //Rows per Fold

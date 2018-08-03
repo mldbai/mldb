@@ -22,16 +22,12 @@ namespace MLDB {
 struct SplitProcedureConfig : public ProcedureConfig {
     static constexpr const char * name = "split";
 
-    SplitProcedureConfig()
-    {
-
-    }
-
     InputQuery labels;
     std::vector<PolyConfigT<Dataset>> outputDatasets;
     std::vector<float> splits;
     float foldImportance = 1.0f;
-
+    bool reproducible = true;
+    uint64_t randomSeed = 0;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SplitProcedureConfig);
