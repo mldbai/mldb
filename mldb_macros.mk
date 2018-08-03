@@ -56,6 +56,10 @@ endef
 
 .PHONY: mldb_plugins
 
+# Plugins may depend upon core MLDB libraries, so make sure they have
+# them in their rpath directories
+MLDB_PLUGIN_EXTRA_LINK_OPTIONS:=-Wl,--rpath,$(LIB)
+
 # Add an MLDB plugin library
 #
 # Synopsis:
