@@ -82,60 +82,138 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
         checkArgsSize(args.size(), 3);
 
         auto getCol = [] (const ExpressionValue & eVal,
-                          const PathElement & columnName)
-        {
-            ExpressionValue col = eVal.getColumn(columnName);
-            if (col.empty()) {
-                throw MLDB::Exception("Cound not find required column '"+
-                        columnName.toUtf8String().rawString()+"'");
-            }
-            return col;
-        };
-
+                          const PathElement & columnName,
+                          ExpressionValue & storage)
+            -> const ExpressionValue &
+            {
+                const ExpressionValue * col = eVal.tryGetColumn(columnName,
+                                                                storage);
+                if (!col) {
+                    throw MLDB::Exception("Cound not find required column '"+
+                                          columnName.toUtf8String().rawString()+"'");
+                }
+                return *col;
+            };
+        
         if(!args[0].isRow()) {
             throw MLDB::Exception("argument 1 must be a row representing a GeoJson geometry");
         }
 
+        //cerr << "parsing geometry " << args[0].extractJson() << endl;
+        
         // GeoJson should have a type key telling us we are dealing
         // with a polygon
-        ExpressionValue typeCol = getCol(args[0], "type");
+        ExpressionValue typeStorage;
+        const ExpressionValue & typeCol = getCol(args[0], "type", typeStorage);
+
         string geomType = typeCol.getAtom().toString();
         if(geomType != "Polygon" && geomType != "MultiPolygon")
             throw MLDB::Exception("unknown polygon type: " + geomType);
 
-        ExpressionValue coordsCol = getCol(args[0], "coordinates");
+        //cerr << "geo type is " << geomType << endl;
 
-        auto parsePolygon = [] (S2Builder & polyBuilder, const ExpressionValue& coords)
+        ExpressionValue coordsStorage;
+        const ExpressionValue & coordsCol = getCol(args[0], "coordinates",
+                                                   coordsStorage);
+
+        // Avoid allocations by keeping it here
+        vector<S2Point> points;
+
+        auto parsePolygon = [&points]
+            (S2Builder & polyBuilder,
+             const ExpressionValue& coords)
         {
-            size_t numLoop = coords.rowLength();
+            //cerr << "parsePolygon " << coords.extractJson() << endl;
 
-            for (int i = 0; i < numLoop; ++i) {
-                
-                ExpressionValue coordi = coords.getColumn(i);
-
+            auto onCol = [&] (const PathElement & el,
+                              const ExpressionValue & coordi) -> bool
+            {
                 size_t numPt = coordi.rowLength();
-
-                vector<S2Point> points;
-                points.resize(numPt);
+                points.clear();
+                points.reserve(numPt);
 
                 std::function<bool (const PathElement & columnName,
                                     const ExpressionValue & val)>
                 onPoint = [&] (const PathElement & columnName,
                                const ExpressionValue & val) -> bool
                 {
-                    double lat1 = val.getColumn(1).getAtom().toDouble();
-                    double lon1 = val.getColumn(0).getAtom().toDouble();
-                    points[columnName.toIndex()] = S2Point(S2LatLng::FromDegrees(lat1, lon1).Normalized().ToPoint());
+                    auto extractDouble = [&] (int el) -> double
+                    {
+                        ExpressionValue storage;
+                        const ExpressionValue * v
+                        = val.tryGetColumn(el, storage);
+                        if (!v)
+                            throw HttpReturnException
+                                (400, "GeoJSON points should be [lat,long]; got "
+                                 + jsonEncodeStr(val.extractJson()));
+                        return v->getAtom().toDouble();
+                    };
+                    
+                    double lat1 = extractDouble(1);
+                    double lon1 = extractDouble(0);
+                    
+                    points.emplace_back(S2LatLng::FromDegrees(lat1, lon1)
+                                        .Normalized().ToPoint());
+                        
+                    // Don't add a degenerate point
+                    if (points.size() > 1
+                        && points.back() == points[points.size() - 2])
+                        points.pop_back();
+
                     return true;
                 };
 
                 coordi.forEachColumn(onPoint);
+                
+                // Loop is implicitly closed, so if it's explicitly closed
+                // remove the last value
+                if (!points.empty() && points.front() == points.back())
+                    points.pop_back();
+
+                //cerr << "loop has " << points.size() << " points" << endl;
+
+                // It's not possible to define a polygon with less than three
+                // edges; this will cause an exception if we let it pass but
+                // occurs in the wild.
+                if (points.size() < 3)
+                    return true;
+                
                 S2Loop loop(points);
-                if(i>0) 
+
+                S2Error error;
+                if (loop.FindValidationError(&error)) {
+                    // Note that there may be some points filtered out
+                    cerr << "error in loop: " << error.text() << endl;
+                    cerr << "points.size() = " << points.size() << endl;
+                    cerr << coords.extractJson() << endl;
+
+                    //throw HttpReturnException
+                    //    (400, "Error interpreting GeoJson polygon: S2: "
+                    //     + error.text(),
+                    //     "coordinates", coords.extractJson(),
+                    //     "numDistinctPointsExcludingDuplicates",
+                    //     points.size());                    
+                }
+                
+                // https://tools.ietf.org/html/rfc7946#section-3.1.6
+                // Anything apart from the first is interior, ie a hole
+                // in the first.  This makes it depth one.
+                if(el.toIndex()>0) 
                     loop.set_depth(1);
 
+                //cerr << "valid = " << loop.IsValid() << endl;
+                //cerr << "normalized = " << loop.IsNormalized() << endl;
+                //cerr << "area = " << loop.GetArea() << endl;
+
+                // Many in the wild geo-JSON files don't respect exct orders
+                loop.Normalize();
+                
                 polyBuilder.AddLoop(std::move(loop));
-            }          
+
+                return true;
+            };
+
+            coords.forEachColumn(onCol);
         };
 
         S2Builder::Options options;
@@ -152,7 +230,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
             std::function<bool (const PathElement & columnName,
                                 const ExpressionValue & val)>
             onPolygon = [&] (const PathElement & columnName,
-                           const ExpressionValue & val) -> bool
+                             const ExpressionValue & val) -> bool
             {
                 S2Builder multiPolyBuilder(options);                
                 S2Polygon poly;

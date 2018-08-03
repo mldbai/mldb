@@ -41,9 +41,12 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
                 outer join interventions
             ) 
             WHERE contains = 1
-            group by quartiers.properties.Arrondissement
+            GROUP BY quartiers.properties.Arrondissement
+            ORDER BY quartiers.properties.Arrondissement
         """)
 
+        mldb.log(res)
+        
         self.assertTableResultEquals(res, [
             [
                 "_rowName",
