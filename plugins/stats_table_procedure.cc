@@ -814,16 +814,20 @@ DEFINE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);
 StatsTablePosNegFunctionConfigDescription::
 StatsTablePosNegFunctionConfigDescription()
 {
-    addField("numPos", &StatsTablePosNegFunctionConfig::numPos,
-            "Number of top positive words to use", ssize_t(50));
-    addField("numNeg", &StatsTablePosNegFunctionConfig::numNeg,
-            "Number of top negative words to use", ssize_t(50));
-    addField("minTrials", &StatsTablePosNegFunctionConfig::minTrials,
+    addAuto("numPos", &StatsTablePosNegFunctionConfig::numPos,
+            "Number of top positive words to use.  If there are "
+            "multiple words with equal probabilities tied for "
+            "the last position, then more than this number may "
+            "end up in the stats table.");
+    addAuto("numNeg", &StatsTablePosNegFunctionConfig::numNeg,
+            "Number of top negative words to use; see also the caveat "
+            "above");
+    addAuto("minTrials", &StatsTablePosNegFunctionConfig::minTrials,
             "Minimum number of trials a word needs to have in order "
-            "to be considered", ssize_t(50));
+            "to be considered.");
     addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
-            "This must be one of the outcomes the stats "
-            "table was trained with.");
+             "This must be one of the outcomes the stats "
+             "table was trained with.");
     addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
              "This file is created by the ![](%%doclink statsTable.bagOfWords.train procedure).");
@@ -873,22 +877,23 @@ StatsTablePosNegFunction(MldbServer * owner,
             p_outcomes.insert(col);
     }
     else {
-        auto compareFunc = [](const pair<Utf8String, float> & a,
-                           const pair<Utf8String, float> & b)
+        // Sort in reverse stable order
+        std::sort(accum.rbegin(), accum.rend());
+
+        auto addOutcomes = [this] (size_t n, auto it, auto end)
             {
-                return a.second > b.second;
+                // Be fair: any ties lead to all being added, even above numPos
+                auto last = it + n;
+                while (it < end && (it < last || (it->second == last->second))) {
+                    p_outcomes.insert(*it++);
+                }
             };
-        std::sort(accum.begin(), accum.end(), compareFunc);
 
-        for(int i=0; i<functionConfig.numPos; i++) {
-            auto & a = accum[i];
-            p_outcomes.insert(make_pair(a.first, a.second));
-        }
+        // Add from highest to lowest for positive
+        addOutcomes(functionConfig.numPos, accum.cbegin(), accum.cend());
 
-        for(int i=0; i<functionConfig.numNeg; i++) {
-            auto & a = accum[accum.size() - 1 - i];
-            p_outcomes.insert(make_pair(a.first, a.second));
-        }
+        // Add from lowest to highest for negative
+        addOutcomes(functionConfig.numNeg, accum.crbegin(), accum.crend());
     }
 }
 

@@ -233,15 +233,14 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 struct StatsTablePosNegFunctionConfig {
     StatsTablePosNegFunctionConfig(const Url & modelFileUrl = Url(),
             const std::string & outcomeToUse = "") :
-        numPos(50), numNeg(50), minTrials(50),
         outcomeToUse(outcomeToUse),
         modelFileUrl(modelFileUrl)
     {
     }
 
-    ssize_t numPos;
-    ssize_t numNeg;
-    ssize_t minTrials;
+    ssize_t numPos = 50;
+    ssize_t numNeg = 50;
+    ssize_t minTrials = 50;
 
     std::string outcomeToUse;
 
