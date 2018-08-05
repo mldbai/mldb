@@ -46,29 +46,17 @@ struct MldbEntity: public PolyEntity {
 
     virtual std::string getKind() const = 0;
 
-    static MldbEngine * getOwner(RestDirectory * peer)
-    {
-        // TODO: go through proper upcast that knows both types in cc file
-        return (MldbEngine *)peer;
-    }
-
-    static MldbEngine * getOwner(ServicePeer * peer)
-    {
-        // TODO: go through proper upcast that knows both types in cc file
-        return (MldbEngine *)peer;
-    }
+    // Perform the upcast from a RestDirectory to an MldbEngine.  In
+    // practice, the way this currently works is with a dynamic_cast
+    // which means that every MldbEngine implementation must also inherit
+    // from RestDirectory.  That will be fixed in the future.
+    static MldbEngine * getOwner(RestDirectory * peer);
 
     static MldbEngine * getOwner(MldbEngine * peer)
     {
         return peer;
     }
-
-    static RestDirectory * getPeer(MldbEngine * engine)
-    {
-        // TODO: go through proper downcast
-        return (RestDirectory *)engine;
-    }
-
+    
     static constexpr const char * INTERNAL_ENTITY  = "INTERNAL_ENTITY";
     std::shared_ptr<spdlog::logger> logger;
 };

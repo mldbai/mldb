@@ -5,6 +5,8 @@ LIBMLDB_CORE_SOURCES:= \
 	recorder.cc \
 	function.cc \
 	value_function.cc \
+	mldb_entity.cc \
+	mldb_engine.cc
 
 LIBMLDB_CORE_LINK:= \
 	sql_expression rest_entity rest
