@@ -193,7 +193,7 @@ run(const ProcedureRunConfig & run,
                          "modelFileUrl");
     }
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
@@ -243,7 +243,7 @@ run(const ProcedureRunConfig & run,
         if (outputDataset.type.empty())
             outputDataset.type = TfidfConfig::defaultOutputDatasetType;
 
-        auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
+        auto output = createDataset(engine, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
         ColumnPath columnName(PathElement("count"));
@@ -266,7 +266,7 @@ run(const ProcedureRunConfig & run,
             tfidfFuncPC.id = runProcConf.functionName;
             tfidfFuncPC.params = tfidfFunctionConf;
 
-            obtainFunction(server, tfidfFuncPC, onProgress);
+            obtainFunction(engine, tfidfFuncPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create tfidf function '" +
                                       runProcConf.functionName.rawString() +

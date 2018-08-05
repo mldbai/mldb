@@ -27,7 +27,7 @@ struct Dataset;
 */
 
 struct ColumnScope: public SqlExpressionMldbScope {
-    ColumnScope(MldbEngine * server, std::shared_ptr<Dataset> dataset);
+    ColumnScope(MldbEngine * engine, std::shared_ptr<Dataset> dataset);
 
     std::shared_ptr<Dataset> dataset;
 

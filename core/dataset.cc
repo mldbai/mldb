@@ -496,21 +496,21 @@ struct DatasetRecorder::Itl {
 
 DatasetRecorder::
 DatasetRecorder(Dataset * dataset)
-    : Recorder(dataset->server),
+    : Recorder(dataset->engine),
       dataset(dataset)
 {
 }
 
 DatasetRecorder::
-DatasetRecorder(MldbEngine * server,
+DatasetRecorder(MldbEngine * engine,
                 PolyConfig config,
                 std::function<bool (Json::Value)> onProgress)
-    : Recorder(server),
+    : Recorder(engine),
       itl(new Itl())
 {
     DatasetRecorderConfig recorderConfig
         = config.params.convert<DatasetRecorderConfig>();
-    itl->ownedDataset = createDataset(server, recorderConfig.dataset,
+    itl->ownedDataset = createDataset(engine, recorderConfig.dataset,
                                       onProgress, false /* overwrite */);
     this->dataset = itl->ownedDataset.get();
 }
@@ -562,8 +562,8 @@ regLogger(builtinPackage(),
 /*****************************************************************************/
 
 Dataset::
-Dataset(MldbEngine * server)
-    : server(server)
+Dataset(MldbEngine * engine)
+    : engine(engine)
 {
 }
 

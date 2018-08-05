@@ -36,11 +36,11 @@ typedef EntityType<Plugin> PluginType;
 /*****************************************************************************/
 
 struct Plugin: MldbEntity {
-    Plugin(MldbEngine * server);
+    Plugin(MldbEngine * engine);
 
     virtual ~Plugin();
 
-    MldbEngine * server;
+    MldbEngine * engine;
     
     virtual std::string getKind() const
     {
@@ -98,7 +98,7 @@ struct SharedLibraryConfig {
 DECLARE_STRUCTURE_DESCRIPTION(SharedLibraryConfig);
 
 struct SharedLibraryPlugin: public Plugin {
-    SharedLibraryPlugin(MldbEngine * server,
+    SharedLibraryPlugin(MldbEngine * engine,
                         PolyConfig config,
                         std::function<bool (const Json::Value & progress)> onProgress);
 
@@ -128,7 +128,7 @@ struct SharedLibraryPlugin: public Plugin {
     // if not the given object will be used for the status, version
     // and request calls and for the documentation and static route calls
     // if no directory is configured in the configuration.
-    typedef Plugin * (*MldbPluginEnterV100) (MldbEngine * server);
+    typedef Plugin * (*MldbPluginEnterV100) (MldbEngine * engine);
 private:
     struct Itl;
 
@@ -141,13 +141,13 @@ private:
 /*****************************************************************************/
 
 std::shared_ptr<Plugin>
-obtainPlugin(MldbEngine * server,
+obtainPlugin(MldbEngine * engine,
              const PolyConfig & config,
              const std::function<bool (const Json::Value & progress)> & onProgress
                  = nullptr);
 
 std::shared_ptr<Plugin>
-createPlugin(MldbEngine * server,
+createPlugin(MldbEngine * engine,
              const PolyConfig & config,
              const std::function<bool (const Json::Value & progress)> & onProgress
                  = nullptr);

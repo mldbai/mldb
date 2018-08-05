@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** static_content_handler.cc
     Jeremy Barnes, 5 March 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Handler for static content.
 */
@@ -39,7 +38,7 @@ void renderMacro(hoedown_buffer *ob,
                  const MacroData & macroData)
 {
     MacroContext context(&macroData, ob, text);
-    context.server = macroData.server;
+    context.engine = macroData.engine;
 
     string s((const char *)text->data, 2, text->size - 2);
     auto pos = s.find(' ');
@@ -179,7 +178,7 @@ std::string renderMarkdown(const std::string & str, const MacroData & macroData)
 }
 
 RestRequestRouter::OnProcessRequest
-getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities)
+getStaticRouteHandler(string dir, MldbEngine * engine, bool hideInternalEntities)
 {
     //cerr << "getting dir " << dir << endl;
 
@@ -188,7 +187,7 @@ getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities
     if (!dir.empty() && dir[dir.size()] != '/')
         dir += '/';
     
-    return [dir, server, hideInternalEntities] (RestConnection & connection,
+    return [dir, engine, hideInternalEntities] (RestConnection & connection,
                   const RestRequest & request,
                   const RestRequestParsingContext & context)
         {
@@ -204,7 +203,7 @@ getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities
 
             //cerr << "looking for " << filename << " for resource " << path << endl;
 
-            auto sendFile = [&connection, &server] (const std::string & filename,
+            auto sendFile = [&connection, &engine] (const std::string & filename,
                                  const std::string & mimeType)
                 {
                     if (!tryGetUriObjectInfo(filename)) {
@@ -222,7 +221,7 @@ getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities
                     ML::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
-                    boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->prefixUrl("").rawString());
+                    boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", engine->prefixUrl("").rawString());
                     connection.sendResponse(200, result, mimeType);
                     return RestRequestRouter::MR_YES;
                 };
@@ -251,7 +250,7 @@ getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities
 
                 MacroData macroData;
                 macroData.dir = dir;
-                macroData.server = server;
+                macroData.engine = engine;
                 macroData.hideInternalEntities = hideInternalEntities;
 
                 string filenameToLoad = markdownFile;
@@ -269,11 +268,11 @@ getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities
                 result += "<head>\n";
                 result += "<meta charset='utf-8' />\n";
                 result += "<title>MLDB Documentation</title>\n";
-                result += "<script src='" + server->prefixUrl("/resources/js/mathjax_TeX-AMS-MML_HTMLorMML.js").rawString() + "'></script>\n";
-                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/prism.css").rawString() + "'>\n";
-                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/doc.css").rawString() + "'>\n";
-                result += "<script src='" + server->prefixUrl("/resources/js/jquery-1.11.2.min.js").rawString() + "'></script>\n";
-                result += "<script src='" + server->prefixUrl("/resources/js/prism.js").rawString() + "'></script>\n";
+                result += "<script src='" + engine->prefixUrl("/resources/js/mathjax_TeX-AMS-MML_HTMLorMML.js").rawString() + "'></script>\n";
+                result += "<link rel='stylesheet' href='" + engine->prefixUrl("/resources/css/prism.css").rawString() + "'>\n";
+                result += "<link rel='stylesheet' href='" + engine->prefixUrl("/resources/css/doc.css").rawString() + "'>\n";
+                result += "<script src='" + engine->prefixUrl("/resources/js/jquery-1.11.2.min.js").rawString() + "'></script>\n";
+                result += "<script src='" + engine->prefixUrl("/resources/js/prism.js").rawString() + "'></script>\n";
                 result += "<script>\n";
                 result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";
                 result += "  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n";
@@ -291,7 +290,7 @@ getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities
                 result += "</body>\n";
                 result += "</html>\n";
 
-                boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->prefixUrl());
+                boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", engine->prefixUrl());
                 connection.sendResponse(200, result, mimeType);
                 return RestRequestRouter::MR_YES;
             }
@@ -353,12 +352,12 @@ getStaticRouteHandler(string dir, MldbEngine * server, bool hideInternalEntities
 void serveDocumentationDirectory(RestRequestRouter & parent,
                                  const std::string & route,
                                  const std::string & dir,
-                                 MldbEngine * server,
+                                 MldbEngine * engine,
                                  bool hideInternalEntities)
 {
     parent.addRoute(Rx(route + "(/.*)", "<resource>"),
                     "GET", "Static content",
-                    getStaticRouteHandler(dir, server, hideInternalEntities),
+                    getStaticRouteHandler(dir, engine, hideInternalEntities),
                     Json::Value());
 }
 

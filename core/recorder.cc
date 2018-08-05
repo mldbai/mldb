@@ -17,8 +17,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 Recorder::
-Recorder(MldbEngine * server)
-    : server(server)
+Recorder(MldbEngine * engine)
+    : engine(engine)
 {
 }
 
@@ -111,11 +111,11 @@ recordTabularImpl(RowPath rowName,
 /*****************************************************************************/
 
 std::shared_ptr<Recorder>
-createRecorder(MldbEngine * server,
+createRecorder(MldbEngine * engine,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress)
 {
-    return PolyCollection<Recorder>::doConstruct(MldbEntity::getPeer(server),
+    return PolyCollection<Recorder>::doConstruct(MldbEntity::getPeer(engine),
                                                  config, onProgress);
 }
 

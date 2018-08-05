@@ -18,7 +18,7 @@
 using namespace std;
 
 MLDB::Plugin *
-mldbPluginEnterV100(MLDB::MldbEngine * server)
+mldbPluginEnterV100(MLDB::MldbEngine * engine)
 {
     return nullptr;
 }
@@ -606,7 +606,7 @@ struct PostgresqlImportProcedure: public Procedure {
 
     PostgresqlImportConfig procedureConfig;
 
-    PostgresqlImportProcedure(MldbEngine * server,
+    PostgresqlImportProcedure(MldbEngine * engine,
                          const PolyConfig & config,
                          std::function<bool (Json::Value)> onProgress)
         : Procedure(server)

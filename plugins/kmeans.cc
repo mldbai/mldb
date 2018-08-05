@@ -161,7 +161,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
@@ -229,7 +229,7 @@ run(const ProcedureRunConfig & run,
         if (outputDataset.type.empty())
             outputDataset.type = KmeansConfig::defaultOutputDatasetType;
 
-        auto output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
+        auto output = createDataset(engine, outputDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
 
@@ -248,7 +248,7 @@ run(const ProcedureRunConfig & run,
         if (centroidsDataset.type.empty())
             centroidsDataset.type = KmeansConfig::defaultOutputDatasetType;
 
-        auto centroids = createDataset(server, centroidsDataset, onProgress2, true /*overwrite*/);
+        auto centroids = createDataset(engine, centroidsDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
 
@@ -277,7 +277,7 @@ run(const ProcedureRunConfig & run,
             kmeansFuncPC.id = runProcConf.functionName;
             kmeansFuncPC.params = funcConf;
 
-            createFunction(server, kmeansFuncPC, onProgress, true);
+            createFunction(engine, kmeansFuncPC, onProgress, true);
         } else {
             throw HttpReturnException(400, "Can't create kmeans function '" +
                                       runProcConf.functionName.rawString() +

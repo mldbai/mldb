@@ -105,11 +105,11 @@ DECLARE_STRUCTURE_DESCRIPTION(RunOutput);
 */
 
 struct Procedure: public MldbEntity, public RestEntity {
-    Procedure(MldbEngine * server);
+    Procedure(MldbEngine * engine);
 
     virtual ~Procedure();
 
-    MldbEngine * server;
+    MldbEngine * engine;
 
     virtual Any getStatus() const = 0;
 
@@ -201,7 +201,7 @@ DECLARE_STRUCTURE_DESCRIPTION(NullProcedureConfig);
 /** Null procedure, that does nothing when run. */
 
 struct NullProcedure: public Procedure {
-    NullProcedure(MldbEngine * server, const PolyConfig & config,
+    NullProcedure(MldbEngine * engine, const PolyConfig & config,
                  const std::function<bool (const Json::Value &)> & onProgress);
 
     virtual ~NullProcedure();
@@ -243,7 +243,7 @@ struct SerialProcedureStatus {
 DECLARE_STRUCTURE_DESCRIPTION(SerialProcedureStatus);
 
 struct SerialProcedure: public Procedure {
-    SerialProcedure(MldbEngine * server,
+    SerialProcedure(MldbEngine * engine,
                    const PolyConfig & config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -287,7 +287,7 @@ DECLARE_STRUCTURE_DESCRIPTION(CreateEntityProcedureOutput);
 
 struct CreateEntityProcedure: public Procedure {
     CreateEntityProcedure
-        (MldbEngine * server,
+        (MldbEngine * engine,
          const PolyConfig & config,
          const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -308,13 +308,13 @@ struct CreateEntityProcedure: public Procedure {
 /*****************************************************************************/
 
 std::shared_ptr<Procedure>
-createProcedure(MldbEngine * server,
+createProcedure(MldbEngine * engine,
                 const PolyConfig & config,
                 const std::function<bool (const Json::Value & progress)> & onProgress,
                 bool overwrite);
 
 std::shared_ptr<Procedure>
-obtainProcedure(MldbEngine * server,
+obtainProcedure(MldbEngine * engine,
                 const PolyConfig & config,
                 const std::function<bool (const Json::Value & progress)> & onProgress
                     = nullptr);

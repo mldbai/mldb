@@ -24,28 +24,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbEngine * server, RestRouteManager & routeManager)
+createFunctionCollection(MldbEngine * engine, RestRouteManager & routeManager)
 {
     return createCollection<FunctionCollection>(2, "function", "functions",
-                                                server->getDirectory(),
+                                                engine->getDirectory(),
                                                 routeManager);
 }
 
 std::shared_ptr<Function>
-obtainFunction(MldbEngine * server,
+obtainFunction(MldbEngine * engine,
             const PolyConfig & config,
             const MldbEngine::OnProgress & onProgress)
 {
-    return server->obtainFunctionSync(config, onProgress);
+    return engine->obtainFunctionSync(config, onProgress);
 }
 
 std::shared_ptr<Function>
-createFunction(MldbEngine * server,
+createFunction(MldbEngine * engine,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress,
               bool overwrite)
 {
-    return server->createFunctionSync(config, onProgress, overwrite);
+    return engine->createFunctionSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<FunctionType>
@@ -75,7 +75,7 @@ ExpressionValue
 Function::
 call(const ExpressionValue & input) const
 {
-    SqlExpressionMldbScope outerContext(MldbEntity::getOwner(this->server));
+    SqlExpressionMldbScope outerContext(MldbEntity::getOwner(this->engine));
     
     auto info = this->getFunctionInfo();
 
@@ -137,8 +137,9 @@ call(const ExpressionValue & input) const
 /*****************************************************************************/
 
 FunctionCollection::
-FunctionCollection(MldbEngine * server)
-    : PolyCollection<Function>("function", "functions", server->getDirectory())
+FunctionCollection(MldbEngine * engine)
+    : PolyCollection<Function>("function", "functions", engine->getDirectory()),
+      engine(engine)
 {
 }
 
@@ -233,7 +234,7 @@ applyBatch(const Function * function,
     Utf8String str;
     Utf8StringJsonPrintingContext printingContext(str);
 
-    SqlExpressionMldbScope outerContext(MldbEntity::getOwner(this->server));
+    SqlExpressionMldbScope outerContext(MldbEntity::getOwner(this->engine));
     
     auto info = function->getFunctionInfo();
     auto applier = function->bind(outerContext, info.input);

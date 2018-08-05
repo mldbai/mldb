@@ -107,8 +107,8 @@ apply(const ExpressionValue & input) const
 /*****************************************************************************/
 
 Function::
-Function(MldbEngine * server, const PolyConfig& config)
-    : server(server)
+Function(MldbEngine * engine, const PolyConfig& config)
+    : engine(engine)
 {
     config_ = make_shared<PolyConfig>(config);
 }

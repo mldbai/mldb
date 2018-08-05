@@ -36,7 +36,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
         const RowPath * rowName;
     };
 
-    SqlCsvScope(MldbEngine * server,
+    SqlCsvScope(MldbEngine * engine,
                 const std::vector<ColumnPath> & columnNames,
                 Date fileTimestamp, Utf8String dataFileUrl);
 

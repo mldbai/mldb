@@ -29,8 +29,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 Plugin::
-Plugin(MldbEngine * server)
-    : server(static_cast<MldbEngine *>(server))
+Plugin(MldbEngine * engine)
+    : engine(static_cast<MldbEngine *>(engine))
 {
 }
 
@@ -174,17 +174,17 @@ struct SharedLibraryPlugin::Itl {
         auto * fn = (MldbPluginEnterV100 )dlsym(handle, "_Z19mldbPluginEnterV100PN4MLDB10MldbEngineE");
 
         if (fn) {
-            Plugin * plugin = fn(owner->server);
+            Plugin * plugin = fn(owner->engine);
             pluginImpl.reset(plugin);
         }
         
         if (!params.doc.empty()) {
             fs::path docPath = fs::path(params.address) / fs::path(params.doc);
-            docHandler = getStaticRouteHandler(docPath.string(), owner->server);
+            docHandler = getStaticRouteHandler(docPath.string(), owner->engine);
         }
         if (!params.staticAssets.empty()) {
             fs::path assetsPath = fs::path(params.address) / fs::path(params.staticAssets);
-            staticAssetHandler = getStaticRouteHandler(assetsPath.string(), owner->server);
+            staticAssetHandler = getStaticRouteHandler(assetsPath.string(), owner->engine);
         }
 
     }
@@ -194,10 +194,10 @@ struct SharedLibraryPlugin::Itl {
 };
 
 SharedLibraryPlugin::
-SharedLibraryPlugin(MldbEngine * server,
+SharedLibraryPlugin(MldbEngine * engine,
                     PolyConfig config,
                     std::function<bool (const Json::Value & progress)> onProgress)
-    : Plugin(server),
+    : Plugin(engine),
       itl(new Itl(this))
 {
     itl->load(config);

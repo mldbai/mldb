@@ -33,7 +33,7 @@ const Package & proPackage()
 // Plugin entry point.  This is called by MLDB once the plugin is loaded.
 // Sets up the cache directory for beh files.
 MLDB::Plugin *
-mldbPluginEnterV100(MLDB::MldbEngine * server)
+mldbPluginEnterV100(MLDB::MldbEngine * engine)
 {
     string cacheDir = server->getCacheDirectory();
     if (!cacheDir.empty()) {

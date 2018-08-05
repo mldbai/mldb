@@ -1776,11 +1776,11 @@ MutableSparseMatrixDatasetConfigDescription()
 struct MutableSparseMatrixDataset::Itl
     : public SparseMatrixDataset::Itl {
 
-    Itl(MldbEngine * server,
+    Itl(MldbEngine * engine,
         double timeQuantumSeconds,
         WriteTransactionLevel consistencyLevel,
         TransactionFavor favor) 
-        : server(server)
+        : engine(engine)
     {
         CommitMode mode;
         if (consistencyLevel == WT_READ_AFTER_COMMIT)
@@ -1796,14 +1796,14 @@ struct MutableSparseMatrixDataset::Itl
              std::make_shared<MutableBaseMatrix>(mode));
     }
 
-    MldbEngine * server;
+    MldbEngine * engine;
     
     /** This is a recorder that is designed to have each thread record
         chunks in a deterministic manner.
     */
     struct ChunkRecorder: public Recorder {
         ChunkRecorder(Itl * itl, shared_ptr<spdlog::logger> logger)
-            : Recorder(itl->server),
+            : Recorder(itl->engine),
               itl(itl),
               readTransaction(itl->getReadTransaction()),
               trans(*readTransaction),

@@ -131,7 +131,7 @@ run(const ProcedureRunConfig & run,
 
         std::shared_ptr<Dataset> outputDataset;
         if (!datasetName.type.empty() || !datasetName.id.empty()) {
-            outputDataset = createDataset(server, datasetName, nullptr, true /** overwrite **/);
+            outputDataset = createDataset(engine, datasetName, nullptr, true /** overwrite **/);
         }
 
         if(!outputDataset) {
@@ -141,7 +141,7 @@ run(const ProcedureRunConfig & run,
         datasets.push_back(outputDataset);
     }
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
     ConvertProgressToJson convertProgressToJson(onProgress);
 
     auto boundDataset = runProcConf.labels.stm->from->bind(context, convertProgressToJson);

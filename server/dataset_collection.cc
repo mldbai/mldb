@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** dataset_collection.cc
     Jeremy Barnes, 24 November 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Collection of datasets.
 
@@ -27,28 +26,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<DatasetCollection>
-createDatasetCollection(MldbEngine * server, RestRouteManager & routeManager)
+createDatasetCollection(MldbEngine * engine, RestRouteManager & routeManager)
 {
     return createCollection<DatasetCollection>(2, L"dataset", L"datasets",
-                                               server->getDirectory(),
+                                               engine->getDirectory(),
                                                routeManager);
 }
 
 std::shared_ptr<Dataset>
-obtainDataset(MldbEngine * server,
+obtainDataset(MldbEngine * engine,
               const PolyConfig & config,
               const MldbEngine::OnProgress & onProgress)
 {
-    return server->obtainDatasetSync(config, onProgress);
+    return engine->obtainDatasetSync(config, onProgress);
 }
 
 std::shared_ptr<Dataset>
-createDataset(MldbEngine * server,
+createDataset(MldbEngine * engine,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress,
               bool overwrite)
 {
-    return server->createDatasetSync(config, onProgress, overwrite);
+    return engine->createDatasetSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<DatasetType>
@@ -291,8 +290,8 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 /*****************************************************************************/
 
 DatasetCollection::
-DatasetCollection(MldbEngine * server)
-    : PolyCollection<Dataset>(L"dataset", L"datasets", server->getDirectory())
+DatasetCollection(MldbEngine * engine)
+    : PolyCollection<Dataset>(L"dataset", L"datasets", engine->getDirectory())
 {
 }
 

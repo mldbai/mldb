@@ -63,10 +63,10 @@ struct MldbEntity: public PolyEntity {
         return peer;
     }
 
-    static RestDirectory * getPeer(MldbEngine * server)
+    static RestDirectory * getPeer(MldbEngine * engine)
     {
         // TODO: go through proper downcast
-        return (RestDirectory *)server;
+        return (RestDirectory *)engine;
     }
 
     static constexpr const char * INTERNAL_ENTITY  = "INTERNAL_ENTITY";

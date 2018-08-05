@@ -30,10 +30,9 @@ struct MldbEngine;
 /*****************************************************************************/
 
 struct MacroData {
-    MacroData() : server(nullptr) {}
     std::string dir;            ///< Base directory for serving
     bool hideInternalEntities;  ///< Are internal entities hidden from doc?
-    MldbEngine * server;        ///< MLDB server we're running inside of
+    MldbEngine * engine = nullptr; ///< MLDB server we're running inside of
 };
 
 

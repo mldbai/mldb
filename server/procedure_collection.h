@@ -20,7 +20,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct ProcedureCollection: public PolyCollection<Procedure> {
-    ProcedureCollection(MldbEngine * server);
+    ProcedureCollection(MldbEngine * engine);
 
     static void initRoutes(RouteManager & manager);
 

@@ -139,11 +139,11 @@ struct FunctionApplier {
 
 struct Function: public MldbEntity {
 
-    Function(MldbEngine * server, const PolyConfig& config);
+    Function(MldbEngine * engine, const PolyConfig& config);
 
     virtual ~Function();
 
-    MldbEngine * server;
+    MldbEngine * engine;
     
     virtual Any getStatus() const = 0;
 
@@ -216,13 +216,13 @@ struct Function: public MldbEntity {
 
 
 std::shared_ptr<Function>
-createFunction(MldbEngine * server,
+createFunction(MldbEngine * engine,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress,
                bool overwrite);
 
 std::shared_ptr<Function>
-obtainFunction(MldbEngine * server,
+obtainFunction(MldbEngine * engine,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress
                    = nullptr);

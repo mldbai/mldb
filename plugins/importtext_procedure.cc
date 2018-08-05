@@ -526,7 +526,7 @@ struct ImportTextProcedureWorkInstance
     /*    Load a text file and filter according to the configuration  */
     void loadText(const ImportTextConfig& config,
                   std::shared_ptr<Dataset> dataset,
-                  MldbEngine * server,
+                  MldbEngine * engine,
                   const std::function<bool (const Json::Value &)> & onProgress)
     {
         string filename = config.dataFileUrl.toDecodedString();
@@ -684,7 +684,7 @@ struct ImportTextProcedureWorkInstance
 
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
-        SqlCsvScope scope(server, inputColumnNames, ts,
+        SqlCsvScope scope(engine, inputColumnNames, ts,
                           Utf8String(config.dataFileUrl.toDecodedString()));
 
         selectBound = config.select.bind(scope);
@@ -1057,12 +1057,12 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(config, run);
 
     std::shared_ptr<Dataset> dataset
-        = createDataset(server, runProcConf.outputDataset, onProgress,
+        = createDataset(engine, runProcConf.outputDataset, onProgress,
                         true /*overwrite*/);
 
     ImportTextProcedureWorkInstance instance(logger);
 
-    instance.loadText(config, dataset, server, onProgress);
+    instance.loadText(config, dataset, engine, onProgress);
 
     Json::Value status;
     status["numLineErrors"] = instance.numLineErrors;

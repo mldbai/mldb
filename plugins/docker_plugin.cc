@@ -105,10 +105,10 @@ struct InternalPluginCommunication: public ExternalPluginCommunication {
 /*****************************************************************************/
 
 DockerPluginStartup::
-DockerPluginStartup(MldbEngine * server,
+DockerPluginStartup(MldbEngine * engine,
                     PolyConfig pconfig,
                     std::function<bool (const Json::Value & progress)> onProgress)
-    : server(server)
+    : engine(engine)
 {
     config = pconfig.params.convert<DockerPluginStartupConfig>();
 }
@@ -155,7 +155,7 @@ start()
         throw MLDB::Exception("plugin library doesn't expose mldb_plugin_enter: %s",
                             dlerror());
     
-    std::shared_ptr<Plugin> plugin(registerPlugin(server));
+    std::shared_ptr<Plugin> plugin(registerPlugin(engine));
 
     return std::make_shared<InternalPluginCommunication>(std::move(plugin));
 }

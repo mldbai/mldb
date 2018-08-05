@@ -57,8 +57,8 @@ ContinuousDatasetConfigDescription()
 /*****************************************************************************/
 
 struct ContinuousDataset::Itl final {
-    Itl(MldbEngine * server, const ContinuousDatasetConfig & config)
-        : server(server),
+    Itl(MldbEngine * engine, const ContinuousDatasetConfig & config)
+        : engine(engine),
           current(gcLock),
           lastCommit(Date::now().secondsSinceEpoch()),
           logger(MLDB::getMldbLog<ContinuousWindowDataset>())
@@ -68,7 +68,7 @@ struct ContinuousDataset::Itl final {
         try {
             // Get the metadata dataset.  This is what stores the internal
             // metadata about which datasets are available.
-            metadataDataset = obtainDataset(server, config.metadataDataset);
+            metadataDataset = obtainDataset(engine, config.metadataDataset);
         } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "metadata initialization: " + getExceptionString(),
@@ -76,7 +76,7 @@ struct ContinuousDataset::Itl final {
         }
         
         try {
-            createStorageDataset = obtainProcedure(server, config.createStorageDataset);
+            createStorageDataset = obtainProcedure(engine, config.createStorageDataset);
         } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "createStorageDataset initialization: "
@@ -85,7 +85,7 @@ struct ContinuousDataset::Itl final {
         }
         
         try {
-            saveStorageDataset = obtainProcedure(server, config.saveStorageDataset);
+            saveStorageDataset = obtainProcedure(engine, config.saveStorageDataset);
         } MLDB_CATCH_ALL {
             rethrowHttpException(-1, "Error initializing continuous dataset in "
                                  "saveStorageDataset procedure initialization: "
@@ -101,7 +101,7 @@ struct ContinuousDataset::Itl final {
 
         // Set up an interval for the commit operation
         if (config.commitInterval.number > 0) {
-            timer = server->getTimer(Date::now().plusSeconds(config.commitInterval.number),
+            timer = engine->getTimer(Date::now().plusSeconds(config.commitInterval.number),
                                      config.commitInterval.number,
                                      [=] (Date date)
                                      {
@@ -114,7 +114,7 @@ struct ContinuousDataset::Itl final {
     {
     }
 
-    MldbEngine * server;
+    MldbEngine * engine;
 
     WatchT<Date> timer;
 
@@ -210,7 +210,7 @@ struct ContinuousDataset::Itl final {
 
         std::unique_ptr<Current> newCurrent(new Current());
         newCurrent->dataset
-            = obtainDataset(server,
+            = obtainDataset(engine,
                             storageOutput.results.getField("config")
                             .convert<PolyConfig>(), nullptr);
         
@@ -546,7 +546,7 @@ ContinuousWindowDataset(MldbEngine * owner,
     try {
         // Get the metadata dataset.  This is what stores the internal
         // metadata about which datasets are available.
-        metadataDataset = obtainDataset(server, config.metadataDataset);
+        metadataDataset = obtainDataset(engine, config.metadataDataset);
     } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "
                              "metadata initialization: " + getExceptionString(),
@@ -568,7 +568,7 @@ ContinuousWindowDataset(MldbEngine * owner,
     try {
         // Obtain the merged dataset, recursively
         std::shared_ptr<Dataset> underlying
-            = obtainDataset(server, toLoadConfig);
+            = obtainDataset(engine, toLoadConfig);
         setUnderlying(underlying);
     } MLDB_CATCH_ALL {
         rethrowHttpException(-1, "Error initializing continuous window dataset in "

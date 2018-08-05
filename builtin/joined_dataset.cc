@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** joined_dataset.cc                                              -*- C++ -*-
     Jeremy Barnes, 28 February 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "joined_dataset.h"
@@ -1011,7 +1010,7 @@ JoinedDataset(MldbEngine * owner,
     };
 
     // Create a scope to get our datasets from
-    SqlExpressionMldbScope mldbScope(server);
+    SqlExpressionMldbScope mldbScope(engine);
 
     // Obtain our datasets
     BoundTableExpression left = joinConfig.left->bind(mldbScope, bind(joinedProgress, 0, _1));

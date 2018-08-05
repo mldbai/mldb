@@ -141,7 +141,7 @@ run(const ProcedureRunConfig & run,
                      "modelFileUrl");
 
     // 1.  Get the input dataset
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
@@ -176,7 +176,7 @@ run(const ProcedureRunConfig & run,
 
     auto label = labelVal->expression;
     
-    ColumnScope colScope(server, boundDataset.dataset);
+    ColumnScope colScope(engine, boundDataset.dataset);
     auto boundLabel = label->bind(colScope);
     auto boundWhere = runProcConf.trainingData.stm->where->bind(colScope);
     auto boundWeight = weight->bind(colScope);
@@ -399,7 +399,7 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = ClassifyFunctionConfig(runProcConf.modelFileUrl);
 
-        obtainFunction(server, clsFuncPC, onProgress);
+        obtainFunction(engine, clsFuncPC, onProgress);
     }
 
     return RunOutput();

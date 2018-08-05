@@ -43,9 +43,9 @@ struct SqlWord2VecScope: public SqlExpressionMldbScope {
         Date ts;
     };
 
-    SqlWord2VecScope(MldbEngine * server,
+    SqlWord2VecScope(MldbEngine * engine,
                 Date fileTimestamp)
-        : SqlExpressionMldbScope(server),
+        : SqlExpressionMldbScope(engine),
           fileTimestamp(fileTimestamp)
     {
 
@@ -186,7 +186,7 @@ struct Word2VecImporter: public Procedure {
 
         std::shared_ptr<Dataset> output;
         if (!runProcConf.output.type.empty() || !runProcConf.output.id.empty()) {
-            output = createDataset(server, runProcConf.output, nullptr, true /*overwrite*/);
+            output = createDataset(engine, runProcConf.output, nullptr, true /*overwrite*/);
         }
 
         vector<ColumnPath> columnNames;
@@ -197,7 +197,7 @@ struct Word2VecImporter: public Procedure {
         vector<tuple<RowPath, vector<float>, Date> > rows;
         int64_t numRecorded = 0;
 
-        SqlWord2VecScope scope(server, info.lastModified);
+        SqlWord2VecScope scope(engine, info.lastModified);
         auto namedBound = config.named->bind(scope);
 
         for (unsigned i = 0;  i < numWords;  ++i) {

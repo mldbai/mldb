@@ -92,7 +92,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
     filter_ostream out(runProcConf.dataFileUrl);
     CsvWriter csv(out, runProcConf.delimiter.at(0),
                   runProcConf.quoteChar.at(0));

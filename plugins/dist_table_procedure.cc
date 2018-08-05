@@ -316,7 +316,7 @@ run(const ProcedureRunConfig & run,
     }
 
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
@@ -368,7 +368,7 @@ run(const ProcedureRunConfig & run,
             }
         }
 
-        output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
+        output = createDataset(engine, outputDataset, onProgress2, true /*overwrite*/);
     }
 
     int num_req = 0;
@@ -528,7 +528,7 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.params = DistTableFunctionConfig(runProcConf.modelFileUrl,
                 runProcConf.statistics);
 
-        createFunction(server, clsFuncPC, onProgress, true);
+        createFunction(engine, clsFuncPC, onProgress, true);
     }
 
     return RunOutput();

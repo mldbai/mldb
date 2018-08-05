@@ -137,7 +137,7 @@ getObjectInfoFromCloudBlobProperties(const cloud_blob_properties & p)
     info.objectMetadata["appendBlobCommittedBlockCount"] =
         p.append_blob_committed_block_count();
 
-    info.objectMetadata["serverEncrypted"] = p.server_encrypted();
+    info.objectMetadata["serverEncrypted"] = p.engine_encrypted();
 
     return info;
 }

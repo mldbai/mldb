@@ -131,7 +131,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
@@ -186,7 +186,7 @@ run(const ProcedureRunConfig & run,
             probaFuncPC.id = runProcConf.functionName;
             probaFuncPC.params = ProbabilizeFunctionConfig(runProcConf.modelFileUrl);
 
-            obtainFunction(server, probaFuncPC, onProgress2);
+            obtainFunction(engine, probaFuncPC, onProgress2);
         }
     }
 

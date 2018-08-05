@@ -86,7 +86,7 @@ run(const ProcedureRunConfig & run,
                         jsonEncodeStr(copiedSR));
     InProcessRestConnection connection;
 
-    server->handleRequest(connection, request);
+    engine->handleRequest(connection, request);
 
     Json::Value details;
     details["statusCode"] = connection.responseCode;

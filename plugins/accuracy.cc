@@ -953,7 +953,7 @@ run(const ProcedureRunConfig & run,
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 
     // 1.  Get the input dataset
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto dataset = runAccuracyConf.testingData.stm->from->bind(context, convertProgressToJson).dataset;
@@ -965,7 +965,7 @@ run(const ProcedureRunConfig & run,
         if (outputDataset.type.empty())
             outputDataset.type = AccuracyConfig::defaultOutputDatasetType;
 
-        output = createDataset(server, outputDataset, nullptr, true /*overwrite*/);
+        output = createDataset(engine, outputDataset, nullptr, true /*overwrite*/);
     }
 
     // 5.  Run it

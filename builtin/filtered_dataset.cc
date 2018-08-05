@@ -211,7 +211,7 @@ struct FilteredDataset::Itl
 
 FilteredDataset::
 FilteredDataset(const Dataset& dataset, const FilteredDataset::TupleFilter& filter)
-    : Dataset(dataset.server), dataset(dataset)
+    : Dataset(dataset.engine), dataset(dataset)
 {
     itl.reset(new Itl(dataset.getMatrixView(), dataset.getColumnIndex(), filter));
 }

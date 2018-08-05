@@ -19,7 +19,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct PluginCollection: public PolyCollection<Plugin> {
-    PluginCollection(MldbEngine * server);
+    PluginCollection(MldbEngine * engine);
 
     static void initRoutes(RouteManager & manager);
 

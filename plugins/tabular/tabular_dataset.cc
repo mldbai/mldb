@@ -430,10 +430,10 @@ struct TabularDataset::TabularDataStore
         return rowsPerChunk;
     }
 
-    TabularDataStore(MldbEngine * server,
+    TabularDataStore(MldbEngine * engine,
                      TabularDatasetConfig config,
                      shared_ptr<spdlog::logger> logger)
-        : server(server),
+        : engine(engine),
           currentState(std::make_shared<CurrentState>(this, logger)),
           config(std::move(config)),
           backgroundJobsActive(0), logger(std::move(logger))
@@ -442,7 +442,7 @@ struct TabularDataset::TabularDataStore
         initRoutes();
     }
 
-    MldbEngine * server = nullptr;
+    MldbEngine * engine = nullptr;
 
     /// This is used to allocate mapped memory when chunks are frozen
     MemorySerializer serializer;
@@ -467,7 +467,7 @@ struct TabularDataset::TabularDataStore
 
         CurrentState(TabularDataStore * owner,
                      shared_ptr<spdlog::logger> logger)
-            : Dataset(owner->server),
+            : Dataset(owner->engine),
               owner(owner)
         {
             this->logger = logger;
@@ -1569,7 +1569,7 @@ struct TabularDataset::TabularDataStore
         threads. */
     struct BasicRecorder: public Recorder {
         BasicRecorder(TabularDataStore * store)
-            : Recorder(store->server),
+            : Recorder(store->engine),
               store(store)
         {
         }
@@ -1651,7 +1651,7 @@ struct TabularDataset::TabularDataStore
     */
     struct ChunkRecorder: public Recorder {
         ChunkRecorder(TabularDataStore * store)
-            : Recorder(store->server),
+            : Recorder(store->engine),
               store(store), doneFirst(store->mutableChunks.load())
         {
             // Note that this may return a null pointer, if nothing has

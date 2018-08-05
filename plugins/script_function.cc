@@ -99,7 +99,7 @@ apply(const FunctionApplier & applier,
     // somehow
     request.header.headers.insert(make_pair("__mldb_child_call", "true"));
 
-    server->handleRequest(connection, request);
+    engine->handleRequest(connection, request);
 
     // TODO. better exception message
     if(connection.responseCode != 200) {

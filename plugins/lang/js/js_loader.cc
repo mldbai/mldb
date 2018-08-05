@@ -47,7 +47,7 @@ struct JsPluginContext;
 struct ScriptOutput;
 
 struct JavascriptPlugin: public Plugin {
-    JavascriptPlugin(MldbEngine * server,
+    JavascriptPlugin(MldbEngine * engine,
                      PolyConfig config,
                      std::function<bool (const Json::Value & progress)> onProgress);
     
@@ -61,11 +61,11 @@ struct JavascriptPlugin: public Plugin {
                   RestRequestParsingContext & context) const;
 
     static ScriptOutput
-    runJavascriptScript(MldbEngine * server,
+    runJavascriptScript(MldbEngine * engine,
                         const PluginResource & scriptConfig);
 
     static RestRequestMatchResult
-    handleTypeRoute(RestDirectory * server, RestConnection & conn,
+    handleTypeRoute(RestDirectory * engine, RestConnection & conn,
                     const RestRequest & request,
                     RestRequestParsingContext & context);
 
@@ -237,7 +237,7 @@ struct JsPluginJS {
 
             itl->router.addRoute(Rx(route + "/(.*)", "<resource>"),
                                  "GET", "Static content",
-                                 getStaticRouteHandler(fullDir.string(), itl->server),
+                                 getStaticRouteHandler(fullDir.string(), itl->engine),
                                  Json::Value());
 
             args.GetReturnValue().Set(args.This());
@@ -256,7 +256,7 @@ struct JsPluginJS {
             auto route = JS::getArg<std::string>(args, 0, "route");
             auto dir = JS::getArg<std::string>(args, 1, "dir");
 
-            serveDocumentationDirectory(itl->router, route, dir, itl->server);
+            serveDocumentationDirectory(itl->router, route, dir, itl->engine);
 
             args.GetReturnValue().Set(args.This());
         } HANDLE_JS_EXCEPTIONS(args);
@@ -358,18 +358,18 @@ struct JsPluginJS {
 
 JsPluginContext::
 JsPluginContext(const Utf8String & pluginName,
-                MldbEngine * server,
+                MldbEngine * engine,
                 std::shared_ptr<LoadedPluginResource> pluginResource)
     : categoryName(pluginName.rawString() + " plugin"),
       loaderName(pluginName.rawString() + " loader"),
       category(categoryName.c_str()),
       loader(loaderName.c_str()),
-      server(server),
+      engine(engine),
       pluginResource(pluginResource)
 {
     using namespace v8;
 
-    static V8Init v8Init(server);
+    static V8Init v8Init(engine);
 
     isolate.init(false /* for this thread only */);
 
@@ -400,7 +400,7 @@ JsPluginContext(const Utf8String & pluginName,
     globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "plugin"), plugin);
 
     auto mldb = MldbJS::registerMe()->NewInstance();
-    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->server));
+    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->engine));
     mldb->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
     globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "mldb"), mldb);
 
@@ -425,15 +425,15 @@ JsPluginContext::
 /*****************************************************************************/
 
 JavascriptPlugin::
-JavascriptPlugin(MldbEngine * server,
+JavascriptPlugin(MldbEngine * engine,
                  PolyConfig config,
                  std::function<bool (const Json::Value & progress)> onProgress)
-    : Plugin(server)
+    : Plugin(engine)
 {
     using namespace v8;
 
     PluginResource res = config.params.convert<PluginResource>();
-    itl.reset(new JsPluginContext(config.id, this->server,
+    itl.reset(new JsPluginContext(config.id, this->engine,
                                   std::make_shared<LoadedPluginResource>
                                   (JAVASCRIPT,
                                    LoadedPluginResource::PLUGIN,
@@ -533,7 +533,7 @@ handleRequest(RestConnection & connection,
 
 RestRequestMatchResult
 JavascriptPlugin::
-handleTypeRoute(RestDirectory * server,
+handleTypeRoute(RestDirectory * engine,
                 RestConnection & conn,
                 const RestRequest & request,
                 RestRequestParsingContext & context)
@@ -545,7 +545,7 @@ handleTypeRoute(RestDirectory * server,
         
         auto scriptConfig = jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
         
-        auto result = runJavascriptScript(dynamic_cast<MldbEngine *>(server),
+        auto result = runJavascriptScript(dynamic_cast<MldbEngine *>(engine),
                                           scriptConfig);
         conn.sendResponse(result.exception ? 400 : 200,
                           jsonEncodeStr(result), "application/json");
@@ -557,14 +557,14 @@ handleTypeRoute(RestDirectory * server,
 
 ScriptOutput
 JavascriptPlugin::
-runJavascriptScript(MldbEngine * server,
+runJavascriptScript(MldbEngine * engine,
                     const PluginResource & scriptConfig)
 {
     using namespace v8;
 
     std::unique_ptr<JsPluginContext> itl
         (new JsPluginContext
-         ("script runner", server,
+         ("script runner", engine,
           std::make_shared<LoadedPluginResource>
           (JAVASCRIPT,
            LoadedPluginResource::SCRIPT,
