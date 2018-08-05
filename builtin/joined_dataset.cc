@@ -6,7 +6,7 @@
 */
 
 #include "joined_dataset.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"

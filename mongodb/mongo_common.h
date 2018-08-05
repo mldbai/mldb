@@ -9,7 +9,7 @@
 #include "bsoncxx/builder/stream/document.hpp"
 
 #include "sql/sql_expression.h"
-#include "server/dataset_context.h"
+#include "server/dataset_scope.h"
 
 
 

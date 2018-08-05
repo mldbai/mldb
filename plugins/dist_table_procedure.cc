@@ -14,7 +14,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/map_description.h"
 #include "mldb/rest/in_process_rest_connection.h"
-#include "server/dataset_context.h"
+#include "server/dataset_scope.h"
 #include "plugins/matrix.h"
 #include "server/analytics.h"
 #include "types/any_impl.h"

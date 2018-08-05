@@ -12,7 +12,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/server/analytics.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/base/less.h"
 #include "mldb/utils/log.h"

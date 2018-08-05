@@ -28,7 +28,7 @@
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
 #include "mldb/server/credential_collection.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/server/analytics.h"

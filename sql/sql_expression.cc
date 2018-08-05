@@ -23,7 +23,7 @@
 #include "tokenize.h"
 #include "mldb/core/dataset.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/types/value_description.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/base/optimized_path.h"

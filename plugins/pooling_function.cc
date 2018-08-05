@@ -8,7 +8,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"
-#include "server/dataset_context.h"
+#include "server/dataset_scope.h"
 #include "mldb/server/analytics.h"
 #include "mldb/core/dataset.h"
 #include "mldb/jml/utils/string_functions.h"

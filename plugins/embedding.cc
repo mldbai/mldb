@@ -26,7 +26,7 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/server/bucket.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/server/dataset_utils.h"

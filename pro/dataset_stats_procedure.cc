@@ -17,7 +17,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/base/per_thread_accumulator.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/pro/pro_plugin.h"
 
 using namespace std;

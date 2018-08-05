@@ -21,7 +21,7 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/server/static_content_macro.h"
 #include "mldb/sql/builtin_functions.h"
