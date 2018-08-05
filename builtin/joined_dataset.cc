@@ -6,7 +6,7 @@
 */
 
 #include "joined_dataset.h"
-#include "mldb/server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/base/parallel_merge_sort.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
@@ -20,7 +20,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/utils/compact_vector.h"
-#include "mldb/server/dataset_utils.h"
+#include "mldb/engine/dataset_utils.h"
 #include <functional>
 
 using namespace std;

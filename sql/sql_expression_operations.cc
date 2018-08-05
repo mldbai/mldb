@@ -13,7 +13,7 @@
 #include "mldb/types/compact_vector_description.h"
 #include "table_expression_operations.h"
 #include <unordered_set>
-#include "mldb/server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/base/scope.h"
 #include "mldb/sql/sql_utils.h"
 #include "mldb/utils/distribution.h"

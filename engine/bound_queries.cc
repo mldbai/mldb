@@ -6,9 +6,9 @@
     Bound version of SQL queries.
 */
 
-#include "mldb/server/bound_queries.h"
+#include "mldb/engine/bound_queries.h"
 #include "mldb/core/dataset.h"
-#include "mldb/server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/base/parallel_merge_sort.h"

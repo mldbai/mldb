@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** external_plugin.h                                              -*- C++ -*-
     Jeremy Barnes, 8 June 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Setup a external plugin that lives out of process and communicates with MLDB
     via REST or an IPC mechanism.

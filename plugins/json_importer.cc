@@ -23,7 +23,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/rest/cancellation_exception.h"
-#include "mldb/server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/utils/log.h"
 
 using namespace std;

@@ -24,7 +24,7 @@
 #include "mldb/ml/kmeans.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
-#include "mldb/server/analytics.h"
+#include "mldb/engine/analytics.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/fs_utils.h"

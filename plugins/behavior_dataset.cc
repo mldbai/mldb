@@ -26,7 +26,7 @@
 #include "mldb/types/map_description.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "behavior/behavior_utils.h"
-#include "mldb/server/dataset_utils.h"
+#include "mldb/engine/dataset_utils.h"
 #include <future>
 
 using namespace std;

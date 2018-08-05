@@ -26,7 +26,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/utils/profile.h"
 #include "behavior/behavior_utils.h"
-#include "mldb/server/dataset_utils.h"
+#include "mldb/engine/dataset_utils.h"
 #include <future>
 
 

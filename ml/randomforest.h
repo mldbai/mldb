@@ -18,8 +18,8 @@
 #include "mldb/ml/jml/committee.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include "mldb/server/column_scope.h"
-#include "mldb/server/bucket.h"
+#include "mldb/engine/column_scope.h"
+#include "mldb/engine/bucket.h"
 
 namespace MLDB {
 

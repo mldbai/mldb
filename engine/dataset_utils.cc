@@ -5,7 +5,7 @@
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 */
 
-#include "mldb/server/dataset_utils.h"
+#include "mldb/engine/dataset_utils.h"
 #include "mldb/http/http_exception.h"
 #include <algorithm>
 

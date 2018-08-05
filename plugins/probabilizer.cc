@@ -27,7 +27,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/log.h"
 
-#include "mldb/server/analytics.h"
+#include "mldb/engine/analytics.h"
 
 
 using namespace std;

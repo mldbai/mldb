@@ -17,7 +17,7 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/classifier.h"
 #include "mldb/rest/in_process_rest_connection.h"
-#include "mldb/server/bound_queries.h"
+#include "mldb/engine/bound_queries.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/basic_value_descriptions.h"

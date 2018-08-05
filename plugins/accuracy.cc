@@ -11,7 +11,7 @@
 #include "matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
-#include "mldb/server/bound_queries.h"
+#include "mldb/engine/bound_queries.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
@@ -24,7 +24,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/ml/separation_stats.h"
-#include "mldb/server/analytics.h"
+#include "mldb/engine/analytics.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/types/optional_description.h"
