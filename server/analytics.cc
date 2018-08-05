@@ -17,7 +17,7 @@
 #include "mldb/sql/execution_pipeline.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
-#include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/distribution.h"
 #include <mutex>
 #include <functional>

@@ -11,7 +11,7 @@
 #include "mldb/server/dataset_scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/per_thread_accumulator.h"
-#include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parallel_merge_sort.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/sql/sql_expression_operations.h"

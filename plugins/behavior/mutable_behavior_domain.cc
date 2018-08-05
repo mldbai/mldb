@@ -13,7 +13,7 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/value_description.h"
-#include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 
 using namespace std;
