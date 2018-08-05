@@ -12,7 +12,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
-#include "mldb/server/dataset_utils.h"
+#include "mldb/engine/dataset_utils.h"
 #include "mldb/utils/log.h"
 #include <thread>
 #include <sstream>

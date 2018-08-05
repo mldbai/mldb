@@ -5,7 +5,7 @@
     Context to bind a row expression to a dataset.
 */
 
-#include "mldb/server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/core/mldb_engine.h"

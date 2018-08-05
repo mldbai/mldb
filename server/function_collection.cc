@@ -12,7 +12,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/types/meta_value_description.h"
-#include "mldb/server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/vector_description.h"
 

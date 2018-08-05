@@ -3,7 +3,7 @@
     This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 */
 
-#include "column_scope.h"
+#include "mldb/engine/column_scope.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"

@@ -5,7 +5,7 @@
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
-#include "mldb/server/analytics.h"
+#include "mldb/engine/analytics.h"
 #include "mldb/core/function.h"
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
@@ -13,10 +13,10 @@
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/sql/execution_pipeline.h"
 #include <boost/algorithm/string.hpp>
-#include "mldb/server/bound_queries.h"
+#include "mldb/engine/bound_queries.h"
 #include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/distribution.h"
 #include <mutex>

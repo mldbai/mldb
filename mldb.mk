@@ -18,6 +18,7 @@ MLDB_SUBDIRS := \
 	rest \
 	sql \
 	core \
+	engine \
 	builtin \
 	plugins \
 	server \

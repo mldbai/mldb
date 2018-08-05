@@ -19,7 +19,7 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/base/parallel_merge_sort.h"
-#include "mldb/server/dataset_utils.h"
+#include "mldb/engine/dataset_utils.h"
 #include "mldb/utils/log.h"
 #include <mutex>
 

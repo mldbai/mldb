@@ -9,9 +9,9 @@
 #include "types/distribution_description.h"
 #include "types/map_description.h"
 #include "mldb/rest/in_process_rest_connection.h"
-#include "server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "plugins/matrix.h"
-#include "server/analytics.h"
+#include "mldb/engine/analytics.h"
 #include "ml/value_descriptions.h"
 #include "types/any_impl.h"
 #include "jml/utils/string_functions.h"
@@ -20,7 +20,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/sparse_matrix_dataset.h"
-#include "mldb/server/bound_queries.h"
+#include "mldb/engine/bound_queries.h"
 #include "mldb/http/http_exception.h"
 
 using namespace std;

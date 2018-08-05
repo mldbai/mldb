@@ -23,7 +23,7 @@
 #include "jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/server/analytics.h"
+#include "mldb/engine/analytics.h"
 #include "mldb/types/any_impl.h"
 #include "jml/utils/smart_ptr_utils.h"
 #include "mldb/vfs/fs_utils.h"

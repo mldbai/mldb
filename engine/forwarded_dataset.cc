@@ -6,7 +6,7 @@
     Implementation of forwarded dataset.
 */
 
-#include "forwarded_dataset.h"
+#include "mldb/engine/forwarded_dataset.h"
 #include "mldb/sql/sql_expression.h"
 
 

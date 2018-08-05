@@ -10,7 +10,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/arch/exception_handler.h"
-#include "server/dataset_scope.h"
+#include "mldb/engine/dataset_scope.h"
 #include "mldb/types/value_description.h"
 
 #define BOOST_TEST_MAIN
