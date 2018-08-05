@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 
 
 namespace MLDB {

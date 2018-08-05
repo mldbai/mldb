@@ -11,7 +11,7 @@
 #include "mldb/server/analytics.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/server/function_collection.h"
 #include "types/structure_description.h"
 #include "mldb/types/any_impl.h"

@@ -7,7 +7,7 @@
 #include "types/basic_value_descriptions.h"
 #include "types/distribution_description.h"
 #include "types/map_description.h"
-#include "server/dataset_context.h"
+#include "server/dataset_scope.h"
 #include "plugins/matrix.h"
 #include "server/analytics.h"
 #include "ml/value_descriptions.h"

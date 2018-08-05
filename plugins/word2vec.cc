@@ -15,7 +15,7 @@
 #include "mldb/utils/distribution.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/utils/log.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/http/http_exception.h"
 
 using namespace std;

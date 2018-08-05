@@ -14,7 +14,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "mldb/base/optimized_path.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/server/analytics.h"
 #include "procedure_js.h"
 #include "function_js.h"

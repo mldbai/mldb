@@ -8,7 +8,7 @@
 
 #include "mldb/server/bound_queries.h"
 #include "mldb/core/dataset.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"

@@ -17,7 +17,7 @@ LIBMLDB_SOURCES:= \
 	type_collection.cc \
 	analytics.cc \
 	plugin_resource.cc \
-	dataset_context.cc \
+	dataset_scope.cc \
 	static_content_handler.cc \
 	static_content_macro.cc \
 	external_plugin.cc \

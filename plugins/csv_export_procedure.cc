@@ -8,7 +8,7 @@
 #include "csv_export_procedure.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_scope.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/parallel.h"
 #include "mldb/server/bound_queries.h"
