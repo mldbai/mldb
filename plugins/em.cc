@@ -143,7 +143,7 @@ run(const ProcedureRunConfig & run,
                          "modelFileUrl");
     }
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
@@ -206,7 +206,7 @@ run(const ProcedureRunConfig & run,
         if (outputDataset.type.empty())
             outputDataset.type = EMConfig::defaultOutputDatasetType;
 
-        auto output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
+        auto output = createDataset(engine, outputDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
 
@@ -221,7 +221,7 @@ run(const ProcedureRunConfig & run,
 
     if (runProcConf.centroids.type != "" || emConfig.centroids.id != "") {
 
-        auto centroids = createDataset(server, runProcConf.centroids, onProgress2, true /*overwrite*/);
+        auto centroids = createDataset(engine, runProcConf.centroids, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
 
@@ -255,7 +255,7 @@ run(const ProcedureRunConfig & run,
             emPC.type = "gaussianclustering";
             emPC.id = runProcConf.functionName;
             emPC.params = funcConf;
-            obtainFunction(server, emPC, onProgress);
+            obtainFunction(engine, emPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create gaussian clustering function '" +
                                       runProcConf.functionName.rawString() +

@@ -55,23 +55,23 @@ bool supportsSystemRequirements() {
 
 // Creation functions exposed elsewhere
 std::shared_ptr<PluginCollection>
-createPluginCollection(MldbEngine * server, RestRouteManager & routeManager);
+createPluginCollection(MldbEngine * engine, RestRouteManager & routeManager);
 
 std::shared_ptr<DatasetCollection>
-createDatasetCollection(MldbEngine * server, RestRouteManager & routeManager);
+createDatasetCollection(MldbEngine * engine, RestRouteManager & routeManager);
 
 std::shared_ptr<ProcedureCollection>
-createProcedureCollection(MldbEngine * server, RestRouteManager & routeManager);
+createProcedureCollection(MldbEngine * engine, RestRouteManager & routeManager);
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbEngine * server, RestRouteManager & routeManager);
+createFunctionCollection(MldbEngine * engine, RestRouteManager & routeManager);
 
 std::shared_ptr<CredentialRuleCollection>
-createCredentialCollection(MldbEngine * server, RestRouteManager & routeManager,
+createCredentialCollection(MldbEngine * engine, RestRouteManager & routeManager,
                       std::shared_ptr<CollectionConfigStore> configStore);
 
 std::shared_ptr<TypeClassCollection>
-createTypeClassCollection(MldbEngine * server, RestRouteManager & routeManager);
+createTypeClassCollection(MldbEngine * engine, RestRouteManager & routeManager);
 
 
 /*****************************************************************************/

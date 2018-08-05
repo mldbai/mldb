@@ -104,8 +104,8 @@ struct CollectionCredentialProvider: public CredentialProvider {
 /*****************************************************************************/
 
 CredentialRuleCollection::
-CredentialRuleCollection(MLDB::MldbEngine * server)
-    : Base("credential", "credentials", server->getDirectory())
+CredentialRuleCollection(MLDB::MldbEngine * engine)
+    : Base("credential", "credentials", engine->getDirectory())
 {
     this->backgroundCreate = false;
 }
@@ -187,10 +187,10 @@ getConfig(std::string key, const CredentialRule & value) const
 
 
 std::shared_ptr<CredentialRuleCollection>
-createCredentialCollection(MLDB::MldbEngine * server, RestRouteManager & routeManager,
+createCredentialCollection(MLDB::MldbEngine * engine, RestRouteManager & routeManager,
                            std::shared_ptr<CollectionConfigStore> configStore) {
 
-    auto result = std::make_shared<CredentialRuleCollection>(server);
+    auto result = std::make_shared<CredentialRuleCollection>(engine);
 
     // if the CollectionConfigStore is valid
     // ensure that credentials are persisted
@@ -214,7 +214,7 @@ createCredentialCollection(MLDB::MldbEngine * server, RestRouteManager & routeMa
     // Save our child route
     routeManager.childRoutes["credentials"] = collectionRouteManager;
 
-    server->addEntity("credentials", result);
+    engine->addEntity("credentials", result);
 
     CredentialProvider::
         registerProvider(std::make_shared<CollectionCredentialProvider>(result));

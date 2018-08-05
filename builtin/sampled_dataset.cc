@@ -108,7 +108,7 @@ struct SampledDataset::Itl
     std::vector<RowPath> sampledRows;
     std::vector<RowHash> sampledRowsHash;
 
-    Itl(MldbEngine * server, std::shared_ptr<Dataset> dataset,
+    Itl(MldbEngine * engine, std::shared_ptr<Dataset> dataset,
             const SampledDatasetConfig config)
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
@@ -300,7 +300,7 @@ SampledDataset(MldbEngine * owner,
     SqlExpressionMldbScope context(owner);
     bondTableExpression = sampleConfig.dataset->bind(context, onProgress);
 
-    itl.reset(new Itl(server, bondTableExpression.dataset, sampleConfig));
+    itl.reset(new Itl(engine, bondTableExpression.dataset, sampleConfig));
 }
 
 SampledDataset::
@@ -317,7 +317,7 @@ SampledDataset(MldbEngine * owner,
     }
     validateConfig(&config);
 
-    itl.reset(new Itl(server, dataset, config));
+    itl.reset(new Itl(engine, dataset, config));
 }
 
 SampledDataset::
@@ -373,11 +373,11 @@ extern std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbEngine *,
                                                            std::shared_ptr<Dataset> dataset,
                                                            const ExpressionValue & options);
 
-std::shared_ptr<Dataset> createSampledDataset(MldbEngine * server,
+std::shared_ptr<Dataset> createSampledDataset(MldbEngine * engine,
                                               std::shared_ptr<Dataset> dataset,
                                               const ExpressionValue & options)
 {
-    return std::make_shared<SampledDataset>(server, dataset, options);
+    return std::make_shared<SampledDataset>(engine, dataset, options);
 }
 
 namespace {

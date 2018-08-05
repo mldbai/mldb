@@ -97,7 +97,7 @@ MongoImportConfigDescription()
 }
 
 struct MongoImportProcedure: public Procedure {
-    MongoImportProcedure(MldbEngine * server,
+    MongoImportProcedure(MldbEngine * engine,
                          PolyConfig config_,
                          std::function<bool (Json::Value)> onProgress)
         : Procedure(server)

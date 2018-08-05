@@ -125,7 +125,7 @@ struct JsonRowScope : SqlRowScope {
 struct JsonScope : SqlExpressionMldbScope {
 
 
-    JsonScope(MldbEngine * server) : SqlExpressionMldbScope(server){}
+    JsonScope(MldbEngine * engine) : SqlExpressionMldbScope(engine){}
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
                                 const ColumnPath & columnName) override
@@ -240,7 +240,7 @@ struct JSONImporter: public Procedure {
                 }
             }
         }
-        outputDataset = createDataset(server, runProcConf.outputDataset,
+        outputDataset = createDataset(engine, runProcConf.outputDataset,
                                       onProgress, true);
 
         if(!outputDataset) {
@@ -314,7 +314,7 @@ struct JSONImporter: public Procedure {
         // using incorrect default value to ease check
         bool useNamed = config.named != SqlExpression::TRUE;
 
-        JsonScope jsonScope(server);
+        JsonScope jsonScope(engine);
         const auto whereBound = config.where->bind(jsonScope);
         const auto selectBound = config.select.bind(jsonScope);
         const auto namedBound = config.named->bind(jsonScope);

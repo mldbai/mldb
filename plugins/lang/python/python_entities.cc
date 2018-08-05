@@ -61,7 +61,7 @@ createDataset(MldbPythonContext * mldbContext, const Json::Value & rawConfig)
 {
     PolyConfig config = jsonDecode<PolyConfig>(rawConfig);
 
-    auto dataset = MLDB::createDataset(mldbContext->getPyContext()->server,
+    auto dataset = MLDB::createDataset(mldbContext->getPyContext()->engine,
                                        config);
     return new DatasetPy(dataset);
 }

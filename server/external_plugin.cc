@@ -157,10 +157,10 @@ ExternalPluginConfigDescription()
 /*****************************************************************************/
 
 ExternalPlugin::
-ExternalPlugin(MldbEngine * server,
-             PolyConfig pconfig,
-             std::function<bool (const Json::Value & progress)> onProgress)
-    : Plugin(server)
+ExternalPlugin(MldbEngine * engine,
+               PolyConfig pconfig,
+               std::function<bool (const Json::Value & progress)> onProgress)
+    : Plugin(engine)
 {
     // 1.  Perform the plugin setup
 
@@ -173,13 +173,13 @@ ExternalPlugin(MldbEngine * server,
     if (!config.setup.type.empty()) {
         setup
             = PolyCollection<ExternalPluginSetup>
-            ::doConstruct(MldbEntity::getPeer(server), config.startup, onProgress);
+            ::doConstruct(MldbEntity::getPeer(engine), config.startup, onProgress);
         setup->setup();
     }
     
     startup
         = PolyCollection<ExternalPluginStartup>
-        ::doConstruct(MldbEntity::getPeer(server), config.startup, onProgress);
+        ::doConstruct(MldbEntity::getPeer(engine), config.startup, onProgress);
     communication = startup->start();
     
     communication->pingSync();
@@ -337,7 +337,7 @@ struct SubprocessPluginStartup::Itl {
 };
 
 SubprocessPluginStartup::
-SubprocessPluginStartup(MldbEngine * server,
+SubprocessPluginStartup(MldbEngine * engine,
                         PolyConfig pconfig,
                         std::function<bool (const Json::Value & progress)> onProgress)
 {

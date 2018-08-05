@@ -209,7 +209,7 @@ run(const ProcedureRunConfig & run,
                      "modelFileUrl");
 
     // 1.  Get the input dataset
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
@@ -987,7 +987,7 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = ClassifyFunctionConfig(runProcConf.modelFileUrl);
 
-        createFunction(server, clsFuncPC, onProgress, true);
+        createFunction(engine, clsFuncPC, onProgress, true);
     }
 
     DEBUG_MSG(logger) << "done saving classifier";

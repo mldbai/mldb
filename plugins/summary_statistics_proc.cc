@@ -432,7 +432,7 @@ run(const ProcedureRunConfig & run,
         make_pair("iterating", "percentile"),
     });
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
@@ -465,7 +465,7 @@ run(const ProcedureRunConfig & run,
     };
 
     Date now = Date::now();
-    auto output = createDataset(server, runProcConf.outputDataset,
+    auto output = createDataset(engine, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
 

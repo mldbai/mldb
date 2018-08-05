@@ -212,7 +212,7 @@ run(const ProcedureRunConfig & run,
     StatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
@@ -241,7 +241,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    auto output = createDataset(server, runProcConf.output, onProgress2, true /*overwrite*/);
+    auto output = createDataset(engine, runProcConf.output, onProgress2, true /*overwrite*/);
 
     int num_req = 0;
     Date start = Date::now();
@@ -358,7 +358,7 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = StatsTableFunctionConfig(runProcConf.modelFileUrl);
 
-        createFunction(server, clsFuncPC, onProgress, true);
+        createFunction(engine, clsFuncPC, onProgress, true);
     }
 
     return RunOutput();
@@ -587,7 +587,7 @@ run(const ProcedureRunConfig & run,
     expression["expression"] = assembled;
     funcPC.params = jsonEncode(expression);
 
-    createFunction(server, funcPC, onProgress, true /* overwrite */);
+    createFunction(engine, funcPC, onProgress, true /* overwrite */);
 
     return RunOutput(funcPC);
 }
@@ -669,7 +669,7 @@ run(const ProcedureRunConfig & run,
                 "'functionName' parameter is set.");
     }
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
@@ -738,7 +738,7 @@ run(const ProcedureRunConfig & run,
         if (outputDatasetConf.type.empty())
             outputDatasetConf.type = BagOfWordsStatsTableProcedureConfig
                                      ::defaultOutputDatasetType;
-        auto output = createDataset(server, outputDatasetConf, onProgress2,
+        auto output = createDataset(engine, outputDatasetConf, onProgress2,
                                     true /*overwrite*/);
 
         uint64_t load_factor = std::ceil(statsTable.counts.load_factor());
@@ -798,7 +798,7 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.params = StatsTablePosNegFunctionConfig(runProcConf.modelFileUrl,
                                                           runProcConf.functionOutcomeToUse);
 
-        createFunction(server, clsFuncPC, onProgress, true);
+        createFunction(engine, clsFuncPC, onProgress, true);
     }
 
     return RunOutput();

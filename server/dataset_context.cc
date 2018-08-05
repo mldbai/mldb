@@ -271,21 +271,21 @@ getReshaped(const std::unordered_map<ColumnHash, ColumnPath> & index,
 
 SqlExpressionDatasetScope::
 SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias)
-    : SqlExpressionMldbScope(dataset->server), dataset(*dataset), alias(alias)
+    : SqlExpressionMldbScope(dataset->engine), dataset(*dataset), alias(alias)
 {
      dataset->getChildAliases(childaliases);
 }
 
 SqlExpressionDatasetScope::
 SqlExpressionDatasetScope(const Dataset & dataset, const Utf8String& alias)
-    : SqlExpressionMldbScope(dataset.server), dataset(dataset), alias(alias)
+    : SqlExpressionMldbScope(dataset.engine), dataset(dataset), alias(alias)
 {
     dataset.getChildAliases(childaliases);
 }
 
 SqlExpressionDatasetScope::
 SqlExpressionDatasetScope(const BoundTableExpression& boundDataset)
-    : SqlExpressionMldbScope(boundDataset.dataset->server),
+    : SqlExpressionMldbScope(boundDataset.dataset->engine),
       dataset(*boundDataset.dataset),
       alias(boundDataset.asName)
 {

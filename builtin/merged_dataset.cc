@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** merged_dataset.cc                                              -*- C++ -*-
     Jeremy Barnes, 28 February 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
-
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "merged_dataset.h"
@@ -66,7 +64,7 @@ struct MergedDataset::Itl
 
     shared_ptr<spdlog::logger> logger;
 
-    Itl(MldbEngine * server, std::vector<std::shared_ptr<Dataset> > datasets)
+    Itl(MldbEngine * engine, std::vector<std::shared_ptr<Dataset> > datasets)
         : logger(getMldbLog<MergedDataset>())
     {
         // 1.  Sort them so that the biggest ones are at the start
@@ -121,7 +119,7 @@ struct MergedDataset::Itl
 
             //cerr << "merging " << subToMerge.size() << " files" << endl;
 
-            toMerge.push_back(std::make_shared<MergedDataset>(server, subToMerge));
+            toMerge.push_back(std::make_shared<MergedDataset>(engine, subToMerge));
             //cerr << "done merging " << subToMerge.size() << " files" << endl;
         }
 
@@ -659,7 +657,7 @@ MergedDataset(MldbEngine * owner,
         datasets.emplace_back(obtainDataset(owner, d, nullptr /*onProgress*/));
     }
 
-    itl.reset(new Itl(server, datasets));
+    itl.reset(new Itl(engine, datasets));
 }
 
 MergedDataset::
@@ -667,7 +665,7 @@ MergedDataset(MldbEngine * owner,
               std::vector<std::shared_ptr<Dataset> > datasetsToMerge)
     : Dataset(owner)
 {
-    itl.reset(new Itl(server, datasetsToMerge));
+    itl.reset(new Itl(engine, datasetsToMerge));
 }
 
 MergedDataset::
@@ -721,9 +719,9 @@ regMerged(builtinPackage(),
 
 extern std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbEngine *, std::vector<std::shared_ptr<Dataset> > datasets);
 
-std::shared_ptr<Dataset> createMergedDataset(MldbEngine * server, std::vector<std::shared_ptr<Dataset> > datasets)
+std::shared_ptr<Dataset> createMergedDataset(MldbEngine * engine, std::vector<std::shared_ptr<Dataset> > datasets)
 {
-    return std::make_shared<MergedDataset>(server, datasets);
+    return std::make_shared<MergedDataset>(engine, datasets);
 }
 
 namespace {

@@ -177,7 +177,7 @@ run(const ProcedureRunConfig & run,
             procPC.params = permutedConf;
 
             INFO_MSG(logger) << " >>>>> Creating procedure";
-            procedure = obtainProcedure(server, procPC, onProgress);
+            procedure = obtainProcedure(engine, procPC, onProgress);
         }
 
         // create run configuration

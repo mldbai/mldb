@@ -36,7 +36,7 @@ struct ValueFunctionT;
 
 struct ValueFunction: public Function {
 
-    ValueFunction(MldbEngine * server,
+    ValueFunction(MldbEngine * engine,
                   const PolyConfig& config,
                   std::shared_ptr<const ValueDescription> inputDescription,
                   std::shared_ptr<const ValueDescription> outputDescription);
@@ -115,13 +115,14 @@ struct ValueFunctionT: public ValueFunction {
     typedef Applier ApplierT;
     typedef ValueFunctionT<Input, Output> BaseT;
 
-    ValueFunctionT(MldbEngine * server,
+    ValueFunctionT(MldbEngine * engine,
                    const PolyConfig& config,
                    std::shared_ptr<const ValueDescription> inputDesc
                        = getDefaultDescriptionSharedT<Input>(),
                    std::shared_ptr<const ValueDescription> outputDesc
                        = getDefaultDescriptionSharedT<Output>())
-        : ValueFunction(server, config, std::move(inputDesc), std::move(outputDesc))
+        : ValueFunction(engine, config, std::move(inputDesc),
+                        std::move(outputDesc))
     {
     }
 

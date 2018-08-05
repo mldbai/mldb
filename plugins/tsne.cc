@@ -258,7 +258,7 @@ run(const ProcedureRunConfig & run,
     DEBUG_MSG(logger) << "doing t-SNE";
 
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
@@ -353,7 +353,7 @@ run(const ProcedureRunConfig & run,
 
     // Create a dataset to contain the output embedding if we ask for it
     if (!runProcConf.output.type.empty()) {
-        auto output = createDataset(server, runProcConf.output, onProgress2, true /*overwrite*/);
+        auto output = createDataset(engine, runProcConf.output, onProgress2, true /*overwrite*/);
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
             TRACE_MSG(logger) << "row " << i << " had coords " << itl->outputPath[i][0] << ","
@@ -376,7 +376,7 @@ run(const ProcedureRunConfig & run,
         tsneFuncPC.id = runProcConf.functionName;
         tsneFuncPC.params = TsneEmbedConfig(runProcConf.modelFileUrl);
 
-        createFunction(server, tsneFuncPC, onProgress, true);
+        createFunction(engine, tsneFuncPC, onProgress, true);
     }
 
     return Any();

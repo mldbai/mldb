@@ -358,7 +358,7 @@ struct DatasetRecorder: public Recorder {
     
     DatasetRecorder(Dataset * dataset);
 
-    DatasetRecorder(MldbEngine * server,
+    DatasetRecorder(MldbEngine * engine,
                     PolyConfig config,
                     std::function<bool (Json::Value)> onProgress);
 
@@ -390,11 +390,11 @@ private:
 /*****************************************************************************/
 
 struct Dataset: public MldbEntity {
-    Dataset(MldbEngine * server);
+    Dataset(MldbEngine * engine);
 
     virtual ~Dataset();
 
-    MldbEngine * server;
+    MldbEngine * engine;
     
     virtual Any getStatus() const = 0;
 
@@ -745,13 +745,13 @@ DECLARE_STRUCTURE_DESCRIPTION(PersistentDatasetConfig);
 /*****************************************************************************/
 
 std::shared_ptr<Dataset>
-obtainDataset(MldbEngine * server,
+obtainDataset(MldbEngine * engine,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress
                   = nullptr);
 
 std::shared_ptr<Dataset>
-createDataset(MldbEngine * server,
+createDataset(MldbEngine * engine,
               const PolyConfig & config,
               const std::function<bool (const Json::Value & progress)> & onProgress
               = nullptr,

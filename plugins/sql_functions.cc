@@ -51,9 +51,9 @@ filterEmptyColumns(MatrixNamedRow & row) {
 }
 
 std::shared_ptr<PipelineElement>
-getMldbRoot(MldbEngine * server)
+getMldbRoot(MldbEngine * engine)
 {
-    return PipelineElement::root(std::make_shared<SqlExpressionMldbScope>(server));
+    return PipelineElement::root(std::make_shared<SqlExpressionMldbScope>(engine));
 }
 
 /*****************************************************************************/
@@ -128,7 +128,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return std::make_shared<AnyValueInfo>();
             };
 
-        pipeline = getMldbRoot(function->server)->statement(*config.query.stm, getParamInfo);
+        pipeline = getMldbRoot(function->engine)->statement(*config.query.stm, getParamInfo);
 
         // Bind the pipeline; this populates the input parameters
         boundPipeline = pipeline->bind();
@@ -585,7 +585,7 @@ getFunctionInfo() const
     // 1.  Create a binding context to see what this function takes
     //     We want the pure function information, so we assume there is
     //     no context for it apart from MLDB itself.
-    SqlExpressionMldbScope ultimateScope(MldbEntity::getOwner(this->server));
+    SqlExpressionMldbScope ultimateScope(MldbEntity::getOwner(this->engine));
     SqlExpressionExtractScope outerScope(ultimateScope);
 
     // 2.  Bind the expression in.  That will tell us what it is expecting
@@ -669,7 +669,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // Get the input dataset
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     bool emptyGroupBy = runProcConf.inputData.stm->groupBy.clauses.empty();
 
@@ -685,7 +685,7 @@ run(const ProcedureRunConfig & run,
 
     // Create the output
     std::shared_ptr<Dataset> output =
-        createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
+        createDataset(engine, runProcConf.outputDataset, nullptr, true /*overwrite*/);
     bool skipEmptyRows = runProcConf.skipEmptyRows;
 
     auto recordRowInOutputDataset = [&output, &skipEmptyRows] (MatrixNamedRow & row) {

@@ -186,7 +186,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ExternalPluginConfig);
 
 struct ExternalPlugin: public Plugin {
 
-    ExternalPlugin(MldbEngine * server,
+    ExternalPlugin(MldbEngine * engine,
                  PolyConfig config,
                  std::function<bool (const Json::Value & progress)> onProgress);
 
@@ -232,7 +232,7 @@ DECLARE_STRUCTURE_DESCRIPTION(SubprocessExternalPluginConfig);
 
 struct SubprocessPluginStartup: public ExternalPluginStartup {
 
-    SubprocessPluginStartup(MldbEngine * server,
+    SubprocessPluginStartup(MldbEngine * engine,
                             PolyConfig pconfig,
                             std::function<bool (const Json::Value & progress)> onProgress);
 

@@ -83,7 +83,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
@@ -130,7 +130,7 @@ run(const ProcedureRunConfig & run,
 
     int64_t rowCount = orderedRowNames.size();
 
-    auto output = createDataset(server, runProcConf.outputDataset,
+    auto output = createDataset(engine, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
     typedef tuple<ColumnPath, CellValue, Date> Cell;

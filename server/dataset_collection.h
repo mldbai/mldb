@@ -41,7 +41,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 /*****************************************************************************/
 
 struct DatasetCollection: public PolyCollection<Dataset> {
-    DatasetCollection(MldbEngine * server);
+    DatasetCollection(MldbEngine * engine);
 
     static void initRoutes(RouteManager & manager);
 

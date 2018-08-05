@@ -1714,7 +1714,7 @@ regTensorflowGraph(tensorflowPackage(),
 // We initialize the TensorFlow system.
 
 struct TensorflowPlugin: public Plugin {
-    TensorflowPlugin(MldbEngine * server)
+    TensorflowPlugin(MldbEngine * engine)
         : Plugin(server)
     {
         
@@ -2226,7 +2226,7 @@ tf_extract_constant (const Utf8String &functionName,
     // Return an escaped string from a path
     checkArgsSize(args.size(), 2);
 
-    MldbEngine * server = context.getMldbEngine();
+    MldbEngine * engine = context.getMldbEngine();
 
     auto exec = [=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
@@ -2288,7 +2288,7 @@ static RegisterFunction registerTfExtractConstant("tf_extract_constant", tf_extr
 
 
 MLDB::Plugin *
-mldbPluginEnterV100(MLDB::MldbEngine * server)
+mldbPluginEnterV100(MLDB::MldbEngine * engine)
 {
     return new MLDB::TensorflowPlugin(server);
 }

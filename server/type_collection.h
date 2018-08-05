@@ -32,7 +32,7 @@ template<typename Base> struct TypeCollection;
 /** Our collection of types, categorized by parent type. */
 
 struct TypeClassCollection: public RestDirectory {
-    TypeClassCollection(MldbEngine * server);
+    TypeClassCollection(MldbEngine * engine);
 
     static void initRoutes(RouteManager & manager);
 

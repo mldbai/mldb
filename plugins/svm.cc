@@ -242,7 +242,7 @@ run(const ProcedureRunConfig & run,
     checkWritability(runProcConf.modelFileUrl.toDecodedString(),
                      "modelFileUrl");
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto embeddingOutput

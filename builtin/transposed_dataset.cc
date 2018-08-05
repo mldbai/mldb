@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** transposed_dataset.cc                                              -*- C++ -*-
     Jeremy Barnes, 28 February 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -52,7 +51,7 @@ struct TransposedDataset::Itl
     std::shared_ptr<ColumnIndex> index;
     size_t columnCount;
 
-    Itl(MldbEngine * server, std::shared_ptr<Dataset> dataset)
+    Itl(MldbEngine * engine, std::shared_ptr<Dataset> dataset)
         : dataset(dataset),
           matrix(dataset->getMatrixView()),
           index(dataset->getColumnIndex()),
@@ -333,7 +332,7 @@ TransposedDataset(MldbEngine * owner,
     std::shared_ptr<Dataset> dataset = obtainDataset(owner, mergeConfig.dataset,
                                                      nullptr /*onProgress*/);
 
-    itl.reset(new Itl(server, dataset));
+    itl.reset(new Itl(engine, dataset));
 }
 
 TransposedDataset::
@@ -341,7 +340,7 @@ TransposedDataset(MldbEngine * owner,
                   std::shared_ptr<Dataset> dataset)
     : Dataset(owner)
 {
-    itl.reset(new Itl(server, dataset));
+    itl.reset(new Itl(engine, dataset));
 }
 
 TransposedDataset::
@@ -400,12 +399,12 @@ regTransposed(builtinPackage(),
 extern std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbEngine *, std::shared_ptr<Dataset> dataset);
 extern std::shared_ptr<Dataset> (*createTransposedTableFn) (MldbEngine *, const TableOperations& table);
 
-std::shared_ptr<Dataset> createTransposedDataset(MldbEngine * server, std::shared_ptr<Dataset> dataset)
+std::shared_ptr<Dataset> createTransposedDataset(MldbEngine * engine, std::shared_ptr<Dataset> dataset)
 {  
-    return std::make_shared<TransposedDataset>(server, dataset);
+    return std::make_shared<TransposedDataset>(engine, dataset);
 }
 
-std::shared_ptr<Dataset> createTransposedTable(MldbEngine * server, const TableOperations& table)
+std::shared_ptr<Dataset> createTransposedTable(MldbEngine * engine, const TableOperations& table)
 {
     SqlBindingScope dummyScope;
     auto generator = table.runQuery(dummyScope,
@@ -422,9 +421,9 @@ std::shared_ptr<Dataset> createTransposedTable(MldbEngine * server, const TableO
     std::vector<NamedRowValue> rows
         = generator(-1, fakeRowScope);
 
-    auto subDataset = std::make_shared<SubDataset>(server, rows);
+    auto subDataset = std::make_shared<SubDataset>(engine, rows);
 
-    return std::make_shared<TransposedDataset>(server, subDataset);
+    return std::make_shared<TransposedDataset>(engine, subDataset);
 }
 
 namespace {

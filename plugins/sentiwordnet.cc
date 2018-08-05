@@ -85,7 +85,7 @@ struct SentiWordNetImporter: public Procedure {
 
         std::shared_ptr<Dataset> outputDataset;
         if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {
-            outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
+            outputDataset = createDataset(engine, runProcConf.outputDataset, nullptr, true /*overwrite*/);
         }
 
 

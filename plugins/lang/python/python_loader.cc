@@ -198,7 +198,7 @@ pyExec(Utf8String code,
 /*****************************************************************************/
 
 struct PythonPlugin: public Plugin {
-    PythonPlugin(MldbEngine * server,
+    PythonPlugin(MldbEngine * engine,
                      PolyConfig config,
                      std::function<bool (const Json::Value & progress)> onProgress);
     
@@ -252,15 +252,15 @@ struct PythonPlugin: public Plugin {
 
 
 PythonPlugin::
-PythonPlugin(MldbEngine * server,
+PythonPlugin(MldbEngine * engine,
              PolyConfig config,
              std::function<bool (const Json::Value & progress)> onProgress)
-    : Plugin(server), initialGetStatus(true)
+    : Plugin(engine), initialGetStatus(true)
 {
 
     PluginResource res = config.params.convert<PluginResource>();
     try {
-        pluginCtx.reset(new PythonPluginContext(config.id, this->server,
+        pluginCtx.reset(new PythonPluginContext(config.id, this->engine,
                 std::make_shared<LoadedPluginResource>
                                       (PYTHON,
                                        LoadedPluginResource::PLUGIN,
@@ -490,7 +490,7 @@ handleRequest(RestConnection & connection,
 
 RestRequestMatchResult
 PythonPlugin::
-handleTypeRoute(RestDirectory * server,
+handleTypeRoute(RestDirectory * engine,
                 RestConnection & conn,
                 const RestRequest & request,
                 RestRequestParsingContext & context)
@@ -506,7 +506,7 @@ handleTypeRoute(RestDirectory * server,
                                                    "", scriptConfig);
         try {
             scriptCtx = std::make_shared<PythonScriptContext>(
-                "script runner", dynamic_cast<MldbEngine *>(server), pluginRez);
+                "script runner", dynamic_cast<MldbEngine *>(engine), pluginRez);
         }
         catch(const std::exception & exc) {
             conn.sendResponse(

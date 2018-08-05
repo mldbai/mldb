@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** procedure_collection.cc
     Jeremy Barnes, 24 November 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Collection of procedures.
 */
@@ -24,28 +23,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<ProcedureCollection>
-createProcedureCollection(MldbEngine * server, RestRouteManager & routeManager)
+createProcedureCollection(MldbEngine * engine, RestRouteManager & routeManager)
 {
     return createCollection<ProcedureCollection>(2, "procedure", "procedures",
-                                                 server->getDirectory(),
+                                                 engine->getDirectory(),
                                                  routeManager);
 }
 
 std::shared_ptr<Procedure>
-obtainProcedure(MldbEngine * server,
+obtainProcedure(MldbEngine * engine,
                 const PolyConfig & config,
                 const MldbEngine::OnProgress & onProgress)
 {
-    return server->obtainProcedureSync(config, onProgress);
+    return engine->obtainProcedureSync(config, onProgress);
 }
 
 std::shared_ptr<Procedure>
-createProcedure(MldbEngine * server,
+createProcedure(MldbEngine * engine,
                 const PolyConfig & config,
                 const std::function<bool (const Json::Value & progress)> & onProgress,
                 bool overwrite)
 {
-    return server->createProcedureSync(config, onProgress, overwrite);
+    return engine->createProcedureSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<ProcedureType>
@@ -72,10 +71,10 @@ registerProcedureType(const Package & package,
 /*****************************************************************************/
 
 ProcedureCollection::
-ProcedureCollection(MldbEngine * server)
+ProcedureCollection(MldbEngine * engine)
     : PolyCollection<Procedure>("procedure", "procedures",
-                                server->getDirectory()),
-      mldb(server)
+                                engine->getDirectory()),
+      mldb(engine)
 {
 }
 

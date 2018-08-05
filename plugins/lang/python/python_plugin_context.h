@@ -111,13 +111,13 @@ struct PythonRestRequest {
 struct MldbPythonContext;
 
 struct PythonContext {
-    PythonContext(const Utf8String &  name, MldbEngine * server,
+    PythonContext(const Utf8String &  name, MldbEngine * engine,
             std::shared_ptr<LoadedPluginResource> pluginResource)
     : categoryName(name + " plugin"),
       loaderName(name + " loader"),
       category(categoryName.rawData()),
       loader(loaderName.rawData()),
-      server(server),
+      engine(engine),
       pluginResource(pluginResource)
     {
     }
@@ -136,7 +136,7 @@ struct PythonContext {
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader;
 
-    MldbEngine * server;
+    MldbEngine * engine;
     RestRequestRouter router;
 
     std::mutex guard;
@@ -209,10 +209,10 @@ getHttpBoundAddress(MldbPythonContext * mldbCon);
 
 struct PythonPluginContext: public PythonContext  {
     PythonPluginContext(const Utf8String & pluginName,
-                        MldbEngine * server,
+                        MldbEngine * engine,
                         std::shared_ptr<LoadedPluginResource> pluginResource,
                         std::mutex & routeHandlingMutex)
-        : PythonContext(pluginName, server, pluginResource),
+        : PythonContext(pluginName, engine, pluginResource),
           hasRequestHandler(false),
           routeHandlingMutex(routeHandlingMutex)
     {
@@ -246,9 +246,9 @@ struct PythonPluginContext: public PythonContext  {
 /****************************************************************************/
 
 struct PythonScriptContext: public PythonContext  {
-    PythonScriptContext(const std::string & pluginName, MldbEngine * server,
+    PythonScriptContext(const std::string & pluginName, MldbEngine * engine,
             std::shared_ptr<LoadedPluginResource> pluginResource)
-    : PythonContext(pluginName, server, pluginResource)
+    : PythonContext(pluginName, engine, pluginResource)
     {
     }
 };

@@ -19,28 +19,28 @@ using namespace std;
 namespace MLDB {
 
 std::shared_ptr<PluginCollection>
-createPluginCollection(MldbEngine * server, RestRouteManager & routeManager)
+createPluginCollection(MldbEngine * engine, RestRouteManager & routeManager)
 {
     return createCollection<PluginCollection>(2, L"plugin", L"plugins",
-                                              server->getDirectory(),
+                                              engine->getDirectory(),
                                               routeManager);
 }
 
 std::shared_ptr<Plugin>
-obtainPlugin(MldbEngine * server,
+obtainPlugin(MldbEngine * engine,
              const PolyConfig & config,
              const MldbEngine::OnProgress & onProgress)
 {
-    return server->obtainPluginSync(config, onProgress);
+    return engine->obtainPluginSync(config, onProgress);
 }
 
 std::shared_ptr<Plugin>
-createPlugin(MldbEngine * server,
+createPlugin(MldbEngine * engine,
              const PolyConfig & config,
              const std::function<bool (const Json::Value & progress)> & onProgress,
              bool overwrite)
 {
-    return server->createPluginSync(config, onProgress, overwrite);
+    return engine->createPluginSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<PluginType>
@@ -66,8 +66,8 @@ registerPluginType(const Package & package,
 /*****************************************************************************/
 
 PluginCollection::
-PluginCollection(MldbEngine * server)
-    : PolyCollection<Plugin>("plugin", "plugins", server->getDirectory())
+PluginCollection(MldbEngine * engine)
+    : PolyCollection<Plugin>("plugin", "plugins", engine->getDirectory())
 {
 }
 

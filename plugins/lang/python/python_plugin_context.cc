@@ -390,7 +390,7 @@ perform(MldbPythonContext * mldbCon,
     PyThreadState_Swap(NULL);
     PyEval_ReleaseLock();
 
-    mldbCon->getPyContext()->server->handleRequest(connection, request);
+    mldbCon->getPyContext()->engine->handleRequest(connection, request);
 
     // relock and restore thread state
     PyEval_AcquireLock();
@@ -480,7 +480,7 @@ ls(MldbPythonContext * mldbCon,
 string
 getHttpBoundAddress(MldbPythonContext * mldbCon)
 {
-    return mldbCon->getPyContext()->server->getHttpBoundAddress();
+    return mldbCon->getPyContext()->engine->getHttpBoundAddress();
 }
 
 
@@ -559,7 +559,7 @@ serveStaticFolder(const std::string & route, const std::string & dir)
     string route_pattern = "/" + boost::replace_all_copy(route, "/", "") + "/(.*)";
     router.addRoute(Rx(route_pattern, "<resource>"),
                     "GET", "Static content",
-                    getStaticRouteHandler("file://" + fullDir.string(), server),
+                    getStaticRouteHandler("file://" + fullDir.string(), engine),
                     Json::Value());
 }
 
@@ -576,7 +576,7 @@ serveDocumentationFolder(const std::string & dir)
                 "not exist: " + fullDir.string());
     }
 
-    handleDocumentation = getStaticRouteHandler("file://" + fullDir.string(), server);
+    handleDocumentation = getStaticRouteHandler("file://" + fullDir.string(), engine);
 }
 
 std::string PythonPluginContext::

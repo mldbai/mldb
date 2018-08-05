@@ -407,7 +407,7 @@ run(const ProcedureRunConfig & run,
             clsProcPC.params = jsonEncode(clsProcConf);
 
             INFO_MSG(logger) << " >>>>> Creating training procedure";
-            clsProcedure = createProcedure(server, clsProcPC, onProgress2, true);
+            clsProcedure = createProcedure(engine, clsProcPC, onProgress2, true);
             resourcesToDelete.push_back("/v1/procedures/"+clsProcPC.id.utf8String());
         }
 
@@ -442,7 +442,7 @@ run(const ProcedureRunConfig & run,
             accuracyProcPC.params = accuracyConf;
 
             INFO_MSG(logger) << " >>>>> Creating testing procedure";
-            accuracyProc = createProcedure(server, accuracyProcPC, onProgress2, true);
+            accuracyProc = createProcedure(engine, accuracyProcPC, onProgress2, true);
 
             resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
         };
@@ -509,7 +509,7 @@ run(const ProcedureRunConfig & run,
                         InProcessRestConnection connection;
                         RestRequest request("DELETE", "/v1/datasets/"+outputPC.id.utf8String(),
                                             RestParams(), "{}");
-                        server->handleRequest(connection, request);
+                        engine->handleRequest(connection, request);
 
                         if(connection.responseCode != 204) {
                             throw MLDB::Exception("HTTP error "+std::to_string(connection.responseCode)+
@@ -592,7 +592,7 @@ run(const ProcedureRunConfig & run,
         InProcessRestConnection connection;
         for(const string & resource : resourcesToDelete) {
             RestRequest request("DELETE", resource, RestParams(), "{}");
-            server->handleRequest(connection, request);
+            engine->handleRequest(connection, request);
             if(connection.responseCode != 204) {
                 throw MLDB::Exception(MLDB::format("Unable to delete resource '%s'. "
                             "Response code %d", resource, connection.responseCode));

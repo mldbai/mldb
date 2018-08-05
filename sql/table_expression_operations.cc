@@ -637,7 +637,7 @@ RowTableExpression::
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 std::vector<NamedRowValue>
-(*querySubDatasetFn) (MldbEngine * server,
+(*querySubDatasetFn) (MldbEngine * engine,
                       std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
@@ -657,8 +657,8 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
 {
     ExcAssert(querySubDatasetFn);
 
-    MldbEngine * server = context.getMldbEngine();
-    ExcAssert(server);
+    MldbEngine * engine = context.getMldbEngine();
+    ExcAssert(engine);
 
     auto boundExpr = expr->bind(context);
 
@@ -808,7 +808,7 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
                     row.forEachColumnDestructive(onExpression);
                 }
 
-                return querySubDatasetFn(server, std::move(rows),
+                return querySubDatasetFn(engine, std::move(rows),
                                          select, when, *where, orderBy,
                                          TupleExpression(),
                                          SqlExpression::TRUE,

@@ -71,7 +71,7 @@ struct JsIsolate {
 };
 
 struct V8Init {
-    V8Init(MldbEngine * server);
+    V8Init(MldbEngine * engine);
 };
 
 void to_js(JS::JSValue & value, const CellValue & val);
@@ -121,7 +121,7 @@ struct JsPluginContext {
         a null pointer if the context is for a JS function rather than
         an actual plugin.
     */
-    JsPluginContext(const Utf8String & pluginName, MldbEngine * server,
+    JsPluginContext(const Utf8String & pluginName, MldbEngine * engine,
                     std::shared_ptr<LoadedPluginResource> pluginResource);
     ~JsPluginContext();
 
@@ -139,7 +139,7 @@ struct JsPluginContext {
     std::function<Json::Value ()> getStatus;
     RestRequestRouter router;
     RestRequestRouter::OnProcessRequest handleRequest;
-    MldbEngine * server;
+    MldbEngine * engine;
 
     std::shared_ptr<LoadedPluginResource> pluginResource;
 

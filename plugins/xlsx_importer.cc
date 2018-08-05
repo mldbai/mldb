@@ -753,7 +753,7 @@ struct XlsxImporter: public Procedure {
 
         if (!runProcConf.output.type.empty()
             || !runProcConf.output.id.empty()) {
-            output = obtainDataset(server, runProcConf.output);
+            output = obtainDataset(engine, runProcConf.output);
         }
 
         // 4.  Load the worksheets, one by one

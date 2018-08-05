@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** static_content_macro.cc
     Jeremy Barnes, 23 November 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -50,12 +49,12 @@ std::string insertAfterFragment(const std::string & uri, const std::string & toI
 }
 
 static std::string getTypeName(const ValueDescription & description,
-                               MldbEngine * server)
+                               MldbEngine * engine)
 {
     std::string resultSoFar;
     std::string closing;
     if (!description.documentationUri.empty()) {
-        resultSoFar += "<a href=\"" + server->prefixUrl(insertAfterFragment(description.documentationUri, ".html")).rawString() + "\">";
+        resultSoFar += "<a href=\"" + engine->prefixUrl(insertAfterFragment(description.documentationUri, ".html")).rawString() + "\">";
         closing = "</a>";
     }
 
@@ -69,7 +68,7 @@ static std::string getTypeName(const ValueDescription & description,
     case ValueKind::FLOAT:     return wrap("float");
     case ValueKind::BOOLEAN:   return wrap("bool");
     case ValueKind::STRING:    return wrap("string");
-    case ValueKind::ARRAY:     return wrap("ARRAY [ " + getTypeName(description.contained(), server) + " ]");
+    case ValueKind::ARRAY:     return wrap("ARRAY [ " + getTypeName(description.contained(), engine) + " ]");
     case ValueKind::STRUCTURE: return wrap(printTypeName(printTypeName(description.typeName)));
     case ValueKind::ENUM:      return wrap(printTypeName(description.typeName));
     case ValueKind::ATOM:      return wrap(printTypeName(description.typeName));
@@ -81,16 +80,16 @@ static std::string getTypeName(const ValueDescription & description,
             if (!first)
                 result += ",";
             first = false;
-            result = result + " " + getTypeName(*tp, server);
+            result = result + " " + getTypeName(*tp, engine);
         }
         result += " ]";
         return result;
     }
-    case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained(), server)) + " (Optional)";
+    case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained(), engine)) + " (Optional)";
     case ValueKind::VARIANT:   return wrap("VARIANT "  + printTypeName(description.typeName));
     case ValueKind::MAP: {
-        return wrap("MAP { " + getTypeName(description.getKeyValueDescription(), server)
-                    + " : " + getTypeName(description.contained(), server) + " }");
+        return wrap("MAP { " + getTypeName(description.getKeyValueDescription(), engine)
+                    + " : " + getTypeName(description.contained(), engine) + " }");
     }
     case ValueKind::ANY:       return description.typeName == "Json::Value" ? "JSON" : printTypeName(description.typeName);
     default:
@@ -138,7 +137,7 @@ static void renderType(MacroContext & context,
                         MLDB::format("\n        \"%s\": &lt;%s&gt;",
                                    fd.fieldName.c_str(),
                                    getTypeName(*fd.description,
-                                               context.server).c_str()));
+                                               context.engine).c_str()));
                 };
             vd->forEachField(nullptr, onField);
         }
@@ -150,7 +149,7 @@ static void renderType(MacroContext & context,
                 {
                     context.writeHtml(MLDB::format("<tr><td align='right'><p><strong>%s</strong> <br/> <nobr>%s</nobr> <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
-                                         getTypeName(*fd.description, context.server).c_str(),
+                                         getTypeName(*fd.description, context.engine).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
                                                  renderMarkdown(fd.comment.c_str(), context)));
                 };
@@ -213,7 +212,7 @@ Utf8String
 MacroContext::
 prefixUrl(Utf8String url) const
 {
-    return macroData->server->prefixUrl(url);
+    return macroData->engine->prefixUrl(url);
 }
 
 void
@@ -225,7 +224,7 @@ writeInternalLink(Utf8String url,
     if (followInternalRedirect) {
         RestRequest request("GET", url.rawString(), {}, "");
         InProcessRestConnection connection;
-        macroData->server->handleRequest(connection, request);
+        macroData->engine->handleRequest(connection, request);
         if (connection.responseCode == 301) {
             url = connection.headers.getValue("location");
         }
@@ -414,7 +413,7 @@ void configMacro(MacroContext & context,
             
         RestRequest request("GET", "/v1/types/" + kind + "s/" + type + "/info", {}, "");
         InProcessRestConnection connection;
-        context.macroData->server->handleRequest(connection, request);
+        context.macroData->engine->handleRequest(connection, request);
 
         if (connection.responseCode != 200) {
             context.writeHtml("Error running %%config macro with params " + kind + " " + type);
@@ -471,7 +470,7 @@ void availabletypesMacro(MacroContext & context,
         RestRequest request("GET", "/v1/types/" + kind + "s",
                             {{"details", "true"}}, "");
         InProcessRestConnection connection;
-        context.macroData->server->handleRequest(connection, request);
+        context.macroData->engine->handleRequest(connection, request);
             
         if (connection.responseCode != 200) {
             context.writeHtml("Error running %%availabletypes macro for kind " + kind);

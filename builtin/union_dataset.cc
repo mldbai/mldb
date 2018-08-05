@@ -43,9 +43,9 @@ regUnion(builtinPackage(),
           "datasets/UnionDataset.md.html");
 
 std::shared_ptr<Dataset> createUnionDataset(
-    MldbEngine * server, vector<std::shared_ptr<Dataset> > datasets)
+    MldbEngine * engine, vector<std::shared_ptr<Dataset> > datasets)
 {
-    return std::make_shared<UnionDataset>(server, datasets);
+    return std::make_shared<UnionDataset>(engine, datasets);
 }
 
 struct UnionDataset::Itl
@@ -57,7 +57,7 @@ struct UnionDataset::Itl
     // Datasets that it was constructed with
     vector<std::shared_ptr<Dataset> > datasets;
 
-    Itl(MldbEngine * server, vector<std::shared_ptr<Dataset> > datasets) {
+    Itl(MldbEngine * engine, vector<std::shared_ptr<Dataset> > datasets) {
         if (datasets.empty()) {
             throw MLDB::Exception("Attempt to unify no datasets together");
         }
@@ -380,7 +380,7 @@ UnionDataset(MldbEngine * owner,
         datasets.emplace_back(obtainDataset(owner, d, nullptr /*onProgress*/));
     }
 
-    itl.reset(new Itl(server, datasets));
+    itl.reset(new Itl(engine, datasets));
 }
 
 UnionDataset::
@@ -388,7 +388,7 @@ UnionDataset(MldbEngine * owner,
               vector<std::shared_ptr<Dataset> > datasetsToMerge)
     : Dataset(owner)
 {
-    itl.reset(new Itl(server, datasetsToMerge));
+    itl.reset(new Itl(engine, datasetsToMerge));
 }
 
 UnionDataset::

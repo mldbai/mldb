@@ -686,7 +686,7 @@ run(const ProcedureRunConfig & run,
 
     int numBasisVectors = runProcConf.numDenseBasisVectors;
     
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
     
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto dataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson).dataset;
@@ -789,7 +789,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-        auto output = createDataset(server, columnOutput, onProgress2, true /*overwrite*/);
+        auto output = createDataset(engine, columnOutput, onProgress2, true /*overwrite*/);
 
         auto doColumn = [&] (size_t i)
             {
@@ -867,7 +867,7 @@ run(const ProcedureRunConfig & run,
             value["dataset"] = progress;
             return onProgress(value);
         };
-        auto output = createDataset(server, rowOutput, onProgress2, true /*overwrite*/);
+        auto output = createDataset(engine, rowOutput, onProgress2, true /*overwrite*/);
 
         // getRowPaths can return row names in an arbitrary order as long as it is deterministic.
         auto rows = dataset->getMatrixView()->getRowPaths(0, -1);
@@ -909,7 +909,7 @@ run(const ProcedureRunConfig & run,
         svdFuncPC.id = runProcConf.functionName;
         svdFuncPC.params = SvdEmbedConfig(runProcConf.modelFileUrl);
 
-        createFunction(server, svdFuncPC, onProgress, true);
+        createFunction(engine, svdFuncPC, onProgress, true);
     }
 
     return Any();

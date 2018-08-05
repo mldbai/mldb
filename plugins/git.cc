@@ -394,7 +394,7 @@ struct GitImporter: public Procedure {
         std::shared_ptr<Dataset> output;
         if (!runProcConf.outputDataset.type.empty()
             || !runProcConf.outputDataset.id.empty()) {
-            output = createDataset(server, runProcConf.outputDataset,
+            output = createDataset(engine, runProcConf.outputDataset,
                                    nullptr, true /*overwrite*/);
         }
 

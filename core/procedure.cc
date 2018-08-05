@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* procedure.cc
    Jeremy Barnes, 21 January 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Procedure support.
 */
@@ -117,9 +116,9 @@ RunOutputDescription()
 /*****************************************************************************/
 
 Procedure::
-Procedure(MldbEngine * server)
-    : server(static_cast<MldbEngine *>(server)),
-      runs(new ProcedureRunCollection(server->getDirectory(), this))
+Procedure(MldbEngine * engine)
+    : engine(static_cast<MldbEngine *>(engine)),
+      runs(new ProcedureRunCollection(engine->getDirectory(), this))
 {
 }
 
@@ -161,7 +160,7 @@ RestEntity *
 Procedure::
 getParent() const
 {
-    return server->getProcedureCollection();
+    return engine->getProcedureCollection();
 }
 
 Any
@@ -209,9 +208,9 @@ NullProcedureConfigDescription()
 }
 
 NullProcedure::
-NullProcedure(MldbEngine * server, const PolyConfig & config,
+NullProcedure(MldbEngine * engine, const PolyConfig & config,
              const std::function<bool (const Json::Value &)> & onProgress)
-    : Procedure(server)
+    : Procedure(engine)
 {
 }
 
@@ -278,9 +277,9 @@ SerialProcedureStatusDescription()
 }
 
 SerialProcedure::
-SerialProcedure(MldbEngine * server, const PolyConfig & config,
+SerialProcedure(MldbEngine * engine, const PolyConfig & config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Procedure(server)
+    : Procedure(engine)
 {
     this->config = config.params.convert<SerialProcedureConfig>();
 
@@ -291,7 +290,7 @@ SerialProcedure(MldbEngine * server, const PolyConfig & config,
                                       "procedureConfig", config,
                                       "childConfig", s);
 
-        this->steps.emplace_back(obtainProcedure(server, s, onProgress));
+        this->steps.emplace_back(obtainProcedure(engine, s, onProgress));
     }
 }
 
@@ -393,9 +392,9 @@ CreateEntityProcedureOutputDescription()
 DECLARE_STRUCTURE_DESCRIPTION(CreateEntityProcedureOutput);
 
 CreateEntityProcedure::
-CreateEntityProcedure(MldbEngine * server, const PolyConfig & config,
+CreateEntityProcedure(MldbEngine * engine, const PolyConfig & config,
                      const std::function<bool (const Json::Value &)> & onProgress)
-    : Procedure(server)
+    : Procedure(engine)
 {
     this->config = config.params.convert<CreateEntityProcedureConfig>();
 }
@@ -417,7 +416,7 @@ getStatus() const
 RunOutput
 CreateEntityProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto makeResult = [&] (std::shared_ptr<MldbEntity> entity)
         {
@@ -429,16 +428,16 @@ run(const ProcedureRunConfig & run,
         };
 
     if (config.kind == "dataset") {
-        return makeResult(obtainDataset(server, config, onProgress));
+        return makeResult(obtainDataset(engine, config, onProgress));
     }
     else if (config.kind == "plugin") {
-        return makeResult(obtainPlugin(server, config, onProgress));
+        return makeResult(obtainPlugin(engine, config, onProgress));
     }
     else if (config.kind == "procedure") {
-        return makeResult(obtainProcedure(server, config, onProgress));
+        return makeResult(obtainProcedure(engine, config, onProgress));
     }
     else if (config.kind == "function") {
-        return makeResult(obtainFunction(server, config, onProgress));
+        return makeResult(obtainFunction(engine, config, onProgress));
     }
     else throw HttpReturnException(400, "Attempt to create unknown entity kind '" + config.kind + "'");
 }

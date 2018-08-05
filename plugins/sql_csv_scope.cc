@@ -22,10 +22,10 @@ namespace MLDB {
 */
 
 SqlCsvScope::
-SqlCsvScope(MldbEngine * server,
+SqlCsvScope(MldbEngine * engine,
             const std::vector<ColumnPath> & columnNames,
             Date fileTimestamp, Utf8String dataFileUrl)
-    : SqlExpressionMldbScope(server), columnNames(columnNames),
+    : SqlExpressionMldbScope(engine), columnNames(columnNames),
       fileTimestamp(fileTimestamp),
       dataFileUrl(std::move(dataFileUrl))
 {

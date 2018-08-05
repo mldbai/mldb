@@ -28,7 +28,7 @@ namespace MLDB {
 
 struct ForwardedDataset: public Dataset {
 
-    ForwardedDataset(MldbEngine * server);
+    ForwardedDataset(MldbEngine * engine);
     ForwardedDataset(std::shared_ptr<Dataset> underlying);
 
     virtual ~ForwardedDataset();

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** sub_dataset.cc                                              -*- C++ -*-
     Mathieu Marquis Bolduc, August 19th, 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -713,21 +712,21 @@ extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbEngine *,
                                                        const ProgressFunc &);
 extern std::shared_ptr<Dataset> (*createSubDatasetFromRowsFn) (MldbEngine *, const std::vector<NamedRowValue>&);
 
-std::shared_ptr<Dataset> createSubDataset(MldbEngine * server, 
+std::shared_ptr<Dataset> createSubDataset(MldbEngine * engine, 
                                           const SubDatasetConfig & config, 
                                           const ProgressFunc & onProgress)
 {
-    return std::make_shared<SubDataset>(server, config, onProgress);
+    return std::make_shared<SubDataset>(engine, config, onProgress);
 }
 
-std::shared_ptr<Dataset> createSubDatasetFromRows(MldbEngine * server, const std::vector<NamedRowValue>& rows)
+std::shared_ptr<Dataset> createSubDatasetFromRows(MldbEngine * engine, const std::vector<NamedRowValue>& rows)
 {
-    return std::make_shared<SubDataset>(server, rows);
+    return std::make_shared<SubDataset>(engine, rows);
 }
 
 
 std::vector<NamedRowValue>
-querySubDataset(MldbEngine * server,
+querySubDataset(MldbEngine * engine,
                 std::vector<NamedRowValue> rows,
                 const SelectExpression & select,
                 const WhenExpression & when,
@@ -742,7 +741,7 @@ querySubDataset(MldbEngine * server,
                 bool allowMultiThreading)
 {
     auto dataset = std::make_shared<SubDataset>
-        (server, std::move(rows));
+        (engine, std::move(rows));
                 
     std::vector<MatrixNamedRow> output
         = dataset
@@ -769,7 +768,7 @@ querySubDataset(MldbEngine * server,
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 extern std::vector<NamedRowValue>
-(*querySubDatasetFn) (MldbEngine * server,
+(*querySubDatasetFn) (MldbEngine * engine,
                       std::vector<NamedRowValue> rows,
                       const SelectExpression & select,
                       const WhenExpression & when,
