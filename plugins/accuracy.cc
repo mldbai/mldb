@@ -31,7 +31,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
-#include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/log.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 

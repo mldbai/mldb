@@ -15,7 +15,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/builtin/merge_hash_entries.h"
 #include "mldb/ext/cityhash/src/city.h"
-#include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parallel_merge_sort.h"
 #include <thread>
 
 
