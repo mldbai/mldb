@@ -21,6 +21,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/rest/rest_request_router.h"
+#include "mldb/core/mldb_engine.h"
 
 using namespace std;
 using namespace MLDB::PluginCommand;
@@ -173,13 +174,13 @@ ExternalPlugin(MldbEngine * engine,
     if (!config.setup.type.empty()) {
         setup
             = PolyCollection<ExternalPluginSetup>
-            ::doConstruct(MldbEntity::getPeer(engine), config.startup, onProgress);
+            ::doConstruct(engine->getDirectory(), config.startup, onProgress);
         setup->setup();
     }
     
     startup
         = PolyCollection<ExternalPluginStartup>
-        ::doConstruct(MldbEntity::getPeer(engine), config.startup, onProgress);
+        ::doConstruct(engine->getDirectory(), config.startup, onProgress);
     communication = startup->start();
     
     communication->pingSync();

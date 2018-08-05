@@ -161,7 +161,7 @@ initRoutes()
                           const RestRequest & request,
                           RestRequestParsingContext & context)
         {
-            context.addObject(this);
+            context.addObject((MldbEngine *)this);
         };
 
     auto & versionNode = router.addSubRouter("/v1", "version 1 of API",
@@ -644,7 +644,174 @@ restPost(const Utf8String & resource, const RestParams & params,
     return restPerform("POST", resource, params, std::move(payload));
 }
 
+WatchT<Date>
+MldbServer::
+getTimer(Date nextExpiry, double period,
+         std::function<void (Date)> toBind)
+{
+    return ServicePeer::getTimer(nextExpiry, period, std::move(toBind));
+}
 
+RestDirectory *
+MldbServer::
+getDirectory()
+{
+    return this;
+}
+
+std::string
+MldbServer::
+getHttpBoundAddress() const
+{
+    return this->httpBoundAddress;
+}
+    
+void
+MldbServer::
+addEntity(Utf8String name,
+          std::shared_ptr<RestEntity> entity)
+{
+    ServicePeer::addEntity(std::move(name), std::move(entity));
+}
+    
+void
+MldbServer::
+handleRequest(RestConnection & connection,
+              const RestRequest & request) const
+{
+    ServicePeer::handleRequest(connection, request);
+}
+
+std::shared_ptr<Plugin>
+MldbServer::
+obtainPluginSync(PolyConfig config,
+                 const OnProgress & onProgress)
+{
+    return this->plugins->obtainEntitySync(std::move(config), onProgress);
+}
+   
+std::shared_ptr<Plugin>
+MldbServer::
+createPluginSync(PolyConfig config,
+                 const OnProgress & onProgress, bool overwrite)
+{
+    return this->plugins->createEntitySync(std::move(config), onProgress,
+                                           overwrite);
+}
+
+std::shared_ptr<Plugin>
+MldbServer::
+tryGetPlugin(const Utf8String & pluginName) const
+{
+    return this->plugins->tryGetExistingEntity(pluginName);
+}
+    
+std::shared_ptr<Plugin>
+MldbServer::
+getPlugin(const Utf8String & pluginName) const
+{
+    return this->plugins->getExistingEntity(pluginName);
+}
+        
+std::shared_ptr<Dataset>
+MldbServer::
+obtainDatasetSync(PolyConfig config,
+                  const OnProgress & onProgress)
+{
+    return this->datasets->obtainEntitySync(std::move(config), onProgress);
+}
+
+std::shared_ptr<Dataset>
+MldbServer::
+createDatasetSync(PolyConfig config,
+                  const OnProgress & onProgress, bool overwrite)
+{
+    return this->datasets->createEntitySync(std::move(config), onProgress,
+                                            overwrite);
+}
+
+std::shared_ptr<Dataset>
+MldbServer::
+tryGetDataset(const Utf8String & datasetName) const
+{
+    return this->datasets->tryGetExistingEntity(datasetName);
+}
+    
+std::shared_ptr<Dataset>
+MldbServer::
+getDataset(const Utf8String & datasetName) const
+{
+    return this->datasets->getExistingEntity(datasetName);
+}
+    
+std::shared_ptr<Function>
+MldbServer::
+obtainFunctionSync(PolyConfig config,
+                   const OnProgress & onProgress)
+{
+    return this->functions->obtainEntitySync(std::move(config), onProgress);
+}
+    
+std::shared_ptr<Function>
+MldbServer::
+createFunctionSync(PolyConfig config,
+                   const OnProgress & onProgress, bool overwrite)
+{
+    return this->functions->createEntitySync(std::move(config), onProgress,
+                                             overwrite);
+}
+    
+std::shared_ptr<Function>
+MldbServer::
+tryGetFunction(const Utf8String & functionName) const
+{
+    return this->functions->tryGetExistingEntity(functionName);
+}
+    
+std::shared_ptr<Function>
+MldbServer::
+getFunction(const Utf8String & functionName) const
+{
+    return this->functions->getExistingEntity(functionName);
+}
+    
+std::shared_ptr<Procedure>
+MldbServer::
+obtainProcedureSync(PolyConfig config,
+                    const OnProgress & onProgress)
+{
+    return this->procedures->obtainEntitySync(std::move(config), onProgress);
+}
+
+std::shared_ptr<Procedure>
+MldbServer::
+createProcedureSync(PolyConfig config,
+                    const OnProgress & onProgress, bool overwrite)
+{
+    return this->procedures->createEntitySync(std::move(config), onProgress,
+                                              overwrite);
+}
+    
+std::shared_ptr<Procedure>
+MldbServer::
+tryGetProcedure(const Utf8String & procedureName) const
+{
+    return this->procedures->tryGetExistingEntity(procedureName);
+}
+    
+std::shared_ptr<Procedure>
+MldbServer::
+getProcedure(const Utf8String & procedureName) const
+{
+    return this->procedures->getExistingEntity(procedureName);
+}
+
+RestEntity *
+MldbServer::
+getProcedureCollection() const
+{
+    return this->procedures.get();
+}
 
 namespace {
 struct OnInit {

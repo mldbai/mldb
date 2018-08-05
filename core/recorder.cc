@@ -7,7 +7,7 @@
 #include "mldb/rest/poly_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/types/structure_description.h"
-
+#include "mldb/core/mldb_engine.h"
 
 namespace MLDB {
 
@@ -115,7 +115,7 @@ createRecorder(MldbEngine * engine,
                const PolyConfig & config,
                const std::function<bool (const Json::Value & progress)> & onProgress)
 {
-    return PolyCollection<Recorder>::doConstruct(MldbEntity::getPeer(engine),
+    return PolyCollection<Recorder>::doConstruct(engine->getDirectory(),
                                                  config, onProgress);
 }
 
