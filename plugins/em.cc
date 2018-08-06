@@ -162,7 +162,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if (vecs.size() == 0)
-        throw HttpReturnException(400, "Gaussian clustering training requires at least 1 datapoint. "
+        throw AnnotatedException(400, "Gaussian clustering training requires at least 1 datapoint. "
                                   "Make sure your dataset is not empty and that your WHERE expression "
                                   "does not filter all the rows");
 
@@ -194,7 +194,7 @@ run(const ProcedureRunConfig & run,
             saved = true;
         }
         catch (const std::exception & exc) {
-            throw HttpReturnException(400, "Error saving gaussian clustering model at location'" +
+            throw AnnotatedException(400, "Error saving gaussian clustering model at location'" +
                                       runProcConf.modelFileUrl.toString() + "': " +
                                       exc.what());
         }
@@ -257,7 +257,7 @@ run(const ProcedureRunConfig & run,
             emPC.params = funcConf;
             obtainFunction(engine, emPC, onProgress);
         } else {
-            throw HttpReturnException(400, "Can't create gaussian clustering function '" +
+            throw AnnotatedException(400, "Can't create gaussian clustering function '" +
                                       runProcConf.functionName.rawString() +
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());
@@ -356,7 +356,7 @@ bindT(SqlBindingScope & outerContext,
       const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     if (input.size() != 1)
-        throw HttpReturnException(400, "EM function requires a single input");
+        throw AnnotatedException(400, "EM function requires a single input");
     return std::unique_ptr<EMFunctionApplier>
         (new EMFunctionApplier(this, input.at(0)));
 }

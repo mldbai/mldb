@@ -10,7 +10,7 @@
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/path.h"
 #include "mldb/types/value_description.h"
-#include "http/http_exception.h"
+#include "types/annotated_exception.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -351,11 +351,11 @@ BOOST_AUTO_TEST_CASE (test_exception_messages)
     BOOST_CHECK_EXCEPTION( cv.toDouble(), std::exception, returnExceptCheck);
     BOOST_CHECK_EXCEPTION( cv.toInt(), std::exception, returnExceptCheck);
 
-    auto returnHttpExcptCheck = exceptionCheck<HttpReturnException>("value 'fran");
-    BOOST_CHECK_EXCEPTION( cv.toTimestamp(), HttpReturnException, returnHttpExcptCheck);
-    BOOST_CHECK_EXCEPTION( cv.toMonthDaySecond(), HttpReturnException, returnHttpExcptCheck);
-    BOOST_CHECK_EXCEPTION( cv.blobData(), HttpReturnException, returnHttpExcptCheck);
-    BOOST_CHECK_EXCEPTION( cv.blobLength(), HttpReturnException, returnHttpExcptCheck);
+    auto returnHttpExcptCheck = exceptionCheck<AnnotatedException>("value 'fran");
+    BOOST_CHECK_EXCEPTION( cv.toTimestamp(), AnnotatedException, returnHttpExcptCheck);
+    BOOST_CHECK_EXCEPTION( cv.toMonthDaySecond(), AnnotatedException, returnHttpExcptCheck);
+    BOOST_CHECK_EXCEPTION( cv.blobData(), AnnotatedException, returnHttpExcptCheck);
+    BOOST_CHECK_EXCEPTION( cv.blobLength(), AnnotatedException, returnHttpExcptCheck);
 
     // make sure we'll trim the exception
     cv = CellValue(Utf8String("éabcdefasdfasdeifjshifjsifjsijasdfweoinnvoijoiwnvoijwef"

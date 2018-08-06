@@ -136,7 +136,7 @@ struct ValueFunctionT: public ValueFunction {
     */
     virtual Output call(Input input) const
     {
-        throw HttpReturnException(500, "ValueFunctionT type "
+        throw AnnotatedException(500, "ValueFunctionT type "
                                   + MLDB::type_name(*this)
                                   + " needs to override call()");
     }
@@ -184,7 +184,7 @@ private:
         const auto * downcast
             = dynamic_cast<const FunctionApplierT<Input, Output> *>(&applier);
         if (!downcast) {
-            throw HttpReturnException(500, "Couldn't downcast applier");
+            throw AnnotatedException(500, "Couldn't downcast applier");
         }
 
         // Convert the input from an ExpressionValue to its real type

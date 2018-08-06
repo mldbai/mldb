@@ -285,7 +285,7 @@ SerialProcedure(MldbEngine * engine, const PolyConfig & config,
 
     for (auto & s: this->config.steps) {
         if (s.id == config.id)
-            throw HttpReturnException(400, "Procedure contains itself as a child",
+            throw AnnotatedException(400, "Procedure contains itself as a child",
                                       "id", config.id,
                                       "procedureConfig", config,
                                       "childConfig", s);
@@ -439,7 +439,7 @@ run(const ProcedureRunConfig & run,
     else if (config.kind == "function") {
         return makeResult(obtainFunction(engine, config, onProgress));
     }
-    else throw HttpReturnException(400, "Attempt to create unknown entity kind '" + config.kind + "'");
+    else throw AnnotatedException(400, "Attempt to create unknown entity kind '" + config.kind + "'");
 }
 
 static RegisterProcedureType<CreateEntityProcedure,

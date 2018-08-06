@@ -13,7 +13,7 @@
 #include "mldb/engine/analytics.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/engine/dataset_scope.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/base/less.h"
 #include "mldb/utils/log.h"
 #include "mldb/rest/cancellation_exception.h"

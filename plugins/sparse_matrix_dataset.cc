@@ -12,7 +12,7 @@
 #include "mldb/types/map_description.h"
 #include "sparse_matrix.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
@@ -360,7 +360,7 @@ struct SparseMatrixDataset::Itl
                 };
             
             if (trans.values->iterateRow(val, onRow))
-                throw HttpReturnException(400, "Can't find unknown value hash",
+                throw AnnotatedException(400, "Can't find unknown value hash",
                                           "hash", val);
             return result;
         }            
@@ -395,14 +395,14 @@ struct SparseMatrixDataset::Itl
                 };
             
             if (trans.values->iterateRow(val, onRow))
-                throw HttpReturnException(400, "Can't find unknown value hash",
+                throw AnnotatedException(400, "Can't find unknown value hash",
                                           "hash", val);
             return result;
         }
         case 31:
             return CellValue(Path(PathElement(val)));
         default:
-            throw HttpReturnException(500, "Unknown value tag", "tag", tag);
+            throw AnnotatedException(500, "Unknown value tag", "tag", tag);
         }            
     }
     
@@ -528,7 +528,7 @@ struct SparseMatrixDataset::Itl
             return {hash, 30 };
         }
         default:
-            throw HttpReturnException(500,
+            throw AnnotatedException(500,
                                       "Unmanaged type in Sparse Matrix Dataset encodeVal", val.cellType());
         }
     }
@@ -536,7 +536,7 @@ struct SparseMatrixDataset::Itl
     static uint64_t encodeCol(const ColumnPath & col, WriteTransaction & trans)
     {
         if (col.empty())
-            throw HttpReturnException(400,
+            throw AnnotatedException(400,
                                       "Datasets don't accept empty column names");
 
         ColumnHash ch(col);
@@ -555,10 +555,10 @@ struct SparseMatrixDataset::Itl
     getRowPaths(ssize_t start = 0, ssize_t limit = -1) const override
     {
         if (start < 0)
-            throw HttpReturnException(400, "Invalid start for row names",
+            throw AnnotatedException(400, "Invalid start for row names",
                                       "start", start);
         if (limit < -1)
-            throw HttpReturnException(400, "Invalid limit for row names",
+            throw AnnotatedException(400, "Invalid limit for row names",
                                       "limit", limit);
 
         std::vector<RowPath> result;
@@ -603,10 +603,10 @@ struct SparseMatrixDataset::Itl
         //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
-            throw HttpReturnException(400, "Invalid start for row names",
+            throw AnnotatedException(400, "Invalid start for row names",
                                       "start", start);
         if (limit < -1)
-            throw HttpReturnException(400, "Invalid limit for row names",
+            throw AnnotatedException(400, "Invalid limit for row names",
                                       "limit", limit);
         
         if (start >= result.size()) {
@@ -685,7 +685,7 @@ struct SparseMatrixDataset::Itl
             };
             
         if (trans.values->iterateRow(rowHash.hash(), onRow))
-            throw HttpReturnException(400, "Can't get name of unknown row");
+            throw AnnotatedException(400, "Can't get name of unknown row");
         return result;
     }
         
@@ -716,7 +716,7 @@ struct SparseMatrixDataset::Itl
             
         // True return means not short circuited, ie not found
         if (trans.values->iterateRow(column.hash(), onRow))
-            throw HttpReturnException(400,
+            throw AnnotatedException(400,
                                       "Can't get name of unknown column '" + column.toString() + "'");
         return result;
     }
@@ -806,7 +806,7 @@ struct SparseMatrixDataset::Itl
                    shared_ptr<spdlog::logger> logger)
     {
         if (rowName.empty())
-            throw HttpReturnException(400, "Datasets don't accept empty row names");
+            throw AnnotatedException(400, "Datasets don't accept empty row names");
 
         RowHash hash(rowName);
 
@@ -849,7 +849,7 @@ struct SparseMatrixDataset::Itl
                        double timeQuantumSeconds)
     {
         if (rowName.empty())
-            throw HttpReturnException(400, "Datasets don't accept empty row names");
+            throw AnnotatedException(400, "Datasets don't accept empty row names");
 
         RowHash hash(rowName);
 
@@ -1488,7 +1488,7 @@ struct MutableBaseData {
             insertReadable(std::move(written));
             return;
         default:
-            throw HttpReturnException(500, "Invalid commitMode");
+            throw AnnotatedException(500, "Invalid commitMode");
         }
     }
 

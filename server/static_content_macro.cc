@@ -18,7 +18,7 @@
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/types/value_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 using namespace std;
 
@@ -288,7 +288,7 @@ registerMacro(const std::string & macroName,
 
     if (!macroData().macros.insert(make_pair(macroName, entry)).second) {
         // TODO: fail on error
-        throw HttpReturnException(500, "Error registering documentation macro "
+        throw AnnotatedException(500, "Error registering documentation macro "
                                   + macroName + ": name already registered");
     }
 

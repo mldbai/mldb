@@ -292,10 +292,10 @@ handleRedirectToGet(RestConnection & connection,
     Json::Value redirectResponse;
     Json::Reader reader;
     if (!reader.parse(redirectConnection.response, redirectResponse, false))
-        throw HttpReturnException(500, "failed to parse the redirect call");
+        throw AnnotatedException(500, "failed to parse the redirect call");
   
     if (200 > redirectConnection.responseCode || redirectConnection.responseCode >= 300)
-        throw HttpReturnException(redirectConnection.responseCode, "failed to redirect call");
+        throw AnnotatedException(redirectConnection.responseCode, "failed to redirect call");
     
     connection.sendResponse(redirectConnection.responseCode, jsonEncodeStr(redirectResponse),
                             "application/json");
@@ -484,10 +484,10 @@ scanPlugins(const std::string & dir_)
                         manifest.config, nullptr /* on progress */);
                 }
                 else {
-                    throw HttpReturnException(
+                    throw AnnotatedException(
                         500, "unknown plugin type to autoload at " + dir);
                 }
-            } catch (const HttpReturnException & exc) {
+            } catch (const AnnotatedException & exc) {
                 logger->error() << "loading plugin " << dir << ": " << exc.what();
                 logger->error() << "details:";
                 logger->error() << jsonEncode(exc.details);
@@ -529,7 +529,7 @@ scanPlugins(const std::string & dir_)
 
         try {
             forEachUriObject(dir, onFile, onSubdir);
-        } catch (const HttpReturnException & exc) {
+        } catch (const AnnotatedException & exc) {
             logger->error() << "error scanning plugin directory "
                             << dir << ": " << exc.what();
             logger->error() << "details:";

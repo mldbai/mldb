@@ -113,7 +113,7 @@ TensorflowAttrValueDescription()
                 val->set_type(jsonDecode<tensorflow::DataType>(j));
                 return;
             }
-            throw HttpReturnException(400, "Unknown field '" + context.fieldName()
+            throw AnnotatedException(400, "Unknown field '" + context.fieldName()
                                       + "' parsing Tensorflow AttrValue");
         };
 }
@@ -147,22 +147,22 @@ struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
                 val->set_b(v["bool"].asBool());
             }
             else if (v.isMember("shape")) {
-                throw HttpReturnException(500, "shape attributes not done");
+                throw AnnotatedException(500, "shape attributes not done");
             }
             else if (v.isMember("tensor")) {
-                throw HttpReturnException(500, "tensor attributes not done");
+                throw AnnotatedException(500, "tensor attributes not done");
             }
             else if (v.isMember("list")) {
-                throw HttpReturnException(500, "list attributes not done");
+                throw AnnotatedException(500, "list attributes not done");
             }
             else if (v.isMember("func")) {
-                throw HttpReturnException(500, "func attributes not done");
+                throw AnnotatedException(500, "func attributes not done");
             }
             else if (v.isMember("placeholder")) {
-                throw HttpReturnException(500, "placeholder attributes not done");
+                throw AnnotatedException(500, "placeholder attributes not done");
             }
             else {
-                throw HttpReturnException(400, "Unknown JSON AttrValue '" + v.toStringNoNewLine() + "'");
+                throw AnnotatedException(400, "Unknown JSON AttrValue '" + v.toStringNoNewLine() + "'");
             }
         }
         else if (context.isArray()) {
@@ -175,7 +175,7 @@ struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
             else {
                 switch (v[0].type()) {
                 case Json::nullValue:
-                    throw HttpReturnException(500, "Can't convert JSON NULL to a TensorFlow attribute value");
+                    throw AnnotatedException(500, "Can't convert JSON NULL to a TensorFlow attribute value");
                 case Json::intValue:
                 case Json::uintValue: {
                     auto * l = val->mutable_list();
@@ -207,14 +207,14 @@ struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
                 }
                 case Json::arrayValue:
                 case Json::objectValue:
-                    throw HttpReturnException(400, "Can't do TensorFlow list of structured types to attr");
+                    throw AnnotatedException(400, "Can't do TensorFlow list of structured types to attr");
                 }
             }
         }
         else {
             Json::Value val = context.expectJson();
             cerr << "val = " << val << endl;
-            throw HttpReturnException(400, "Unknown Tensorflow attribute value",
+            throw AnnotatedException(400, "Unknown Tensorflow attribute value",
                                       "json",
                                       val.toStringNoNewLine());
         }
@@ -251,7 +251,7 @@ struct AttrValueDescription: public MLDB::ValueDescriptionT<AttrValue> {
             return;
         }
 
-        throw HttpReturnException(500, "Attribute value not printable");
+        throw AnnotatedException(500, "Attribute value not printable");
     }
 
     virtual bool isDefaultTyped(const AttrValue * val) const
@@ -296,7 +296,7 @@ static Json::Value protoToJson(const ::google::protobuf::Message & obj)
     
 
     if (!res.ok()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Couldn't initialize tensorflow graph model: "
              + res.error_message());
     }
@@ -357,11 +357,11 @@ struct TensorflowGraphBase: public Function {
             if (node.op() == "Const") {
                 auto it = node.attr().find("value");
                 if (it == node.attr().end())
-                    throw HttpReturnException(500, "Const with no value");
+                    throw AnnotatedException(500, "Const with no value");
 
                 Tensor tensor;
                 if (!tensor.FromProto(it->second.tensor()))
-                    throw HttpReturnException(500, "Const is not parseable");
+                    throw AnnotatedException(500, "Const is not parseable");
                 
                 constantTotalBytes += tensor.TotalBytes();
 
@@ -476,7 +476,7 @@ struct TensorflowGraphBase: public Function {
                 Status session_create_status = session->Create(*graph);
                 
                 if (!session_create_status.ok()) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (500, "Couldn't initialize tensorflow graph model: "
                          + session_create_status.error_message());
                 }
@@ -496,7 +496,7 @@ struct TensorflowGraphBase: public Function {
                 deviceNamesStr += d->name();
             }
 
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Device name regex '" + jsonEncodeStr(deviceFilter)
                  + "' didn't match any of the system devices "
                  + deviceNamesStr + ".  The graph cannot be executed");
@@ -650,7 +650,7 @@ struct TensorflowGraphBase: public Function {
                 if (kept.empty())
                     continue;
                 if (kept.size() != 1)
-                    throw HttpReturnException(500, "Not impl: compound names for input to TF graph");
+                    throw AnnotatedException(500, "Not impl: compound names for input to TF graph");
 
                 // Record that this is a required output layer and what its
                 // index is.  We use the index to look up the correct tensor
@@ -757,7 +757,7 @@ struct TensorflowGraphBase: public Function {
                     inputTensors.emplace_back(std::move(inputTensor));
                     inputLayers.emplace_back(std::move(nodeName));
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Fetching tensor for input node '"
+                    rethrowException(-1, "Fetching tensor for input node '"
                                          + nodeName
                                          + "': " + getExceptionString());
                 }
@@ -810,7 +810,7 @@ struct TensorflowGraphBase: public Function {
         const override
     {
         if (input.size() != 1 || !input[0] || !input[0]->couldBeRow())
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Tensorflow functions must be called with exactly "
                  "one row as input",
                  "inputs", input);
@@ -974,7 +974,7 @@ struct TensorflowGraphBase: public Function {
         //cerr << "val = " << jsonEncode(val) << endl;
         //cerr << "type = " << type << endl;
         //cerr << "value type " << val.getTypeAsString() << endl;
-        throw HttpReturnException(500, "Unable to cast value to typed tensor");
+        throw AnnotatedException(500, "Unable to cast value to typed tensor");
     }
     
     static tensorflow::Tensor
@@ -1016,7 +1016,7 @@ struct TensorflowGraphBase: public Function {
                 return result;
             }
             case CellValue::TIMEINTERVAL: {
-                throw HttpReturnException(400, "Can't pass TIMEINTERVAL to Tensorflow");
+                throw AnnotatedException(400, "Can't pass TIMEINTERVAL to Tensorflow");
             }
             case CellValue::BLOB: {
                 tensorflow::Tensor result(tensorflow::DT_UINT8, {atom.blobLength()});
@@ -1047,7 +1047,7 @@ struct TensorflowGraphBase: public Function {
         }
 
         //cerr << "trying to cast " << jsonEncode(val) << " to tensor" << endl;
-        throw HttpReturnException(500, "Unable to cast value of type " + val.getTypeAsString() + " to tensor");
+        throw AnnotatedException(500, "Unable to cast value of type " + val.getTypeAsString() + " to tensor");
     }
     
     tensorflow::Tensor
@@ -1115,7 +1115,7 @@ struct TensorflowGraphBase: public Function {
             }
         }
 
-        throw HttpReturnException(400, "Unable to find layer '" + layer
+        throw AnnotatedException(400, "Unable to find layer '" + layer
                                   + "' to get tensor for");
     }
 
@@ -1210,7 +1210,7 @@ struct TensorflowGraphBase: public Function {
         case DT_BOOL:
             return ST_INT32;
         default:
-            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow",
+            throw AnnotatedException(400, "Can't return tensor of this type from TensorFlow",
                                       "type", dt);
         }
     }
@@ -1253,7 +1253,7 @@ struct TensorflowGraphBase: public Function {
               DT_QUINT16 = 16;   // Quantized uint16
             */
         default:
-            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow"/*,
+            throw AnnotatedException(400, "Can't return tensor of this type from TensorFlow"/*,
                                                                                                "type", tensor.dtype()*/);
         }
     }
@@ -1284,7 +1284,7 @@ struct TensorflowGraphBase: public Function {
                 return DT_DOUBLE;
             default:
 
-            throw HttpReturnException(400, "Can't return value of this type to TensorFlow",
+            throw AnnotatedException(400, "Can't return value of this type to TensorFlow",
                                       "type", type);
         }
     }
@@ -1383,7 +1383,7 @@ struct TensorflowGraphBase: public Function {
         if (!run_status.ok()) {
             DEBUG_MSG(logger) << "unable to run tensor of shape " <<
                 inputTensors[0].second.shape().DebugString();
-            throw HttpReturnException(400, "Unable to run model: "
+            throw AnnotatedException(400, "Unable to run model: "
                                       + run_status.error_message());
         }
         
@@ -1551,7 +1551,7 @@ struct TensorflowOp: public TensorflowGraphBase {
                                                       &op);
 
         if (!op) {
-            throw HttpReturnException(400, "Unable to obtain TensorFlow operator '"
+            throw AnnotatedException(400, "Unable to obtain TensorFlow operator '"
                                       + functionConfig.op + "': "
                                       + status.error_message());
         }
@@ -1687,7 +1687,7 @@ struct TensorflowGraph: public TensorflowGraphBase {
         
         graph.reset(new tensorflow::GraphDef());
         if (!graph->ParseFromCodedStream(&cstream)) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Couldn't load tensorflow graph model: parse error");
         }
 
@@ -2024,7 +2024,7 @@ struct TensorflowPlugin: public Plugin {
                     = tensorflow::OpRegistry::Global()->LookUpOpDef(op, &opDef);
 
                 if (args.size() < 1 || args.size() > 2)
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Tensorflow builtin functions take one or two arguments");
 
                 TensorflowOpConfig config;
@@ -2065,7 +2065,7 @@ struct TensorflowPlugin: public Plugin {
                         inputInfo.reset(new RowValueInfo(columns, SCHEMA_CLOSED));
                     }
                     else {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "Attempt to pass scalar to Tensorflow function '"
                              + op + "' which takes more than one input"); 
                     }
@@ -2157,7 +2157,7 @@ struct TensorflowPlugin: public Plugin {
     {
         auto it = registeredOps.find(op);
         if (it == registeredOps.end()) {
-            throw HttpReturnException(404, "Operation '" + op
+            throw AnnotatedException(404, "Operation '" + op
                                       + "' not found in this version of TensorFlow");
         }
 
@@ -2240,7 +2240,7 @@ tf_extract_constant (const Utf8String &functionName,
                 (obtainFunction(server, pconfig));
 
             if (!graph) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (404, "No TensorFlow graph with name found");
             }
 
@@ -2264,7 +2264,7 @@ tf_extract_constant (const Utf8String &functionName,
                         break;
                 }
 
-                throw HttpReturnException
+                throw AnnotatedException
                     (500, "Constant " + path.toUtf8String()
                      + " not found (path is " + key + ")",
                      "examples", constantExamples);

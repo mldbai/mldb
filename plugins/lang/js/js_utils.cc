@@ -15,7 +15,7 @@
 #include "mldb/arch/backtrace.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/compiler/compiler.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 using namespace std;
 using namespace v8;
@@ -121,7 +121,7 @@ mapException(const MLDB::Exception & exc)
 }
 
 v8::Handle<Value>
-mapException(const HttpReturnException & exc)
+mapException(const AnnotatedException & exc)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::Handle<v8::Value> error
@@ -157,7 +157,7 @@ translateCurrentException()
     catch(const JSPassException&) {
         return v8::Handle<v8::Value>();
     }
-    catch (const HttpReturnException & ex) {
+    catch (const AnnotatedException & ex) {
         return mapException(ex);
     }
     catch(const MLDB::Exception& ex) {

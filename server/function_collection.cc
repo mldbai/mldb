@@ -114,7 +114,7 @@ call(const ExpressionValue & input) const
                 if (valueInfo)
                     details["valueExpectedType"] = jsonEncode(it->second.valueInfo);
 
-                rethrowHttpException(400, "Parsing value '" + name + "' with value '"
+                rethrowException(400, "Parsing value '" + name + "' with value '"
                                      + jsonEncodeStr(v) + "' for function '"
                                      + this->config_->id + "': " + exc.what(),
                                      details);
@@ -206,7 +206,7 @@ applyFunction(const Function * function,
         connection.sendResponse(200, str.stealRawString(), "application/json");
     }
     else {
-        throw HttpReturnException(400, "Unknown 'format' for application call: "
+        throw AnnotatedException(400, "Unknown 'format' for application call: "
                                   "got " + outputFormat + ", accepted is "
                                   + " 'compat' or 'json'");
     }
@@ -221,12 +221,12 @@ applyBatch(const Function * function,
            RestConnection & connection) const
 {
     if (inputFormat != "json") {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "batch apply only accepts 'json' input format currently; got '"
              + inputFormat + "'");
     }
     if (outputFormat != "json") {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "batch apply only accepts 'json' output format currently; got '"
              + inputFormat + "'");
     }
@@ -373,7 +373,7 @@ initRoutes(RouteManager & manager)
             try {
                 return function->handleRequest(connection, req, cxt);
             }
-            catch (const HttpReturnException & exc) {
+            catch (const AnnotatedException & exc) {
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
@@ -402,7 +402,7 @@ construct(PolyConfig config, const OnProgress & onProgress) const
 {
     auto factory = tryLookupFunction(config.id);
     if (factory)
-        throw HttpReturnException(400, "Cannot add function: MLDB already has a built-in function named " + config.id);
+        throw AnnotatedException(400, "Cannot add function: MLDB already has a built-in function named " + config.id);
 
     return PolyCollection<Function>::construct(config, onProgress);
 }

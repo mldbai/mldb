@@ -376,7 +376,7 @@ struct StreamJS::Methods {
                 size_t bytesRead = stream->gcount();
                 if (bytesRead != size) {
                     if (!allowShort)
-                        throw HttpReturnException(400, "Not enough bytes reading blob and short reads not allowed",
+                        throw AnnotatedException(400, "Not enough bytes reading blob and short reads not allowed",
                                                   "bytesRequested", size,
                                                   "bytesAvailable", bytesRead);
                 }

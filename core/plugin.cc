@@ -145,12 +145,12 @@ struct SharedLibraryPlugin::Itl {
         std::unique_lock<std::mutex> guard2(dlopenMutex);
 
         if (!params.allowInsecureLoading) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400,
                  "Cannot load shared libraries unless allowInsecureLoading is set to true");
         }
         if (params.apiVersion != "1.0.0") {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400,
                  "Shared library interface version required '"
                  + params.apiVersion

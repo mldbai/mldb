@@ -17,7 +17,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/utils/compact_vector.h"
 #include "mldb/engine/dataset_utils.h"
@@ -166,7 +166,7 @@ struct JoinedDataset::Itl
         chainedJoinDepth = left_joined_dataset != nullptr ? left_joined_dataset->getChainedJoinDepth() + 1 : 0;
 
         if (!left.dataset) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "A materialized join must be between materialized "
                  "datasets on both the left and the right side.  In practice, "
                  "this means it must be a subselect, a transpose, a join or a "
@@ -179,7 +179,7 @@ struct JoinedDataset::Itl
         }
 
         if (!right.dataset) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "A materialized join must be between materialized "
                  "datasets on both the left and the right side.  In practice, "
                  "this means it must be a subselect, a transpose, a join or a "
@@ -259,7 +259,7 @@ struct JoinedDataset::Itl
             auto getParam = [&] (const Utf8String & paramName)
                 -> ExpressionValue
                 {
-                    throw HttpReturnException(400, "No parameters bound in");
+                    throw AnnotatedException(400, "No parameters bound in");
                 };
 
             PipelineElement::root(scope)
@@ -514,7 +514,7 @@ struct JoinedDataset::Itl
         case AnnotatedJoinCondition::CROSS_JOIN: {
             // Join with no restrictions on the joined column
             if (leftRows.size() * rightRows.size() > 100000000) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Cross join too big: cowardly refusing to materialize "
                      "row IDs for a dataset with > 100,000,000 rows",
                      "leftSize", leftRows.size(),
@@ -528,7 +528,7 @@ struct JoinedDataset::Itl
             break;
         }
         default:
-            throw HttpReturnException(400, "Unknown or empty Join expression",
+            throw AnnotatedException(400, "Unknown or empty Join expression",
                                       //"joinOn", joinConfig.on,
                                       "condition", condition);
         }
@@ -773,7 +773,7 @@ struct JoinedDataset::Itl
     {
         auto it = rowIndex.find(rowHash);
         if (it == rowIndex.end())
-            throw HttpReturnException(500, "Joined dataset did not find row with given hash",
+            throw AnnotatedException(500, "Joined dataset did not find row with given hash",
                                       "rowHash", rowHash);
 
         const RowEntry & row = rows.at(it->second);
@@ -791,7 +791,7 @@ struct JoinedDataset::Itl
         auto it = columnIndex.find(columnHash);
 
         if (it == columnIndex.end())
-            throw HttpReturnException(500, "Joined dataset did not find column with given hash",
+            throw AnnotatedException(500, "Joined dataset did not find column with given hash",
                                       "columnHash", columnHash);
 
         return it->second.columnName;
@@ -818,7 +818,7 @@ struct JoinedDataset::Itl
         auto it = columnIndex.find(columnName);
 
         if (it == columnIndex.end())
-            throw HttpReturnException(500, "Joined dataset did not find column ",
+            throw AnnotatedException(500, "Joined dataset did not find column ",
                                       "columnName", columnName);
         
         auto doGetColumn = [&] (const Dataset & dataset,

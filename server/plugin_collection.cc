@@ -105,7 +105,7 @@ initRoutes(RouteManager & manager)
             try {
                 return plugin->handleRequest(connection, req, cxt);
             }
-            catch (const HttpReturnException & exc) {
+            catch (const AnnotatedException & exc) {
                 return sendExceptionResponse(connection, exc);
             }
         };
@@ -130,7 +130,7 @@ initRoutes(RouteManager & manager)
                 connection.sendResponse(200, jsonEncode(plugin->getVersion()));
                 return RestRequestRouter::MR_YES;
             }
-            catch (const HttpReturnException & exc) {
+            catch (const AnnotatedException & exc) {
                 return sendExceptionResponse(connection, exc);
             }
         };
@@ -151,7 +151,7 @@ initRoutes(RouteManager & manager)
             try {
                 return plugin->handleDocumentationRoute(connection, req, cxt);
             }
-            catch (const HttpReturnException & exc) {
+            catch (const AnnotatedException & exc) {
                 return sendExceptionResponse(connection, exc);
             }
         };
@@ -171,7 +171,7 @@ initRoutes(RouteManager & manager)
             try {
                 return plugin->handleStaticRoute(connection, req, cxt);
             }
-            catch (const HttpReturnException & exc) {
+            catch (const AnnotatedException & exc) {
                 return sendExceptionResponse(connection, exc);
             }
         };

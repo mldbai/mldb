@@ -143,7 +143,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
                         const ExpressionValue * v
                         = val.tryGetColumn(el, storage);
                         if (!v)
-                            throw HttpReturnException
+                            throw AnnotatedException
                                 (400, "GeoJSON points should be [lat,long]; got "
                                  + jsonEncodeStr(val.extractJson()));
                         return v->getAtom().toDouble();
@@ -187,7 +187,7 @@ BoundFunction st_contains(const std::vector<BoundSqlExpression> & args)
                     cerr << "points.size() = " << points.size() << endl;
                     cerr << coords.extractJson() << endl;
 
-                    //throw HttpReturnException
+                    //throw AnnotatedException
                     //    (400, "Error interpreting GeoJson polygon: S2: "
                     //     + error.text(),
                     //     "coordinates", coords.extractJson(),

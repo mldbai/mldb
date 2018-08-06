@@ -11,7 +11,7 @@
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/watch/watch_impl.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <thread>
 #include <chrono>
 #include "mldb/types/structure_description.h"
@@ -150,7 +150,7 @@ struct RestEntityWatchData {
         // directly.
 
         if (!child.entity)
-            throw HttpReturnException(400, "generic RestEntity::watch() no good for "
+            throw AnnotatedException(400, "generic RestEntity::watch() no good for "
                                       "non-RestElement collections");
 
         //cerr << "triggered onChild for " << child.name << endl;
@@ -189,19 +189,19 @@ struct RestEntityWatchData {
         case CE_DELETED: {
             auto it = this->childEntityWatches.find(child.entity);
             if (it == this->childEntityWatches.end())
-                throw HttpReturnException(400, "deleted entity wasn't being watched");
+                throw AnnotatedException(400, "deleted entity wasn't being watched");
             this->childEntityWatches.erase(it);
                 
             break;
         }
         case CE_UPDATED: {
-            throw HttpReturnException(400, "not handling CE_UPDATED although we probably should");
+            throw AnnotatedException(400, "not handling CE_UPDATED although we probably should");
             break;
         }
         case CE_CONNECTED:
-            throw HttpReturnException(400, "not handling CE_CONNECTED");
+            throw AnnotatedException(400, "not handling CE_CONNECTED");
         case CE_DISCONNECTED:
-            throw HttpReturnException(400, "not handling CE_DISCONNECTED");
+            throw AnnotatedException(400, "not handling CE_DISCONNECTED");
         }
     };
 };
@@ -232,14 +232,14 @@ watch(const ResourceSpec & spec,
     //     << endl;
 
     if (spec.empty())
-        throw HttpReturnException(400, "cannot watch empty object");
+        throw AnnotatedException(400, "cannot watch empty object");
 
     if (spec.size() == 1)
         return watchChannel(spec[0].channel, spec[0].filter, catchUp,
                             std::move(info));
 
     if (spec[0].channel != "children")
-        throw HttpReturnException(400, "only children accepted for non-terminal levels");
+        throw AnnotatedException(400, "only children accepted for non-terminal levels");
 
     // TODO WARNING THIS MEMORY WILL NEVER BE FREED
     // Currently there is a circular reference in data: it contains an entry
@@ -314,7 +314,7 @@ watchWithPath(const ResourceSpec & spec,
     //     << endl;
 
     if (spec.empty())
-        throw HttpReturnException(400, "cannot watch empty object");
+        throw AnnotatedException(400, "cannot watch empty object");
 
     if (spec.size() == 1)
         return addPath(watchChannel(spec[0].channel, spec[0].filter, catchUp,
@@ -322,7 +322,7 @@ watchWithPath(const ResourceSpec & spec,
                        currentPath);
 
     if (spec[0].channel != "children")
-        throw HttpReturnException(400, "only children accepted for non-terminal levels");
+        throw AnnotatedException(400, "only children accepted for non-terminal levels");
 
     // TODO WARNING THIS MEMORY WILL NEVER BE FREED
     // Currently there is a circular reference in data: it contains an entry
@@ -375,14 +375,14 @@ std::pair<const std::type_info *,
 RestEntity::
 getWatchBoundType(const ResourceSpec & spec)
 {
-    throw HttpReturnException(400, "entity does not support watching");
+    throw AnnotatedException(400, "entity does not support watching");
 }
 
 WatchT<RestEntityChildEvent>
 RestEntity::
 watchChildren(const Utf8String & spec, bool catchUp, Any info)
 {
-    throw HttpReturnException(400, "entity '" + MLDB::type_name(*this) + "' does not support watching children: spec " + spec);
+    throw AnnotatedException(400, "entity '" + MLDB::type_name(*this) + "' does not support watching children: spec " + spec);
 }
 
 Watch
@@ -392,7 +392,7 @@ watchChannel(const Utf8String & channel,
              bool catchUp,
              Any info)
 {
-    throw HttpReturnException(400, "entity does not support watching channels");
+    throw AnnotatedException(400, "entity does not support watching channels");
 }
 
 WatchT<Date>
@@ -418,7 +418,7 @@ RestEntity::
 getUriForPath(ResourcePath path)
 {
     if (getParent() == this)
-        throw HttpReturnException(400, "need to override getUriForPath for base entity");
+        throw AnnotatedException(400, "need to override getUriForPath for base entity");
     return getParent()->getUriForPath(path);
 }
 
@@ -440,7 +440,7 @@ doCreateLink(RestEntity * forWho,
 {
     auto p = getParent();
     if (!p || p == this)
-        throw HttpReturnException(400, "doCreateLink needs to be overridden somewhere");
+        throw AnnotatedException(400, "doCreateLink needs to be overridden somewhere");
 
     return p->doCreateLink(forWho, remotePath, linkType, std::move(linkParams));
 }
@@ -452,7 +452,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
            const std::string & linkType,
            Any linkParams)
 {
-    throw HttpReturnException(400, "acceptLink needs to be overridden for class " + MLDB::type_name(*this));
+    throw AnnotatedException(400, "acceptLink needs to be overridden for class " + MLDB::type_name(*this));
 }
 
 
@@ -481,15 +481,15 @@ watchChildren(const Utf8String & spec, bool catchUp, Any info)
     //cerr << "watchChildren for '" << spec << "' in directory" << endl;
 
     if (spec == "*")
-        throw HttpReturnException(400, "wildcards not supported for a directory");
+        throw AnnotatedException(400, "wildcards not supported for a directory");
 
     if (!catchUp)
-        throw HttpReturnException(400, "A watch on a directory entity with no catchup "
+        throw AnnotatedException(400, "A watch on a directory entity with no catchup "
                             "is useless");
 
     auto it = entities.find(spec);
     if (it == entities.end())
-        throw HttpReturnException(400, "child '" + spec + "' not found in RestDirectory");
+        throw AnnotatedException(400, "child '" + spec + "' not found in RestDirectory");
     
     auto result = it->second->watches.add(info);
 
@@ -512,7 +512,7 @@ watchChannel(const Utf8String & channel, const Utf8String & filter,
     if (channel == "children")
         return watchChildren(filter, catchUp, std::move(info));
 
-    throw HttpReturnException(400, "RestDirectory::watchChannel(): "
+    throw AnnotatedException(400, "RestDirectory::watchChannel(): "
                               "only children channel exists for a directory");
 }
 
@@ -522,9 +522,9 @@ RestDirectory::
 getWatchBoundType(const ResourceSpec & spec)
 {
     if (spec.empty())
-        throw HttpReturnException(400, "no type for empty spec");
+        throw AnnotatedException(400, "no type for empty spec");
     if (spec[0].channel != "children")
-        throw HttpReturnException(400, "RestDirectory '" + MLDB::type_name(*this)
+        throw AnnotatedException(400, "RestDirectory '" + MLDB::type_name(*this)
                                   + "' has only a children channel: "
                                   + jsonEncodeUtf8(spec));
 
@@ -533,7 +533,7 @@ getWatchBoundType(const ResourceSpec & spec)
 
     auto it = entities.find(spec[0].filter);
     if (it == entities.end())
-        throw HttpReturnException(400, "child '" + spec[0].filter + "' not found in RestDirectory");
+        throw AnnotatedException(400, "child '" + spec[0].filter + "' not found in RestDirectory");
 
     return it->second->entity
         ->getWatchBoundType(ResourceSpec(spec.begin() + 1, spec.end()));
@@ -550,7 +550,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
     //     << " " << jsonEncodeStr(targetPath) << " " << linkType << endl;
 
     if (targetPath.empty())
-        throw HttpReturnException(400, "no links accepted from a RestDirecory");
+        throw AnnotatedException(400, "no links accepted from a RestDirecory");
 
     vector<Utf8String> path = targetPath;
     const Utf8String & element = path.front();
@@ -558,7 +558,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
 
     auto it = entities.find(element);
     if (it == entities.end())
-        throw HttpReturnException(400, "child '" + element + "' not found in RestDirectory");
+        throw AnnotatedException(400, "child '" + element + "' not found in RestDirectory");
     
     return it->second->entity
         ->acceptLink(sourcePath, path, linkType, linkParams);
@@ -795,7 +795,7 @@ void validatePayloadForPut(const RestRequest & req,
 {
     if (req.payload.empty()) {
         MLDB_TRACE_EXCEPTIONS(false);
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "PUT to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "
              "parameters of the entity to create.  If there really "
@@ -810,7 +810,7 @@ void validatePayloadForPost(const RestRequest & req,
 {
     if (req.payload.empty()) {
         MLDB_TRACE_EXCEPTIONS(false);
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "POST to collection '" + nounPlural + "' with empty payload.  "
              "Pass a JSON body of your request containing the "
              "parameters of the entity to create.",

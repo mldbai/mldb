@@ -126,7 +126,7 @@ createPythonProcedure(MldbPythonContext * c,
                         }
 
                         MLDB_TRACE_EXCEPTIONS(false);
-                        throw HttpReturnException(400, "Exception creating procedure", 
+                        throw AnnotatedException(400, "Exception creating procedure", 
                                                   pyexc);
                     }
                 };

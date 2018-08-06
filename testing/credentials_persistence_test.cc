@@ -116,7 +116,7 @@ struct SubprocessMldbRunner {
         std::future<bool> future = gotReadyMessage.get_future();
         std::future_status status = future.wait_for(std::chrono::seconds(5));
         if (status == std::future_status::timeout)
-            throw HttpReturnException(500, "Error starting mldb_runner subprocess. "
+            throw AnnotatedException(500, "Error starting mldb_runner subprocess. "
                                       "Has the \"MLDB ready\" message changed?");
 
         cerr << "MLDB ready" << endl;

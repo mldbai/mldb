@@ -8,7 +8,7 @@
 #include "frozen_tables.h"
 #include "frozen_column.h"
 #include "tabular_dataset_column.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
 
 #include "mldb/ext/zstd/lib/dictBuilder/zdict.h"
@@ -210,7 +210,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
                                               sampleSizes.data(),
                                               sampleSizes.size());
         if (ZDICT_isError(result)) {
-            throw HttpReturnException(500, "Error with dictionary: "
+            throw AnnotatedException(500, "Error with dictionary: "
                                       + string(ZDICT_getErrorName(result)));
         }
         
@@ -245,7 +245,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
                                            dict.get());
 
             if (ZSTD_isError(result)) {
-                throw HttpReturnException(500, "Error with compressing: "
+                throw AnnotatedException(500, "Error with compressing: "
                                           + string(ZSTD_getErrorName(result)));
             }
 
@@ -288,7 +288,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
     virtual FrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "Tabular reconstitution not finished");
+        throw AnnotatedException(600, "Tabular reconstitution not finished");
     }
 };
 

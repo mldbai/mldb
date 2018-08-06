@@ -22,7 +22,7 @@
 #include "plugins/sql_functions.h"
 #include "sql/execution_pipeline.h"
 #include "mldb/engine/bound_queries.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
@@ -200,11 +200,11 @@ reconstitute(ML::DB::Store_Reader & store)
     std::string name;
     store >> name >> version;
     if (name != "MLDB Dist Table Binary") {
-        throw HttpReturnException(400, "File does not appear to be a dist "
+        throw AnnotatedException(400, "File does not appear to be a dist "
                                   "table model");
     }
     if(version!=REQUIRED_V) {
-        throw HttpReturnException(400, MLDB::format(
+        throw AnnotatedException(400, MLDB::format(
                     "invalid DistTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -742,7 +742,7 @@ apply(const FunctionApplier & applier,
     ExpressionValue arg = context.getColumn("features");
 
     if(!arg.isRow())
-        throw HttpReturnException(400, "wrong input type to dist table",
+        throw AnnotatedException(400, "wrong input type to dist table",
                                   "input", arg);
 
 

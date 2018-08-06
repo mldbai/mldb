@@ -91,19 +91,19 @@ BOOST_AUTO_TEST_CASE( test_hidden_route )
 
     BOOST_CHECK_THROW( router.addRoute("/test", { "GET", "header:async=true" },
                                        "With header", callback,
-                                       Json::Value() ), HttpReturnException);
+                                       Json::Value() ), AnnotatedException);
 
     BOOST_CHECK_THROW( router.addRoute("/test", { "GET", "query:async=true" },
                                        "With query param", callback,
-                                       Json::Value() ), HttpReturnException);
+                                       Json::Value() ), AnnotatedException);
 
     BOOST_CHECK_THROW( router.addRoute("/test", { "GET" },
                                        "With verb subset", callback,
-                                       Json::Value() ), HttpReturnException);
+                                       Json::Value() ), AnnotatedException);
 
     BOOST_CHECK_THROW( router.addRoute("/test", { "GET", "POST" },
                                        "Matching exactly", callback,
-                                       Json::Value() ), HttpReturnException);
+                                       Json::Value() ), AnnotatedException);
 
     router.addRoute(Rx("/test/([a-z]*)", ""), { "GET", "POST" },
                     "Regex test route", callback,
@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE( test_hidden_route )
 
     BOOST_CHECK_THROW( router.addRoute("/test/dummy", { "GET", "POST" },
                                        "Matching regex", callback,
-                                       Json::Value() ), HttpReturnException);
+                                       Json::Value() ), AnnotatedException);
 
     router.addRoute("/test/dummy/", { "GET", "POST" },
                                        "Not matching regex", callback,

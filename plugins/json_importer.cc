@@ -14,7 +14,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/plugins/for_each_line.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/sql/builtin_functions.h"
@@ -108,7 +108,7 @@ JSONImporterConfigDescription()
                          JsonParsingContext & context)
     {
         if (config->dataFileUrl.empty()) {
-            throw HttpReturnException(
+            throw AnnotatedException(
                 400,
                 "dataFileUrl is a required property and must not be empty");
         }
@@ -274,7 +274,7 @@ struct JSONImporter: public Procedure {
                 return true;
             }
 
-            throw HttpReturnException(400, "Error parsing JSON row: "
+            throw AnnotatedException(400, "Error parsing JSON row: "
                                       + message,
                                       "filename", filename,
                                       "lineNumber", lineNumber,

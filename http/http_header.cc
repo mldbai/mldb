@@ -7,8 +7,8 @@
 */
 
 #include "http_header.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/base/parse_context.h"
-#include "http_exception.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/vector_description.h"
@@ -116,7 +116,7 @@ getValue(const Utf8String & key) const
     for (auto & kv: *this)
         if (kv.first == key)
             return kv.second;
-    throw HttpReturnException(400, "key " + key + " not found in RestParams");
+    throw AnnotatedException(400, "key " + key + " not found in RestParams");
 }
 
 RestParams::

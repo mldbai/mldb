@@ -32,7 +32,7 @@
 
 #include "python_plugin_context.h"
 #include "python_entities.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/rest_entity.h"
@@ -74,7 +74,7 @@ pyExec(Utf8String code,
     int res = pipe2(fds, 0 /* flags */);
 
     if (res == -1)
-        throw HttpReturnException(500, "Python evaluation pipe: "
+        throw AnnotatedException(500, "Python evaluation pipe: "
                                   + string(strerror(errno)));
     
     Scope_Exit(if (fds[0] != -1) ::close(fds[0]); if (fds[1] != -1) ::close(fds[1]));
@@ -82,7 +82,7 @@ pyExec(Utf8String code,
     res = fcntl(fds[1], F_SETFL, O_NONBLOCK);
     if (res == -1) {
         auto errno2 = errno;
-        throw HttpReturnException(500, "Python evaluation fcntl: "
+        throw AnnotatedException(500, "Python evaluation fcntl: "
                                   + string(strerror(errno2)));
     }
 
@@ -95,7 +95,7 @@ pyExec(Utf8String code,
     
     if (written == -1) {
         // Error writing.  Bail out.
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Error writing to pipe for python evaluation: "
              + string(strerror(errno)));
     }
@@ -116,7 +116,7 @@ pyExec(Utf8String code,
         res = fcntl(fds[1], F_SETFL, 0);
         if (res == -1) {
             auto errno2 = errno;
-            throw HttpReturnException(500, "Python evaluation fcntl: "
+            throw AnnotatedException(500, "Python evaluation fcntl: "
                                       + string(strerror(errno2)));
         }
 
@@ -154,7 +154,7 @@ pyExec(Utf8String code,
     FILE * file = fdopen(fds[0], "r");
 
     if (!file) {
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Error creating fd for python evaluation: "
              + string(strerror(errno)));
     }
@@ -267,7 +267,7 @@ PythonPlugin(MldbEngine * engine,
                                        config.id, res), routeHandlingMutex));
     }
     catch(const std::exception & exc) {
-        throw HttpReturnException(400, MLDB::format("Exception opening plugin: %s", exc.what()));
+        throw AnnotatedException(400, MLDB::format("Exception opening plugin: %s", exc.what()));
     }
 
     addRouteSyncJsonReturn(pluginCtx->router, "/lastoutput", {"GET"},
@@ -308,7 +308,7 @@ PythonPlugin(MldbEngine * engine,
         }
 
         MLDB_TRACE_EXCEPTIONS(false);
-        throw HttpReturnException(500, "Exception creating Python context", pyexc);
+        throw AnnotatedException(500, "Exception creating Python context", pyexc);
 
     }
 
@@ -329,7 +329,7 @@ PythonPlugin(MldbEngine * engine,
 
         string context = "Exception executing Python initialization script";
         ScriptOutput result = exceptionToScriptOutput(pyControl, pyexc, context);
-        throw HttpReturnException(400, context, result);
+        throw AnnotatedException(400, context, result);
     }
 
     last_output = ScriptOutput();
@@ -397,7 +397,7 @@ getStatus() const
 //             string context = "Exception in Python status call";
 //             ScriptOutput result = exceptionToScriptOutput(
 //                 pyControl, pyexc, context);
-//             throw HttpReturnException(400, context, result);
+//             throw AnnotatedException(400, context, result);
 //         }
 // 
 // 
@@ -480,7 +480,7 @@ handleRequest(RestConnection & connection,
             string context = "Exception in Python request handler";
             ScriptOutput result = exceptionToScriptOutput(
                     pyControl, pyexc, context);
-            throw HttpReturnException(400, context, result);
+            throw AnnotatedException(400, context, result);
         }
    
     }
@@ -627,7 +627,7 @@ runPythonScript(std::shared_ptr<PythonContext> pyCtx,
             boost::python::object obj
                 = pyExec(scriptSource, scriptUri, pyControl.main_namespace);
             if (pyCtx->getRtnCode() == 0) {
-                 throw HttpReturnException(
+                 throw AnnotatedException(
                          500, "The route did not set a return code");
             }
             result.result = pyCtx->rtnVal;

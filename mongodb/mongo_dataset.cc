@@ -54,12 +54,12 @@ struct MongoMatrixView : MatrixView {
     
     MatrixNamedRow getRow(const Path & rowName) const override
     {
-        throw HttpReturnException(500, "Unimplemented getRow");
+        throw AnnotatedException(500, "Unimplemented getRow");
     }
 
     Path getRowPath(const RowHash & row) const override
     {
-        throw HttpReturnException(500, "Unimplemented getRowPath");
+        throw AnnotatedException(500, "Unimplemented getRowPath");
     }
 
     bool knownColumn(const Path & columnName) const override
@@ -69,12 +69,12 @@ struct MongoMatrixView : MatrixView {
     
     Path getColumnPath(ColumnHash column) const override
     {
-        throw HttpReturnException(500, "Unimplemented getColumnPath");
+        throw AnnotatedException(500, "Unimplemented getColumnPath");
     }
 
     vector<Path> getColumnPaths(ssize_t first, ssize_t limit) const override
     {
-        throw HttpReturnException(400, "Unimplemented method: getColumnPaths");
+        throw AnnotatedException(400, "Unimplemented method: getColumnPaths");
     }
 
     size_t getColumnCount() const override
@@ -95,7 +95,7 @@ struct MongoColumnIndex : ColumnIndex {
 
     MatrixColumn getColumn(const Path & column) const override
     {
-        throw HttpReturnException(500, "Unimplemented getColumn");
+        throw AnnotatedException(500, "Unimplemented getColumn");
     }
 
     bool knownColumn(const Path & column) const override
@@ -105,7 +105,7 @@ struct MongoColumnIndex : ColumnIndex {
 
     vector<Path> getColumnPaths(ssize_t first, ssize_t last) const override
     {
-        throw HttpReturnException(400, "Unimplemented method: getColumnPaths");
+        throw AnnotatedException(400, "Unimplemented method: getColumnPaths");
     }
 
     vector<Path> getRowPaths(ssize_t start = 0,
@@ -208,7 +208,7 @@ struct MongoDataset: Dataset {
                 for (; *it != res->end() && numToGenerate != 0; ++*it, --numToGenerate) {
 
                     if ((**it)["_id"].type() != bsoncxx::type::k_oid) {
-                        throw HttpReturnException(
+                        throw AnnotatedException(
                             500,
                             "monbodb.dataset: unimplemented support for "
                             "MongoDB records with key \"_id\" that are not "

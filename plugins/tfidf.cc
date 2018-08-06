@@ -232,7 +232,7 @@ run(const ProcedureRunConfig & run,
             saved = true;
         }
         catch (const std::exception & exc) {
-             throw HttpReturnException(400, "Error saving tfidf at location'" +
+             throw AnnotatedException(400, "Error saving tfidf at location'" +
                                       runProcConf.modelFileUrl.toString() + "': " +
                                       exc.what());
         }
@@ -268,7 +268,7 @@ run(const ProcedureRunConfig & run,
 
             obtainFunction(engine, tfidfFuncPC, onProgress);
         } else {
-            throw HttpReturnException(400, "Can't create tfidf function '" +
+            throw AnnotatedException(400, "Can't create tfidf function '" +
                                       runProcConf.functionName.rawString() +
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());

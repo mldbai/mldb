@@ -5,7 +5,7 @@
 */
 
 #include "regex_helper.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/sql/builtin_functions.h"
 #include "mldb/types/basic_value_descriptions.h"
 
@@ -44,7 +44,7 @@ compile(const ExpressionValue & val) const
     try {
         regexStr = val.toUtf8String();
     } MLDB_CATCH_ALL {
-        rethrowHttpException
+        rethrowException
             (400, "Error when extracting regex from argument '"
              + expr.expr->surface + "': " + getExceptionString()
              + ".  Regular expressions need to be strings.",
@@ -54,7 +54,7 @@ compile(const ExpressionValue & val) const
     try {
         return Regex(std::move(regexStr));
     } MLDB_CATCH_ALL {
-        rethrowHttpException
+        rethrowException
             (400, "Error when compiling regex '"
              + regexStr + "' from expression " + expr.expr->surface + "': "
              + getExceptionString()
@@ -265,7 +265,7 @@ apply(const std::vector<ExpressionValue> & args,
         return args[0];
 
     if (!args[0].isString()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "LIKE expression must have string on left side");
     }
     

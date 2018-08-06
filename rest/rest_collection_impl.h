@@ -457,7 +457,7 @@ void
 RestCollection<Key, Value>::
 throwEntryAlreadyExists(const Key & key) const
 {
-    throw HttpReturnException(409,
+    throw AnnotatedException(409,
                               nounSingular + " entry '"
                               + restEncode(key) + "' already exists",
                               "collection", this->nounPlural,
@@ -469,7 +469,7 @@ void
 RestCollection<Key, Value>::
 throwEntryNotReady(const Key & key) const
 {
-    throw HttpReturnException(409,
+    throw AnnotatedException(409,
                               nounSingular + " entry '"
                               + restEncode(key) + "' exists but is not ready",
                               "collection", this->nounPlural,
@@ -481,7 +481,7 @@ void
 RestCollection<Key, Value>::
 throwEntryDoesntExist(const Key & key) const
 {
-    throw HttpReturnException(404,
+    throw AnnotatedException(404,
                               nounSingular + " entry '"
                               + restEncode(key) + "' doesn't exist",
                               "collection", this->nounPlural,
@@ -493,7 +493,7 @@ void
 RestCollection<Key, Value>::
 throwEntryNotObtained(const Key & key) const
 {
-    throw HttpReturnException(409,
+    throw AnnotatedException(409,
                               nounSingular + " entry '"
                               + restEncode(key) + "' could not be obtained",
                               "collection", this->nounPlural,
@@ -505,7 +505,7 @@ void
 RestCollection<Key, Value>::
 throwEntryNotOverwritten(const Key & key) const
 {
-    throw HttpReturnException(409,
+    throw AnnotatedException(409,
                               nounSingular + " entry '"
                               + restEncode(key) + "' could not be overwritten",
                               "collection", this->nounPlural,
@@ -550,7 +550,7 @@ addBackgroundJobInThread(Key key,
 
                 // MLDB-748 - bail out if the task is not completed
                 if (task->running) {
-                    throw HttpReturnException(409, "entry '"
+                    throw AnnotatedException(409, "entry '"
                                               +  restEncode(key)
                                               + "' in "
                                               + this->nounSingular
@@ -886,7 +886,7 @@ getEntry(Key key) const
     if (restEncode(key).empty()) {
         error_message = MLDB::format("Collection URLs do not contain a trailing slash: try /v1/%1$s instead of /v1/%1$s/",
                                    this->nounPlural.rawData());
-        throw HttpReturnException(404, error_message);
+        throw AnnotatedException(404, error_message);
     }
     else
         throwEntryDoesntExist(key);
@@ -1136,7 +1136,7 @@ watchChannel(const Utf8String & channel,
         return watchElements(filter, catchUp, std::move(info));
     else if (channel == "names")
         return watchNames(filter, catchUp, std::move(info));
-    else throw HttpReturnException(400,
+    else throw AnnotatedException(400,
                                    MLDB::format("type %s doesn't have channel named '%s'",
                                               MLDB::type_name(*this).c_str(),
                                               channel.rawData()));
@@ -1164,7 +1164,7 @@ struct ChildHasGenericWatchType : public std::false_type {
                      std::shared_ptr<const ValueDescription> >
     get(const ResourceSpec & spec)
     {
-        throw HttpReturnException(400,
+        throw AnnotatedException(400,
                                   MLDB::format("need to override getWatchBoundType() or implement "
                                              "getWatchBoundTypeGeneric() "
                                              "for type %s to know about value watch types",
@@ -1190,13 +1190,13 @@ RestCollection<Key, Value>::
 getWatchBoundType(const ResourceSpec & spec)
 {
     if (spec.empty())
-        throw HttpReturnException(400, "no type for empty spec");
+        throw AnnotatedException(400, "no type for empty spec");
     else if (spec.size() > 1) {
         if (spec[0].channel == "children") {
             ResourceSpec childSpec(spec.begin() + 1, spec.end());
             return ChildHasGenericWatchType<Value>::get(childSpec);
         }
-        else throw HttpReturnException(400,
+        else throw AnnotatedException(400,
                                        MLDB::format("type %s doesn't have channel named '%s'",
                                                   MLDB::type_name(*this).c_str(),
                                                   spec[0].channel.rawData()));
@@ -1207,7 +1207,7 @@ getWatchBoundType(const ResourceSpec & spec)
         return make_pair(&typeid(std::tuple<ChildEvent>), nullptr);
     else if (spec[0].channel == "names")
         return make_pair(&typeid(std::tuple<Utf8String>), nullptr);
-    else throw HttpReturnException(400,
+    else throw AnnotatedException(400,
                                    MLDB::format("type %s doesn't have channel named '%s'",
                                               MLDB::type_name(*this).c_str(),
                                               spec[0].channel.rawData()));
@@ -1222,7 +1222,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
            Any linkParams)
 {
     if (targetPath.empty())
-        throw HttpReturnException(400, "RestCollection cannot accept links");
+        throw AnnotatedException(400, "RestCollection cannot accept links");
 
     std::vector<Utf8String> path = targetPath;
     Utf8String element = path.front();
@@ -1236,7 +1236,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
 
     auto el = getChildEntity(val.get());
     if (!el)
-        throw HttpReturnException(400, "Collection elements are not RestEntities");
+        throw AnnotatedException(400, "Collection elements are not RestEntities");
 
     return el->acceptLink(sourcePath, path, linkType, linkParams);
 }
@@ -1470,7 +1470,7 @@ Status
 RestConfigurableCollection<Key, Value, Config, Status>::
 getStatusLoading(Key key, const BackgroundTask & task) const
 {
-    throw HttpReturnException(400, "getStatusLoading needs to be overridden");
+    throw AnnotatedException(400, "getStatusLoading needs to be overridden");
 }
 
 // in rest_collection.cc.  Checks that the payload isn't empty and throws
@@ -1905,7 +1905,7 @@ onChildChange(const ChildEvent & event)
         if (!configWatches.empty())
             configWatches.trigger(event.key, nullptr);
     }
-    else throw HttpReturnException(400, "unknown child watch");
+    else throw AnnotatedException(400, "unknown child watch");
 }
 
 template<typename Key, typename Value,
@@ -2075,7 +2075,7 @@ std::shared_ptr<Config>
 RestConfigurableCollection<Key, Value, Config, Status>::
 getConfig(Key key, const Value & value) const
 {
-    throw HttpReturnException(400,
+    throw AnnotatedException(400,
                               MLDB::format("type '%s' needs to override getConfig",
                                          MLDB::type_name(*this).c_str()));
 }

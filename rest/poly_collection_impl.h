@@ -12,7 +12,7 @@
 #include "poly_collection.h"
 #include "mldb/types/meta_value_description_impl.h"
 #include "mldb/types/pointer_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 namespace MLDB {
 
@@ -104,7 +104,7 @@ PolyCollection<Entity>::
 construct(PolyConfig config, const OnProgress & onProgress) const
 {
     if (config.type.empty()) {
-        throw HttpReturnException(400, "Attempt to refer to nonexistant " + nounSingular
+        throw AnnotatedException(400, "Attempt to refer to nonexistant " + nounSingular
                                   + " with id " + config.id,
                                   config);
     }
@@ -127,7 +127,7 @@ obtainEntitySync(PolyConfig config,
                  const OnProgress & onProgress)
 {
     if (config.type.empty() && config.id.empty())
-        throw HttpReturnException(400, "Attempt to obtain " + nounSingular
+        throw AnnotatedException(400, "Attempt to obtain " + nounSingular
                                   + " without setting 'id' (to refer to existing) "
                                   + "or 'type' and 'params' (to create new)",
                                   "entityKind", nounSingular,
@@ -144,7 +144,7 @@ createEntitySync(PolyConfig config,
                  bool overwrite)
 {
     if (config.type.empty())
-        throw HttpReturnException(400, "Attempt to create " + nounSingular
+        throw AnnotatedException(400, "Attempt to create " + nounSingular
                                   + " without type being set",
                                   "config", config);
     
@@ -196,7 +196,7 @@ struct PolyCollection<Entity>::Registry {
     {
         std::unique_lock<std::recursive_mutex> guard(mutex);
         if (!registry.insert(std::make_pair(name, Entry{ description, createEntity, docRoute, customRoute, config, registryFlags })).second) {
-            throw HttpReturnException(400, "double-registering type " + name);
+            throw AnnotatedException(400, "double-registering type " + name);
         }
         watches.trigger(name);
     }
@@ -206,7 +206,7 @@ struct PolyCollection<Entity>::Registry {
         std::unique_lock<std::recursive_mutex> guard(mutex);
         auto it = registry.find(type);
         if (it == registry.end())
-            throw HttpReturnException(400, "couldn't find type '" + type
+            throw AnnotatedException(400, "couldn't find type '" + type
                                       + "' in registry");
         return it->second.create;
     }
@@ -225,7 +225,7 @@ struct PolyCollection<Entity>::Registry {
 
         auto it = registry.find(type);
         if (it == registry.end())
-            throw HttpReturnException(400, "couldn't find type '"
+            throw AnnotatedException(400, "couldn't find type '"
                                       + type + "' in registry");
         guard.unlock();
 
@@ -244,7 +244,7 @@ struct PolyCollection<Entity>::Registry {
 
             auto it = registry.find(type);
             if (it == registry.end())
-                throw HttpReturnException(400, "couldn't find type '" + type
+                throw AnnotatedException(400, "couldn't find type '" + type
                                           + "' in registry");
             guard.unlock();
 
@@ -265,7 +265,7 @@ struct PolyCollection<Entity>::Registry {
 
             return result;
         } MLDB_CATCH_ALL {
-            rethrowHttpException(500, "Error getting information for type '" + type
+            rethrowException(500, "Error getting information for type '" + type
                                  + "' in collection " + nounPlural + ": "
                                  + getExceptionString(),
                                  "type", type,
@@ -300,7 +300,7 @@ struct PolyCollection<Entity>::Registry {
         
         auto it = registry.find(type);
         if (it == registry.end())
-            throw HttpReturnException(400, "couldn't find type '" + type
+            throw AnnotatedException(400, "couldn't find type '" + type
                                       + "' in registry");
         guard.unlock();
 

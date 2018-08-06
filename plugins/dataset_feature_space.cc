@@ -10,7 +10,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/hash_wrapper_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/log.h"
 
 using namespace std;
@@ -143,7 +143,7 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
                 }
                 else stringValues = std::move(descriptions.strings.buckets);
 
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "This classifier can't train on column "
                      + columnName.toUtf8String() + " which has both string "
                      + " and numeric values.  Consider using \nCAST ("
@@ -331,7 +331,7 @@ getHash(ML::Feature feature) const
     else {
         auto it = versionTwoMapping.find(feature);
         if (it == versionTwoMapping.end()) {
-            throw HttpReturnException(400, "feature was not found");
+            throw AnnotatedException(400, "feature was not found");
         }
         return it->second;
     }
@@ -360,7 +360,7 @@ getFeature(ColumnHash hash) const
 
     auto it = versionTwoReverseMapping.find(hash);
     if (it == versionTwoReverseMapping.end()) {
-        throw HttpReturnException(400, "hash was not found");
+        throw AnnotatedException(400, "hash was not found");
     }
     return it->second;
 }

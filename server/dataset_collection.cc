@@ -518,7 +518,7 @@ initRoutes(RouteManager & manager)
             try {
                 return dataset->handleRequest(connection, req, cxt);
             }
-            catch (const HttpReturnException & exc) {
+            catch (const AnnotatedException & exc) {
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);

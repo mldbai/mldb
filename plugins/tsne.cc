@@ -286,7 +286,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if (coords.size() == 0)
-        throw HttpReturnException(400, "t-sne training requires at least 1 datapoint. "
+        throw AnnotatedException(400, "t-sne training requires at least 1 datapoint. "
                                   "Make sure your dataset is not empty and that your WHERE, offset "
                                   "and limit expressions do not filter all the rows");
 
@@ -430,7 +430,7 @@ TsneOutput
 TsneEmbed::
 call(TsneInput input) const
 {
-    throw HttpReturnException(500, "t-SNE Embed apply function is not yet implemented");
+    throw AnnotatedException(500, "t-SNE Embed apply function is not yet implemented");
 #if 0    
     ExpressionValue result;
 

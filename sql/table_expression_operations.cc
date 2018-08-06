@@ -6,7 +6,7 @@
 
 #include "table_expression_operations.h"
 #include "mldb/builtin/sub_dataset.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/sql/execution_pipeline.h"
 #include "mldb/types/value_description.h"
 #include <functional>
@@ -207,7 +207,7 @@ bind(SqlBindingScope & scope, const ProgressFunc & onProgress) const
     else {
         if (boundLeft.asName.empty()
             && boundLeft.table.getChildAliases().empty()) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Tables in joins that don't have a natural name like a "
                  "dataset name must have an AS expression (consider replacing '"
                  + left->surface + "' with '" + left->surface + " AS lhs'");
@@ -215,7 +215,7 @@ bind(SqlBindingScope & scope, const ProgressFunc & onProgress) const
 
         if (boundRight.asName.empty()
             && boundRight.table.getChildAliases().empty()) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Tables in joins that don't have a natural name like a "
                  "dataset name must have an AS expression (consider replacing '"
                  + right->surface + "' with '" + right->surface + " AS rhs'");
@@ -264,7 +264,7 @@ bind(SqlBindingScope & scope, const ProgressFunc & onProgress) const
                 // kept as a starting point for whenever we use the table
                 // operations for more than implementing joins, and we will need
                 // to use it.
-                throw HttpReturnException
+                throw AnnotatedException
                 (500, "Internal logic error: joins should not require runQuery");
 #if 0
                 // Copy the where expression
@@ -563,7 +563,7 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
     auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName, onProgress);
 
     if (!fn)
-        throw HttpReturnException(400, "could not bind dataset function " + functionName);
+        throw AnnotatedException(400, "could not bind dataset function " + functionName);
 
     return fn;
 }
@@ -702,7 +702,7 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
             valueInfo.reset(new AtomValueInfo());
         break;
     default:
-        throw HttpReturnException(500, "Invalid row_dataset style");
+        throw AnnotatedException(500, "Invalid row_dataset style");
     }
     
     std::vector<KnownColumn> knownColumns;
@@ -757,7 +757,7 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
                 ExpressionValue row = boundExpr(rowScope, GET_LATEST);
 
                 if (!row.isRow()) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Argument to row_dataset must be a row, not a "
                          "scalar or NULL (got " + jsonEncodeStr(row) + ")");
                 }

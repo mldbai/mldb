@@ -56,7 +56,7 @@ CellValue bsonToCell(const bsoncxx::types::value & val)
         return CellValue(val.get_symbol().symbol.to_string());
 
     case bsoncxx::type::k_regex:
-        throw HttpReturnException(500, "BSON regex conversion not done");
+        throw AnnotatedException(500, "BSON regex conversion not done");
 
     case bsoncxx::type::k_array:
     case bsoncxx::type::k_document:
@@ -68,10 +68,10 @@ CellValue bsonToCell(const bsoncxx::types::value & val)
     case bsoncxx::type::k_codewscope:
     case bsoncxx::type::k_maxkey:
     case bsoncxx::type::k_minkey:
-        throw HttpReturnException(500, "BSON internal conversions not accepted");
+        throw AnnotatedException(500, "BSON internal conversions not accepted");
     }
 
-    throw HttpReturnException(500, "Unknown bson expression type");
+    throw AnnotatedException(500, "Unknown bson expression type");
 }
 
 StructValue extract(const Date & ts, const bsoncxx::document::view & doc)
@@ -124,7 +124,7 @@ void validateConnectionScheme(const std::string & uriConnectionScheme)
     if (uriConnectionScheme.empty() || uriConnectionScheme.find("mongodb://") != 0
             || uriConnectionScheme.size() < 11)
     {
-        throw HttpReturnException(
+        throw AnnotatedException(
             400,
             "uriConnectionScheme is a required property and the minimal "
             "uriConnectionScheme format is mongodb://<host>");
@@ -134,7 +134,7 @@ void validateConnectionScheme(const std::string & uriConnectionScheme)
 void validateCollection(const std::string & collection)
 {
     if (collection.empty()) {
-        throw HttpReturnException(
+        throw AnnotatedException(
             400, "collection is a required property and must not be empty");
     }
 }

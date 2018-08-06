@@ -157,7 +157,7 @@ void iterateDense(const SelectExpression & select,
     //     << endl;
 
     if (numOutputVariables == 0)
-        throw HttpReturnException(400, "Select expression '"
+        throw AnnotatedException(400, "Select expression '"
                                   + (select.surface.empty() ? select.surface : select.print())
                                   + "' matched no columns",
                                   "rowInfo",
@@ -316,7 +316,7 @@ getEmbedding(const SelectStatement & stm,
 {
     auto boundDataset = stm.from->bind(context, onProgress);
     if (!boundDataset.dataset)
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "You can't train this algorithm from a sub-select or "
              "table expression; it must be FROM <dataset name>");
     return getEmbedding(stm.select, 
@@ -333,11 +333,11 @@ validateQueryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
     stm.when.bind(scope);
     stm.orderBy.bindAll(scope);
     if (!stm.groupBy.clauses.empty()) {
-        throw HttpReturnException(
+        throw AnnotatedException(
             400, "GROUP BY usage requires a FROM statement");
     }
     if (!stm.having->isConstantTrue()) {
-        throw HttpReturnException(
+        throw AnnotatedException(
             400, "HAVING usage requires a FROM statement");
     }
 }
@@ -358,7 +358,7 @@ queryWithoutDatasetExpr(const SelectStatement& stm, SqlBindingScope& scope)
 {
     for (const auto & c: stm.select.clauses) {
         if (c->isWildcard()) {
-            throw HttpReturnException(
+            throw AnnotatedException(
                 400, "Wildcard usage requires a FROM statement");
         }
     }
@@ -443,12 +443,12 @@ queryFromStatementExpr(const SelectStatement & stm,
         auto getParamInfo = [&] (const Utf8String & paramName)
             -> std::shared_ptr<ExpressionValueInfo>
             {
-                throw HttpReturnException(500, "No query parameter " + paramName);
+                throw AnnotatedException(500, "No query parameter " + paramName);
             };
         
         if (!params)
             params = [] (const Utf8String & param) -> ExpressionValue { 
-                throw HttpReturnException(500, "No query parameter " + param); 
+                throw AnnotatedException(500, "No query parameter " + param); 
             };
 
         std::shared_ptr<PipelineElement> pipeline = PipelineElement::root(scope)->statement(stm, getParamInfo);
@@ -530,13 +530,13 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
         auto getParamInfo = [&] (const Utf8String & paramName)
             -> std::shared_ptr<ExpressionValueInfo>
             {
-                throw HttpReturnException(500, "No query parameter " + paramName);
+                throw AnnotatedException(500, "No query parameter " + paramName);
             };
         
         if (!params)
             params = [] (const Utf8String & param) -> ExpressionValue
                 {
-                    throw HttpReturnException(500, "No query parameter " + param);
+                    throw AnnotatedException(500, "No query parameter " + param);
                 };
         
         std::shared_ptr<PipelineElement> pipeline
@@ -594,7 +594,7 @@ RowPath getValidatedRowName(const ExpressionValue& rowNameEV)
         name = rowNameEV.coerceToPath();
     }
     MLDB_CATCH_ALL {
-        rethrowHttpException
+        rethrowException
             (400, "Unable to create a row name from the passed expression. "
              "Row names must be either a simple atom, or a Path atom, or an "
              "array of atoms.",
@@ -602,7 +602,7 @@ RowPath getValidatedRowName(const ExpressionValue& rowNameEV)
     }
 
     if (name.empty()) {
-        throw HttpReturnException(400, "Can't create a row with a null name.");
+        throw AnnotatedException(400, "Can't create a row with a null name.");
     }
     return name;
 }

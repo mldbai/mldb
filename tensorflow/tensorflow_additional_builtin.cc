@@ -22,7 +22,7 @@ BoundFunction encodePngs(const std::vector<BoundSqlExpression> & args)
     checkArgsSize(args.size(), 1);
 
     if (!args[0].info->couldBeRow())
-        throw HttpReturnException(400, "requires a row as input");
+        throw AnnotatedException(400, "requires a row as input");
 
     Utf8String query = "tf_EncodePng($1)";
 
@@ -42,7 +42,7 @@ BoundFunction encodePngs(const std::vector<BoundSqlExpression> & args)
                                 const ExpressionValue & val)
                 {
                     if (!val.isRow())
-                        throw HttpReturnException(400, "requires a row as input, got " + val.getTypeAsString());
+                        throw AnnotatedException(400, "requires a row as input, got " + val.getTypeAsString());
 
                     encodedValues.emplace_back(columnName, evalSql(emptyBindingScope, query, emptyrowScope, val));
                     return true;

@@ -88,13 +88,13 @@ struct MongoRecord: Dataset {
                 // Weird lambda to prevent a freeze within mongo
                 Utf8String str = std::get<0>(col).toUtf8String();
                 if (str.rawString()[0] == '$') {
-                    throw HttpReturnException(
+                    throw AnnotatedException(
                         400,
                         "Keys starting with a dollar sign cannot be recorded "
                         "to MongoDB. Error on key: " + str.rawString());
                 }
                 if (str.find('.') != str.end()) {
-                    throw HttpReturnException(
+                    throw AnnotatedException(
                         400,
                         "Dotted keys cannot be recorded "
                         "to MongoDB. Error on key: " + str.rawString());
@@ -144,13 +144,13 @@ struct MongoRecord: Dataset {
 
     std::shared_ptr<MatrixView> getMatrixView() const override
     {
-        throw HttpReturnException(400,
+        throw AnnotatedException(400,
                                   "mongodb.record dataset is record-only");
     }
 
     std::shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        throw HttpReturnException(400,
+        throw AnnotatedException(400,
                                   "mongodb.record dataset is record-only");
     }
 };

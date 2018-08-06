@@ -21,7 +21,7 @@
 #include "plugins/sql_functions.h"
 #include "sql/execution_pipeline.h"
 #include "mldb/engine/bound_queries.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
@@ -134,11 +134,11 @@ reconstitute(ML::DB::Store_Reader & store)
     std::string name;
     store >> name >> version;
     if (name != "MLDB Stats Table Binary") {
-        throw HttpReturnException(400, "File does not appear to be a stats "
+        throw AnnotatedException(400, "File does not appear to be a stats "
                                   "table model");
     }
     if(version!=REQUIRED_V) {
-        throw HttpReturnException(400, MLDB::format(
+        throw AnnotatedException(400, MLDB::format(
                     "invalid StatsTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -458,7 +458,7 @@ apply(const FunctionApplier & applier,
         result.emplace_back("counts", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw HttpReturnException(400, "wrong input type to stats table",
+        throw AnnotatedException(400, "wrong input type to stats table",
                                   "input", arg);
     }
 
@@ -856,7 +856,7 @@ StatsTablePosNegFunction(MldbEngine * owner,
         }
     }
     if(outcomeToUseIdx == -1) {
-        throw HttpReturnException(400, "Outcome '"+functionConfig.outcomeToUse+
+        throw AnnotatedException(400, "Outcome '"+functionConfig.outcomeToUse+
                                   "' not found in stats table!");
     }
 
@@ -952,7 +952,7 @@ apply(const FunctionApplier & applier,
         result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
+        throw AnnotatedException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
 
     return std::move(result);

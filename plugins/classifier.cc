@@ -189,7 +189,7 @@ run(const ProcedureRunConfig & run,
 
     // this includes being empty
     if(!runProcConf.modelFileUrl.valid()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "The 'modelFileUrl' parameter '"
              + runProcConf.modelFileUrl.toString()
              + " is not valid.");
@@ -197,7 +197,7 @@ run(const ProcedureRunConfig & run,
 
     if (!runProcConf.functionName.empty()
         && runProcConf.modelFileUrl.empty()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "The 'modelFileUrl' parameter must be set if the "
              "functionName parameter is set so that the function can "
              "load the classifier");
@@ -234,7 +234,7 @@ run(const ProcedureRunConfig & run,
         labelInfo = ML::Feature_Info(categorical);
         break;
     default:
-        throw HttpReturnException(400, "Unknown classifier mode");
+        throw AnnotatedException(400, "Unknown classifier mode");
     }
 
     ML::Configuration classifierConfig;
@@ -280,7 +280,7 @@ run(const ProcedureRunConfig & run,
     shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(features);
 
     if (!label || !subSelect)
-        throw HttpReturnException(400, "trainingData must return a 'features' row and a 'label'");
+        throw AnnotatedException(400, "trainingData must return a 'features' row and a 'label'");
 
     SelectExpression select({subSelect});
     std::set<ColumnPath> knownInputColumns;
@@ -300,7 +300,7 @@ run(const ProcedureRunConfig & run,
 
             if (runProcConf.mode != CM_MULTILABEL) {
                 if (std::find(knownInputColumns.begin(), knownInputColumns.end(), v.first) != knownInputColumns.end())
-                    throw HttpReturnException
+                    throw AnnotatedException
                             (400, "Dataset column '" + 
                              v.first.toUtf8String()
                              + "' cannot be used in both label and feature ");
@@ -308,7 +308,7 @@ run(const ProcedureRunConfig & run,
             else {
                 for (const auto& c : knownInputColumns) {
                     if (c.startsWith(v.first)) {
-                        throw HttpReturnException
+                        throw AnnotatedException
                                 (400, "Dataset column '" + 
                                  c.toUtf8String()
                                  + "' cannot be used in both label and feature");
@@ -323,7 +323,7 @@ run(const ProcedureRunConfig & run,
             const ColumnPath& prefix = w.second.prefix;
             for (const auto& c : knownInputColumns) {
                 if (c.startsWith(prefix)) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Dataset column '" + 
                          c.toUtf8String()
                          + "' cannot be used in both label and feature "
@@ -494,7 +494,7 @@ run(const ProcedureRunConfig & run,
             try {
                 featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
             } MLDB_CATCH_ALL {
-                rethrowHttpException
+                rethrowException
                     (KEEP_HTTP_CODE,
                      "Error processing row '" + row.rowName.toUtf8String()
                      + "' column '" + std::get<0>(c).toUtf8String()
@@ -504,7 +504,7 @@ run(const ProcedureRunConfig & run,
             }
 
             if (unique_known_features.count(std::get<0>(c)) != 0) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Training dataset cannot have duplicated column '" + 
                      std::get<0>(c).toUtf8String()
                      + "' for row '"
@@ -536,7 +536,7 @@ run(const ProcedureRunConfig & run,
                 break;
             case CM_MULTILABEL: {
                 if (!label.isRow())
-                    throw HttpReturnException(400, "Multilabel classification labels requires a row");
+                    throw AnnotatedException(400, "Multilabel classification labels requires a row");
 
                 if (runProcConf.multilabelStrategy == MULTILABEL_RANDOM) {
 
@@ -648,7 +648,7 @@ run(const ProcedureRunConfig & run,
                     return true;
                 }
                  else {
-                    throw HttpReturnException(400, "Unknown multilabel strategy in classifier training");
+                    throw AnnotatedException(400, "Unknown multilabel strategy in classifier training");
                 }
 
                 break;
@@ -663,7 +663,7 @@ run(const ProcedureRunConfig & run,
                 break;
             }
             default:
-                throw HttpReturnException(400, "Unknown classifier mode");
+                throw AnnotatedException(400, "Unknown classifier mode");
             }
 
             return true;
@@ -795,7 +795,7 @@ run(const ProcedureRunConfig & run,
     int nx = numRows;
 
     if (nx == 0 && boundDataset.dataset->getMatrixView()->getRowHashes(0, 1).empty()) {
-        throw HttpReturnException(400, "Error training classifier: "
+        throw AnnotatedException(400, "Error training classifier: "
                                   "No feature vectors were produced as dataset was empty",
                                   "datasetConfig", boundDataset.dataset->config_,
                                   "datasetName", boundDataset.dataset->config_->id,
@@ -803,7 +803,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if (nx == 0) {
-        throw HttpReturnException(400, "Error training classifier: "
+        throw AnnotatedException(400, "Error training classifier: "
                                   "No feature vectors were produced as all rows were filtered by "
                                     "WHEN, WHERE, OFFSET or LIMIT, or all labels were NULL (or "
                                     "label column doesn't exist)",
@@ -834,7 +834,7 @@ run(const ProcedureRunConfig & run,
         num_weight_labels = labelMapping.size();
         break;
     default:
-        throw HttpReturnException(400, "Unknown classifier mode");
+        throw AnnotatedException(400, "Unknown classifier mode");
     }
 
     std::vector<distribution<float>> labelWeights(num_weight_labels);
@@ -850,13 +850,13 @@ run(const ProcedureRunConfig & run,
         float weight = fvs[i].weight();
 
         if (weight < 0)
-            throw HttpReturnException(400, "classifier example weight cannot be negative");
+            throw AnnotatedException(400, "classifier example weight cannot be negative");
         if (!isfinite(weight))
-            throw HttpReturnException(400, "classifier example weights must be finite");
+            throw AnnotatedException(400, "classifier example weights must be finite");
 
         if (runProcConf.mode == CM_REGRESSION
             && !isfinite(label)) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400,
                  "Regression labels must not be infinite or NaN.  Should you "
                  "add a condition like `WHERE isfinite(label)` to your data, "
@@ -972,7 +972,7 @@ run(const ProcedureRunConfig & run,
             classifier.save(runProcConf.modelFileUrl.toDecodedString());
         }
         MLDB_CATCH_ALL {
-            rethrowHttpException(400, "Error saving classifier to '"
+            rethrowException(400, "Error saving classifier to '"
                                  + runProcConf.modelFileUrl.toString() + "': "
                                  + getExceptionString(),
                                  "url", runProcConf.modelFileUrl);
@@ -1293,7 +1293,7 @@ getFunctionInfo() const
             break;
 
         default:
-            throw HttpReturnException(400, "unknown value info");
+            throw AnnotatedException(400, "unknown value info");
         }
     }
 

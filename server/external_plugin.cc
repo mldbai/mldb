@@ -168,7 +168,7 @@ ExternalPlugin(MldbEngine * engine,
     auto config = pconfig.params.convert<ExternalPluginConfig>();
 
     if (config.startup.type.empty())
-        throw HttpReturnException(400, "External plugin config must have startup section",
+        throw AnnotatedException(400, "External plugin config must have startup section",
                                   "config", config);
 
     if (!config.setup.type.empty()) {
@@ -404,7 +404,7 @@ start()
     //cerr << "started = " << started << endl;
 
     if (!started) {
-        throw HttpReturnException(500, "Error starting external subprocess",
+        throw AnnotatedException(500, "Error starting external subprocess",
                                   "config", config,
                                   "subprocessState", itl->result);
     }
@@ -419,7 +419,7 @@ start()
 
     // Give it 15 seconds to initialize
     if (future.wait_for(std::chrono::seconds(15)) != std::future_status::ready) {
-        throw HttpReturnException(500, "Error waiting for plugin initialization",
+        throw AnnotatedException(500, "Error waiting for plugin initialization",
                                   "config", config);
     }
     
@@ -428,7 +428,7 @@ start()
     try {
         address = future.get();
     } MLDB_CATCH_ALL {
-        rethrowHttpException(-1, "Error getting plugin address",
+        rethrowException(-1, "Error getting plugin address",
                              "config", config);
     }
 

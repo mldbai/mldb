@@ -318,7 +318,7 @@ run(const ProcedureRunConfig & run,
 
     svm_model * model = svm_train(&prob,&paramWrapper.param);
     if(!model) {
-        throw HttpReturnException(500, "Could not train support vector machine");
+        throw AnnotatedException(500, "Could not train support vector machine");
     }
     Scope_Exit(svm_free_and_destroy_model(&model));
 
@@ -342,7 +342,7 @@ run(const ProcedureRunConfig & run,
         out << in.rdbuf();
     }
     catch (const std::exception & exc) {
-        rethrowHttpException(500, "Could not save support vector machine model file", runProcConf.modelFileUrl.toString());
+        rethrowException(500, "Could not save support vector machine model file", runProcConf.modelFileUrl.toString());
     }
 
     return RunOutput();
@@ -406,10 +406,10 @@ SVMFunction(MldbEngine * owner,
         std::getline(in, firstLine);
         Json::Value md = Json::parse(firstLine);
         if (md["algorithm"] != "MLDB SVM model") {
-            throw HttpReturnException(400, "Model file is not an SVM model");
+            throw AnnotatedException(400, "Model file is not an SVM model");
         }
         if (md["version"].asInt() != 1) {
-            throw HttpReturnException(400, "SVM model version is wrong");
+            throw AnnotatedException(400, "SVM model version is wrong");
         }
         itl->columnNames = jsonDecode<std::vector<ColumnPath> >(md["columnNames"]);
         filter_ostream out(model_tmp_name);
@@ -422,7 +422,7 @@ SVMFunction(MldbEngine * owner,
           throw;
     }
     catch (const std::exception & exc) {
-        throw HttpReturnException(500, "Could not load support vector machine model file", functionConfig.modelFileUrl.toString());
+        throw AnnotatedException(500, "Could not load support vector machine model file", functionConfig.modelFileUrl.toString());
     }
 }
 

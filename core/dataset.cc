@@ -25,7 +25,7 @@
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/rest/cancellation_exception.h"
@@ -143,7 +143,7 @@ extractColumns(size_t numValues,
                const std::vector<ColumnPath> & columnNames,
                CellValue * output)
 {
-    throw HttpReturnException(600, "unimplemented rowStream method");
+    throw AnnotatedException(600, "unimplemented rowStream method");
 }
     
 void
@@ -658,10 +658,10 @@ validateNames(const RowPath & rowName,
               const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
 {
     if (rowName.empty())
-        throw HttpReturnException(400, "empty row names are not allowed");
+        throw AnnotatedException(400, "empty row names are not allowed");
     for (auto & val : vals) {
         if (get<0>(val).empty())
-            throw HttpReturnException(400, "empty column names are not allowed");
+            throw AnnotatedException(400, "empty column names are not allowed");
     }
 }
 
@@ -875,7 +875,7 @@ queryStructuredExpr(const SelectExpression & select,
     std::shared_ptr<ExpressionValueInfo> structureInfo;
 
     if (!having->isConstantTrue() && groupBy.clauses.empty())
-        throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
+        throw AnnotatedException(400, "HAVING expression requires a GROUP BY expression");
 
     std::vector< std::shared_ptr<SqlExpression> > aggregators
         = select.findAggregators(!groupBy.clauses.empty());
@@ -946,7 +946,7 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
                            const ProgressFunc & onProgress) const
 {
     if (!having->isConstantTrue() && groupBy.clauses.empty())
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "HAVING expression requires a GROUP BY expression");
 
     std::vector< std::shared_ptr<SqlExpression> > aggregators
@@ -1335,7 +1335,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 return RowPath::tryParse(crhs->constant.toUtf8String()).first;
             }
             else {
-                throw HttpReturnException(500, "Logic error in dataset execution");
+                throw AnnotatedException(500, "Logic error in dataset execution");
             }
         };
 
@@ -1354,7 +1354,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 return crhs->constant.coerceToPath();
             }
             else {
-                throw HttpReturnException(500, "Logic error in dataset execution");
+                throw AnnotatedException(500, "Logic error in dataset execution");
             }
         };
 
@@ -1427,7 +1427,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                                 return RowPath(value.getAtom().toString());
                             };
                         
-                        throw HttpReturnException(600, "not done");
+                        throw AnnotatedException(600, "not done");
                         //filterCallback = getFilteredRowNameFromBoundParameter;
                     }
                     
@@ -1776,7 +1776,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                     op = std::greater<uint64_t>();
                 else if (comparison->op == ">=")
                     op = std::greater_equal<uint64_t>();
-                else throw HttpReturnException
+                else throw AnnotatedException
                          (400, "unknown operator for comparison",
                           "op", comparison->op);
                 

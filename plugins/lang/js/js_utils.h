@@ -31,7 +31,7 @@
 
 namespace MLDB {
 
-struct HttpReturnException;
+struct AnnotatedException;
 
 template<typename T, size_t I, typename Sz, bool Sf, typename P, class A>
 struct compact_vector;

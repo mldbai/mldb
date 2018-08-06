@@ -10,7 +10,7 @@
 #include "mldb/engine/bucket.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/sql/cell_value.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/string.h"
@@ -83,7 +83,7 @@ getBucket(const CellValue & val) const
     switch (val.cellType()) {
     case CellValue::EMPTY:
         if (!hasNulls)
-            throw HttpReturnException(500, "Unknown type for bucket");
+            throw AnnotatedException(500, "Unknown type for bucket");
         return 0;
 
     case CellValue::INTEGER:
@@ -105,7 +105,7 @@ getBucket(const CellValue & val) const
         break;
     }
 
-    throw HttpReturnException(500, "Unknown CellValue type for getBucket()");
+    throw AnnotatedException(500, "Unknown CellValue type for getBucket()");
 }
 
 uint32_t
@@ -113,7 +113,7 @@ NumericValues::
 getBucket(double val) const
 {
     if (!active)
-        throw HttpReturnException(500, "Attempt to get bucket from non-numeric value");
+        throw AnnotatedException(500, "Attempt to get bucket from non-numeric value");
     return std::lower_bound(splits.begin(), splits.end(), val)
         - splits.begin() + offset;
 }
@@ -123,7 +123,7 @@ OrdinalValues::
 getBucket(const CellValue & val) const
 {
     if (!active)
-        throw HttpReturnException(500, "Attempt to get bucket from non-ordinal value");
+        throw AnnotatedException(500, "Attempt to get bucket from non-ordinal value");
     return std::lower_bound(splits.begin(), splits.end(), val)
         - splits.begin() + offset;
 }
@@ -135,7 +135,7 @@ getBucket(const CellValue & val) const
     auto it = std::find(buckets.begin(), buckets.end(), val);
     if (it != buckets.end())
         return it - buckets.begin() + offset;
-    throw HttpReturnException(500, "categorical value '" + val.toString() + "' not found in col");
+    throw AnnotatedException(500, "categorical value '" + val.toString() + "' not found in col");
 }
 
 struct CompareStrs {
@@ -152,7 +152,7 @@ getBucket(const CellValue & val) const
     const char * str = val.stringChars();
     auto it = std::lower_bound(buckets.begin(), buckets.end(), str, CompareStrs());
     if (it == buckets.end() || *it != str)
-        throw HttpReturnException(500, "categorical value '" + val.toString() + "' not found in col");
+        throw AnnotatedException(500, "categorical value '" + val.toString() + "' not found in col");
     return it - buckets.begin() + offset;
 }
 
@@ -270,7 +270,7 @@ getSplit(uint32_t bucket) const
     else if (bucket < blobs.offset)
         return strings.buckets[bucket - strings.offset];
 
-    throw HttpReturnException(500, "Invalid bucket");
+    throw AnnotatedException(500, "Invalid bucket");
 }
 
 bool 

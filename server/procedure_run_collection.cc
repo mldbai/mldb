@@ -160,7 +160,7 @@ initRoutes(RouteManager & manager)
             try {
                 return dataset->handleRequest(connection, req, cxt);
             }
-            catch (const HttpReturnException & exc) {
+            catch (const AnnotatedException & exc) {
                 return sendExceptionResponse(connection, exc);
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
@@ -216,7 +216,7 @@ setKey(ProcedureRunConfig & config, Utf8String key)
         Json::Value details;
         details["valueInUri"] = key;
         details["valueInConfig"] = config.id;
-        throw HttpReturnException(400, "Ambiguous names between route and config "
+        throw AnnotatedException(400, "Ambiguous names between route and config "
                                   "for procedure run PUT", details);
     }
     

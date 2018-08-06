@@ -10,7 +10,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -492,7 +492,7 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_atom )
     {
         /// Test that extracting from an atom throws as it's not an embedding
         MLDB_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(val.getEmbedding(nullptr, 0), HttpReturnException);
+        BOOST_CHECK_THROW(val.getEmbedding(nullptr, 0), AnnotatedException);
     }
 }
 

@@ -429,11 +429,11 @@ struct EmbeddingDataset::Itl
 
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "unknown row");
+            throw AnnotatedException(400, "unknown row");
 
         auto it = repr->rowIndex.find(EmbeddingDatasetRepr::getRowHashForIndex(rowHash));
         if (it == repr->rowIndex.end() || it->second == -1)
-            throw HttpReturnException(400, "unknown row");
+            throw AnnotatedException(400, "unknown row");
 
         return repr->rows[it->second].rowName;
     }
@@ -442,7 +442,7 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get name of unknown column from uninitialized embedding");
+            throw AnnotatedException(400, "Can't get name of unknown column from uninitialized embedding");
 
         return repr->columnIndex.count(column);
     }
@@ -452,11 +452,11 @@ struct EmbeddingDataset::Itl
         // TODO: shouldn't need to
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get name of unknown column from uninitialized embedding");
+            throw AnnotatedException(400, "Can't get name of unknown column from uninitialized embedding");
 
         auto it = repr->columnIndex.find(column);
         if (it == repr->columnIndex.end())
-            throw HttpReturnException(400, "Can't get name of unknown column");
+            throw AnnotatedException(400, "Can't get name of unknown column");
         return repr->columnNames[it->second];
     }
 
@@ -494,11 +494,11 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get stats of unknown column");
+            throw AnnotatedException(400, "Can't get stats of unknown column");
 
         auto it = repr->columnIndex.find(ch);
         if (it == repr->columnIndex.end())
-            throw HttpReturnException(400, "Can't get name of unknown column");
+            throw AnnotatedException(400, "Can't get name of unknown column");
 
         const vector<float> & columnVals = repr->columns.at(it->second);
 
@@ -518,12 +518,12 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get unknown column");
+            throw AnnotatedException(400, "Can't get unknown column");
 
 
         auto it = repr->columnIndex.find(column);
         if (it == repr->columnIndex.end())
-            throw HttpReturnException(400, "Can't get name of unknown column");
+            throw AnnotatedException(400, "Can't get name of unknown column");
 
         const vector<float> & columnVals = repr->columns.at(it->second);
 
@@ -543,11 +543,11 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get unknown column");
+            throw AnnotatedException(400, "Can't get unknown column");
 
         auto it = repr->columnIndex.find(column);
         if (it == repr->columnIndex.end())
-            throw HttpReturnException(400, "Can't get name of unknown column");
+            throw AnnotatedException(400, "Can't get name of unknown column");
 
         const vector<float> & columnVals = repr->columns.at(it->second);
 
@@ -562,11 +562,11 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get unknown column");
+            throw AnnotatedException(400, "Can't get unknown column");
 
         auto it = repr->columnIndex.find(column);
         if (it == repr->columnIndex.end())
-            throw HttpReturnException(400, "Can't get name of unknown column");
+            throw AnnotatedException(400, "Can't get name of unknown column");
 
         const vector<float> & columnVals = repr->columns.at(it->second);
         auto sortedVals = columnVals;
@@ -614,14 +614,14 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         if (!repr->initialized()) {
-            throw HttpReturnException(400, "Can't get info of unknown column",
+            throw AnnotatedException(400, "Can't get info of unknown column",
                                       "columnName", columnName,
                                       "knownColumns", repr->columnNames);
         }
         
         auto it = repr->columnIndex.find(columnName);
         if (it == repr->columnIndex.end())
-            throw HttpReturnException(400, "Can't get info of unknown column",
+            throw AnnotatedException(400, "Can't get info of unknown column",
                                       "columnName", columnName,
                                       "knownColumns", repr->columnNames);
         
@@ -640,7 +640,7 @@ struct EmbeddingDataset::Itl
 
         auto repr = committed();
         if (!repr->initialized()) {
-            throw HttpReturnException(500, "Asking for column information in uncommitted embedding dataset");
+            throw AnnotatedException(500, "Asking for column information in uncommitted embedding dataset");
         }
 
         result.reserve(columnNames.size());
@@ -648,7 +648,7 @@ struct EmbeddingDataset::Itl
         for (auto & columnName: columnNames) {
             auto it = repr->columnIndex.find(columnName);
             if (it == repr->columnIndex.end())
-                throw HttpReturnException(400, "Can't get info of unknown column",
+                throw AnnotatedException(400, "Can't get info of unknown column",
                                           "columnName", columnName,
                                           "knownColumns", repr->columnNames);
             
@@ -680,9 +680,9 @@ struct EmbeddingDataset::Itl
         }
         else {
             if (columnNames.size() != uncommitted.load()->columnNames.size())
-                throw HttpReturnException(400, "Attempt to change number of columns in embedding dataset");
+                throw AnnotatedException(400, "Attempt to change number of columns in embedding dataset");
             if (columnNames != uncommitted.load()->columnNames)
-                throw HttpReturnException(400, "Attempt to change column names in embedding dataset");
+                throw AnnotatedException(400, "Attempt to change column names in embedding dataset");
         }
 
         for (auto & r: rows) {
@@ -707,12 +707,12 @@ struct EmbeddingDataset::Itl
                         = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
                         .rowName;
                     if (oldName == rowName)
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "Row '" + rowName.toUtf8String()
                              + "' has already been recorded into embedding dataset.  "
                              + "Are you re-using an output dataset (1)?");
                     else {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "Row '" + rowName.toUtf8String() + "' and '"
                              + oldName.toUtf8String() + "' both hash to '"
                              + RowHash(rowName).toString() + "' (hash collision). "
@@ -768,7 +768,7 @@ struct EmbeddingDataset::Itl
                 auto & v = vals[i];
                 auto it = (*uncommitted).columnIndex.find(columnHashes[i]);
                 if (it == (*uncommitted).columnIndex.end())
-                    throw HttpReturnException(400, "Couldn't extract column with name");
+                    throw AnnotatedException(400, "Couldn't extract column with name");
                 
                 embedding[it->second] = std::get<1>(v).toDouble();
                 latestDate.setMax(std::get<2>(v));
@@ -811,7 +811,7 @@ struct EmbeddingDataset::Itl
                 auto & v = vals[i];
                 auto it = (*uncommitted).columnIndex.find(columnHashes[i]);
                 if (it == (*uncommitted).columnIndex.end())
-                    throw HttpReturnException(400, "Couldn't extract column with name 2 "
+                    throw AnnotatedException(400, "Couldn't extract column with name 2 "
                                         + std::get<0>(v).toUtf8String());
                 
                 embedding[it->second] = std::get<1>(v).toDouble();
@@ -835,13 +835,13 @@ struct EmbeddingDataset::Itl
                     = (*uncommitted).rows.at((*uncommitted).rowIndex[rowHash])
                     .rowName;
                 if (oldName == rowName)
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Row '" + rowName.toUtf8String()
                          + "' has already been recorded into embedding dataset.  "
                          + "Are you re-using an output dataset (2)?");
                 else {
                     return;
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Row '" + rowName.toUtf8String() + "' and '"
                          + oldName.toUtf8String() + "' both hash to '"
                          + RowHash(rowName).toString() + "' (hash collision). "
@@ -990,7 +990,7 @@ struct EmbeddingDataset::Itl
 
         auto it = repr->rowIndex.find(rowHash);
         if (it == repr->rowIndex.end() || it->second == -1) {
-            throw HttpReturnException(400, "Couldn't find row '" + row.toUtf8String()
+            throw AnnotatedException(400, "Couldn't find row '" + row.toUtf8String()
                                       + "' in embedding");
         }
        
@@ -1019,7 +1019,7 @@ struct EmbeddingDataset::Itl
     {
         auto repr = committed();
         if (!repr->initialized())
-            throw HttpReturnException(400, "Can't get stats of unknown column");
+            throw AnnotatedException(400, "Can't get stats of unknown column");
 
         return repr->getTimestampRange();
     }
@@ -1325,7 +1325,7 @@ bindT(SqlBindingScope & outerContext,
 
     auto boundDataset = functionConfig.dataset->bind(outerContext, nullptr /*onProgress*/);
     if (!boundDataset.dataset) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Nearest neighbors function cannot operate on the output of "
              "a table expression, only dataset of type embedding (passed "
              "dataset was '" + functionConfig.dataset->surface + "'");
@@ -1345,7 +1345,7 @@ bindT(SqlBindingScope & outerContext,
             if (c.startsWith(functionConfig.columnName)) {
                 ColumnPath tail = c.removePrefix(functionConfig.columnName);
                 if (tail.size() != 1 || !tail.at(0).isIndex()) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "The column name passed into the embedding.neighbors "
                          "function is not a simple embedding, as it contains the "
                          "column '" + c.toUtf8String() +"' inside the dataset '"
@@ -1365,7 +1365,7 @@ bindT(SqlBindingScope & outerContext,
                 }
             }
 
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "The column name '" + functionConfig.columnName.toUtf8String()
                  + "' passed into the embedding.neighbors function "
                  + "does not exist inside the dataset '"
@@ -1379,7 +1379,7 @@ bindT(SqlBindingScope & outerContext,
     }
 
     if (input.size() != 1)
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "nearest neighbours function takes a single input");
     
     auto & coordInput = *input.at(0);//input.getValueInfo("coords").getExpressionValueInfo();
@@ -1391,7 +1391,7 @@ bindT(SqlBindingScope & outerContext,
     result->embeddingDataset
         = dynamic_pointer_cast<EmbeddingDataset>(boundDataset.dataset);
     if (!result->embeddingDataset) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "A dataset of type embedding needs to be provided for "
              "the nearest.neighbors function; the provided dataset '"
              + functionConfig.dataset->surface + "' is of type '"

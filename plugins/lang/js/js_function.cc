@@ -8,7 +8,7 @@
 #include "js_common.h"
 #include "mldb_js.h"
 #include "mldb/arch/thread_specific.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/sql/expression_value.h"
 #include "mldb/sql/sql_expression.h"
@@ -121,7 +121,7 @@ initialize(const JsFunctionData & data)
     if (compiled.IsEmpty()) {  
         auto rep = convertException(trycatch, "Compiling jseval script");
         MLDB_TRACE_EXCEPTIONS(false);
-        throw HttpReturnException(400, "Exception compiling jseval script",
+        throw AnnotatedException(400, "Exception compiling jseval script",
                                   "exception", rep,
                                   "scriptSource", data.scriptSource,
                                   "provenance", data.filenameForErrorMessages);
@@ -173,7 +173,7 @@ run(const std::vector<ExpressionValue> & args,
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running jseval script");
         MLDB_TRACE_EXCEPTIONS(false);
-        throw HttpReturnException(400, "Exception running jseval script",
+        throw AnnotatedException(400, "Exception running jseval script",
                                   "exception", rep,
                                   "scriptSource", data->scriptSource,
                                   "provenance", data->filenameForErrorMessages,
@@ -200,7 +200,7 @@ run(const std::vector<ExpressionValue> & args,
         return ExpressionValue(std::move(row));
     }
     else {
-        throw HttpReturnException(400, "Don't understand expression");
+        throw AnnotatedException(400, "Don't understand expression");
     }
 }
 
@@ -224,7 +224,7 @@ BoundFunction bindJsEval(const Utf8String & name,
                          const SqlBindingScope & context)
 {
     if (args.size() < 2)
-        throw HttpReturnException(400, "jseval expected at least 2 arguments, got " + to_string(args.size()));
+        throw AnnotatedException(400, "jseval expected at least 2 arguments, got " + to_string(args.size()));
 
     // 1.  Get the constant source value
     Utf8String scriptSource = args[0].constantValue().toUtf8String();

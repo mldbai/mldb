@@ -8,7 +8,7 @@
 #include "sql/expression_value.h"
 #include "sql/sql_expression.h"
 #include "mldb/ext/jsoncpp/value.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <memory>
 #include <vector>
 
@@ -27,9 +27,9 @@ inline void checkArgsSize(size_t number, size_t expected,
             fctName = "function " + fctName + " ";
         }
         if (expected != 1)
-            throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " arguments, got " + to_string(number));
+            throw AnnotatedException(400, fctName + "expected " + to_string(expected) + " arguments, got " + to_string(number));
         else
-            throw HttpReturnException(400, fctName + "expected " + to_string(expected) + " argument, got " + to_string(number));
+            throw AnnotatedException(400, fctName + "expected " + to_string(expected) + " argument, got " + to_string(number));
     }
 }
 
@@ -53,7 +53,7 @@ inline void checkArgsSize(size_t number, size_t minArgs, size_t maxArgs,
         if (!fctName.empty()) {
             fctName = "function " + fctName + " ";
         }
-        throw HttpReturnException
+        throw AnnotatedException
             (400, fctName + "expected between "
              + std::to_string(minArgs) + " and "
              + std::to_string(maxArgs) + " arguments, got "
@@ -144,7 +144,7 @@ struct RegisterBuiltin {
                         try {
                             return fn(args, scope);
                         } MLDB_CATCH_ALL {
-                            rethrowHttpException(-1, "Executing builtin function "
+                            rethrowException(-1, "Executing builtin function "
                                                  + str + ": " + getExceptionString(),
                                                  "functionName", str,
                                                  "functionArgs", args);
@@ -160,7 +160,7 @@ struct RegisterBuiltin {
 
                     return result;
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Binding builtin function "
+                    rethrowException(-1, "Binding builtin function "
                                          + str + ": " + getExceptionString(),
                                          "functionName", str,
                                          "functionArgs", args);

@@ -73,7 +73,7 @@ pg_conn* startPostgresqlConnection(const string& databaseName, const string& hos
     {
         string errorMsg(PQerrorMessage(conn));
         PQfinish(conn);
-        throw HttpReturnException(400, "Could not connect to Postgresql database: ", errorMsg);
+        throw AnnotatedException(400, "Could not connect to Postgresql database: ", errorMsg);
     }
 
     POSTGRESQL_VERBOSE(cerr << "connection successful!" << endl;)
@@ -144,43 +144,43 @@ struct PostgresqlDataset: public Dataset {
     virtual void recordRowItl(const RowPath & rowName,
                               const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
     
     virtual void recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
 
     /** Commit changes to the database.  Default is a no-op. */
     virtual void commit() override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::pair<Date, Date> getTimestampRange() const override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual Date quantizeTimestamp(Date timestamp) const override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual std::shared_ptr<RowStream> getRowStream() const override
     {
-        throw HttpReturnException(400, "PostgreSQL dataset is read-only");
+        throw AnnotatedException(400, "PostgreSQL dataset is read-only");
     }
 
     virtual GenerateRowsWhereFunction
@@ -207,7 +207,7 @@ struct PostgresqlDataset: public Dataset {
             string errorMsg(PQresultErrorMessage(res));
             PQclear(res);
             PQfinish(conn);
-            throw HttpReturnException(400, "Could not select from postgreSQL: ", errorMsg);
+            throw AnnotatedException(400, "Could not select from postgreSQL: ", errorMsg);
         }
         
         POSTGRESQL_VERBOSE(cerr << "keys fetched from " << config_.tableName << " sucessfully!" << endl;)
@@ -274,7 +274,7 @@ struct PostgresqlDataset: public Dataset {
             string errorMsg(PQresultErrorMessage(res));
             PQclear(res);
             PQfinish(conn);
-            throw HttpReturnException(400, "Could not select from postgreSQL: ", errorMsg);
+            throw AnnotatedException(400, "Could not select from postgreSQL: ", errorMsg);
         }
 
         POSTGRESQL_VERBOSE(cerr << "row fetched from " << config_.tableName << " successfully!" << endl;)
@@ -372,7 +372,7 @@ struct PostgresqlRecorderDataset: public Dataset {
                      string errorMsg(PQresultErrorMessage(res));
                      PQclear(res);
                      PQfinish(conn);
-                     throw HttpReturnException(400, "Could not drop PostgreSQL table:  ", errorMsg);
+                     throw AnnotatedException(400, "Could not drop PostgreSQL table:  ", errorMsg);
                 }
 
                 POSTGRESQL_VERBOSE(cerr << "table " << config_.tableName << " dropped!" << endl;)
@@ -387,7 +387,7 @@ struct PostgresqlRecorderDataset: public Dataset {
                 string errorMsg(PQresultErrorMessage(res));
                 PQclear(res);
                 PQfinish(conn);
-                throw HttpReturnException(400, "Could not create PostgreSQL table:  ", errorMsg);
+                throw AnnotatedException(400, "Could not create PostgreSQL table:  ", errorMsg);
             }
 
             POSTGRESQL_VERBOSE(cerr << "table " << config_.tableName << " created!" << endl;)
@@ -425,7 +425,7 @@ struct PostgresqlRecorderDataset: public Dataset {
             case CellValue::BLOB:
                 return "varbit";
             default:
-                throw HttpReturnException(500, "Unknown cell type in getPostgresTypeString");
+                throw AnnotatedException(500, "Unknown cell type in getPostgresTypeString");
         }
     }
 
@@ -449,7 +449,7 @@ struct PostgresqlRecorderDataset: public Dataset {
                     string errorMsg(PQresultErrorMessage(res));
                     PQclear(res);
                     PQfinish(conn);
-                    throw HttpReturnException(400, "Could not alter PostgreSQL table:  ", errorMsg);
+                    throw AnnotatedException(400, "Could not alter PostgreSQL table:  ", errorMsg);
                 }
 
                 PQclear(res);
@@ -496,7 +496,7 @@ struct PostgresqlRecorderDataset: public Dataset {
             string errorMsg(PQresultErrorMessage(res));
             PQclear(res);
             PQfinish(conn);
-            throw HttpReturnException(400, "Could not insert data in PostgreSQL table:  ", errorMsg);
+            throw AnnotatedException(400, "Could not insert data in PostgreSQL table:  ", errorMsg);
         }
 
         PQclear(res);
@@ -530,27 +530,27 @@ struct PostgresqlRecorderDataset: public Dataset {
 
     virtual std::pair<Date, Date> getTimestampRange() const override
     {
-        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
+        throw AnnotatedException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual Date quantizeTimestamp(Date timestamp) const override
     {
-        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
+        throw AnnotatedException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const override
     {
-        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
+        throw AnnotatedException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override
     {
-        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
+        throw AnnotatedException(400, "PostgreSQL recorder dataset is record-only");
     }
 
     virtual std::shared_ptr<RowStream> getRowStream() const override
     {
-        throw HttpReturnException(400, "PostgreSQL recorder dataset is record-only");
+        throw AnnotatedException(400, "PostgreSQL recorder dataset is record-only");
     }    
 
 };
@@ -647,7 +647,7 @@ struct PostgresqlImportProcedure: public Procedure {
             string errorMsg = PQresultErrorMessage(res);
             PQclear(res);
             PQfinish(conn);
-            throw HttpReturnException(400, "Could not query PostgreSQL database", errorMsg);
+            throw AnnotatedException(400, "Could not query PostgreSQL database", errorMsg);
         }
 
         int nfields = PQnfields(res);
@@ -769,7 +769,7 @@ struct PostgresqlQueryFunction : public Function
                 string errorMsg(PQresultErrorMessage(res));
                 PQclear(res);
                 PQfinish(conn);
-                throw HttpReturnException(400, "Could not query PostgreSQL database", errorMsg);
+                throw AnnotatedException(400, "Could not query PostgreSQL database", errorMsg);
             }
 
             int nfields = PQnfields(res);

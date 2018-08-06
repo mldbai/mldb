@@ -1,7 +1,6 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 LIBHTTP_SOURCES := \
-	http_exception.cc \
 	http_socket_handler.cc \
 	http_header.cc \
 	http_parsers.cc \

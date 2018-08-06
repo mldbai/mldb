@@ -12,7 +12,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/structure_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <unordered_set>
 #include <mutex>
 #include "mldb/jml/utils/profile.h"
@@ -258,7 +258,7 @@ struct SubDataset::Itl
         ExcAssert(row.rowName != RowPath());
         {
             if (!chunk.rowIndex.insert({row.rowHash, chunk.subOutput.size() - 1}).second) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Duplicate row name in dataset",
                      "rowName",
                      row.rowName);
@@ -412,7 +412,7 @@ struct SubDataset::Itl
     {
         auto it = mainChunk.rowIndex.find(rowName);
         if (it == mainChunk.rowIndex.end()) {
-            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
+            throw AnnotatedException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
         }
 
         return mainChunk.subOutput[it->second].flatten();
@@ -424,7 +424,7 @@ struct SubDataset::Itl
 
         auto it = mainChunk.rowIndex.find(rowName);
         if (it == mainChunk.rowIndex.end()) {
-            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
+            throw AnnotatedException(400, "Row '" + rowName.toUtf8String() + "' not found in dataset");
         }
 
         return mainChunk.subOutput[it->second].columns;
@@ -434,7 +434,7 @@ struct SubDataset::Itl
     {
         auto it = mainChunk.rowIndex.find(rowHash);
         if (it == mainChunk.rowIndex.end()) {
-            throw HttpReturnException(400, "Row not found in sub-table dataset");
+            throw AnnotatedException(400, "Row not found in sub-table dataset");
         }
 
         return mainChunk.subOutput[it->second].rowName;

@@ -11,7 +11,7 @@
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/utils/compact_vector.h"
 #include "mldb/utils/lightweight_hash.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/arch/vm.h"
@@ -234,7 +234,7 @@ struct DirectFrozenColumnFormat: public FrozenColumnFormat {
     virtual FrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "Tabular reconstitution not finished");
+        throw AnnotatedException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -472,7 +472,7 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
     virtual FrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "Tabular reconstitution not finished");
+        throw AnnotatedException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -755,7 +755,7 @@ struct SparseTableFrozenColumnFormat: public FrozenColumnFormat {
     virtual FrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "Tabular reconstitution not finished");
+        throw AnnotatedException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -1089,7 +1089,7 @@ struct IntegerFrozenColumnFormat: public FrozenColumnFormat {
     virtual FrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "Tabular reconstitution not finished");
+        throw AnnotatedException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -1336,7 +1336,7 @@ struct DoubleFrozenColumnFormat: public FrozenColumnFormat {
     virtual FrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "Tabular reconstitution not finished");
+        throw AnnotatedException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -1501,7 +1501,7 @@ struct TimestampFrozenColumnFormat: public FrozenColumnFormat {
     virtual FrozenColumn *
     reconstitute(StructuredReconstituter & reconstituter) const override
     {
-        throw HttpReturnException(600, "Tabular reconstitution not finished");
+        throw AnnotatedException(600, "Tabular reconstitution not finished");
     }
 };
 
@@ -1540,7 +1540,7 @@ registerFormat(std::shared_ptr<FrozenColumnFormat> format)
     for (;;) {
         auto ptr = formats.load();
         if (ptr->count(name)) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Attempt to double-register frozen column format "
                  + name);
         }
@@ -1655,7 +1655,7 @@ freeze(TabularDatasetColumn & column,
     ExcAssert(!column.isFrozen);
     auto res = FrozenColumnFormat::preFreeze(column, params);
     if (!res.second) {
-        throw HttpReturnException(500, "No column format found for column");
+        throw AnnotatedException(500, "No column format found for column");
     }
     return res.second(column, serializer);
 }

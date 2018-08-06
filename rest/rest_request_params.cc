@@ -6,7 +6,7 @@
 
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/rest/rest_request_params.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 namespace MLDB {
 
@@ -61,7 +61,7 @@ bool restDecode(const std::string & str, bool *)
         return false;
     }
 
-    throw HttpReturnException(400, "Attempting to interpret REST parameter value '"
+    throw AnnotatedException(400, "Attempting to interpret REST parameter value '"
                               + Utf8String(str) + "' as a boolean.  Acceptable "
                               "values are 'true', '1' and 'false', '0' in any "
                               "case.");

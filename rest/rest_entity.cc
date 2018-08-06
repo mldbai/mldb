@@ -8,7 +8,7 @@
 
 #include "rest_entity.h"
 #include "mldb/types/structure_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 namespace MLDB {
 
@@ -24,7 +24,7 @@ void
 RestRouteManager::
 throwChildAlreadyAdded(const Utf8String & name)
 {
-    throw HttpReturnException(400, "Child of '" + name + "' already added");
+    throw AnnotatedException(400, "Child of '" + name + "' already added");
 }
 
 } // namespace MLDB

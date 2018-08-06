@@ -22,7 +22,7 @@
 #include "interval.h"
 #include "tokenize.h"
 #include "mldb/core/dataset.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/types/value_description.h"
 #include "mldb/jml/utils/string_functions.h"
@@ -181,7 +181,7 @@ std::shared_ptr<void> registerFunction(Utf8String name, ExternalFunction functio
 
     std::unique_lock<std::recursive_mutex> guard(externalFunctionsMutex);
     if (!externalFunctions.insert({name, std::move(function)}).second)
-        throw HttpReturnException(400, "Attempt to double register function",
+        throw AnnotatedException(400, "Attempt to double register function",
                                   "name", name);
 
     //cerr << "registering external function " << name << endl;
@@ -192,7 +192,7 @@ ExternalFunction lookupFunction(const Utf8String & name)
 {
     auto res = tryLookupFunction(name);
     if (!res)
-        throw HttpReturnException(400, "Couldn't find function",
+        throw AnnotatedException(400, "Couldn't find function",
                                   "name", name);
     return res;
 }
@@ -219,16 +219,16 @@ doGetFunction(const Utf8String & tableName,
     }
 
     if (functionName == "leftRowName")
-        throw HttpReturnException(400, "Function 'leftRowName' is not available outside of a join");
+        throw AnnotatedException(400, "Function 'leftRowName' is not available outside of a join");
 
     if (functionName == "rightRowName")
-        throw HttpReturnException(400, "Function 'rightRowName' is not available outside of a join");
+        throw AnnotatedException(400, "Function 'rightRowName' is not available outside of a join");
 
     if (functionName == "leftRowPath")
-        throw HttpReturnException(400, "Function 'leftRowPath' is not available outside of a join");
+        throw AnnotatedException(400, "Function 'leftRowPath' is not available outside of a join");
 
     if (functionName == "rightRowPath")
-        throw HttpReturnException(400, "Function 'rightRowPath' is not available outside of a join");
+        throw AnnotatedException(400, "Function 'rightRowPath' is not available outside of a join");
     
     return BoundFunction();
 }
@@ -246,7 +246,7 @@ std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFu
 
     std::unique_lock<std::recursive_mutex> guard(externalDatasetFunctionsMutex);
     if (!externalDatasetFunctions.insert({name, std::move(function)}).second)
-        throw HttpReturnException(400, "Attempt to double register Dataset function",
+        throw AnnotatedException(400, "Attempt to double register Dataset function",
                                   "name", name);
 
     //cerr << "registering external function " << name << endl;
@@ -295,7 +295,7 @@ std::shared_ptr<void> registerAggregator(Utf8String name, ExternalAggregator agg
 
     std::unique_lock<std::recursive_mutex> guard(externalAggregatorsMutex);
     if (!externalAggregators.insert({name, std::move(aggregator)}).second)
-        throw HttpReturnException(400, "Attempt to double register aggregator",
+        throw AnnotatedException(400, "Attempt to double register aggregator",
                                   "name", name);
 
     return std::shared_ptr<void>(nullptr, unregister);
@@ -305,7 +305,7 @@ ExternalAggregator lookupAggregator(const Utf8String & name)
 {
     auto res = tryLookupAggregator(name);
     if (!res)
-        throw HttpReturnException(400, "Couldn't find aggregator",
+        throw AnnotatedException(400, "Couldn't find aggregator",
                                   "name", name);
     return res;
 }
@@ -330,7 +330,7 @@ doGetAggregator(const Utf8String & aggregatorName,
     }
     
     return {nullptr, nullptr};
-    //throw HttpReturnException(400, "Binding context " + MLDB::type_name(*this)
+    //throw AnnotatedException(400, "Binding context " + MLDB::type_name(*this)
     //                    + " must override getAggregator: wanted "
     //                    + aggregatorName);
 }
@@ -339,7 +339,7 @@ ColumnGetter
 SqlBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                               + " must override getColumn: wanted "
                               + columnName.toUtf8String());
 }
@@ -349,7 +349,7 @@ SqlBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 const ColumnFilter& keep)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                         + " must override getAllColumns: wanted "
                         + tableName);
 }
@@ -368,7 +368,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                         + " must override doCreateRowsWhereGenerator");
 }
 
@@ -376,7 +376,7 @@ ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                         + " must override doGetColumnFunction");
 }
 
@@ -384,7 +384,7 @@ ColumnGetter
 SqlBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support bound parameters ($1... or $name)");
 }
 
@@ -392,7 +392,7 @@ ColumnGetter
 SqlBindingScope::
 doGetGroupByKey(size_t index)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                               + " is not a group by context");
 }
 
@@ -400,7 +400,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -408,7 +408,7 @@ std::shared_ptr<Dataset>
 SqlBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support getting datasets");
 }
 
@@ -416,7 +416,7 @@ TableOperations
 SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
-    throw HttpReturnException(500, "Binding context " + MLDB::type_name(*this)
+    throw AnnotatedException(500, "Binding context " + MLDB::type_name(*this)
                               + " does not support getting tables");
 }
 
@@ -691,7 +691,7 @@ throwBadNestingError(const std::type_info & typeRequested,
 {
     std::string t_req = demangle(typeRequested.name());
     std::string t_found = demangle(typeFound.name());
-    throw HttpReturnException(500, "Invalid scope nesting: requested "
+    throw AnnotatedException(500, "Invalid scope nesting: requested "
                               + t_req + " got " + t_found,
                               "typeRequested", t_req,
                               "typeFound", t_found);
@@ -1657,7 +1657,7 @@ std::shared_ptr<SqlExpression>
 SqlExpression::
 substitute(const SelectExpression & toSubstitute) const
 {
-    throw HttpReturnException(400, "SqlExpression::substitute");
+    throw AnnotatedException(400, "SqlExpression::substitute");
 #if 0
     // Pattern to match is getVariable(name).  We replace with the
     // substituted version from the expression.
@@ -1911,7 +1911,7 @@ unimp(std::shared_ptr<SqlExpression> lhs,
       std::shared_ptr<SqlExpression> rhs,
       const std::string & op)
 {
-    throw HttpReturnException(400, "unimplemented operator " + op);
+    throw AnnotatedException(400, "unimplemented operator " + op);
 }
 
 //Find aggregators for any class implementing getChildren.
@@ -1961,7 +1961,7 @@ findAggregators(std::vector<std::shared_ptr<SqlExpression> >& children, bool wit
  
     if (!wildcardInAggs && (output.size() != 0 || withGroupBy)) {
         ExcAssert(!culprits.empty());
-        throw HttpReturnException(400, (withGroupBy ?
+        throw AnnotatedException(400, (withGroupBy ?
                                         "Non-aggregator '" + culprits.front() + 
                                         "' with GROUP BY clause is not allowed" :
                                         "Mixing non-aggregator '" + culprits.front() + 
@@ -2056,7 +2056,7 @@ ConstSqlExpressionDescription::
 parseJsonTyped(std::shared_ptr<const SqlExpression>  * val,
                JsonParsingContext & context) const
 {
-    throw HttpReturnException(400, "SqlExpressionDescription::parseJsonTyped");
+    throw AnnotatedException(400, "SqlExpressionDescription::parseJsonTyped");
 }
 
 void
@@ -2120,7 +2120,7 @@ parse(ParseContext & context, bool allowUtf8)
         else as = SqlExpression::parse("columnPath()");
         
         if (matchKeyword(context, "WHEN ")) {
-            throw HttpReturnException(400, "WHEN clause not supported in row expression");
+            throw AnnotatedException(400, "WHEN clause not supported in row expression");
         }
         else when = SqlExpression::parse("true");
 
@@ -2492,7 +2492,7 @@ SqlRowExpressionDescription::
 parseJsonTyped(std::shared_ptr<SqlRowExpression> * val,
                JsonParsingContext & context) const
 {
-    throw HttpReturnException(400, "parseJsonTyped for SqlRowExpressionDescription");
+    throw AnnotatedException(400, "parseJsonTyped for SqlRowExpressionDescription");
 }
 
 void
@@ -3058,7 +3058,7 @@ parse(ParseContext & context, bool allowUtf8)
 
     }
     else if (matchKeyword(context, "DISTINCT ")) {
-        throw HttpReturnException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
+        throw AnnotatedException(400, "Generic 'DISTINCT' is not currently supported. Please use 'DISTINCT ON'.");
     }
 
     SelectExpression result;
@@ -3156,7 +3156,7 @@ bind(SqlBindingScope & context) const
         ExcAssert(c.info);
         isConstant = isConstant && c.info->isConst();
         if (c.info->isScalar()) {
-            throw HttpReturnException(500, "Internal error: clause "
+            throw AnnotatedException(500, "Internal error: clause "
                                       + c.expr->surface
                                       + " returned scalar info in Select");
         }
@@ -3716,7 +3716,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
     }
 
     if (!result)
-        throw HttpReturnException(400, "Expected table expression");
+        throw AnnotatedException(400, "Expected table expression");
 
     JoinQualification joinQualify = JOIN_INNER;
     
@@ -3767,7 +3767,7 @@ TableExpression::
 printJson(JsonPrintingContext & context)
 {
     if (surface.empty())
-        throw HttpReturnException(400, "Attempt to write table expression with no surface and no printJson method",
+        throw AnnotatedException(400, "Attempt to write table expression with no surface and no printJson method",
                                   "expressionType", MLDB::type_name(*this),
                                   "expressionTree", print());
     else context.writeStringUtf8(surface);
@@ -3860,7 +3860,7 @@ ConstTableExpressionDescription::
 parseJsonTyped(std::shared_ptr<const TableExpression>  * val,
                JsonParsingContext & context) const
 {
-    throw HttpReturnException(400, "ConstTableExpressionDescription::parseJsonTyped");
+    throw AnnotatedException(400, "ConstTableExpressionDescription::parseJsonTyped");
 }
 
 void
@@ -4043,7 +4043,7 @@ std::shared_ptr<SqlExpression>
 WhenExpression::
 transform(const TransformArgs & transformArgs) const
 {
-    throw HttpReturnException(400, "WhenExpression::transform()");
+    throw AnnotatedException(400, "WhenExpression::transform()");
 }
 
 std::vector<std::shared_ptr<SqlExpression> >
@@ -4242,11 +4242,11 @@ SelectStatement::parse(ParseContext& context, bool acceptUtf8)
 
     if (statement.select.distinctExpr.size() > 0) {
         if (statement.orderBy.clauses.size() < statement.select.distinctExpr.size())
-            throw HttpReturnException(400, "DISTINCT ON expression cannot have more clauses than ORDER BY expression");
+            throw AnnotatedException(400, "DISTINCT ON expression cannot have more clauses than ORDER BY expression");
 
         for (size_t i = 0; i < statement.select.distinctExpr.size(); ++i) {
             if (statement.select.distinctExpr[i]->print() != statement.orderBy.clauses[i].first->print())
-                throw HttpReturnException(400, "DISTINCT ON expression must match leftmost(s) ORDER BY clause(s)");
+                throw AnnotatedException(400, "DISTINCT ON expression must match leftmost(s) ORDER BY clause(s)");
         }
     }
 

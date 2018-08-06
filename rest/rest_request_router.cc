@@ -75,7 +75,7 @@ getHelp(Json::Value & result) const
         break;
     }
     default:
-        throw HttpReturnException(400, "unknown path parameter");
+        throw AnnotatedException(400, "unknown path parameter");
     }
 }
     
@@ -97,7 +97,7 @@ numCapturedElements() const
     case STRING: return 1;
     case REGEX: return rex.mark_count() + 1;
     default:
-        throw HttpReturnException(400, "unknown mark count");
+        throw AnnotatedException(400, "unknown mark count");
     }
 }
 
@@ -455,7 +455,7 @@ matchPath(RestRequestParsingContext & context) const
     }
     case PathSpec::NONE:
     default:
-        throw HttpReturnException(400, "unknown rest request type");
+        throw AnnotatedException(400, "unknown rest request type");
     }
 
     return true;
@@ -552,7 +552,7 @@ addRoute(PathSpec path, RequestFilter filter,
          ExtractObject extractObject)
 {
     if (rootHandler)
-        throw HttpReturnException(500, "can't add a sub-route to a terminal route");
+        throw AnnotatedException(500, "can't add a sub-route to a terminal route");
 
     Route route;
     route.path = path;
@@ -595,7 +595,7 @@ addRoute(PathSpec path, RequestFilter filter,
             }
             case PathSpec::NONE:
             default:
-                throw HttpReturnException(400, "unknown rest request type");
+                throw AnnotatedException(400, "unknown rest request type");
             }
         case PathSpec::REGEX:
             switch (existingRoute.path.type) {
@@ -607,11 +607,11 @@ addRoute(PathSpec path, RequestFilter filter,
                 return route.path.rex.surface() == existingRoute.path.rex.surface();
             case PathSpec::NONE:
             default:
-                throw HttpReturnException(400, "unknown rest request type");
+                throw AnnotatedException(400, "unknown rest request type");
             }
         case PathSpec::NONE:
         default:
-            throw HttpReturnException(400, "unknown rest request type");
+            throw AnnotatedException(400, "unknown rest request type");
         }
     };
 
@@ -622,7 +622,7 @@ addRoute(PathSpec path, RequestFilter filter,
         message <<  "route [" << hidingRoute->path << " " << hidingRoute->filter << "]"
                 << " is hiding newly added route [" << route.path << " " << route.filter << "]";
 
-        throw HttpReturnException(500, message.str());
+        throw AnnotatedException(500, message.str());
     }
     subRoutes.emplace_back(std::move(route));
 }
@@ -691,11 +691,11 @@ addAutodocRoute(PathSpec autodocPath, PathSpec helpPath,
         Utf8String path = context.resources.back();
 
         if (path.find("..") != path.end()) {
-            throw HttpReturnException(400, "not dealing with path with .. in it");
+            throw AnnotatedException(400, "not dealing with path with .. in it");
         }
 
         if (!path.removePrefix(autodocPathStr)) {
-            throw HttpReturnException(400, "not serving file not under " + autodocPathStr);
+            throw AnnotatedException(400, "not serving file not under " + autodocPathStr);
         }
 
         Utf8String filename = path;
@@ -1006,8 +1006,8 @@ sendExceptionResponse(RestConnection & connection,
 
 Json::Value extractException(const std::exception & exc, int defaultCode)
 {
-    const HttpReturnException * http
-        = dynamic_cast<const HttpReturnException *>(&exc);
+    const AnnotatedException * http
+        = dynamic_cast<const AnnotatedException *>(&exc);
     const std::bad_alloc * balloc
         = dynamic_cast<const std::bad_alloc *>(&exc);
 

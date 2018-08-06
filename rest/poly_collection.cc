@@ -152,7 +152,7 @@ PolyCollectionBase::
 setKey(PolyConfig & config, Utf8String key)
 {
     if (!config.id.empty() && config.id != key) {
-        throw HttpReturnException(400,
+        throw AnnotatedException(400,
                                   "Ambiguous names between route and config "
                                   "for PUT to collection '" + nounPlural + "'.  "
                                   "In the resource of the PUT request, "

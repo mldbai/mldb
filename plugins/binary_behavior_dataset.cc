@@ -631,7 +631,7 @@ recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPat
 
             int64_t colIndex = getColumnIndex(name);
             if (value != 1)
-                throw HttpReturnException(400, "Binary behavior datasets can only record the value 1", "valueReceived", value);
+                throw AnnotatedException(400, "Binary behavior datasets can only record the value 1", "valueReceived", value);
 
             MutableBehaviorDomain::ManyEntryIndex entry;
             entry.behIndex = colIndex;

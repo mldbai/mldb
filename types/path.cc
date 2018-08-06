@@ -10,7 +10,7 @@
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/ext/highwayhash.h"
 #include "mldb/types/itoa.h"
 #include "mldb/utils/json_utils.h"
@@ -29,11 +29,11 @@ constexpr bool PATH_OFFSET_ZERO_IS_ALWAYS_ZERO = true;
 
 inline void checkNullPathElement(bool lhsNull, bool rhsNull = false) {
     if (lhsNull) {
-        throw HttpReturnException(
+        throw AnnotatedException(
             500, "Cannot call operator + on null lhs PathElement");
     }
     if (rhsNull) {
-        throw HttpReturnException(
+        throw AnnotatedException(
             500, "Cannot call operator + on null rhs PathElement");
     }
 }
@@ -254,7 +254,7 @@ parse(const char * p, size_t l)
     const char * e = p + l;
     PathElement result = parsePartial(p, e);
     if (p != e)
-        throw HttpReturnException(400, "PathElement had extra characters at end");
+        throw AnnotatedException(400, "PathElement had extra characters at end");
     return result;
 }
 
@@ -274,7 +274,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
 
         if (p == e) {
             if (exceptions)
-                throw HttpReturnException(400, "Path quoted incorrectly");
+                throw AnnotatedException(400, "Path quoted incorrectly");
             else return { PathElement(), false };
         }
 
@@ -294,7 +294,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                 }
                 else if (c == 0) {
                     if (exceptions) {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "Paths cannot contain null characters");
                     }
                     else {
@@ -312,7 +312,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
         }
 
         if (exceptions)
-            throw HttpReturnException(400, "PathElement terminated incorrectly");
+            throw AnnotatedException(400, "PathElement terminated incorrectly");
 
         else return { PathElement(), false };
     }
@@ -323,7 +323,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
             if (c == '\"' || c < ' ') {
                 if (c == '\"') {
                     if (exceptions) {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "invalid char in PathElement '"
                              + Utf8String(p, e)
                              + "'.  Quotes must be doubled.");
@@ -334,7 +334,7 @@ tryParsePartial(const char * & p, const char * e, bool exceptions)
                 }
                 else {
                     if (exceptions) {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "invalid char in PathElement '"
                              + Utf8String(p, e)
                              + "'.  Special characters must be quoted and "
@@ -1008,7 +1008,7 @@ Path::
 toSimpleName() const
 {
     if (size() != 1)
-        throw HttpReturnException(400, "Attempt to extract single name from multiple or empty path: " + toUtf8String());
+        throw AnnotatedException(400, "Attempt to extract single name from multiple or empty path: " + toUtf8String());
     return at(0).toUtf8String();
 }
 
@@ -1042,7 +1042,7 @@ requireIndex() const
 {
     ssize_t result = toIndex();
     if (result == -1)
-        throw HttpReturnException(400, "Path was not an index");
+        throw AnnotatedException(400, "Path was not an index");
     return result;
 }
 
@@ -1071,7 +1071,7 @@ parseImpl(const char * str, size_t len, bool exceptions)
         if (p < e) {
             if (*p != '.') {
                 if (exceptions) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400,
                          "expected '.' between elements in Path, got Unicode "
                          + to_string((int)*p),
@@ -1119,7 +1119,7 @@ Path::
 tail() const
 {
     if (length_ == 0)
-        throw HttpReturnException(500, "Attempt to tail empty path");
+        throw AnnotatedException(500, "Attempt to tail empty path");
     if (length_ == 1)
         return Path();
 
@@ -1483,7 +1483,7 @@ operator << (std::ostream & stream, const Path & id)
 std::istream &
 operator >> (std::istream & stream, Path & id)
 {
-    throw HttpReturnException(600, "TODO: implement istream >> Path");
+    throw AnnotatedException(600, "TODO: implement istream >> Path");
 }
 
 
@@ -1575,7 +1575,7 @@ parseJsonTyped(Path * val,
         *val = Path(std::make_move_iterator(vec.begin()),
                       std::make_move_iterator(vec.end()));
     }
-    else throw HttpReturnException(400, "Unparseable JSON Path value",
+    else throw AnnotatedException(400, "Unparseable JSON Path value",
                                    "value", context.expectJson());
 }
 

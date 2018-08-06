@@ -30,7 +30,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/progress.h"
@@ -296,7 +296,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
 
         DEBUG_MSG(logger) << details;
 
-        throw HttpReturnException(400, message, details);
+        throw AnnotatedException(400, message, details);
     }
 
     distribution<float> result = columns[it2->second].singularVector;
@@ -675,7 +675,7 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(svdConfig, run);
 
     if (runProcConf.outputColumn.null()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "SVD training procedure requires a non-empty output column name",
              "config", runProcConf);
     }
@@ -826,7 +826,7 @@ run(const ProcedureRunConfig & run,
                     }
 #endif
                     else {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400,"Can't apply an SVD to a column that's not "
                              "numeric or categorical (string)",
                              "columnValue", col.cellValue,
@@ -842,7 +842,7 @@ run(const ProcedureRunConfig & run,
                                       ExpressionValue(col.singularVector, ts));
                     output->recordRowExpr(outputName, std::move(cols));
                 } catch (const std::exception & exc) {
-                    rethrowHttpException(-1, "Error adding SVD column '" + outputName.toUtf8String() + "' to output: "
+                    rethrowException(-1, "Error adding SVD column '" + outputName.toUtf8String() + "' to output: "
                                          + exc.what(),
                                          "columnName", outputName);
                 }

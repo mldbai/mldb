@@ -11,7 +11,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/engine/dataset_utils.h"
 #include "mldb/utils/log.h"
 #include <thread>

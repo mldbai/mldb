@@ -14,7 +14,7 @@
 #include "mldb/server/plugin_resource.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/sql/cell_value.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/types/any_impl.h"
@@ -200,7 +200,7 @@ struct JsPluginJS {
                         }
 
                         MLDB_TRACE_EXCEPTIONS(false);
-                        throw HttpReturnException(400, "Exception in JS status function", exc);
+                        throw AnnotatedException(400, "Exception in JS status function", exc);
                     }
 
                     Json::Value jsonResult = JS::fromJS(result);
@@ -470,7 +470,7 @@ JavascriptPlugin(MldbEngine * engine,
         }
 
         MLDB_TRACE_EXCEPTIONS(false);
-        throw HttpReturnException(400, "Exception compiling plugin script", rep);
+        throw AnnotatedException(400, "Exception compiling plugin script", rep);
     }
 
     itl->script.Reset(itl->isolate.isolate, script);
@@ -487,7 +487,7 @@ JavascriptPlugin(MldbEngine * engine,
         }
         
         MLDB_TRACE_EXCEPTIONS(false);
-        throw HttpReturnException(400, "Exception running plugin script", rep);
+        throw AnnotatedException(400, "Exception running plugin script", rep);
     }
     
     cerr << "script returned " << JS::cstr(result) << endl;
@@ -506,7 +506,7 @@ getStatus() const
         try {
             return itl->getStatus();
         } catch (const JsException & exc) {
-            throw HttpReturnException(400, "Exception getting plugin status", exc.rep);
+            throw AnnotatedException(400, "Exception getting plugin status", exc.rep);
         }
     }
     else return Any();

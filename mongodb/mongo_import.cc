@@ -145,7 +145,7 @@ struct MongoImportProcedure: public Procedure {
                              const bsoncxx::document::view & doc)
         {
             if (doc["_id"].type() != bsoncxx::type::k_oid) {
-                throw HttpReturnException(
+                throw AnnotatedException(
                     500,
                     "monbodb.import: unimplemented support for "
                     "MongoDB records with key \"_id\" that are not "

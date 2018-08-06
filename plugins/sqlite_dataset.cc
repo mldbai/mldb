@@ -152,7 +152,7 @@ struct SqliteSparseDataset::Itl
                        shared_ptr<spdlog::logger> logger)
         {
             if (url.scheme() != "file" && !url.empty())
-                throw HttpReturnException(400, "SQLite database requires file:// "
+                throw AnnotatedException(400, "SQLite database requires file:// "
                                           "URI, passed '" + url.toUtf8String() + "'");
             
             this->filename = url.path();
@@ -599,7 +599,7 @@ struct SqliteSparseDataset::Itl
             return (*i).get<int>(0);
         }
 
-        throw HttpReturnException(400, "Couldn't get a row number");
+        throw AnnotatedException(400, "Couldn't get a row number");
     }
 
     virtual int getColNum(sqlite3pp::database & db, const ColumnPath & colName)
@@ -628,7 +628,7 @@ struct SqliteSparseDataset::Itl
             return result;
         }
 
-        throw HttpReturnException(400, "Couldn't get a col number");
+        throw AnnotatedException(400, "Couldn't get a col number");
     }
     
     virtual void

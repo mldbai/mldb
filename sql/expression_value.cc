@@ -17,7 +17,7 @@
 #include "mldb/types/compact_vector_description.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/ml/value_descriptions.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/hash_wrapper_description.h"
@@ -124,7 +124,7 @@ getMerged(const std::shared_ptr<ExpressionValueInfo> & info1,
             c.second.first = std::move(c.second.second);
         }
         else {
-            throw HttpReturnException(500, "Column with no value info");
+            throw AnnotatedException(500, "Column with no value info");
         }
 
         if (mergeColumnInfo)
@@ -161,7 +161,7 @@ std::shared_ptr<RowValueInfo>
 ExpressionValueInfo::
 getFlattenedInfo() const
 {
-    throw HttpReturnException(400, "ExpressionValueInfo::getFlattenedInfo()");
+    throw AnnotatedException(400, "ExpressionValueInfo::getFlattenedInfo()");
 }
 
 void
@@ -171,7 +171,7 @@ flatten(const ExpressionValue & value,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
-    throw HttpReturnException(500, "Non-scalar values need to implement flatten()");
+    throw AnnotatedException(500, "Non-scalar values need to implement flatten()");
 }
 
 bool
@@ -191,7 +191,7 @@ toRow(std::shared_ptr<ExpressionValueInfo> row)
     if (!result) {
         if (row->couldBeRow())
             return std::make_shared<UnknownRowValueInfo>();
-        throw HttpReturnException(500, "Value is not a row: " + MLDB::type_name(*row));
+        throw AnnotatedException(500, "Value is not a row: " + MLDB::type_name(*row));
     }
     return result;
 }
@@ -207,7 +207,7 @@ SchemaCompleteness
 ExpressionValueInfo::
 getSchemaCompleteness() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a row: type " + MLDB::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
+    throw AnnotatedException(500, "Value description doesn't describe a row: type " + MLDB::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
                               "type", MLDB::type_name(*this));
 }
 
@@ -222,7 +222,7 @@ std::vector<KnownColumn>
 ExpressionValueInfo::
 getKnownColumns() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a row",
+    throw AnnotatedException(500, "Value description doesn't describe a row",
                               "type", MLDB::type_name(*this));
 }
 
@@ -286,7 +286,7 @@ std::string
 ExpressionValueInfo::
 getScalarDescription() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a scalar",
+    throw AnnotatedException(500, "Value description doesn't describe a scalar",
                               "type", MLDB::type_name(*this));
 }
 
@@ -336,7 +336,7 @@ struct ExpressionValueInfoPtrDescription
     virtual void parseJsonTyped(std::shared_ptr<ExpressionValueInfo> * val,
                                     JsonParsingContext & context) const
     {
-        throw HttpReturnException(400, "ExpressionValueInfoPtrDescription::parseJsonTyped");
+        throw AnnotatedException(400, "ExpressionValueInfoPtrDescription::parseJsonTyped");
     }
 
     virtual void printJsonTyped(const std::shared_ptr<ExpressionValueInfo> * val,
@@ -384,7 +384,7 @@ struct RowValueInfoPtrDescription
     virtual void parseJsonTyped(std::shared_ptr<RowValueInfo> * val,
                                 JsonParsingContext & context) const
     {
-        throw HttpReturnException(400, "RowValueInfoPtrDescription::parseJsonTyped");
+        throw AnnotatedException(400, "RowValueInfoPtrDescription::parseJsonTyped");
     }
     
     virtual void printJsonTyped(const std::shared_ptr<RowValueInfo> * val,
@@ -577,7 +577,7 @@ EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & in
 
         for (auto & e: input) {
             if (!e->isScalar()) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Attempt to create scalar embedding element "
                      "from non-scalar",
                      "info", e);
@@ -610,7 +610,7 @@ EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & in
     storageType = ST_ATOM;
     return;
 
-    throw HttpReturnException(400, "Cannot determine embedding type from input types",
+    throw AnnotatedException(400, "Cannot determine embedding type from input types",
                               "inputTypes", input);
 }
 
@@ -787,7 +787,7 @@ flatten(const ExpressionValue & value,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
-    throw HttpReturnException(400, "EmbeddingValueInfo::flatten()");
+    throw AnnotatedException(400, "EmbeddingValueInfo::flatten()");
 }
 
 /*****************************************************************************/
@@ -825,7 +825,7 @@ flatten(const ExpressionValue & value,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
-    throw HttpReturnException(400, "AnyValueInfo::flatten()");
+    throw AnnotatedException(400, "AnyValueInfo::flatten()");
 }
 
 SchemaCompleteness
@@ -914,7 +914,7 @@ flatten(const ExpressionValue & value,
                                   const CellValue & value,
                                   Date timestamp)> & write) const
 {
-    throw HttpReturnException(400, "RowValueInfo::flatten()");
+    throw AnnotatedException(400, "RowValueInfo::flatten()");
 }
 
 std::vector<KnownColumn>
@@ -966,7 +966,7 @@ std::shared_ptr<ExpressionValueInfo>
 RowValueInfo::
 getColumn(const PathElement & columnName) const
 {
-    throw HttpReturnException(600, "RowValueInfo::getColumn()");
+    throw AnnotatedException(600, "RowValueInfo::getColumn()");
 #if 0
     for (auto& col : columns) {
         if (col.columnName == columnName) {
@@ -1019,7 +1019,7 @@ std::shared_ptr<RowValueInfo>
 VariantExpressionValueInfo::
 getFlattenedInfo() const 
 {
-    throw HttpReturnException(500, "VariantExpressionValueInfo::getFlattenedInfo()");
+    throw AnnotatedException(500, "VariantExpressionValueInfo::getFlattenedInfo()");
 }
 
 void 
@@ -1029,7 +1029,7 @@ flatten(const ExpressionValue & value,
                                   const CellValue & value,
                                   Date timestamp)> & write) const 
 {
-     throw HttpReturnException(500, "VariantExpressionValueInfo::flatten()");
+     throw AnnotatedException(500, "VariantExpressionValueInfo::flatten()");
 }
 
 std::vector<KnownColumn> 
@@ -1414,7 +1414,7 @@ struct ExpressionValue::Embedding {
             totalLength *= s;
 
         if (totalLength != length()) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Attempt to change embedding size by reshaping.  Original size "
                  "is [" + to_string(length()) + 
                  "] target size is [" + to_string(totalLength) + "]");
@@ -1467,48 +1467,48 @@ struct ExpressionValue::Superposition {
 
     ExpressionValue latest() const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     ExpressionValue earliest() const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     size_t length() const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     CellValue getValue(size_t n) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     const ExpressionValue *
     tryGetNestedColumn(const Path & column, ExpressionValue & storage,
                        Date ts) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     bool forEachValue(std::function<bool (const std::vector<int> & indexes,
                                           CellValue & val)> onVal) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     bool forEachAtom(std::function<bool (ColumnPath & col,
                                          CellValue & val)> onColumn) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     bool forEachColumn(std::function<bool (PathElement & col,
                                            ExpressionValue & val)> onColumn,
                        Date ts) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     /** Write the value, including metadata and encoding types, to JSON for
@@ -1516,19 +1516,19 @@ struct ExpressionValue::Superposition {
     */
     void writeJson(JsonPrintingContext & context) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     /** Print only the value, not the metadata, as JSON. */
     void extractJson(JsonPrintingContext & context) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 
     std::shared_ptr<ExpressionValueInfo>
     getSpecializedValueInfo(bool isConst) const
     {
-        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+        throw AnnotatedException(600, __PRETTY_FUNCTION__);
     }
 };
 
@@ -1875,7 +1875,7 @@ ExpressionValue(const ExpressionValue & other)
         return;
     }
     }
-    throw HttpReturnException(400, "Unknown expression value type");
+    throw AnnotatedException(400, "Unknown expression value type");
 }
 
 #if 0
@@ -1893,7 +1893,7 @@ ExpressionValue(ExpressionValue && other) noexcept
     case Type::EMBEDDING: new (storage_) std::shared_ptr<const Embedding>(std::move(other.embedding_));  return;
     case Type::SUPERPOSITION: new (storage_) std::shared_ptr<const Superposition>(std::move(other.superposition_));  return;
     }
-    throw HttpReturnException(400, "Unknown expression value type");
+    throw AnnotatedException(400, "Unknown expression value type");
 }
 #endif
 
@@ -2099,7 +2099,7 @@ getEmbeddingType() const
     if (type_ == Type::EMBEDDING)
         return embedding_->storageType_;
     
-    throw HttpReturnException(500, "Querying embedding type on non-embedding value");
+    throw AnnotatedException(500, "Querying embedding type on non-embedding value");
 }
 
 ExpressionValue
@@ -2189,7 +2189,7 @@ isTrue() const
         return superposition_->latest().isTrue();
     }
 
-    throw HttpReturnException(500, "Unknown expression value type");
+    throw AnnotatedException(500, "Unknown expression value type");
 }
 
 bool
@@ -2209,7 +2209,7 @@ isFalse() const
         return superposition_->latest().isFalse();
     }
 
-    throw HttpReturnException(500, "Unknown expression value type");
+    throw AnnotatedException(500, "Unknown expression value type");
 }
 
 bool
@@ -2498,7 +2498,7 @@ struct FilterAccumulator {
             return true;  // need to continue
 
         default:
-            throw HttpReturnException(500, "Unknown variable filter");
+            throw AnnotatedException(500, "Unknown variable filter");
         }
         }
     }
@@ -2602,7 +2602,7 @@ tryGetColumn(const PathElement & columnName,
         return nullptr;
     }
 
-    throw HttpReturnException(500, "Unknown expression value type");
+    throw AnnotatedException(500, "Unknown expression value type");
 }
 
 ExpressionValue
@@ -2689,7 +2689,7 @@ tryGetNestedColumn(const ColumnPath & columnName,
     case Type::ATOM:
         return nullptr;
     }
-    throw HttpReturnException(500, "Unknown expression value type");
+    throw AnnotatedException(500, "Unknown expression value type");
 }
 
 bool 
@@ -2720,7 +2720,7 @@ coerceToEmbedding() const
     if (type_ == Type::EMBEDDING)
         return *this;
     else if (type_ != Type::STRUCTURED)
-        throw HttpReturnException(500, "Cannot coerce value to embedding");
+        throw AnnotatedException(500, "Cannot coerce value to embedding");
 
     //Start with finding the shape of the embedding
     size_t numElements = 0;
@@ -2797,7 +2797,7 @@ getEmbeddingShape() const
         return superposition_->latest().getEmbeddingShape();
     }
 
-    throw HttpReturnException(500, "Unknown storage type for getEmbeddingShape()");
+    throw AnnotatedException(500, "Unknown storage type for getEmbeddingShape()");
 }
 
 ExpressionValue
@@ -2815,7 +2815,7 @@ reshape(DimsVector newShape) const
         return embedding_->reshape(newShape, ts_);
     }
 
-    throw HttpReturnException(500, "Unknown storage type for reshape()");
+    throw AnnotatedException(500, "Unknown storage type for reshape()");
 }
 
 ExpressionValue
@@ -2834,7 +2834,7 @@ reshape(DimsVector newShape,
         return embedding_->reshape(newShape, newValue, ts_);
     }
 
-    throw HttpReturnException(500, "Unknown storage type for reshape()");
+    throw AnnotatedException(500, "Unknown storage type for reshape()");
 }
 
 #if 1
@@ -2868,7 +2868,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
             if (currentIndex >= 0) {
                 // Up to now, they've been ordered
                 if (currentIndex >= len)
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "too many columns extracting embedding: "
                          + columnName.toUtf8String(),
                          "extraColumn", columnName);
@@ -2879,7 +2879,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
                     for (size_t i = currentIndex;  i < len;  ++i) {
                         if (!columnIndex.insert({knownNames[i].newHash(), i})
                             .second) {
-                            throw HttpReturnException
+                            throw AnnotatedException
                                 (400, "Column appears twice in embedding: '"
                                  + knownNames[i].toUtf8String()
                                  + "' appears at index "
@@ -2910,7 +2910,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
                                   columnName)
                         != knownNames + len);
                 if (addedTwice) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Column '" + columnName.toUtf8String()
                          + " was added twice to embedding",
                          "row", *this,
@@ -2918,7 +2918,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
                          vector<ColumnPath>(knownNames, knownNames + len));
                 }
                 else {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Column '" + columnName.toUtf8String()
                          + "' was unknown for embedding",
                          "row", *this,
@@ -2944,7 +2944,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
             totalLength *= s;
 
         if (len != totalLength)
-            throw HttpReturnException(400,
+            throw AnnotatedException(400,
                                       "wrong number of columns for embedding",
                                       "shape", shape,
                                       "totalLength", totalLength,
@@ -3006,7 +3006,7 @@ getEmbedding(const ColumnPath * knownNames, size_t len) const
 
     case Type::NONE:
     case Type::ATOM:
-        throw HttpReturnException(400, "Cannot extract embedding from atom");
+        throw AnnotatedException(400, "Cannot extract embedding from atom");
     case Type::SUPERPOSITION:
         return superposition_->latest().getEmbedding(knownNames, len);
     }
@@ -3046,7 +3046,7 @@ getEmbeddingDouble(ssize_t knownLength) const
     }
 
     if (knownLength != -1 && result.size() != knownLength)
-        throw HttpReturnException(400, Utf8String("Expected ") + to_string(knownLength) +
+        throw AnnotatedException(400, Utf8String("Expected ") + to_string(knownLength) +
             " elements in embedding, got " + to_string(result.size()));
 
     //cerr << "embedding result is " << result << endl;
@@ -3073,7 +3073,7 @@ getEmbeddingCell(ssize_t knownLength) const
         return superposition_->latest().getEmbeddingCell(knownLength);
     }
 
-    throw HttpReturnException(500, "getEmbeddingCell called for non-embedding");
+    throw AnnotatedException(500, "getEmbeddingCell called for non-embedding");
 }
 #endif
 
@@ -3091,7 +3091,7 @@ convertEmbedding(void * buf, size_t len, StorageType bufType) const
             totalLength *= s;
 
         if (len != totalLength)
-            throw HttpReturnException(400,
+            throw AnnotatedException(400,
                                       "wrong number of columns for embedding",
                                       "shape", shape,
                                       "totalLength", totalLength,
@@ -3103,7 +3103,7 @@ convertEmbedding(void * buf, size_t len, StorageType bufType) const
         return;
     }
     default:
-        throw HttpReturnException(500, "convertEmbedding called for non-embedding");
+        throw AnnotatedException(500, "convertEmbedding called for non-embedding");
     }
 }
 
@@ -3270,7 +3270,7 @@ appendToRowDestructive(ColumnPath & columnName, RowValue & row)
         }
     }
 
-    throw HttpReturnException(500, "Unknown storage type for appendToRowDestructive()");
+    throw AnnotatedException(500, "Unknown storage type for appendToRowDestructive()");
 }
 
 size_t
@@ -3286,7 +3286,7 @@ rowLength() const
     else if (type_ == Type::SUPERPOSITION) {
         return superposition_->values.size();
     }
-    else throw HttpReturnException(500, "Attempt to access non-row as row",
+    else throw AnnotatedException(500, "Attempt to access non-row as row",
                                    "value", *this);
 }
 
@@ -3425,7 +3425,7 @@ forEachAtom(const std::function<bool (const Path & columnName,
     }
     }
 
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -3455,12 +3455,12 @@ forEachColumn(const std::function<bool (const PathElement & columnName,
     case Type::ATOM:
         // A non-row doesn't have columns, so this call doesn't make sense
 
-        throw HttpReturnException(500, "Expected row expression",
+        throw AnnotatedException(500, "Expected row expression",
                                   "expression", *this,
                                   "type", (int)type_);
     }
 
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -3522,11 +3522,11 @@ forEachColumnDestructiveT(Fn && onColumn) const
     }
     case Type::NONE:
     case Type::ATOM:
-        throw HttpReturnException(500, "Expected row expression",
+        throw AnnotatedException(500, "Expected row expression",
                                   "expression", *this,
                                   "type", (int)type_);
     }
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -3630,7 +3630,7 @@ forEachAtomDestructiveT(Fn && onAtom)
         return onAtom(name, val, ts_);
     }
     }
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -3681,7 +3681,7 @@ forEachSuperposedValue(const std::function<bool (const ExpressionValue & val)> &
         }
     }
         
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -3869,7 +3869,7 @@ getUniqueAtomCount() const
             break;
         }
         
-        throw HttpReturnException(500, "Unknown expression type",
+        throw AnnotatedException(500, "Unknown expression type",
                                   "expression", *this,
                                   "type", (int)type_);
     }
@@ -4079,7 +4079,7 @@ hasKey(const Utf8String & key) const
 #endif
     }
 
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -4114,7 +4114,7 @@ hasValue(const ExpressionValue & val) const
     }
     }
 
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -4156,7 +4156,7 @@ hash() const
         
     }
     }
-    throw HttpReturnException(500, "Unknown expression type",
+    throw AnnotatedException(500, "Unknown expression type",
                               "expression", *this,
                               "type", (int)type_);
 }
@@ -4320,7 +4320,7 @@ coerceToAtom() const
         return superposition_->values[0].getAtom();
     }
 
-    throw HttpReturnException(500, "coerceToAtom: unknown expression type");
+    throw AnnotatedException(500, "coerceToAtom: unknown expression type");
 
     return EMPTY_CELL;
 }
@@ -4469,7 +4469,7 @@ compare(const ExpressionValue & other) const
     }
     }
     
-    throw HttpReturnException(400, "unknown ExpressionValue type");
+    throw AnnotatedException(400, "unknown ExpressionValue type");
 }
 
 bool
@@ -4491,7 +4491,7 @@ operator == (const ExpressionValue & other) const
         return compare_t<vector<pair<ColumnPath, CellValue> >, equal_to>(*this, other);
     }
     }
-    throw HttpReturnException(400, "unknown ExpressionValue type " + to_string((int)type_));
+    throw AnnotatedException(400, "unknown ExpressionValue type " + to_string((int)type_));
 }
 
 bool
@@ -4516,7 +4516,7 @@ operator <  (const ExpressionValue & other) const
         return compare_t<vector<pair<ColumnPath, CellValue> >, less>(*this, other);
     }
     }
-    throw HttpReturnException(400, "unknown ExpressionValue type");
+    throw AnnotatedException(400, "unknown ExpressionValue type");
 }
 
 std::shared_ptr<ExpressionValueInfo>
@@ -4552,9 +4552,9 @@ getSpecializedValueInfo(bool constant) const
         case CellValue::PATH:
             return std::make_shared<PathValueInfo>(constant);
         case CellValue::NUM_CELL_TYPES:
-            throw HttpReturnException(500, "Can't specialize unknown cell type");
+            throw AnnotatedException(500, "Can't specialize unknown cell type");
         }
-        throw HttpReturnException(500, "Can't specialize unknown cell type");
+        throw AnnotatedException(500, "Can't specialize unknown cell type");
     case Type::STRUCTURED:
         // TODO: specialize for concrete value.  Currently we just say
         // "it's a row with some values we don't know about yet"
@@ -4564,7 +4564,7 @@ getSpecializedValueInfo(bool constant) const
     case Type::EMBEDDING:
         return embedding_->getSpecializedValueInfo(constant);
     }
-    throw HttpReturnException(400, "unknown ExpressionValue type");
+    throw AnnotatedException(400, "unknown ExpressionValue type");
 }
 
 namespace {
@@ -4665,7 +4665,7 @@ extractJson(JsonPrintingContext & context) const
         return;
     }
     }
-    throw HttpReturnException(400, "unknown ExpressionValue type");
+    throw AnnotatedException(400, "unknown ExpressionValue type");
  }
 
 Json::Value
@@ -4861,7 +4861,7 @@ printJsonTyped(const ExpressionValue * val,
         return;
     }
     }
-    throw HttpReturnException(400, "unknown ExpressionValue type");
+    throw AnnotatedException(400, "unknown ExpressionValue type");
 }
 
 bool
@@ -4882,7 +4882,7 @@ print(Type t)
     case Type::EMBEDDING: return "embedding";
     case Type::SUPERPOSITION: return "superposition";
     default:
-        throw HttpReturnException(400, "Unknown ExpressionValue type: "
+        throw AnnotatedException(400, "Unknown ExpressionValue type: "
                                   + std::to_string((int)t));
     }
 }
@@ -4899,7 +4899,7 @@ assertType(Type requested, const std::string & details) const
             msg += " (" + details+ ")";
         }
 
-        throw HttpReturnException(400, msg);
+        throw AnnotatedException(400, msg);
     }
 }
 
@@ -5045,7 +5045,7 @@ doSearchRow(const RowValue & columns,
     }
 
     default:
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Unknown variable filter");
     }
 

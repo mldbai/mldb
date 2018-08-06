@@ -7,7 +7,7 @@
 
 #include "sql_utils.h"
 #include "mldb/types/path.h"
-#include "http/http_exception.h"
+#include "types/annotated_exception.h"
 #include <iostream>
 
 
@@ -28,7 +28,7 @@ std::string escapeSql(const std::string & str)
     result += '\'';
     for (auto & c: str) {
         if (!c)
-            throw HttpReturnException(400, "SQL string contains embedded nul");
+            throw AnnotatedException(400, "SQL string contains embedded nul");
         if (c == '\'') {
             result += '\'';
         }

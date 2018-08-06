@@ -11,7 +11,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/scope.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/arch/simd_vector.h"
 
 using namespace std;
@@ -37,7 +37,7 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
         direction = PFFFT_FORWARD;
     else if (directionStr == "backward")
         direction = PFFFT_BACKWARD;
-    else throw HttpReturnException(400, "FFT direction must be either 'forward' "
+    else throw AnnotatedException(400, "FFT direction must be either 'forward' "
                                    "or 'backward'; got '" + directionStr
                                    + "'.");
 
@@ -48,7 +48,7 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
         type = PFFFT_REAL;
     else if (typeStr == "complex")
         type = PFFFT_COMPLEX;
-    else throw HttpReturnException(400, "FFT type must be either 'real' "
+    else throw AnnotatedException(400, "FFT type must be either 'real' "
                                    "or 'complex'; got '" + typeStr
                                    + "'.");
     
@@ -63,7 +63,7 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
 
     if (dimsVector.size() != 1
         && !(dimsVector.size() == 2 && dimsVector[1] == 2)) {
-        throw HttpReturnException(400, "FFT requires either a flat embedding "
+        throw AnnotatedException(400, "FFT requires either a flat embedding "
                                   "for real numbers, or a nx2 embedding for "
                                   "complex numbers.");
     }
@@ -79,7 +79,7 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
         //if (transform == PFFFT_REAL) { assert((N%(2*SIMD_SZ*SIMD_SZ))==0 && N>0); }
         //assert((N % 32) == 0);
 
-        throw HttpReturnException(400, "FFT size must be a multiple of 32");
+        throw AnnotatedException(400, "FFT size must be a multiple of 32");
     }
 
     size_t n = dimsVector[0];
@@ -90,14 +90,14 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
         // point of the range
 
         if (direction != PFFFT_FORWARD || type != PFFFT_REAL) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Complex input is required for inverse or complex fft");
         }
 
         PFFFT_Setup * setup = pffft_new_setup(n, type);
 
         if (!setup) {
-            throw HttpReturnException(400, "Couldn't setup fft transform for size "
+            throw AnnotatedException(400, "Couldn't setup fft transform for size "
                                       + to_string(dimsVector[0]));
         }
         Scope_Exit(pffft_destroy_setup(setup));
@@ -142,7 +142,7 @@ ExpressionValue fft(const std::vector<ExpressionValue> & args,
         PFFFT_Setup * setup = pffft_new_setup(n, type);
 
         if (!setup) {
-            throw HttpReturnException(400, "Couldn't setup complex fft transform for size "
+            throw AnnotatedException(400, "Couldn't setup complex fft transform for size "
                                       + to_string(n));
         }
         Scope_Exit(pffft_destroy_setup(setup));
@@ -196,7 +196,7 @@ BoundFunction bind_fft(const std::vector<BoundSqlExpression> & args)
             = args[0].info->getEmbeddingShape();
 
         if (shape.size() != 1)
-            throw HttpReturnException(500, "only 1d ffts are supported");
+            throw AnnotatedException(500, "only 1d ffts are supported");
 
         return {
             fft,
@@ -220,14 +220,14 @@ ExpressionValue sliceEmbedding(const std::vector<ExpressionValue> & args,
 
     int p = args[1].getAtom().toInt();
     if (p < 0)
-        throw HttpReturnException(400, "slice function index is less than "
+        throw AnnotatedException(400, "slice function index is less than "
                                   "zero");
 
     auto shape = args[0].getEmbeddingShape();
     size_t l = shape.back();
 
     if (p < 0 || p >= l)
-        throw HttpReturnException(400, "slice function index is greater "
+        throw AnnotatedException(400, "slice function index is greater "
                                   "than last dimension size");
     
     shape.pop_back();
@@ -259,7 +259,7 @@ ExpressionValue sliceEmbedding(const std::vector<ExpressionValue> & args,
 ExpressionValue sliceUnknown(const std::vector<ExpressionValue> & args,
                             const SqlRowScope & scope)
 {
-    throw HttpReturnException(600, "unknown function slice");
+    throw AnnotatedException(600, "unknown function slice");
 }
 
 BoundFunction bind_slice(const std::vector<BoundSqlExpression> & args)
@@ -270,7 +270,7 @@ BoundFunction bind_slice(const std::vector<BoundSqlExpression> & args)
         auto shape
             = args[0].info->getEmbeddingShape();
         if (shape.empty()) {
-            throw HttpReturnException(400, "Can't take slice of null embedding");
+            throw AnnotatedException(400, "Can't take slice of null embedding");
         }
 
         return {
