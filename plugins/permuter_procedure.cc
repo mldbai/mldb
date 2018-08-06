@@ -12,7 +12,7 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/any_impl.h"
 #include "jml/utils/string_functions.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/log.h"
 
 using namespace std;

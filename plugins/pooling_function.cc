@@ -144,7 +144,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
             ExpressionValue val = queryOutput.getColumn(agg);
 
             if (val.empty()) {
-                throw HttpReturnException(500, "Didn't find output of aggregator",
+                throw AnnotatedException(500, "Didn't find output of aggregator",
                                           "queryOutput", queryOutput,
                                           "aggregator", agg);
             }

@@ -11,7 +11,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/server/function_collection.h"
 #include "mldb/server/dataset_collection.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/sql/sql_utils.h"
 
@@ -48,7 +48,7 @@ doGetFunction(const Utf8String & tableName,
         if (fn) {
             // We found one.  Now wrap it up as a normal function.
             if (args.size() > 1)
-                throw HttpReturnException(400, "User function " + functionName
+                throw AnnotatedException(400, "User function " + functionName
                                           + " expected a single row { } argument");
 
             std::shared_ptr<FunctionApplier> applier;
@@ -123,7 +123,7 @@ SqlExpressionMldbScope::
 doGetColumn(const Utf8String & tableName,
             const ColumnPath & columnName)
 {
-    throw HttpReturnException(
+    throw AnnotatedException(
         400,
         "Cannot read column \"" + columnName.toUtf8String()
         + "\" with no FROM clause.");
@@ -134,7 +134,7 @@ SqlExpressionMldbScope::
 doGetAllColumns(const Utf8String & tableName,
                 const ColumnFilter& keep)
 {
-    throw HttpReturnException(400, "Cannot use wildcards with no FROM clause.");
+    throw AnnotatedException(400, "Cannot use wildcards with no FROM clause.");
 }
 
 /*****************************************************************************/
@@ -432,7 +432,7 @@ doGetBoundParameter(const Utf8String & paramName)
 
                 auto & row = context.as<RowScope>();
                 if (!row.params || !*row.params)
-                    throw HttpReturnException(400, "Bound parameters requested but none passed");
+                    throw AnnotatedException(400, "Bound parameters requested but none passed");
                 return storage = (*row.params)(paramName);
             },
             std::make_shared<AnyValueInfo>()};
@@ -448,7 +448,7 @@ doGetAllColumnsInternal(const Utf8String & tableName,
         && std::find(childaliases.begin(), childaliases.end(), tableName)
             == childaliases.end()
         && tableName != alias)
-            throw HttpReturnException(400, "Unknown dataset " + tableName);
+            throw AnnotatedException(400, "Unknown dataset " + tableName);
 
     bool allWereKept = true;
     bool noneWereRenamed = true;
@@ -596,7 +596,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
 {
     auto res = dataset.generateRowsWhere(*this, alias, where, offset, limit);
     if (!res)
-        throw HttpReturnException(500, "Dataset returned null generator",
+        throw AnnotatedException(500, "Dataset returned null generator",
                                   "datasetType", MLDB::type_name(dataset));
     return res;
 }

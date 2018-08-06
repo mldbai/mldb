@@ -23,7 +23,7 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/distribution_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/log.h"
 

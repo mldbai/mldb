@@ -8,7 +8,7 @@
 */
 
 #include "binding_contexts.h"
-#include "http/http_exception.h"
+#include "types/annotated_exception.h"
 #include "builtin_functions.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include <unordered_map>
@@ -233,7 +233,7 @@ doGetFunction(const Utf8String & tableName,
                 {
                     auto & col = scope.as<ColumnScope>();
                     if (!col.columnValue)
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400,
                              "Evaluation value() in column "
                              "expression without columns");
@@ -268,7 +268,7 @@ doGetFunction(const Utf8String & tableName,
     if (sqlfn)
         return sqlfn;
 
-    throw HttpReturnException(400, "Unknown function " + functionName + " in column expression");
+    throw AnnotatedException(400, "Unknown function " + functionName + " in column expression");
 
 }
 
@@ -276,7 +276,7 @@ ColumnGetter
 ColumnExpressionBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnPath & columnName)
 {
-    throw HttpReturnException(400, "Cannot read column '"
+    throw AnnotatedException(400, "Cannot read column '"
                               + columnName.toUtf8String()
                               + "' inside COLUMN EXPR");
 }
@@ -286,7 +286,7 @@ ColumnExpressionBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 const ColumnFilter& keep)
 {
-    throw HttpReturnException(400, "Cannot use wildcard inside COLUMN EXPR");
+    throw AnnotatedException(400, "Cannot use wildcard inside COLUMN EXPR");
 }
 
 ColumnPath
@@ -294,7 +294,7 @@ ColumnExpressionBindingScope::
 doResolveTableName(const ColumnPath & fullVariableName,
                    Utf8String & tableName) const
 {
-    throw HttpReturnException
+    throw AnnotatedException
         (400, "Cannot use wildcard '"
          + fullVariableName.toUtf8String() + ".*' inside COLUMN EXPR");
 }
@@ -357,11 +357,11 @@ doGetBoundParameter(const Utf8String & paramName)
     size_t argNum = jsonDecodeStr<size_t>(paramName);
 
     if (argNum == 0) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Arguments start at 1, not 0, in SQL evaluate expression");
     }
     if (argNum > argInfo.size()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Attempt to obtain more arguments than exist when binding "
              "SQL evaluate expression");
     }
@@ -432,7 +432,7 @@ doGetColumn(const Utf8String & tableName,
     // If we have a table name, we're not looking for a column in the
     // current scope
     if (!tableName.empty()) {
-        throw HttpReturnException(400, "Cannot use table names inside an extract");
+        throw AnnotatedException(400, "Cannot use table names inside an extract");
     }
 
     if (!inputInfo) {
@@ -481,7 +481,7 @@ doGetColumn(const Utf8String & tableName,
         }
 
         // Didn't find the column and schema is closed.  Let it pass through.
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Couldn't find column '" + columnName.toUtf8String()
              + "' in extract",
              "columnName", columnName,
@@ -651,7 +651,7 @@ getDatasetDerivedFunction(const Utf8String & tableName,
     // rowPath function.
     if (functionName == baseFunctionName + "Path") {
         if (args.size() != 0)
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, baseFunctionName + "() function takes no arguments");
 
         // Get the rowName() function
@@ -677,7 +677,7 @@ getDatasetDerivedFunction(const Utf8String & tableName,
     // rowPathElement function.
     if (functionName == baseFunctionName + "PathElement") {
         if (args.size() != 1)
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, baseFunctionName + "PathElement() function takes "
                  "one argument");
 

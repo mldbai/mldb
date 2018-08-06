@@ -126,7 +126,7 @@ initRoutes(RouteManager & manager)
         auto runs = procedure->runs.get();
         auto keys = runs->getKeys();
         if (keys.empty()) {
-            throw HttpReturnException(404, "not found");
+            throw AnnotatedException(404, "not found");
         }
 
         // Find the latest run
@@ -195,7 +195,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
         Json::Value runResponse;
         Json::Reader reader;
         if (!reader.parse(connection.response, runResponse, false)) {
-            throw HttpReturnException(500, "failed to create the initial run",
+            throw AnnotatedException(500, "failed to create the initial run",
                                       "entry", key,
                                       "runError", "could not parse the run response");
         }
@@ -203,7 +203,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
         if (connection.responseCode == 201) {
             Json::Value status = polyStatus.status.asJson();
             if (!status.isObject()) {
-                throw HttpReturnException(500,
+                throw AnnotatedException(500,
                                           "Initial run did not return a valid object as status",
                                           "status", status);
             }
@@ -211,7 +211,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
             polyStatus.status = status;
         }
         else {
-            throw HttpReturnException(connection.responseCode, "failed to create the initial run",
+            throw AnnotatedException(connection.responseCode, "failed to create the initial run",
                                       "entry", key,
                                       "runError", runResponse);
         }

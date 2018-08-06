@@ -164,7 +164,7 @@ void parseHtml(const CellValue & html,
     auto err = hubbub_parser_create("utf-8", true /* fix encoding */,
                                     &parser);
     if (err != HUBBUB_OK) {
-        throw HttpReturnException(500, "Error initializing HTTP parser: "
+        throw AnnotatedException(500, "Error initializing HTTP parser: "
                                   + string(hubbub_error_to_string(err)));
     }
     Scope_Exit(hubbub_parser_destroy(parser));
@@ -177,7 +177,7 @@ void parseHtml(const CellValue & html,
                                &params);
     
     if (err != HUBBUB_OK) {
-        throw HttpReturnException(500, "Error setting up HTTP parser: "
+        throw AnnotatedException(500, "Error setting up HTTP parser: "
                                   + string(hubbub_error_to_string(err)));
     }
     
@@ -185,14 +185,14 @@ void parseHtml(const CellValue & html,
                                     (const uint8_t *)html.blobData(),
                                     html.blobLength());
     if (err != HUBBUB_OK) {
-        throw HttpReturnException(500, "Error running HTTP parser: "
+        throw AnnotatedException(500, "Error running HTTP parser: "
                                   + string(hubbub_error_to_string(err)));
     }
     
     err = hubbub_parser_completed(parser);
 
     if (err != HUBBUB_OK) {
-        throw HttpReturnException(500, "Error finishing HTTP parser: "
+        throw AnnotatedException(500, "Error finishing HTTP parser: "
                                   + string(hubbub_error_to_string(err)));
     }
 

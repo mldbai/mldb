@@ -20,14 +20,14 @@ namespace MLDB {
 /// the outer exception.
 constexpr int KEEP_HTTP_CODE = -1;
 
-struct HttpReturnException: public MLDB::Exception {
-    HttpReturnException(int httpCode, const Utf8String & message, Any details = Any())
+struct AnnotatedException: public MLDB::Exception {
+    AnnotatedException(int httpCode, const Utf8String & message, Any details = Any())
         : MLDB::Exception(message.rawData()), message(message), httpCode(httpCode), details(details)
     {
     }
 
 #if 0
-    HttpReturnException(int httpCode, const std::string & message, Any details = Any())
+    AnnotatedException(int httpCode, const std::string & message, Any details = Any())
         : MLDB::Exception(message), message(message), httpCode(httpCode),details(details)
     {
     }
@@ -65,7 +65,7 @@ struct HttpReturnException: public MLDB::Exception {
 
 #if 0
     template<typename Str, typename Val, typename... OtherKeyValuePairs>
-    HttpReturnException(int httpCode, const std::string & message,
+    AnnotatedException(int httpCode, const std::string & message,
                         const Str & key, Val&& val,
                         OtherKeyValuePairs&&... otherKeyValuePairs)
         : MLDB::Exception(message), message(message), httpCode(httpCode)
@@ -78,7 +78,7 @@ struct HttpReturnException: public MLDB::Exception {
 #endif    
 
     template<typename Str, typename Val, typename... OtherKeyValuePairs>
-    HttpReturnException(int httpCode, const Utf8String & message,
+    AnnotatedException(int httpCode, const Utf8String & message,
                         const Str & key, Val&& val,
                         OtherKeyValuePairs&&... otherKeyValuePairs)
         : MLDB::Exception(message.rawData()), message(message), httpCode(httpCode)
@@ -89,7 +89,7 @@ struct HttpReturnException: public MLDB::Exception {
         this->details = std::move(ourDetails);
     }
 
-    ~HttpReturnException() throw ()
+    ~AnnotatedException() throw ()
     {
     }
 
@@ -102,46 +102,46 @@ struct HttpReturnException: public MLDB::Exception {
 /** Rethrow an exception, adding some extra context to it.  The exception is
     obtained from std::current_exception().
 */
-void rethrowHttpException(int httpCode, const Utf8String & message, Any details = Any()) MLDB_NORETURN;
-void rethrowHttpException(int httpCode, const std::string & message, Any details = Any()) MLDB_NORETURN;
-void rethrowHttpException(int httpCode, const char * message, Any details = Any()) MLDB_NORETURN;
+void rethrowException(int httpCode, const Utf8String & message, Any details = Any()) MLDB_NORETURN;
+void rethrowException(int httpCode, const std::string & message, Any details = Any()) MLDB_NORETURN;
+void rethrowException(int httpCode, const char * message, Any details = Any()) MLDB_NORETURN;
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
-void rethrowHttpException(int httpCode, const Utf8String & message,
+void rethrowException(int httpCode, const Utf8String & message,
                           Key && key, Val && val, OtherKeyValuePairs&&... details) MLDB_NORETURN;
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
-void rethrowHttpException(int httpCode, const std::string & message,
+void rethrowException(int httpCode, const std::string & message,
                           Key && key, Val && val, OtherKeyValuePairs&&... details) MLDB_NORETURN;
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
-void rethrowHttpException(int httpCode, const Utf8String & message,
+void rethrowException(int httpCode, const Utf8String & message,
                           Key && key, Val && val, OtherKeyValuePairs&&... otherDetails)
 {
     Json::Value details;
-    HttpReturnException::addListToDetails(details, std::forward<Key>(key), std::forward<Val>(val),
+    AnnotatedException::addListToDetails(details, std::forward<Key>(key), std::forward<Val>(val),
                                           std::forward<OtherKeyValuePairs>(otherDetails)...);
-    rethrowHttpException(httpCode, message, details);
+    rethrowException(httpCode, message, details);
 }
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
-void rethrowHttpException(int httpCode, const std::string & message,
+void rethrowException(int httpCode, const std::string & message,
                           Key && key, Val && val, OtherKeyValuePairs&&... otherDetails)
 {
     Json::Value details;
-    HttpReturnException::addListToDetails(details, std::forward<Key>(key), std::forward<Val>(val),
+    AnnotatedException::addListToDetails(details, std::forward<Key>(key), std::forward<Val>(val),
                                           std::forward<OtherKeyValuePairs>(otherDetails)...);
-    rethrowHttpException(httpCode, message, details);
+    rethrowException(httpCode, message, details);
 }
 
 template<typename Key, typename Val, typename... OtherKeyValuePairs>
-void rethrowHttpException(int httpCode, const char * message,
+void rethrowException(int httpCode, const char * message,
                           Key && key, Val && val, OtherKeyValuePairs&&... otherDetails)
 {
     Json::Value details;
-    HttpReturnException::addListToDetails(details, std::forward<Key>(key), std::forward<Val>(val),
+    AnnotatedException::addListToDetails(details, std::forward<Key>(key), std::forward<Val>(val),
                                           std::forward<OtherKeyValuePairs>(otherDetails)...);
-    rethrowHttpException(httpCode, message, details);
+    rethrowException(httpCode, message, details);
 }
 
 

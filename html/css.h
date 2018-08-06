@@ -12,7 +12,7 @@
 #include <vector>
 #include <algorithm>
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/base/exc_assert.h"
 
@@ -348,7 +348,7 @@ struct SelectorOp: public Selector {
         }
         case ADJACENT_SIBLING:
         case SIBLING:
-            throw HttpReturnException(600, "Sibling selectors not supported");
+            throw AnnotatedException(600, "Sibling selectors not supported");
         }
 
         return result;

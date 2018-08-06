@@ -7,7 +7,7 @@
 
 #include "zip_serializer.h"
 #include "memory_region_impl.h"
-#include "http/http_exception.h"
+#include "types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
 
@@ -44,7 +44,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
         a.reset(archive_write_new(),
                 [] (struct archive * a) { archive_write_free(a); });
         if (!a.get()) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Couldn't create archive object");
         }
         archive_op(archive_write_set_format_zip);
@@ -71,7 +71,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
     {
         int res = op(a.get(), std::forward<Args>(args)...);
         if (res != ARCHIVE_OK) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, string("Error writing zip file: ")
                  + archive_error_string(a.get()));
         }
@@ -83,7 +83,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
             entry.reset(archive_entry_new(),
                         [] (archive_entry * e) { archive_entry_free(e); });
             if (!entry.get()) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (500, "Couldn't create archive entry");
             }
         }
@@ -94,7 +94,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
             /*int res =*/ op(entry.get(), std::forward<Args>(args)...);
             /*
             if (res != ARCHIVE_OK) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (500, string("Error writing zip file: ")
                      + archive_error_string(entry.get()));
             }
@@ -120,7 +120,7 @@ struct ZipStructuredSerializer::BaseItl: public Itl {
         archive_op(archive_write_header, entry.entry.get());
         auto written = archive_write_data(a.get(), region.data(), region.length());
         if (written != region.length()) {
-            throw HttpReturnException(500, "Not all data written");
+            throw AnnotatedException(500, "Not all data written");
         }
     }
 
@@ -317,7 +317,7 @@ struct ZipStructuredReconstituter::Itl {
         a.reset(archive_read_new(),
                 [] (struct archive * a) { archive_read_free(a); });
         if (!a.get()) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Couldn't create archive object");
         }
         archive_op(archive_read_support_format_zip);
@@ -374,7 +374,7 @@ struct ZipStructuredReconstituter::Itl {
         if (res == ARCHIVE_EOF)
             return false;
         if (res != ARCHIVE_OK) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, string("Error reading zip file: ")
                  + archive_error_string(a.get()));
         }
@@ -452,7 +452,7 @@ getStructure(const PathElement & name) const
 {
     auto it = itl->root->children.find(name);
     if (it == itl->root->children.end()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Child structure " + name.toUtf8String() + " not found at "
              + itl->root->path.toUtf8String());
     }
@@ -466,7 +466,7 @@ getRegion(const PathElement & name) const
 {
     auto it = itl->root->children.find(name);
     if (it == itl->root->children.end()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Child structure " + name.toUtf8String() + " not found");
     }
     return it->second.region;

@@ -67,7 +67,7 @@ checkForNonAsciiChar(const char *start, unsigned int len) const
 {
     if(hasNonAsciiChar(start, len))
     {
-        throw HttpReturnException(400, "non-ascii character found in string");
+        throw AnnotatedException(400, "non-ascii character found in string");
     }
 }
 

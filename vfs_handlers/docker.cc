@@ -13,7 +13,7 @@
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/map_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/jml/utils/string_functions.h"
 #include <unordered_set>
@@ -35,7 +35,7 @@ struct DockerUriComponents {
         auto pos = uri.find("://");
 
         if (pos == string::npos)
-            throw HttpReturnException(400, "URI doesn't include a scheme",
+            throw AnnotatedException(400, "URI doesn't include a scheme",
                                       "uri", uri);
         
         scheme = string(uri, 0, pos);

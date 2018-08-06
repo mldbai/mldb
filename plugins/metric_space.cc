@@ -12,7 +12,7 @@
 #include "ml/value_descriptions.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/distribution_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/simd_vector.h"
 
@@ -46,13 +46,13 @@ create(MetricSpace space)
 {
     switch (space) {
     case METRIC_NONE:
-        throw HttpReturnException(400, "No metric space was specified");
+        throw AnnotatedException(400, "No metric space was specified");
     case METRIC_EUCLIDEAN:
         return new EuclideanDistanceMetric();
     case METRIC_COSINE:
         return new CosineDistanceMetric();
     default:
-        throw HttpReturnException(400, "Unknown distance metric space "
+        throw AnnotatedException(400, "Unknown distance metric space "
                                   + to_string(space));
     }
 }
@@ -148,19 +148,19 @@ addRow(int rowNum, const distribution<float> & coords)
     if (twonorm == 0.0) {
         two_norm_recip.push_back(1.0 / 0.0);
         return;
-        throw HttpReturnException(400, "Attempt to add zero magnitude vector to cosine distance",
+        throw AnnotatedException(400, "Attempt to add zero magnitude vector to cosine distance",
                                   "coords", coords,
                                   "twoNorm", twonorm);
     }
 
     if (!isfinite(twonorm))
-        throw HttpReturnException(400, "Attempt to add vector with non-finite two norm "
+        throw AnnotatedException(400, "Attempt to add vector with non-finite two norm "
                                   "to cosine distance",
                                   "coords", coords,
                                   "twoNorm", twonorm);
     float recip = 1.0 / twonorm;
     if (!isfinite(recip))
-        throw HttpReturnException(400, "Attempt to add vector with non-finite two norm reciprocal "
+        throw AnnotatedException(400, "Attempt to add vector with non-finite two norm reciprocal "
                                   "to cosine distance",
                                   "coords", coords,
                                   "twoNorm", twonorm,
@@ -187,7 +187,7 @@ calc(const distribution<float> & coords1,
     if (norm1 == 0.0 || norm2 == 0.0) {
         return 1.0;
 
-        throw HttpReturnException(400, "Error: can't calculate cosine distance between "
+        throw AnnotatedException(400, "Error: can't calculate cosine distance between "
                                   "zero length vectors",
                                   "vec1", coords1,
                                   "vec2", coords2,

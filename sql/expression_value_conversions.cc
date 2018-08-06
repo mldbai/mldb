@@ -1,6 +1,6 @@
 #include "expression_value.h"
 #include "mldb/types/enum_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/distribution.h"
 
 
@@ -73,10 +73,10 @@ getValue(const void * buf, StorageType storageType, size_t n)
     case ST_TIMESTAMP:
         return getValueT<Date>(buf, n);
     case ST_TIMEINTERVAL:
-        throw HttpReturnException(500, "Can't store time intervals");
+        throw AnnotatedException(500, "Can't store time intervals");
     }
         
-    throw HttpReturnException(500, "Unknown embedding storage type",
+    throw AnnotatedException(500, "Unknown embedding storage type",
                               "storageType", storageType);
 }
 
@@ -117,10 +117,10 @@ getCellSizeInBytes(StorageType storageType)
     case ST_TIMESTAMP:
         return sizeof(Date);
     case ST_TIMEINTERVAL:
-        throw HttpReturnException(500, "Can't store time intervals");
+        throw AnnotatedException(500, "Can't store time intervals");
     }
         
-    throw HttpReturnException(500, "Unknown embedding storage type",
+    throw AnnotatedException(500, "Unknown embedding storage type",
                               "storageType", storageType);
 }
 
@@ -159,12 +159,12 @@ getDouble(const void * buf, StorageType storageType, size_t n)
     case ST_STRING:
     case ST_UTF8STRING:
     case ST_TIMEINTERVAL:
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Can't extract number from embedding of type "
              + jsonEncodeStr(storageType));
     }
     
-    throw HttpReturnException(500, "Unknown embedding storage type",
+    throw AnnotatedException(500, "Unknown embedding storage type",
                               "storageType", storageType);
 }
 #endif
@@ -254,7 +254,7 @@ bool coerceTo(const CellValue & v, bool *)
 template<typename T>
 std::vector<uint8_t> coerceTo(const T & t, std::vector<uint8_t> *)
 {
-    throw HttpReturnException(400, "Can't convert this type to a blob");
+    throw AnnotatedException(400, "Can't convert this type to a blob");
 }
 
 std::vector<uint8_t> coerceTo(const CellValue & v, std::vector<uint8_t> *)
@@ -314,7 +314,7 @@ template<typename T, typename TReturn>
 TReturn coerceTo(const T & t, TReturn *,
                  typename std::enable_if<!(std::is_arithmetic<T>::value && std::is_arithmetic<TReturn>::value)>::type * = 0)
 {
-    throw HttpReturnException(400, "Can't coerce non-numeric value to numeric type");
+    throw AnnotatedException(400, "Can't coerce non-numeric value to numeric type");
 }
 
 
@@ -391,12 +391,12 @@ getNumbers(const void * buf, StorageType storageType, TNumber * out, size_t n)
     case ST_STRING:
     case ST_UTF8STRING:
     case ST_TIMEINTERVAL:
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Can't extract number from embedding of type "
              + jsonEncodeStr(storageType));
     }
     
-    throw HttpReturnException(500, "Unknown embedding storage type",
+    throw AnnotatedException(500, "Unknown embedding storage type",
                               "storageType", storageType);
 }
 
@@ -530,7 +530,7 @@ convertEmbeddingImpl(void * to,
         return;
     case ST_BLOB:
         // Unfortunately, gcc6.1.1 ICEs when enabling this
-        throw HttpReturnException(600, "Not done: blob conversions");
+        throw AnnotatedException(600, "Not done: blob conversions");
 #if 0
         getNumbers(from,
                    fromType,
@@ -563,9 +563,9 @@ convertEmbeddingImpl(void * to,
                    (Date *)to, len);
         return;
     case ST_TIMEINTERVAL:
-        throw HttpReturnException(500, "Can't store time intervals");
+        throw AnnotatedException(500, "Can't store time intervals");
     }
-    throw HttpReturnException(500, "convertEmbedding unknown time");
+    throw AnnotatedException(500, "convertEmbedding unknown time");
 }
 
 // TODO: generalize
@@ -609,7 +609,7 @@ getValueInfoForStorage(StorageType type)
         return std::make_shared<AtomValueInfo>();
     }
 
-    throw HttpReturnException(500, "Unknown embedding storage type",
+    throw AnnotatedException(500, "Unknown embedding storage type",
                               "type", type);
 }
 
@@ -658,7 +658,7 @@ StorageType valueStorageType(const CellValue & value)
         break;
     }
 
-    throw HttpReturnException(500, "Unknown CellValue type for "
+    throw AnnotatedException(500, "Unknown CellValue type for "
                               + jsonEncodeStr(value));
 }
 
@@ -942,7 +942,7 @@ void fillStorageBuffer(void * buffer, size_t offset, StorageType storageType,
         return;
     case ST_BLOB:
         // Unfortunately, gcc6.1.1 ICEs when enabling this
-        throw HttpReturnException(600, "Not done: blob conversions");
+        throw AnnotatedException(600, "Not done: blob conversions");
 #if 0
         fillBuffer((std::vector<uint8_t> *)buffer, numElements, val);
 #endif
@@ -963,9 +963,9 @@ void fillStorageBuffer(void * buffer, size_t offset, StorageType storageType,
         fillBuffer((Date *)buffer, numElements, val);
         return;
     case ST_TIMEINTERVAL:
-        throw HttpReturnException(500, "Can't store time intervals");
+        throw AnnotatedException(500, "Can't store time intervals");
     }
-    throw HttpReturnException(500, "convertEmbedding unknown time");
+    throw AnnotatedException(500, "convertEmbedding unknown time");
 }
 
 template<typename T>
@@ -1010,7 +1010,7 @@ void initializeStorageBuffer(void * buffer, StorageType storageType,
         return;
     case ST_BLOB:
         // Unfortunately, gcc6.1.1 ICEs when enabling this
-        throw HttpReturnException(600, "Not done: blob conversions");
+        throw AnnotatedException(600, "Not done: blob conversions");
 #if 0
         initializeBuffer((std::vector<uint8_t> *)buffer, numElements, val);
 #endif
@@ -1031,9 +1031,9 @@ void initializeStorageBuffer(void * buffer, StorageType storageType,
         initializeBuffer((Date *)buffer, numElements, val);
         return;
     case ST_TIMEINTERVAL:
-        throw HttpReturnException(500, "Can't store time intervals");
+        throw AnnotatedException(500, "Can't store time intervals");
     }
-    throw HttpReturnException(500, "convertEmbedding unknown time");
+    throw AnnotatedException(500, "convertEmbedding unknown time");
 }
 
 template<typename T>
@@ -1078,7 +1078,7 @@ void initializeStorageBuffer(void * buffer, StorageType storageType,
         return;
     case ST_BLOB:
         // Unfortunately, gcc6.1.1 ICEs when enabling this
-        throw HttpReturnException(600, "Not done: blob conversions");
+        throw AnnotatedException(600, "Not done: blob conversions");
 #if 0
         defaultConstructBuffer((std::vector<uint8_t> *)buffer, numElements);
 #endif
@@ -1099,9 +1099,9 @@ void initializeStorageBuffer(void * buffer, StorageType storageType,
         defaultConstructBuffer((Date *)buffer, numElements);
         return;
     case ST_TIMEINTERVAL:
-        throw HttpReturnException(500, "Can't store time intervals");
+        throw AnnotatedException(500, "Can't store time intervals");
     }
-    throw HttpReturnException(500, "convertEmbedding unknown time");
+    throw AnnotatedException(500, "convertEmbedding unknown time");
 }
 
 } // namespace MLDB

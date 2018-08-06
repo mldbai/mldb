@@ -145,7 +145,7 @@ run(const ProcedureRunConfig & run,
 
     // an empty url is allowed but other invalid urls are not
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.modelFileUrl.valid()) {
-        throw HttpReturnException(400, "modelFileUrl \"" +
+        throw AnnotatedException(400, "modelFileUrl \"" +
                                   runProcConf.modelFileUrl.toUtf8String()
                                   + "\" is not valid");
     }
@@ -187,7 +187,7 @@ run(const ProcedureRunConfig & run,
     }
 
     if (vecs.size() == 0)
-        throw HttpReturnException(400, "Kmeans training requires at least 1 datapoint. "
+        throw AnnotatedException(400, "Kmeans training requires at least 1 datapoint. "
                                   "Make sure your dataset is not empty and that your WHERE expression "
                                   "does not filter all the rows");
 
@@ -217,7 +217,7 @@ run(const ProcedureRunConfig & run,
             saved = true;
         }
         catch (const std::exception & exc) {
-            throw HttpReturnException(400, "Error saving kmeans centroids at location'" +
+            throw AnnotatedException(400, "Error saving kmeans centroids at location'" +
                                       runProcConf.modelFileUrl.toString() + "': " +
                                       exc.what());
         }
@@ -279,7 +279,7 @@ run(const ProcedureRunConfig & run,
 
             createFunction(engine, kmeansFuncPC, onProgress, true);
         } else {
-            throw HttpReturnException(400, "Can't create kmeans function '" +
+            throw AnnotatedException(400, "Can't create kmeans function '" +
                                       runProcConf.functionName.rawString() +
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());
@@ -346,10 +346,10 @@ struct KmeansFunction::Impl {
         std::getline(stream, firstLine);
         Json::Value md = Json::parse(firstLine);
         if (md["algorithm"] != "MLDB k-Means model") {
-            throw HttpReturnException(400, "Model file is not a k-means model");
+            throw AnnotatedException(400, "Model file is not a k-means model");
         }
         if (md["version"].asInt() != 1) {
-            throw HttpReturnException(400, "k-Means model version is wrong");
+            throw AnnotatedException(400, "k-Means model version is wrong");
         }
         columnNames = jsonDecode<std::vector<ColumnPath> >(md["columnNames"]);
         

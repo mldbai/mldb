@@ -28,7 +28,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/types/optional_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/base/parallel_merge_sort.h"
@@ -114,7 +114,7 @@ AccuracyProcedure(MldbEngine * owner,
 {
     this->accuracyConfig = config.params.convert<AccuracyConfig>();
     if (!accuracyConfig.testingData.stm)
-        throw HttpReturnException(400, "Classifier testing procedure requires 'testingData' to be set",
+        throw AnnotatedException(400, "Classifier testing procedure requires 'testingData' to be set",
                                   "config", this->accuracyConfig);
 }
 

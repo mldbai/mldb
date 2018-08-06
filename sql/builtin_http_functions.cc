@@ -40,7 +40,7 @@ BoundFunction extract_domain(const std::vector<BoundSqlExpression> & args)
     // Return an expression but with the timestamp modified to something else
 
     if (args.size() != 1 && args.size() != 2)
-        throw HttpReturnException(400, "extract_domain function takes 1 or "
+        throw AnnotatedException(400, "extract_domain function takes 1 or "
                 "2 arguments");
 
     return {[=] (const std::vector<ExpressionValue> & args,

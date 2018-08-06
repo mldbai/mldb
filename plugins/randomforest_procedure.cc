@@ -162,7 +162,7 @@ run(const ProcedureRunConfig & run,
     auto labelVal = extractNamedSubSelect("label", runProcConf.trainingData.stm->select);
     auto featuresVal = extractNamedSubSelect("features", runProcConf.trainingData.stm->select);
     if (!labelVal || !featuresVal) {
-        throw HttpReturnException(400, "trainingData must return a 'features' row and a 'label'");
+        throw AnnotatedException(400, "trainingData must return a 'features' row and a 'label'");
     }
 
     auto weightVal = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);
@@ -171,7 +171,7 @@ run(const ProcedureRunConfig & run,
     shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(featuresVal->expression);
 
     if (!subSelect) {
-        throw HttpReturnException(400, "trainingData must return a 'features' row");
+        throw AnnotatedException(400, "trainingData must return a 'features' row");
     }
 
     auto label = labelVal->expression;

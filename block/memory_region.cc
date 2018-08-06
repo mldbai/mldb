@@ -10,7 +10,7 @@
 #include <vector>
 #include <cstring>
 #include "mldb/arch/vm.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/path.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -141,14 +141,14 @@ FrozenMemoryRegion
 mapFile(const Url & filename, size_t startOffset, ssize_t length)
 {
     if (filename.scheme() != "file") {
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "only file:// entities can be memory mapped (for now)");
     }
     
     // TODO: not only files...
     int fd = open(filename.path().c_str(), O_RDONLY);
     if (fd == -1) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Couldn't open mmap file " + filename.toUtf8String()
              + ": " + strerror(errno));
     }
@@ -158,7 +158,7 @@ mapFile(const Url & filename, size_t startOffset, ssize_t length)
         int res = fstat(fd, &buf);
         if (res == -1) {
             close(fd);
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Couldn't stat mmap file " + filename.toUtf8String()
                  + ": " + strerror(errno));
         }
@@ -179,7 +179,7 @@ mapFile(const Url & filename, size_t startOffset, ssize_t length)
          [=] (void * p) { munmap(p, mapLength); close(fd); });
 
     if (addr.get() == MAP_FAILED) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Failed to open memory map file: "
              + string(strerror(errno)));
     }
@@ -220,7 +220,7 @@ allocateWritable(uint64_t bytesRequired,
     if (res != 0) {
         cerr << "bytesRequired = " << bytesRequired
              << " alignment = " << alignment << endl;
-        throw HttpReturnException(400, "Error allocating writable memory: "
+        throw AnnotatedException(400, "Error allocating writable memory: "
                                   + string(strerror(res)),
                                   "bytesRequired", bytesRequired,
                                   "alignment", alignment);

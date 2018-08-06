@@ -9,7 +9,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/core/dataset.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/base/optimized_path.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 
@@ -73,7 +73,7 @@ ColumnScope::
 doGetAllColumns(const Utf8String & tableName,
                 const ColumnFilter& keep)
 {
-    throw HttpReturnException
+    throw AnnotatedException
         (400, "Attempt to bind expression with wildcard in column scope");
 }
 

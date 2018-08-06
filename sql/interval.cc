@@ -7,7 +7,7 @@
 
 #include "interval.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 using namespace std;
 

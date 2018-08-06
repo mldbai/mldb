@@ -8,7 +8,7 @@
 #include "expression_value.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/meta_value_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <unordered_map>
 
 namespace MLDB {
@@ -63,7 +63,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
                                           /*, field.fieldNum */);
                 if (!columnToIndex.emplace(info.fieldName, fields.size())
                     .second) {
-                    throw HttpReturnException(500, "Structure has field twice");
+                    throw AnnotatedException(500, "Structure has field twice");
                 }
                 fields.emplace_back(std::move(info));
             };
@@ -86,7 +86,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
                 {
                     auto it = columnToIndex.find(columnName);
                     if (it == columnToIndex.end()) {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "Unknown field '" + columnName.toUtf8String()
                              + "' extracting type " + desc->typeName);
                     }
@@ -160,13 +160,13 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
             auto info = std::make_shared<UnknownRowValueInfo>();
             FromInput fromInput = [] (void * obj, const ExpressionValue & input)
                 {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "can't convert expression value info");
                 };
             
             ToOutput toOutput = [] (const void * obj) -> ExpressionValue
                 {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "can't convert expression value info");
                 };
             
@@ -258,7 +258,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
     }
     }
 
-    throw HttpReturnException(500, "Can't convert value info of this kind: "
+    throw AnnotatedException(500, "Can't convert value info of this kind: "
                               + jsonEncodeStr(desc->kind) + " "
                               + desc->typeName);
 }

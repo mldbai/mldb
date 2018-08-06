@@ -7,7 +7,7 @@
 
 #include "file_serializer.h"
 #include "memory_region_impl.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/arch/vm.h"
 
 #include <mutex>
@@ -34,7 +34,7 @@ struct FileSerializer::Itl {
     {
         fd = open(filename.rawData(), O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
         if (fd == -1) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Failed to open memory map file: "
                  + string(strerror(errno)));
         }
@@ -69,7 +69,7 @@ struct FileSerializer::Itl {
 
         int res = ::ftruncate(fd, realLength);
         if (res == -1) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "ftruncate failed: " + string(strerror(errno)));
         }
     }
@@ -124,7 +124,7 @@ struct FileSerializer::Itl {
         
         int res = ::ftruncate(fd, currentlyAllocated + newLength);
         if (res == -1) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "ftruncate failed: " + string(strerror(errno)));
         }
 
@@ -132,7 +132,7 @@ struct FileSerializer::Itl {
                            PROT_READ | PROT_WRITE, MAP_SHARED,
                            fd, currentlyAllocated);
         if (addr == MAP_FAILED) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Failed to open memory map file: "
                  + string(strerror(errno)));
         }
@@ -149,7 +149,7 @@ struct FileSerializer::Itl {
         struct stat st;
         int res = fstat(fd, &st);
         if (res == -1) {
-            throw HttpReturnException(500, "fstat");
+            throw AnnotatedException(500, "fstat");
         }
         ExcAssertEqual(st.st_size, currentlyAllocated);
     }
@@ -168,7 +168,7 @@ struct FileSerializer::Itl {
 
         int res = ::ftruncate(fd, currentlyAllocated + newLength - arenas.back().length);
         if (res == -1) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "ftruncate failed: " + string(strerror(errno)));
         }
 
@@ -184,7 +184,7 @@ struct FileSerializer::Itl {
             cerr << "wasting " << arenas.back().freeSpace() << endl;
             // undo the expansion
             if (ftruncate(fd, currentlyAllocated) == -1) {
-                throw HttpReturnException(500, "Ftruncate failed: " + string(strerror(errno)));
+                throw AnnotatedException(500, "Ftruncate failed: " + string(strerror(errno)));
             }
             verifyLength();
             return false;

@@ -12,7 +12,7 @@
 #include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/vfs_handlers/exception_ptr.cc"
 #include <chrono>
@@ -58,7 +58,7 @@ convertHeaderToInfo(const HttpHeader & header)
         return result;
     }
 
-    throw HttpReturnException(header.responseCode(),
+    throw AnnotatedException(header.responseCode(),
                               "Unable to convert unknown header code "
                               + to_string(header.responseCode()) +
                               " to object info",
@@ -115,7 +115,7 @@ struct HttpStreamingDownloadSource {
                 if (o.first == "http-set-cookie")
                     proxy.setCookie(o.second);
                 else if (o.first.find("http-") == 0)
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (500,
                          "Unknown HTTP stream parameter '"
                          + o.first + " = " + o.second + "'");
@@ -294,12 +294,12 @@ struct HttpStreamingDownloadSource {
 
                 if (resp.code() != 200) {
                     if (resp.code() == 0) {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "HTTP error reading " + urlStr + "\n\n"
                              + resp.errorMessage());
                     }
                     else {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400, "HTTP code " + to_string(resp.code())
                              + " reading " + urlStr + "\n\n"
                              + string(errorBody, 0, 1024));

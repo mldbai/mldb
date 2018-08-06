@@ -226,7 +226,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                     {
                         if (col == PathElement("column")) {
                             if (val.empty()) {
-                                throw HttpReturnException
+                                throw AnnotatedException
                                 (400, "Column names in NAMED_COLUMNS SQL can't be "
                                  "null");
                             }
@@ -238,7 +238,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                             ++numFoundVal;
                         }
                         else {
-                            throw HttpReturnException
+                            throw AnnotatedException
                                 (400, "Rows returned from NAMED_COLUMNS SQL "
                                  "query can only contain 'column' and 'value' "
                                  "columns",
@@ -252,7 +252,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 output->values.back().forEachColumnDestructive(onVal);
 
                 if (numFoundCol != 1 || numFoundVal != 1) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Rows returned from NAMED_COLUMNS SQL query "
                          "must contain exactly one 'column' and one "
                          "'value' column",
@@ -260,7 +260,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                          "numTimesFoundValue", numFoundVal);
                 }
                 if (foundCol.null()) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Empty or null column names cannot be "
                          "returned from NAMED_COLUMNS sql query");
                 }
@@ -414,7 +414,7 @@ getAutoInputName(SqlExpressionExtractScope & innerScope) const
                 knownVars += ", ";
             knownVars += v.toUtf8String();
         }
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "An sql.expression function with autoInput=true "
              "must have a single variable in the expression; "
              "the passed expression " + functionConfig.expression.surface
@@ -436,7 +436,7 @@ doBind(SqlExpressionExtractScope & innerScope) const
         // 1.  Grab the single SqlExpression that we need from the select
         //     expression
         if (functionConfig.expression.clauses.size() != 1) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "An sql.expression function with raw=true "
                  "must have a single clause in the select; there were "
                  + to_string(functionConfig.expression.clauses.size())
@@ -447,7 +447,7 @@ doBind(SqlExpressionExtractScope & innerScope) const
         auto named
             = std::dynamic_pointer_cast<NamedColumnExpression>(singleClause);
         if (!named) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "An sql.expression function with raw=true "
                  "must have a single statement in the select; passed "
                  "expression was " + functionConfig.expression.surface
@@ -665,7 +665,7 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
     if (runProcConf.inputData.stm == nullptr) {
-        throw HttpReturnException(400, "You need to define inputData");
+        throw AnnotatedException(400, "You need to define inputData");
     }
 
     // Get the input dataset

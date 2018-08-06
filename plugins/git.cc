@@ -17,7 +17,7 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/base/parallel.h"
 #include <boost/algorithm/string.hpp>
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/log.h"
 
 #include "mldb/ext/libgit2/include/git2.h"
@@ -114,7 +114,7 @@ GitFileStats git_diff_by_file(git_diff *diff)
                                  &result);
 
     if (error < 0) {
-        throw MLDB::HttpReturnException(400, "Error traversing diff: "
+        throw MLDB::AnnotatedException(400, "Error traversing diff: "
                                               + std::string(giterr_last()->message));
     }
 
@@ -220,7 +220,7 @@ struct GitImporter: public Procedure {
         auto checkError = [&] (int error, const char * msg)
             {
                 if (error < 0)
-                    throw HttpReturnException(500, string(msg) + ": "
+                    throw AnnotatedException(500, string(msg) + ": "
                                               + giterr_last()->message,
                                               "repository", config.repository,
                                               "commit", string(sha));
@@ -255,7 +255,7 @@ struct GitImporter: public Procedure {
                 + string(encoding) + " character set>>>";
         }
         else {
-            throw HttpReturnException(500,
+            throw AnnotatedException(500,
                                       "Can't decode unknown commit message encoding",
                                       "repository", config.repository,
                                       "commit", string(sha),
@@ -373,7 +373,7 @@ struct GitImporter: public Procedure {
         auto checkError = [&] (int error, const char * msg)
             {
                 if (error < 0)
-                    throw HttpReturnException(500, string(msg) + ": "
+                    throw AnnotatedException(500, string(msg) + ": "
                                               + giterr_last()->message,
                                               "repository", runProcConf.repository);
             };
@@ -411,7 +411,7 @@ struct GitImporter: public Procedure {
             else error = git_revwalk_push_ref(walker, r.c_str());
 
             if (error < 0)
-                throw HttpReturnException(500, "Error adding revision: "
+                throw AnnotatedException(500, "Error adding revision: "
                                           + string(giterr_last()->message),
                                           "repository", runProcConf.repository,
                                           "revision", r);
@@ -430,7 +430,7 @@ struct GitImporter: public Procedure {
 
                 int error = git_repository_open(&repo, filename.rawData());
                 if (error < 0)
-                    throw HttpReturnException(400, "Error opening Git repo: "
+                    throw AnnotatedException(400, "Error opening Git repo: "
                                               + string(giterr_last()->message));
 
             }

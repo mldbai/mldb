@@ -70,7 +70,7 @@ struct ContinuousDataset::Itl final {
             // metadata about which datasets are available.
             metadataDataset = obtainDataset(engine, config.metadataDataset);
         } MLDB_CATCH_ALL {
-            rethrowHttpException(-1, "Error initializing continuous dataset in "
+            rethrowException(-1, "Error initializing continuous dataset in "
                                  "metadata initialization: " + getExceptionString(),
                                  "continuousDatasetConfig", config);
         }
@@ -78,7 +78,7 @@ struct ContinuousDataset::Itl final {
         try {
             createStorageDataset = obtainProcedure(engine, config.createStorageDataset);
         } MLDB_CATCH_ALL {
-            rethrowHttpException(-1, "Error initializing continuous dataset in "
+            rethrowException(-1, "Error initializing continuous dataset in "
                                  "createStorageDataset initialization: "
                                  + getExceptionString(),
                                  "continuousDatasetConfig", config);
@@ -87,7 +87,7 @@ struct ContinuousDataset::Itl final {
         try {
             saveStorageDataset = obtainProcedure(engine, config.saveStorageDataset);
         } MLDB_CATCH_ALL {
-            rethrowHttpException(-1, "Error initializing continuous dataset in "
+            rethrowException(-1, "Error initializing continuous dataset in "
                                  "saveStorageDataset procedure initialization: "
                                  + getExceptionString(),
                                  "continuousDatasetConfig", config);
@@ -548,7 +548,7 @@ ContinuousWindowDataset(MldbEngine * owner,
         // metadata about which datasets are available.
         metadataDataset = obtainDataset(engine, config.metadataDataset);
     } MLDB_CATCH_ALL {
-        rethrowHttpException(-1, "Error initializing continuous window dataset in "
+        rethrowException(-1, "Error initializing continuous window dataset in "
                              "metadata initialization: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
@@ -560,7 +560,7 @@ ContinuousWindowDataset(MldbEngine * owner,
         // up, and turn it into a merged dataset configuration.
         toLoadConfig = getDatasetConfig(config.datasetFilter, config.from, config.to);
     } MLDB_CATCH_ALL {
-        rethrowHttpException(-1, "Error initializing continuous window dataset in "
+        rethrowException(-1, "Error initializing continuous window dataset in "
                              "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }
@@ -571,7 +571,7 @@ ContinuousWindowDataset(MldbEngine * owner,
             = obtainDataset(engine, toLoadConfig);
         setUnderlying(underlying);
     } MLDB_CATCH_ALL {
-        rethrowHttpException(-1, "Error initializing continuous window dataset in "
+        rethrowException(-1, "Error initializing continuous window dataset in "
                              "metadata query: " + getExceptionString(),
                              "continuousDatasetConfig", config);
     }

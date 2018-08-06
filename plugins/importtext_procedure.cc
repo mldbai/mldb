@@ -170,7 +170,7 @@ Encoding parseEncoding(const std::string & encodingStr_)
     }
     else if (encodingStr == "latin1" || encodingStr == "iso8859-1")
         encoding = LATIN1;
-    else throw HttpReturnException(400, "Unknown encoding '" + encodingStr_
+    else throw AnnotatedException(400, "Unknown encoding '" + encodingStr_
                                    + "'for import.text parser: accepted are "
                                    "'us-ascii', 'ascii', 'utf-8', 'utf8', "
                                    "'latin1', 'iso8859-1'",
@@ -543,11 +543,11 @@ struct ImportTextProcedureWorkInstance
             separator = config.delimiter[0];
         }
         else if (config.delimiter.length() > 1) {
-            throw HttpReturnException(400, "Separator string must have one character");
+            throw AnnotatedException(400, "Separator string must have one character");
         }
         else if (config.quoter.length() > 0)
         {
-            throw HttpReturnException(400, "Separator string must not be empty if we have a quoter string");
+            throw AnnotatedException(400, "Separator string must not be empty if we have a quoter string");
         }
 
         if (config.quoter.length() == 1) {
@@ -555,14 +555,14 @@ struct ImportTextProcedureWorkInstance
             hasQuoteChar = true;
         }
         else if (config.quoter.length() > 1) {
-            throw HttpReturnException(400, "Quoter string must have one character");
+            throw AnnotatedException(400, "Quoter string must have one character");
         }
 
         isTextLine = config.quoter.empty() && config.delimiter.empty();
 
         if (!config.replaceInvalidCharactersWith.empty()) {
             if (config.replaceInvalidCharactersWith.length() != 1)
-                throw HttpReturnException(400, "replaceInvalidCharactersWith string must have one character");
+                throw AnnotatedException(400, "replaceInvalidCharactersWith string must have one character");
             replaceInvalidCharactersWith = *config.replaceInvalidCharactersWith.begin();
         }
 
@@ -574,7 +574,7 @@ struct ImportTextProcedureWorkInstance
                 inputColumnNames = { ColumnPath(config.autoGenerateHeaders ? 0 : "lineText") };
             }
             else if (config.headers.size() != 1) {
-                throw HttpReturnException(
+                throw AnnotatedException(
                     400,
                     "Custom CSV header must have exactly one element if there is "
                     "no delimiter");
@@ -678,7 +678,7 @@ struct ImportTextProcedureWorkInstance
             const ColumnPath & c = inputColumnNames[i];
             ColumnHash ch(c);
             if (!inputColumnIndex.insert(make_pair(ch, i)).second)
-                throw HttpReturnException(400, "Duplicate column name in CSV file",
+                throw AnnotatedException(400, "Duplicate column name in CSV file",
                                           "columnName", c);
         }
 
@@ -709,7 +709,7 @@ struct ImportTextProcedureWorkInstance
         for (unsigned i = 0;  i < cols.size();  ++i) {
             const auto& col = cols[i];
             if (!col.valueInfo->isScalar())
-                throw HttpReturnException
+                throw AnnotatedException
                     (400,
                      "Import select expression cannot have row-valued columns.",
                      "select", config.select,
@@ -718,7 +718,7 @@ struct ImportTextProcedureWorkInstance
 
             ColumnHash ch(col.columnName);
             if (!columnIndex.insert(make_pair(ch, i)).second)
-                throw HttpReturnException(400, "Duplicate column name in select expression",
+                throw AnnotatedException(400, "Duplicate column name in select expression",
                                           "columnName", col.columnName);
 
             knownColumnNames.emplace_back(col.columnName);
@@ -780,7 +780,7 @@ struct ImportTextProcedureWorkInstance
                 return true;
             }
 
-            throw HttpReturnException(400, "Error parsing CSV row: "
+            throw AnnotatedException(400, "Error parsing CSV row: "
                                       + message,
                                       "lineNumber", lineNumber,
                                       "columnNumber", columnNumber,

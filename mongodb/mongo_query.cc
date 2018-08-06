@@ -92,7 +92,7 @@ struct MongoQueryFunction: Function {
 
         const auto & query = context.getColumn(PathElement("query"));
         if (query.empty()) {
-            throw HttpReturnException(
+            throw AnnotatedException(
                 400, "You must define the parameter \"query\"");
         }
         const auto queryStr = query.toUtf8String().rawString();
@@ -149,7 +149,7 @@ struct MongoQueryFunction: Function {
                 StructValue row;
                 for (auto && el: *cursor) {
                     if ((el)["_id"].type() != bsoncxx::type::k_oid) {
-                        throw HttpReturnException(
+                        throw AnnotatedException(
                             500,
                             "monbodb.query: unimplemented support for "
                             "MongoDB records with key \"_id\" that are not "

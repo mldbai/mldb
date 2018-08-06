@@ -7,7 +7,7 @@
 
 #include "execution_pipeline.h"
 #include "execution_pipeline_impl.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include <algorithm>
@@ -179,7 +179,7 @@ doGetAllColumns(const Utf8String & tableName,
 {
     if (tableName.empty()) {
         if (defaultTables.empty())
-            throw HttpReturnException(500, "Get variable without table name with no default table in scope");
+            throw AnnotatedException(500, "Get variable without table name with no default table in scope");
         return defaultTables.back().doGetAllColumns(tableName, keep);
     }
     else {

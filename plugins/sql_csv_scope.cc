@@ -5,7 +5,7 @@
 */
 
 #include "sql_csv_scope.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
 
 using namespace std;
@@ -39,14 +39,14 @@ doGetColumn(const Utf8String & tableName,
                                  const ColumnPath & columnName)
 {
     if (!tableName.empty()) {
-        throw HttpReturnException(400, "Unknown table name in import.text procedure",
+        throw AnnotatedException(400, "Unknown table name in import.text procedure",
                                   "tableName", tableName);
     }
 
     int index = std::find(columnNames.begin(), columnNames.end(), columnName)
         - columnNames.begin();
     if (index == columnNames.size())
-        throw HttpReturnException(400, "Unknown column name in import.text procedure",
+        throw AnnotatedException(400, "Unknown column name in import.text procedure",
                                   "columnName", columnName,
                                   "knownColumnNames", columnNames);
 

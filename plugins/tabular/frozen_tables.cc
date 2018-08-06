@@ -5,7 +5,7 @@
 */
 
 #include "frozen_tables.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/types/basic_value_descriptions.h"
 
@@ -266,14 +266,14 @@ getSize(uint32_t index) const
         const char * data = blobData.data() + offset0;
         auto res = ZSTD_getDecompressedSize(data, storageSize);
         if (ZSTD_isError(res)) {
-            throw HttpReturnException(500, "Error with decompressing: "
+            throw AnnotatedException(500, "Error with decompressing: "
                                       + string(ZSTD_getErrorName(res)));
         }
         return res;
     }
     }
 
-    throw HttpReturnException(600, "Invalid format for frozen blob table");
+    throw AnnotatedException(600, "Invalid format for frozen blob table");
 }
     
 size_t
@@ -290,14 +290,14 @@ getBufferSize(uint32_t index) const
         const char * data = blobData.data() + offset0;
         auto res = ZSTD_getDecompressedSize(data, storageSize);
         if (ZSTD_isError(res)) {
-            throw HttpReturnException(500, "Error with decompressing: "
+            throw AnnotatedException(500, "Error with decompressing: "
                                       + string(ZSTD_getErrorName(res)));
         }
         return res;
     }
     }
 
-    throw HttpReturnException(600, "Invalid format for frozen blob table");
+    throw AnnotatedException(600, "Invalid format for frozen blob table");
 }
 
 bool
@@ -364,14 +364,14 @@ getContents(uint32_t index,
                                               itl->dict.load());
         
         if (ZSTD_isError(res)) {
-            throw HttpReturnException(500, "Error with decompressing: "
+            throw AnnotatedException(500, "Error with decompressing: "
                                       + string(ZSTD_getErrorName(res)));
         }
         return tempBuffer;
     }
     }
 
-    throw HttpReturnException(600, "Invalid format for frozen blob table");
+    throw AnnotatedException(600, "Invalid format for frozen blob table");
 }
 
 size_t
@@ -456,7 +456,7 @@ freezeCompressed(MappedSerializer & serializer)
                                        sampleSizes.data(),
                                        sampleSizes.size());
     if (ZDICT_isError(res)) {
-        throw HttpReturnException(500, "Error with dictionary: "
+        throw AnnotatedException(500, "Error with dictionary: "
                                   + string(ZDICT_getErrorName(res)));
     }
         
@@ -496,7 +496,7 @@ freezeCompressed(MappedSerializer & serializer)
                                        dict.get());
 
         if (ZSTD_isError(res)) {
-            throw HttpReturnException(500, "Error with compressing: "
+            throw AnnotatedException(500, "Error with compressing: "
                                       + string(ZSTD_getErrorName(res)));
         }
 
@@ -754,7 +754,7 @@ add(CellValue val)
 
     switch (val.cellType()) {
     case CellValue::EMPTY:
-        throw HttpReturnException(500, "Can't add null value to CellValueSet");
+        throw AnnotatedException(500, "Can't add null value to CellValueSet");
     case CellValue::INTEGER:
         indexes.emplace_back(INT, intValues.add(val.toInt()));
         return;
@@ -783,7 +783,7 @@ add(CellValue val)
         break;
     }
 
-    throw HttpReturnException
+    throw AnnotatedException
         (500, "Couldn't add unknown cell to MutableCellValueSet");
 }
 

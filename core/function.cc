@@ -81,7 +81,7 @@ FunctionInfo::
 checkInputCompatibility(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     if (input.size() != this->input.size()) {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Wrong number of arguments (" + to_string(input.size())
              + ") passed to user function expecting " + to_string(this->input.size()));
     }
@@ -152,7 +152,7 @@ FunctionInfo
 Function::
 getFunctionInfo() const
 {
-    throw HttpReturnException(400, "Function " + MLDB::type_name(*this)
+    throw AnnotatedException(400, "Function " + MLDB::type_name(*this)
                         + " needs to override getFunctionInfo()");
 }
 

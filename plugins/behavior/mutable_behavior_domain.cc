@@ -11,7 +11,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/jml/utils/vector_utils.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/value_description.h"
 #include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
@@ -160,7 +160,7 @@ recordImpl(const Id & subject,
 
     if (!ts_.isADate()) {
         ts_ = Date();
-        //throw HttpReturnException(400,
+        //throw AnnotatedException(400,
         //                          "Cannot record non-finite timestamp into behavior dataset",
         //                          "timestamp", ts_,
         //                          "subject", subject,
@@ -268,7 +268,7 @@ recordMany(const Id & subject,
 
         if (!entry.timestamp.isADate()) {
             entry.timestamp = Date();
-            //throw HttpReturnException(400,
+            //throw AnnotatedException(400,
             //                          "Cannot record non-finite timestamp into behavior dataset",
             //                          "timestamp", entry.timestamp,
             //                          "subject", subject,
@@ -340,7 +340,7 @@ recordMany(const Id & subject,
 
         if (!entry.timestamp.isADate()) {
             entry.timestamp = Date();
-            //throw HttpReturnException(400,
+            //throw AnnotatedException(400,
             //                          "Cannot record non-finite timestamp into behavior dataset",
             //                          "timestamp", entry.timestamp,
             //                          "subject", subject,
@@ -397,7 +397,7 @@ recordManySubjects(const Id & beh,
 
         if (!entry.timestamp.isADate()) {
             entry.timestamp = Date();
-            //throw HttpReturnException(400,
+            //throw AnnotatedException(400,
             //                          "Cannot record non-finite timestamp into behavior dataset",
             //                          "timestamp", entry.timestamp,
             //                          "subject", entry.subject,
@@ -462,7 +462,7 @@ recordMany(const Id * behIds,
 
         if (!entry.timestamp.isADate()) {
             entry.timestamp = Date();
-            //throw HttpReturnException(400,
+            //throw AnnotatedException(400,
             //                          "Cannot record non-finite timestamp into behavior dataset",
             //                          "timestamp", entry.timestamp,
             //                          "subject", subjectIds[entry.subjIndex],

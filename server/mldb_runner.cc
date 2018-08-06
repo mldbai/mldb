@@ -247,7 +247,7 @@ int main(int argc, char ** argv)
             CredentialProvider::registerProvider
                 (std::make_shared<CommandLineCredentialProvider>(addCredentials));
         }
-        catch (const HttpReturnException & exc) {
+        catch (const AnnotatedException & exc) {
             cerr << "error reading credentials from command line: "
                  << exc.what() << endl;
             cerr << jsonEncode(exc.details) << endl;
@@ -289,7 +289,7 @@ int main(int argc, char ** argv)
                     (std::make_shared<CommandLineCredentialProvider>(fileCredentials));
             }
         }
-        catch (const HttpReturnException & exc) {
+        catch (const AnnotatedException & exc) {
             cerr << "error reading credentials from file "
                  << addCredentialsFromUrl
                  << ": " << exc.what()
@@ -365,7 +365,7 @@ int main(int argc, char ** argv)
                 filter_istream stream(scriptArgsUrl);
                 Json::Value args = Json::parse(stream);
                 config.args = args;
-            } catch (const HttpReturnException & exc) {
+            } catch (const AnnotatedException & exc) {
                 cerr << "error reading script arguments from url "
                      << scriptArgsUrl
                      << ": " << exc.what()

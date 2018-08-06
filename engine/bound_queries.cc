@@ -16,7 +16,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/sql/sql_utils.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/log.h"
 #include "mldb/arch/demangle.h"
 
@@ -810,7 +810,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     return true;
                 } catch (...) {
-                    rethrowHttpException(KEEP_HTTP_CODE,
+                    rethrowException(KEEP_HTTP_CODE,
                                          "Executing non-grouped query bound to row: " + getExceptionString(),
                                          "row", row,
                                          "rowHash", rows[rowNum],
@@ -951,7 +951,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         QueryThreadTracker parentTracker;
 
         if (limit == 0)
-          throw HttpReturnException(400, "limit must be non-zero");
+          throw AnnotatedException(400, "limit must be non-zero");
 
         Timer rowsTimer;
 
@@ -1179,7 +1179,7 @@ BoundSelectQuery(const SelectExpression & select,
         }
 
     } MLDB_CATCH_ALL {
-        rethrowHttpException(KEEP_HTTP_CODE, "Binding error: "
+        rethrowException(KEEP_HTTP_CODE, "Binding error: "
                              + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
@@ -1225,7 +1225,7 @@ execute(std::function<bool (NamedRowValue & output,
     try {
         return executor->execute(processor, processInParallel, offset, limit, onProgress);
     } MLDB_CATCH_ALL {
-        rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
+        rethrowException(KEEP_HTTP_CODE, "Execution error: "
                              + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
@@ -1275,7 +1275,7 @@ executeExpr(std::function<bool (Path & rowName,
         return executor->executeExpr(processor, processInParallel,
                                      offset, limit, onProgress);
     } MLDB_CATCH_ALL {
-        rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
+        rethrowException(KEEP_HTTP_CODE, "Execution error: "
                              + getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
@@ -1500,7 +1500,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
                     if (result)
                         return *result;
                     
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "variable '" + columnName.toUtf8String() 
                          + "' must appear in the GROUP BY clause or "
                          "be used in an aggregate function");
@@ -1725,7 +1725,7 @@ execute(RowProcessor processor,
 
     for (const auto & c: select.clauses) {
         if (c->isWildcard()) {
-            throw HttpReturnException(
+            throw AnnotatedException(
                 400, "Wildcard cannot be used with GROUP BY");
         }
     }
@@ -1740,7 +1740,7 @@ execute(RowProcessor processor,
 
     //The bound having must resolve to a boolean expression
     if (!having->isConstantTrue() && !having->isConstantFalse() && dynamic_cast<BooleanValueInfo*>(boundHaving.info.get()) == nullptr)
-        throw HttpReturnException(400, "HAVING must be a boolean expression");
+        throw AnnotatedException(400, "HAVING must be a boolean expression");
 
     // Bind in the order by expression. Must be bound after the having because
     //we placed the orderby aggregators after the having aggregator in the list

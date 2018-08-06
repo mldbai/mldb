@@ -6,7 +6,7 @@
 */
 
 #include "sql_expression_operations.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
@@ -109,7 +109,7 @@ bind(SqlBindingScope & scope) const
         return doComparison(this, boundLhs, boundRhs,
                             &ExpressionValue::operator <=);
     }
-    else throw HttpReturnException(400, "Unknown comparison op " + op);
+    else throw AnnotatedException(400, "Unknown comparison op " + op);
 }
 
 Utf8String
@@ -490,7 +490,7 @@ struct BinaryOpHelper {
             std::vector<CellValue> rcells = rhs.getEmbeddingCell();
 
             if (lcells.size() != rcells.size())
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Attempt to perform operation on incompatible shaped "
                      "embeddings",
                      "lhsShape", lhs.getEmbeddingShape(),
@@ -711,7 +711,7 @@ struct BinaryOpHelper {
                 return lhsContext.applyLhs(rhsContext, lhs, rhs, storage);
             }
             else {
-                throw HttpReturnException(500, "Can't figure out type of expression",
+                throw AnnotatedException(500, "Can't figure out type of expression",
                                           "expression", lhs);
             }
         }
@@ -734,7 +734,7 @@ struct BinaryOpHelper {
                 return rhsContext.applyRhsScalar(lhs, rhs, storage);
             }
             else {
-                throw HttpReturnException(500, "Can't figure out type of expression",
+                throw AnnotatedException(500, "Can't figure out type of expression",
                                           "expression", lhs);
             }
         }
@@ -757,7 +757,7 @@ struct BinaryOpHelper {
                 return rhsContext.applyRhsEmbedding(lhs, rhs, storage);
             }
             else {
-                throw HttpReturnException(500, "Can't figure out type of expression",
+                throw AnnotatedException(500, "Can't figure out type of expression",
                                           "expression", lhs);
             }
         }
@@ -780,7 +780,7 @@ struct BinaryOpHelper {
                 return rhsContext.applyRhsRow(lhs, rhs, storage);
             }
             else {
-                throw HttpReturnException(500, "Can't figure out type of expression",
+                throw AnnotatedException(500, "Can't figure out type of expression",
                                           "expression", lhs);
             }
         }
@@ -957,7 +957,7 @@ binaryPlusOnTimestamp(const CellValue & l, const CellValue & r)
             return CellValue(l.toTimestamp().plusMonthDaySecond(months, days, seconds));
     }
 
-    throw HttpReturnException(400, "Adding unsupported type to timetamp");
+    throw AnnotatedException(400, "Adding unsupported type to timetamp");
 
     return CellValue(l.toTimestamp());
 
@@ -1032,7 +1032,7 @@ static CellValue binaryMinusOnTimestamp(const CellValue & l, const CellValue & r
         return CellValue::fromMonthDaySecond(0, days, seconds);
     }
 
-    throw HttpReturnException(400, "Substracting unsupported type to timetamp");
+    throw AnnotatedException(400, "Substracting unsupported type to timetamp");
     return CellValue(l.toTimestamp());
 
 }
@@ -1146,7 +1146,7 @@ CellValue safeIntegerMod(const T1 a, const T2 b)
 {
     if (b == 0)
     {
-        throw HttpReturnException(400, "Integer Modulus by a zero dividend");
+        throw AnnotatedException(400, "Integer Modulus by a zero dividend");
     }
     else
     {
@@ -1286,7 +1286,7 @@ bind(SqlBindingScope & scope) const
         return BinaryOpHelper<BinaryModulusOp>
             ::bind(this, boundLhs, boundRhs);
     }
-    else throw HttpReturnException(400, "Unknown arithmetic op " + op
+    else throw AnnotatedException(400, "Unknown arithmetic op " + op
                                    + (lhs ? " binary" : " unary"));
 }
 
@@ -1443,7 +1443,7 @@ bind(SqlBindingScope & scope) const
     else if (op == "~" && !lhs) {
         return doUnaryBitwise(this, boundRhs, &doBitwiseNot);
     }
-    else throw HttpReturnException(400, "Unknown bitwise op " + op
+    else throw AnnotatedException(400, "Unknown bitwise op " + op
                                    + (lhs ? " binary" : " unary"));
 }
 
@@ -1519,7 +1519,7 @@ bind(SqlBindingScope & scope) const
     auto getVariable = scope.doGetColumn("" /*tableName*/, columnName);
 
     if (!getVariable.info) {
-        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
+        throw AnnotatedException(400, "scope " + MLDB::type_name(scope)
                                   + " getColumn '" + columnName.toUtf8String()
                                   + "' didn't return info");
     }
@@ -1831,7 +1831,7 @@ bind(SqlBindingScope & scope) const
                         = v.getEmbeddingCell(v.getAtomCount());
 
                     if (valueCells.size() != v.getAtomCount())
-                        throw HttpReturnException(400, "Embeddings don't contain the same number of elements");
+                        throw AnnotatedException(400, "Embeddings don't contain the same number of elements");
 
                     cells.insert(cells.end(),
                                  std::make_move_iterator(valueCells.begin()),
@@ -2078,7 +2078,7 @@ bind(SqlBindingScope & scope) const
                 this,
                 std::make_shared<BooleanValueInfo>(boundRhs.info->isConst())};
     }
-    else throw HttpReturnException(400, "Unknown boolean op " + op
+    else throw AnnotatedException(400, "Unknown boolean op " + op
                              + (lhs ? " binary" : " unary"));
 }
 
@@ -2184,7 +2184,7 @@ bind(SqlBindingScope & scope) const
     else if (type == "interval") {
         fn = &ExpressionValue::isTimeinterval;
     }
-    else throw HttpReturnException(400, "Unknown type `" + type + "' for IsTypeExpression");
+    else throw AnnotatedException(400, "Unknown type `" + type + "' for IsTypeExpression");
 
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
@@ -2269,7 +2269,7 @@ bind(SqlBindingScope & scope) const
 {
     //check whether it is a builtin or not
     if (scope.functionStackDepth > 100)
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Reached a stack depth of over 100 functions while "
                  "analysing query, possible infinite recursion");
     
@@ -2293,7 +2293,7 @@ bind(SqlBindingScope & scope) const
         message += "'.  The function is not a built-in function, and either "
             "it's not a registered user function, or user functions are not "
             "available in the scope of the expression.";
-        throw HttpReturnException(400, message,
+        throw AnnotatedException(400, message,
                                   "functionName", functionName,
                                   "tableName", tableName,
                                   "scopeType", MLDB::type_name(scope),
@@ -2928,7 +2928,7 @@ bind(SqlBindingScope & scope) const
 
         if (correlatedSubquery) {
             // We re-execute on each call, since the results change
-            throw HttpReturnException(500, "Correlated subqueries not supported yet");
+            throw AnnotatedException(500, "Correlated subqueries not supported yet");
         }
         else {
             // POTENTIAL OPT: a subquery with no GROUP BY could be run directly
@@ -3110,7 +3110,7 @@ bind(SqlBindingScope & scope) const
         std::make_shared<BooleanValueInfo>(isConstant)};
     }
     }
-    throw HttpReturnException(500, "Unknown IN expression type");
+    throw AnnotatedException(500, "Unknown IN expression type");
 }
 
 Utf8String
@@ -3181,7 +3181,7 @@ getOperation() const
         return "values";
     }
 
-    throw HttpReturnException(500, "Unknown IN expression type");
+    throw AnnotatedException(500, "Unknown IN expression type");
 }
 
 std::vector<std::shared_ptr<SqlExpression> >
@@ -3204,7 +3204,7 @@ getChildren() const
         return children;
     }
 
-    throw HttpReturnException(500, "Unknown IN expression type");
+    throw AnnotatedException(500, "Unknown IN expression type");
 }
 
 /*****************************************************************************/
@@ -3424,7 +3424,7 @@ bind(SqlBindingScope & scope) const
                 this,
                 std::make_shared<PathValueInfo>(boundExpr.info->isConst())};
     }
-    else throw HttpReturnException(400, "Unknown type '" + type
+    else throw AnnotatedException(400, "Unknown type '" + type
                                    + "' for CAST (" + expr->surface
                                    + " AS " + type + ")");
 }
@@ -3490,7 +3490,7 @@ bind(SqlBindingScope & scope) const
     auto getParam = scope.doGetBoundParameter(paramName);
 
     if (!getParam.info) {
-        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
+        throw AnnotatedException(400, "scope " + MLDB::type_name(scope)
                             + " getBoundParameter '" + paramName
                             + "' didn't return info");
     }
@@ -3750,7 +3750,7 @@ bind(SqlBindingScope & scope) const
                 const ExpressionValue & val = exprBound(scope, storage, filter);
 
                 if (val.isAtom())
-                    throw HttpReturnException(400, "Expression with AS * must return a row",
+                    throw AnnotatedException(400, "Expression with AS * must return a row",
                                               "valueReturned", val,
                                               "ast", print(),
                                               "surface", surface);
@@ -4101,7 +4101,7 @@ bind(SqlBindingScope & scope) const
                         if (storage.isAtom()) {
                             // Put directly in place
                             if (columnNameOut->empty()) {
-                                throw HttpReturnException(400, "Cannot have a NULL column name");
+                                throw AnnotatedException(400, "Cannot have a NULL column name");
                             }
                             output.emplace_back(std::move(*columnNameOut),
                                                 storage.stealAtom(),
@@ -4187,7 +4187,7 @@ std::shared_ptr<SqlExpression>
 SelectColumnExpression::
 transform(const TransformArgs & transformArgs) const
 {
-    throw HttpReturnException(400, "SelectColumnExpression::transform()");
+    throw AnnotatedException(400, "SelectColumnExpression::transform()");
 }
 
 std::vector<std::shared_ptr<SqlExpression> >
@@ -4243,7 +4243,7 @@ bind(SqlBindingScope & scope) const
     auto getGroupbyKey = scope.doGetGroupByKey(index);
 
     if (!getGroupbyKey.info) {
-        throw HttpReturnException(400, "scope " + MLDB::type_name(scope)
+        throw AnnotatedException(400, "scope " + MLDB::type_name(scope)
                             + " doGetGroupByKey '"
                             + "' didn't return info");
     }

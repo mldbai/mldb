@@ -13,7 +13,7 @@
 #include <boost/python/to_python_converter.hpp>
 #include "mldb/http/http_header.h"
 #include "mldb/types/dtoa.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "python_converters.h"
 
 
@@ -70,7 +70,7 @@ struct RestParamsConverter
                 }
                 else
                 { 
-                    throw HttpReturnException(400,
+                    throw AnnotatedException(400,
                             MLDB::format("Exception while parsing REST parameter at position: %d", i));
                 }
             }

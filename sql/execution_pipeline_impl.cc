@@ -8,7 +8,7 @@
 */
 
 #include "execution_pipeline_impl.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/set_description.h"
 #include "mldb/types/tuple_description.h"
@@ -824,7 +824,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
     case AnnotatedJoinCondition::EQUIJOIN:
         break;
     default:
-        throw HttpReturnException(400, "Join expression requires an equality operator; needs to be in the form f(left) = f(right)",
+        throw AnnotatedException(400, "Join expression requires an equality operator; needs to be in the form f(left) = f(right)",
                                   "joinOn", on,
                                   "condition", condition);
     }
@@ -1666,7 +1666,7 @@ start(const BoundParameters & getParam) const
              rightAdded);
 
     default:
-        throw HttpReturnException(400, "Can't execute that kind of join",
+        throw AnnotatedException(400, "Can't execute that kind of join",
                                   "condition", condition_);
     }
 }
@@ -1802,7 +1802,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
         GetParamInfo getParamInfo = [&] (const Utf8String & paramName)
             -> std::shared_ptr<ExpressionValueInfo>
             {
-                throw HttpReturnException(500, "No query parameter " + paramName);
+                throw AnnotatedException(500, "No query parameter " + paramName);
             };
 
         if (params_)
@@ -1813,7 +1813,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
     else {
 #if 0
         if (!unbound.params.empty())
-            throw HttpReturnException(400, "Can't deal with from expression "
+            throw AnnotatedException(400, "Can't deal with from expression "
                                       "with unbound parameters",
                                       "exprType", from->getType(),
                                       "unbound", unbound);

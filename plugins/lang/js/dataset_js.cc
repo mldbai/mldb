@@ -117,7 +117,7 @@ recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
 
         auto array = args[0].As<v8::Array>();
         if (array.IsEmpty())
-            throw HttpReturnException(400, "value " + JS::cstr(args[0]) + " is not an array");
+            throw AnnotatedException(400, "value " + JS::cstr(args[0]) + " is not an array");
         if (array->Length() == 0)
             return;
 
@@ -140,7 +140,7 @@ recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
                 auto obj = array->Get(i).As<v8::Object>();
 
                 if (obj.IsEmpty()) {
-                    throw HttpReturnException(400, "recordRow element is not object");
+                    throw AnnotatedException(400, "recordRow element is not object");
                 }
 
                 toRecord.emplace_back(from_js(JS::JSValue(obj->Get(rowPath)),
@@ -152,7 +152,7 @@ recordRows(const v8::FunctionCallbackInfo<v8::Value> & args)
             v8::Unlocker unlocker(args.GetIsolate());
             dataset->recordRowsExpr(std::move(toRecord));
         }
-        else throw HttpReturnException(400, "Can't call recordRows with argument "
+        else throw AnnotatedException(400, "Can't call recordRows with argument "
                                        + JS::cstr(el));
         
         args.GetReturnValue().Set(args.This());

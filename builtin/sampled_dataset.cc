@@ -10,7 +10,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/engine/dataset_scope.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <random>
 #include <unordered_set>
 
@@ -294,7 +294,7 @@ SampledDataset(MldbEngine * owner,
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
 
     if (sampleConfig.dataset == nullptr) {
-        throw HttpReturnException(400, "You need to define the dataset key");
+        throw AnnotatedException(400, "You need to define the dataset key");
     }
 
     SqlExpressionMldbScope context(owner);

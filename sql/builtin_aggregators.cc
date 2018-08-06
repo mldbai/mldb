@@ -7,7 +7,7 @@
 
 #include "sql_expression.h"
 #include "builtin_functions.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"

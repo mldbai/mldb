@@ -7,7 +7,7 @@
 */
 
 #include "mldb/rest/rest_request_binding.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 using namespace std;
 

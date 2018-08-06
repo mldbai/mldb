@@ -4,7 +4,7 @@
 */
 
 #include "melt_procedure.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "types/basic_value_descriptions.h"
 #include "types/distribution_description.h"
 #include "types/map_description.h"
@@ -21,7 +21,7 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/sparse_matrix_dataset.h"
 #include "mldb/engine/bound_queries.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 using namespace std;
 
@@ -121,7 +121,7 @@ run(const ProcedureRunConfig & run,
     auto toMelt = extractNamedSubSelect("to_melt", runProcConf.inputData.stm->select)->expression;
 
     if (!toFix || !toMelt)
-        throw HttpReturnException(400, "inputData must return a 'to_fix' row and a 'to_melt' row");
+        throw AnnotatedException(400, "inputData must return a 'to_fix' row and a 'to_melt' row");
 
     shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(toMelt);
     SelectExpression select({subSelect});

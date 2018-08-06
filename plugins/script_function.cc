@@ -103,7 +103,7 @@ apply(const FunctionApplier & applier,
 
     // TODO. better exception message
     if(connection.responseCode != 200) {
-        throw HttpReturnException(400, "responseCode != 200 for function",
+        throw AnnotatedException(400, "responseCode != 200 for function",
                                   Json::parse(connection.response));
     }
 

@@ -12,7 +12,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/path.h"
 
 

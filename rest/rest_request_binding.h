@@ -465,7 +465,7 @@ createParameterExtractor(Json::Value & argHelp,
             Json::Value parsed = request.payload.empty() ?
                 Json::nullValue : Json::parse(request.payload);
             if (!request.params.empty() && !parsed.empty()) {
-                throw HttpReturnException(
+                throw AnnotatedException(
                     400, "You cannot mix query string and body parameters");
             }
             if (request.params.hasValue(p.name)) {
@@ -505,7 +505,7 @@ createParameterExtractor(Json::Value & argHelp,
             Json::Value parsed = request.payload.empty() ?
                 Json::nullValue : Json::parse(request.payload);
             if (!request.params.empty() && !parsed.empty()) {
-                throw HttpReturnException(
+                throw AnnotatedException(
                     400, "You cannot mix query string and body parameters");
             }
             if (parsed.isMember(p.name)) {

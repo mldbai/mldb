@@ -15,7 +15,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/ext/tinyxml2/tinyxml2.h"
 #include "mldb/utils/log.h"
 
@@ -77,13 +77,13 @@ struct SharedStrings {
         XMLElement * sst = handle.FirstChildElement("sst").ToElement();
 
         if (!sst)
-            throw HttpReturnException(400, "xlsx file SharedStrings have no sst element");
+            throw AnnotatedException(400, "xlsx file SharedStrings have no sst element");
 
 
         unsigned numStrings;
         int res = sst->QueryUnsignedAttribute("uniqueCount", &numStrings);
         if (res != XML_NO_ERROR)
-            throw HttpReturnException(400, "xlsx file SharedStrings have no uniqueCount");
+            throw AnnotatedException(400, "xlsx file SharedStrings have no uniqueCount");
 
         DEBUG_MSG(logger) << "got " << numStrings << " unique strings";
 
@@ -98,7 +98,7 @@ struct SharedStrings {
             XMLElement * text = handle.FirstChildElement("t").ToElement();
 
             if (!text)
-                throw HttpReturnException(400, "xlsx file SharedStrings <si> element has no child <t> element");
+                throw AnnotatedException(400, "xlsx file SharedStrings <si> element has no child <t> element");
 
             const char * t = text->GetText();
 
@@ -112,7 +112,7 @@ struct SharedStrings {
         DEBUG_MSG(logger) << "read " << strings.size() << " unique strings";
 
         if (numStrings != strings.size()) {
-            throw HttpReturnException(400, "xlsx file SharedStrings file consistency error: number of strings read doesn't match definition",
+            throw AnnotatedException(400, "xlsx file SharedStrings file consistency error: number of strings read doesn't match definition",
                                       "numDefined", numStrings,
                                       "numRead", strings.size());
 
@@ -240,7 +240,7 @@ struct Styles {
                 XMLElement * element = node->ToElement();
 
                 if (!element)
-                    throw HttpReturnException(400, "xlsx worksheet number format entry is not an element");
+                    throw AnnotatedException(400, "xlsx worksheet number format entry is not an element");
 
 
                 auto readAttr = [&] (const std::string & attr) -> std::string
@@ -270,7 +270,7 @@ struct Styles {
 
                 XMLElement * element = node->ToElement();
                 if (!element)
-                    throw HttpReturnException(400, "xlsx worksheet sheet entry is not an element");
+                    throw AnnotatedException(400, "xlsx worksheet sheet entry is not an element");
 
                 auto readAttr = [&] (const std::string & attr) -> std::string
                     {
@@ -380,7 +380,7 @@ struct Workbook {
         }
 
         if (!workbookPr)
-            throw HttpReturnException(400, "xlsx workbook not found");
+            throw AnnotatedException(400, "xlsx workbook not found");
 
         // date1904 attribute says that the epoch is 1904-01-01
         const char * foundAttr = workbookPr->Attribute("date1904");
@@ -394,13 +394,13 @@ struct Workbook {
             .ToElement();
 
         if (!sheets)
-            throw HttpReturnException(400, "xlsx workbook has no sheets element");
+            throw AnnotatedException(400, "xlsx workbook has no sheets element");
 
         for (XMLNode * node = sheets->FirstChildElement((ns + "sheet").c_str());
              node;  node = node->NextSibling()) {
             XMLElement * element = node->ToElement();
             if (!element)
-                throw HttpReturnException(400, "xlsx workbook sheet entry is not an element");
+                throw AnnotatedException(400, "xlsx workbook sheet entry is not an element");
 
             auto readAttr = [&] (const std::string & attr) -> Utf8String
                 {
@@ -446,7 +446,7 @@ struct Workbook {
 
         auto el = handle.FirstChildElement().ToElement();
         if (!el)
-            throw HttpReturnException(400, "xlsx worksheet has no relationships element");
+            throw AnnotatedException(400, "xlsx worksheet has no relationships element");
         string name = el->Value();
         string ns;
         auto pos = name.find("Relationships");
@@ -458,14 +458,14 @@ struct Workbook {
             .ToElement();
 
         if (!rels)
-            throw HttpReturnException(400, "xlsx worksheet has no relationships element");
+            throw AnnotatedException(400, "xlsx worksheet has no relationships element");
 
         for (XMLNode * node = rels->FirstChildElement((ns + "Relationship").c_str());
              node;
              node = node->NextSibling()) {
             XMLElement * element = node->ToElement();
             if (!element)
-                throw HttpReturnException(400, "xlsx worksheet Relationship entry is not an element");
+                throw AnnotatedException(400, "xlsx worksheet Relationship entry is not an element");
 
             auto readAttr = [&] (const std::string & attr) -> Utf8String
                 {
@@ -510,13 +510,13 @@ struct Sheet {
             .ToElement();
 
         if (!data)
-            throw HttpReturnException(400, "xlsx worksheet has no sheetData element");
+            throw AnnotatedException(400, "xlsx worksheet has no sheetData element");
 
         for (XMLNode * node = data->FirstChildElement("row");  node;
              node = node->NextSibling()) {
             XMLElement * element = node->ToElement();
             if (!element)
-                throw HttpReturnException(400, "xlsx worksheet Relationship entry is not an element");
+                throw AnnotatedException(400, "xlsx worksheet Relationship entry is not an element");
 
             auto readAttr = [&] (const std::string & attr) -> Utf8String
                 {
@@ -541,7 +541,7 @@ struct Sheet {
                 XMLElement * colElement = colNode->ToElement();
 
                 if (!colElement)
-                    throw HttpReturnException(400, "xlsx sheet column is not an element");
+                    throw AnnotatedException(400, "xlsx sheet column is not an element");
 
                 auto readAttr = [&] (const std::string & attr) -> Utf8String
                     {
@@ -645,7 +645,7 @@ struct Sheet {
                             + (toupper(cellid[1]) - 'A' + 1) * 26
                             + toupper(cellid[2]) - 'A';
                     }
-                    else throw HttpReturnException(400, "Unable to parse Cell ID '" + cellid + "'");
+                    else throw AnnotatedException(400, "Unable to parse Cell ID '" + cellid + "'");
                 }
 
                 DEBUG_MSG(logger) << "cell " << cellid << " has value " << jsonEncodeStr(value);
@@ -701,7 +701,7 @@ struct XlsxImporter: public Procedure {
 
                 auto fragPos = prefix.rfind('#');
                 if (fragPos == string::npos)
-                    throw HttpReturnException(500, "Couldn't find in filename");
+                    throw AnnotatedException(500, "Couldn't find in filename");
 
                 string internalFilename(prefix, fragPos + 1);
 

@@ -6,7 +6,7 @@
 */
 
 #include "mldb/engine/dataset_utils.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <algorithm>
 
 using namespace std;
@@ -103,7 +103,7 @@ getRow(const RowPath & row) const
     }
 
     if (result.columns.empty())
-        throw HttpReturnException(400, "unknown row '" + row.toUtf8String() + "'");
+        throw AnnotatedException(400, "unknown row '" + row.toUtf8String() + "'");
 
     return result;
 }
@@ -171,7 +171,7 @@ getColumn(const ColumnPath & column) const
     }
 
     if (result.rows.empty())
-        throw HttpReturnException(400, "unknown column '" + column.toUtf8String() + "'");
+        throw AnnotatedException(400, "unknown column '" + column.toUtf8String() + "'");
 
     return result;
 }

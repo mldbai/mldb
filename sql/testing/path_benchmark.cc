@@ -12,7 +12,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/date.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include <set>
 #include <unordered_set>

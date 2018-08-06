@@ -10,7 +10,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include <algorithm>
 
 using namespace std;
@@ -265,7 +265,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                           std::back_inserter(commonTables));
 
     if (!commonTables.empty()) {
-        throw HttpReturnException(400, "Join has ambiguous table name(s) with "
+        throw AnnotatedException(400, "Join has ambiguous table name(s) with "
                                   "same name occurring on both left and right side",
                                   "ambiguousTableNames", commonTables,
                                   "left", left,
@@ -291,7 +291,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             AnnotatedClause clauseOut(c, leftTables, rightTables, debug);
 
             if (!clauseOut.externalVars.empty()) {
-                throw HttpReturnException(400, "Join condition refers to unknown variables",
+                throw AnnotatedException(400, "Join condition refers to unknown variables",
                                           "unknownVariables", clauseOut.externalVars,
                                           "clause", c,
                                           "left", left,

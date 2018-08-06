@@ -9,7 +9,7 @@
 #include "mldb/ext/highwayhash.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/dtoa.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
@@ -213,15 +213,15 @@ fromMonthDaySecond( int64_t months, int64_t days, double seconds)
     value.timeInterval.seconds = copysign(seconds, negative ? -1.0 : 1.0);
 
     if (negative > 1) {
-        throw HttpReturnException(400, "Cannot create interval where more than one of months, days and seconds is negative",
+        throw AnnotatedException(400, "Cannot create interval where more than one of months, days and seconds is negative",
                                   "months", months, "days", days, "seconds", seconds);
     }
     if (value.timeInterval.months != months) {
-        throw HttpReturnException(400, "Months for time interval was out of range of -65535 to 65535",
+        throw AnnotatedException(400, "Months for time interval was out of range of -65535 to 65535",
                                   "months", months);
     }
     if (value.timeInterval.days != days) {
-        throw HttpReturnException(400, "Days for time interval was out of range of -65535 to 65535",
+        throw AnnotatedException(400, "Days for time interval was out of range of -65535 to 65535",
                                   "days", days);
     }
 
@@ -274,7 +274,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
     if (len <= INTERNAL_LENGTH) {
         if(invalidChar) {
             if (!isUtf8)
-                throw HttpReturnException(400, "UTF-8 character detected in ASCII string");
+                throw AnnotatedException(400, "UTF-8 character detected in ASCII string");
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
@@ -290,7 +290,7 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
     else {
         if(invalidChar) {
             if (!isUtf8)
-                throw HttpReturnException(400, "UTF-8 character detected in ASCII string");
+                throw AnnotatedException(400, "UTF-8 character detected in ASCII string");
             if (check) {
                 const char * end = utf8::find_invalid(stringValue, stringValue + len);
                 if (end != stringValue + len)
@@ -435,7 +435,7 @@ cellType() const
         return PATH;
     }
 
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 Utf8String
@@ -507,7 +507,7 @@ toString() const
         return string(longString->repr, longString->repr + strLength);
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
-        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+        throw AnnotatedException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
                             + to_string(cellType()) + "' to ASCII string");
     case ST_TIMESTAMP:
         return Date::fromSecondsSinceEpoch(timestamp)
@@ -520,9 +520,9 @@ toString() const
         return string(longString->repr, longString->repr + strLength);
     case ST_SHORT_BLOB:
     case ST_LONG_BLOB:
-        throw HttpReturnException(400, "Cannot call toString() on a blob");
+        throw AnnotatedException(400, "Cannot call toString() on a blob");
     default:
-        throw HttpReturnException(400, "unknown CellValue type");
+        throw AnnotatedException(400, "unknown CellValue type");
     }
 }
 
@@ -538,7 +538,7 @@ toDoubleImpl() const
     case ST_FLOAT:
         return floatVal;
     default:
-        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+        throw AnnotatedException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
                                     + to_string(cellType()) + "' to double");
     }
 }
@@ -548,7 +548,7 @@ CellValue::
 toInt() const
 {
     if (type != ST_INTEGER) {
-        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+        throw AnnotatedException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
                                   + to_string(cellType()) + "' to integer");
     }
     return intVal;
@@ -564,7 +564,7 @@ toUInt() const
     else if (type == ST_UNSIGNED) {
         return uintVal;
     }
-        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+        throw AnnotatedException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
                                   + to_string(cellType()) + "' to unsigned integer");
 }
 
@@ -573,7 +573,7 @@ CellValue::
 toTimestamp() const
 {
     if (type != ST_TIMESTAMP)
-        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"+
+        throw AnnotatedException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"+
                                         to_string(cellType()) +"' to timestamp", "value", *this);
     return Date::fromSecondsSinceEpoch(timestamp);
 }
@@ -583,7 +583,7 @@ CellValue::
 toMonthDaySecond() const
 {
     if (type != ST_TIMEINTERVAL) {
-        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"+ 
+        throw AnnotatedException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"+ 
                                         to_string(cellType()) +"' to time interval", "value", *this);
     }
     return make_tuple(timeInterval.months, timeInterval.days, timeInterval.seconds);
@@ -725,7 +725,7 @@ mustCoerceToTimestamp() const
     if (isNumber()) {
         return Date::fromSecondsSinceEpoch(toDouble());
     }
-    throw HttpReturnException(400, "Couldn't convert value '" + toUtf8String()
+    throw AnnotatedException(400, "Couldn't convert value '" + toUtf8String()
                               + "' to timestamp",
                               "value", *this);
 }
@@ -803,7 +803,7 @@ asBool() const
     case ST_TIMEINTERVAL:
         return timeInterval.months || timeInterval.days || timeInterval.seconds;
     default:
-        throw HttpReturnException(400, "unknown CellValue type");
+        throw AnnotatedException(400, "unknown CellValue type");
     }
 }
 
@@ -835,7 +835,7 @@ isNumber() const
         return false;
     }
 
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 bool
@@ -864,7 +864,7 @@ isPositiveNumber() const
         return false;
     }
 
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 bool
@@ -893,7 +893,7 @@ isNegativeNumber() const
         return false;
     }
 
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 bool
@@ -922,7 +922,7 @@ isFalse() const
     case ST_TIMEINTERVAL:
         return false;
     }
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
@@ -1021,7 +1021,7 @@ operator == (const CellValue & other) const
     }
         
     default:
-        throw HttpReturnException(400, "unknown CellValue type");
+        throw AnnotatedException(400, "unknown CellValue type");
     }
 }
 
@@ -1178,7 +1178,7 @@ operator <  (const CellValue & other) const
             return type < other.type;
 
         default:
-            throw HttpReturnException(400, "unknown CellValue type");
+            throw AnnotatedException(400, "unknown CellValue type");
         }
 
     } catch (...) {
@@ -1211,7 +1211,7 @@ stringChars() const
         return longString->repr;
     }
     cerr << "unknown cell value type " << endl;
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 uint32_t
@@ -1237,7 +1237,7 @@ toStringLength() const
     case ST_LONG_PATH:
         return strLength;
     }
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 const unsigned char *
@@ -1250,7 +1250,7 @@ blobData() const
     case ST_LONG_BLOB:
         return (const unsigned char *)longString->repr;
     default:
-        throw HttpReturnException(400, "CellValue of type '"+to_string(cellType())+"' with value '"+
+        throw AnnotatedException(400, "CellValue of type '"+to_string(cellType())+"' with value '"+
                                     trimmedExceptionString()+"' is not a blob", "value", *this);
     }
 }
@@ -1264,7 +1264,7 @@ blobLength() const
     case ST_LONG_BLOB:
         return strLength;
     default:
-        throw HttpReturnException(400, "CellValue of type '"+to_string(cellType())+"' with value '"+
+        throw AnnotatedException(400, "CellValue of type '"+to_string(cellType())+"' with value '"+
                                     trimmedExceptionString()+"' is not a blob", "value", *this);
     }
 }
@@ -1294,7 +1294,7 @@ isExactDouble() const
         return true;
     }
 
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 void
@@ -1448,7 +1448,7 @@ extractStructuredJson(JsonPrintingContext & context) const
             context.writeString(longString->repr, (size_t)strLength);
             return;
         default:
-            throw HttpReturnException(400, "unknown string cell type");
+            throw AnnotatedException(400, "unknown string cell type");
             return;
         }
     case CellValue::TIMESTAMP: {
@@ -1519,7 +1519,7 @@ extractStructuredJson(JsonPrintingContext & context) const
         context.endObject();
         return;
     default:
-        throw HttpReturnException(400, "unknown cell type");
+        throw AnnotatedException(400, "unknown cell type");
         return;
     }
 }
@@ -1546,7 +1546,7 @@ memusage() const
     case ST_LONG_PATH:
         return sizeof(*this) + sizeof(StringRepr) + strLength;
     }
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 namespace {
@@ -1716,7 +1716,7 @@ serializedBytes(bool exactBytesAvailable) const
     }
     }
 
-    throw HttpReturnException(400, "unknown CellValue type");
+    throw AnnotatedException(400, "unknown CellValue type");
 }
 
 char *
@@ -1726,7 +1726,7 @@ serialize(char * start, size_t bytesAvailable,
 {
     size_t bytesRequired = serializedBytes(exactBytesAvailable);
     if (bytesAvailable < bytesRequired)
-        throw HttpReturnException
+        throw AnnotatedException
             (500,
              "Wrong number of bytes available serializing CellValue "
              + jsonEncodeStr(*this));
@@ -1797,7 +1797,7 @@ serialize(char * start, size_t bytesAvailable,
             len = blobLength();
             break;
         default:
-            throw HttpReturnException(500, "unknown type in CellValue serialization");
+            throw AnnotatedException(500, "unknown type in CellValue serialization");
         }
 
         if (len < 15) {
@@ -1810,7 +1810,7 @@ serialize(char * start, size_t bytesAvailable,
             case BLOB:
                 typeByte = CVT_SHORT_BLOB + len;  break;
             default:
-                throw HttpReturnException(500, "unknown type in CellValue serialization");
+                throw AnnotatedException(500, "unknown type in CellValue serialization");
             }
             *start++ = typeByte;
         }
@@ -1824,7 +1824,7 @@ serialize(char * start, size_t bytesAvailable,
             case BLOB:
                 typeByte = CVT_LONG_BLOB;  break;
             default:
-                throw HttpReturnException(500, "unknown type in CellValue serialization");
+                throw AnnotatedException(500, "unknown type in CellValue serialization");
             }
             *start++ = typeByte;
             if (!exactBytesAvailable)
@@ -1839,7 +1839,7 @@ serialize(char * start, size_t bytesAvailable,
             memcpy(start, blobData(), len);
             break;
         default:
-            throw HttpReturnException(500, "unknown type in CellValue serialization");
+            throw AnnotatedException(500, "unknown type in CellValue serialization");
             
         }
         start += len;
@@ -1880,7 +1880,7 @@ serialize(char * start, size_t bytesAvailable,
     }
     }
     default:
-        throw HttpReturnException(400, "unknown CellValue type");
+        throw AnnotatedException(400, "unknown CellValue type");
     }
 
     if (start - oldStart != bytesRequired) {
@@ -1933,13 +1933,13 @@ reconstitute(const char * buf,
              bool exactBytesAvailable)
 {
     if (serializationFormat != 1) {
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Attempt to reconstitute unknown CellValue format "
              + jsonEncodeStr((int)serializationFormat));
     }
 
     if (bytesAvailable < 1) {
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Attempt to reconstitute CellValue at end of buffer");
     }
 
@@ -1957,14 +1957,14 @@ reconstitute(const char * buf,
         case CVT_EMPTY:
             break;
         default:
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Unknown CellValue special code");
         }
         break;
     case CVC_INTEGER: {
         int length = indicator - CVT_INTEGER;
         if (length > 8) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Unknown CellValue integer code");
         }
         int64_t val = reconstituteUnsigned(buf, length);
@@ -1994,7 +1994,7 @@ reconstitute(const char * buf,
             break;
         }
         default:
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Unknown CellValue float code "
                  + jsonEncodeStr((int)indicator));
         }
@@ -2009,7 +2009,7 @@ reconstitute(const char * buf,
             break;
         }
         default:
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Unknown CellValue float code");
         }
         break;
@@ -2028,7 +2028,7 @@ reconstitute(const char * buf,
             result = CellValue::fromMonthDaySecond(months, days, seconds);
             break;
         default:
-            throw HttpReturnException
+            throw AnnotatedException
                 (500, "Unknown CellValue time interval code");
         }
         }
@@ -2095,7 +2095,7 @@ reconstitute(const char * buf,
     }   
 
     default:
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Unknown CellValue category");
     }
 
@@ -2103,7 +2103,7 @@ reconstitute(const char * buf,
     if (exactBytesAvailable && bytesUsed != bytesAvailable) {
         cerr << "bytesUsed = " << bytesUsed << endl;
         cerr << "bytesAvailable = " << bytesAvailable << endl;
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Error reconstituting CellValue: wrong bytes used");
     }
     
@@ -2148,7 +2148,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                 }
                 else
                 {
-                    throw HttpReturnException(400, "Unknown numeric value '" + text + "'");
+                    throw AnnotatedException(400, "Unknown numeric value '" + text + "'");
                 }               
             }
             else if (v.isMember("interval")) {
@@ -2165,7 +2165,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
 
                 if (!v["blob"].isNull()) {
                     if (v["blob"].type() != Json::arrayValue) {
-                        throw HttpReturnException(400, "JSON blob is not an array: '" + v.toStringNoNewLine() + "'");
+                        throw AnnotatedException(400, "JSON blob is not an array: '" + v.toStringNoNewLine() + "'");
                     }
                     for (auto & v2: v["blob"]) {
                         if (v2.isUInt() || v2.isInt()) {
@@ -2196,7 +2196,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                 *val = Path(result.data(), result.size());
             }
             else {
-                throw HttpReturnException(400, "Unknown JSON CellValue '" + v.toStringNoNewLine() + "'");
+                throw AnnotatedException(400, "Unknown JSON CellValue '" + v.toStringNoNewLine() + "'");
             }
         }
         else if (context.isBool()) {
@@ -2205,7 +2205,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
         else {
             Json::Value val = context.expectJson();
             cerr << "val = " << val << endl;
-            throw HttpReturnException(400, "Unknown cell value",
+            throw AnnotatedException(400, "Unknown cell value",
                                       "json",
                                       val.toStringNoNewLine());
         }

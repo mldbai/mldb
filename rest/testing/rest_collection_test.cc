@@ -579,7 +579,7 @@ BOOST_AUTO_TEST_CASE( stress_test_collection_cancellation )
                         underConstruction++;
                     }
                 }
-                catch (HttpReturnException & ex) {
+                catch (AnnotatedException & ex) {
                     BOOST_ERROR("failed creating an entry or to get "
                                 "the entry while under construction");
                 }
@@ -611,7 +611,7 @@ BOOST_AUTO_TEST_CASE( stress_test_collection_cancellation )
                         lateCancellation++;
                     }
                 }
-                catch (HttpReturnException & ex) {
+                catch (AnnotatedException & ex) {
                     cerr << "failed to get the entry" << endl;
                 }
               

@@ -324,7 +324,7 @@ V8Init(MldbEngine * engine)
     char exePath[PATH_MAX];
     ssize_t pathLen = readlink("/proc/self/exe", exePath, PATH_MAX);
     if (pathLen == -1)
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Couldn't path to the MLDB executable; "
              "is the /proc filesystem mounted?  ("
              + string(strerror(errno)) + ")");

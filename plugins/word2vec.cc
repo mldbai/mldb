@@ -16,7 +16,7 @@
 #include <boost/algorithm/string.hpp>
 #include "mldb/utils/log.h"
 #include "mldb/engine/dataset_scope.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 using namespace std;
 
@@ -57,12 +57,12 @@ struct SqlWord2VecScope: public SqlExpressionMldbScope {
                                      const ColumnPath & columnName)
     {
         if (!tableName.empty()) {
-            throw HttpReturnException(400, "Unknown table name in import.word2vec procedure",
+            throw AnnotatedException(400, "Unknown table name in import.word2vec procedure",
                                       "tableName", tableName);
         }
 
         if (columnName.toUtf8String() != "word")
-            throw HttpReturnException(400, "Unknown column name in import.word2vecprocedure",
+            throw AnnotatedException(400, "Unknown column name in import.word2vecprocedure",
                                       "columnName", columnName);
 
         return {[=] (const SqlRowScope & scope,
@@ -79,7 +79,7 @@ struct SqlWord2VecScope: public SqlExpressionMldbScope {
     doGetAllColumns(const Utf8String & tableName,
                     const ColumnFilter& keep)
     {
-         throw HttpReturnException(400, "Cannot use wildcard in import.word2vec context");
+         throw AnnotatedException(400, "Cannot use wildcard in import.word2vec context");
     }
 
     virtual BoundFunction

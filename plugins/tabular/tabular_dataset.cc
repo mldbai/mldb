@@ -22,7 +22,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/types/set_description.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/jml/utils/floating_point.h"
 #include "mldb/utils/log.h"
@@ -252,7 +252,7 @@ struct PathIndexShard: public PathIndexMetadata {
                         cerr << "bucket = " << bucket << endl;
                         cerr << "offset = " << offset << endl;
                         cerr << "numEntries = " << numEntries << endl;
-                        throw HttpReturnException(500, "Hash bucket error");
+                        throw AnnotatedException(500, "Hash bucket error");
                     }
                 }
             }
@@ -530,7 +530,7 @@ struct TabularDataset::TabularDataStore
         {
             auto it = columnIndex.find(column.oldHash());
             if (it == columnIndex.end()) {
-                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                throw AnnotatedException(400, "Tabular dataset contains no column with given hash",
                                           "columnHash", column,
                                           "knownColumns", getColumnPaths(0, -1));
             }
@@ -551,7 +551,7 @@ struct TabularDataset::TabularDataStore
         {
             auto it = columnIndex.find(column.oldHash());
             if (it == columnIndex.end()) {
-                throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                throw AnnotatedException(400, "Tabular dataset contains no column with given name",
                                           "columnName", column,
                                           "knownColumns", getColumnPaths(0, -1));
             }
@@ -581,7 +581,7 @@ struct TabularDataset::TabularDataStore
         {
             auto it = columnIndex.find(column.oldHash());
             if (it == columnIndex.end()) {
-                throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                throw AnnotatedException(400, "Tabular dataset contains no column with given name",
                                           "columnName", column,
                                           "knownColumns", getColumnPaths(0, -1));
             }
@@ -607,7 +607,7 @@ struct TabularDataset::TabularDataStore
                             strings[i].emplace_back(val.toUtf8String());
                         }
                         else {
-                            throw HttpReturnException
+                            throw AnnotatedException
                             (400, "Can only bucketize numbers and strings, not "
                              + jsonEncodeStr(val));
                         }
@@ -654,7 +654,7 @@ struct TabularDataset::TabularDataStore
                 onChunk2(i);
 
             if (numWritten != totalRows) {
-                throw HttpReturnException
+                throw AnnotatedException
                     (500, "Column " + column.toUtf8String()
                      + " had wrong number written ("
                      + to_string(numWritten) + " vs " + to_string(totalRows)
@@ -694,7 +694,7 @@ struct TabularDataset::TabularDataStore
         {
             auto it = columnIndex.find(columnName.oldHash());
             if (it == columnIndex.end()) {
-                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                throw AnnotatedException(400, "Tabular dataset contains no column with given hash",
                                           "columnName", columnName,
                                           "knownColumns", getColumnPaths(0, -1));
             }
@@ -788,7 +788,7 @@ struct TabularDataset::TabularDataStore
         {
             auto result = tryLookupRow(rowName);
             if (result.first == -1)
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Row not found in tabular dataset: "
                      + rowName.toUtf8String(),
                      "rowName", rowName);
@@ -809,7 +809,7 @@ struct TabularDataset::TabularDataStore
                     == rowHash.hash())
                     return {chunkNumber, indexInChunk};
             }
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Row not found in tabular dataset");
         }
 
@@ -864,7 +864,7 @@ struct TabularDataset::TabularDataStore
         {
             auto it = columnHashIndex.find(column);
             if (it == columnHashIndex.end())
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Tabular dataset contains no column with given hash",
                      "columnHash", column,
                      "knownColumns", getColumnPaths(0, -1));
@@ -880,7 +880,7 @@ struct TabularDataset::TabularDataStore
             // right.
             auto it = columnIndex.find(column.oldHash());
             if (it == columnIndex.end()) {
-                throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                throw AnnotatedException(400, "Tabular dataset contains no column with given hash",
                                           "columnPath", column,
                                           "knownColumns", getColumnPaths(0, -1));
             }
@@ -1105,7 +1105,7 @@ struct TabularDataset::TabularDataStore
                         ((*chunkiter)->maybeGetColumn(columnIndexes[i],
                                                       columnNames[i]));
                     if (!columns.back())
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (400,
                              "Couldn't find column "
                              + columnNames[i].toUtf8String());
@@ -1513,7 +1513,7 @@ struct TabularDataset::TabularDataStore
                 }
                 if (extraDuplicates)
                     duplicateNames += "...";
-                throw HttpReturnException
+                throw AnnotatedException
                     (400, "Duplicate row name(s) in tabular dataset: "
                      + duplicateNames,
                      "duplicates", duplicateRowNames);
@@ -1535,7 +1535,7 @@ struct TabularDataset::TabularDataStore
         for (size_t i = 0;  i < fixedColumns.size();  ++i) {
             if (!fixedColumnIndex.insert(make_pair(fixedColumns[i].oldHash(), i))
                 .second)
-                throw HttpReturnException(500,
+                throw AnnotatedException(500,
                                           "Duplicate column name in tabular dataset",
                                           "columnName", fixedColumns[i]);
         }
@@ -1998,7 +1998,7 @@ struct TabularDataset::TabularDataStore
                 const ColumnPath & c = std::get<0>(vals[i]);
                 uint64_t ch(c.oldHash());
                 if (!inputColumnIndex.insert(make_pair(ch, i)).second)
-                    throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
+                    throw AnnotatedException(400, "Duplicate column name in tabular dataset entry",
                                               "columnName", c.toUtf8String());
                 columnNames.push_back(c);
             }
@@ -2038,7 +2038,7 @@ struct TabularDataset::TabularDataStore
             if (iter == fixedColumnIndex.end()) {
                 switch (config.unknownColumns) {
                 case UC_ERROR:
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400,
                          "New column name while recording row in tabular dataset "
                          "with unknownColumns=ERROR",

@@ -9,7 +9,7 @@
 #include "sql_expression.h"
 #include "tokenize.h"
 #include "regex_helper.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/jml/utils/csv.h"
@@ -95,7 +95,7 @@ struct RegisterBuiltinUnaryScalar {
                 try {
                     return wrapper(fn, args, scope);
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Executing builtin function "
+                    rethrowException(-1, "Executing builtin function "
                                          + functionName
                                          + ": " + getExceptionString(),
                                          "functionName", functionName,
@@ -162,7 +162,7 @@ struct RegisterBuiltinUnaryScalar {
             return applyEmbedding(fn, args, scope);
         else if (args[0].isRow())
             return applyRow(fn, args, scope);
-        throw HttpReturnException(500, "applyRow unary scalar for unknown value",
+        throw AnnotatedException(500, "applyRow unary scalar for unknown value",
                                   "value", args[0]);
     }
 
@@ -250,7 +250,7 @@ struct RegisterBuiltinUnaryScalar {
                                            scope);
                     }
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Binding builtin function "
+                    rethrowException(-1, "Binding builtin function "
                                          + functionName + ": "
                                          + getExceptionString(),
                                          "functionName", functionName,
@@ -335,7 +335,7 @@ struct RegisterBuiltinBinaryScalar {
                 try {
                     return wrapper(fn, args, scope);
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Executing builtin function "
+                    rethrowException(-1, "Executing builtin function "
                                          + functionName
                                          + ": " + getExceptionString(),
                                          "functionName", functionName,
@@ -452,7 +452,7 @@ struct RegisterBuiltinBinaryScalar {
         std::vector<CellValue> vals2 = args[1].getEmbeddingCell();
 
         if (vals1.size() != vals2.size())
-            throw HttpReturnException(400, "Attempt to apply function to "
+            throw AnnotatedException(400, "Attempt to apply function to "
                                       "incompatibly sized embeddings");
         for (size_t i = 0;  i < vals1.size();  ++i)
             vals1[i] = fn(vals1[i], vals2[i]);
@@ -466,7 +466,7 @@ struct RegisterBuiltinBinaryScalar {
                 const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope)
     {
-        throw HttpReturnException(500, "Row to row functions not done");
+        throw AnnotatedException(500, "Row to row functions not done");
 #if 0
         RowValue v1, v2;
         args[0].appendToRow(PathElement(), v1);
@@ -513,7 +513,7 @@ struct RegisterBuiltinBinaryScalar {
                 return applyRowRow(fn, args, scope);
         }
 
-        throw HttpReturnException(400, "Incompatible binary arguments");
+        throw AnnotatedException(400, "Incompatible binary arguments");
     }
 
     static BoundFunction
@@ -617,7 +617,7 @@ struct RegisterBuiltinBinaryScalar {
                const std::vector<BoundSqlExpression> & args,
                const SqlBindingScope & scope)
     {
-        throw HttpReturnException(400, "binary function bindRowRow");
+        throw AnnotatedException(400, "binary function bindRowRow");
     }
 
     static BoundFunction
@@ -692,7 +692,7 @@ struct RegisterBuiltinBinaryScalar {
                     return bindUnknown(functionName, function, std::move(info),
                                        args, scope);
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Binding builtin function "
+                    rethrowException(-1, "Binding builtin function "
                                          + functionName + ": "
                                          + getExceptionString(),
                                          "functionName", functionName,
@@ -842,7 +842,7 @@ BoundFunction log(const std::vector<BoundSqlExpression> & args)
                 std::make_shared<Float64ValueInfo>()};
     // wrong number of arguments
     } else {
-        throw HttpReturnException(400,
+        throw AnnotatedException(400,
             "the log function expected 1 or 2 arguments, got "
             + to_string(args.size()));
     }
@@ -1262,7 +1262,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
 
                 if (extractScalar) {
                     if (results.size() != 1) {
-                        throw HttpReturnException
+                        throw AnnotatedException
                             (500, "Problem with output determination for temporal agg",
                              "info", info,
                              "input", val);
@@ -1280,7 +1280,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
                 }
 
             } else {
-                throw HttpReturnException
+                throw AnnotatedException
                 (500, "temporal aggregators invoked on unknown type",
                  "value", val);
             }
@@ -1295,7 +1295,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
 BoundFunction jaccard_index(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() != 2)
-        throw HttpReturnException(500, "jaccard_index function takes two arguments");
+        throw AnnotatedException(500, "jaccard_index function takes two arguments");
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
@@ -1477,7 +1477,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
     // extract the requested part of a timestamp
 
     if (args.size() < 2 || args.size() > 3)
-        throw HttpReturnException(400, "takes between two and three arguments, got " + to_string(args.size()));
+        throw AnnotatedException(400, "takes between two and three arguments, got " + to_string(args.size()));
 
     std::string timeUnitStr = args[0].constantValue().toString();
 
@@ -1488,7 +1488,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
     if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
-            throw HttpReturnException(400, "date_part expected a string as third argument, got " +
+            throw AnnotatedException(400, "date_part expected a string as third argument, got " +
                     constantValue.coerceToString().toUtf8String());
         }
 
@@ -1513,7 +1513,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
                     else {
                         const ExpressionValue& timezoneoffsetEV = args[2];
                         if (!timezoneoffsetEV.isString()) {
-                            throw HttpReturnException(400, "date_part expected a string as third argument, got " +
+                            throw AnnotatedException(400, "date_part expected a string as third argument, got " +
                                     timezoneoffsetEV.coerceToString().toUtf8String());
                         }
 
@@ -1539,7 +1539,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
     // extract the requested part of a timestamp
 
     if (args.size() < 2 || args.size() > 3)
-        throw HttpReturnException(400, "takes between two and three arguments, got " + to_string(args.size()));
+        throw AnnotatedException(400, "takes between two and three arguments, got " + to_string(args.size()));
 
     std::string timeUnitStr = args[0].constantValue().toString();
 
@@ -1550,7 +1550,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
     if (args.size() == 3 && args[2].info->isConst()) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
-            throw HttpReturnException(400, "date_trunc expected a string as third argument, got " +
+            throw AnnotatedException(400, "date_trunc expected a string as third argument, got " +
                     constantValue.coerceToString().toUtf8String());
         }
 
@@ -1575,7 +1575,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
                     else {
                         const ExpressionValue& timezoneoffsetEV = args[2];
                         if (!timezoneoffsetEV.isString()) {
-                            throw HttpReturnException(400, "date_trunc expected a string as third argument, got " + timezoneoffsetEV.coerceToString().toUtf8String());
+                            throw AnnotatedException(400, "date_trunc expected a string as third argument, got " + timezoneoffsetEV.coerceToString().toUtf8String());
                         }
 
                         Iso8601Parser timeZoneParser(timezoneoffsetEV.toString());
@@ -1605,7 +1605,7 @@ void normalize(distribution<double>& val, double p)
         val /= val.max();
     }
     else if (p <= 0.0 || !isfinite(p))
-        throw HttpReturnException(500, "Invalid power for normalize() function",
+        throw AnnotatedException(500, "Invalid power for normalize() function",
                                   "p", p);
     else if (p == 2) {
         val /= val.two_norm();
@@ -1663,7 +1663,7 @@ void normalize(distribution<double>& val, double p)
          else {
              if (vectorInfo->isRow()
                  && (args[0].info->getSchemaCompleteness() == SCHEMA_OPEN))
-                 throw HttpReturnException
+                 throw AnnotatedException
                      (500, "Can't normalize a row with unknown columns");
 
              auto columnNames = std::make_shared<std::vector<ColumnPath> >();
@@ -1694,7 +1694,7 @@ void normalize(distribution<double>& val, double p)
          }
      }
      else {
-         throw HttpReturnException
+         throw AnnotatedException
              (500, "Can't normalize something that's not a row or embedding");
      }
 }
@@ -1723,7 +1723,7 @@ BoundFunction norm(const std::vector<BoundSqlExpression> & args)
                     return ExpressionValue(val.max(), ts);
                 }
                 else if (p <= 0.0 || !isfinite(p))
-                    throw HttpReturnException(500, "Invalid power for norm() function",
+                    throw AnnotatedException(500, "Invalid power for norm() function",
                                               "p", p);
                 else if (p == 1) {
                     return ExpressionValue(val.total(), ts);
@@ -1775,7 +1775,7 @@ ParseJsonOptionsDescription()
 BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() > 2 || args.size() < 1)
-        throw HttpReturnException(400, " takes 1 or 2 argument, got " + to_string(args.size()));
+        throw AnnotatedException(400, " takes 1 or 2 argument, got " + to_string(args.size()));
 
 
     return {[=] (const std::vector<ExpressionValue> & args,
@@ -1802,7 +1802,7 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                                                        str.rawLength());
 
                     if (!parser.isObject() && !parser.isArray())
-                        throw HttpReturnException(400, "JSON passed to parse_json must be "
+                        throw AnnotatedException(400, "JSON passed to parse_json must be "
                                 "an object or an array; got '" + str + "'",
                                                   "json", str);
 
@@ -1854,10 +1854,10 @@ static RegisterBuiltin registerPrintJson(print_json, "print_json");
 BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() == 0)
-        throw HttpReturnException(400, "requires at least one argument");
+        throw AnnotatedException(400, "requires at least one argument");
 
     if (args.size() > 2)
-        throw HttpReturnException(400, "requires at most two arguments");
+        throw AnnotatedException(400, "requires at most two arguments");
 
 
     // Comma separated list, first is row name, rest are row columns
@@ -1917,10 +1917,10 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
     // Comma separated list, first is row name, rest are row columns
 
     if (args.size() < 2)
-        throw HttpReturnException(400, "requires at least two arguments");
+        throw AnnotatedException(400, "requires at least two arguments");
 
     if (args.size() > 3)
-        throw HttpReturnException(400, "requires at most three arguments");
+        throw AnnotatedException(400, "requires at most three arguments");
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
@@ -1956,7 +1956,7 @@ static RegisterBuiltin registerToken_extract(token_extract, "token_extract");
 BoundFunction token_split(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() != 2)
-        throw HttpReturnException(400, "requires two arguments");
+        throw AnnotatedException(400, "requires two arguments");
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
@@ -2050,7 +2050,7 @@ static RegisterBuiltin registerHorizontal_Sum(horizontal_sum, "horizontal_sum");
 BoundFunction horizontal_string_agg(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() != 1 && args.size() != 2)
-        throw HttpReturnException(500, "horizontal_string_agg function takes one or two arguments");
+        throw AnnotatedException(500, "horizontal_string_agg function takes one or two arguments");
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
@@ -2620,7 +2620,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
         if (args[0].info->couldBeScalar()) {
             // Shape is not a constant, so we need to evaluate after binding
             if (args.size() != 3)
-                throw HttpReturnException
+                throw AnnotatedException
                     (400,"Null embedding needs third argument to reshape()");
             auto shape = args[1].info->getEmbeddingShape();
             auto st = args[2].info->isConst()
@@ -2633,7 +2633,7 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
                     {
                         checkArgsSize(args.size(), 3, "reshape");
                         if (!args[0].getAtom().empty()) {
-                            throw HttpReturnException
+                            throw AnnotatedException
                                 (400, "Expected null first argument for scalar reshape()");
                         }
 
@@ -2660,11 +2660,11 @@ BoundFunction reshape(const std::vector<BoundSqlExpression> & args)
                         };
             
         }
-        throw HttpReturnException(400, "requires an embedding as first argument, got " + jsonEncodeStr(args[0].info));
+        throw AnnotatedException(400, "requires an embedding as first argument, got " + jsonEncodeStr(args[0].info));
     }
 
     if (!args[1].info->couldBeEmbedding())
-        throw HttpReturnException(400, "requires an embedding as second argument");
+        throw AnnotatedException(400, "requires an embedding as second argument");
 
     if (args[1].info->isConst()) {
         //Dont know the type without evaluating second arg;
@@ -2750,7 +2750,7 @@ Sizes calcShape(const std::vector<Sizes> & shapes)
     for (size_t i = 1;  i < shapes.size();  ++i) {
         const Sizes & shape = shapes[i];
         if (shape.size() != result.size()) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Attempt to concat vectors with different shapes");
         }
         if (result[0] == -1 || shape[0] == -1)
@@ -2784,7 +2784,7 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
 
     for (auto & a: args) {
         if (!a.info->couldBeEmbedding())
-            throw HttpReturnException(400, "concat requires embeddings");
+            throw AnnotatedException(400, "concat requires embeddings");
         auto sh = a.info->getEmbeddingShape();
         knownShapes.emplace_back(sh);
         st = coveringStorageType(st, a.info->getEmbeddingType());
@@ -2839,7 +2839,7 @@ BoundFunction shape(const std::vector<BoundSqlExpression> & args)
     checkArgsSize(args.size(), 1);
 
     if (!args[0].info->couldBeEmbedding())
-        throw HttpReturnException(400, "requires an array as first argument");
+        throw AnnotatedException(400, "requires an array as first argument");
      
     auto outputInfo
         = std::make_shared<EmbeddingValueInfo>(-1, ST_INT32);
@@ -3091,7 +3091,7 @@ BoundFunction unflatten_path(const std::vector<BoundSqlExpression> & args)
                 checkArgsSize(args.size(), 1);
                 Path path = args[0].coerceToPath();
                 if (path.size() != 1) {
-                    throw HttpReturnException
+                    throw AnnotatedException
                         (400, "Attempt to pass non-flattened "
                          "path with length " + std::to_string(path.size())
                          + " to unflatten_path().  Must have length of one.",
@@ -3304,7 +3304,7 @@ BoundFunction tryFct(const std::vector<BoundSqlExpression> & args)
     }
 
     if (args.size() != 1) {
-        throw HttpReturnException(400, "requires one or two arguments");
+        throw AnnotatedException(400, "requires one or two arguments");
     }
 
     // In case of error, this handler yields the exception message
@@ -3395,7 +3395,7 @@ bind(const std::vector<BoundSqlExpression> & args,
 {
     try {
         if (arity != args.size()) {
-            throw HttpReturnException
+            throw AnnotatedException
                 (400, "Called builtin function '" + functionName
                  + "' with " + std::to_string(args.size())
                  + " parameters instead of " + std::to_string(arity)
@@ -3423,7 +3423,7 @@ bind(const std::vector<BoundSqlExpression> & args,
                 try {
                     return bound(rowScope, GET_ALL);
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Executing builtin function "
+                    rethrowException(-1, "Executing builtin function "
                                          + functionName + ": " + getExceptionString(),
                                          "functionName", functionName,
                                          "functionArgs", args);
@@ -3434,7 +3434,7 @@ bind(const std::vector<BoundSqlExpression> & args,
         
         return result;
     } MLDB_CATCH_ALL {
-        rethrowHttpException(-1, "Binding builtin function "
+        rethrowException(-1, "Binding builtin function "
                              + functionName + ": " + getExceptionString(),
                              "functionName", functionName,
                              "functionArgs", args);

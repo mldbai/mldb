@@ -2,7 +2,7 @@
 
 
 #include "sql_expression.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 #include "mldb/builtin/transposed_dataset.h"
 #include "mldb/builtin/sub_dataset.h"
 #include "mldb/types/value_description.h"
@@ -64,7 +64,7 @@ struct RegisterBuiltin {
                 try {
                     return function(context, args, options, alias, onProgress);
                 } MLDB_CATCH_ALL {
-                    rethrowHttpException(-1, "Binding builtin Dataset function "
+                    rethrowException(-1, "Binding builtin Dataset function "
                                          + str + ": " + getExceptionString(),
                                          "functionName", str);
                 }
@@ -88,9 +88,9 @@ BoundTableExpression transpose(const SqlBindingScope & context,
                                const ProgressFunc & onProgress)
 {
     if (args.size() != 1)
-        throw HttpReturnException(500, "transpose() takes a single argument");
+        throw AnnotatedException(500, "transpose() takes a single argument");
      if(!options.empty())
-         throw HttpReturnException(500, "transpose() does not take any options");
+         throw AnnotatedException(500, "transpose() does not take any options");
 
     std::shared_ptr<Dataset> ds;
     if (args[0].dataset) {
@@ -121,9 +121,9 @@ BoundTableExpression merge(const SqlBindingScope & context,
                            const ProgressFunc & onProgress)
 {
     if (args.size() < 1)
-        throw HttpReturnException(500, "merge() needs at least 1 argument");
+        throw AnnotatedException(500, "merge() needs at least 1 argument");
     if(!options.empty())
-        throw HttpReturnException(500, "merge() does not take any options");
+        throw AnnotatedException(500, "merge() does not take any options");
 
     std::vector<std::shared_ptr<Dataset> > datasets;
     datasets.reserve(args.size());
@@ -185,7 +185,7 @@ BoundTableExpression sample(const SqlBindingScope & context,
                             const ProgressFunc & onProgress)
 {
     if (args.size() != 1)
-        throw HttpReturnException(400, "The 'sample' function takes 1 dataset as input, "
+        throw AnnotatedException(400, "The 'sample' function takes 1 dataset as input, "
                                   "followed by a row expression of optional parameters. "
                                   "See the documentation of the 'From Expressions' for "
                                   "more details.",
@@ -193,7 +193,7 @@ BoundTableExpression sample(const SqlBindingScope & context,
                                   "alias", alias);
 
     if(!options.empty() && !options.isRow()) {
-        throw HttpReturnException(400,
+        throw AnnotatedException(400,
                 "The parameters provided to the 'sample' function "
                 "should be a row expression, or not be provided to use the "
                 "sampled dataset's defaults. Value provided: " + 

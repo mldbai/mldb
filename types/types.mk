@@ -33,10 +33,11 @@ LIBTYPES_SOURCES := \
 	dtoa.c \
 	regex.cc \
 	periodic_utils_value_descriptions.cc \
-	path.cc
+	path.cc \
+	annotated_exception.cc \
 
 LIBTYPES_LINK := \
-	rt boost_regex boost_date_time jsoncpp googleurl cityhash value_description highwayhash re2
+	rt boost_regex boost_date_time jsoncpp googleurl cityhash value_description highwayhash re2 any
 
 $(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
 $(eval $(call set_compile_option,regex.cc,-I$(RE2_INCLUDE_PATH)))

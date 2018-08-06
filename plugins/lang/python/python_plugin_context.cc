@@ -218,7 +218,7 @@ _sys.stderr = catctOutErr
     int res = PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
     if (res) {
         PyErr_Print(); //make python print any errors, unfortunately to console
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Couldn't inject Python code (see error message on console). "
              "Have you installed python_dependenies (json and datetime) and "
              "properly set up your virtual environment?");
@@ -235,7 +235,7 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
     // Until we figure out WTF is going on here...
     if (!outCatcher) {
-        throw HttpReturnException
+        throw AnnotatedException
             (500, "Couldn't extract output from injected Python code.  Look for "
              "an earlier error message on the console.");
         return;
