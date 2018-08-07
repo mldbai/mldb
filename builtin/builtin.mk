@@ -8,14 +8,24 @@ LIBMLDB_BUILTIN_BASE_SOURCES:= \
 	filtered_dataset.cc \
 	sampled_dataset.cc \
 	union_dataset.cc \
+	\
 	basic_procedures.cc \
+	sql_functions.cc \
+	fetcher.cc \
+	\
 	shared_library_plugin.cc \
 	script_output.cc \
 	plugin_resource.cc \
+	script_procedure.cc \
+	docker_plugin.cc \
+	external_python_procedure.cc \
+	script_function.cc \
+	\
 	for_each_line.cc \
-	fetcher.cc \
-	sql_functions.cc \
 	metric_space.cc \
+	mock_procedure.cc \
+	matrix.cc \
+	\
 
 LIBMLDB_BUILTIN_BASE_LINK:= \
 	mldb_core \

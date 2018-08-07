@@ -13,7 +13,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "plugins/matrix.h"
+#include "mldb/builtin/matrix.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
 #include "builtin/metric_space.h"
