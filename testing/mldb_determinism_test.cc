@@ -8,9 +8,9 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/plugins/svd.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/sql/sql_expression.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

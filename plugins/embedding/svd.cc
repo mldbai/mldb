@@ -26,7 +26,7 @@
 #include "mldb/types/optional_description.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/builtin/sql_config_validator.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/any_impl.h"

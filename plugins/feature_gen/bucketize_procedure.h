@@ -1,4 +1,4 @@
-/**
+/** -*- C++ -*-
  * bucketize_procedure.h
  * Mich, 2015-10-27
  * Copyright (c) 2015 mldb.ai inc. All rights reserved.

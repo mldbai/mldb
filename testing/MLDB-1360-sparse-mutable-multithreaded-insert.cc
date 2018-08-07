@@ -9,7 +9,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
-#include "mldb/plugins/sparse_matrix_dataset.h"
+#include "mldb/plugins/sparse/sparse_matrix_dataset.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/value_description.h"

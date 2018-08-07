@@ -26,12 +26,23 @@ LIBMLDB_BUILTIN_BASE_SOURCES:= \
 	mock_procedure.cc \
 	matrix.cc \
 	\
+	continuous_dataset.cc \
+	\
+	melt_procedure.cc \
+	ranking_procedure.cc \
+	pooling_function.cc \
+	permuter_procedure.cc \
+	datasetsplit_procedure.cc \
+	summary_statistics_proc.cc \
 
 LIBMLDB_BUILTIN_BASE_LINK:= \
 	mldb_core \
 	runner \
 	git2 \
 	ssh2 \
+
+# Shared_mutex only in C++17
+$(eval $(call set_compile_option,dist_table_procedure.cc,-std=c++1z))
 
 $(eval $(call library,mldb_builtin_base,$(LIBMLDB_BUILTIN_BASE_SOURCES),$(LIBMLDB_BUILTIN_BASE_LINK)))
 

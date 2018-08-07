@@ -20,7 +20,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/rest/in_process_rest_connection.h"
-#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/builtin/sql_config_validator.h"
 #include "mldb/engine/analytics.h"
 #include "mldb/utils/log.h"
 #include "mldb/rest/cancellation_exception.h"

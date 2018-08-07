@@ -17,9 +17,8 @@
 #include "jml/utils/string_functions.h"
 #include "arch/timers.h"
 #include "types/optional_description.h"
-#include "mldb/plugins/sql_config_validator.h"
-#include "mldb/plugins/sql_expression_extractors.h"
-#include "mldb/plugins/sparse_matrix_dataset.h"
+#include "mldb/builtin/sql_config_validator.h"
+#include "mldb/builtin/sql_expression_extractors.h"
 #include "mldb/engine/bound_queries.h"
 #include "mldb/types/annotated_exception.h"
 

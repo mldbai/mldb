@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
-/** mldb_dataset_test.cc                                           -*- C++ -*-
+/** procedure_run_test.cc                                           -*- C++ -*-
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Test for datasets.
 */
@@ -10,7 +9,8 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/plugins/svd.h"
+#include "mldb/plugins/embedding/svd.h"
+#include "mldb/plugins/sparse/sparse_matrix_dataset.h"
 #include "mldb/builtin/sql_functions.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/types/value_description.h"
