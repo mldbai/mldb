@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** binary_behavior_dataset.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Dataset interface to behaviors, in their pure (no value) form.
 */
@@ -21,11 +20,11 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/spinlock.h"
-#include "behavior/behavior_manager.h"
-#include "behavior/mutable_behavior_domain.h"
+#include "behavior_manager.h"
+#include "mutable_behavior_domain.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/utils/profile.h"
-#include "behavior/behavior_utils.h"
+#include "behavior_utils.h"
 #include "mldb/engine/dataset_utils.h"
 #include <future>
 

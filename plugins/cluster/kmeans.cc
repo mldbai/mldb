@@ -8,7 +8,7 @@
 
 #include "mldb/utils/distribution_simd.h"
 #include "kmeans.h"
-#include "matrix.h"
+#include "plugins/matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"

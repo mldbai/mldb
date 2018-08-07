@@ -11,7 +11,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/plugins/svd.h"
-#include "mldb/plugins/sql_functions.h"
+#include "mldb/builtin/sql_functions.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/http/http_rest_proxy.h"
 

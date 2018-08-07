@@ -37,6 +37,7 @@
 #include "mldb/arch/simd.h"
 #include "mldb/utils/log.h"
 #include "mldb/builtin/shared_library_plugin.h"
+#include "mldb/types/any_impl.h"
 
 using namespace std;
 

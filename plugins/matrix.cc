@@ -6,7 +6,7 @@
 
 */
 
-#include "matrix.h"
+#include "plugins/matrix.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"

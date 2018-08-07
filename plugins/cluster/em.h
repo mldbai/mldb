@@ -12,9 +12,9 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/value_function.h"
-#include "matrix.h"
+#include "plugins/matrix.h"
 #include "mldb/ml/value_descriptions.h"
-#include "metric_space.h"
+#include "builtin/metric_space.h"
 #include "mldb/types/optional.h"
 
 

@@ -19,7 +19,6 @@ LIBML_SOURCES := \
 	value_descriptions.cc \
 	confidence_intervals.cc \
 	svd_utils.cc \
-    randomforest.cc
 
 
 LIBML_LINK := boosting neural $(STD_FILESYSTEM_LIBNAME) jsoncpp types value_description algebra fasttext

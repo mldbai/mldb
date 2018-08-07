@@ -83,7 +83,7 @@
 	path = pymldb
 	url = git@github.com:datacratic/pymldb.git
 [submodule "html/ext/libhubbub"]
-	path = html/ext/libhubbub
+	path = plugins/html/ext/libhubbub
 	url = git@github.com:mldbai/libhubbub.git
 [submodule "ext/concurrentqueue"]
 	path = ext/concurrentqueue

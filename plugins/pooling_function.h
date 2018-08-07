@@ -11,7 +11,7 @@
 #include "mldb/core/value_function.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/optional.h"
-#include "mldb/plugins/sql_functions.h"
+#include "mldb/builtin/sql_functions.h"
 
 
 namespace MLDB {

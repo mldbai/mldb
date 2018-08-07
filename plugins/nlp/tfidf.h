@@ -12,10 +12,8 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
-#include "matrix.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/optional.h"
-#include "metric_space.h"
 
 
 namespace MLDB {

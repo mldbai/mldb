@@ -15,8 +15,8 @@
 #include "core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 #include "sql/sql_expression.h"
-#include "plugins/classifier.h"
-#include "plugins/accuracy.h"
+#include "mldb/plugins/jml/classifier.h"
+#include "mldb/plugins/jml/accuracy.h"
 #include "types/optional.h"
 
 

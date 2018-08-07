@@ -9,7 +9,7 @@ LIBMLDB_HTML_PLUGIN_SOURCES:= \
 	parse_html.cc \
 	css.cc
 
-$(eval $(call set_compile_option,$(LIBMLDB_HTML_PLUGIN_SOURCES),-Imldb/html/ext))
+$(eval $(call set_compile_option,$(LIBMLDB_HTML_PLUGIN_SOURCES),-Imldb/plugins/html/ext))
 
 $(eval $(call mldb_plugin_library,html,mldb_html_plugin,$(LIBMLDB_HTML_PLUGIN_SOURCES),hubbub tinyxpath))
 

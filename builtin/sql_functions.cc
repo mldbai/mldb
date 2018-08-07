@@ -5,7 +5,7 @@
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
-#include "sql_functions.h"
+#include "mldb/builtin/sql_functions.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/engine/dataset_scope.h"

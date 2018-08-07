@@ -34,7 +34,7 @@ LIBHUBBUB_SRC=\
 	src/utils/string.c \
 	src/utils/errors.c \
 
-$(eval $(call set_compile_option,$(LIBHUBBUB_SRC),-Imldb/html/ext -Imldb/html/ext/libhubbub/src -I$(TMP)))
+$(eval $(call set_compile_option,$(LIBHUBBUB_SRC),-Imldb/plugins/html/ext -Imldb/plugins/html/ext/libhubbub/src -I$(TMP)))
 
 $(CWD)/src/tokeniser/entities.c: $(CWD)/src/tokeniser/entities.inc
 

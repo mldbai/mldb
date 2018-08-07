@@ -21,11 +21,11 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/compact_vector_description.h"
 #include "mldb/vfs/fs_utils.h"
-#include "behavior/behavior_manager.h"
-#include "behavior/mutable_behavior_domain.h"
+#include "behavior_manager.h"
+#include "mutable_behavior_domain.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/hash_wrapper_description.h"
-#include "behavior/behavior_utils.h"
+#include "behavior_utils.h"
 #include "mldb/engine/dataset_utils.h"
 #include <future>
 

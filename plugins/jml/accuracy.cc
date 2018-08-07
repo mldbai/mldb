@@ -8,7 +8,7 @@
 */
 
 #include "accuracy.h"
-#include "matrix.h"
+#include "mldb/plugins/matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/engine/bound_queries.h"

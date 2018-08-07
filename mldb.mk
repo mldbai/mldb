@@ -23,7 +23,6 @@ MLDB_SUBDIRS := \
 	plugins \
 	server \
 	sdk \
-	html \
 	testing
 
 #	postgresql \

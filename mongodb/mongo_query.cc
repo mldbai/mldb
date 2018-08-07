@@ -15,7 +15,7 @@
 #include "mldb/core/function.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/plugins/sql_functions.h"
+#include "mldb/builtin/sql_functions.h"
 
 #include "mongo_common.h"
 

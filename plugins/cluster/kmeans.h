@@ -13,10 +13,10 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "matrix.h"
+#include "plugins/matrix.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
-#include "metric_space.h"
+#include "builtin/metric_space.h"
 
 
 namespace MLDB {

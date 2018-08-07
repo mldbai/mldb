@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "mldb/plugins/dataset_feature_space.h"
+#include "mldb/plugins/jml/dataset_feature_space.h"
 #include "mldb/ml/jml/fixed_point_accum.h"
 #include "mldb/ml/jml/tree.h"
 #include "mldb/ml/jml/stump_training_bin.h"

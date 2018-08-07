@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* mldb_sql_test.cc                                                -*- C++ -*-
    Mathieu Marquis Bolduc, November 18th
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -11,6 +10,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/plugins/svd.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/types/basic_value_descriptions.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
