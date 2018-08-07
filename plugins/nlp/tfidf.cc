@@ -8,7 +8,7 @@
 */
 
 #include "tfidf.h"
-#include "mldb/plugins/matrix.h"
+#include "mldb/builtin/matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"

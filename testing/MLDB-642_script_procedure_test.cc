@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** MLDB-642_script_procedure_test.cc
     Francois Maillet, 10 juillet 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "mldb/server/mldb_server.h"
 #include "mldb/engine/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/builtin/plugin_resource.h"
-#include "mldb/plugins/script_procedure.h"
+#include "mldb/builtin/script_procedure.h"
 #include "mldb/types/value_description.h"
 
 #include <chrono>

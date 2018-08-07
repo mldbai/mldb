@@ -9,13 +9,6 @@ $(eval $(call include_sub_make,html))
 
 # Behavioral dataset plugin
 LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
-	matrix.cc \
-	\
-	script_procedure.cc \
-	docker_plugin.cc \
-	external_python_procedure.cc \
-	script_function.cc \
-	\
 	sqlite_dataset.cc \
 	sparse_matrix_dataset.cc \
 	continuous_dataset.cc \
@@ -42,8 +35,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	dist_table_procedure.cc \
 	feature_generators.cc \
 	bucketize_procedure.cc \
-	\
-	mock_procedure.cc \
 	\
 	git.cc \
 

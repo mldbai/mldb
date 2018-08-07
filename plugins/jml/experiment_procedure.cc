@@ -11,7 +11,7 @@
 #include "types/map_description.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/engine/dataset_scope.h"
-#include "mldb/plugins/matrix.h"
+#include "mldb/builtin/matrix.h"
 #include "mldb/engine/analytics.h"
 #include "ml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
