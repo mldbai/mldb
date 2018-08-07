@@ -11,7 +11,7 @@
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include "mldb/plugins/for_each_line.h"
+#include "mldb/builtin/for_each_line.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/sql/sql_expression.h"

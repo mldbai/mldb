@@ -16,12 +16,12 @@
 #include "callback.h"
 #include <boost/python/to_python_converter.hpp>
 
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 #include "mldb/core/plugin.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/server/script_output.h"
+#include "mldb/builtin/script_output.h"
 
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/logging/logging.h"

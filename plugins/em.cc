@@ -11,8 +11,8 @@
 #include "mldb/ml/em.h"
 #include "matrix.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/server/procedure_collection.h"
-#include "mldb/server/function_collection.h"
+#include "mldb/engine/procedure_collection.h"
+#include "mldb/engine/function_collection.h"
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
 #include "jml/utils/guard.h"

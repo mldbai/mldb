@@ -10,8 +10,6 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/core/mldb_entity.h"
 #include "mldb/rest/rest_entity.h"
-#include "mldb/sql/sql_expression.h"
-#include "mldb/sql/sql_expression_operations.h"
 #include <set>
 #include <iostream>
 #include <typeinfo>
@@ -186,121 +184,6 @@ struct ProcedureConfig
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ProcedureConfig);
-
-/*****************************************************************************/
-/* NULL PROCEDURE                                                            */
-/*****************************************************************************/
-
-struct NullProcedureConfig : public ProcedureConfig
-{
-    static constexpr const char * name = "null";
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(NullProcedureConfig);
-
-/** Null procedure, that does nothing when run. */
-
-struct NullProcedure: public Procedure {
-    NullProcedure(MldbEngine * engine, const PolyConfig & config,
-                 const std::function<bool (const Json::Value &)> & onProgress);
-
-    virtual ~NullProcedure();
-
-    virtual Any getStatus() const;
-
-    virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress)
-        const;
-};
-
-
-/*****************************************************************************/
-/* SERIAL PROCEDURE                                                          */
-/*****************************************************************************/
-
-/** A serial procedure, that runs multiple procedure steps one after the
-    other.
-*/
-
-struct ProcedureStepConfig: public PolyConfig {
-    /// Name of the step
-    Utf8String name;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(ProcedureStepConfig);
-
-struct SerialProcedureConfig : public ProcedureConfig {
-    static constexpr const char * name = "serial";
-    std::vector<ProcedureStepConfig> steps;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(SerialProcedureConfig);
-
-struct SerialProcedureStatus {
-    std::vector<Any> steps;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(SerialProcedureStatus);
-
-struct SerialProcedure: public Procedure {
-    SerialProcedure(MldbEngine * engine,
-                   const PolyConfig & config,
-                   const std::function<bool (const Json::Value &)> & onProgress);
-
-    SerialProcedureConfig config;
-
-    virtual ~SerialProcedure();
-
-    virtual Any getStatus() const;
-
-    virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress)
-        const;
-
-    std::vector<std::shared_ptr<Procedure> > steps;
-};
-
-
-/*****************************************************************************/
-/* CREATE ENTITY PROCEDURE                                                   */
-/*****************************************************************************/
-
-/** A procedure that creates an entity as its operation.
-*/
-
-struct CreateEntityProcedureConfig: public PolyConfig, ProcedureConfig {
-    static constexpr const char * name = "createEntity";
-
-    std::string kind;  ///< function, procedure, plugin, dataset, ...
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(CreateEntityProcedureConfig);
-
-/** Output of the createEntity procedure. */
-struct CreateEntityProcedureOutput {
-    std::string kind;
-    PolyConfig config;
-    Any status;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(CreateEntityProcedureOutput);
-
-struct CreateEntityProcedure: public Procedure {
-    CreateEntityProcedure
-        (MldbEngine * engine,
-         const PolyConfig & config,
-         const std::function<bool (const Json::Value &)> & onProgress);
-
-    CreateEntityProcedureConfig config;
-
-    virtual ~CreateEntityProcedure();
-
-    virtual Any getStatus() const;
-
-    virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress)
-        const;
-};
 
 
 /*****************************************************************************/

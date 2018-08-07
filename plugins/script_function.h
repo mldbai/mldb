@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/core/function.h"
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 
 
 namespace MLDB {

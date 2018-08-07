@@ -7,8 +7,8 @@
     External plugin runner.
 */
 
-#include "mldb/server/external_plugin.h"
-#include "mldb/server/script_output.h"
+#include "mldb/engine/external_plugin.h"
+#include "mldb/builtin/script_output.h"
 #include "mldb/utils/runner.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/http/http_rest_proxy.h"

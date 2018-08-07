@@ -11,15 +11,15 @@
 #define register 
 
 #include <Python.h>
-#include "mldb/plugins/lang/python/pointer_fix.h" //must come before boost python
+#include "mldb/builtin/python/pointer_fix.h" //must come before boost python
 #include <boost/python.hpp>
 
 #include <iostream>
-#include "mldb/plugins/lang/python/from_python_converter.h"
-#include "mldb/plugins/lang/python/python_converters.h"
-#include "mldb/plugins/lang/python/callback.h"
+#include "mldb/builtin/python/from_python_converter.h"
+#include "mldb/builtin/python/python_converters.h"
+#include "mldb/builtin/python/callback.h"
 #include "mldb/sql/cell_value.h"
-#include "mldb/plugins/lang/python/mldb_python_converters.h"
+#include "mldb/builtin/python/mldb_python_converters.h"
 
 using namespace std;
 using namespace boost::python;

@@ -7,7 +7,7 @@
 */
 
 #include "docker_plugin.h"
-#include "mldb/server/external_plugin.h"
+#include "mldb/engine/external_plugin.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/any_impl.h"

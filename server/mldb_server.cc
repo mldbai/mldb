@@ -19,15 +19,16 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/server/plugin_manifest.h"
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 #include "mldb/sql/sql_expression.h"
 #include <signal.h>
 
-#include "mldb/server/dataset_collection.h"
-#include "mldb/server/plugin_collection.h"
-#include "mldb/server/procedure_collection.h"
-#include "mldb/server/function_collection.h"
-#include "mldb/server/credential_collection.h"
+#include "mldb/engine/dataset_collection.h"
+#include "mldb/engine/plugin_collection.h"
+#include "mldb/engine/procedure_collection.h"
+#include "mldb/engine/function_collection.h"
+#include "mldb/engine/credential_collection.h"
+#include "mldb/engine/procedure_run_collection.h"
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
@@ -35,7 +36,7 @@
 #include "mldb/types/meta_value_description.h"
 #include "mldb/arch/simd.h"
 #include "mldb/utils/log.h"
-
+#include "mldb/builtin/shared_library_plugin.h"
 
 using namespace std;
 
@@ -682,6 +683,15 @@ handleRequest(RestConnection & connection,
     ServicePeer::handleRequest(connection, request);
 }
 
+OnProcessRestRequest
+MldbServer::
+getStaticRouteHandler(std::string dir,
+                      bool hideInternalEntities)
+{
+    return MLDB::getStaticRouteHandler(std::move(dir),
+                                       this, hideInternalEntities);
+}
+
 std::shared_ptr<Plugin>
 MldbServer::
 obtainPluginSync(PolyConfig config,
@@ -813,6 +823,13 @@ getProcedureCollection() const
     return this->procedures.get();
 }
 
+std::shared_ptr<ProcedureRunCollection>
+MldbServer::
+createProcedureRunCollection(Procedure * owner)
+{
+    return std::make_shared<ProcedureRunCollection>(this, owner);
+}
+
 namespace {
 struct OnInit {
     OnInit()
@@ -822,35 +839,6 @@ struct OnInit {
 } onInit;
 }  // file scope
 
-
-/*****************************************************************************/
-/* UTILITY FUNCTIONS                                                         */
-/*****************************************************************************/
-
-/** Create a request handler that redirects to the given place for internal
-    documentation.
-*/
-TypeCustomRouteHandler
-makeInternalDocRedirect(const Package & package, const Utf8String & relativePath)
-{
-    return [=] (RestDirectory * server,
-                RestConnection & connection,
-                const RestRequest & req,
-                const RestRequestParsingContext & cxt)
-        {
-            Utf8String basePath = static_cast<MldbServer *>(server)
-                ->getPackageDocumentationPath(package);
-            connection.sendRedirect(301, (basePath + relativePath).rawString());
-            return RestRequestRouter::MR_YES;
-        };
-}
-
-
-const Package & builtinPackage()
-{
-    static const Package result("builtin");
-    return result;
-}
 
 } // namespace MLDB
 

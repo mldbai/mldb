@@ -1,25 +1,21 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** static_content_handler.h                                       -*- C++ -*-
     Jeremy Barnes, 5 March 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of the static content handler for MLDB, including
     things like Markdown conversion.
 */
 
 #include <string>
-#include "mldb/rest/rest_request_router.h"
+#include "mldb/rest/rest_request_fwd.h"
 
-
-
-struct RestRequestRouter;
 
 namespace MLDB {
 
 struct MldbEngine;
 
-RestRequestRouter::OnProcessRequest
+OnProcessRestRequest
 getStaticRouteHandler(std::string dir,
                       MldbEngine * engine,
                       bool hideInternalEntities = false);

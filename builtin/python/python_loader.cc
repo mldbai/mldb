@@ -17,7 +17,7 @@
 #include "mldb/core/plugin.h"
 #include "mldb/core/procedure.h"
 #include "mldb/base/scope.h"
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 
 #include "pointer_fix.h" // must come before boost/python
 #include <boost/python.hpp>

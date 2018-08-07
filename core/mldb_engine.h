@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <memory>
+#include "mldb/rest/rest_request_fwd.h"
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -25,10 +26,6 @@ struct PolyConfig;
 struct Utf8String;
 struct Package;
 
-struct RestConnection;
-struct RestRequest;
-struct RestEntity;
-
 struct Plugin;
 struct Dataset;
 struct Procedure;
@@ -37,12 +34,12 @@ struct CredentialRule;
 
 struct MatrixNamedRow;
 
-struct RestDirectory;
-
 struct Date;
 struct Utf8String;
 
 template<typename... T> struct WatchT;
+
+struct ProcedureRunCollection;
 
 extern const Utf8String & EMPTY_UTF8;
 
@@ -56,7 +53,7 @@ extern const Utf8String & EMPTY_UTF8;
 
 struct MldbEngine {
 
-    virtual ~MldbEngine() = default;
+    virtual ~MldbEngine();
     
     typedef std::function<bool (const Json::Value & progress)> OnProgress;
 
@@ -94,6 +91,20 @@ struct MldbEngine {
 
     /** Return the URL on which MLDB can be reached. */
     virtual std::string getHttpBoundAddress() const = 0;
+
+    /** Get the documentation path for the given package.  This will look
+        at the working directory of the package that loaded it.
+    */
+    virtual Utf8String
+    getPackageDocumentationPath(const Package & package) const = 0;
+
+    /** Get a handler for a static route that will serve up files from
+        the given directory.
+    */
+    virtual OnProcessRestRequest
+    getStaticRouteHandler(std::string dir,
+                          bool hideInternalEntities = false) = 0;
+
     
     virtual std::shared_ptr<Plugin>
     obtainPluginSync(PolyConfig config,
@@ -156,6 +167,9 @@ struct MldbEngine {
 
     virtual RestEntity *
     getProcedureCollection() const = 0;
+
+    virtual std::shared_ptr<ProcedureRunCollection>
+    createProcedureRunCollection(Procedure * owner) = 0;
 };
 
 } // namespace MLDB

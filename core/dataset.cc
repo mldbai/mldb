@@ -8,6 +8,7 @@
 */
 
 #include "mldb/core/dataset.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/types/tuple_description.h"
@@ -55,6 +56,23 @@ extern "C" {
 
 
 namespace MLDB {
+
+std::shared_ptr<Dataset>
+obtainDataset(MldbEngine * engine,
+              const PolyConfig & config,
+              const MldbEngine::OnProgress & onProgress)
+{
+    return engine->obtainDatasetSync(config, onProgress);
+}
+
+std::shared_ptr<Dataset>
+createDataset(MldbEngine * engine,
+              const PolyConfig & config,
+              const std::function<bool (const Json::Value & progress)> & onProgress,
+              bool overwrite)
+{
+    return engine->createDatasetSync(config, onProgress, overwrite);
+}
 
 namespace {
 

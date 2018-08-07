@@ -6,6 +6,7 @@
 #include "mldb_entity.h"
 #include "mldb_engine.h"
 #include "mldb/rest/rest_entity.h"
+#include "mldb/rest/rest_connection.h"
 
 namespace MLDB {
 
@@ -21,5 +22,35 @@ getOwner(RestDirectory * peer)
     }
     return result;
 }
+
+/*****************************************************************************/
+/* UTILITY FUNCTIONS                                                         */
+/*****************************************************************************/
+
+/** Create a request handler that redirects to the given place for internal
+    documentation.
+*/
+TypeCustomRouteHandler
+makeInternalDocRedirect(const Package & package, const Utf8String & relativePath)
+{
+    return [=] (RestDirectory * server,
+                RestConnection & connection,
+                const RestRequest & req,
+                const RestRequestParsingContext & cxt)
+        {
+            Utf8String basePath = MldbEntity::getOwner(server)
+                ->getPackageDocumentationPath(package);
+            connection.sendRedirect(301, (basePath + relativePath).rawString());
+            return MR_YES;
+        };
+}
+
+
+const Package & builtinPackage()
+{
+    static const Package result("builtin");
+    return result;
+}
+
 
 } // namespace MLDB

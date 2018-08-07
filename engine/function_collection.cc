@@ -6,7 +6,7 @@
     Collection of functions.
 */
 
-#include "mldb/server/function_collection.h"
+#include "mldb/engine/function_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/core/mldb_engine.h"
@@ -29,23 +29,6 @@ createFunctionCollection(MldbEngine * engine, RestRouteManager & routeManager)
     return createCollection<FunctionCollection>(2, "function", "functions",
                                                 engine->getDirectory(),
                                                 routeManager);
-}
-
-std::shared_ptr<Function>
-obtainFunction(MldbEngine * engine,
-            const PolyConfig & config,
-            const MldbEngine::OnProgress & onProgress)
-{
-    return engine->obtainFunctionSync(config, onProgress);
-}
-
-std::shared_ptr<Function>
-createFunction(MldbEngine * engine,
-              const PolyConfig & config,
-              const std::function<bool (const Json::Value & progress)> & onProgress,
-              bool overwrite)
-{
-    return engine->createFunctionSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<FunctionType>

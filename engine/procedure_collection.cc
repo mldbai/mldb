@@ -10,8 +10,8 @@
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/server/procedure_collection.h"
-#include "procedure_run_collection.h"
+#include "mldb/engine/procedure_collection.h"
+#include "mldb/engine/procedure_run_collection.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "types/any.h"
 #include "types/any_impl.h"
@@ -28,23 +28,6 @@ createProcedureCollection(MldbEngine * engine, RestRouteManager & routeManager)
     return createCollection<ProcedureCollection>(2, "procedure", "procedures",
                                                  engine->getDirectory(),
                                                  routeManager);
-}
-
-std::shared_ptr<Procedure>
-obtainProcedure(MldbEngine * engine,
-                const PolyConfig & config,
-                const MldbEngine::OnProgress & onProgress)
-{
-    return engine->obtainProcedureSync(config, onProgress);
-}
-
-std::shared_ptr<Procedure>
-createProcedure(MldbEngine * engine,
-                const PolyConfig & config,
-                const std::function<bool (const Json::Value & progress)> & onProgress,
-                bool overwrite)
-{
-    return engine->createProcedureSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<ProcedureType>

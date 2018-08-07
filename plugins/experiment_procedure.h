@@ -11,7 +11,7 @@
 #pragma once
 
 #include "types/value_description_fwd.h"
-#include "server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 #include "core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 #include "sql/sql_expression.h"

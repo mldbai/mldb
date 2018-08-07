@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** python_converters_test_support.cc                                 -*- C++ -*-
     Francois Maillet, 10 mars 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -11,14 +10,14 @@
 #define register 
 
 #include <Python.h>
-#include "mldb/plugins/lang/python/pointer_fix.h" //must come before boost python
+#include "mldb/builtin/python/pointer_fix.h" //must come before boost python
 #include <boost/python.hpp>
 
 #include <iostream>
 #include "datetime.h"
-#include "mldb/plugins/lang/python/from_python_converter.h"
-#include "mldb/plugins/lang/python/python_converters.h"
-#include "mldb/plugins/lang/python/callback.h"
+#include "mldb/builtin/python/from_python_converter.h"
+#include "mldb/builtin/python/python_converters.h"
+#include "mldb/builtin/python/callback.h"
 
 using namespace std;
 using namespace boost::python;

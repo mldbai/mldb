@@ -8,6 +8,7 @@
 */
 
 #include "mldb/core/function.h"
+#include "mldb/core/mldb_engine.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/sql/sql_expression.h"
@@ -23,6 +24,23 @@ using namespace std;
 
 
 namespace MLDB {
+
+std::shared_ptr<Function>
+obtainFunction(MldbEngine * engine,
+            const PolyConfig & config,
+            const MldbEngine::OnProgress & onProgress)
+{
+    return engine->obtainFunctionSync(config, onProgress);
+}
+
+std::shared_ptr<Function>
+createFunction(MldbEngine * engine,
+              const PolyConfig & config,
+              const std::function<bool (const Json::Value & progress)> & onProgress,
+              bool overwrite)
+{
+    return engine->createFunctionSync(config, onProgress, overwrite);
+}
 
 DEFINE_STRUCTURE_DESCRIPTION(FunctionInfo);
 

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/server/external_plugin.h"
+#include "mldb/engine/external_plugin.h"
 
 
 namespace MLDB {

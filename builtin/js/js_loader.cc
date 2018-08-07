@@ -11,7 +11,7 @@
 #include "mldb/core/plugin.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/annotated_exception.h"
@@ -237,7 +237,7 @@ struct JsPluginJS {
 
             itl->router.addRoute(Rx(route + "/(.*)", "<resource>"),
                                  "GET", "Static content",
-                                 getStaticRouteHandler(fullDir.string(), itl->engine),
+                                 itl->engine->getStaticRouteHandler(fullDir.string()),
                                  Json::Value());
 
             args.GetReturnValue().Set(args.This());

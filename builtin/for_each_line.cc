@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** for_each_line.cc
     Jeremy Barnes, 29 November 2013
     Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
 #include <atomic>
 #include <exception>
 #include <mutex>
-#include "for_each_line.h"
+#include "mldb/builtin/for_each_line.h"
 #include "mldb/arch/threads.h"
 #include <chrono>
 #include <thread>

@@ -9,7 +9,7 @@
 #pragma once
 
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/procedure.h"
 
