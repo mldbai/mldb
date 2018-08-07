@@ -10,10 +10,10 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/html/ext/hubbub/parser.h"
+#include "mldb/plugins/html/ext/hubbub/parser.h"
 #include "mldb/base/scope.h"
 #include "mldb/sql/builtin_functions.h"
-#include "mldb/html/css.h"
+#include "mldb/plugins/html/css.h"
 #include "mldb/jml/utils/string_functions.h"
 
 using namespace std;

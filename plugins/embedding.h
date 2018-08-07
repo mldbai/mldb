@@ -12,7 +12,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/value_function.h"
 #include "mldb/types/value_description_fwd.h"
-#include "metric_space.h"
+#include "builtin/metric_space.h"
 
 
 namespace MLDB {

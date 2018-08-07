@@ -19,7 +19,7 @@
 #include "mldb/engine/analytics.h"
 #include "types/any_impl.h"
 #include "jml/utils/string_functions.h"
-#include "plugins/sql_functions.h"
+#include "mldb/builtin/sql_functions.h"
 #include "sql/execution_pipeline.h"
 #include "mldb/engine/bound_queries.h"
 #include "mldb/types/annotated_exception.h"

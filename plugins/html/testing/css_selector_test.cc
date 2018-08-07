@@ -5,7 +5,7 @@
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
-#include "mldb/html/css.h"
+#include "mldb/plugins/html/css.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

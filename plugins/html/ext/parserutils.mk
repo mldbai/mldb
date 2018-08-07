@@ -21,7 +21,7 @@ LIBPARSERUTILS_SRC=\
 	src/utils/stack.c \
 	src/utils/buffer.c
 
-$(eval $(call set_compile_option,$(LIBPARSERUTILS_SRC),-Imldb/html/ext -Imldb/html/ext/libparserutils/src))
+$(eval $(call set_compile_option,$(LIBPARSERUTILS_SRC),-Imldb/plugins/html/ext -Imldb/plugins/html/ext/libparserutils/src))
 
 $(eval $(call mldb_plugin_library,html,parserutils,$(LIBPARSERUTILS_SRC)))
 

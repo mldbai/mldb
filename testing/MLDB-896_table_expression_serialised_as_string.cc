@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* MLDB-896_table_expression_serialised_as_string.cc
    Francois Maillet, 14 septembre 2015
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Check that we're able to start from a JSON, put it into an Any, then
    convert it to JSON and back again to its structured type.
@@ -17,9 +16,10 @@
 #include "arch/exception.h"
 #include "jml/utils/string_functions.h"
 #include "jml/utils/vector_utils.h"
-#include "plugins/accuracy.h"
 #include "mldb/types/value_description.h"
-
+#include "mldb/types/json.h"
+#include "mldb/types/any_impl.h"
+#include "mldb/plugins/jml/accuracy.h"
 
 using namespace std;
 

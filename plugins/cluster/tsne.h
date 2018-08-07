@@ -12,7 +12,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/value_function.h"
-#include "matrix.h"
+#include "plugins/matrix.h"
 #include "mldb/types/value_description_fwd.h"
 
 

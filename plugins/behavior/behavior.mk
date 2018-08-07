@@ -18,10 +18,30 @@ LIBBEHAVIOR_SOURCES := \
 	id.cc
 
 LIBBEHAVIOR_LINK := \
-	arch utils db gc runner vfs_handlers svdlibc types value_description ml sql_expression
+	arch \
+	utils \
+	db \
+	gc \
+	runner \
+	vfs_handlers \
+	svdlibc \
+	types \
+	value_description \
+	ml \
+	sql_expression
 
 $(eval $(call set_compile_option,$(LIBBEHAVIOR_SOURCES),-Ipro))
 
 $(eval $(call library,behavior,$(LIBBEHAVIOR_SOURCES),$(LIBBEHAVIOR_LINK)))
+
+LIBBEHAVIOR_PLUGIN_SOURCES := \
+	behavior_dataset.cc \
+	binary_behavior_dataset.cc \
+
+LIBBEHAVIOR_PLUGIN_LINK := \
+	behavior
+
+$(eval $(call library,mldb_behavior_plugin,$(LIBBEHAVIOR_PLUGIN_SOURCES),$(LIBBEHAVIOR_PLUGIN_LINK)))
+
 
 $(eval $(call include_sub_make,behavior_testing,testing))

@@ -12,10 +12,10 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
-#include "matrix.h"
+#include "mldb/plugins/matrix.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
-#include "mldb/plugins/classifier.h"
+#include "mldb/plugins/jml/classifier.h"
 
 
 namespace MLDB {

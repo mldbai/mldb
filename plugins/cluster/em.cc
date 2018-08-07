@@ -9,7 +9,7 @@
 
 #include "em.h"
 #include "mldb/ml/em.h"
-#include "matrix.h"
+#include "plugins/matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/engine/procedure_collection.h"
 #include "mldb/engine/function_collection.h"

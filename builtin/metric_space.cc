@@ -7,7 +7,7 @@
     Create a metric space.
 */
 
-#include "metric_space.h"
+#include "builtin/metric_space.h"
 #include "mldb/utils/distribution_simd.h"
 #include "ml/value_descriptions.h"
 #include "mldb/types/basic_value_descriptions.h"
