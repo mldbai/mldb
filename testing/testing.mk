@@ -320,7 +320,7 @@ $(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc
 
 $(eval $(call python_test,python_converters_test,py_conv_test_module))
 
-$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,python2.7 boost_python types mldb))
+$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,python2.7 boost_python types mldb_engine mldb_python_plugin))
 
 $(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module))
 

@@ -1,4 +1,4 @@
-/** sql_expression_extractors.h                                         -*- C++ -*-
+/** sql_expression_extractors.h                                     -*- C++ -*-
     Guy Dumais, 18 December 2015
 
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "mldb/sql/sql_expression.h"
+#include "mldb/sql/sql_expression_operations.h"
 
 namespace MLDB {
 

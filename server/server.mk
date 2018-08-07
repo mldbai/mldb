@@ -6,19 +6,9 @@ $(eval $(call python_program,validator_api.wsgi,validator_api.wsgi,))
 
 LIBMLDB_SOURCES:= \
 	mldb_server.cc \
-	plugin_collection.cc \
 	plugin_manifest.cc \
-	dataset_collection.cc \
-	procedure_collection.cc \
-	procedure_run_collection.cc \
-	function_collection.cc \
-	credential_collection.cc \
-	type_collection.cc \
-	plugin_resource.cc \
 	static_content_handler.cc \
 	static_content_macro.cc \
-	external_plugin.cc \
-	script_output.cc \
 
 LIBMLDB_LINK:= \
 	service_peer mldb_builtin_plugins sql_expression runner credentials git2 hoedown mldb_builtin command_expression vfs_handlers mldb_core mldb_engine

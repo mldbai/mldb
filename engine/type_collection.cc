@@ -9,12 +9,12 @@
 
 #include "type_collection.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/server/function_collection.h"
-#include "mldb/server/plugin_collection.h"
-#include "mldb/server/procedure_collection.h"
-#include "mldb/server/dataset_collection.h"
+#include "mldb/engine/function_collection.h"
+#include "mldb/engine/plugin_collection.h"
+#include "mldb/engine/procedure_collection.h"
+#include "mldb/engine/dataset_collection.h"
 #include "mldb/rest/rest_collection_impl.h"
-#include "mldb/server/external_plugin.h"
+#include "mldb/engine/external_plugin.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/types/pair_description.h"
 

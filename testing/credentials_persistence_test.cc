@@ -9,7 +9,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include "mldb/server/credential_collection.h"
+#include "mldb/engine/credential_collection.h"
 #include "mldb/rest/collection_config_store.h"
 #include "mldb/utils/runner.h"
 #include "mldb/io/message_loop.h"

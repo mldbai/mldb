@@ -137,7 +137,8 @@ struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
     /** Get the documentation path for the given package.  This will look
         at the working directory of the package that loaded it.
     */
-    Utf8String getPackageDocumentationPath(const Package & package) const;
+    virtual Utf8String
+    getPackageDocumentationPath(const Package & package) const override;
 
     /** Get the SSD cache directory.  This can be used to cache files
         and as backing for memory-mappable datasets.
@@ -185,6 +186,10 @@ struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
     
     virtual void handleRequest(RestConnection & connection,
                                const RestRequest & request) const override;
+
+    virtual OnProcessRestRequest
+    getStaticRouteHandler(std::string dir,
+                          bool hideInternalEntities = false) override;
 
     virtual std::shared_ptr<Plugin>
     obtainPluginSync(PolyConfig config,
@@ -249,6 +254,9 @@ struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
     virtual RestEntity *
     getProcedureCollection() const override;
     
+    virtual std::shared_ptr<ProcedureRunCollection>
+    createProcedureRunCollection(Procedure * owner) override;
+
 private:
     void preInit();
     bool initRoutes();

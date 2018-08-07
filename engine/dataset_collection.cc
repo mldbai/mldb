@@ -6,7 +6,7 @@
     Collection of datasets.
 
 */
-#include "mldb/server/dataset_collection.h"
+#include "mldb/engine/dataset_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/jml/utils/string_functions.h"
@@ -31,23 +31,6 @@ createDatasetCollection(MldbEngine * engine, RestRouteManager & routeManager)
     return createCollection<DatasetCollection>(2, L"dataset", L"datasets",
                                                engine->getDirectory(),
                                                routeManager);
-}
-
-std::shared_ptr<Dataset>
-obtainDataset(MldbEngine * engine,
-              const PolyConfig & config,
-              const MldbEngine::OnProgress & onProgress)
-{
-    return engine->obtainDatasetSync(config, onProgress);
-}
-
-std::shared_ptr<Dataset>
-createDataset(MldbEngine * engine,
-              const PolyConfig & config,
-              const std::function<bool (const Json::Value & progress)> & onProgress,
-              bool overwrite)
-{
-    return engine->createDatasetSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<DatasetType>

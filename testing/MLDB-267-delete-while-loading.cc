@@ -7,9 +7,9 @@
 */
 
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/plugin_collection.h"
+#include "mldb/engine/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 #include "mldb/types/value_description.h"
 #include <thread>
 #include <chrono>

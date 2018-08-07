@@ -7,12 +7,12 @@
     Collection of procedure trainings.
 */
 
-#include "procedure_run_collection.h"
+#include "mldb/engine/procedure_run_collection.h"
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/rest/service_peer.h"
 #include "mldb/utils/json_utils.h"
 #include "mldb/rest/rest_request_binding.h"
-#include "mldb/server/procedure_collection.h"
+#include "mldb/engine/procedure_collection.h"
 
 
 using namespace std;

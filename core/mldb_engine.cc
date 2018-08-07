@@ -16,4 +16,13 @@ static const Utf8String & getEmptyUtf8Impl()
 
 const Utf8String & EMPTY_UTF8 = getEmptyUtf8Impl();
 
+/*****************************************************************************/
+/* MLDB ENGINE                                                               */
+/*****************************************************************************/
+
+MldbEngine::
+~MldbEngine()
+{
+}
+
 } // namespace MLDB

@@ -5,7 +5,7 @@
      This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
-#include "credential_collection.h"
+#include "mldb/engine/credential_collection.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/rest/rest_request_binding.h"

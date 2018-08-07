@@ -8,7 +8,7 @@
 #include "python_plugin_context.h"
 #include "mldb/server/static_content_handler.h"
 #include "mldb/jml/utils/string_functions.h"
-#include "mldb/plugins/for_each_line.h"
+#include "mldb/builtin/for_each_line.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/optimized_path.h"
@@ -559,7 +559,7 @@ serveStaticFolder(const std::string & route, const std::string & dir)
     string route_pattern = "/" + boost::replace_all_copy(route, "/", "") + "/(.*)";
     router.addRoute(Rx(route_pattern, "<resource>"),
                     "GET", "Static content",
-                    getStaticRouteHandler("file://" + fullDir.string(), engine),
+                    engine->getStaticRouteHandler("file://" + fullDir.string()),
                     Json::Value());
 }
 
@@ -576,7 +576,7 @@ serveDocumentationFolder(const std::string & dir)
                 "not exist: " + fullDir.string());
     }
 
-    handleDocumentation = getStaticRouteHandler("file://" + fullDir.string(), engine);
+    handleDocumentation = engine->getStaticRouteHandler("file://" + fullDir.string());
 }
 
 std::string PythonPluginContext::

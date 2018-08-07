@@ -16,7 +16,7 @@
 #include "mldb/utils/runner.h"
 #include "mldb/compiler/filesystem.h"
 #include "mldb/types/any_impl.h"
-
+#include "mldb/ext/jsoncpp/json.h"
 
 using namespace std;
 

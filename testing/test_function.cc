@@ -3,7 +3,7 @@
 
 #include "test_function.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/function_collection.h"
+#include "mldb/engine/function_collection.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
 

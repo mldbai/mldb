@@ -13,7 +13,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/plugins/for_each_line.h"
+#include "mldb/builtin/for_each_line.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"

@@ -7,7 +7,7 @@
     Collection of plugins.
 */
 
-#include "mldb/server/plugin_collection.h"
+#include "mldb/engine/plugin_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/rest/rest_request_router.h"
@@ -24,23 +24,6 @@ createPluginCollection(MldbEngine * engine, RestRouteManager & routeManager)
     return createCollection<PluginCollection>(2, L"plugin", L"plugins",
                                               engine->getDirectory(),
                                               routeManager);
-}
-
-std::shared_ptr<Plugin>
-obtainPlugin(MldbEngine * engine,
-             const PolyConfig & config,
-             const MldbEngine::OnProgress & onProgress)
-{
-    return engine->obtainPluginSync(config, onProgress);
-}
-
-std::shared_ptr<Plugin>
-createPlugin(MldbEngine * engine,
-             const PolyConfig & config,
-             const std::function<bool (const Json::Value & progress)> & onProgress,
-             bool overwrite)
-{
-    return engine->createPluginSync(config, onProgress, overwrite);
 }
 
 std::shared_ptr<PluginType>

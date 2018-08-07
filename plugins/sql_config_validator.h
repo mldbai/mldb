@@ -8,14 +8,12 @@
 */
 
 #include "mldb/sql/sql_expression.h"
+#include "mldb/sql/sql_expression_operations.h"
 #include "types/optional.h"
 
 #pragma once
 
-
-
 namespace MLDB {
-
 
 // one can chain validation of several fields it this way
 // chain(validator1, chain(validator2, validator3))

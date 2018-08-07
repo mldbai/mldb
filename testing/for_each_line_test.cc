@@ -19,7 +19,7 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/vector_utils.h"
 
-#include "mldb/plugins/for_each_line.h"
+#include "mldb/builtin/for_each_line.h"
 
 
 using namespace std;

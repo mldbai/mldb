@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <functional>
+
 namespace MLDB {
 
 enum RestRequestMatchResult {
@@ -21,6 +23,17 @@ struct RestConnection;
 struct RestRequest;
 struct RestRequestParsingContext;
 struct RestRequestRouter;
+struct RestRouteManager;
+struct RestEntity;
+struct RestDirectory;
 
+/// Call back function to handle a REST request used in RestRequestRouter
+typedef std::function<RestRequestMatchResult
+                      (RestConnection & connection,
+                       const RestRequest & request,
+                       RestRequestParsingContext & context)>
+OnProcessRestRequest;
+
+ 
 } // namespace MLDB
 

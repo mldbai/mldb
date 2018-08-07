@@ -6,7 +6,6 @@ $(eval $(call include_sub_make,tabular))
 # Behavioral dataset plugin
 LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	matrix.cc \
-	for_each_line.cc \
 	dataset_feature_space.cc \
 	accuracy.cc \
 	metric_space.cc \
@@ -65,12 +64,6 @@ $(eval $(call set_compile_option,dist_table_procedure.cc,-std=c++1z))
 
 $(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),sqlite-mldb ml mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins mldb_tabular_plugin tsne svm libstemmer edlib algebra svdlibc uap behavior))
 $(eval $(call library_forward_dependency,mldb_builtin_plugins,mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins))
-
-$(eval $(call include_sub_make,lang))
-$(eval $(call include_sub_make,algo))
-$(eval $(call include_sub_make,misc))
-$(eval $(call include_sub_make,ui))
-
 
 $(LIB)/libmldb_builtin_plugins.so: $(LIB)/libmldb_lang_plugins.so $(LIB)/libmldb_js_plugin.so $(LIB)/libmldb_misc_plugins.so $(LIB)/libmldb_ui_plugins.so
 

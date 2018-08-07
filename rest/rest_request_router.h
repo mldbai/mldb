@@ -401,10 +401,7 @@ struct RestRequestRouter {
     static constexpr RestRequestMatchResult MR_ERROR = MLDB::MR_ERROR;
     static constexpr RestRequestMatchResult MR_ASYNC = MLDB::MR_ASYNC;
 
-    typedef std::function<RestRequestMatchResult (RestConnection & connection,
-                                       const RestRequest & request,
-                                       RestRequestParsingContext & context)>
-                OnProcessRequest;
+    typedef OnProcessRestRequest OnProcessRequest;
 
     typedef std::function<void (RestConnection & connection,
                                 const RestRequest & request)>

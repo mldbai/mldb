@@ -11,7 +11,7 @@
 
 #include "mldb/core/procedure.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 
 
 namespace MLDB {

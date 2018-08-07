@@ -6,7 +6,7 @@
 
 */
 
-#include "mldb/server/plugin_resource.h"
+#include "mldb/builtin/plugin_resource.h"
 
 #include "mldb/ext/libgit2/include/git2.h"
 #include "mldb/ext/libgit2/include/git2/clone.h"

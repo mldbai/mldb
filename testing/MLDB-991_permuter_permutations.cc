@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* MLDB-991_permutator_permutations 
    Francois Maillet, 17 septembre 2015
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Check that the permutator permutations are working
 */
@@ -17,9 +16,9 @@
 #include "jml/utils/string_functions.h"
 #include "jml/utils/vector_utils.h"
 #include "plugins/permuter_procedure.h"
+#include "mldb/ext/jsoncpp/json.h"
 
 using namespace std;
-
 using namespace MLDB;
 
 Json::Value parse(const string & js)

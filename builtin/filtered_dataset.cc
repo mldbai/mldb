@@ -6,7 +6,7 @@
 
 */
 
-#include "mldb/server/dataset_collection.h"
+#include "mldb/engine/dataset_collection.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/engine/analytics.h"

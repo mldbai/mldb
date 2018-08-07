@@ -11,7 +11,7 @@
 #include "js_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/logging/logging.h"
-#include "mldb/server/script_output.h"
+#include "mldb/builtin/script_output.h"
 #include <mutex>
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/path.h"
