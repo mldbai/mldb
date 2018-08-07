@@ -15,7 +15,7 @@
 #include "arch/exception.h"
 #include "jml/utils/string_functions.h"
 #include "jml/utils/vector_utils.h"
-#include "plugins/permuter_procedure.h"
+#include "mldb/builtin/permuter_procedure.h"
 #include "mldb/ext/jsoncpp/json.h"
 
 using namespace std;

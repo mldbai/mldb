@@ -22,7 +22,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/builtin/sql_config_validator.h"
 #include "mldb/ml/tsne/vantage_point_tree.h"
 #include "mldb/ml/tsne/tsne.h"
 #include "mldb/sql/sql_expression.h"

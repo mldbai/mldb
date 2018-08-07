@@ -14,7 +14,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/engine/analytics.h"
-#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/builtin/sql_config_validator.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/enum_description.h"

@@ -22,7 +22,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/vfs/filter_streams.h"
 #include "csv_writer.h"
-#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/builtin/sql_config_validator.h"
 #include <memory>
 
 using namespace std;

@@ -26,7 +26,7 @@
 #include "mldb/jml/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/builtin/sql_config_validator.h"
 #include "mldb/base/parallel.h"
 #include "mldb/utils/log.h"
 

@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/profile.h"
 #include "mldb/plugins/jml/randomforest.h"
 #include "mldb/ml/value_descriptions.h"
-#include "mldb/plugins/sql_expression_extractors.h"
+#include "mldb/builtin/sql_expression_extractors.h"
 #include "mldb/plugins/jml/classifier.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/engine/bound_queries.h"
@@ -23,7 +23,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/set_description.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/builtin/sql_config_validator.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/log.h"
 
