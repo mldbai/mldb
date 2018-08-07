@@ -71,8 +71,5 @@ LIBMLDB_BUILTIN_PLUGIN_LINK:= \
 	uap \
 
 $(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),$(LIBMLDB_BUILTIN_PLUGIN_LINK)))
-$(eval $(call library_forward_dependency,mldb_builtin_plugins,mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins))
-
-$(LIB)/libmldb_builtin_plugins.so: $(LIB)/libmldb_lang_plugins.so $(LIB)/libmldb_js_plugin.so $(LIB)/libmldb_misc_plugins.so $(LIB)/libmldb_ui_plugins.so
 
 
