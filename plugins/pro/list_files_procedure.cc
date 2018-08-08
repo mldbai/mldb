@@ -13,7 +13,7 @@
 #include "mldb/engine/bound_queries.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/date.h"
-#include "mldb/pro/pro_plugin.h"
+#include "mldb/plugins/pro/pro_plugin.h"
 #include <memory>
 
 using namespace std;
@@ -64,9 +64,9 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
 
-    auto output = createDataset(server, runProcConf.outputDataset,
+    auto output = createDataset(engine, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
     typedef tuple<ColumnPath, CellValue, Date> Cell;
 

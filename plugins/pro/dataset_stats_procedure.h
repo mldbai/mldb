@@ -1,4 +1,4 @@
-/**
+/** -*- C++ -*-
  * dataset_stats_procedure.h
  * Mich, 2016-05-18
  * This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
@@ -7,7 +7,7 @@
 #pragma once
 #include "mldb/core/procedure.h"
 #include "mldb/core/dataset.h"
-
+#include "mldb/sql/sql_expression.h"
 
 namespace MLDB {
 

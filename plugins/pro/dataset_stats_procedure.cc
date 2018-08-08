@@ -18,7 +18,7 @@
 #include "mldb/engine/bound_queries.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/engine/dataset_scope.h"
-#include "mldb/pro/pro_plugin.h"
+#include "mldb/plugins/pro/pro_plugin.h"
 
 using namespace std;
 
@@ -64,7 +64,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
-    SqlExpressionMldbScope context(server);
+    SqlExpressionMldbScope context(engine);
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.inputData.stm->from->bind(context, convertProgressToJson);
 
@@ -78,7 +78,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    auto output = createDataset(server, runProcConf.outputDataset,
+    auto output = createDataset(engine, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
     atomic<ssize_t> rowsCount(0);

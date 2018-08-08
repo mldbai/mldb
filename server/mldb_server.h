@@ -140,10 +140,7 @@ struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
     virtual Utf8String
     getPackageDocumentationPath(const Package & package) const override;
 
-    /** Get the SSD cache directory.  This can be used to cache files
-        and as backing for memory-mappable datasets.
-    */
-    std::string getCacheDirectory() const;
+    virtual std::string getCacheDirectory() const override;
 
     std::string httpBoundAddress;
     std::string httpBaseUrl;
