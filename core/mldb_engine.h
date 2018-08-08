@@ -75,6 +75,13 @@ struct MldbEngine {
     */
     virtual RestDirectory * getDirectory() = 0;
 
+    /** Get the SSD cache directory.  This can be used to cache files
+        and as backing for memory-mappable datasets.
+
+        If there is none, an empty directory is returned.
+    */
+    virtual std::string getCacheDirectory() const = 0;
+    
     virtual void addEntity(Utf8String name,
                            std::shared_ptr<RestEntity> entity) = 0;
     

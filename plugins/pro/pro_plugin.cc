@@ -35,7 +35,7 @@ const Package & proPackage()
 MLDB::Plugin *
 mldbPluginEnterV100(MLDB::MldbEngine * engine)
 {
-    string cacheDir = server->getCacheDirectory();
+    string cacheDir = engine->getCacheDirectory();
     if (!cacheDir.empty()) {
         MLDB::behManager.setRemoteCacheDir(cacheDir);
     }
