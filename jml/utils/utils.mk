@@ -9,7 +9,6 @@ LIBUTILS_SOURCES := \
 	csv.cc \
 	hex_dump.cc \
 	floating_point.cc \
-	rng.cc \
 	buckets.cc
 
 LIBUTILS_LINK :=	arch vfs
