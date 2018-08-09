@@ -8,7 +8,7 @@
 */
 
 #include "embedding.h"
-#include "mldb/ml/tsne/vantage_point_tree.h"
+#include "mldb/plugins/jml/tsne/vantage_point_tree.h"
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/arch/simd_vector.h"

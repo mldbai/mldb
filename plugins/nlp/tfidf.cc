@@ -17,7 +17,7 @@
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/ml/value_descriptions.h"
+#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/engine/analytics.h"
 #include "mldb/types/any_impl.h"

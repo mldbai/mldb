@@ -8,7 +8,7 @@
 */
 
 #include "em.h"
-#include "mldb/ml/em.h"
+#include "mldb/plugins/jml/em.h"
 #include "mldb/builtin/matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/engine/procedure_collection.h"

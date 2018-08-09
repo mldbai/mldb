@@ -12,7 +12,6 @@
 #include "tabular_dataset_chunk.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"

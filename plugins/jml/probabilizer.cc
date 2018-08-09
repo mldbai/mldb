@@ -7,7 +7,7 @@
 */
 
 #include "probabilizer.h"
-#include "mldb/ml/jml/probabilizer.h"
+#include "mldb/plugins/jml/jml/probabilizer.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
@@ -16,11 +16,11 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/parallel.h"
-#include "mldb/ml/jml/thread_context.h"
+#include "mldb/plugins/jml/jml/thread_context.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/ml/value_descriptions.h"
+#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/distribution_description.h"
 #include "mldb/types/annotated_exception.h"

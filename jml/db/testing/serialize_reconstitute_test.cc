@@ -19,7 +19,6 @@
 
 #include <sstream>
 #include <boost/multi_array.hpp>
-#include "mldb/ml/algebra/matrix_ops.h"
 #include "mldb/utils/distribution.h"
 
 
@@ -47,6 +46,24 @@ equal_impl(const ML::Stats::distribution<float> & d1,
 } // namespace boost
 
 #endif
+
+namespace boost {
+
+template<class Float>
+std::ostream &
+operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
+{
+    for (unsigned i = 0;  i < m.shape()[0];  ++i) {
+        stream << "    [";
+        for (unsigned j = 0;  j < m.shape()[1];  ++j)
+            stream << MLDB::format(" %8.3g", m[i][j]);
+        stream << " ]" << std::endl;
+    }
+    return stream;
+}
+
+} // namespace boost
+
 
 template<typename X>
 void test_serialize_reconstitute(const X & x)

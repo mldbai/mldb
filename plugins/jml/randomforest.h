@@ -11,11 +11,11 @@
 #pragma once
 
 #include "mldb/plugins/jml/dataset_feature_space.h"
-#include "mldb/ml/jml/fixed_point_accum.h"
-#include "mldb/ml/jml/tree.h"
-#include "mldb/ml/jml/stump_training_bin.h"
-#include "mldb/ml/jml/decision_tree.h"
-#include "mldb/ml/jml/committee.h"
+#include "mldb/plugins/jml/jml/fixed_point_accum.h"
+#include "mldb/plugins/jml/jml/tree.h"
+#include "mldb/plugins/jml/jml/stump_training_bin.h"
+#include "mldb/plugins/jml/jml/decision_tree.h"
+#include "mldb/plugins/jml/jml/committee.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/engine/column_scope.h"
