@@ -19,7 +19,7 @@
 #include "stump.h"
 #include "stump_training.h"
 #include "training_index.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/plugins/jml/jml/thread_context.h"
 #include "mldb/base/parallel.h"
 

@@ -15,7 +15,7 @@
 #include "mldb/soa/service/active_endpoint.h"
 #include "mldb/soa/service/passive_endpoint.h"
 #include <sys/socket.h>
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"

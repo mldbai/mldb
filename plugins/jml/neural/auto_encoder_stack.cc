@@ -12,7 +12,7 @@
 #include "auto_encoder_stack.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "layer_stack_impl.h"
-#include "mldb/jml/utils/check_not_nan.h"
+#include "mldb/plugins/jml/check_not_nan.h"
 
 
 using namespace std;

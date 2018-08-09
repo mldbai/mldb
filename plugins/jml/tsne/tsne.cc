@@ -30,7 +30,7 @@
 # include "mldb/arch/sse2_log.h"
 #endif
 #include "mldb/arch/cache.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/environment.h"
 #include "quadtree.h"
 #include "vantage_point_tree.h"

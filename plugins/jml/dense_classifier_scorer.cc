@@ -10,7 +10,7 @@
 #include "mldb/arch/spinlock.h"
 #include "mldb/plugins/jml/jml/probabilizer.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/map_reduce.h"
+#include "mldb/base/map_reduce.h"
 #include <atomic>
 
 using namespace std;

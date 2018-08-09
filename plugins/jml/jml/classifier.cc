@@ -14,7 +14,7 @@
 #include "evaluation.h"
 
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/jml/utils/vector_utils.h"

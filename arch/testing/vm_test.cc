@@ -19,7 +19,7 @@
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <dirent.h>
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include <errno.h>
 #include <sys/mman.h>
 

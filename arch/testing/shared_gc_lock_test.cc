@@ -14,7 +14,7 @@
 #include "gc_lock_test_common.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/arch/thread_specific.h"
 #include "mldb/arch/rwlock.h"
 #include "mldb/arch/spinlock.h"
@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE( test_shared_lock_sync )
     cerr << "testing contention synchronized GcLock with shared lock" << endl;
 
     SharedGcLock lockGuard(GC_CREATE, SharedGcLockProxy::name);
-    Call_Guard unlink_guard([&] { lockGuard.unlink(); });
+    Scope_Exit(lockGuard.unlink());
 
     int nthreads = 8;
     int nSpinThreads = 16;
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE( test_shared_lock_defer )
     cerr << "testing contended deferred GcLock with shared lock" << endl;
 
     SharedGcLock lockGuard(GC_CREATE, SharedGcLockProxy::name);
-    Call_Guard unlink_guard([&] { lockGuard.unlink(); });
+    Scope_Exit(lockGuard.unlink());
 
     int nthreads = 8;
     int nSpinThreads = 16;

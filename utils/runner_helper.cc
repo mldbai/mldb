@@ -17,9 +17,9 @@
 #include <sys/wait.h>
 
 #include "arch/exception.h"
-#include "jml/utils/guard.h"
 
 #include "runner_common.h"
+#include "mldb/base/scope.h"
 
 using namespace std;
 using namespace MLDB;
@@ -174,12 +174,12 @@ int main(int argc, char * argv[])
     int childLaunchStatusFd[2] = { -1, -1 };
 
     // Arrange for them to be closed in the case of an exception.
-    ML::Call_Guard guard([&] () {
+    auto guard = ScopeExit([&] () noexcept {
         if (childLaunchStatusFd[0] != -1)
             ::close(childLaunchStatusFd[0]);
         if (childLaunchStatusFd[1] != -1)
             ::close(childLaunchStatusFd[1]);
-    });
+        });
     int res = ::pipe2(childLaunchStatusFd, O_CLOEXEC);
     if (res == -1)
         throw MLDB::Exception(errno, "pipe() for status");

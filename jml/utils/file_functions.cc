@@ -27,7 +27,7 @@
 #include <map>
 #include <grp.h>
 #include <exception>
-#include "guard.h"
+#include "mldb/base/scope.h"
 #include <mutex>
 
 
@@ -186,7 +186,7 @@ void syncFile(const std::string & filename)
     int fd = ::open(filename.c_str(), O_RDONLY);
     if (fd == -1)
         throw MLDB::Exception(errno, "syncFile for " + filename);
-    ML::Call_Guard guard([=] () { close(fd); });
+    Scope_Exit(close(fd));
     int res = fdatasync(fd);
     if (res == -1)
         throw MLDB::Exception(errno, "fdatasync for " + filename);

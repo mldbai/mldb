@@ -11,7 +11,7 @@
 
 #include "twoway_layer.h"
 #include "layer_stack_impl.h"
-#include "mldb/jml/utils/check_not_nan.h"
+#include "mldb/plugins/jml/check_not_nan.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/utils/distribution_ops.h"

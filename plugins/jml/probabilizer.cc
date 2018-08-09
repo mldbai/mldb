@@ -14,7 +14,7 @@
 #include "mldb/builtin/sql_config_validator.h"
 #include "mldb/builtin/sql_expression_extractors.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/plugins/jml/jml/thread_context.h"
 #include "mldb/arch/simd_vector.h"

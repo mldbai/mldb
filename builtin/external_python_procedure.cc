@@ -9,7 +9,7 @@
 
 #include "external_python_procedure.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/jml/utils/string_functions.h"

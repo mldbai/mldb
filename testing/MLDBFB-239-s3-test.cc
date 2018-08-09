@@ -12,7 +12,7 @@
 #include <set>
 #include <boost/test/unit_test.hpp>
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/arch/exception.h"
 #include "mldb/vfs_handlers/aws/aws.h"
 #include "mldb/vfs_handlers/aws/s3.h"
@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE( test_s3_attributes )
 {
     vector<string> filesToClean;
 
-    ML::Call_Guard guard([&] () { for (auto & f: filesToClean) tryEraseUriObject(f); });
+    auto guard = ScopeExit([&] () noexcept { for (auto & f: filesToClean) tryEraseUriObject(f); });
 
     string filename = MLDB::format("s3://%s/attributes"
                                  "/pid-%d-reduced-redundancy",
@@ -84,12 +84,12 @@ BOOST_AUTO_TEST_CASE( test_s3_uploads )
     MLDB_TRACE_EXCEPTIONS(false);
 
     vector<string> cleanupUrls;
-    auto cleanup = [&] () {
+    auto cleanup = [&] () noexcept {
         for (const string & fullName: cleanupUrls) {
             tryEraseUriObject(fullName);
         }
     };
-    ML::Call_Guard guard(cleanup);
+    auto guard = ScopeExit(std::move(cleanup));
 
     auto writeFile = [&] (const string & filename, const string & contents) {
         FileCommiter commiter(filename);
@@ -144,12 +144,12 @@ BOOST_AUTO_TEST_CASE( test_s3_large_files )
     string contents = randomString(100 * 1024 * 1024);
 
     vector<string> cleanupUrls;
-    auto cleanup = [&] () {
+    auto cleanup = [&] () noexcept {
         for (const string & fullName: cleanupUrls) {
             tryEraseUriObject(fullName);
         }
     };
-    ML::Call_Guard guard(cleanup);
+    auto guard = ScopeExit(std::move(cleanup));
 
     string basename = "/s3-large-files-" + randomString(16);
     string fileUrl = "s3://" + bucket + basename;
@@ -208,7 +208,7 @@ BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
 
     auto s3Api = getS3ApiForUri(escapedUrl);
 
-    auto cleanupFn = [&] () {
+    auto cleanupFn = [&] () noexcept {
         cerr << "erasing test file... ";
         s3Api->erase(bucket, resource);
         cerr << " done\n";
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CASE( test_s3_objects_with_spaces )
     s3Api->erase(bucket, escapedResource);
 
     /* streaming upload */
-    ML::Call_Guard cleanup(cleanupFn);
+    auto guard = ScopeExit(std::move(cleanupFn));
 
     cerr << "streaming upload with unescaped url\n";
     filter_ostream stream(unescapedUrl);
@@ -292,13 +292,13 @@ BOOST_AUTO_TEST_CASE( test_s3_foreach_object )
         }
     }
 
-    auto cleanup = [&] () {
+    auto cleanup = [&] () noexcept {
         for (const string & fullName: cleanupUrls) {
             cerr << "erasing: " + fullName + "\n";
             tryEraseUriObject(fullName);
         }
     };
-    ML::Call_Guard guard(cleanup);
+    auto guard = ScopeExit(std::move(cleanup));
 
 
     auto s3Api = getS3ApiForUri(url);
@@ -377,10 +377,10 @@ BOOST_AUTO_TEST_CASE( test_s3_getObjectInfo )
     string filename = "s3-test-getObjectInfo-" + randomString(6);
     string url = "s3://" + bucket + "/" + filename;
 
-    auto cleanup = [&] () {
+    auto cleanup = [&] () noexcept {
         tryEraseUriObject(url);
     };
-    ML::Call_Guard guard(cleanup);
+    auto guard = ScopeExit(std::move(cleanup));
 
 
     auto s3Api = getS3ApiForUri(url);
@@ -490,11 +490,8 @@ BOOST_AUTO_TEST_CASE( test_s3_url_credentials )
     string filename = "s3-test-getObjectInfo-" + randomString(6);
     string anonymousUrl = "s3://" + bucket + "/" + filename;
 
-    auto cleanup = [&] () {
-        tryEraseUriObject(anonymousUrl);
-    };
-    ML::Call_Guard guard(cleanup);
-
+    Scope_Exit(tryEraseUriObject(anonymousUrl));
+    
     string testContents("Some random contents");
 
     {

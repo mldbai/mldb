@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* vm.cc
    Jeremy Barnes, 22 February 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Virtual memory functions.
 */
@@ -10,7 +9,7 @@
 #include "vm.h"
 #include "mldb/arch/format.h"
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/info.h"
 #include "mldb/base/scope.h"
 
@@ -167,7 +166,7 @@ std::vector<unsigned char> page_flags(const void * addr, int npages)
     int pm_fd = open("/proc/self/pagemap", O_RDONLY);
     if (pm_fd == -1)
         throw Exception("open pagemap; " + string(strerror(errno)));
-    Scope_Exit(std::bind(::close, pm_fd));
+    Scope_Exit(::close(pm_fd));
 
     size_t page_num = (size_t)addr / 4096;
 

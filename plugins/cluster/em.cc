@@ -15,7 +15,6 @@
 #include "mldb/engine/function_collection.h"
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
-#include "jml/utils/guard.h"
 #include "base/parallel.h"
 #include "jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"

@@ -12,7 +12,7 @@
 
 #include "mldb/base/parse_context.h"
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/jml/db/compact_size_types.h"
 #include "mldb/jml/utils/hex_dump.h"

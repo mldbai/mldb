@@ -21,16 +21,16 @@ using namespace ML;
 
 namespace {
 
-struct Call_Guard {
+struct Scope_Exit {
     
     typedef std::function<void ()> Fn;
 
-    Call_Guard(const Fn & fn)
+    Scope_Exit(const Fn & fn)
         : fn_(fn)
     {
     }
 
-    ~Call_Guard()
+    ~Scope_Exit()
     {
         if (fn_) fn_();
     }
@@ -175,7 +175,7 @@ createMutexFile()
         throw MLDB::Exception(errno, "open");
     }
 
-    Call_Guard fdGuard([&] () {
+    Scope_Exit fdGuard([&] () {
         if (!success) {
             ::close(fd);
         }
@@ -194,7 +194,7 @@ createMutexFile()
         throw MLDB::Exception(errno, "mmap");
     }
 
-    Call_Guard mmapGuard([&] () {
+    Scope_Exit mmapGuard([&] () {
         if (!success) {
             ::munmap(newMutex, sizeof(pthread_mutex_t));
         }
@@ -226,7 +226,7 @@ createMutexFile()
         throw MLDB::Exception(error, "pthread_mutexattr_init");
     }
 
-    Call_Guard mtxGuard([&] () {
+    Scope_Exit mtxGuard([&] () {
         if (!success) {
             ::pthread_mutex_destroy(newMutex);
         }

@@ -158,17 +158,17 @@ using Scope::fail;
 
 #define Scope_Exit(func) \
     auto UNIQUE_LABEL(exitlambda) = [&]() noexcept { func; }; \
-    Scope::Exit<decltype(UNIQUE_LABEL(exitlambda))> UNIQUE_LABEL(exit)(std::move(UNIQUE_LABEL(exitlambda))); \
+    ::MLDB::Scope::Exit<decltype(UNIQUE_LABEL(exitlambda))> UNIQUE_LABEL(exit)(std::move(UNIQUE_LABEL(exitlambda))); \
     (void) 0
 
 #define Scope_Success(func) \
     auto UNIQUE_LABEL(successlambda) = [&]() noexcept { func; }; \
-    Scope::Success<decltype(UNIQUE_LABEL(successlambda))> UNIQUE_LABEL(success)(std::move(UNIQUE_LABEL(successlambda))); \
+    ::MLDB::Scope::Success<decltype(UNIQUE_LABEL(successlambda))> UNIQUE_LABEL(success)(std::move(UNIQUE_LABEL(successlambda))); \
     (void) 0
 
 #define Scope_Failure(func) \
     auto UNIQUE_LABEL(failurelambda) = [&]() noexcept { func; }; \
-    Scope::Failure<decltype(UNIQUE_LABEL(failurelambda))> UNIQUE_LABEL(failure)(std::move(UNIQUE_LABEL(failurelambda))); \
+    ::MLDB::Scope::Failure<decltype(UNIQUE_LABEL(failurelambda))> UNIQUE_LABEL(failure)(std::move(UNIQUE_LABEL(failurelambda))); \
     (void) 0
 
 /*

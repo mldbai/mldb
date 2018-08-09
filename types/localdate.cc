@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* localdate.cc
    Wolfgang Sourdeau, 10 December 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -13,7 +12,7 @@
 #include <boost/date_time/local_time/tz_database.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
 #include <arch/exception.h>
-#include "jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include <sys/stat.h>
 
 
@@ -24,7 +23,6 @@ using namespace std;
 using namespace boost::local_time;
 using namespace boost::posix_time;
 
-
 namespace {
 
 static tz_database tz_db;
@@ -34,7 +32,7 @@ string
 dirName(const string & filename)
 {
     char * fnCopy = ::strdup(filename.c_str());
-    ML::Call_Guard guard([&]() { free(fnCopy); });
+    Scope_Exit(free(fnCopy));
     char * dirNameC = ::dirname(fnCopy);
     string dirname(dirNameC);
 

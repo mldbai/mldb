@@ -23,7 +23,7 @@
 
 #include "binary_symmetric.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include <boost/scoped_ptr.hpp>
 
 

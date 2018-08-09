@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* check_not_nan.h                                                 -*- C++ -*-
    Jeremy Barnes, 8 November 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Check that a range of values doesn't contain NaN values.
 */
 
-#ifndef __jml__utils__check_not_nan_h__
-#define __jml__utils__check_not_nan_h__
+#pragma once
 
 #ifndef NDEBUG
 #  define CHECK_NOT_NAN(__x) \
@@ -24,7 +22,3 @@
 #  define CHECK_NOT_NAN_N(begin, n)
 #endif
 
-
-
-
-#endif /* __jml__utils__check_not_nan_h__ */
