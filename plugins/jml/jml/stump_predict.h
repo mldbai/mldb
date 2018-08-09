@@ -1,15 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* stump_predict.h                                                 -*- C++ -*-
    Jeremy Barnes, 20 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Inline prediction methods for the stump.
 */
 
-#ifndef __boosting__stump_predict_h__
-#define __boosting__stump_predict_h__
+#pragma once
 
 #include "stump.h"
 
@@ -35,6 +32,3 @@ predict(int label, FeatureExPtrIter first, FeatureExPtrIter last) const
 }
 
 } // namespace ML
-
-
-#endif /* __boosting__stump_predict_h__ */
