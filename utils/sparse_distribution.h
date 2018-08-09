@@ -16,7 +16,7 @@
 #include <limits>
 #include <ostream>
 
-namespace ML {
+namespace MLDB {
 
 template<typename Index, typename Float,
          typename Base = std::map<Index, Float> >
@@ -149,4 +149,4 @@ template<typename I, typename F>
 std::ostream &
 operator << (std::ostream & stream, const sparse_distribution<I, F> & dist);
 
-} // namespace ML
+} // namespace MLDB

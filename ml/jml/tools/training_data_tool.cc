@@ -16,7 +16,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/ml/stats/moments.h"
 #include "mldb/jml/utils/pair_utils.h"
-#include "mldb/ml/stats/sparse_distribution.h"
+#include "utils/sparse_distribution.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/jml/utils/floating_point.h"
 

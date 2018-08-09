@@ -282,7 +282,7 @@ struct LogMemStorage {
         
         if (newCapacity == 0) return;
 
-        bits_ = ML::highest_bit((newCapacity - 1), -1) + 2;
+        bits_ = MLDB::highest_bit((newCapacity - 1), -1) + 2;
         vals_ = allocator.allocate(capacity() + 1) + 1;
 
         ExcAssertGreaterEqual(capacity(), newCapacity);

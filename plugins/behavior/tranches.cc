@@ -31,7 +31,7 @@ TrancheSpec()
 TrancheSpec::
 TrancheSpec(int totalTranches)
 {
-    modulusShift = ML::highest_bit(totalTranches, -1);
+    modulusShift = MLDB::highest_bit(totalTranches, -1);
     ExcAssertEqual(this->totalTranches(), totalTranches);
     for (unsigned i = 0;  i < totalTranches;  ++i)
         set.push_back(i);
@@ -57,7 +57,7 @@ TrancheSpec(int num, int totalTranches)
 
     ExcAssertGreaterEqual(num, 0);
     ExcAssertLess(num, totalTranches);
-    int m = ML::highest_bit(totalTranches, -1) + 1;
+    int m = MLDB::highest_bit(totalTranches, -1) + 1;
 
     if (m == 0)
         throw MLDB::Exception("totalTranches can't be 0");
@@ -79,7 +79,7 @@ TrancheSpec(const std::vector<int> & set, int totalTranches)
 
     //cerr << "tranche spec " << set << " " << totalTranches << endl;
 
-    int m = ML::highest_bit(totalTranches, -1) + 1;
+    int m = MLDB::highest_bit(totalTranches, -1) + 1;
 
     if (m == 0)
         throw MLDB::Exception("totalTranches can't be 0");

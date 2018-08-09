@@ -14,7 +14,7 @@ using namespace std;
 #include "mldb/arch/exception.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/ml/jml/buckets.h"
+#include "jml/utils/buckets.h"
 #include <limits>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>

@@ -8,11 +8,11 @@
 
 #pragma once
 
-#include "mldb/ml/stats/sparse_distribution.h"
-#include "mldb/jml/utils/sorted_vector.h"
+#include "utils/sparse_distribution.h"
+#include "utils/sorted_vector.h"
 #include <stdint.h>
 
-namespace ML {
+namespace MLDB {
 
 inline bool bit_equal(float f1, float f2)
 {
@@ -69,6 +69,6 @@ Bucket_Info create_buckets(const std::vector<float> & values,
                            size_t num_buckets);
 
 
-} // namespace ML
+} // namespace MLDB
 
 

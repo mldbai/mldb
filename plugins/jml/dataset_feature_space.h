@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/ml/jml/feature_space.h"
-#include "mldb/ml/jml/buckets.h"
+#include "jml/utils/buckets.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/core/dataset.h"
 #include "mldb/engine/bucket.h"

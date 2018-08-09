@@ -11,7 +11,7 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/annotated_exception.h"
-#include "mldb/ml/jml/buckets.h"
+#include "mldb/jml/utils/buckets.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/string.h"
 
@@ -44,7 +44,7 @@ WritableBucketList::
 init(size_t numElements, uint32_t numBuckets)
 {
     this->numBuckets = numBuckets;
-    entryBits = ML::highest_bit(numBuckets) + 1;
+    entryBits = highest_bit(numBuckets) + 1;
 
     // Take a number of bits per entry that evenly divides into
     // 64 bits.
@@ -222,12 +222,12 @@ initialize(bool hasNulls,
         for (auto & n: numericValues)
             freqPairs.emplace_back(n, 1);
         
-        ML::BucketFreqs freqs(freqPairs.begin(), freqPairs.end());
+        BucketFreqs freqs(freqPairs.begin(), freqPairs.end());
         
         if (numBuckets != -1 && numericValues.size() > numBuckets) {
-            ML::bucket_dist_reduced(splitPoints, freqs, numBuckets);
+            bucket_dist_reduced(splitPoints, freqs, numBuckets);
         } else {
-            ML::bucket_dist_full(splitPoints, freqs);
+            bucket_dist_full(splitPoints, freqs);
         }
 
         numericValues.clear();

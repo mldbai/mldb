@@ -31,7 +31,7 @@ using namespace std;
 
 namespace MLDB {
 
-using ML::highest_bit;
+using MLDB::highest_bit;
 
 namespace {
 

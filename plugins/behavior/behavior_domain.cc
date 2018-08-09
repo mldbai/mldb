@@ -413,7 +413,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
         cerr << "average of " << 1.0 * k.second / subjectCount() << " values per subject"
              << endl;
 
-        int bits = ML::highest_bit(valueSubjects[k.first].size() + 1, -1) + 1;
+        int bits = MLDB::highest_bit(valueSubjects[k.first].size() + 1, -1) + 1;
         keyValueBits += bits;
         
         cerr << "can be stored in " << bits << " bits" << endl;
@@ -716,7 +716,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                 // Now an index of behaviorIndex to position in the behCounts array
                 std::map<int, int> behIndexToBehCountsIndex;
                 int j = 0;
-                int numBehBits = ML::highest_bit(maxBeh, -1) + 1;
+                int numBehBits = MLDB::highest_bit(maxBeh, -1) + 1;
 
                 size_t tableBitsNotSplit = numBehBits * behCounts.size();
                 int highestBehSoFar = 0;
@@ -760,17 +760,17 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
 #endif
 
                     // If we were to split here
-                    int beforeBehBits = (ML::highest_bit(highestBehSoFar, -1) + 1)
+                    int beforeBehBits = (MLDB::highest_bit(highestBehSoFar, -1) + 1)
                         * j;
-                    int afterBehBits = (ML::highest_bit(maxBeh, -1) + 1)
+                    int afterBehBits = (MLDB::highest_bit(maxBeh, -1) + 1)
                         * (behCounts.size() - j);
 
                     int totalBits = beforeBehBits + afterBehBits /* for split info, etc */;
 
                     if (ok && totalBits < bestTotalBits) {
                         splitBehaviorTable = true;
-                        behaviorTableSplitBitsBefore = ML::highest_bit(highestBehSoFar, -1) + 1;
-                        behaviorTableSplitBitsAfter = ML::highest_bit(maxBeh, -1) + 1;
+                        behaviorTableSplitBitsBefore = MLDB::highest_bit(highestBehSoFar, -1) + 1;
+                        behaviorTableSplitBitsAfter = MLDB::highest_bit(maxBeh, -1) + 1;
                         behaviorTableSplitIndex = j;
                         behaviorTableSplitValue = splitValue;
                         bestTotalBits = totalBits;
@@ -808,7 +808,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                 // With a table: we store the table itself, plus the reduced
                 // behavior number.
 
-                int indexBits = ML::highest_bit(behCounts.size() - 1, -1) + 1;
+                int indexBits = MLDB::highest_bit(behCounts.size() - 1, -1) + 1;
 
                 size_t withTableBitsTotal
                     = entryCounts.size() * indexBits + bestTotalBits;
@@ -836,11 +836,11 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                 std::sort(tsSorted.begin(), tsSorted.end());
 
                 int timestampTableTimestampBits
-                    = ML::highest_bit(tsSorted.back() -1, -1) + 1;
+                    = MLDB::highest_bit(tsSorted.back() -1, -1) + 1;
                 int eventTableTimestampBits
-                    = ML::highest_bit(tsSorted.size(), -1) + 1;
+                    = MLDB::highest_bit(tsSorted.size(), -1) + 1;
 
-                int timeOffsetBits = ML::highest_bit(maxTimeOffset, -1) + 1;
+                int timeOffsetBits = MLDB::highest_bit(maxTimeOffset, -1) + 1;
 
                 uint64_t totalTimestampTableBits
                     = tsSorted.size() * timestampTableTimestampBits;
@@ -863,11 +863,11 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                 //     << " and maxCount " << maxCount << endl;
 
                 MappedBehaviorDomain::SubjectIndexEntry e;
-                e.behBits = ML::highest_bit(maxBeh, -1) + 1;
+                e.behBits = MLDB::highest_bit(maxBeh, -1) + 1;
                 ExcAssertGreaterEqual(maxCount, 1);
-                e.indexCountBits = ML::highest_bit(maxCount - 1, -1) + 1;
+                e.indexCountBits = MLDB::highest_bit(maxCount - 1, -1) + 1;
                 ExcAssertGreaterEqual(maxEntryCount, 1);
-                e.countBits = ML::highest_bit(maxEntryCount - 1, -1) + 1;
+                e.countBits = MLDB::highest_bit(maxEntryCount - 1, -1) + 1;
                 e.timeBits = timeOffsetBits;
                 e.numDistinctBehaviors = behCounts.size();
                 e.numBehaviors = entryCounts.size();
@@ -1116,7 +1116,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
         t.restart();
     }
 
-    int numSubjectBits = ML::highest_bit(index.size() - 1, -1) + 1;
+    int numSubjectBits = MLDB::highest_bit(index.size() - 1, -1) + 1;
 
     struct BehaviorEntryToWrite {
         BehaviorEntryToWrite(uint32_t * subjectsBuf = 0,
@@ -1163,7 +1163,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
             int64_t gap = latest - start;
             ExcAssertGreaterEqual(gap, 0);
 
-            int numTimestampBits = ML::highest_bit(gap, -1) + 1;
+            int numTimestampBits = MLDB::highest_bit(gap, -1) + 1;
 
             //cerr << "gap = " << gap << " numTimestampBits = "
             //     << numTimestampBits << endl;

@@ -1381,7 +1381,7 @@ getBehaviorSubjectCount(BI beh, SH maxSubject, Precision p) const
     const uint32_t * data = behaviorToSubjects + behaviorToSubjectsIndex[beh];
 
     int len = behaviorStats[beh].subjectCount;
-    int numSubjectBits = ML::highest_bit(md->numSubjects - 1, -1) + 1;
+    int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
     typedef ML::BitArrayIterator<uint32_t> BitArrayIterator;
 
@@ -1409,7 +1409,7 @@ getSubjectHashes(BI beh, SH maxSubject, bool sorted) const
     const uint32_t * data = behaviorToSubjects + behaviorToSubjectsIndex[beh];
 
     int len = getBehaviorSubjectCount(beh);
-    int numSubjectBits = ML::highest_bit(md->numSubjects - 1, -1) + 1;
+    int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
     ML::Bit_Extractor<uint32_t> extractor(data);
 
@@ -1488,7 +1488,7 @@ getSubjectHashesAndTimestamps(BI index, SH maxSubject, bool sorted) const
         //cerr << "numTimestampBits = " << numTimestampBits << endl;
     }
 
-    int numSubjectBits = ML::highest_bit(md->numSubjects - 1, -1) + 1;
+    int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
     ML::Bit_Extractor<uint32_t> extractor(subjectData);
 
@@ -1566,7 +1566,7 @@ forEachBehaviorSubject(BH beh,
         //cerr << "numTimestampBits = " << numTimestampBits << endl;
     }
 
-    int numSubjectBits = ML::highest_bit(md->numSubjects - 1, -1) + 1;
+    int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
     ML::Bit_Extractor<uint32_t> extractor(subjectData);
 
@@ -1805,7 +1805,7 @@ coIterateBehaviorsScan(BI behi1, BI behi2,
 
     //cerr << "beh1 = " << beh1 << " beh2 = " << beh2 << endl;
     
-    int numSubjectBits = ML::highest_bit(md->numSubjects - 1, -1) + 1;
+    int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
     auto getExtractor = [&] (BI beh)
         {
@@ -1894,7 +1894,7 @@ coIterateBehaviorsLookup(BI behi1, BI behi2,
                           SH maxSubject,
                           const OnBehaviors & onBehaviors) const
 {
-    int numSubjectBits = ML::highest_bit(md->numSubjects - 1, -1) + 1;
+    int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
     auto getExtractor = [&] (BI beh)
         {

@@ -1,28 +1,21 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* sorted_vector.h                                             -*- C++ -*-
    Jeremy Barnes, 6 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   $Source:$
-   $Id:$
-   
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
    Sorted vector<pair>, that acts like a memory-efficient map.
 */
 
-#ifndef __utils__sorted_vector_h__
-#define __utils__sorted_vector_h__
-
+#pragma once
 
 #include <vector>
 #include <algorithm>
 #include <utility>
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -101,8 +94,5 @@ private:
     base_type base;
 };
 
-} // namespace ML
-
-
-#endif /* __utils__sorted_vector_h__ */
+} // namespace MLDB
 

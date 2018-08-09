@@ -11,7 +11,7 @@
 #ifndef __boosting_tool_common_h__
 #define __boosting_tool_common_h__
 
-#include "mldb/ml/stats/sparse_distribution.h"
+#include "utils/sparse_distribution.h"
 #include <vector>
 #include <string>
 #include <functional>
