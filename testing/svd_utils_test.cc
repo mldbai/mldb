@@ -11,7 +11,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
-#include "mldb/ml/svd_utils.h"
+#include "mldb/builtin/intersection_utils.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/vector_utils.h"
@@ -35,7 +35,7 @@ void testBucket(std::vector<uint32_t> subs1,
     std::sort(subs1.begin(), subs1.end());
     std::sort(subs2.begin(), subs2.end());
 
-    SvdColumnEntry::Bucket bucket1, bucket2;
+    IntersectionEntry::Bucket bucket1, bucket2;
     
     for (auto & s: subs1)
         bucket1.add(s, SH(s));

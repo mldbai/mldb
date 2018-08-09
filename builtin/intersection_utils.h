@@ -1,4 +1,4 @@
-/** svd_utils.h                                                    -*- C++ -*-
+/** intersection_utils.h                                            -*- C++ -*-
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
@@ -16,12 +16,12 @@
 namespace MLDB {
 
 /** Select which inner product space we use */
-enum SvdSpace {
+enum IntersectionSpace {
     HAMMING,    ///< Vectors are binary; overlap is number in common
     PYTHAGOREAN ///< Vectors are real in number of counts; overlap is dp
 };
 
-DECLARE_ENUM_DESCRIPTION(SvdSpace);
+DECLARE_ENUM_DESCRIPTION(IntersectionSpace);
 
 
 int
@@ -68,14 +68,14 @@ extern int useOptimizedIntersection;  // = 3
 
 
 /*****************************************************************************/
-/* SVD COLUMN ENTRY                                                          */
+/* INTERSECTION ENTRY                                                        */
 /*****************************************************************************/
 
-/** This represents a bucket of increasing subject IDs, that can be
+/** This represents a bucket of increasing integer IDs, that can be
     effectively intersected with another.
 */
-struct SvdColumnEntry {
-    SvdColumnEntry()
+struct IntersectionEntry {
+    IntersectionEntry()
         : totalRows(0), eligibleRows(0), bitmap(0)
     {
     }
@@ -106,7 +106,7 @@ struct SvdColumnEntry {
         void compress();
 
         // Intersect with another bucket in the given space
-        double calcOverlap(const Bucket & other, SvdSpace space) const;
+        double calcOverlap(const Bucket & other, IntersectionSpace space) const;
 
         template<typename Fn>
         void forEach(Fn && fn) const
@@ -152,11 +152,11 @@ struct SvdColumnEntry {
     }
 
     // Calculate the overlap with another entry
-    double calcOverlap(const SvdColumnEntry & other,
-                       SvdSpace space,
+    double calcOverlap(const IntersectionEntry & other,
+                       IntersectionSpace space,
                        bool shortCircuit) const;
 
-    // 64 buckets to allow for work to be split up
+    // 64 buckets to allow for work to be parallelized over multiple threads
     Bucket buckets[64];
 
     int totalRows;     ///< Total number of rows in all buckets

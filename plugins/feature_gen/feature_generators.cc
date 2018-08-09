@@ -9,7 +9,6 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/base/parallel.h"
-#include "mldb/ml/jml/thread_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/utils/lightweight_hash.h"

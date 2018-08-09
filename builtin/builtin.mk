@@ -25,6 +25,7 @@ LIBMLDB_BUILTIN_BASE_SOURCES:= \
 	metric_space.cc \
 	mock_procedure.cc \
 	matrix.cc \
+	intersection_utils.cc \
 	\
 	continuous_dataset.cc \
 	\
@@ -34,9 +35,11 @@ LIBMLDB_BUILTIN_BASE_SOURCES:= \
 	permuter_procedure.cc \
 	datasetsplit_procedure.cc \
 	summary_statistics_proc.cc \
+	\
 
 LIBMLDB_BUILTIN_BASE_LINK:= \
 	mldb_core \
+	mldb_engine \
 	runner \
 	git2 \
 	ssh2 \

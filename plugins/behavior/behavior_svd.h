@@ -15,7 +15,7 @@
 #include "behavior_domain.h"
 #include <map>
 #include "mldb/utils/lightweight_hash.h"
-#include "mldb/ml/svd_utils.h"
+#include "mldb/builtin/intersection_utils.h"
 
 
 namespace MLDB {
@@ -36,7 +36,7 @@ struct BehaviorSvd {
                  int numDenseBehaviors,
                  int numSingularValues,
                  const std::vector<BH> & biasedBehaviors = std::vector<BH>(),
-                 SvdSpace space = HAMMING,
+                 IntersectionSpace space = HAMMING,
                  bool calcLongTail = true);
 
     BehaviorSvd(const std::string & filename);
@@ -49,7 +49,7 @@ struct BehaviorSvd {
     std::vector<BH> sparseBehaviors;
     LightweightHash_Set<uint64_t> biasedBehaviors;
 
-    SvdSpace space;
+    IntersectionSpace space;
     bool calcLongTail;
 
     /** Singular values */
@@ -151,7 +151,7 @@ struct BehaviorSvd {
 
     struct BehaviorCache {
         std::vector<BH> behaviors;
-        std::vector<SvdColumnEntry> subjects;
+        std::vector<IntersectionEntry> subjects;
         LightweightHash<BH, int> behToIndex;
     };
 
@@ -176,8 +176,8 @@ struct BehaviorSvd {
 
     float calcOverlapCached(BH bi,
                             BH bj,
-                            const SvdColumnEntry & ei,
-                            const SvdColumnEntry & ej,
+                            const IntersectionEntry & ei,
+                            const IntersectionEntry & ej,
                             const BehaviorDomain & behs) const;
 
     float calcOverlapCached(BH bi, BH bj,

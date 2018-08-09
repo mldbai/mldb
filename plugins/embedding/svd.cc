@@ -18,7 +18,7 @@
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/ml/svd_utils.h"
+#include "mldb/builtin/intersection_utils.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/ext/svdlibc/svdlib.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -109,13 +109,13 @@ SvdConfigDescription()
                            validateFunction<SvdConfig>());
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(SimpleSvdColumnEntry);
+DEFINE_STRUCTURE_DESCRIPTION(SimpleIntersectionEntry);
 
-SimpleSvdColumnEntryDescription::
-SimpleSvdColumnEntryDescription()
+SimpleIntersectionEntryDescription::
+SimpleIntersectionEntryDescription()
 {
     addParent<ColumnSpec>();
-    addField("singularVector", &SimpleSvdColumnEntry::singularVector,
+    addField("singularVector", &SimpleIntersectionEntry::singularVector,
              "Singular vector for this column");
 }
 
@@ -591,7 +591,7 @@ calcRightSingular(const ClassifiedColumns & columns,
 
             auto vec = svd.rightSingularVector(columnIndex, columnIndex[i], logger);
 
-            SimpleSvdColumnEntry column;
+            SimpleIntersectionEntry column;
             column = columnIndex[i];
             column.singularVector = std::move(vec);
 

@@ -1,11 +1,11 @@
-/** svd_utils.cc
+/** intersection_utils.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
-#include "svd_utils.h"
+#include "intersection_utils.h"
 #include "mldb/arch/arch.h"
 #include "mldb/jml/utils/environment.h"
 #include "mldb/types/structure_description.h"
@@ -22,10 +22,10 @@ using namespace std;
 
 namespace MLDB {
 
-DEFINE_ENUM_DESCRIPTION(SvdSpace);
+DEFINE_ENUM_DESCRIPTION(IntersectionSpace);
 
-SvdSpaceDescription::
-SvdSpaceDescription()
+IntersectionSpaceDescription::
+IntersectionSpaceDescription()
 {
     addValue("hamming", HAMMING,
              "Hamming space encoding");
@@ -54,7 +54,7 @@ static inline int rowToBucketRowhash(uint64_t rowHash)
 }
 
 void
-SvdColumnEntry::Bucket::
+IntersectionEntry::Bucket::
 add(int rowIndex, uint64_t rowHash)
 {
     int subhash = rowToBucketRowhash(rowHash);
@@ -63,7 +63,7 @@ add(int rowIndex, uint64_t rowHash)
 }
 
 void
-SvdColumnEntry::Bucket::
+IntersectionEntry::Bucket::
 add(int rowIndex, uint64_t rowHash, int count)
 {
     int subhash = rowToBucketRowhash(rowHash);
@@ -73,7 +73,7 @@ add(int rowIndex, uint64_t rowHash, int count)
 }
 
 void
-SvdColumnEntry::Bucket::
+IntersectionEntry::Bucket::
 sort()
 {
     if (counts.empty()) {
@@ -101,7 +101,7 @@ sort()
 }
 
 void
-SvdColumnEntry::Bucket::
+IntersectionEntry::Bucket::
 compress()
 {
     //ExcAssert(std::is_sorted(rows.begin(), rows.end()));
@@ -144,7 +144,7 @@ compress()
 }
 
 void
-SvdColumnEntry::
+IntersectionEntry::
 add(int rowIndex, uint64_t rowHash)
 {
     int bucket = rowToBucket(rowHash);
@@ -154,7 +154,7 @@ add(int rowIndex, uint64_t rowHash)
 }
 
 void
-SvdColumnEntry::
+IntersectionEntry::
 add(int rowIndex, uint64_t rowHash, int count)
 {
     int bucket = rowToBucket(rowHash);
@@ -164,7 +164,7 @@ add(int rowIndex, uint64_t rowHash, int count)
 }
 
 void
-SvdColumnEntry::
+IntersectionEntry::
 sort()
 {
     for (auto & b: buckets)
@@ -172,7 +172,7 @@ sort()
 }
 
 void
-SvdColumnEntry::
+IntersectionEntry::
 compress()
 {
     for (auto & b: buckets)
@@ -180,9 +180,9 @@ compress()
 }
 
 double
-SvdColumnEntry::
-calcOverlap(const SvdColumnEntry & other,
-            SvdSpace space,
+IntersectionEntry::
+calcOverlap(const IntersectionEntry & other,
+            IntersectionSpace space,
             bool shortCircuit) const
 {
     if (space == HAMMING && totalRows == eligibleRows) {
@@ -463,8 +463,8 @@ EnvOption<int> SVD_OPTIMIZED_INTERSECTION("SVD_OPTIMIZED_INTERSECTION", 3);
 int useOptimizedIntersection = SVD_OPTIMIZED_INTERSECTION;
 
 double
-SvdColumnEntry::Bucket::
-calcOverlap(const Bucket & other, SvdSpace space) const
+IntersectionEntry::Bucket::
+calcOverlap(const Bucket & other, IntersectionSpace space) const
 {
     const Bucket & ei = *this;
     const Bucket & ej = other;
