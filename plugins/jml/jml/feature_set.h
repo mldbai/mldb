@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/floating_point.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/hash_specializations.h"
-#include "mldb/jml/utils/sgi_algorithm.h"
+#include "mldb/plugins/jml/sgi_algorithm.h"
 #include <cmath>
 #include <algorithm>
 #include "mldb/base/parse_context.h"

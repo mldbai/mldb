@@ -15,7 +15,7 @@
 #include "stump_training.h"
 #include "mldb/jml/utils/vector_utils.h"
 
-#include "mldb/plugins/jml/algebra/multi_array_utils.h"
+#include "mldb/plugins/jml/multi_array_utils.h"
 #include "mldb/jml/utils/pair_utils.h"
 
 

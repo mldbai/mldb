@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/enum_info.h"
 #include "mldb/jml/utils/floating_point.h"
 #include <boost/iterator/transform_iterator.hpp>
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 
 namespace ML {
 

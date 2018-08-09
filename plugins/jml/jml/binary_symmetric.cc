@@ -11,7 +11,7 @@
 #include "binary_symmetric.h"
 #include "training_data.h"
 #include "training_index.h"
-#include "mldb/plugins/jml/algebra/multi_array_utils.h"
+#include "mldb/plugins/jml/multi_array_utils.h"
 
 
 using namespace std;

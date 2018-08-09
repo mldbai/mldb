@@ -15,7 +15,7 @@
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/base/exc_assert.h"
 #include <boost/progress.hpp>
 #include "mldb/jml/db/persistent.h"

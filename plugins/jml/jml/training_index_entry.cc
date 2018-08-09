@@ -9,7 +9,7 @@
 */
 
 #include "training_index_entry.h"
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "mldb/plugins/jml/jml/feature_space.h"

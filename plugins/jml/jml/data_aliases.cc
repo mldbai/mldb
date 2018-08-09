@@ -11,7 +11,7 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/jml/utils/floating_point.h"
 #include "mldb/arch/spinlock.h"
 #include "mldb/base/parallel.h"
