@@ -14,9 +14,9 @@
 #include "mldb/sql/cell_value.h"
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/ml/svd_utils.h"
 #include "mldb/utils/log_fwd.h"
 #include "mldb/utils/progress.h"
+#include "mldb/builtin/intersection_utils.h"
 #include <boost/multi_array.hpp>
 
 
@@ -415,7 +415,7 @@ struct ColumnIndexEntry: public ColumnSpec {
 
     distribution<float> continuousValues;
     std::vector<std::pair<int, float> > sparseValues;
-    SvdColumnEntry discreteValues;
+    IntersectionEntry discreteValues;
 };
 
 struct ColumnIndexEntries: public std::vector<ColumnIndexEntry> {

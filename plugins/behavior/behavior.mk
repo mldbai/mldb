@@ -28,7 +28,8 @@ LIBBEHAVIOR_LINK := \
 	types \
 	value_description \
 	ml \
-	sql_expression
+	sql_expression \
+	mldb_builtin_base
 
 $(eval $(call set_compile_option,$(LIBBEHAVIOR_SOURCES),-Ipro))
 

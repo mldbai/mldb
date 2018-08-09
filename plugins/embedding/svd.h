@@ -48,9 +48,9 @@ struct SvdConfig : ProcedureConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(SvdConfig);
 
-struct SimpleSvdColumnEntry: public ColumnSpec {
+struct SimpleIntersectionEntry: public ColumnSpec {
 
-    SimpleSvdColumnEntry & operator = (const ColumnSpec & column)
+    SimpleIntersectionEntry & operator = (const ColumnSpec & column)
     {
         ColumnSpec::operator = (column);
         return *this;
@@ -59,7 +59,7 @@ struct SimpleSvdColumnEntry: public ColumnSpec {
     distribution<float> singularVector;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(SimpleSvdColumnEntry);
+DECLARE_STRUCTURE_DESCRIPTION(SimpleIntersectionEntry);
 
 struct SvdColumnIndexEntry {
     ColumnPath columnName;
@@ -69,7 +69,7 @@ struct SvdColumnIndexEntry {
 DECLARE_STRUCTURE_DESCRIPTION(SvdColumnIndexEntry);
 
 struct SvdBasis {
-    std::vector<SimpleSvdColumnEntry> columns;
+    std::vector<SimpleIntersectionEntry> columns;
     distribution<float> singularValues;
     std::map<ColumnHash, SvdColumnIndexEntry> columnIndex;
     Date modelTs;   ///< Timestamp up to which model incorporates data from

@@ -43,7 +43,7 @@ BehaviorSvd::
 BehaviorSvd(SH maxSubject, int numDenseBehaviors,
              int numSingularValues,
              const std::vector<BH> & biasedBehaviors,
-             SvdSpace space,
+             IntersectionSpace space,
              bool calcLongTail)
     : maxSubject(maxSubject),
       numDenseBehaviors(numDenseBehaviors),
@@ -308,8 +308,8 @@ float
 BehaviorSvd::
 calcOverlapCached(BH bi,
                   BH bj,
-                  const SvdColumnEntry & ei,
-                  const SvdColumnEntry & ej,
+                  const IntersectionEntry & ei,
+                  const IntersectionEntry & ej,
                   const BehaviorDomain & behs) const
 {
     return ei.calcOverlap(ej, space, shortCircuit);
@@ -366,7 +366,7 @@ updateBehaviorCache(const BehaviorDomain & behs,
     for (unsigned i = 0;  i < allBehs.size();  ++i)
         cache.behToIndex[allBehs[i]] = i;
 
-    std::vector<SvdColumnEntry> & entries = cache.subjects;
+    std::vector<IntersectionEntry> & entries = cache.subjects;
     entries.clear();  entries.resize(allBehs.size());
     
     // Make a dense set of subjects
@@ -430,7 +430,7 @@ updateBehaviorCache(const BehaviorDomain & behs,
 
         auto sortEntry = [&] (int i)
             {
-                SvdColumnEntry & e = entries[i];
+                IntersectionEntry & e = entries[i];
                 e.eligibleRows = subjects.size();
                 e.sort();
             };
@@ -454,7 +454,7 @@ updateBehaviorCache(const BehaviorDomain & behs,
             
                 //auto subs = behs.getSubjectHashes(bh, maxSubject, true /* sorted */);
 
-                SvdColumnEntry & e = entries[cache.behToIndex[bh]];
+                IntersectionEntry & e = entries[cache.behToIndex[bh]];
 
                 for (auto & s: subs) {
                     auto it = indexes.find(s);
@@ -564,12 +564,12 @@ calcDenseCointersections(const BehaviorDomain & behs,
 
             int iii = getIndex(bii);
 
-            const SvdColumnEntry & ei = cache.subjects[iii];
+            const IntersectionEntry & ei = cache.subjects[iii];
 
             for (unsigned j = 0;  j <= i;  ++j) {
                 BH bij = denseBehaviors[j];
                 int iij = getIndex(bij);
-                const SvdColumnEntry & ej = cache.subjects[iij];
+                const IntersectionEntry & ej = cache.subjects[iij];
                 
                 float o = calcOverlapCached(bii, bij, ei, ej, behs);
 
@@ -1026,7 +1026,7 @@ save(const std::string & filename) const
     serialize(store);
 }
 
-BYTE_PERSISTENT_ENUM_IMPL(SvdSpace);
+BYTE_PERSISTENT_ENUM_IMPL(IntersectionSpace);
 
 void
 BehaviorSvd::

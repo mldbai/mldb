@@ -12,10 +12,10 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/plugins/behavior/mutable_behavior_domain.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/ml/jml/thread_context.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/types/jml_serialization.h"
+#include <random>
 
 using namespace std;
 using namespace MLDB;
@@ -173,24 +173,30 @@ BOOST_AUTO_TEST_CASE( test_subject_info_sort1 )
 
     auto testThread = [&] (int threadNum)
         {
-            ML::Thread_Context context;
-            context.seed(threadNum + 1000);
+            std::mt19937 rng;
+            rng.seed(threadNum + 1000);
+            std::uniform_real_distribution<> uniform01;
 
+            auto random01 = [&] ()
+            {
+                return uniform01(rng);
+            };
+            
             for (unsigned i = 0;  i < numIterations;  ++i) {
-
-                int numEntries = context.random() % 50 + 1;
+                
+                int numEntries = rng() % 50 + 1;
 
                 std::vector<MutableBehaviorDomain::ManyEntryInt> entries(numEntries);
             
                 Date tsBase = Date(2014, 1, 1);
 
-                int subj = subjDist.sample(context.random01()) + 1;
+                int subj = subjDist.sample(random01()) + 1;
 
                 for (int i = 0;  i < numEntries;  ++i) {
                     MutableBehaviorDomain::ManyEntryInt & entry = entries[i];
 
-                    entry.behavior = behDist.sample(context.random01()) + 1;
-                    entry.timestamp = tsBase.plusSeconds(context.random() % 86400);
+                    entry.behavior = behDist.sample(random01()) + 1;
+                    entry.timestamp = tsBase.plusSeconds(rng() % 86400);
                     entry.count = 1;
                 }
 
@@ -270,24 +276,30 @@ BOOST_AUTO_TEST_CASE( test_recordManySubjects )
 
     auto testThread = [&] (int threadNum)
         {
-            ML::Thread_Context context;
-            context.seed(threadNum + 1000);
+            std::mt19937 rng;
+            rng.seed(threadNum + 1000);
+            std::uniform_real_distribution<> uniform01;
+
+            auto random01 = [&] ()
+            {
+                return uniform01(rng);
+            };
 
             for (unsigned i = 0;  i < numIterations;  ++i) {
 
-                int numEntries = context.random() % 50 + 1;
+                int numEntries = rng() % 50 + 1;
 
                 std::vector<MutableBehaviorDomain::ManySubjectId> entries(numEntries);
             
                 Date tsBase = Date(2014, 1, 1);
 
-                Id beh(behDist.sample(context.random01()) + 1);
+                Id beh(behDist.sample(random01()) + 1);
 
                 for (int i = 0;  i < numEntries;  ++i) {
                     MutableBehaviorDomain::ManySubjectId & entry = entries[i];
 
-                    entry.subject = Id(subjDist.sample(context.random01()) + 1);
-                    entry.timestamp = tsBase.plusSeconds(context.random() % 86400);
+                    entry.subject = Id(subjDist.sample(random01()) + 1);
+                    entry.timestamp = tsBase.plusSeconds(rng() % 86400);
                     entry.count = 1;
                 }
 
