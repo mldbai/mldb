@@ -22,7 +22,7 @@
 #include <ios>
 #include <vector>
 #include <cstring>
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 
 
 namespace MLDB {
@@ -243,7 +243,7 @@ private:
         size_t bytesToAlloc = LZ4_compressBound(pos);
         ExcAssert(bytesToAlloc);
         char* compressed = new char[bytesToAlloc];
-        ML::Call_Guard guard([&] () { delete[] compressed; });
+        Scope_Exit(delete[] compressed);
         
         auto compressedSize = compressFn(buffer.data(), compressed, pos);
 
@@ -352,7 +352,7 @@ private:
         compressedSize &= ~lz4::NotCompressedMask;
 
         char* compressed = (char*) malloc(compressedSize);
-        ML::Call_Guard guard([=] () { free(compressed); });
+        Scope_Exit(free(compressed));
         lz4::read(src, compressed, compressedSize);
 
         if (head.blockChecksum()) {

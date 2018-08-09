@@ -27,13 +27,12 @@
 #include <fcntl.h>
 #include <exception>
 
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/arch/demangle.h"
 
 using namespace std;
 namespace fs = std::filesystem;
-using namespace ML;
 using namespace MLDB;
 
 using boost::unit_test::test_suite;
@@ -131,30 +130,30 @@ void test_compress_decompress(const std::string & input_file,
 
 
     // Test 1: compress using filter stream
-    Call_Guard guard1(std::bind(&::unlink, cmp1.c_str()));
+    Scope_Exit(::unlink(cmp1.c_str()));
     compress_using_stream(input_file, cmp1);
 
     // Test 2: compress using tool
-    Call_Guard guard2(std::bind(&::unlink, cmp2.c_str()));
+    Scope_Exit(::unlink(cmp2.c_str()));
     compress_using_tool(input_file, cmp2, zip_command);
 
     // Test 3: decompress stream file using tool (sanity check)
-    Call_Guard guard3(std::bind(&::unlink, dec1.c_str()));
+    Scope_Exit(::unlink(dec1.c_str()));
     decompress_using_tool(cmp1, dec1, unzip_command);
     assert_files_identical(input_file, dec1);
 
     // Test 4: decompress tool file using stream
-    Call_Guard guard4(std::bind(&::unlink, dec2.c_str()));
+    Scope_Exit(::unlink(dec4.c_str()));
     decompress_using_stream(cmp2, dec2);
     assert_files_identical(input_file, dec2);
     
     // Test 5: decompress stream file using stream
-    Call_Guard guard5(std::bind(&::unlink, dec3.c_str()));
+    Scope_Exit(::unlink(dec3.c_str()));
     decompress_using_stream(cmp1, dec3);
     assert_files_identical(input_file, dec3);
     
     // Test 6: decompress tool file using tool (sanity)
-    Call_Guard guard6(std::bind(&::unlink, dec4.c_str()));
+    Scope_Exit(::unlink(dec4.c_str()));
     decompress_using_tool(cmp2, dec4, unzip_command);
     assert_files_identical(input_file, dec4);
 }
@@ -317,7 +316,7 @@ BOOST_AUTO_TEST_CASE( test_large_blocks )
 /* ensures that writing a 8M bytes text works */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_out )
 {
-    Call_Guard fn([&]() {deleteAllMemStreamStrings();});
+    Scope_Exit(deleteAllMemStreamStrings());
 
     string text("");
     {
@@ -341,7 +340,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out )
  * filter */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_out_gz )
 {
-    Call_Guard fn([&]() {deleteAllMemStreamStrings();});
+    Scope_Exit(deleteAllMemStreamStrings());
 
     string text("");
     {
@@ -368,7 +367,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out_gz )
 /* ensures that reading a 8M bytes text works well too */
 BOOST_AUTO_TEST_CASE( test_mem_scheme_in )
 {
-    Call_Guard fn([&]() {deleteAllMemStreamStrings();});
+    Scope_Exit(deleteAllMemStreamStrings());
 
     string text("");
     {

@@ -23,7 +23,7 @@
 
 #include "binary_symmetric.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include <iostream>
 
 
@@ -430,7 +430,7 @@ accuracy(const Training_Data & data,
         group = worker.get_group(NO_JOB,
                                  format("Boosted_Stumps::accuracy under %d", parent),
                                  parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
+        Scope_Exit(std::bind(&Worker_Task::unlock_group,
                                      std::ref(worker),
                                      group));
         

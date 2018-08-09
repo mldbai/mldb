@@ -13,7 +13,7 @@
 #include "gc_lock_test_common.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/arch/thread_specific.h"
 #include "mldb/arch/rwlock.h"
 #include "mldb/arch/spinlock.h"

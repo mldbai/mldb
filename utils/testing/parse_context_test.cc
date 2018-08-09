@@ -12,13 +12,13 @@
 
 #include "mldb/base/parse_context.h"
 #include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/guard.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/jml/utils/environment.h"
 #include "mldb/jml/utils/csv.h"
 #include "mldb/arch/format.h"
+#include "mldb/base/scope.h"
 #include "mldb/ext/utf8cpp/source/utf8.h"
 #include <boost/test/unit_test.hpp>
 #include "mldb/compiler/filesystem.h"
@@ -338,13 +338,11 @@ BOOST_AUTO_TEST_CASE( test2 )
 {
     string tmp_filename = "tmp/parse_context_test_file";
     std::filesystem::create_directory("tmp");
-    Call_Guard guard;
-    {
-        ofstream stream(tmp_filename.c_str());
-        guard.set(std::bind(&delete_file, tmp_filename));
-        stream << test1_str;
-    }
 
+    Scope_Exit(delete_file(tmp_filename));
+    ofstream stream(tmp_filename.c_str());
+    stream << test1_str;
+    
     ParseContext context(tmp_filename);
 
     run_test1(context);

@@ -10,7 +10,7 @@
 #include "discriminative_trainer.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include <boost/progress.hpp>
 
 #include "mldb/arch/threads.h"

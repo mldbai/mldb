@@ -15,7 +15,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/types/url.h"
 
 using namespace std;
@@ -70,7 +70,7 @@ HDFSSourceImpl(const string & urlStr, int mode)
     }
 
     bool ok(false);
-    ML::Call_Guard guard([&] { if (!ok) cleanup(); });
+    Scope_Exit([&] { if (!ok) cleanup(); });
 
     fsHandle_ = hdfsBuilderConnect(builder);
     ExcAssert(fsHandle_ != nullptr);

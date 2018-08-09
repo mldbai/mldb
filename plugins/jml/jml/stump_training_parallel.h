@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 
 namespace ML {
 

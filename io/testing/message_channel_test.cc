@@ -15,7 +15,7 @@
 #include "mldb/io/message_loop.h"
 #include "mldb/io/typed_message_channel.h"
 #include <sys/socket.h>
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/utils/testing/watchdog.h"
 #include "mldb/jml/utils/testing/fd_exhauster.h"

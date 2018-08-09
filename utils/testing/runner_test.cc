@@ -17,7 +17,7 @@
 #include "mldb/arch/threads.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/ext/jsoncpp/value.h"
@@ -646,7 +646,7 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
 BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
 {
     BlockedSignals blockedSigs2(SIGCHLD);
-    ML::Call_Guard guard([&] { Runner::runnerHelper.clear(); });
+    Scope_Exit(Runner::runnerHelper.clear());
     Runner::runnerHelper = "/this/executable/does/not/exist";
 
     auto runResult = execute({"/bin/sleep", "1"});

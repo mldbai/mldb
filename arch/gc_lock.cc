@@ -16,7 +16,7 @@
 #include "mldb/arch/spinlock.h"
 #include "mldb/arch/futex.h"
 #include "mldb/base/exc_check.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include <iterator>
 #include <iostream>
 #include <map>

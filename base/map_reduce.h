@@ -14,7 +14,7 @@
 #include <mutex>
 #include "mldb/base/parallel.h"
 
-namespace ML {
+namespace MLDB {
 
 template<typename MapFn, typename ReduceFn, typename It, typename It2>
 void
@@ -189,4 +189,4 @@ parallelMapInOrderReduceInEqualWorkChunks
 }
 
 
-} // namespace ML
+} // namespace MLDB

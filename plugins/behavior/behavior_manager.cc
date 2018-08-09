@@ -29,7 +29,7 @@
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/date.h"
 #include "mldb/vfs/fs_utils.h"
@@ -686,13 +686,13 @@ cacheRemoteFile(const string & filename, uint64_t fileSize,
 
     bool ok = false;
 
-    ML::Call_Guard guard([&] () {
+    Scope_Exit(
         if(!ok) {
             ::unlink(tmp.c_str());
         }
 
         ::close(fd);
-    });
+               );
 
     //Date start = Date::now();
 

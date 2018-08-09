@@ -7,7 +7,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/value_descriptions.h"

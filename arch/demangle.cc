@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* demangle.cc
    Jeremy Barnes, 17 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Demangler.  Just calls the ABI one, but does the memory management for
    us.
@@ -14,7 +12,7 @@
 #include <cxxabi.h>
 #include <stdlib.h>
 
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 
 #include "demangle.h"
 
@@ -40,7 +38,7 @@ std::string demangle(const std::string & name)
     char * ptr = char_demangle(name.c_str());
 
     if (ptr) {
-        ML::Call_Guard guard([&] { free(ptr); });
+        Scope_Exit(free(ptr));
         result = ptr;
     }
     else {

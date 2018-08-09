@@ -10,7 +10,7 @@
 #include "quadtree.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/arch/backtrace.h"
-#include "mldb/jml/utils/compact_vector_persistence.h"
+#include "mldb/jml/db/compact_vector_persistence.h"
 
 using namespace ML::DB;
 using namespace std;

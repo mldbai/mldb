@@ -15,11 +15,11 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/configuration.h"
 #include "mldb/arch/timers.h"
 #include "auto_encoder_stack.h"
-#include "mldb/jml/utils/check_not_nan.h"
+#include "mldb/plugins/jml/check_not_nan.h"
 #include "mldb/utils/distribution_ops.h"
 
 

@@ -11,7 +11,7 @@
 #include <cal.h>
 #include <iostream>
 #include "format.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/environment.h"
 
 
@@ -164,7 +164,7 @@ struct Register_CAL {
                 continue;
             }
             
-            Call_Guard guard(std::bind(&calDeviceClose, device));
+            Scope_Exit(std::bind(&calDeviceClose, device));
             
             CALdevicestatus status;
             status.struct_size = sizeof(CALdevicestatus);

@@ -17,7 +17,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "mldb/arch/timers.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/runner.h"
@@ -96,11 +96,11 @@ TemporaryMount(size_t volSize)
 
     bool ok(false);
 
-    ML::Call_Guard guard([&] {
+    Scope_Exit(
         if (!ok) {
             cleanup();
         }
-    });
+    );
 
     /* we create a sparse file of size "volSize" */
     createVolume();
@@ -170,9 +170,7 @@ createVolume()
         throw MLDB::Exception(errno, "fopen");
     }
     volumeExists_ = true;
-    ML::Call_Guard guard([&] {
-        ::fclose(f);
-    });
+    Scope_Exit(::fclose(f));
     int res = ::fseek(f, volSize_ - 1, SEEK_SET);
     if (res == -1) {
         throw MLDB::Exception(errno, "fseek");

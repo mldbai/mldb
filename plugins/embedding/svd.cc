@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
@@ -455,7 +455,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     params.calcPrecision(params.ncols);
 
     svdrec * svdResult = svdLAS2A(numSingularValues, params);
-    ML::Call_Guard cleanUp( [&](){ svdFreeSVDRec(svdResult); });
+    Scope_Exit(svdFreeSVDRec(svdResult));
 
     INFO_MSG(logger) << "done SVD " << timer.elapsed();
 

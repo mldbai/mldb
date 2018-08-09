@@ -12,7 +12,7 @@
 #include <sys/timerfd.h>
 
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/guard.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/string_functions.h"
 
 #include "mldb/http/http_header.h"
@@ -82,9 +82,7 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
     }
 
     bool success(false);
-    ML::Call_Guard guard([&] () {
-        if (!success) { cleanupFds(); }
-    });
+    Scope_Exit(if (!success) { cleanupFds(); });
 
     fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (fd_ == -1) {
