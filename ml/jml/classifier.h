@@ -13,7 +13,7 @@
 #include "mldb/arch/demangle.h"
 //#include "mldb/utils/compact_vector.h"
 #include <map>
-#include <boost/any.hpp>
+#include <any>
 #include <boost/multi_array.hpp>
 #include <string>
 #include "mldb/jml/utils/unnamed_bool.h"
@@ -150,8 +150,8 @@ struct Explanation {
 */
 
 struct PredictionContext {
-    boost::any seed;  ///< Seed data for the prediction
-    std::map<std::string, boost::any> entries;
+    std::any seed;  ///< Seed data for the prediction
+    std::map<std::string, std::any> entries;
 };
 
 

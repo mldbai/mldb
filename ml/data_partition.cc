@@ -32,11 +32,15 @@ exampleCount() const
     return examples.size();
 }
 
-std::tuple<bool, boost::any, double>
+std::tuple<bool, std::any, double>
 StoredDataPartition::
 getExample(size_t exampleNum) const
 {
-    return examples.at(exampleNum);
+    auto & val = examples.at(exampleNum);
+    // clang6 miscompiles the obvious version of returning val directly
+    return std::make_tuple(std::get<0>(val),
+                           std::move(std::get<1>(val)),
+                           std::get<2>(val));
 }
 
 void
@@ -63,7 +67,7 @@ forEachExample(const ForEachExampleCallback & cb,
 
 void
 StoredDataPartition::
-add(bool label, const boost::any & key, double weight)
+add(bool label, const std::any & key, double weight)
 {
     examples.push_back(make_tuple(label, key, weight));
 }

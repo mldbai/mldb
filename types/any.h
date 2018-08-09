@@ -17,7 +17,7 @@ namespace MLDB {
 /* ANY                                                                       */
 /*****************************************************************************/
 
-/** Similar to boost::any, but uses a ValueDescription to do its job.  This
+/** Similar to std::any, but uses a ValueDescription to do its job.  This
     allows, amongst other things, serialization to and from JSON.
 */
 

@@ -88,7 +88,7 @@ train(const DataPartition & partition,
     auto onExample = [&] (int exampleNum)
         {
             bool label;
-            boost::any user;
+            std::any user;
             double weight;
 
             std::tie(label, user, weight) = partition.getExample(exampleNum);
@@ -185,7 +185,7 @@ dumpFeatureVectors(std::ostream & stream,
     auto getFeatures = [&] (int exampleNum)
         {
             bool label;
-            boost::any user;
+            std::any user;
             double weight;
 
             std::tie(label, user, weight) = partition.getExample(exampleNum);
@@ -255,7 +255,7 @@ generateFeatures(const DataPartition & partition,
 
     std::mutex lock;
 
-    auto onExample = [&] (bool label, const boost::any & user, double weight,
+    auto onExample = [&] (bool label, const std::any & user, double weight,
                           int exampleNum)
         {
             distribution<float> training_features;
@@ -299,7 +299,7 @@ trainProbabilizer(const DataPartition & partition,
 
     std::atomic<size_t> numTrue(0);
 
-    auto onExample = [&] (bool label, const boost::any & user, double weight,
+    auto onExample = [&] (bool label, const std::any & user, double weight,
                           size_t exampleNum)
         {
             auto score = this->scoreGeneric(user);
@@ -415,7 +415,7 @@ explain(const DataPartition & partition) const
     auto onExample = [&] (size_t exampleNum)
         {
             bool label;
-            boost::any user;
+            std::any user;
             double weight;
 
             std::tie(label, user, weight) = partition.getExample(exampleNum);
@@ -442,7 +442,7 @@ explain(const DataPartition & partition) const
 
 float
 DenseClassifierScorer::
-scoreGeneric(const boost::any & args) const
+scoreGeneric(const std::any & args) const
 {
     PipelineExecutionContext context;
     context.seed = args;
@@ -452,21 +452,21 @@ scoreGeneric(const boost::any & args) const
 
 float
 DenseClassifierScorer::
-probabilityGeneric(const boost::any & args) const
+probabilityGeneric(const std::any & args) const
 {
     return probabilizer.apply(ML::Label_Dist(1, scoreGeneric(args)))[0];
 }
 
 ML::Label_Dist
 DenseClassifierScorer::
-labelScoresGeneric(const boost::any & args) const
+labelScoresGeneric(const std::any & args) const
 {
     return classifier.labelScores(featureGenerator->featuresGeneric(args));
 }
 
 std::pair<ML::Explanation, std::shared_ptr<ML::Feature_Set> >
 DenseClassifierScorer::
-explainGeneric(const boost::any & args, int label) const
+explainGeneric(const std::any & args, int label) const
 {
     PipelineExecutionContext context;
     context.seed = args;
@@ -477,7 +477,7 @@ explainGeneric(const boost::any & args, int label) const
 FeatureExplanation
 DenseClassifierScorer::
 explainFeaturesGeneric(const ML::Explanation & explanation,
-                       const boost::any & args) const
+                       const std::any & args) const
 {
     int arity = featureGenerator->featureSpace()->variable_count();
 

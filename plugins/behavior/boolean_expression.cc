@@ -119,7 +119,7 @@ parse(const std::string & expression)
 BoolExprPtr
 BooleanExpression::
 bind(const BehaviorWrapper & behs,
-     const boost::any & md) const
+     const std::any & md) const
 {
     return makeCopy();
 }
@@ -381,7 +381,7 @@ getSegments() const
 BoolExprPtr
 SegNameContainsExpression::
 bind(const BehaviorWrapper & behs,
-     const boost::any & md) const
+     const std::any & md) const
 {
     // Find all segments matching
     std::vector<BoolExprPtr> segmentsMatching;
@@ -448,7 +448,7 @@ getSegments() const
 BoolExprPtr
 RegexExpression::
 bind(const BehaviorWrapper & behs,
-     const boost::any & md) const
+     const std::any & md) const
 {
     // Find all segments matching
     std::vector<BoolExprPtr> segmentsMatching;
@@ -562,7 +562,7 @@ generateAllTimestamps(const BehaviorWrapper & behs, SH maxSubject) const
 BoolExprPtr
 TimesFunctionExpression::
 bind(const BehaviorWrapper & behs,
-     const boost::any & md) const
+     const std::any & md) const
 {
     auto res = std::static_pointer_cast<TimesFunctionExpression>(makeCopy());
     res->base = base->bind(behs, md);
@@ -631,7 +631,7 @@ generateAllTimestamps(const BehaviorWrapper & behs, SH maxSubject) const
 BoolExprPtr 
 NotExpression::
 bind(const BehaviorWrapper & behs,
-     const boost::any & md) const
+     const std::any & md) const
 {
     auto ne = std::dynamic_pointer_cast<NotExpression>(makeCopy());
     ne->base = base->bind(behs, md);
@@ -828,7 +828,7 @@ print_(bool isSql) const
 
 BoolExprPtr 
 CompoundExpression::
-bind(const BehaviorWrapper & behs, const boost::any & md) const
+bind(const BehaviorWrapper & behs, const std::any & md) const
 {
     auto ce = static_pointer_cast<CompoundExpression>(makeCopy());
     ce->exprs.clear();

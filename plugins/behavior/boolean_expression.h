@@ -12,7 +12,7 @@
 #include <limits>
 #include "mldb/plugins/behavior/id.h"
 #include "behavior_domain.h"
-#include <boost/any.hpp>
+#include <any>
 
 namespace MLDB {
 
@@ -94,7 +94,7 @@ struct BooleanExpression {
         is no behavior specific binding necessary.
     */
     virtual BoolExprPtr bind(const BehaviorWrapper & behs,
-                             const boost::any & md = boost::any()) const;
+                             const std::any & md = std::any()) const;
 
     BoolExprPtr bindNoMetadata(const BehaviorWrapper & behs) const
     {
@@ -213,7 +213,7 @@ struct SegNameContainsExpression : public BooleanExpression {
     }
 
     virtual BoolExprPtr bind(const BehaviorWrapper & behs,
-                             const boost::any & md = boost::any()) const;
+                             const std::any & md = std::any()) const;
 
     virtual std::vector<std::pair<SH, Date> >
     generate(const BehaviorWrapper & behs,
@@ -246,7 +246,7 @@ struct RegexExpression : public BooleanExpression {
     }
 
     virtual BoolExprPtr bind(const BehaviorWrapper & behs,
-                             const boost::any & md = boost::any()) const;
+                             const std::any & md = std::any()) const;
 
     virtual std::vector<std::pair<SH, Date> >
     generate(const BehaviorWrapper & behs,
@@ -297,7 +297,7 @@ struct TimesFunctionExpression : public BooleanExpression
                           SH maxSubject) const;
 
     virtual BoolExprPtr bind(const BehaviorWrapper & behs,
-                             const boost::any & md = boost::any()) const;
+                             const std::any & md = std::any()) const;
 
 private:
 
@@ -351,7 +351,7 @@ struct NotExpression : public BooleanExpression {
     BoolExprPtr base;
 
     virtual BoolExprPtr bind(const BehaviorWrapper & behs,
-                             const boost::any & md = boost::any()) const;
+                             const std::any & md = std::any()) const;
 };
 
 
@@ -396,7 +396,7 @@ struct CompoundExpression : public BooleanExpression {
     virtual std::string printSql() const {return print_(true);}
 
     virtual BoolExprPtr bind(const BehaviorWrapper & behs,
-                             const boost::any & md = boost::any()) const;
+                             const std::any & md = std::any()) const;
 
     std::string separator;
     std::vector<BoolExprPtr> exprs;
