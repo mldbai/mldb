@@ -13,7 +13,7 @@
 #include <tuple>
 #include <functional>
 #include <vector>
-#include <boost/any.hpp>
+#include <any>
 #include <stdint.h>
 #include "tuple_encoder.h"
 
@@ -32,11 +32,11 @@ struct DataPartition {
 
     virtual size_t exampleCount() const = 0;
 
-    virtual std::tuple<bool, boost::any, double>
+    virtual std::tuple<bool, std::any, double>
     getExample(size_t exampleNum) const = 0;
 
     typedef void (ForEachExampleCallbackFn) (bool label,
-                                             const boost::any & features,
+                                             const std::any & features,
                                              double weight,
                                              size_t exampleNum);
 
@@ -63,10 +63,10 @@ struct AdHocDataPartition : public DataPartition {
     }
 
     // Callback to be called to get a specific example
-    std::function<std::tuple<bool, boost::any, double> (int exampleNum)>
+    std::function<std::tuple<bool, std::any, double> (int exampleNum)>
         getExampleImpl;
 
-    virtual std::tuple<bool, boost::any, double>
+    virtual std::tuple<bool, std::any, double>
     getExample(size_t exampleNum) const
     {
         return getExampleImpl(exampleNum);
@@ -95,15 +95,15 @@ struct StoredDataPartition : public DataPartition {
 
     virtual size_t exampleCount() const;
 
-    virtual std::tuple<bool, boost::any, double>
+    virtual std::tuple<bool, std::any, double>
     getExample(size_t exampleNum) const;
 
     virtual void forEachExample(const ForEachExampleCallback & cb,
                                 bool inParallel) const;
 
-    void add(bool label, const boost::any & key, double weight);
+    void add(bool label, const std::any & key, double weight);
 
-    std::vector<std::tuple<bool, boost::any, double> > examples;
+    std::vector<std::tuple<bool, std::any, double> > examples;
 };
 
 

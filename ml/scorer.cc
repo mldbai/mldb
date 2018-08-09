@@ -37,7 +37,7 @@ test(const DataPartition & partition) const
     typedef Spinlock Lock;
     Lock lock;
 
-    auto onExample = [&] (bool label, const boost::any & user, double weight,
+    auto onExample = [&] (bool label, const std::any & user, double weight,
                           size_t exampleNum)
         {
             double score = this->scoreGeneric(user);

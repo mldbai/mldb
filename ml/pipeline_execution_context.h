@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <boost/any.hpp>
+#include <any>
 #include <map>
 #include "mldb/utils/distribution.h"
 #include "mldb/ml/jml/classifier.h"
@@ -42,8 +42,8 @@ struct PipelineExecutionContext: public ML::PredictionContext {
         if (it == entries.end())
             throw MLDB::Exception("couldn't find required entry " + name);
         try {
-            return boost::any_cast<T>(it->second);
-        } catch (const boost::bad_any_cast & exc) {
+            return std::any_cast<T>(it->second);
+        } catch (const std::bad_any_cast & exc) {
             throw MLDB::Exception("attempt to access feature " + name + " as "
                                 + MLDB::type_name<T>() + " but it is recorded as "
                                 + demangle(it->second.type().name()));

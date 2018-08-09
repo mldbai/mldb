@@ -194,7 +194,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             row.emplace_back(ColumnPath("truePositiveRate"), bstats.truePositiveRate(), recordDate);
             row.emplace_back(ColumnPath("falsePositiveRate"), bstats.falsePositiveRate(), recordDate);
 
-            rows.emplace_back(boost::any_cast<RowPath>(entry.key), std::move(row));
+            rows.emplace_back(std::any_cast<RowPath>(entry.key), std::move(row));
             if (rows.size() > 10000) {
                 output->recordRows(rows);
                 rows.clear();

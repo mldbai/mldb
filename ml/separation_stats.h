@@ -14,7 +14,7 @@
 #include "mldb/jml/utils/rng.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include <cmath>
-#include <boost/any.hpp>
+#include <any>
 
 
 namespace MLDB {
@@ -38,7 +38,7 @@ struct BinaryStats {
     }
 
     BinaryStats(const BinaryStats & other, float threshold,
-                boost::any key = boost::any())
+                std::any key = std::any())
         : counts(other.counts), unweighted_counts(other.unweighted_counts),
           /*
         : counts{{{ other.counts[0][0], other.counts[0][1]},
@@ -168,7 +168,7 @@ struct BinaryStats {
     Array2D counts; // [label][output]
     Array2D unweighted_counts; // [label][output]
     double threshold;  // threshold at which stats are taken
-    boost::any key;    // Key for this reading
+    std::any key;    // Key for this reading
 
     /** Add together the stats from another object to this one. */
     void add(const BinaryStats & other, double weight = 1.0);
@@ -195,7 +195,7 @@ struct ScoredStats {
 
     /** Update with the given values. */
     void update(bool label, float score, double weight = 1.0,
-                const boost::any & key = boost::any())
+                const std::any & key = std::any())
     {
         ScoredEntry entry;
         entry.label = label;
@@ -210,7 +210,7 @@ struct ScoredStats {
     }
 
     struct ScoredEntry {
-        boost::any key;  ///< What this applies to
+        std::any key;  ///< What this applies to
         bool label;      ///< Label for the entry
         float score;     ///< Score for the entry
         float weight;

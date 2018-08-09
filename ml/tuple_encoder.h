@@ -10,7 +10,7 @@
 #ifndef __ml__tuple_encoder_h__
 #define __ml__tuple_encoder_h__
 
-#include <boost/any.hpp>
+#include <any>
 #include <tuple>
 #include "mldb/jml/utils/positioned_types.h"
 
@@ -88,29 +88,29 @@ struct TupleEncoder {
         return typeid(tuple_type);
     }
 
-    /** Record the features in a boost::any that can be later passed on
+    /** Record the features in a std::any that can be later passed on
         into featuresGeneric and properly decoded.
     */
-    boost::any
+    std::any
     encode(Args... args) const
     {
         return encodeStatic(args...);
     }
 
     tuple_type
-    decode(const boost::any & args)
+    decode(const std::any & args)
     {
         return decodeStatic(args);
     }
 
-    static boost::any encodeStatic(Args... args)
+    static std::any encodeStatic(Args... args)
     {
         return tuple_type(args...);
     }
 
-    static tuple_type decodeStatic(const boost::any & arg)
+    static tuple_type decodeStatic(const std::any & arg)
     {
-        return boost::any_cast<tuple_type>(arg);
+        return std::any_cast<tuple_type>(arg);
     }
 };
 

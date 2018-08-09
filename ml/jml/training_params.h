@@ -13,7 +13,7 @@
 
 
 #include <map>
-#include <boost/any.hpp>
+#include <any>
 #include <string>
 
 
@@ -26,27 +26,27 @@ namespace ML {
 /*****************************************************************************/
 
 /** This is a class that describes training parameters.  It is done using
-    boost::any fields, so that the parameters can be passed through
+    std::any fields, so that the parameters can be passed through
     without requiring anyone to know what they are.
 */
 
-struct Training_Params : public std::map<std::string, boost::any> {
+struct Training_Params : public std::map<std::string, std::any> {
 
     /** Returns an extra named parameter, given by the key.  Returns an
         empty \p any if not found. */
-    const boost::any & operator [] (const std::string & key) const
+    const std::any & operator [] (const std::string & key) const
     {
         const_iterator loc = find(key);
-        static const boost::any EMPTY;
+        static const std::any EMPTY;
         if (loc == end()) return EMPTY;
         else return loc->second;
     }
     
     /** Returns an extra named parameter, given by the key.  Returns an
         empty \p any if not found. */
-    boost::any & operator [] (const std::string & key)
+    std::any & operator [] (const std::string & key)
     {
-        return std::map<std::string, boost::any>::operator [] (key);
+        return std::map<std::string, std::any>::operator [] (key);
     }
     
     /** Gets an extra named parameter of the specified type.
@@ -74,14 +74,14 @@ struct Training_Params : public std::map<std::string, boost::any> {
     */
     template<class Obj> Obj get(const std::string & key) const
     {
-        std::map<std::string, boost::any>::const_iterator loc = find(key);
+        std::map<std::string, std::any>::const_iterator loc = find(key);
         if (loc == end())
             throw MLDB::Exception("key \"" + key + "\" not found in "
                                     "context object");
         try {
-            return boost::any_cast<Obj>(loc->second);
+            return std::any_cast<Obj>(loc->second);
         }
-        catch (const boost::bad_any_cast & exc) {
+        catch (const std::bad_any_cast & exc) {
             throw Exception("Training_Params: attempting to read key '"
                             + key + ": param type "
                             + demangle(loc->second.type().name())

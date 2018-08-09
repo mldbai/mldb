@@ -58,7 +58,7 @@ struct DenseClassifierScorer : virtual public Scorer {
         features and label.
     */
     typedef std::function<std::pair<std::string, std::string>
-                          (const boost::any &)>
+                          (const std::any &)>
     GetFeaturesAndComment;
 
     /** Dump a feature vector header. */
@@ -83,11 +83,11 @@ struct DenseClassifierScorer : virtual public Scorer {
     void trainProbabilizer(const DataPartition & partition,
                            double unbiasedPositiveRate);
 
-    virtual float scoreGeneric(const boost::any & args) const;
+    virtual float scoreGeneric(const std::any & args) const;
 
-    virtual ML::Label_Dist labelScoresGeneric(const boost::any & args) const;
+    virtual ML::Label_Dist labelScoresGeneric(const std::any & args) const;
 
-    virtual float probabilityGeneric(const boost::any & args) const;
+    virtual float probabilityGeneric(const std::any & args) const;
 
     virtual bool isCallableFromMultipleThreads() const
     {
@@ -96,12 +96,12 @@ struct DenseClassifierScorer : virtual public Scorer {
 
     /** Explain the output of the given example. */
     virtual std::pair<ML::Explanation, std::shared_ptr<ML::Feature_Set> >
-    explainGeneric(const boost::any & args, int label) const;
+    explainGeneric(const std::any & args, int label) const;
 
     /** Explain the output of the given example. */
     virtual FeatureExplanation
     explainFeaturesGeneric(const ML::Explanation & weights,
-                           const boost::any & args) const;
+                           const std::any & args) const;
 
     /** Serialize to disk. */
     virtual void serialize(ML::DB::Store_Writer & store) const;
@@ -144,12 +144,12 @@ struct DenseClassifierScorerT
     {
     }
 
-    virtual float scoreGeneric(const boost::any & args) const
+    virtual float scoreGeneric(const std::any & args) const
     {
         return DenseClassifierScorer::scoreGeneric(args);
     }
 
-    virtual float probabilityGeneric(const boost::any & args) const
+    virtual float probabilityGeneric(const std::any & args) const
     {
         return DenseClassifierScorer::probabilityGeneric(args);
     }

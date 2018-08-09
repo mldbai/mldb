@@ -32,9 +32,9 @@ struct Scorer {
     /** Test the given classifier over the selected partition. */
     ScoredStats test(const DataPartition & partition) const;
 
-    virtual float scoreGeneric(const boost::any & args) const = 0;
+    virtual float scoreGeneric(const std::any & args) const = 0;
 
-    virtual float probabilityGeneric(const boost::any & args) const = 0;
+    virtual float probabilityGeneric(const std::any & args) const = 0;
 
     virtual bool isCallableFromMultipleThreads() const
     {
@@ -56,7 +56,7 @@ struct ScorerT
     {
     }
 
-    virtual float scoreGeneric(const boost::any & args) const
+    virtual float scoreGeneric(const std::any & args) const
     {
         return callPmfWithTuple(&ScorerT::score,
                                 *this,
@@ -64,7 +64,7 @@ struct ScorerT
         
     }
 
-    virtual float probabilityGeneric(const boost::any & args) const
+    virtual float probabilityGeneric(const std::any & args) const
     {
         return callPmfWithTuple(&ScorerT::probability,
                                 *this,

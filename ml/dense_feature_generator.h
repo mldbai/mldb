@@ -13,7 +13,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/ml/dense_classifier.h"
 #include "mldb/ml/tuple_encoder.h"
-#include <boost/any.hpp>
+#include <any>
 #include <tuple>
 #include "pipeline_execution_context.h"
 
@@ -64,14 +64,14 @@ struct DenseFeatureGenerator {
 
     /** Generate the features for the given user. */
     virtual distribution<float>
-    featuresGeneric(const boost::any & args) const = 0;
+    featuresGeneric(const std::any & args) const = 0;
 
     /** Generate a weighted average of the contribution of input
         features to the generation of the given feature set.
     */
     virtual FeatureExplanation
     explainGeneric(const distribution<float> & featureWeights,
-                   const boost::any & args) const = 0;
+                   const std::any & args) const = 0;
 
     /** Generate features for the given context.  Default will call
         featuresGeneric.
@@ -157,7 +157,7 @@ struct DenseFeatureGeneratorT
 
     /** Generate the features for the given user. */
     virtual distribution<float>
-    featuresGeneric(const boost::any & args) const
+    featuresGeneric(const std::any & args) const
     {
         return callPmfWithTuple(&DenseFeatureGeneratorT::features,
                                 *this,
@@ -166,7 +166,7 @@ struct DenseFeatureGeneratorT
 
     virtual FeatureExplanation
     explainGeneric(const distribution<float> & featureWeights,
-                   const boost::any & args) const
+                   const std::any & args) const
     {
         return callPmfWithTuple(&DenseFeatureGeneratorT::explain,
                                 *this,
@@ -213,10 +213,10 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
 
     typedef std::function<std::shared_ptr<ML::Dense_Feature_Space> ()>
     FeatureSpaceFn;
-    typedef std::function<distribution<float> (const boost::any &)>
+    typedef std::function<distribution<float> (const std::any &)>
     FeaturesFn;
     typedef std::function<FeatureExplanation (const distribution<float> &,
-                                              const boost::any &)> ExplainFn;
+                                              const std::any &)> ExplainFn;
 
     FeatureSpaceFn onGetFeatureSpace;
     FeaturesFn onGetFeatures;
@@ -248,14 +248,14 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
 
     /** Generate the features for the given user. */
     virtual distribution<float>
-    featuresGeneric(const boost::any & args) const
+    featuresGeneric(const std::any & args) const
     {
         return onGetFeatures(args);
     }
 
     virtual FeatureExplanation
     explainGeneric(const distribution<float> & featureWeights,
-                   const boost::any & args) const
+                   const std::any & args) const
     {
         return onExplain(featureWeights, args);
     }
@@ -386,7 +386,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
 
     /** Generate the features for the given user. */
     virtual distribution<float>
-    featuresGeneric(const boost::any & args) const
+    featuresGeneric(const std::any & args) const
     {
         distribution<float> result;
         for (unsigned i = 0;  i < generators.size();  ++i)
@@ -397,7 +397,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
     /** Generate the features for the given user. */
     virtual FeatureExplanation
     explainGeneric(const distribution<float> & featureWeights,
-                   const boost::any & args) const
+                   const std::any & args) const
     {
         FeatureExplanation result;
 
@@ -548,12 +548,12 @@ struct CombinedFeatureGeneratorT
     virtual distribution<float>
     features(Args... args) const
     {
-        boost::any encoded = this->encode(args...);
+        std::any encoded = this->encode(args...);
         return featuresGeneric(encoded);
     }
 
     virtual distribution<float>
-    featuresGeneric(const boost::any & args) const
+    featuresGeneric(const std::any & args) const
     {
         return CombinedFeatureGenerator::featuresGeneric(args);
     }
@@ -563,13 +563,13 @@ struct CombinedFeatureGeneratorT
     explain(const distribution<float> & featureWeights,
             Args... args) const
     {
-        boost::any encoded = this->encode(args...);
+        std::any encoded = this->encode(args...);
         return explainGeneric(featureWeights, encoded);
     }
 
     virtual FeatureExplanation
     explainGeneric(const distribution<float> & featureWeights,
-                   const boost::any & args) const
+                   const std::any & args) const
     {
         return CombinedFeatureGenerator::explainGeneric(featureWeights, args);
     }
