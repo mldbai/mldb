@@ -1,18 +1,16 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* tuple_encoder.h                                                 -*- C++ -*-
    Jeremy Barnes, 5 September 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Base class to encode/decode tuples.
 */
 
-#ifndef __ml__tuple_encoder_h__
-#define __ml__tuple_encoder_h__
+#pragma once
 
 #include <any>
 #include <tuple>
-#include "mldb/jml/utils/positioned_types.h"
+#include "mldb/utils/positioned_types.h"
 
 namespace MLDB {
 
@@ -23,10 +21,6 @@ namespace MLDB {
 /** Given a tuple, unpacks the arguments and calls the function forwarding
     the tuple values to the arguments.
 */
-
-using ML::TypeList;
-using ML::InPosition;
-using ML::MakeInPositionList;
 
 // Template that, given an InPosition<Arg, Index> argument, will actually
 // extract the argument from a JS::JsArgs and pass it on
@@ -115,6 +109,3 @@ struct TupleEncoder {
 };
 
 } // namespace MLDB
-
-
-#endif /* __ml__tuple_encoder_h__ */

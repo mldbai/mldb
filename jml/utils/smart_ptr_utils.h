@@ -1,19 +1,13 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* smart_ptr_utils.h                                               -*- C++ -*-
    Jeremy Barnes, 1 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.  
    ---
 
    Utilities to help with smart pointers.
 */
 
-#ifndef __utils__smart_ptr_utils_h__
-#define __utils__smart_ptr_utils_h__
-
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <memory>
@@ -26,11 +20,13 @@ std::shared_ptr<T> make_sp(T * val)
     return std::shared_ptr<T>(val);
 }
 
+#if 0
 template<class T>
 std::shared_ptr<T> make_std_sp(T * val)
 {
     return std::shared_ptr<T>(val);
 }
+#endif
 
 struct Dont_Delete {
     template<class X> void operator () (const X & x) const
@@ -50,6 +46,7 @@ std::shared_ptr<const T> make_unowned_sp(const T & val)
     return std::shared_ptr<const T>(&val, Dont_Delete());
 }
 
+#if 0
 template<class T>
 std::shared_ptr<T> make_unowned_std_sp(T & val)
 {
@@ -120,6 +117,5 @@ std::shared_ptr<T> make_std_sp(const std::shared_ptr<T> & val)
     return std::shared_ptr<T>(val.get(), Keep_RefB<T>(val));
 }
 
+#endif
 } // namespace ML
-
-#endif /* __utils__smart_ptr_utils_h__ */
