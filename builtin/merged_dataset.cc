@@ -304,7 +304,7 @@ struct MergedDataset::Itl
                 const RowPath & rowName = this->rowName(storage);
 
                 while (bitmap) {
-                    int bit = ML::lowest_bit(bitmap, -1);
+                    int bit = MLDB::lowest_bit(bitmap, -1);
                     bitmap = bitmap & ~(1 << bit);
 
                     MatrixNamedRow row
@@ -398,7 +398,7 @@ struct MergedDataset::Itl
         if (!bitmap)
             throw MLDB::Exception("Row not known");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
         return datasets[bit]->getMatrixView()->getRowPath(rowHash);
     }
 
@@ -408,12 +408,12 @@ struct MergedDataset::Itl
         if (!bitmap)
             throw MLDB::Exception("Row not known");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
         MatrixNamedRow result = datasets[bit]->getMatrixView()->getRow(rowName);
         bitmap = bitmap & ~(1 << bit);
 
         while (bitmap) {
-            int bit = ML::lowest_bit(bitmap, -1);
+            int bit = MLDB::lowest_bit(bitmap, -1);
             auto row = datasets[bit]->getMatrixView()->getRow(rowName);
             //ExcAssertEqual(result.rowName, row.rowName);
 
@@ -439,7 +439,7 @@ struct MergedDataset::Itl
         if (bitmap == 0)
             throw MLDB::Exception("Column not found in merged dataset");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
 
         return datasets[bit]->getMatrixView()->getColumnPath(columnHash);
     }
@@ -453,7 +453,7 @@ struct MergedDataset::Itl
         auto onColumn = [&] (uint64_t hash, uint32_t bitmap)
             {
                 ColumnHash columnHash(hash);
-                int bit = ML::lowest_bit(bitmap, -1);
+                int bit = MLDB::lowest_bit(bitmap, -1);
                 ExcAssertNotEqual(bit, -1);
                 result.push_back(datasets[bit]->getMatrixView()->getColumnPath(columnHash));
                 
@@ -473,7 +473,7 @@ struct MergedDataset::Itl
         if (!bitmap)
             throw MLDB::Exception("Column not known");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
         bitmap = bitmap & ~(1 << bit);
 
         if (!bitmap) {
@@ -497,12 +497,12 @@ struct MergedDataset::Itl
         if (!bitmap)
             throw MLDB::Exception("Column not known");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
         MatrixColumn result = datasets[bit]->getColumnIndex()->getColumn(columnHash);
         bitmap = bitmap & ~(1 << bit);
 
         while (bitmap) {
-            int bit = ML::lowest_bit(bitmap, -1);
+            int bit = MLDB::lowest_bit(bitmap, -1);
             auto column = datasets[bit]->getColumnIndex()->getColumn(columnHash);
             ExcAssertEqual(result.columnName, column.columnName);
 
@@ -525,14 +525,14 @@ struct MergedDataset::Itl
         uint32_t bitmap = getColumnBitmap(columnName);
         if (bitmap)
         {
-            int bit = ML::lowest_bit(bitmap, -1);
+            int bit = MLDB::lowest_bit(bitmap, -1);
             result = datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter);
 
             bitmap = bitmap & ~(1 << bit);
             bool sorted = std::is_sorted(result.begin(), result.end());  // true
 
             while (bitmap) {
-                int bit = ML::lowest_bit(bitmap, -1);
+                int bit = MLDB::lowest_bit(bitmap, -1);
                 auto column = datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter);
                 if (!column.empty())
                 {
@@ -564,7 +564,7 @@ struct MergedDataset::Itl
         std::vector<CellValue> result;
         uint32_t bitmap = getColumnBitmap(columnName);
         while (bitmap) {
-            int bit = ML::lowest_bit(bitmap, -1);
+            int bit = MLDB::lowest_bit(bitmap, -1);
             bitmap = bitmap & ~(1ULL << bit);
 
             std::vector<CellValue> current

@@ -7,7 +7,7 @@
    Refactored out buckets code.
 */
 
-#include "mldb/ml/jml/buckets.h"
+#include "jml/utils/buckets.h"
 #include <iostream>
 #include <boost/utility.hpp>
 #include "mldb/arch/format.h"
@@ -16,10 +16,9 @@
 #include "mldb/arch/exception.h"
 
 using namespace std;
-using namespace MLDB;
+using namespace ML;
 
-
-namespace ML {
+namespace MLDB {
 
 void
 bucket_dist_full(vector<float> & result, const BucketFreqs & freqs)
@@ -249,5 +248,5 @@ Bucket_Info create_buckets(const std::vector<float> & values,
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB
 

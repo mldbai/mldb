@@ -21,11 +21,7 @@ LIBMLDB_BUILTIN_BASE_SOURCES:= \
 	external_python_procedure.cc \
 	script_function.cc \
 	\
-	for_each_line.cc \
-	metric_space.cc \
 	mock_procedure.cc \
-	matrix.cc \
-	intersection_utils.cc \
 	\
 	continuous_dataset.cc \
 	\
@@ -36,6 +32,10 @@ LIBMLDB_BUILTIN_BASE_SOURCES:= \
 	datasetsplit_procedure.cc \
 	summary_statistics_proc.cc \
 	\
+	metric_space.cc \
+	matrix.cc \
+	intersection_utils.cc \
+	for_each_line.cc \
 
 LIBMLDB_BUILTIN_BASE_LINK:= \
 	mldb_core \

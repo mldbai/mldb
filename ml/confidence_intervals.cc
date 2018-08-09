@@ -1,17 +1,16 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /*
    confidence_intervals.cc
    Copyright (c) 2011 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "confidence_intervals.h"
 #include <boost/math/distributions/binomial.hpp>
 #include <boost/math/distributions/normal.hpp> // for normal_distribution
-#include "mldb/ml/jml/thread_context.h"
 #include <math.h>
 #include "mldb/arch/exception.h"
 #include "mldb/jml/utils/string_functions.h"
+#include <random>
 
 
 using namespace std;
@@ -115,7 +114,7 @@ createBootstrapSamples(const vector<double>& sample, int replications,
         throw MLDB::Exception("Can't compute bootstrap mean from empty sample");
     }
 
-    ML::Thread_Context rng;
+    std::mt19937 rng;
 
     vector<double> resampleMeans;
     for(int i=0; i<replications;i++)
@@ -123,7 +122,7 @@ createBootstrapSamples(const vector<double>& sample, int replications,
         double accumulator = 0;
         for(int j=0;j<resampleSize;j++)
         {
-            accumulator += sample[rng.random() % sampleSize];
+            accumulator += sample[rng() % sampleSize];
         }
         resampleMeans.push_back(accumulator/resampleSize);
     }

@@ -15,7 +15,7 @@
 #include <iostream>
 #include <type_traits>
 
-namespace ML {
+namespace MLDB {
 
 template<class T>
 int highest_bit(T arg, int none_set = -1)
@@ -59,4 +59,4 @@ constexpr MLDB_ALWAYS_INLINE int num_bits_set(signed long long arg)
     return __builtin_popcountll(arg);
 }
 
-} // namespace ML
+} // namespace MLDB

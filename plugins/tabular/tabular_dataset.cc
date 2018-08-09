@@ -172,8 +172,8 @@ struct PathIndexShard: public PathIndexMetadata {
 
         std::sort(input.begin(), input.end());
 
-        chunkBits = ML::highest_bit(numChunks, -1) + 1;
-        offsetBits = ML::highest_bit(maxChunkSize - 1, -1) + 1;
+        chunkBits = MLDB::highest_bit(numChunks, -1) + 1;
+        offsetBits = MLDB::highest_bit(maxChunkSize - 1, -1) + 1;
 
         // Create a hash that's 50% full at the end, by doubling the
         // size.  We want to leave plenty of space since we handle

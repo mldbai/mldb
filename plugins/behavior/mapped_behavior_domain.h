@@ -116,7 +116,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
 
         uint64_t numTableIndexBits() const
         {
-            return ML::highest_bit(numDistinctBehaviors - 1, -1) + 1;
+            return MLDB::highest_bit(numDistinctBehaviors - 1, -1) + 1;
         }
     } MLDB_PACKED_IF_GCC;
 
@@ -194,13 +194,13 @@ struct MappedBehaviorDomain: public BehaviorDomain {
 
         uint64_t numTableIndexBits() const
         {
-            return ML::highest_bit(numDistinctBehaviors - 1, -1) + 1;
+            return MLDB::highest_bit(numDistinctBehaviors - 1, -1) + 1;
         }
 
         int numEventTableTimestampBits() const
         {
             if (hasTimestampTable)
-                return ML::highest_bit(numDistinctTimestamps - 1, -1) + 1;
+                return MLDB::highest_bit(numDistinctTimestamps - 1, -1) + 1;
             else return timeBits;
         }
     }  MLDB_PACKED_IF_GCC;

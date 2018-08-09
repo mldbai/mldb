@@ -59,7 +59,6 @@ LIBBOOSTING_SOURCES := \
         feature.cc \
         bit_compressed_index.cc \
         label.cc \
-        buckets.cc \
         info_override_feature_space.cc \
         multilabel_training_data.cc
 

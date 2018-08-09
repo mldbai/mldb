@@ -382,7 +382,7 @@ struct MergedBehaviorDomainBehaviorStream
         if (n == 0)
             throw MLDB::Exception("attempt to get behavior ID for unknown subject");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
 
         if (bit == 31) {
             for (unsigned i = 31;  i < source->behs.size();  ++i) {
@@ -447,7 +447,7 @@ struct MergedBehaviorDomainSubjectStream
         if (n == 0)
             throw MLDB::Exception("attempt to get behavior ID for unknown subject");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
 
         if (bit == 31) {
             for (unsigned i = 31;  i < source->behs.size();  ++i) {
@@ -555,7 +555,7 @@ forEachSubjectBehaviorHash(SH subjectHash,
     if (n == 0)
         return true;
     if (n == 1) {
-        int bit = ML::highest_bit(bitmap, -1);
+        int bit = MLDB::highest_bit(bitmap, -1);
         if (bit != 31) {
             return behs[bit]
                 ->forEachSubjectBehaviorHash(subjectHash, onBeh, filter,
@@ -665,7 +665,7 @@ numDistinctTimestamps(SH subjectHash, uint32_t maxValue) const
         return maxValue;
 
     if (n == 1) {
-        int bit = ML::highest_bit(bitmap, -1);
+        int bit = MLDB::highest_bit(bitmap, -1);
         if (bit != 31)
             return behs[bit]->numDistinctTimestamps(subjectHash, maxValue);
     }
@@ -739,7 +739,7 @@ coIterateBehaviors(BH beh1, BH beh2,
         cerr << "nbits = " << nbits << endl;
 
     if (nbits == 1) {
-        int bit = ML::highest_bit(bitmap1 & bitmap2, -1);
+        int bit = MLDB::highest_bit(bitmap1 & bitmap2, -1);
         if (bit != 31)
             return behs[bit]->coIterateBehaviors(beh1, beh2, maxSubject,
                                                   onBehaviors);
@@ -852,7 +852,7 @@ subjectHasNDistinctBehaviors(SH subjectHash, int n) const
     if (nin == 0) return false;
 
     if (nin == 1) {
-        int bit = ML::highest_bit(bitmap, -1);
+        int bit = MLDB::highest_bit(bitmap, -1);
         if (bit != 31)
             return behs[bit]->subjectHasNDistinctBehaviors(subjectHash, n);
     }
@@ -891,7 +891,7 @@ getSubjectStats(SH subjectHash,
     if (n == 0)
         return SubjectStats();
     if (n == 1) {
-        int bit = ML::highest_bit(bitmap, -1);
+        int bit = MLDB::highest_bit(bitmap, -1);
         if (bit != 31)
             return behs[bit]->getSubjectStats(subjectHash);
     }
@@ -1226,7 +1226,7 @@ getSubjectId(SH subjectHash) const
     if (n == 0)
         throw MLDB::Exception("attempt to get Subject ID for unknown subject");
 
-    int bit = ML::lowest_bit(bitmap, -1);
+    int bit = MLDB::lowest_bit(bitmap, -1);
 
     if (bit == 31) {
         for (unsigned i = 31;  i < behs.size();  ++i) {
@@ -1250,7 +1250,7 @@ getBehaviorId(BH beh) const
     if (n == 0)
         return Id();
 
-    int bit = ML::lowest_bit(bitmap, -1);
+    int bit = MLDB::lowest_bit(bitmap, -1);
 
     if (bit == 31) {
         for (unsigned i = 31;  i < behs.size();  ++i) {
@@ -1299,7 +1299,7 @@ getApproximateBehaviorSubjectCountImpl(BH beh) const
     if (n == 0)
         return 0;
     if (n == 1) {
-        int bit = ML::highest_bit(bitmap, -1);
+        int bit = MLDB::highest_bit(bitmap, -1);
         if (bit != 31)
             return behs[bit]->getBehaviorSubjectCount(beh);
     }
@@ -1334,7 +1334,7 @@ getExactBehaviorSubjectCountImpl(BH beh, SH maxSubject, Precision p) const
     if (n == 0)
         return 0;
     if (n == 1) {
-        int bit = ML::highest_bit(bitmap, -1);
+        int bit = MLDB::highest_bit(bitmap, -1);
         if (bit != 31)
             return behs[bit]->getBehaviorSubjectCount(beh, maxSubject, p);
     }

@@ -21,12 +21,12 @@ namespace MLDB {
 */
 inline uint8_t bitsToHoldCount(uint64_t count)
 {
-    return ML::highest_bit(std::max<uint64_t>(count, 1) - 1, -1) + 1;
+    return MLDB::highest_bit(std::max<uint64_t>(count, 1) - 1, -1) + 1;
 }
 
 inline uint8_t bitsToHoldRange(uint64_t count)
 {
-    return ML::highest_bit(count, -1) + 1;
+    return MLDB::highest_bit(count, -1) + 1;
 }
 
 

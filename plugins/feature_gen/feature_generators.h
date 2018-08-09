@@ -7,12 +7,9 @@
 
 #pragma once
 
-#include "mldb/core/dataset.h"
-#include "mldb/core/procedure.h"
-#include "mldb/core/value_function.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/ml/jml/feature_info.h"
-#include "mldb/ml/value_descriptions.h"
+#include "mldb/sql/expression_value.h"
+#include "mldb/core/value_function.h"
 
 
 

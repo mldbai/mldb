@@ -267,7 +267,7 @@ struct UnionDataset::Itl
         if (bitmap == 0)
             throw MLDB::Exception("Column not found in union dataset");
 
-        int bit = ML::lowest_bit(bitmap, -1);
+        int bit = MLDB::lowest_bit(bitmap, -1);
 
         return datasets[bit]->getMatrixView()->getColumnPath(columnHash);
     }

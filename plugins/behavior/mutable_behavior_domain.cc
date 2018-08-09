@@ -1822,14 +1822,14 @@ record(BI beh, uint64_t ts, uint32_t count, VI verb)
     uint64_t currentBitCapacity = 32 * data.capacity();
     int64_t bitsLeft = currentBitCapacity - currentBitsUsed;
 
-    uint8_t behBitsRequired = ML::highest_bit(beh.index(), -1) + 1;
-    uint8_t cntBitsRequired = ML::highest_bit(count - 1, -1) + 1;
+    uint8_t behBitsRequired = MLDB::highest_bit(beh.index(), -1) + 1;
+    uint8_t cntBitsRequired = MLDB::highest_bit(count - 1, -1) + 1;
 
     uint64_t savedFirstSeen = firstSeen;
     firstSeen = std::min(firstSeen, ts);
     lastSeen = std::max(lastSeen, ts);
 
-    uint8_t tsBitsRequired = ML::highest_bit((lastSeen - firstSeen), -1) + 1;
+    uint8_t tsBitsRequired = MLDB::highest_bit((lastSeen - firstSeen), -1) + 1;
 
     ExcAssertLessEqual(firstSeen, savedFirstSeen);
 
@@ -2068,7 +2068,7 @@ sortUnlocked(bool immutable, const MutableBehaviorDomain *owner)
         };
 
     int newBehaviorCount = doWrite();
-    int countBitsRequired = ML::highest_bit(maxCount -1, -1) + 1;
+    int countBitsRequired = MLDB::highest_bit(maxCount -1, -1) + 1;
 
     if (countBitsRequired > cntBits) {
         // Counts increased and can no longer fit in.  Expand so that we can
@@ -2665,8 +2665,8 @@ atomicRecord(SI2 sub, uint64_t ts)
          << memWordsAllocated() << endl;
 #endif
 
-    int subjBits = ML::highest_bit(sub.bits, -1) + 1;
-    int tsBits = ML::highest_bit(ts - timeBase, -1) + 1;
+    int subjBits = MLDB::highest_bit(sub.bits, -1) + 1;
+    int tsBits = MLDB::highest_bit(ts - timeBase, -1) + 1;
     if (subjBits > this->subjectBits
         || tsBits > this->timestampBits)
         return 2;  // can't fit
@@ -2743,8 +2743,8 @@ allocate(uint32_t capacity, uint64_t timeBase,
          uint64_t maxTime, SI2 maxSubject,
          const SubjectEntry * first, const SubjectEntry * last)
 {
-    int subjectBits = ML::highest_bit(maxSubject.bits, -1) + 1;
-    int timestampBits = ML::highest_bit(maxTime - timeBase) + 1;
+    int subjectBits = MLDB::highest_bit(maxSubject.bits, -1) + 1;
+    int timestampBits = MLDB::highest_bit(maxTime - timeBase) + 1;
     size_t bitsRequired = size_t(capacity) * (1 + subjectBits + timestampBits);
 
     size_t wordsRequired = (63 + bitsRequired) / 64;

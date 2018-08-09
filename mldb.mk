@@ -10,9 +10,9 @@ MLDB_SUBDIRS := \
 	http \
 	vfs \
 	block \
+	utils \
 	jml \
 	ml \
-	utils \
 	credentials \
 	vfs_handlers \
 	rest \
