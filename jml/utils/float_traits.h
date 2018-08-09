@@ -11,8 +11,7 @@
    Floating point traits.
 */
 
-#ifndef __utils__float_traits_h__
-#define __utils__float_traits_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 
@@ -41,6 +40,3 @@ struct float_traits3<F, F, F> {
 };
 
 } // namespace ML
-
-#endif /* __utils__float_traits_h__ */
-

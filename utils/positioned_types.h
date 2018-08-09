@@ -1,16 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* positioned_types.h                                              -*- C++ -*-
    Jeremy Barnes, 13 November 2012
    Copyright (c) 2012 mldb.ai inc.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Public domain.
 */
 
-#ifndef __ml__positioned_types_h__
-#define __ml__positioned_types_h__
+#pragma once
 
-namespace ML {
+namespace MLDB {
 
 // Container metaclass that contains simply a list of types that can be passed
 // around as a single type
@@ -121,24 +119,22 @@ template<int Index,
          typename Head1, typename... Tail1,
          typename Head2, typename... Tail2>
 struct PositionedDualTypeList<Index,
-                              ML::TypeList<Head1, Tail1...>,
-                              ML::TypeList<Head2, Tail2...> > {
+                              MLDB::TypeList<Head1, Tail1...>,
+                              MLDB::TypeList<Head2, Tail2...> > {
     typedef PositionedDualTypeList<Index + 1,
-                                   ML::TypeList<Tail1...>,
-                                   ML::TypeList<Tail2...> > Base;
-typedef typename ML::PushFront<PositionedDualType<Index, Head1, Head2>,
+                                   MLDB::TypeList<Tail1...>,
+                                   MLDB::TypeList<Tail2...> > Base;
+typedef typename MLDB::PushFront<PositionedDualType<Index, Head1, Head2>,
                                typename Base::List>::List List;
 };
 
 template<int Index>
 struct PositionedDualTypeList<Index,
-                              ML::TypeList<>,
-                              ML::TypeList<> > {
-    typedef ML::TypeList<> List;
+                              MLDB::TypeList<>,
+                              MLDB::TypeList<> > {
+    typedef MLDB::TypeList<> List;
 };
 
 
 
-} // namespace ML
-
-#endif /* __ml__positioned_types_h__ */
+} // namespace MLDB

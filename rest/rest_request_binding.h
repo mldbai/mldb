@@ -19,7 +19,7 @@
 #include "mldb/types/json_printing.h"
 #include "mldb/rest/rest_request_params.h"
 #include "mldb/rest/rest_request_params_types.h"
-#include "mldb/jml/utils/positioned_types.h"
+#include "mldb/utils/positioned_types.h"
 
 namespace MLDB {
 
@@ -681,9 +681,9 @@ struct CreateRestParameterGenerator {
 };
 
 template<int Index, typename Arg, typename Param, typename... Params>
-struct CreateRestParameterGenerator<ML::PositionedDualType<Index, Arg, Param>, Params...> {
+struct CreateRestParameterGenerator<PositionedDualType<Index, Arg, Param>, Params...> {
 
-    typedef decltype(createParameterExtractor(*(Json::Value *)0, std::declval<typename ML::ExtractArgAtPosition<0, Index, Params...>::type>(), (typename std::decay<Arg>::type *)0)) Generator;
+    typedef decltype(createParameterExtractor(*(Json::Value *)0, std::declval<typename ExtractArgAtPosition<0, Index, Params...>::type>(), (typename std::decay<Arg>::type *)0)) Generator;
 
     //typedef std::decay<Arg> Result;
     typedef decltype(std::declval<Generator>()
@@ -694,7 +694,7 @@ struct CreateRestParameterGenerator<ML::PositionedDualType<Index, Arg, Param>, P
     /** Create the generator */
     static Generator create(Json::Value & argHelp, Params&&... params)
     {
-        auto param = ML::ExtractArgAtPosition<0, Index, Params...>
+        auto param = ExtractArgAtPosition<0, Index, Params...>
             ::extract(std::forward<Params>(params)...);
         return createParameterExtractor(argHelp,
                                         param,
@@ -745,7 +745,7 @@ createRequestValidater(const Json::Value & argHelp, std::set<Utf8String> ignore)
 std::set<Utf8String> getIgnoredArgs(const RequestFilter & filter);
 
 template<typename... PositionedDualTypes>
-struct RestRequestBinder<ML::TypeList<PositionedDualTypes...> > {
+struct RestRequestBinder<TypeList<PositionedDualTypes...> > {
 
     /** Create a request handler that will call the given member
         function with parameters extracted from the request.
@@ -1238,9 +1238,9 @@ addRouteSyncReturn(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindSyncReturn(getIgnoredArgs(filter), transformResult,
@@ -1268,9 +1268,9 @@ addRouteSyncReturn(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindSyncReturn(transformResult,
@@ -1296,9 +1296,9 @@ addRouteReturnStatus(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindSyncReturnStatus(getIgnoredArgs(filter), pmf, ptr, std::forward<Params>(params)...);
@@ -1323,9 +1323,9 @@ addRouteReturnStatus(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindSyncReturnStatus(getIgnoredArgs(filter), pmf, ptr, std::forward<Params>(params)...);
@@ -1350,9 +1350,9 @@ addRouteSync(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindSync(getIgnoredArgs(filter), pmf, ptr, std::forward<Params>(params)...);
@@ -1376,9 +1376,9 @@ addRouteSync(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindSync(getIgnoredArgs(filter), pmf, ptr, std::forward<Params>(params)...);
@@ -1401,9 +1401,9 @@ addRouteAsync(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindAsync(getIgnoredArgs(filter), pmf, ptr, std::forward<Params>(params)...);
@@ -1426,9 +1426,9 @@ addRouteAsync(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindAsync(getIgnoredArgs(filter), pmf, ptr, std::forward<Params>(params)...);
@@ -1453,9 +1453,9 @@ addRouteAsyncThen(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindAsyncThen(getIgnoredArgs(filter), then, exc, fn, std::forward<Params>(params)...);
@@ -1509,9 +1509,9 @@ addRouteAsyncThenContext(RestRequestRouter & router,
     static_assert(sizeof...(Args) == sizeof...(Params),
                   "member function and parameter arity must match");
 
-    typedef ML::TypeList<Args...> ArgsList;
-    typedef ML::TypeList<Params...> ParamsList;
-    typedef ML::PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
+    typedef TypeList<Args...> ArgsList;
+    typedef TypeList<Params...> ParamsList;
+    typedef PositionedDualTypeList<0, ArgsList, ParamsList> PositionedTypes;
 
     auto res = RestRequestBinder<typename PositionedTypes::List>
         ::bindAsyncThenContext(getIgnoredArgs(filter), then, exc, fn, std::forward<Params>(params)...);
