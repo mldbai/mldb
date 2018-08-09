@@ -12,7 +12,6 @@
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/builtin/matrix.h"
 #include "mldb/engine/analytics.h"
-#include "ml/value_descriptions.h"
 #include "types/any_impl.h"
 #include "jml/utils/string_functions.h"
 #include "arch/timers.h"

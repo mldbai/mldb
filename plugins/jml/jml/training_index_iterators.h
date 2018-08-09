@@ -1,0 +1,290 @@
+/* training_index_iterators.h                                      -*- C++ -*-
+   Jeremy Barnes, 19 March 2009
+   Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+
+   Iterators over a training index.
+*/
+
+#pragma once
+
+#include "mldb/compiler/compiler.h"
+#include <vector>
+#include <cmath>
+
+#include <string>
+#include <stdint.h>
+#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/arch/exception.h"
+#include "mldb/plugins/jml/jml/label.h"
+
+namespace ML {
+
+class Index_Iterator;
+
+
+/*****************************************************************************/
+/* JOINT_INDEX                                                               */
+/*****************************************************************************/
+
+class Joint_Index {
+public:
+    Joint_Index();
+    
+    Joint_Index(const float * values, const uint16_t * buckets,
+                const Label * labels, const unsigned * examples,
+                const unsigned * counts, const float * divisors,
+                unsigned size, const std::vector<float> * bucket_vals);
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator begin() const;
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator end() const;
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    size_t size() const { return size_; }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    bool empty() const { return size_ == 0; }
+    
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator front() const;
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator back() const;
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator operator [] (int idx) const;
+    
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    size_t bucket_count() const { return bucket_vals_->size() + 1; }
+
+    const std::vector<float> & bucket_vals() const { return *bucket_vals_; }
+
+#ifndef MLDB_COMPILER_NVCC
+    void dump(std::ostream & stream) const;
+#endif // MLDB_COMPILER_NVCC
+
+    /** Points to the array of values. */
+    const float * values() const { return values_; }
+
+    /** Points to the array of buckets. */
+    const uint16_t * buckets() const { return buckets_; }
+
+    /** Points to the array of labels (for the target feature) */
+    const Label * labels() const { return labels_; }
+
+    /** Points to the array of labels (for the target feature) */
+    const int * labels_as_int() const { return (const int *)labels_; }
+
+    /** Points to the array of example numbers.  If null, then the example
+        numbers increment monotonically.  (This corresponds to the dense()
+        and exactly_one() when ordered by example). */
+    const uint32_t * examples() const { return examples_; }
+
+    /** Points to the array of example counts.  If null, then this is always
+        one.  This corresponds to the exactly_one case. */
+    const uint32_t * counts() const { return counts_; }
+
+    /** Points to the array of divisors. */
+    const float * divisors() const { return divisors_; }
+    
+private:
+    /** Points to the array of values. */
+    const float * values_;
+
+    /** Points to the array of buckets. */
+    const uint16_t * buckets_;
+
+    /** Points to the array of labels (for the target feature) */
+    const Label * labels_;
+
+    /** Points to the array of example numbers.  If null, then the example
+        numbers increment monotonically.  (This corresponds to the dense()
+        and exactly_one() when ordered by example). */
+    const uint32_t * examples_;
+
+    /** Points to the array of example counts.  If null, then this is always
+        one.  This corresponds to the exactly_one case. */
+    const uint32_t * counts_;
+
+    /** Points to the array of divisors. */
+    const float * divisors_;
+
+    /** The size of the array. */
+    size_t size_;
+
+    /** Pointer to the array of bucket values, if we used them. */
+    const std::vector<float> * bucket_vals_;
+
+    friend class Index_Iterator;
+};
+
+
+/*****************************************************************************/
+/* INDEX_ITERATOR                                                            */
+/*****************************************************************************/
+
+/** Most of the algorithms operate over a (label, value, example, count) index
+    sorted either by value or by example number.  This class is an abstraction
+    which allows various index entries to be assembled together into this
+    virtual structure.
+*/
+
+class Index_Iterator {
+public:
+    typedef int difference_type;
+    typedef void value_type;
+    typedef void * pointer;
+    typedef void reference;
+    typedef std::random_access_iterator_tag iterator_category;
+    
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator() : index(0), n(0) {}
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator(const Joint_Index * index, unsigned n)
+        : index(index), n(n)
+    {
+    }
+
+    /* Allow for iterator-like semantics. */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    bool operator == (const Index_Iterator & other) const
+    {
+        return n == other.n;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    bool operator != (const Index_Iterator & other) const
+    {
+        return n != other.n;
+    }
+    
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator & operator ++ () { ++n;  return *this; }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator operator ++ (int)
+    {
+        Index_Iterator result(*this);  operator ++ ();  return result;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator & operator -- () { --n;  return *this; }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator operator -- (int)
+    {
+        Index_Iterator result(*this);  operator -- ();  return result;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator & operator += (int i) { n += i;  return *this; }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator & operator -= (int i) { n -= i;  return *this; }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    ssize_t operator - (const Index_Iterator & other) const
+    {
+        return n - other.n;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator operator + (int i) const
+    {
+        Index_Iterator result = *this;
+        result += i;
+        return result;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Index_Iterator operator - (int i) const
+    {
+        Index_Iterator result = *this;
+        result -= i;
+        return result;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    const Index_Iterator & operator * () const
+    {
+        return *this;
+    }
+
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    const Index_Iterator * operator -> () const
+    {
+        return this;
+    }
+
+    /** The value of the variable. */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    float value() const { return index->values_[n]; }
+    
+    /** Are we missing? */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    bool missing() const { return isnanf(value()); }
+    
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    unsigned bucket() const { return index->buckets_[n]; }
+
+    /** The label of this training example. */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    Label label() const { return index->labels_[n]; }
+    
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    int label_as_int() const { return index->labels_[n].label_; }
+    
+    /** The example number. */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    unsigned example() const
+    {
+        if (index->examples_) return index->examples_[n];
+        else return n;
+    }
+    
+    /** How many times this feature is duplicated for this particular
+        example number. */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    int example_counts() const
+    {
+        if (index->counts_) return index->counts_[n];
+        else return 1;
+    }
+    
+    /** Returns true if this example only appeared one time. */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    bool one_example() const
+    {
+        return !index->counts_ || index->counts_[n] == 1;
+    }
+    
+    /** Reciprocal of example_counts() */
+    MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+    double divisor() const
+    {
+        if (!index->divisors_) return 1.0;
+        else return index->divisors_[n];
+    }
+
+#ifndef MLDB_COMPILER_NVCC
+    std::string print() const;
+
+    static std::string titles();
+#endif // MLDB_COMPILER_NVCC
+
+private:
+    /** The Joint_Index we are looking at */
+    const Joint_Index * index;
+    
+    /** The number of th entry that we are up to. */
+    unsigned n;
+};
+
+
+} // namespace ML
+
+#include "training_index_iterators_impl.h"

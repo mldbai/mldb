@@ -12,7 +12,6 @@ MLDB_SUBDIRS := \
 	block \
 	utils \
 	jml \
-	ml \
 	credentials \
 	vfs_handlers \
 	rest \

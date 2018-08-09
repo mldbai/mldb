@@ -9,7 +9,6 @@
 
 #include "builtin/metric_space.h"
 #include "mldb/utils/distribution_simd.h"
-#include "ml/value_descriptions.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/distribution_description.h"
 #include "mldb/types/annotated_exception.h"
@@ -76,7 +75,7 @@ EuclideanDistanceMetric::
 calc(const distribution<float> & coords1,
      const distribution<float> & coords2)
 {
-    return sqrt(ML::SIMD::vec_euclid(coords1.data(), coords2.data(), coords1.size()));
+    return sqrt(SIMD::vec_euclid(coords1.data(), coords2.data(), coords1.size()));
     return (coords2 - coords1).two_norm();
 }
 
@@ -113,9 +112,9 @@ dist(int rowNum1, int rowNum2,
     */
         
     // Use the optimized version, since we know the sum
-    float dpResult = -2.0 * ML::SIMD::vec_dotprod_dp(&coords1[0],
-                                                     &coords2[0],
-                                                     coords1.size());
+    float dpResult = -2.0 * SIMD::vec_dotprod_dp(&coords1[0],
+                                                 &coords2[0],
+                                                 coords1.size());
     ExcAssert(isfinite(dpResult));
 
 

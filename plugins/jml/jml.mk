@@ -2,6 +2,35 @@
 
 #$(eval $(call include_sub_make,jml_ext,ext,jml_ext.mk))
 
+$(eval $(call include_sub_makes,algebra stats tsne jml))
+
+LIBML_SOURCES := \
+	dense_classifier.cc \
+	separation_stats.cc \
+	dense_classifier_scorer.cc \
+	dense_feature_generator.cc \
+	data_partition.cc \
+	scorer.cc \
+	prediction_accumulator.cc \
+	bucketing_probabilizer.cc \
+	distribution_pooler.cc \
+	kmeans.cc \
+	em.cc \
+	value_descriptions.cc \
+
+
+LIBML_LINK := \
+	$(STD_FILESYSTEM_LIBNAME) \
+	jsoncpp \
+	types \
+	value_description \
+	algebra \
+	boosting
+
+$(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
+
+$(eval $(call include_sub_make,ml_testing,testing,ml_testing.mk))
+
 
 # Jml plugins
 LIBMLDB_JML_PLUGIN_SOURCES:= \

@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
-#include "mldb/ml/value_descriptions.h"
+#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/regex.h"
 

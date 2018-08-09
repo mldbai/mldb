@@ -14,7 +14,7 @@
 #include "mldb/core/function.h"
 #include "mldb/builtin/matrix.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb/ml/jml/feature_info.h"
+#include "mldb/plugins/jml/jml/feature_info.h"
 
 namespace ML {
 struct Mutable_Feature_Set;

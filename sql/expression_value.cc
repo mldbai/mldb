@@ -16,7 +16,6 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/compact_vector_description.h"
 #include "mldb/types/tuple_description.h"
-#include "mldb/ml/value_descriptions.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/json_utils.h"
@@ -4438,7 +4437,7 @@ compare_t(const ExpressionValue & left, const ExpressionValue & right)
 {
     T leftRow = asRow(left);
     T rightRow = asRow(right);
-    return ML::compare_sorted(leftRow, rightRow, Compare<T>());
+    return compare_sorted(leftRow, rightRow, Compare<T>());
 }
 
 int
@@ -4461,11 +4460,11 @@ compare(const ExpressionValue & other) const
     case Type::STRUCTURED: {
         auto leftRow = getStructured();
         auto rightRow = other.getStructured();
-        return ML::compare_sorted(leftRow, rightRow, ML::compare<Structured>());
+        return compare_sorted(leftRow, rightRow, MLDB::compare<Structured>());
     }
     case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
-        return compare_t<vector<pair<ColumnPath, CellValue> >, ML::compare>(*this, other);
+        return compare_t<vector<pair<ColumnPath, CellValue> >, MLDB::compare>(*this, other);
     }
     }
     
@@ -4484,7 +4483,7 @@ operator == (const ExpressionValue & other) const
     case Type::STRUCTURED: {
         auto leftRow = getStructured();
         auto rightRow = other.getStructured();
-        return ML::compare_sorted(leftRow, rightRow, std::equal_to<Structured>());
+        return compare_sorted(leftRow, rightRow, std::equal_to<Structured>());
     }
     case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
@@ -4509,7 +4508,7 @@ operator <  (const ExpressionValue & other) const
     case Type::STRUCTURED:  {
         auto leftRow = getStructured();
         auto rightRow = other.getStructured();
-        return ML::compare_sorted(leftRow, rightRow, std::less<Structured>());
+        return compare_sorted(leftRow, rightRow, std::less<Structured>());
     }
     case Type::SUPERPOSITION:
     case Type::EMBEDDING: {

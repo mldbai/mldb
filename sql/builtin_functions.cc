@@ -14,7 +14,7 @@
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
-#include "mldb/ml/confidence_intervals.h"
+#include "mldb/jml/utils/confidence_intervals.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
@@ -3452,7 +3452,7 @@ BoundFunction mime_type(const std::vector<BoundSqlExpression> & args)
             magic = magic_open(MAGIC_NONE);
 
             if(magic == NULL) {
-                throw ML::Exception("Unable to initialize the magic library");
+                throw MLDB::Exception("Unable to initialize the magic library");
             }
         }
 
@@ -3471,7 +3471,7 @@ BoundFunction mime_type(const std::vector<BoundSqlExpression> & args)
                 magic_holder magic;
 
                 if(magic_load(magic.magic, NULL) != 0) {
-                    throw ML::Exception("Error loading magic database - %s\n", magic_error(magic.magic));
+                    throw MLDB::Exception("Error loading magic database - %s\n", magic_error(magic.magic));
                 }
 
                 if(!args[0].isAtom())

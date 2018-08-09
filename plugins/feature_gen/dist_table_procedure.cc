@@ -7,7 +7,6 @@
 
 #include "dist_table_procedure.h"
 #include "types/basic_value_descriptions.h"
-#include "ml/value_descriptions.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/types/distribution_description.h"
 #include "mldb/types/pair_description.h"

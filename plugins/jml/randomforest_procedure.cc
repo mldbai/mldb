@@ -13,7 +13,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/jml/utils/profile.h"
 #include "mldb/plugins/jml/randomforest.h"
-#include "mldb/ml/value_descriptions.h"
+#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/builtin/sql_expression_extractors.h"
 #include "mldb/plugins/jml/classifier.h"
 #include "mldb/rest/in_process_rest_connection.h"

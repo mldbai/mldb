@@ -4,9 +4,9 @@
 
 #include "dataset_feature_space.h"
 #include "mldb/core/dataset.h"
-#include "mldb/ml/jml/registry.h"
+#include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/base/parallel.h"
-#include "mldb/ml/jml/training_index_entry.h"
+#include "mldb/plugins/jml/jml/training_index_entry.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/hash_wrapper_description.h"

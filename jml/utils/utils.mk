@@ -9,9 +9,12 @@ LIBUTILS_SOURCES := \
 	csv.cc \
 	hex_dump.cc \
 	floating_point.cc \
-	buckets.cc
+	buckets.cc \
+	confidence_intervals.cc \
 
-LIBUTILS_LINK :=	arch vfs
+LIBUTILS_LINK := \
+	arch \
+	vfs \
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 

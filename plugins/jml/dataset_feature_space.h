@@ -9,12 +9,12 @@
 
 #pragma once
 
-#include "mldb/ml/jml/feature_space.h"
+#include "mldb/plugins/jml/jml/feature_space.h"
 #include "jml/utils/buckets.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/core/dataset.h"
 #include "mldb/engine/bucket.h"
-#include "mldb/ml/jml/label.h"
+#include "mldb/plugins/jml/jml/label.h"
 #include "mldb/utils/log_fwd.h"
 
 
