@@ -16,7 +16,7 @@
 #include "mldb/arch/sse.h"
 #include "mldb/arch/sse2.h"
 #endif
-#include "mldb/plugins/jml/algebra/multi_array_utils.h"
+#include "mldb/plugins/jml/multi_array_utils.h"
 
 #undef USE_SIMD_SSE2
 #define USE_SIMD_SSE2 0

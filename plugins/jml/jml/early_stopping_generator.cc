@@ -10,7 +10,7 @@
 
 #include "mldb/plugins/jml/jml/early_stopping_generator.h"
 #include "mldb/arch/demangle.h"
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 
 
 using namespace std;

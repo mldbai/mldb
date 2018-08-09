@@ -12,7 +12,7 @@
 #include "feature_map.h"
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "training_data.h"
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include <boost/timer.hpp>
 #include "mldb/jml/utils/string_functions.h"

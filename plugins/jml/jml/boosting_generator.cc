@@ -15,7 +15,7 @@
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 #include "boosting_training.h"
 #include "mldb/arch/simd_vector.h"
 #include "boosting_core.h"

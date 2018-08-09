@@ -16,7 +16,7 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include "mldb/jml/utils/multi_array_utils.h"
+#include "mldb/plugins/jml/multi_array_utils.h"
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/utils/distribution_simd.h"
 

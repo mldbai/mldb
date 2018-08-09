@@ -11,7 +11,7 @@
 #include "classifier_persist_impl.h"
 #include "training_data.h"
 #include <algorithm>
-#include "mldb/jml/utils/sgi_algorithm.h"
+#include "mldb/plugins/jml/sgi_algorithm.h"
 #include <boost/progress.hpp>
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/jml/utils/pair_utils.h"

@@ -25,7 +25,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/parse_context.h"
 #include <boost/multi_array.hpp>
-#include "mldb/jml/utils/sgi_numeric.h"
+#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/jml/math/selection.h"

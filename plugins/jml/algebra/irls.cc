@@ -15,7 +15,7 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/timers.h"
-#include "multi_array_utils.h"
+#include "mldb/plugins/jml/multi_array_utils.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/plugins/jml/algebra/lapack.h"
 #include <cmath>

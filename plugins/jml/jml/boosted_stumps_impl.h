@@ -14,7 +14,7 @@
 
 
 #include "boosted_stumps.h"
-#include "mldb/jml/utils/sgi_algorithm.h"
+#include "mldb/plugins/jml/sgi_algorithm.h"
 #include <iostream>
 #include "mldb/base/exc_assert.h"
 

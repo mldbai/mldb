@@ -11,12 +11,12 @@
 
 #pragma once
 
-#include "mldb/jml/utils/sgi_functional.h"
 #include <type_traits>
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/zip_iterator.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <utility>
+#include <ext/functional>
 
 namespace ML {
 
@@ -26,12 +26,12 @@ namespace ML {
 /*****************************************************************************/
 
 template<class Iterator>
-boost::transform_iterator<std::select1st<typename Iterator::value_type>,
+boost::transform_iterator<__gnu_cxx::select1st<typename Iterator::value_type>,
                           Iterator>
 first_extractor(const Iterator & it)
 {
     return boost::transform_iterator
-        <std::select1st<typename Iterator::value_type>, Iterator>(it);
+        <__gnu_cxx::select1st<typename Iterator::value_type>, Iterator>(it);
 }
 
 
@@ -40,12 +40,12 @@ first_extractor(const Iterator & it)
 /*****************************************************************************/
 
 template<class Iterator>
-boost::transform_iterator<std::select2nd<typename Iterator::value_type>,
+boost::transform_iterator<__gnu_cxx::select2nd<typename Iterator::value_type>,
                           Iterator>
 second_extractor(const Iterator & it)
 {
     return boost::transform_iterator
-        <std::select2nd<typename Iterator::value_type>, Iterator>(it);
+        <__gnu_cxx::select2nd<typename Iterator::value_type>, Iterator>(it);
 }
 
 

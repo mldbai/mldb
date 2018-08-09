@@ -16,7 +16,7 @@
 #include "mldb/arch/exception.h"
 #include <numeric>
 #include "stump.h"
-#include "mldb/plugins/jml/algebra/multi_array_utils.h"
+#include "mldb/plugins/jml/multi_array_utils.h"
 #include "mldb/jml/math/xdiv.h"
 #include "split.h"
 #include "fixed_point_accum.h"
