@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* tcp_acceptor_threaded_test+http.cc
    Wolfgang Sourdeau, September 2015
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Unit test for TcpAcceptor and HttpSocketHandler in multi-threaded context.
 */
@@ -15,7 +14,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/asio.hpp>
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/ring_buffer.h"
+#include "mldb/io/ring_buffer.h"
 
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/event_loop.h"

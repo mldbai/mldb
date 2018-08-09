@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** http_streambuf.cc
     Jeremy Barnes, 26 November 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include <atomic>
 #include <boost/iostreams/stream_buffer.hpp>
 #include "mldb/http/http_rest_proxy.h"
-#include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/annotated_exception.h"
@@ -17,9 +15,11 @@
 #include "mldb/vfs_handlers/exception_ptr.cc"
 #include <chrono>
 #include <future>
+#include "mldb/ext/concurrentqueue/blockingconcurrentqueue.h"
 
 
 using namespace std;
+using moodycamel::BlockingConcurrentQueue;
 
 
 namespace MLDB {
@@ -139,7 +139,7 @@ struct HttpStreamingDownloadSource {
         exception_ptr lastExc;
 
         /* Data queue */
-        ML::RingBufferSRMW<string> dataQueue;
+        BlockingConcurrentQueue<string> dataQueue;
         atomic<bool> eof;
 
         std::string current;
@@ -175,10 +175,7 @@ struct HttpStreamingDownloadSource {
             shutdown = true;
 
 
-            while (!dataQueue.tryPush("")) {
-                string item;
-                dataQueue.tryPop(item, 0.001);
-            }
+            dataQueue.enqueue("");
 
             for (thread & th: threads) {
                 th.join();
@@ -205,7 +202,7 @@ struct HttpStreamingDownloadSource {
 
             if (currentDone == current.size()) {
                 // Get some more data
-                current = dataQueue.pop();
+                dataQueue.wait_dequeue(current);
                 currentDone = 0;
 
                 if (current.empty()) {
@@ -243,7 +240,7 @@ struct HttpStreamingDownloadSource {
                         if (shutdown) {
                             return false;
                         }
-                        while (!shutdown && !dataQueue.tryPush(data)) {
+                        while (!shutdown && !dataQueue.try_enqueue(data)) {
                             std::this_thread::sleep_for(std::chrono::milliseconds(1));
                         }
                         return !shutdown;
@@ -306,11 +303,11 @@ struct HttpStreamingDownloadSource {
                     }
                 }
                 
-                dataQueue.push("");
+                dataQueue.enqueue("");
                 
             } catch (const std::exception & exc) {
                 lastExc = std::current_exception();
-                dataQueue.tryPush("");
+                dataQueue.enqueue("");
                 if (!headerSet.exchange(true)) {
                     headerPromise.set_exception(lastExc);
                 }
