@@ -8,8 +8,12 @@
 
 #include "call_me_back.h"
 #include <iostream>
+#include <mutex>
+#include "mldb/ext/concurrentqueue/blockingconcurrentqueue.h"
+#include "mldb/base/exc_assert.h"
 
 using namespace std;
+using moodycamel::BlockingConcurrentQueue;
 
 namespace MLDB {
 
@@ -18,82 +22,99 @@ namespace MLDB {
 /* CALL ME BACK LATER                                                        */
 /*****************************************************************************/
 
+struct CallMeBackLater::Itl {
+    Itl()
+        : shutdown_(true), queue(1024), thread(nullptr)
+    {
+    }
+
+    ~Itl()
+    {
+        shutdown();
+    }
+    
+    std::mutex startMutex;
+    bool shutdown_;
+    BlockingConcurrentQueue<std::function<void ()> > queue;
+    std::thread * thread;
+    
+    void start()
+    {
+        if (thread) return;
+        std::unique_lock<std::mutex> guard(startMutex);
+        if (thread) return;
+
+        std::unique_ptr<std::thread> newThread;
+        shutdown_ = false;
+        newThread.reset(new std::thread([=] () { this->runMainThread(); }));
+
+        thread = newThread.release();
+    }
+
+    void shutdown()
+    {
+        std::unique_lock<std::mutex> guard(startMutex);
+
+        if (!thread)
+            return;
+        shutdown_ = true;
+        add(nullptr);  // Make sure the thread wakes up
+        thread->join();
+        thread = 0;
+    }
+
+    void add(std::function<void ()> fn)
+    {
+        if (!thread) {
+            start();
+        }
+        
+        queue.enqueue(std::move(fn));
+    }
+
+    void runMainThread()
+    {
+        while (!shutdown_) {
+            std::function<void ()> fn;
+            queue.wait_dequeue(fn);
+            if (!fn)
+                return;
+            if (shutdown_)
+                return;
+
+            try {
+                fn();
+            } catch (const std::exception & exc) {
+                cerr << "ERROR: function in CallMeBackLater threw: "
+                     << exc.what() << endl;
+                abort();
+            } catch (...) {
+                cerr << "ERROR: function in CallMeBackLater threw" << endl;
+                abort();
+            }
+        }
+    }
+};
+
 CallMeBackLater::
 CallMeBackLater()
-    : shutdown_(true), queue(1024), thread(nullptr)
+    : itl(new Itl())
 {
 }
 
 CallMeBackLater::
 ~CallMeBackLater()
 {
-    shutdown();
 }
 
 void
 CallMeBackLater::
 add(std::function<void ()> fn)
 {
-    if (!thread) {
-        start();
-    }
-
-    if (!queue.tryPush(std::move(fn)))
-        throw std::runtime_error("no space in CallMeBackLater queue");
+    ExcAssert(fn);
+    itl->add(std::move(fn));
 }
 
-void
-CallMeBackLater::
-start()
-{
-    if (thread) return;
-    std::unique_lock<std::mutex> guard(startMutex);
-    if (thread) return;
-
-    std::unique_ptr<std::thread> newThread;
-    shutdown_ = false;
-    newThread.reset(new std::thread([=] () { this->runMainThread(); }));
-
-    thread = newThread.release();
-}
-
-void
-CallMeBackLater::
-shutdown()
-{
-    std::unique_lock<std::mutex> guard(startMutex);
-
-    if (!thread)
-        return;
-    shutdown_ = true;
-    add(nullptr);  // Make sure the thread wakes up
-    thread->join();
-    thread = 0;
-}
-
-void
-CallMeBackLater::
-runMainThread()
-{
-    while (!shutdown_) {
-        auto fn = queue.pop();
-        if (!fn)
-            return;
-        if (shutdown_)
-            return;
-
-        try {
-            fn();
-        } catch (const std::exception & exc) {
-            cerr << "ERROR: function in CallMeBackLater threw: "
-                 << exc.what() << endl;
-            abort();
-        } catch (...) {
-            cerr << "ERROR: function in CallMeBackLater threw" << endl;
-            abort();
-        }
-    }
-}
 
 CallMeBackLater callMeBackLater;
 

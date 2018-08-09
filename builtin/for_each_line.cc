@@ -13,7 +13,7 @@
 #include <chrono>
 #include <thread>
 #include <cstring>
-#include "mldb/jml/utils/ring_buffer.h"
+#include "mldb/ext/concurrentqueue/blockingconcurrentqueue.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/exc_assert.h"
@@ -22,7 +22,7 @@
 
 
 using namespace std;
-using namespace ML;
+using moodycamel::BlockingConcurrentQueue;
 
 
 namespace {
@@ -52,10 +52,10 @@ struct Processing {
     std::mutex excPtrLock;
     std::exception_ptr excPtr;
 
-    RingBufferSWMR<pair<int64_t, vector<string> > > decompressedLines;
+    BlockingConcurrentQueue<pair<int64_t, vector<string> > > decompressedLines;
 };
 
-}
+} // file scope
 
 namespace MLDB {
 
@@ -93,7 +93,7 @@ readStream(std::istream & stream,
             ++done;
 
             if (current.second.size() == 1000) {
-                processing.decompressedLines.push(std::move(current));
+                processing.decompressedLines.enqueue(std::move(current));
                 current.first = done;
                 current.second.clear();
                 //current.clear();
@@ -125,7 +125,7 @@ readStream(std::istream & stream,
     }
 
     if (!current.second.empty() && !processing.hasException()) {
-        processing.decompressedLines.push(std::move(current));
+        processing.decompressedLines.enqueue(std::move(current));
     }
 
     return done;
@@ -139,11 +139,10 @@ parseLinesThreadStr(Processing & processing,
 {
     while (!processing.hasException()) {
         std::pair<int64_t, vector<string> > lines;
-        if (!processing.decompressedLines.tryPop(lines)) {
+        if (!processing.decompressedLines.wait_dequeue_timed(lines, 1000 /* us */)) {
             if (processing.shutdown) {
                 break;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
             

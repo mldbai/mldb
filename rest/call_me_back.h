@@ -9,10 +9,8 @@
 
 #pragma once
 
-#include <thread>
 #include <functional>
-#include <mutex>
-#include "mldb/jml/utils/ring_buffer.h"
+#include <memory>
 
 
 namespace MLDB {
@@ -52,6 +50,7 @@ struct CallMeBackLater {
     */
     void add(std::function<void ()> fn);
 
+#if 0    
     /** Start up the main thread.  Normally this will be done on the first
         call to add().  Thread safe.
     */
@@ -61,14 +60,11 @@ struct CallMeBackLater {
         safe.
     */
     void shutdown();
-
+#endif
+    
 private:
-    std::mutex startMutex;
-    bool shutdown_;
-    ML::RingBufferSRMW<std::function<void ()> > queue;
-    std::thread * thread;
-
-    void runMainThread();
+    struct Itl;
+    std::unique_ptr<Itl> itl;
 };
 
 extern CallMeBackLater callMeBackLater;

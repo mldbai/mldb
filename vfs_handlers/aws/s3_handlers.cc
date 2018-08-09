@@ -12,7 +12,6 @@
 #include <thread>
 #include <chrono>
 #include <boost/iostreams/stream_buffer.hpp>
-#include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/base/hash.h"
@@ -21,6 +20,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs_handlers/exception_ptr.h"
 #include "mldb/vfs_handlers/aws/s3.h"
+#include "mldb/arch/futex.h"
 
 using namespace std;
 using namespace MLDB;
