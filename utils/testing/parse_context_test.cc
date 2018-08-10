@@ -340,8 +340,10 @@ BOOST_AUTO_TEST_CASE( test2 )
     std::filesystem::create_directory("tmp");
 
     Scope_Exit(delete_file(tmp_filename));
-    ofstream stream(tmp_filename.c_str());
-    stream << test1_str;
+    {
+        ofstream stream(tmp_filename.c_str());
+        stream << test1_str << flush;
+    }
     
     ParseContext context(tmp_filename);
 
@@ -734,5 +736,3 @@ BOOST_AUTO_TEST_CASE(test_revert_token_at_eof)
     }
     cerr << "finished" << endl;
 }
-
-
