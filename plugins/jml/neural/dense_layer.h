@@ -9,7 +9,7 @@
 
 #include "layer.h"
 #include "transfer_function.h"
-#include "mldb/jml/utils/enum_info.h"
+#include "plugins/jml/enum_info.h"
 #include "layer_stack.h"
 
 

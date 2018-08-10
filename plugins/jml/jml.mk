@@ -2,6 +2,14 @@
 
 #$(eval $(call include_sub_make,jml_ext,ext,jml_ext.mk))
 
+LIBJML_UTILS_SOURCES := \
+	configuration.cc
+
+LIBJML_UTILS_LINK := \
+	utils arch
+
+$(eval $(call library,jml_utils,$(LIBJML_UTILS_SOURCES),$(LIBJML_UTILS_LINK)))
+
 $(eval $(call include_sub_makes,algebra stats tsne jml))
 
 LIBML_SOURCES := \
@@ -17,7 +25,7 @@ LIBML_SOURCES := \
 	kmeans.cc \
 	em.cc \
 	value_descriptions.cc \
-
+	configuration.cc
 
 LIBML_LINK := \
 	$(STD_FILESYSTEM_LIBNAME) \

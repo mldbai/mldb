@@ -11,7 +11,7 @@
 #define __jml__perceptron_defs_h__
 
 
-#include "mldb/jml/utils/enum_info.h"
+#include "plugins/jml/enum_info.h"
 #include "mldb/jml/db/persistent_fwd.h"
 
 namespace ML {

@@ -10,8 +10,8 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "mldb/jml/utils/configuration.h"
-#include "mldb/jml/utils/enum_info.h"
+#include "plugins/jml/configuration.h"
+#include "plugins/jml/enum_info.h"
 #include <boost/test/unit_test.hpp>
 #include "mldb/jml/utils/vector_utils.h"
 

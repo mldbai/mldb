@@ -8,7 +8,7 @@
 */
 
 #include "auto_encoder_trainer.h"
-#include "mldb/jml/utils/configuration.h"
+#include "plugins/jml/configuration.h"
 #include "mldb/arch/threads.h"
 
 #include <boost/progress.hpp>
@@ -16,7 +16,7 @@
 #include "mldb/base/thread_pool.h"
 
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/configuration.h"
+#include "plugins/jml/configuration.h"
 #include "mldb/arch/timers.h"
 #include "auto_encoder_stack.h"
 #include "mldb/plugins/jml/check_not_nan.h"

@@ -12,7 +12,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "feature_set.h"
 #include <boost/multi_array.hpp>
-#include "mldb/jml/utils/enum_info.h"
+#include "plugins/jml/enum_info.h"
 #include "split.h"
 
 

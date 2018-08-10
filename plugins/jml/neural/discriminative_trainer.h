@@ -13,7 +13,7 @@
 
 #include "loss_function.h"
 #include "layer.h"
-#include "mldb/jml/utils/configuration.h"
+#include "plugins/jml/configuration.h"
 #include "output_encoder.h"
 
 namespace ML {

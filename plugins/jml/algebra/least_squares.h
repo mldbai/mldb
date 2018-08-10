@@ -16,7 +16,7 @@
 #include "mldb/arch/timers.h"
 #include <iostream>
 #include "mldb/jml/db/persistent.h"
-#include "mldb/jml/utils/enum_info.h"
+#include "plugins/jml/enum_info.h"
 #include "matrix_ops.h"
 
 namespace ML {
