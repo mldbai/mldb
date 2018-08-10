@@ -5,7 +5,6 @@ LIBUTILS_SOURCES := \
         environment.cc \
         file_functions.cc \
         string_functions.cc \
-	configuration.cc \
 	csv.cc \
 	hex_dump.cc \
 	floating_point.cc \

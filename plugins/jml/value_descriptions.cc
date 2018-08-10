@@ -8,7 +8,7 @@
 
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
-#include "mldb/jml/utils/configuration.h"
+#include "plugins/jml/configuration.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/enum_description.h"

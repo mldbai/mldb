@@ -63,7 +63,7 @@ LIBBOOSTING_SOURCES := \
         multilabel_training_data.cc
 
 
-LIBBOOSTING_LINK :=	utils db algebra arch judy fasttext log
+LIBBOOSTING_LINK :=	jml_utils utils db algebra arch judy fasttext log
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 

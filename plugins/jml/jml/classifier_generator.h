@@ -12,7 +12,7 @@
 #include "config_options.h"
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "training_data.h"
-#include "mldb/jml/utils/configuration.h"
+#include "plugins/jml/configuration.h"
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "mldb/plugins/jml/jml/thread_context.h"
 

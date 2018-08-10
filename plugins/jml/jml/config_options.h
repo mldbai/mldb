@@ -13,8 +13,8 @@
 #include <string>
 #include <vector>
 #include <boost/lexical_cast.hpp>
-#include "mldb/jml/utils/configuration.h"
-#include "mldb/jml/utils/enum_info.h"
+#include "plugins/jml/configuration.h"
+#include "plugins/jml/enum_info.h"
 #include "mldb/plugins/jml/jml/registry.h"
 
 
