@@ -10,7 +10,7 @@
 #include <vector>
 #include <mutex>
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/parallel.h"
 #include <boost/math/special_functions/fpclassify.hpp>

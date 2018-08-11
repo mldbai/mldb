@@ -11,7 +11,7 @@
 
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "pipeline_execution_context.h"
 

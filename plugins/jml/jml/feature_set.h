@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/utils/distribution.h"
 #include <vector>
 #include "mldb/utils/floating_point.h"

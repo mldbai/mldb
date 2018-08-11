@@ -10,7 +10,7 @@
 #include <vector>
 #include <string>
 #include <functional>
-//#include "mldb/jml/db/persistent.h"
+//#include "mldb/types/db/persistent.h"
 
 namespace MLDB
 {

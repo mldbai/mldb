@@ -11,7 +11,6 @@ MLDB_SUBDIRS := \
 	vfs \
 	block \
 	utils \
-	jml \
 	credentials \
 	vfs_handlers \
 	rest \
@@ -24,8 +23,6 @@ MLDB_SUBDIRS := \
 	sdk \
 	testing
 
-#	postgresql \
-#	mongodb \
 #	tensorflow \
 
 $(eval $(call include_sub_makes,$(MLDB_SUBDIRS)))

@@ -9,7 +9,7 @@
 #pragma once
 
 #include "mldb/compiler/compiler.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include "mldb/arch/exception.h"
 
 namespace ML {

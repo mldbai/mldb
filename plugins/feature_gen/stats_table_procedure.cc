@@ -21,7 +21,7 @@
 #include "sql/execution_pipeline.h"
 #include "mldb/engine/bound_queries.h"
 #include "mldb/types/annotated_exception.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/builtin/sql_config_validator.h"

@@ -11,7 +11,7 @@
 #include <vector>
 #include <boost/multi_array.hpp>
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "plugins/jml/enum_info.h"
 #include "mldb/types/value_description_fwd.h"
 

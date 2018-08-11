@@ -10,7 +10,7 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/bit_range_ops.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/types/jml_serialization.h"
 #include "id_serialization.h"

@@ -11,7 +11,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "feature_set.h"
 #include "mldb/arch/threads.h"
 

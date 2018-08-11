@@ -12,7 +12,7 @@
 
 
 #include "plugins/jml/enum_info.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 
 namespace ML {
     

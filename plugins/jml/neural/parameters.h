@@ -15,7 +15,7 @@
 #include <boost/multi_array.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include "mldb/plugins/jml/jml/thread_context.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/arch/simd_vector.h"
 

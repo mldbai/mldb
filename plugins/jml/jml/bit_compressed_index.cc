@@ -10,7 +10,7 @@
 #include "bit_compressed_index.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include <iostream>
 
 

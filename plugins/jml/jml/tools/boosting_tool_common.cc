@@ -24,7 +24,7 @@
 #include "mldb/plugins/jml/jml/training_index.h"
 #include "mldb/plugins/jml/jml/data_aliases.h"
 #include "mldb/plugins/jml/jml/weighted_training.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include "mldb/utils/distribution_ops.h"
 #include <memory>
 

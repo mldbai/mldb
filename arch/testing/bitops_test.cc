@@ -13,7 +13,7 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/arch/demangle.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/auto_unit_test.hpp>

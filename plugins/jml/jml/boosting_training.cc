@@ -8,7 +8,7 @@
 */
 
 #include "boosting_training.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/floating_point.h"
 #include "mldb/utils/vector_utils.h"

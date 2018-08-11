@@ -15,7 +15,7 @@
 #include "mldb/utils/csv.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/utils/confidence_intervals.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/join_utils.h"

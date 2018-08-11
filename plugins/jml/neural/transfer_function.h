@@ -10,7 +10,7 @@
 
 #include "perceptron_defs.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include <memory>
 
 

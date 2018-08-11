@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/base/less.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include <cmath>
 #include <any>

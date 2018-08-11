@@ -9,7 +9,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "mldb/jml/math/round.h"
+#include "mldb/utils/round.h"
 #include <limits>
 #include <boost/test/unit_test.hpp>
 #include <boost/test/auto_unit_test.hpp>

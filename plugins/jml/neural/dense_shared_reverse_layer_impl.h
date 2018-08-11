@@ -11,7 +11,7 @@
 #define __jml__neural__dense_shared_reverse_layer_impl_h__
 
 #include "dense_shared_reverse_layer.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/arch/simd_vector.h"

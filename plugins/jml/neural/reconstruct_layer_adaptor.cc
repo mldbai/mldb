@@ -8,7 +8,7 @@
 */
 
 #include "reconstruct_layer_adaptor.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 
 
 using namespace std;

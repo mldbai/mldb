@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/utils/distribution.h"
 #include "decoder.h"
 #include <boost/multi_array.hpp>

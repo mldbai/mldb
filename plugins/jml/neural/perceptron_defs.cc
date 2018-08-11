@@ -10,7 +10,7 @@
 #include "perceptron_defs.h"
 #include <iostream>
 #include "mldb/utils/string_functions.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 
 using namespace std;
 using namespace MLDB;

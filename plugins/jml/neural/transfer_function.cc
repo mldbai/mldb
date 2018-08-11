@@ -9,7 +9,7 @@
 
 #include "transfer_function.h"
 #include <cmath>
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/utils/smart_ptr_utils.h"
 

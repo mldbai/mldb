@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "mldb/jml/db/persistent.h"
-#include "mldb/jml/db/compact_size_types.h"
+#include "mldb/types/db/persistent.h"
+#include "mldb/types/db/compact_size_types.h"
 #include "id.h"
 
 namespace MLDB {

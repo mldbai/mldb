@@ -10,7 +10,7 @@
 
 #include "boosted_stumps.h"
 #include "classifier_persist_impl.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include "mldb/arch/simd_vector.h"
 #include "boosted_stumps_impl.h"
 #include "stump_predict.h"

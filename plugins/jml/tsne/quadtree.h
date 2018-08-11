@@ -11,7 +11,7 @@
 
 #include "mldb/utils/compact_vector.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include <memory>
 #include <iostream>
 #include <cmath>

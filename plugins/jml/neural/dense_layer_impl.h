@@ -10,7 +10,7 @@
 #pragma once
 
 #include "dense_layer.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/arch/simd_vector.h"

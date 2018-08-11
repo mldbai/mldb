@@ -14,7 +14,7 @@
 #include "mldb/plugins/jml/stats/moments.h"
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/utils/distribution_simd.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/utils/environment.h"
 #include "mldb/utils/vector_utils.h"

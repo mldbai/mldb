@@ -28,7 +28,7 @@
 #include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/math/selection.h"
+#include "mldb/utils/selection.h"
 #include <boost/progress.hpp>
 #include "mldb/jml/sections/sink_stream.h"
 #include "mldb/jml/utils/metrics.h"

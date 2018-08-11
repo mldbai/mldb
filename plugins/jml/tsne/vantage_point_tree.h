@@ -11,9 +11,9 @@
 
 #include "mldb/utils/distribution.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/utils/compact_vector.h"
-#include "mldb/jml/db/compact_vector_persistence.h"
+#include "mldb/types/db/compact_vector_persistence.h"
 #include <iostream>
 #include <thread>
 #include <future>

@@ -31,7 +31,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/engine/dataset_utils.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/block/zip_serializer.h"
 #include <mutex>
 

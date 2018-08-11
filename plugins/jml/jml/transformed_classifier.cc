@@ -9,7 +9,7 @@
 */
 
 #include "transformed_classifier.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "classifier_persist_impl.h"
 
 

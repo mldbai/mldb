@@ -10,7 +10,7 @@
 
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "training_data.h"
 #include <boost/lexical_cast.hpp>

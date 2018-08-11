@@ -18,7 +18,7 @@
 #include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/base/exc_assert.h"
 #include <boost/progress.hpp>
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/arch/demangle.h"
 
 

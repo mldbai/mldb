@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "feature_set.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "training_index_iterators.h"
