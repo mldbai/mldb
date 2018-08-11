@@ -21,7 +21,7 @@
 #include "mldb/types/set_description.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"

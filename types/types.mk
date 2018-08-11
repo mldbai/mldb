@@ -54,3 +54,4 @@ $(eval $(call library,types,$(LIBTYPES_SOURCES),$(LIBTYPES_LINK)))
 
 
 $(eval $(call include_sub_make,types_testing,testing,types_testing.mk))
+$(eval $(call include_sub_make,db))

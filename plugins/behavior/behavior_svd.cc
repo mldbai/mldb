@@ -10,7 +10,7 @@
 #include "mldb/ext/svdlibc/svdlib.h"
 #include "mldb/base/parallel.h"
 #include "mldb/utils/vector_utils.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/utils/vector_utils.h"

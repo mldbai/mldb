@@ -13,7 +13,7 @@
 #include "layer.h"
 #include "mldb/plugins/jml/jml/label.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 
 namespace ML {
 

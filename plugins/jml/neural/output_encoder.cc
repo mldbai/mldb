@@ -7,7 +7,7 @@
 */
 
 #include "output_encoder.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 
 
 using namespace std;

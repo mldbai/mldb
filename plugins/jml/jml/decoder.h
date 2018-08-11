@@ -13,7 +13,7 @@
 
 #include "mldb/utils/distribution.h"
 #include <string>
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/plugins/jml/jml/classifier.h"
 
 

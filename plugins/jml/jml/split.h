@@ -11,7 +11,7 @@
 #include "split_fwd.h"
 #include "mldb/base/less.h"
 #include "feature.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include <cmath>
 #include "mldb/arch/exception.h"
 #include <iostream>

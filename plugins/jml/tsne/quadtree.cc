@@ -8,9 +8,9 @@
 */
 
 #include "quadtree.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/arch/backtrace.h"
-#include "mldb/jml/db/compact_vector_persistence.h"
+#include "mldb/types/db/compact_vector_persistence.h"
 
 using namespace MLDB::DB;
 using namespace std;

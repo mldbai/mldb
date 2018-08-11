@@ -8,7 +8,7 @@
 */
 
 #include "tick_counter.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include <iostream>
 #include <sys/time.h>
 

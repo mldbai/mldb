@@ -14,7 +14,7 @@
 #include "behavior_types.h"
 #include "mldb/plugins/behavior/id.h"
 #include <functional>
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 
 #include <regex>
 #include "mldb/types/hash_wrapper.h"

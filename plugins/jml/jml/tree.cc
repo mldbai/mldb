@@ -7,7 +7,7 @@
 */
 
 #include "tree.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/plugins/jml/jml/feature_space.h"
 
 #include <mutex>

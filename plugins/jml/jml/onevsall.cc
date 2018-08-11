@@ -17,7 +17,7 @@
 
 #include "onevsall.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "classifier_persist_impl.h"
 #include "mldb/ext/jsoncpp/json.h"
 

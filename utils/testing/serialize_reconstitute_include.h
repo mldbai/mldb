@@ -10,8 +10,8 @@
 #ifndef __jml__utils__testing__serialize_reconstitute_include_h__
 #define __jml__utils__testing__serialize_reconstitute_include_h__
 
-#include "mldb/jml/db/persistent.h"
-#include "mldb/jml/db/compact_size_types.h"
+#include "mldb/types/db/persistent.h"
+#include "mldb/types/db/compact_size_types.h"
 #include <boost/test/unit_test.hpp>
 #include "mldb/arch/demangle.h"
 

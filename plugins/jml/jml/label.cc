@@ -8,7 +8,7 @@
 */
 
 #include "mldb/plugins/jml/jml/label.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 
 using namespace std;
 

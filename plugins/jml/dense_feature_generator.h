@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/plugins/jml/dense_classifier.h"
 #include "mldb/plugins/jml/tuple_encoder.h"

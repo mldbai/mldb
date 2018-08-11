@@ -16,7 +16,7 @@
 #include "training_index.h"
 #include "feature_map.h"
 #include "mldb/arch/threads.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 #include <boost/utility.hpp>
 
 

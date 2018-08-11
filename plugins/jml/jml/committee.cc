@@ -11,7 +11,7 @@
 #include "mldb/plugins/jml/jml/committee.h"
 #include <memory>
 #include "mldb/utils/string_functions.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 
 #include "classifier_persist_impl.h"
 #include <set>

@@ -8,8 +8,8 @@
     be included in a .h file.
 */
 
-#include "mldb/jml/db/persistent.h"
-#include "mldb/jml/db/compact_size_types.h"
+#include "mldb/types/db/persistent.h"
+#include "mldb/types/db/compact_size_types.h"
 #include "string.h"
 #include "date.h"
 #include "hash_wrapper.h"

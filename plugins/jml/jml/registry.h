@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "mldb/jml/db/persistent.h"
-#include "mldb/jml/db/nested_archive.h"
+#include "mldb/types/db/persistent.h"
+#include "mldb/types/db/nested_archive.h"
 #include "mldb/arch/demangle.h"
 #include <iostream>
 #include <unordered_map>

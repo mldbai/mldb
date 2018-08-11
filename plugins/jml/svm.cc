@@ -19,7 +19,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/scope.h"

@@ -13,7 +13,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "sql/sql_expression.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/string.h"
 #include "mldb/rest/rest_request_router.h"

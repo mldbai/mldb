@@ -15,7 +15,7 @@
 #include "data_partition.h"
 #include "mldb/plugins/jml/jml/classifier_generator.h"
 #include "mldb/plugins/jml/jml/probabilizer.h"
-#include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/db/persistent_fwd.h"
 #include <regex>
 #include <tuple>
 

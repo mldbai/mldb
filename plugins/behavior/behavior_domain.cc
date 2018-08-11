@@ -18,7 +18,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mapped_value.h"
 #include "mapped_behavior_domain.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/base/parallel.h"
 #include <boost/shared_array.hpp>
 #include "mldb/base/map_reduce.h"

@@ -12,7 +12,7 @@
 
 #include "layer_stack.h"
 #include "mldb/utils/smart_ptr_utils.h"
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "auto_encoder_stack.h"
 
 namespace ML {

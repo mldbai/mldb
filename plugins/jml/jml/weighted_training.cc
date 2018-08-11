@@ -13,7 +13,7 @@
 #include "mldb/base/parse_context.h"
 #include "training_index.h"
 #include "mldb/utils/floating_point.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/xdiv.h"
 
 
 using namespace std;

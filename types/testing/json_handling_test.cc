@@ -12,7 +12,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/types/string.h"
 #include "mldb/types/json_parsing.h"
 #include "mldb/types/json_printing.h"

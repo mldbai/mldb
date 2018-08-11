@@ -11,9 +11,9 @@
 #pragma once
 
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/math/bound.h"
-#include "mldb/jml/math/round.h"
-#include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/bound.h"
+#include "mldb/utils/round.h"
+#include "mldb/utils/xdiv.h"
 #include "mldb/arch/math_builtins.h"
 #include <cmath>
 

@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "mldb/jml/db/persistent.h"
+#include "mldb/types/db/persistent.h"
 #include "mldb/plugins/jml/prediction_accumulator.h"
 
 namespace MLDB {
