@@ -11,14 +11,14 @@
 #include "sparse_features.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include <boost/utility.hpp>
 
 
 
 using namespace std;
 using namespace ML;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 

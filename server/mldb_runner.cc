@@ -40,7 +40,7 @@ std::atomic<int> serviceShutdown(false);
 void onSignal(int sig)
 {
     serviceShutdown = true;
-    ML::futex_wake(serviceShutdown);
+    MLDB::futex_wake(serviceShutdown);
 }
 
 struct CommandLineCredentialProvider: public CredentialProvider {
@@ -413,7 +413,7 @@ int main(int argc, char ** argv)
     }
 
     while (!serviceShutdown) {
-        ML::futex_wait(serviceShutdown, false, 10.0);
+        MLDB::futex_wait(serviceShutdown, false, 10.0);
     }
 
     cerr << "shutting down" << endl;

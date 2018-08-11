@@ -41,7 +41,7 @@ class multi_array;
 
 } // namespace boost
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 class File_Read_Buffer;
@@ -366,4 +366,4 @@ void load(portable_bin_iarchive & archive,
 
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB

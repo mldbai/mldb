@@ -15,7 +15,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/plugins/behavior/boolean_expression.h"
 #include "mldb/plugins/behavior/mutable_behavior_domain.h"
 #include <iostream>
@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE( test_parsing )
 
 BOOST_AUTO_TEST_CASE( test_error_handling )
 {
-    ML::Set_Trace_Exceptions guard(false);
+    MLDB::Set_Trace_Exceptions guard(false);
 
     BOOST_CHECK_THROW(testParse("bonus"), MLDB::Exception);
     BOOST_CHECK_THROW(testParse("123 FOR 456"), MLDB::Exception);

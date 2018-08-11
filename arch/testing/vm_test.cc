@@ -12,7 +12,7 @@
 
 #include "mldb/arch/vm.h"
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/base/scope.h"
 

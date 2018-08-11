@@ -18,7 +18,7 @@
 #include <utility>
 #include <ext/functional>
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -127,7 +127,7 @@ pair_merger(const It1 & it1, const It2 & it2)
 
 #endif
 
-} // namespace ML
+} // namespace MLDB
 
 namespace std {
 

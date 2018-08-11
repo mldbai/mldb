@@ -18,15 +18,14 @@
 #include "mldb/base/scope.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/utils/testing/watchdog.h"
-#include "mldb/jml/utils/testing/fd_exhauster.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/testing/fd_exhauster.h"
+#include "mldb/utils/vector_utils.h"
 #include <chrono>
 #include <thread>
 #include "mldb/utils/testing/watchdog.h"
 
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 
@@ -64,7 +63,7 @@ BOOST_AUTO_TEST_CASE( test_message_channel )
 
     for (unsigned i = 0;  i < 100;  ++i) {
         // Test for PLAT-106; the expected behaviour is no deadlock.
-        ML::Watchdog watchdog(2.0);
+        MLDB::Watchdog watchdog(2.0);
 
         finished = false;
 
@@ -155,7 +154,7 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
 
         cerr << "tests with a message loop\n";
 
-        ML::Watchdog watchdog(120);
+        MLDB::Watchdog watchdog(120);
 
         MessageLoop loop;
         loop.start();

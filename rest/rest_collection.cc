@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* rest_collection.cc
    Jeremy Barnes, 23 March 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
@@ -7,7 +5,7 @@
 */
 
 #include "rest_collection.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/watch/watch_impl.h"
@@ -119,7 +117,7 @@ struct RestEntityWatchData {
     ~RestEntityWatchData()
     {
         //cerr << "**** Destroying RestEntityWatchData" << endl;
-        //ML::backtrace();
+        //MLDB::backtrace();
 
         release();
     }
@@ -464,7 +462,7 @@ void
 RestDirectory::
 addEntity(Utf8String name, RestEntity & entity)
 {
-    entities[name].reset(new EntityEntry(ML::make_unowned_sp(entity)));
+    entities[name].reset(new EntityEntry(MLDB::make_unowned_sp(entity)));
 }
 
 void

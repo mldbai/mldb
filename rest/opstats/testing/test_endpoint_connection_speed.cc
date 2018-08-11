@@ -33,7 +33,7 @@ using namespace ML;
 using namespace MLDB;
 
 
-void runAcceptThread(int & port, ML::Semaphore & started, bool & finished)
+void runAcceptThread(int & port, MLDB::Semaphore & started, bool & finished)
 {
     int backlog = 1;
     
@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE( test_connect_speed )
     //Watchdog watchdog(5.0);
 
     int port = 0;
-    ML::Semaphore started(0);
+    MLDB::Semaphore started(0);
     bool finished = false;
 
     std::thread thread([&] () { runAcceptThread(port, started, finished); });
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE( test_ping_pong )
     
     acceptor.onMakeNewHandler = [&] ()
         {
-            return ML::make_std_sp(new PongConnectionHandler(connectionError));
+            return MLDB::make_std_sp(new PongConnectionHandler(connectionError));
         };
     
     int port = acceptor.init();

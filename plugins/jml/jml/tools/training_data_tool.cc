@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* training_data_tool.cc
    Jeremy Barnes, 4 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A tool to analyze training data sets.
 */
@@ -12,13 +10,13 @@
 #include "mldb/plugins/jml/jml/training_index.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "boosting_tool_common.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/plugins/jml/stats/moments.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "utils/sparse_distribution.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/floating_point.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/floating_point.h"
 
 #include <iterator>
 #include <iostream>

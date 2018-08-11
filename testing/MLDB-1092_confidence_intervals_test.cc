@@ -7,7 +7,7 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
-#include "mldb/jml/utils/confidence_intervals.h"
+#include "mldb/utils/confidence_intervals.h"
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 

@@ -1,21 +1,19 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* testing_allocator.h                                             -*- C++ -*-
    Jeremy Barnes, 22 March 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Allocator for testing purposes.
 */
 
-#ifndef __jml__utils__testing_allocator_h__
-#define __jml__utils__testing_allocator_h__
+#pragma once
 
 #include "mldb/jml/utils/hash_map.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
 #include <string.h>
 
-namespace ML {
+namespace MLDB {
 
 using namespace std;
 
@@ -142,6 +140,4 @@ struct Testing_Allocator {
     }
 };
 
-} // namespace ML
-
-#endif /* __jml__utils__testing_allocator_h__ */
+} // namespace MLDB

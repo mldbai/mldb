@@ -12,7 +12,7 @@
 #include "mldb/arch/backtrace.h"
 #include "mldb/jml/db/compact_vector_persistence.h"
 
-using namespace ML::DB;
+using namespace MLDB::DB;
 using namespace std;
 
 namespace ML {

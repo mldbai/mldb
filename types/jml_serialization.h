@@ -19,12 +19,12 @@
 
 namespace MLDB {
 
-inline ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, const Utf8String & str)
+inline MLDB::DB::Store_Writer & operator << (MLDB::DB::Store_Writer & store, const Utf8String & str)
 {
     return store << str.rawString();
 }
 
-inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Utf8String & str)
+inline MLDB::DB::Store_Reader & operator >> (MLDB::DB::Store_Reader & store, Utf8String & str)
 {
     std::string s;
     store >> s;
@@ -32,12 +32,12 @@ inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Utf8Str
     return store;
 }
 
-inline ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, Date date)
+inline MLDB::DB::Store_Writer & operator << (MLDB::DB::Store_Writer & store, Date date)
 {
     return store << date.secondsSinceEpoch();
 }
 
-inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Date & date)
+inline MLDB::DB::Store_Reader & operator >> (MLDB::DB::Store_Reader & store, Date & date)
 {
     double d;
     store >> d;
@@ -47,19 +47,19 @@ inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Date & 
 
 template<int Domain>
 inline
-ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store,
+MLDB::DB::Store_Writer & operator << (MLDB::DB::Store_Writer & store,
                                     const HashWrapper<Domain> & h)
 {
-    ML::DB::compact_size_t v(h);
+    MLDB::DB::compact_size_t v(h);
     return store << v;
 }
 
 template<int Domain>
 inline
-ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store,
+MLDB::DB::Store_Reader & operator >> (MLDB::DB::Store_Reader & store,
                                     HashWrapper<Domain> & h)
 {
-    ML::DB::compact_size_t sz(store);
+    MLDB::DB::compact_size_t sz(store);
     h = HashWrapper<Domain>(sz);
     return store;
 }
@@ -68,7 +68,7 @@ ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store,
 #if 0
 void
 Utf32String::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     std::string utf8Str;
     utf8::utf32to8(std::begin(data_), std::end(data_), std::back_inserter(utf8Str));
@@ -77,7 +77,7 @@ serialize(ML::DB::Store_Writer & store) const
 
 void
 Utf32String::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     std::string utf8Str;
     store >> utf8Str;

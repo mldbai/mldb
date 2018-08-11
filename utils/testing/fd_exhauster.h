@@ -1,20 +1,18 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** fd_exhauster.h                                                 -*- C++ -*-
     Jeremy Barnes, 16 May 2011
     Copyright (c) 2011 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Class to exhaust file descriptors for testing purposes.
 */
 
-#ifndef __jml_testing__fd_exhauster_h__
-#define __jml_testing__fd_exhauster_h__
+#pragma once
 
 #include <boost/test/unit_test.hpp>
 #include <sys/types.h>
 #include <sys/socket.h>
 
-namespace ML {
+namespace MLDB {
 
 // Create sockets until no FDs left to exhaust FDs
 struct FDExhauster {
@@ -41,6 +39,4 @@ struct FDExhauster {
 };
 
 
-} // namespace ML
-
-#endif /* __jml_testing__fd_exhauster_h__ */
+} // namespace MLDB

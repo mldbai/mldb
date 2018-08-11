@@ -21,7 +21,6 @@
 #include <vector>
 
 
-using namespace ML;
 using namespace MLDB;
 using namespace std;
 
@@ -362,7 +361,7 @@ BOOST_AUTO_TEST_CASE( test_skip )
        write/read is actually performed from it */
     char buffer[] = { '\0' };
 
-    ML::Bit_Writer<char> writer(buffer);
+    MLDB::Bit_Writer<char> writer(buffer);
 
     /* we ensure that values close to UINT_MAX are not converted to negative
        64 ints */
@@ -377,7 +376,7 @@ BOOST_AUTO_TEST_CASE( test_Bit_Buffer_advance )
        write/read is actually performed to/from it */
     uint64_t data[] = {0};
 
-    ML::Bit_Buffer<uint64_t> buffer(data);
+    MLDB::Bit_Buffer<uint64_t> buffer(data);
     BOOST_CHECK_EQUAL(buffer.current_offset(data), 0);
 
     // simple forward

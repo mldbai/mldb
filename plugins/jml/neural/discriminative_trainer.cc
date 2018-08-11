@@ -332,7 +332,7 @@ train(const std::vector<distribution<float> > & training_data,
       const std::vector<Label> & testing_labels,
       const std::vector<float> & testing_weights,
       const Configuration & config,
-      ML::Thread_Context & thread_context) const
+      MLDB::Thread_Context & thread_context) const
 {
     double learning_rate = 0.75;
     int minibatch_size = 512;
@@ -498,7 +498,7 @@ test(const std::vector<distribution<float> > & data,
      const std::vector<Label> & labels,
      const std::vector<float> & weights,
      const Output_Encoder & output_encoder,
-     ML::Thread_Context & thread_context,
+     MLDB::Thread_Context & thread_context,
      int verbosity) const
 {
     vector<const float *> data2(data.size());
@@ -514,7 +514,7 @@ test(const std::vector<const float *> & data,
      const std::vector<Label> & labels,
      const std::vector<float> & weights,
      const Output_Encoder & output_encoder,
-     ML::Thread_Context & thread_context,
+     MLDB::Thread_Context & thread_context,
      int verbosity) const
 {
     Lock update_lock;

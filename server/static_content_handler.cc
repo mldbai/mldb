@@ -10,7 +10,7 @@
 #include "mldb/server/static_content_handler.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/ext/hoedown/src/buffer.h"
 #include "mldb/ext/hoedown/src/html.h"
 #include "mldb/ext/hoedown/src/document.h"
@@ -218,7 +218,7 @@ getStaticRouteHandler(string dir, MldbEngine * engine, bool hideInternalEntities
                         filenameToLoad = string(filenameToLoad, 7);
 
                     //cerr << "Loading file " << filename << " as " << filenameToLoad << endl;
-                    ML::File_Read_Buffer buf(filenameToLoad);
+                    MLDB::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
                     boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", engine->prefixUrl("").rawString());
@@ -259,7 +259,7 @@ getStaticRouteHandler(string dir, MldbEngine * engine, bool hideInternalEntities
 
                 //cerr << "Loading file " << markdownFile << " as " << filenameToLoad << endl;
 
-                ML::File_Read_Buffer buf(filenameToLoad);
+                MLDB::File_Read_Buffer buf(filenameToLoad);
 
                 // Render the document
                 std::string result;

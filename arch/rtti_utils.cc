@@ -34,7 +34,7 @@ public:
 
 } // namespace abi
 
-namespace ML {
+namespace MLDB {
 
 const void * is_convertible(const std::type_info & from_type,
                             const std::type_info & to_type,
@@ -93,5 +93,5 @@ const void * is_convertible(const std::type_info & from_type,
     return (result ? adj_ptr : 0);
 }
 
-} // namespace ML
+} // namespace MLDB
    

@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* rusage.h                                                        -*- C++ -*-
    Jeremy Barnes, 26 November 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   his file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Small structure to track resource usage.
 */
 
 #pragma once
 
-namespace ML {
+namespace MLDB {
 
 /** Resource usage structure. */
 struct RUsage {
@@ -84,4 +83,4 @@ struct RUsage {
     }
 };
 
-} // namespace ML
+} // namespace MLDB

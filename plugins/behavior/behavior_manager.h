@@ -192,7 +192,7 @@ struct BehaviorManager {
 
     mutable std::mutex lock;
     int shutdown;
-    std::list<std::pair<ML::File_Read_Buffer, std::string> > writebackQueue;
+    std::list<std::pair<MLDB::File_Read_Buffer, std::string> > writebackQueue;
     std::unique_ptr<std::thread> writebackThread;
 
     std::map<std::string, std::shared_ptr<BehaviorDomain> > cache;

@@ -653,8 +653,8 @@ protected:
              Ops::bucketIsFull(storage_, i) && (i != bucket || !wrapped);
              /* no inc */ /*++hops*/) {
             if (Ops::bucketHasKey(storage_[i], key)) {
-                //ML::atomic_inc(numCalls);
-                //ML::atomic_add(numHops, hops);
+                //MLDB::atomic_inc(numCalls);
+                //MLDB::atomic_add(numHops, hops);
                 return i;
             }
             ++i;
@@ -665,8 +665,8 @@ protected:
         ExcAssertNotEqual(i, GUARD_BUCKET);
 
         if (!Ops::bucketIsFull(storage_, i)) {
-            //ML::atomic_inc(numCalls);
-            //ML::atomic_add(numHops, hops);
+            //MLDB::atomic_inc(numCalls);
+            //MLDB::atomic_add(numHops, hops);
             return i;
         }
 

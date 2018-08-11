@@ -21,7 +21,7 @@
 #include "stump_predict.h"
 #include "binary_symmetric.h"
 #include "mldb/arch/tick_counter.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include <boost/scoped_ptr.hpp>
 #include "stump_predict.h"
 

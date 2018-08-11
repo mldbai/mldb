@@ -15,8 +15,8 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/mldb_entity.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/file_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/annotated_exception.h"
 
@@ -361,7 +361,7 @@ void doclinkMacro(MacroContext & context,
                   const std::string & macroName,
                   const Utf8String & argsStr)
 {
-    vector<string> args = ML::split(argsStr.rawString(), ' ');
+    vector<string> args = MLDB::split(argsStr.rawString(), ' ');
     if (args.size() < 2) {
         context.writeHtml("Macro %%doclink needs 2 parameters");
         return;
@@ -378,13 +378,13 @@ void codeexampleMacro(MacroContext & context,
                       const Utf8String & argsStr)
 {
     try {
-        vector<string> args = ML::split(argsStr.rawString(), ' ');
+        vector<string> args = MLDB::split(argsStr.rawString(), ' ');
         string filename = context.macroData->dir + "/" + args.at(0);
         string language;
         if (args.size() > 1)
             language = " class=\"" + args[1] + "\"";
 
-        ML::File_Read_Buffer buf(filename);
+        MLDB::File_Read_Buffer buf(filename);
         
         string result(buf.start(), buf.end());
         
@@ -403,7 +403,7 @@ void configMacro(MacroContext & context,
                  const Utf8String & argsStr)
 {
     try {
-        vector<string> args = ML::split(argsStr.rawString(), ' ');
+        vector<string> args = MLDB::split(argsStr.rawString(), ' ');
         if (args.size() < 2) {
             context.writeHtml("Macro %%config needs 2 parameters");
             return;
@@ -459,7 +459,7 @@ void availabletypesMacro(MacroContext & context,
                          const Utf8String & argsStr)
 {
     try {
-        vector<string> args = ML::split(argsStr.rawString(), ' ');
+        vector<string> args = MLDB::split(argsStr.rawString(), ' ');
         if (args.size() < 2) {
             context.writeHtml("Macro %%availabletypes needs 2 parameters");
             return;

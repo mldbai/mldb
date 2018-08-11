@@ -18,15 +18,15 @@
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/plugins/jml/algebra/irls.h"
 #include <iomanip>
-#include "mldb/jml/utils/environment.h"
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/environment.h"
+#include "mldb/utils/profile.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"
 #include "mldb/plugins/jml/jml/evaluation.h"
 #include <boost/scoped_ptr.hpp>
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/plugins/jml/neural/dense_layer.h"
 #include "discriminative_trainer.h"
 

@@ -17,7 +17,7 @@
 #include "mldb/builtin/matrix.h"
 #include "mldb/engine/analytics.h"
 #include "types/any_impl.h"
-#include "jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/builtin/sql_functions.h"
 #include "sql/execution_pipeline.h"
 #include "mldb/engine/bound_queries.h"
@@ -35,14 +35,14 @@ using namespace std;
 
 namespace MLDB {
 
-inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const PathElement & coord)
+inline MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const PathElement & coord)
 {
     return store << coord.toUtf8String();
 }
 
-inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, PathElement & coord)
+inline MLDB::DB::Store_Reader &
+operator >> (MLDB::DB::Store_Reader & store, PathElement & coord)
 {
     Utf8String id;
     store >> id;
@@ -50,14 +50,14 @@ operator >> (ML::DB::Store_Reader & store, PathElement & coord)
     return store;
 }
 
-inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Path & coords)
+inline MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const Path & coords)
 {
     return store << coords.toUtf8String();
 }
 
-inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Path & coords)
+inline MLDB::DB::Store_Reader &
+operator >> (MLDB::DB::Store_Reader & store, Path & coords)
 {
     Utf8String str;
     store >> str;
@@ -69,15 +69,15 @@ operator >> (ML::DB::Store_Reader & store, Path & coords)
 /* DIST TABLE STATS                                                          */
 /*****************************************************************************/
 
-inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const DistTableStats & s)
+inline MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const DistTableStats & s)
 {
     return store << s.count << s.avg << s.var << s.M2 << s.min << s.max
                  << s.last << s.sum;
 }
 
-inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, DistTableStats & s)
+inline MLDB::DB::Store_Reader &
+operator >> (MLDB::DB::Store_Reader & store, DistTableStats & s)
 {
     store >> s.count >> s.avg >> s.var >> s.M2 >> s.min >> s.max >> s.last
           >> s.sum;
@@ -139,7 +139,7 @@ DistTable(const std::string & filename):
     unknownStats(std::vector<DistTableStats>(outcome_names.size()))
 {
     filter_istream stream(filename);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     reconstitute(store);
 }
 
@@ -179,12 +179,12 @@ void DistTable::
 save(const std::string & filename) const
 {
     filter_ostream stream(filename);
-    ML::DB::Store_Writer store(stream);
+    MLDB::DB::Store_Writer store(stream);
     serialize(store);
 }
 
 void DistTable::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     int version = 1;
     store << string("MLDB Dist Table Binary")
@@ -192,7 +192,7 @@ serialize(ML::DB::Store_Writer & store) const
 }
 
 void DistTable::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     int version;
     int REQUIRED_V = 1;
@@ -538,7 +538,7 @@ persist(const Url & modelFileUrl, DistTableMode mode,
         const DistTablesMap & distTablesMap)
 {
     filter_ostream stream(modelFileUrl);
-    ML::DB::Store_Writer store(stream);
+    MLDB::DB::Store_Writer store(stream);
     store << DistTableProcedure::DIST_TABLE_PERSIST_VERSION << mode << distTablesMap;
 }
 
@@ -610,7 +610,7 @@ DistTableFunction(MldbEngine * owner,
 
     // Load saved stats tables
     filter_istream stream(functionConfig.modelFileUrl);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     store >> version;
     if(version != REQUIRED_VERSION)
         throw MLDB::Exception("Wrong DistTable map version");

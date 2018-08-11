@@ -8,7 +8,7 @@
    Functions to deal with the environment.
 */
 
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include <iostream>
 
 using namespace std;

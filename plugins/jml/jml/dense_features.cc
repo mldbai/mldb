@@ -9,21 +9,21 @@
 
 
 #include "mldb/plugins/jml/jml/dense_features.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include <boost/timer.hpp>
 #include "mldb/base/fast_float_parsing.h"
 #include <boost/timer.hpp>
-#include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/file_functions.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 #include "stdint.h"
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 

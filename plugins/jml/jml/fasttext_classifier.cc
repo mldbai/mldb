@@ -8,11 +8,11 @@
 #include <boost/progress.hpp>
 #include <boost/timer.hpp>
 #include <functional>
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/plugins/jml/jml/registry.h"
 
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 #include "mldb/ext/fasttext/src/fasttext.h"
 #include "mldb/ext/fasttext/src/args.h"
@@ -20,7 +20,7 @@
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 namespace ML {
 

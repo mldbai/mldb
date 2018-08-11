@@ -8,7 +8,7 @@
 
 #include <dlfcn.h>
 #include <iostream>
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 
 using namespace std;
 

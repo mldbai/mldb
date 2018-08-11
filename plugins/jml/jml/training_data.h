@@ -15,7 +15,7 @@
 #include <map>
 #include <cmath>
 #include "mldb/arch/math.h"
-#include "mldb/jml/utils/floating_point.h"
+#include "mldb/utils/floating_point.h"
 #include "mldb/arch/threads.h"
 
 

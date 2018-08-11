@@ -19,7 +19,7 @@
 #include <iostream>
 
 #include "mldb/plugins/jml/algebra/irls.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 using namespace ML;
 using namespace std;

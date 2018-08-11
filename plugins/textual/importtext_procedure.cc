@@ -7,7 +7,7 @@
 
 #include "importtext_procedure.h"
 #include "mldb/arch/timers.h"
-#include "mldb/jml/utils/csv.h"
+#include "mldb/utils/csv.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
@@ -21,7 +21,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/utils/progress.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/utils/log.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "sql_csv_scope.h"

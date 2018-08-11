@@ -8,8 +8,8 @@
 */
 
 #include "mldb/rest/rest_request.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/types/structure_description.h"
 
 using namespace std;

@@ -1,7 +1,7 @@
 /* -*- C++ -*- */
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 
 #if 0
 template<int start, int end>

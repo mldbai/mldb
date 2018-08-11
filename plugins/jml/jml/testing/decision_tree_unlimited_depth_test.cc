@@ -21,8 +21,8 @@
 #include "mldb/plugins/jml/jml/training_data.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 using namespace ML;
 using namespace std;

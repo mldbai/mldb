@@ -38,7 +38,7 @@ waitConnectionState(int state)
 {
     while (connectionState_ != state) {
         int oldVal = connectionState_;
-        ML::futex_wait(connectionState_, oldVal);
+        MLDB::futex_wait(connectionState_, oldVal);
     }
 }
 

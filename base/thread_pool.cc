@@ -11,7 +11,7 @@
 #include "thread_pool_impl.h"
 #include "mldb/arch/thread_specific.h"
 #include "mldb/arch/demangle.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include <atomic>
 #include <condition_variable>
 #include <vector>

@@ -11,7 +11,7 @@
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
 
-namespace ML {
+namespace MLDB {
 
 class Function_Profiler {
 public:
@@ -125,27 +125,27 @@ struct ConcurrencyCounter {
 const char* label##__stack_profile_average_string = #label; \
 static std::atomic<int> label##__stack_average_count(0); \
 static std::atomic<double> label##__stack_average_sum(0); \
-ML::StackProfilerAverage label##__average_profile(label##__stack_profile_average_string, label##__stack_average_count, label##__stack_average_sum);
+MLDB::StackProfilerAverage label##__average_profile(label##__stack_profile_average_string, label##__stack_average_count, label##__stack_average_sum);
 
 #define STACK_CONCURRENCY_COUNTER(label) \
 const char* label##__stack_profile_string = #label; \
 static std::atomic<int> label##__stack_concurrency_count(0); \
 static std::atomic<int> label##__stack_concurrency_maxcount(0); \
-ML::ConcurrencyCounter label##__concurrency_profile(label##__stack_profile_string, label##__stack_concurrency_count, label##__stack_concurrency_maxcount);
+MLDB::ConcurrencyCounter label##__concurrency_profile(label##__stack_profile_string, label##__stack_concurrency_count, label##__stack_concurrency_maxcount);
 
 #define PROFILE_FUNCTION(var) \
 Function_Profiler __profiler(var, profile);
 
 #define STACK_PROFILE(label) \
 const char* label##__stack_profile_string = #label; \
-ML::StackProfilerSeed label##__stack_profile_seed(label##__stack_profile_string); \
-ML::StackProfiler label##__stack_profile(label##__stack_profile_seed);
+MLDB::StackProfilerSeed label##__stack_profile_seed(label##__stack_profile_string); \
+MLDB::StackProfiler label##__stack_profile(label##__stack_profile_seed);
 
 #define STACK_PROFILE_SEED(label) \
 const char* label##__stack_profile_string = #label; \
-ML::StackProfilerSeed label##__stack_profile_seed(label##__stack_profile_string); \
+MLDB::StackProfilerSeed label##__stack_profile_seed(label##__stack_profile_string); \
 
 #define STACK_PROFILE_ADD(label) \
-ML::StackProfiler label##__stack_profile(label##__stack_profile_seed);
+MLDB::StackProfiler label##__stack_profile(label##__stack_profile_seed);
 
-} // namespace ML
+} // namespace MLDB

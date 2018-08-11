@@ -10,7 +10,7 @@
 #include "training_index_iterators.h"
 #include "mldb/jml/db/persistent.h"
 #include <iostream>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 using namespace std;
 using namespace MLDB;

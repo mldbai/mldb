@@ -10,7 +10,7 @@
 
 #include "mldb/plugins/jml/jml/judy_multi_array.h"
 #include "mldb/jml/utils/minivec.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <iostream>
 #include <vector>
 #include <map>

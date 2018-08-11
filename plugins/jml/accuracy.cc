@@ -17,10 +17,10 @@
 #include <boost/multi_array.hpp>
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/plugins/jml/separation_stats.h"
@@ -496,20 +496,20 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
         Json::Value class_stats;
 
-        double accuracy = ML::xdiv(tp + tn, conf_mat_sum);
-        double precision = ML::xdiv(tp, tp + fp);
+        double accuracy = MLDB::xdiv(tp + tn, conf_mat_sum);
+        double precision = MLDB::xdiv(tp, tp + fp);
         double support = tp + fn;
-        double recall = ML::xdiv(tp, support);
+        double recall = MLDB::xdiv(tp, support);
         class_stats["accuracy"] = accuracy;
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
-        class_stats["f1Score"] = 2 * ML::xdiv(precision * recall,
+        class_stats["f1Score"] = 2 * MLDB::xdiv(precision * recall,
                                         precision + recall);
         class_stats["support"] = support;
         for (int i = 0; i < accuracyOverN.size(); ++i) {
             auto tptopn = predicted_topn_sums[{actual_it.first,i}];
             total_recall_topn[i] += tptopn;
-            class_stats[recallString][i] = ML::xdiv(tptopn, real_sums[actual_it.first]);
+            class_stats[recallString][i] = MLDB::xdiv(tptopn, real_sums[actual_it.first]);
         }
 
         results["labelStatistics"][actual_it.first.toUtf8String()] = class_stats;

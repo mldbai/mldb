@@ -534,7 +534,7 @@ public:  // for testing
                 size_t bit = index * bitsPerEntry() + 1;
                 const std::atomic<uint64_t> * word = mem + (bit / 64);
                 uint64_t allBits
-                    = ML::extract_bit_range(word,
+                    = MLDB::extract_bit_range(word,
                                             bit % 64,
                                             subjectBits + timestampBits);
 
@@ -808,7 +808,7 @@ private:
         LightweightHash<uint64_t, BehaviorEntry *> behaviorCache;
     };
 
-    ML::ThreadSpecificInstanceInfo<ThreadInfo, MutableBehaviorDomain>
+    MLDB::ThreadSpecificInstanceInfo<ThreadInfo, MutableBehaviorDomain>
         threadInfo;
 
 

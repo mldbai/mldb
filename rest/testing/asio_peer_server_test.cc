@@ -10,7 +10,7 @@
 #include <boost/asio.hpp>
 #include <thread>
 #include <future>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

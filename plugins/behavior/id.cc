@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* id.cc
    Jeremy Barnes, 17 February 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -25,7 +24,6 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #endif
 
-using namespace ML;
 using namespace std;
 
 

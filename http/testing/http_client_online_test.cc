@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_chunked_encoding )
         status = newStatus;
         body = move(newBody);
         done = true;
-        ML::futex_wake(done);
+        MLDB::futex_wake(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
 
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_chunked_encoding )
 
     while (!done) {
         int oldDone = done;
-        ML::futex_wait(done, oldDone);
+        MLDB::futex_wait(done, oldDone);
     }
 
     BOOST_CHECK_EQUAL(error, HttpClientError::None);

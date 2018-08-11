@@ -15,7 +15,7 @@
 #include "mldb/types/map_description.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams_registry.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <unordered_set>
 #include "archive.h"
 
@@ -40,7 +40,7 @@ struct DockerUriComponents {
         
         scheme = string(uri, 0, pos);
 
-        vector<string> components = ML::split(string(uri, pos + 3), '/');
+        vector<string> components = MLDB::split(string(uri, pos + 3), '/');
 
         cerr << "components = " << jsonEncodeStr(components) << endl;
 
@@ -48,7 +48,7 @@ struct DockerUriComponents {
         owner = components.at(1);
         string repoTag = components.at(2);
 
-        std::vector<std::string> rt = ML::split(repoTag, ':');
+        std::vector<std::string> rt = MLDB::split(repoTag, ':');
 
         tag = "latest";
 

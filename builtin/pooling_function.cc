@@ -11,8 +11,8 @@
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/engine/analytics.h"
 #include "mldb/core/dataset.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/profile.h"
 #include "mldb/utils/distribution.h"
 
 using namespace std;

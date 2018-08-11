@@ -105,7 +105,7 @@ start(const OnStop & onStop)
     shutdown_ = false;
 
     //cerr << "starting thread from " << this << endl;
-    //ML::backtrace();
+    //MLDB::backtrace();
 
     auto runfn = [&, onStop] () {
         this->runWorkerThread();
@@ -142,7 +142,7 @@ shutdown()
     // We could be asleep (in which case we sleep on the shutdown_ futex and
     // will be woken by the futex_wake) or blocked in epoll (in which case
     // we will get the addSource event to wake us up).
-    ML::futex_wake(shutdown_);
+    MLDB::futex_wake(shutdown_);
     addSource("_shutdown", nullptr);
 
     for (auto & t: threads)
@@ -218,7 +218,7 @@ removeSourceSync(AsyncEventSource * source)
     if (!r) return false;
 
     while(source->connectionState_ != AsyncEventSource::DISCONNECTED) {
-        ML::futex_wait(source->connectionState_, AsyncEventSource::CONNECTED);
+        MLDB::futex_wait(source->connectionState_, AsyncEventSource::CONNECTED);
     }
 
     return true;
@@ -237,7 +237,7 @@ void
 MessageLoop::
 wakeupMainThread()
 {
-    ML::futex_wake(shutdown_);
+    MLDB::futex_wake(shutdown_);
 }
 
 void
@@ -328,7 +328,7 @@ runWorkerThread()
 
         duty.notifyBeforeSleep();
         if (sleepTime > 0) {
-            ML::futex_wait(shutdown_, 0, sleepTime);
+            MLDB::futex_wait(shutdown_, 0, sleepTime);
             totalSleepTime_ += sleepTime;
         }
         duty.notifyAfterSleep();
@@ -446,7 +446,7 @@ processAddSource(const SourceEntry & entry)
     }
 
     entry.source->connectionState_ = AsyncEventSource::CONNECTED;
-    ML::futex_wake(entry.source->connectionState_);
+    MLDB::futex_wake(entry.source->connectionState_);
 }
 
 void
@@ -478,7 +478,7 @@ processRemoveSource(const SourceEntry & rmEntry)
     }
 
     entry.source->connectionState_ = AsyncEventSource::DISCONNECTED;
-    ML::futex_wake(entry.source->connectionState_);
+    MLDB::futex_wake(entry.source->connectionState_);
 }
 
 void

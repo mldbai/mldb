@@ -27,7 +27,6 @@ LIBBEHAVIOR_LINK := \
 	svdlibc \
 	types \
 	value_description \
-	ml \
 	sql_expression \
 	mldb_builtin_base
 

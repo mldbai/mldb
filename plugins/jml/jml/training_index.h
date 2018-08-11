@@ -13,7 +13,7 @@
 #include "feature_set.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "training_index_iterators.h"
-#include "jml/utils/buckets.h"
+#include "mldb/utils/buckets.h"
 
 namespace ML {
 

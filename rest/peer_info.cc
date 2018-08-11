@@ -8,8 +8,8 @@
 
 #include "peer_info.h"
 #include "mldb/types/structure_description.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/info.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/arch/info.h"
 #include "mldb/types/date.h"
 #include <unistd.h>
 

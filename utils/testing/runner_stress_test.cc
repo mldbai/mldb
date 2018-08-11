@@ -15,7 +15,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/arch/futex.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/utils/testing/watchdog.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/utils/runner.h"
@@ -99,7 +99,7 @@ and
 */
 BOOST_AUTO_TEST_CASE( test_stress_runner )
 {
-    ML::Watchdog wd(120);
+    MLDB::Watchdog wd(120);
     vector<thread> threads;
     int nThreads(20);
     vector<pid_t> childPids(nThreads);
@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         --activeThreads;
         // cerr << "activeThreads now: " + to_string(activeThreads) + "\n";
         if (activeThreads == 0) {
-            ML::futex_wake(activeThreads);
+            MLDB::futex_wake(activeThreads);
         }
         cerr << "thread shutting down\n";
     };
@@ -228,7 +228,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         cout << "performing interference on stdout\n";
         cerr << "performing interference on stderr\n";
         // int n = activeThreads;
-        // ML::futex_wait(activeThreads, n);
+        // MLDB::futex_wait(activeThreads, n);
     }
 
     for (thread & current: threads) {

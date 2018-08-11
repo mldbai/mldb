@@ -345,7 +345,7 @@ struct ProbabilizerModel
     void reconstitute(DB::Store_Reader & store);
 
     std::string style = "glz";
-    ML::Link_Function link = ML::LOGIT;
+    ML::Link_Function link = LOGIT;
     distribution<double> params;
     ML::GLZ_Probabilizer glz;
 };

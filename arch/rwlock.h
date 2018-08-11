@@ -14,7 +14,7 @@
 #include "exception.h"
 #include <iostream>
 
-namespace ML {
+namespace MLDB {
 
 /** Boost's RW mutex uses a condition variable underneath and is way slower
     than it needs to be... hence this data structure.
@@ -76,6 +76,6 @@ struct RWLock {
     pthread_rwlock_t rwlock;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __arch__rwlock_h__ */

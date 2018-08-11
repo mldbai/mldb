@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE( test_destroy_from_handler_no_deadlock )
     std::atomic<int> numFired(0);
 
     // Make sure the test bombs if there is a deadlock rather than hanging
-    ML::Watchdog watchdog(5);
+    MLDB::Watchdog watchdog(5);
 
     auto timer = getTimer(Date::now().plusSeconds(0.01), -1, eventLoop);
     timer.bind([&] (Date now) {  timer = WatchT<Date>();  ++numFired;  });

@@ -8,7 +8,7 @@
 
 #include "merged_behavior_domain.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/arch/bitops.h"
@@ -20,7 +20,6 @@
 
 
 using namespace std;
-using namespace ML;
 
 
 namespace std {

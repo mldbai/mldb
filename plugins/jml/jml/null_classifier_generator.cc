@@ -10,7 +10,7 @@
 
 #include "null_classifier_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 
 using namespace std;

@@ -15,7 +15,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 

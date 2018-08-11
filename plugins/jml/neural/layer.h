@@ -179,14 +179,14 @@ public:
         information.  The object thus serialized can be reconstituted with
         poly_reconstitute(); the reconstitute() method will fail as it
         does not expect the type information to be there. */
-    void poly_serialize(ML::DB::Store_Writer & store) const;
+    void poly_serialize(MLDB::DB::Store_Writer & store) const;
 
     /** Reconstitute an object from the given store, returning a shared
         pointer to it.  This is the counterpart to poly_serialize(); calling
         this method on a store where an object was only serialize()d will
         fail. */
     static std::shared_ptr<Layer>
-    poly_reconstitute(ML::DB::Store_Reader & store);
+    poly_reconstitute(MLDB::DB::Store_Reader & store);
 
     // @)
 

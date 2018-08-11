@@ -9,7 +9,7 @@
 #include <string>
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* GUARDEDFSLOCK                                                             */

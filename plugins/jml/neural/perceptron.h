@@ -12,7 +12,7 @@
 #include "layer.h"
 #include "layer_stack.h"
 #include "output_encoder.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include <boost/multi_array.hpp>
 
 

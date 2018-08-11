@@ -262,7 +262,7 @@ struct MergedDataset::Itl
                 auto info = d.getRowInfo();
                 if (info->getSchemaCompletenessRecursive() == SCHEMA_CLOSED) {
                     //cerr << "dataset " << i << " has closed schema" << endl;
-                    //cerr << "dataset type is " << ML::type_name(d) << endl;
+                    //cerr << "dataset type is " << MLDB::type_name(d) << endl;
                     auto cols = info->getFlattenedInfo()->getKnownColumns();
                     outputPositions[i].resize(cols.size(), -1);
                     outputNames[i].resize(cols.size());

@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE( test_simple_recursion )
 {
     MldbServer server;
     
-    ML::Watchdog watchdog(5);
+    MLDB::Watchdog watchdog(5);
 
     server.init();
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE( test_mutual_recursion )
 {
     MldbServer server;
     
-    ML::Watchdog watchdog(5);
+    MLDB::Watchdog watchdog(5);
 
     server.init();
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");

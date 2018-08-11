@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* command_template.cc
    Jeremy Barnes, 27 August 2013
    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Template to allow command lines to be created by subsituting values.
 */
@@ -11,8 +10,7 @@
 #include "command_expression_impl.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/base/exc_assert.h"
-//#include "mldb/jml/utils/json_parsing.h"
-#include "mldb/jml/utils/csv.h"
+#include "mldb/utils/csv.h"
 #include <mutex>
 #include <thread>
 #include "mldb/types/periodic_utils.h"
@@ -24,7 +22,6 @@
 
 
 using namespace std;
-using namespace ML;
 
 
 namespace MLDB {

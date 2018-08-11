@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* sse_expf_test.cc
    Jeremy Barnes, 18 January 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test for the SSE2 expf function.
 */
@@ -13,7 +12,7 @@
 #include "mldb/arch/sse2_exp.h"
 #include "mldb/arch/sse2_log.h"
 #include "mldb/arch/demangle.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
@@ -22,13 +21,12 @@
 #include <iostream>
 #include <cmath>
 #include "mldb/arch/tick_counter.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <sys/time.h>
-#include "mldb/jml/utils/floating_point.h"
+#include "mldb/utils/floating_point.h"
 
-using namespace ML;
-using namespace MLDB;
 using namespace std;
+using namespace MLDB;
 using namespace MLDB::SIMD;
 
 using boost::unit_test::test_suite;

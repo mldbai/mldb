@@ -11,7 +11,7 @@
 #include <fstream>
 
 #include "mldb/compiler/compiler.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 
 #include "backtrace.h"
 #include "demangle.h"

@@ -9,7 +9,7 @@
 #pragma once
 
 #include "mldb/compiler/compiler.h"
-#include "mldb/jml/utils/float_traits.h"
+#include "mldb/utils/float_traits.h"
 
 namespace ML {
 

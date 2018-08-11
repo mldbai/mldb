@@ -19,7 +19,7 @@
 #include "stump_training_bin.h"
 #include "stump_regress.h"
 #include "binary_symmetric.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
 
 #include <random>

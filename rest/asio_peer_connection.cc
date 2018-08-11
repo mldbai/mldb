@@ -7,7 +7,7 @@
 */
 
 #include "asio_peer_connection.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/asio_timer.h"

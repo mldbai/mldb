@@ -1,26 +1,21 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* floating_point.h                                                -*- C++ -*-
    Jeremy Barnes, 27 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
    Utilities to deal with floating point numbers.
 */
 
-#ifndef __utils__floating_point_h__
-#define __utils__floating_point_h__
-
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <limits>
 #include <stdint.h>
 #include <cmath>
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -113,6 +108,4 @@ struct fp_traits<long double>
     static const long double max_exp_arg;
 };
 
-} // namespace ML
-
-#endif /* __utils__floating_point_h__ */
+} // namespace MLDB

@@ -12,7 +12,7 @@
 #include "mldb/base/less.h"
 #include "mldb/base/parallel.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/hex_dump.h"
+#include "mldb/utils/hex_dump.h"
 #include "binary_behavior_dataset.h"
 
 #include "mldb/types/basic_value_descriptions.h"
@@ -23,7 +23,7 @@
 #include "behavior_manager.h"
 #include "mutable_behavior_domain.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/profile.h"
 #include "behavior_utils.h"
 #include "mldb/engine/dataset_utils.h"
 #include <future>

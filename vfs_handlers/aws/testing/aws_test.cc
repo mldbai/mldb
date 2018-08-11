@@ -13,16 +13,15 @@
 
 #include <boost/test/unit_test.hpp>
 #include "mldb/vfs_handlers/aws/sqs.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include <iostream>
 #include <stdlib.h>
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 
 
 using namespace std;
 using namespace MLDB;
-using namespace ML;
 
 // These are all of those on http://docs.amazonwebservices.com/AmazonS3/2006-03-01/dev/RESTAuthentication.html?r=1821
 

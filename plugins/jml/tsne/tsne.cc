@@ -11,8 +11,8 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/utils/distribution_simd.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/arch/simd_vector.h"
@@ -31,7 +31,7 @@
 #endif
 #include "mldb/arch/cache.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include "quadtree.h"
 #include "vantage_point_tree.h"
 #include <fstream>
@@ -196,7 +196,7 @@ perplexity(const distribution<Float> & p)
     double total = 0.0;
     for (unsigned i = 0;  i < p.size();  ++i)
         if (p[i] != 0.0) total -= p[i] * log(p[i]);
-    return exp(total);
+    return std::exp(total);
 }
 
 /** Compute the perplexity and the P for a given value of beta. */

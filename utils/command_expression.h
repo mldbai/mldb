@@ -13,7 +13,7 @@
 #include "mldb/arch/exception.h"
 #include <memory>
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/value_description_fwd.h"
 #include "command.h"

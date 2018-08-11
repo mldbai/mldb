@@ -152,7 +152,7 @@ void
 HttpParser::
 feed(const char * bufferData)
 {
-    // cerr << "feed: /" + ML::hexify_string(string(bufferData)) + "/\n";
+    // cerr << "feed: /" + MLDB::hexify_string(string(bufferData)) + "/\n";
     feed(bufferData, strlen(bufferData));
 }
 
@@ -161,7 +161,7 @@ HttpParser::
 feed(const char * bufferData, size_t bufferSize)
 {
     // std::cerr << ("data: /"
-    //          + ML::hexify_string(string(bufferData, bufferSize))
+    //          + MLDB::hexify_string(string(bufferData, bufferSize))
     //          + "/\n");
     auto state = prepareParsing(bufferData, bufferSize, buffer_);
     // cerr << ("state: " + to_string(stage_)

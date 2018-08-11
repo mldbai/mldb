@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* tranches_test.cc
    Jeremy Barnes, 5 August 2013
    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test of tranches functionality.
 
@@ -14,17 +13,16 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/plugins/behavior/tranches.h"
 #include "mldb/plugins/behavior/mutable_behavior_domain.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/demangle.h"
 
 #include "mldb/utils/testing/fixtures.h"
 
 using namespace std;
 using namespace MLDB;
-using namespace ML;
 
 #if 1
 

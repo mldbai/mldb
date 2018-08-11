@@ -12,14 +12,14 @@ using namespace std;
 #include <iostream>
 #include <fstream>
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
-#include "jml/utils/buckets.h"
+#include "mldb/utils/buckets.h"
 #include <limits>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include "mldb/compiler/filesystem.h"
-#include "mldb/jml/utils/confidence_intervals.h"
+#include "mldb/utils/confidence_intervals.h"
 
 namespace MLDB {
 

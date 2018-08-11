@@ -9,7 +9,7 @@
 */
 
 #include "mldb/plugins/jml/jml/feature_map.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <iostream>
 #include <vector>
 #include <map>

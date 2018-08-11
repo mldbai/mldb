@@ -19,7 +19,6 @@
 
 using namespace std;
 using namespace MLDB;
-using namespace ML;
 
 int nToRecord = 0;
 int nSubjects = 0;

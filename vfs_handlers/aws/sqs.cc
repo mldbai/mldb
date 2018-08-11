@@ -14,8 +14,6 @@
 #include "mldb/types/structure_description.h"
 
 using namespace std;
-using namespace ML;
-
 
 namespace {
 

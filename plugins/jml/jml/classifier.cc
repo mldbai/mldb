@@ -10,21 +10,21 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "classifier_persist_impl.h"
 #include "mldb/arch/threads.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "evaluation.h"
 
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/vfs/filter_streams.h"
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 

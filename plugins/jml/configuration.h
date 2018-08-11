@@ -15,7 +15,7 @@
 #include <boost/lexical_cast.hpp>
 #include "mldb/arch/exception.h"
 #include <iostream>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "enum_info.h"
 
 namespace MLDB {

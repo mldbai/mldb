@@ -7,7 +7,7 @@
 */
 
 #include "mldb/arch/rcu_protected.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include <thread>
 #include <map>
 

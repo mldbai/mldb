@@ -13,7 +13,7 @@
 #include "plugins/jml/configuration.h"
 #include "plugins/jml/enum_info.h"
 #include <boost/test/unit_test.hpp>
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 using namespace ML;
 using namespace std;

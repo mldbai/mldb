@@ -1,22 +1,20 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* buckets.cc
    Jeremy Barnes, 12 September 2011
    Copyright (c) 2011 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Refactored out buckets code.
 */
 
-#include "jml/utils/buckets.h"
+#include "mldb/utils/buckets.h"
 #include <iostream>
 #include <boost/utility.hpp>
 #include "mldb/arch/format.h"
-#include "mldb/jml/utils/floating_point.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/floating_point.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/exception.h"
 
 using namespace std;
-using namespace ML;
 
 namespace MLDB {
 
@@ -182,7 +180,7 @@ create_buckets(size_t num_buckets)
 
 void get_freqs(BucketFreqs & result, std::vector<float> values)
 {
-    std::sort(values.begin(), values.end(), ML::safe_less<float>());
+    std::sort(values.begin(), values.end(), MLDB::safe_less<float>());
 
     vector<pair<float, float> > freqs2;
     freqs2.reserve(values.size());
@@ -211,7 +209,7 @@ void get_freqs(BucketFreqs & result, std::vector<float> values)
     std::sort(freqs2.begin(), freqs2.end());
     
     result = BucketFreqs(freqs2.begin(), freqs2.end());
-} // namespace ML
+} // namespace MLDB
 
 void bucket_dist(std::vector<float> & result,
                  const BucketFreqs & freqs,

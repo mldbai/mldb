@@ -18,7 +18,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/sql/binding_contexts.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/engine/dataset_scope.h"
@@ -547,7 +547,7 @@ struct TensorflowGraphBase: public Function {
     Any getDetails() const
     {
         Json::Value result;
-        result["graph"] = jsonEncode(ML::split(SummarizeGraphDef(*graph), '\n'));
+        result["graph"] = jsonEncode(MLDB::split(SummarizeGraphDef(*graph), '\n'));
         return result;
     }
 

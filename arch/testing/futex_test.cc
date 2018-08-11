@@ -22,8 +22,8 @@
 
 using namespace std;
 
-using ML::futex_wait;
-using ML::futex_wake;
+using MLDB::futex_wait;
+using MLDB::futex_wake;
 
 /* this helper ensures that the futex_wait does not return before futex_wake
  * is called */
@@ -59,7 +59,7 @@ test_futex_timeout()
 {
     T value(0);
     time_t start = ::time(nullptr);
-    ML::futex_wait(value, 0, 2.0);
+    MLDB::futex_wait(value, 0, 2.0);
     time_t now = ::time(nullptr);
     BOOST_CHECK(now >= (start + 1));
 }

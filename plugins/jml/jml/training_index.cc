@@ -13,9 +13,9 @@
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "training_data.h"
 #include "mldb/plugins/jml/sgi_numeric.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include <boost/timer.hpp>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
 #include <set>

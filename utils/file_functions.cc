@@ -11,7 +11,7 @@
    Functions to deal with files.
 */
 
-#include "file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/base/exc_assert.h"
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -20,7 +20,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include "string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/spinlock.h"
 #include <iostream>
@@ -34,7 +34,7 @@
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 size_t get_file_size(int fd)
 {
@@ -359,4 +359,4 @@ void File_Read_Buffer::close()
     filename_ = "";
 }
 
-} // namespace ML
+} // namespace MLDB

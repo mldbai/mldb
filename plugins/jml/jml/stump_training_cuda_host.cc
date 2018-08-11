@@ -10,8 +10,8 @@
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/tick_counter.h"
 
-typedef ML::CUDA::Test_Buckets_Binsym::Float Float;
-typedef ML::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
+typedef MLDB::CUDA::Test_Buckets_Binsym::Float Float;
+typedef MLDB::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
 
 namespace ML {
 namespace CUDA {
@@ -27,7 +27,7 @@ void executeHostCompressed(TwoBuckets * accum,
                            int divisor_bits,
                            size_t size)
 {
-    ML::Bit_Extractor<uint64_t> index(data);
+    MLDB::Bit_Extractor<uint64_t> index(data);
     
     for (unsigned i = 0;  i < size;  ++i) {
         int bucket

@@ -26,8 +26,8 @@
 #include "mldb/arch/fslock.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/vm.h"
-#include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/file_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
@@ -44,7 +44,6 @@
 
 using namespace std;
 namespace fs = std::filesystem;
-using namespace ML;
 using namespace MLDB;
 
 
@@ -289,7 +288,7 @@ bool touch(const char * start, size_t size,
 }
 
 bool touchWithProgress(const std::string & filename,
-                       const ML::File_Read_Buffer & file,
+                       const MLDB::File_Read_Buffer & file,
                        const std::function<bool (Json::Value)> & onProgress)
 {
     Date start = Date::now();
@@ -355,7 +354,7 @@ preloadRemoteCache(const set<string> & filenames)
             const string & basename = entry.second.second;
             string fullname = fileCacheDir + "/" + basename;
 
-            ML::GuardedFsLock fsLock(fullname);
+            MLDB::GuardedFsLock fsLock(fullname);
             if (fsLock.tryLock()) {
                 if (fs::exists(fullname)) {
                     toRemove.push_back(entry.first);
@@ -377,7 +376,7 @@ preloadRemoteCache(const set<string> & filenames)
         }
 
         if (doSleep) {
-            ML::sleep(0.2);
+            MLDB::sleep(0.2);
         }
     }
 
@@ -797,7 +796,7 @@ getRemote(const std::string & filename,
 
     if (useCache && cacheFileExists) {
         try {
-            ML::File_Read_Buffer file(cacheFile);
+            MLDB::File_Read_Buffer file(cacheFile);
             touchATime(cacheFile);
 
             if(touchPages) {
@@ -844,7 +843,7 @@ getRemote(const std::string & filename,
             if (cancelled)
                 return nullptr;
 
-            ML::File_Read_Buffer file(cacheFile);
+            MLDB::File_Read_Buffer file(cacheFile);
             touchATime(cacheFile);
 
             if(touchPages) {
@@ -866,7 +865,7 @@ getRemote(const std::string & filename,
         localPtr.reset();
     };
 
-    ML::File_Read_Buffer file(contents->c_str(), contents->size(),
+    MLDB::File_Read_Buffer file(contents->c_str(), contents->size(),
                               filename, onDone);
     auto result = std::make_shared<MappedBehaviorDomain>(file);
     return result;
@@ -879,7 +878,7 @@ getFile(const std::string & filename,
 {
     ExcAssert(!filename.empty());
 
-    if (ML::endsWith(filename, ".gz") || ML::endsWith(filename, ".lz4")) {
+    if (MLDB::endsWith(filename, ".gz") || MLDB::endsWith(filename, ".lz4")) {
         auto contents = std::make_shared<string>();
 
         bool cancelled = false;
@@ -904,7 +903,7 @@ getFile(const std::string & filename,
             shared_ptr<string> localPtr = contents;
             localPtr.reset();
         };
-        ML::File_Read_Buffer file(contents->c_str(), contents->size(),
+        MLDB::File_Read_Buffer file(contents->c_str(), contents->size(),
                                   filename, onDone);
         return std::make_shared<MappedBehaviorDomain>(file);
     }

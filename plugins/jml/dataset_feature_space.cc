@@ -456,21 +456,21 @@ print(const ML::Feature & feature, float value) const
 
 void
 DatasetFeatureSpace::
-serialize(ML::DB::Store_Writer & store, const ML::Feature & feature) const
+serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature) const
 {
     return ML::Feature_Space::serialize(store, feature);
 }
 
 void
 DatasetFeatureSpace::
-reconstitute(ML::DB::Store_Reader & store, ML::Feature & feature) const
+reconstitute(MLDB::DB::Store_Reader & store, ML::Feature & feature) const
 {
     return ML::Feature_Space::reconstitute(store, feature);
 }
 
 void
 DatasetFeatureSpace::
-serialize(ML::DB::Store_Writer & store, const ML::Feature & feature,
+serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature,
           float value) const
 {
     auto it = columnInfo.find(getHash(feature));
@@ -485,7 +485,7 @@ serialize(ML::DB::Store_Writer & store, const ML::Feature & feature,
 
 void
 DatasetFeatureSpace::
-reconstitute(ML::DB::Store_Reader & store,
+reconstitute(MLDB::DB::Store_Reader & store,
              const ML::Feature & feature,
              float & value) const
 {
@@ -524,13 +524,13 @@ make_copy() const
 
 void
 DatasetFeatureSpace::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     char version;
     store >> version;
     if (version > 3)
         throw MLDB::Exception("unexpected version of DatasetFeatureSpace");
-    ML::DB::compact_size_t numFeatures(store);
+    MLDB::DB::compact_size_t numFeatures(store);
 
     if (version > 1)
         store >> labelInfo;
@@ -577,10 +577,10 @@ reconstitute(ML::DB::Store_Reader & store)
 
 void
 DatasetFeatureSpace::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     store << (char)3 // version
-          << ML::DB::compact_size_t(columnInfo.size());
+          << MLDB::DB::compact_size_t(columnInfo.size());
 
     store << labelInfo;
 

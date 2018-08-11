@@ -18,6 +18,8 @@
 
 namespace ML {
 
+using MLDB::distribution;
+
 #define KMEANS_DEBUG 0
 
 
@@ -158,8 +160,8 @@ struct KMeans {
     // Find the closest cluster to `point` and returns its index
     int assign(const distribution<float> & point) const;
 
-    void serialize(ML::DB::Store_Writer & store) const;
-    void reconstitute(ML::DB::Store_Reader & store);
+    void serialize(MLDB::DB::Store_Writer & store) const;
+    void reconstitute(MLDB::DB::Store_Reader & store);
     void save(const std::string & filename) const;
     void load(const std::string & filename);
 };

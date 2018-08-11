@@ -9,12 +9,12 @@
 */
 
 #include "boosting_tool_common.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/plugins/jml/jml/training_data.h"
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "mldb/plugins/jml/jml/probabilizer.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include <boost/timer.hpp>
 #include <regex>
 #include "mldb/plugins/jml/jml/null_classifier.h"

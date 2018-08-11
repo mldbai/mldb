@@ -12,7 +12,7 @@
 #undef NDEBUG
 
 #include "mldb/utils/lightweight_hash.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 
@@ -21,7 +21,6 @@
 #include <set>
 #include "live_counting_obj.h"
 
-using namespace ML;
 using namespace MLDB;
 using namespace std;
 

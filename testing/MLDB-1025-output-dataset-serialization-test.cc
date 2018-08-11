@@ -11,8 +11,8 @@
 #include <vector>
 #include <boost/test/unit_test.hpp>
 #include "arch/exception.h"
-#include "jml/utils/string_functions.h"
-#include "jml/utils/vector_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/builtin/sql_functions.h"
 #include "mldb/plugins/feature_gen/bucketize_procedure.h"
 #include "mldb/plugins/feature_gen/stats_table_procedure.h"

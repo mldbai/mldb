@@ -1,5 +1,27 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+# This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+
+
+LIBUTILS_SOURCES := \
+        environment.cc \
+        file_functions.cc \
+        string_functions.cc \
+	csv.cc \
+	hex_dump.cc \
+	floating_point.cc \
+	buckets.cc \
+	confidence_intervals.cc \
+
+LIBUTILS_LINK := \
+	arch \
+	vfs \
+
+$(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
+
+# gcc 4.7
+$(eval $(call set_compile_option,hash.cc,-fpermissive))
+
 $(eval $(call library,config,config.cc,boost_program_options))
 $(eval $(call library,log,log.cc, config))
 $(eval $(call library,progress,progress.cc,))

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** pipeline_execution_context.h                                   -*- C++ -*-
     Jeremy Barnes, 30 October 2013
     Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 

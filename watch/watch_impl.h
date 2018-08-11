@@ -887,7 +887,7 @@ tryWaitMaybe(double timeToWait)
             = std::max(0.0, Date::now().secondsUntil(limit));
 
         if (secondsToWait > 0) {
-            ML::futex_wait(numSaved, 0, secondsToWait);
+            MLDB::futex_wait(numSaved, 0, secondsToWait);
             if (!numSaved)
                 continue;
         }
@@ -940,7 +940,7 @@ triggerLocked(const T &... args)
     else {
         saved.emplace_back(std::tuple<T...>(args...));
         ++numSaved;
-        ML::futex_wake(numSaved);
+        MLDB::futex_wake(numSaved);
     }
 }
 
@@ -985,7 +985,7 @@ errorLocked(const WatchError & error)
     else {
         saved.emplace_back(error);
         ++numSaved;
-        ML::futex_wake(numSaved);
+        MLDB::futex_wake(numSaved);
     }
 }
 

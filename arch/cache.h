@@ -15,7 +15,7 @@
 #endif
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -110,4 +110,4 @@ inline void streaming_copy_from_strided(double * output, const double * input,
         store_non_temporal(*(output + i), input[i * stride]);
 }
 
-} // namespace ML
+} // namespace MLDB

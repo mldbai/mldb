@@ -9,7 +9,7 @@
 
 #include <memory>
 
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 #include "xml_helpers.h"
 
@@ -24,7 +24,7 @@ extractNode(const tinyxml2::XMLNode * element, const string & path)
 {
     using namespace std;
 
-    vector<string> splitPath = ML::split(path, '/');
+    vector<string> splitPath = MLDB::split(path, '/');
     const tinyxml2::XMLNode * p = element;
     for (unsigned i = 0;  i < splitPath.size();  ++i) {
         p = p->FirstChildElement(splitPath[i].c_str());
@@ -43,7 +43,7 @@ pathExists(const tinyxml2::XMLNode * element, const string & path)
 {
     using namespace std;
 
-    vector<string> splitPath = ML::split(path, '/');
+    vector<string> splitPath = MLDB::split(path, '/');
     const tinyxml2::XMLNode * p = element;
     for (unsigned i = 0;  i < splitPath.size();  ++i) {
         p = p->FirstChildElement(splitPath[i].c_str());

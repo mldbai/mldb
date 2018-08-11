@@ -9,7 +9,7 @@
 #include "execution_pipeline_impl.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include <algorithm>
 
 
@@ -408,7 +408,7 @@ std::shared_ptr<PipelineElement>
 PipelineElement::
 root(SqlBindingScope & scope)
 {
-    return std::make_shared<RootElement>(ML::make_unowned_sp(scope));
+    return std::make_shared<RootElement>(MLDB::make_unowned_sp(scope));
 }
     
 std::shared_ptr<PipelineElement>

@@ -13,10 +13,10 @@
 #include "mldb/arch/exception.h"
 #include <boost/multi_array.hpp>
 #include <iostream>
-#include "mldb/jml/utils/float_traits.h"
+#include "mldb/utils/float_traits.h"
 #include "mldb/compiler/compiler.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/arch/cache.h"
 
 namespace boost {

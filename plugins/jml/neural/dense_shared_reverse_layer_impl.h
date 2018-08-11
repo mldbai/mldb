@@ -15,7 +15,7 @@
 #include "mldb/arch/demangle.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/plugins/jml/multi_array_utils.h"
 

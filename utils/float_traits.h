@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* float_traits.h                                                  -*- C++ -*-
    Jeremy Barnes, 30 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
    ---
@@ -15,7 +13,7 @@
 
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 template<typename F1, typename F2>
 struct float_traits {
@@ -39,4 +37,4 @@ struct float_traits3<F, F, F> {
     typedef F return_type;
 };
 
-} // namespace ML
+} // namespace MLDB

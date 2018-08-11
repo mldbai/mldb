@@ -29,12 +29,12 @@ doClose()
         return;
     }
     state = CLOSING;
-    ML::futex_wake(state);
+    MLDB::futex_wake(state);
     if (onClose_) {
         onClose_();
     }
     state = CLOSED;
-    ML::futex_wake(state);
+    MLDB::futex_wake(state);
 }
 
 void
@@ -43,7 +43,7 @@ waitState(int expectedState)
 {
     while (state != expectedState) {
         int currentState = state;
-        ML::futex_wait(state, currentState);
+        MLDB::futex_wait(state, currentState);
     }
 }
 

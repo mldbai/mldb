@@ -15,7 +15,7 @@
 #include "mldb/arch/futex.h"
 #include <semaphore.h>
 
-namespace ML {
+namespace MLDB {
 
 struct Semaphore {
     sem_t val;
@@ -90,4 +90,4 @@ struct Release_Sem {
 };
 
 
-} // namespace ML
+} // namespace MLDB

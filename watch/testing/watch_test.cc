@@ -641,7 +641,7 @@ BOOST_AUTO_TEST_CASE(test_bind_non_recursive)
 BOOST_AUTO_TEST_CASE(test_disable_from_fire)
 {
     // Make sure the test bombs if there is a deadlock rather than hanging
-    ML::Watchdog watchdog(2 /* seconds */);
+    MLDB::Watchdog watchdog(2 /* seconds */);
 
     WatchesT<int> watches;
 

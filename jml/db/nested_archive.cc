@@ -14,7 +14,7 @@
 #include "nested_archive.h"
 
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 
@@ -38,4 +38,4 @@ Nested_Writer::Nested_Writer()
 }
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB

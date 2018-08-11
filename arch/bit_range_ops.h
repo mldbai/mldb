@@ -20,7 +20,7 @@
 #include <boost/iterator/iterator_facade.hpp>
 
 
-namespace ML {
+namespace MLDB {
 
 typedef uint32_t shift_t;
 
@@ -649,7 +649,7 @@ struct BitArrayIterator
 
     Value dereference() const
     {
-        ML::Bit_Extractor<Array> extractor(data);
+        MLDB::Bit_Extractor<Array> extractor(data);
         extractor.advance(index * numBits);
         return extractor.template extract<Value>(numBits);
     }
@@ -681,5 +681,5 @@ struct BitArrayIterator
 };
 
 
-} // namespace ML
+} // namespace MLDB
 

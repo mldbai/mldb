@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* scorer.cc
    Jeremy Barnes, 5 September 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Scorer class.
 */
@@ -13,7 +12,6 @@
 #include "mldb/arch/spinlock.h"
 #include <thread>
 
-using namespace ML;
 using namespace std;
 
 

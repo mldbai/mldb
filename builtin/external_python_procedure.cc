@@ -12,7 +12,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/utils/runner.h"
 #include "mldb/compiler/filesystem.h"
 #include "mldb/types/any_impl.h"
@@ -99,7 +99,7 @@ run(const ProcedureRunConfig & run,
     }
 
     string cmd = python_executable + " " + pluginRes->getElementLocation(MAIN);
-    RunResult runRes = execute(ML::split(cmd, ' '), stdout_sink,
+    RunResult runRes = execute(MLDB::split(cmd, ' '), stdout_sink,
                                 stderr_sink, newProcConf.stdInData);
 
     cout << runRes.state << endl;

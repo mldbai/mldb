@@ -260,4 +260,4 @@ extern template class Layer_Stack<Dense_Layer<double> >;
 
 } // namespace ML
 
-DECLARE_ENUM_INFO(ML::Missing_Values, 4);
+DECLARE_ENUM_INFO(MLDB::Missing_Values, 4);

@@ -1,21 +1,19 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* feature_transform.h                                             -*- C++ -*-
    Jeremy Barnes, 27 February 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Basic transform for a given feature.
 */
 
-#ifndef __boosting__feature_transform_h__
-#define __boosting__feature_transform_h__
-
+#pragma once
 
 #include "feature_set.h"
 
 
 namespace ML {
+
+namespace DB = MLDB::DB;
 
 
 /*****************************************************************************/
@@ -77,6 +75,3 @@ public:
 
 
 } // namespace ML
-
-
-#endif /* __boosting__feature_transform_h__ */

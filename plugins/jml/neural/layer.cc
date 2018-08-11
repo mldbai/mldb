@@ -12,11 +12,11 @@
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 namespace ML {
 
@@ -123,14 +123,14 @@ update_parameters()
 
 void
 Layer::
-poly_serialize(ML::DB::Store_Writer & store) const
+poly_serialize(MLDB::DB::Store_Writer & store) const
 {
     Registry<Layer>::singleton().serialize(store, this);
 }
 
 std::shared_ptr<Layer>
 Layer::
-poly_reconstitute(ML::DB::Store_Reader & store)
+poly_reconstitute(MLDB::DB::Store_Reader & store)
 {
     return Registry<Layer>::singleton().reconstitute(store);
 }

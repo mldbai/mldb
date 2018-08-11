@@ -4,12 +4,12 @@
    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
-#include "confidence_intervals.h"
+#include "mldb/utils/confidence_intervals.h"
 #include <boost/math/distributions/binomial.hpp>
 #include <boost/math/distributions/normal.hpp> // for normal_distribution
 #include <math.h>
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <random>
 
 
@@ -181,14 +181,14 @@ print(Method m) const
 
 #if 0
 void ConfidenceIntervals::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     int version = 1;
     store << version << print(method) << alpha_;
 }
 
 void ConfidenceIntervals::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     int version;
     int REQUIRED_V = 1;

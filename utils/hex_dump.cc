@@ -8,9 +8,9 @@
    Routine to dump memory in hex format.
 */
 
-#include "hex_dump.h"
+#include "mldb/utils/hex_dump.h"
 #include <iostream>
-#include "string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 using namespace std;
 
@@ -47,4 +47,4 @@ void hex_dump(std::string_view mem, size_t max_size)
     hex_dump(mem.data(), mem.length(), max_size);
 }
 
-} // namespace ML
+} // namespace MLDB

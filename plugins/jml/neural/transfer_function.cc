@@ -11,12 +11,12 @@
 #include <cmath>
 #include "mldb/jml/db/persistent.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 #include <boost/static_assert.hpp>
 
 
-using namespace ML::DB;
+using namespace MLDB::DB;
 using namespace std;
 
 namespace ML {

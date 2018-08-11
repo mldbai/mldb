@@ -11,7 +11,7 @@
 
 namespace MLDB {
 
-uint64_t readTrailingOffset(const ML::File_Read_Buffer & file)
+uint64_t readTrailingOffset(const MLDB::File_Read_Buffer & file)
 {
     if (file.end() - file.start() < 8)
         throw MLDB::Exception("can't read trailing offset that is too short");

@@ -12,7 +12,7 @@
 #include "tabular_dataset_chunk.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/scope.h"
@@ -23,7 +23,7 @@
 #include "mldb/types/set_description.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
-#include "mldb/jml/utils/floating_point.h"
+#include "mldb/utils/floating_point.h"
 #include "mldb/utils/log.h"
 #include "mldb/engine/dataset_utils.h"
 #include "mldb/arch/bit_range_ops.h"
@@ -193,7 +193,7 @@ struct PathIndexShard: public PathIndexMetadata {
 
         auto setEntry = [&] (size_t bucket, int chunkNumber, int indexInChunk)
             {
-                ML::Bit_Writer<uint32_t> writer(storage.data());
+                MLDB::Bit_Writer<uint32_t> writer(storage.data());
                 writer.skip((chunkBits + offsetBits) * bucket);
                 writer.write(chunkNumber + 1, chunkBits);
                 writer.write(indexInChunk, offsetBits);
@@ -201,7 +201,7 @@ struct PathIndexShard: public PathIndexMetadata {
 
         auto entryIsOccupied = [&] (size_t bucket) -> bool
             {
-                ML::Bit_Extractor<uint32_t> bits(storage.data());
+                MLDB::Bit_Extractor<uint32_t> bits(storage.data());
                 bits.advance((chunkBits + offsetBits) * bucket);
                 uint32_t chunk = bits.extract<uint32_t>(chunkBits);
                 return chunk > 0;
@@ -301,7 +301,7 @@ struct PathIndexShard: public PathIndexMetadata {
     std::pair<uint32_t, uint32_t>
     getEntry(size_t bucket) const
     {
-        ML::Bit_Extractor<uint32_t> bits(storage.data());
+        MLDB::Bit_Extractor<uint32_t> bits(storage.data());
         bits.advance((chunkBits + offsetBits) * bucket);
         uint32_t chunk = bits.extract<uint32_t>(chunkBits) - 1;
         uint32_t offset = bits.extract<uint32_t>(offsetBits);
@@ -310,7 +310,7 @@ struct PathIndexShard: public PathIndexMetadata {
 
     bool entryIsOccupied(size_t bucket) const
     {
-        ML::Bit_Extractor<uint32_t> bits(storage.data());
+        MLDB::Bit_Extractor<uint32_t> bits(storage.data());
         bits.advance((chunkBits + offsetBits) * bucket);
         uint32_t chunk = bits.extract<uint32_t>(chunkBits);
         return chunk > 0;
@@ -622,7 +622,7 @@ struct TabularDataset::TabularDataStore
 
             DEBUG_MSG(logger) << chunks.size() << " chunks and " << totalRows << " rows";
 
-            auto sortedNumerics = parallelMergeSortUnique(numerics, ML::safe_less<double>());
+            auto sortedNumerics = parallelMergeSortUnique(numerics, MLDB::safe_less<double>());
             auto sortedStrings = parallelMergeSortUnique(strings);
 
             BucketDescriptions desc;
@@ -1898,11 +1898,11 @@ struct TabularDataset::TabularDataStore
             INFO_MSG(logger) << "row name usage is " << rowNameMem
                              << " bytes at "
                              << 1.0 * rowNameMem / totalRows << " per row with "
-                             << ML::type_name(*newState->chunks[0]->rowNames);
+                             << MLDB::type_name(*newState->chunks[0]->rowNames);
             INFO_MSG(logger) << "timestamp usage is " << timestampMem
                              << " bytes at "
                              << 1.0 * timestampMem / totalRows << " per row with "
-                             << ML::type_name(*newState->chunks[0]->timestamps);
+                             << MLDB::type_name(*newState->chunks[0]->timestamps);
         }
 
         size_t columnMem = 0;
@@ -1915,7 +1915,7 @@ struct TabularDataset::TabularDataStore
                 << "column " << c.columnName << " used "
                 << bytesUsed << " bytes at "
                 << 1.0 * bytesUsed / totalRows << " per row with "
-                << ML::type_name(*c.chunks[0].second);
+                << MLDB::type_name(*c.chunks[0].second);
             columnMem += bytesUsed;
         }
 

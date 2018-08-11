@@ -33,12 +33,12 @@ namespace MLDB {
 struct MappedBehaviorDomain: public BehaviorDomain {
     MappedBehaviorDomain();
     MappedBehaviorDomain(const std::string & filename);
-    MappedBehaviorDomain(const ML::File_Read_Buffer & file);
+    MappedBehaviorDomain(const MLDB::File_Read_Buffer & file);
 
     void load(const std::string & filename);
-    void load(const ML::File_Read_Buffer & file);
+    void load(const MLDB::File_Read_Buffer & file);
 
-    void init(const ML::File_Read_Buffer & file, uint64_t md_offset);
+    void init(const MLDB::File_Read_Buffer & file, uint64_t md_offset);
 
     /** Behaviors for a given subject are structured as follows:
         1.  Behavior index: list of (behavior id, count) bit compressed
@@ -476,7 +476,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
         }
     };
 
-    ML::File_Read_Buffer file;
+    MLDB::File_Read_Buffer file;
 
     MappedValue<Metadata> md;
     MappedSortedKeyValueArray<BH, uint32_t> behaviorIndex; /// beh -> behindex

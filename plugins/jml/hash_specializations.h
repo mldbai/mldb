@@ -1,24 +1,19 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* hash_specializations.h                                          -*- C++ -*-
    Jeremy Barnes, 5 February 2005
    Copyright (c) Jeremy Barnes 2005.  All rights reserved.
-   
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
    Specializations of standard hash functions.
 */
 
-#ifndef __utils__hash_specializations_h__
-#define __utils__hash_specializations_h__
-
+#pragma once
 
 #define _BACKWARD_BACKWARD_WARNING_H 1
 #include <ext/hash_map>
 #include <string>
-#include "mldb/jml/utils/floating_point.h"
+#include "mldb/utils/floating_point.h"
 
 #define MLDB_HASH_NS __gnu_cxx
 
@@ -54,7 +49,7 @@ struct hash<std::string> {
 };
 
 template<>
-struct hash<float> : public ML::float_hasher {
+struct hash<float> : public MLDB::float_hasher {
 };
 
 template<typename T>
@@ -79,6 +74,3 @@ struct hash<std::pair<X, Y> > {
 };
 
 } // namespace MLDB_HASH_NS
-
-
-#endif /* __utils__hash_specializations_h__ */

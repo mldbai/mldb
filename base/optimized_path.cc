@@ -10,7 +10,7 @@
 #include <mutex>
 #include <map>
 #include <regex>
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include "mldb/base/optimized_path.h"
 
 

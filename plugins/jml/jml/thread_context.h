@@ -12,7 +12,7 @@
 
 //#include "mldb/jml/utils/worker_task.h"
 #include <random>
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/arch/exception.h"
 
 namespace ML {

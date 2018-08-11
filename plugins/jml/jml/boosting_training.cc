@@ -10,10 +10,10 @@
 #include "boosting_training.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/floating_point.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/floating_point.h"
+#include "mldb/utils/vector_utils.h"
 #include "boosting_core.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 
 using namespace std;

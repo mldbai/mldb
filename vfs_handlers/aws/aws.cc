@@ -8,7 +8,7 @@
 
 #include "aws.h"
 #include "mldb/arch/format.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <iostream>
 
 #include "xml_helpers.h"
@@ -25,7 +25,6 @@
 #include "crypto++/hex.h"
 #pragma GCC diagnostic pop
 
-using namespace ML;
 using std::string;
 using std::map;
 using std::cout;
@@ -119,7 +118,7 @@ std::string
 AwsApi::
 hexEncodeDigest(const std::string & digest)
 {
-    return ML::lowercase(encodeDigest<CryptoPP::HexEncoder>(digest));
+    return MLDB::lowercase(encodeDigest<CryptoPP::HexEncoder>(digest));
 }
 
 std::string
@@ -136,7 +135,7 @@ getStringToSignV2Multi(const std::string & verb,
     std::map<std::string, std::string> canonHeaders;
     for (auto it = headers.begin(), end = headers.end();
          it != end;  ++it) {
-        std::string key = ML::lowercase(it->first);
+        std::string key = MLDB::lowercase(it->first);
         if (key.find("x-amz") != 0) continue;
 
         std::string value = it->second;
@@ -193,7 +192,7 @@ getStringToSignV2(const std::string & verb,
 
     for (auto it = headers.begin(), end = headers.end();
          it != end;  ++it) {
-        std::string key = ML::lowercase(it->first);
+        std::string key = MLDB::lowercase(it->first);
         if (key.find("x-amz") != 0) continue;
 
         std::string value = it->second;

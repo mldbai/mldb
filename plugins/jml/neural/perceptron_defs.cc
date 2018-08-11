@@ -9,7 +9,7 @@
 
 #include "perceptron_defs.h"
 #include <iostream>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/jml/db/persistent.h"
 
 using namespace std;
@@ -51,27 +51,27 @@ std::ostream & operator << (std::ostream & stream, Sampling smp)
 BYTE_PERSISTENT_ENUM_IMPL(Sampling);
 
 
-const Enum_Opt<ML::Transfer_Function_Type>
-Enum_Info<ML::Transfer_Function_Type>::
-OPT[Enum_Info<ML::Transfer_Function_Type>::NUM] = {
-    { "logsig",      ML::TF_LOGSIG   },
-    { "tanh",        ML::TF_TANH     },
-    { "tanhs",       ML::TF_TANHS    },
-    { "identity",    ML::TF_IDENTITY },
-    { "softmax",     ML::TF_SOFTMAX },
-    { "nonstandard", ML::TF_NONSTANDARD }
+const Enum_Opt<MLDB::Transfer_Function_Type>
+Enum_Info<MLDB::Transfer_Function_Type>::
+OPT[Enum_Info<MLDB::Transfer_Function_Type>::NUM] = {
+    { "logsig",      MLDB::TF_LOGSIG   },
+    { "tanh",        MLDB::TF_TANH     },
+    { "tanhs",       MLDB::TF_TANHS    },
+    { "identity",    MLDB::TF_IDENTITY },
+    { "softmax",     MLDB::TF_SOFTMAX },
+    { "nonstandard", MLDB::TF_NONSTANDARD }
 };
 
-const char * Enum_Info<ML::Transfer_Function_Type>::NAME
+const char * Enum_Info<MLDB::Transfer_Function_Type>::NAME
     = "Transfer_Function_Type";
 
-const Enum_Opt<ML::Sampling>
-Enum_Info<ML::Sampling>::OPT[Enum_Info<ML::Sampling>::NUM] = {
-    { "deterministic", ML::SAMP_DETERMINISTIC },
-    { "stochastic_bin", ML::SAMP_BINARY_STOCHASTIC },
-    { "stochastic_real", ML::SAMP_REAL_STOCHASTIC }
+const Enum_Opt<MLDB::Sampling>
+Enum_Info<MLDB::Sampling>::OPT[Enum_Info<MLDB::Sampling>::NUM] = {
+    { "deterministic", MLDB::SAMP_DETERMINISTIC },
+    { "stochastic_bin", MLDB::SAMP_BINARY_STOCHASTIC },
+    { "stochastic_real", MLDB::SAMP_REAL_STOCHASTIC }
 };
 
-const char * Enum_Info<ML::Sampling>::NAME = "Sampling";
+const char * Enum_Info<MLDB::Sampling>::NAME = "Sampling";
 
 } // namespace ML

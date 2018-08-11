@@ -13,18 +13,18 @@
 #include <algorithm>
 #include "mldb/plugins/jml/sgi_algorithm.h"
 #include <boost/progress.hpp>
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/pair_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include <iomanip>
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 
 #include "boosted_stumps.h"
 #include "mldb/utils/distribution_ops.h"
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/profile.h"
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 namespace ML {

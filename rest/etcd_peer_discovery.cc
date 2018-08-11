@@ -1,23 +1,21 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** peer_discovery.cc
     Jeremy Barnes, 1 June 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
 #include "etcd_peer_discovery.h"
 #include "mldb/arch/futex.h"
-#include "mldb/jml/utils/info.h"
+#include "mldb/arch/info.h"
 #include "mldb/logging/logging.h"
 #include "mldb/watch/watch_impl.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <chrono>
 #include <thread>
 
 
 using namespace std;
-using namespace ML;
 
 
 namespace MLDB {
@@ -106,7 +104,7 @@ void
 EtcdPeerDiscovery::
 wakeup()
 {
-    ML::futex_wake(shutdown_);
+    MLDB::futex_wake(shutdown_);
 }
 
 void
@@ -267,7 +265,7 @@ runDiscoveryThread()
             lastKnownIndex = foundPeers.index;
 
             for (auto & n: foundPeers.node->nodes) {
-                vector<string> nameComponents = ML::split(n.key, '/');
+                vector<string> nameComponents = MLDB::split(n.key, '/');
                 //cerr << "nameComponents = " << nameComponents << endl;
                 if (nameComponents.size() < 4) {
                     cerr << "warning: invalid entry in peers etcd: "

@@ -10,7 +10,7 @@
 
 #include "configuration.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 
 using namespace std;

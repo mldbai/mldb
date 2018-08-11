@@ -13,7 +13,7 @@
 
 #include "mldb/arch/exception.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 #include "mldb/http/http_header.h"
 // #include "openssl_threading.h"

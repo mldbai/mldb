@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/plugins/jml/jml/feature_space.h"
-#include "jml/utils/buckets.h"
+#include "mldb/utils/buckets.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/core/dataset.h"
 #include "mldb/engine/bucket.h"
@@ -155,14 +155,14 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     virtual std::string print(const ML::Feature & feature, float value) const override;
 
-    virtual void serialize(ML::DB::Store_Writer & store, const ML::Feature & feature) const override;
+    virtual void serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature) const override;
 
-    virtual void reconstitute(ML::DB::Store_Reader & store, ML::Feature & feature) const override;
+    virtual void reconstitute(MLDB::DB::Store_Reader & store, ML::Feature & feature) const override;
 
-    virtual void serialize(ML::DB::Store_Writer & store, const ML::Feature & feature,
+    virtual void serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature,
                            float value) const override;
 
-    virtual void reconstitute(ML::DB::Store_Reader & store,
+    virtual void reconstitute(MLDB::DB::Store_Reader & store,
                               const ML::Feature & feature,
                               float & value) const override;
 
@@ -178,8 +178,8 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     using ML::Feature_Space::serialize;
     using ML::Feature_Space::reconstitute;
 
-    void reconstitute(ML::DB::Store_Reader & store);
-    virtual void serialize(ML::DB::Store_Writer & store) const override;
+    void reconstitute(MLDB::DB::Store_Reader & store);
+    virtual void serialize(MLDB::DB::Store_Writer & store) const override;
     virtual ML::Feature_Space * make_copy() const override;
 
 };

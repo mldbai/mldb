@@ -17,14 +17,14 @@
 #include "compact_size_types.h"
 #include <fstream>
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 template<class X>
 Store_Writer &
 operator << (Store_Writer & store, const X & x)
 {
-    using ML::DB::save;
+    using MLDB::DB::save;
     save(store, x);
     return store;
 }
@@ -33,18 +33,18 @@ template<class X>
 Store_Reader &
 operator >> (Store_Reader & store, X & x)
 {
-    using ML::DB::load;
+    using MLDB::DB::load;
     load(store, x);
     return store;
 }
 
 template<typename T,
-         typename X = decltype(((T *)0)->serialize(*(ML::DB::Store_Writer *)0))>
+         typename X = decltype(((T *)0)->serialize(*(MLDB::DB::Store_Writer *)0))>
 std::string
 serializeToString(const T & t, X * = 0)
 {
     std::ostringstream stream;
-    ML::DB::Store_Writer writer(stream);
+    MLDB::DB::Store_Writer writer(stream);
     t.serialize(writer);
     return stream.str();
 }
@@ -54,7 +54,7 @@ template<typename T>
 T reconstituteFromString(const std::string & str)
 {
     std::istringstream stream(str);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     T result;
     result.reconstitute(store);
     return result;
@@ -62,4 +62,4 @@ T reconstituteFromString(const std::string & str)
 
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB

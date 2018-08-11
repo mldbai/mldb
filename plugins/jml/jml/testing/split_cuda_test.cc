@@ -29,8 +29,8 @@
 #include "mldb/plugins/jml/jml/stump_training_core.h"
 #include "mldb/plugins/jml/jml/stump_training_bin.h"
 #include "mldb/plugins/jml/jml/stump_training_cuda.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/timers.h"
 //#include <boost/math/>
 
@@ -40,8 +40,8 @@ using namespace std;
 using boost::unit_test::test_suite;
 
 
-typedef ML::CUDA::Test_Buckets_Binsym::Float Float;
-typedef ML::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
+typedef MLDB::CUDA::Test_Buckets_Binsym::Float Float;
+typedef MLDB::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
 
 struct Test_Context {
     const CUDA::Test_Buckets_Binsym * tester;

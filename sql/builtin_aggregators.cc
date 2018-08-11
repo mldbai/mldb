@@ -9,7 +9,7 @@
 #include "builtin_functions.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/distribution.h"
-#include "mldb/jml/utils/csv.h"
+#include "mldb/utils/csv.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/base/optimized_path.h"
 #include <array>

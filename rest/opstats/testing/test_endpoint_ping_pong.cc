@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE( test_ping_pong )
     
     acceptor.onMakeNewHandler = [&] ()
         {
-            return ML::make_std_sp(new PongConnectionHandler(connectionError));
+            return MLDB::make_std_sp(new PongConnectionHandler(connectionError));
         };
     
     int port = acceptor.init();
@@ -54,12 +54,12 @@ BOOST_AUTO_TEST_CASE( test_ping_pong )
     int nconnections = 1;
     connector.init(port, "localhost", nconnections);
 
-    ML::Semaphore gotConnectionSem(0), finishedTestSem(0);
+    MLDB::Semaphore gotConnectionSem(0), finishedTestSem(0);
 
     auto onNewConnection = [&] (std::shared_ptr<TransportBase> transport)
         {
             transport->associate
-            (ML::make_std_sp(new PingConnectionHandler(connectionError,
+            (MLDB::make_std_sp(new PingConnectionHandler(connectionError,
                                                    finishedTestSem)));
             gotConnectionSem.release();
         };

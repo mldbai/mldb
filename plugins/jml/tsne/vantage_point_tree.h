@@ -21,6 +21,8 @@
 namespace ML {
 
 using MLDB::compact_vector;
+using MLDB::distribution;
+namespace DB = MLDB::DB;
 
 template<typename Item>
 struct VantagePointTreeT {
@@ -516,7 +518,7 @@ struct VantagePointTreeT {
 
     static void serializePtr(DB::Store_Writer & store, const VantagePointTreeT * ptr)
     {
-        using namespace ML::DB;
+        using namespace MLDB::DB;
         if (!ptr) {
             store << compact_size_t(0);
             return;
@@ -527,7 +529,7 @@ struct VantagePointTreeT {
 
     static VantagePointTreeT * reconstitutePtr(DB::Store_Reader & store)
     {
-        using namespace ML::DB;
+        using namespace MLDB::DB;
         compact_size_t present(store);
         if (!present)
             return nullptr;

@@ -11,7 +11,7 @@
 #include <string>
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/utils/testing/fixtures.h"
 #include "mldb/vfs/filter_streams.h"
 
@@ -31,7 +31,7 @@ struct AzureRegistration {
             return;
         }
         auto filename = home + string("/.azure_cloud_credentials");
-        if (ML::fileExists(filename)) {
+        if (MLDB::fileExists(filename)) {
             std::ifstream stream(filename.c_str());
             int lineNum = 1;
             for (; stream;  ++lineNum) {

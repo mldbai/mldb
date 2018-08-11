@@ -11,9 +11,9 @@
 #include "mldb/jml/db/persistent.h"
 #include "mldb/utils/distribution.h"
 #include <vector>
-#include "mldb/jml/utils/floating_point.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/hash_specializations.h"
+#include "mldb/utils/floating_point.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/plugins/jml/hash_specializations.h"
 #include "mldb/plugins/jml/sgi_algorithm.h"
 #include <cmath>
 #include <algorithm>
@@ -26,7 +26,7 @@ namespace ML {
 class Training_Data;
 class Feature_Set;
 class Feature_Info;
-
+using MLDB::Exception;
 
 /*****************************************************************************/
 /* FEATURE_SET_CONST_ITERATOR                                                */

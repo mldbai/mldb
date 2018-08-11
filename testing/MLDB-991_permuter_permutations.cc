@@ -13,8 +13,8 @@
 #include <vector>
 #include <boost/test/unit_test.hpp>
 #include "arch/exception.h"
-#include "jml/utils/string_functions.h"
-#include "jml/utils/vector_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/builtin/permuter_procedure.h"
 #include "mldb/ext/jsoncpp/json.h"
 

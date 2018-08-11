@@ -1,16 +1,14 @@
-// This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
-
 /* onevsall_generator.cc                                          -*- C++ -*-
    Mathieu Marquis Bolduc, 8 March 2017
    Copyright (c) 2017 MLDB.ai  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 
    Generator for onevsall classifiers
 */
 
 #include "onevsall_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/utils/log_fwd.h"
 #include "mldb/base/parallel.h"
 #include "mldb/plugins/jml/jml/info_override_feature_space.h"
@@ -95,7 +93,7 @@ generate(Thread_Context & context,
 
     std::shared_ptr<OneVsAllClassifier> current = make_shared<OneVsAllClassifier>(model);
 
-    ML::Mutable_Feature_Info labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
+    ML::Mutable_Feature_Info labelInfo(ML::BOOLEAN);
 
     int labelValue = 0; 
 

@@ -11,7 +11,7 @@
 #include "mldb/ext/tinyxml2/tinyxml2.h"
 #include <boost/lexical_cast.hpp>
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 
 namespace MLDB {
@@ -47,7 +47,7 @@ T extractDef(const tinyxml2::XMLNode * element, const std::string & path,
 
     if (!element) return ifMissing;
 
-    vector<string> splitPath = ML::split(path, '/');
+    vector<string> splitPath = MLDB::split(path, '/');
     const tinyxml2::XMLNode * p = element;
     for (unsigned i = 0;  i < splitPath.size();  ++i) {
         p = p->FirstChildElement(splitPath[i].c_str());

@@ -10,8 +10,8 @@
 #ifndef __arch__gpgpu_h__
 #define __arch__gpgpu_h__
 
-namespace ML {
+namespace MLDB {
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __arch__cuda_h__ */

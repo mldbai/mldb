@@ -58,7 +58,7 @@ struct FrozenIntegerTable {
     template<typename Fn>
     bool forEach(Fn && onVal) const
     {
-        ML::Bit_Extractor<uint64_t> bits(storage.data());
+        MLDB::Bit_Extractor<uint64_t> bits(storage.data());
 
         for (size_t i = 0;  i < md.numEntries;  ++i) {
             int64_t val = bits.extract<uint64_t>(md.entryBits);

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* json_service_endpoint_test.cc
    Jeremy Barnes, 9 November 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test for the JSON service endpoint.
 */
@@ -19,14 +18,13 @@
 #include "mldb/base/scope.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/utils/testing/watchdog.h"
-#include "mldb/jml/utils/testing/fd_exhauster.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/testing/fd_exhauster.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/timers.h"
 #include <thread>
 
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 

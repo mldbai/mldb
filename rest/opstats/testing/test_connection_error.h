@@ -23,7 +23,7 @@ void doTestConnectionError(Endpoint & connector,
 
     string errorMsg;
     bool succeeded = false;
-    ML::Semaphore sem(0);
+    MLDB::Semaphore sem(0);
 
     auto onNewConnection
         = [&] (const std::shared_ptr<TransportBase> & transport)

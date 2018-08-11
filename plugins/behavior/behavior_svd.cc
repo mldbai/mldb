@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** behavior_svd.cc
     Jeremy Barnes, 7 May 2012
     Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Implementation of SVD for behaviors.
 */
@@ -10,11 +9,11 @@
 #include "behavior_svd.h"
 #include "mldb/ext/svdlibc/svdlib.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/utils/distribution_ops.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/spinlock.h"
@@ -29,8 +28,6 @@
 
 
 using namespace std;
-using namespace ML;
-
 namespace MLDB {
 
 extern __thread bool debugMergedBehaviors;
@@ -116,7 +113,7 @@ partitionBehaviors(const BehaviorDomain & behs)
     }
 #endif
 
-    ML::sort_on_second_descending(subjectCounts);
+    MLDB::sort_on_second_descending(subjectCounts);
 
     numDenseBehaviors = std::min<int64_t>(numDenseBehaviors, nbehs);
 
@@ -805,7 +802,7 @@ calculateWeightedSubjectVector(const std::vector<std::pair<double, BH> > & behav
             continue;
         const distribution<float> & v = singularVectors[it->second];
 
-        ML::SIMD::vec_add(&result[0], w, &v[0], &result[0], numSingularValues);
+        MLDB::SIMD::vec_add(&result[0], w, &v[0], &result[0], numSingularValues);
         // equivalent to result += v * w, but faster as it uses no temporary
     }
 
@@ -1006,7 +1003,7 @@ explainDimension(int dim, int numBehs) const
                                  denseVectors[i].at(dim)));
     }
 
-    ML::sort_on_second_descending(vals);
+    MLDB::sort_on_second_descending(vals);
 
     if (numBehs > vals.size() / 2)
         numBehs = vals.size() / 2;

@@ -10,12 +10,12 @@
 
 #include "perceptron.h"
 #include "mldb/plugins/jml/jml/classifier_persist_impl.h"
-#include "mldb/jml/utils/profile.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/profile.h"
+#include "mldb/utils/environment.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/plugins/jml/jml/training_index.h"
 #include "mldb/plugins/jml/algebra/irls.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include <iomanip>
 #include "mldb/base/parse_context.h"
 #include "mldb/utils/distribution_simd.h"
@@ -30,7 +30,7 @@
 
 using namespace std;
 using namespace ML;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 namespace ML {
 

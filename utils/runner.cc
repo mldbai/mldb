@@ -25,7 +25,7 @@
 #include "mldb/arch/futex.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/logging/logging.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/types/structure_description.h"
@@ -145,7 +145,7 @@ handleChildStatus(const struct epoll_event & event)
                 break;
             case ProcessState::RUNNING:
                 childPid_ = status.pid;
-                ML::futex_wake(childPid_);
+                MLDB::futex_wake(childPid_);
                 break;
             case ProcessState::STOPPED:
                 if (task_.runResult.state == RunResult::LAUNCH_ERROR) {
@@ -155,7 +155,7 @@ handleChildStatus(const struct epoll_event & event)
                     task_.runResult.updateFromStatus(status.childStatus);
                     childPid_ = -3;
                 }
-                ML::futex_wake(childPid_);
+                MLDB::futex_wake(childPid_);
                 task_.statusState = ProcessState::DONE;
                 if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
                     stdInSink_->requestClose();
@@ -193,7 +193,7 @@ handleChildStatus(const struct epoll_event & event)
             // We will never get another event, so we need to clean up 
             // everything here.
             childPid_ = -3;
-            ML::futex_wake(childPid_);
+            MLDB::futex_wake(childPid_);
 
             task_.runResult.state = RunResult::PARENT_EXITED;
             task_.runResult.signum = SIGHUP;
@@ -314,7 +314,7 @@ attemptTaskTermination()
            since "running_" will be reset to true when the MessageLoop
            processes its delayed jobs. */
         running_ = false;
-        ML::futex_wake(running_);
+        MLDB::futex_wake(running_);
     }
     /* This block is useful for debugging the termination workflow of the
        subprocess, therefore it should be kept 2 years after this date:
@@ -363,7 +363,7 @@ getStdInSink()
     stdInSink_.reset(new AsyncFdOutputSink(onClose, onClose));
 
     tie(task_.stdInFd, childStdinFd_) = CreateStdPipe(true);
-    ML::set_file_flag(task_.stdInFd, O_NONBLOCK);
+    MLDB::set_file_flag(task_.stdInFd, O_NONBLOCK);
     stdInSink_->init(task_.stdInFd);
 
     auto stdinCopy = stdInSink_;
@@ -472,9 +472,9 @@ doRunImpl(const vector<string> & command,
     */
     bool oldRunning(running_);
     running_ = true;
-    ML::futex_wake(running_);
+    MLDB::futex_wake(running_);
     activeRequest_++;
-    ML::futex_wake(activeRequest_);
+    MLDB::futex_wake(activeRequest_);
     if (oldRunning) {
         throw MLDB::Exception("already running");
     }
@@ -529,20 +529,20 @@ doRunImpl(const vector<string> & command,
     else {
         task_.statusState = ProcessState::LAUNCHING;
 
-        ML::set_file_flag(task_.statusFd, O_NONBLOCK);
+        MLDB::set_file_flag(task_.statusFd, O_NONBLOCK);
         auto statusCb = [&] (const epoll_event & event) {
             handleChildStatus(event);
         };
         addFd(task_.statusFd, true, false, statusCb);
         if (stdOutSink) {
-            ML::set_file_flag(task_.stdOutFd, O_NONBLOCK);
+            MLDB::set_file_flag(task_.stdOutFd, O_NONBLOCK);
             auto outputCb = [=] (const epoll_event & event) {
                 handleOutputStatus(event, task_.stdOutFd, stdOutSink_);
             };
             addFd(task_.stdOutFd, true, false, outputCb);
         }
         if (stdErrSink) {
-            ML::set_file_flag(task_.stdErrFd, O_NONBLOCK);
+            MLDB::set_file_flag(task_.stdErrFd, O_NONBLOCK);
             auto outputCb = [=] (const epoll_event & event) {
                 handleOutputStatus(event, task_.stdErrFd, stdErrSink_);
             };
@@ -600,10 +600,10 @@ waitRunning(double secondsToWait) const
                 timeout = true;
                 break;
             }
-            ML::futex_wait(activeRequest_, currentActive, timeToWait);
+            MLDB::futex_wait(activeRequest_, currentActive, timeToWait);
         }
         else {
-            ML::futex_wait(activeRequest_, currentActive);
+            MLDB::futex_wait(activeRequest_, currentActive);
         }
     }
 
@@ -621,8 +621,8 @@ waitStart(double secondsToWait) const
         if (timeToWait < 0)
             break;
         if (isfinite(timeToWait))
-            ML::futex_wait(childPid_, -1, timeToWait);
-        else ML::futex_wait(childPid_, -1);
+            MLDB::futex_wait(childPid_, -1, timeToWait);
+        else MLDB::futex_wait(childPid_, -1);
     }
 
     return childPid_ > 0;
@@ -633,7 +633,7 @@ Runner::
 waitTermination() const
 {
     while (running_) {
-        ML::futex_wait(running_, true);
+        MLDB::futex_wait(running_, true);
     }
 }
 

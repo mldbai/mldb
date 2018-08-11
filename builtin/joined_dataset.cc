@@ -12,7 +12,7 @@
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/sql/execution_pipeline_impl.h"
 #include "mldb/utils/lightweight_hash.h"
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/profile.h"
 #include "mldb/sql/join_utils.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"

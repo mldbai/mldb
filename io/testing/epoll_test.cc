@@ -55,7 +55,7 @@ void thread1Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
         throw MLDB::Exception(errno, "epoll_ctl");
     }
 
-    stage = 1; ML::futex_wake(stage);
+    stage = 1; MLDB::futex_wake(stage);
 
     ::fprintf(stderr, "thread 1: waiting 1\n");
     rc = ::epoll_wait(epollFd, &event, 1, -1);
@@ -87,13 +87,13 @@ void thread1Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     ExcAssert(rc == -1);
     ExcAssert(errno == EWOULDBLOCK);
 
-    stage = 2; ML::futex_wake(stage);
+    stage = 2; MLDB::futex_wake(stage);
 
     ::fprintf(stderr,
               "thread 1: data read, awaiting final notification from thread"
               " 2\n");
     while (stage.load() != 3) {
-        ML::futex_wait(stage, 2);
+        MLDB::futex_wait(stage, 2);
     }
     ::fprintf(stderr,
               "thread 1: notified of final payload from thread 2\n");
@@ -124,7 +124,7 @@ void thread2Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
 {
     ::fprintf(stderr, "thread 2: initial wait for thread1\n");
     while (stage.load() != 1) {
-        ML::futex_wait(stage, 0);
+        MLDB::futex_wait(stage, 0);
     }
 
     uint32_t writeData(1);
@@ -145,7 +145,7 @@ void thread2Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
 
     ::fprintf(stderr, "thread 2: waiting thread 1\n");
     while (stage.load() != 2) {
-        ML::futex_wait(stage, 1);
+        MLDB::futex_wait(stage, 1);
     }
     ::fprintf(stderr, "thread 2: thread1 done reading, writing again\n");
 
@@ -158,7 +158,7 @@ void thread2Fn(atomic<int> & stage, int epollFd, int pipeFds[2])
     ::fprintf(stderr, "thread 2: payload 3 written\n");
 
     ::fprintf(stderr, "thread 2: writing complete, notifying thread 1\n");
-    stage++; ML::futex_wake(stage);
+    stage++; MLDB::futex_wake(stage);
 }
 
 }

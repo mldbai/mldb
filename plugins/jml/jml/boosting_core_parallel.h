@@ -11,7 +11,7 @@
 
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 
 namespace ML {

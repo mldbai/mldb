@@ -1,10 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* compact_size_types.cc
    Jeremy Barnes, 17 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
@@ -23,7 +20,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 const compact_size_t compact_const(unsigned val)
@@ -338,5 +335,5 @@ std::ostream & operator << (std::ostream & stream, const compact_int_t & s)
 
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB
 

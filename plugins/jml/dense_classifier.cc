@@ -1,13 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* dense_classifier.cc
    Jeremy Barnes, 12 May 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
 #include "dense_classifier.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 
 using namespace ML;
@@ -94,7 +93,7 @@ load(const std::string & filename,
 
 void
 DenseClassifier::
-reconstitute(ML::DB::Store_Reader & store,
+reconstitute(MLDB::DB::Store_Reader & store,
              std::shared_ptr<ML::Dense_Feature_Space> fs)
 {
     ML::Classifier classifier;

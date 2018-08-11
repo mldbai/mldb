@@ -14,10 +14,10 @@
 #include "mldb/arch/simd_vector.h"
 #include "boosted_stumps_impl.h"
 #include "stump_predict.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include <boost/timer.hpp>
-#include "mldb/jml/utils/floating_point.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/floating_point.h"
+#include "mldb/utils/vector_utils.h"
 #include "boosting_core.h"
 #include "boosting_training.h"
 
@@ -28,7 +28,7 @@
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 namespace ML {
 

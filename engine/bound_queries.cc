@@ -22,7 +22,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/profile.h"
 
 
 using namespace std;

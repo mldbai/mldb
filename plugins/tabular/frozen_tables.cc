@@ -53,7 +53,7 @@ FrozenIntegerTable::
 get(size_t i) const
 {
     ExcAssertLess(i, md.numEntries);
-    ML::Bit_Extractor<uint64_t> bits(storage.data());
+    MLDB::Bit_Extractor<uint64_t> bits(storage.data());
     bits.advance(i * md.entryBits);
     int64_t val = bits.extract<uint64_t>(md.entryBits);
     //cerr << "getting element " << i << " gave val " << val
@@ -190,7 +190,7 @@ freeze(MappedSerializer & serializer)
     auto mutableStorage = serializer.allocateWritableT<uint64_t>(numWords);
     uint64_t * data = mutableStorage.data();
 
-    ML::Bit_Writer<uint64_t> writer(data);
+    MLDB::Bit_Writer<uint64_t> writer(data);
     for (size_t i = 0;  i < values.size();  ++i) {
         uint64_t predicted = result.md.offset + uint64_t(i * result.md.slope);
         uint64_t residual = values[i] - predicted;

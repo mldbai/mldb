@@ -11,7 +11,7 @@
    String manipulation functions.
 */
 
-#include "string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include "mldb/arch/exception.h"
@@ -26,7 +26,7 @@ using namespace std;
 using namespace MLDB;
 
 
-namespace ML {
+namespace MLDB {
 
 struct va_ender {
     va_ender(va_list & ap)
@@ -247,4 +247,4 @@ trim(const string & other)
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

@@ -11,15 +11,14 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
-#include "mldb/jml/utils/csv.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/csv.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/base/parse_context.h"
 
 #include <sstream>
 #include <fstream>
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 using boost::unit_test::test_suite;

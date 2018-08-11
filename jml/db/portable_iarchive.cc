@@ -1,10 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* portable_iarchive.cc                                            -*- C++ -*-
    Jeremy Barnes, 18 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
@@ -12,7 +9,7 @@
 */
 
 #include "portable_iarchive.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include <boost/scoped_ptr.hpp>
 #include <iostream>
@@ -22,7 +19,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 
@@ -313,4 +310,5 @@ portable_bin_iarchive::portable_bin_iarchive(const char * c, size_t sz)
 }
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB
+

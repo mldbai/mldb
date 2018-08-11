@@ -8,12 +8,12 @@
 
 #include "mldb/types/url.h"
 #include "mldb/rest/rest_request_router.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/set_utils.h"
-#include "mldb/jml/utils/environment.h"
-#include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/set_utils.h"
+#include "mldb/utils/environment.h"
+#include "mldb/utils/file_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/base/less.h"
 #include "mldb/types/value_description.h"
 
@@ -710,7 +710,7 @@ addAutodocRoute(PathSpec autodocPath, PathSpec helpPath,
         Utf8String filenameToLoad = autodocFilesPath + "/" + filename;
         filenameToLoad.removePrefix("file://");
 
-        ML::File_Read_Buffer buf(filenameToLoad.rawString());
+        MLDB::File_Read_Buffer buf(filenameToLoad.rawString());
 
         string mimeType = "text/plain";
         if (filename.endsWith(".html")) {
@@ -920,7 +920,7 @@ getAutodocHelp(Json::Value & result, const Utf8String & currentPath,
     result["config"]   = objectValue;
     for (ValueIterator it = tmpResult.begin() ; it != tmpResult.end() ; it++) {
         string key = it.key().asString();
-        vector<string> parts = ML::split(it.key().asString());
+        vector<string> parts = MLDB::split(it.key().asString());
         int size = parts.size();
         if (size == 0) {
             // the empty key contains the description

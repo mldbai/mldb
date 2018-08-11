@@ -15,7 +15,7 @@
 #include <limits.h>
 #include <time.h>
 
-namespace ML {
+namespace MLDB {
 
 inline long sys_futex(void *addr1, int op, int val1, struct timespec *timeout = 0, void *addr2 = 0, int val3 = 0)
 {
@@ -113,4 +113,4 @@ inline void futex_unlock(void * futex)
         futex_wake(lock);
 }
 
-} // namespace ML
+} // namespace MLDB

@@ -12,10 +12,10 @@
 
 #include <memory>
 #include <boost/test/unit_test.hpp>
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/plugins/behavior/mutable_behavior_domain.h"
 #include "mldb/plugins/behavior/bridged_behavior_domain.h"

@@ -20,8 +20,8 @@
 
 #include "mldb/plugins/jml/neural/output_encoder.h"
 #include "mldb/plugins/jml/neural/dense_layer.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
 
 using namespace ML;

@@ -24,7 +24,7 @@
 #include "mldb/types/path.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/base/less.h"
-#include "mldb/jml/utils/hex_dump.h"
+#include "mldb/utils/hex_dump.h"
 
 
 using namespace std;

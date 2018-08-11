@@ -12,11 +12,11 @@
 #include "glz.h"
 #include <boost/timer.hpp>
 #include "mldb/utils/distribution_simd.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/arch/timers.h"
 #include "mldb/plugins/jml/multi_array_utils.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/plugins/jml/algebra/lapack.h"
 #include <cmath>
 #include "mldb/types/enum_description.h"

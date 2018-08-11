@@ -12,13 +12,13 @@
 #include <iostream>
 #include "format.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 
 
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -198,4 +198,4 @@ struct Register_CAL {
     }
 } register_cal;
 
-} // namespace ML
+} // namespace MLDB

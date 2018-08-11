@@ -11,10 +11,10 @@
    Functions to deal with the environment.
 */
 
-#include "environment.h"
+#include "mldb/utils/environment.h"
 
-namespace ML {
+namespace MLDB {
 
 // everything included in arch/environment_static.cc
 
-} // namespace ML
+} // namespace MLDB

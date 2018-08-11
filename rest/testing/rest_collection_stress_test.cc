@@ -7,7 +7,7 @@
 */
 
 #include "mldb/utils/runner.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/rest/rest_collection.h"
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/arch/timers.h"

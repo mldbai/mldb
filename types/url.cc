@@ -259,7 +259,7 @@ hostHash()
 #if 0
 void
 Url::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     unsigned char version = 0;
     store << version << original;
@@ -267,7 +267,7 @@ serialize(ML::DB::Store_Writer & store) const
 
 void
 Url::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     unsigned char version;
     store >> version;

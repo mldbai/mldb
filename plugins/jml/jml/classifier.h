@@ -16,7 +16,7 @@
 #include <any>
 #include <boost/multi_array.hpp>
 #include <string>
-#include "mldb/jml/utils/unnamed_bool.h"
+#include "mldb/utils/pure_bool.h"
 #include "mldb/plugins/jml/jml/label.h"
 
 namespace ML {

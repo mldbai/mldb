@@ -13,8 +13,8 @@
 #include "mldb/rest/etcd_client.h"
 #include <chrono>
 #include <thread>
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/info.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/arch/info.h"
 #include "mldb/utils/command.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/value_description.h"
@@ -141,8 +141,8 @@ inline std::string getEtcdPath()
 {
     filter_istream stream("/proc/self/cmdline");
     std::string val = stream.readAll();
-    std::string exe = ML::split(val, 0).at(0);
-    std::string basename = ML::split(exe, '/').back();
+    std::string exe = MLDB::split(val, 0).at(0);
+    std::string basename = MLDB::split(exe, '/').back();
     std::string result = MLDB::username() + "-" + basename;
     return result;
 }

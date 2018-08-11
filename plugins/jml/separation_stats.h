@@ -68,29 +68,29 @@ struct BinaryStats {
 
     double accuracy() const
     {
-        return ML::xdiv(truePositives() + trueNegatives(),
+        return MLDB::xdiv(truePositives() + trueNegatives(),
                         totalPositives() + totalNegatives());
     }
 
     double precision() const
     {
-        return ML::xdiv(truePositives(), truePositives() + falsePositives());
+        return MLDB::xdiv(truePositives(), truePositives() + falsePositives());
     }
 
     double recall() const
     {
-        return ML::xdiv(truePositives(), totalPositives());
+        return MLDB::xdiv(truePositives(), totalPositives());
     }
 
     double f() const
     {
         double p = precision(), r = recall();
-        return 2.0 * ML::xdiv(p * r, p + r);
+        return 2.0 * MLDB::xdiv(p * r, p + r);
     }
     
     double specificity() const
     {
-        return ML::xdiv(trueNegatives(), trueNegatives() + falsePositives());
+        return MLDB::xdiv(trueNegatives(), trueNegatives() + falsePositives());
     }
 
     // http://en.wikipedia.org/wiki/Matthews_correlation_coefficient
@@ -102,7 +102,7 @@ struct BinaryStats {
                                 (truePositives()+falseNegatives()) *
                                 (trueNegatives()+falsePositives()) *
                                 (trueNegatives()+falseNegatives()));
-    	return ML::xdiv(num, den);
+    	return MLDB::xdiv(num, den);
     }
 
     const Array2D & getCounts(bool weighted) const {
@@ -132,32 +132,32 @@ struct BinaryStats {
 
     double truePositiveRate(bool weighted=true) const
     {
-        return ML::xdiv(truePositives(weighted), totalPositives(weighted));
+        return MLDB::xdiv(truePositives(weighted), totalPositives(weighted));
     }
 
     double falsePositiveRate(bool weighted=true) const
     {
-        return ML::xdiv(falsePositives(weighted), totalNegatives(weighted));
+        return MLDB::xdiv(falsePositives(weighted), totalNegatives(weighted));
     }
 
     double proportionOfPopulation(bool weighted=true) const
     {
-        return ML::xdiv(truePositives(weighted) + falsePositives(weighted), totalPopulation(weighted));
+        return MLDB::xdiv(truePositives(weighted) + falsePositives(weighted), totalPopulation(weighted));
     }
 
     double proportionOfPositives(bool weighted=true) const
     {
-        return ML::xdiv(truePositives(weighted), totalPositives(weighted));
+        return MLDB::xdiv(truePositives(weighted), totalPositives(weighted));
     }
 
     double proportionOfNegatives(bool weighted=true) const
     {
-        return ML::xdiv(falsePositives(weighted), totalNegatives(weighted));
+        return MLDB::xdiv(falsePositives(weighted), totalNegatives(weighted));
     }
 
     double gain() const
     {
-        return ML::xdiv(proportionOfPositives(), proportionOfPopulation());
+        return MLDB::xdiv(proportionOfPositives(), proportionOfPopulation());
     }
 
     /** Calculates the area under the ROC curve between this point and

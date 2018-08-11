@@ -15,11 +15,11 @@
 #include <boost/multi_array.hpp>
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/builtin/intersection_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/ext/svdlibc/svdlib.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/distribution_description.h"
@@ -441,7 +441,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     auto opb_fn = [&] (const double * x, double * y)
     {
         for (unsigned i = 0; i != ndims; i++) {
-            y[i] = ML::SIMD::vec_dotprod_dp(&correlations.correlations[i][0], x, ndims);
+            y[i] = MLDB::SIMD::vec_dotprod_dp(&correlations.correlations[i][0], x, ndims);
         }
     };
 

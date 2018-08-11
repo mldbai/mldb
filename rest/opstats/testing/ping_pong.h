@@ -2,7 +2,7 @@
 
 struct PingConnectionHandler : public ConnectionHandler {
     PingConnectionHandler(std::string & errorWhere,
-                          ML::Semaphore & finished)
+                          MLDB::Semaphore & finished)
         : errorWhere(errorWhere), finished(finished), messages(0)
     {
         constructed = Date::now();
@@ -15,7 +15,7 @@ struct PingConnectionHandler : public ConnectionHandler {
     }
 
     std::string & errorWhere;
-    ML::Semaphore & finished;
+    MLDB::Semaphore & finished;
     int messages;
     Date constructed;
 
