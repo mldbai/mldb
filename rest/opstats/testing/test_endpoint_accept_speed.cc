@@ -38,7 +38,7 @@ void runAcceptSpeedTest()
     
     acceptor.onMakeNewHandler = [&] ()
         {
-            return ML::make_std_sp(new PongConnectionHandler(connectionError));
+            return MLDB::make_std_sp(new PongConnectionHandler(connectionError));
         };
     
     int port = acceptor.init();

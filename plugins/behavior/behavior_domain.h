@@ -978,7 +978,7 @@ struct BehaviorDomain {
     void saveToStream(std::ostream & stream,
                       ssize_t maxSubjectBehaviors = KEEP_ALL_BEHAVIORS);
 
-    uint64_t serialize(ML::DB::Store_Writer & store,
+    uint64_t serialize(MLDB::DB::Store_Writer & store,
                        ssize_t maxSubjectBehaviors = KEEP_ALL_BEHAVIORS);
 
     Date unQuantizeTime(uint64_t tm) const

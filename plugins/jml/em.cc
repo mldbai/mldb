@@ -52,7 +52,7 @@ double gaussianDistance(const distribution<double> & pt,
     double distance
         = (1.0f / (pow(2.0f * 3.14159, pt.size() / 2.0f)
                    * sqrt(determinantCovMatrix))) 
-        * exp(value_exponent);
+        * std::exp(value_exponent);
     
     return distance;
 
@@ -329,7 +329,7 @@ assign(const distribution<double> & point,
 
 void
 EstimationMaximisation::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     std::string name = "em";
     int version = 1;
@@ -348,7 +348,7 @@ serialize(ML::DB::Store_Writer & store) const
 
 void
 EstimationMaximisation::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     std::string name;
     store >> name;

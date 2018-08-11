@@ -14,8 +14,8 @@
 #include <vector>
 #include <boost/test/unit_test.hpp>
 #include "arch/exception.h"
-#include "jml/utils/string_functions.h"
-#include "jml/utils/vector_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/json.h"
 #include "mldb/types/any_impl.h"

@@ -10,8 +10,8 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include "mldb/jml/utils/info.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/arch/info.h"
+#include "mldb/utils/environment.h"
 #include "mldb/arch/exception.h"
 
 #include <boost/test/unit_test.hpp>

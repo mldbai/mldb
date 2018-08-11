@@ -14,7 +14,7 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/arch/exception.h"
 
-namespace ML {
+namespace MLDB {
 namespace Stats {
 
 #if 0
@@ -25,4 +25,4 @@ void wrong_sizes_exception()
 #endif
 
 } // namespace Stats
-} // namespace ML
+} // namespace MLDB

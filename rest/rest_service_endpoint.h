@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/date.h"
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/event_loop.h"

@@ -12,8 +12,8 @@
 #include "training_index.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 
 using namespace std;
@@ -21,7 +21,7 @@ using namespace MLDB;
 
 namespace ML {
 
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 const Feature_Info MISSING_FEATURE_INFO(INUTILE);

@@ -15,7 +15,7 @@
 #include <vector>
 #include "mldb/arch/format.h"
 
-namespace ML {
+namespace MLDB {
 
 
 template<typename T>
@@ -65,4 +65,4 @@ unsigned replace_all(std::string & haystack, const std::string & search,
  * string. */
 std::string trim(const std::string & other);
 
-} // namespace ML
+} // namespace MLDB

@@ -16,8 +16,8 @@
 #include <vector>
 #include <boost/test/unit_test.hpp>
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
 
 #include "mldb/builtin/for_each_line.h"
 

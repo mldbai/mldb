@@ -5,7 +5,7 @@
 
    Quick and easy way to throw an exception on a failed condition.
 
-   Note that when a check fails, the macro will issue a call to ML::do_abort().
+   Note that when a check fails, the macro will issue a call to MLDB::do_abort().
    This makes the macros more debugger friendly in certain situations.
 
 */

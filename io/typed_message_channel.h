@@ -21,7 +21,7 @@ namespace MLDB {
 
 template<typename Message>
 struct TypedMessageChannel {
-    ML::RingBufferSRMW<Message> buf;
+    MLDB::RingBufferSRMW<Message> buf;
 };
 
 template<typename Message>
@@ -82,8 +82,8 @@ struct TypedMessageSink: public AsyncEventSource {
     }
     uint64_t size() const { return buf.ring.size() ; }
 private:
-    ML::WakeupFd wakeup;
-    ML::RingBufferSRMW<Message> buf;
+    MLDB::WakeupFd wakeup;
+    MLDB::RingBufferSRMW<Message> buf;
 };
 
 
@@ -202,7 +202,7 @@ private:
     std::queue<Message> queue_;
     size_t maxMessages_;
 
-    ML::WakeupFd wakeup_;
+    MLDB::WakeupFd wakeup_;
 
     /* notifications are pending */
     bool pending_;

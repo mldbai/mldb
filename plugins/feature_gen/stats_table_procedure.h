@@ -46,8 +46,8 @@ struct StatsTable {
     const BucketCounts & getCounts(const CellValue & val) const;
 
     void save(const std::string & filename) const;
-    void serialize(ML::DB::Store_Writer & store) const;
-    void reconstitute(ML::DB::Store_Reader & store);
+    void serialize(MLDB::DB::Store_Writer & store) const;
+    void reconstitute(MLDB::DB::Store_Reader & store);
 
     ColumnPath colName;
 

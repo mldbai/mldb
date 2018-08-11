@@ -41,9 +41,7 @@ class const_multi_array_ref;
 
 } // namespace boost
 
-namespace ML {
-using namespace MLDB;
-
+namespace MLDB {
 namespace DB {
 
 
@@ -253,7 +251,7 @@ void save(portable_bin_oarchive & archive,
           const boost::const_multi_array_ref<T, NumDims, TPtr> & arr)
 {
     char version = 1;
-    using ML::DB::save;
+    using MLDB::DB::save;
     save(archive, version);
     char nd = NumDims;
     save(archive, nd);
@@ -272,7 +270,7 @@ template<typename T1, typename T2>
 void save(portable_bin_oarchive & archive,
           const std::pair<T1, T2> & p)
 {
-    using ML::DB::save;
+    using MLDB::DB::save;
     save(archive, p.first);
     save(archive, p.second);
 }
@@ -288,4 +286,4 @@ void save(portable_bin_oarchive & archive,
 
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB

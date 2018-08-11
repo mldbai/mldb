@@ -10,7 +10,7 @@
 
 #include "mldb/plugins/jml/jml/committee.h"
 #include <memory>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/jml/db/persistent.h"
 
 #include "classifier_persist_impl.h"
@@ -18,7 +18,7 @@
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 namespace ML {

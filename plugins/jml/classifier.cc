@@ -17,10 +17,10 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/set_description.h"
 #include "mldb/plugins/jml/value_descriptions.h"
@@ -35,7 +35,7 @@
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/plugins/jml/jml/onevsall_generator.h"
 #include "mldb/base/map_reduce.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/engine/analytics.h"
 #include "mldb/base/per_thread_accumulator.h"
 #include "mldb/base/parallel_merge_sort.h"
@@ -252,12 +252,15 @@ run(const ProcedureRunConfig & run,
 
     auto algorithm = runProcConf.algorithm;
 
-    std::shared_ptr<ML::Classifier_Generator> trainer = ML::get_trainer(runProcConf.algorithm,
+    std::shared_ptr<ML::Classifier_Generator> trainer
+        = ML::get_trainer(runProcConf.algorithm,
                           classifierConfig);
 
     std::shared_ptr<ML::OneVsAll_Classifier_Generator> multilabelGenerator;
-    if (runProcConf.mode == CM_MULTILABEL && runProcConf.multilabelStrategy == MULTILABEL_ONEVSALL) {
-        multilabelGenerator = make_shared<OneVsAll_Classifier_Generator>(trainer);
+    if (runProcConf.mode == CM_MULTILABEL
+        && runProcConf.multilabelStrategy == MULTILABEL_ONEVSALL) {
+        multilabelGenerator
+            = make_shared<ML::OneVsAll_Classifier_Generator>(trainer);
         trainer = multilabelGenerator;
     }
 

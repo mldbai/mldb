@@ -104,10 +104,10 @@ struct DenseClassifierScorer : virtual public Scorer {
                            const std::any & args) const;
 
     /** Serialize to disk. */
-    virtual void serialize(ML::DB::Store_Writer & store) const;
+    virtual void serialize(MLDB::DB::Store_Writer & store) const;
 
     /** Reconstitute from disk. */
-    virtual void reconstitute(ML::DB::Store_Reader & store);
+    virtual void reconstitute(MLDB::DB::Store_Reader & store);
 
     /** Save to disk. */
     void save(const std::string & filename) const;
@@ -204,7 +204,7 @@ struct DenseClassifierScorerT
     }
 
     /** Reconstitute from disk. */
-    virtual void reconstitute(ML::DB::Store_Reader & store)
+    virtual void reconstitute(MLDB::DB::Store_Reader & store)
     {
         DenseClassifierScorer::reconstitute(store);
         initFeatureGeneratorCast();

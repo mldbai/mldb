@@ -14,7 +14,7 @@
 #include "mldb/http/http_client.h"
 #include "mldb/io/legacy_event_loop.h"
 #include "mldb/io/message_loop.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/credentials/credentials.h"
 #include "mldb/credentials/credential_provider.h"
 #include "mldb/utils/testing/print_utils.h"
@@ -1807,7 +1807,7 @@ struct RegisterS3CredProvider {
             const char * home = getenv("HOME");
             if (home != NULL)
                 filename = home + string("/.cloud_credentials");
-            if (filename != "" && ML::fileExists(filename)) {
+            if (filename != "" && MLDB::fileExists(filename)) {
                 std::ifstream stream(filename.c_str());
                 int lineNum = 1;
                 for (; stream;  ++lineNum) {
@@ -1819,7 +1819,7 @@ struct RegisterS3CredProvider {
                     if (line.find("s3") != 0)
                         continue;
 
-                    vector<string> fields = ML::split(line, '\t');
+                    vector<string> fields = MLDB::split(line, '\t');
 
                     if (fields[0] != "s3")
                         continue;
@@ -1890,7 +1890,7 @@ struct RegisterS3CredProvider {
             init("S3EnvironmentCredentialProvider",
                  getEnv("S3_KEY_ID"),
                  getEnv("S3_KEY"),
-                 ML::split(getEnv("S3_BUCKETS"), ','));
+                 MLDB::split(getEnv("S3_BUCKETS"), ','));
         }
     };
 

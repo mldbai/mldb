@@ -13,13 +13,13 @@
 #include <boost/progress.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/plugins/jml/algebra/lapack.h"
 #include "mldb/plugins/jml/algebra/least_squares.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <cassert>
 
 using namespace std;

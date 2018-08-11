@@ -11,7 +11,7 @@
 #pragma once
 
 #include <vector>
-#include "mldb/jml/utils/float_traits.h"
+#include "mldb/utils/float_traits.h"
 #include "mldb/arch/integer.h"
 #include "mldb/arch/exception.h"
 #include <numeric>
@@ -20,7 +20,7 @@
 #include <cmath>
 #include <ostream>
 #include <functional>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 #include <type_traits>
 

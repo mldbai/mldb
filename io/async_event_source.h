@@ -193,7 +193,7 @@ struct WakeupEventSource : public AsyncEventSource {
     virtual bool processOne();
 
 private:    
-    ML::WakeupFd wakeup;
+    MLDB::WakeupFd wakeup;
 };
 #endif
 

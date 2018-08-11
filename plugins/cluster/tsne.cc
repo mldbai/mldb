@@ -15,10 +15,10 @@
 #include <boost/multi_array.hpp>
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
@@ -115,7 +115,7 @@ struct TsneItl {
     TsneItl(const Url & filename)
     {
         filter_istream stream(filename);
-        ML::DB::Store_Reader store(stream);
+        MLDB::DB::Store_Reader store(stream);
 
         reconstitute(store);
 
@@ -146,13 +146,13 @@ struct TsneItl {
     void save(const std::string & filename) const
     {
         filter_ostream stream(filename);
-        ML::DB::Store_Writer store(stream);
+        MLDB::DB::Store_Writer store(stream);
         serialize(store);
     }
 
-    void serialize(ML::DB::Store_Writer & store) const
+    void serialize(MLDB::DB::Store_Writer & store) const
     {
-        using namespace ML::DB;
+        using namespace MLDB::DB;
 
         store << string("TSNE") << compact_size_t(2);
         
@@ -173,9 +173,9 @@ struct TsneItl {
         qtree->serialize(store);
     }
 
-    void reconstitute(ML::DB::Store_Reader & store)
+    void reconstitute(MLDB::DB::Store_Reader & store)
     {
-        using namespace ML::DB;
+        using namespace MLDB::DB;
 
         string tag;
         store >> tag;

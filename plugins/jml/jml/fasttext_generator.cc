@@ -10,7 +10,7 @@
 #include "mldb/plugins/jml/jml/registry.h"
 #include <boost/timer.hpp>
 #include "training_index.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/parallel.h"
 #include "mldb/plugins/jml/jml/feature_map.h"

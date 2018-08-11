@@ -1,14 +1,10 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* distribution_pooler.cc
    Francois Maillet, Oct 23, 2012
    Copyright (c) 2011 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "distribution_pooler.h"
-
-using namespace std;
-using namespace ML;
 
 #include <math.h>
 #include <iostream>
@@ -17,6 +13,8 @@ using namespace ML;
 #include <limits>
 #include <set>
 
+
+using namespace std;
 
 
 namespace MLDB {

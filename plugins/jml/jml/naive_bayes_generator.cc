@@ -17,7 +17,7 @@
 #include "stump_training.h"
 #include "stump_training_core.h"
 #include "mldb/utils/distribution_ops.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 
 using namespace std;

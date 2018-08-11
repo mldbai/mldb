@@ -16,8 +16,6 @@
 #include "fslock.h"
 
 using namespace std;
-using namespace ML;
-
 
 namespace {
 
@@ -39,7 +37,9 @@ private:
     Fn fn_;
 };
 
-}
+} // file scope
+
+namespace MLDB {
 
 /****************************************************************************/
 /* GUARDED FS LOCK                                                          */
@@ -276,3 +276,5 @@ recoverMutex()
         throw MLDB::Exception(error, "pthread_mutex_unlock");
     }
 }
+
+} // namespace MLDB

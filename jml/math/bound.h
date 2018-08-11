@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* bound.h                                                         -*- C++ -*-
    Jeremy Barnes, 15 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-      
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
    ---
@@ -11,12 +9,11 @@
    Bound function.  Returns a value bounded by a minimum and maximum.
 */
 
-#ifndef __math__bound_h__
-#define __math__bound_h__
+#pragma once
 
-#include "mldb/jml/utils/float_traits.h"
+#include "mldb/utils/float_traits.h"
 
-namespace ML {
+namespace MLDB {
 
 template<class X, class Y, class Z>
 typename float_traits3<X, Y, Z>::return_type
@@ -36,6 +33,4 @@ X bound(X x, X min, X max)
     return x;
 }
 
-} // namespace ML
-
-#endif /* __math__bound_h__ */
+} // namespace MLDB

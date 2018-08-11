@@ -14,7 +14,7 @@
 #include "persistent.h"
 #include <sstream>
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 
@@ -67,4 +67,5 @@ private:
 };
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB
+

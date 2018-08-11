@@ -11,7 +11,7 @@
 #include "mldb/builtin/matrix.h"
 #include "mldb/engine/analytics.h"
 #include "types/any_impl.h"
-#include "jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "arch/timers.h"
 #include "types/optional_description.h"
 #include "mldb/builtin/sql_config_validator.h"

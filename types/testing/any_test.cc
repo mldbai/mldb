@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* any_test.cc                                        -*- C++ -*-
    Sunil Rottoo, April 2015
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test any functionality
 */
@@ -15,13 +14,12 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 
 #include "mldb/types/any.h"
 #include "mldb/types/basic_value_descriptions.h"
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_any_float )

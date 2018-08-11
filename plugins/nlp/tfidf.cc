@@ -14,8 +14,8 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
@@ -31,7 +31,7 @@ using namespace std;
 
 namespace {
 void
-serialize(ML::DB::Store_Writer & store,
+serialize(MLDB::DB::Store_Writer & store,
           uint64_t corpusSize,
           const std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
@@ -47,7 +47,7 @@ serialize(ML::DB::Store_Writer & store,
 }
 
 void
-reconstitute(ML::DB::Store_Reader & store,
+reconstitute(MLDB::DB::Store_Reader & store,
              uint64_t & corpusSize,
              std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
@@ -82,7 +82,7 @@ save(const std::string & filename,
      const std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
     MLDB::filter_ostream stream(filename);
-    ML::DB::Store_Writer store(stream);
+    MLDB::DB::Store_Writer store(stream);
     serialize(store, corpusSize, dfs);
 }
 
@@ -92,7 +92,7 @@ load(const std::string & filename,
      std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
     MLDB::filter_istream stream(filename);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     reconstitute(store, corpusSize, dfs);
 }
 }

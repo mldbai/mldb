@@ -16,7 +16,7 @@
 #include <string>
 #include <stdint.h>
 
-namespace ML {
+namespace MLDB {
 
 
 size_t get_file_size(int fd);
@@ -100,4 +100,4 @@ public:
     class Mem_Region;
 };
 
-} // namespace ML
+} // namespace MLDB

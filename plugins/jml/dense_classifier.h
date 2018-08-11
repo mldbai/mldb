@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* dense_classifier.h                                              -*- C++ -*-
    Jeremy Barnes, 12 May 2012
 
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Convenience dense classifier class.
 */
 
-#ifndef __ml__dense_classifier_h__
-#define __ml__dense_classifier_h__
+#pragma once
 
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
@@ -46,7 +44,7 @@ struct DenseClassifier {
 
     /** Reconstitute from the given store to run on the given feature
         space. */
-    void reconstitute(ML::DB::Store_Reader & store,
+    void reconstitute(MLDB::DB::Store_Reader & store,
                       std::shared_ptr<ML::Dense_Feature_Space> fs);
     
     /** Initialize from the given classifier with the given input
@@ -58,7 +56,7 @@ struct DenseClassifier {
     void save(const std::string & filename) const;
 
     /** Serialize the classifier to the given file. */
-    void serialize(ML::DB::Store_Writer & store) const;
+    void serialize(MLDB::DB::Store_Writer & store) const;
 
     /** Calculate the score for a given feature set. */
     float score(const distribution<float> & features) const;
@@ -133,5 +131,3 @@ private:
 };
 
 } // namespace MLDB
-
-#endif /* __ml__dense_classifier_h__ */

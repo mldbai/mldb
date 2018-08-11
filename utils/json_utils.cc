@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** json_utils.cc
     Jeremy Barnes, 10 November 2013
     Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Utilities for JSON values.
 */
 
 #include <algorithm>
 #include "json_utils.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/ext/highwayhash.h"
 #include "mldb/types/json_parsing.h"
 #include "mldb/types/json_printing.h"
@@ -18,7 +17,6 @@
 
 
 using namespace std;
-using namespace ML;
 
 
 namespace {
@@ -51,7 +49,7 @@ std::string
 jsonPrintAbbreviatedString(const Json::Value & val,
                            int maxLength)
 {
-    string s = ML::trim(val.toString());
+    string s = MLDB::trim(val.toString());
     if (maxLength < 0)
         return s;
     if (s.length() < maxLength)
@@ -62,7 +60,7 @@ jsonPrintAbbreviatedString(const Json::Value & val,
     string contents = val.asString();
     string reduced(contents, 0, maxLength);
 
-    return ML::trim(Json::Value(reduced).toString()) + "...";
+    return MLDB::trim(Json::Value(reduced).toString()) + "...";
 }
 
 std::string
@@ -133,7 +131,7 @@ jsonPrintAbbreviated(const Json::Value & val,
     case Json::stringValue:
         return jsonPrintAbbreviatedString(val, maxLengthPerItem);
     default:
-        return ML::trim(val.toString());
+        return MLDB::trim(val.toString());
     }
 }
 

@@ -1,10 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* portable_oarchive.cc
    Jeremy Barnes, 20 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
@@ -19,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 
@@ -65,4 +62,4 @@ save(const Nested_Writer & writer)
 }
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB

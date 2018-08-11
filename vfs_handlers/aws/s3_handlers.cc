@@ -12,7 +12,7 @@
 #include <thread>
 #include <chrono>
 #include <boost/iostreams/stream_buffer.hpp>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/base/hash.h"
 #include "mldb/types/url.h"
@@ -238,7 +238,7 @@ struct S3Downloader {
     {
         closed = true;
         while (activeRqs > 0) {
-            ML::futex_wait(activeRqs, activeRqs);
+            MLDB::futex_wait(activeRqs, activeRqs);
         }
         excPtrHandler.rethrowIfSet();
     }
@@ -280,7 +280,7 @@ private:
             ExcAssertEqual(state, QUERY);
             data = move(newData);
             setState(RESPONSE);
-            ML::futex_wake(state);
+            MLDB::futex_wake(state);
         }
 
         std::string retrieve()
@@ -294,7 +294,7 @@ private:
         void setState(int newState)
         {
             state = newState;
-            ML::futex_wake(state);
+            MLDB::futex_wake(state);
         }
 
         bool isIdle()
@@ -309,7 +309,7 @@ private:
             if (timeout > 0.0) {
                 int old = state;
                 if (state != RESPONSE) {
-                    ML::futex_wait(state, old, timeout);
+                    MLDB::futex_wait(state, old, timeout);
                 }
             }
 
@@ -416,7 +416,7 @@ private:
             excPtrHandler.takeCurrentException();
         }
         activeRqs--;
-        ML::futex_wake(activeRqs);
+        MLDB::futex_wake(activeRqs);
     }
 
     size_t getChunkSize(unsigned int chunkNbr)
@@ -626,7 +626,7 @@ struct S3Uploader {
             ExcAssert(current.size() > 0);
         }
         while (activeRqs == metadata.numRequests) {
-            ML::futex_wait(activeRqs, activeRqs);
+            MLDB::futex_wait(activeRqs, activeRqs);
         }
         if (excPtrHandler.hasException() && onException) {
             onException(current_exception());
@@ -679,7 +679,7 @@ struct S3Uploader {
             excPtrHandler.takeCurrentException();
         }
         activeRqs--;
-        ML::futex_wake(activeRqs);
+        MLDB::futex_wake(activeRqs);
     }
 
     string close()
@@ -693,7 +693,7 @@ struct S3Uploader {
             flush(true);
         }
         while (activeRqs > 0) {
-            ML::futex_wait(activeRqs, activeRqs);
+            MLDB::futex_wait(activeRqs, activeRqs);
         }
         if (excPtrHandler.hasException() && onException) {
             onException(current_exception());

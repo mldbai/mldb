@@ -13,14 +13,14 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/distribution_ops.h"
 #include "stump_training.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 #include "mldb/plugins/jml/multi_array_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 /*****************************************************************************/
@@ -281,7 +281,7 @@ predict(const Feature_Set & feature_set,
     //cerr << "result (before exp) = " << result << endl;
 
     for (unsigned l = 0;  l < label_count();  ++l)
-        result[l] = exp(result[l]) * label_priors[l];
+        result[l] = MLDB::exp(result[l]) * label_priors[l];
 
     //cerr << "result (before norm) = " << result << endl;
     

@@ -13,7 +13,7 @@
 
 namespace MLDB {
 
-inline ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, const Id & id)
+inline MLDB::DB::Store_Writer & operator << (MLDB::DB::Store_Writer & store, const Id & id)
 {
     unsigned typeToSerialize = id.type;
     if (typeToSerialize == Id::SHORTSTR)
@@ -55,7 +55,7 @@ inline ML::DB::Store_Writer & operator << (ML::DB::Store_Writer & store, const I
     return store;
 }
 
-inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Id & id)
+inline MLDB::DB::Store_Reader & operator >> (MLDB::DB::Store_Reader & store, Id & id)
 {
     using namespace std;
     Id r;

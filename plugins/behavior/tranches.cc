@@ -7,7 +7,7 @@
 */
 
 #include "tranches.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/types/value_description.h"
 

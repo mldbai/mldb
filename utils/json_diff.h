@@ -13,7 +13,7 @@
 #include <map>
 #include <string>
 #include "mldb/ext/jsoncpp/json.h"
-#include "mldb/jml/utils/unnamed_bool.h"
+#include "mldb/utils/pure_bool.h"
 #include "mldb/types/value_description_fwd.h"
 
 namespace MLDB {

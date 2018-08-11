@@ -18,8 +18,8 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/utils/runner.h"
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     std::atomic<int> done(false);
     auto onTerminate = [&] (const RunResult & result) {
         done = true;
-        ML::futex_wake(done);
+        MLDB::futex_wake(done);
     };
 
     auto onStdOut = [&] (string && message) {
@@ -177,13 +177,13 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     stdInSink.requestClose();
 
     while (!done) {
-        ML::futex_wait(done, false);
+        MLDB::futex_wait(done, false);
     }
 
-    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut),
-                      ML::hexify_string(expectedStdOut));
-    BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdErr),
-                      ML::hexify_string(expectedStdErr));
+    BOOST_CHECK_EQUAL(MLDB::hexify_string(receivedStdOut),
+                      MLDB::hexify_string(expectedStdOut));
+    BOOST_CHECK_EQUAL(MLDB::hexify_string(receivedStdErr),
+                      MLDB::hexify_string(expectedStdErr));
 
     loop.shutdown();
 }
@@ -401,8 +401,8 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
         runner.waitRunning();
         runner.waitTermination();
 
-        BOOST_CHECK_EQUAL(ML::hexify_string(receivedStdOut),
-                          ML::hexify_string(expectedStdOut));
+        BOOST_CHECK_EQUAL(MLDB::hexify_string(receivedStdOut),
+                          MLDB::hexify_string(expectedStdOut));
     };
 
     for (int i = 0; i < 5; i++) {
@@ -740,7 +740,7 @@ BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
                  + "; terminateCount: " + to_string(terminateCount)
                  + "\n");
         terminateCount++;
-        ML::futex_wake(terminateCount);
+        MLDB::futex_wake(terminateCount);
     };
     for (int i = 0; i < maxRuns; i++) {
         auto onTerminate = [=] (const RunResult & result) {
@@ -753,7 +753,7 @@ BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
 
     while (terminateCount < maxRuns) {
         int current(terminateCount);
-        ML::futex_wait(terminateCount, current);
+        MLDB::futex_wait(terminateCount, current);
     }
 
     loop.shutdown();

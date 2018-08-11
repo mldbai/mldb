@@ -18,7 +18,7 @@
 #include <thread>
 #include "mldb/io/message_loop.h"
 #include <boost/algorithm/string.hpp>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 #include <sys/wait.h>
 
@@ -77,7 +77,7 @@ struct TestPeer: public ServicePeer {
         auto runPulseThread = [&] ()
             {
                 while (!shutdown_) {
-                    ML::futex_wait(shutdown_, 0, 0.1);
+                    MLDB::futex_wait(shutdown_, 0, 0.1);
                     if (shutdown_)
                         return;
 
@@ -92,7 +92,7 @@ struct TestPeer: public ServicePeer {
     {
         ServicePeer::shutdown();
         shutdown_ = true;
-        ML::futex_wake(shutdown_);
+        MLDB::futex_wake(shutdown_);
         if (pulseThread) {
             pulseThread->join();
             pulseThread.reset();
@@ -246,7 +246,7 @@ struct ForkedTestPeer {
 
             // Never exit
             while (true) {
-                ML::sleep(10.0);
+                MLDB::sleep(10.0);
             }
         }
 
@@ -313,7 +313,7 @@ struct ForkedTestPeer: public Runner {
         {
             cerr << "test peer wrote output " << data << endl;
             std::unique_lock<std::mutex> guard(runResultLock);
-            httpAddr = ML::trim(data);
+            httpAddr = MLDB::trim(data);
             started.unlock();
         };
 

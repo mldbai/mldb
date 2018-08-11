@@ -31,7 +31,7 @@ as() const
         return *reinterpret_cast<T *>(obj_.get());
 
     // Otherwise, go into RTTI and see if we can make it happen
-    //const void * res = ML::is_convertible(*type_, typeid(T), obj_.get());
+    //const void * res = MLDB::is_convertible(*type_, typeid(T), obj_.get());
     //if (res)
     //    return *reinterpret_cast<const T *>(res);
 
@@ -51,7 +51,7 @@ convert(const ValueDescription & desc) const
         return *reinterpret_cast<T *>(obj_.get());
 
     // Otherwise, go into RTTI and see if we can make it happen
-    //const void * res = ML::is_convertible(*type_, typeid(T), obj_.get());
+    //const void * res = MLDB::is_convertible(*type_, typeid(T), obj_.get());
     //if (res)
     //    return *reinterpret_cast<const T *>(res);
 

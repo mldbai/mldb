@@ -9,7 +9,7 @@
 
 #include "rt.h"
 
-namespace ML {
+namespace MLDB {
 
 bool makeThreadRealTime(unsigned long long handle,
                         int priority)
@@ -27,5 +27,5 @@ bool makeThreadRealTime(unsigned long long handle,
     return true;
 }
 
-} // namespace ML
+} // namespace MLDB
 

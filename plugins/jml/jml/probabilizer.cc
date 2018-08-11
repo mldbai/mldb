@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* probabilizer.cc
    Jeremy Barnes, 13 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -18,8 +16,8 @@
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include "mldb/jml/utils/environment.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/environment.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
@@ -35,7 +33,7 @@
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 using std::sqrt;
 

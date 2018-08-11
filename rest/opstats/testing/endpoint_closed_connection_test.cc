@@ -10,10 +10,10 @@
 
 #include <boost/test/unit_test.hpp>
 #include "mldb/arch/format.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/hex_dump.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/hex_dump.h"
+#include "mldb/utils/environment.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/arch/futex.h"
 #include <chrono>
@@ -34,7 +34,7 @@ using namespace MLDB;
 
 BOOST_AUTO_TEST_CASE( test_protocol_dump )
 {
-    ML::set_default_trace_exceptions(false);
+    MLDB::set_default_trace_exceptions(false);
 
     std::function<std::shared_ptr<JsonConnectionHandler> ()> handlerFactory;
 
@@ -208,7 +208,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
         cerr << "done " << doneRequests << " requests" << endl;
     }
 
-    //ML::sleep(10.0);
+    //MLDB::sleep(10.0);
 
     shutdown = true;
     futex_wake(shutdown);

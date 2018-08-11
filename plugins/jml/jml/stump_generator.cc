@@ -22,10 +22,10 @@
 #include "stump_accum.h"
 #include "stump_regress.h"
 #include "binary_symmetric.h"
-#include "mldb/jml/utils/environment.h"
-#include "mldb/jml/utils/info.h"
+#include "mldb/utils/environment.h"
+#include "mldb/arch/info.h"
 #include "mldb/arch/tick_counter.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include <cassert>
 
 using namespace std;

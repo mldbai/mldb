@@ -11,7 +11,7 @@
 #define __jml__neural__layer_stack_impl_h__
 
 #include "layer_stack.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/jml/db/persistent.h"
 #include "auto_encoder_stack.h"
 

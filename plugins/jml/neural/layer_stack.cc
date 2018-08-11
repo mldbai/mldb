@@ -30,7 +30,7 @@ LAYER_STACK_REGISTER("Layer_Stack");
 
 void
 DNAE_Stack::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     store << (char)1; // version
     store << compact_size_t(size());
@@ -40,7 +40,7 @@ serialize(ML::DB::Store_Writer & store) const
 
 void
 DNAE_Stack::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     char version;
     store >> version;

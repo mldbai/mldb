@@ -9,7 +9,7 @@
 #include "mldb/engine/dataset_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/sql/sql_expression.h"

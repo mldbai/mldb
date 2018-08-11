@@ -11,7 +11,7 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/annotated_exception.h"
-#include "mldb/jml/utils/buckets.h"
+#include "mldb/utils/buckets.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/string.h"
 

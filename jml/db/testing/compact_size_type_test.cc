@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* compact_size_type_test.cc
    Jeremy Barnes, 12 August 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Testing for the compact size type.
 */
@@ -11,17 +10,17 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/base/scope.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/jml/db/compact_size_types.h"
-#include "mldb/jml/utils/hex_dump.h"
+#include "mldb/utils/hex_dump.h"
 #include <boost/test/unit_test.hpp>
 
 #include <sstream>
 
-using namespace ML;
-using namespace ML::DB;
+using namespace MLDB;
+using namespace MLDB::DB;
 using namespace std;
 
 using boost::unit_test::test_suite;

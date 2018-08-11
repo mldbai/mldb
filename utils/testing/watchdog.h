@@ -12,7 +12,7 @@
 #include <iostream>
 #include <signal.h>
 
-namespace ML {
+namespace MLDB {
 
 struct Watchdog {
     bool finished;
@@ -60,4 +60,4 @@ struct Watchdog {
     }
 };
 
-} // namespace ML
+} // namespace MLDB

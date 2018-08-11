@@ -10,7 +10,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/arch/exception.h"
 #include "mldb/base/scope.h"
-#include "mldb/jml/utils/info.h"
+#include "mldb/arch/info.h"
 #include "mldb/base/scope.h"
 
 #include <sys/types.h>

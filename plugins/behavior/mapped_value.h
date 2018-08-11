@@ -9,7 +9,7 @@
 #pragma once
 
 
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/arch/exception.h"
 #include "mldb/plugins/behavior/id.h"
 #include "mldb/compiler/compiler.h"
@@ -20,7 +20,7 @@
 namespace MLDB {
 
 /** Return the last 8 bytes of the buffer as an offset. */
-uint64_t readTrailingOffset(const ML::File_Read_Buffer & buf);
+uint64_t readTrailingOffset(const MLDB::File_Read_Buffer & buf);
 
 
 /*****************************************************************************/
@@ -40,7 +40,7 @@ struct MappedValue {
         ptr = reinterpret_cast<const T *>(start + offset);
     }
 
-    void init(const ML::File_Read_Buffer & buf, uint64_t offset)
+    void init(const MLDB::File_Read_Buffer & buf, uint64_t offset)
     {
         init(buf.start(), offset);
         if (buf.start() + offset + sizeof(T) > buf.end())
@@ -73,7 +73,7 @@ struct MappedArray {
     {
     }
 
-    void init(const ML::File_Read_Buffer & buf,
+    void init(const MLDB::File_Read_Buffer & buf,
               uint64_t offset,
               int len)
     {

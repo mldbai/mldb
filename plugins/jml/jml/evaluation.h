@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* evaluation.h                                                    -*- C++ -*-
    Jeremy Barnes, 16 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Functions to ease evaluation of correctness.
 */
@@ -17,6 +16,8 @@
 
 namespace ML {
 
+using MLDB::distribution;
+    
 struct Correctness {
     Correctness(float correct = 0.0, float possible = 0.0, float margin = 0.0)
         : correct(correct), possible(possible), margin(margin)

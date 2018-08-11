@@ -16,7 +16,7 @@
 #include "mldb/builtin/matrix.h"
 #include "mldb/engine/analytics.h"
 #include "types/any_impl.h"
-#include "jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/builtin/sql_functions.h"
 #include "sql/execution_pipeline.h"
 #include "mldb/engine/bound_queries.h"
@@ -35,14 +35,14 @@ using namespace std;
 
 namespace MLDB {
 
-ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const PathElement & coord)
+MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const PathElement & coord)
 {
     return store << coord.toUtf8String();
 }
 
-ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, PathElement & coord)
+MLDB::DB::Store_Reader &
+operator >> (MLDB::DB::Store_Reader & store, PathElement & coord)
 {
     Utf8String id;
     store >> id;
@@ -50,14 +50,14 @@ operator >> (ML::DB::Store_Reader & store, PathElement & coord)
     return store;
 }
 
-ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Path & coords)
+MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const Path & coords)
 {
     return store << coords.toUtf8String();
 }
 
-ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Path & coords)
+MLDB::DB::Store_Reader &
+operator >> (MLDB::DB::Store_Reader & store, Path & coords)
 {
     Utf8String str;
     store >> str;
@@ -73,7 +73,7 @@ StatsTable::
 StatsTable(const std::string & filename)
 {
     filter_istream stream(filename);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     reconstitute(store);
 }
 
@@ -113,12 +113,12 @@ void StatsTable::
 save(const std::string & filename) const
 {
     filter_ostream stream(filename);
-    ML::DB::Store_Writer store(stream);
+    MLDB::DB::Store_Writer store(stream);
     serialize(store);
 }
 
 void StatsTable::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     int version = 2;
     store << string("MLDB Stats Table Binary")
@@ -126,7 +126,7 @@ serialize(ML::DB::Store_Writer & store) const
 }
 
 void StatsTable::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     int version;
     int REQUIRED_V = 2;
@@ -346,7 +346,7 @@ run(const ProcedureRunConfig & run,
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
         filter_ostream stream(runProcConf.modelFileUrl);
-        ML::DB::Store_Writer store(stream);
+        MLDB::DB::Store_Writer store(stream);
         store << statsTables;
     }
 
@@ -393,7 +393,7 @@ StatsTableFunction(MldbEngine * owner,
 
     // Load saved stats tables
     filter_istream stream(functionConfig.modelFileUrl);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     store >> statsTables;
 }
 
@@ -529,7 +529,7 @@ run(const ProcedureRunConfig & run,
 
     // Load saved stats tables
     filter_istream stream(runProcConf.modelFileUrl);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
 
     StatsTablesMap statsTables;
     store >> statsTables;
@@ -550,7 +550,7 @@ run(const ProcedureRunConfig & run,
     auto do_replace = [&] (const std::string & outcome)
         {
             for(int i=0; i<tempExpressions.size(); i++) {
-                if(!ML::replace_all(tempExpressions[i], outcome,
+                if(!MLDB::replace_all(tempExpressions[i], outcome,
                                     outcome+"."+stNames[i]))
                     return;
             }
@@ -563,7 +563,7 @@ run(const ProcedureRunConfig & run,
 
     // replace explicit $tbl
     for(int i=0; i<tempExpressions.size(); i++) {
-        if(!ML::replace_all(tempExpressions[i], "$tbl", stNames[i]))
+        if(!MLDB::replace_all(tempExpressions[i], "$tbl", stNames[i]))
             break;
     }
 
@@ -785,7 +785,7 @@ run(const ProcedureRunConfig & run,
     // save if required
     if(!runProcConf.modelFileUrl.empty()) {
         filter_ostream stream(runProcConf.modelFileUrl);
-        ML::DB::Store_Writer store(stream);
+        MLDB::DB::Store_Writer store(stream);
         store << statsTable;
     }
 
@@ -844,7 +844,7 @@ StatsTablePosNegFunction(MldbEngine * owner,
 
     // Load saved stats tables
     filter_istream stream(functionConfig.modelFileUrl);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     store >> statsTable;
 
     // find the index of the outcome we're requesting in the config

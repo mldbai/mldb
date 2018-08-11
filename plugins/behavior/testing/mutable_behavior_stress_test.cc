@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** mutable_stress_test.cc                                 -*- C++ -*-
     Rémi Attab, 06 Nov 2014
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Description
 
@@ -18,7 +17,6 @@
 #include <thread>
 
 using namespace std;
-using namespace ML;
 using namespace MLDB;
 
 // This test is meant to run forever and it's important that it runs more

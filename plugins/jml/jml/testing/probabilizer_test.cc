@@ -18,7 +18,7 @@
 #include <limits>
 
 #include "mldb/plugins/jml/jml/probabilizer.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 using namespace ML;
 using namespace std;

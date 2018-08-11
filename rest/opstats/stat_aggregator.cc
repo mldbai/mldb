@@ -9,14 +9,14 @@
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
 #include <iostream>
-#include "mldb/jml/utils/floating_point.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/floating_point.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/exc_check.h"
 #include <algorithm>
 
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 namespace MLDB {
 
@@ -172,7 +172,7 @@ read(const std::string & prefix)
         };
     
     std::sort(values->begin(), values->end(),
-              ML::safe_less<float>());
+              MLDB::safe_less<float>());
 
     if (verbosity == StableLevel)
         result.push_back(StatReading(prefix, values->mean(), start));

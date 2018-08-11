@@ -13,7 +13,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/credentials/credential_provider.h"
 #include "mldb/types/date.h"
 #include "mldb/vfs/filter_streams.h"
@@ -352,13 +352,13 @@ struct AzureStorageAccountInfo {
         bool keyFound = false;
         bool defaultEndpointsProtocolFound = false;
 
-        auto parts = ML::split(connStr, ';');
+        auto parts = MLDB::split(connStr, ';');
         if (parts.size() != 4 || parts[3] != "") {
             throw MLDB::Exception(msg);
         }
         parts.pop_back();
         for (const auto & p: parts) {
-            const auto subparts = ML::split(p, '=', 2);
+            const auto subparts = MLDB::split(p, '=', 2);
             if (subparts.size() != 2 || subparts[1].size() == 0) {
                 throw MLDB::Exception(msg + " - Failed on: " + p);
             }
@@ -415,7 +415,7 @@ struct AzureBlobInfo {
 
     static AzureBlobInfo fromPath(const string & path) {
         ExcAssert(path[0] != '/');
-        auto parts = ML::split(path, '/', 3);
+        auto parts = MLDB::split(path, '/', 3);
         ExcAssert(parts.size() == 3);
         return AzureBlobInfo(parts[0], parts[1], parts[2]);
     }

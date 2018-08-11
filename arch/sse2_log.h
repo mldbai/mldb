@@ -161,4 +161,4 @@ v2df sse2_log(v2df val)
 }
 
 } // namespace SIMD
-} // namespace ML
+} // namespace MLDB

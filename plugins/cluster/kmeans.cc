@@ -15,10 +15,10 @@
 #include <boost/multi_array.hpp>
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/plugins/jml/kmeans.h"
@@ -212,7 +212,7 @@ run(const ProcedureRunConfig & run,
 
             filter_ostream stream(runProcConf.modelFileUrl);
             stream << md.toString();
-            ML::DB::Store_Writer writer(stream);
+            MLDB::DB::Store_Writer writer(stream);
             kmeans.serialize(writer);
             saved = true;
         }
@@ -353,7 +353,7 @@ struct KmeansFunction::Impl {
         }
         columnNames = jsonDecode<std::vector<ColumnPath> >(md["columnNames"]);
         
-        ML::DB::Store_Reader store(stream);
+        MLDB::DB::Store_Reader store(stream);
         kmeans.reconstitute(store);
     }
 };

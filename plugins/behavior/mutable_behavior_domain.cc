@@ -10,14 +10,13 @@
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/types/value_description.h"
 #include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 
 using namespace std;
-using namespace ML;
 
 namespace MLDB {
 
@@ -1628,7 +1627,7 @@ bool
 MutableBehaviorDomain::SubjectEntry::
 forEachBehavior(const F & onBehavior, bool immutable) const
 {
-    ML::Bit_Extractor<uint32_t> extractor(data.unsafe_raw_data());
+    MLDB::Bit_Extractor<uint32_t> extractor(data.unsafe_raw_data());
 
     for (unsigned i = 0;  i < behaviorCount;  ++i) {
         uint32_t beh, tsofs, count;
@@ -1750,7 +1749,7 @@ expand(int newBehBits, int newTsBits, int newCntBits,
     if (copyOldData) {
         ssize_t bitsAvailable = newCapacity * 32;
         
-        ML::Bit_Writer<uint32_t> writer(newData.unsafe_raw_data());
+        MLDB::Bit_Writer<uint32_t> writer(newData.unsafe_raw_data());
         
         auto recordBeh = [&] (BI beh, uint64_t ts, uint32_t cnt)
             {
@@ -1842,8 +1841,8 @@ record(BI beh, uint64_t ts, uint32_t count, VI verb)
         //cerr << "timestamp adjustment" << endl;
         // Go through and adjust timestamps in place for the new offset
 
-        ML::Bit_Extractor<uint32_t> reader(data.unsafe_raw_data());
-        ML::Bit_Writer<uint32_t> writer(data.unsafe_raw_data());
+        MLDB::Bit_Extractor<uint32_t> reader(data.unsafe_raw_data());
+        MLDB::Bit_Writer<uint32_t> writer(data.unsafe_raw_data());
         
         for (unsigned i = 0;  i < behaviorCount;  ++i) {
             reader.advance(behBits);  writer.skip(behBits);
@@ -1892,7 +1891,7 @@ record(BI beh, uint64_t ts, uint32_t count, VI verb)
 
     //cerr << "currentBitsUsed = " << currentBitsUsed << endl;
     
-    ML::Bit_Writer<uint32_t> writer(data.unsafe_raw_data());
+    MLDB::Bit_Writer<uint32_t> writer(data.unsafe_raw_data());
     writer.skip(currentBitsUsed);
     writer.write(beh.index(), behBits);
     writer.write(ts - firstSeen, tsBits);
@@ -2003,7 +2002,7 @@ sortUnlocked(bool immutable, const MutableBehaviorDomain *owner)
     // Write everything, returning the new behavior count
     auto doWrite = [&] () -> int
         {
-            ML::Bit_Writer<uint32_t> writer(data.unsafe_raw_data());
+            MLDB::Bit_Writer<uint32_t> writer(data.unsafe_raw_data());
 
             uint64_t writtenCount = 0;
 
@@ -2143,7 +2142,7 @@ record(SI2 sub, uint64_t ts, uint32_t count, VI verb,
             current->dump();
         }
 
-        //ML::memory_barrier();  // TODO: not necessary?
+        //MLDB::memory_barrier();  // TODO: not necessary?
 
         // If there is an unsorted table, try to insert our entry in it
         // in an atomic manner without taking the lock.  It could fail

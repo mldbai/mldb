@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE( test_accept_speed )
 
     acceptor.onMakeNewHandler = [&] ()
         {
-            return ML::make_std_sp(new TestHandler(error));
+            return MLDB::make_std_sp(new TestHandler(error));
         };
     
     int port = acceptor.init();

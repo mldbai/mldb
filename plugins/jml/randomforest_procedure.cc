@@ -11,7 +11,7 @@
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/timers.h"
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/profile.h"
 #include "mldb/plugins/jml/randomforest.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/builtin/sql_expression_extractors.h"

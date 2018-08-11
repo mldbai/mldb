@@ -19,6 +19,7 @@
 namespace ML {
 
 using MLDB::compact_vector;
+namespace DB = MLDB::DB;
 
 typedef compact_vector<float, 3, uint32_t, false> QCoord;
 

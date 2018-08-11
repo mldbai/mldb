@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** thread_test.cc                                -*- C++ -*-
     Rémi Attab, 26 Jul 2013
     Copyright (c) 2013 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
     Multithreaded test implementation.
 
@@ -15,7 +14,6 @@
 #include <atomic>
 
 using namespace std;
-using namespace ML;
 
 namespace MLDB {
 

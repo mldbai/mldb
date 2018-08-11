@@ -7,10 +7,10 @@
    Code to parse a CSV file.
 */
 
-#include "csv.h"
+#include "mldb/utils/csv.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/arch/format.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 using namespace std;
 

@@ -12,7 +12,7 @@
 #include "training_data.h"
 #include "mldb/base/parse_context.h"
 #include "training_index.h"
-#include "mldb/jml/utils/floating_point.h"
+#include "mldb/utils/floating_point.h"
 #include "mldb/jml/math/xdiv.h"
 
 

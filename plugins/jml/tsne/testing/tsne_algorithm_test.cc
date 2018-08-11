@@ -23,10 +23,10 @@
 #include <iostream>
 #include "mldb/base/parse_context.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include "mldb/plugins/jml/tsne/vantage_point_tree.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include <iomanip>
 #include <set>
 

@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* classifier_training_tool.cc                                       -*- C++ -*-
    Jeremy Barnes, 15 March 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Tool to train an arbitrary classifier.
 */
@@ -18,12 +16,12 @@
 #include "mldb/plugins/jml/jml/weighted_training.h"
 #include "mldb/plugins/jml/jml/training_index.h"
 #include "mldb/plugins/jml/jml/transform_list.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include <boost/progress.hpp>
 #include <boost/timer.hpp>
 #include "mldb/plugins/jml/stats/moments.h"
 #include "datasets.h"
-#include "mldb/jml/utils/info.h"
+#include "mldb/arch/info.h"
 
 #include <iterator>
 #include <iostream>

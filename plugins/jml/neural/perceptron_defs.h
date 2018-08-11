@@ -44,8 +44,8 @@ BYTE_PERSISTENT_ENUM_DECL(Sampling);
 
 } // namespace ML
 
-DECLARE_ENUM_INFO(ML::Transfer_Function_Type, 6);
-DECLARE_ENUM_INFO(ML::Sampling, 3);
+DECLARE_ENUM_INFO(MLDB::Transfer_Function_Type, 6);
+DECLARE_ENUM_INFO(MLDB::Sampling, 3);
 
 
 #endif /* __jml__perceptron_defs_h__ */

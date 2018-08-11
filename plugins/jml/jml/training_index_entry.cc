@@ -10,11 +10,11 @@
 
 #include "training_index_entry.h"
 #include "mldb/plugins/jml/sgi_numeric.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "mldb/plugins/jml/jml/feature_space.h"
-#include "mldb/jml/utils/floating_point.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/floating_point.h"
+#include "mldb/utils/pair_utils.h"
 #include <boost/timer.hpp>
 #include "mldb/base/exc_assert.h"
 

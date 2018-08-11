@@ -14,7 +14,7 @@
 #include <sstream>
 
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 
 #include "mldb/io/message_loop.h"
 #include "mldb/utils/sink.h"
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_hup )
 
     auto sink = make_shared<AsyncFdOutputSink>(onHangup, onClose);
     loop.addSource("sink", sink);
-    ML::set_file_flag(fds[1], O_NONBLOCK);
+    MLDB::set_file_flag(fds[1], O_NONBLOCK);
     sink->init(fds[1]);
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -124,7 +124,7 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_many_msgs )
 
     AsyncFdOutputSink sink(onHangup, onClose);
     loop.addSource("sink", sink);
-    ML::set_file_flag(fds[1], O_NONBLOCK);
+    MLDB::set_file_flag(fds[1], O_NONBLOCK);
     sink.init(fds[1]);
 
     const string basemsg("this is a message");
@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_many_msgs )
 
     loop.removeSource(&sink);
     while (loop.poll()) {
-        ML::sleep(1.0);
+        MLDB::sleep(1.0);
     }
 
     BOOST_CHECK_EQUAL(i, nmsgs);

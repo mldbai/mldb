@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* round_test.cc                                            -*- C++ -*-
    Jeremy Barnes, 16 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test of rounding function.
 */
@@ -16,7 +15,7 @@
 #include <boost/test/auto_unit_test.hpp>
 #include <stdint.h>
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;

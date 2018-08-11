@@ -66,7 +66,7 @@ doRequest(LegacyEventLoop & legacyLoop,
         HttpClientError & errorCode = get<0>(response);
         errorCode = error;
         done = true;
-        ML::futex_wake(done);
+        MLDB::futex_wake(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
 
@@ -75,7 +75,7 @@ doRequest(LegacyEventLoop & legacyLoop,
 
     while (!done) {
         int oldDone = done;
-        ML::futex_wait(done, oldDone);
+        MLDB::futex_wait(done, oldDone);
     }
 
     return response;
@@ -126,7 +126,7 @@ doUploadRequest(LegacyEventLoop & loop,
         HttpClientError & errorCode = get<0>(response);
         errorCode = error;
         done = true;
-        ML::futex_wake(done);
+        MLDB::futex_wake(done);
     };
 
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
@@ -140,7 +140,7 @@ doUploadRequest(LegacyEventLoop & loop,
 
     while (!done) {
         int oldDone = done;
-        ML::futex_wait(done, oldDone);
+        MLDB::futex_wait(done, oldDone);
     }
 
     return response;
@@ -152,7 +152,7 @@ doUploadRequest(LegacyEventLoop & loop,
 BOOST_AUTO_TEST_CASE( test_http_client_get )
 {
     cerr << "client_get\n";
-    ML::Watchdog watchdog(1000);
+    MLDB::Watchdog watchdog(1000);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
     TestHttpGetService service(eventLoop);
@@ -250,7 +250,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_get )
 BOOST_AUTO_TEST_CASE( test_http_client_post )
 {
     cerr << "client_post\n";
-    ML::Watchdog watchdog(10);
+    MLDB::Watchdog watchdog(10);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
     TestHttpUploadService service(eventLoop);
@@ -279,7 +279,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_post )
 BOOST_AUTO_TEST_CASE( test_http_client_put )
 {
     cerr << "client_put\n";
-    ML::Watchdog watchdog(10);
+    MLDB::Watchdog watchdog(10);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
     TestHttpUploadService service(eventLoop);
@@ -309,7 +309,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put )
 BOOST_AUTO_TEST_CASE( http_test_client_delete )
 {
     cerr << "client_delete\n";
-    ML::Watchdog watchdog(10);
+    MLDB::Watchdog watchdog(10);
 
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
@@ -371,7 +371,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
             // BOOST_CHECK_EQUAL(jsonBody["type"], "text/plain");
             done++;
             if (done == maxRequests) {
-                ML::futex_wake(done);
+                MLDB::futex_wake(done);
             }
         };
 
@@ -384,7 +384,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
 
     while (done < maxRequests) {
         int oldDone = done;
-        ML::futex_wait(done, oldDone);
+        MLDB::futex_wait(done, oldDone);
     }
 
     threadPool.shutdown();
@@ -399,7 +399,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 {
     cerr << "stress_test\n";
     // const int mask = 0x3ff; /* mask to use for displaying counts */
-    // ML::Watchdog watchdog(300);
+    // MLDB::Watchdog watchdog(300);
     auto doStressTest = [&] (int numParallel) {
         cerr << ("stress test with "
                  + to_string(numParallel) + " parallel connections\n");
@@ -425,7 +425,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
             BOOST_CHECK_EQUAL(status, 200);
 
             if (numResponses == numReqs) {
-                ML::futex_wake(numResponses);
+                MLDB::futex_wake(numResponses);
             }
         };
 
@@ -446,7 +446,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
         cerr << "all requests performed, awaiting responses...\n";
         while (numResponses < maxReqs) {
             int old(numResponses);
-            ML::futex_wait(numResponses, old);
+            MLDB::futex_wait(numResponses, old);
         }
         cerr << ("performed " + to_string(maxReqs)
                  + " requests; missed: " + to_string(missedReqs)
@@ -467,7 +467,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
 {
     cerr << "move_constructor\n";
-    ML::Watchdog watchdog(30);
+    MLDB::Watchdog watchdog(30);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
 
@@ -485,14 +485,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done = true;
-            ML::futex_wake(done);
+            MLDB::futex_wake(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
 
         getClient.get("/", cbs);
         while (!done) {
             int old = done;
-            ML::futex_wait(done, old);
+            MLDB::futex_wait(done, old);
         }
     };
 
@@ -521,7 +521,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
 {
     static const int maxLevel(4);
 
-    ML::Watchdog watchdog(30);
+    MLDB::Watchdog watchdog(30);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
 
@@ -569,7 +569,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_unlimited_queue )
 /* Test connection restoration after a timeout occurs. */
 BOOST_AUTO_TEST_CASE( test_http_client_connection_timeout )
 {
-    ML::Watchdog watchdog(30);
+    MLDB::Watchdog watchdog(30);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
 
@@ -588,14 +588,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_timeout )
                        HttpClientError errorCode, int status,
                        string && headers, string && body) {
         done++;
-        ML::futex_wake(done);
+        MLDB::futex_wake(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
     client.get("/timeout", cbs, {}, {}, 1);
     client.get("/", cbs, {}, {}, 1);
 
     while (done < 2) {
-        ML::futex_wait(done, done);
+        MLDB::futex_wait(done, done);
     }
 
     threadPool.shutdown();
@@ -607,7 +607,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_timeout )
  * various circumstances. */
 BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
 {
-    ML::Watchdog watchdog(30);
+    MLDB::Watchdog watchdog(30);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
 
@@ -627,14 +627,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done++;
-            ML::futex_wake(done);
+            MLDB::futex_wake(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
         client.get("/connection-close", cbs);
         client.get("/", cbs);
 
         while (done < 2) {
-            ML::futex_wait(done, done);
+            MLDB::futex_wait(done, done);
         }
     }
 
@@ -654,13 +654,13 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done++;
-            ML::futex_wake(done);
+            MLDB::futex_wake(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
         for (size_t i = 0; i < 3; i++) {
             client.post("/quiet-connection-close", cbs, string("no data"));
             while (done < i) {
-                ML::futex_wait(done, done);
+                MLDB::futex_wait(done, done);
             }
         }
 
@@ -675,14 +675,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done++;
-            ML::futex_wake(done);
+            MLDB::futex_wake(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
         client.get("/abrupt-connection-close", cbs);
         client.get("/", cbs);
 
         while (done < 2) {
-            ML::futex_wait(done, done);
+            MLDB::futex_wait(done, done);
         }
     }
 

@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE( test_two_members_discovery )
     for (unsigned i = 0;  i < 5;  ++i) {
         //cerr << jsonEncode(peer1->getPeerConnections()) << endl;
         //cerr << jsonEncode(peer1->getPeerStatuses()) << endl;
-        ML::sleep(1.0);
+        MLDB::sleep(1.0);
     }
 #endif
 
@@ -93,12 +93,12 @@ BOOST_AUTO_TEST_CASE( test_two_members_discovery )
         BOOST_CHECK_LT(p.messagesSent, 50);
     }
 
-    //ML::sleep(1.0);
+    //MLDB::sleep(1.0);
 
     peer1->shutdown();
     peer1.reset();
 
-    //ML::sleep(2.0);
+    //MLDB::sleep(2.0);
     //cerr << jsonEncode(peer2.getPeerConnections()) << endl;
 
     peer2.shutdown();

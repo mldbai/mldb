@@ -66,7 +66,7 @@ FactoryRegistry & getRegistry()
 
 void
 DenseFeatureGenerator::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     throw MLDB::Exception("DenseFeatureGenerator " + MLDB::type_name(*this)
                         + " doesn't support serialization/reconstitution");
@@ -74,7 +74,7 @@ serialize(ML::DB::Store_Writer & store) const
 
 void
 DenseFeatureGenerator::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     throw MLDB::Exception("DenseFeatureGenerator " + MLDB::type_name(*this)
                         + " doesn't support serialization/reconstitution");
@@ -90,7 +90,7 @@ className() const
 
 std::shared_ptr<DenseFeatureGenerator>
 DenseFeatureGenerator::
-polyReconstitute(ML::DB::Store_Reader & store)
+polyReconstitute(MLDB::DB::Store_Reader & store)
 {
     unsigned char version;
     store >> version;
@@ -126,7 +126,7 @@ polyReconstitute(ML::DB::Store_Reader & store)
 void
 DenseFeatureGenerator::
 polySerialize(const DenseFeatureGenerator & fgen,
-              ML::DB::Store_Writer & store)
+              MLDB::DB::Store_Writer & store)
 {
     unsigned char version = 0;
     store << version;

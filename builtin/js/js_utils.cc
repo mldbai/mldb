@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* js_utils.cc
    Jeremy Barnes, 21 July 2010
    Copyright (c) 2010 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Implementation of Javascript utility functions.
 */
@@ -13,13 +12,12 @@
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/exception_internals.h"
 #include "mldb/arch/backtrace.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/compiler/compiler.h"
 #include "mldb/types/annotated_exception.h"
 
 using namespace std;
 using namespace v8;
-using namespace ML;
 
 
 namespace MLDB {
@@ -66,7 +64,7 @@ injectBacktrace(v8::Handle<v8::Value> value)
     vector<string> jsStackElements = split(cstr(jsStack), '\n');
 
     // Frames to skip:
-    // at [C++] ML::backtrace(int)
+    // at [C++] MLDB::backtrace(int)
     // at [C++] MLDB::JS::injectBacktrace(v8::Handle<v8::Value>)
     // at [C++] MLDB::JS::mapException(MLDB::Exception const&)
     // at [C++] MLDB::JS::translateCurrentException()

@@ -10,9 +10,10 @@
 #include "kmeans.h"
 
 #include <random>
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 namespace ML {
+namespace DB = MLDB::DB;
 
 void
 KMeans::
@@ -232,7 +233,7 @@ assign(const distribution<float> & point) const
 
 void
 KMeans::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     std::string name = "kmeans";
     int version = 0;
@@ -247,7 +248,7 @@ serialize(ML::DB::Store_Writer & store) const
 
 void
 KMeans::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     std::string name;
     store >> name;

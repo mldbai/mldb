@@ -11,7 +11,7 @@
 
 #include "aws.h"
 #include "mldb/http/http_rest_proxy.h"
-#include "mldb/jml/utils/unnamed_bool.h"
+#include "mldb/utils/pure_bool.h"
 #include "mldb/types/value_description_fwd.h"
 
 namespace MLDB {

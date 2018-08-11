@@ -12,7 +12,7 @@
 
 #include "mldb/arch/shared_gc_lock.h"
 #include "gc_lock_test_common.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/base/scope.h"
 #include "mldb/arch/thread_specific.h"
@@ -24,7 +24,6 @@
 #include <atomic>
 
 
-using namespace ML;
 using namespace MLDB;
 using namespace std;
 

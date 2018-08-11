@@ -11,12 +11,12 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/jml/utils/environment.h"
-#include "mldb/jml/utils/csv.h"
+#include "mldb/utils/environment.h"
+#include "mldb/utils/csv.h"
 #include "mldb/arch/format.h"
 #include "mldb/base/scope.h"
 #include "mldb/ext/utf8cpp/source/utf8.h"
@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <locale.h>
 
-using namespace ML;
 using namespace MLDB;
 using namespace std;
 

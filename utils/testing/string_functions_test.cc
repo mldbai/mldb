@@ -6,11 +6,11 @@
 #define BOOST_AUTO_TEST_MAIN
 #include <boost/test/auto_unit_test.hpp>
 
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/arch/exception.h"
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
@@ -54,56 +54,56 @@ BOOST_AUTO_TEST_CASE( test_string_trim )
     {
         string original = "notrimming";
         string expected = original;
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 
     {
         string original = " \t  left trimming";
         string expected = "left trimming";
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 
     {
         string original = "right trimming    \t  ";
         string expected = "right trimming";
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 
     {
         string original = "";
         string expected = "";
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 
     {
         string original = " ";
         string expected = "";
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 
     {
         string original = "\t\t\ta";
         string expected = "a";
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 
     {
         string original = "a ";
         string expected = "a";
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 
     {
         string original = " \f\r\n\t\v \f\r\n\t\va \f\r\n\t\v \f\r\n\t\v";
         string expected = "a";
-        string result = ML::trim(original);
+        string result = MLDB::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
 }
@@ -111,43 +111,43 @@ BOOST_AUTO_TEST_CASE( test_string_trim )
 BOOST_AUTO_TEST_CASE( test_string_split )
 {
     vector<string> res;
-    res = ML::split("", '-');
+    res = MLDB::split("", '-');
     BOOST_REQUIRE_EQUAL(res.size(), 1);
     BOOST_REQUIRE_EQUAL(res[0], "");
 
-    res = ML::split("a-b-c", '-');
+    res = MLDB::split("a-b-c", '-');
     BOOST_REQUIRE_EQUAL(res.size(), 3);
     BOOST_REQUIRE_EQUAL(res[0], "a");
     BOOST_REQUIRE_EQUAL(res[1], "b");
     BOOST_REQUIRE_EQUAL(res[2], "c");
 
-    res = ML::split("a-b-c", '-', -1);
+    res = MLDB::split("a-b-c", '-', -1);
     BOOST_REQUIRE_EQUAL(res.size(), 3);
     BOOST_REQUIRE_EQUAL(res[0], "a");
     BOOST_REQUIRE_EQUAL(res[1], "b");
     BOOST_REQUIRE_EQUAL(res[2], "c");
     {
         MLDB_TRACE_EXCEPTIONS(false);
-        BOOST_REQUIRE_THROW(ML::split("a-b-c", '-', 0), std::exception);
-        BOOST_REQUIRE_THROW(ML::split("a-b-c", '-', -2), std::exception);
+        BOOST_REQUIRE_THROW(MLDB::split("a-b-c", '-', 0), std::exception);
+        BOOST_REQUIRE_THROW(MLDB::split("a-b-c", '-', -2), std::exception);
     }
 
-    res = ML::split("a-b-c", '-', 1);
+    res = MLDB::split("a-b-c", '-', 1);
     BOOST_REQUIRE_EQUAL(res.size(), 1);
     BOOST_REQUIRE_EQUAL(res[0], "a-b-c");
 
-    res = ML::split("a-b-c", '-', 2);
+    res = MLDB::split("a-b-c", '-', 2);
     BOOST_REQUIRE_EQUAL(res.size(), 2);
     BOOST_REQUIRE_EQUAL(res[0], "a");
     BOOST_REQUIRE_EQUAL(res[1], "b-c");
 
-    res = ML::split("a-b-c", '-', 3);
+    res = MLDB::split("a-b-c", '-', 3);
     BOOST_REQUIRE_EQUAL(res.size(), 3);
     BOOST_REQUIRE_EQUAL(res[0], "a");
     BOOST_REQUIRE_EQUAL(res[1], "b");
     BOOST_REQUIRE_EQUAL(res[2], "c");
 
-    res = ML::split("a-b-c", '-', 1000);
+    res = MLDB::split("a-b-c", '-', 1000);
     BOOST_REQUIRE_EQUAL(res.size(), 3);
     BOOST_REQUIRE_EQUAL(res[0], "a");
     BOOST_REQUIRE_EQUAL(res[1], "b");

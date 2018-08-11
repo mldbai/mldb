@@ -21,7 +21,7 @@ namespace {
 
 static constexpr const size_t MAX_JSON_NESTING = 10000;
 
-/* This is a duplicate of ML::trim, reimplemented here in order to avoid a
+/* This is a duplicate of MLDB::trim, reimplemented here in order to avoid a
  * circular dependency between libvalue_description and libutils. */
 
 string

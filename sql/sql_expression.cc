@@ -16,7 +16,7 @@
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/tuple_description.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include "sql_expression_operations.h"
 #include "table_expression_operations.h"
 #include "interval.h"
@@ -25,7 +25,7 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/types/value_description.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/base/optimized_path.h"
 
 #include <mutex>
@@ -1201,14 +1201,14 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         int paramIndex;
         if (context.match_int(paramIndex)) {
             lhs.reset(new BoundParameterExpression(Utf8String(std::to_string(paramIndex))));
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
         }
         else {
             Utf8String paramName = matchIdentifier(context, allowUtf8);
             if (paramName.empty())
                 context.exception("Expected identifier after $");
             lhs.reset(new BoundParameterExpression(paramName));
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
         }
     }
 
@@ -1259,7 +1259,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
             lhs = arg;  
         }
 
-        lhs->surface = ML::trim(token.captured());
+        lhs->surface = MLDB::trim(token.captured());
     }
 
     if (!lhs && context.match_literal('[')) {
@@ -1281,7 +1281,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
 
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
         
-        lhs->surface = ML::trim(token.captured());
+        lhs->surface = MLDB::trim(token.captured());
     }    
 
     if (!lhs && matchKeyword(context, "CAST")) {
@@ -1303,7 +1303,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         context.expect_literal(')');
 
         lhs = std::make_shared<CastExpression>(expr, type);
-        lhs->surface = ML::trim(token.captured());
+        lhs->surface = MLDB::trim(token.captured());
     }
 
     if (!lhs && matchKeyword(context, "CASE")) {
@@ -1339,7 +1339,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         
         lhs = std::make_shared<CaseExpression>(std::move(expr), std::move(when),
                                                std::move(elseExpr));
-        lhs->surface = ML::trim(token.captured());
+        lhs->surface = MLDB::trim(token.captured());
     }
 
     // Otherwise, look for a constant
@@ -1347,7 +1347,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         ExpressionValue constant;
         if (matchConstant(context, constant, allowUtf8)) {
             lhs = std::make_shared<ConstantExpression>(constant);
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
         }
     }
 
@@ -1356,7 +1356,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         ColumnPath identifier = matchColumnName(context, allowUtf8);
         if (!identifier.empty()) {
             lhs = std::make_shared<ReadColumnExpression>(identifier);
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
 
             skip_whitespace(context);
             if (context.match_literal('(')) {
@@ -1423,7 +1423,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<FunctionCallExpression>
                     (tableName, functionName, args);
 
-                lhs->surface = ML::trim(token.captured());
+                lhs->surface = MLDB::trim(token.captured());
                
             } // if '(''
 
@@ -1447,7 +1447,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         skip_whitespace(context);
         
         if (context.eof()) {
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
             return lhs;
         }
 
@@ -1462,7 +1462,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
             context.expect_literal(']');
 
             lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
             continue;
 
         }
@@ -1494,7 +1494,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "interval");
             else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER, INTEGER, TIMESTAMP or INTERVAL after IS {NOT}");
 
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
 
             continue;
         }
@@ -1511,7 +1511,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
                 auto upper = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
             
                 lhs = std::make_shared<BetweenExpression>(lhs, lower, upper, notBetween);
-                lhs->surface = ML::trim(token.captured());
+                lhs->surface = MLDB::trim(token.captured());
                 continue;
             }
         }
@@ -1538,21 +1538,21 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
 
                     auto rhs = std::make_shared<SelectSubtableExpression>(statement, asName);
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative);
-                    lhs->surface = ML::trim(token.captured());
+                    lhs->surface = MLDB::trim(token.captured());
                 }
                 else if (matchKeyword(context, "KEYS OF")) {
                     auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
-                    lhs->surface = ML::trim(token.captured());                
+                    lhs->surface = MLDB::trim(token.captured());                
                 }
                 else if (matchKeyword(context, "VALUES OF")) {
                     auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
-                    lhs->surface = ML::trim(token.captured());                
+                    lhs->surface = MLDB::trim(token.captured());                
                 }
                 else {
                     auto rhs = std::make_shared<TupleExpression>(TupleExpression::parse(context, allowUtf8));
@@ -1560,7 +1560,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
                     context.expect_literal(')');
                 
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative);
-                    lhs->surface = ML::trim(token.captured());
+                    lhs->surface = MLDB::trim(token.captured());
                     continue;
                 }
             }
@@ -1574,7 +1574,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
                 auto rhs = SqlExpression::parse(context, 5, allowUtf8);
 
                 lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
-                lhs->surface = ML::trim(token.captured());
+                lhs->surface = MLDB::trim(token.captured());
             }
         }
 
@@ -1590,14 +1590,14 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
             if (matchOperator(context, op.token)) {
                 auto rhs = parse(context, op.precedence, allowUtf8);
                 lhs = op.handler(lhs, rhs, op.token);
-                lhs->surface = ML::trim(token.captured());
+                lhs->surface = MLDB::trim(token.captured());
                 found = true;
                 break;
             }
         }
         
         if (!found) {
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = MLDB::trim(token.captured());
             return lhs;
         }
     }
@@ -2262,7 +2262,7 @@ parse(ParseContext & context, bool allowUtf8)
 
                     auto result = std::make_shared<WildcardExpression>
                         (prefix, prefixAs, exclusions);
-                    result->surface = ML::trim(capture.captured());
+                    result->surface = MLDB::trim(capture.captured());
                     return result;
                 }
             }
@@ -2338,7 +2338,7 @@ parse(ParseContext & context, bool allowUtf8)
 
         auto result = std::make_shared<WildcardExpression>
             (prefix, prefixAs, exclusions);
-        result->surface = ML::trim(capture.captured());
+        result->surface = MLDB::trim(capture.captured());
         return result;
     }
 
@@ -3067,7 +3067,7 @@ parse(ParseContext & context, bool allowUtf8)
 
     result.distinctExpr = std::move(distinctExpr);
 
-    result.surface = ML::trim(token.captured());
+    result.surface = MLDB::trim(token.captured());
 
     return result;
 }
@@ -3607,14 +3607,14 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
             }
 
             result.reset(new SelectSubtableExpression(statement, asName));
-            result->surface = ML::trim(token.captured());
+            result->surface = MLDB::trim(token.captured());
         }
         else
         {
             result = TableExpression::parse(context, currentPrecedence, allowUtf8);
             skip_whitespace(context);
             expectCloseParenthesis();
-            result->surface = ML::trim(token.captured());
+            result->surface = MLDB::trim(token.captured());
         }
     }
     
@@ -3644,7 +3644,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
             = isColumn ? RowTableExpression::COLUMNS : RowTableExpression::ATOMS;
 
         result = std::make_shared<RowTableExpression>(statement, asName, style);
-        result->surface = ML::trim(token.captured());
+        result->surface = MLDB::trim(token.captured());
     }
 
     if (!result) {
@@ -3711,7 +3711,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
             }
 
             result = expr;
-            result->surface = ML::trim(token.captured());
+            result->surface = MLDB::trim(token.captured());
         }
     }
 
@@ -3730,12 +3730,12 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         }
           
         result.reset(new JoinExpression(result, joinTable, condition, joinQualify));
-        result->surface = ML::trim(token.captured());
+        result->surface = MLDB::trim(token.captured());
             
         skip_whitespace(context);
     }
 
-    result->surface = ML::trim(token.captured());
+    result->surface = MLDB::trim(token.captured());
     
     return result;
 }
@@ -4250,7 +4250,7 @@ SelectStatement::parse(ParseContext& context, bool acceptUtf8)
         }
     }
 
-    statement.surface = ML::trim(token.captured());
+    statement.surface = MLDB::trim(token.captured());
 
     skip_whitespace(context);
 

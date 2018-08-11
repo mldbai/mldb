@@ -84,14 +84,14 @@ public:
           const std::vector<Label> & testing_labels,
           const std::vector<float> & testing_weights,
           const Configuration & config,
-          ML::Thread_Context & thread_context) const;
+          MLDB::Thread_Context & thread_context) const;
 
     std::pair<double, double>
     test(const std::vector<const float *> & data,
          const std::vector<Label> & labels,
          const std::vector<float> & weights,
          const Output_Encoder & encoder,
-         ML::Thread_Context & thread_context,
+         MLDB::Thread_Context & thread_context,
          int verbosity) const;
 
     std::pair<double, double>
@@ -99,7 +99,7 @@ public:
          const std::vector<Label> & labels,
          const std::vector<float> & weights,
          const Output_Encoder & encoder,
-         ML::Thread_Context & thread_context,
+         MLDB::Thread_Context & thread_context,
          int verbosity) const;
 
     Layer * layer;

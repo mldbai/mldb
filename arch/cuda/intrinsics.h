@@ -20,7 +20,7 @@
 
 #include <stdint.h>
 
-namespace ML {
+namespace MLDB {
 
 MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 bool isnanf(float f)
@@ -84,6 +84,6 @@ static void swap(T & val1, T & val2)
     val2 = tmp;
 }
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__compiler__cuda_intrinsics_h__ */

@@ -7,8 +7,8 @@
    Endpoint to talk with a REST service.
 */
 
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/ext/cityhash/src/city.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/io/event_loop.h"

@@ -1,18 +1,16 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* distribution_pooler.h                                                -*- C++ -*-
    Francois Maillet, Oct 23 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
-#ifndef __recoset__ml__distribution_pooler_h__
-#define __recoset__ml__distribution_pooler_h__
+#pragma once
 
 #include <functional>
 #include <vector>
 #include <stdint.h>
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/utils/distribution.h"
 
 namespace MLDB {
@@ -32,6 +30,4 @@ private:
     std::vector<distribution<float>> feature_vectors;
 };
 
-}
-
-#endif
+} // namespace MLDB

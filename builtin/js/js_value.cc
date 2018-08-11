@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* js_value.cc
    Jeremy Barnes, 21 July 2010
    Copyright (c) 2010 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Javascript value handling.
 */
 
 #include "js_value.h"
 #include "js_utils.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/types/date.h"
@@ -20,10 +19,8 @@
 
 #include <cxxabi.h>
 using namespace std;
-using namespace ML;
 
 namespace MLDB {
-
 namespace JS {
 
 
@@ -262,7 +259,7 @@ int64_t check_to_int2(const JSValue & val)
 
         int64_t ival = val->IntegerValue();
         if (ival != 0) return ival;
-        string s = ML::lowercase(cstr(val));
+        string s = MLDB::lowercase(cstr(val));
         try {
             return boost::lexical_cast<int64_t>(s);
         } catch (const boost::bad_lexical_cast & error) {
@@ -366,7 +363,7 @@ double from_js(const JSValue & val, double *)
     if (std::isnan(result)) {
         if (val->IsNumber()) return result;
         if (val->IsString()) {
-            string s = ML::lowercase(cstr(val));
+            string s = MLDB::lowercase(cstr(val));
             if (s == "nan" || s == "-nan")
                 return result;
             throw MLDB::Exception("string value \"%s\" is not converible to "

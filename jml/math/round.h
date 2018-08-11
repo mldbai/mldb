@@ -1,20 +1,18 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* round.h                                                         -*- C++ -*-
    Jeremy Barnes, 17 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Implementation of the round function.
 */
 
-#ifndef __math__round_h__
-#define __math__round_h__
+#pragma once
 
 #include <cmath>
 #include <math.h>
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 using ::round;
 
@@ -41,5 +39,3 @@ double round(double X) MLDB_PURE_FN
 #endif
 
 } // namespace ML
-
-#endif /* __math__round_h__ */

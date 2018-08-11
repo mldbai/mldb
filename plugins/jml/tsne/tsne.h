@@ -22,6 +22,8 @@
 
 namespace ML {
 
+using MLDB::distribution;
+
 template<typename Item> struct VantagePointTreeT;
 struct Quadtree;
 

@@ -14,7 +14,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/sql/builtin_functions.h"
 #include "mldb/plugins/html/css.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 using namespace std;
 
@@ -244,7 +244,7 @@ struct ExtractHandler: public ParseHandler {
         Css::PathElement element;
         element.tag = toString(tag.name);
         element.id = getAttr(tag, "id");
-        for (std::string & s: ML::split(getAttr(tag, "class").rawString(), ' ')) {
+        for (std::string & s: MLDB::split(getAttr(tag, "class").rawString(), ' ')) {
             element.classes.emplace_back(std::move(s));
         }
 

@@ -12,10 +12,10 @@ using namespace std;
 #include <iostream>
 #include <fstream>
 #include "mldb/arch/exception.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/confidence_intervals.h"
+#include "mldb/utils/confidence_intervals.h"
 #include <math.h>
 
 namespace MLDB {
@@ -125,7 +125,7 @@ Bucketing_Probabilizer(const std::string & load_from)
 {
     throw MLDB::Exception("deprecated");
     //filter_istream stream(load_from);
-    //ML::DB::Store_Reader store(stream);
+    //MLDB::DB::Store_Reader store(stream);
     //reconstitute(store);
     // doInit();
 }
@@ -328,7 +328,7 @@ getType() const
 }
 
 void Bucketing_Probabilizer::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     int version = 1;
     store << version << ctr_buckets << ctrs << 
@@ -336,7 +336,7 @@ serialize(ML::DB::Store_Writer & store) const
 }
 
 void Bucketing_Probabilizer::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     int version;
     store >> version;
@@ -351,7 +351,7 @@ void Bucketing_Probabilizer::
 save(const string & filename) const
 {
     filter_ostream stream(filename);
-    ML::DB::Store_Writer store(stream);
+    MLDB::DB::Store_Writer store(stream);
     serialize(store);
 }
 

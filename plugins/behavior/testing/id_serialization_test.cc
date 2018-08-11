@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* id_test.cc
    Jeremy Barnes, 17 February 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -15,7 +14,6 @@
 #include "mldb/types/date.h"
 #include "mldb/plugins/behavior/id_serialization.h"
 
-using namespace ML;
 using namespace std;
 using namespace MLDB;
 

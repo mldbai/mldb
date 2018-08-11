@@ -13,7 +13,7 @@
 
 #include <typeinfo>
 
-namespace ML {
+namespace MLDB {
 
 /** Convert the given object pointed to by obj (with a type info node of
     from_type) to the given type (to_type).  If it's convertible, then the
@@ -46,6 +46,6 @@ const void * is_convertible(const FromT & from_obj)
     //return is_convertible(typeid(from_obj), typeid(ToT), &from_obj);
 }
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__arch__rtti_utils_h__ */

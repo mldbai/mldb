@@ -7,7 +7,7 @@
 
 #include "intersection_utils.h"
 #include "mldb/arch/arch.h"
-#include "mldb/jml/utils/environment.h"
+#include "mldb/utils/environment.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"

@@ -41,17 +41,17 @@ namespace MLDB {
 
 // Defined in stats_table_procedure.cc, until we move them somewhere
 // more sensible
-ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const PathElement & coord);
+MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const PathElement & coord);
 
-ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, PathElement & coord);
+MLDB::DB::Store_Reader &
+operator >> (MLDB::DB::Store_Reader & store, PathElement & coord);
 
-ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Path & coords);
+MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const Path & coords);
 
-ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Path & coords);
+MLDB::DB::Store_Reader &
+operator >> (MLDB::DB::Store_Reader & store, Path & coords);
 
 
 /*****************************************************************************/
@@ -145,7 +145,7 @@ struct EmbeddingDatasetRepr {
         distribution<float> coords;
         Date timestamp;
 
-        void serialize(ML::DB::Store_Writer & store) const
+        void serialize(MLDB::DB::Store_Writer & store) const
         {
             store << rowName.toUtf8String() << coords << timestamp;
         }
@@ -213,20 +213,20 @@ struct EmbeddingDatasetRepr {
     void save(const std::string & filename)
     {
         filter_ostream stream(filename);
-        ML::DB::Store_Writer store(stream);
+        MLDB::DB::Store_Writer store(stream);
         
         serialize(store);
 
         // Make sure that we saved properly
         stream.close();
     }
-    void serialize(ML::DB::Store_Writer & store) const;
+    void serialize(MLDB::DB::Store_Writer & store) const;
 };
 
 const RowHash EmbeddingDatasetRepr::nullHashIn(RowPath("null"));
 
-ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const EmbeddingDatasetRepr::Row & row)
+MLDB::DB::Store_Writer &
+operator << (MLDB::DB::Store_Writer & store, const EmbeddingDatasetRepr::Row & row)
 {
     row.serialize(store);
     return store;
@@ -234,10 +234,10 @@ operator << (ML::DB::Store_Writer & store, const EmbeddingDatasetRepr::Row & row
 
 void
 EmbeddingDatasetRepr::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     store << string("EMBEDDING_DATASET")
-          << ML::DB::compact_size_t(1);  // version
+          << MLDB::DB::compact_size_t(1);  // version
     store << columnNames << columns << rows;
     vpTree->serialize(store);
 }

@@ -29,7 +29,6 @@
 
 using namespace std;
 namespace fs = std::filesystem;
-using namespace ML;
 using namespace MLDB;
 
 using boost::unit_test::test_suite;

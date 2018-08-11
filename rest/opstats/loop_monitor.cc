@@ -128,7 +128,7 @@ updateProb(LoopMonitor::LoadSample sample)
     // update the shedProb.
     auto oldSample = lastSample;
     if (sample.sequence == oldSample.sequence) return;
-    if (!ML::cmp_xchg(lastSample.packed, oldSample.packed, sample.packed))
+    if (!MLDB::cmp_xchg(lastSample.packed, oldSample.packed, sample.packed))
         return;
 
     // Don't drop too low otherwise it'll take forever to raise the prob.

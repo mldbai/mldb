@@ -1,18 +1,17 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* service_peer.cc
    Jeremy Barnes, 4 March 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
 #include "mldb/types/value_description.h"
 #include "service_peer.h"
 #include "mldb/arch/futex.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/utils/info.h"
-#include "mldb/jml/utils/hex_dump.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
+#include "mldb/arch/info.h"
+#include "mldb/utils/hex_dump.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/watch/watch_impl.h"
 #include "mldb/utils/log.h"
@@ -21,7 +20,6 @@
 
 
 using namespace std;
-using namespace ML;
 
 namespace MLDB {
 

@@ -18,7 +18,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/plugins/jml/jml/thread_context.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/types/any_impl.h"

@@ -196,7 +196,7 @@ struct HDFSUlSource {
     };
 
     HDFSUlSource(const string & urlStr,
-                 const ML::OnUriHandlerException & onException)
+                 const MLDB::OnUriHandlerException & onException)
         : onException_(onException)
     {
         try {
@@ -235,7 +235,7 @@ struct HDFSUlSource {
 
 private:
     shared_ptr<HDFSSourceImpl> impl_;
-    ML::OnUriHandlerException onException_;
+    MLDB::OnUriHandlerException onException_;
 };
 
 /** Register HDFS with the filter streams API.
@@ -246,7 +246,7 @@ struct RegisterHDFSHandler {
                    const string & resource,
                    ios_base::open_mode mode,
                    const map<string, string> & options,
-                   const ML::OnUriHandlerException & onException)
+                   const MLDB::OnUriHandlerException & onException)
     {
         streambuf * result;
 
@@ -273,7 +273,7 @@ struct RegisterHDFSHandler {
     {
         /* this enables googleuri to parse our urls properly */
         url_util::AddStandardScheme("hdfs");
-        ML::registerUriHandler("hdfs", getHDFSHandler);
+        MLDB::registerUriHandler("hdfs", getHDFSHandler);
     }
 
 } registerHDFSHandler;

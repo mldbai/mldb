@@ -1,22 +1,22 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* feature_transformer.h                                          -*- C++ -*-
    Jeremy Barnes, 10 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    A component that transforms features.
 */
 
+#pragma once
+
 #include "feature_set.h"
-#include "mldb/jml/utils/unnamed_bool.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/utils/pure_bool.h"
+#include "mldb/utils/smart_ptr_utils.h"
 
 
 namespace ML {
 
 class Feature_Space;
-
+namespace DB = MLDB::DB;
 
 /*****************************************************************************/
 /* FEATURE_TRANSFORMER_IMPL                                                  */
@@ -114,7 +114,7 @@ public:
         if (impl_)
             return impl_->transform(features);
         else {
-            return make_sp
+            return MLDB::make_sp
                 (new Mutable_Feature_Set(features.begin(), features.end()));
         }
     }

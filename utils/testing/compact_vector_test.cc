@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* compact_vector_test.cc
    Jeremy Barnes, 3 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test for the compact_vector class.
 */
@@ -18,10 +17,10 @@
 #include "mldb/arch/arch.h"
 
 #include <boost/test/unit_test.hpp>
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
+#include "mldb/utils/file_functions.h"
+#include "mldb/utils/string_functions.h"
 #include <iostream>
 #include <sstream>
 
@@ -29,7 +28,6 @@
 
 using namespace std;
 using namespace MLDB;
-using namespace ML;
 
 using boost::unit_test_framework::test_suite;
 

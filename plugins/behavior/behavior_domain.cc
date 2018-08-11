@@ -7,13 +7,13 @@
 */
 
 #include "behavior_domain.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 
 #include "behavior_utils.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/timers.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include <unordered_map>
 #include "mldb/base/exc_assert.h"
 #include "mapped_value.h"
@@ -33,7 +33,6 @@
 
 
 using namespace std;
-using namespace ML;
 
 
 namespace MLDB {

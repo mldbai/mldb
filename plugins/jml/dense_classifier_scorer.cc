@@ -528,7 +528,7 @@ explainFeaturesGeneric(const ML::Explanation & explanation,
 
 void
 DenseClassifierScorer::
-serialize(ML::DB::Store_Writer & store) const
+serialize(MLDB::DB::Store_Writer & store) const
 {
     unsigned char version = 2;
     store << version;
@@ -541,7 +541,7 @@ serialize(ML::DB::Store_Writer & store) const
 
 void
 DenseClassifierScorer::
-reconstitute(ML::DB::Store_Reader & store)
+reconstitute(MLDB::DB::Store_Reader & store)
 {
     unsigned char version;
     store >> version;
@@ -570,7 +570,7 @@ DenseClassifierScorer::
 save(const std::string & filename) const
 {
     filter_ostream stream(filename);
-    ML::DB::Store_Writer store(stream);
+    MLDB::DB::Store_Writer store(stream);
     serialize(store);
 }
 
@@ -579,7 +579,7 @@ DenseClassifierScorer::
 load(const std::string & filename)
 {
     filter_istream stream(filename);
-    ML::DB::Store_Reader store(stream);
+    MLDB::DB::Store_Reader store(stream);
     reconstitute(store);
 }
 

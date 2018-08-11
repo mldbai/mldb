@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* compact_size_types.h                                            -*- C++ -*-
    Jeremy Barnes, 13 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
    ---
@@ -17,7 +15,7 @@
 #include <iostream>
 #include <stdint.h>
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 
@@ -92,4 +90,4 @@ IMPL_SERIALIZE_RECONSTITUTE(compact_int_t);
 
 
 } // namespace DB
-} // namespace ML
+} // namespace MLDB

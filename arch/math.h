@@ -11,9 +11,9 @@
 #ifndef __arch__math_h__
 #define __arch__math_h__
 
-namespace ML {
+namespace MLDB {
 
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __arch__math_h__ */

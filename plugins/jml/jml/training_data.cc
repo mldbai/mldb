@@ -11,10 +11,10 @@
 #include "training_data.h"
 #include "training_index.h"
 #include "training_index_entry.h"
-#include "mldb/jml/utils/file_functions.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/file_functions.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/vector_utils.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/base/exc_assert.h"
 #include <boost/progress.hpp>
@@ -23,7 +23,7 @@
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 

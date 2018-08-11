@@ -1,18 +1,14 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* vector_utils.h                                                  -*- C++ -*-
    Jeremy Barnes, 1 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-     
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    ---
 
    Helpful functions for dealing with vectors.
 */
 
-#ifndef __utils__vector_utils_h__
-#define __utils__vector_utils_h__
+#pragma once
 
 #include <vector>
 #include <algorithm>
@@ -20,7 +16,7 @@
 #include <sstream>
 
 
-namespace ML {
+namespace MLDB {
 
 struct sort_second_asc {
     template<class P>
@@ -115,7 +111,7 @@ void make_vector_set(std::vector<T> & vec)
     vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-} // namespace ML
+} // namespace MLDB
 
 namespace std {
 
@@ -142,5 +138,3 @@ to_string(const vector<T, A> & vec)
 
 
 } // namespace std
-
-#endif /* __utils__vector_utils_h__ */

@@ -17,7 +17,7 @@
 #include "mldb/arch/timers.h"
 #include "lapack.h"
 #include <cmath>
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/base/parallel.h"
 
@@ -214,7 +214,7 @@ void doDiagMultColumn(const boost::multi_array<Float, 2> & U,
         Vj_values[k] = V[k][j];
     }
     for (unsigned i = 0;  i < m;  ++i) {
-        result[i][j] = ML::SIMD::vec_accum_prod3(&U[i][0], &d[0], Vj_values, x);
+        result[i][j] = MLDB::SIMD::vec_accum_prod3(&U[i][0], &d[0], Vj_values, x);
     }
 }
 

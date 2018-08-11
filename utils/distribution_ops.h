@@ -24,7 +24,7 @@ distribution<F, Underlying> bound(const distribution<F, Underlying> & dist, F mi
 {
     distribution<F, Underlying> result(dist.size());
     for (unsigned i = 0;  i < dist.size();  ++i)
-        result[i] = ML::bound(dist[i], min, max);
+        result[i] = MLDB::bound(dist[i], min, max);
     return result;
 }
 
@@ -86,7 +86,7 @@ distribution<F, Underlying> round(const distribution<F, Underlying> & dist)
 {
     distribution<F, Underlying> result(dist.size());
     for (unsigned i = 0;  i < dist.size();  ++i)
-        result[i] = ML::round(dist[i]);
+        result[i] = MLDB::round(dist[i]);
     return result;
 }
 
@@ -100,7 +100,7 @@ distribution<F, Underlying> exp(const distribution<F, Underlying> & dist)
 {
     distribution<F, Underlying> result(dist.size());
     for (unsigned i = 0;  i < dist.size();  ++i)
-        result[i] = ML::exp(dist[i]);
+        result[i] = MLDB::exp(dist[i]);
     return result;
 }
 
@@ -187,7 +187,7 @@ distribution<F, Underlying> xdiv(const distribution<F, Underlying> & dist,
 {
     distribution<F, Underlying> result(dist.size());
     for (unsigned i = 0;  i < dist.size();  ++i)
-        result[i] = ML::xdiv(dist[i], val);
+        result[i] = MLDB::xdiv(dist[i], val);
     return result;
 }
 
@@ -197,7 +197,7 @@ distribution<F, Underlying> xdiv(F val,
 {
     distribution<F, Underlying> result(dist.size());
     for (unsigned i = 0;  i < dist.size();  ++i)
-        result[i] = ML::xdiv(val, dist[i]);
+        result[i] = MLDB::xdiv(val, dist[i]);
     return result;
 }
 
@@ -210,7 +210,7 @@ distribution<F, Underlying> xdiv(const distribution<F, Underlying> & dist1,
 
     distribution<F, Underlying> result(dist1.size());
     for (unsigned i = 0;  i < dist1.size();  ++i)
-        result[i] = ML::xdiv(dist1[i], dist2[i]);
+        result[i] = MLDB::xdiv(dist1[i], dist2[i]);
     return result;
 }
 

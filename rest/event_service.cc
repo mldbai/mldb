@@ -12,8 +12,8 @@
 #include <iostream>
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/environment.h"
-#include "mldb/jml/utils/file_functions.h"
+#include "mldb/utils/environment.h"
+#include "mldb/utils/file_functions.h"
 #include <unistd.h>
 #include <sys/utsname.h>
 

@@ -12,7 +12,7 @@
 
 #include <thread>
 
-namespace ML {
+namespace MLDB {
 
 
 bool makeThreadRealTime(unsigned long long handle, int priority);
@@ -32,7 +32,7 @@ inline bool makeThreadRealTime(std::thread & thread, int priority)
     return makeThreadRealTime(thread.native_handle(), priority);
 }
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__arch__rt_h__ */
 

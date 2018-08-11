@@ -8,7 +8,7 @@
 
 #include "mldb/engine/function_collection.h"
 #include "mldb/rest/poly_collection_impl.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/types/meta_value_description.h"

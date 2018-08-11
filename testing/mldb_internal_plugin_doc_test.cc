@@ -10,7 +10,7 @@
 #include "mldb/engine/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/builtin/plugin_resource.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
             string error;
             if (doc.code() != 200) {
                 cerr << url << endl;
-                error = ML::trim(doc.body());
+                error = MLDB::trim(doc.body());
             }
             //BOOST_CHECK_EQUAL(doc.code(), 200);
             BOOST_CHECK_EQUAL(error, "");

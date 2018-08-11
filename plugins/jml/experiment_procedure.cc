@@ -14,7 +14,7 @@
 #include "mldb/builtin/matrix.h"
 #include "mldb/engine/analytics.h"
 #include "mldb/types/any_impl.h"
-#include "jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "arch/timers.h"
 #include "types/optional_description.h"
 #include "mldb/builtin/sql_config_validator.h"
@@ -386,7 +386,7 @@ run(const ProcedureRunConfig & run,
         clsProcConf.trainingData.stm->orderBy = datasetFold.trainingOrderBy;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
-        ML::replace_all(baseUrl, "$runid",
+        MLDB::replace_all(baseUrl, "$runid",
                         MLDB::format("%s-%d", runProcConf.experimentName, (int)progress));
         clsProcConf.modelFileUrl = Url(baseUrl);
         clsProcConf.configuration = runProcConf.configuration;

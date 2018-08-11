@@ -10,11 +10,11 @@
 #include "simd.h"
 
 
-namespace ML {
+namespace MLDB {
 
 #ifdef __i686__
 
 
 #endif // __i686__
 
-} // namespace ML
+} // namespace MLDB

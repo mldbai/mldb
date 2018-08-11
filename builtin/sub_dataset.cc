@@ -15,7 +15,7 @@
 #include "mldb/types/annotated_exception.h"
 #include <unordered_set>
 #include <mutex>
-#include "mldb/jml/utils/profile.h"
+#include "mldb/utils/profile.h"
 #include "mldb/engine/dataset_utils.h"
 
 using namespace std;

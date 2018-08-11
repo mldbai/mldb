@@ -12,19 +12,16 @@
 
 #include <boost/test/unit_test.hpp>
 #include "mldb/builtin/intersection_utils.h"
-#include "mldb/jml/utils/smart_ptr_utils.h"
-#include "mldb/jml/utils/string_functions.h"
-#include "mldb/jml/utils/vector_utils.h"
-#include "mldb/jml/utils/pair_utils.h"
+#include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/string_functions.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/utils/pair_utils.h"
 #include "mldb/base/parallel.h"
 
 #include "mldb/utils/distribution.h"
 #include <cmath>
 
 using namespace std;
-
-using namespace ML;
-
 using namespace MLDB;
 
 void testBucket(std::vector<uint32_t> subs1,

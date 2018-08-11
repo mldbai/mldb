@@ -21,6 +21,7 @@ struct ParseContext;
 
 namespace ML {
 
+using namespace MLDB;
 
 class Feature_Space;
 class Mutable_Feature_Space;

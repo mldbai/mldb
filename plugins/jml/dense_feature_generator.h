@@ -97,13 +97,13 @@ struct DenseFeatureGenerator {
 
         Default implementation throws exception.
     */
-    virtual void serialize(ML::DB::Store_Writer & store) const;
+    virtual void serialize(MLDB::DB::Store_Writer & store) const;
 
     /** Reconstitute the feature generator.
         
         Default implementation throws exception.
      */
-    virtual void reconstitute(ML::DB::Store_Reader & store);
+    virtual void reconstitute(MLDB::DB::Store_Reader & store);
 
     /** Return the class name and arguments used to deal with
         serialization/reconstitution.
@@ -113,10 +113,10 @@ struct DenseFeatureGenerator {
     virtual std::pair<std::string, std::string> className() const;
     
     static std::shared_ptr<DenseFeatureGenerator>
-    polyReconstitute(ML::DB::Store_Reader & store);
+    polyReconstitute(MLDB::DB::Store_Reader & store);
 
     static void polySerialize(const DenseFeatureGenerator & fgen,
-                              ML::DB::Store_Writer & store);
+                              MLDB::DB::Store_Writer & store);
 
     /** Register a factory to create one of these from a className
         and a store.
@@ -187,14 +187,14 @@ struct DenseFeatureGeneratorT
     }
 
     static std::shared_ptr<DenseFeatureGeneratorT>
-    polyReconstitute(ML::DB::Store_Reader & store)
+    polyReconstitute(MLDB::DB::Store_Reader & store)
     {
         return std::dynamic_pointer_cast<DenseFeatureGeneratorT>
             (DenseFeatureGenerator::polyReconstitute(store));
     }
 
     static void polySerialize(const DenseFeatureGeneratorT & fgen,
-                              ML::DB::Store_Writer & store)
+                              MLDB::DB::Store_Writer & store)
     {
         DenseFeatureGenerator::polySerialize(fgen, store);
     }
@@ -262,13 +262,13 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
 
     /** Serialize the feature generator's parameters to the given
         store. */
-    virtual void serialize(ML::DB::Store_Writer & store) const
+    virtual void serialize(MLDB::DB::Store_Writer & store) const
     {
         throw MLDB::Exception("CustomDenseFeatureGenerator can't be serialized");
     }
 
     /** Reconstitute the feature generator. */
-    virtual void reconstitute(ML::DB::Store_Reader & store)
+    virtual void reconstitute(MLDB::DB::Store_Reader & store)
     {
         throw MLDB::Exception("CustomDenseFeatureGenerator can't be "
                             "reconstituted");
@@ -442,11 +442,11 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
 
     /** Serialize the feature generator's parameters to the given
         store. */
-    virtual void serialize(ML::DB::Store_Writer & store) const
+    virtual void serialize(MLDB::DB::Store_Writer & store) const
     {
         unsigned char version = 0;
         store << version;
-        store << ML::DB::compact_size_t(generators.size());
+        store << MLDB::DB::compact_size_t(generators.size());
         for (unsigned i = 0;  i < generators.size();  ++i) {
             store << generators[i].prefix;
             DenseFeatureGenerator::polySerialize(*generators[i].generator, store);
@@ -454,14 +454,14 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
     }
 
     /** Reconstitute the feature generator. */
-    virtual void reconstitute(ML::DB::Store_Reader & store)
+    virtual void reconstitute(MLDB::DB::Store_Reader & store)
     {
         unsigned char version;
         store >> version;
         if (version != 0)
             throw MLDB::Exception("unknown CombinedFeatureGeneratorT version %d",
                                 (int)version);
-        ML::DB::compact_size_t ngen(store);
+        MLDB::DB::compact_size_t ngen(store);
 
         //using namespace std;
         //cerr << "reconstituting " << ngen << " feature generators" << endl;

@@ -11,7 +11,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/any_impl.h"
-#include "jml/utils/string_functions.h"
+#include "mldb/utils/string_functions.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/log.h"
 
@@ -162,7 +162,7 @@ run(const ProcedureRunConfig & run,
         // to string to do a replace_all to catch all the $permutation to replace
         // and then parsing that back to json...
         string strConf = permutedConfTmp.toString();
-        ML::replace_all(strConf, "$permutation", MLDB::format("permutation_%d", permutation_num));
+        MLDB::replace_all(strConf, "$permutation", MLDB::format("permutation_%d", permutation_num));
 
         Json::Value permutedConf;
         Json::Reader reader;

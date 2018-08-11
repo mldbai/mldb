@@ -20,7 +20,7 @@
 
 #include <iostream>
 
-namespace ML {
+namespace MLDB {
 namespace CUDA {
 
 using namespace std;
@@ -168,7 +168,7 @@ struct DeviceData {
 };
 
 } // namespace CUDA
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __cuda__device_data_h__ */

@@ -12,7 +12,7 @@
 
 
 using namespace std;
-using namespace ML::DB;
+using namespace MLDB::DB;
 
 
 namespace ML {
