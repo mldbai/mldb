@@ -17,15 +17,14 @@
 
 #include "mldb/utils/distribution.h"
 #include <boost/multi_array.hpp>
-#include "vantage_point_tree.h"
-#include "quadtree.h"
+#include "mldb/utils/vantage_point_tree.h"
+#include "mldb/utils/quadtree.h"
 
 namespace ML {
 
 using MLDB::distribution;
-
-template<typename Item> struct VantagePointTreeT;
-struct Quadtree;
+using MLDB::Quadtree;
+using MLDB::VantagePointTreeT;
 
 /** Calculate the probability distribution that gives the given
     perplexity.  The input in D is the *square* of the distances

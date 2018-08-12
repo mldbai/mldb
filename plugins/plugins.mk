@@ -4,7 +4,6 @@ $(eval $(call include_sub_make,behavior))
 $(eval $(call include_sub_make,tabular))
 $(eval $(call include_sub_make,jml))
 $(eval $(call include_sub_make,nlp))
-$(eval $(call include_sub_make,cluster))
 $(eval $(call include_sub_make,feature_gen))
 $(eval $(call include_sub_make,textual))
 $(eval $(call include_sub_make,msoffice))
@@ -28,7 +27,6 @@ LIBMLDB_BUILTIN_PLUGIN_LINK:= \
 	mldb_behavior_plugin \
 	mldb_jml_plugin \
 	mldb_nlp_plugin \
-	mldb_cluster_plugin \
 	mldb_feature_gen_plugin \
 	mldb_textual_plugin \
 	mldb_msoffice_plugin \

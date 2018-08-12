@@ -16,10 +16,7 @@
 #include <iostream>
 #include <cmath>
 
-namespace ML {
-
-using MLDB::compact_vector;
-namespace DB = MLDB::DB;
+namespace MLDB {
 
 typedef compact_vector<float, 3, uint32_t, false> QCoord;
 
@@ -312,4 +309,4 @@ struct Quadtree {
     void reconstitute(DB::Store_Reader & store);
 };
 
-} // namespace ML
+} // namespace MLDB

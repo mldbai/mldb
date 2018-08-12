@@ -25,7 +25,7 @@
 #include "mldb/utils/log.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "sql_csv_scope.h"
-
+#include "mldb/base/parse_context.h"
 
 using namespace std;
 

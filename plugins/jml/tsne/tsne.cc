@@ -32,8 +32,8 @@
 #include "mldb/arch/cache.h"
 #include "mldb/base/scope.h"
 #include "mldb/utils/environment.h"
-#include "quadtree.h"
-#include "vantage_point_tree.h"
+#include "mldb/utils/quadtree.h"
+#include "mldb/utils/vantage_point_tree.h"
 #include <fstream>
 #include <functional>
 

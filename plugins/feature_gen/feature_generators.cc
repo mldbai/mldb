@@ -10,7 +10,6 @@
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "utils/json_utils.h"

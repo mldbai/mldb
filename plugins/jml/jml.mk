@@ -51,6 +51,9 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 	experiment_procedure.cc \
 	randomforest.cc \
 	dataset_feature_space.cc \
+	kmeans_interface.cc \
+	em_interface.cc \
+	tsne_interface.cc \
 
 
 LIBMLDB_JML_PLUGIN_LINK:= \

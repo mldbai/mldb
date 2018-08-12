@@ -1,13 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** quadtree.cc
     Jeremy Barnes, 6 February 2015
     Copyright (c) 2015 mldb.ai inc.
-    
+
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
     Released under the BSD license, no attribution required.
 */
 
-#include "quadtree.h"
+#include "mldb/utils/quadtree.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/types/db/compact_vector_persistence.h"
@@ -15,7 +14,7 @@
 using namespace MLDB::DB;
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 void
 QuadtreeNode::
@@ -151,5 +150,5 @@ serialize(DB::Store_Writer & store) const
     else store << compact_size_t(0);
 }
 
-} // namespace ML
+} // namespace MLDB
 

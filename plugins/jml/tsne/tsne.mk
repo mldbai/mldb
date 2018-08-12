@@ -5,8 +5,7 @@
 # Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
 
 LIBTSNE_SOURCES := \
-        tsne.cc \
-	quadtree.cc
+        tsne.cc
 
 LIBTSNE_LINK :=	utils algebra arch stats
 

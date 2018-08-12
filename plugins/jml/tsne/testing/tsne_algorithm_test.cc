@@ -24,7 +24,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
-#include "mldb/plugins/jml/tsne/vantage_point_tree.h"
+#include "mldb/utils/vantage_point_tree.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/pair_utils.h"
 #include <iomanip>

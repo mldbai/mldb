@@ -7,7 +7,7 @@
     Implementation of an TSNE algorithm for embedding of a dataset.
 */
 
-#include "tsne.h"
+#include "tsne_interface.h"
 #include "mldb/builtin/matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
@@ -20,10 +20,9 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/builtin/sql_config_validator.h"
-#include "mldb/plugins/jml/tsne/vantage_point_tree.h"
+#include "mldb/utils/vantage_point_tree.h"
 #include "mldb/plugins/jml/tsne/tsne.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/engine/analytics.h"
@@ -125,8 +124,8 @@ struct TsneItl {
     ML::TSNE_Params params;
     boost::multi_array<float, 2> inputPath;
     boost::multi_array<float, 2> outputPath;
-    std::unique_ptr<ML::VantagePointTree> vpTree;
-    std::unique_ptr<ML::Quadtree> qtree;
+    std::unique_ptr<MLDB::VantagePointTree> vpTree;
+    std::unique_ptr<MLDB::Quadtree> qtree;
     std::vector<Utf8String> inputColumnNames;
     std::vector<Utf8String> outputColumnNames;
     std::shared_ptr<const std::vector<ColumnPath> > outputColumnNamesShared;
@@ -169,7 +168,7 @@ struct TsneItl {
 
         store << inputColumnNames << outputColumnNames;
 
-        ML::VantagePointTree::serializePtr(store, vpTree.get());
+        MLDB::VantagePointTree::serializePtr(store, vpTree.get());
         qtree->serialize(store);
     }
 
@@ -193,8 +192,8 @@ struct TsneItl {
 
         outputColumnNamesShared.reset(new vector<ColumnPath>(outputColumnNames.begin(), outputColumnNames.end()));
 
-        vpTree.reset(ML::VantagePointTree::reconstitutePtr(store));
-        qtree.reset(new ML::Quadtree(store));
+        vpTree.reset(MLDB::VantagePointTree::reconstitutePtr(store));
+        qtree.reset(new MLDB::Quadtree(store));
     }
 
     distribution<float> reembed(const distribution<float> & v) const
