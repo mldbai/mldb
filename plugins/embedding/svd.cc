@@ -24,7 +24,6 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/distribution_description.h"
 #include "mldb/types/optional_description.h"
-#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/builtin/sql_config_validator.h"
 #include "mldb/vfs/fs_utils.h"

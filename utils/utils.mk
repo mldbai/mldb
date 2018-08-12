@@ -10,10 +10,12 @@ LIBUTILS_SOURCES := \
 	floating_point.cc \
 	buckets.cc \
 	confidence_intervals.cc \
+	quadtree.cc \
 
 LIBUTILS_LINK := \
 	arch \
 	vfs \
+	db
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 

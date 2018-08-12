@@ -18,11 +18,7 @@
 #include <thread>
 #include <future>
 
-namespace ML {
-
-using MLDB::compact_vector;
-using MLDB::distribution;
-namespace DB = MLDB::DB;
+namespace MLDB {
 
 template<typename Item>
 struct VantagePointTreeT {
@@ -542,4 +538,4 @@ struct VantagePointTreeT {
 
 typedef VantagePointTreeT<int> VantagePointTree;
 
-} // namespace ML
+} // namespace MLDB

@@ -17,7 +17,6 @@
 #include "mldb/utils/pair_utils.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/engine/analytics.h"
 #include "mldb/types/any_impl.h"
@@ -26,6 +25,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/builtin/sql_config_validator.h"
 #include "mldb/utils/log.h"
+#include "mldb/types/db/persistent.h"
 
 using namespace std;
 

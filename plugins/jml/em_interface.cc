@@ -7,7 +7,7 @@
     Guassian clustering procedure and functions.
 */
 
-#include "em.h"
+#include "em_interface.h"
 #include "mldb/plugins/jml/em.h"
 #include "mldb/builtin/matrix.h"
 #include "mldb/core/mldb_engine.h"

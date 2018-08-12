@@ -8,7 +8,7 @@
 */
 
 #include "embedding.h"
-#include "mldb/plugins/jml/tsne/vantage_point_tree.h"
+#include "mldb/utils/vantage_point_tree.h"
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/arch/simd_vector.h"
@@ -80,7 +80,7 @@ EmbeddingDatasetConfigDescription()
 
 struct EmbeddingDatasetRepr {
     EmbeddingDatasetRepr(MetricSpace metric)
-        : vpTree(new ML::VantagePointTreeT<int>()),
+        : vpTree(new MLDB::VantagePointTreeT<int>()),
           distance(DistanceMetric::create(metric))
     {
     }
@@ -88,7 +88,7 @@ struct EmbeddingDatasetRepr {
     EmbeddingDatasetRepr(std::vector<ColumnPath> columnNames,
                          MetricSpace metric)
         : columnNames(std::move(columnNames)), columns(this->columnNames.size()),
-          vpTree(new ML::VantagePointTreeT<int>()),
+          vpTree(new MLDB::VantagePointTreeT<int>()),
           distance(DistanceMetric::create(metric))
     {
         for (unsigned i = 0;  i < this->columnNames.size();  ++i) {
@@ -102,7 +102,7 @@ struct EmbeddingDatasetRepr {
           columnIndex(other.columnIndex),
           rows(other.rows),
           rowIndex(other.rowIndex),
-          vpTree(ML::VantagePointTreeT<int>::deepCopy(other.vpTree.get()))
+          vpTree(MLDB::VantagePointTreeT<int>::deepCopy(other.vpTree.get()))
     {
     }
 
@@ -207,7 +207,7 @@ struct EmbeddingDatasetRepr {
     std::vector<Row> rows;
     LightweightHash<uint64_t, int> rowIndex;
     
-    std::unique_ptr<ML::VantagePointTreeT<int> > vpTree;
+    std::unique_ptr<MLDB::VantagePointTreeT<int> > vpTree;
     std::unique_ptr<DistanceMetric> distance;
 
     void save(const std::string & filename)
@@ -932,7 +932,7 @@ struct EmbeddingDataset::Itl
             };
         
         // Create the VP tree for indexed lookups on distance
-        (*uncommitted).vpTree.reset(ML::VantagePointTreeT<int>::createParallel(items, dist));
+        (*uncommitted).vpTree.reset(MLDB::VantagePointTreeT<int>::createParallel(items, dist));
 
         INFO_MSG(logger) << "VP tree done in " << timer.elapsed();
         

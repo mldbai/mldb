@@ -7,7 +7,7 @@
 */
 
 #include "mldb/utils/distribution_simd.h"
-#include "kmeans.h"
+#include "kmeans_interface.h"
 #include "mldb/builtin/matrix.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
@@ -20,7 +20,6 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/plugins/jml/value_descriptions.h"
 #include "mldb/plugins/jml/kmeans.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/builtin/sql_config_validator.h"
