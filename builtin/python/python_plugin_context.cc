@@ -128,7 +128,7 @@ convertException(PythonSubinterpreter & pyControl,
     }
 
     // why is this not always working? for plugins it doesn't look like it is...
-    if(val && PyString_Check(val))
+    if(val && PyUnicode_Check(val))
         result.message = Utf8String(extract<string>(val));
 
     if (!tb) {
@@ -249,7 +249,8 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
         for(int i = 0; i < len(lst); i++) {
             boost::python::object obj = boost::python::object(lst[i]);
             if(obj.ptr() == Py_None) continue;
-            auto p = Json::parse(PyString_AsString(obj.ptr()));
+
+            auto p = Json::parse(boost::python::extract<std::string>(obj));
             if(!p.isArray()) continue;
 
             vector<Utf8String> parts;

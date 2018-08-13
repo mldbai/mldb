@@ -5,7 +5,7 @@ PYTHON_VERSION ?= $(PYTHON_VERSION_DETECTED)
 
 PYTHON_INCLUDE_PATH ?= $(VIRTUALENV)/include/python$(PYTHON_VERSION)
 PYTHON ?= python$(PYTHON_VERSION)
-PIP ?= pip
+PIP ?= pip3
 PYFLAKES ?= true
 # Override this to run a cmd before installing python_requirements.txt
 PYTHON_DEPENDENCIES_PRE_CMD ?= true  
@@ -21,11 +21,13 @@ PYTHONPATH ?= RUN_PYTHONPATH
 ifdef VIRTUALENV
 
 $(VIRTUALENV)/bin/activate:
-	virtualenv $(VIRTUALENV)
+	virtualenv --python=python$(PYTHON_VERSION) $(VIRTUALENV)
 
 python_dependencies: $(VIRTUALENV)/bin/activate
 
-PYTHON_EXECUTABLE ?= $(VIRTUALENV)/bin/python
+PYTHON_EXECUTABLE ?= $(VIRTUALENV)/bin/python3
+
+PYTHON_LIBRARY ?= python$(PYTHON_VERSION)
 
 run_ipython: python_modules
 	$(VIRTUALENV)/bin/ipython
@@ -62,7 +64,7 @@ define add_swig_source
 ifneq ($(PREMAKE),1)
 $(if $(trace),$$(warning called add_swig_source "$(1)" "$(2)"))
 
-BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND := swig -python -c++  -MMD -MF $(OBJ)/$(CWD)/$(2).d -MT "$(OBJ)/$(CWD)/$(2)_wrap.cxx $(OBJ)/$(CWD)/$(2).lo" -o $(OBJ)/$(CWD)/$(2)_wrap.cxx~ $(SRC)/$(CWD)/$(1)
+BUILD_$(OBJ)/$(CWD)/$(2)_wrap.cxx_COMMAND := swig -python3 -c++  -MMD -MF $(OBJ)/$(CWD)/$(2).d -MT "$(OBJ)/$(CWD)/$(2)_wrap.cxx $(OBJ)/$(CWD)/$(2).lo" -o $(OBJ)/$(CWD)/$(2)_wrap.cxx~ $(SRC)/$(CWD)/$(1)
 
 # Call swig to generate the source file
 $(OBJ)/$(CWD)/$(2)_wrap.cxx:	$(SRC)/$(CWD)/$(1)
