@@ -11,6 +11,6 @@ PYTHON_PLUGIN_SOURCES := \
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
 
-$(eval $(call library,mldb_python_plugin,$(PYTHON_PLUGIN_SOURCES),value_description python2.7 boost_python mldb_core mldb_builtin_base))
+$(eval $(call library,mldb_python_plugin,$(PYTHON_PLUGIN_SOURCES),value_description $(PYTHON_LIBRARY) boost_python3 mldb_core mldb_builtin_base))
 
 $(eval $(call include_sub_make,testing))

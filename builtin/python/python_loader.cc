@@ -353,7 +353,7 @@ addPluginPathToEnv(PythonSubinterpreter & pyControl) const
     ExcAssert(sysPath);
 
     string pluginDir = pluginCtx->pluginResource->getPluginDir().string();
-    PyObject * pluginDirPy = PyString_FromString(pluginDir.c_str());
+    PyObject * pluginDirPy = PyUnicode_FromString(pluginDir.c_str());
     ExcAssert(pluginDirPy);
 
     PyList_Insert( sysPath, 0, pluginDirPy );
@@ -588,9 +588,9 @@ runPythonScript(std::shared_ptr<PythonContext> pyCtx,
     ScriptOutput result;
 
     auto pySetArgv = [] {
-        char argv1[] = "mldb-boost-python";
-        char *argv[] = {argv1};
-        int argc = sizeof(argv[0]) / sizeof(char *);
+        wchar_t argv1[] = L"mldb-boost-python";
+        wchar_t *argv[] = {argv1};
+        int argc = sizeof(argv[0]) / sizeof(wchar_t *);
         PySys_SetArgv(argc, argv);
     };
 
@@ -1016,13 +1016,13 @@ std::string pyObjectToString(PyObject * pyObj)
 {
     namespace bp = boost::python;
 
-    if(PyInt_Check(pyObj)) {
-        return boost::lexical_cast<std::string>(bp::extract<int>(pyObj));
+    if(PyLong_Check(pyObj)) {
+        return boost::lexical_cast<std::string>(bp::extract<long>(pyObj));
     }
     else if(PyFloat_Check(pyObj)) {
         return boost::lexical_cast<std::string>(bp::extract<float>(pyObj));
     }
-    else if(PyString_Check(pyObj)) {
+    else if(PyBytes_Check(pyObj)) {
         return bp::extract<std::string>(pyObj);
     }
     else if(PyUnicode_Check(pyObj)) {

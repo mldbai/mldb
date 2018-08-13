@@ -303,8 +303,8 @@ struct StrConstructableIdFromPython
 {
     static void* convertible(PyObject* obj_ptr)
     {
-        if (!PyString_Check(obj_ptr) && !PyUnicode_Check(obj_ptr)
-                && !PyInt_Check(obj_ptr) && !PyFloat_Check(obj_ptr)) {
+        if (!PyBytes_Check(obj_ptr) && !PyUnicode_Check(obj_ptr)
+                && !PyLong_Check(obj_ptr) && !PyFloat_Check(obj_ptr)) {
             return 0;
         }
         return obj_ptr;
@@ -314,13 +314,13 @@ struct StrConstructableIdFromPython
     {
         using std::to_string;
         std::string id;
-        if (PyInt_Check(obj_ptr)) {
-            id = to_string(boost::python::extract<int>(obj_ptr)());
+        if (PyLong_Check(obj_ptr)) {
+            id = to_string(boost::python::extract<long>(obj_ptr)());
         }
         else if (PyFloat_Check(obj_ptr)) {
             id = to_string(boost::python::extract<double>(obj_ptr)());
         }
-        else if (PyUnicode_Check(obj_ptr) || PyString_Check(obj_ptr)) {
+        else if (PyUnicode_Check(obj_ptr) || PyBytes_Check(obj_ptr)) {
             if (PyUnicode_Check(obj_ptr)) {
                 obj_ptr = PyUnicode_AsUTF8String(obj_ptr);
                 ExcCheck(obj_ptr!=nullptr,
@@ -352,7 +352,7 @@ struct IndexFromPython
 
     static void construct(PyObject* obj_ptr, void* storage)
     {
-        new (storage) IndexT(boost::python::extract<int>(obj_ptr)());
+        new (storage) IndexT(boost::python::extract<long>(obj_ptr)());
     }
 };
 

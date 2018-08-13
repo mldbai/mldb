@@ -54,7 +54,7 @@ convertible(PyObject* obj_ptr)
     if (!obj_ptr)
         return nullptr;
     if (!PyDateTime_Check(obj_ptr) && !PyFloat_Check(obj_ptr) && 
-        !PyInt_Check(obj_ptr) && !PyString_Check(obj_ptr)) {
+        !PyLong_Check(obj_ptr) && !PyUnicode_Check(obj_ptr)) {
         return nullptr;
     }
     return obj_ptr;
@@ -67,10 +67,10 @@ construct(PyObject* obj_ptr, void* storage)
     if (PyFloat_Check(obj_ptr)) {
         Date x = Date::fromSecondsSinceEpoch(PyFloat_AS_DOUBLE(obj_ptr));
         new (storage) Date(x);
-    } else if (PyInt_Check(obj_ptr)) {
-        Date x = Date::fromSecondsSinceEpoch(PyInt_AS_LONG(obj_ptr));
+    } else if (PyLong_Check(obj_ptr)) {
+        Date x = Date::fromSecondsSinceEpoch(PyLong_AS_LONG(obj_ptr));
         new (storage) Date(x);
-    } else if (PyString_Check(obj_ptr)) {
+    } else if (PyUnicode_Check(obj_ptr)) {
         std::string str = bp::extract<std::string>(obj_ptr)();
         Date x = Date::parseIso8601DateTime(str);
         new (storage) Date(x);
@@ -201,17 +201,13 @@ construct_recur(PyObject * pyObj)
         bool b = bp::extract<bool>(pyObj);
         val = b;
     }
-    else if(PyInt_Check(pyObj)) {
+    else if(PyLong_Check(pyObj)) {
         int64_t i = bp::extract<int64_t>(pyObj);
         val = i;
     }
     else if(PyFloat_Check(pyObj)) {
         float flt = bp::extract<float>(pyObj);
         val = flt;
-    }
-    else if(PyString_Check(pyObj)) {
-        std::string str = bp::extract<std::string>(pyObj);
-        val = str;
     }
     else if(PyUnicode_Check(pyObj)) {
         // https://docs.python.org/2/c-api/unicode.html#c.PyUnicode_AsUTF8String
@@ -294,7 +290,7 @@ convert_recur(const Json::Value & js)
         //TODO this is pretty ugly. find the right way to do this
         int i = js.asInt();
         auto int_as_str = boost::lexical_cast<std::string>(i);
-        PyObject* pyobj = PyInt_FromString(const_cast<char*>(int_as_str.c_str()), NULL, 10);
+        PyObject* pyobj = PyLong_FromString(const_cast<char*>(int_as_str.c_str()), NULL, 10);
 
         // When you want a bp::object to manage a pointer to PyObject* pyobj one does: 
         // bp::object o(bp::handle<>(pyobj));

@@ -27,12 +27,13 @@ apt-get install -y \
   liblzma-dev \
   libpng-dev \
   libpq-dev \
-  libpython-dev \
+  libpython3-dev \
   libsasl2-dev \
   libssh2-1-dev \
   libtool \
   libyaml-cpp-dev \
-  python-virtualenv \
+  python3-virtualenv \
+  python3-pip \
   unzip \
   valgrind \
   uuid-dev \
