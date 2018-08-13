@@ -242,6 +242,73 @@ endif
 endif
 endef
 
+# Used by the embed_file macro below.  Turns a filename into the symbol
+# name that ld would create for a binary file with that name.
+# For example, mldb/builtin/python/mldb_wrapper.py
+# -> _mldb_builtin_python_mldb_wrapper_py
+mangle_symbol_like_ld=$(subst .,_,$(subst /,_,$(subst ./,,$(1))))
+
+# embed a file directly into the source
+# it will be available as filename_start, with its length in filename_length
+# For example, to make a Python source file available without needing to load
+# an external file.
+#
+# There will be a <prefix>_start, <prefix>_end and <prefix>_size symbol with
+# the prefix determined by the basename.  For example, for mldb_wrapper.py
+# the following definitions are used:
+#
+#extern "C" {
+#    extern const char mldb_wrapper_start;
+#    extern const char mldb_wrapper_end;
+#    extern size_t mldb_wrapper_size;
+#};
+#
+# $(1): filename of source file
+# $(2): basename of the filename
+# $(3): directory under which the source lives; default $(SRC)
+#
+
+define embed_file
+ifneq ($(PREMAKE),1)
+
+#$$(warning embed_file $(1) $(2) $(3))
+
+# Name of the file without the .embed?
+$$(eval fileToEmbed := $(1:%.embed=%))
+
+# Which directory is the source in?  Enables us to provide a default for
+# parameter 3.
+$$(eval sourceDIR := $$(if $(3),$(3),$(SRC)))
+
+# What symbol would we get originally?  This is renamed to the value
+# using just the filename.  This should match the name that nm will
+# provide for the output
+
+$$(eval symbolPrefix_$(1) := _binary_$$(call mangle_symbol_like_ld,$$(sourceDIR)/$(CWD)/$$(fileToEmbed)))
+
+$$(eval targetPrefix_$(1) := $$(call mangle_symbol_like_ld,$$(basename $$(fileToEmbed))))
+
+#$$(warning symbolPrefix = $$(symbolPrefix) targetPrefix = $$(targetPrefix))
+
+# What is the name of the output object file?  This is used by the library
+# macro to find which files to link in.
+BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).lo
+
+# NOTE: this doesn't work on OSX...
+# https://dvdhrm.wordpress.com/2013/03/08/linking-binary-data/
+# https://csl.name/post/embedding-binary-data/
+$$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(sourceDIR)/$(CWD)/$$(fileToEmbed) | $(OBJ)/$(CWD)/.dir_exists $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
+	@ld -r -b binary $$< -o $$@~
+	@objcopy \
+		--rename-section .data=.rodata,alloc,load,readonly,data,contents \
+		--redefine-sym $$(symbolPrefix_$(1))_start=$$(targetPrefix_$(1))_start \
+		--redefine-sym $$(symbolPrefix_$(1))_end=$$(targetPrefix_$(1))_end \
+		--redefine-sym $$(symbolPrefix_$(1))_size=$$(targetPrefix_$(1))_size \
+		$$@~
+	@mv $$@~ $$@
+
+endif # PREMAKE
+endef # embed_file
 
 # Set up the map to map an extension to the name of a function to call
 $(call set,EXT_FUNCTIONS,.cu.cc,add_cuda_source)
@@ -254,6 +321,7 @@ $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
 $(call set,EXT_FUNCTIONS,.cu,add_cuda_source)
 $(call set,EXT_FUNCTIONS,.i,add_swig_source)
 $(call set,EXT_FUNCTIONS,.proto,add_pbuf_source)
+$(call set,EXT_FUNCTIONS,.py.embed,embed_file)
 
 # add a single source file
 # $(1): filename
