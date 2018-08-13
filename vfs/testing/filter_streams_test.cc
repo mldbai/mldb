@@ -574,7 +574,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
 {
-    filter_istream stream1("file://mldb/jml/utils/testing/fixtures/hello.txt",
+    filter_istream stream1("file://mldb/utils/testing/fixtures/hello.txt",
                            { { "mapped", "true" } });
 
     BOOST_REQUIRE(stream1.mapped().first != nullptr);
@@ -586,7 +586,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
     BOOST_CHECK_EQUAL(str, "hello");
     stream1.close();
 
-    filter_istream stream2("file://mldb/jml/utils/testing/fixtures/hello.txt.gz",
+    filter_istream stream2("file://mldb/utils/testing/fixtures/hello.txt.gz",
                            { { "mapped", "true" } });
 
     getline(stream2, str);
@@ -598,7 +598,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
 BOOST_AUTO_TEST_CASE(test_empty_filter_stream_mapped)
 {
     filter_istream stream;
-    stream.open("file://mldb/jml/utils/testing/fixtures/empty.txt",
+    stream.open("file://mldb/utils/testing/fixtures/empty.txt",
                 { { "mapped", "true" } });
     // we cannot map an empty file
     auto mapped = stream.mapped();
