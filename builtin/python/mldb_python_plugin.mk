@@ -2,7 +2,7 @@
 
 PYTHON_PLUGIN_SOURCES := \
 	python_interpreter.cc \
-	python_loader.cc \
+	python_plugin.cc \
 	python_plugin_context.cc \
 	python_entities.cc \
 	python_converters.cc \

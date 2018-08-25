@@ -86,9 +86,11 @@ struct MldbPythonInterpreter: public PythonInterpreter {
                     ScriptOutput * output = nullptr);
 
 private:    
+    // GIL must be held
     void injectMldbWrapper(const EnterThreadToken & threadToken);
-    void injectOutputLoggingCode(const EnterThreadToken & threadToken);
 
+    // GIL must be held
+    void injectOutputLoggingCode(const EnterThreadToken & threadToken);
 };
 
 
@@ -101,8 +103,7 @@ private:
 struct PythonRestRequest {
 
     PythonRestRequest(const RestRequest & request,
-                      RestRequestParsingContext & context,
-                      std::shared_ptr<RestConnection> connection);
+                      RestRequestParsingContext & context);
 
     Utf8String remaining;
     std::string verb;
@@ -113,15 +114,11 @@ struct PythonRestRequest {
     int contentLength;
     boost::python::dict headers;
 
-    std::shared_ptr<RestConnection> connection;
-    
-    // Must hold GIL
+    // Must hold GIL; only called from Python so automatically true
     void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
 
-    // Must hold GIL
+    // Must hold GIL; only called from Python so automatically true
     void setReturnValue1(const Json::Value & rtnVal);
-
-    bool hasReturnValue() const;
     
     // These two are protected by the GIL
     Json::Value returnValue;
@@ -137,32 +134,15 @@ struct MldbPythonContext;
 
 struct PythonContext {
     PythonContext(const Utf8String &  name, MldbEngine * engine,
-            std::shared_ptr<LoadedPluginResource> pluginResource)
-    : categoryName(name + " plugin"),
-      loaderName(name + " loader"),
-      category(categoryName.rawData()),
-      loader(loaderName.rawData()),
-      engine(engine),
-      pluginResource(pluginResource)
-    {
-        using namespace std;
-        cerr << "new python context for " << name << " at " << this << endl;
-    }
+                  std::shared_ptr<LoadedPluginResource> pluginResource);
 
-    ~PythonContext()
-    {
-        using namespace std;
-        cerr << "destroyed python context for " << categoryName << " at " << this << endl;
-        magic = 987654321;
-    }
+    ~PythonContext();
     
     void log(const std::string & message);
     
     Json::Value getArgs() const;
 
     Utf8String categoryName, loaderName;
-
-    //Json::Value rtnVal;
 
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader;
@@ -176,64 +156,7 @@ struct PythonContext {
     std::shared_ptr<LoadedPluginResource> pluginResource;
 
     MldbPythonContext* mldbContext;
-
-    int magic = 1234567;
-    
-    //unsigned getRtnCode() {
-    //    return rtnCode;
-    //}
-
-    //private:
-    //    unsigned rtnCode;
 };
-
-
-/****************************************************************************/
-/* HELPER FUNCTION                                                          */
-/****************************************************************************/
-
-Json::Value
-perform2(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource);
-
-Json::Value
-perform3(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource,
-        const RestParams & params);
-
-Json::Value
-perform4(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource,
-        const RestParams & params,
-        Json::Value payload);
-
-Json::Value
-perform(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource,
-        const RestParams & params=RestParams(),
-        Json::Value payload=Json::Value(),
-        const RestParams & header=RestParams());
-
-Json::Value
-readLines1(MldbPythonContext * mldbCon,
-          const std::string & path);
-
-Json::Value
-readLines(MldbPythonContext * mldbCon,
-          const std::string & path,
-          int maxLine = -1);
-
-Json::Value
-ls(MldbPythonContext * mldbCon,
-    const std::string & path);
-
-std::string
-getHttpBoundAddress(MldbPythonContext * mldbCon);
-
 
 
 /****************************************************************************/
@@ -243,16 +166,7 @@ getHttpBoundAddress(MldbPythonContext * mldbCon);
 struct PythonPluginContext: public PythonContext  {
     PythonPluginContext(const Utf8String & pluginName,
                         MldbEngine * engine,
-                        std::shared_ptr<LoadedPluginResource> pluginResource,
-                        std::mutex & routeHandlingMutex)
-        : PythonContext(pluginName, engine, pluginResource),
-          hasRequestHandler(false),
-          routeHandlingMutex(routeHandlingMutex)
-    {
-        hasRequestHandler =
-            pluginResource->packageElementExists(
-                    PackageElement::ROUTES);
-    }
+                        std::shared_ptr<LoadedPluginResource> pluginResource);
 
     void setStatusHandler(PyObject * callback);
     void serveStaticFolder(const std::string & route, const std::string & dir);
@@ -260,17 +174,12 @@ struct PythonPluginContext: public PythonContext  {
 
     std::string getPluginDirectory() const;
 
-    //std::shared_ptr<PythonRestRequest> getRestRequest() const;
-    //std::shared_ptr<PythonRestRequest> restRequest;
-
     std::function<Json::Value ()> getStatus;
     
     RestRequestRouter::OnProcessRequest handleDocumentation;
 
     bool hasRequestHandler;
     std::string requestHandlerSource;
-
-    std::mutex & routeHandlingMutex;
 };
 
 
@@ -313,6 +222,39 @@ struct MldbPythonContext {
     std::shared_ptr<PythonPluginContext> plugin;
     std::shared_ptr<PythonScriptContext> script;
 
+    Json::Value
+    perform2(const std::string & verb,
+             const std::string & resource);
+
+    Json::Value
+    perform3(const std::string & verb,
+             const std::string & resource,
+             const RestParams & params);
+
+    Json::Value
+    perform4(const std::string & verb,
+             const std::string & resource,
+             const RestParams & params,
+             Json::Value payload);
+
+    Json::Value
+    perform(const std::string & verb,
+            const std::string & resource,
+            const RestParams & params=RestParams(),
+            Json::Value payload=Json::Value(),
+            const RestParams & header=RestParams());
+
+    Json::Value
+    readLines1(const std::string & path);
+
+    Json::Value
+    readLines(const std::string & path,
+              int maxLine = -1);
+
+    Json::Value
+    ls(const std::string & path);
+
+    std::string getHttpBoundAddress();
 };
 
 } // namespace mldb

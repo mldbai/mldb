@@ -90,7 +90,7 @@ struct PythonProcedure: public Procedure {
 
 
 /****************************************************************************/
-/* PythonFunction                                                              */
+/* PythonFunction                                                           */
 /****************************************************************************/
 
 struct PythonFunction: public Function {
