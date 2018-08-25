@@ -397,7 +397,10 @@ int main(int argc, char ** argv)
         bool success = false;
 
         auto result = output.jsonBody();
-        if (result["result"] == "success")
+
+        if (result.isObject()
+            && result.isMember("result")
+            && result["result"] == "success")
             success = true;
 
         if (!success) {

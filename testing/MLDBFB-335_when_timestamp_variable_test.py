@@ -43,4 +43,4 @@ class WhenValueTest(MldbUnitTest):
         self.assertTableResultEquals(res_value, res_variable)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

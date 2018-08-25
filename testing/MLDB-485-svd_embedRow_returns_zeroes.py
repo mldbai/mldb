@@ -75,19 +75,19 @@ r = mldb.put(svd_function, svdFunctionConfig)
 phrase = "1 5 8 1 5 7"
 c = Counter(phrase.split(" "))
 words = {}
-for word, count in c.items():
+for word, count in list(c.items()):
     words[str(word)] =  count
 
 input = {"row": words}
 
 r = mldb.get("/v1/functions/svd_function/application", input=input)
 mldb.log(r.json())
-features = r.json()["output"]["embedding"]
+features = r.json()["output"]["embedding"]["val"]
 
 if not len([i for i in features if i > 0]):
-    mldb.script.set_return("FAILURE")
+    request.set_return("FAILURE")
     mldb.log("Features were {}".format(features))
     mldb.log(str(r["statusCode"]))
     sys.exit(0)
 
-mldb.script.set_return("success")
+request.set_return("success")

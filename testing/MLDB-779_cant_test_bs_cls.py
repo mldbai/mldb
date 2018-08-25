@@ -21,10 +21,10 @@ mldb.log("data loader created dataset")
 
 now = datetime.datetime.now()
 
-for i in xrange(200):
+for i in range(200):
     label = i % 3 == 0
     feats = []
-    for x in xrange(25):
+    for x in range(25):
         rnd = random.random()
         if rnd < x/25. or (label is True and rnd < 0.4):
             feats.append(["feat%d" % x, 1, now])
@@ -143,4 +143,4 @@ for cls in ["bdt", "glz", "bs"]:
 
     mldb.log(rez.json())
 
-mldb.script.set_return('success')
+request.set_return('success')

@@ -27,4 +27,4 @@ if __name__ == '__main__':
     log.info("Info")
     log.error("Error")
     log.debug("Debug")
-    mldb.script.set_return("success")
+    request.set_return("success")

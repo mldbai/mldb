@@ -42,18 +42,18 @@ class MLDB2166MimeType(MldbUnitTest):  # noqa
         # )
     
     def test_not_blob(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 'Mime type extraction requires that an atomic value of type BLOB'):
             rez = mldb.query("""
                 select mime_type(fetcher('mldb/testing/logo-new.jpg')) as mime
             """)
     
     def test_non_existant(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 'No such file'):
             rez = mldb.query("""
                 select mime_type(fetcher('non_existant')) as mime
             """)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

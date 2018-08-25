@@ -39,4 +39,4 @@ class Mldb1869JsonPayloadTest(MldbUnitTest):  # noqa
         self.assertEqual(r.status_code, 201, r.text)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

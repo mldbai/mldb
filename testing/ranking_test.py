@@ -13,7 +13,7 @@ class RankingTest(MldbUnitTest):  # noqa
         })
 
         size = 123
-        for i in xrange(size):
+        for i in range(size):
             mldb.post('/v1/datasets/ds/rows', {
                 'rowName' : 'row{}'.format(i),
                 'columns' : [['score', i, 1], ['index', i * 2, 2], ['prob', i * 3, 3]]
@@ -61,4 +61,4 @@ class RankingTest(MldbUnitTest):  # noqa
         self.assertEqual(data[size][2], size - 1, str(data[size]))
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

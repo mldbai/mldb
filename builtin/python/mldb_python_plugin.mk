@@ -1,11 +1,14 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 PYTHON_PLUGIN_SOURCES := \
+	python_interpreter.cc \
 	python_loader.cc \
 	python_plugin_context.cc \
 	python_entities.cc \
 	python_converters.cc \
-	mldb_wrapper.py.embed
+	mldb_wrapper.py.embed \
+	output_logging.py.embed \
+	capture_stream.cc
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH)))

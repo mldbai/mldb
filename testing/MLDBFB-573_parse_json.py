@@ -41,7 +41,7 @@ class MldbFb573(MldbUnitTest):
              ["a", None]])
 
     def test_null_arrays(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
             'NULL value found'):
             mldb.query("SELECT parse_json(x, {arrays: parse}) from sample")
 
@@ -108,10 +108,10 @@ class MldbFb573(MldbUnitTest):
             ["0",None]]
         )
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must be an object'):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must be an object'):
             mldb.query("select parse_json('\"hola\"') as rez")
  
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must be an object'):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must be an object'):
             mldb.query("select parse_json(5) as rez")
  
 
@@ -121,5 +121,5 @@ class MldbFb573(MldbUnitTest):
         """))
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

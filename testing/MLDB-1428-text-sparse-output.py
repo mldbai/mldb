@@ -33,7 +33,7 @@ class ImportTextToSparseTest(unittest.TestCase):
                         "d",
                         "label"
                     ],
-                    [u'1', 5.1, 3.5, 1.4, 0.2, u'Iris-setosa']]
+                    ['1', 5.1, 3.5, 1.4, 0.2, 'Iris-setosa']]
 
         self.assertEqual(res, expected)
 
@@ -53,7 +53,7 @@ class ImportTextToSparseTest(unittest.TestCase):
         res = mldb.query('SELECT * FROM iris_ex ORDER BY rowName() limit 1')
 
         expected = [["_rowName", "a", "b", "d", "label" ],
-                    [u'1', 5.1, 3.5, 0.2, u'Iris-setosa']]
+                    ['1', 5.1, 3.5, 0.2, 'Iris-setosa']]
 
         self.assertEqual(res, expected)
 
@@ -113,4 +113,4 @@ class ImportTextToSparseTest(unittest.TestCase):
 
         self.assertEqual(res, expected)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

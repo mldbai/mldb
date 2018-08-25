@@ -13,7 +13,7 @@ dataset = mldb.create_dataset({
     })
 
 surfaces = ["grass", "clay", "hard", "carpet"]
-for r in xrange(1000):
+for r in range(1000):
     val = float(random.random())
     tuples = []
     tuples.append(["ProbWin", val, 0])
@@ -123,4 +123,4 @@ expl_res = mldb.get("/v1/functions/explainFunction/application",
                     **rest_params)
 mldb.log("Result of explain function : " + expl_res.text)
 
-mldb.script.set_return("success")
+request.set_return("success")

@@ -33,10 +33,10 @@ class Mldb1893GetParamsMixin(MldbUnitTest):  # noqa
 
     def test_mixing(self):
         msg = 'You cannot mix query string and body parameters'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.get('/v1/query', q='SELECT * FROM ds', data={
                 'format' : 'table'
             })
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

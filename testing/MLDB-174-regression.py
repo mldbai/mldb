@@ -239,10 +239,16 @@ class Mldb174Test(MldbUnitTest):
         config = getConfig("wine_full")
         rez = mldb.put('/v1/procedures/wine_trainer', config)
 
+        mldb.log("rez is")
+        mldb.log(rez.json())
+        
+        
         # check the performance is in the expected range
         self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["r2"], 0.28, places=2)
 
         # make sure the trained model used all features
+        mldb.log("functions are")
+        mldb.log(mldb.get("/v1/functions").json())
         scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
         mldb.log(scorerDetails)
         usedFeatures = [x["feature"] for x in scorerDetails["model"]["params"]["features"]]
@@ -395,6 +401,8 @@ class Mldb174Test(MldbUnitTest):
         self.assertAlmostEqual(perf, 0.362, places=2)
 
         # make sure the trained model used all features
+        mldb.log("functions are")
+        mldb.log(mldb.get("/v1/functions").json())
         scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
         mldb.log(scorerDetails)
         usedFeatures = [x["feature"]
@@ -590,7 +598,7 @@ class Mldb174Test(MldbUnitTest):
 
 
         msg = "The specified features couldn't be found in the classifier."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("""
                 SELECT explain_dt_mldb_1712({{octosanchez} AS features,
                                               label AS label}) AS explain,
@@ -641,5 +649,5 @@ class Mldb174Test(MldbUnitTest):
             self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["r2"], r2, places=2)
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

@@ -61,4 +61,4 @@ def test_overwrite():
 
 test_overwrite()
 
-mldb.script.set_return('success')
+request.set_return('success')

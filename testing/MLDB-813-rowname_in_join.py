@@ -17,9 +17,9 @@ class RownameInJoinTest(MldbUnitTest):
             'type': 'sparse.mutable',
             'id': 'dataset2'})
 
-        for i in xrange(10):
+        for i in range(10):
             ds1.record_row('row_' + str(i), [['x', i, 0]])
-        for i in xrange(5):
+        for i in range(5):
             ds2.record_row('row_' + str(i),
                         [['ds1_row', 'row_' + str(i), 0], ['y', i, 0]])
         ds1.commit()
@@ -59,4 +59,4 @@ class RownameInJoinTest(MldbUnitTest):
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

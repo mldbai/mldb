@@ -17,7 +17,7 @@ class TryExceptBuiltinFct(MldbUnitTest):  # noqa
         self.assertEqual(res[1][1], 5)
 
         msg = 'Executing builtin function parse_json'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             res = mldb.query("""
                 SELECT parse_json('coco')
             """)
@@ -35,10 +35,10 @@ class TryExceptBuiltinFct(MldbUnitTest):  # noqa
         res = mldb.query("""
             SELECT try(parse_json('coco'))
         """)
-        self.assertRegexpMatches(
+        self.assertRegex(
             res[1][1],
             "JSON passed to parse_json must be an object or an array")
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

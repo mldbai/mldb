@@ -3,6 +3,11 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 # Plugin loader for Python plugins; injectible python part
 
+# https://bugs.python.org/issue32573 ; affects unittest
+import sys
+if not hasattr(sys, 'argv'):
+    sys.argv  = ['']
+
 import unittest
 
 class mldb_wrapper(object):
@@ -120,7 +125,7 @@ class mldb_wrapper(object):
             if type(thing) in [dict, list]:
                 thing = mldb_wrapper.jsonlib.dumps(thing, indent=4,
                                                    ensure_ascii=False)
-            if isinstance(thing, (str, unicode)):
+            if isinstance(thing, (str)):
                 self._mldb.log(thing)
             else:
                 self._mldb.log(str(thing))
@@ -138,10 +143,10 @@ class mldb_wrapper(object):
 
         def get(self, url, data=None, **kwargs):
             query_string = []
-            for k, v in kwargs.iteritems():
+            for k, v in list(kwargs.items()):
                 if type(v) in [list, dict]:
                     v = mldb_wrapper.jsonlib.dumps(v)
-                query_string.append([unicode(k), unicode(v)])
+                query_string.append([str(k), str(v)])
             return self._perform('GET', url, query_string, data)
 
         def _post_put(self, verb, url, data=None, async=False):
@@ -162,8 +167,8 @@ class mldb_wrapper(object):
             }).json()
 
         def run_tests(self):
-            import StringIO
-            io_stream = StringIO.StringIO()
+            from io import StringIO
+            io_stream = StringIO()
             runner = unittest.TextTestRunner(stream=io_stream, verbosity=2,
                                              buffer=True)
             if self.script.args:
@@ -181,7 +186,7 @@ class mldb_wrapper(object):
             self.log(io_stream.getvalue())
 
             if res.wasSuccessful():
-                self.script.set_return("success")
+                return("success")
 
         def post_run_and_track_procedure(self, payload, refresh_rate_sec=10):
             import threading
@@ -262,7 +267,7 @@ class MldbUnitTest(unittest.TestCase):
             if self.expected_regexp:
                 import re
                 expected_regexp = self.expected_regexp
-                if isinstance(expected_regexp, basestring):
+                if isinstance(expected_regexp, str):
                     expected_regexp = re.compile(expected_regexp)
                 if not expected_regexp.search(str(exc_value.response.text)):
                     raise self.failureException('"%s" does not match "%s"' %

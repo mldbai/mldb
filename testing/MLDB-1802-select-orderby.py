@@ -45,4 +45,4 @@ class DatasetFunctionTest(MldbUnitTest):
         self.assertTableResultEquals(res1, expected1)
         self.assertTableResultEquals(res2, expected2)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

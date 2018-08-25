@@ -31,4 +31,4 @@ except mldb_wrapper.ResponseException:
 else:
     assert False, 'should not be here'
 
-mldb.script.set_return('success')
+request.set_return('success')

@@ -82,8 +82,8 @@ class Mldb1705(MldbUnitTest):
         }
 
         msg = "You cannot mix query string and body parameters"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.get("/v1/functions/func/application",
                      input=json.dumps(data), data={"input" : data})
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

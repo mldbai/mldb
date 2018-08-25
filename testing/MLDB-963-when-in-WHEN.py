@@ -20,7 +20,7 @@ class WhenInWhen(unittest.TestCase):
             'id': 'dataset1'})
 
         row_count = 10
-        for i in xrange(row_count - 1):
+        for i in range(row_count - 1):
             # row name is x's value
             ds1.record_row(str(i),
                            [['x', str(i), same_time_tomorrow],
@@ -135,4 +135,4 @@ class WhenInWhen(unittest.TestCase):
             q="SELECT * FROM dataset1 WHEN latest_timestamp(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

@@ -33,17 +33,13 @@ namespace MLDB {
     extra field.
 */
 struct ScriptStackFrame {
-    ScriptStackFrame()
-        : lineNumber(-1), columnStart(-1), columnEnd(-1)
-    {
-    }
-
     Utf8String scriptUri;       ///< URI that the script runs
     Utf8String functionName;    ///< Name of the function in the stack trace
     Utf8String where;           ///< Where is the frame, in natural format
-    int64_t lineNumber;         ///< Line number in the scriptUri, or -1 if unknown
-    int64_t columnStart;        ///< Starting column number or -1 if unknown
-    int64_t columnEnd;          ///< Ending column number or -1 if unknown
+    Utf8String context;         ///< Context of the error
+    int64_t lineNumber = -1;    ///< Line number in the scriptUri, or -1 if unknown
+    int64_t columnStart = -1;   ///< Starting column number or -1 if unknown
+    int64_t columnEnd = -1;     ///< Ending column number or -1 if unknown
     Any extra;                  ///< Extra language-specific information
 };
 
@@ -58,17 +54,13 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptStackFrame);
     of the call site and other information about the exception.
 */
 struct ScriptException {
-    ScriptException()
-        : lineNumber(-1), columnStart(-1), columnEnd(-1)
-    {
-    }
-
     Utf8String message;
+    Utf8String type;
     Utf8String where;
     Utf8String scriptUri;
-    int64_t lineNumber;
-    int64_t columnStart;
-    int64_t columnEnd;
+    int64_t lineNumber = -1;
+    int64_t columnStart = -1;
+    int64_t columnEnd = -1;
     Utf8String lineContents;
     std::vector<Utf8String> context;
     std::vector<ScriptStackFrame> stack;

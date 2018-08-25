@@ -4,7 +4,7 @@
 
 # test plugin for MLDB
 
-print "testing pluging for MLDB!!"
+print("testing pluging for MLDB!!")
 
 #global plugin
 mldb.log("PYTHON PLUGIN EXECUTIN!!!!")

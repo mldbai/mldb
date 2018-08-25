@@ -113,4 +113,4 @@ class ComplexOrderByTest(unittest.TestCase):
                          ['row3', 'row2', 'row1'])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

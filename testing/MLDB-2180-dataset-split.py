@@ -11,26 +11,26 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds1', 'type' : 'sparse.mutable'})
-        for i in xrange(4):
+        for i in range(4):
             val = 'x' if i < 2 else 'y'
             ds.record_row('%d' % i, [[val, 1, 0]])
         ds.commit()
 
         ds2 = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
-        for i in xrange(20):
+        for i in range(20):
             val = 'x' if i < 16 else 'y'
             ds2.record_row('%d' % i, [[val, 1, 0]])
         ds2.commit()
 
         ds2 = mldb.create_dataset({'id' : 'ds3', 'type' : 'sparse.mutable'})
-        for i in xrange(20):
+        for i in range(20):
             val = 'x' if i < 10 else 'y'
             ds2.record_row('%d' % i, [[val, 1, 0]])
         ds2.commit()
 
         ds2 = mldb.create_dataset({'id' : 'ds4', 'type' : 'sparse.mutable'})
         #10/24 x, 15/24 y, 9 / 24 z
-        for i in xrange(24):
+        for i in range(24):
             if i < 5:
                 ds2.record_row('%d' % i, [['x', 1, 0]])
             elif i < 8:
@@ -46,7 +46,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         ds2.commit()
 
         ds = mldb.create_dataset({'id' : 'ds5', 'type' : 'sparse.mutable'})
-        for i in xrange(4):
+        for i in range(4):
             val = 'x' if i < 3 else 'y'
             ds.record_row('%d' % i, [[val, 1, 0]])
         ds.commit()
@@ -70,11 +70,11 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res1 = mldb.query("SELECT * FROM ds_train ORDER BY rowName() DESC")
         res2 = mldb.query("SELECT * FROM ds_test ORDER BY rowName() DESC")
 
-        self.assertEquals(res1, [["_rowName", "y", "x"],
+        self.assertEqual(res1, [["_rowName", "y", "x"],
                                  ["3", 1, None ],
                                  ["0", None, 1 ]])
 
-        self.assertEquals(res2, [["_rowName", "y", "x"],
+        self.assertEqual(res2, [["_rowName", "y", "x"],
                                  ["2", 1, None ],
                                  ["1", None, 1 ]])
 
@@ -100,10 +100,10 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res1 = mldb.query("SELECT sum({*}) FROM ds_train")
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
 
-        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y"],
+        self.assertEqual(res1, [["_rowName", "sum({*}).x", "sum({*}).y"],
                                  ["[]", 13, 3 ]])
 
-        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y"],
+        self.assertEqual(res2, [["_rowName", "sum({*}).x", "sum({*}).y"],
                                  ["[]", 3, 1 ]])
 
         mldb.put("/v1/procedures/split", {
@@ -127,10 +127,10 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res1 = mldb.query("SELECT sum({*}) FROM ds_train")
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
 
-        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y"],
+        self.assertEqual(res1, [["_rowName", "sum({*}).x", "sum({*}).y"],
                                  ["[]", 8, 8 ]])
 
-        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y"],
+        self.assertEqual(res2, [["_rowName", "sum({*}).x", "sum({*}).y"],
                                  ["[]", 2, 2 ]])
 
     def test_testintersection(self):
@@ -157,10 +157,10 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res1 = mldb.query("SELECT sum({*}) FROM ds_train")
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
 
-        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+        self.assertEqual(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 8, 11, 7 ]])
 
-        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+        self.assertEqual(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 2, 4, 2 ]])
 
         mldb.put("/v1/procedures/split", {
@@ -185,10 +185,10 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res1 = mldb.query("SELECT sum({*}) FROM ds_train")
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
 
-        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+        self.assertEqual(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 8, 11, 6 ]])
 
-        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+        self.assertEqual(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 2, 4, 3 ]])
 
     def test_threesplits(self):
@@ -220,13 +220,13 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
         res3 = mldb.query("SELECT sum({*}) FROM ds_validate")
 
-        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+        self.assertEqual(res1, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 8, 11, 7 ]])
 
-        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+        self.assertEqual(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 1, 2, 1 ]])
 
-        self.assertEquals(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
+        self.assertEqual(res2, [["_rowName", "sum({*}).x", "sum({*}).y", "sum({*}).z"],
                                  ["[]", 1, 2, 1 ]])
 
     def test_incomplete(self):
@@ -243,21 +243,21 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
             }
         })
 
-        self.assertEquals(res.json()["status"]["firstRun"]["status"]["incompleteLabels"], 
+        self.assertEqual(res.json()["status"]["firstRun"]["status"]["incompleteLabels"], 
                           ["y"])
 
         res1 = mldb.query("SELECT sum({*}) FROM ds_train")
         res2 = mldb.query("SELECT sum({*}) FROM ds_test")
 
-        self.assertEquals(res1, [["_rowName", "sum({*}).x", "sum({*}).y"],
+        self.assertEqual(res1, [["_rowName", "sum({*}).x", "sum({*}).y"],
                                  ["[]", 2, 1]])
 
-        self.assertEquals(res2, [["_rowName", "sum({*}).x"],
+        self.assertEqual(res2, [["_rowName", "sum({*}).x"],
                                  ["[]", 1 ]])
 
     def test_errors(self):
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
                                      "Number of splits requested is different than the number of datasets provided"):
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
@@ -272,7 +272,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
                                      "Insufficient number of splits"):
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
@@ -285,7 +285,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
                                      "Sum of split factors does not approximate to 1.0"):
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
@@ -302,4 +302,4 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

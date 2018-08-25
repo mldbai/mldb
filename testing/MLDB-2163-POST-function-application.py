@@ -27,7 +27,7 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
     def test_with_get(self):
         res = mldb.get('/v1/functions/query/application', input={'row' : {"x": 1, "y": 2, "z": "three"}})
         mldb.log(res)
-        self.assertEquals(res.json()['output']['output'],  expected_output)
+        self.assertEqual(res.json()['output']['output'],  expected_output)
 
     def test_as_POST_body(self):
         res = mldb.post('/v1/redirect/get', {
@@ -39,7 +39,7 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
             }
         })
 
-        self.assertEquals(res.json()['output']['output'], expected_output)
+        self.assertEqual(res.json()['output']['output'], expected_output)
 
     def test_as_POST_body_async(self):
         """
@@ -56,10 +56,10 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
             }
         })
 
-        self.assertEquals(res.json()['output']['output'], expected_output)
+        self.assertEqual(res.json()['output']['output'], expected_output)
 
     def test_as_POST_to_invalid_target(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
                                      "failed to redirect call"):
             res = mldb.post('/v1/redirect/get', {
                 'target' : '/v1/functions/query/application/bla',
@@ -72,7 +72,7 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
 
 
     def test_as_POST_to_invalid_body(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
                                      "failed to redirect call"):
             res = mldb.post('/v1/redirect/get', {
                 'target' : '/v1/functions/query/application/',
@@ -85,4 +85,4 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

@@ -18,7 +18,7 @@ class MLDB2161Utf8InScriptApply(MldbUnitTest):  # noqa
 # retrieve all themes
 mldb.log(mldb.script.args)
 
-mldb.script.set_return([[str(mldb.script.args[0][1]), 0, '1970-01-01T00:00:00.0000000Z']])
+request.set_return([[str(mldb.script.args[0][1]), 0, '1970-01-01T00:00:00.0000000Z']])
 """
                 }
             }
@@ -32,7 +32,7 @@ mldb.script.set_return([[str(mldb.script.args[0][1]), 0, '1970-01-01T00:00:00.00
             [
                [
                    "_rowName",
-                   "return.['Th\\xc3\\xa8mes et sous-th\\xc3\\xa0mes', [0, '-Inf']]"
+                   "return.['Thèmes et sous-thàmes', [0, '-Inf']]"
                ],
                 [
                     "result",
@@ -42,4 +42,4 @@ mldb.script.set_return([[str(mldb.script.args[0][1]), 0, '1970-01-01T00:00:00.00
         )
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

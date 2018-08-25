@@ -56,7 +56,7 @@ class DatasetTest(unittest.TestCase):
                     json.dumps(data))
                 response_code = response.status_code
                 if response_code != 200:
-                    print response
+                    print(response)
                     raise RuntimeError("Failed to record row")
 
         requests.post(DatasetTest.dataset_url + "/commit")
@@ -91,7 +91,7 @@ class DatasetTest(unittest.TestCase):
         msg = msg.format(response.status_code, response.content)
         self.assertEqual(response.status_code, 201, msg=msg)
 
-        print(DatasetTest.url + svd_procedure + '/runs/1')
+        print((DatasetTest.url + svd_procedure + '/runs/1'))
         response = requests.put(
             DatasetTest.url + svd_procedure + '/runs/1', data='{}')
         msg = "Could not train the svd procedure Got status {}\n{}"

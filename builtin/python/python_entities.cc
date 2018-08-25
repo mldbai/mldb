@@ -27,14 +27,29 @@ namespace MLDB {
 /* DatasetPy                                                                */
 /****************************************************************************/
 
+DatasetPy::
+~DatasetPy()
+{
+    // This may be called from the Python garbage collection, which means
+    // that the GIL may already be held.  So we need to be careful with the
+    // GIL as we call it.
+
+    auto alreadyGil = assertGilAlreadyHeld();
+    
+    interpreter.destroy();
+    dataset.reset();
+}
+
 void DatasetPy::
 recordRow(const RowPath & rowName, const std::vector<RowCellTuple> & columns) {
+    auto nogil = releaseGil();
     dataset->recordRow(rowName, columns);
 }
 
 void DatasetPy::
 recordRows(const std::vector<std::pair<RowPath, std::vector<RowCellTuple> > > & rows)
 {
+    auto nogil = releaseGil();
     dataset->recordRows(rows);
 }
     
@@ -42,17 +57,20 @@ void  DatasetPy::
 recordColumn(const ColumnPath & columnName,
              const std::vector<ColumnCellTuple> & columns)
 {
+    auto nogil = releaseGil();
     dataset->recordColumn(columnName, columns);
 }
 
 void  DatasetPy::
 recordColumns(const std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > & columns)
 {
+    auto nogil = releaseGil();
     dataset->recordColumns(columns);
 }
     
 void DatasetPy::
 commit() {
+    auto nogil = releaseGil();
     dataset->commit();
 }
 
@@ -61,9 +79,11 @@ createDataset(MldbPythonContext * mldbContext, const Json::Value & rawConfig)
 {
     PolyConfig config = jsonDecode<PolyConfig>(rawConfig);
 
-    auto dataset = MLDB::createDataset(mldbContext->getPyContext()->engine,
-                                       config);
-    return new DatasetPy(dataset);
+    // Possible recursive call; GIL must be released
+    auto nogil = releaseGil();
+    return new DatasetPy(MLDB::createDataset
+                         (mldbContext->getPyContext()->engine,
+                          config));
 }
 
 
@@ -73,9 +93,9 @@ createDataset(MldbPythonContext * mldbContext, const Json::Value & rawConfig)
 
 PythonProcedure::
 PythonProcedure(MldbEngine * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress)
-    : Procedure(owner)
+                PolyConfig config,
+                const std::function<bool (const Json::Value &)> & onProgress)
+    : Procedure(owner), interpreter(owner)
 {
     procedureConfig = config.params.asJson();
 }
@@ -99,6 +119,7 @@ createPythonProcedure(MldbPythonContext * c,
                      const std::string & description,
                      PyObject * trainFunction)
 {
+#if 0
     auto localsPlugin = boost::python::object(boost::python::ptr(c));
     auto createProcedureEntity = 
         [=] (RestDirectory * peer,
@@ -109,16 +130,15 @@ createPythonProcedure(MldbPythonContext * c,
                     PythonProcedure::getOwner(peer), config, onProgress);
             procedure->trainPy = [=] (const ProcedureRunConfig & training)
                 {
-                    PythonSubinterpreter pyControl;
-
-                    cout << "calling python function" << endl;
                     try {
                         return boost::python::call<Json::Value>(
                             trainFunction, localsPlugin, jsonEncode(training).toString());
 
                     } catch (const boost::python::error_already_set & exc) {
-                        ScriptException pyexc = convertException(pyControl,
-                                exc, "Procedure '"+name+"' train");
+                        ScriptException pyexc
+                        = interpreter.convertException
+                            (pyControl,
+                             exc, "Procedure '"+name+"' train");
 
                         {
 //                             std::unique_lock<std::mutex> guard(itl->logMutex);
@@ -127,7 +147,7 @@ createPythonProcedure(MldbPythonContext * c,
 
                         MLDB_TRACE_EXCEPTIONS(false);
                         throw AnnotatedException(400, "Exception creating procedure", 
-                                                  pyexc);
+                                                 pyexc);
                     }
                 };
             return procedure;
@@ -138,8 +158,8 @@ createPythonProcedure(MldbPythonContext * c,
     registerProcedureType(package, name, description,
                           createProcedureEntity, nullptr,
                           nullptr, nullptr, {} /* flags */);
+#endif
 }
-
 
 /****************************************************************************/
 /* PythonFunction                                                              */
@@ -147,9 +167,9 @@ createPythonProcedure(MldbPythonContext * c,
 
 PythonFunction::
 PythonFunction(MldbEngine * owner,
-            PolyConfig config,
-            const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner, config)
+               PolyConfig config,
+               const std::function<bool (const Json::Value &)> & onProgress)
+    : Function(owner, config), interpreter(owner)
 {
     functionConfig = config.params.asJson();
 }

@@ -2,9 +2,9 @@
 
 # Test python script
 
-print "Hello, world!"
+print("Hello, world!")
 
-print mldb.script
+print(mldb.script)
 
 mldb.log(str(mldb.script))
 mldb.log("Hello, world")

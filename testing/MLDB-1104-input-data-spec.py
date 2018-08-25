@@ -27,7 +27,7 @@ class InputDataSpecTest(unittest.TestCase):
             'id' : 'kmeans_example'
         })
         now = datetime.datetime.now()
-        for i in xrange(100):
+        for i in range(100):
             val_x = float(random.randint(-5, 5))
             val_y = float(random.randint(-5, 5))
             row = [['x', val_x, now], ['y', val_y, now]]
@@ -163,4 +163,4 @@ class InputDataSpecTest(unittest.TestCase):
             'the classifier results on the train data are strangely low')
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

@@ -23,7 +23,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             dataset = mldb.create_dataset(dataset_config)
             now = datetime.datetime.now()
 
-            for i in xrange(5000):
+            for i in range(5000):
                 label = random() < 0.5
 
                 if label:
@@ -45,7 +45,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         now = datetime.datetime.now()
 
         numLabelExample = 5
-        for i in xrange(numLabelExample):
+        for i in range(numLabelExample):
             dataset.record_row("u%d" % i, [["feat1", 5, now],
                                            ["feat2", 0, now],
                                            ["label0", True, now]])
@@ -64,7 +64,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         now = datetime.datetime.now()
 
         numLabelExample = 20
-        for i in xrange(numLabelExample):
+        for i in range(numLabelExample):
             dataset.record_row("u%d" % (1+i*6), [["feat1", 5, now],
                                            ["feat2", 0, now],
                                            ["feat3", 0, now],
@@ -105,7 +105,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
         seed(123456)
         numLabelExample = 20
-        for i in xrange(numLabelExample):
+        for i in range(numLabelExample):
             dataset.record_row("u%d" % (1+i*3), [["feat1", gauss(5,5), now],
                                            ["feat2", gauss(3,2), now],
                                            ["feat3", gauss(3,2), now],
@@ -408,7 +408,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
         res = mldb.put("/v1/procedures/multilabel_accuracy", accuracyConf);
 
-        self.assertEquals(res.json()["status"]["firstRun"]["status"], {
+        self.assertEqual(res.json()["status"]["firstRun"]["status"], {
                 "weightedStatistics": {
                     "coverageError": 1.333333333333333,
                     "recallOverTopN": [
@@ -479,7 +479,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
         res = mldb.put("/v1/procedures/categorical_accuracy", accuracyConf);
 
-        self.assertEquals(res.json()["status"]["firstRun"]["status"], {
+        self.assertEqual(res.json()["status"]["firstRun"]["status"], {
                 "weightedStatistics": {
                     "recall": 0.65,
                     "support": 60.0,
@@ -595,7 +595,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                                                 label : 'label0'}) as * 
                          """)
 
-        self.assertEquals(res,[
+        self.assertEqual(res,[
             [
                 "_rowName",
                 "bias",
@@ -643,7 +643,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
         res = mldb.query("SELECT explain({features : {5 as feat1, 0 as feat2}, label : 'label0'}) as *")
 
-        self.assertEquals(res,[
+        self.assertEqual(res,[
             [
                 "_rowName",
                 "bias",
@@ -657,4 +657,4 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         ])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

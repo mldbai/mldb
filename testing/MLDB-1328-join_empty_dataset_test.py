@@ -46,4 +46,4 @@ if __name__ == '__main__':
         log(str(err[0]) + "\n" + err[1])
 
     if not got_err:
-        mldb.script.set_return("success")
+        request.set_return("success")

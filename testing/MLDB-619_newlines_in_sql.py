@@ -18,4 +18,4 @@ broken = False
 for r in res:
     mldb.log(r.text)
 
-mldb.script.set_return("success")
+request.set_return("success")

@@ -22,12 +22,12 @@ class Mldb2077MergeTest(MldbUnitTest):  # noqa
         self.assertEqual('awesome', n)
     def test_prefix_arg(self):
         msg = 'The arguments passed to remove_prefix must be two strings'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             n = mldb.get('/v1/query', q="SELECT remove_prefix('awesome', 2)", format='atom').json()
     def test_suffix_arg(self):
         msg = 'The arguments passed to remove_suffix must be two strings'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             n = mldb.get('/v1/query', q="SELECT remove_suffix(2, 'eso')", format='atom').json()    
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

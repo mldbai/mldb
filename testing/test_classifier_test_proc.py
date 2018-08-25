@@ -5,7 +5,7 @@
 #
 # This tests the `classifier.test` procedure.
 #
-from __future__ import division
+
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
@@ -17,7 +17,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
     def assert_recursive_almost_equal(self, a, b, places=7, path=None):
         if path is None:
             path = []
-        for key, item_a in a.iteritems():
+        for key, item_a in a.items():
             path_key = path + [key]
             item_b = b[key]
             if isinstance(item_a, dict):
@@ -34,7 +34,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     @classmethod
     def make_dataset(self, headers, data, name):
-        data = [map(float, row.strip().split())
+        data = [list(map(float, row.strip().split()))
                 for row in data.strip().split('\n')]
 
         mldb.put('/v1/datasets/' + name, {
@@ -309,7 +309,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     def test_classifier_rejects_unknown_params(self):
         msg = "Unknown key\\(s\\) encountered in config: glz_linear.FOO"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
@@ -339,7 +339,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
         # This assertion works
         msg = "No feature vectors were produced as all"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
@@ -370,7 +370,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
         # This assertion fails, see below
         msg = "No feature vectors were produced as all"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
@@ -405,7 +405,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     def test_classifier_allows_underscored_key_param(self):
         msg = "No feature vectors were produced as all"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
@@ -437,4 +437,4 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

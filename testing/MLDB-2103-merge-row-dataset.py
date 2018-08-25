@@ -20,4 +20,4 @@ class MLDB2103MergeRowDataset(MldbUnitTest):  # noqa
              [ "1", "1", 1 ]])       
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

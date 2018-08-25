@@ -24,7 +24,7 @@ class TableQueryResultMapper(object):
         def __str__(self):
             return str({
                 k : self._row[v]
-            for k, v in self._mapping.iteritems()})
+            for k, v in self._mapping.items()})
 
     def __init__(self, result):
         assert result[0][0] == '_rowName'
@@ -55,4 +55,4 @@ mldb.log(mapped_res[0]._rowName)
 mldb.log("Bracket notation: mapped_res[1]['colD']")
 mldb.log(mapped_res[0]['colD'])
 
-mldb.script.set_return("success")
+request.set_return("success")

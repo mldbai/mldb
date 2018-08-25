@@ -111,7 +111,7 @@ class MeltProcedureTest(MldbUnitTest):  # noqa
         #  0        1    2
         #  1        2    3
         mldb.put('/v1/datasets/patate', {'type': 'tabular'})
-        for i in xrange(2):
+        for i in range(2):
             mldb.post('/v1/datasets/patate/rows', {
                 'rowName': i,
                 'columns': [['x.0', i+1, 0],
@@ -150,4 +150,4 @@ class MeltProcedureTest(MldbUnitTest):  # noqa
         self.run_it(False)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

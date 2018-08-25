@@ -27,4 +27,4 @@ class ColumnExprTest(MldbUnitTest):  # noqa
                     ["result", 3.605551275463989, 6.4031242374328485]]
 
 if __name__ == '__main__':
-    mldb.run_tests()    
+    request.set_return(mldb.run_tests())    

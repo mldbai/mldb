@@ -34,4 +34,4 @@ for row in response:
 
 line0 = response[0]["columns"][0][1]
 
-mldb.script.set_return("success")
+request.set_return("success")

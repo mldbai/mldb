@@ -14,7 +14,7 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
-        for i in xrange(100):
+        for i in range(100):
             ds.record_row('a%d-1' % i, [['a', 1, 0]])
             ds.record_row('a%d-2' % i, [['a', 2, 0]])
             ds.record_row('a%d-3' % i, [['a', 3, 0]])
@@ -63,10 +63,10 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
             '| {:^4} | {:^20} | {:^20} | {:^20} | {:^10} | {:^3} |'
             .format('size', 'MLDB', 'Numpy', 'Diff (%)', 'Diff', 'Err'))
         err_cnt = 0
-        for size in xrange(2, 100):
+        for size in range(2, 100):
             ds = mldb.create_dataset({'id' : 'rand', 'type' : 'tabular'})
             sequence = []
-            for row in xrange(size):
+            for row in range(size):
                 sequence.append(random.random() * 1000000)
                 ds.record_row(row, [['a', sequence[-1], 0]])
             ds.commit()
@@ -117,4 +117,4 @@ class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
         self.assertAlmostEqual(res[1][1], 249587.74043152996)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

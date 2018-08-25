@@ -5,14 +5,14 @@
 # Mich, 2016-02-08
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
-from urllib import quote
+from urllib.parse import quote
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class Utf8IdsTest(MldbUnitTest): # noqa
 
     def test_mldb_create_dataset(self):
-        _id = u'épluche'
+        _id = 'épluche'
         mldb.create_dataset({
             'id' : _id,
             'type' : 'sparse.mutable'
@@ -33,7 +33,7 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         self.assertEqual(obj['id'], _id)
 
         # fetch unescaped unicode utf-8
-        url = u'/v1/datasets/épluche'
+        url = '/v1/datasets/épluche'
         mldb.log(url)
         res = mldb.get(url)
         obj = res.json()
@@ -41,20 +41,20 @@ class Utf8IdsTest(MldbUnitTest): # noqa
 
     def test_mixed_utf8_escape(self):
         # the parser assumes utf-8 is already escaped
-        _id = u'éé'
+        _id = 'éé'
         mldb.create_dataset({
             'id' : _id,
             'type' : 'sparse.mutable'
         }).commit()
 
         # fetch escaped ascii
-        url = u'/v1/datasets/é' + quote('é')
+        url = '/v1/datasets/é' + quote('é')
         mldb.log(url)
         res = mldb.get(url)
         mldb.log(res)
 
     def test_mldb_post_dataset(self):
-        _id = u'époque'
+        _id = 'époque'
         res = mldb.post('/v1/datasets', {
             'id' : _id,
             'type' : 'sparse.mutable'
@@ -73,7 +73,7 @@ class Utf8IdsTest(MldbUnitTest): # noqa
             'type' : 'sparse.mutable'
         })
         res = mldb.get(url).json()
-        self.assertEqual(res['id'].encode('utf8'), _id)
+        self.assertEqual(res['id'], _id)
 
     def test_name_with_slash(self):
         _id = "name/with/slash"
@@ -103,10 +103,10 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         })
 
         res = mldb.get(res.headers['Location']).json()
-        self.assertEqual(res['id'].encode('utf8'), _id)
+        self.assertEqual(res['id'], _id)
 
         res = mldb.get(url).json()
-        self.assertEqual(res['id'].encode('utf8'), _id)
+        self.assertEqual(res['id'], _id)
 
         mldb.delete(url)
         with self.assertMldbRaises(status_code=404):
@@ -118,10 +118,10 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         })
 
         res = mldb.get(res.headers['Location']).json()
-        self.assertEqual(res['id'].encode('utf8'), _id)
+        self.assertEqual(res['id'], _id)
 
         res = mldb.get(url).json()
-        self.assertEqual(res['id'].encode('utf8'), _id)
+        self.assertEqual(res['id'], _id)
 
         mldb.delete(url)
         with self.assertMldbRaises(status_code=404):
@@ -176,7 +176,7 @@ class Utf8IdsTest(MldbUnitTest): # noqa
             "id": _id,
             "type": "embedding"
         })
-        result = mldb.get("/v1/query", q=u"select * from \"hellô\"")
+        result = mldb.get("/v1/query", q="select * from \"hellô\"")
         mldb.log(result.text)
 
         result = mldb.get("/v1/datasets")
@@ -206,4 +206,4 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         mldb.log(mldb.get('/v1/query', q='SELECT * FROM "s/lash"'))
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

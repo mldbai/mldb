@@ -50,7 +50,7 @@ class SampleTest(MldbUnitTest):
         self.assertEqual(re.exception.response.status_code, 400)
 
         # directly test the error message
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                   'must override getAllColumns'):
             mldb.query("SELECT *")
 
@@ -60,6 +60,6 @@ class SampleTest(MldbUnitTest):
         # test a bad query without catching the exception
         mldb.query("SELECT this will not work")
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 
 

@@ -51,14 +51,14 @@ svd_config = {
 }
 
 r = mldb.perform("PUT", svd_procedure, [], svd_config)
-print r
-print(r["statusCode"])
+print(r)
+print((r["statusCode"]))
 
 r = mldb.perform("PUT", svd_procedure + "/runs/1", [], {})
 if not 300 > r["statusCode"] >= 200:
-    print r
-    mldb.script.set_return("FAILURE")
-    print(r["statusCode"])
+    print(r)
+    request.set_return("FAILURE")
+    print((r["statusCode"]))
 
 else:
-    mldb.script.set_return("success")
+    request.set_return("success")

@@ -97,7 +97,7 @@ class Mldb1415Test(MldbUnitTest):
             select nn({coords: {* excluding (class)}}) as * from iris_kmeans_centroids
         """)
         mldb.log(rez)
-        for i in xrange(0):
+        for i in range(0):
             assert rez[i+1][i] == 0
 
 
@@ -109,7 +109,7 @@ class Mldb1415Test(MldbUnitTest):
         """)
         mldb.log("--- only himself")
         mldb.log(rez)
-        for i in xrange(2):
+        for i in range(2):
             not_null_idx = rez[i+1].index(0)
 
             # make sure the right column is not null
@@ -136,11 +136,9 @@ class Mldb1415Test(MldbUnitTest):
         neighbor_index = rez[0].index("tbl.neighbors.0")
         cluster_index = rez[0].index("iris_kmeans_dataset.cluster")
         for line in rez[1:]:
-            not_null_idx = line.index(max(line[2:]))
-
             # make sure the nearst neighbour is the assigned cluster
             assert line[neighbor_index] == "%d" % line[cluster_index]
             
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

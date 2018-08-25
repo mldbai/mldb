@@ -27,7 +27,7 @@ while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
     else: # an empty line means stdin has been closed
         break
 
-print json.dumps({"stdin_data": std_in})
+print(json.dumps({"stdin_data": std_in}))
 """
         }
     }
@@ -52,4 +52,4 @@ js_resp = rez.json()
 mldb.log(js_resp)
 assert js_resp["status"]["return"] == {"stdin_data" : "I CHANGED IT!!"}
 
-mldb.script.set_return("success")
+request.set_return("success")

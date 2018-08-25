@@ -22,13 +22,13 @@ class MLDB2064TransformProcRowExpr(MldbUnitTest):  # noqa
 
         good = mldb.query(query)
 
-        print mldb.post('/v1/procedures', {
+        print(mldb.post('/v1/procedures', {
             'type': 'transform',
             'params': {
                 'inputData': query,
                 'outputDataset': {"id": 'keywords', "type": "tabular"}
             }
-        })
+        }))
 
 
         self.assertTableResultEquals(
@@ -37,4 +37,4 @@ class MLDB2064TransformProcRowExpr(MldbUnitTest):  # noqa
   
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

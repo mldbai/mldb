@@ -56,4 +56,4 @@ for col, val in zip(cols, vals):
         assert count == val, ('First sum ({}) != second sum ({})'
                               .format(count, val))
 
-mldb.script.set_return("success")
+request.set_return("success")

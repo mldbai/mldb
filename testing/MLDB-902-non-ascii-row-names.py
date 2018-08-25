@@ -23,7 +23,7 @@ dataset.record_row('françois', [['x', 1.5,   ts], ['label', '0', ts]])
 dataset.commit()
 
 result = mldb.get('/v1/query', q='select * from "non-ascii-row"')
-assert result.json()[0]['rowName'] == unicode('françois', encoding='utf-8'), \
+assert result.json()[0]['rowName'] == str('françois'), \
     'failed non-ascii support'
 
-mldb.script.set_return('success')
+request.set_return('success')

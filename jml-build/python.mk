@@ -3,6 +3,8 @@ ifeq ($(PYTHON_ENABLED),1)
 PYTHON_VERSION_DETECTED := $(shell $(JML_BUILD)/detect_python.sh)
 PYTHON_VERSION ?= $(PYTHON_VERSION_DETECTED)
 
+$(warning PYTHON_VERSION_DETECTED=$(PYTHON_VERSION_DETECTED))
+
 PYTHON_INCLUDE_PATH ?= $(VIRTUALENV)/include/python$(PYTHON_VERSION)
 PYTHON ?= python$(PYTHON_VERSION)
 PIP ?= pip3
@@ -198,7 +200,7 @@ endef
 
 define python_addon
 $$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH)))
-$$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
+$$(eval $$(call library,$(1),$(2),$(3) boost_python3,$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
 
 ifneq ($(PREMAKE),1)
 

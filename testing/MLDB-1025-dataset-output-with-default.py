@@ -40,7 +40,7 @@ def load_test_dataset():
         'id': 'dataset1'})
 
     row_count = 10
-    for i in xrange(row_count - 1):
+    for i in range(row_count - 1):
         # row name is x's value
         ds1.record_row(str(i), [['x', i, 0], ['y', i, 0]])
 
@@ -172,7 +172,7 @@ class Mldb1025DatasetOutputWithDefault(MldbUnitTest):
             dataset_count_before + 2, dataset_count_after,
             'expect the centroids and the outputDataset to be created')
 
-        mldb.script.set_return('success')
+        request.set_return('success')
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

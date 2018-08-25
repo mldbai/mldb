@@ -17,10 +17,10 @@ class Mldb2114PluginPostNoData404Test(MldbUnitTest):  # noqa
             "params": {
                 "source": {
                     "routes": """
-if mldb.plugin.rest_params.verb in ['GET', 'DELETE']:
-    mldb.plugin.set_return({}, 200)
+if request.verb in ['GET', 'DELETE']:
+    request.set_return({}, 200)
 else:
-    mldb.plugin.set_return({}, 201)
+    request.set_return({}, 201)
 """
 
                 }
@@ -48,7 +48,7 @@ else:
             "type": "python",
             "params": {
                 "source": {
-                    "routes": """mldb.plugin.set_return(None, 200)"""
+                    "routes": """request.set_return(None, 200)"""
 
                 }
             }
@@ -75,7 +75,7 @@ else:
             "type": "python",
             "params": {
                 "source": {
-                    "routes": """mldb.plugin.set_return("", 200)"""
+                    "routes": """request.set_return("", 200)"""
 
                 }
             }
@@ -108,21 +108,21 @@ else:
             }
         })
 
-        msg = "The route did not set a return code"
+        msg = "Return value is required but not set"
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
             mldb.get('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
             mldb.post('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
             mldb.put('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
             mldb.delete('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
@@ -131,7 +131,7 @@ else:
             "type": "python",
             "params": {
                 "source": {
-                    "routes": """mldb.plugin.set_return("", 0)"""
+                    "routes": """request.set_return("", 0)"""
 
                 }
             }
@@ -154,4 +154,4 @@ else:
         self.assertEqual(e.exception.response.status_code, 500)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

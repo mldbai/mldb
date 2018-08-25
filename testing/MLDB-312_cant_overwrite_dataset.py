@@ -14,7 +14,7 @@ try:
 except Exception as e:
     mldb.log(str(e))
     if str(e) == "dataset entry 'dontCreateTwice' already exists":
-        mldb.script.set_return("success")
+        request.set_return("success")
     else:
         raise e
 

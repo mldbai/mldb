@@ -72,7 +72,7 @@ class Mldb1507Test(MldbUnitTest):  # noqa
         groups = [ "", "group by Pclass", "group by 1", "group by Sex"]
         for q in queries:
             for g in groups:
-                print q, g
+                print(q, g)
                 self.assertTableResultEquals(
                     mldb.query("select %s from %s %s" % (q, "titanic_tabular", g)),
                     mldb.query("select %s from %s %s" % (q, "titanic_sparse", g)),
@@ -87,8 +87,8 @@ class Mldb1507Test(MldbUnitTest):  # noqa
         ds.commit()
 
         msg = "Wildcard cannot be used with GROUP BY"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT * FROM test_groupby_select_star GROUP BY colA")
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

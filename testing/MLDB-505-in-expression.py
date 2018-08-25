@@ -18,7 +18,7 @@ ds1 = mldb.create_dataset({
     'id': 'ds1'
 })
 
-for i in xrange(5):
+for i in range(5):
     ds1.record_row('row_' + str(i),
                    [['x', i, 0], ['y', i*2, 0]])
 ds1.commit()
@@ -36,4 +36,4 @@ result = mldb.get('/v1/datasets')
 response = result.json()
 assert len(response) == 1;
 
-mldb.script.set_return('success')
+request.set_return('success')

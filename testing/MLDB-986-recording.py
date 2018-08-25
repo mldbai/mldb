@@ -77,4 +77,4 @@ result = mldb.query('select w as output from example where w IS NOT null')
 mldb.log(result)
 assert result[1][1] == "1D"
 
-mldb.script.set_return("success")
+request.set_return("success")

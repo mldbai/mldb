@@ -3,7 +3,7 @@
 # mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
-import csv, datetime, urllib
+import csv, datetime
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -27,9 +27,9 @@ def feat_proc(k, v):
 
 ts = datetime.datetime.now()
 titanic_dataset = \
-    "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv"
-for idx, csvLine in enumerate(csv.DictReader(urllib.urlopen(titanic_dataset))):
-    tuples = [[k,feat_proc(k,v),ts] for k,v in csvLine.iteritems()
+    "mldb/testing/fixtures/titanic_train.csv"
+for idx, csvLine in enumerate(csv.DictReader(open(titanic_dataset, 'rt', encoding='utf-8'))):
+    tuples = [[k,feat_proc(k,v),ts] for k,v in csvLine.items()
               if k != "PassengerId" and v!=""]
     dataset.record_row(csvLine["PassengerId"], tuples)
 
@@ -75,8 +75,8 @@ for algoName, algoConf in [["dtAlgo", dtAlgo], ["bsAlgo", bsAlgo]]:
     fullAlgo = get_cls_config(algoName, algoConf)
 
     # Train
-    print mldb.put("/v1/procedures/%s" % algoName, fullAlgo)
-    print mldb.put("/v1/procedures/%s/runs/1" % algoName, {})
+    print(mldb.put("/v1/procedures/%s" % algoName, fullAlgo))
+    print(mldb.put("/v1/procedures/%s/runs/1" % algoName, {}))
 
     # Create function
     functionName = "mldb-592-test-%s-function" % algoName
@@ -87,7 +87,7 @@ for algoName, algoConf in [["dtAlgo", dtAlgo], ["bsAlgo", bsAlgo]]:
             "modelFileUrl": "file://models/mldb-592-test-%s.cls" % algoName,
         }
     }
-    print mldb.put(str("/v1/functions/" + functionName), applyFunctionConfig)
+    print(mldb.put(str("/v1/functions/" + functionName), applyFunctionConfig))
 
     # Run eval
     testPipe = "mldb-592-test-%s-eval-procedure" % algoName
@@ -105,11 +105,11 @@ for algoName, algoConf in [["dtAlgo", dtAlgo], ["bsAlgo", bsAlgo]]:
         }
     }
 
-    print mldb.put(str("/v1/procedures/%s" % testPipe), evalConfig)
+    print(mldb.put(str("/v1/procedures/%s" % testPipe), evalConfig))
     rtn = mldb.post(str("/v1/procedures/%s/runs" % testPipe))
 
     mldb.log(str(type(rtn)))
     mldb.log(rtn.text)
     mldb.log(" ---- ")
 
-mldb.script.set_return("success")
+request.set_return("success")

@@ -39,7 +39,7 @@ class MldbMergedDatasetTest(unittest.TestCase):
             }
         }
 
-        r = requests.post(url=self.base_url + "/datasets?sync=true",
+        r = requests.post(url=self.base_url + "/datasets",
                           data=config)
         self.assertEqual(r.status_code, 400)
 
@@ -56,11 +56,10 @@ class MldbMergedDatasetTest(unittest.TestCase):
                 ]
             }
         }
-        r = requests.post(url=self.base_url + "/datasets?sync=true",
+        r = requests.post(url=self.base_url + "/datasets",
                           data=config)
         self.assertEqual(r.status_code, 400)
 
-    @unittest.expectedFailure  # FIXME
     def test_sync(self):
         """
         Sync should work even when connector sends as json.
@@ -73,7 +72,7 @@ class MldbMergedDatasetTest(unittest.TestCase):
                 ]
             }
         }
-        r = requests.post(url=self.base_url + '/datasets?sync=true',
+        r = requests.post(url=self.base_url + '/datasets',
                           data=json.dumps(config),
                           headers={'content-type' : 'application/json'})
         self.assertEqual(r.status_code, 400)

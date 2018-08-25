@@ -40,9 +40,9 @@ BOOST_AUTO_TEST_CASE( script_procedure_test )
      * ****/
     ScriptResource plugRes;
     plugRes.source = R"foo(
-print "hoho"
+print("hoho")
 mldb.log(str(mldb.script.args))
-mldb.script.set_return("babang!")
+request.set_return("babang!")
 )foo";
 
     ScriptProcedureConfig scriptProcConf;

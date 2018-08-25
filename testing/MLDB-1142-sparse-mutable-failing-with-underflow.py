@@ -19,7 +19,7 @@ def load_kmeans_dataset():
         "type": "sparse.mutable",
         'id' : 'kmeans_example'
     })
-    for j in xrange(10):
+    for j in range(10):
         val_x = float(random.randint(-5, 5))
         val_y = float(random.randint(-5, 5))
         row = [
@@ -33,4 +33,4 @@ def load_kmeans_dataset():
 
 now = datetime.datetime.now()
 load_kmeans_dataset()
-mldb.script.set_return('success')
+request.set_return('success')

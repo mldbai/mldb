@@ -132,4 +132,4 @@ mldb.log(datetime.datetime.now() - start)
 
 assert res.json()["status"]["firstRun"]["status"]["auc"] > 0.65
 
-mldb.script.set_return('success')
+request.set_return('success')

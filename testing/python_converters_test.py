@@ -45,7 +45,7 @@ class PythonConverterTest(unittest.TestCase):
         self.assertEqual(tester.getJsonVal(val), val)
         
         val = {"hoho": {"a":5, "b":[5, 6, {"zz": True}]}}
-        print tester.getJsonVal(val)
+        print(tester.getJsonVal(val))
         self.assertEqual(tester.getJsonVal(val), val)
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ try:
                 "dataFileUrl": "relative/path/without/protocol.beh"
                 }}).commit() #should complain about missing protocol!
 
-    mldb.script.set_return("failure")
+    request.set_return("failure")
     exit()
 except:
     pass
@@ -19,11 +19,11 @@ try:
             "params":{
                 "dataFileUrl": "/asbolute/path/without/protocol.beh"
                 }}).commit() #should complain about missing protocol!
-    mldb.script.set_return("failure")
+    request.set_return("failure")
     exit()
 except:
     pass
 
 
-mldb.script.set_return("success")
+request.set_return("success")
 

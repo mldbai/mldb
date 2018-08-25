@@ -29,7 +29,7 @@ class BehTypeCheckOnLoadTest(MldbUnitTest):  # noqa
         })
 
         msg = "The loaded dataset is not of type beh.binary"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put('/v1/datasets/error', {
                 'type' : 'beh.binary',
                 'params' : params
@@ -54,11 +54,11 @@ class BehTypeCheckOnLoadTest(MldbUnitTest):  # noqa
         })
 
         msg = "The loaded dataset is not of type beh, it is"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put('/v1/datasets/error', {
                 'type' : 'beh',
                 'params' : params
             })
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

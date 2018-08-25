@@ -37,4 +37,4 @@ res = mldb.get('/v1/query', q='SELECT poil({*}) from ds1')
 check_res(res, 200)
 
 
-mldb.script.set_return('success')
+request.set_return('success')

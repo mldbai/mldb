@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** rest_request_binding_test.cc
     Jeremy Barnes, 31 March 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
-
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #define BOOST_TEST_MAIN

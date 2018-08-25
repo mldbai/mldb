@@ -6,7 +6,7 @@ ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
     'id': 'dataset1'})
 
-for i in xrange(3):
+for i in range(3):
     ds1.record_row('row_' + str(i),
                    [['x', i, 0]])
 ds1.commit()
@@ -41,4 +41,4 @@ expected = [
 
 assert res.json() == expected;
 
-mldb.script.set_return('success')
+request.set_return('success')

@@ -12,7 +12,7 @@ dataset = mldb.create_dataset({
         'id': 'example_large'
 })
 
-for i in xrange(20000):
+for i in range(20000):
     dataset.record_row("u%d" % i, [['x', "whatever", 0]])
 
 dataset.commit();
@@ -42,7 +42,7 @@ dataset = mldb.create_dataset({
         'id': 'example_small'
 })
 
-for i in xrange(10):
+for i in range(10):
     dataset.record_row("u%d" % i, [['x', "whatever", 0]])
 
 dataset.commit();
@@ -60,4 +60,4 @@ mldb.log(expected)
 
 assert result == expected
 
-mldb.script.set_return("success")
+request.set_return("success")

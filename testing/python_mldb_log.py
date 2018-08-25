@@ -29,5 +29,5 @@ assert jsRtn["logs"][3]["c"] == "25"
 assert jsRtn["logs"][4]["c"] == "a b 2"
 #assert jsRtn["logs"][5]["c"] == ""
 
-mldb.script.set_return("success")
+request.set_return("success")
 

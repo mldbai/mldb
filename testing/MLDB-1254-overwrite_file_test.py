@@ -32,7 +32,7 @@ def create_dataset():
 
     now = datetime.datetime.now().isoformat() + 'Z'
 
-    for i in xrange(10):
+    for i in range(10):
         mldb_perform('POST', url + '/rows', [], {
             'rowName' : 'user{}'.format(i),
             'columns' : [['score', i, now],
@@ -97,4 +97,4 @@ save_reload_dataset()
 bucket_dataset({ '1' : [0, 40], '2' : [60, 80] })
 save_reload_dataset()
 
-mldb.script.set_return("success")
+request.set_return("success")

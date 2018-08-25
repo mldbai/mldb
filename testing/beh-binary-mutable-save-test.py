@@ -73,4 +73,4 @@ expect = [
 ]
 assert data == expect, data
 
-mldb.script.set_return("success")
+request.set_return("success")

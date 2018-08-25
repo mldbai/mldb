@@ -53,7 +53,7 @@ def test_op(sql_op_name, op, float1, float2=None):
                                                 repr(float1), repr(float2),
                                                 sql_op_name)
     else:
-        equality = '{0} = {2}({1})'.format(repr(op(float1)), repr(float1),
+        equality = '{0} = {2}({1})'.format(repr(float(op(float1))), repr(float1),
                                            sql_op_name)
 
     mldb.log('testing {}'.format(equality))
@@ -66,7 +66,7 @@ def test_op(sql_op_name, op, float1, float2=None):
         'there is lost of precision with this query [{}]'.format(equality)
 
 def test_ops(ops, float1, float2=None):
-    for sql_op_name, op in ops.iteritems():
+    for sql_op_name, op in ops.items():
         test_op(sql_op_name, op, float1, float2)
 
 
@@ -74,8 +74,8 @@ def test_with_random_values(iteration):
     for i in range(iteration):
         large_positive_float = random.uniform(0, sys.float_info.max)
         small_positive_float = random.uniform(0, sys.float_info.min)
-        large_positive_int = random.randint(0, sys.maxint)
-        large_negative_int = random.randint(-sys.maxint - 1, 0)
+        large_positive_int = random.randint(0, sys.maxsize)
+        large_negative_int = random.randint(-sys.maxsize - 1, 0)
 
         test_ops(no_overflow_op_of_1_float, large_positive_float)
         test_ops(no_overflow_op_of_2_int, large_positive_int, 1534)
@@ -89,4 +89,4 @@ test_op('mod', c_style_mod, -2507820791313827470, 1534)
 test_op('mod', c_style_mod, -2507820791313827470, -1534)
 test_op('mod', c_style_mod, 2507820791313827470, -1534)
 
-mldb.script.set_return('success')
+request.set_return('success')

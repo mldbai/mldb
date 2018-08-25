@@ -13,7 +13,7 @@ class TotalRowsBuiltinFctTest(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
-        for i in xrange(4):
+        for i in range(4):
             ds.record_row(i, [['col', i, 0]])
         ds.commit()
 
@@ -80,23 +80,23 @@ class TotalRowsBuiltinFctTest(MldbUnitTest):  # noqa
 
     def test_where_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT * FROM ds WHERE totalRows() < 2")
 
     def test_order_by_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT * FROM ds ORDER BY totalRows()")
 
     def test_group_by_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT 'coco' FROM ds GROUP BY totalRows()")
 
     def test_named_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT rowName() NAMED totalRows() FROM ds")
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

@@ -45,13 +45,13 @@ mldb.log("Commited!!")
 """
     }
         response = requests.post(self.url+"/types/plugins/python/routes/run", json.dumps(pythonScript))
-        print response
+        print(response)
 
 
     def test_dataset_biggerThan2(self):        
         response = requests.get(self.url+"/query?q=select * from testing_types where x>2")
         rez = response.json()
-        print rez
+        print(rez)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(rez), 2)
         self.assertEqual(rez[0]["rowName"], "id_3")
@@ -60,7 +60,7 @@ mldb.log("Commited!!")
     def test_dataset_biggerEq2dot5(self):
         response = requests.get(self.url+"/query?q=select * from testing_types where x='2.5'")
         rez = response.json()
-        print rez
+        print(rez)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(rez), 1)
         self.assertEqual(rez[0]["rowName"], "id_3")
@@ -68,7 +68,7 @@ mldb.log("Commited!!")
     def test_dataset_biggerSmaller2(self):
         response = requests.get(self.url+"/query?q=select * from testing_types where x<2")
         rez = response.json()
-        print rez
+        print(rez)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(rez), 1)
         self.assertEqual(rez[0]["rowName"], "id_1")

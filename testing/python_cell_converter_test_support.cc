@@ -20,6 +20,7 @@
 #include "mldb/builtin/python/callback.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/builtin/python/mldb_python_converters.h"
+#include "mldb/builtin/python/python_interpreter.h"
 
 using namespace std;
 using namespace boost::python;
@@ -51,6 +52,8 @@ struct Tester {
 };
 
 BOOST_PYTHON_MODULE(py_cell_conv_test_module) {
+
+    PythonInterpreter::initializeFromModuleInit();
 
     from_python_converter<CellValue, CellValueConverter>();
 

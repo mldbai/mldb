@@ -32,5 +32,5 @@ class Mldb1691(MldbUnitTest):
         self.doTest("select upper('abcde') as rez", "ABCDE")
         self.doTest("select lower('ABCDe') as rez", "abcde")
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

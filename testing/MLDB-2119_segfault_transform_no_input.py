@@ -10,7 +10,7 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
 
     def test_run_on_creation(self):
         msg = 'You need to define inputData'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put('/v1/procedures/run_on_creation', {
                 'type' : 'transform',
                 'params' : {
@@ -18,7 +18,7 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'transform',
                 'params' : {
@@ -36,7 +36,7 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
         })
 
         msg = 'You need to define inputData'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put('/v1/procedures/do_not_run_on_creation/runs/r1', {
                 'params' : {}
             })
@@ -48,7 +48,7 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
                 'runOnCreation' : False
             }
         }).json()
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures/{}/runs'.format(res['id']), {
                 'params' : {}
             })
@@ -56,4 +56,4 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

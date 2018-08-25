@@ -95,4 +95,4 @@ assert response[0]['columns'][1][1] == 4
 assert response[0]['columns'][2][0] == 'x.2'
 assert response[0]['columns'][2][1] == 4
 
-mldb.script.set_return("success")
+request.set_return("success")

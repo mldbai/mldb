@@ -70,4 +70,4 @@ js_rez = rez.json()
 mldb.log(js_rez)
 assert [x[1] for x in js_rez[0]["columns"]] == [54, 0, 1]
 
-mldb.script.set_return("success")
+request.set_return("success")

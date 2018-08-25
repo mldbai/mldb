@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import csv
-from StringIO import StringIO
+from io import StringIO
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -39,7 +39,7 @@ female 5.75 150 9""")
             ds.record_row(
                 'dude_' + str(i),
                 [[col, try_parse_to_float(val), 0] for col,val
-                 in row.iteritems()])
+                 in row.items()])
         ds.commit()
 
     def _do_test(self, mode):
@@ -87,7 +87,7 @@ female 5.75 150 9""")
                 score = prediction[0]['scores.1']
             else:
                 score = prediction[0]['score']
-            print score
+            print(score)
             self.assertLess(score - target, .01)
 
 
@@ -97,4 +97,4 @@ female 5.75 150 9""")
     def test_categorical(self):
         self._do_test("categorical")
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

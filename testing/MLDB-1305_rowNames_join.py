@@ -154,4 +154,4 @@ conf = {
 res = mldb.perform("PUT", "/v1/procedures/doit", [], conf)
 assert res["statusCode"] == 201
 
-mldb.script.set_return("success")
+request.set_return("success")

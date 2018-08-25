@@ -18,7 +18,7 @@ class CsvLineEndingsGeneric(object):
         filename += self.__class__.data['ext']
         with self.__class__.data['open_fct'](filename, 'wb') as f:
             for line in lines:
-                f.write(line)
+                f.write(line.encode("utf-8"))
 
         csv_conf = {
             "type": "import.text",
@@ -235,4 +235,4 @@ class CsvLineEndingsCsvGz(CsvLineEndingsGeneric, unittest.TestCase):
     data = {'open_fct' : gzip.open, 'ext' : '.csv.gz'}
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

@@ -17,7 +17,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class CsvExportTest(MldbUnitTest):
     def assert_file_content(self, filename, lines_expect):
-        f = codecs.open(filename, 'rt', 'utf8')
+        f = codecs.open(filename, 'r', 'utf8')
         for index, expect in enumerate(lines_expect):
             line = f.readline()[:-1]
             self.assertEqual(line, expect)
@@ -67,7 +67,7 @@ class CsvExportTest(MldbUnitTest):
         mldb.post('/v1/procedures/export/runs', {})
 
         lines_expect = ['rowName,colA,colB',
-                        u'utf8 row,Ǆώύψ,ăØÆÅ',
+                        'utf8 row,Ǆώύψ,ăØÆÅ',
                         'ascii row,1,2'
                         ]
         self.assert_file_content(tmp_file.name, lines_expect)
@@ -117,7 +117,7 @@ class CsvExportTest(MldbUnitTest):
 
         mldb.log(mldb.post('/v1/procedures/export3/runs'))
 
-        lines_expect = [u'outf8 roowo;Ǆώύψ;ăØÆÅ',
+        lines_expect = ['outf8 roowo;Ǆώύψ;ăØÆÅ',
                         'oascii roowo;1;2']
         self.assert_file_content(tmp_file.name, lines_expect)
 
@@ -160,7 +160,7 @@ class CsvExportTest(MldbUnitTest):
 
         tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 "cells having multiple values, at row 'row.' for column '.'"):
             mldb.post('/v1/procedures', {
                 'type' : 'export.csv',
@@ -205,4 +205,4 @@ class CsvExportTest(MldbUnitTest):
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

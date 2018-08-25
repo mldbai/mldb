@@ -17,10 +17,10 @@ class Mldb1732(MldbUnitTest):  # noqa
 
     def test_no_table_error_message(self):
         msg = 'Wildcard usage requires a FROM statement'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT *")
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT * WHERE columnCount() > 0")
 
     def test_where_columncount_works(self):
@@ -32,4 +32,4 @@ class Mldb1732(MldbUnitTest):  # noqa
             ]
         )
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

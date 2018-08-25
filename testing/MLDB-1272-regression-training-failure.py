@@ -16,7 +16,7 @@ dataset = mldb.create_dataset({
 now = datetime.datetime.now()
 
 # force a linear regression
-for i in xrange(500):
+for i in range(500):
     feat1 = random.randint(1, 20)
     feat2 = random.randint(1, 100)
     dataset.record_row("u%d" % i, [["feat1", feat1, now],
@@ -30,7 +30,7 @@ test_dataset = mldb.create_dataset({
     "id": "test_dataset"
 })
 
-for i in xrange(50):
+for i in range(50):
     feat1 = random.randint(1, 20)
     feat2 = random.randint(1, 100)
     test_dataset.record_row("u%d" % i, [["feat1", feat1, now], ["feat2", feat2, now]])
@@ -95,4 +95,4 @@ mldb.log(avg_diff)
 assert avg_diff < 3.0, "expecting the regression errors to be lower than 3 on average"
 
 
-mldb.script.set_return('success')
+request.set_return('success')

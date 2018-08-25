@@ -4,6 +4,7 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 import time
+from functools import reduce
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -54,4 +55,4 @@ class SerialProcedureTest(MldbUnitTest):  # noqa
         self.assertGreater(total2, total1)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

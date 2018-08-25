@@ -11,7 +11,7 @@ ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
     'id': 'ds1'})
 
-for i in xrange(50):
+for i in range(50):
     ds1.record_row('row_' + str(i),
                    [['x', random.random(), 0], ['y', random.random(), 0]])
 ds1.commit()
@@ -42,4 +42,4 @@ res = mldb.get('/v1/functions/embed/application',
 # now use it in a query
 res = mldb.get('/v1/query', q='SELECT embed({{*} as row}) from ds1')
 
-mldb.script.set_return('success')
+request.set_return('success')

@@ -11,4 +11,4 @@ if False:
     mldb = None
 
 mldb.log(str(sys.argv))
-mldb.script.set_return("success")
+request.set_return("success")

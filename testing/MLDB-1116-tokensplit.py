@@ -29,10 +29,9 @@ result = mldb.put('/v1/functions/tokensplit_function', {
 
 mldb.log(result)
 
-test_str = unicode(
+test_str = str(
     "whatever :P I do what ¯\_(ツ)_/¯¯¯¯¯¯ I want (>_<) (>_<) watwat :P "
-    "(ノಠ益ಠ)ノ彡┻━┻ grrrr :P :P :P",
-    encoding='utf-8')
+    "(ノಠ益ಠ)ノ彡┻━┻ grrrr :P :P :P")
 result = mldb.get(
     '/v1/query',
     q="select tokensplit_function({'" + test_str + "' as text}) as query")
@@ -43,7 +42,7 @@ response = result.json()
 
 assert response[0]['columns'][0][1] == test_str
 
-test_str = unicode("aaahhhhh ¯\_(ツ)_/¯", encoding='utf-8')
+test_str = str("aaahhhhh ¯\_(ツ)_/¯")
 result = mldb.get(
     '/v1/query',
     q="select tokensplit_function({'" + test_str + "' as text}) as query")
@@ -67,8 +66,7 @@ config = {
 result = mldb.put('/v1/functions/split_smiley', config)
 mldb.log(result)
 
-test_str = unicode(":P Great day!!! (>_<) (>_<) :P :P :P :-)",
-                   encoding='utf-8')
+test_str = str(":P Great day!!! (>_<) (>_<) :P :P :P :-)")
 
 result = mldb.get(
     '/v1/query',
@@ -79,4 +77,4 @@ mldb.log(response)
 assert response[0]['columns'][0][1] == test_str, \
     'tokenized string does not match the expected value'
 
-mldb.script.set_return("success")
+request.set_return("success")

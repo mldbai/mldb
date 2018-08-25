@@ -15,15 +15,15 @@ class ImportTextTest(MldbUnitTest):
     def setUpClass(cls):
         cls.regular_lines_file = \
             tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
-        cls.regular_lines_file.write("a,b,c\n")
-        cls.regular_lines_file.write("d,e,f\n")
+        cls.regular_lines_file.write(b"a,b,c\n")
+        cls.regular_lines_file.write(b"d,e,f\n")
         cls.regular_lines_file.flush()
 
         cls.irregular_lines_file = \
             tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
-        cls.irregular_lines_file.write("a,b,c\n")
-        cls.irregular_lines_file.write("d,e\n")
-        cls.irregular_lines_file.write("f,g,h,i\n")
+        cls.irregular_lines_file.write(b"a,b,c\n")
+        cls.irregular_lines_file.write(b"d,e\n")
+        cls.irregular_lines_file.write(b"f,g,h,i\n")
         cls.irregular_lines_file.flush()
 
     def test_base(self):
@@ -77,7 +77,7 @@ class ImportTextTest(MldbUnitTest):
 
     def test_conflicting_header_config(self):
         msg = "autoGenerateHeaders cannot be true if headers is defined."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'import.text',
                 'params' : {
@@ -94,7 +94,7 @@ class ImportTextTest(MldbUnitTest):
 
     def test_basea_irregular(self):
         msg = "Error parsing CSV row: too many columns in row"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'import.text',
                 'params' : {
@@ -109,7 +109,7 @@ class ImportTextTest(MldbUnitTest):
 
     def test_gen_headers_irregular(self):
         msg = "Error parsing CSV row: too many columns in row"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'import.text',
                 'params' : {
@@ -178,4 +178,4 @@ class ImportTextTest(MldbUnitTest):
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

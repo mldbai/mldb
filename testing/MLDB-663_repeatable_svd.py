@@ -56,4 +56,4 @@ for row1, row2 in zip(svd1, svd2):
     for value1, value2 in zip(row1, row2):
         assert value1 == value2, "{} {}".format(value1, value2)
 
-mldb.script.set_return("success")
+request.set_return("success")

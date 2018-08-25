@@ -11,7 +11,7 @@ ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
     'id': 'ds1'})
 
-for i in xrange(5):
+for i in range(5):
     ds1.record_row('row_' + str(i),
                    [['x', 'row_0', 0], ['y', i*2, 0]])
 ds1.commit()
@@ -278,4 +278,4 @@ res = mldb.get('/v1/query', q="select pwel({x:'row_2', y:'prout'}) from ds1")
 mldb.log(res.json())
 
 
-mldb.script.set_return('success')
+request.set_return('success')

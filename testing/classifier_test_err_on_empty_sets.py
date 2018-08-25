@@ -42,7 +42,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
 
     def test_classifier_test_no_data(self):
         err_str = "Cannot run classifier.test procedure on empty test set"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, err_str):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, err_str):
             mldb.post('/v1/procedures', {
                 "type": "classifier.test",
                 "params": {
@@ -58,7 +58,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, err_str):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, err_str):
             mldb.post('/v1/procedures', {
                 "type": "classifier.test",
                 "params": {
@@ -74,7 +74,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, err_str):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, err_str):
             mldb.post('/v1/procedures', {
                 "type": "classifier.test",
                 "params": {
@@ -91,4 +91,4 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
             })
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

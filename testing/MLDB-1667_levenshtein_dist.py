@@ -69,7 +69,7 @@ class Mldb1667(MldbUnitTest):
 
     def test_wrong_type(self):
         def doWrongTypeQuery(a, b):
-            with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+            with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                         'function must be strings'):
                 mldb.query("SELECT levenshtein_distance(%s, %s) as dist" % (a, b))
 
@@ -78,4 +78,4 @@ class Mldb1667(MldbUnitTest):
         doWrongTypeQuery(5, "'b'")
         doWrongTypeQuery("{pwet: 'asdf'}", "'asdf'")
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

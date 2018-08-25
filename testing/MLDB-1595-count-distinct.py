@@ -47,4 +47,4 @@ class DistinctTest(unittest.TestCase):
         expected = [["_rowName","v.x","v.y"],["[]",3,2]]
         self.assertEqual(res, expected)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

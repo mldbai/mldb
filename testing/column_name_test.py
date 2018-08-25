@@ -98,4 +98,4 @@ class ColumnNameTest(MldbUnitTest):  # noqa
         self.select("a:{w:{x:{y:1}}} + 1", 'a.w.x.y')
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

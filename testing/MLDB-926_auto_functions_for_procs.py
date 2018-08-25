@@ -20,7 +20,7 @@ dataset_config = {
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
 
-for i in xrange(50):
+for i in range(50):
     label = random.random() < 0.2
     dataset.record_row("u%d" % i, [["feat1", random.gauss(5 if label else 15, 3), now],
                                    ["feat2", random.gauss(-5 if label else 10, 10), now],
@@ -145,4 +145,4 @@ conf = {
 }
 do_checks(conf)
 
-mldb.script.set_return("success")
+request.set_return("success")

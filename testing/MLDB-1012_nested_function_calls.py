@@ -93,4 +93,4 @@ except mldb_wrapper.ResponseException as exc:
 else:
     assert False, 'Should have failed with a 400'
 
-mldb.script.set_return("success")
+request.set_return("success")

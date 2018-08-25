@@ -14,7 +14,7 @@ rtn = mldb.post("/v1/types/plugins/python/routes/run", conf)
 mldb.log(rtn.text)
 
 conf = {
-    "source": "print a"
+    "source": "print(a)"
 }
 
 try:
@@ -30,4 +30,4 @@ mldb.log(js_rtn)
 
 assert js_rtn["exception"]["message"] == "name 'a' is not defined"
 
-mldb.script.set_return("success")
+request.set_return("success")

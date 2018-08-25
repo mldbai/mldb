@@ -36,25 +36,25 @@ class InvalidGroupByTest(MldbUnitTest):
         mldb.query("select count(*), earliest({horizontal_earliest({*})}) from sample group by x")
 
     def test_invalid_aggregator_and_builtin(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
                                      "variable 'deletions' must appear in the GROUP BY clause .*"):
             mldb.query("select count(*), ln(deletions+1) from sample group by x")
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      "variable 'deletions' must appear in the GROUP BY clause .*"):
             mldb.query("select count(*), ln(deletions+1) from sample")
 
     def test_invalid_aggregator_and_wildcard_builtin(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      "Non-aggregator 'temporal_earliest\(\{\*\}\)' with GROUP BY clause is not allowed"):
             mldb.query("select count(*), temporal_earliest({*}) from sample group by x")
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      "Mixing non-aggregator 'horizontal_earliest\(\{\*\}\)' with aggregators is not allowed"):
             mldb.query("select count(*), horizontal_earliest({*}) from sample")
 
     def test_invalid_aggregator_and_many_wildcard_builtin(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      "Non-aggregator 'temporal_earliest\(\{\*\}\)' with GROUP BY clause is not allowed"):
             mldb.query("""select count(*) as cnt, 
             x, 
@@ -65,14 +65,14 @@ class InvalidGroupByTest(MldbUnitTest):
             sum(deletions) as deletions from sample group by x""")
 
     def test_invalid_group_by_and_wildcard_builtin(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      "Non-aggregator 'temporal_earliest\(\{\*\}\)' with GROUP BY clause is not allowed"):
             mldb.query("select temporal_earliest({*}) as earliest from sample group by x")
 
     @unittest.skip('MLDBFB-435')
     def test_invalid_nested_aggregators(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      "Nested aggregators 'earliest(earliest({*}))' are not allowed"):
             mldb.query("select count(*), earliest(earliest({*})) from sample")
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

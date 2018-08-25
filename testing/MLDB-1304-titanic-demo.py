@@ -78,5 +78,5 @@ select label, sum(
 from titanic_raw group by label
 """)
 
-mldb.script.set_return("success")
+request.set_return("success")
 

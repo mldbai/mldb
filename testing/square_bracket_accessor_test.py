@@ -37,7 +37,7 @@ class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
     def test_string_mixing(self):
         res = mldb.query("SELECT a.f['b'] FROM (SELECT {f: {b: 123}} AS a)")
         self.assertEqual(res, [
-            ['_rowName', u'"a.f[\'b\']"'],
+            ['_rowName', '"a.f[\'b\']"'],
             ['result', 'b']
         ])
 
@@ -69,8 +69,8 @@ class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
             )
                          """)
         self.assertEqual(res, [
-            [u'_rowName', u"a['utéf8']"],
-            [u'result', u'utéf8']
+            ['_rowName', "a['utéf8']"],
+            ['result', 'utéf8']
         ])
 
     @unittest.expectedFailure
@@ -207,8 +207,8 @@ class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
             )
                          """)
         self.assertEqual(res, [
-            [u'_rowName', u"a[utéf8]"],
-            [u'result', 123]
+            ['_rowName', "a[utéf8]"],
+            ['result', 123]
         ])
 
     @unittest.expectedFailure
@@ -219,8 +219,8 @@ class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
             )
                          """)
         self.assertEqual(res, [
-            [u'_rowName', u"a[utéf8]"],
-            [u'result', 123]
+            ['_rowName', "a[utéf8]"],
+            ['result', 123]
         ])
 
     def test_internal_ws_no_quotes(self):
@@ -239,4 +239,4 @@ class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

@@ -14,7 +14,7 @@ class CredentialTest(MldbUnitTest):
     def test_creation_of_dummy_creds(self):
         # try something that should work
         # mldb.get asserts the result status_code is >= 200 and < 400
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                   "doesn't exist"):
             mldb.get("/v1/credentials/s3cred")
 
@@ -38,7 +38,7 @@ class CredentialTest(MldbUnitTest):
 
         resp = mldb.delete("/v1/credentials/s3cred")
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                   "doesn't exist"):
             mldb.get("/v1/credentials/s3cred")
 
@@ -166,10 +166,10 @@ class CredentialTest(MldbUnitTest):
         mldb.put(url, config)
 
         msg = "entry 'test_delete' already exists"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.put(url, config)
 
         mldb.delete(url)
         mldb.put(url, config)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

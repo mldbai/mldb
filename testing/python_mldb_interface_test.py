@@ -81,16 +81,17 @@ class PythonMldbInterfaceTest(MldbUnitTest): # noqa
         mldb.post(url + '/commit')
 
         res = mldb.query('SELECT * FROM ds')
-        self.assertEqual(res, [['_rowName', u'colA'], ['row1', 1]])
+        self.assertEqual(res, [['_rowName', 'colA'], ['row1', 1]])
 
     def test_response_exception(self):
         url = "/unexisting"
+        res = None
         try:
             mldb.get(url)
         except mldb_wrapper.ResponseException as response_exception:
+            res = response_exception.response
             pass
 
-        res = response_exception.response
         self.assertEqual(res.status_code, 404)
         self.assertEqual(res.url, url)
 
@@ -178,4 +179,4 @@ class PythonMldbInterfaceTest(MldbUnitTest): # noqa
             mldb.get("/warp")
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

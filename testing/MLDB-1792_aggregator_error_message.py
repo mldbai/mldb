@@ -16,8 +16,8 @@ class Mldb1792AggregatorErrorMessage(MldbUnitTest):  # noqa
         ds.commit()
 
         msg = "function avg expected 1 argument, got 2"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT avg(colA, 2) FROM ds")
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

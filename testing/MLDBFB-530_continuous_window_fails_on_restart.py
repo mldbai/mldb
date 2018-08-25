@@ -110,7 +110,7 @@ class ContinuousWindowDsIssueTest(MldbUnitTest):  # noqa
         })
 
         res = mldb.query("SELECT * FROM window")
-        self.assertEquals(res[1:], [["row1", 1]])
+        self.assertEqual(res[1:], [["row1", 1]])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())
