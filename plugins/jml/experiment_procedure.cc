@@ -504,13 +504,14 @@ run(const ProcedureRunConfig & run,
                     outputPC.type = "tabular";
 
                     {
-                        InProcessRestConnection connection;
+                        auto connection = InProcessRestConnection::create();
                         RestRequest request("DELETE", "/v1/datasets/"+outputPC.id.utf8String(),
                                             RestParams(), "{}");
-                        engine->handleRequest(connection, request);
+                        engine->handleRequest(*connection, request);
+                        connection->waitForResponse();
 
-                        if(connection.responseCode != 204) {
-                            throw MLDB::Exception("HTTP error "+std::to_string(connection.responseCode)+
+                        if(connection->responseCode() != 204) {
+                            throw MLDB::Exception("HTTP error "+std::to_string(connection->responseCode())+
                                 " when trying to DELETE dataset '"+outputPC.id.utf8String()+"'");
                         }
                     }
@@ -587,13 +588,15 @@ run(const ProcedureRunConfig & run,
      * cleanups
      * **/
     if(!runProcConf.keepArtifacts) {
-        InProcessRestConnection connection;
         for(const string & resource : resourcesToDelete) {
+            auto connection = InProcessRestConnection::create();
             RestRequest request("DELETE", resource, RestParams(), "{}");
-            engine->handleRequest(connection, request);
-            if(connection.responseCode != 204) {
+            engine->handleRequest(*connection, request);
+            connection->waitForResponse();
+            if(connection->responseCode() != 204) {
                 throw MLDB::Exception(MLDB::format("Unable to delete resource '%s'. "
-                            "Response code %d", resource, connection.responseCode));
+                            "Response code %d", resource,
+                                                   connection->responseCode()));
             }
         }
     }

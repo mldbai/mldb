@@ -84,18 +84,20 @@ run(const ProcedureRunConfig & run,
 
     RestRequest request("POST", resource, RestParams(),
                         jsonEncodeStr(copiedSR));
-    InProcessRestConnection connection;
+    auto connection = InProcessRestConnection::create();
 
-    engine->handleRequest(connection, request);
+    engine->handleRequest(*connection, request);
 
+    connection->waitForResponse();
+    
     Json::Value details;
-    details["statusCode"] = connection.responseCode;
+    details["statusCode"] = connection->responseCode();
 
-    if (!connection.contentType.empty())
-        details["contentType"] = connection.contentType;
-    if (!connection.headers.empty()) {
+    if (!connection->contentType().empty())
+        details["contentType"] = connection->contentType();
+    if (!connection->headers().empty()) {
         Json::Value headers(Json::ValueType::arrayValue);
-        for(const std::pair<Utf8String, Utf8String> & h : connection.headers) {
+        for(const std::pair<Utf8String, Utf8String> & h : connection->headers()) {
             Json::Value elem(Json::ValueType::arrayValue);
             elem.append(h.first);
             elem.append(h.second);
@@ -104,8 +106,8 @@ run(const ProcedureRunConfig & run,
         details["headers"] = headers;
     }
 
-    if (!connection.response.empty()) {
-        ScriptOutput parsed = jsonDecodeStr<ScriptOutput>(connection.response);
+    if (!connection->response().empty()) {
+        ScriptOutput parsed = jsonDecodeStr<ScriptOutput>(connection->response());
         if (!parsed.result.isNull())
             details["result"] = parsed.result;
         if (!parsed.logs.empty())
@@ -116,7 +118,7 @@ run(const ProcedureRunConfig & run,
             details["exception"] = jsonEncode(parsed.exception);
     }
 
-    Json::Value result = Json::parse(connection.response);
+    Json::Value result = Json::parse(connection->response());
 
     return RunOutput(result["result"], details);
 }

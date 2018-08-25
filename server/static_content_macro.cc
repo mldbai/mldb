@@ -223,10 +223,11 @@ writeInternalLink(Utf8String url,
 {
     if (followInternalRedirect) {
         RestRequest request("GET", url.rawString(), {}, "");
-        InProcessRestConnection connection;
-        macroData->engine->handleRequest(connection, request);
-        if (connection.responseCode == 301) {
-            url = connection.headers.getValue("location");
+        auto connection = InProcessRestConnection::create();
+        macroData->engine->handleRequest(*connection, request);
+        connection->waitForResponse();
+        if (connection->responseCode() == 301) {
+            url = connection->headers().getValue("location");
         }
     }
 
@@ -412,13 +413,14 @@ void configMacro(MacroContext & context,
         string type = args.at(1);
             
         RestRequest request("GET", "/v1/types/" + kind + "s/" + type + "/info", {}, "");
-        InProcessRestConnection connection;
-        context.macroData->engine->handleRequest(connection, request);
-
-        if (connection.responseCode != 200) {
+        auto connection = InProcessRestConnection::create();
+        context.macroData->engine->handleRequest(*connection, request);
+        connection->waitForResponse();
+        
+        if (connection->responseCode() != 200) {
             context.writeHtml("Error running %%config macro with params " + kind + " " + type);
             context.writeHtml("<pre><code>");
-            context.writeText(connection.response);
+            context.writeText(connection->response());
             context.writeHtml("</code></pre>");
             return;
         }
@@ -428,7 +430,7 @@ void configMacro(MacroContext & context,
         context.writeText("mldb.put(\"/v1/" + kind + "s/\"+<id>, {\n"+
                               "    \"type\": \"" + type + "\"");
         
-        Json::Value params = Json::parse(connection.response);
+        Json::Value params = Json::parse(connection->response());
         string typeName;
         bool withParams = false;
         if (!params.isNull()) {
@@ -469,13 +471,15 @@ void availabletypesMacro(MacroContext & context,
 
         RestRequest request("GET", "/v1/types/" + kind + "s",
                             {{"details", "true"}}, "");
-        InProcessRestConnection connection;
-        context.macroData->engine->handleRequest(connection, request);
-            
-        if (connection.responseCode != 200) {
+
+        auto connection = InProcessRestConnection::create();
+        context.macroData->engine->handleRequest(*connection, request);
+        connection->waitForResponse();
+        
+        if (connection->responseCode() != 200) {
             context.writeHtml("Error running %%availabletypes macro for kind " + kind);
             context.writeHtml("<pre><code>");
-            context.writeText(connection.response);
+            context.writeText(connection->response());
             context.writeHtml("</code></pre>");
             return;
         }
@@ -504,7 +508,8 @@ void availabletypesMacro(MacroContext & context,
                 return params;
         };
 
-        Json::Value params = internalEntitiesFilter(Json::parse(connection.response));
+        Json::Value params
+            = internalEntitiesFilter(Json::parse(connection->response()));
 
         if(format == "list") {
             context.writeHtml("<ul>\n");
