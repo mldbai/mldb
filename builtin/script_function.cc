@@ -93,21 +93,19 @@ apply(const FunctionApplier & applier,
     RestRequest request("POST", resource, RestParams(),
                         
                         jsonEncode(copiedSR).toString());
-    InProcessRestConnection connection;
+    auto connection = InProcessRestConnection::create();
     
-    // TODO. this should not always be true. need to get this from the context
-    // somehow
-    request.header.headers.insert(make_pair("__mldb_child_call", "true"));
+    engine->handleRequest(*connection, request);
 
-    engine->handleRequest(connection, request);
-
+    connection->waitForResponse();
+    
     // TODO. better exception message
-    if(connection.responseCode != 200) {
+    if(connection->responseCode() != 200) {
         throw AnnotatedException(400, "responseCode != 200 for function",
-                                  Json::parse(connection.response));
+                                 Json::parse(connection->response()));
     }
 
-    Json::Value result = Json::parse(connection.response)["result"];
+    Json::Value result = Json::parse(connection->response())["result"];
     
     vector<tuple<PathElement, ExpressionValue>> vals;
     if(!result.isArray()) {

@@ -286,24 +286,28 @@ handleRedirectToGet(RestConnection & connection,
                     const string & uri,
                     const Json::Value & body) const
 {
-    InProcessRestConnection redirectConnection;
+    auto redirectConnection = InProcessRestConnection::create();
     HttpHeader redirectHeader;
     redirectHeader.verb = "GET";
     redirectHeader.resource = uri;
     redirectHeader.headers = request.header.headers;
 
     RestRequest redirectRequest(redirectHeader, jsonEncodeStr(body));
-    handleRequest(redirectConnection, redirectRequest);
-                             
+    handleRequest(*redirectConnection, redirectRequest);
+    redirectConnection->waitForResponse();
+    
     Json::Value redirectResponse;
     Json::Reader reader;
-    if (!reader.parse(redirectConnection.response, redirectResponse, false))
+    if (!reader.parse(redirectConnection->response(), redirectResponse, false))
         throw AnnotatedException(500, "failed to parse the redirect call");
   
-    if (200 > redirectConnection.responseCode || redirectConnection.responseCode >= 300)
-        throw AnnotatedException(redirectConnection.responseCode, "failed to redirect call");
+    if (200 > redirectConnection->responseCode()
+        || redirectConnection->responseCode() >= 300)
+        throw AnnotatedException
+            (redirectConnection->responseCode(), "failed to redirect call");
     
-    connection.sendResponse(redirectConnection.responseCode, jsonEncodeStr(redirectResponse),
+    connection.sendResponse(redirectConnection->responseCode(),
+                            jsonEncodeStr(redirectResponse),
                             "application/json");
 }
 
@@ -596,7 +600,7 @@ prefixUrl(const Utf8String & url) const
     return url;
 }
 
-InProcessRestConnection
+std::shared_ptr<InProcessRestConnection>
 MldbServer::
 restPerform(const std::string & verb,
             const Utf8String & resource,
@@ -620,33 +624,32 @@ restPerform(const std::string & verb,
     RestRequest request(header,
                         payload.isNull() ? "" : payload.toStringNoNewLine());
 
-    InProcessRestConnection connection;
-
-    handleRequest(connection, request);
+    auto connection = InProcessRestConnection::create();
+    handleRequest(*connection, request);
 
     return connection;
 }
 
-InProcessRestConnection
+std::shared_ptr<InProcessRestConnection>
 MldbServer::
 restGet(const Utf8String & resource, const RestParams & params) const {
     return restPerform("GET", resource, params);
 }
 
-InProcessRestConnection
+std::shared_ptr<InProcessRestConnection>
 MldbServer::
 restDelete(const Utf8String & resource, const RestParams & params) const {
     return restPerform("DELETE", resource, params);
 }
 
-InProcessRestConnection
+std::shared_ptr<InProcessRestConnection>
 MldbServer::
 restPut(const Utf8String & resource, const RestParams & params,
         const Json::Value payload) const {
     return restPerform("PUT", resource, params, std::move(payload));
 }
 
-InProcessRestConnection
+std::shared_ptr<InProcessRestConnection>
 MldbServer::
 restPost(const Utf8String & resource, const RestParams & params,
          const Json::Value payload) const {

@@ -167,39 +167,45 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
     auto procConfig = config.params.convert<ProcedureConfig>();
 
     if (procConfig.runOnCreation) {
-        InProcessRestConnection connection;
+        auto connection = InProcessRestConnection::create();
         HttpHeader header;
         header.verb = "POST";
         header.resource = "/v1/procedures/" + key.rawString() + "/runs";
         header.headers["async"] = async ? "true" : "false";
         RestRequest request(header, "{}");
-        mldb->handleRequest(connection, request);
+        mldb->handleRequest(*connection, request);
 
+        connection->waitForResponse();
+        
         Json::Value runResponse;
         Json::Reader reader;
-        if (!reader.parse(connection.response, runResponse, false)) {
-            throw AnnotatedException(500, "failed to create the initial run",
-                                      "entry", key,
-                                      "runError", "could not parse the run response");
+        if (!reader.parse(connection->response(), runResponse, false)) {
+            throw AnnotatedException
+                (500, "failed to create the initial run",
+                 "entry", key,
+                 "runError", "could not parse the run response");
         }
 
-        if (connection.responseCode == 201) {
+        if (connection->responseCode() == 201) {
             Json::Value status = polyStatus.status.asJson();
             if (!status.isObject()) {
-                throw AnnotatedException(500,
-                                          "Initial run did not return a valid object as status",
-                                          "status", status);
+                throw AnnotatedException
+                    (500,
+                     "Initial run did not return a valid object as status",
+                     "status", status);
             }
             status["firstRun"] = runResponse;
             polyStatus.status = status;
         }
         else {
-            throw AnnotatedException(connection.responseCode, "failed to create the initial run",
-                                      "entry", key,
-                                      "runError", runResponse);
+            throw AnnotatedException
+                (connection->responseCode(),
+                 "failed to create the initial run",
+                 "entry", key,
+                 "runError", runResponse);
         }
     }
-
+    
     return polyStatus;
 }
 

@@ -1,5 +1,5 @@
 /** in_process_rest_connection.h                                  -*- C++ -*-
- *
+
     Jeremy Barnes, January 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
@@ -8,6 +8,7 @@
 #pragma once
 
 #include "http_rest_service.h"
+#include <memory>
 
 namespace MLDB {
 
@@ -15,9 +16,18 @@ namespace MLDB {
 /* IN PROCESS HTTP REST CONNECTION                                           */
 /*****************************************************************************/
 
-struct InProcessRestConnection: public HttpRestConnection {
+struct InProcessRestConnection
+    : public HttpRestConnection,
+      public std::enable_shared_from_this<InProcessRestConnection> {
 
+private:    
     InProcessRestConnection();
+
+public:
+    // Use instead of constructor; only the shared_ptr version is
+    // available as the capture() functionality requires a shared
+    // pointer.
+    static std::shared_ptr<InProcessRestConnection> create();
 
     virtual ~InProcessRestConnection();
 
@@ -63,18 +73,28 @@ struct InProcessRestConnection: public HttpRestConnection {
     virtual bool responseSent() const;
     virtual bool isConnected() const;
 
-    int responseCode;
-    std::string contentType;
-    RestParams headers;
-    std::string response;
+    int responseCode() const;
+    const std::string & contentType() const;
+    const RestParams & headers() const;
+    const std::string & response() const;
+    std::string stealResponse();
 
     virtual std::shared_ptr<RestConnection>
-    capture(std::function<void ()> onDisconnect);
+    capture(std::function<void ()> onDisconnect = nullptr);
 
     virtual std::shared_ptr<RestConnection>
-    captureInConnection(std::shared_ptr<void> toCapture);
+    captureInConnection(std::shared_ptr<void> toCapture = nullptr);
 
+    // In the case of a captured connection, this will block until the full
+    // response has been received.  This is used to deal with asynchronous
+    // responses.
+    virtual void waitForResponse();
+
+private:
+    struct Itl;
+    std::unique_ptr<Itl> itl;
 };
 
-}
+} // namespace MLDB
+
 

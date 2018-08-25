@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** rest_request_router_test.cc
     Jeremy Barnes, 31 March 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
@@ -54,21 +53,23 @@ BOOST_AUTO_TEST_CASE( test_header_matching )
     request.resource = "/test";
     request.header.headers["async"] = "true";
 
-    InProcessRestConnection conn;
+    auto conn = InProcessRestConnection::create();
 
-    router.handleRequest(conn, request);
-
-    BOOST_CHECK_EQUAL(conn.response, "async");
+    router.handleRequest(*conn, request);
+    conn->waitForResponse();
+    
+    BOOST_CHECK_EQUAL(conn->response(), "async");
 
     request.header.headers.erase("async");
 
     cerr << "request " << request << endl;
 
-    InProcessRestConnection conn2;
+    auto conn2 = InProcessRestConnection::create();
 
-    router.handleRequest(conn2, request);
-
-    BOOST_CHECK_EQUAL(conn2.response, "sync");
+    router.handleRequest(*conn2, request);
+    conn->waitForResponse();
+    
+    BOOST_CHECK_EQUAL(conn2->response(), "sync");
 }
 
 BOOST_AUTO_TEST_CASE( test_hidden_route )

@@ -47,32 +47,36 @@ BOOST_AUTO_TEST_CASE( test_header_matching )
                            RestParam<std::string>("name", "name of person to say hello to"));
 
     {
-        InProcessRestConnection conn;
-        router.handleRequest(conn, RestRequest("PUT", "/test", {}, ""));
-        BOOST_CHECK_EQUAL(conn.response, "\"hello\"\n");
+        auto conn = InProcessRestConnection::create();
+        router.handleRequest(*conn, RestRequest("PUT", "/test", {}, ""));
+        conn->waitForResponse();
+        BOOST_CHECK_EQUAL(conn->response(), "\"hello\"\n");
     }
 
     {
-        InProcessRestConnection conn;
-        router.handleRequest(conn, RestRequest("PUT", "/test", { { "param", "true" } }, ""));
-        BOOST_CHECK_EQUAL(conn.responseCode, 400);
+        auto conn = InProcessRestConnection::create();
+        router.handleRequest(*conn, RestRequest("PUT", "/test", { { "param", "true" } }, ""));
+        conn->waitForResponse();
+        BOOST_CHECK_EQUAL(conn->responseCode(), 400);
     }
 
     {
         cerr << "test 3" << endl;
-        InProcessRestConnection conn;
-        router.handleRequest(conn, RestRequest("PUT", "/test2", { { "name", "bob" } }, ""));
-        BOOST_CHECK_EQUAL(conn.responseCode, 200);
+        auto conn = InProcessRestConnection::create();
+        router.handleRequest(*conn, RestRequest("PUT", "/test2", { { "name", "bob" } }, ""));
+        conn->waitForResponse();
+        BOOST_CHECK_EQUAL(conn->responseCode(), 200);
 
-        BOOST_CHECK_EQUAL(conn.response, "\"hello bob\"\n");
+        BOOST_CHECK_EQUAL(conn->response(), "\"hello bob\"\n");
     }
 
     {
         cerr << "test 4" << endl;
-        InProcessRestConnection conn;
-        router.handleRequest(conn, RestRequest("PUT", "/test2", { { "name2", "bob" } }, ""));
-        cerr << conn.response << endl;
-        BOOST_CHECK_EQUAL(conn.responseCode, 400);
+        auto conn = InProcessRestConnection::create();
+        router.handleRequest(*conn, RestRequest("PUT", "/test2", { { "name2", "bob" } }, ""));
+        conn->waitForResponse();
+        cerr << conn->response() << endl;
+        BOOST_CHECK_EQUAL(conn->responseCode(), 400);
     }
 
 }

@@ -763,26 +763,28 @@ struct MldbJS::Methods {
         RestRequest request(header,
                             payload.isNull() ? "" : payload.toStringNoNewLine());
 
-        InProcessRestConnection connection;
+        auto connection = InProcessRestConnection::create();
 
-        engine->handleRequest(connection, request);
+        engine->handleRequest(*connection, request);
+
+        connection->waitForResponse();
 
         v8::Handle<v8::Object> result(v8::Object::New(isolate));
         result->Set(v8::String::NewFromUtf8(isolate, "responseCode"),
-                    JS::toJS(connection.responseCode));
+                    JS::toJS(connection->responseCode()));
 
-        if (!connection.contentType.empty())
+        if (!connection->contentType().empty())
             result->Set(v8::String::NewFromUtf8(isolate, "contentType"),
-                        JS::toJS(connection.contentType));
-        if (!connection.headers.empty())
+                        JS::toJS(connection->contentType()));
+        if (!connection->headers().empty())
             result->Set(v8::String::NewFromUtf8(isolate, "headers"),
-                        JS::toJS(connection.headers));
-        if (!connection.response.empty()) {
+                        JS::toJS(connection->headers()));
+        if (!connection->response().empty()) {
             result->Set(v8::String::NewFromUtf8(isolate, "response"),
-                        JS::toJS(connection.response));
-            if (connection.contentType == "application/json") {
+                        JS::toJS(connection->response()));
+            if (connection->contentType() == "application/json") {
                 result->Set(v8::String::NewFromUtf8(isolate, "json"),
-                            JS::toJS(Json::parse(connection.response)));
+                            JS::toJS(Json::parse(connection->response())));
             }
         }
 
