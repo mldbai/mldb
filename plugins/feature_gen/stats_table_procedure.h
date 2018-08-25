@@ -16,7 +16,7 @@
 #include "sql/sql_expression.h"
 #include "mldb/types/db/persistent_fwd.h"
 #include "mldb/types/optional.h"
-
+#include <unordered_map>
 
 namespace MLDB {
 

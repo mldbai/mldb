@@ -11,7 +11,8 @@
 
 #include "mldb/arch/thread_specific.h"
 #include <functional>
-
+#include <vector>
+#include <thread>
 
 namespace MLDB {
 

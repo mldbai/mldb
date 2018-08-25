@@ -13,6 +13,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
 #include "mldb/types/optional.h"
+#include <unordered_map>
 
 
 namespace MLDB {
