@@ -63,7 +63,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
 
     std::string experimentName;
 
-    bool keepArtifacts = false;
+    bool keepArtifacts = true;
 
     /// SQL query to select the training data
     InputQuery inputData;
