@@ -18,6 +18,8 @@
 #include "mldb/types/string.h"
 #include "mldb/rest/rest_request_router.h"
 #include <shared_mutex>
+#include <unordered_map>
+
 
 namespace MLDB {
 

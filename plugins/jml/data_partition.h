@@ -1,19 +1,17 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* data_partition.h                                                -*- C++ -*-
    Jeremy Barns, 26 August 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Abstract data partition used for training.
 */
 
-#ifndef __recoset__ml__data_partition_h__
-#define __recoset__ml__data_partition_h__
+#pragma once
 
 #include <tuple>
 #include <functional>
 #include <vector>
-#include <any>
+#include "mldb/utils/any.h"
 #include <stdint.h>
 #include "tuple_encoder.h"
 
@@ -129,6 +127,3 @@ struct StoredDataPartitionT : public StoredDataPartition {
 };
 
 } // namespace MLDB
-
-
-#endif /* __recoset__ml__data_partition_h__ */
