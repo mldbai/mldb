@@ -95,8 +95,6 @@ struct PythonPlugin: public Plugin {
     std::shared_ptr<PythonPluginContext> pluginCtx;
     std::shared_ptr<MldbPythonContext> mldbPyCtx;
 
-    mutable std::mutex routeHandlingMutex;
-
     mutable bool initialGetStatus;
 
     // This is protected by the Python GIL ?!
@@ -118,7 +116,7 @@ PythonPlugin(MldbEngine * engine,
                 std::make_shared<LoadedPluginResource>
                                       (PYTHON,
                                        LoadedPluginResource::PLUGIN,
-                                       config.id, res), routeHandlingMutex));
+                                       config.id, res)));
     }
     catch(const std::exception & exc) {
         throw AnnotatedException(400, MLDB::format("Exception opening plugin: %s", exc.what()));
@@ -157,36 +155,6 @@ PythonPlugin(MldbEngine * engine,
         throw AnnotatedException(400, context, last_output);
     }
     
-#if 0
-    interpreter->main_namespace["mldb"] =
-        boost::python::object(boost::python::ptr(mldbPyCtx.get()));
-    
-    try {
-        boost::python::object obj
-            = PythonThread::exec(*enterMainThread,
-                                 scriptSource,
-                                 scriptUri,
-                                 interpreter->main_namespace);
-    } catch (const boost::python::error_already_set & exc) {
-        ScriptException pyexc
-            = interpreter->convertException(*enterMainThread, exc, "Running PyPlugin script");
-
-        {
-            std::unique_lock<std::mutex> guard(pluginCtx->logMutex);
-            LOG(pluginCtx->loader) << jsonEncode(pyexc) << endl;
-        }
-
-        MLDB_TRACE_EXCEPTIONS(false);
-
-        string context = "Exception executing Python initialization script";
-        ScriptOutput result
-            = interpreter->exceptionToScriptOutput(*enterMainThread, pyexc, context);
-        throw AnnotatedException(400, context, result);
-    }
-
-    last_output = ScriptOutput();
-    interpreter->getOutputFromPy(*enterMainThread, last_output);
-#endif
 }
 
 PythonPlugin::
@@ -230,36 +198,37 @@ Any
 PythonPlugin::
 getStatus() const
 {
-//     if (itl->getStatus) {
-//         PythonInterpreter *interpreter;
-// 
-//         Any rtn;
-//         try {
-//             rtn = pluginCtx->getStatus();
-//         } catch (const boost::python::error_already_set & exc) {
-//             ScriptException pyexc = convertException(*interpreter, exc, "PyPlugin get status");
-// 
-//             {
-//                 std::unique_lock<std::mutex> guard(pluginCtx->logMutex);
-//                 LOG(pluginCtx->loader) << jsonEncode(pyexc) << endl;
-//             }
-// 
-//             MLDB_TRACE_EXCEPTIONS(false);
-//             string context = "Exception in Python status call";
-//             ScriptOutput result = exceptionToScriptOutput(
-//                 *interpreter, pyexc, context);
-//             throw AnnotatedException(400, context, result);
-//         }
-// 
-// 
-//         if(!initialGetStatus) {
-//             std::unique_lock<std::mutex> guard(routeHandlingMutex);
-//             last_output = ScriptOutput();
-//             getOutputFromPy(*interpreter, last_output, !initialGetStatus);
-//             initialGetStatus = false;
-//         }
-//         return rtn;
-//     }
+#if 0
+    if (itl->getStatus) {
+        PythonInterpreter *interpreter;
+
+        Any rtn;
+        try {
+            rtn = pluginCtx->getStatus();
+        } catch (const boost::python::error_already_set & exc) {
+            ScriptException pyexc = convertException(*interpreter, exc, "PyPlugin get status");
+
+            {
+                std::unique_lock<std::mutex> guard(pluginCtx->logMutex);
+                LOG(pluginCtx->loader) << jsonEncode(pyexc) << endl;
+            }
+
+            MLDB_TRACE_EXCEPTIONS(false);
+            string context = "Exception in Python status call";
+            ScriptOutput result = exceptionToScriptOutput(
+                *interpreter, pyexc, context);
+            throw AnnotatedException(400, context, result);
+        }
+
+
+        if(!initialGetStatus) {
+            last_output = ScriptOutput();
+            getOutputFromPy(*interpreter, last_output, !initialGetStatus);
+            initialGetStatus = false;
+        }
+        return rtn;
+    }
+#endif
     return Any();
 }
 
@@ -423,68 +392,11 @@ logArgs(boost::python::tuple args, boost::python::dict kwargs)
 
 void pythonLoaderInit(const EnterThreadToken & thread)
 {
-    if (!PythonInterpreter::isAModule()) {
-        // Unittest module won't work without argv set
-        // TODO: not for when embedded as a plugin
-        static wchar_t argv1[] = L"mldb-boost-python";
-        static wchar_t *argv[] = {argv1};
-        int argc = sizeof(argv[0]) / sizeof(wchar_t *);
-        //cerr << "argc = " << argc << endl;
-        PySys_SetArgv(argc, argv);
-        //cerr << "******** setting argv" << endl;
-    }
-
-    //cerr << "python loader atInit" << endl;
     namespace bp = boost::python;
 
     PyDateTime_IMPORT;
-    from_python_converter< Date, DateFromPython >();
-
-    from_python_converter< std::string, StringFromPyUnicode>();
-    from_python_converter< Utf8String,  Utf8StringPyConverter>();
-    bp::to_python_converter< Utf8String, Utf8StringPyConverter>();
-
-    from_python_converter< RowPath, StrConstructableIdFromPython<RowPath> >();
-    from_python_converter< ColumnPath, StrConstructableIdFromPython<ColumnPath> >();
-    from_python_converter< CellValue, CellValueConverter >();
-
-    from_python_converter< RowCellTuple,
-                           Tuple3ElemConverter<ColumnPath, CellValue, Date> >();
-
-    from_python_converter< std::vector<RowCellTuple>,
-                           VectorConverter<RowCellTuple>>();
-
-    from_python_converter< std::pair<RowPath, std::vector<RowCellTuple> >,
-                           PairConverter<RowPath, std::vector<RowCellTuple> > >();
-
-    from_python_converter< std::vector<std::pair<RowPath, std::vector<RowCellTuple> > >,
-                           VectorConverter<std::pair<RowPath, std::vector<RowCellTuple> > > >();
-
-    from_python_converter< ColumnCellTuple,
-                           Tuple3ElemConverter<RowPath, CellValue, Date> >();
-
-    from_python_converter< std::vector<ColumnCellTuple>,
-                           VectorConverter<ColumnCellTuple>>();
-
-    from_python_converter< std::pair<ColumnPath, std::vector<ColumnCellTuple> >,
-                           PairConverter<ColumnPath, std::vector<ColumnCellTuple> > >();
-
-    from_python_converter< std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > >,
-                           VectorConverter<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > >();
-
-    from_python_converter<std::pair<string, string>,
-                          PairConverter<string, string> >();
-
-    bp::to_python_converter<std::pair<string, string>,
-                            PairConverter<string, string> >();
-        
-    from_python_converter< Path, PathConverter>();
-
     from_python_converter< RestParams, RestParamsConverter>();
     bp::to_python_converter< RestParams, RestParamsConverter>();
-
-    from_python_converter< Json::Value, JsonValueConverter>();
-    bp::to_python_converter< Json::Value, JsonValueConverter> ();
 
     bp::class_<PythonRestRequest, std::shared_ptr<PythonRestRequest>, boost::noncopyable>("rest_request", bp::no_init)
         .add_property("remaining",
@@ -515,13 +427,6 @@ void pythonLoaderInit(const EnterThreadToken & thread)
         .def("set_return", &PythonRestRequest::setReturnValue1);
         ;
 
-    bp::class_<DatasetPy>("dataset", bp::no_init)
-        .def("record_row", &DatasetPy::recordRow)
-        .def("record_rows", &DatasetPy::recordRows)
-        .def("record_column", &DatasetPy::recordColumn)
-        .def("record_columns", &DatasetPy::recordColumns)
-        .def("commit", &DatasetPy::commit);
-
     bp::class_<PythonPluginContext,
                std::shared_ptr<PythonPluginContext>,
                boost::noncopyable>
@@ -536,10 +441,8 @@ void pythonLoaderInit(const EnterThreadToken & thread)
         mldb("Mldb", bp::no_init);
 
     script.add_property("args", &PythonContext::getArgs);
-    //script.def("set_return", &PythonScriptContext::setReturnValue1);
-
-    //plugin.add_property("rest_params", &PythonPluginContext::getRestRequest);
     plugin.add_property("args", &PythonContext::getArgs);
+
     plugin.def("serve_static_folder",
                &PythonPluginContext::serveStaticFolder);
     plugin.def("serve_documentation_folder",
@@ -547,24 +450,24 @@ void pythonLoaderInit(const EnterThreadToken & thread)
     plugin.def("get_plugin_dir",
                &PythonPluginContext::getPluginDirectory);
 
-
-    //mldb.def("set_return", &PythonContext::setReturnValue1);
     mldb.def("log", bp::raw_function(logArgs, 1));
     mldb.def("log", &MldbPythonContext::logUnicode);
     mldb.def("log", &MldbPythonContext::logJsVal);
-    mldb.def("perform", perform); // for 5 args
-    mldb.def("perform", perform4); // for 4 args
-    mldb.def("perform", perform3); // for 3 args
-    mldb.def("perform", perform2); // for 2 args
-    mldb.def("read_lines", readLines);
-    mldb.def("read_lines", readLines1);
-    mldb.def("ls", ls);
-    mldb.def("get_http_bound_address", getHttpBoundAddress);
+    mldb.def("perform", &MldbPythonContext::perform); // for 5 args
+    mldb.def("perform", &MldbPythonContext::perform4); // for 4 args
+    mldb.def("perform", &MldbPythonContext::perform3); // for 3 args
+    mldb.def("perform", &MldbPythonContext::perform2); // for 2 args
+    mldb.def("read_lines", &MldbPythonContext::readLines);
+    mldb.def("read_lines", &MldbPythonContext::readLines1);
+    mldb.def("ls", &MldbPythonContext::ls);
+    mldb.def("get_http_bound_address", &MldbPythonContext::getHttpBoundAddress);
+
+
     mldb.def("create_dataset",
              &DatasetPy::createDataset,
              bp::return_value_policy<bp::manage_new_object>());
     mldb.def("create_procedure", &PythonProcedure::createPythonProcedure);
-    //         mldb.def("create_function", &PythonFunction::createPythonFunction);
+             mldb.def("create_function", &PythonFunction::createPythonFunction);
 
     mldb.add_property("script", &MldbPythonContext::getScript);
     mldb.add_property("plugin", &MldbPythonContext::getPlugin);
@@ -576,12 +479,6 @@ void pythonLoaderInit(const EnterThreadToken & thread)
      *  Functions
      *  **/
 
-    bp::class_<MLDB::Any, boost::noncopyable>("any", bp::no_init)
-        .def("as_json",   &MLDB::Any::asJson)
-        ;
-
-    bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)
-        ;
 }
 
 // Arrange for the above function to be run at the appropriate moment

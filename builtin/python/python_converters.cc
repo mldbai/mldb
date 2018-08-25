@@ -7,6 +7,8 @@
 
 #include "python_converters.h"
 #include "python_interpreter.h"
+#include "from_python_converter.h"
+#include "mldb_python_converters.h"
 #include "Python.h"
 #include "datetime.h"
 #include <iostream>
@@ -335,7 +337,33 @@ convert(const Json::Value & js)
 
 void pythonConvertersInit(const EnterThreadToken & thread)
 {
+    namespace bp = boost::python;
+
     PyDateTime_IMPORT;
+
+    from_python_converter< Date, DateFromPython >();
+
+    from_python_converter< std::string, StringFromPyUnicode>();
+    from_python_converter< Utf8String,  Utf8StringPyConverter>();
+    bp::to_python_converter< Utf8String, Utf8StringPyConverter>();
+
+    from_python_converter< Path, StrConstructableIdFromPython<Path> >();
+    from_python_converter< CellValue, CellValueConverter >();
+
+    from_python_converter<std::pair<string, string>,
+                          PairConverter<string, string> >();
+
+    bp::to_python_converter<std::pair<string, string>,
+                            PairConverter<string, string> >();
+        
+    from_python_converter< Path, PathConverter>();
+
+    from_python_converter< Json::Value, JsonValueConverter>();
+    bp::to_python_converter< Json::Value, JsonValueConverter> ();
+
+    bp::class_<MLDB::Any, boost::noncopyable>("any", bp::no_init)
+        .def("as_json",   &MLDB::Any::asJson)
+        ;
 }
 
 RegisterPythonInitializer regMe(&pythonConvertersInit);

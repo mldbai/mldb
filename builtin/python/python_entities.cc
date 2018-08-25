@@ -189,5 +189,56 @@ createPythonFunction(PythonPluginContext * c,
 
 }
 
+namespace {
+
+void pythonEntitiesInit(const EnterThreadToken & thread)
+{
+    namespace bp = boost::python;
+
+    from_python_converter< RowCellTuple,
+                           Tuple3ElemConverter<ColumnPath, CellValue, Date> >();
+
+    from_python_converter< std::vector<RowCellTuple>,
+                           VectorConverter<RowCellTuple>>();
+
+    from_python_converter< std::pair<RowPath, std::vector<RowCellTuple> >,
+                           PairConverter<RowPath, std::vector<RowCellTuple> > >();
+
+    from_python_converter< std::vector<std::pair<RowPath, std::vector<RowCellTuple> > >,
+                           VectorConverter<std::pair<RowPath, std::vector<RowCellTuple> > > >();
+
+    from_python_converter< ColumnCellTuple,
+                           Tuple3ElemConverter<RowPath, CellValue, Date> >();
+
+    from_python_converter< std::vector<ColumnCellTuple>,
+                           VectorConverter<ColumnCellTuple>>();
+
+    from_python_converter< std::pair<ColumnPath, std::vector<ColumnCellTuple> >,
+                           PairConverter<ColumnPath, std::vector<ColumnCellTuple> > >();
+
+    from_python_converter< std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > >,
+                           VectorConverter<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > >();
+
+    bp::class_<DatasetPy>("dataset", bp::no_init)
+        .def("record_row", &DatasetPy::recordRow)
+        .def("record_rows", &DatasetPy::recordRows)
+        .def("record_column", &DatasetPy::recordColumn)
+        .def("record_columns", &DatasetPy::recordColumns)
+        .def("commit", &DatasetPy::commit);
+
+    bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)
+        ;
+}
+
+// Arrange for the above function to be run at the appropriate moment
+// when there is a proper python environment set up.  There is no
+// proper environment on shared initialization, so it can't be run
+// from AtInit.
+
+RegisterPythonInitializer regMe(&pythonEntitiesInit);
+
+
+} // file scope
+
 } // namespace MLDB
 

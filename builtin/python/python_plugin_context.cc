@@ -18,7 +18,6 @@
 #include <boost/algorithm/string.hpp>
 #include <memory>
 #include "frameobject.h"
-#include "mldb/sql/builtin_functions.h"
 
 using namespace std;
 
@@ -33,7 +32,6 @@ MldbPythonInterpreter(MldbEngine * engine)
     auto enterThread = mainThread().enter();
     injectMldbWrapper(*enterThread);
     injectOutputLoggingCode(*enterThread);
-    //cerr << "done constructing MldbPythonInterpreter" << endl;
 }
 
 MldbPythonInterpreter::
@@ -50,7 +48,7 @@ destroy()
         auto enterThread = mainThread().enter();
         
         // Uninstall the output logging, since it causes problems when
-        // called from the interpreter shutdown
+        // called from the interpreter shutdown as 
         
         PyObject * oldstdout = PySys_GetObject("oldStdOut");  // borrowed
         if (oldstdout) {
@@ -78,14 +76,10 @@ convertException(const EnterThreadToken & threadToken,
 
         PyThreadState *tstate = PyThreadState_GET();
 
-        //cerr << "tstate = " << tstate << endl;
-    
         if (NULL != tstate && NULL != tstate->frame) {
             frame = tstate->frame;
         }
     
-        //cerr << "frame is " << frame << endl;
-        
         ScriptException result;
 
         using namespace boost::python;
@@ -102,13 +96,11 @@ convertException(const EnterThreadToken & threadToken,
         PyErr_NormalizeException(&exc, &val, &tb);
 
         handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb));
-        object traceback(import("traceback"));
 
         // Attempt to extract the type name
         {
             PyObject * repr = PyObject_Repr(exc);
             Scope_Exit(Py_DECREF(repr));
-            cerr << "type is " << PyUnicode_AsUTF8(repr) << endl;
             std::string reprUtf8 = PyUnicode_AsUTF8(repr);
         
             static std::regex typePattern("<class '(.*)'>");
@@ -118,23 +110,6 @@ convertException(const EnterThreadToken & threadToken,
             }
         }        
 
-        if (val) {
-            PyObject * repr = PyObject_Repr(val);
-            Scope_Exit(Py_DECREF(repr));
-            cerr << "val is " << PyUnicode_AsUTF8(repr) << endl;
-
-            PyObject * str = PyObject_Str(val);
-            Scope_Exit(Py_DECREF(str));
-            cerr << "str is " << PyUnicode_AsUTF8(str) << endl;
-            
-        }
-        
-
-        cerr << "exception has " << exc << ", " << val << ", " << tb << endl;
-
-        //cerr << std::string(extract<std::string>(object(hexc))) << endl;
-    
-        // why is this not always working? for plugins it doesn't look like it is...
         if(val && PyUnicode_Check(val)) {
             result.message = Utf8String(extract<string>(val));
         }
@@ -145,20 +120,10 @@ convertException(const EnterThreadToken & threadToken,
         }
             
 
-#if 0
-        if (!tb) {
-            object format_exception_only(traceback.attr("format_exception_only"));
-            formatted_list = format_exception_only(hexc,hval);
-        } else {
-            object format_exception(traceback.attr("format_exception"));
-            formatted_list = format_exception(hexc,hval,htb);
-        }
-#endif
-        
         if(htb) {
             object tbb(htb);
             result.lineNumber = extract<long>(tbb.attr("tb_lineno"));
-#if 1
+
             PyTracebackObject * ptb = (PyTracebackObject*)tb;
             while (ptb) {
                 auto frame = ptb->tb_frame;
@@ -166,11 +131,6 @@ convertException(const EnterThreadToken & threadToken,
                 PyObject *filename = frame->f_code->co_filename;
                 const char * fn = PyUnicode_AsUTF8(filename);
                 const char * func = PyUnicode_AsUTF8(frame->f_code->co_name);
-                cerr
-                    << "filename " << fn
-                    << " line " << lineno
-                    << " func " << func
-                    << endl;
 
                 ScriptStackFrame sframe;
                 sframe.scriptUri = fn;
@@ -182,34 +142,10 @@ convertException(const EnterThreadToken & threadToken,
                 
                 ptb = ptb->tb_next;
             }
-#endif
         }
 
-#if 0        
-        boost::python::ssize_t n = boost::python::len(formatted_list);
-        result.stack.reserve(n);
-
-        std::vector<std::string> lines;
-        lines.reserve(n);
-        
-        for (boost::python::ssize_t i = 0; i < n; ++i) {
-            string str = extract<string>(formatted_list[i])();
-            if (!str.empty() && str[str.size() -1] == '\n') {
-                str = string(str, 0, str.size() - 1);
-            }
-            if (!str.empty() && str[str.size() -1] == '\r') {
-                str = string(str, 0, str.size() - 1);
-            }
-            lines.emplace_back(std::move(str));
-        }
-
-        if (result.message.empty() && !lines.empty()) {
-            result.message = lines.back();
-        }
-#endif
-        
         if (result.type == "SyntaxError" && hval) {
-            // Extra fixups required
+            // Extra fixups required to parse the syntax error fields
             object oval(hval);
             result.lineNumber = boost::python::extract<long>(oval.attr("lineno"));
             result.scriptUri = boost::python::extract<std::string>(oval.attr("filename"));
@@ -225,40 +161,6 @@ convertException(const EnterThreadToken & threadToken,
             result.lineNumber = result.stack.back().lineNumber;
             result.columnStart = result.stack.back().columnStart;
         }
-        
-#if 0        
-        // Extract our 
-        if (result.message.rawString().find("SyntaxError") == 0) {
-            // ...
-        }
-        else {
-            for (auto & l: lines) {
-                ScriptStackFrame frame;
-                frame.where = l;
-                result.stack.push_back(frame);
-            }
-        }
-#endif
-        
-#if 0        
-        // TODO. this is a pretty horrible hack to get the line number of a syntax error exception
-        // for some reason the usual way to get the info does not work for that specific exception
-        // should revisit this
-        if(result.lineNumber == -1 && result.stack.size() == 1 &&
-           boost::starts_with(result.stack[0].where.rawString(), "SyntaxError")) {
-
-            // SyntaxError: ('invalid syntax', ('<string>', 2, 3, 'a b\\n'))
-            static std::regex pattern("SyntaxError: \\('invalid syntax', \\('.*', ([\\d]+), ([\\d]+), '(.*)'\\)\\)\n");
-
-            std::smatch what;
-            if(std::regex_match(result.stack[0].where.rawString(),
-                                what, pattern /*, std::match_extra redundant?*/)) {
-                result.lineNumber = std::stoi(what[1]);
-                result.columnStart = std::stoi(what[2]);
-                result.lineContents = what[3];
-            }
-        }
-#endif
         
         result.context = {context};
 
@@ -410,31 +312,13 @@ runPythonScript(const EnterThreadToken & threadToken,
                 PackageElement elementToRun,
                 const RestRequest & request,
                 RestRequestParsingContext & context,
-                RestConnection & connection_,
+                RestConnection & connection,
                 bool useLocals,
                 bool mustProvideOutput,
                 ScriptOutput * output)
 {
     ScriptOutput result;
 
-#if 0    
-    // We need to capture an asynchronous version of the rest connection
-    // as the Python object here may outlive the connection.
-    auto onDisconnect = [] ()
-        {
-            // ... later we can make this trigger an optional callback
-        };
-#endif
-
-    // Get a version of the connection that can outlive this function, in
-    // case the Python code puts it somewhere outside of local scope
-    std::shared_ptr<RestConnection> connection
-        (&connection_, [] (RestConnection *) {});
-
-    // TODO: this will crash if the user captures outside of local scope.
-    // Once we're ready, we can capture the connection to keep it available.
-    // = connection_.capture(onDisconnect);
-    
     try {
         bool isScript
             = pyCtx->pluginResource->scriptType
@@ -453,7 +337,7 @@ runPythonScript(const EnterThreadToken & threadToken,
         Utf8String scriptSource = pyCtx->pluginResource->getScript(elementToRun);
         Utf8String scriptUri = pyCtx->pluginResource->getScriptUri(elementToRun);
         auto pyRestRequest
-            = std::make_shared<PythonRestRequest>(request, context, connection);
+            = std::make_shared<PythonRestRequest>(request, context);
 
         main_namespace["mldb"]
             = boost::python::object(boost::python::ptr(mldbPyCtx.get()));
@@ -475,15 +359,6 @@ runPythonScript(const EnterThreadToken & threadToken,
                 = boost::python::object(boost::python::ptr(pyRestRequest.get()));
         }
     
-        {
-            PyObject * repr = PyObject_Repr(locals.ptr());
-            Scope_Exit(Py_DECREF(repr));
-            //cerr << "locals repr is " << PyUnicode_AsUTF8(repr) << endl;
-        }
-        
-        // if we're simply executing the body of the script
-        //cerr << "running main" << endl;
-        //cerr << "must provide output " << mustProvideOutput << endl;
         MLDB_TRACE_EXCEPTIONS(false);
         
         boost::python::object obj =
@@ -511,30 +386,20 @@ runPythonScript(const EnterThreadToken & threadToken,
         
         result.setReturnCode(pyRestRequest->returnCode);
 
-        //cerr << "running with isScript = " << isScript << endl;
         if (isScript) {
             auto scriptCtx = static_pointer_cast<PythonScriptContext>(pyCtx);
 
-
-            //cerr << "result.result = " << result.result << endl;
-            //cerr << "pyRestRequest->returnValue = " << pyRestRequest->returnValue;
-            //cerr << "pyRestRequest at " << pyRestRequest.get() << endl;
-            
             // Copy log messages over
             for (auto & l: scriptCtx->logs) {
                 result.logs.emplace_back(std::move(l));
             }
             std::stable_sort(result.logs.begin(), result.logs.end());
 
-            //cerr << "sending script result " << jsonEncode(result) << endl;
-            
-            connection->sendResponse(result.getReturnCode(),
+            connection.sendResponse(result.getReturnCode(),
                                      jsonEncode(result));
-
-            //cerr << "done sending result" << endl;
         }
         else {
-            connection->sendResponse(result.getReturnCode(),
+            connection.sendResponse(result.getReturnCode(),
                                      jsonEncode(result.result));
         }
     }
@@ -553,7 +418,7 @@ runPythonScript(const EnterThreadToken & threadToken,
         result.exception->context.push_back("Executing Python script");
         result.setReturnCode(400);
 
-        connection->sendResponse(result.getReturnCode(),
+        connection.sendResponse(result.getReturnCode(),
                                  jsonEncode(result));
     }
 
@@ -569,8 +434,7 @@ runPythonScript(const EnterThreadToken & threadToken,
 
 PythonRestRequest::
 PythonRestRequest(const RestRequest & request,
-                  RestRequestParsingContext & context,
-                  std::shared_ptr<RestConnection> connection)
+                  RestRequestParsingContext & context)
 {
     remaining = context.remaining;
     verb = request.verb;
@@ -590,22 +454,14 @@ PythonRestRequest(const RestRequest & request,
             it != request.header.headers.end(); it++) {
         headers[it->first] = it->second;
     }
-
-    this->connection = std::move(connection);
 }
 
 void
 PythonRestRequest::
 setReturnValue(const Json::Value & rtnVal, unsigned returnCode)
 {
-    //cerr << "setting return value " << rtnVal << ", " << returnCode << endl;
     this->returnValue = rtnVal;
     this->returnCode = returnCode;
-
-    //cerr << "this->returnValue = " << rtnVal << endl;
-    //cerr << "this = " << this << endl;
-
-    //connection->sendResponse(returnCode, rtnVal);
 }
 
 void
@@ -617,160 +473,29 @@ setReturnValue1(const Json::Value & rtnVal)
 
 
 /****************************************************************************/
-/* HELPER FUNCTION                                                          */
-/****************************************************************************/
-Json::Value
-perform2(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource)
-{
-    return perform(mldbCon, verb, resource);
-}
-
-
-Json::Value
-perform3(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource,
-        const RestParams & params)
-{
-    return perform(mldbCon, verb, resource, params);
-}
-
-Json::Value
-perform4(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource,
-        const RestParams & params,
-        Json::Value payload)
-{
-    return perform(mldbCon, verb, resource, params, payload);
-}
-
-
-Json::Value
-perform(MldbPythonContext * mldbCon,
-        const std::string & verb,
-        const std::string & resource,
-        const RestParams & params,
-        Json::Value payload,
-        const RestParams & headers)
-{
-    HttpHeader header;
-    header.verb = verb;
-    header.resource = resource;
-    header.queryParams = params;
-    for (auto & h: headers)
-        header.headers.insert({h.first.toLower().extractAscii(), h.second.extractAscii()});
-
-    RestRequest request(header, payload.toString());
-    auto connection = InProcessRestConnection::create();
-
-    {
-        auto noGil = releaseGil();
-        mldbCon->getPyContext()->engine->handleRequest(*connection, request);
-    }
-
-    connection->waitForResponse();
-    
-    Json::Value result;
-    result["statusCode"] = connection->responseCode();
-
-    if (!connection->contentType().empty())
-        result["contentType"] = connection->contentType();
-    if (!connection->headers().empty()) {
-        Json::Value headers(Json::ValueType::arrayValue);
-        for(const pair<Utf8String, Utf8String> & h : connection->headers()) {
-            Json::Value elem(Json::ValueType::arrayValue);
-            elem.append(h.first);
-            elem.append(h.second);
-            headers.append(elem);
-        }
-        result["headers"] = headers;
-    }
-    if (!connection->response().empty())
-        result["response"] = connection->response();
-
-    return result;
-}
-
-Json::Value
-readLines1(MldbPythonContext * mldbCon,
-          const std::string & path)
-{
-    return readLines(mldbCon, path);
-}
-
-Json::Value
-readLines(MldbPythonContext * mldbCon,
-          const std::string & path, int maxLines)
-{
-    filter_istream stream(path);
-
-    Json::Value lines(Json::arrayValue);
-    auto onLine = [&] (const char * line,
-                       size_t length,
-                       int64_t lineNum)
-        {
-            lines.append(line);
-        };
-
-    auto logger = getMldbLog("python");
-    forEachLine(stream, onLine, logger, 1 /* numThreads */, false /* ignore exc */,
-                    maxLines);
-
-    return lines;
-}
-
-Json::Value
-ls(MldbPythonContext * mldbCon,
-   const std::string & dir)
-{
-    std::vector<std::string> dirs;
-    std::map<std::string, FsObjectInfo> objects;
-
-    auto onSubdir = [&] (const std::string & dirName,
-                         int depth)
-        {
-            dirs.push_back(dirName);
-            return false;
-        };
-
-    auto onObject = [&] (const std::string & uri,
-                         const FsObjectInfo & info,
-                         const OpenUriObject & open,
-                         int depth)
-        {
-            objects[uri] = info;
-            return true;
-        };
-
-    forEachUriObject(dir, onObject, onSubdir);
-
-    Json::Value result;
-    result["dirs"] = jsonEncode(dirs);
-    result["objects"] = jsonEncode(objects);
-
-    return result;
-}
-
-string
-getHttpBoundAddress(MldbPythonContext * mldbCon)
-{
-    return mldbCon->getPyContext()->engine->getHttpBoundAddress();
-}
-
-
-/****************************************************************************/
 /* PYTHON CONTEXT                                                           */
 /****************************************************************************/
+
+PythonContext::
+PythonContext(const Utf8String &  name, MldbEngine * engine,
+              std::shared_ptr<LoadedPluginResource> pluginResource)
+    : categoryName(name + " plugin"),
+      loaderName(name + " loader"),
+      category(categoryName.rawData()),
+      loader(loaderName.rawData()),
+      engine(engine),
+      pluginResource(pluginResource)
+{
+}
+
+PythonContext::
+~PythonContext()
+{
+}
 
 void PythonContext::
 log(const std::string & message)
 {
-    //cerr << "Python logging to " << categoryName << " message "
-    //     << message << " into context "
-    //     << this << " with magic " << magic << endl;
     LOG(category) << message << endl;
     logs.emplace_back(Date::now(), "log", Utf8String(message));
 }
@@ -781,34 +506,20 @@ getArgs() const
     return jsonEncode(pluginResource->args);
 }
 
-#if 0
-void PythonContext::
-setReturnValue(const Json::Value & rtn, unsigned returnCode)
-{
-    if (returnCode == 0) {
-        throw MLDB::Exception("Cannot set return code to 0");
-    }
-    rtnVal = rtn;
-    rtnCode = returnCode;
-}
-
-void PythonContext::
-setReturnValue1(const Json::Value & rtn)
-{
-    setReturnValue(rtn);
-}
-
-void PythonContext::
-resetReturnValue()
-{
-    rtnCode = 0;
-}
-#endif
-
-
 /****************************************************************************/
 /* PYTHON PLUGIN CONTEXT                                                    */
 /****************************************************************************/
+
+PythonPluginContext::
+PythonPluginContext(const Utf8String & pluginName,
+                    MldbEngine * engine,
+                    std::shared_ptr<LoadedPluginResource> pluginResource)
+    : PythonContext(pluginName, engine, pluginResource),
+      hasRequestHandler(false)
+{
+    hasRequestHandler =
+        pluginResource->packageElementExists(PackageElement::ROUTES);
+}
 
 // TODO probably some python rtn object
 void PythonPluginContext::
@@ -866,15 +577,6 @@ getPluginDirectory() const
 {
     return pluginResource->getPluginDir().string();
 }
-
-#if 0
-std::shared_ptr<PythonRestRequest> PythonPluginContext::
-getRestRequest() const
-{
-    if(!restRequest) cout << "WANRING!! got restRequest pointer but it is nullz!" << endl;
-    return restRequest;
-}
-#endif
 
 /****************************************************************************/
 /* MLDB PYTHON CONTEXT                                                      */
@@ -951,7 +653,8 @@ getScript()
     throw MLDB::Exception("Cannot call the script object in this context");
 }
 
-void MldbPythonContext::
+void
+MldbPythonContext::
 setPathOptimizationLevel(const std::string & val)
 {
     std::string valLc;
@@ -974,19 +677,146 @@ setPathOptimizationLevel(const std::string & val)
     OptimizedPath::setDefault(level);
 }
 
-BoundFunction make_interpreter(const std::vector<BoundSqlExpression> & args)
+Json::Value
+MldbPythonContext::
+perform2(const std::string & verb,
+         const std::string & resource)
 {
-    checkArgsSize(args.size(), 0);
-
-    return {[] (const std::vector<ExpressionValue> & args,
-                const SqlRowScope & scope) -> ExpressionValue
-            {
-                MldbPythonInterpreter interpreter(nullptr);
-                return ExpressionValue("success", Date::now());
-            },
-            std::make_shared<StringValueInfo>()};
+    return perform(verb, resource);
 }
 
-static Builtins::RegisterBuiltin registerMakeInterpreter(make_interpreter, "make_interpreter");
+
+Json::Value
+MldbPythonContext::
+perform3(const std::string & verb,
+         const std::string & resource,
+         const RestParams & params)
+{
+    return perform(verb, resource, params);
+}
+
+Json::Value
+MldbPythonContext::
+perform4(const std::string & verb,
+         const std::string & resource,
+         const RestParams & params,
+         Json::Value payload)
+{
+    return perform(verb, resource, params, payload);
+}
+
+Json::Value
+MldbPythonContext::
+perform(const std::string & verb,
+        const std::string & resource,
+        const RestParams & params,
+        Json::Value payload,
+        const RestParams & headers)
+{
+    HttpHeader header;
+    header.verb = verb;
+    header.resource = resource;
+    header.queryParams = params;
+    for (auto & h: headers)
+        header.headers.insert({h.first.toLower().extractAscii(), h.second.extractAscii()});
+
+    RestRequest request(header, payload.toString());
+    auto connection = InProcessRestConnection::create();
+
+    {
+        auto noGil = releaseGil();
+        this->getPyContext()->engine->handleRequest(*connection, request);
+    }
+
+    connection->waitForResponse();
+    
+    Json::Value result;
+    result["statusCode"] = connection->responseCode();
+
+    if (!connection->contentType().empty())
+        result["contentType"] = connection->contentType();
+    if (!connection->headers().empty()) {
+        Json::Value headers(Json::ValueType::arrayValue);
+        for(const pair<Utf8String, Utf8String> & h : connection->headers()) {
+            Json::Value elem(Json::ValueType::arrayValue);
+            elem.append(h.first);
+            elem.append(h.second);
+            headers.append(elem);
+        }
+        result["headers"] = headers;
+    }
+    if (!connection->response().empty())
+        result["response"] = connection->response();
+
+    return result;
+}
+
+Json::Value
+MldbPythonContext::
+readLines1(const std::string & path)
+{
+    return readLines(path);
+}
+
+Json::Value
+MldbPythonContext::
+readLines(const std::string & path, int maxLines)
+{
+    filter_istream stream(path);
+
+    Json::Value lines(Json::arrayValue);
+    auto onLine = [&] (const char * line,
+                       size_t length,
+                       int64_t lineNum)
+        {
+            lines.append(line);
+        };
+
+    auto logger = getMldbLog("python");
+    forEachLine(stream, onLine, logger, 1 /* numThreads */, false /* ignore exc */,
+                maxLines);
+
+    return lines;
+}
+
+Json::Value
+MldbPythonContext::
+ls(const std::string & dir)
+{
+    std::vector<std::string> dirs;
+    std::map<std::string, FsObjectInfo> objects;
+
+    auto onSubdir = [&] (const std::string & dirName,
+                         int depth)
+        {
+            dirs.push_back(dirName);
+            return false;
+        };
+
+    auto onObject = [&] (const std::string & uri,
+                         const FsObjectInfo & info,
+                         const OpenUriObject & open,
+                         int depth)
+        {
+            objects[uri] = info;
+            return true;
+        };
+
+    forEachUriObject(dir, onObject, onSubdir);
+
+    Json::Value result;
+    result["dirs"] = jsonEncode(dirs);
+    result["objects"] = jsonEncode(objects);
+
+    return result;
+}
+
+string
+MldbPythonContext::
+getHttpBoundAddress()
+{
+    return this->getPyContext()->engine->getHttpBoundAddress();
+}
+
 
 } // namespace MLDB

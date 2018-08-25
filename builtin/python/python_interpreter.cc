@@ -30,13 +30,7 @@ using namespace std;
 
 namespace MLDB {
 
-struct AcquireGilToken {
-};
-
 struct ReleaseGilToken {
-};
-
-struct GilAlreadyHeldToken {
 };
 
 struct EnterThreadToken {
@@ -45,53 +39,24 @@ struct EnterThreadToken {
 namespace {
 
 // These are so we have something non-null to take the address of
-//static AcquireGilToken ACQUIRE_GIL_TOKEN;
-//static ReleaseGilToken RELEASE_GIL_TOKEN;
-static GilAlreadyHeldToken GIL_ALREADY_HELD_TOKEN;
+static EnterThreadToken GIL_ALREADY_HELD_TOKEN;
 //static EnterThreadToken ENTER_THREAD_TOKEN;
 static thread_local int gilAlreadyHeldCount = 0;
 
-void gilRelease(AcquireGilToken *)
-{
-    PyEval_ReleaseLock();
-}
-
-void noGilRelease(AcquireGilToken *)
-{
-}
-
-void gilReacquire(ReleaseGilToken * token)
+static void gilReacquire(ReleaseGilToken * token)
 {
     PyThreadState * st = reinterpret_cast<PyThreadState *>(token);
     //cerr << "reacquiring thread state " << st << endl;
     PyEval_AcquireThread(st);
 }
 
-void finishAssertGilHeld(GilAlreadyHeldToken *)
+static void finishAssertGilHeld(EnterThreadToken *)
 {
     ExcAssertGreater(gilAlreadyHeldCount, 0);
     gilAlreadyHeldCount -= 1;
 }
 
 } // file scope
-
-#if 0
-
-std::shared_ptr<AcquireGilToken> acquireGil()
-{
-    if (gilAlreadyHeldCount > 0) {
-        return std::shared_ptr<AcquireGilToken>(&ACQUIRE_GIL_TOKEN,
-                                                &noGilRelease);
-    }
-
-    PyEval_AcquireLock();
-    return std::shared_ptr<AcquireGilToken>(&ACQUIRE_GIL_TOKEN, &gilRelease);
-}
-
-#endif
-
-
-#if 1
 
 std::shared_ptr<ReleaseGilToken> releaseGil()
 {
@@ -112,33 +77,11 @@ std::shared_ptr<ReleaseGilToken> releaseGil()
          &gilReacquire);
 }
 
-#else
-
-std::shared_ptr<ReleaseGilToken> releaseGil()
-{
-    PyEval_ReleaseLock();
-    PyThreadState * oldState = PyThreadState_Swap(nullptr);
-
-    auto reacquire = [] (ReleaseGilToken * token)
-        {
-            PyThreadState * st = reinterpret_cast<PyThreadState *>(token);
-            PyThreadState_Swap(st);
-            PyEval_AcquireLock();
-        };
-
-    return std::shared_ptr<ReleaseGilToken>
-        (reinterpret_cast<ReleaseGilToken *>(oldState),
-         std::move(reacquire));
-}
-
-#endif
-
-
-std::shared_ptr<GilAlreadyHeldToken>
+std::shared_ptr<EnterThreadToken>
 assertGilAlreadyHeld()
 {
     gilAlreadyHeldCount += 1;
-    return std::shared_ptr<GilAlreadyHeldToken>
+    return std::shared_ptr<EnterThreadToken>
         (&GIL_ALREADY_HELD_TOKEN, &finishAssertGilHeld);
 }
 
@@ -168,12 +111,10 @@ void
 PythonThread::
 freeThread(PyThreadState * st)
 {
-    //cerr << "enter to free thread " << st << endl;
     auto enterMainThreadGuard
         = PythonInterpreter::mainInterpreter().mainThread().enter();
     PyThreadState_Clear(st);
     PyThreadState_Delete(st);
-    //cerr << "exit from free thread " << st << endl;
 }
 
 void
@@ -186,8 +127,6 @@ void
 PythonThread::
 init(PyThreadState * st, bool manageThreadLifetime)
 {
-    //cerr << "initialize thread with state " << st << " manage "
-    //     << manageThreadLifetime << endl;
     ExcAssert(!st_.get());
     st_.reset(st,
               manageThreadLifetime
@@ -206,20 +145,23 @@ std::shared_ptr<EnterThreadToken>
 PythonThread::
 enter() const
 {
-    //cerr << "entering thread " << st_.get()
-        //<< " with state " << PyThreadState_Get()
-    //     << endl;
-
     if (gilAlreadyHeldCount > 0) {
         // We already are in a thread, so we don't actually do any
-        // acquiring.
+        // acquiring.  We simply swap the thread state to the correct
+        // one, which there is no guarantee is already current.
 
-        // Assert that it's true
-        PyThreadState_Get();
+        // Simply swap the state in...
+        PyThreadState * oldState = PyThreadState_Swap(st_.get());
 
+        // ... and swap it back out when we exit
+        auto recoverOldState = [=] (EnterThreadToken * token)
+            {
+                PyThreadState_Swap(oldState);
+            };
+        
         // Do nothing
         return std::shared_ptr<EnterThreadToken>
-            (nullptr, [] (EnterThreadToken *) {});
+            (nullptr, std::move(recoverOldState));
     }
 
     PyEval_AcquireThread(st_.get());
@@ -232,17 +174,19 @@ void
 PythonThread::
 exitThread(EnterThreadToken * token)
 {
-    //cerr << "exiting thread " << token << " with state "
-    //     << PyThreadState_Get() << endl;
     PyThreadState * st = reinterpret_cast<PyThreadState *>(token);
     if (PyThreadState_Swap(st) != st) {
-        cerr << "warning: got unexpected thread state " << st << endl;
+        cerr << "warning: somebody switched Python threads on us to "
+             << st << ": please use facilities in python_interpreter.h to "
+             << " do so" << endl;
     }
     PyEval_ReleaseThread(st);
 }
 
-// NOTE: copied from exec.cpp in Boost, available under the Boost license
-// Copyright Stefan Seefeld 2005 - http://www.boost.org/LICENSE_1_0.txt
+// NOTE: partially copied from exec.cpp in Boost, available under the Boost
+// license.  Copyright Stefan Seefeld 2005
+// http://www.boost.org/LICENSE_1_0.txt
+
 boost::python::object
 PythonThread::
 exec(const EnterThreadToken & threadToken,
@@ -436,8 +380,13 @@ registerPythonInitializer(std::function<void (const EnterThreadToken &)>
 
 namespace {
 
+/// Is MLDB a module?  Must be set before any functionality is called
 bool mldbIsAModule = false;
+
+/// Have we already initialized the main interpreter?
 std::atomic<bool> mainInterpreterInitialized(false);
+
+/// If we're a module, this is where our main thread state is
 PyThreadState * moduleMainThreadState = nullptr; // for a module
 
 } // file scope
@@ -451,7 +400,6 @@ initializeFromModuleInit()
              << endl;
         abort();
     }
-    //cerr << "we're being called from a module" << endl;
 
     mldbIsAModule = true;
     moduleMainThreadState = PyThreadState_Swap(nullptr);
@@ -468,6 +416,20 @@ isAModule()
     return mldbIsAModule;
 }
 
+// This is the main Python interpreter, which is created for us on
+// initialization of Python.  It's important for two reasons:
+// a) Creating a new sub-interpreter needs to be done with this
+//    thread current; although the documentation for PyInterpreter_New
+//    says you can call it without a thread state, you must have the
+//    GIL locked and you can only lock the GIL with a thread state...
+//    catch 22.  This is the thread state that enables us to manage
+//    the situation.
+// b) Cleanup of MLDB is done within this thread.
+//
+// Note that if MLDB is loaded as a Python module, there is a different
+// initialization setup, as the main interpreter is owned externally and
+// we can use it but we don't own it.
+
 PythonInterpreter &
 PythonInterpreter::
 mainInterpreter()
@@ -477,10 +439,8 @@ mainInterpreter()
     mainInterpreterInitialized = true;
 
     if (hasInitializersToRun()) {
-        //cerr << "enter for main initializers" << endl;
         auto enterGuard = result.mainThread().enter();
         runPythonInitializers(*enterGuard);
-        //cerr << "exit from main initializers" << endl;
     }
 
     return result;
@@ -511,14 +471,10 @@ PythonInterpreter(InitializationContext context)
 {
     PyThreadState * st = nullptr;
 
-    //cerr << "creating PythonInterpreter at " << this << endl;
-
     bool isModule = mldbIsAModule;
     
     if (context == CREATE_MAIN) {
         ExcAssert(!mainInterpreterInitialized);
-
-        //cerr << "main interpreter init" << endl;
 
         std::function<void (PyThreadState * st)> finalize;
 
@@ -556,38 +512,20 @@ PythonInterpreter(InitializationContext context)
         std::unique_lock<std::mutex> guard(mutex);
 
         {
-            //cerr << "enter for extra initializers" << endl;
             auto enterGuard
                 = PythonInterpreter::mainInterpreter().mainThread().enter();
             runPythonInitializers(*enterGuard);
             st = getNewInterpreter();
-            //cerr << "exit from extra initializers" << endl;
         }
     
 
-        //cerr << "sub interpreter init " << st->interp << endl;
-
         auto endSubInterpreter = [] (PyThreadState * interp) {
-            //auto enterMainThreadGuard = mainInterpreter().mainThread().enter();
-            //cerr << "sub interpreter destroy " << interp << endl;
-            
-            //auto oldState = PyThreadState_Swap(interp);
-            //auto gilGuard = acquireGil();
-
-            //Py_EndInterpreter(interp);
-
-            //PyThreadState_Swap(oldState);
         };
     
         this->interpState.reset(st, endSubInterpreter);
-        //mainThread_.init(PyThreadState_New(interpState->interp),
-        //                 true /* do manage lifecycle */);
-        // If uncommented, the thread state needs to be checked for alloc
-        // failure
         mainThread_.init(st, false /* don't manage lifecycle */);
         
         // Now, set up the new interpreter
-        //cerr << "enter for modules" << endl;
         auto enterGuard = mainThread().enter();
         main_module = boost::python::import("__main__");
         main_namespace = main_module.attr("__dict__");
@@ -597,20 +535,16 @@ PythonInterpreter(InitializationContext context)
 PythonInterpreter::
 ~PythonInterpreter()
 {
-    //cerr << "destructor of PythonInterpreter at " << this << endl;
 }
 
 void
 PythonInterpreter::
 destroy()
 {
-    //cerr << "destroying PythonInterpreter at " << this << endl;
     {
-        //cerr << "enter for interpreter destruction" << endl;
         auto enterGuard = mainThread().enter();
         main_module = boost::python::object();
         main_namespace = boost::python::object();
-        //cerr << "exit from interpreter destruction" << endl;
     }
     mainThread_.destroy();
     interpState.reset();
