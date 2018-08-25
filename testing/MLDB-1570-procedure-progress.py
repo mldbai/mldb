@@ -23,7 +23,7 @@ class ProcedureProgressTest(MldbUnitTest):
         # create a dummy dataset
         ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
         row_count = 10000
-        for i in xrange(row_count):
+        for i in range(row_count):
             # row name is x's value
             ds.record_row(str(i), [['x', i, datetime.datetime.now()]])
         ds.commit()
@@ -104,9 +104,9 @@ class ProcedureProgressTest(MldbUnitTest):
         resp = mldb.post("/v1/procedures/test/runs")
 
     def test_import_text_progress(self):
-        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp', mode='wt', encoding="utf-8")
         tmp_file.write('a,b,c\n')
-        for i in xrange(100000):
+        for i in range(100000):
             tmp_file.write('{},{},{}\n'.format(i,i * 10, i / 2))
         tmp_file.flush()
         mldb.put('/v1/procedures/import_da_file', {
@@ -134,4 +134,4 @@ class ProcedureProgressTest(MldbUnitTest):
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

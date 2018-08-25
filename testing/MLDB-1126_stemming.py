@@ -52,9 +52,9 @@ mldb.log(res)
 
 result = mldb.get(
     '/v1/query',
-    q=unicode("SELECT stemmer_fr({words: {tokenize("
+    q=str("SELECT stemmer_fr({words: {tokenize("
               "'Je aimé aimer aimerais les chiens', {splitChars:' '}) as *}}) "
-              "as *", encoding='utf-8'))
+              "as *"))
 js_res = result.json()
 mldb.log(js_res)
 
@@ -93,13 +93,12 @@ mldb.log(res)
 
 result = mldb.get(
     '/v1/query',
-    q=unicode("SELECT stemmerdoc_fr("
-              "{document: 'Je aimé aimer François'}) as output",
-              encoding='utf-8'))
+    q=str("SELECT stemmerdoc_fr("
+              "{document: 'Je aimé aimer François'}) as output"))
 js_res = result.json()
 mldb.log(js_res)
 
-find_column(js_res, "output.document", unicode("Je aim aim François", "utf-8"))
+find_column(js_res, "output.document", str("Je aim aim François"))
 
 # Now an example where the column values are counts
 #
@@ -123,4 +122,4 @@ js_res = res.json()
 find_column(js_res, 'potato', 3)
 find_column(js_res, 'carrot', 2)
 
-mldb.script.set_return("success")
+request.set_return("success")

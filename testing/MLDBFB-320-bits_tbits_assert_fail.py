@@ -50,6 +50,6 @@ class NonFiniteDateTest(MldbUnitTest):
         })
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
    
 

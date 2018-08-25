@@ -45,4 +45,4 @@ mldb.log(result)
 result = mldb.get("/v1/query", q="select * from latin1")
 mldb.log(result)
 
-mldb.script.set_return("success")
+request.set_return("success")

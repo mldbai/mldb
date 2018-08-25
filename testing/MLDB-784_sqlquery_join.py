@@ -95,4 +95,4 @@ check_res(res, 200)
 
 # TODO assert on the output
 
-mldb.script.set_return('success')
+request.set_return('success')

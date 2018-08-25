@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "python_interpreter.h"
 #include <boost/python.hpp>
 #include <boost/python/return_value_policy.hpp>
 #include <frameobject.h>
@@ -28,70 +29,80 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/rest/rest_request_router.h"
 
-
-//using namespace Python;
-
-
 namespace MLDB {
 
+struct PythonContext;
 
-/****************************************************************************/
-/* PythonSubinterpreter                                                     */
-/****************************************************************************/
+/** Version of PythonInterpreter that initializes itself with all of
+    the machinery to set up MLDB inside, including logging, the mldb
+    object, and package paths.
+*/
 
-struct PythonSubinterpreter {
+struct MldbPythonInterpreter: public PythonInterpreter {
+    MldbPythonInterpreter(MldbEngine * engine);
 
-    PythonSubinterpreter(bool isChild=false);
-    ~PythonSubinterpreter();
+    // Destroy must be called before the destructor.
+    ~MldbPythonInterpreter();
 
-    void acquireGil();
-    void releaseGil();
-    
-    PyThreadState* savedThreadState;
-    
-    PyThreadState* interpState;
-    PyThreadState* threadState;
-    
-    boost::python::object main_module;
-    boost::python::object main_namespace;
+    // Destroy the interpreter's state at a moment just before the
+    // destructor that we know the GIL isn't held.
+    void destroy();
 
-    bool hasGil;
-    bool isChild;
+    // GIL must be held
+    ScriptException
+    convertException(const EnterThreadToken & threadToken,
+                     const boost::python::error_already_set & exc2,
+                     const std::string & context);
 
-    static std::mutex youShallNotPassMutex;
-    std::unique_ptr<std::lock_guard<std::mutex>> lock;
+    // GIL must be held
+    void getOutputFromPy(const EnterThreadToken & threadToken,
+                         ScriptOutput & result,
+                         bool reset=true);
+
+    // GIL must be held
+    ScriptOutput exceptionToScriptOutput(const EnterThreadToken & threadToken,
+                                         ScriptException & exc,
+                                         const std::string & context);
+
+    // GIL must be held
+    void
+    runPythonScript(const EnterThreadToken & threadToken,
+                    std::shared_ptr<PythonContext> pyCtx,
+                    PackageElement elementToRun,
+                    bool useLocals,
+                    bool mustSetOutput,
+                    ScriptOutput * output = nullptr);
+
+    // GIL must be held
+    void
+    runPythonScript(const EnterThreadToken & threadToken,
+                    std::shared_ptr<PythonContext> pyCtx,
+                    PackageElement elementToRun,
+                    const RestRequest & request,
+                    RestRequestParsingContext & context,
+                    RestConnection & connection,
+                    bool useLocals,
+                    bool mustSetOutput,
+                    ScriptOutput * output = nullptr);
+
+private:    
+    void injectMldbWrapper(const EnterThreadToken & threadToken);
+    void injectOutputLoggingCode(const EnterThreadToken & threadToken);
+
 };
-
-ScriptException
-convertException(PythonSubinterpreter & pyControl,
-        const boost::python::error_already_set & exc2,
-        const std::string & context);
-
-
-
-/*****************************************************************************/
-/* PYTHON STDOUT/ERR EXTRACTION CODE                                         */
-/*****************************************************************************/
-
-void injectOutputLoggingCode();
-void getOutputFromPy(PythonSubinterpreter & pyControl,
-                     ScriptOutput & result,
-                     bool reset=true);
-
-ScriptOutput exceptionToScriptOutput(PythonSubinterpreter & pyControl,
-                                     ScriptException & exc,
-                                     const std::string & context);
-
 
 
 /****************************************************************************/
 /* PythonRestRequest                                                        */
 /****************************************************************************/
 
+/** Python-ized version of the RestRequest class. */
+
 struct PythonRestRequest {
 
     PythonRestRequest(const RestRequest & request,
-                      RestRequestParsingContext & context);
+                      RestRequestParsingContext & context,
+                      std::shared_ptr<RestConnection> connection);
 
     Utf8String remaining;
     std::string verb;
@@ -101,6 +112,20 @@ struct PythonRestRequest {
     std::string contentType;
     int contentLength;
     boost::python::dict headers;
+
+    std::shared_ptr<RestConnection> connection;
+    
+    // Must hold GIL
+    void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
+
+    // Must hold GIL
+    void setReturnValue1(const Json::Value & rtnVal);
+
+    bool hasReturnValue() const;
+    
+    // These two are protected by the GIL
+    Json::Value returnValue;
+    int returnCode = -1;
 };
 
 
@@ -120,18 +145,24 @@ struct PythonContext {
       engine(engine),
       pluginResource(pluginResource)
     {
+        using namespace std;
+        cerr << "new python context for " << name << " at " << this << endl;
     }
 
+    ~PythonContext()
+    {
+        using namespace std;
+        cerr << "destroyed python context for " << categoryName << " at " << this << endl;
+        magic = 987654321;
+    }
+    
     void log(const std::string & message);
     
     Json::Value getArgs() const;
-    void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
-    void setReturnValue1(const Json::Value & rtnVal);
-    void resetReturnValue();
 
     Utf8String categoryName, loaderName;
 
-    Json::Value rtnVal;
+    //Json::Value rtnVal;
 
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader;
@@ -146,12 +177,14 @@ struct PythonContext {
 
     MldbPythonContext* mldbContext;
 
-    unsigned getRtnCode() {
-        return rtnCode;
-    }
+    int magic = 1234567;
+    
+    //unsigned getRtnCode() {
+    //    return rtnCode;
+    //}
 
-    private:
-        unsigned rtnCode;
+    //private:
+    //    unsigned rtnCode;
 };
 
 
@@ -227,8 +260,8 @@ struct PythonPluginContext: public PythonContext  {
 
     std::string getPluginDirectory() const;
 
-    std::shared_ptr<PythonRestRequest> getRestRequest() const;
-    std::shared_ptr<PythonRestRequest> restRequest;
+    //std::shared_ptr<PythonRestRequest> getRestRequest() const;
+    //std::shared_ptr<PythonRestRequest> restRequest;
 
     std::function<Json::Value ()> getStatus;
     

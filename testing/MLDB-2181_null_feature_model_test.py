@@ -21,7 +21,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
     @classmethod
     def setUpClass(cls):
         ds = mldb.create_dataset({'id' : 'pre_ds', 'type' : 'sparse.mutable'})
-        for idx in xrange(10):
+        for idx in range(10):
             ds.record_row('row{}'.format(idx), [
                 ['line', idx, 0],
                 ['label', 1, 0],
@@ -30,7 +30,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
                 ['a_or_b', 'a' if random.random() > 0.5 else 'b', 0]
             ])
 
-        for idx in xrange(10, 20):
+        for idx in range(10, 20):
             ds.record_row('row{}'.format(idx), [
                 ['line', idx, 0],
                 ['label', 0, 0],
@@ -95,7 +95,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
             'id': 'test_string_over_null_ds',
             'type': 'sparse.mutable'
         })
-        for idx in xrange(10):
+        for idx in range(10):
             ds.record_row('row{}'.format(idx), [
                 ['line', idx, 0],
                 ['label', 0, 0],
@@ -124,7 +124,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
             'id': 'test_num_over_null_ds',
             'type': 'sparse.mutable'
         })
-        for idx in xrange(10):
+        for idx in range(10):
             ds.record_row('row{}'.format(idx), [
                 ['line', idx, 0],
                 ['label', 0, 0],
@@ -155,7 +155,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
             'id': 'test_c_over_a_or_b_ds',
             'type': 'sparse.mutable'
         })
-        for idx in xrange(10):
+        for idx in range(10):
             ds.record_row('row{}'.format(idx), [
                 ['line', idx, 0],
                 ['label', 0, 0],
@@ -176,4 +176,4 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
         })
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

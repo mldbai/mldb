@@ -270,7 +270,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
 
     def test_named_on_object(self):
         msg = 'Cannot convert value of type'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {
@@ -309,7 +309,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
 
     def test_no_input_file(self):
         msg = "dataFileUrl is a required property and must not be empty";
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {
@@ -321,7 +321,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {
@@ -372,4 +372,4 @@ class ImportJsonTest(MldbUnitTest):  # noqa
         ])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

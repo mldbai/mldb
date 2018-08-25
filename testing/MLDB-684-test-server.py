@@ -42,7 +42,7 @@ for port in range(22000,23000):
     except:
         pass
 
-print "MLDB PLUGIN http http://localhost:%d" % port
+print("MLDB PLUGIN http http://localhost:%d" % port)
 sys.stdout.flush()
 
 

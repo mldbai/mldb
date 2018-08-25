@@ -16,7 +16,7 @@ dataset_config = {
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
 
-for i in xrange(5000):
+for i in range(5000):
     label = random.random() < 0.2
     dataset.record_row("u%d" % i, [["feat1", random.gauss(5 if label else 15, 3), now],
                                    ["feat2", random.gauss(-5 if label else 10, 10), now],
@@ -95,4 +95,4 @@ for permutation in js_rez["status"]:
     assert len(permutation["results"]["folds"]) == 2
     assert permutation["results"]["aggregatedTest"]["auc"]["mean"] > 0.9
 
-mldb.script.set_return("success")
+request.set_return("success")

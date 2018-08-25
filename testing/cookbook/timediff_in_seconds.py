@@ -21,4 +21,4 @@ mldb.log(res)
 
 assert res[1][1] == 3
 
-mldb.script.set_return("success")
+request.set_return("success")

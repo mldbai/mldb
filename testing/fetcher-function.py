@@ -71,7 +71,7 @@ class FetcherFunction(MldbUnitTest):  # noqa
         # there was an issue when an unfound file had utf-8 chars
         res = mldb.query("SELECT fetcher('file://mldb/testing/utéf8_unexisting.jpg')")
         self.assertTrue(res[1][1] is None)
-        self.assertTrue(type(res[1][2]) is unicode)
+        self.assertTrue(type(res[1][2]) is str)
 
     def test_bad_uri(self):
         mldb.post('/v1/procedures', {
@@ -159,7 +159,7 @@ class FetcherFunction(MldbUnitTest):  # noqa
                                  'mldb/testing/test_server.py', str(port)],
                                 preexec_fn=pre_exec)
 
-        for _ in xrange(10):
+        for _ in range(10):
             time.sleep(1)
             res = mldb.query(
                 "SELECT fetcher('http://localhost:{}/200')[error]".format(port))
@@ -215,4 +215,4 @@ class FetcherFunction(MldbUnitTest):  # noqa
         proc.terminate()
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

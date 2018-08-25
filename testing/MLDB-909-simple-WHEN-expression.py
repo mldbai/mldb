@@ -37,7 +37,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         })
 
         row_count = 10
-        for i in xrange(row_count - 1):
+        for i in range(row_count - 1):
             # row name is x's value
             ds1.record_row(str(i), [['x', str(i), now]])
         ds1.record_row(str(row_count - 1), [['x', "9", same_time_tomorrow]])
@@ -189,4 +189,4 @@ class SimpleWhenExpressionTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

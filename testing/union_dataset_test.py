@@ -212,8 +212,8 @@ class UnionDatasetTest(MldbUnitTest):  # noqa
         })
 
         res = mldb.query("SELECT * FROM union_test_where WHERE colA='123'")
-        self.assertEquals(len(res), 1)
+        self.assertEqual(len(res), 1)
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

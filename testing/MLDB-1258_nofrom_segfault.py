@@ -35,7 +35,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -50,7 +50,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer2", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -64,7 +64,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -78,7 +78,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -92,7 +92,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -106,7 +106,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -120,7 +120,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -134,7 +134,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -148,7 +148,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -162,7 +162,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -176,7 +176,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -190,7 +190,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -205,7 +205,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -237,4 +237,4 @@ class NoFromSegfaultTest(unittest.TestCase):
         mldb.log(mldb.put("/v1/procedures/trainer1386", conf).json())
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

@@ -108,4 +108,4 @@ with Benchmark(metrics, get_name(prefix + 'transform_column_count')):
 
 mldb.log(str(metrics))
 log_benchmark(metrics)
-mldb.script.set_return("success")
+request.set_return("success")

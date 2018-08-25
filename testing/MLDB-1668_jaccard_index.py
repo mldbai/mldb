@@ -37,5 +37,5 @@ class Mldb1668Test(MldbUnitTest):
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.query("select jaccard_index(2, 'adsf')") 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

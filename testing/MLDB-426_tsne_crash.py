@@ -62,4 +62,4 @@ try:
 except mldb_wrapper.ResponseException as exc:
     pass
 
-mldb.script.set_return("success")
+request.set_return("success")

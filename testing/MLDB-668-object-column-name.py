@@ -9,7 +9,7 @@ ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
     'id': 'dataset1'})
 
-for i in xrange(1):
+for i in range(1):
     ds1.record_row('row_' + str(i),
                    [['x', i, 0]])
 ds1.commit()
@@ -22,4 +22,4 @@ result = mldb.get('/v1/query', q='SELECT { 1 as x } as y')
 mldb.log(result.text)
 assert result.json()[0]['columns'][0][0] == 'y.x'
 
-mldb.script.set_return('success')
+request.set_return('success')

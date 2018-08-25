@@ -24,7 +24,7 @@ class TemporalTest(MldbUnitTest):
             'type': 'sparse.mutable',
             'id': 'dataset'})
 
-        for i in xrange(1, 3):
+        for i in range(1, 3):
             ds.record_row('row_' + str(i),
                            [['x', -i, TemporalTest.before], ['y', i, TemporalTest.before],
                             ['x', 0, TemporalTest.sometime], ['y', 0, TemporalTest.sometime],
@@ -702,4 +702,4 @@ class TemporalTest(MldbUnitTest):
         mldb.log(res)
         self.assertFullResultEquals(res.json(), expected)
        
-mldb.run_tests()
+request.set_return(mldb.run_tests())

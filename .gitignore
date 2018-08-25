@@ -48,3 +48,4 @@ models
 container_provis/packer
 .ipynb_checkpoints
 container_files/nvidia/files/*.deb
+*.bak

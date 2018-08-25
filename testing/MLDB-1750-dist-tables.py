@@ -198,7 +198,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
         """)
 
     def test_unknown_stats(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 'Unknown distribution table statistic'):
             mldb.post('/v1/procedures', {
                 'type': 'experimental.distTable.train',
@@ -281,7 +281,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 ]
             ])
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 'Unknown distribution table statistic'):
             mldb.put('/v1/functions/get_stats_non_default2', {
                 'type': 'experimental.distTable.getStats',
@@ -454,7 +454,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             }
         })
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 'Unknown dist table \'hosti234234\''):
             mldb.post("/v1/functions/get_stats/routes/increment", {
                 'keys': [
@@ -502,4 +502,4 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

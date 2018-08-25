@@ -49,7 +49,7 @@ def load_svd_dataset():
     svd_example = mldb.create_dataset(
         {"type": "sparse.mutable", 'id' : 'svd_example'}
     )
-    for i in xrange(0,50):
+    for i in range(0,50):
         val_x = random.randint(1, 1000)
         val_y = random.randint(1, 1000)
         val_z = random.randint(1, 1000)
@@ -81,4 +81,4 @@ assert train_svd("rowName() ASC", "index < 50", 0, 100) == 3, \
 assert train_svd("rowName() ASC", "index > 50", 0, 100) == 2, \
     'expected two independent columns in the last 50 rows'
 
-mldb.script.set_return('success')
+request.set_return('success')

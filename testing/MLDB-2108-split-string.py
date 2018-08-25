@@ -39,12 +39,12 @@ class MLDB2108SplitStringTest(MldbUnitTest):  # noqa
     #Those are anglo-saxon runes, and apparently it means "I can eat glass and it does not hurt"
 
     def test_utf8(self):
-        res = mldb.query(u"SELECT split_part(x, ' ')[\"4\"] AS x FROM (SELECT 'ᛖᚴ ᚷᛖᛏ ᛖᛏᛁ ᚧ ᚷᛚᛖᚱ ᛘᚾ ᚦᛖᛋᛋ ᚨᚧ ᚡᛖ ᚱᚧᚨ ᛋᚨᚱ' as x)".encode('utf-8'))
-        self.assertEqual(u"ᚷᛚᛖᚱ".encode('utf-8'), res[1][1].encode('utf-8'))
+        res = mldb.query("SELECT split_part(x, ' ')[\"4\"] AS x FROM (SELECT 'ᛖᚴ ᚷᛖᛏ ᛖᛏᛁ ᚧ ᚷᛚᛖᚱ ᛘᚾ ᚦᛖᛋᛋ ᚨᚧ ᚡᛖ ᚱᚧᚨ ᛋᚨᚱ' as x)")
+        self.assertEqual("ᚷᛚᛖᚱ", res[1][1])
 
     def test_utf8_split(self):
-        res = mldb.query(u"SELECT split_part(x, 'ᚧ')[\"4\"] AS x FROM (SELECT 'ᛖᚴᚧᚷᛖᛏᚧᛖᛏᛁᚧᚷᛚᛖᚱᚧᛘᚾᚧᚦᛖᛋᛋᚧᚨᚧᚧᚡᛖᚧᚱᚧᚨᚧᛋᚨᚱ' as x)".encode('utf-8'))
-        self.assertEqual(u"ᛘᚾ".encode('utf-8'), res[1][1].encode('utf-8'))
+        res = mldb.query("SELECT split_part(x, 'ᚧ')[\"4\"] AS x FROM (SELECT 'ᛖᚴᚧᚷᛖᛏᚧᛖᛏᛁᚧᚷᛚᛖᚱᚧᛘᚾᚧᚦᛖᛋᛋᚧᚨᚧᚧᚡᛖᚧᚱᚧᚨᚧᛋᚨᚱ' as x)")
+        self.assertEqual("ᛘᚾ", res[1][1])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

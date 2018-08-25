@@ -88,4 +88,4 @@ result = mldb.query("select em_function({{* EXCLUDING(class)} as embedding}) fro
 for i in range(1, 151):
 	assert expected[i] == result[i]
 
-mldb.script.set_return("success")
+request.set_return("success")

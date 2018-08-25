@@ -75,4 +75,4 @@ mldb.put("/v1/functions/iris_cls_exp", {
 mldb.get("/v1/query", q='''select
 iris_cls_exp({{* EXCLUDING(class)} as features, class as label})
 from iris_dataset''')
-mldb.script.set_return("success")
+request.set_return("success")

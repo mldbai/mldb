@@ -87,4 +87,4 @@ for i in range(25):
         q="""select getFeatVec({raw_text: 'I really loved this party!!!',
              preProcessed: 'I really loved this party!!!'})""")
 
-mldb.script.set_return("success")
+request.set_return("success")

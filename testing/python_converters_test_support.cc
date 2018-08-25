@@ -18,6 +18,7 @@
 #include "mldb/builtin/python/from_python_converter.h"
 #include "mldb/builtin/python/python_converters.h"
 #include "mldb/builtin/python/callback.h"
+#include "mldb/builtin/python/python_interpreter.h"
 
 using namespace std;
 using namespace boost::python;
@@ -45,6 +46,8 @@ struct Tester {
 
 BOOST_PYTHON_MODULE(py_conv_test_module) {
 
+    PythonInterpreter::initializeFromModuleInit();
+    
     PyDateTime_IMPORT;
 
     to_python_converter< std::vector<std::string>, VectorConverter<std::string> >();
@@ -59,8 +62,8 @@ BOOST_PYTHON_MODULE(py_conv_test_module) {
     from_python_converter< std::pair<string, int>, PairConverter<string, int> >();
     to_python_converter< std::pair<string, int>, PairConverter<string, int> >();
 
-    from_python_converter< Json::Value, JsonValueConverter> ();
-    to_python_converter< Json::Value, JsonValueConverter> ();
+    //from_python_converter< Json::Value, JsonValueConverter> ();
+    //to_python_converter< Json::Value, JsonValueConverter> ();
 
     class_<Tester, std::shared_ptr<Tester>>
         ("Tester", init<>())

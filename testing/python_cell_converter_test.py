@@ -16,7 +16,7 @@ tester = Tester.Tester()
 
 class PythonCellConverterTest(unittest.TestCase):
     def test_mldb_cell(self):
-        val = u'Mutua Madrileña Madrid Open'
+        val = 'Mutua Madrileña Madrid Open'
         self.assertEqual(tester.cellValueToCpp(val), True)
 
     def test_rest_params(self):

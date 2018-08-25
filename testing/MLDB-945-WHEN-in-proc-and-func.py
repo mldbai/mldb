@@ -88,7 +88,7 @@ def load_svd_dataset():
     svd_example = mldb.create_dataset({
         "type": "sparse.mutable", 'id' : 'svd_example'
     })
-    for i in xrange(100):
+    for i in range(100):
         val_x = random.randint(1, 1000)
         val_y = random.randint(1, 1000)
         val_z = random.randint(1, 1000)
@@ -106,7 +106,7 @@ def load_test_dataset():
         'id': 'dataset1'})
 
     row_count = 10
-    for i in xrange(row_count - 1):
+    for i in range(row_count - 1):
         # row name is x's value
         ds1.record_row(str(i), [['x', str(i), now], ['y', str(i), now]])
 
@@ -284,4 +284,4 @@ centroids = train_kmeans("value_timestamp() < TIMESTAMP '%s'" % in_two_hours)
 assert -1 < centroids[0][2] < 1, \
     "was expecting the cluster to be along the y axis"
 
-mldb.script.set_return('success')
+request.set_return('success')

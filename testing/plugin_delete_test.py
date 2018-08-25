@@ -25,7 +25,7 @@ mldb.plugin.set_request_handler(requestHandler)
 }
 
 
-mldb.script.set_return("hoho")
+request.set_return("hoho")
 mldb.log("ouin")
 
 mldb.log(str(mldb.perform("PUT", "/v1/plugins/plugToDel", [["sync", "true"]], pythonScript)))
@@ -33,7 +33,7 @@ mldb.log(str(mldb.perform("PUT", "/v1/plugins/plugToDel", [["sync", "true"]], py
 mldb.log(str(mldb.perform("GET", "/v1/plugins", [], {})))
 
 rtn= mldb.perform("GET", "/v1/plugins/plugToDel/routes/miRoute", [], {})
-print rtn
+print(rtn)
 
-mldb.script.set_return(rtn["response"])
+request.set_return(rtn["response"])
 

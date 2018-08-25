@@ -23,4 +23,4 @@ for ext in ['lz4', 'zip']:
         }
     mldb.put("/v1/procedures/csv_proc", csv_conf)   
 
-mldb.script.set_return("success")
+request.set_return("success")

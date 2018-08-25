@@ -153,4 +153,4 @@ result = mldb.get('/v1/query',
 check(result, 2)
 find_value(result, 13)
 
-mldb.script.set_return("success")
+request.set_return("success")

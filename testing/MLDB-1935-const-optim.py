@@ -49,4 +49,4 @@ class ConstOptimTest(MldbUnitTest):
 
         self.assertTrue(nonOptimizedDeltaT > optimizedDeltaT)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

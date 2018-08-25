@@ -1,7 +1,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 
-rp = mldb.plugin.rest_params
+rp = request
 mldb.log("relpath = " + str(rp.remaining))
 mldb.log("verb = " + str(rp.verb))
 mldb.log("resource = " + str(rp.resource))
@@ -13,14 +13,16 @@ mldb.log("contentLength = " + str(rp.content_length))
 import json
 mldb.log("headers = " + json.dumps(rp.headers))
 
-print "in route!"
+print("in route!")
+
+return_code = 200
 
 if rp.remaining == "/emptyList":
-    mldb.plugin.set_return([])
+    request.set_return([])
 elif rp.remaining == "/emptyDict":
-    mldb.plugin.set_return({})
+    request.set_return({})
 elif rp.remaining == "/teaPot":
-    mldb.plugin.set_return("tea pot", 418)
+    request.set_return("tea pot", 418)
 else:
-    mldb.plugin.set_return({ "how": "are you" })
+    request.set_return({ "how": "are you" })
 

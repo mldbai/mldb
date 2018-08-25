@@ -23,4 +23,4 @@ for r in range(100, 200):
 dataset.commit()
 
 res = mldb.get("/v1/query", q="select * from x")
-mldb.script.set_return("success")
+request.set_return("success")

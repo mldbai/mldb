@@ -126,4 +126,4 @@ class RowAggregatorTest(MldbUnitTest):
                                             "rowName" : "[]"
                                         }
                                     ]);
-mldb.run_tests()
+request.set_return(mldb.run_tests())

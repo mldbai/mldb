@@ -60,4 +60,4 @@ result = mldb.get('/v1/query', q='select horizontal_sum( normalize([1,2,3,4],inf
 assert -0.00001 < result.json()[0]['columns'][0][1] < 0.00001
 
 
-mldb.script.set_return('success')
+request.set_return('success')

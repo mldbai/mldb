@@ -10,8 +10,8 @@ class Mldb1834SelectRowExprStarErrMsg(MldbUnitTest):  # noqa
 
     def test_it(self):
         msg = "Cannot use wildcards with no FROM clause"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query("SELECT {*}")
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

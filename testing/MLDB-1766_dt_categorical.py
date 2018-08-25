@@ -32,14 +32,14 @@ class MLDB1766DtCategoricalIris(MldbUnitTest):  # noqa
         now = datetime.now()
 
         for label in ["a", "b"]:
-            for i in xrange(5000):
+            for i in range(5000):
                 dataset.record_row("u%d-%s" % (i, label), 
                         [["feat1", gauss(5 if label == "a" else 15, 3), now],
                          ["feat2", gauss(-5 if label == "a"  else 10, 10), now],
                          ["feat3", gauss(0, 10), now],
                          ["label", label, now]])
 
-        for i in xrange(500):
+        for i in range(500):
             dataset.record_row("u%d-c" % i, 
                         [["feat1", gauss(10, 5), now],
                          ["feat2", gauss(0, 10), now],
@@ -174,4 +174,4 @@ class MLDB1766DtCategoricalIris(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

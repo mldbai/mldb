@@ -10,12 +10,12 @@ result = mldb.perform("PUT", "/v1/plugins/mirror", [], {
             "routes":
 """
 
-mldb.log(str(mldb.plugin.rest_params.rest_params))
-mldb.log(str(mldb.plugin.rest_params.payload))
+mldb.log(str(request.rest_params))
+mldb.log(str(request.payload))
 
-mldb.plugin.set_return({
-    "args": mldb.plugin.rest_params.rest_params,
-    "payload": mldb.plugin.rest_params.payload
+request.set_return({
+    "args": request.rest_params,
+    "payload": request.payload
 })
 """}}})
 assert result["statusCode"] < 400, result["response"]
@@ -37,4 +37,4 @@ if rtn["response"] == '{"args":[["patate","10"]],"payload":"{\\"ataboy\\":5}\\n"
     successes += 1
 
 if successes == 3:
-    mldb.script.set_return("success")
+    request.set_return("success")

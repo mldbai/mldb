@@ -12,7 +12,7 @@ ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
     'id': 'dataset1'})
 
-for i in xrange(10):
+for i in range(10):
     ds1.record_row('row_' + str(i),
                    [['x', i, 0]])
 ds1.commit()
@@ -72,4 +72,4 @@ result = mldb.get('/v1/query',
 mldb.log(result)
 assert result.json()[0]['columns'][0][1] == 17390182720330652622
 
-mldb.script.set_return('success')
+request.set_return('success')

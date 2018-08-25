@@ -102,4 +102,4 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

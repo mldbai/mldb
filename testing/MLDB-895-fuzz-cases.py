@@ -43,4 +43,4 @@ mldb.log(
 # problem with unary bitwise operator print()
 assert_fail('select {~9as*}')
 
-mldb.script.set_return("success")
+request.set_return("success")

@@ -17,7 +17,7 @@ def delete_keys_from_dict(dict_del, lst_keys):
             del dict_del[k]
         except KeyError:
             pass
-    for v in dict_del.values():
+    for v in list(dict_del.values()):
         if isinstance(v, dict):
             delete_keys_from_dict(v, lst_keys)
 
@@ -32,7 +32,7 @@ dataset_config = {
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
 
-for i in xrange(500):
+for i in range(500):
     label = random.random() < 0.2
     dataset.record_row("u%d" % i,
                        [["feat1", random.gauss(5 if label else 15, 3), now],
@@ -120,4 +120,4 @@ else:
 assert rez.text.find('limit') != -1, \
     'expected a mention of limit in the error message'
 
-mldb.script.set_return("success")
+request.set_return("success")

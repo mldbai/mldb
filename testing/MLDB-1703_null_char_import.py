@@ -32,4 +32,4 @@ class Mldb1703(MldbUnitTest):
     def test_tokenize(self):
         mldb.query("select tokenize(name) from test_case")
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

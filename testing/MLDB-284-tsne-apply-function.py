@@ -11,7 +11,7 @@ dataset_config = {
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
 
-for i in xrange(250):
+for i in range(250):
     label = random.random() < 0.2
     row = []
     for j in range(1, 100):
@@ -57,5 +57,5 @@ for j in range(1, 100):
 
 assert applyFunction(row)['statusCode'] == 500, 'expected a clear failure on t-sne apply'
 
-mldb.script.set_return("success")
+request.set_return("success")
 

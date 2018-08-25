@@ -42,7 +42,7 @@ class GenericProcedureTest(MldbUnitTest): # noqa
         })
 
         # outputDataset was overriden in the run to output to out
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      "dataset entry 'bar' doesn't exist"):
             mldb.query("SELECT * FROM bar")
 
@@ -51,4 +51,4 @@ class GenericProcedureTest(MldbUnitTest): # noqa
         self.assertTableResultEquals(res, [['_rowName', 'colA'], ['row1', 1]])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

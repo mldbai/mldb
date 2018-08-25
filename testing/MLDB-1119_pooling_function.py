@@ -211,5 +211,5 @@ class Mldb1119(MldbUnitTest):
                 ]
         self.assertEqual(res.json(), expected)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

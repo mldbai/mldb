@@ -14,12 +14,12 @@ class Mldb1212(MldbUnitTest):
         pass
 
     def test_long_quoted_lines(self):
-        with open("tmp/broken_csv.csv", 'wb') as f:
+        with open("tmp/broken_csv.csv", 'wt', encoding="utf-8") as f:
             f.write("a,b\n")
-            f.write("1,\"" + " ".join(["word " for x in xrange(50)])+"\"\n")
-            f.write("1,\"" + " ".join(["word " for x in xrange(100)])+"\"\n")
-            f.write("1,\"" + " ".join(["word " for x in xrange(1000)])+"\"\n")
-            f.write("1,\"" + " ".join(["word " for x in xrange(10000)])+"\"\n")
+            f.write("1,\"" + " ".join(["word " for x in range(50)])+"\"\n")
+            f.write("1,\"" + " ".join(["word " for x in range(100)])+"\"\n")
+            f.write("1,\"" + " ".join(["word " for x in range(1000)])+"\"\n")
+            f.write("1,\"" + " ".join(["word " for x in range(10000)])+"\"\n")
 
         csv_conf = {
             "type": "import.text",
@@ -121,5 +121,5 @@ class Mldb1212(MldbUnitTest):
         )
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

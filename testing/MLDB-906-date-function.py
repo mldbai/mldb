@@ -297,4 +297,4 @@ class DateFunctionTest(unittest.TestCase):
         self.assertEqual(res[0]['columns'][0][1]['ts'], "2014-12-31T07:00:00Z")
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

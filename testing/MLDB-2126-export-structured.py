@@ -12,7 +12,7 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 class MLDB2126exportstructuredTest(MldbUnitTest):  # noqa
 
     def assert_file_content(self, filename, lines_expect):
-        f = codecs.open(filename, 'rt', 'utf8')
+        f = codecs.open(filename, 'rb', 'utf8')
         for index, expect in enumerate(lines_expect):
             line = f.readline()[:-1]
             self.assertEqual(line, expect)
@@ -43,10 +43,10 @@ class MLDB2126exportstructuredTest(MldbUnitTest):  # noqa
 
         mldb.log(res)
 
-        lines_expect = [u'x.a,x.b',
-                        u'1,2'
+        lines_expect = ['x.a,x.b',
+                        '1,2'
                         ]
         self.assert_file_content(tmp_file.name, lines_expect)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

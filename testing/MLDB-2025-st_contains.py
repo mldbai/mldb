@@ -148,7 +148,7 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
     def test_not_row(self):
 
         msg = "argument 1 must be a row representing a GeoJson geometry"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             res = mldb.query("""
                 SELECT ST_Contains_Point(geometry, 3, 4) as contains FROM 
                     (SELECT 1 as geometry)               
@@ -157,7 +157,7 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
     def test_missing_column(self):
 
         msg = "Cound not find required column"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             res = mldb.query("""
                 SELECT ST_Contains_Point({geometry}, 3, 4) as contains FROM 
                     (SELECT 1 as geometry)               
@@ -166,7 +166,7 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
     def test_unknown_type(self):
 
         msg = "unknown polygon type"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             res = mldb.query("""
                 SELECT ST_Contains_Point({'wierd' as type, geometry}, 3, 4) as contains FROM 
                     (SELECT 1 as geometry)               
@@ -175,10 +175,10 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
     def test_coordinates_shape(self):
 
         msg = "Attempt to access non-row as row"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             res = mldb.query("""
                 SELECT ST_Contains_Point({'Polygon' as type, [0,1] as coordinates}, 3, 4) as contains
             """)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

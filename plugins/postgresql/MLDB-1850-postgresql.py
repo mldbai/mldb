@@ -139,4 +139,4 @@ expected = [["_rowName","a","b","c"],
 
 assert res == expected
 
-mldb.script.set_return("success")
+request.set_return("success")

@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* compiler.h                                                      -*- C++ -*-
    Jeremy Barnes, 1 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Compiler detection, etc.
 */
@@ -26,6 +24,7 @@
 #define MLDB_DEPRECATED __attribute__((__deprecated__))
 #define MLDB_ALIGNED(x) __attribute__((__aligned__(x)))
 #define MLDB_FORMAT_STRING(arg1, arg2) __attribute__((__format__ (printf, arg1, arg2)))
+#define MLDB_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 #ifdef __clang__
 #  define MLDB_UNUSED_PRIVATE_FIELD  __attribute__((__unused__))
 #else

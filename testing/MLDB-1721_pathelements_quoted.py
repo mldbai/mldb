@@ -17,7 +17,7 @@ class Mldb1721(MldbUnitTest):
         ds.commit()
 
     def test_select_after_token(self):
-        print mldb.post('/v1/procedures', {
+        print(mldb.post('/v1/procedures', {
             'type': 'transform',
             'params': {
                 'inputData': """
@@ -31,7 +31,7 @@ class Mldb1721(MldbUnitTest):
                 'outputDataset': 'bag_of_words',
                 'runOnCreation': True
             }
-        })
+        }))
 
         self.assertTableResultEquals(
             mldb.query("select * from bag_of_words order by rowName() DESC"),
@@ -46,5 +46,5 @@ class Mldb1721(MldbUnitTest):
                     ["a", None, 1, 1]
                 ])
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

@@ -72,4 +72,4 @@ def run_example():
 
 if __name__ == '__main__':
     run_example()
-    mldb.script.set_return("success")
+    request.set_return("success")

@@ -38,10 +38,10 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     
     PluginResource plugRes;
     plugRes.source.routes = R"foo(
-print "Handling route in python"
-rp = mldb.plugin.rest_params
+print("Handling route in python")
+rp = request
 if rp.verb == "GET" and rp.remaining == "/miRoute":
-    mldb.plugin.set_return("bouya!")
+    request.set_return("bouya!")
 )foo";
     pluginConfig.params = plugRes;
  
@@ -69,10 +69,10 @@ if rp.verb == "GET" and rp.remaining == "/miRoute":
 
     // recreate!|
     plugRes.source.routes = R"foo(
-print "Handling route in python"
-rp = mldb.plugin.rest_params
+print("Handling route in python")
+rp = request
 if rp.verb == "GET" and rp.remaining == "/miRoute":
-    mldb.plugin.set_return("bouya2!")
+    request.set_return("bouya2!")
 )foo";
     pluginConfig.params = plugRes;
     putResult = proxy.put("/v1/plugins/myplugin",
@@ -92,10 +92,10 @@ if rp.verb == "GET" and rp.remaining == "/miRoute":
 
     // create a plugin with a syntax error
     plugRes.source.routes = R"foo(
-print "Handling route in python"
-rp = mldb.plugin.rest_params
+print("Handling route in python")
+rp = request
 if rp.verb == "GET" and rp.remaining == "/miRoute":
-    mldb.plugin.set_return("bouya2!")
+    set_return("bouya2!")
 
 )foo";
    pluginConfig.params = plugRes;

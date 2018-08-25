@@ -71,7 +71,7 @@ class Mldb256Test(MldbUnitTest):
 
     # this test only validates that there is no segfault when testing a glz with only null features
     def test_bool_cls_no_segfault_no_feature_cols(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 "Feature_Set is null! Are you giving only null features.*") as re:
             rez = mldb.put("/v1/procedures/bool_cls_seg", {
                 "type": "classifier.experiment",
@@ -244,7 +244,7 @@ class Mldb256Test(MldbUnitTest):
         total_accuracy = 0
         total_support = 0
         total_precision = 0
-        for val in goodLabelStatistics.itervalues():
+        for val in goodLabelStatistics.values():
             total_f1 += val["f1Score"] * val["support"]
             total_accuracy += val["accuracy"] * val["support"]
             total_recall += val["recall"] * val["support"]
@@ -379,6 +379,6 @@ class Mldb256Test(MldbUnitTest):
         self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.94)
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 
 

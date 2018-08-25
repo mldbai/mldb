@@ -21,9 +21,9 @@ Send a HEAD request::
 Send a POST request:
     curl -d "foo=bar&bin=baz" http://localhost
 """
-from SocketServer import ThreadingMixIn
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-import SocketServer
+from socketserver import ThreadingMixIn
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import socketserver
 import time
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -83,8 +83,8 @@ class S(BaseHTTPRequestHandler):
 def run(port=80):
     server_address = ('', port)
     httpd = ThreadedHTTPServer(server_address, S)
-    print httpd.server_address
-    print 'Starting httpd...'
+    print(httpd.server_address)
+    print('Starting httpd...')
     httpd.serve_forever()
 
 if __name__ == "__main__":

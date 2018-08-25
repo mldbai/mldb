@@ -22,7 +22,7 @@ ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
     'id': 'dataset1'})
 
-for i in xrange(10):
+for i in range(10):
     ds1.record_row('row_' + str(i),
                    [['x', i, 0]])
 ds1.commit()
@@ -31,7 +31,7 @@ ds2 = mldb.create_dataset({
     'type': 'sparse.mutable',
     'id': 'dataset2'})
 
-for i in xrange(10):
+for i in range(10):
     ds2.record_row('d2row_' + str(i),
                    [['y', i*2, 0]])
 ds2.commit()
@@ -93,4 +93,4 @@ assert_res_status_equal(result, 200)
 response = result.json()
 assert len(response) == 2;
 
-mldb.script.set_return('success')
+request.set_return('success')

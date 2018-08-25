@@ -51,4 +51,4 @@ assert_val_for_col(js_rez[0]["columns"], "lb", 0.143)
 assert_val_for_col(js_rez[1]["columns"], "lb", 0.0567)
 
 
-mldb.script.set_return("success")
+request.set_return("success")

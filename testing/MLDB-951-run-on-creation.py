@@ -13,14 +13,17 @@ if False:
 _legacy = mldb
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
+mldb.log(datetime)
+mldb.log(dir())
 
 def load_test_dataset():
+    mldb.log(dir())
     ds1 = mldb.create_dataset({
         'type': 'sparse.mutable',
         'id': 'dataset1'})
 
     row_count = 100
-    for i in xrange(row_count - 1):
+    for i in range(row_count - 1):
         # row name is x's value
         ds1.record_row(str(i), [['x', i, datetime.datetime.now()]])
 
@@ -125,4 +128,4 @@ assert 'error' in response['details']['runError'], \
     'expected an error description for the failure'
 assert 'httpCode' in response['details']['runError'], 'expected an error code'
 
-mldb.script.set_return('success')
+request.set_return('success')

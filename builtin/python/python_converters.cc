@@ -6,6 +6,7 @@
 */
 
 #include "python_converters.h"
+#include "python_interpreter.h"
 #include "Python.h"
 #include "datetime.h"
 #include <iostream>
@@ -332,13 +333,12 @@ convert(const Json::Value & js)
     return bp::incref(convert_recur(js)->ptr());
 }
 
-static struct AtInit {
-    AtInit()
-    {
-        PyDateTime_IMPORT;
-    }
-} atInit;
+void pythonConvertersInit(const EnterThreadToken & thread)
+{
+    PyDateTime_IMPORT;
+}
+
+RegisterPythonInitializer regMe(&pythonConvertersInit);
 
 } // namespace Python
-
 } // namespace MLDB

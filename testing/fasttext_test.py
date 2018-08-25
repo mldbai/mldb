@@ -106,7 +106,7 @@ class FastTextTest(MldbUnitTest):
             }
 
             msg = "FastText classifier does not currently support regression mode"
-            with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
                 mldb.put("/v1/procedures/trainer", {
                     "type": "classifier.train",
                     "params": {
@@ -226,9 +226,9 @@ class FastTextTest(MldbUnitTest):
                 ]
             ]);
 
-            with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "label not in model"):
+            with self.assertRaisesRegex(mldb_wrapper.ResponseException, "label not in model"):
                 res = mldb.query("""SELECT explain({features : {tokenize(lower(' hockey Alabama Futbol'), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens},
                                                     label : 'Futurama'}) as * 
                                 """)
  
-mldb.run_tests()
+request.set_return(mldb.run_tests())

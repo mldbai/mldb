@@ -35,7 +35,7 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
         mldb.log('cancelling ' + name)
         resp = mldb.put(location + "/state", {'state': 'cancelled'})
 
-        self.assertEquals(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 200)
 
         running = True
         while running:
@@ -59,7 +59,7 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
         ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
 
         row_count = 20000
-        for i in xrange(row_count):
+        for i in range(row_count):
             # row name is x's value
             ds.record_rows([ [str(i*10+1), [['x', i*10 + 1, 0], ['y', i*10 + 3, 0]]],
                              [str(i*10+2), [['x', i*10 + 2, 0], ['y', i*10 + 3, 0]]],
@@ -141,4 +141,4 @@ class MLDB408TaskCancellation(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

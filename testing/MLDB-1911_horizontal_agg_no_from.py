@@ -63,4 +63,4 @@ class Mldb1911HorizontalAggNoFrom(MldbUnitTest):  # noqa
     # TODO Add tests for the other horizontal aggregators.
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

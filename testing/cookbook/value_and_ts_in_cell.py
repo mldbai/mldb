@@ -23,4 +23,4 @@ mldb.log(mldb.query("""
     'cols', {*}) AS * FROM ds
 """))
 
-mldb.script.set_return("success")
+request.set_return("success")

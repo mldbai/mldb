@@ -285,7 +285,7 @@ class Mldb1597Test(MldbUnitTest):
             except Exception as e:
                 mldb.log("failed")
                 mldb.log(e)
-                print features, label, algo, e
+                print(features, label, algo, e)
                 #raise e
 
 
@@ -295,11 +295,11 @@ class Mldb1597Test(MldbUnitTest):
                 for f in [
                     ["ds.b_ratio"],
                     ["ds.b_ratio", "ds.dow"],
-                    [ u'ds.a_int', u'ds.b_1', u'ds.b_2'],
-                    [ u'ds.a_int', u'ds.b_1', u'ds.b_2', 'ds.dow']
+                    [ 'ds.a_int', 'ds.b_1', 'ds.b_2'],
+                    [ 'ds.a_int', 'ds.b_1', 'ds.b_2', 'ds.dow']
                 ]:
                     train(f,l,a)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 
 

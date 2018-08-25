@@ -25,7 +25,7 @@ class SampledDatasetTest(unittest.TestCase):
         dataset = mldb.create_dataset(dataset_config)
         now = datetime.datetime.now()
 
-        for i in xrange(500):
+        for i in range(500):
             dataset.record_row("u%d" % i, [["feat1", random.gauss(5, 3), now]])
 
         dataset.commit()
@@ -173,7 +173,7 @@ class SampledDatasetTest(unittest.TestCase):
     def test_cant_create_wo_ds(self):
         # MLDB-1977
         msg = "You need to define the dataset key"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as re:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as re:
             mldb.put('/v1/datasets/sampled', {
                 'type' : 'sampled',
                 'params' : {
@@ -182,4 +182,4 @@ class SampledDatasetTest(unittest.TestCase):
             })
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

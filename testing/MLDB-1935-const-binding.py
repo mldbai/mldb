@@ -429,4 +429,4 @@ class Mldb2035ConstTest(MldbUnitTest):  # noqa
         ])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

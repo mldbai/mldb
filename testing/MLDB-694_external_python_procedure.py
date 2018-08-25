@@ -34,7 +34,7 @@ def fib(n):
         a,b = b,a+b
     return a
 
-print json.dumps({"bouya": 5, "stdin_data": std_in})
+print(json.dumps({"bouya": 5, "stdin_data": std_in}))
 """
         }
     }
@@ -51,4 +51,4 @@ mldb.log(js_resp)
 
 assert js_resp["status"]["return"] == {"bouya": 5, "stdin_data" : "pwet"}
 
-mldb.script.set_return("success")
+request.set_return("success")

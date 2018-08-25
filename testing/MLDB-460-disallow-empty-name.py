@@ -18,12 +18,12 @@ def test_dataset(config):
 
     try:
         dataset.record_rows([["row_name", [["", 4, datetime.datetime.now()]]]])
-    except Exception, e:
+    except Exception as e:
         assert 'empty column names are not allowed' in str(e)
 
     try:
         dataset.record_row("", [["column_name", 5, datetime.datetime.now()]]) 
-    except Exception, e:
+    except Exception as e:
         assert 'empty row names are not allowed' in str(e)
         
     dataset.commit()
@@ -52,4 +52,4 @@ mutable_dataset_types = [
 for config in mutable_dataset_types:
     test_dataset(config)
 
-mldb.script.set_return("success")
+request.set_return("success")

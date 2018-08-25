@@ -128,4 +128,4 @@ check_res(res, 201)
 
 run_query('once({*}) as *', 'w.x1 w.x2 w.x3')
 
-mldb.script.set_return('success')
+request.set_return('success')

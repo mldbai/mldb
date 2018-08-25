@@ -154,4 +154,4 @@ class RedditTest(MldbUnitTest):
             order by numUsers desc
         """)
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

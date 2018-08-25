@@ -1,10 +1,8 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** script_output.cc
     Jeremy Barnes, 13 October 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
 
-    
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include "script_output.h"
@@ -29,20 +27,22 @@ DEFINE_STRUCTURE_DESCRIPTION(ScriptStackFrame);
 ScriptStackFrameDescription::
 ScriptStackFrameDescription()
 {
-    addField("scriptUri", &ScriptStackFrame::scriptUri,
-             "URI of script in this frame");
-    addField("functionName", &ScriptStackFrame::functionName,
-             "Name of function in this frame");
-    addField("where", &ScriptStackFrame::where,
-             "Where is the frame, in natural format for language");
-    addField("lineNumber", &ScriptStackFrame::lineNumber,
-             "Line number", (int64_t)-1);
-    addField("columnStart", &ScriptStackFrame::columnStart,
-             "Column number of error", (int64_t)-1);
-    addField("columnEnd", &ScriptStackFrame::columnEnd,
-             "End column number of error", (int64_t)-1);
-    addField("extra", &ScriptStackFrame::extra,
-             "Extra stack from information from language");
+    addAuto("scriptUri", &ScriptStackFrame::scriptUri,
+            "URI of script in this frame");
+    addAuto("functionName", &ScriptStackFrame::functionName,
+            "Name of function in this frame");
+    addAuto("where", &ScriptStackFrame::where,
+            "Where is the frame, in natural format for language");
+    addAuto("lineNumber", &ScriptStackFrame::lineNumber,
+            "Line number");
+    addAuto("context", &ScriptStackFrame::context,
+            "Context of the error (eg source code snippet)");
+    addAuto("columnStart", &ScriptStackFrame::columnStart,
+            "Column number of error");
+    addAuto("columnEnd", &ScriptStackFrame::columnEnd,
+            "End column number of error");
+    addAuto("extra", &ScriptStackFrame::extra,
+            "Extra stack from information from language");
 }
 
 
@@ -57,17 +57,18 @@ ScriptExceptionDescription()
 {
     addField("message", &ScriptException::message,
              "Exception description");
+    addField("type", &ScriptException::type,
+             "Type of the exception");
     addField("where", &ScriptException::where,
              "Full description of where exception came from");
     addField("scriptUri", &ScriptException::scriptUri,
              "URI of script that caused the exception");
-    addField("lineNumber", &ScriptException::lineNumber,
-             "Number of the line that caused the exception",
-             (int64_t)-1);
-    addField("columnStart", &ScriptException::columnStart,
-             "Start column in the line", (int64_t)-1);
-    addField("columnEnd", &ScriptException::columnEnd,
-             "End column in the line", (int64_t)-1);
+    addAuto("lineNumber", &ScriptException::lineNumber,
+            "Number of the line that caused the exception");
+    addAuto("columnStart", &ScriptException::columnStart,
+            "Start column in the line");
+    addAuto("columnEnd", &ScriptException::columnEnd,
+             "End column in the line");
     addField("lineContents", &ScriptException::lineContents,
              "Contents of the line indicating where the exception was");
     addField("context", &ScriptException::context,

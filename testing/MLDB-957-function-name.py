@@ -33,4 +33,4 @@ except mldb_wrapper.ResponseException as exc:
 else:
     assert False, "should have failed"
 
-mldb.script.set_return('success')
+request.set_return('success')

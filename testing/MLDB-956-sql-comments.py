@@ -57,4 +57,4 @@ result = mldb.get(
 mldb.log(result)
 assert result.json()[0]['columns'][0][1] == 225
 
-mldb.script.set_return('success')
+request.set_return('success')

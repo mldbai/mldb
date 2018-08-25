@@ -22,7 +22,7 @@ class Mldb775(MldbUnitTest):
 
         now = datetime.datetime.now()
 
-        for i in xrange(5):
+        for i in range(5):
             dataset.record_row("example-%d" % i, [["fwin", i, now],
                                                   ["fwine", i*2, now],
                                                   ["fwinette", i**4, now]])
@@ -73,7 +73,7 @@ class Mldb775(MldbUnitTest):
         # make sure the values returned by both functions are not equal
         colIndexes = { colName: colId for colId, colName in enumerate(rez[0]) }
         for line in rez[1:]:
-            for i in xrange(4):
+            for i in range(4):
                 colA = "a.hashColumn%d" % i
                 colB = "b.hashColumn%d" % i
                 if line[colIndexes[colA]] != line[colIndexes[colB]]:
@@ -82,5 +82,5 @@ class Mldb775(MldbUnitTest):
                 raise Exception("identical")
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())
 

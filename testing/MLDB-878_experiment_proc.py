@@ -22,7 +22,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
             dataset = mldb.create_dataset(dataset_config)
             now = datetime.datetime.now()
 
-            for i in xrange(5000):
+            for i in range(5000):
                 label = random() < 0.2
                 dataset.record_row("u%d" % i, [["feat1", gauss(5 if label else 15, 3), now],
                                                ["feat2", gauss(-5 if label else 10, 10), now],
@@ -70,14 +70,14 @@ class Mldb878Test(MldbUnitTest):  # noqa
 
         # did we run two training jobs that both got a good auc ?
         self.assertEqual(len(js_rez["status"]["folds"]), 2)
-        for i in xrange(2):
+        for i in range(2):
             self.assertGreater(
                 js_rez["status"]["folds"][i]["resultsTest"]["auc"], 0.95)
 
         # score using the predictor (MLDB-1070)
         def apply_predictor():
             score_runs = []
-            for i in xrange(2):
+            for i in range(2):
                 rez = mldb.get(
                     "/v1/functions/my_test_exp_scorer_%d/application" % i,
                     input={"features": {"feat1":10 , "feat2": 50}})
@@ -309,7 +309,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 'Error when trying'):
             mldb.put("/v1/procedures/rocket_science", conf)
 
@@ -529,12 +529,12 @@ class Mldb878Test(MldbUnitTest):  # noqa
         })
 
         n=200
-        for i in xrange(n):
+        for i in range(n):
             mldb.post('/v1/datasets/ds_ob/rows', {
                 'rowName': str(i),
                 'columns': [['order', random(), 0]]
                             + [['x' + str(j), gauss(0,1), 0]
-                                for j in xrange(20)]
+                                for j in range(20)]
                             + [['label', random() > 1, 0]]
 
 
@@ -635,4 +635,4 @@ class Mldb878Test(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

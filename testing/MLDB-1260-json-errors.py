@@ -29,4 +29,4 @@ mldb.log(response)
 assert 'error' in response, 'expected an error message in the response'
 assert 'httpCode' in response, 'expected an http code in the response'
 
-mldb.script.set_return("success")
+request.set_return("success")

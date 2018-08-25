@@ -13,13 +13,13 @@ class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
         pass
 
     def test_value_desc_on_wrong_params(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      'Binding builtin function sqrt: expected 1 argument, got 2'):
             mldb.query("select sqrt(2, NULL)")
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                      'Binding builtin function sqrt: expected 1 argument, got 2'):
             mldb.query("select sqrt(2, 1)")
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

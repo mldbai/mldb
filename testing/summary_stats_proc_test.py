@@ -49,7 +49,7 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
              "value.most_frequent_items.20", "value.most_frequent_items.2",
              "value.most_frequent_items.1", "value.stddev",
              "value.most_frequent_items.10",
-             u"value.most_frequent_items.pataté"],
+             "value.most_frequent_items.pataté"],
 
             ["colA", "number", 0, 2, 10, 4, 1, 1, 1, 10, None, None, None, 2,
              5.196152422706632, 1, None],
@@ -130,19 +130,19 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
             })
         msg = "is not a supported SELECT value expression for " \
               "summary.statistics"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             run_proc('SELECT coco AS * FROM ds')
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             run_proc('SELECT {a:1, b:2} FROM ds')
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             run_proc('SELECT colA + 1 FROM ds')
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             run_proc('SELECT {*} FROM ds')
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             run_proc('SELECT max(colA) FROM ds')
 
     def test_most_frequent(self):
@@ -156,7 +156,7 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
             def __init__(self):
                 self.num = 0
 
-            def next(self):
+            def __next__(self):
                 self.num += 1
                 return self.num
 
@@ -176,9 +176,9 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
             'm' : 1,
         }
         c = Counter()
-        for k, count in vals.iteritems():
-            for _ in xrange(count):
-                ds.record_row(c.next(), [['col', k, 0]])
+        for k, count in vals.items():
+            for _ in range(count):
+                ds.record_row(next(c), [['col', k, 0]])
 
         ds.commit()
 
@@ -209,4 +209,4 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

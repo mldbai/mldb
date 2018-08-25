@@ -11,7 +11,8 @@ class MyThread(threading.Thread):
     def run(self):
         try:
             threading.Thread.run(self)
-        except Exception as self.err:
+        except Exception as xxx_todo_changeme:
+            self.err = xxx_todo_changeme
             pass
         else:
             self.err = None
@@ -62,4 +63,4 @@ keep_going.set()
 ct.join()
 if mldb_thread.err:
     raise mldb_thread.err
-mldb.script.set_return("success")
+request.set_return("success")

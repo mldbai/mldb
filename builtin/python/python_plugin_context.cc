@@ -13,10 +13,12 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/optimized_path.h"
 #include "mldb/utils/log.h"
+#include "mldb/base/scope.h"
 #include <regex>
 #include <boost/algorithm/string.hpp>
 #include <memory>
-
+#include "frameobject.h"
+#include "mldb/sql/builtin_functions.h"
 
 using namespace std;
 
@@ -25,197 +27,287 @@ namespace fs = std::filesystem;
 
 namespace MLDB {
 
-/****************************************************************************/
-/* PythonSubinterpreter                                                     */
-/****************************************************************************/
-
-std::mutex PythonSubinterpreter::youShallNotPassMutex;
-
-PythonSubinterpreter::
-PythonSubinterpreter(bool isChild) : isChild(isChild)
+MldbPythonInterpreter::
+MldbPythonInterpreter(MldbEngine * engine)
 {
-    if(!isChild) {
-        lock = std::unique_ptr<std::lock_guard<std::mutex>>(
-                new std::lock_guard<std::mutex>(PythonSubinterpreter::youShallNotPassMutex));
+    auto enterThread = mainThread().enter();
+    injectMldbWrapper(*enterThread);
+    injectOutputLoggingCode(*enterThread);
+    //cerr << "done constructing MldbPythonInterpreter" << endl;
+}
+
+MldbPythonInterpreter::
+~MldbPythonInterpreter()
+{
+}
+
+void
+MldbPythonInterpreter::
+destroy()
+{
+#if 0
+    {
+        auto enterThread = mainThread().enter();
+        
+        // Uninstall the output logging, since it causes problems when
+        // called from the interpreter shutdown
+        
+        PyObject * oldstdout = PySys_GetObject("oldStdOut");  // borrowed
+        if (oldstdout) {
+            PySys_SetObject("stdout", oldstdout);
+        }
+        
+        PyObject * oldstderr = PySys_GetObject("oldStdErr");  // borrowed
+        if (oldstderr) {
+            PySys_SetObject("stderr", oldstderr);
+        }
     }
-
-    // acquire gilles
-    PyEval_AcquireLock();
-    hasGil = true;
-
-    // Create the sub interpreter
-    interpState = Py_NewInterpreter();
-    threadState = PyThreadState_New(interpState->interp);
-
-    // change current thread state
-    savedThreadState = PyThreadState_Swap(threadState);
-
-    main_module = boost::python::import("__main__");
-    main_namespace = main_module.attr("__dict__");
-
-    injectOutputLoggingCode();
-}
-
-PythonSubinterpreter::
-~PythonSubinterpreter()
-{
-    acquireGil();
-
-
-    PyThreadState_Clear(threadState);
-
-    // release thread state
-    PyThreadState_Swap(NULL);
-    PyThreadState_Delete(threadState);
-
-    // destroy the interpreter
-    PyThreadState_Swap(interpState);
-    Py_EndInterpreter(interpState);
-
-    PyThreadState_Swap(savedThreadState);
-
-    // release gilles
-    PyEval_ReleaseLock();
-}
-
-void PythonSubinterpreter::
-acquireGil()
-{
-    if(hasGil) return;
-
-    // acquire gilles
-    PyEval_AcquireLock();
-    hasGil = true;
-
-    // change current thread state
-    PyThreadState_Swap(threadState);
-}
-
-void PythonSubinterpreter::
-releaseGil()
-{
-    if(!hasGil) return;
-
-    // release thread state
-    PyThreadState_Swap(NULL);
-
-    // release gilles
-    PyEval_ReleaseLock();
-    hasGil = false;
+#endif
+    
+    PythonInterpreter::destroy();
 }
 
 ScriptException
-convertException(PythonSubinterpreter & pyControl,
-        const boost::python::error_already_set & exc2,
-        const std::string & context)
+MldbPythonInterpreter::
+convertException(const EnterThreadToken & threadToken,
+                 const boost::python::error_already_set & exc2,
+                 const std::string & context)
 {
-    using namespace boost::python;
-    using namespace boost;
+    try {
+        PyFrameObject* frame = PyEval_GetFrame();
 
-    pyControl.acquireGil();
+        PyThreadState *tstate = PyThreadState_GET();
 
-    PyObject *exc,*val,*tb;
-    object formatted_list, formatted;
-    PyErr_Fetch(&exc,&val,&tb);
-    handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb));
-    object traceback(import("traceback"));
-
-    ScriptException result;
-
-    if(htb) {
-        object tbb(htb);
-        result.lineNumber = extract<long>(tbb.attr("tb_lineno"));
-    }
-
-    // why is this not always working? for plugins it doesn't look like it is...
-    if(val && PyUnicode_Check(val))
-        result.message = Utf8String(extract<string>(val));
-
-    if (!tb) {
-        object format_exception_only(traceback.attr("format_exception_only"));
-        formatted_list = format_exception_only(hexc,hval);
-    } else {
-        object format_exception(traceback.attr("format_exception"));
-        formatted_list = format_exception(hexc,hval,htb);
-    }
-
-    boost::python::ssize_t n = boost::python::len(formatted_list);
-    result.stack.reserve(n);
-
-    for (boost::python::ssize_t i = 0; i < n; ++i) {
-        string str = extract<string>(formatted_list[i])();
-        ScriptStackFrame frame;
-        frame.where = str;
-        result.stack.push_back(frame);
-    }
-
-    // TODO. this is a pretty horrible hack to get the line number of a syntax error exception
-    // for some reason the usual way to get the info does not work for that specific exception
-    // should revisit this
-    if(result.lineNumber == -1 && result.stack.size() == 1 &&
-       boost::starts_with(result.stack[0].where.rawString(), "SyntaxError")) {
-
-        // SyntaxError: ('invalid syntax', ('<string>', 2, 3, 'a b\\n'))
-        static std::regex pattern("SyntaxError: \\('invalid syntax', \\('.*', ([\\d]+), ([\\d]+), '(.*)'\\)\\)\n");
-
-        std::smatch what;
-        if(std::regex_match(result.stack[0].where.rawString(),
-                            what, pattern /*, std::match_extra redundant?*/)) {
-            result.lineNumber = std::stoi(what[1]);
-            result.columnStart = std::stoi(what[2]);
-            result.lineContents = what[3];
+        //cerr << "tstate = " << tstate << endl;
+    
+        if (NULL != tstate && NULL != tstate->frame) {
+            frame = tstate->frame;
         }
+    
+        //cerr << "frame is " << frame << endl;
+        
+        ScriptException result;
+
+        using namespace boost::python;
+        using namespace boost;
+
+        PyObject *exc,*val,*tb;
+        object formatted_list, formatted;
+        PyErr_Fetch(&exc,&val,&tb);
+
+        if(val && PyUnicode_Check(val)) {
+            result.message = Utf8String(extract<string>(val));
+        }
+
+        PyErr_NormalizeException(&exc, &val, &tb);
+
+        handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb));
+        object traceback(import("traceback"));
+
+        // Attempt to extract the type name
+        {
+            PyObject * repr = PyObject_Repr(exc);
+            Scope_Exit(Py_DECREF(repr));
+            cerr << "type is " << PyUnicode_AsUTF8(repr) << endl;
+            std::string reprUtf8 = PyUnicode_AsUTF8(repr);
+        
+            static std::regex typePattern("<class '(.*)'>");
+            std::smatch what;
+            if (std::regex_match(reprUtf8, what, typePattern)) {
+                result.type = what[1];
+            }
+        }        
+
+        if (val) {
+            PyObject * repr = PyObject_Repr(val);
+            Scope_Exit(Py_DECREF(repr));
+            cerr << "val is " << PyUnicode_AsUTF8(repr) << endl;
+
+            PyObject * str = PyObject_Str(val);
+            Scope_Exit(Py_DECREF(str));
+            cerr << "str is " << PyUnicode_AsUTF8(str) << endl;
+            
+        }
+        
+
+        cerr << "exception has " << exc << ", " << val << ", " << tb << endl;
+
+        //cerr << std::string(extract<std::string>(object(hexc))) << endl;
+    
+        // why is this not always working? for plugins it doesn't look like it is...
+        if(val && PyUnicode_Check(val)) {
+            result.message = Utf8String(extract<string>(val));
+        }
+        else if (val) {
+            PyObject * str = PyObject_Str(val);
+            Scope_Exit(Py_DECREF(str));
+            result.message = PyUnicode_AsUTF8(str);
+        }
+            
+
+#if 0
+        if (!tb) {
+            object format_exception_only(traceback.attr("format_exception_only"));
+            formatted_list = format_exception_only(hexc,hval);
+        } else {
+            object format_exception(traceback.attr("format_exception"));
+            formatted_list = format_exception(hexc,hval,htb);
+        }
+#endif
+        
+        if(htb) {
+            object tbb(htb);
+            result.lineNumber = extract<long>(tbb.attr("tb_lineno"));
+#if 1
+            PyTracebackObject * ptb = (PyTracebackObject*)tb;
+            while (ptb) {
+                auto frame = ptb->tb_frame;
+                long lineno = PyFrame_GetLineNumber(frame);
+                PyObject *filename = frame->f_code->co_filename;
+                const char * fn = PyUnicode_AsUTF8(filename);
+                const char * func = PyUnicode_AsUTF8(frame->f_code->co_name);
+                cerr
+                    << "filename " << fn
+                    << " line " << lineno
+                    << " func " << func
+                    << endl;
+
+                ScriptStackFrame sframe;
+                sframe.scriptUri = fn;
+                sframe.functionName = func;
+                sframe.lineNumber = lineno;
+                sframe.where = Utf8String("File \"") + fn + "\", line "
+                    + std::to_string(lineno) + ", in " + func;
+                result.stack.push_back(sframe);
+                
+                ptb = ptb->tb_next;
+            }
+#endif
+        }
+
+#if 0        
+        boost::python::ssize_t n = boost::python::len(formatted_list);
+        result.stack.reserve(n);
+
+        std::vector<std::string> lines;
+        lines.reserve(n);
+        
+        for (boost::python::ssize_t i = 0; i < n; ++i) {
+            string str = extract<string>(formatted_list[i])();
+            if (!str.empty() && str[str.size() -1] == '\n') {
+                str = string(str, 0, str.size() - 1);
+            }
+            if (!str.empty() && str[str.size() -1] == '\r') {
+                str = string(str, 0, str.size() - 1);
+            }
+            lines.emplace_back(std::move(str));
+        }
+
+        if (result.message.empty() && !lines.empty()) {
+            result.message = lines.back();
+        }
+#endif
+        
+        if (result.type == "SyntaxError" && hval) {
+            // Extra fixups required
+            object oval(hval);
+            result.lineNumber = boost::python::extract<long>(oval.attr("lineno"));
+            result.scriptUri = boost::python::extract<std::string>(oval.attr("filename"));
+            result.lineContents = boost::python::extract<std::string>(oval.attr("text"));
+            result.columnStart = boost::python::extract<long>(oval.attr("offset"));
+            PyObject * str = PyObject_Str(val);
+            Scope_Exit(Py_DECREF(str));
+            result.message = PyUnicode_AsUTF8(str);
+        }
+        else if (!result.stack.empty()) {
+            result.where = result.stack.back().where;
+            result.scriptUri = result.stack.back().scriptUri;
+            result.lineNumber = result.stack.back().lineNumber;
+            result.columnStart = result.stack.back().columnStart;
+        }
+        
+#if 0        
+        // Extract our 
+        if (result.message.rawString().find("SyntaxError") == 0) {
+            // ...
+        }
+        else {
+            for (auto & l: lines) {
+                ScriptStackFrame frame;
+                frame.where = l;
+                result.stack.push_back(frame);
+            }
+        }
+#endif
+        
+#if 0        
+        // TODO. this is a pretty horrible hack to get the line number of a syntax error exception
+        // for some reason the usual way to get the info does not work for that specific exception
+        // should revisit this
+        if(result.lineNumber == -1 && result.stack.size() == 1 &&
+           boost::starts_with(result.stack[0].where.rawString(), "SyntaxError")) {
+
+            // SyntaxError: ('invalid syntax', ('<string>', 2, 3, 'a b\\n'))
+            static std::regex pattern("SyntaxError: \\('invalid syntax', \\('.*', ([\\d]+), ([\\d]+), '(.*)'\\)\\)\n");
+
+            std::smatch what;
+            if(std::regex_match(result.stack[0].where.rawString(),
+                                what, pattern /*, std::match_extra redundant?*/)) {
+                result.lineNumber = std::stoi(what[1]);
+                result.columnStart = std::stoi(what[2]);
+                result.lineContents = what[3];
+            }
+        }
+#endif
+        
+        result.context = {context};
+
+        return result;
+    } catch (const boost::python::error_already_set & exc) {
+        PyErr_Print();
+        throw;
     }
-
-    result.context = {context};
-
-    return result;
-
 }
 
+
+/*****************************************************************************/
+/* PYTHON MLDB WRAPPER                                                       */
+/*****************************************************************************/
+extern "C" {
+    extern const char mldb_wrapper_start;
+    extern const char mldb_wrapper_end;
+    extern const size_t mldb_wrapper_size;
+};
+
+void
+MldbPythonInterpreter::
+injectMldbWrapper(const EnterThreadToken & threadToken)
+{
+    static const Utf8String
+        code(std::string(&mldb_wrapper_start, &mldb_wrapper_end));
+    boost::python::object out
+        = PythonThread::exec(threadToken, code,
+                             "mldb_wrapper.py",
+                             this->main_namespace);
+}
 
 /*****************************************************************************/
 /* PYTHON STDOUT/ERR EXTRACTION CODE                                         */
 /*****************************************************************************/
 
-void injectOutputLoggingCode()
+extern "C" {
+    extern const char output_logging_start;
+    extern const char output_logging_end;
+    extern const size_t output_logging_size;
+};
+
+void
+MldbPythonInterpreter::
+injectOutputLoggingCode(const EnterThreadToken & threadToken)
 {
-    std::string stdOutErr = R"foo(
-class CatchOutContainer:
-    def __init__(self):
-        import json as _json
-        self._json = _json
-
-        import datetime as _datetime
-        self._datetime = _datetime
-
-        self.value = []
-    def write(self, txt, method):
-        if len(txt.strip()) == 0: return    # ignore whitespaces
-        self.value.append(self._json.dumps(
-                    [self._datetime.datetime.now().isoformat(), method, txt]))
-
-class CatchOutErr:
-    def __init__(self, catchOut, method):
-        self.catchOut=catchOut
-        self.method=method
-    def write(self, txt):
-        self.catchOut.write(txt, self.method)
-    def flush(self):
-        pass
-
-
-catchOut = CatchOutContainer()
-catctOutErr = CatchOutErr(catchOut, "stderr")
-catctOutOut = CatchOutErr(catchOut, "stdout")
-
-import sys as _sys
-_sys.stdout = catctOutOut
-_sys.stderr = catctOutErr
-
-)foo"; //this is python code to redirect stdouts/stderr
-
-    int res = PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
+    static const Utf8String
+        code(std::string(&output_logging_start, &output_logging_end));
+    int res = PyRun_SimpleString(code.rawData()); //invoke code to redirect
     if (res) {
         PyErr_Print(); //make python print any errors, unfortunately to console
         throw AnnotatedException
@@ -225,20 +317,20 @@ _sys.stderr = catctOutErr
     }
 }
 
-void getOutputFromPy(PythonSubinterpreter & pyControl,
-                     ScriptOutput & result,
-                     bool reset)
+void
+MldbPythonInterpreter::
+getOutputFromPy(const EnterThreadToken & threadToken,
+                ScriptOutput & result,
+                bool reset)
 {
-    pyControl.acquireGil();
-
-    PyObject *outCatcher = PyObject_GetAttrString(pyControl.main_module.ptr(),"catchOut"); //get our catchOutErr created above
+    PyObject *outCatcher = PyObject_GetAttrString(main_module.ptr(),"catchOut"); //get our catchOutErr created above
 
     // Until we figure out WTF is going on here...
     if (!outCatcher) {
+        return; //... TODO: this is a hack for testing, must be removed
         throw AnnotatedException
             (500, "Couldn't extract output from injected Python code.  Look for "
              "an earlier error message on the console.");
-        return;
     }
     
     PyErr_Print(); //make python print any errors
@@ -271,24 +363,205 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
     // reset logging code
     if(reset) {
-        injectOutputLoggingCode();
+        injectOutputLoggingCode(threadToken);
     }
-
 };
 
-ScriptOutput exceptionToScriptOutput(PythonSubinterpreter & pyControl,
-                                           ScriptException & exc,
-                                           const string & context)
+ScriptOutput
+MldbPythonInterpreter::
+exceptionToScriptOutput(const EnterThreadToken & thread,
+                        ScriptException & exc,
+                        const string & context)
 {
     ScriptOutput result;
 
     result.exception = std::make_shared<ScriptException>(std::move(exc));
     result.exception->context.push_back(context);
 
-    getOutputFromPy(pyControl, result);
+    getOutputFromPy(thread, result);
 
     return result;
 }
+
+void
+MldbPythonInterpreter::
+runPythonScript(const EnterThreadToken & threadToken,
+                std::shared_ptr<PythonContext> pyCtx,
+                PackageElement elementToRun,
+                bool useLocals,
+                bool mustProvideOutput,
+                ScriptOutput * output)
+{
+    RestRequest request;
+    RestRequestParsingContext context(request);
+    auto connection = InProcessRestConnection::create();
+    
+    runPythonScript(threadToken, pyCtx, elementToRun,
+                    request, context,
+                    *connection, useLocals, mustProvideOutput, output);
+
+    connection->waitForResponse();
+}
+
+void
+MldbPythonInterpreter::
+runPythonScript(const EnterThreadToken & threadToken,
+                std::shared_ptr<PythonContext> pyCtx,
+                PackageElement elementToRun,
+                const RestRequest & request,
+                RestRequestParsingContext & context,
+                RestConnection & connection_,
+                bool useLocals,
+                bool mustProvideOutput,
+                ScriptOutput * output)
+{
+    ScriptOutput result;
+
+#if 0    
+    // We need to capture an asynchronous version of the rest connection
+    // as the Python object here may outlive the connection.
+    auto onDisconnect = [] ()
+        {
+            // ... later we can make this trigger an optional callback
+        };
+#endif
+
+    // Get a version of the connection that can outlive this function, in
+    // case the Python code puts it somewhere outside of local scope
+    std::shared_ptr<RestConnection> connection
+        (&connection_, [] (RestConnection *) {});
+
+    // TODO: this will crash if the user captures outside of local scope.
+    // Once we're ready, we can capture the connection to keep it available.
+    // = connection_.capture(onDisconnect);
+    
+    try {
+        bool isScript
+            = pyCtx->pluginResource->scriptType
+            == LoadedPluginResource::ScriptType::SCRIPT;
+
+        auto mldbPyCtx = std::make_shared<MldbPythonContext>();
+
+        // Perform a downcast depending upon the context
+        if(isScript) {
+            mldbPyCtx->setScript(static_pointer_cast<PythonScriptContext>(pyCtx));
+        }
+        else {
+            mldbPyCtx->setPlugin(static_pointer_cast<PythonPluginContext>(pyCtx));
+        }
+
+        Utf8String scriptSource = pyCtx->pluginResource->getScript(elementToRun);
+        Utf8String scriptUri = pyCtx->pluginResource->getScriptUri(elementToRun);
+        auto pyRestRequest
+            = std::make_shared<PythonRestRequest>(request, context, connection);
+
+        main_namespace["mldb"]
+            = boost::python::object(boost::python::ptr(mldbPyCtx.get()));
+        main_namespace["request"]
+            = boost::python::object(boost::python::ptr(pyRestRequest.get()));
+
+        boost::python::dict locals;
+
+        if (useLocals) {
+            auto keys = boost::python::dict(main_namespace).keys();
+            for (size_t i = 0;  i < boost::python::len(keys);  ++i) {
+                const auto & key = keys[i];
+                locals[key] = main_namespace[key];
+            }
+            
+            locals["mldb"]
+                = boost::python::object(boost::python::ptr(mldbPyCtx.get()));
+            locals["request"]
+                = boost::python::object(boost::python::ptr(pyRestRequest.get()));
+        }
+    
+        {
+            PyObject * repr = PyObject_Repr(locals.ptr());
+            Scope_Exit(Py_DECREF(repr));
+            //cerr << "locals repr is " << PyUnicode_AsUTF8(repr) << endl;
+        }
+        
+        // if we're simply executing the body of the script
+        //cerr << "running main" << endl;
+        //cerr << "must provide output " << mustProvideOutput << endl;
+        MLDB_TRACE_EXCEPTIONS(false);
+        
+        boost::python::object obj =
+            PythonThread
+            ::exec(threadToken,
+                   scriptSource,
+                   scriptUri,
+                   main_namespace,
+                   useLocals ? locals: boost::python::object());
+        
+        getOutputFromPy(threadToken, result);
+
+        result.result = std::move(pyRestRequest->returnValue);
+
+        if (pyRestRequest->returnCode <= 0) {
+            if (mustProvideOutput) {
+                throw AnnotatedException
+                    (500,
+                     "Return value is required but not set");
+            }
+            else {
+                pyRestRequest->returnCode = 200;
+            }
+        }
+        
+        result.setReturnCode(pyRestRequest->returnCode);
+
+        //cerr << "running with isScript = " << isScript << endl;
+        if (isScript) {
+            auto scriptCtx = static_pointer_cast<PythonScriptContext>(pyCtx);
+
+
+            //cerr << "result.result = " << result.result << endl;
+            //cerr << "pyRestRequest->returnValue = " << pyRestRequest->returnValue;
+            //cerr << "pyRestRequest at " << pyRestRequest.get() << endl;
+            
+            // Copy log messages over
+            for (auto & l: scriptCtx->logs) {
+                result.logs.emplace_back(std::move(l));
+            }
+            std::stable_sort(result.logs.begin(), result.logs.end());
+
+            //cerr << "sending script result " << jsonEncode(result) << endl;
+            
+            connection->sendResponse(result.getReturnCode(),
+                                     jsonEncode(result));
+
+            //cerr << "done sending result" << endl;
+        }
+        else {
+            connection->sendResponse(result.getReturnCode(),
+                                     jsonEncode(result.result));
+        }
+    }
+    catch (const boost::python::error_already_set & exc) {
+        ScriptException pyexc
+            = convertException(threadToken, exc,
+                               "Running python script");
+
+        {
+            std::unique_lock<std::mutex> guard(pyCtx->logMutex);
+            LOG(pyCtx->loader) << jsonEncode(pyexc) << endl;
+        }
+
+        getOutputFromPy(threadToken, result);
+        result.exception = std::make_shared<ScriptException>(std::move(pyexc));
+        result.exception->context.push_back("Executing Python script");
+        result.setReturnCode(400);
+
+        connection->sendResponse(result.getReturnCode(),
+                                 jsonEncode(result));
+    }
+
+    if (output) {
+        *output = std::move(result);
+    }
+}
+
 
 /****************************************************************************/
 /* PythonRestRequest                                                        */
@@ -296,7 +569,8 @@ ScriptOutput exceptionToScriptOutput(PythonSubinterpreter & pyControl,
 
 PythonRestRequest::
 PythonRestRequest(const RestRequest & request,
-                  RestRequestParsingContext & context)
+                  RestRequestParsingContext & context,
+                  std::shared_ptr<RestConnection> connection)
 {
     remaining = context.remaining;
     verb = request.verb;
@@ -316,6 +590,29 @@ PythonRestRequest(const RestRequest & request,
             it != request.header.headers.end(); it++) {
         headers[it->first] = it->second;
     }
+
+    this->connection = std::move(connection);
+}
+
+void
+PythonRestRequest::
+setReturnValue(const Json::Value & rtnVal, unsigned returnCode)
+{
+    //cerr << "setting return value " << rtnVal << ", " << returnCode << endl;
+    this->returnValue = rtnVal;
+    this->returnCode = returnCode;
+
+    //cerr << "this->returnValue = " << rtnVal << endl;
+    //cerr << "this = " << this << endl;
+
+    //connection->sendResponse(returnCode, rtnVal);
+}
+
+void
+PythonRestRequest::
+setReturnValue1(const Json::Value & rtnVal)
+{
+    setReturnValue(rtnVal, 200);
 }
 
 
@@ -367,44 +664,23 @@ perform(MldbPythonContext * mldbCon,
         header.headers.insert({h.first.toLower().extractAscii(), h.second.extractAscii()});
 
     RestRequest request(header, payload.toString());
-    InProcessRestConnection connection;
+    auto connection = InProcessRestConnection::create();
 
-    // add magic token to notify the receiver that this is a child call
-    if(resource.find("/plugins/") != std::string::npos) {
-        // if it's a python plugin creation call
-        if(payload.get("type", Json::Value()).asString() == "python") {
-            auto confParams = payload.get("params", Json::Value());
-            auto argsParams = confParams.get("args", Json::Value());
-            argsParams["__mldb_child_call"] = "true";
-            confParams["args"] = argsParams;
-            payload["params"] = confParams;
-            request.payload = payload.toString();
-        }
-        else {
-            request.header.headers.insert(make_pair("__mldb_child_call", "true"));
-        }
+    {
+        auto noGil = releaseGil();
+        mldbCon->getPyContext()->engine->handleRequest(*connection, request);
     }
 
-
-    // save current thread state and release lock
-    PyThreadState* threadState = PyThreadState_Get();
-    PyThreadState_Swap(NULL);
-    PyEval_ReleaseLock();
-
-    mldbCon->getPyContext()->engine->handleRequest(connection, request);
-
-    // relock and restore thread state
-    PyEval_AcquireLock();
-    PyThreadState_Swap(threadState);
-
+    connection->waitForResponse();
+    
     Json::Value result;
-    result["statusCode"] = connection.responseCode;
+    result["statusCode"] = connection->responseCode();
 
-    if (!connection.contentType.empty())
-        result["contentType"] = connection.contentType;
-    if (!connection.headers.empty()) {
+    if (!connection->contentType().empty())
+        result["contentType"] = connection->contentType();
+    if (!connection->headers().empty()) {
         Json::Value headers(Json::ValueType::arrayValue);
-        for(const pair<Utf8String, Utf8String> & h : connection.headers) {
+        for(const pair<Utf8String, Utf8String> & h : connection->headers()) {
             Json::Value elem(Json::ValueType::arrayValue);
             elem.append(h.first);
             elem.append(h.second);
@@ -412,8 +688,8 @@ perform(MldbPythonContext * mldbCon,
         }
         result["headers"] = headers;
     }
-    if (!connection.response.empty())
-        result["response"] = connection.response;
+    if (!connection->response().empty())
+        result["response"] = connection->response();
 
     return result;
 }
@@ -492,10 +768,12 @@ getHttpBoundAddress(MldbPythonContext * mldbCon)
 void PythonContext::
 log(const std::string & message)
 {
+    //cerr << "Python logging to " << categoryName << " message "
+    //     << message << " into context "
+    //     << this << " with magic " << magic << endl;
     LOG(category) << message << endl;
     logs.emplace_back(Date::now(), "log", Utf8String(message));
 }
-
 
 Json::Value PythonContext::
 getArgs() const
@@ -503,6 +781,7 @@ getArgs() const
     return jsonEncode(pluginResource->args);
 }
 
+#if 0
 void PythonContext::
 setReturnValue(const Json::Value & rtn, unsigned returnCode)
 {
@@ -524,6 +803,8 @@ resetReturnValue()
 {
     rtnCode = 0;
 }
+#endif
+
 
 /****************************************************************************/
 /* PYTHON PLUGIN CONTEXT                                                    */
@@ -586,13 +867,14 @@ getPluginDirectory() const
     return pluginResource->getPluginDir().string();
 }
 
+#if 0
 std::shared_ptr<PythonRestRequest> PythonPluginContext::
 getRestRequest() const
 {
     if(!restRequest) cout << "WANRING!! got restRequest pointer but it is nullz!" << endl;
     return restRequest;
 }
-
+#endif
 
 /****************************************************************************/
 /* MLDB PYTHON CONTEXT                                                      */
@@ -692,6 +974,19 @@ setPathOptimizationLevel(const std::string & val)
     OptimizedPath::setDefault(level);
 }
 
+BoundFunction make_interpreter(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 0);
+
+    return {[] (const std::vector<ExpressionValue> & args,
+                const SqlRowScope & scope) -> ExpressionValue
+            {
+                MldbPythonInterpreter interpreter(nullptr);
+                return ExpressionValue("success", Date::now());
+            },
+            std::make_shared<StringValueInfo>()};
+}
+
+static Builtins::RegisterBuiltin registerMakeInterpreter(make_interpreter, "make_interpreter");
+
 } // namespace MLDB
-
-

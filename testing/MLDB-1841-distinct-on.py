@@ -222,4 +222,4 @@ class DistinctOnTest(MldbUnitTest):
         self.assertEqual(res, expected)
 
 
-mldb.run_tests()
+request.set_return(mldb.run_tests())

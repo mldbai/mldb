@@ -80,4 +80,4 @@ for format in formats:
     compare_json(rows1, rows2, format)
     compare_json(rows2, rows3, format)
 
-mldb.script.set_return('success')
+request.set_return('success')

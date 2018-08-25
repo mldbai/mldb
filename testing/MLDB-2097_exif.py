@@ -119,7 +119,7 @@ class Mldb2097Test(MldbUnitTest):  # noqa
         self.assertEqual(num_images, 12)
 
     def test_problematic_images(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                 'EXIF extraction requires that an atomic value of type BLOB'):
             rez = mldb.query("""
                 SELECT parse_exif(fetcher('file://patate')[content]) as *
@@ -208,4 +208,4 @@ class Mldb2097Test(MldbUnitTest):  # noqa
             ]])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

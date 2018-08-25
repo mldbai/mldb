@@ -67,4 +67,4 @@ score2 = jsResp["output"]["prob"]
 
 assert score1 < score2, "score ordering"
 
-mldb.script.set_return("success")
+request.set_return("success")

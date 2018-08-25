@@ -15,4 +15,4 @@ ds.commit()
 
 mldb.log(mldb.get('/v1/datasets/ds/columns').json())
 
-mldb.script.set_return("success")
+request.set_return("success")

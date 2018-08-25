@@ -42,7 +42,7 @@ class TokenizeTest(MldbUnitTest):  # noqa
     def test_splitChars(self):
         result = mldb.get(
             '/v1/query',
-            q=u"SELECT tokenize('a b c a', {' …' AS splitChars}) AS tokens")
+            q="SELECT tokenize('a b c a', {' …' AS splitChars}) AS tokens")
         self.find_column(result, 'tokens.a', 2)
         self.find_column(result, 'tokens.c', 1)
         self.find_column(result, 'tokens.b', 1)
@@ -51,7 +51,7 @@ class TokenizeTest(MldbUnitTest):  # noqa
         mldb.post('/v1/procedures', {
             'type': 'transform',
             'params': {
-                'inputData': u"""
+                'inputData': """
                     SELECT
                         tokenize(
                             'abouyayaa adsf 2 ; sdv, sdf',
@@ -139,12 +139,11 @@ class TokenizeTest(MldbUnitTest):  # noqa
     def test_tokenize_utf8(self):
         result = mldb.get(
             '/v1/query',
-            q=unicode("SELECT tokenize('à,bay,ç,day') AS tokens",
-                      encoding='utf-8'))
-        self.find_column(result, unicode('tokens.à', encoding='utf-8'), 1)
-        self.find_column(result, unicode('tokens.bay', encoding='utf-8'), 1)
-        self.find_column(result, unicode('tokens.ç', encoding='utf-8'), 1)
-        self.find_column(result, unicode('tokens.day', encoding='utf-8'), 1)
+            q=str("SELECT tokenize('à,bay,ç,day') AS tokens"))
+        self.find_column(result, str('tokens.à'), 1)
+        self.find_column(result, str('tokens.bay'), 1)
+        self.find_column(result, str('tokens.ç'), 1)
+        self.find_column(result, str('tokens.day'), 1)
 
     def test_tokenize_legacy_args(self):
         self.assertTableResultEquals(
@@ -226,4 +225,4 @@ class TokenizeTest(MldbUnitTest):  # noqa
         }])
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

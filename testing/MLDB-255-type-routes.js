@@ -36,7 +36,7 @@ if (output.responseCode < 400)
     throw "Expected 400 return code from script with runtime error";
 
 // Try it in Python
-var script2 = { source: "mldb.script.set_return('hello, world from python')" };
+var script2 = { source: "request.set_return('hello, world from python')" };
 
 var output = mldb.perform("POST", "/v1/types/plugins/python/routes/run",
                           [], script2);

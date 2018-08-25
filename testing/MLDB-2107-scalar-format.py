@@ -33,12 +33,12 @@ class MLDB2107ScalarFormatTest(MldbUnitTest):  # noqa
 
     def test_error_columns(self):
         msg = "Query with atom format returned multiple columns"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             n = mldb.get('/v1/query', q="select x,y from (select false as x, 1 as y)", format='atom').json()
 
     def test_error_rows(self):
         msg = "Query with atom format returning multiple rows"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             n = mldb.get('/v1/query', q="select x from ds", format='atom').json()
 
     def test_multiple_rows_limit(self):
@@ -47,13 +47,13 @@ class MLDB2107ScalarFormatTest(MldbUnitTest):  # noqa
 
     def test_error_no_rows(self):
         msg = "Query with atom format returned no rows."
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             n = mldb.get('/v1/query', q="select x from ds where x = 'patate'", format='atom').json()
 
     def test_error_no_column(self):
         msg = "Query with atom format returned no column"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             n = mldb.get('/v1/query', q="select COLUMN EXPR (WHERE columnName() IN ('Z')) from (select 17 as x)", format='atom').json()
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

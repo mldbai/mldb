@@ -52,4 +52,4 @@ for mutable_dataset in mutable_datasets:
     for timestamp, quantum, expected, msg  in test_samples:
         check_equality(create_dataset_and_query(mutable_dataset, timestamp, quantum), expected, msg)
 
-mldb.script.set_return("success")
+request.set_return("success")

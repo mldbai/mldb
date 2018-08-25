@@ -37,4 +37,4 @@ class PushNonPrintableCharCantReadTest(MldbUnitTest):  # noqa
         mldb.log(mldb.query("SELECT * FROM ds3"))
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

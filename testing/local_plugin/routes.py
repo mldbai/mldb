@@ -2,11 +2,11 @@
 
 import mylib
 
-print "Handling route in python"
+print("Handling route in python")
 
-rp = mldb.plugin.rest_params
+rp = request
 if rp.verb == "GET" and rp.remaining == "/func":
-    mldb.plugin.set_return({"value": mylib.myFunc(mldb)})
+    request.set_return({"value": mylib.myFunc(mldb)})
 
 mldb.log("nothing!!!")
 

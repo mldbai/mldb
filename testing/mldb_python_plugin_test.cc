@@ -45,6 +45,8 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
     scriptConfig["address"] = "file://mldb/testing/python_script_test1.py";
 
     auto output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
+    cerr << output.jsonBody();
+
     BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     // Check with more than 65k in the script
@@ -56,19 +58,20 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
     // Check python script with error
     scriptConfig["address"] = "";
     scriptConfig["source"] = R"foo(
-print "hoho"
-print datetime.datetime.datime.now()
+print("hoho")
+print(datetime.datetime.datime.now())
 )foo";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     BOOST_REQUIRE_EQUAL(output.code(), 400);
     cout << output << endl;
     auto jsonOutput = output.jsonBody();
+    cout << jsonOutput << endl;
     auto excp = jsonOutput["exception"];
     cout << jsonOutput.toStyledString() << endl;
     BOOST_REQUIRE_EQUAL(excp["message"].asString(), "name 'datetime' is not defined");
     BOOST_REQUIRE_EQUAL(excp["lineNumber"].asInt(), 3);
-    BOOST_REQUIRE_EQUAL(excp["stack"].size(), 3);
-    BOOST_REQUIRE_EQUAL(excp["stack"][0]["where"].asString().find("Traceback"), 0);
+    BOOST_REQUIRE_EQUAL(excp["stack"].size(), 1);
+    BOOST_REQUIRE_EQUAL(excp["stack"][0]["where"].asString().find("File \"/main.py\", line 3, in <module>"), 0);
     // make sure we're getting cout
     BOOST_REQUIRE_EQUAL(jsonOutput["logs"][0]["c"].asString(), "hoho");
 
@@ -109,8 +112,7 @@ a b
     jsonOutput = output.jsonBody();
     excp = jsonOutput["exception"];
     BOOST_REQUIRE_EQUAL(excp["lineNumber"].asInt(), 2);
-    BOOST_REQUIRE_EQUAL(excp["stack"].size(), 1);
-    BOOST_REQUIRE_EQUAL(excp["stack"][0]["where"].asString().find("Syntax"), 0);
+    BOOST_REQUIRE_EQUAL(excp["type"].asString(), "SyntaxError");
 
 
 
@@ -118,16 +120,21 @@ a b
     // Check python script's return values and argument passing. the script will return what
     // is passed in as an argument
     scriptConfig["source"] = "";
-    scriptConfig["address"] = "gist://gist.github.com/mailletf/24fa95ccf5b3b679345b";
+    scriptConfig["address"] = "gist://gist.github.com/jeremybarnes/6f4da84e6bb50a1c510629308c76d7e8";
         
     Json::Value args;
     args["a"] = 5;
     scriptConfig["args"] = args;
 
+    cerr << "running script" << endl;
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
-    cout << output << endl;
+    cerr << "output is " << output << endl;
+    cerr << "output json is " << output.jsonBody();
+    cerr << "testing logs" << endl;
     BOOST_REQUIRE_EQUAL(output.jsonBody()["logs"][0]["c"].asString(), "hoho");
+    cerr << "testing result" << endl;
     BOOST_REQUIRE_EQUAL(output.jsonBody()["result"]["a"].asInt(), 5);
+    cerr << "testing code" << endl;
     BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     scriptConfig["args"] = Json::Value(5);
@@ -138,7 +145,7 @@ a b
     BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     // try the same as before but getting the file from http
-    scriptConfig["address"] = "https://gist.githubusercontent.com/mailletf/24fa95ccf5b3b679345b/raw/144930ac7a9cd20478e7ce37139916872928e4c0/main.py";
+    scriptConfig["address"] = "http://gist.githubusercontent.com/jeremybarnes/6f4da84e6bb50a1c510629308c76d7e8/raw/a717b3450e2e45a3d29302861cd589a067fd4e30/main.py";
 
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
@@ -151,7 +158,7 @@ a b
     cout << output << endl;
     BOOST_REQUIRE_EQUAL(output.code(), 400);
     
-    scriptConfig["address"] = "https://gist.githubusercontent.com/mailletf/24fa95ccf5b3b679345b/raw/144930ac7a9cd20478e7ce37139916872928e4c/main55.py";
+    scriptConfig["address"] = "https://gist.githubusercontent.com/jeremybarnes/6f4da84e6bb50a1c510629308c76d7e8/raw/a717b3450e2e45a3d29302861cd589a067fd4e30/main55.py";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
     BOOST_REQUIRE_EQUAL(output.code(), 400);
@@ -160,8 +167,8 @@ a b
     // *****************
     // Check python script does not add extra newlines
     scriptConfig["source"] = R"foo(
-print "a\nb"
-print "a"
+print("a\nb")
+print("a")
 
 )foo";
     scriptConfig["address"] = "";
@@ -196,7 +203,8 @@ print "a"
                                jsonEncode(pluginConfig2));
     cerr << putResult << endl;
     jsPutResult = putResult.jsonBody();
-    BOOST_REQUIRE(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
+    BOOST_REQUIRE_EQUAL(jsPutResult["details"]["exception"]["type"].asString(),
+                        "SyntaxError");
     BOOST_REQUIRE_EQUAL(putResult.code(), 400);
     auto status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin_nocompile").jsonBody());
     cerr << "status = " << jsonEncode(status) << endl;
@@ -210,7 +218,8 @@ print "a"
                                jsonEncode(pluginConfig2));
     cerr << putResult << endl;
     jsPutResult = putResult.jsonBody();
-    BOOST_REQUIRE(jsPutResult["details"]["exception"]["stack"][0]["where"].asString().find("SyntaxError") == 0);
+    BOOST_REQUIRE_EQUAL(jsPutResult["details"]["exception"]["type"].asString(),
+                        "SyntaxError");
     BOOST_REQUIRE_EQUAL(putResult.code(), 400);
     status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/pyplugin_nocompile").jsonBody());
     cerr << "status = " << jsonEncode(status) << endl;
@@ -318,7 +327,7 @@ print "a"
     // **************************
     // cloning plugin from gist that has two files
     // TODO move code to other repo
-    plugRes.address = "gist://gist.github.com/mailletf/acc75d112b35e36aa7b2";
+    plugRes.address = "gist://gist.github.com/jeremybarnes/6c35fa36e4b38307b2ef3ddbbd3ac9a6";
     pluginConfig2.params = plugRes;
 
     putStatus = proxy.put("/v1/plugins/pyplugin_gist_multifile",

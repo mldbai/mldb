@@ -17,10 +17,10 @@ class Mldb1788SelectColAsStarErr(MldbUnitTest):  # noqa
     @unittest.expectedFailure
     def test_it(self):
         msg = 'TO BE DETERMINED'
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg) as exc:
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as exc:
             mldb.query("SELECT col AS * FROM ds")
 
         self.assertEqual(exc.exception.response.status_code, 400)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

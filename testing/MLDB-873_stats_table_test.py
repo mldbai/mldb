@@ -327,4 +327,4 @@ for row in js_rez:
     assert "columns" not in row
 
 
-mldb.script.set_return("success")
+request.set_return("success")

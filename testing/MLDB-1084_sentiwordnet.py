@@ -64,4 +64,4 @@ check_word("bad#a", -0.5706406664316871)
 check_word("blue#a", -0.21950284713096807)
 check_word("blue#n", 0)
 
-mldb.script.set_return("success")
+request.set_return("success")

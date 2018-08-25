@@ -222,4 +222,4 @@ class SvmTest(unittest.TestCase):
         self.assertLess(result.json()[0][0], 5)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

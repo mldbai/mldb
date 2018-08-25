@@ -82,8 +82,8 @@ class Mldb2120ProcedureDeadlock(MldbUnitTest):  # noqa
                 ) WHERE error IS NULL)
         """
         urls = []
-        for it in xrange(300):
-            for idx in xrange(len(files)):
+        for it in range(300):
+            for idx in range(len(files)):
                 res = mldb.put_async('/v1/procedures/proc_{}_{}'.format(it, idx), {
                     'type' : 'transform',
                     'params' : {
@@ -112,4 +112,4 @@ class Mldb2120ProcedureDeadlock(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

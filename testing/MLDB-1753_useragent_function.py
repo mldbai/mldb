@@ -77,7 +77,7 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
                     ]
                 ])
 
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
                                   'Attempt to create a URL without a scheme'):
                 mldb.query("SELECT extract_domain('pwet.com') as c4")
 
@@ -103,4 +103,4 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
 
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

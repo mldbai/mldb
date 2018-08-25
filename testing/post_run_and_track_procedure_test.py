@@ -38,4 +38,4 @@ class PostRunAndTrackProcedureTest(MldbUnitTest):  # noqa
             self.assertGreater(len(fl.records), 0)
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())

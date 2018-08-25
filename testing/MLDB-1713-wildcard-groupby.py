@@ -10,8 +10,8 @@ class MLDB1713WildcardGroupby(MldbUnitTest):  # noqa
 
     def test_wildcard_groupby(self):
         msg = "Wildcard cannot be used with GROUP BY"
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
             mldb.query('select * from (select 1 as a) group by a')
 
 if __name__ == '__main__':
-    mldb.run_tests()
+    request.set_return(mldb.run_tests())
