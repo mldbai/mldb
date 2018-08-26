@@ -2,11 +2,13 @@
 
 PYTHON_INTERPRETER_SOURCES := \
 	python_interpreter.cc \
+	capture_stream.cc \
+
 
 PYTHON_INTERPRETER_LINK := \
 	$(PYTHON_LIBRARY) \
 	boost_python3 \
-	vfs
+	vfs \
 
 $(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
 
@@ -19,8 +21,7 @@ PYTHON_PLUGIN_SOURCES := \
 	python_entities.cc \
 	python_converters.cc \
 	mldb_wrapper.py.embed \
-	output_logging.py.embed \
-	capture_stream.cc
+
 
 PYTHON_PLUGIN_LINK := \
 	value_description \
@@ -28,7 +29,8 @@ PYTHON_PLUGIN_LINK := \
 	boost_python3 \
 	mldb_core \
 	mldb_builtin_base \
-	python_interpreter
+	python_interpreter \
+
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH)))

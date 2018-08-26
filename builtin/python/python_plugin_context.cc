@@ -19,6 +19,7 @@
 #include <memory>
 #include "frameobject.h"
 #include "pointer_fix.h"
+#include "capture_stream.h"
 
 using namespace std;
 
@@ -48,6 +49,11 @@ MldbPythonInterpreter(std::shared_ptr<PythonContext> context)
 MldbPythonInterpreter::
 ~MldbPythonInterpreter()
 {
+    if (stdOutCapture) {
+        cerr << "MldbPythonInterpreter: destroy() not called "
+             << "before destruction after initialization" << endl;
+        abort();
+    }
 }
 
 void
@@ -60,20 +66,8 @@ destroy()
         main_module = boost::python::object();
         main_namespace = boost::python::object();
 
-#if 0
-        // Uninstall the output logging, since it causes problems when
-        // called from the interpreter shutdown as 
-        
-        PyObject * oldstdout = PySys_GetObject("oldStdOut");  // borrowed
-        if (oldstdout) {
-            PySys_SetObject("stdout", oldstdout);
-        }
-        
-        PyObject * oldstderr = PySys_GetObject("oldStdErr");  // borrowed
-        if (oldstderr) {
-            PySys_SetObject("stderr", oldstderr);
-        }
-#endif
+        stdOutCapture.reset();
+        stdErrCapture.reset();
     }
     
     PythonInterpreter::destroy();
@@ -211,25 +205,76 @@ injectMldbWrapper(const EnterThreadToken & threadToken)
 /* PYTHON STDOUT/ERR EXTRACTION CODE                                         */
 /*****************************************************************************/
 
-extern "C" {
-    extern const char output_logging_start;
-    extern const char output_logging_end;
-    extern const size_t output_logging_size;
-};
-
 void
 MldbPythonInterpreter::
 injectOutputLoggingCode(const EnterThreadToken & threadToken)
 {
-    static const Utf8String
-        code(std::string(&output_logging_start, &output_logging_end));
-    int res = PyRun_SimpleString(code.rawData()); //invoke code to redirect
-    if (res) {
-        PyErr_Print(); //make python print any errors, unfortunately to console
-        throw AnnotatedException
-            (500, "Couldn't inject Python code (see error message on console). "
-             "Have you installed python_dependenies (json and datetime) and "
-             "properly set up your virtual environment?");
+    stdOutCapture.reset();
+    stdErrCapture.reset();
+
+    stdOutCapture
+        = setStdStream(threadToken,
+                       [this] (const EnterThreadToken & threadToken,
+                               std::string message)
+                       {
+                           this->logMessage(threadToken, "stdout",
+                                            std::move(message));
+                       },
+                       "stdout");
+    
+    stdErrCapture
+        = setStdStream(threadToken,
+                       [this] (const EnterThreadToken & threadToken,
+                               std::string message)
+                       {
+                           this->logMessage(threadToken, "stderr",
+                                            std::move(message));
+                       },
+                       "stderr");
+}
+
+void
+MldbPythonInterpreter::
+logMessage(const EnterThreadToken & threadToken,
+           const char * stream, std::string message)
+{
+    Date ts = Date::now();
+    
+    BufferState & buffer = buffers[stream];
+
+    // Just a newline?  Flush it out
+    if (message == "\n") {
+        if (!buffer.empty) {
+            logs.emplace_back(buffer.ts, stream, std::move(buffer.message));
+            buffer.message = std::string();
+            buffer.empty = true;
+        }
+        return;
+    }
+
+    // Message with a newline at the end?  Print it including the buffer
+    // contents
+    if (!message.empty() && message[message.length() - 1] == '\n') {
+        message = std::string(message, 0, message.length() - 1);
+        if (!buffer.empty) {
+            message = buffer.message + message;
+            ts = buffer.ts;
+            buffer.empty = true;
+            buffer.message = std::string();
+        }
+
+        logs.emplace_back(ts, stream, std::move(message));
+    }
+    else {
+        // No newline.  Buffer until we get one.
+        if (buffer.empty) {
+            buffer.ts = ts;
+            buffer.message = std::move(message);
+            buffer.empty = false;
+        }
+        else {
+            buffer.message += message;
+        }
     }
 }
 
@@ -239,48 +284,25 @@ getOutputFromPy(const EnterThreadToken & threadToken,
                 ScriptOutput & result,
                 bool reset)
 {
-    PyObject *outCatcher = PyObject_GetAttrString(main_module.ptr(),"catchOut"); //get our catchOutErr created above
+    ExcAssert(reset);
 
-    // Until we figure out WTF is going on here...
-    if (!outCatcher) {
-        return; //... TODO: this is a hack for testing, must be removed
-        throw AnnotatedException
-            (500, "Couldn't extract output from injected Python code.  Look for "
-             "an earlier error message on the console.");
-    }
-    
-    PyErr_Print(); //make python print any errors
-    PyObject *outOutput = PyObject_GetAttrString(outCatcher,"value"); //get the stdout and stderr from our catchOutErr object
-    
-    if(outOutput) {
-        boost::python::list lst = boost::python::extract<boost::python::list>(outOutput);
-        for(int i = 0; i < len(lst); i++) {
-            boost::python::object obj = boost::python::object(lst[i]);
-            if(obj.ptr() == Py_None) continue;
+    // Flush the buffers
+    for (auto & p: buffers) {
+        const auto & stream = p.first;
+        BufferState & buf = p.second;
 
-            auto p = Json::parse(boost::python::extract<std::string>(obj));
-            if(!p.isArray()) continue;
-
-            vector<Utf8String> parts;
-            for(int i=0; i<p.size(); i++)
-                parts.emplace_back(p[i].asString());
-
-            ExcAssertEqual(parts.size(), 3);
-
-            Date ts = Date::parseIso8601DateTime(parts[0].rawString() + "Z");
-            std::string stream = parts[1].rawString();
-
-            result.logs.emplace_back(ts, stream, std::move(parts[2]));
+        if (!buf.empty) {
+            logs.emplace_back(buf.ts, stream, std::move(buf.message));
+            buf.empty = true;
+            buf.message = std::string();
         }
     }
 
-    Py_DecRef(outOutput);
-    Py_DecRef(outCatcher);
+    result.logs.insert(result.logs.end(),
+                       std::make_move_iterator(logs.begin()),
+                       std::make_move_iterator(logs.end()));
 
-    // reset logging code
-    if(reset) {
-        injectOutputLoggingCode(threadToken);
-    }
+    logs.clear();
 };
 
 ScriptOutput

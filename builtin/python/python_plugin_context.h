@@ -91,6 +91,21 @@ private:
 
     // GIL must be held
     void injectOutputLoggingCode(const EnterThreadToken & threadToken);
+
+    // GIL must be held
+    void logMessage(const EnterThreadToken & threadToken,
+                    const char * stream, std::string message);
+
+    // All this is protected by the GIL
+    std::shared_ptr<const void> stdOutCapture;
+    std::shared_ptr<const void> stdErrCapture;
+    struct BufferState {
+        Date ts;
+        std::string message;
+        bool empty = true;
+    };
+    std::map<std::string, BufferState> buffers;
+    std::vector<ScriptLogEntry> logs;
 };
 
 
@@ -215,9 +230,6 @@ struct MldbPythonContext {
 
     PythonContext* getPyContext();
 
-    void setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx);
-    void setScript(std::shared_ptr<PythonScriptContext> scriptCtx);
-
     /** Set the path optimization level.  See base/optimized_path.h. */
     void setPathOptimizationLevel(const std::string & level);
 
@@ -257,6 +269,10 @@ struct MldbPythonContext {
     ls(const std::string & path);
 
     std::string getHttpBoundAddress();
+
+private:
+    void setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx);
+    void setScript(std::shared_ptr<PythonScriptContext> scriptCtx);
 };
 
 } // namespace mldb

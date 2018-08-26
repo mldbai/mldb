@@ -16,6 +16,7 @@
 //
 // Blog article: http://mateusz.loskot.net/?p=2819
 
+#include "capture_stream.h"
 #include <functional>
 #include <iostream>
 #include <string>
@@ -28,8 +29,6 @@ using namespace std;
 
 namespace MLDB {
 
-typedef std::function<void(std::string)> stdstream_write_type;
-
 struct Stdstream
 {
     PyObject_HEAD
@@ -38,6 +37,8 @@ struct Stdstream
 
 PyObject* Stdstream_write(PyObject* self, PyObject* args)
 {
+    auto token = assertGilAlreadyHeld();
+
     std::size_t written(0);
     Stdstream* selfimpl = reinterpret_cast<Stdstream*>(self);
     if (selfimpl->write)
@@ -47,7 +48,7 @@ PyObject* Stdstream_write(PyObject* self, PyObject* args)
             return 0;
 
         std::string str(data);
-        selfimpl->write(str);
+        selfimpl->write(*token, str);
         written = str.size();
     }
     return PyLong_FromSize_t(written);
@@ -69,7 +70,7 @@ PyMethodDef Stdstream_methods[] =
 PyTypeObject StdstreamType =
 {
     PyVarObject_HEAD_INIT(0, 0)
-    "emb.StdstreamType",     /* tp_name */
+    "streamcapture.StdstreamType",     /* tp_name */
     sizeof(Stdstream),       /* tp_basicsize */
     0,                    /* tp_itemsize */
     0,                    /* tp_dealloc */
@@ -88,7 +89,7 @@ PyTypeObject StdstreamType =
     0,                    /* tp_setattro */
     0,                    /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT,   /* tp_flags */
-    "emb.Stdstream objects", /* tp_doc */
+    "streamcapture.Stdstream objects", /* tp_doc */
     0,                    /* tp_traverse */
     0,                    /* tp_clear */
     0,                    /* tp_richcompare */
@@ -108,13 +109,13 @@ PyTypeObject StdstreamType =
     0,                    /* tp_new */
 };
 
-PyModuleDef embmodule =
+PyModuleDef streamcapturemodule =
 {
     PyModuleDef_HEAD_INIT,
-    "emb", 0, -1, 0,
+    "streamcapture", 0, -1, 0,
 };
 
-PyMODINIT_FUNC PyInit_emb(void)
+PyMODINIT_FUNC PyInit_streamcapture(void)
 {
     StdstreamType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&StdstreamType) < 0) {
@@ -122,7 +123,7 @@ PyMODINIT_FUNC PyInit_emb(void)
         abort();
     }
 
-    PyObject* m = PyModule_Create(&embmodule);
+    PyObject* m = PyModule_Create(&streamcapturemodule);
     if (m)
     {
         Py_INCREF(&StdstreamType);
@@ -133,12 +134,14 @@ PyMODINIT_FUNC PyInit_emb(void)
 
 namespace {
 
-RegisterPythonInitializer registerMe([] (auto & thr) { PyInit_emb(); });
+RegisterPythonInitializer registerMe([] (auto & thr) { PyInit_streamcapture(); });
 
 } // file scope
 
 std::shared_ptr<const void>
-set_stdstream(stdstream_write_type write, const std::string & streamName)
+setStdStream(const EnterThreadToken & token,
+             stdstream_write_type write,
+             const std::string & streamName)
 {
     PyObject * oldStream = PySys_GetObject(streamName.c_str()); // borrowed
     PyObject * newStream = StdstreamType.tp_new(&StdstreamType, 0, 0);
@@ -147,21 +150,19 @@ set_stdstream(stdstream_write_type write, const std::string & streamName)
     
     auto resetStream = [=] (const void *)
         {
-            cerr << "reset stream" << endl;
-            int err = PySys_SetObject("stdstream", oldStream);
+            int err = PySys_SetObject(streamName.c_str(), oldStream);
             if (err != 0) {
-                cerr << "error resetting stream" << endl;
+                cerr << "error resetting Python stream" << endl;
                 abort();
             }
             Py_XDECREF(newStream);
-            
         };
 
     int err = PySys_SetObject(streamName.c_str(), newStream);
     if (err != 0) {
         cerr << "error setting " << streamName << " stream" << endl;
         Py_XDECREF(newStream);
-        throw Exception("error setting stream");
+        throw Exception("error capturing Python stream " + streamName);
     }
 
     static const char * NOT_NULL = "stdstream";
@@ -169,33 +170,3 @@ set_stdstream(stdstream_write_type write, const std::string & streamName)
 }
 
 } // namespace MLDB
-
-
-#if 0
-int main()
-{
-    PyImport_AppendInittab("emb", emb::PyInit_emb);
-    Py_Initialize();
-    PyImport_ImportModule("emb");
-
-    PyRun_SimpleString("print(\'hello to console\')");
-
-    // here comes the ***magic***
-    std::string buffer;
-    {
-        // switch sys.stdstream to custom handler
-        emb::stdstream_write_type write = [&buffer] (std::string s) { buffer += s; };
-        emb::set_stdstream(write);
-        PyRun_SimpleString("print(\'hello to buffer\')");
-        PyRun_SimpleString("print(3.14)");
-        PyRun_SimpleString("print(\'still talking to buffer\')");
-        emb::reset_stdstream();
-    }
-
-    PyRun_SimpleString("print(\'hello to console again\')");
-    Py_Finalize();
-
-    // output what was written to buffer object
-    std::clog << buffer << std::endl;
-}
-#endif
