@@ -71,27 +71,12 @@ struct MldbPythonInterpreter: public PythonInterpreter {
                                          const std::string & context);
 
     // GIL must be held
-    void
+    ScriptOutput
     runPythonScript(const EnterThreadToken & threadToken,
                     Utf8String scriptSource,
                     Utf8String scriptUri,
-                    bool useLocals,
-                    bool mustSetOutput,
-                    bool scriptOutput,
-                    ScriptOutput * output = nullptr);
-
-    // GIL must be held
-    void
-    runPythonScript(const EnterThreadToken & threadToken,
-                    Utf8String scriptSource,
-                    Utf8String scriptUri,
-                    const RestRequest & request,
-                    RestRequestParsingContext & context,
-                    RestConnection & connection,
-                    bool useLocals,
-                    bool mustSetOutput,
-                    bool scriptOutput,
-                    ScriptOutput * output = nullptr);
+                    boost::python::object globals,
+                    boost::python::object locals);
 
     std::shared_ptr<PythonContext> context;
 
