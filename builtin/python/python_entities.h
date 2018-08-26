@@ -32,12 +32,7 @@ typedef std::tuple<ColumnPath, CellValue, Date> ColumnCellTuple;
 
 struct DatasetPy {
 
-    DatasetPy(std::shared_ptr<Dataset> dataset) :
-        dataset(dataset),
-        interpreter(dataset->engine)
-    {
-    }
-
+    DatasetPy(std::shared_ptr<Dataset> dataset);
     ~DatasetPy();
     
     void recordRow(const RowPath & rowName,
@@ -51,7 +46,7 @@ struct DatasetPy {
     void commit();
     
     std::shared_ptr<Dataset> dataset;
-
+    std::shared_ptr<PythonContext> context;
     MldbPythonInterpreter interpreter;
 
     static DatasetPy* createDataset(MldbPythonContext * c,
@@ -79,6 +74,7 @@ struct PythonProcedure: public Procedure {
     
     std::function<Json::Value (const ProcedureRunConfig & training)> trainPy;
 
+    std::shared_ptr<PythonContext> context;
     MldbPythonInterpreter interpreter;
     
     static void createPythonProcedure(MldbPythonContext * c,
@@ -103,6 +99,7 @@ struct PythonFunction: public Function {
 
     Json::Value functionConfig;
     
+    std::shared_ptr<PythonContext> context;
     MldbPythonInterpreter interpreter;
 
     static void createPythonFunction(PythonPluginContext * c,

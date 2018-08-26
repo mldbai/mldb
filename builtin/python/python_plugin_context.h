@@ -32,6 +32,12 @@
 namespace MLDB {
 
 struct PythonContext;
+struct MldbPythonContext;
+
+
+/*****************************************************************************/
+/* MLDB PYTHON INTERPRETER                                                   */
+/*****************************************************************************/
 
 /** Version of PythonInterpreter that initializes itself with all of
     the machinery to set up MLDB inside, including logging, the mldb
@@ -39,7 +45,7 @@ struct PythonContext;
 */
 
 struct MldbPythonInterpreter: public PythonInterpreter {
-    MldbPythonInterpreter(MldbEngine * engine);
+    MldbPythonInterpreter(std::shared_ptr<PythonContext> context);
 
     // Destroy must be called before the destructor.
     ~MldbPythonInterpreter();
@@ -67,23 +73,32 @@ struct MldbPythonInterpreter: public PythonInterpreter {
     // GIL must be held
     void
     runPythonScript(const EnterThreadToken & threadToken,
-                    std::shared_ptr<PythonContext> pyCtx,
-                    PackageElement elementToRun,
+                    Utf8String scriptSource,
+                    Utf8String scriptUri,
                     bool useLocals,
                     bool mustSetOutput,
+                    bool scriptOutput,
                     ScriptOutput * output = nullptr);
 
     // GIL must be held
     void
     runPythonScript(const EnterThreadToken & threadToken,
-                    std::shared_ptr<PythonContext> pyCtx,
-                    PackageElement elementToRun,
+                    Utf8String scriptSource,
+                    Utf8String scriptUri,
                     const RestRequest & request,
                     RestRequestParsingContext & context,
                     RestConnection & connection,
                     bool useLocals,
                     bool mustSetOutput,
+                    bool scriptOutput,
                     ScriptOutput * output = nullptr);
+
+    std::shared_ptr<PythonContext> context;
+
+    std::shared_ptr<MldbPythonContext> mldb;
+    
+    boost::python::object main_module;
+    boost::python::object main_namespace;
 
 private:    
     // GIL must be held
@@ -130,18 +145,13 @@ struct PythonRestRequest {
 /* PYTHON CONTEXT                                                           */
 /****************************************************************************/
 
-struct MldbPythonContext;
-
 struct PythonContext {
-    PythonContext(const Utf8String &  name, MldbEngine * engine,
-                  std::shared_ptr<LoadedPluginResource> pluginResource);
+    PythonContext(const Utf8String &  name, MldbEngine * engine);
 
-    ~PythonContext();
+    virtual ~PythonContext();
     
     void log(const std::string & message);
     
-    Json::Value getArgs() const;
-
     Utf8String categoryName, loaderName;
 
     std::mutex logMutex;  /// protects the categories below
@@ -152,10 +162,6 @@ struct PythonContext {
 
     std::mutex guard;
     std::vector<ScriptLogEntry> logs;
-
-    std::shared_ptr<LoadedPluginResource> pluginResource;
-
-    MldbPythonContext* mldbContext;
 };
 
 
@@ -168,7 +174,11 @@ struct PythonPluginContext: public PythonContext  {
                         MldbEngine * engine,
                         std::shared_ptr<LoadedPluginResource> pluginResource);
 
-    void setStatusHandler(PyObject * callback);
+    virtual ~PythonPluginContext();
+    
+    Json::Value getArgs() const;
+
+    //void setStatusHandler(PyObject * callback);
     void serveStaticFolder(const std::string & route, const std::string & dir);
     void serveDocumentationFolder(const std::string & dir);
 
@@ -180,6 +190,8 @@ struct PythonPluginContext: public PythonContext  {
 
     bool hasRequestHandler;
     std::string requestHandlerSource;
+
+    std::shared_ptr<LoadedPluginResource> pluginResource;
 };
 
 
@@ -189,10 +201,13 @@ struct PythonPluginContext: public PythonContext  {
 
 struct PythonScriptContext: public PythonContext  {
     PythonScriptContext(const std::string & pluginName, MldbEngine * engine,
-            std::shared_ptr<LoadedPluginResource> pluginResource)
-    : PythonContext(pluginName, engine, pluginResource)
-    {
-    }
+                        std::shared_ptr<LoadedPluginResource> pluginResource);
+
+    virtual ~PythonScriptContext();
+
+    Json::Value getArgs() const;
+
+    std::shared_ptr<LoadedPluginResource> pluginResource;
 };
 
 
@@ -204,6 +219,8 @@ struct PythonScriptContext: public PythonContext  {
 
 struct MldbPythonContext {
 
+    MldbPythonContext(std::shared_ptr<PythonContext> context);
+    
     std::shared_ptr<PythonPluginContext> getPlugin();
     std::shared_ptr<PythonScriptContext> getScript();
 

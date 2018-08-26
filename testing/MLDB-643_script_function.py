@@ -103,18 +103,6 @@ select = "SELECT scriptApplier2({{*} as args})[{return}] as * from row_dataset({
 mldb.log(mldb.get("/v1/query", q="select * from toy").json())
 mldb.log(mldb.get("/v1/query", q="select scriptApplier2({{fwin: 1, fwine: 2} as args})[{return}] as *").json())
 
-mldb.log(mldb.get("/v1/query", q="select make_interpreter()").json())
-mldb.log(mldb.get("/v1/query", q="select make_interpreter() from toy order by make_interpreter()").json())
-
-mldb.log("")
-mldb.log("******************************************************************")
-mldb.log("******************************************************************")
-mldb.log("******************************************************************")
-mldb.log("******************************************************************")
-mldb.log("******************************************************************")
-mldb.log("******************************************************************")
-mldb.log("")
-
 select = "SELECT scriptApplier2({{*} as args})[{return}] as * from toy limit 10"
 query_output = mldb.get("/v1/query", q=select,)
 
