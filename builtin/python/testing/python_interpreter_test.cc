@@ -1,6 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 #include "mldb/builtin/python/python_interpreter.h"
+#include "mldb/builtin/python/capture_stream.h"
 #include "mldb/utils/testing/watchdog.h"
 #include "mldb/arch/format.h"
 
@@ -20,6 +21,46 @@ using namespace MLDB;
 BOOST_AUTO_TEST_CASE( test_python_interpreter )
 {
     PythonInterpreter interpreter;
+}
+
+BOOST_AUTO_TEST_CASE( test_capture_streams )
+{
+    PythonInterpreter interpreter;
+    
+    auto threadScope = interpreter.mainThread().enter();
+
+    auto main_module = boost::python::import("__main__");
+    auto main_namespace = main_module.attr("__dict__");
+
+    std::vector<std::string> written;
+
+    auto onWrite = [&] (const EnterThreadToken & token,
+                        std::string str)
+        {
+            cerr << "got string " << str << " of length "
+                 << str.length() << endl;
+            written.emplace_back(std::move(str));
+        };
+    
+    auto captureToken = setStdStream(*threadScope, onWrite, "stdout");
+    
+    PythonThread::exec(*threadScope,
+                       "print('hello')",
+                       MLDB::format("%s:%d", __FILE__, __LINE__),
+                       main_namespace);
+
+    BOOST_CHECK_EQUAL(written.at(0), "hello");
+    BOOST_CHECK_EQUAL(written.at(1), "\n");
+    
+    // Uninstall and verify it works
+    captureToken.reset();
+
+    PythonThread::exec(*threadScope,
+                       "print('world')",
+                       MLDB::format("%s:%d", __FILE__, __LINE__),
+                       main_namespace);
+    
+    BOOST_CHECK_EQUAL(written.size(), 2);
 }
 
 BOOST_AUTO_TEST_CASE( test_python_interpreter_multithreaded )

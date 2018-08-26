@@ -130,7 +130,6 @@ PythonPlugin(MldbEngine * engine,
 
 
     mldbPyCtx.reset(new MldbPythonContext(pluginCtx));
-    mldbPyCtx->setPlugin(pluginCtx);
 
     Utf8String scriptSource = pluginCtx->pluginResource->getScript(PackageElement::MAIN);
     Utf8String scriptUri = pluginCtx->pluginResource->getScriptUri(PackageElement::MAIN);
@@ -156,9 +155,10 @@ PythonPlugin(MldbEngine * engine,
     if (last_output.exception) {
         MLDB_TRACE_EXCEPTIONS(false);
         string context = "Exception executing Python initialization script";
+        enterMainThread.reset();
+        interpreter->destroy();
         throw AnnotatedException(400, context, last_output);
     }
-    
 }
 
 PythonPlugin::
