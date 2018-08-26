@@ -28,6 +28,14 @@ namespace MLDB {
 /****************************************************************************/
 
 DatasetPy::
+DatasetPy(std::shared_ptr<Dataset> dataset)
+    : dataset(dataset),
+      context(std::make_shared<PythonContext>("DatasetPy", dataset->engine)),
+      interpreter(context)
+{
+}
+
+DatasetPy::
 ~DatasetPy()
 {
     // This may be called from the Python garbage collection, which means
@@ -95,7 +103,9 @@ PythonProcedure::
 PythonProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress)
-    : Procedure(owner), interpreter(owner)
+    : Procedure(owner),
+      context(std::make_shared<PythonContext>("ProcedurePy", owner)),
+      interpreter(context)
 {
     procedureConfig = config.params.asJson();
 }
@@ -169,7 +179,9 @@ PythonFunction::
 PythonFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner, config), interpreter(owner)
+    : Function(owner, config),
+      context(std::make_shared<PythonContext>("FunctionPy", owner)),
+      interpreter(context)
 {
     functionConfig = config.params.asJson();
 }

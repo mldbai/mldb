@@ -176,11 +176,18 @@ exitThread(EnterThreadToken * token)
 {
     PyThreadState * st = reinterpret_cast<PyThreadState *>(token);
     if (PyThreadState_Swap(st) != st) {
-        cerr << "warning: somebody switched Python threads on us to "
-             << st << ": please use facilities in python_interpreter.h to "
-             << " do so" << endl;
+        // This warning ends up happening all the time when we exec.
+        // Python code that performs imports.  We need to be
+        // robust to any kind of action from the Python code we run,
+        // so here we simply switch back in the right thread and then
+        // release it.
+
+        //cerr << "warning: somebody switched Python threads on us to "
+        //     << st << ": please use facilities in python_interpreter.h to "
+        //     << " do so" << endl;
     }
     PyEval_ReleaseThread(st);
+    PyThreadState_Swap(nullptr);
 }
 
 // NOTE: partially copied from exec.cpp in Boost, available under the Boost
@@ -524,11 +531,6 @@ PythonInterpreter(InitializationContext context)
     
         this->interpState.reset(st, endSubInterpreter);
         mainThread_.init(st, false /* don't manage lifecycle */);
-        
-        // Now, set up the new interpreter
-        auto enterGuard = mainThread().enter();
-        main_module = boost::python::import("__main__");
-        main_namespace = main_module.attr("__dict__");
     }
 }
 
@@ -541,11 +543,6 @@ void
 PythonInterpreter::
 destroy()
 {
-    {
-        auto enterGuard = mainThread().enter();
-        main_module = boost::python::object();
-        main_namespace = boost::python::object();
-    }
     mainThread_.destroy();
     interpState.reset();
 }

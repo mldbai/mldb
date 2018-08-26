@@ -129,24 +129,26 @@ PythonPlugin(MldbEngine * engine,
             this);
 
 
-    mldbPyCtx.reset(new MldbPythonContext());
+    mldbPyCtx.reset(new MldbPythonContext(pluginCtx));
     mldbPyCtx->setPlugin(pluginCtx);
 
     Utf8String scriptSource = pluginCtx->pluginResource->getScript(PackageElement::MAIN);
     Utf8String scriptUri = pluginCtx->pluginResource->getScriptUri(PackageElement::MAIN);
 
     //cerr << "creating new interpreter" << endl;
-    interpreter.reset(new MldbPythonInterpreter(engine));
+    interpreter.reset(new MldbPythonInterpreter(pluginCtx));
     
     auto enterMainThread = interpreter->mainThread().enter();
 
     addPluginPathToEnv(*enterMainThread);
 
     interpreter->runPythonScript
-        (*enterMainThread, pluginCtx,
-         PackageElement::MAIN,
+        (*enterMainThread,
+         scriptSource,
+         scriptUri,
          false /* use locals */,
          false /* must provide output */,
+         true /* script output */,
          &last_output);
 
     if (last_output.exception) {
@@ -261,14 +263,20 @@ handleRequest(RestConnection & connection,
     if(pluginCtx->hasRequestHandler) {
         MLDB_TRACE_EXCEPTIONS(false);
 
+        Utf8String scriptSource
+            = pluginCtx->pluginResource->getScript(PackageElement::ROUTES);
+        Utf8String scriptUri
+            = pluginCtx->pluginResource->getScriptUri(PackageElement::ROUTES);
         auto thread = interpreter->mainThread().enter();
 
         interpreter->runPythonScript
-            (*thread, pluginCtx,
-             PackageElement::ROUTES, request, context,
+            (*thread,
+             scriptSource, scriptUri, request, context,
              connection,
              true /* use locals */,
-             true /* must provide output */, &last_output);
+             true /* must provide output */,
+             false /* script output */,
+             &last_output);
 
         return MR_YES;
     }
@@ -286,43 +294,40 @@ handleTypeRoute(RestDirectory * engine,
 {
     if (context.resources.back() == "run") {
 
-        // We need a brand new interpreter for this script, as we don't
-        // want to allow for any interference with other things
-        MldbPythonInterpreter interpreter(MldbEntity::getOwner(engine));
-        
         auto scriptConfig =
             jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
 
-        std::shared_ptr<PythonScriptContext> scriptCtx;
         auto pluginRez =
             std::make_shared<LoadedPluginResource>(PYTHON,
                                                    LoadedPluginResource::SCRIPT,
                                                    "", scriptConfig);
-        try {
-            scriptCtx = std::make_shared<PythonScriptContext>(
-                "script runner", dynamic_cast<MldbEngine *>(engine), pluginRez);
-        }
-        catch(const std::exception & exc) {
-            conn.sendResponse(
-                400,
-                jsonEncodeStr(MLDB::format("Exception opening script: %s", exc.what())),
-                "application/json");
-            return MR_YES;
-        }
+        std::shared_ptr<PythonScriptContext> scriptCtx
+            = std::make_shared<PythonScriptContext>
+            ("script runner", dynamic_cast<MldbEngine *>(engine), pluginRez);
 
+        // We need a brand new interpreter for this script, as we don't
+        // want to allow for any interference with other things
+        MldbPythonInterpreter interpreter(scriptCtx);
+
+        Utf8String scriptSource
+            = pluginRez->getScript(PackageElement::MAIN);
+        Utf8String scriptUri
+            = pluginRez->getScriptUri(PackageElement::MAIN);
+        
         {
             // Now we have our new interpreter, we can enter into its main
             // thread.
             auto enterThread = interpreter.mainThread().enter();
             
             interpreter.runPythonScript(*enterThread,
-                                        scriptCtx,
-                                        PackageElement::MAIN,
+                                        scriptSource,
+                                        scriptUri,
                                         request,
                                         context,
                                         conn,
                                         false /* use locals */,
-                                        false /* must provide output */);
+                                        false /* must provide output */,
+                                        true /* script output */);
         }
 
         interpreter.destroy();
@@ -440,8 +445,8 @@ void pythonLoaderInit(const EnterThreadToken & thread)
                boost::noncopyable>
         mldb("Mldb", bp::no_init);
 
-    script.add_property("args", &PythonContext::getArgs);
-    plugin.add_property("args", &PythonContext::getArgs);
+    script.add_property("args", &PythonScriptContext::getArgs);
+    plugin.add_property("args", &PythonPluginContext::getArgs);
 
     plugin.def("serve_static_folder",
                &PythonPluginContext::serveStaticFolder);

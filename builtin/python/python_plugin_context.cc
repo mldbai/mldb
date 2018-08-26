@@ -18,6 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include <memory>
 #include "frameobject.h"
+#include "pointer_fix.h"
 
 using namespace std;
 
@@ -27,9 +28,19 @@ namespace fs = std::filesystem;
 namespace MLDB {
 
 MldbPythonInterpreter::
-MldbPythonInterpreter(MldbEngine * engine)
+MldbPythonInterpreter(std::shared_ptr<PythonContext> context)
+    : context(context)
 {
     auto enterThread = mainThread().enter();
+
+    mldb = std::make_shared<MldbPythonContext>(context);
+    
+    main_module = boost::python::import("__main__");
+    main_namespace = main_module.attr("__dict__");
+
+    main_namespace["mldb"]
+        = boost::python::object(boost::python::ptr(mldb.get()));
+    
     injectMldbWrapper(*enterThread);
     injectOutputLoggingCode(*enterThread);
 }
@@ -43,10 +54,13 @@ void
 MldbPythonInterpreter::
 destroy()
 {
-#if 0
     {
-        auto enterThread = mainThread().enter();
-        
+        auto enterGuard = mainThread().enter();
+
+        main_module = boost::python::object();
+        main_namespace = boost::python::object();
+
+#if 0
         // Uninstall the output logging, since it causes problems when
         // called from the interpreter shutdown as 
         
@@ -59,8 +73,8 @@ destroy()
         if (oldstderr) {
             PySys_SetObject("stderr", oldstderr);
         }
-    }
 #endif
+    }
     
     PythonInterpreter::destroy();
 }
@@ -288,17 +302,18 @@ exceptionToScriptOutput(const EnterThreadToken & thread,
 void
 MldbPythonInterpreter::
 runPythonScript(const EnterThreadToken & threadToken,
-                std::shared_ptr<PythonContext> pyCtx,
-                PackageElement elementToRun,
+                Utf8String scriptSource,
+                Utf8String scriptUri,
                 bool useLocals,
                 bool mustProvideOutput,
+                bool isScript,
                 ScriptOutput * output)
 {
     RestRequest request;
     RestRequestParsingContext context(request);
     auto connection = InProcessRestConnection::create();
     
-    runPythonScript(threadToken, pyCtx, elementToRun,
+    runPythonScript(threadToken, std::move(scriptSource), std::move(scriptUri),
                     request, context,
                     *connection, useLocals, mustProvideOutput, output);
 
@@ -308,41 +323,21 @@ runPythonScript(const EnterThreadToken & threadToken,
 void
 MldbPythonInterpreter::
 runPythonScript(const EnterThreadToken & threadToken,
-                std::shared_ptr<PythonContext> pyCtx,
-                PackageElement elementToRun,
+                Utf8String scriptSource,
+                Utf8String scriptUri,
                 const RestRequest & request,
                 RestRequestParsingContext & context,
                 RestConnection & connection,
                 bool useLocals,
                 bool mustProvideOutput,
+                bool isScript,
                 ScriptOutput * output)
 {
     ScriptOutput result;
 
     try {
-        bool isScript
-            = pyCtx->pluginResource->scriptType
-            == LoadedPluginResource::ScriptType::SCRIPT;
-
-        auto mldbPyCtx = std::make_shared<MldbPythonContext>();
-
-        // Perform a downcast depending upon the context
-        if(isScript) {
-            mldbPyCtx->setScript(static_pointer_cast<PythonScriptContext>(pyCtx));
-        }
-        else {
-            mldbPyCtx->setPlugin(static_pointer_cast<PythonPluginContext>(pyCtx));
-        }
-
-        Utf8String scriptSource = pyCtx->pluginResource->getScript(elementToRun);
-        Utf8String scriptUri = pyCtx->pluginResource->getScriptUri(elementToRun);
         auto pyRestRequest
             = std::make_shared<PythonRestRequest>(request, context);
-
-        main_namespace["mldb"]
-            = boost::python::object(boost::python::ptr(mldbPyCtx.get()));
-        main_namespace["request"]
-            = boost::python::object(boost::python::ptr(pyRestRequest.get()));
 
         boost::python::dict locals;
 
@@ -353,12 +348,14 @@ runPythonScript(const EnterThreadToken & threadToken,
                 locals[key] = main_namespace[key];
             }
             
-            locals["mldb"]
-                = boost::python::object(boost::python::ptr(mldbPyCtx.get()));
             locals["request"]
                 = boost::python::object(boost::python::ptr(pyRestRequest.get()));
         }
-    
+        else {
+            main_namespace["request"]
+                = boost::python::object(boost::python::ptr(pyRestRequest.get()));
+        }
+        
         MLDB_TRACE_EXCEPTIONS(false);
         
         boost::python::object obj =
@@ -387,6 +384,7 @@ runPythonScript(const EnterThreadToken & threadToken,
         result.setReturnCode(pyRestRequest->returnCode);
 
         if (isScript) {
+#if 0
             auto scriptCtx = static_pointer_cast<PythonScriptContext>(pyCtx);
 
             // Copy log messages over
@@ -394,13 +392,13 @@ runPythonScript(const EnterThreadToken & threadToken,
                 result.logs.emplace_back(std::move(l));
             }
             std::stable_sort(result.logs.begin(), result.logs.end());
-
+#endif
             connection.sendResponse(result.getReturnCode(),
                                      jsonEncode(result));
         }
         else {
             connection.sendResponse(result.getReturnCode(),
-                                     jsonEncode(result.result));
+                                    jsonEncode(result.result));
         }
     }
     catch (const boost::python::error_already_set & exc) {
@@ -409,17 +407,17 @@ runPythonScript(const EnterThreadToken & threadToken,
                                "Running python script");
 
         {
-            std::unique_lock<std::mutex> guard(pyCtx->logMutex);
-            LOG(pyCtx->loader) << jsonEncode(pyexc) << endl;
+            std::unique_lock<std::mutex> guard(this->context->logMutex);
+            LOG(this->context->loader) << jsonEncode(pyexc) << endl;
         }
-
+        
         getOutputFromPy(threadToken, result);
         result.exception = std::make_shared<ScriptException>(std::move(pyexc));
         result.exception->context.push_back("Executing Python script");
         result.setReturnCode(400);
 
         connection.sendResponse(result.getReturnCode(),
-                                 jsonEncode(result));
+                                jsonEncode(result));
     }
 
     if (output) {
@@ -477,14 +475,12 @@ setReturnValue1(const Json::Value & rtnVal)
 /****************************************************************************/
 
 PythonContext::
-PythonContext(const Utf8String &  name, MldbEngine * engine,
-              std::shared_ptr<LoadedPluginResource> pluginResource)
+PythonContext(const Utf8String &  name, MldbEngine * engine)
     : categoryName(name + " plugin"),
       loaderName(name + " loader"),
       category(categoryName.rawData()),
       loader(loaderName.rawData()),
-      engine(engine),
-      pluginResource(pluginResource)
+      engine(engine)
 {
 }
 
@@ -493,17 +489,12 @@ PythonContext::
 {
 }
 
-void PythonContext::
+void
+PythonContext::
 log(const std::string & message)
 {
     LOG(category) << message << endl;
     logs.emplace_back(Date::now(), "log", Utf8String(message));
-}
-
-Json::Value PythonContext::
-getArgs() const
-{
-    return jsonEncode(pluginResource->args);
 }
 
 /****************************************************************************/
@@ -514,28 +505,28 @@ PythonPluginContext::
 PythonPluginContext(const Utf8String & pluginName,
                     MldbEngine * engine,
                     std::shared_ptr<LoadedPluginResource> pluginResource)
-    : PythonContext(pluginName, engine, pluginResource),
-      hasRequestHandler(false)
+    : PythonContext(pluginName, engine),
+      hasRequestHandler(false),
+      pluginResource(pluginResource)
 {
     hasRequestHandler =
         pluginResource->packageElementExists(PackageElement::ROUTES);
 }
 
-// TODO probably some python rtn object
-void PythonPluginContext::
-setStatusHandler(PyObject * callback)
+PythonPluginContext::
+~PythonPluginContext()
 {
-    if(!callback)
-        throw MLDB::Exception("Must specify handler function");
-
-    auto localsPlugin = boost::python::object(boost::python::ptr(mldbContext));
-    getStatus = [=] ()
-        {
-            return boost::python::call<Json::Value>(callback, localsPlugin);
-        };
 }
 
-void PythonPluginContext::
+Json::Value
+PythonPluginContext::
+getArgs() const
+{
+    return jsonEncode(pluginResource->args);
+}
+
+void
+PythonPluginContext::
 serveStaticFolder(const std::string & route, const std::string & dir)
 {
     if(route.empty() || dir.empty()) {
@@ -578,17 +569,61 @@ getPluginDirectory() const
     return pluginResource->getPluginDir().string();
 }
 
+
+/****************************************************************************/
+/* PYTHON SCRIPT CONTEXT                                                    */
+/****************************************************************************/
+
+PythonScriptContext::
+PythonScriptContext(const std::string & pluginName, MldbEngine * engine,
+                    std::shared_ptr<LoadedPluginResource> pluginResource)
+    : PythonContext(pluginName, engine),
+      pluginResource(std::move(pluginResource))
+{
+}
+
+PythonScriptContext::
+~PythonScriptContext()
+{
+}
+
+Json::Value
+PythonScriptContext::
+getArgs() const
+{
+    return jsonEncode(pluginResource->args);
+}
+
+
 /****************************************************************************/
 /* MLDB PYTHON CONTEXT                                                      */
 /****************************************************************************/
 
-void MldbPythonContext::
+MldbPythonContext::
+MldbPythonContext(std::shared_ptr<PythonContext> context)
+{
+    bool isScript
+        = dynamic_pointer_cast<PythonScriptContext>(context)
+        != nullptr;
+    
+    // Perform a downcast depending upon the context
+    if(isScript) {
+        setScript(static_pointer_cast<PythonScriptContext>(context));
+    }
+    else {
+        setPlugin(static_pointer_cast<PythonPluginContext>(context));
+    }
+}
+
+void
+MldbPythonContext::
 log(const std::string & message)
 {
     getPyContext()->log(message);
 }
 
-void MldbPythonContext::
+void
+MldbPythonContext::
 logJsVal(const Json::Value & jsVal)
 {
     if(jsVal.isObject() || jsVal.isArray()) {
@@ -625,13 +660,11 @@ getPyContext()
 void MldbPythonContext::
 setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx) {
     plugin = pluginCtx;
-    plugin->mldbContext = this;
 }
 
 void MldbPythonContext::
 setScript(std::shared_ptr<PythonScriptContext> scriptCtx) {
     script = scriptCtx;
-    script->mldbContext = this;
 }
 
 std::shared_ptr<PythonPluginContext> MldbPythonContext::

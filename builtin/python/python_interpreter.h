@@ -246,10 +246,6 @@ private:
 
     std::shared_ptr<PyThreadState> interpState;
     PythonThread mainThread_;
-
-public:
-    boost::python::object main_module;
-    boost::python::object main_namespace;
 };
 
 
