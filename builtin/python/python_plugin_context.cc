@@ -299,63 +299,17 @@ exceptionToScriptOutput(const EnterThreadToken & thread,
     return result;
 }
 
-void
+ScriptOutput
 MldbPythonInterpreter::
 runPythonScript(const EnterThreadToken & threadToken,
                 Utf8String scriptSource,
                 Utf8String scriptUri,
-                bool useLocals,
-                bool mustProvideOutput,
-                bool isScript,
-                ScriptOutput * output)
-{
-    RestRequest request;
-    RestRequestParsingContext context(request);
-    auto connection = InProcessRestConnection::create();
-    
-    runPythonScript(threadToken, std::move(scriptSource), std::move(scriptUri),
-                    request, context,
-                    *connection, useLocals, mustProvideOutput, output);
-
-    connection->waitForResponse();
-}
-
-void
-MldbPythonInterpreter::
-runPythonScript(const EnterThreadToken & threadToken,
-                Utf8String scriptSource,
-                Utf8String scriptUri,
-                const RestRequest & request,
-                RestRequestParsingContext & context,
-                RestConnection & connection,
-                bool useLocals,
-                bool mustProvideOutput,
-                bool isScript,
-                ScriptOutput * output)
+                boost::python::object globals,
+                boost::python::object locals)
 {
     ScriptOutput result;
 
     try {
-        auto pyRestRequest
-            = std::make_shared<PythonRestRequest>(request, context);
-
-        boost::python::dict locals;
-
-        if (useLocals) {
-            auto keys = boost::python::dict(main_namespace).keys();
-            for (size_t i = 0;  i < boost::python::len(keys);  ++i) {
-                const auto & key = keys[i];
-                locals[key] = main_namespace[key];
-            }
-            
-            locals["request"]
-                = boost::python::object(boost::python::ptr(pyRestRequest.get()));
-        }
-        else {
-            main_namespace["request"]
-                = boost::python::object(boost::python::ptr(pyRestRequest.get()));
-        }
-        
         MLDB_TRACE_EXCEPTIONS(false);
         
         boost::python::object obj =
@@ -363,43 +317,10 @@ runPythonScript(const EnterThreadToken & threadToken,
             ::exec(threadToken,
                    scriptSource,
                    scriptUri,
-                   main_namespace,
-                   useLocals ? locals: boost::python::object());
+                   globals,
+                   locals);
         
         getOutputFromPy(threadToken, result);
-
-        result.result = std::move(pyRestRequest->returnValue);
-
-        if (pyRestRequest->returnCode <= 0) {
-            if (mustProvideOutput) {
-                throw AnnotatedException
-                    (500,
-                     "Return value is required but not set");
-            }
-            else {
-                pyRestRequest->returnCode = 200;
-            }
-        }
-        
-        result.setReturnCode(pyRestRequest->returnCode);
-
-        if (isScript) {
-#if 0
-            auto scriptCtx = static_pointer_cast<PythonScriptContext>(pyCtx);
-
-            // Copy log messages over
-            for (auto & l: scriptCtx->logs) {
-                result.logs.emplace_back(std::move(l));
-            }
-            std::stable_sort(result.logs.begin(), result.logs.end());
-#endif
-            connection.sendResponse(result.getReturnCode(),
-                                     jsonEncode(result));
-        }
-        else {
-            connection.sendResponse(result.getReturnCode(),
-                                    jsonEncode(result.result));
-        }
     }
     catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc
@@ -415,14 +336,9 @@ runPythonScript(const EnterThreadToken & threadToken,
         result.exception = std::make_shared<ScriptException>(std::move(pyexc));
         result.exception->context.push_back("Executing Python script");
         result.setReturnCode(400);
-
-        connection.sendResponse(result.getReturnCode(),
-                                jsonEncode(result));
     }
 
-    if (output) {
-        *output = std::move(result);
-    }
+    return result;
 }
 
 

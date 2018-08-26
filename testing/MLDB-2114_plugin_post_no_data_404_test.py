@@ -108,7 +108,7 @@ else:
             }
         })
 
-        msg = "Return value is required but not set"
+        msg = "Return value is required for route handlers but not set"
 
         with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
             mldb.get('/v1/plugins/mldb2114/routes/foo')

@@ -142,14 +142,16 @@ PythonPlugin(MldbEngine * engine,
 
     addPluginPathToEnv(*enterMainThread);
 
-    interpreter->runPythonScript
+    RestRequest request;
+    RestRequestParsingContext context(request);
+    auto connection = InProcessRestConnection::create();
+    
+    last_output = interpreter->runPythonScript
         (*enterMainThread,
          scriptSource,
          scriptUri,
-         false /* use locals */,
-         false /* must provide output */,
-         true /* script output */,
-         &last_output);
+         interpreter->main_namespace,
+         interpreter->main_namespace);
 
     if (last_output.exception) {
         MLDB_TRACE_EXCEPTIONS(false);
@@ -269,15 +271,38 @@ handleRequest(RestConnection & connection,
             = pluginCtx->pluginResource->getScriptUri(PackageElement::ROUTES);
         auto thread = interpreter->mainThread().enter();
 
-        interpreter->runPythonScript
+        auto pyRestRequest
+            = std::make_shared<PythonRestRequest>(request, context);
+        
+        boost::python::dict locals;
+        locals["request"]
+            = boost::python::object(boost::python::ptr(pyRestRequest.get()));
+        
+        last_output = interpreter->runPythonScript
             (*thread,
-             scriptSource, scriptUri, request, context,
-             connection,
-             true /* use locals */,
-             true /* must provide output */,
-             false /* script output */,
-             &last_output);
+             scriptSource, scriptUri,
+             interpreter->main_namespace,
+             locals);
+        
+        if (last_output.exception) {
+            connection.sendResponse(last_output.getReturnCode(),
+                                    jsonEncode(last_output));
+        }
+        else {
+            last_output.result = std::move(pyRestRequest->returnValue);
+        
+            if (pyRestRequest->returnCode <= 0) {
+                throw AnnotatedException
+                    (500,
+                     "Return value is required for route handlers but not set");
+            }
+            
+            last_output.setReturnCode(pyRestRequest->returnCode);
 
+            connection.sendResponse(last_output.getReturnCode(),
+                                    jsonEncode(last_output.result));
+        }
+        
         return MR_YES;
     }
 
@@ -314,22 +339,43 @@ handleTypeRoute(RestDirectory * engine,
         Utf8String scriptUri
             = pluginRez->getScriptUri(PackageElement::MAIN);
         
+        ScriptOutput output;
         {
             // Now we have our new interpreter, we can enter into its main
             // thread.
             auto enterThread = interpreter.mainThread().enter();
-            
-            interpreter.runPythonScript(*enterThread,
-                                        scriptSource,
-                                        scriptUri,
-                                        request,
-                                        context,
-                                        conn,
-                                        false /* use locals */,
-                                        false /* must provide output */,
-                                        true /* script output */);
-        }
 
+            auto pyRestRequest
+                = std::make_shared<PythonRestRequest>(request, context);
+            interpreter.main_namespace["request"]
+                = boost::python::object(boost::python::ptr(pyRestRequest.get()));
+            
+            output = interpreter
+                .runPythonScript(*enterThread,
+                                 scriptSource,
+                                 scriptUri,
+                                 interpreter.main_namespace,
+                                 interpreter.main_namespace);
+
+            if (!output.exception) {
+                output.result = std::move(pyRestRequest->returnValue);
+                
+                if (pyRestRequest->returnCode <= 0) {
+                    pyRestRequest->returnCode = 200;
+                }
+                output.setReturnCode(pyRestRequest->returnCode);
+            }
+        }
+        
+        // Copy log messages over
+        for (auto & l: scriptCtx->logs) {
+            output.logs.emplace_back(std::move(l));
+        }
+        std::stable_sort(output.logs.begin(), output.logs.end());
+        
+        conn.sendResponse(output.getReturnCode(),
+                          jsonEncode(output));
+        
         interpreter.destroy();
         
         return RestRequestRouter::MR_YES;
