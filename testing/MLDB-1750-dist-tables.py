@@ -7,7 +7,7 @@
 import os, tempfile
 from math import sqrt
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 def get_temporary_file():
     return tempfile.NamedTemporaryFile(prefix=os.getcwd() + '/build/x86_64/tmp')
@@ -198,7 +198,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
         """)
 
     def test_unknown_stats(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 'Unknown distribution table statistic'):
             mldb.post('/v1/procedures', {
                 'type': 'experimental.distTable.train',
@@ -281,7 +281,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
                 ]
             ])
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 'Unknown distribution table statistic'):
             mldb.put('/v1/functions/get_stats_non_default2', {
                 'type': 'experimental.distTable.getStats',
@@ -454,7 +454,7 @@ class MLDB1750DistTables(MldbUnitTest):  # noqa
             }
         })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 'Unknown dist table \'hosti234234\''):
             mldb.post("/v1/functions/get_stats/routes/increment", {
                 'keys': [

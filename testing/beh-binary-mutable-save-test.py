@@ -7,9 +7,7 @@
 import tempfile
 import os
 import json
-
-if False:
-    mldb = None
+from mldb import mldb
 
 res = mldb.perform('PUT', '/v1/datasets/myDataset', [], {
     'type' : 'beh.binary.mutable'

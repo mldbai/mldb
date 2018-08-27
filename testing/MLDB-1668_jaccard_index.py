@@ -6,7 +6,7 @@
 
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1668Test(MldbUnitTest):  
     @classmethod
@@ -34,7 +34,7 @@ class Mldb1668Test(MldbUnitTest):
         doTest('a b c', 'x y z r', 0)
    
     def test_wrong_type(self):
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.query("select jaccard_index(2, 'adsf')") 
 
 request.set_return(mldb.run_tests())

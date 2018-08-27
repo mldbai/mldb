@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2114PluginPostNoData404Test(MldbUnitTest):  # noqa
 
@@ -102,7 +102,10 @@ else:
             "type": "python",
             "params": {
                 "source": {
-                    "routes": """mldb.log('no return')"""
+                    "routes": """
+from mldb import mldb
+mldb.log('no return')
+"""
 
                 }
             }
@@ -110,19 +113,19 @@ else:
 
         msg = "Return value is required for route handlers but not set"
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(ResponseException, msg) as e:
             mldb.get('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(ResponseException, msg) as e:
             mldb.post('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(ResponseException, msg) as e:
             mldb.put('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as e:
+        with self.assertRaisesRegex(ResponseException, msg) as e:
             mldb.delete('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
@@ -137,19 +140,19 @@ else:
             }
         })
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as e:
+        with self.assertRaises(ResponseException) as e:
             mldb.get('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as e:
+        with self.assertRaises(ResponseException) as e:
             mldb.post('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as e:
+        with self.assertRaises(ResponseException) as e:
             mldb.put('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as e:
+        with self.assertRaises(ResponseException) as e:
             mldb.delete('/v1/plugins/mldb2114/routes/foo')
         self.assertEqual(e.exception.response.status_code, 500)
 

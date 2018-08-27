@@ -6,7 +6,7 @@
 import csv
 from io import StringIO
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 def try_parse_to_float(x):

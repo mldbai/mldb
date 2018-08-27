@@ -8,8 +8,7 @@ import unittest
 import datetime
 import time
 import tempfile
-
-mldb = mldb_wrapper.wrap(mldb)
+from mldb import mldb, MldbUnitTest
 
 class ProcedureProgressTest(MldbUnitTest):
 

@@ -6,7 +6,7 @@
 
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MldbFb573(MldbUnitTest):  
     @classmethod
@@ -41,7 +41,7 @@ class MldbFb573(MldbUnitTest):
              ["a", None]])
 
     def test_null_arrays(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
             'NULL value found'):
             mldb.query("SELECT parse_json(x, {arrays: parse}) from sample")
 
@@ -108,10 +108,10 @@ class MldbFb573(MldbUnitTest):
             ["0",None]]
         )
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must be an object'):
+        with self.assertRaisesRegex(ResponseException, 'must be an object'):
             mldb.query("select parse_json('\"hola\"') as rez")
  
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 'must be an object'):
+        with self.assertRaisesRegex(ResponseException, 'must be an object'):
             mldb.query("select parse_json(5) as rez")
  
 

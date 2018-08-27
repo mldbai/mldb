@@ -2,6 +2,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
 import json, random, datetime, os
+from mldb import mldb
 
 now = datetime.datetime.now()
 

@@ -6,7 +6,7 @@
 # In this coobook, bisect is used to find a problematic row when applying a
 # COLUMN EXPR. When it's done, it will print the offset of the problematic row.
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 
 class Bisect(object):

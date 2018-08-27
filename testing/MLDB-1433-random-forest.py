@@ -1,6 +1,6 @@
 import datetime
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 start = datetime.datetime.now();
 mldb.put("/v1/procedures/airline", {

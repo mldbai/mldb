@@ -7,7 +7,7 @@
 import datetime
 import random
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 def train_svd(order_by, where, offset, limit):
     svd_procedure = "/v1/procedures/order_svd"

@@ -14,7 +14,7 @@ template = """#
 # This file is part of MLDB. Copyright {year} mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class {classname}(MldbUnitTest):  # noqa
 

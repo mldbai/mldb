@@ -14,7 +14,7 @@
 import random
 import tempfile
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
 

@@ -4,7 +4,7 @@
 #
 
 import random
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest
 
 class MLDB2186EmptyArray(MldbUnitTest):  # noqa
 

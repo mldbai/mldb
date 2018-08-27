@@ -7,7 +7,7 @@
 from time import time, sleep
 from functools import wraps
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 def timed(f):
   @wraps(f)

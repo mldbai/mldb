@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
     @classmethod
@@ -77,7 +77,7 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
                     ]
                 ])
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                   'Attempt to create a URL without a scheme'):
                 mldb.query("SELECT extract_domain('pwet.com') as c4")
 

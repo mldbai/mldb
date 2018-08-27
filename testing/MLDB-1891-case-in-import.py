@@ -6,7 +6,7 @@
 
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1891CaseInImport(MldbUnitTest):  # noqa
 
@@ -37,7 +37,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
     def test_case_import_column(self):
 
         msg = "Import select expression cannot have row-valued columns"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/procedures/import_case_column', { 
                 "type": "import.text",  
                 "params": { 
@@ -54,7 +54,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
     def test_case_import_column_else(self):
 
         msg = "Import select expression cannot have row-valued columns"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/procedures/import_case_column', { 
                 "type": "import.text",  
                 "params": { 
@@ -83,7 +83,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
         })
     def test_case_import_column_multiple(self):
         msg = "Import select expression cannot have row-valued columns"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/procedures/import_case', { 
                 "type": "import.text",  
                 "params": { 
@@ -114,7 +114,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
 
     def test_case_import_no_else_column(self):
         msg = "Import select expression cannot have row-valued columns"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/procedures/import_case', { 
                 "type": "import.text",  
                 "params": { 

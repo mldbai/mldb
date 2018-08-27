@@ -6,7 +6,7 @@
 import requests
 import json
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 url = 'http://localhost:' + mldb.get_http_bound_address().split(':')[-1]
 
 class Mldb1869JsonPayloadTest(MldbUnitTest):  # noqa

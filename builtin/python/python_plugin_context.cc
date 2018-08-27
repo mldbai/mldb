@@ -28,6 +28,30 @@ namespace fs = std::filesystem;
 
 namespace MLDB {
 
+namespace {
+
+// Protected by the GIL.  Functions that manipulate must only be called with it held.
+std::unordered_map<PyInterpreterState *, std::weak_ptr<MldbPythonContext> > environments;
+
+} // file scope
+
+// Used by modules to find the MLDB environment associated with our interpreter
+std::shared_ptr<MldbPythonContext>
+MldbPythonInterpreter::
+findEnvironment()
+{
+    PyThreadState * st = PyThreadState_Get();
+    ExcAssert(st);
+
+    PyInterpreterState * interp = st->interp;
+
+    auto it = environments.find(interp);
+    if (it == environments.end())
+        return nullptr;
+
+    return it->second.lock();
+}
+
 MldbPythonInterpreter::
 MldbPythonInterpreter(std::shared_ptr<PythonContext> context)
     : context(context)
@@ -39,11 +63,12 @@ MldbPythonInterpreter(std::shared_ptr<PythonContext> context)
     main_module = boost::python::import("__main__");
     main_namespace = main_module.attr("__dict__");
 
-    main_namespace["mldb"]
+    main_namespace["__mldb_environment__"]
         = boost::python::object(boost::python::ptr(mldb.get()));
     
-    injectMldbWrapper(*enterThread);
     injectOutputLoggingCode(*enterThread);
+
+    environments[interpState.get()->interp] = mldb;
 }
 
 MldbPythonInterpreter::
@@ -68,6 +93,8 @@ destroy()
 
         stdOutCapture.reset();
         stdErrCapture.reset();
+
+        environments.erase(interpState.get()->interp);
     }
     
     PythonInterpreter::destroy();
@@ -181,27 +208,6 @@ convertException(const EnterThreadToken & threadToken,
 
 
 /*****************************************************************************/
-/* PYTHON MLDB WRAPPER                                                       */
-/*****************************************************************************/
-extern "C" {
-    extern const char mldb_wrapper_start;
-    extern const char mldb_wrapper_end;
-    extern const size_t mldb_wrapper_size;
-};
-
-void
-MldbPythonInterpreter::
-injectMldbWrapper(const EnterThreadToken & threadToken)
-{
-    static const Utf8String
-        code(std::string(&mldb_wrapper_start, &mldb_wrapper_end));
-    boost::python::object out
-        = PythonThread::exec(threadToken, code,
-                             "mldb_wrapper.py",
-                             this->main_namespace);
-}
-
-/*****************************************************************************/
 /* PYTHON STDOUT/ERR EXTRACTION CODE                                         */
 /*****************************************************************************/
 
@@ -240,6 +246,10 @@ logMessage(const EnterThreadToken & threadToken,
 {
     Date ts = Date::now();
     
+    if (message != "\n") {
+        context->logToStream(stream, message);
+    }
+
     BufferState & buffer = buffers[stream];
 
     // Just a newline?  Flush it out
@@ -416,8 +426,12 @@ PythonContext::
 PythonContext(const Utf8String &  name, MldbEngine * engine)
     : categoryName(name + " plugin"),
       loaderName(name + " loader"),
+      stdoutName(name + " stdout"),
+      stderrName(name + " stderr"),
       category(categoryName.rawData()),
       loader(loaderName.rawData()),
+      stdout(stdoutName.rawData()),
+      stderr(stderrName.rawData()),
       engine(engine)
 {
 }
@@ -431,8 +445,23 @@ void
 PythonContext::
 log(const std::string & message)
 {
+    std::unique_lock<std::mutex> guard(logMutex);
     LOG(category) << message << endl;
     logs.emplace_back(Date::now(), "log", Utf8String(message));
+}
+
+void
+PythonContext::
+logToStream(const char * stream,
+            const std::string & message)
+{
+    std::unique_lock<std::mutex> guard(logMutex);
+    if (strcmp(stream, "stdout")) {
+        LOG(stdout) << message << endl;
+    }
+    else if (strcmp(stream, "stderr")) {
+        LOG(stderr) << message << endl;
+    }
 }
 
 /****************************************************************************/

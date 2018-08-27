@@ -5,9 +5,7 @@
 #
 
 import unittest, json
-
-mldb2 = mldb
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1705(MldbUnitTest):
     @classmethod
@@ -82,7 +80,7 @@ class Mldb1705(MldbUnitTest):
         }
 
         msg = "You cannot mix query string and body parameters"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.get("/v1/functions/func/application",
                      input=json.dumps(data), data={"input" : data})
 

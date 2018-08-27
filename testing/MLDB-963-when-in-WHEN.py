@@ -7,7 +7,7 @@
 import unittest
 import datetime
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 now = datetime.datetime.now() - datetime.timedelta(seconds=1)
 
 class WhenInWhen(unittest.TestCase):

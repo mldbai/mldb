@@ -7,7 +7,7 @@ import unittest
 
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class AliasResolvingTest(MldbUnitTest):  # noqa
 
@@ -21,7 +21,7 @@ class AliasResolvingTest(MldbUnitTest):  # noqa
 
     @unittest.expectedFailure
     def test_bad_alias_lhs_inner_join(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.query("""
                 SELECT *
                 FROM a
@@ -30,7 +30,7 @@ class AliasResolvingTest(MldbUnitTest):  # noqa
 
     @unittest.expectedFailure
     def test_bad_alias_rhs_inner_join(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.query("""
                 SELECT *
                 FROM a
@@ -39,7 +39,7 @@ class AliasResolvingTest(MldbUnitTest):  # noqa
 
     @unittest.expectedFailure
     def test_bad_alias_lhs_where(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.query("""
                 SELECT *
                 FROM a
@@ -48,7 +48,7 @@ class AliasResolvingTest(MldbUnitTest):  # noqa
 
     @unittest.expectedFailure
     def test_bad_alias_rhs_where(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.query("""
                 SELECT *
                 FROM a

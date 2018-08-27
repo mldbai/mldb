@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 import unittest
@@ -50,7 +50,7 @@ class HavingTest(unittest.TestCase):
         }
         mldb.put("/v1/procedures/csv_proc", csv_conf)
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             res = mldb.get("/v1/query", q='select COLUMN EXPR (WHERE regex_match(columnName(), "P.*") ) from titanic2')
 
         mldb.log(re.exception.response.json()["error"])
@@ -59,7 +59,7 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             res = mldb.get("/v1/query", q='select COLUMN EXPR (WHERE regex_match(columnName(), {P.*}) ) from titanic2')
 
         mldb.log(re.exception.response.json()["error"])
@@ -68,7 +68,7 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             res = mldb.get("/v1/query", q='SELECT a')
 
         mldb.log(re.exception.response.json()["error"])
@@ -77,7 +77,7 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             res = mldb.get("/v1/query", q='SELECT 1 named a')
 
         expected = 'Cannot read column "a" with no FROM clause.'
@@ -89,7 +89,7 @@ class HavingTest(unittest.TestCase):
     #MLDB-1484
     def test_error_function(self):
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             res = mldb.get("/v1/query", q='select unexisting(2)')
 
         mldb.log(re.exception.response.json()["error"])

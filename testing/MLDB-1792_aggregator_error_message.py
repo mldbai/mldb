@@ -6,7 +6,7 @@
 
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1792AggregatorErrorMessage(MldbUnitTest):  # noqa
 
@@ -16,7 +16,7 @@ class Mldb1792AggregatorErrorMessage(MldbUnitTest):  # noqa
         ds.commit()
 
         msg = "function avg expected 1 argument, got 2"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("SELECT avg(colA, 2) FROM ds")
 
 if __name__ == '__main__':

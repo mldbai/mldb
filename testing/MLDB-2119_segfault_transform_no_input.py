@@ -4,13 +4,13 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
 
     def test_run_on_creation(self):
         msg = 'You need to define inputData'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/procedures/run_on_creation', {
                 'type' : 'transform',
                 'params' : {
@@ -18,7 +18,7 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'transform',
                 'params' : {
@@ -36,7 +36,7 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
         })
 
         msg = 'You need to define inputData'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/procedures/do_not_run_on_creation/runs/r1', {
                 'params' : {}
             })
@@ -48,7 +48,7 @@ class Mldb2119SegfaultTransformNoInput(MldbUnitTest):  # noqa
                 'runOnCreation' : False
             }
         }).json()
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures/{}/runs'.format(res['id']), {
                 'params' : {}
             })

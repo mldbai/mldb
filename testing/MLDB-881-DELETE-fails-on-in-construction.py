@@ -4,9 +4,7 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 # create an expensive resource async
@@ -26,7 +24,7 @@ assert resp.status_code == 204
 # once the DELETE returns the resource should have been deleted
 try:
     mldb.get("/v1/datasets/dummy2")
-except mldb_wrapper.ResponseException:
+except ResponseException:
     pass
 else:
     assert False, 'should not be here'

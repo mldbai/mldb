@@ -7,7 +7,7 @@
 # exposed to procedure creation bombardment.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 import time
 

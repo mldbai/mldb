@@ -10,7 +10,7 @@ import json
 import random
 from operator import itemgetter
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 # these tests are based on those found in the postgresql test suite
 # https://github.com/postgres/postgres/blob/master/src/test/regress/expected/join.out

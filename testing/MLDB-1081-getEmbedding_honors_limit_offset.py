@@ -6,9 +6,7 @@
 
 import random, datetime
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 def delete_keys_from_dict(dict_del, lst_keys):
@@ -101,7 +99,7 @@ for idx, row in enumerate(first_run_rows[offset:]):
 conf['params']['trainingData']['offset'] = 1000
 try:
     mldb.put("/v1/procedures/rocket_science", conf)
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     rez = exc.response
 else:
     assert False, 'Should have failed with a 400'
@@ -112,7 +110,7 @@ conf['params']['trainingData']['offset'] = 0
 conf['params']['trainingData']['limit'] = 0
 try:
     mldb.put("/v1/procedures/rocket_science", conf)
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     rez = exc.response
 else:
     assert False, 'Should have failed with a 400'

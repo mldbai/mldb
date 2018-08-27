@@ -5,7 +5,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 def create_ds(name, rowName):
     mldb.put('/v1/datasets/' + name, {

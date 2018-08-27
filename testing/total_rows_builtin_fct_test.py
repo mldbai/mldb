@@ -6,7 +6,7 @@
 if False:
     mldb_wrapper = None
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class TotalRowsBuiltinFctTest(MldbUnitTest):  # noqa
 
@@ -80,22 +80,22 @@ class TotalRowsBuiltinFctTest(MldbUnitTest):  # noqa
 
     def test_where_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("SELECT * FROM ds WHERE totalRows() < 2")
 
     def test_order_by_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("SELECT * FROM ds ORDER BY totalRows()")
 
     def test_group_by_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("SELECT 'coco' FROM ds GROUP BY totalRows()")
 
     def test_named_row_number(self):
         msg = "function totalRows is only available in SELECT expressions."
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("SELECT rowName() NAMED totalRows() FROM ds")
 
 if __name__ == '__main__':

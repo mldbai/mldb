@@ -3,11 +3,12 @@
 # mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 
 # surprisingly enough, this works: a python script calling a python script !
 result = mldb.post("/v1/types/plugins/python/routes/run", {"source":'''
+from mldb import mldb
 print(mldb.perform("POST", "/v1/types/plugins/python/routes/run", [], {"source":"print(1)"}))
 '''})
 
@@ -18,6 +19,7 @@ result = mldb.put("/v1/plugins/deadlocker", {
         "source":{
             "routes":
 """
+from mldb import mldb
 mldb.log("got request " + request.verb + " " + request.remaining)
 rp = request
 if str(rp.verb) == "GET" and str(rp.remaining) == "/deadlock":

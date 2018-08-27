@@ -5,13 +5,13 @@
 #
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class InvalidScriptTest(MldbUnitTest): # noqa
 
     @unittest.expectedFailure
     def test_it(self):
-        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+        with self.assertRaises(ResponseException): # noqa
             mldb.put('/v1/functions/foo', {
                 "type": "script.apply",
                 "params": {

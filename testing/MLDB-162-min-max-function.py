@@ -3,9 +3,7 @@
 # mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 #First create the datasets we'll need
 ds1 = mldb.create_dataset({
@@ -76,14 +74,14 @@ assert result.json()[1]['columns'][1][1] == 9
 #MLDB-234
 try:
     mldb.get('/v1/query', q='SELECT x FROM dataset1 GROUP BY 1')
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     mldb.log(exc.response.text)
 else:
     assert False, 'should not be here'
 
 try:
     mldb.get('/v1/query', q='SELECT x FROM dataset1 GROUP BY y')
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     mldb.log(exc.response.text)
 else:
     assert False, 'should not be here'

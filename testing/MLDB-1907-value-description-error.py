@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
 
@@ -13,11 +13,11 @@ class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
         pass
 
     def test_value_desc_on_wrong_params(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                      'Binding builtin function sqrt: expected 1 argument, got 2'):
             mldb.query("select sqrt(2, NULL)")
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                      'Binding builtin function sqrt: expected 1 argument, got 2'):
             mldb.query("select sqrt(2, 1)")
 

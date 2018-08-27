@@ -4,7 +4,7 @@
 #
 
 import unittest, json
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb174Test(MldbUnitTest):
 
@@ -232,7 +232,7 @@ class Mldb174Test(MldbUnitTest):
             }
 
         # this should fail because we check for dupes
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.put('/v1/procedures/wine_trainer', getConfig("wine_full_collision"))
 
         # the training should now work
@@ -598,7 +598,7 @@ class Mldb174Test(MldbUnitTest):
 
 
         msg = "The specified features couldn't be found in the classifier."
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("""
                 SELECT explain_dt_mldb_1712({{octosanchez} AS features,
                                               label AS label}) AS explain,

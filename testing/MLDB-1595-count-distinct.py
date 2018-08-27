@@ -5,7 +5,7 @@
 #
 
 import unittest, json
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 class DistinctTest(unittest.TestCase):
 

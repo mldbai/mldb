@@ -5,7 +5,7 @@
 #
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class WhereWithoutDatasetTest(MldbUnitTest):  # noqa
 

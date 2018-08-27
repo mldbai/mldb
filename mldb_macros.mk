@@ -24,7 +24,7 @@ $$(if $(trace),$$(warning called mldb_unit_test "$(1)" "$(2)" "$(3)" "$(4)" "$(5
 
 # Pre-run setup command.  This currently checks for a Python script, and activates
 # it if necessary.
-TEST_$(1)_SETUP := $$(if $$(findstring .py,$(1))$$(findstring virtualenv,$(3)),. $$(shell readlink -f $(VIRTUALENV))/bin/activate;)
+TEST_$(1)_SETUP := $$(if $$(findstring .py,$(1))$$(findstring virtualenv,$(3)),. $$(shell readlink -f $(VIRTUALENV))/bin/activate; PYTHONPATH=$(BIN) )
 
 # Command to actually run for the test.  Constructs the call to mldb_runner and the
 # command line options to pass to it.

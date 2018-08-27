@@ -4,9 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 conf = {
     "type": "sql.expression",
@@ -88,7 +86,7 @@ try:
     })
 
     mldb.get("/v1/query", q="select recurse({input: -1})")
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     pass
 else:
     assert False, 'Should have failed with a 400'

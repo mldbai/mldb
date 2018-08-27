@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
@@ -257,7 +257,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
 
     def test_errors(self):
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(ResponseException, 
                                      "Number of splits requested is different than the number of datasets provided"):
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
@@ -272,7 +272,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(ResponseException, 
                                      "Insufficient number of splits"):
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",
@@ -285,7 +285,7 @@ class Mldb2180DatasetSplitTests(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(ResponseException, 
                                      "Sum of split factors does not approximate to 1.0"):
             res = mldb.put("/v1/procedures/split", {
                 "type": "split",

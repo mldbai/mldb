@@ -5,7 +5,7 @@
 #
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class SummaryStatsProcTest(MldbUnitTest):  # noqa
 
@@ -130,19 +130,19 @@ class SummaryStatsProcTest(MldbUnitTest):  # noqa
             })
         msg = "is not a supported SELECT value expression for " \
               "summary.statistics"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             run_proc('SELECT coco AS * FROM ds')
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             run_proc('SELECT {a:1, b:2} FROM ds')
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             run_proc('SELECT colA + 1 FROM ds')
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             run_proc('SELECT {*} FROM ds')
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             run_proc('SELECT max(colA) FROM ds')
 
     def test_most_frequent(self):

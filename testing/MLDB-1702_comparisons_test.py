@@ -6,7 +6,7 @@
 import unittest
 from functools import partial
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1702ComparisonTest(MldbUnitTest):  # noqa
 

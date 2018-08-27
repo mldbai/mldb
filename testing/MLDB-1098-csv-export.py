@@ -12,7 +12,7 @@ import unittest
 
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 class CsvExportTest(MldbUnitTest):
@@ -122,7 +122,7 @@ class CsvExportTest(MldbUnitTest):
         self.assert_file_content(tmp_file.name, lines_expect)
 
     def test_bad_target(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.put('/v1/procedures/export4', {
                 'type' : 'export.csv',
                 'params' : {
@@ -160,7 +160,7 @@ class CsvExportTest(MldbUnitTest):
 
         tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 "cells having multiple values, at row 'row.' for column '.'"):
             mldb.post('/v1/procedures', {
                 'type' : 'export.csv',

@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 result = mldb.get('/v1/query', q='select normalize({1, 2, 3, 4}, 1) as x')
 mldb.log(result)

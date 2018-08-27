@@ -8,7 +8,7 @@
 # then query select * from x without error right now I get Error executing
 # non-grouped query: cannot call toString on utf8 string
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 datasetConfig = {
     'type': 'sparse.mutable',
     'id': 'non-ascii-row'

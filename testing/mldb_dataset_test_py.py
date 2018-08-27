@@ -93,6 +93,7 @@ class DatasetTest(unittest.TestCase):
 
         pythonScript = {
         "source":  """
+from mldb import mldb
 import datetime
 import random
 

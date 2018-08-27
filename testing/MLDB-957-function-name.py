@@ -4,9 +4,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 dataset_config = {
     'type'    : 'sparse.mutable',
@@ -28,7 +26,7 @@ assert result.json()[0]['columns'][0][1] == 225
 
 try:
     mldb.get('/v1/query', q='select POWER(x, 2) from example')
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     mldb.log(exc.response)
 else:
     assert False, "should have failed"

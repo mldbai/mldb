@@ -5,7 +5,7 @@
 #
 import random
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',

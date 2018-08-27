@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class ColumnNameTest(MldbUnitTest):  # noqa
 
@@ -13,7 +13,7 @@ class ColumnNameTest(MldbUnitTest):  # noqa
         self.assertEqual(res[0][1], expected)
 
     def select_err(self, select):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.query("SELECT {}".format(select))
 
     def test_int(self):

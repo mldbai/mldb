@@ -2,6 +2,7 @@
 
 
 import json
+from mldb import mldb
 
 result = mldb.perform("PUT", "/v1/plugins/mirror", [], {
     "type": "python",
@@ -9,7 +10,7 @@ result = mldb.perform("PUT", "/v1/plugins/mirror", [], {
         "source":{
             "routes":
 """
-
+from mldb import mldb
 mldb.log(str(request.rest_params))
 mldb.log(str(request.payload))
 

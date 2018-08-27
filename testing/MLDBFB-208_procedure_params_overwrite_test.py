@@ -5,7 +5,7 @@
 #
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class GenericProcedureTest(MldbUnitTest): # noqa
 
@@ -42,7 +42,7 @@ class GenericProcedureTest(MldbUnitTest): # noqa
         })
 
         # outputDataset was overriden in the run to output to out
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                      "dataset entry 'bar' doesn't exist"):
             mldb.query("SELECT * FROM bar")
 

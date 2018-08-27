@@ -20,7 +20,6 @@ PYTHON_PLUGIN_SOURCES := \
 	python_plugin_context.cc \
 	python_entities.cc \
 	python_converters.cc \
-	mldb_wrapper.py.embed \
 
 
 PYTHON_PLUGIN_LINK := \
@@ -36,5 +35,21 @@ PYTHON_PLUGIN_LINK := \
 $(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
 
 $(eval $(call library,mldb_python_plugin,$(PYTHON_PLUGIN_SOURCES),$(PYTHON_PLUGIN_LINK)))
+
+MLDB_PYTHON_ADDON_SOURCES := \
+	find_mldb_environment.cc
+
+MLDB_PYTHON_ADDON_LINK := \
+	boost_python3
+
+$(eval $(call python_addon,_mldb,$(MLDB_PYTHON_ADDON_SOURCES),$(MLDB_PYTHON_ADDON_LINK)))
+
+$(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
+
+$(eval $(call python_module,mldb,$(notdir $(wildcard $(CWD)/*.py)),_mldb))
+
+
+# Our python plugin requires
+$(LIB)/libmldb_python_plugin.so:	$(PYTHON_mldb_DEPS)
 
 $(eval $(call include_sub_make,testing))

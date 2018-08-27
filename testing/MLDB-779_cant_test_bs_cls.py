@@ -7,7 +7,7 @@
 # We do the training pipelines twice and each cls has a different
 # failure point
 #
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 import datetime, random
 

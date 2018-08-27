@@ -4,13 +4,9 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import unittest
-
 import datetime
 import random
-
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 class InputDataSpecTest(unittest.TestCase):
@@ -110,10 +106,10 @@ class InputDataSpecTest(unittest.TestCase):
         self.train_kmeans({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
 
         # TEST ERROR CASE
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             self.train_kmeans(
                 'select x, y from kmeans_example group by x')
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             self.train_kmeans(
                 'select x, y from kmeans_example group by x having y > 2')
 
@@ -125,9 +121,9 @@ class InputDataSpecTest(unittest.TestCase):
         self.train_svd({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
         self.train_svd('select x + 1, y from kmeans_example')
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             self.train_svd('select x, y from kmeans_example group by x')
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             self.train_svd(
                 'select x, y from kmeans_example group by x having y > 2')
 

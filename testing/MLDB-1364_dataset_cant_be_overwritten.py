@@ -7,7 +7,7 @@
 
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1364Test(MldbUnitTest):
 
@@ -25,7 +25,7 @@ class MLDB1364Test(MldbUnitTest):
         # this is throwing because the not_yet_created dataset 
         # does not exist
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.put("/v1/datasets/training_data",{
                 "type": "merged",
                 "params": {

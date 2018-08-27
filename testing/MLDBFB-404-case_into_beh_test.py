@@ -3,9 +3,7 @@
 # Mich, 2016-03-14
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
-import unittest
-
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest
 
 class TestCaseIntoBeh(MldbUnitTest):  # noqa
 

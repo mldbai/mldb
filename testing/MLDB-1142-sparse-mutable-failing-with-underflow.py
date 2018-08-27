@@ -7,7 +7,7 @@
 import datetime
 import random
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 def load_kmeans_dataset():
     """A dataset with two 'time slices'

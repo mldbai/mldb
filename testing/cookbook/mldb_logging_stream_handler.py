@@ -13,7 +13,7 @@
 
 import logging
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 class MldbStreamHandler(logging.StreamHandler):
     def emit(self, record):

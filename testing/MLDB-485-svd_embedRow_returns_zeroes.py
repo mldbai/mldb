@@ -14,7 +14,7 @@ import datetime
 import sys
 import random
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 def random_dataset():
     dataset_config = {

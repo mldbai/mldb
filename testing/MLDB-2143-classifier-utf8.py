@@ -11,7 +11,7 @@
 import tempfile
 import codecs
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB2134classiferUtf8Test(MldbUnitTest):  # noqa
 

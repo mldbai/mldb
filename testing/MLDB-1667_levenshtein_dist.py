@@ -5,7 +5,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1667(MldbUnitTest):
     @classmethod
@@ -69,7 +69,7 @@ class Mldb1667(MldbUnitTest):
 
     def test_wrong_type(self):
         def doWrongTypeQuery(a, b):
-            with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+            with self.assertRaisesRegex(ResponseException,
                                         'function must be strings'):
                 mldb.query("SELECT levenshtein_distance(%s, %s) as dist" % (a, b))
 

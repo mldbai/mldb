@@ -20,7 +20,7 @@ class MyThread(threading.Thread):
 # timeout in case MLDB fails to connect to the socket, the test won't hang
 socket.setdefaulttimeout(10)
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.bind(('127.0.0.1', 0))

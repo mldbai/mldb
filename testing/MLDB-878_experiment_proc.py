@@ -6,7 +6,7 @@
 import datetime, os
 from random import random, gauss
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb878Test(MldbUnitTest):  # noqa
 
@@ -189,7 +189,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
             "select {* EXCLUDING(label)} as features, label from toy2"
         conf["params"]["kfold"] = 5
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as exc:
+        with self.assertRaises(ResponseException) as exc:
             mldb.put("/v1/procedures/rocket_science4", conf)
         mldb.log(exc.exception.response)
 
@@ -221,14 +221,14 @@ class Mldb878Test(MldbUnitTest):  # noqa
         conf["params"]["inputData"] = "select * from toy"
         conf["params"]["testingDataOverride"] = "select * from toy"
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.put("/v1/procedures/rocket_science5", conf)
 
         # fix training
         conf["params"]["inputData"] = \
             "select {* EXCLUDING(label)} as features, label from toy"
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.put("/v1/procedures/rocket_science5", conf)
 
 
@@ -309,7 +309,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 "runOnCreation": True
             }
         }
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 'Error when trying'):
             mldb.put("/v1/procedures/rocket_science", conf)
 
@@ -412,7 +412,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
         self.assertEqual(set_union, 5000)
 
     def test_where_not_accepted(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", {
                 "type": "classifier.experiment",
                 "params": {
@@ -438,7 +438,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", {
                 "type": "classifier.experiment",
                 "params": {
@@ -468,7 +468,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
             })
 
     def test_limit_not_accepted(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", {
                 "type": "classifier.experiment",
                 "params": {
@@ -494,7 +494,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", {
                 "type": "classifier.experiment",
                 "params": {
@@ -578,7 +578,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
         self.assertEqual(res1, res2)
 
     def test_offset_not_accepted(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", {
                 "type": "classifier.experiment",
                 "params": {
@@ -604,7 +604,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", {
                 "type": "classifier.experiment",
                 "params": {

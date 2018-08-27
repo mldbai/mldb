@@ -6,7 +6,7 @@
 
 import datetime
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 # Create mldb dataset
 dataset_config = {

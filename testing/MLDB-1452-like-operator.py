@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class LikeTest(MldbUnitTest):  # noqa
 
@@ -176,7 +176,7 @@ class LikeTest(MldbUnitTest):  # noqa
         ds.record_row("c",[["x", 12345.00, 0]])
         ds.commit()
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             res = mldb.query('''
                 select x
                 from sample4

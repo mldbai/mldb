@@ -3,9 +3,7 @@
 # Mich, 2016-06-07
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
 
@@ -42,7 +40,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
 
     def test_classifier_test_no_data(self):
         err_str = "Cannot run classifier.test procedure on empty test set"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, err_str):
+        with self.assertRaisesRegex(ResponseException, err_str):
             mldb.post('/v1/procedures', {
                 "type": "classifier.test",
                 "params": {
@@ -58,7 +56,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, err_str):
+        with self.assertRaisesRegex(ResponseException, err_str):
             mldb.post('/v1/procedures', {
                 "type": "classifier.test",
                 "params": {
@@ -74,7 +72,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, err_str):
+        with self.assertRaisesRegex(ResponseException, err_str):
             mldb.post('/v1/procedures', {
                 "type": "classifier.test",
                 "params": {

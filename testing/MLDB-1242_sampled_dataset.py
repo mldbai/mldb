@@ -7,9 +7,7 @@ import unittest
 import random
 import datetime
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 class SampledDatasetTest(unittest.TestCase):
@@ -53,7 +51,7 @@ class SampledDatasetTest(unittest.TestCase):
                 "withReplacement": False
             }
         }
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.put("/v1/datasets/patate", sampled_dataset_conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -61,7 +59,7 @@ class SampledDatasetTest(unittest.TestCase):
         mldb.put("/v1/datasets/patate", sampled_dataset_conf)
 
         # try to insert and make sure we get an exception
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.post("/v1/datasets/patate/rows", {
                 "rowName": "patato",
                 "columns": [["a", "b", 0]]
@@ -83,17 +81,17 @@ class SampledDatasetTest(unittest.TestCase):
         self.assertEqual(len(rez.json()), 250)
 
         sampled_dataset_conf["params"]["fraction"] = 5
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.put("/v1/datasets/pwet", sampled_dataset_conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
         sampled_dataset_conf["params"]["fraction"] = 0
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.put("/v1/datasets/pwet", sampled_dataset_conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
         sampled_dataset_conf["params"]["fraction"] = -1
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.put("/v1/datasets/pwet", sampled_dataset_conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
@@ -125,13 +123,13 @@ class SampledDatasetTest(unittest.TestCase):
         self.assertEqual(len(rez.json()), 1)
 
     def test_functions_with_invalid_params(self):
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.get("/v1/query", q="select * from sample(toy, {rows: 1, fraction: 0.2})")
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.get("/v1/query", q="select * from sample(toy, {fraction: 0})")
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.get("/v1/query", q="select * from sample(toy, {fraction: -0.2})")
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.get("/v1/query", q="select * from sample(toy, {fraction: 2})")
 
     def test_sampled_over_merged(self):
@@ -173,7 +171,7 @@ class SampledDatasetTest(unittest.TestCase):
     def test_cant_create_wo_ds(self):
         # MLDB-1977
         msg = "You need to define the dataset key"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as re:
+        with self.assertRaisesRegex(ResponseException, msg) as re:
             mldb.put('/v1/datasets/sampled', {
                 'type' : 'sampled',
                 'params' : {

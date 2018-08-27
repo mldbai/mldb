@@ -6,7 +6,7 @@
 
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb256Test(MldbUnitTest):
 
@@ -71,7 +71,7 @@ class Mldb256Test(MldbUnitTest):
 
     # this test only validates that there is no segfault when testing a glz with only null features
     def test_bool_cls_no_segfault_no_feature_cols(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 "Feature_Set is null! Are you giving only null features.*") as re:
             rez = mldb.put("/v1/procedures/bool_cls_seg", {
                 "type": "classifier.experiment",
