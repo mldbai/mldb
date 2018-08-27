@@ -4,7 +4,7 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class RownameInJoinTest(MldbUnitTest):
 

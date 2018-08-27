@@ -6,7 +6,7 @@
 import time
 from functools import reduce
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class SerialProcedureTest(MldbUnitTest):  # noqa
 

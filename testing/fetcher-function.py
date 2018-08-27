@@ -11,7 +11,7 @@ import signal
 import os
 from socket import socket
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class FetcherFunction(MldbUnitTest):  # noqa
 
@@ -127,7 +127,7 @@ class FetcherFunction(MldbUnitTest):  # noqa
         self.assertTrue(res[1][1] is not None)
 
     def test_non_builtin_max_concurrency_bad_param(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post('/v1/functions', {
                 'type': 'fetcher',
                 'params' : {
@@ -135,7 +135,7 @@ class FetcherFunction(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post('/v1/functions', {
                 'type': 'fetcher',
                 'params' : {

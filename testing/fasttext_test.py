@@ -7,7 +7,7 @@
 import os
 import tempfile
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class FastTextTest(MldbUnitTest):
 
@@ -106,7 +106,7 @@ class FastTextTest(MldbUnitTest):
             }
 
             msg = "FastText classifier does not currently support regression mode"
-            with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+            with self.assertRaisesRegex(ResponseException, msg):
                 mldb.put("/v1/procedures/trainer", {
                     "type": "classifier.train",
                     "params": {
@@ -226,7 +226,7 @@ class FastTextTest(MldbUnitTest):
                 ]
             ]);
 
-            with self.assertRaisesRegex(mldb_wrapper.ResponseException, "label not in model"):
+            with self.assertRaisesRegex(ResponseException, "label not in model"):
                 res = mldb.query("""SELECT explain({features : {tokenize(lower(' hockey Alabama Futbol'), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens},
                                                     label : 'Futurama'}) as * 
                                 """)

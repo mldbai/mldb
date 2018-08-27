@@ -26,6 +26,7 @@ class DatasetTest(unittest.TestCase):
 
         pythonScript = {
         "source":  """
+from mldb import mldb
 datasetConfig = {
     "type": "sparse.mutable",
     "id": "testing_types"

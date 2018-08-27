@@ -6,7 +6,7 @@
 # How to get all column names from a datasets.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
 ds.record_row('user1', [['eventA', 1, 0]])

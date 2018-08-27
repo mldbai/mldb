@@ -5,7 +5,7 @@
 #
 import datetime
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 dataset = mldb.create_dataset({
         'type': 'sparse.mutable',

@@ -7,7 +7,7 @@
 import datetime
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 def log(thing):
     mldb.log(str(thing))

@@ -1,6 +1,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 import json, random, datetime, os
+from mldb import mldb
 
 ## Create toy dataset
 dataset_config = {

@@ -5,7 +5,7 @@
 #
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 
 class SvmTest(unittest.TestCase):

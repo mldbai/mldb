@@ -4,9 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class BehTypeCheckOnLoadTest(MldbUnitTest):  # noqa
 
@@ -29,7 +27,7 @@ class BehTypeCheckOnLoadTest(MldbUnitTest):  # noqa
         })
 
         msg = "The loaded dataset is not of type beh.binary"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/datasets/error', {
                 'type' : 'beh.binary',
                 'params' : params
@@ -54,7 +52,7 @@ class BehTypeCheckOnLoadTest(MldbUnitTest):  # noqa
         })
 
         msg = "The loaded dataset is not of type beh, it is"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/datasets/error', {
                 'type' : 'beh',
                 'params' : params

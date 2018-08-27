@@ -6,9 +6,11 @@
 ###
 
 import json
+from mldb import mldb
 
 conf = {
     "source": """
+from mldb import mldb
 mldb.log("patate")
 mldb.log({"patate":2.44})
 mldb.log(["patate", "pwel"])
@@ -23,8 +25,8 @@ jsRtn = json.loads(rtn["response"])
 mldb.log(jsRtn)
 
 assert jsRtn["logs"][0]["c"] == "patate"
-assert jsRtn["logs"][1]["c"] == "{\n   \"patate\" : 2.440000057220459\n}\n"
-assert jsRtn["logs"][2]["c"] == "[ \"patate\", \"pwel\" ]\n"
+assert jsRtn["logs"][1]["c"] == "{\n    \"patate\": 2.44\n}"
+assert jsRtn["logs"][2]["c"] == "[\n    \"patate\",\n    \"pwel\"\n]"
 assert jsRtn["logs"][3]["c"] == "25"
 assert jsRtn["logs"][4]["c"] == "a b 2"
 #assert jsRtn["logs"][5]["c"] == ""

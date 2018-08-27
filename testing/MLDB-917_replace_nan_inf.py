@@ -5,7 +5,7 @@
 #
 import datetime
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 rez = mldb.get("/v1/query", q="select 0/0")
 js_rez = rez.json()

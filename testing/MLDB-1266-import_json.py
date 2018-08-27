@@ -8,7 +8,7 @@ from functools import partial
 
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 class ImportJsonTest(MldbUnitTest):  # noqa
@@ -85,7 +85,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                 "runOnCreation": True
             }
         }
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.put("/v1/procedures/json_importer", conf)
 
     def test_ignore_bad_lines(self):
@@ -164,7 +164,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
             }
         }
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", conf)
 
     def test_where_filtering(self):
@@ -270,7 +270,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
 
     def test_named_on_object(self):
         msg = 'Cannot convert value of type'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {
@@ -309,7 +309,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
 
     def test_no_input_file(self):
         msg = "dataFileUrl is a required property and must not be empty";
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {
@@ -321,7 +321,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {
@@ -334,7 +334,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {

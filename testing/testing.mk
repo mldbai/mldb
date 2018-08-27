@@ -22,8 +22,8 @@ $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
 
 
 $(eval $(call test,mldb_plugin_test,mldb,boost))
-$(eval $(call test,mldb_python_plugin_test,mldb,boost))
-$(eval $(call test,MLDB-642_script_procedure_test,mldb,boost))
+$(eval $(call test,mldb_python_plugin_test,mldb,boost virtualenv))
+$(eval $(call test,MLDB-642_script_procedure_test,mldb,boost virtualenv))
 $(eval $(call test,for_each_line_test,mldb,boost))
 $(eval $(call test,svd_utils_test,mldb,boost))
 
@@ -69,7 +69,7 @@ $(eval $(call mldb_unit_test,beh_type_check_on_load_test.py))
 $(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
 $(eval $(call test,mldb_startup_test,mldb,boost))
 $(eval $(call test,mldb_plugin_delete_test,mldb,boost))
-$(eval $(call test,pyplugin_static_folder_test,mldb,boost))
+$(eval $(call test,pyplugin_static_folder_test,mldb,boost virtualenv))
 $(eval $(call test,mldb_function_delete_test,mldb mldb_test_function,boost))
 $(eval $(call test,MLDB-204-circular-references-initialization,mldb,boost))
 $(eval $(call test,MLDB-267-delete-while-loading,mldb,boost))

@@ -6,7 +6,7 @@
 import datetime
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 now = datetime.datetime.now()
 a_second_before_now = now + datetime.timedelta(seconds=-1)

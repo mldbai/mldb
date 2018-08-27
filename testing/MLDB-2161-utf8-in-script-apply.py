@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB2161Utf8InScriptApply(MldbUnitTest):  # noqa
 
@@ -15,6 +15,7 @@ class MLDB2161Utf8InScriptApply(MldbUnitTest):  # noqa
                 "language": 'python',
                 "scriptConfig": {
                     "source": """
+from mldb import mldb
 # retrieve all themes
 mldb.log(mldb.script.args)
 

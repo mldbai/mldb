@@ -7,7 +7,7 @@
 import unittest
 import tempfile
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 def create_beh_dataset():

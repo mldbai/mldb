@@ -6,7 +6,7 @@
 # How to get time spans in seconds rather than time strings.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
 ds.record_row('row1', [['colA', 1, 1], ['colB', 4, 12]])

@@ -18,7 +18,7 @@ import threading
 import time
 import traceback
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 def some_func(food, **kwargs):
     time.sleep(0.1)

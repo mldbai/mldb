@@ -3,7 +3,7 @@
 # mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 def check(result, expectedSize):
@@ -29,7 +29,7 @@ def find_value(result, value):
 def check_failed(qry):
     try:
         result = mldb.get('/v1/query', q=qry)
-    except mldb_wrapper.ResponseException as exc:
+    except ResponseException as exc:
         pass
     else:
         mldb.log(result.json())

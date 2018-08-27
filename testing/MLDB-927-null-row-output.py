@@ -8,7 +8,7 @@ import json
 import datetime
 import difflib
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 dataset_index = 1
 

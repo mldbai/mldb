@@ -3,7 +3,7 @@
 # mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 import datetime
 
@@ -33,6 +33,7 @@ script_func_conf = {
             "language": "python",
             "scriptConfig": {
                 "source": """
+from mldb import mldb
 mldb.log(str(mldb.script.args))
 
 rtn = [[mldb.script.args[0][0][0], mldb.script.args[0][0][1][0], mldb.script.args[0][0][1][1]]];
@@ -74,7 +75,7 @@ script_func_conf = {
             "language": "python",
             "scriptConfig": {
                 "source": """
-
+from mldb import mldb
 mldb.log(mldb.script.args)
 results = []
 for colName, cellValue in mldb.script.args[0]:

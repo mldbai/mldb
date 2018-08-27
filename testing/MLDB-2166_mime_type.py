@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB2166MimeType(MldbUnitTest):  # noqa
 
@@ -42,14 +42,14 @@ class MLDB2166MimeType(MldbUnitTest):  # noqa
         # )
     
     def test_not_blob(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 'Mime type extraction requires that an atomic value of type BLOB'):
             rez = mldb.query("""
                 select mime_type(fetcher('mldb/testing/logo-new.jpg')) as mime
             """)
     
     def test_non_existant(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 'No such file'):
             rez = mldb.query("""
                 select mime_type(fetcher('non_existant')) as mime

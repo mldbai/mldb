@@ -6,7 +6,7 @@
 # How to get "value @ timestamp" as the result of a table query.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
 ds.record_row('row1', [['colA', 1, 1], ['colB', 4, 12]])

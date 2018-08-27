@@ -10,7 +10,7 @@
 
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 # TODO: put your own name here e.g. Mldb999Test
 class SampleTest(MldbUnitTest):  
@@ -43,14 +43,14 @@ class SampleTest(MldbUnitTest):
     # TODO: put your own name here e.g. test_something
     def test_errors(self):
         # test a bad query
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.query("SELECT this will not work")
 
         # the original response is available via re.exception.response
         self.assertEqual(re.exception.response.status_code, 400)
 
         # directly test the error message
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                   'must override getAllColumns'):
             mldb.query("SELECT *")
 

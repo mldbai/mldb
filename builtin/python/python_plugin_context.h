@@ -79,16 +79,15 @@ struct MldbPythonInterpreter: public PythonInterpreter {
                     boost::python::object locals);
 
     std::shared_ptr<PythonContext> context;
-
     std::shared_ptr<MldbPythonContext> mldb;
     
     boost::python::object main_module;
     boost::python::object main_namespace;
 
+    static std::shared_ptr<MldbPythonContext>
+    findEnvironment();
+    
 private:    
-    // GIL must be held
-    void injectMldbWrapper(const EnterThreadToken & threadToken);
-
     // GIL must be held
     void injectOutputLoggingCode(const EnterThreadToken & threadToken);
 
@@ -151,11 +150,14 @@ struct PythonContext {
     virtual ~PythonContext();
     
     void log(const std::string & message);
+
+    void logToStream(const char * stream,
+                     const std::string & message);
     
-    Utf8String categoryName, loaderName;
+    Utf8String categoryName, loaderName, stdoutName, stderrName;
 
     std::mutex logMutex;  /// protects the categories below
-    Logging::Category category, loader;
+    Logging::Category category, loader, stdout, stderr;
 
     MldbEngine * engine;
     RestRequestRouter router;

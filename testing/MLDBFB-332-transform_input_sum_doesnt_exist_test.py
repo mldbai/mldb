@@ -3,7 +3,7 @@
 # Mich, 2016-02-01
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 class SumDoesNotExistTest(MldbUnitTest): # noqa

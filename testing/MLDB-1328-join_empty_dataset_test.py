@@ -5,10 +5,7 @@
 #
 # Tools for the plugins and their tests.
 import unittest
-
-if False:
-    mldb = None
-
+from mldb import mldb
 
 def log(thing):
     mldb.log(str(thing))

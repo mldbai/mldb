@@ -5,9 +5,7 @@
 #
 import random
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 dataset = mldb.create_dataset({
         "type": "sparse.mutable",
@@ -34,12 +32,12 @@ try:
             }
         }
     })
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     pass
 
 try:
     mldb.post("/v1/procedures/svd/runs")
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     pass
 
 try:
@@ -54,12 +52,12 @@ try:
             }
         }
     })
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     pass
 
 try:
     mldb.post("/v1/procedures/tsne/runs")
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     pass
 
 request.set_return("success")

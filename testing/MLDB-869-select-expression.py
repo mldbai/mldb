@@ -4,9 +4,7 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
@@ -20,7 +18,7 @@ ds1.commit()
 try:
     mldb.get('/v1/query',
              q='SELECT 5 golden rings, 3 french hens FROM dataset1')
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     mldb.log(exc.response)
 else:
     assert False, 'should not be here'

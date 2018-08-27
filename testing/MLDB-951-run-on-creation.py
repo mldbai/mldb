@@ -7,14 +7,7 @@
 import json
 import datetime
 import time
-
-if False:
-    mldb_wrapper = None
-_legacy = mldb
-mldb = mldb_wrapper.wrap(mldb) # noqa
-
-mldb.log(datetime)
-mldb.log(dir())
+from mldb import mldb, ResponseException
 
 def load_test_dataset():
     mldb.log(dir())
@@ -116,7 +109,7 @@ try:
             "runOnCreation" : True
         }
     })
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     res = exc.response
 else:
     assert False, 'should not be here'

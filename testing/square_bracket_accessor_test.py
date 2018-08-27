@@ -6,7 +6,7 @@
 #
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
 
@@ -41,7 +41,7 @@ class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
             ['result', 'b']
         ])
 
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             res = mldb.query("SELECT a['f'].b FROM (SELECT {f: {b: 123}} AS a)")
 
     def test_string_outter_whitespaces(self):
@@ -224,7 +224,7 @@ class Mldb2105SelectExprSquareBracketColNameSupport(MldbUnitTest):  # noqa
         ])
 
     def test_internal_ws_no_quotes(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.query(
                 """SELECT a[foo bar] FROM (SELECT {"foo bar": 123} AS a)""")
 

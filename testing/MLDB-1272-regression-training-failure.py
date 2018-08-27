@@ -3,7 +3,7 @@
 import datetime
 import random
 import json
-
+from mldb import mldb
 
 def linear_regression(feat1, feat2):
     return random.gauss(2 * feat1 + feat2 + 5, 3)

@@ -2,6 +2,8 @@
 
 import json
 
+from mldb import mldb
+
 # Dataset with one column and one row
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',

@@ -5,7 +5,7 @@
 #
 import random, datetime
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 ## Create toy dataset
 dataset_config = {

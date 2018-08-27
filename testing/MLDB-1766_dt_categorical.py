@@ -7,7 +7,7 @@
 from datetime import datetime
 from random import random, gauss
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1766DtCategoricalIris(MldbUnitTest):  # noqa
     @classmethod

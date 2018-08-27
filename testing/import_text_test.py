@@ -4,10 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 import tempfile
-
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class ImportTextTest(MldbUnitTest):
 
@@ -77,7 +74,7 @@ class ImportTextTest(MldbUnitTest):
 
     def test_conflicting_header_config(self):
         msg = "autoGenerateHeaders cannot be true if headers is defined."
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'import.text',
                 'params' : {
@@ -94,7 +91,7 @@ class ImportTextTest(MldbUnitTest):
 
     def test_basea_irregular(self):
         msg = "Error parsing CSV row: too many columns in row"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'import.text',
                 'params' : {
@@ -109,7 +106,7 @@ class ImportTextTest(MldbUnitTest):
 
     def test_gen_headers_irregular(self):
         msg = "Error parsing CSV row: too many columns in row"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'import.text',
                 'params' : {

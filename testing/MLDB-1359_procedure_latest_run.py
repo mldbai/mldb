@@ -6,7 +6,7 @@
 import time
 from dateutil import parser as date_parser
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class ProcedureLatestRunTest(MldbUnitTest): # noqa
 

@@ -6,10 +6,7 @@
 import gzip
 import unittest
 import os
-
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 class CsvLineEndingsGeneric(object):
@@ -206,7 +203,7 @@ class CsvLineEndingsGeneric(object):
         self.assertEqual(result.json()[0]["columns"][0][1], 0,
                          "expected row count of empty dataset to be 0")
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as exc:
+        with self.assertRaises(ResponseException) as exc:
             error_conf = {
                 "type": "import.text",
                 "params": {

@@ -8,7 +8,7 @@ import unittest
 if False:
     mldb_wrapper = None
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 class PythonMldbInterfaceTest(MldbUnitTest): # noqa
@@ -18,7 +18,7 @@ class PythonMldbInterfaceTest(MldbUnitTest): # noqa
 
     def test_get(self):
         mldb.get('/ping')
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.get("/unexisting")
 
     def test_put(self):
@@ -88,7 +88,7 @@ class PythonMldbInterfaceTest(MldbUnitTest): # noqa
         res = None
         try:
             mldb.get(url)
-        except mldb_wrapper.ResponseException as response_exception:
+        except ResponseException as response_exception:
             res = response_exception.response
             pass
 

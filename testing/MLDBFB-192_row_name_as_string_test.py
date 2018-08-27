@@ -6,7 +6,7 @@
 import tempfile
 import os
 import unittest
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class RowNameAsStringTest(MldbUnitTest):
     query = "SELECT * FROM csv ORDER BY rowName()"
@@ -65,7 +65,7 @@ class NullNameTest(MldbUnitTest):
             'type' : 'sparse.mutable'
         })
 
-        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+        with self.assertRaises(ResponseException): # noqa
             mldb.post('/v1/datasets/ds2/rows', {
                 'rowName' : None, # should not work
                 'columns' : [['colA', 1, 1]]
@@ -76,7 +76,7 @@ class NullNameTest(MldbUnitTest):
             'type' : 'sparse.mutable'
         })
 
-        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+        with self.assertRaises(ResponseException): # noqa
             mldb.post('/v1/datasets/ds3/rows', {
                 # rowName missing -> should not work
                 'columns' : [['colA', 1, 1]]
@@ -94,7 +94,7 @@ class NullNameTest(MldbUnitTest):
 
     def test_record_null_row_name(self):
         mldb.put('/v1/datasets/ds_null', {'type' : 'sparse.mutable'})
-        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+        with self.assertRaises(ResponseException): # noqa
             mldb.post('/v1/datasets/ds_null/rows',
                     {'rowName' : None, 'columns' : [['colA', 1, 1]]})
 

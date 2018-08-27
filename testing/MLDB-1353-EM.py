@@ -2,7 +2,7 @@
 
 import unittest, json
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 csv_conf = {
     "type": "import.text",

@@ -12,7 +12,7 @@ import unittest
 
 class mldb_wrapper(object):
 
-    import json as jsonlib
+    import json as jsonlib # noqa
 
     class MldbBaseException(Exception):
         pass
@@ -95,7 +95,7 @@ class mldb_wrapper(object):
             self.put_async = functools.partial(self._post_put, 'PUT',
                                                async=True)
             self.create_dataset = self._mldb.create_dataset
-
+            
         def _follow_redirect(self, url, counter):
             # somewhat copy pasted from _perform, but gives a nicer stacktrace
             # on failure
@@ -121,14 +121,21 @@ class mldb_wrapper(object):
                 return self._follow_redirect(response.headers['location'], 10)
             return response
 
-        def log(self, thing):
-            if type(thing) in [dict, list]:
-                thing = mldb_wrapper.jsonlib.dumps(thing, indent=4,
-                                                   ensure_ascii=False)
-            if isinstance(thing, (str)):
-                self._mldb.log(thing)
-            else:
-                self._mldb.log(str(thing))
+        def perform(self, *args, **kwargs):
+            return self._mldb.perform(*args, **kwargs)
+        
+        def log(self, *args):
+            def fix(thing):
+                if type(thing) in [dict, list]:
+                    thing = mldb_wrapper.jsonlib.dumps(thing, indent=4,
+                                                       ensure_ascii=False)
+                if not isinstance(thing, (str)):
+                    thing = str(thing)
+
+                return thing
+
+            fixed=[fix(thing) for thing in args]
+            self._mldb.log(*fixed)
 
         @property
         def script(self):
@@ -239,7 +246,7 @@ class mldb_wrapper(object):
 
 
 class MldbUnitTest(unittest.TestCase):
-    import json
+    import json # noqa
 
     longMessage = True # Appends the user message to the normal message
 

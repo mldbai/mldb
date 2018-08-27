@@ -5,7 +5,7 @@
 #
 import json
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 def assert_val(res, row_name, col_name, value):
     for row in res:

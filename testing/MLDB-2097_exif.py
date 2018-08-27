@@ -5,7 +5,7 @@
 #
 import datetime, os
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2097Test(MldbUnitTest):  # noqa
 
@@ -119,7 +119,7 @@ class Mldb2097Test(MldbUnitTest):  # noqa
         self.assertEqual(num_images, 12)
 
     def test_problematic_images(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                 'EXIF extraction requires that an atomic value of type BLOB'):
             rez = mldb.query("""
                 SELECT parse_exif(fetcher('file://patate')[content]) as *

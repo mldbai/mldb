@@ -489,7 +489,10 @@ endef
 
 # Options to go before a testing command for a test
 # $(1): the options
-TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring timed,$(1)),/usr/bin/time )$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) )
+TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring virtualenv,$(1)),. $(shell readlink -f $(VIRTUALENV))/bin/activate; )$(if $(findstring timed,$(1)),/usr/bin/time )$(if $(findstring virtualenv,$(1)),PYTHONPATH=$(BIN) )
+
+
+$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) )
 
 TEST_PRE_OPTIONS = $(w arning TEST_PRE_OPTIONS $(1) returned $(c all TEST_PRE_OPTIONS_,$(1)))$(call TEST_PRE_OPTIONS_,$(1))
 
@@ -503,7 +506,7 @@ BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 # add a test case
 # $(1) name of the test
 # $(2) libraries to link with
-# $(3) test style.  boost = boost test framework, and options: manual, valgrind
+# $(3) test style.  boost = boost test framework, and options: manual, valgrind, virtualenv
 # $(4) testing targets to add it to
 # $(5) source file for test.  Default is $(1).cc
 
@@ -529,6 +532,7 @@ tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && /usr/bin/time -v -o $(TESTS)/$(1).timing $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET)                     	$(1)")

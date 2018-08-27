@@ -4,12 +4,12 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2112500OnBrokenProcTest(MldbUnitTest):  # noqa
 
     def test_it(self):
-        with self.assertRaises(mldb_wrapper.ResponseException) as e:
+        with self.assertRaises(ResponseException) as e:
             mldb.put('/v1/procedures/proc', {
                 'type' : 'transform',
                 'params' : {
@@ -21,7 +21,7 @@ class Mldb2112500OnBrokenProcTest(MldbUnitTest):  # noqa
         # this works
         mldb.log(mldb.get('/v1/procedures/proc'))
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as e:
+        with self.assertRaises(ResponseException) as e:
             mldb.get('/v1/procedures/proc/runs')
 
         self.assertEqual(e.exception.response.status_code, 404)

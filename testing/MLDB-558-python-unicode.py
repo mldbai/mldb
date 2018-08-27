@@ -6,8 +6,7 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 from urllib.parse import quote
-
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest
 
 class Utf8IdsTest(MldbUnitTest): # noqa
 

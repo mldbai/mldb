@@ -5,10 +5,7 @@
 #
 
 import random, datetime
-
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 # Create toy dataset
 dataset_config = {
@@ -80,7 +77,7 @@ del conf['params']['modelFileUrl']
 conf['params']['runOnCreation'] = True
 try:
     mldb.put("/v1/procedures/failing_kmeans", conf)
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     rez = exc.response
 else:
     assert False, 'should not be here 1'
@@ -95,7 +92,7 @@ conf['params']['modelFileUrl'] = "not://a/valid/path"
 conf['params']['runOnCreation'] = True
 try:
     mldb.put("/v1/procedures/failing_kmeans2", conf)
-except mldb_wrapper.ResponseException as exc:
+except ResponseException as exc:
     rez = exc.response
 else:
     assert False, 'should not be here 2'

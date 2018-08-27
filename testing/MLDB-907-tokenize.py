@@ -5,9 +5,7 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 class TokenizeTest(MldbUnitTest):  # noqa
@@ -196,7 +194,7 @@ class TokenizeTest(MldbUnitTest):  # noqa
         self.find_column(result, "tokens.I_would", 1)
 
     def test_tokenize_failure(self):
-        with self.assertRaises(mldb_wrapper.ResponseException):
+        with self.assertRaises(ResponseException):
             mldb.get(
                 '/v1/query',
                 q="""SELECT tokenize('I would want a burger',

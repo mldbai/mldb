@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2017 Datacratic. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2077MergeTest(MldbUnitTest):  # noqa
 
@@ -22,11 +22,11 @@ class Mldb2077MergeTest(MldbUnitTest):  # noqa
         self.assertEqual('awesome', n)
     def test_prefix_arg(self):
         msg = 'The arguments passed to remove_prefix must be two strings'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             n = mldb.get('/v1/query', q="SELECT remove_prefix('awesome', 2)", format='atom').json()
     def test_suffix_arg(self):
         msg = 'The arguments passed to remove_suffix must be two strings'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             n = mldb.get('/v1/query', q="SELECT remove_suffix(2, 'eso')", format='atom').json()    
 
 if __name__ == '__main__':

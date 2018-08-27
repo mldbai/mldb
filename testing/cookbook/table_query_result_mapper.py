@@ -6,7 +6,7 @@
 # MLDB doesn't guarantee column ordering of SQL queries will match the ordering
 # of the result. Here is a column mapper example to work around that.
 #
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 class TableQueryResultMapper(object):
 

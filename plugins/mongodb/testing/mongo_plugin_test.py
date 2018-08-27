@@ -25,7 +25,7 @@ if got_mongod:
 if False:
     mldb_wrapper = None
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb
 
 class MongodbPluginTest(MldbUnitTest):  # noqa
 
@@ -194,7 +194,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
 
     def test_invalid_connection_scheme(self):
         msg = 'the minimal uriConnectionScheme format is'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
@@ -207,7 +207,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 }
             })
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
@@ -221,7 +221,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             })
 
         msg = 'uriConnectionScheme is a required property'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
@@ -236,7 +236,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
 
     def test_import_missing_param(self):
         msg = 'uriConnectionScheme is a required property'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
@@ -249,7 +249,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             })
 
         msg = 'collection is a required property and must not be empty'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {
@@ -374,7 +374,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
 
     def test_query_first_row_missing_param(self):
         msg = 'uriConnectionScheme is a required property'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/functions/mongo_query_err1', {
                 'type' : 'mongodb.query',
                 'params' : {
@@ -383,7 +383,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             })
 
         msg = 'collection is a required property and must not be empty'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/functions/mongo_query_err2', {
                 'type' : 'mongodb.query',
                 'params' : {
@@ -427,7 +427,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
             }
         })
         msg = 'You must define the parameter \\\\"query\\\\"'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.get('/v1/functions/mongo_query_no_query/application')
 
     @unittest.skipIf(not got_mongod, "mongod not available")
@@ -465,7 +465,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
 
     def test_dataset_missing_param(self):
         msg = 'uriConnectionScheme is a required property'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/datasets/ds_err1', {
                 'type' : 'mongodb.dataset',
                 'params' : {
@@ -473,7 +473,7 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
                 }
             })
         msg = 'collection is a required property and must not be empty'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put('/v1/datasets/ds_err2', {
                 'type' : 'mongodb.dataset',
                 'params' : {
@@ -529,13 +529,13 @@ class MongodbPluginTest(MldbUnitTest):  # noqa
         })
 
         msg = "unimplemented support"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("SELECT * FROM non_std_id_ds")
 
     @unittest.skipIf(not got_mongod, "mongod not available")
     def test_import_on_non_std_id(self):
         msg = "unimplemented support"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.post('/v1/procedures', {
                 'type' : 'mongodb.import',
                 'params' : {

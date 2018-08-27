@@ -3,7 +3,7 @@
 # Mich, 2016-04-29
 # Copyright (c) 2016 mldb.ai inc. All rights reserved.
 #
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MldbQueryJsonErrorTest(MldbUnitTest):
 

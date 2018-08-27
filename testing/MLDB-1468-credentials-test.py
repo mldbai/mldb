@@ -7,14 +7,14 @@
 import unittest
 from os.path import isfile, join, expanduser
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class CredentialTest(MldbUnitTest):
 
     def test_creation_of_dummy_creds(self):
         # try something that should work
         # mldb.get asserts the result status_code is >= 200 and < 400
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                   "doesn't exist"):
             mldb.get("/v1/credentials/s3cred")
 
@@ -38,7 +38,7 @@ class CredentialTest(MldbUnitTest):
 
         resp = mldb.delete("/v1/credentials/s3cred")
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                   "doesn't exist"):
             mldb.get("/v1/credentials/s3cred")
 
@@ -86,7 +86,7 @@ class CredentialTest(MldbUnitTest):
         }
 
         # this is expected to pick the most specific but invalid credentials
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             resp = mldb.put("/v1/procedures/import", csv_conf)
 
 
@@ -144,7 +144,7 @@ class CredentialTest(MldbUnitTest):
         })
 
         # this is expected to pick the most specific but invalid credentials
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(ResponseException) as re:
             mldb.put("/v1/procedures/import", csv_conf)
 
     def test_delete(self):
@@ -166,7 +166,7 @@ class CredentialTest(MldbUnitTest):
         mldb.put(url, config)
 
         msg = "entry 'test_delete' already exists"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put(url, config)
 
         mldb.delete(url)

@@ -40,6 +40,7 @@ BOOST_AUTO_TEST_CASE( script_procedure_test )
      * ****/
     ScriptResource plugRes;
     plugRes.source = R"foo(
+from mldb import mldb
 print("hoho")
 mldb.log(str(mldb.script.args))
 request.set_return("babang!")

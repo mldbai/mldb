@@ -7,7 +7,7 @@ import unittest
 import random
 import math
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class StdDevBuiltinFctTest(MldbUnitTest):  # noqa
 

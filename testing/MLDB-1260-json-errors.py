@@ -7,6 +7,7 @@
 ####
 
 import json, random, datetime
+from mldb import mldb
 
 rez = mldb.perform("GET", "/v1/query", [['q', 'sele']], {})
 mldb.log(rez)

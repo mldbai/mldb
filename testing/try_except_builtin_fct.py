@@ -6,7 +6,7 @@
 
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class TryExceptBuiltinFct(MldbUnitTest):  # noqa
 
@@ -17,7 +17,7 @@ class TryExceptBuiltinFct(MldbUnitTest):  # noqa
         self.assertEqual(res[1][1], 5)
 
         msg = 'Executing builtin function parse_json'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             res = mldb.query("""
                 SELECT parse_json('coco')
             """)

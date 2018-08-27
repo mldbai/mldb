@@ -6,7 +6,7 @@
 
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest
 
 class NonFiniteDateTest(MldbUnitTest):  
 
@@ -20,7 +20,7 @@ class NonFiniteDateTest(MldbUnitTest):
     # this provides a better user experience, at the expense of some
     # possible errors.
     # def test_beh_error_on_inf(self):
-    #     with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+    #     with self.assertRaisesRegexp(ResponseException,
     #                               'Cannot record non-finite timestamp into behaviour dataset'):
     #         res = mldb.post( '/v1/procedures', {
     #             'type': 'transform',

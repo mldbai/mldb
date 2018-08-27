@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1779ColumnExpr(MldbUnitTest):  # noqa
     @classmethod
@@ -30,7 +30,7 @@ class MLDB1779ColumnExpr(MldbUnitTest):  # noqa
 
     def test_columnPathElem(self):
         msg = "Cannot have a NULL column name"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query('''
                 select COLUMN EXPR (AS columnPathElement(1)
                     WHERE columnName() LIKE '%topics%Junk%') from example

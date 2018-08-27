@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1893GetParamsMixin(MldbUnitTest):  # noqa
 
@@ -33,7 +33,7 @@ class Mldb1893GetParamsMixin(MldbUnitTest):  # noqa
 
     def test_mixing(self):
         msg = 'You cannot mix query string and body parameters'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.get('/v1/query', q='SELECT * FROM ds', data={
                 'format' : 'table'
             })

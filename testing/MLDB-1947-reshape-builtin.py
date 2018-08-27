@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1947reshapebuiltin(MldbUnitTest):  # noqa
 
@@ -41,16 +41,16 @@ class MLDB1947reshapebuiltin(MldbUnitTest):  # noqa
         self.assertTableResultEquals(res, expected)
 
     def test_reshape_enlarge(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                      'Attempt to change embedding size by reshaping'):
             mldb.query("SELECT shape(reshape([1,2,3,4,5], [2,2])) as dim")
 
     def test_reshape_not_embedding(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                      'Null embedding'):
             mldb.query("SELECT shape(reshape('not an embedding', [1])) as dim")
 
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException,
+        with self.assertRaisesRegex(ResponseException,
                                      'requires an embedding'):
             mldb.query("SELECT shape(reshape([1], 'not an embedding')) as dim")
 

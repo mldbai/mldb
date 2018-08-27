@@ -145,7 +145,7 @@ a b
     BOOST_REQUIRE_EQUAL(output.code(), 200);
 
     // try the same as before but getting the file from http
-    scriptConfig["address"] = "http://gist.githubusercontent.com/jeremybarnes/6f4da84e6bb50a1c510629308c76d7e8/raw/a717b3450e2e45a3d29302861cd589a067fd4e30/main.py";
+    scriptConfig["address"] = "http://gist.githubusercontent.com/jeremybarnes/6f4da84e6bb50a1c510629308c76d7e8/raw/9ede257d72c2c461327ab5aa90086dfcd46603d0/main.py";
 
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
@@ -158,7 +158,7 @@ a b
     cout << output << endl;
     BOOST_REQUIRE_EQUAL(output.code(), 400);
     
-    scriptConfig["address"] = "https://gist.githubusercontent.com/jeremybarnes/6f4da84e6bb50a1c510629308c76d7e8/raw/a717b3450e2e45a3d29302861cd589a067fd4e30/main55.py";
+    scriptConfig["address"] = "https://gist.githubusercontent.com/jeremybarnes/6f4da84e6bb50a1c510629308c76d7e8/raw/9ede257d72c2c461327ab5aa90086dfcd46603d0/main55.py";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cout << output << endl;
     BOOST_REQUIRE_EQUAL(output.code(), 400);
@@ -303,7 +303,7 @@ print("a")
     // **************************
     // cloning plugin from gist
     // TODO move code to other repo
-    plugRes.address = "gist://gist.github.com/mailletf/fc41a2b177e6e66795b5";
+    plugRes.address = "gist://gist.github.com/jeremybarnes/1dcb62036c245235904e18206f18a4e2";
     pluginConfig2.params = plugRes;
 
     putStatus = proxy.put("/v1/plugins/pyplugin_gist",
@@ -311,7 +311,7 @@ print("a")
     cerr << "putStatus: " << putStatus << endl;
 
     scriptConfig["source"] = "";
-    scriptConfig["address"] = "gist://gist.github.com/mailletf/fc41a2b177e6e66795b5";
+    scriptConfig["address"] = "gist://gist.github.com/jeremybarnes/1dcb62036c245235904e18206f18a4e2";
     output = proxy.post("/v1/types/plugins/python/routes/run", scriptConfig);
     cerr << "postStatus: " << output << endl;
     BOOST_REQUIRE_EQUAL(output.code(), 200);
@@ -375,7 +375,7 @@ print("a")
 
 
     int n = 0;
-    
+
     //// checking out specific revision for a plugin
     auto checkCode = [&] (const std::string & url, int code)
     {
@@ -399,14 +399,17 @@ print("a")
         proxy.perform("DELETE", "/v1/plugins/test_git_plugin" + to_string(n));
     };
 
+#if 0    
     cerr << "************ HEAD **************" << endl;
     checkCode("git://github.com/mldbai/test_git_plugin.git", 2); // HEAD
     cerr << "************ VERSION 1 **************" << endl;
     checkCode("git://github.com/mldbai/test_git_plugin.git#6057a0d7cd370adc45eb40de97ebc00e79a7aef1", 1);
     cerr << "************ VERSION 2 **************" << endl;
     checkCode("git://github.com/mldbai/test_git_plugin.git#5787ed0a4ac8b2b100fbd473b6f03251b929aca5", 2);
+#endif
     checkCode("git://github.com/mldbai/test_git_plugin.git#patate", -1);
 
+    
     // ************************
     // Check a python plugin with more than 64k of text works properly
     plugRes.source.main = "";

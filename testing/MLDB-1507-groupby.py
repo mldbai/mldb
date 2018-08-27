@@ -5,7 +5,7 @@
 #
 if False:
     mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1507Test(MldbUnitTest):  # noqa
 
@@ -87,7 +87,7 @@ class Mldb1507Test(MldbUnitTest):  # noqa
         ds.commit()
 
         msg = "Wildcard cannot be used with GROUP BY"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.query("SELECT * FROM test_groupby_select_star GROUP BY colA")
 
 

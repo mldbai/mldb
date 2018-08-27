@@ -6,7 +6,7 @@
 
 import random
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class MLDB1937SvdWithComplexSelect(MldbUnitTest):  # noqa
 

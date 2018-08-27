@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 expected_output = [
     [ "x", [ 1, "NaD" ] ],
@@ -59,7 +59,7 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
         self.assertEqual(res.json()['output']['output'], expected_output)
 
     def test_as_POST_to_invalid_target(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(ResponseException, 
                                      "failed to redirect call"):
             res = mldb.post('/v1/redirect/get', {
                 'target' : '/v1/functions/query/application/bla',
@@ -72,7 +72,7 @@ class MLDB2163POSTFunctionApplication(MldbUnitTest):  # noqa
 
 
     def test_as_POST_to_invalid_body(self):
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, 
+        with self.assertRaisesRegex(ResponseException, 
                                      "failed to redirect call"):
             res = mldb.post('/v1/redirect/get', {
                 'target' : '/v1/functions/query/application/',

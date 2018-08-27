@@ -4,15 +4,13 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 
-if False:
-    mldb_wrapper = None
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb, ResponseException
 
 
 def assert_fail(qry):
     try:
         mldb.get('/v1/query', q=qry)
-    except mldb_wrapper.ResponseException as exc:
+    except ResponseException as exc:
         result = exc.response
     else:
         assert False, 'should not be here'

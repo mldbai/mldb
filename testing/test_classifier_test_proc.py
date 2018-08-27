@@ -6,8 +6,8 @@
 # This tests the `classifier.test` procedure.
 #
 
-
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+import unittest
+from mldb import mldb, MldbUnitTest, ResponseException
 
 
 class TestClassifierTestProc(MldbUnitTest):  # noqa
@@ -309,7 +309,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     def test_classifier_rejects_unknown_params(self):
         msg = "Unknown key\\(s\\) encountered in config: glz_linear.FOO"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
@@ -339,7 +339,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
         # This assertion works
         msg = "No feature vectors were produced as all"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
@@ -370,7 +370,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
         # This assertion fails, see below
         msg = "No feature vectors were produced as all"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {
@@ -405,7 +405,7 @@ class TestClassifierTestProc(MldbUnitTest):  # noqa
 
     def test_classifier_allows_underscored_key_param(self):
         msg = "No feature vectors were produced as all"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             mldb.put("/v1/procedures/regression_cls", {
                 "type": "classifier.experiment",
                 "params": {

@@ -4,7 +4,8 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+import unittest
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb1788SelectColAsStarErr(MldbUnitTest):  # noqa
 
@@ -17,7 +18,7 @@ class Mldb1788SelectColAsStarErr(MldbUnitTest):  # noqa
     @unittest.expectedFailure
     def test_it(self):
         msg = 'TO BE DETERMINED'
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg) as exc:
+        with self.assertRaisesRegex(ResponseException, msg) as exc:
             mldb.query("SELECT col AS * FROM ds")
 
         self.assertEqual(exc.exception.response.status_code, 400)

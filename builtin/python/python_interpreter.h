@@ -230,7 +230,7 @@ struct PythonInterpreter {
     */
     void destroy();
     
-private:
+protected:
     enum InitializationContext {
         CREATE_MAIN,   ///< Create the main interpreter
         CREATE_SUB     ///< Create a sub-interpreter

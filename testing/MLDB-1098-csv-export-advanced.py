@@ -8,7 +8,7 @@
 import tempfile
 import unittest
 
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
 

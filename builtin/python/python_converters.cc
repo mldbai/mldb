@@ -263,15 +263,19 @@ construct_recur(PyObject * pyObj)
     else {
         // try to create a string reprensetation of object for a better error msg
         PyObject* str_obj = PyObject_Str(pyObj);
+        PyObject* rep_obj = PyObject_Repr(pyObj);
         std::string str_rep = "<Unable to create str representation of object>";
-        if(str_obj) {
-            str_rep = bp::extract<std::string>(str_obj);
+        if(str_obj && rep_obj) {
+            str_rep = bp::extract<std::string>(rep_obj);
+            str_rep += " ";
+            str_rep += bp::extract<std::string>(str_obj);
         }
         // not returned so needs to be garbage collected
         Py_DECREF(str_obj);
+        Py_DECREF(rep_obj);
 
         throw MLDB::Exception("Unknown type in PyDict to JsVal converter. "
-                            "Str representation: "+str_rep);
+                              "Str representation: "+str_rep);
     }
 
     return val;

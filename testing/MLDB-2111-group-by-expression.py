@@ -4,7 +4,7 @@
 # This file is part of MLDB. Copyright 2017 mldb.ai inc. All rights reserved.
 #
 
-mldb = mldb_wrapper.wrap(mldb)  # noqa
+from mldb import mldb, MldbUnitTest, ResponseException
 
 class Mldb2111GroupByTests(MldbUnitTest):  # noqa
 
@@ -153,13 +153,13 @@ class Mldb2111GroupByTests(MldbUnitTest):  # noqa
     def test_groupby_inexact(self):
 
         msg = "variable 'x' must appear in the GROUP BY clause or be used in an aggregate function"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             res = mldb.query("""
                 SELECT x+1 FROM (SELECT x:1) GROUP BY 1+x
             """)
 
         msg = "variable 'x' must appear in the GROUP BY clause or be used in an aggregate function"
-        with self.assertRaisesRegex(mldb_wrapper.ResponseException, msg):
+        with self.assertRaisesRegex(ResponseException, msg):
             res = mldb.query("""
                 SELECT x+1*3 FROM (SELECT x:1) GROUP BY x+1
             """)     

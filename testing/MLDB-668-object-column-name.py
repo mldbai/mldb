@@ -3,7 +3,7 @@
 # mldb.ai inc, 2015
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
-mldb = mldb_wrapper.wrap(mldb) # noqa
+from mldb import mldb
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
