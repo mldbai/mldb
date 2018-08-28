@@ -178,15 +178,14 @@ class mldb_wrapper(object):
             io_stream = StringIO()
             runner = unittest.TextTestRunner(stream=io_stream, verbosity=2,
                                              buffer=True)
-            if self.script.args:
+            argv = None
+            if self.script and self.script.args:
                 assert type(self.script.args) is list
                 if self.script.args[0]:
                     argv = ['python'] + self.script.args
                 else:
                     # avoid the only one empty arg issue
                     argv = None
-            else:
-                argv = None
 
             res = unittest.main(exit=False, argv=argv,
                                 testRunner=runner).result
