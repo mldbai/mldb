@@ -130,44 +130,32 @@ void test_compress_decompress(const std::string & input_file,
 
 
     // Test 1: compress using filter stream
-    {
-        Scope_Exit(::unlink(cmp1.c_str()));
-        compress_using_stream(input_file, cmp1);
-    }
+    Scope_Exit(::unlink(cmp1.c_str()));
+    compress_using_stream(input_file, cmp1);
 
     // Test 2: compress using tool
-    {
-        Scope_Exit(::unlink(cmp2.c_str()));
-        compress_using_tool(input_file, cmp2, zip_command);
-    }
+    Scope_Exit(::unlink(cmp2.c_str()));
+    compress_using_tool(input_file, cmp2, zip_command);
 
     // Test 3: decompress stream file using tool (sanity check)
-    {
-        Scope_Exit(::unlink(dec1.c_str()));
-        decompress_using_tool(cmp1, dec1, unzip_command);
-        assert_files_identical(input_file, dec1);
-    }
+    Scope_Exit(::unlink(dec1.c_str()));
+    decompress_using_tool(cmp1, dec1, unzip_command);
+    assert_files_identical(input_file, dec1);
 
     // Test 4: decompress tool file using stream
-    {
-        Scope_Exit(::unlink(dec2.c_str()));
-        decompress_using_stream(cmp2, dec2);
-        assert_files_identical(input_file, dec2);
-    }
+    Scope_Exit(::unlink(dec2.c_str()));
+    decompress_using_stream(cmp2, dec2);
+    assert_files_identical(input_file, dec2);
     
     // Test 5: decompress stream file using stream
-    {
-        Scope_Exit(::unlink(dec3.c_str()));
-        decompress_using_stream(cmp1, dec3);
-        assert_files_identical(input_file, dec3);
-    }
+    Scope_Exit(::unlink(dec3.c_str()));
+    decompress_using_stream(cmp1, dec3);
+    assert_files_identical(input_file, dec3);
     
     // Test 6: decompress tool file using tool (sanity)
-    {
-        Scope_Exit(::unlink(dec4.c_str()));
-        decompress_using_tool(cmp2, dec4, unzip_command);
-        assert_files_identical(input_file, dec4);
-    }
+    Scope_Exit(::unlink(dec4.c_str()));
+    decompress_using_tool(cmp2, dec4, unzip_command);
+    assert_files_identical(input_file, dec4);
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_gz )
