@@ -20,12 +20,14 @@ LIBARCH_SOURCES := \
 	rt.cc \
 	abort.cc \
 	spinlock.cc \
+	dlopen_mutex.cc \
 
 ifeq ($(ARCH),x86_64)
 LIBARCH_SOURCES += simd_vector_avx.cc
 endif
 
-LIBARCH_LINK := dl
+LIBARCH_LINK := \
+	dl
 
 ifneq ($(BOOST_VERSION),42)
 LIBARCH_LINK += boost_system
@@ -37,7 +39,11 @@ LIBGC_SOURCES := \
 	gc_lock.cc \
 	shared_gc_lock.cc
 
-$(eval $(call library,gc,$(LIBGC_SOURCES),rt arch))
+LIBGC_LINK := \
+	rt \
+	arch
+
+$(eval $(call library,gc,$(LIBGC_SOURCES),$(LIBGC_LINK)))
 
 # Note: we should be able to get away without this, but we get a segfault on
 # shared library loading if it's not here.

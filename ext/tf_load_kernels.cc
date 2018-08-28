@@ -20,7 +20,7 @@ using namespace std;
 namespace MLDB {
 
 // This is defined in the MLDB server
-static std::mutex dlopenMutex;
+extern std::mutex dlopenMutex;
 
 namespace {
 struct AtInit {
