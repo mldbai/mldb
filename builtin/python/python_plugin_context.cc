@@ -28,6 +28,15 @@ namespace fs = std::filesystem;
 
 namespace MLDB {
 
+// Once the MLDB runtime is loaded, this replaces the weak findEnvironmentImpl in
+// find_mldb_environment.cc with this one, which looks in the MldbPythonInterpreter
+// for the right context for the current interpreter.
+std::shared_ptr<MldbPythonContext>
+findEnvironmentImpl()
+{
+    return MldbPythonInterpreter::findEnvironment();
+}
+
 namespace {
 
 // Protected by the GIL.  Functions that manipulate must only be called with it held.
@@ -637,20 +646,13 @@ setScript(std::shared_ptr<PythonScriptContext> scriptCtx) {
 std::shared_ptr<PythonPluginContext> MldbPythonContext::
 getPlugin()
 {
-    if(plugin) {
-        return plugin;
-    }
-    throw MLDB::Exception("Cannot call the plugin object in this context");
-
+    return plugin;
 }
 
 std::shared_ptr<PythonScriptContext> MldbPythonContext::
 getScript()
 {
-    if(script)
-        return script;
-
-    throw MLDB::Exception("Cannot call the script object in this context");
+    return script;
 }
 
 void

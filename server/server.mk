@@ -30,3 +30,13 @@ $(eval $(call library_forward_dependency,mldb,mldb_builtin))
 $(eval $(call library_forward_dependency,mldb,mldb_builtin_plugins))
 
 $(eval $(call program,mldb_runner,mldb boost_program_options config))
+
+LIBMLDB_PLATFORM_PYTHON_SOURCES:= \
+	mldb_platform_python.cc
+
+LIBMLDB_PLATFORM_PYTHON_LINK:= \
+	mldb
+
+$(eval $(call library,mldb_platform_python,$(LIBMLDB_PLATFORM_PYTHON_SOURCES),$(LIBMLDB_PLATFORM_PYTHON_LINK)))
+
+$(eval $(call set_compile_option,$(LIBMLDB_PLATFORM_PYTHON_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
