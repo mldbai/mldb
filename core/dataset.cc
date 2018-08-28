@@ -7,6 +7,7 @@
    Dataset support.
 */
 
+#include "mldb/compiler/compiler.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/types/structure_description.h"
@@ -37,8 +38,8 @@ using namespace std;
 extern "C" {
     // For TCMalloc.  TODO: similar functionality exists in other memory
     // allocators.
-    void MallocExtension_ReleaseFreeMemory(void) __attribute__((weak));
-    void MallocExtension_GetStats(char * buffer, int buffer_length) __attribute__((weak));
+    void MallocExtension_ReleaseFreeMemory(void) MLDB_WEAK_FN;
+    void MallocExtension_GetStats(char * buffer, int buffer_length) MLDB_WEAK_FN;
 
     // Create weak versions of these symbols for when we're not using
     // tcmalloc.

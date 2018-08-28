@@ -25,9 +25,7 @@ using namespace std;
 
 namespace MLDB {
 
-namespace {
-std::mutex dlopenMutex;
-} // file scope
+extern std::mutex dlopenMutex;
 
 /*****************************************************************************/
 /* DOCKER PLUGIN STARTUP CONFIG                                              */
