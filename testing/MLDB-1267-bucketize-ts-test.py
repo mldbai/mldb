@@ -43,4 +43,4 @@ class BucketizeTest(unittest.TestCase):
         self.assertEqual(res[1][1], '1970-01-01T00:00:06Z')
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

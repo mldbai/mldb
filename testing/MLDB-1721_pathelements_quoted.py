@@ -46,5 +46,5 @@ class Mldb1721(MldbUnitTest):
                     ["a", None, 1, 1]
                 ])
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

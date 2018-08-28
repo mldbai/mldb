@@ -78,4 +78,4 @@ class Mldb1667(MldbUnitTest):
         doWrongTypeQuery(5, "'b'")
         doWrongTypeQuery("{pwet: 'asdf'}", "'asdf'")
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

@@ -122,4 +122,4 @@ class SumStemTokenTest(unittest.TestCase):
         ]
         assert res == expected
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

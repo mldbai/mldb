@@ -379,6 +379,6 @@ class Mldb256Test(MldbUnitTest):
         self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.94)
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 
 

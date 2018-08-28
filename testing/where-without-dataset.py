@@ -32,4 +32,4 @@ class WhereWithoutDatasetTest(MldbUnitTest):  # noqa
             [ "result", 1]
         ])
         
-request.set_return(mldb.run_tests())
+mldb.run_tests()

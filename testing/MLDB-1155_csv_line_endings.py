@@ -232,4 +232,4 @@ class CsvLineEndingsCsvGz(CsvLineEndingsGeneric, unittest.TestCase):
     data = {'open_fct' : gzip.open, 'ext' : '.csv.gz'}
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

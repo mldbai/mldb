@@ -649,5 +649,5 @@ class Mldb174Test(MldbUnitTest):
             self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["r2"], r2, places=2)
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

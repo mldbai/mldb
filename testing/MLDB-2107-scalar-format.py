@@ -56,4 +56,4 @@ class MLDB2107ScalarFormatTest(MldbUnitTest):  # noqa
             n = mldb.get('/v1/query', q="select COLUMN EXPR (WHERE columnName() IN ('Z')) from (select 17 as x)", format='atom').json()
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

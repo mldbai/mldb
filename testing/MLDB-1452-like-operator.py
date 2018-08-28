@@ -234,4 +234,4 @@ class LikeTest(MldbUnitTest):  # noqa
         self.assertEqual(res1[1], res2[1]);
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

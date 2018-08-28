@@ -14,4 +14,4 @@ class MLDB1713WildcardGroupby(MldbUnitTest):  # noqa
             mldb.query('select * from (select 1 as a) group by a')
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

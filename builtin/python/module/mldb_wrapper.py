@@ -25,6 +25,13 @@ class mldb_wrapper(object):
             return ('Response status code: {r.status_code}. '
                     'Response text: {r.text}'.format(r=self.response))
 
+    class TestSuiteFailureException(MldbBaseException):
+        def __init__(self, response):
+            self.response = response
+
+        def __str__(self):
+            return ('Test failed: {s}'.format(s=str(self.response)))
+
     class TooManyRedirectsException(Exception):
         pass
 
@@ -194,6 +201,8 @@ class mldb_wrapper(object):
             if res.wasSuccessful():
                 return("success")
 
+            raise mldb_wrapper.TestSuiteFailureException(res)
+            
         def post_run_and_track_procedure(self, payload, refresh_rate_sec=10):
             import threading
 

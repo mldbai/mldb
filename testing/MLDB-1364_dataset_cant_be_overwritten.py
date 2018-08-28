@@ -57,5 +57,5 @@ class MLDB1364Test(MldbUnitTest):
         mldb.get("/v1/query", q="select x from not_yet_created")
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

@@ -49,4 +49,4 @@ class MLDB2126exportstructuredTest(MldbUnitTest):  # noqa
         self.assert_file_content(tmp_file.name, lines_expect)
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

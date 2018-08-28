@@ -237,4 +237,4 @@ class HorizontalTest(MldbUnitTest):
         self.assertEqual(res[1][1], '2016-01-01T00:00:00Z')
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

@@ -43,4 +43,4 @@ request.set_return([[str(mldb.script.args[0][1]), 0, '1970-01-01T00:00:00.000000
         )
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

@@ -61,4 +61,4 @@ class RankingTest(MldbUnitTest):  # noqa
         self.assertEqual(data[size][2], size - 1, str(data[size]))
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

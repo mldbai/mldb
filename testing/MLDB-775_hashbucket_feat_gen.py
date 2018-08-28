@@ -82,5 +82,5 @@ class Mldb775(MldbUnitTest):
                 raise Exception("identical")
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

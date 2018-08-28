@@ -15,4 +15,4 @@ class myTest(unittest.TestCase):
             query = "SELECT sqrt(1,2,3)"
             mldb.query(query)
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

@@ -231,4 +231,4 @@ class FastTextTest(MldbUnitTest):
                                                     label : 'Futurama'}) as * 
                                 """)
  
-request.set_return(mldb.run_tests())
+mldb.run_tests()

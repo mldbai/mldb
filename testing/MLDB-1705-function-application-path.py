@@ -84,4 +84,4 @@ class Mldb1705(MldbUnitTest):
             mldb.get("/v1/functions/func/application",
                      input=json.dumps(data), data={"input" : data})
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
