@@ -59,6 +59,6 @@ class Mldb1594(MldbUnitTest):
             expected)
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 
 

@@ -128,4 +128,4 @@ class ClassifierRowInputTest(unittest.TestCase):
         self.assertEqual(with_flattening,without_name, "results do not match")
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

@@ -124,4 +124,4 @@ class MldbUnitTestTest(MldbUnitTest): # noqa
         with self.assertRaises(AssertionError):
             self.assertFullResultEquals(self.object_res, expected)
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

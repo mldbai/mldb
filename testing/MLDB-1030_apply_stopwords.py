@@ -103,5 +103,5 @@ class Mldb1030Test(MldbUnitTest):
                 ]
             ])
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

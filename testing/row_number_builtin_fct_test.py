@@ -99,4 +99,4 @@ class RowNumberBuiltinFctTest(MldbUnitTest):  # noqa
             mldb.query("SELECT rowName() NAMED rowNumber() FROM ds")
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

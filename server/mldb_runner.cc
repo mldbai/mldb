@@ -394,20 +394,15 @@ int main(int argc, char ** argv)
         auto output = proxy.post("/v1/types/plugins/" + runner + "/routes/run",
                                  jsonEncode(config));
 
-        bool success = false;
+        bool success = output.code() == 200;
 
         auto result = output.jsonBody();
-
-        if (result.isObject()
-            && result.isMember("result")
-            && result["result"] == "success")
-            success = true;
-
+        
         if (!success) {
             if (!muteFinalOutput) {
                 cerr << output << endl;
             }
-            return 1;  // startup script didn't succeed
+            return 1;  // script didn't succeed
         }
 
         if (!dontExitAfterScript) {

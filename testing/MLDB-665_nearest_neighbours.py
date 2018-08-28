@@ -140,5 +140,5 @@ class Mldb1415Test(MldbUnitTest):
             assert line[neighbor_index] == "%d" % line[cluster_index]
             
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

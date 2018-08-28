@@ -133,4 +133,4 @@ class myTest(MldbUnitTest):
                         ]
                     ], res)
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

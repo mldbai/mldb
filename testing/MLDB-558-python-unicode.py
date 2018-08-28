@@ -93,7 +93,7 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         })
         res = mldb.get(url).json()
         self.assertEqual(res['id'], _id)
-
+        
     def execute_sequence(self, _id):
         url = '/v1/datasets/' + quote(_id, safe='')
         mldb.log(url)
@@ -205,4 +205,4 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         mldb.log(mldb.get('/v1/query', q='SELECT * FROM "s/lash"'))
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

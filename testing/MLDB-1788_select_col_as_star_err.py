@@ -24,4 +24,4 @@ class Mldb1788SelectColAsStarErr(MldbUnitTest):  # noqa
         self.assertEqual(exc.exception.response.status_code, 400)
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

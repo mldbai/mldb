@@ -75,4 +75,4 @@ class InvalidGroupByTest(MldbUnitTest):
                                      "Nested aggregators 'earliest(earliest({*}))' are not allowed"):
             mldb.query("select count(*), earliest(earliest({*})) from sample")
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

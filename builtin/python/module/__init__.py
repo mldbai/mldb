@@ -13,5 +13,6 @@ mldb = mldb_wrapper.wrap(find_mldb_environment())
 MldbBaseException = mldb_wrapper.MldbBaseException
 ResponseException = mldb_wrapper.ResponseException
 TooManyRedirectsException = mldb_wrapper.TooManyRedirectsException
+TestSuiteFailureException = mldb_wrapper.TestSuiteFailureException
 Response = mldb_wrapper.Response
 StepsLogger = mldb_wrapper.StepsLogger

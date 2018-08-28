@@ -159,4 +159,4 @@ class InputDataSpecTest(unittest.TestCase):
             'the classifier results on the train data are strangely low')
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

@@ -175,4 +175,4 @@ class Mldb1025DatasetOutputWithDefault(MldbUnitTest):
         request.set_return('success')
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

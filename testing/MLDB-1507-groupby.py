@@ -91,4 +91,4 @@ class Mldb1507Test(MldbUnitTest):  # noqa
             mldb.query("SELECT * FROM test_groupby_select_star GROUP BY colA")
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

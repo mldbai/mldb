@@ -101,4 +101,4 @@ class BowSqlExprTest(MldbUnitTest):
         self.check_true("select apply_bow({txt:'a,c'})[posneg] as *", truth)
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

@@ -702,4 +702,4 @@ class TemporalTest(MldbUnitTest):
         mldb.log(res)
         self.assertFullResultEquals(res.json(), expected)
        
-request.set_return(mldb.run_tests())
+mldb.run_tests()

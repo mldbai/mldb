@@ -50,5 +50,5 @@ class Mldb1440Test(MldbUnitTest):
 
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

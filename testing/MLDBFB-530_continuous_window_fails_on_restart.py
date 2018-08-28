@@ -113,4 +113,4 @@ class ContinuousWindowDsIssueTest(MldbUnitTest):  # noqa
         self.assertEqual(res[1:], [["row1", 1]])
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

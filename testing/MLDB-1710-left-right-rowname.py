@@ -82,4 +82,4 @@ class LikeTest(MldbUnitTest):
 
         self.assertEqual(res1, expected);
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

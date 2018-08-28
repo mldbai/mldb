@@ -22,4 +22,4 @@ class MLDB1907ValueDescriptionError(MldbUnitTest):  # noqa
             mldb.query("select sqrt(2, 1)")
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

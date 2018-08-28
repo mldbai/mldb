@@ -99,4 +99,4 @@ class TotalRowsBuiltinFctTest(MldbUnitTest):  # noqa
             mldb.query("SELECT rowName() NAMED totalRows() FROM ds")
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

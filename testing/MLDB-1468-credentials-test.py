@@ -172,4 +172,4 @@ class CredentialTest(MldbUnitTest):
         mldb.delete(url)
         mldb.put(url, config)
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

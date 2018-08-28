@@ -97,4 +97,4 @@ female 5.75 150 9""")
     def test_categorical(self):
         self._do_test("categorical")
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

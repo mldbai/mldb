@@ -300,6 +300,6 @@ class Mldb1597Test(MldbUnitTest):
                 ]:
                     train(f,l,a)
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 
 

@@ -48,4 +48,4 @@ class HavingTest(unittest.TestCase):
         for row in res[1:]:
             assert row[3] < 64 and (row[2] > 5 or row[1] == 'C')
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

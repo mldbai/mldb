@@ -121,5 +121,5 @@ class MldbFb573(MldbUnitTest):
         """))
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 

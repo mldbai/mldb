@@ -81,4 +81,4 @@ class MLDB1899DuplicatedRowsInEquijoins(MldbUnitTest):  # noqa
         self.assertEqual(resp[1][1], 550, "expected 550 rows to be returned")
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

@@ -60,6 +60,6 @@ class SampleTest(MldbUnitTest):
         # test a bad query without catching the exception
         mldb.query("SELECT this will not work")
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()
 
 

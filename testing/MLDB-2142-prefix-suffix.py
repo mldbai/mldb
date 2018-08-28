@@ -30,4 +30,4 @@ class Mldb2077MergeTest(MldbUnitTest):  # noqa
             n = mldb.get('/v1/query', q="SELECT remove_suffix(2, 'eso')", format='atom').json()    
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

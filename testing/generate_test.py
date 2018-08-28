@@ -26,7 +26,7 @@ class {classname}(MldbUnitTest):  # noqa
         pass
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())"""
+    mldb.run_tests()"""
 
 
 def get_filename_from_args():

@@ -235,4 +235,4 @@ class NoFromSegfaultTest(unittest.TestCase):
         mldb.log(mldb.put("/v1/procedures/trainer1386", conf).json())
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

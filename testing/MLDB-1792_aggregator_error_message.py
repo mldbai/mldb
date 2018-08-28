@@ -20,4 +20,4 @@ class Mldb1792AggregatorErrorMessage(MldbUnitTest):  # noqa
             mldb.query("SELECT avg(colA, 2) FROM ds")
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

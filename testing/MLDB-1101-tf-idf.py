@@ -147,4 +147,4 @@ class TfIdfTest(MldbUnitTest):
                         msg = "'jelly' tfidg is not equal to the one returned by scikit learn")
 
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

@@ -32,4 +32,4 @@ class Mldb1732(MldbUnitTest):  # noqa
             ]
         )
 
-request.set_return(mldb.run_tests())
+mldb.run_tests()

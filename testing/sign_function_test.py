@@ -58,4 +58,4 @@ class SignFunctionTest(MldbUnitTest):  # noqa
         }])
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()

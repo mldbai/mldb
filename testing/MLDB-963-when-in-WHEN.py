@@ -135,4 +135,4 @@ class WhenInWhen(unittest.TestCase):
             q="SELECT * FROM dataset1 WHEN latest_timestamp(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
 
 if __name__ == '__main__':
-    request.set_return(mldb.run_tests())
+    mldb.run_tests()
