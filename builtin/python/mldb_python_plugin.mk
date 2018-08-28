@@ -36,20 +36,6 @@ $(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PAT
 
 $(eval $(call library,mldb_python_plugin,$(PYTHON_PLUGIN_SOURCES),$(PYTHON_PLUGIN_LINK)))
 
-MLDB_PYTHON_ADDON_SOURCES := \
-	find_mldb_environment.cc
-
-MLDB_PYTHON_ADDON_LINK := \
-	boost_python3 mldb_python_plugin
-
-$(eval $(call python_addon,_mldb,$(MLDB_PYTHON_ADDON_SOURCES),$(MLDB_PYTHON_ADDON_LINK)))
-
-$(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
-
-$(eval $(call python_module,mldb,$(notdir $(wildcard $(CWD)/*.py)),_mldb))
-
-
-# Our mldb_runner binary requires the plugin to be present
-$(BIN)/mldb_runner:	| $(PYTHON_mldb_DEPS)
+$(eval $(call include_sub_make,mldb_python_module,module,module.mk))
 
 $(eval $(call include_sub_make,testing))
