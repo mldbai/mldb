@@ -72,6 +72,7 @@ struct TestServer {
         auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
         // this is ok because it doesn't require a virtualenv
+        // well actually, in Python 3 it does but it's still OK :)
         runner.run({"/usr/bin/env", "python",
                     "mldb/testing/test_server.py",
                     to_string(freePort)},
