@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* epoller.h                                                       -*- C++ -*-
    Jeremy Barnes, 26 September 2012
    Copyright (c) 2012 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Structure do allow multiplexing of FDs based upon epoll.
 */
 
-#ifndef __endpoint__epoller_h__
-#define __endpoint__epoller_h__
+#pragma once
 
 #include <functional>
 #include "mldb/io/async_event_source.h"
@@ -120,5 +118,3 @@ private:
 };
 
 } // namespace MLDB
-
-#endif /* __endpoint__epoller_h__ */

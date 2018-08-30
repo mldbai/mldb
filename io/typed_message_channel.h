@@ -52,17 +52,17 @@ struct TypedMessageSink: public AsyncEventSource {
     }
 
     //protected:
-    virtual int selectFd() const
+    virtual int selectFd() const override
     {
         return wakeup.fd();
     }
 
-    virtual bool poll() const
+    virtual bool poll() const override
     {
         return buf.couldPop();
     }
 
-    virtual bool processOne()
+    virtual bool processOne() override
     {
         // Try to do one
         Message msg;
@@ -80,6 +80,7 @@ struct TypedMessageSink: public AsyncEventSource {
 
         return buf.couldPop();
     }
+
     uint64_t size() const { return buf.ring.size() ; }
 private:
     MLDB::WakeupFd wakeup;
@@ -95,7 +96,8 @@ class test_typed_message_queue;
 
 /* A multiple writer/consumer thread-safe message queue similar to the above
  * but only optionally bounded. When bounded, the advantage over the above is
- * that the limit can be dynamically adjusted. */
+ * that the limit can be dynamically adjusted.
+*/
 template<typename Message>
 struct TypedMessageQueue: public AsyncEventSource
 {
@@ -114,23 +116,28 @@ struct TypedMessageQueue: public AsyncEventSource
      * "maxMessages": maximum size of the queue, 0 for unlimited */
     TypedMessageQueue(const OnNotify & onNotify = nullptr, size_t maxMessages = 0)
         : maxMessages_(maxMessages),
-          wakeup_(EFD_NONBLOCK | EFD_CLOEXEC), pending_(false),
+          wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
+          pending_(false),
           onNotify_(onNotify)
     {
     }
 
     /* AsyncEventSource interface */
-    virtual int selectFd() const
+    virtual int selectFd() const override
     {
         return wakeup_.fd();
     }
 
-    virtual bool processOne()
+    virtual bool processOne() override
     {
         while (wakeup_.tryRead());
         onNotify();
-        
         return false;
+    }
+
+    virtual bool poll() const override
+    {
+        return size() > 0;
     }
 
     virtual void onNotify()
@@ -189,23 +196,23 @@ struct TypedMessageQueue: public AsyncEventSource
     }
 
     /* number of messages present in the queue */
-    uint64_t size()
-        const
+    uint64_t size() const
     {
+        Guard guard(queueLock_);
         return queue_.size();
     }
 
 private:
     typedef std::mutex Mutex;
     typedef std::unique_lock<Mutex> Guard;
-    Mutex queueLock_;
+    mutable Mutex queueLock_;
     std::queue<Message> queue_;
     size_t maxMessages_;
 
     MLDB::WakeupFd wakeup_;
 
-    /* notifications are pending */
-    bool pending_;
+    /* notifications are pending; protected by queueLock_ */
+    std::atomic<bool> pending_;
 
     /* callback */
     OnNotify onNotify_;
