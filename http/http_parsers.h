@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* http_parsers.h                                                  -*- C++ -*-
    Wolfgang Sourdeau, January 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
@@ -8,6 +6,8 @@
    (HttpRequestParser) and responses (HttpResponseParser), with a callback
    interface. Those classes are meant the reduce the number of allocations and
    are completely contents agnostic.
+
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #pragma once
@@ -98,7 +98,11 @@ private:
 
     bool expectBody_;
 
-    int stage_;
+    enum Stage {
+        STAGE_FIRST_LINE,
+        STAGE_HEADERS,
+        STAGE_BODY
+    } stage_;
     std::string buffer_;
 
     uint64_t remainingBody_;

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* tcp_acceptor_test+http.cc
    Wolfgang Sourdeau, September 2015
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Unit test for TcpAcceptor and HttpSocketHandler
 */
@@ -29,6 +28,8 @@ using namespace std;
 using namespace boost;
 using namespace MLDB;
 
+std::atomic<int> numPayloads(0);
+
 struct MyHandler : public HttpLegacySocketHandler {
     MyHandler(TcpSocket && socket);
 
@@ -47,6 +48,8 @@ MyHandler::
 handleHttpPayload(const HttpHeader & header,
                   const std::string & payload)
 {
+    ++numPayloads;
+
     HttpResponse response(200, "text/plain", "pong");
 
     if (header.resource == "/wait") {
@@ -140,6 +143,8 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_100_continue )
     TcpAcceptor acceptor(loop, onNewConnection);
     acceptor.listen(0, "localhost");
 
+    int numPayloadsBefore = numPayloads;
+    
     auto address = asio::ip::address::from_string("127.0.0.1");
     asio::ip::tcp::endpoint serverEndpoint(address,
                                            acceptor.effectiveTCPv4Port());
@@ -163,8 +168,22 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_100_continue )
                           == 0);
             char body[] = "abcde";
             socket.send(asio::buffer(body, sizeof(body)));
+
+            // Wait for the response...
+            nBytes = socket.receive(asio::buffer(recvBuffer,
+                                                        sizeof(recvBuffer)));
+            string expectedResponse("HTTP/1.1 200 OK\r\n"
+                                    "Content-Type: text/plain\r\n"
+                                    "Content-Length: 4\r\n"
+                                    "Connection: Keep-Alive\r\n"
+                                    "\r\n"
+                                    "pong");
+            string response(recvBuffer, nBytes);
+            BOOST_CHECK_EQUAL(response, expectedResponse);
         }
 
+        BOOST_CHECK_EQUAL(numPayloads, numPayloadsBefore + 1);
+        
         {
             /* Then we send a second request to ensure that the states were
                correctly reset. */
@@ -187,6 +206,9 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_100_continue )
             string response(recvBuffer, nBytes);
             BOOST_CHECK_EQUAL(response, expectedResponse);
         }
+
+        BOOST_CHECK_EQUAL(numPayloads, numPayloadsBefore + 2);
+
     }
     ::sleep(1);
 
