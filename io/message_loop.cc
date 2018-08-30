@@ -407,12 +407,14 @@ processAddSource(const SourceEntry & entry)
     if (entry.name == "_shutdown")
         return;
 
-    // cerr << "processAddSource: " << entry.source.get()
-    //      << " (" << MLDB::type_name(*entry.source) << ")"
-    //      << " needsPoll: " << entry.source->needsPoll
-    //      << " in msg loop: " << this
-    //      << " needsPoll: " << needsPoll
-    //      << endl;
+    if (debug_) {
+        cerr << "processAddSource: " << entry.source.get()
+             << " (" << MLDB::type_name(*entry.source) << ")"
+             << " needsPoll: " << entry.source->needsPoll
+             << " in msg loop: " << this
+             << " needsPoll: " << needsPoll
+             << endl;
+    }
     int fd = entry.source->selectFd();
     if (fd != -1)
         addFd(fd, entry.source.get());
