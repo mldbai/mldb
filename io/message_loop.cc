@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** message_loop.cc
     Jeremy Barnes, 1 June 2012
     Copyright (c) 2012 mldb.ai inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include <thread>
@@ -367,10 +366,10 @@ handleEpollEvent(epoll_event & event)
         = reinterpret_cast<AsyncEventSource *>(event.data.ptr);
     
     if (debug) {
-        ExcAssert(source->poll());
         cerr << "message loop " << this << " with parent " << parent_
              << " handing source " << MLDB::type_name(*source) << " poll result "
-             << Epoller::poll() << endl;
+             << Epoller::poll() << " our poll " << source->poll() << endl;
+        ExcAssert(source->poll());
     }
 
     int res = source->processOne();

@@ -53,18 +53,25 @@ BOOST_AUTO_TEST_CASE( test_addSource_after_before_start )
             sources.emplace_back(new TypedMessageSink<string>(5));
         }
 
+        cerr << "before adding" << endl;
         for (auto & source: sources) {
+            cerr << ".";
             loop.addSource("source", source);
         }
 
+        cerr << "done adding" << endl;
         loop.start();
 
         cerr << "added before start\n";
         for (auto & source: sources) {
+            cerr << ".";
             source->waitConnectionState(AsyncEventSource::CONNECTED);
         }
+        cerr << endl;
 
+        cerr << "asleep" << endl;
         std::this_thread::sleep_for(std::chrono::seconds(1));
+        cerr << "cleanup" << endl;
 
         /* cleanup */
         for (auto & source: sources) {
