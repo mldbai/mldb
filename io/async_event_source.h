@@ -26,12 +26,14 @@ struct AsyncEventSource {
     constexpr static int CONNECTED = 1;
 
     AsyncEventSource()
-        : needsPoll(false), debug_(false), parent_(0), connectionState_(DISCONNECTED)
+        : needsPoll(false), debug_(false), parent_(0),
+          connectionState_(DISCONNECTED)
     {
     }
 
     AsyncEventSource(AsyncEventSource && other)
-        : needsPoll(other.needsPoll), debug_(other.debug_), parent_(nullptr), connectionState_(other.connectionState_.load())
+        : needsPoll(other.needsPoll), debug_(other.debug_), parent_(nullptr),
+          connectionState_(other.connectionState_.load())
     {
         if (other.parent_ != nullptr) {
             fprintf(stderr,
@@ -40,8 +42,7 @@ struct AsyncEventSource {
         }
     }
 
-    AsyncEventSource & operator = (const AsyncEventSource & other)
-        noexcept
+    AsyncEventSource & operator = (const AsyncEventSource & other) noexcept
     {
         if (other.parent_ != nullptr) {
             fprintf(stderr, "AsyncEventSource::=(const&): "

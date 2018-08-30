@@ -8,6 +8,7 @@
 #include <sys/timerfd.h>
 #include "mldb/arch/exception.h"
 #include "mldb/arch/futex.h"
+#include "mldb/base/exc_assert.h"
 #include <iostream>
 #include "message_loop.h"
 #include <cstring>
@@ -33,14 +34,17 @@ disconnect()
 
 void
 AsyncEventSource::
-waitConnectionState(int state)
-    const
+waitConnectionState(int state) const
 {
-    while (connectionState_ != state) {
-        int oldVal = connectionState_;
-        MLDB::futex_wait(connectionState_, oldVal);
+    for (;;) {
+        int current = connectionState_.load();
+        if (current == state) return;
+        ExcAssertGreaterEqual(current, DISCONNECTED);
+        ExcAssertLessEqual(current, CONNECTED);
+        MLDB::futex_wait(connectionState_, current);
     }
 }
+
 
 /*****************************************************************************/
 /* PERIODIC EVENT SOURCE                                                     */

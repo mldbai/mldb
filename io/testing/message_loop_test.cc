@@ -75,11 +75,15 @@ BOOST_AUTO_TEST_CASE( test_addSource_after_before_start )
 
         /* cleanup */
         for (auto & source: sources) {
+            cerr << "x";
             loop.removeSource(source.get());
         }
         for (auto & source: sources) {
+            cerr << "X";
             source->waitConnectionState(AsyncEventSource::DISCONNECTED);
         }
+
+        cerr << "*************** DONE TEST1 *********************" << endl;
     }
 
     /* after "start" */
@@ -94,20 +98,27 @@ BOOST_AUTO_TEST_CASE( test_addSource_after_before_start )
 
         cerr << "added after start\n";
         for (auto & source: sources) {
+            cerr << ".";
             loop.addSource("source", source);
         }
 
+        cerr << "waiting for connected" << endl;
         for (auto & source: sources) {
+            cerr << "o";
             source->waitConnectionState(AsyncEventSource::CONNECTED);
         }
 
+        cerr << "asleep" << endl;
         std::this_thread::sleep_for(std::chrono::seconds(1));
-
+        cerr << "awake" << endl;
+        
         /* cleanup */
         for (auto & source: sources) {
+            cerr << "x";
             loop.removeSource(source.get());
         }
         for (auto & source: sources) {
+            cerr << "X";
             source->waitConnectionState(AsyncEventSource::DISCONNECTED);
         }
     }
