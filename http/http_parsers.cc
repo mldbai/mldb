@@ -1,4 +1,4 @@
-/* http_parsers.h                                                  -*- C++ -*-
+/* http_parsers.cc                                                  -*- C++ -*-
    Wolfgang Sourdeau, January 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
 
@@ -140,7 +140,7 @@ clear()
     noexcept
 {
     expectBody_ = true;
-    stage_ = 0;
+    stage_ = STAGE_FIRST_LINE;
     buffer_.clear();
     expect100Continue_ = false;
     remainingBody_ = 0;
@@ -171,13 +171,13 @@ feed(const char * bufferData, size_t bufferSize)
        the parsing stages change. */
     bool stageDone(true);
     while (stageDone && state.readahead_available() > 0) {
-        if (stage_ == 0) {
+        if (stage_ == STAGE_FIRST_LINE) {
             stageDone = parseFirstLine(state);
             if (stageDone) {
-                stage_ = 1;
+                stage_ = STAGE_HEADERS;
             }
         }
-        else if (stage_ == 1) {
+        else if (stage_ == STAGE_HEADERS) {
             stageDone = parseHeaders(state);
             if (stageDone) {
                 if (expect100Continue_) {
@@ -191,18 +191,18 @@ feed(const char * bufferData, size_t bufferSize)
                 if (!expectBody_
                     || (remainingBody_ == 0 && !useChunkedEncoding_)) {
                     finalizeParsing();
-                    stage_ = 0;
+                    stage_ = STAGE_FIRST_LINE;
                 }
                 else {
-                    stage_ = 2;
+                    stage_ = STAGE_BODY;
                 }
             }
         }
-        else if (stage_ == 2) {
+        else if (stage_ == STAGE_BODY) {
             stageDone = parseBody(state);
             if (stageDone) {
                 finalizeParsing();
-                stage_ = 0;
+                stage_ = STAGE_FIRST_LINE;
             }
         }
     }

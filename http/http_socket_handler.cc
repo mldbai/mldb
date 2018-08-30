@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* http_socket_handler.cc
    Wolfgang Sourdeau, September 2015
    Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
 #include <strings.h>
