@@ -50,7 +50,7 @@ $(1):	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$(MLDB_PLUGIN_FIL
 .PHONY: $(1)
 $(if $(call all_plugins_are_enabled,$(2)),$(eval mldb_unit_tests: $(1)))
 
-$(if $(call all_plugins_are_enabled,$(2)),$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $(CWD)_test_all $(4)):	$(TESTS)/$(1).passed
+$(if $(call all_plugins_are_enabled,$(2)),$(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $(CWD)_test_all $(4),disabled_due_to_plugins):	$(TESTS)/$(1).passed
 endif
 endef
 
