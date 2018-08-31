@@ -1,5 +1,6 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+# These are in the process of being packaged as full plugins
 $(eval $(call include_sub_make,behavior))
 $(eval $(call include_sub_make,tabular))
 $(eval $(call include_sub_make,jml))
@@ -12,9 +13,10 @@ $(eval $(call include_sub_make,sqlite))
 $(eval $(call include_sub_make,sparse))
 $(eval $(call include_sub_make,embedding))
 
-$(eval $(call include_sub_make,html))
-$(eval $(call include_sub_make,pro))
-$(eval $(call include_sub_make,av))
+# These have already been packaged as full plugins
+$(eval $(call include_mldb_plugin,html))
+$(eval $(call include_mldb_plugin,pro))
+$(eval $(call include_mldb_plugin,av))
 
 # No source code, this is just a library to bring everything together
 LIBMLDB_BUILTIN_PLUGIN_SOURCES:=

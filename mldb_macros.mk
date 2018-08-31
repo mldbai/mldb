@@ -60,6 +60,44 @@ endef
 # them in their rpath directories
 MLDB_PLUGIN_EXTRA_LINK_OPTIONS:=-Wl,--rpath,$(LIB)
 
+# Add an MLDB plugin in a subdirectory
+#
+# Synposis:
+#    $(eval $(call include_mldb_plugin,<name>,<dependencies>,<subdir=name>,<makefile=subdir.mk>))
+#
+# This will build the plugin <name> within the <subdir>, including the
+# <makefile> if the given plugin is enabled, and skipping if it is disabled
+# or if any of the dependencies are disabled.
+#
+# Eventually the makefile name will not be configurable, and the build will occur in a
+# stripped-down environment.
+
+define include_mldb_plugin
+MLDB_PLUGIN_$(1)_DIRECT_DEPENDENCIES:=$(if $(2),$(2))
+MLDB_PLUGIN_$(1)_DIR:=$(if $(3),$(3),$(1))
+MLDB_PLUGIN_$(1)_MAKEFILE:=$(if $(4),$(4),$(1).mk)
+MLDB_PLUGIN_$(1)_EXISTS:=$(true)
+MLDB_PLUGIN_$(1)_ENABLED:=$$(call all_plugins_are_enabled,$(1))
+
+# Make sure all dependencies are known and already defined
+$$(foreach dep,$$(MLDB_PLUGIN_$(1)_DIRECT_DEPENDENCIES),$$(if $$(MLDB_PLUGIN_$$(dep)_EXISTS),,$$(error plugin $(1) depends upon plugin $$(dep) which is not known or defined later)))
+
+# Create the transitive set of all dependencies for downstream dependencies to use
+MLDB_PLUGIN_$(1)_DEPENDENCIES:=$$(sort $$(MLDB_PLUGIN_$(1)_DIRECT_DEPENDENCIES) $$(foreach dep,$$(MLDB_PLUGIN_$(1)_DIRECT_DEPENDENCIES),$$(MLDB_PLUGIN_$$(dep)_DEPENDENCIES)))
+
+MLDB_PLUGIN_$(1)_VIABLE:=$$(call all_plugins_are_enabled,$$(MLDB_PLUGIN_$(1)_DEPENDENCIES))
+
+#$$(warning plugin $(1) dir $$(MLDB_PLUGIN_$(1)_DIR) makefile $$(MLDB_PLUGIN_$(1)_MAKEFILE) deps $$(MLDB_PLUGIN_$(1)_DIRECT_DEPENDENCIES) trans $$(MLDB_PLUGIN_$(1)_DEPENDENCIES) enabled $$(MLDB_PLUGIN_$(1)_ENABLED) viable $$(MLDB_PLUGIN_$(1)_VIABLE))
+
+# Provide a warning message if a plugin is enabled but not its dependencies;
+# it will not be built.
+$$(if $$(call and,$$(MLDB_PLUGIN_$(1)_ENABLED),$$(call not,$$(MLDB_PLUGIN_$(1)_VIABLE))),$$(warning plugin $(1) will not be built because not all of its dependencies are enabled; dependencies are $$(MLDB_PLUGIN_$(1)_DEPENDENCIES)))
+
+# Finally, include it if it's enabled
+$$(if $$(MLDB_PLUGIN_$(1)_VIABLE),$$(eval $$(call include_sub_make,$(1),$$(MLDB_PLUGIN_$(1)_DIR),$$(MLDB_PLUGIN_$(1)_MAKEFILE))))
+
+endef
+
 # Add an MLDB plugin library
 #
 # Synopsis:
