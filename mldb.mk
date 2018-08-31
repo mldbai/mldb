@@ -23,6 +23,4 @@ MLDB_SUBDIRS := \
 	sdk \
 	testing
 
-#	tensorflow \
-
 $(eval $(call include_sub_makes,$(MLDB_SUBDIRS)))
