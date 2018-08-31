@@ -42,7 +42,6 @@ LIBMLDB_BUILTIN_PLUGIN_LINK:= \
 	edlib \
 	algebra \
 	svdlibc \
-	uap \
 
 $(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),$(LIBMLDB_BUILTIN_PLUGIN_LINK)))
 
