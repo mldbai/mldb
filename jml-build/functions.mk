@@ -488,13 +488,17 @@ endif
 endef
 
 # Options to go before a testing command for a test
+# There are PRE_PRE and PRE, which correspond to separate commands or shell control
+# directives, and things to run in the command line.
 # $(1): the options
-TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring virtualenv,$(1)),. $(shell readlink -f $(VIRTUALENV))/bin/activate; )$(if $(findstring timed,$(1)),/usr/bin/time )$(if $(findstring virtualenv,$(1)),PYTHONPATH=$(BIN) )
 
+TEST_PRE_PRE_OPTIONS_ = $(w arning TEST_PRE_PRE_OPTIONS $(1))$(if $(findstring virtualenv,$(1)),. $(shell readlink -f $(VIRTUALENV))/bin/activate; )
 
-$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) )
+TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring timed,$(1)),/usr/bin/time )$(if $(findstring virtualenv,$(1)),/usr/bin/env PYTHONPATH=$(BIN) )$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) )
 
 TEST_PRE_OPTIONS = $(w arning TEST_PRE_OPTIONS $(1) returned $(c all TEST_PRE_OPTIONS_,$(1)))$(call TEST_PRE_OPTIONS_,$(1))
+
+TEST_PRE_PRE_OPTIONS = $(w arning TEST_PRE_PRE_OPTIONS $(1) returned $(c all TEST_PRE_PRE_OPTIONS_,$(1)))$(call TEST_PRE_PRE_OPTIONS_,$(1))
 
 # Build the command for a test
 # $(1): the name of the test
@@ -531,7 +535,7 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && /usr/bin/time -v -o $(TESTS)/$(1).timing $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && (($(call TEST_PRE_PRE_OPTIONS,$(3)) set -o pipefail && /usr/bin/time -v -o $(TESTS)/$(1).timing $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
@@ -540,7 +544,7 @@ $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $(TESTS)/$(1).timing`$(COLOR_RESET)	$(COLOR_GREEN)$(1) passed $(COLOR_RESET)")
 
 $(1):	$(TESTS)/$(1)
-	$(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1)
+	$(call TEST_PRE_PRE_OPTIONS,$(3))$(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1)
 
 .PHONY: $(1)
 
