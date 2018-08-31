@@ -152,14 +152,14 @@ BoundFunction extract_exif(const std::vector<BoundSqlExpression> & args)
                     throw MLDB::Exception("Unknown EXIF parser error. Code %d\n", code);
                 }
 
-                auto now = Date::now();
+                auto ts = args[0].getEffectiveTimestamp();
 
                 auto assignIfPresent = [&] (ExpressionValue & destination, string & source)
                 {
                     // library will put null chars in empty strings. clean it up
                     source.erase(std::remove(source.begin(), source.end(), 0), source.end());
                     if(!source.empty()) {
-                        destination = ExpressionValue(std::move(source), now);
+                        destination = ExpressionValue(std::move(source), ts);
                     }
                 };
 
@@ -167,37 +167,37 @@ BoundFunction extract_exif(const std::vector<BoundSqlExpression> & args)
                 assignIfPresent(exif.cameraMake, result.Make);
                 assignIfPresent(exif.cameraModel, result.Model);
                 assignIfPresent(exif.software, result.Software);
-                exif.bitsPerSample = ExpressionValue(result.BitsPerSample, now);
-                exif.imageWidth = ExpressionValue(result.ImageWidth, now);
-                exif.imageHeight = ExpressionValue(result.ImageHeight, now);
+                exif.bitsPerSample = ExpressionValue(result.BitsPerSample, ts);
+                exif.imageWidth = ExpressionValue(result.ImageWidth, ts);
+                exif.imageHeight = ExpressionValue(result.ImageHeight, ts);
                 assignIfPresent(exif.imageDescription, result.ImageDescription);
-                exif.imageOrientation = ExpressionValue(result.Orientation, now);
+                exif.imageOrientation = ExpressionValue(result.Orientation, ts);
                 assignIfPresent(exif.imageCopyright, result.Copyright);
                 assignIfPresent(exif.imageDateTime, result.DateTime);
                 assignIfPresent(exif.originalDateTime, result.DateTimeOriginal);
                 assignIfPresent(exif.digitizedDateTime, result.DateTimeDigitized);
                 assignIfPresent(exif.subsecondTime, result.SubSecTimeOriginal);
-                exif.exposureTime = ExpressionValue(result.ExposureTime, now);
-                exif.fStop = ExpressionValue(result.FNumber, now);
-                exif.isoSpeed = ExpressionValue(result.ISOSpeedRatings, now);
-                exif.subjectDistance = ExpressionValue(result.SubjectDistance, now);
-                exif.exposureBias = ExpressionValue(result.ExposureBiasValue, now);
-                exif.flashUsed = ExpressionValue(result.Flash, now);
-                exif.meteringMode = ExpressionValue(result.MeteringMode, now);
-                exif.lensFocalLength = ExpressionValue(result.FocalLength, now);
-                exif.focalLength35mm = ExpressionValue(result.FocalLengthIn35mm, now);
-                exif.gpsLat = ExpressionValue(result.GeoLocation.Latitude, now);
-                exif.gpsLon = ExpressionValue(result.GeoLocation.Longitude, now);
-                exif.gpsAltitude = ExpressionValue(result.GeoLocation.Altitude, now);
-                exif.gpsPrecision = ExpressionValue(result.GeoLocation.DOP, now);
-                exif.lensMinFocalLength = ExpressionValue(result.LensInfo.FocalLengthMin, now);
-                exif.lensMaxFocalLength = ExpressionValue(result.LensInfo.FocalLengthMax, now);
-                exif.lensFstopMin = ExpressionValue(result.LensInfo.FStopMin, now);
-                exif.lensFstopMax = ExpressionValue(result.LensInfo.FStopMax, now);
+                exif.exposureTime = ExpressionValue(result.ExposureTime, ts);
+                exif.fStop = ExpressionValue(result.FNumber, ts);
+                exif.isoSpeed = ExpressionValue(result.ISOSpeedRatings, ts);
+                exif.subjectDistance = ExpressionValue(result.SubjectDistance, ts);
+                exif.exposureBias = ExpressionValue(result.ExposureBiasValue, ts);
+                exif.flashUsed = ExpressionValue(result.Flash, ts);
+                exif.meteringMode = ExpressionValue(result.MeteringMode, ts);
+                exif.lensFocalLength = ExpressionValue(result.FocalLength, ts);
+                exif.focalLength35mm = ExpressionValue(result.FocalLengthIn35mm, ts);
+                exif.gpsLat = ExpressionValue(result.GeoLocation.Latitude, ts);
+                exif.gpsLon = ExpressionValue(result.GeoLocation.Longitude, ts);
+                exif.gpsAltitude = ExpressionValue(result.GeoLocation.Altitude, ts);
+                exif.gpsPrecision = ExpressionValue(result.GeoLocation.DOP, ts);
+                exif.lensMinFocalLength = ExpressionValue(result.LensInfo.FocalLengthMin, ts);
+                exif.lensMaxFocalLength = ExpressionValue(result.LensInfo.FocalLengthMax, ts);
+                exif.lensFstopMin = ExpressionValue(result.LensInfo.FStopMin, ts);
+                exif.lensFstopMax = ExpressionValue(result.LensInfo.FStopMax, ts);
                 assignIfPresent(exif.lensMake, result.LensInfo.Make);
                 assignIfPresent(exif.lensModel, result.LensInfo.Model);
-                exif.focalPlaneXres = ExpressionValue(result.LensInfo.FocalPlaneXResolution, now);
-                exif.focalPlaneYres = ExpressionValue(result.LensInfo.FocalPlaneYResolution, now);
+                exif.focalPlaneXres = ExpressionValue(result.LensInfo.FocalPlaneXResolution, ts);
+                exif.focalPlaneYres = ExpressionValue(result.LensInfo.FocalPlaneYResolution, ts);
 
                 return toOutput(&exif);
             },
