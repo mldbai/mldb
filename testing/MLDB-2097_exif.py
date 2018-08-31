@@ -89,7 +89,8 @@ class Mldb2097Test(MldbUnitTest):  # noqa
                 elif col_name == "exposureTime":
                     # "Exposure time": "1/640 s"
                     val = 1 / rez[1][col_id] if rez[1][col_id] > 0 else 0
-                    self.assertAlmostEqual(float(answers["Exposure time"].split(" ")[0].split("/")[1]), val, places=1)
+                    if answers["Exposure time"] != "1/0 s":
+                        self.assertAlmostEqual(float(answers["Exposure time"].split(" ")[0].split("/")[1]), val, places=1)
                 elif col_name == "fStop":
                     #    "F-stop": "f/4.5",
                     self.assertEqual(answers["F-stop"], "f/%0.1f" % rez[1][col_id])
