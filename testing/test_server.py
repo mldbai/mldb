@@ -42,7 +42,7 @@ class S(BaseHTTPRequestHandler):
             self.send_header('Location', '/infinite_redirect')
             self.end_headers()
             self.wfile.write(
-                "<html><body><h1>To infinity and beyond!</h1></body></html>")
+                "<html><body><h1>To infinity and beyond!</h1></body></html>".encode('utf-8'))
             return
 
         if self.path.startswith('/sleep/'):
@@ -60,7 +60,7 @@ class S(BaseHTTPRequestHandler):
         self.end_headers()
 
         self.wfile.write(
-            "<html><body><h1>status {}</h1></body></html>".format(status))
+            "<html><body><h1>status {}</h1></body></html>".format(status).encode('utf-8'))
 
     def do_HEAD(self):
         self._set_headers()
@@ -68,17 +68,17 @@ class S(BaseHTTPRequestHandler):
     def do_POST(self):
         # Doesn't do anything with posted data
         self._set_headers()
-        self.wfile.write("<html><body><h1>POST!</h1></body></html>")
+        self.wfile.write("<html><body><h1>POST!</h1></body></html>".encode('utf-8'))
 
     def do_PUT(self):
         # Doesn't do anything with posted data
         self._set_headers()
-        self.wfile.write("<html><body><h1>PUT!</h1></body></html>")
+        self.wfile.write("<html><body><h1>PUT!</h1></body></html>".encode('utf-8'))
 
     def do_DELETE(self):
         # Doesn't do anything with posted data
         self._set_headers()
-        self.wfile.write("<html><body><h1>DELETE!</h1></body></html>")
+        self.wfile.write("<html><body><h1>DELETE!</h1></body></html>".encode('utf-8'))
 
 def run(port=80):
     server_address = ('', port)
