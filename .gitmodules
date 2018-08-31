@@ -2,7 +2,7 @@
 	path = baseimage-docker
 	url = git@github.com:datacratic/baseimage-docker.git
 [submodule "ext/tensorflow"]
-	path = ext/tensorflow
+	path = plugins/tensorflow/ext/tensorflow
 	url = git@github.com:mldbai/tensorflow
 [submodule "ext/re2"]
 	path = ext/re2
@@ -11,7 +11,7 @@
 	path = ext/jpeg
 	url = https://github.com/mldbai/JPeg9A.git
 [submodule "ext/eigen"]
-	path = ext/eigen
+	path = plugins/tensorflow/ext/eigen
 	url = https://github.com/mldbai/eigen.git
 [submodule "ext/edlib"]
 	path = ext/edlib
@@ -23,7 +23,7 @@
 	path = ext/uap-core
 	url = https://github.com/mldbai/uap-core.git
 [submodule "ext/protobuf"]
-	path = ext/protobuf
+	path = plugins/tensorflow/ext/protobuf
 	url = https://github.com/mldbai/protobuf
 [submodule "ext/farmhash"]
 	path = ext/farmhash
@@ -74,10 +74,10 @@
 	path = ext/fasttext
 	url = git@github.com:mldbai/fastText.git
 [submodule "ext/casablanca"]
-	path = ext/casablanca
+	path = plugins/azure/ext/casablanca
 	url = git@github.com:mldbai/cpprestsdk.git
 [submodule "ext/azure-storage-cpp"]
-	path = ext/azure-storage-cpp
+	path = plugins/azure/ext/azure-storage-cpp
 	url = git@github.com:mldbai/azure-storage-cpp.git
 [submodule "pymldb"]
 	path = pymldb
