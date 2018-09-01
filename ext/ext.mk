@@ -17,7 +17,6 @@ $(eval $(call include_sub_make,fasttext,fasttext,../fasttext.mk))
 $(eval $(call include_sub_make,pffft,pffft,../pffft.mk))
 $(eval $(call test,pffft_vectorization_test,pffft,boost))
 
-$(eval $(call library,uap,uap-cpp/UaParser.cpp,yaml-cpp))
 $(eval $(call include_sub_make,s2,s2geometry/src/s2,../../../s2.mk))
 
 EASYEXIF_CC_FILES:= easyexif/exif.cpp

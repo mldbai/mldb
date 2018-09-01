@@ -12,7 +12,7 @@ class MLDB1753UseragentFunction(MldbUnitTest):  # noqa
         mldb.put("/v1/functions/useragent", {
                 "type": "http.useragent",
                 "params": {
-                        "regexFile": "mldb/ext/uap-core/regexes.yaml"
+                        "regexFile": "mldb/plugins/html/ext/uap-core/regexes.yaml"
                     }
             })
 
