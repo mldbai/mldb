@@ -17,10 +17,10 @@
 	path = ext/edlib
 	url = git@github.com:mldbai/edlib.git
 [submodule "ext/uap-cpp"]
-	path = ext/uap-cpp
+	path = plugins/html/ext/uap-cpp
 	url = https://github.com/mldbai/uap-cpp.git
 [submodule "ext/uap-core"]
-	path = ext/uap-core
+	path = plugins/html/ext/uap-core
 	url = https://github.com/mldbai/uap-core.git
 [submodule "ext/protobuf"]
 	path = plugins/tensorflow/ext/protobuf
