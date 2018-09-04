@@ -557,7 +557,7 @@ struct ImportTextProcedureWorkInstance
         auto filename = config.dataFileUrl.toDecodedString();
 
         // Ask for a memory mappable stream if possible
-        filter_istream stream(filename, { { "mapped", "true" } });
+        filter_istream stream = getContent(filename, { { "mapped", true } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
@@ -651,8 +651,8 @@ struct ImportTextProcedureWorkInstance
                     }
 
                     try {
-                        ParseContext pcontext(filename,
-                                               header.c_str(), header.length(), 1, 0);
+                        ParseContext pcontext(config.dataFileUrl.getUrlStringUtf8(),
+                                              header.c_str(), header.length(), 1, 0);
                         fields = expect_csv_row(pcontext, -1, separator);
                         break;
                     }
@@ -668,7 +668,8 @@ struct ImportTextProcedureWorkInstance
 
                 if (config.autoGenerateHeaders) {
                     // Re-open stream
-                    stream.open(filename, { { "mapped", "true" } });
+                    stream = getContent(filename,
+                                        { { "mapped", true } });
                     auto nfields = fields.size();
                     for (ssize_t i = 0; i < nfields; ++i) {
                         inputColumnNames.emplace_back(i);
@@ -716,7 +717,7 @@ struct ImportTextProcedureWorkInstance
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
         SqlCsvScope scope(engine, inputColumnNames, ts,
-                          Utf8String(config.dataFileUrl.toDecodedString()));
+                          config.dataFileUrl.getUrlString());
 
         selectBound = config.select.bind(scope);
         whereBound = config.where->bind(scope);
