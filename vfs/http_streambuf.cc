@@ -12,7 +12,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/vfs_handlers/exception_ptr.cc"
+#include "mldb/vfs/exception_ptr.h"
 #include <chrono>
 #include <future>
 #include "mldb/ext/concurrentqueue/blockingconcurrentqueue.h"
