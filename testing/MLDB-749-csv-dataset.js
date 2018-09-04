@@ -44,7 +44,15 @@ mldb.log(res.json);
 csv_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+        dataFileUrl : {
+            url: "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+            etag: {
+                domain: "https://raw.githubusercontent.com",
+                value: "fdb7d4717c5befa93d0f241ac4245bed1a2a10e7"
+            },
+            sha256: "31ad156ab55993d901bd607828045a3de18cac4144be6dc1c520bc41573a8115",
+            sha3: "9a87daef2da4915211114d4cfecae175636a8074ee6dbd17483c237f" 
+        },
         outputDataset: {
             id: "titanic",
         },

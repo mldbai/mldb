@@ -15,14 +15,18 @@
 #include "mldb/core/function.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/regex.h"
+#include "mldb/vfs/content_descriptor.h"
 
 namespace MLDB {
 
 
+/*****************************************************************************/
+/* IMPORT TEXT CONFIG                                                        */
+/*****************************************************************************/
+
 struct ImportTextConfig : public ProcedureConfig  {
     static constexpr const char * name = "import.text";
-
-    Url dataFileUrl;
+    ContentDescriptor dataFileUrl;
     PolyConfigT<Dataset> outputDataset = DefaultType("tabular");
     std::vector<Utf8String> headers;
     std::string delimiter = ",";
