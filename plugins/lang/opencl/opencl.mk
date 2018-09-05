@@ -7,7 +7,9 @@ ifneq ($(PREMAKE),1)
 OPENCL_PLUGIN_SOURCE := \
 	opencl.cc
 
+ifeq ($(WITH_CUDA),1)
 $(eval $(call set_compile_option,$(OPENCL_PLUGIN_SOURCE),-I$(CUDA_SYSTEM_HEADER_DIR)))
+endif
 
 $(eval $(call library,mldb_opencl_plugin,$(OPENCL_PLUGIN_SOURCE),value_description sql_expression OpenCL))
 
