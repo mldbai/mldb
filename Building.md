@@ -1,8 +1,52 @@
 # Building and running the MLDB Community Edition Docker image
 
-These instructions are designed for a vanilla installation of **Ubuntu 14.04** and its default compiler, **GCC 4.8** and assume that you have a Github account with [SSH keys](https://help.github.com/categories/ssh/).
+These instructions are designed for a vanilla installation of **Ubuntu 16.04 or 18.04** and the **GCC 6, 7 or 8** compiler and assume that you have a Github account with [SSH keys](https://help.github.com/categories/ssh/).
 
-It will take around **45 minutes on a 32-core machine with 244GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license, which can be obtained instantly by filling out [this form](http://mldb.ai/licensing.html).
+It will take around **5 minutes on a 32-core machine with 244GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines.
+
+## Installing the correct compiler toolchain
+
+MLDB requires GCC version 6 or above, or clang 3.8 or above.  If you are
+using clang, then g++ must also be installed as on Ubuntu, clang is
+configured to use the c++ header files and standard library from GCC.
+
+### Under Ubuntu 18.04
+
+```bash
+apt-get install -y g++  # To compile with GCC 7 (default)
+```
+
+If you want to use a different toolchain (if you're not sure, you don't),
+you will need to install it:
+
+```bash
+apt-get install -y g++-6 # To compile with GCC 6 using toolchain=gcc6
+apt-get install -y g++-8 # To compile with GCC 8 using toolchain=gcc8
+apt-get install -y clang-6.0 g++ # To compile with clang version 6 using toolchain=clang
+```
+
+### Under Ubuntu 16.04
+
+Since g++ 6.0 or later is not available on Ubuntu 16.04 as a native package, it
+needs to be added as an apt source.  If you attempt to build MLDB without
+installing a newer gcc, you will get a message that gcc 5 (which comes with
+Ubuntu 16.04) is not supported.
+
+```bash
+add-apt-repository ppa:ubuntu-toolchain-r/test
+apt update
+```
+
+and then one of
+
+```bash
+apt-get install -y g++-8 # To compile with GCC8 using toolchain=gcc8 (recommended)
+apt-get install -y g++-6 # To compile with GCC6 using toolchain=gcc6
+apt-get install -y g++-7 # To compile with GCC7 using toolchain=gcc7
+apt-get install -y g++-8 clang-6.0 # To compile with clang 6.0 using toolchain=clang
+```
+
+You will need to set the `toolchain=gcc6`, `toolchain=gcc7`, `tool
 
 ## Installing system dependencies via `apt-get`
 
@@ -66,9 +110,9 @@ git clone git@github.com:mldbai/mldb.git
 cd mldb
 git checkout release_latest
 git submodule update --init --recursive
-make dependencies
-make -k compile
-make -k test
+make dependencies toolchain=<see above>
+make -k compile toolchain=<see above>
+make -k test toolchain=<see above>
 ```
 
 To speed things up, consider using the `-j` option in `make` to leverage
