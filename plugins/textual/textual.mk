@@ -13,7 +13,6 @@ LIBMLDB_TEXTUAL_PLUGIN_SOURCES:= \
 	sql_csv_scope.cc \
 	tokensplit.cc \
 
-
 LIBMLDB_TEXTUAL_PLUGIN_LINK:= \
 	mldb_core \
 	mldb_engine \
@@ -36,6 +35,7 @@ LIBMLDB_TEXTUAL_PLUGIN_LINK:= \
 	mldb_builtin_base \
 	mldb_builtin \
 	sql_types \
+	block \
 
 $(eval $(call library,mldb_textual_plugin,$(LIBMLDB_TEXTUAL_PLUGIN_SOURCES),$(LIBMLDB_TEXTUAL_PLUGIN_LINK)))
 

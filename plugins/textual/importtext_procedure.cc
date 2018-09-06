@@ -557,7 +557,8 @@ struct ImportTextProcedureWorkInstance
         auto filename = config.dataFileUrl.toDecodedString();
 
         // Ask for a memory mappable stream if possible
-        filter_istream stream = getContent(filename, { { "mapped", true } });
+        auto content = getContent(filename);
+        filter_istream stream = content->getStream({ { "mapped", true } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
@@ -668,8 +669,8 @@ struct ImportTextProcedureWorkInstance
 
                 if (config.autoGenerateHeaders) {
                     // Re-open stream
-                    stream = getContent(filename,
-                                        { { "mapped", true } });
+                    content = getContent(filename);
+                    stream = content->getStream({ { "mapped", true } });
                     auto nfields = fields.size();
                     for (ssize_t i = 0; i < nfields; ++i) {
                         inputColumnNames.emplace_back(i);
