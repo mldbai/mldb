@@ -552,8 +552,8 @@ struct ImportTextProcedureWorkInstance
                   MldbEngine * engine,
                   const std::function<bool (const Json::Value &)> & onProgress)
     {
-        filter_istream stream = getContent(config.dataFileUrl,
-                                            { { "mapped", true } });
+        auto content = getContent(config.dataFileUrl);
+        filter_istream stream = content->getStream({ { "mapped", true } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
@@ -664,8 +664,8 @@ struct ImportTextProcedureWorkInstance
 
                 if (config.autoGenerateHeaders) {
                     // Re-open stream
-                    stream = getContent(config.dataFileUrl,
-                                        { { "mapped", true } });
+                    content = getContent(config.dataFileUrl);
+                    stream = content->getStream({ { "mapped", true } });
                     auto nfields = fields.size();
                     for (ssize_t i = 0; i < nfields; ++i) {
                         inputColumnNames.emplace_back(i);

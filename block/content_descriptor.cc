@@ -548,10 +548,15 @@ getStream(const std::map<Utf8String, Any> & options) const
     }
     else {
         // Not mapped.  We go block by block.
-    }
     
-    filter_istream result(descriptor.getUrlStringUtf8(), options2);
-    return result;
+        std::map<std::string, std::string> options2;
+        for (auto & opt: options) {
+            options2[opt.first.rawString()] = opt.second.asJson().toString();
+        }
+
+        filter_istream result(descriptor.getUrlStringUtf8(), options2);
+        return result;
+    }
 }
 
 std::shared_ptr<ContentHandler>
