@@ -24,7 +24,7 @@
 #include <thread>
 #include <iostream>
 #include <mutex>
-
+#include <atomic>
 
 using namespace std;
 

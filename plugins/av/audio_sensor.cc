@@ -10,6 +10,7 @@
 
 extern "C" {
 
+#include <libavutil/version.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/opt.h>
@@ -19,7 +20,7 @@ extern "C" {
 
 } // extern "C"
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(55,28,1)
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(57,0,0)
 #define avcodec_alloc_frame av_frame_alloc
 #define avcodec_free_frame av_frame_free
 

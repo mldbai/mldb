@@ -5,7 +5,8 @@ MLDB_PYTHON_ADDON_SOURCES := \
 	find_mldb_environment.cc
 
 MLDB_PYTHON_ADDON_LINK := \
-	boost_python3 mldb_python_plugin
+	$(BOOST_PYTHON_LIBRARY) \
+	mldb_python_plugin
 
 $(eval $(call python_addon,_mldb,$(MLDB_PYTHON_ADDON_SOURCES),$(MLDB_PYTHON_ADDON_LINK)))
 

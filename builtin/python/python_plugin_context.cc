@@ -193,7 +193,10 @@ convertException(const EnterThreadToken & threadToken,
             object oval(hval);
             result.lineNumber = boost::python::extract<long>(oval.attr("lineno"));
             result.scriptUri = boost::python::extract<std::string>(oval.attr("filename"));
-            result.lineContents = boost::python::extract<std::string>(oval.attr("text"));
+            if (oval.attr("text")) {
+                result.lineContents = boost::python::extract<std::string>(oval.attr("text"));
+            }
+            
             result.columnStart = boost::python::extract<long>(oval.attr("offset"));
             PyObject * str = PyObject_Str(val);
             Scope_Exit(Py_DECREF(str));

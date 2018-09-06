@@ -13,6 +13,7 @@
 
 #include <thread>
 #include <chrono>
+#include <atomic>
 
 using namespace std;
 
