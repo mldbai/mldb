@@ -7,7 +7,7 @@
 #include "content_descriptor.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/annotated_exception.h"
-#include "filter_streams.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
 
 

@@ -15,7 +15,7 @@
 #include "mldb/core/function.h"
 #include "mldb/types/optional.h"
 #include "mldb/types/regex.h"
-#include "mldb/vfs/content_descriptor.h"
+#include "mldb/block/content_descriptor.h"
 
 namespace MLDB {
 

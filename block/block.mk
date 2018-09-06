@@ -3,9 +3,16 @@
 LIBBLOCK_SOURCES:= \
 	memory_region.cc \
 	zip_serializer.cc \
-	file_serializer.cc
+	file_serializer.cc \
+	content.cc \
+	content_descriptor.cc \
 
-$(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types))
+LIBBLOCK_LINK:= \
+	vfs \
+	$(LIBARCHIVE_LIB_NAME) \
+	types \
+
+$(eval $(call library,block,$(LIBBLOCK_SOURCES),$(LIBBLOCK_LINK)))
 
 $(eval $(call include_sub_make,testing))
 

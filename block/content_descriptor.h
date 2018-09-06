@@ -15,7 +15,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/any.h"
 #include "mldb/types/value_description_fwd.h"
-
+#include "mldb/block/memory_region.h"
 
 namespace MLDB {
 
@@ -64,9 +64,9 @@ PREDECLARE_VALUE_DESCRIPTION(ContentDescriptor);
 /* UTILITY FUNCTIONS                                                         */
 /*****************************************************************************/
 
-filter_istream getContent(const ContentDescriptor & descriptor,
-                          const std::map<Utf8String, Any> & options
-                              = std::map<Utf8String, Any>());
+filter_istream getContentStream(const ContentDescriptor & descriptor,
+                                const std::map<Utf8String, Any> & options
+                                    = std::map<Utf8String, Any>());
 
 
 } // namespace MLDB
