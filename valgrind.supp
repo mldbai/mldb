@@ -1065,3 +1065,15 @@
    fun:free
    ...
 }
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:getDefaultDescriptionUninitialized
+   fun:_ZN4MLDB20ValueDescriptionInitINS_8JsonDiffEE6createEv
+   ...
+   fun:_dl_init
+   obj:/lib/x86_64-linux-gnu/ld-2.23.so
+}

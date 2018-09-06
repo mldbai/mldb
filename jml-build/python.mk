@@ -20,6 +20,9 @@ RUN_PYTHONPATH := $(if $(PYTHONPATH),$(PYTHONPATH):,)$(PYTHON_PURE_LIB_PATH):$(P
 
 PYTHONPATH ?= RUN_PYTHONPATH
 
+BOOST_PYTHON_LIBRARY_FILE:=$(notdir $(wildcard /usr/lib/x86_64-linux-gnu/libboost_python*3*.so))
+BOOST_PYTHON_LIBRARY:=$(BOOST_PYTHON_LIBRARY_FILE:lib%.so=%)
+
 export PYTHONPATH
 
 ifdef VIRTUALENV
@@ -202,7 +205,7 @@ endef
 
 define python_addon
 $$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH)))
-$$(eval $$(call library,$(1),$(2),$(3) boost_python3,$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
+$$(eval $$(call library,$(1),$(2),$(3),$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
 
 ifneq ($(PREMAKE),1)
 

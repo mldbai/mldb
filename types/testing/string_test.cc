@@ -7,9 +7,9 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 #include "mldb/types/string.h"
+#include <regex>
 #include <boost/test/unit_test.hpp>
 #include <boost/regex/icu.hpp>
-#include <boost/regex.hpp>
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/arch/format.h"
 
@@ -43,9 +43,9 @@ BOOST_AUTO_TEST_CASE( test_print_format )
    	BOOST_CHECK_EQUAL(numAccentedChars, 4);
    	string theString(utf8.rawData(), utf8.rawLength());
    	// We do a normal regex first
-   	boost::regex reg("é");
+   	std::regex reg("é");
    	std::string raw4 = "saint-jérôme";
-   	BOOST_CHECK_EQUAL( boost::regex_search(raw4, reg), true);
+   	BOOST_CHECK_EQUAL( std::regex_search(raw4, reg), true);
    	// Please see Saint-j\xC3A9r\xC3B4me for UTF-8 character table
    	boost::u32regex withHex = boost::make_u32regex("saint-j\xc3\xa9r\xc3\xb4me");
    	boost::u32regex withoutHex = boost::make_u32regex(L"[a-z]*-jérôme");

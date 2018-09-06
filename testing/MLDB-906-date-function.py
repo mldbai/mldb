@@ -6,6 +6,7 @@
 
 import datetime
 import unittest
+import math
 
 from mldb import mldb
 
@@ -70,7 +71,7 @@ class DateFunctionTest(unittest.TestCase):
     def test_date_part_quarter(self):
         res = query("SELECT date_part('quarter', latest_timestamp(x)) AS quarter "
                     "FROM example")
-        self.assertEqual(res[0]['columns'][0][1], (d.month / 4) + 1)
+        self.assertEqual(res[0]['columns'][0][1], math.floor(d.month / 4) + 1)
 
     def test_date_part_day(self):
         res = query("SELECT date_part('day', latest_timestamp(x)) AS day FROM example")

@@ -316,11 +316,11 @@ $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
 $(eval $(call include_sub_make,mldb_py_runner))
 
-$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,boost_python3 mldb_python_plugin types arch mldb))
+$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(BOOST_PYTHON_LIBRARY) mldb_python_plugin types arch mldb))
 
 $(eval $(call python_test,python_converters_test,py_conv_test_module))
 
-$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,boost_python3 types mldb_engine mldb_python_plugin))
+$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(BOOST_PYTHON_LIBRARY) types mldb_engine mldb_python_plugin))
 
 $(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module))
 

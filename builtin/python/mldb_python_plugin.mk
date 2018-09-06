@@ -7,7 +7,7 @@ PYTHON_INTERPRETER_SOURCES := \
 
 PYTHON_INTERPRETER_LINK := \
 	$(PYTHON_LIBRARY) \
-	boost_python3 \
+	$(BOOST_PYTHON_LIBRARY) \
 	vfs \
 
 $(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
@@ -25,7 +25,7 @@ PYTHON_PLUGIN_SOURCES := \
 PYTHON_PLUGIN_LINK := \
 	value_description \
 	$(PYTHON_LIBRARY) \
-	boost_python3 \
+	$(BOOST_PYTHON_LIBRARY) \
 	mldb_core \
 	mldb_builtin_base \
 	python_interpreter \

@@ -8,7 +8,8 @@ LIBDB_SOURCES := \
 
 $(eval $(call add_sources,$(LIBDB_SOURCES)))
 
-LIBDB_LINK := utils
+LIBDB_LINK := \
+
 
 $(eval $(call library,db,$(LIBDB_SOURCES),$(LIBDB_LINK)))
 
