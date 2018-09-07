@@ -85,7 +85,6 @@ apt-get install -y \
   libsnappy-dev \
   libssl-dev \
   libbz2-dev \
-  libattr1-dev \
   libavutil-dev \
   libavcodec-dev \
   libavformat-dev \
