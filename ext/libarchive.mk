@@ -138,7 +138,7 @@ LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(ARCH))
 LIBARCHIVE_LIBS:=$(LIBARCHIVE_LIBS_$(ARCH))
 $(if $(LIBARCHIVE_DEFINES),,$(error LIBARCHIVE_DEFINES_$(ARCH) not defined (unknown arch $(ARCH)).  Please define in libarchive.mk))
 
-$(eval $(call set_compile_option,$(LIBARCHIVE_SOURCE),-Imldb/ext/libarchive/libarchive $(LIBARCHIVE_DEFINES)))
+$(eval $(call set_compile_option,$(LIBARCHIVE_SOURCE),-Imldb/ext/libarchive/libarchive $(LIBARCHIVE_DEFINES) $(LIBARCHIVE_FLAGS)))
 
 LIBARCHIVE_LIB_NAME:=archive-mldb
 
