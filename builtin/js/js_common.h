@@ -155,6 +155,13 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Sensor;
     v8::Persistent<v8::FunctionTemplate> Procedure;
     v8::Persistent<v8::FunctionTemplate> RandomNumberGenerator;
+
+    // This is the actual implemention of the MLDB object
+    v8::Persistent<v8::Object> mldb;
+    
+    // This implements the require function, which loads other code and
+    // objects.
+    static void require(const v8::FunctionCallbackInfo<v8::Value> & args);
 };
 
 

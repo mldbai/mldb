@@ -1253,14 +1253,6 @@ registerMe()
     return scope.Escape(result);
 }
 
-void
-MldbJS::
-New(const v8::FunctionCallbackInfo<v8::Value> & args)
-{
-    try {
-        throw MLDB::Exception("can't create new JS plugins");
-    } HANDLE_JS_EXCEPTIONS(args);
-}
 
 } // namespace MLDB
 
