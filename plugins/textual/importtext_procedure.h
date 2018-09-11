@@ -22,45 +22,34 @@ namespace MLDB {
 struct ImportTextConfig : public ProcedureConfig  {
     static constexpr const char * name = "import.text";
 
-    ImportTextConfig()
-        : delimiter(","),
-          quoter("\""),
-          encoding("utf-8"),
-          replaceInvalidCharactersWith(""),
-          limit(-1),
-          offset(0),
-          ignoreBadLines(false),
-          structuredColumnNames(false),
-          allowMultiLines(false),
-          autoGenerateHeaders(false),
-          select(SelectExpression::STAR),
-          where(SqlExpression::TRUE),
-          named(SqlExpression::parse("lineNumber()")),
-          timestamp(SqlExpression::parse("fileTimestamp()"))
-    {
-        outputDataset.withType("tabular");
-    }
-
     Url dataFileUrl;
-    PolyConfigT<Dataset> outputDataset;
+    PolyConfigT<Dataset> outputDataset = DefaultType("tabular");
     std::vector<Utf8String> headers;
-    std::string delimiter;
-    std::string quoter;
-    std::string encoding;
+    std::string delimiter = ",";
+    std::string quoter = "\"";
+    std::string encoding = "utf-8";
     Utf8String replaceInvalidCharactersWith;
-    int64_t limit;
-    int64_t offset;
-    bool ignoreBadLines;
-    bool structuredColumnNames;
-    bool allowMultiLines;
-    bool autoGenerateHeaders;
+    int64_t limit = -1;
+    int64_t offset = 0;
+    int64_t preHeaderOffset = 0;
+    bool ignoreBadLines = false;
+    bool structuredColumnNames = false;
+    bool allowMultiLines = false;
+    bool autoGenerateHeaders = false;
 
-    SelectExpression select;               ///< What to select from the CSV
-    std::shared_ptr<SqlExpression> where;  ///< Filter for the CSV
-    std::shared_ptr<SqlExpression> named;  ///< Row name to output
-    std::shared_ptr<SqlExpression> timestamp;   ///< Timestamp for row
+    /// What to select from the CSV
+    SelectExpression select = SelectExpression::STAR; 
 
-    PolyConfigT<Dataset> output;
+    /// Filter for the CSV
+    std::shared_ptr<SqlExpression> where = SqlExpression::TRUE;
+
+    ///< Row name to output
+    std::shared_ptr<SqlExpression> named
+        = SqlExpression::parse("lineNumber()");
+
+    ///< Timestamp for row    
+    std::shared_ptr<SqlExpression> timestamp
+        = SqlExpression::parse("fileTimestamp()");
 
     bool ignoreExtraColumns = false;
     bool processExcelFormulas = true;
