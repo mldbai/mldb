@@ -43,7 +43,9 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
     /// Column names passed in to the scope
     const std::vector<ColumnPath> & columnNames;
 
-    /// Which columns are accessed by the bound expressions?
+    /// Which columns are accessed by the bound expressions?  This is really
+    /// a std::vector<bool> as it has one entry per column, rather than listing
+    /// the indexes.
     std::vector<int> columnsUsed;
 
     /// Is the line number required by the bound expression?  Some optimizations
