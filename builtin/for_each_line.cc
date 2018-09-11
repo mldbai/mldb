@@ -264,7 +264,7 @@ void forEachLineBlock(std::istream & stream,
     std::atomic<int64_t> byteOffset(0);
     std::atomic<int> chunkNumber(0);
 
-    ThreadPool tp(maxParallelism);
+    ThreadPool tp(ThreadPool::instance(), maxParallelism);
 
     // Memory map if possible
     const char * mapped = nullptr;
