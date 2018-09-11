@@ -294,7 +294,7 @@ void forEachLineBlock(std::istream & stream,
             
             try {
                 //MLDB-1426
-                if (mapped && false) {
+                if (mapped) {
                     const char * start = mapped + stream.tellg();
                     const char * current = start;
                     const char * end = mapped + mappedSize;
