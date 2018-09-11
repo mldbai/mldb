@@ -83,6 +83,16 @@ getIndex(CellValue & val)
         index = indexedVals.size();
         lastValue = val;
         valueIndex[hash] = index;
+
+        // If it looks like each value is in fact distinct or close to that,
+        // then we reserve enough capacity to ensure we don't continually
+        // reallocate the vector.
+        if (indexedVals.size() == indexedVals.capacity()
+            && indexedVals.size() > 32
+            && indexedVals.size() * 2 >= sparseIndexes.size()) {
+            indexedVals.reserve(sparseIndexes.capacity());
+        }
+
         indexedVals.emplace_back(std::move(val));
     }
     else {
