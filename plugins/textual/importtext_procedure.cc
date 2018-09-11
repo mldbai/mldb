@@ -249,7 +249,8 @@ parseFixedWidthCsvRow(const char * & line,
                       bool hasQuoteChar,
                       const shared_ptr<spdlog::logger> & logger,
                       bool ignoreExtraColumns,
-                      bool processExcelFormulas)
+                      bool processExcelFormulas,
+                      const std::vector<int> & columnIsUsed)
 {
     ExcAssert(!(hasQuoteChar && isTextLine));
 
@@ -264,9 +265,14 @@ parseFixedWidthCsvRow(const char * & line,
 
     size_t colNum = 0;
 
-    auto finishString = [encoding,replaceInvalidCharactersWith]
-        (const char * start, size_t len, bool eightBit)
+    auto finishString = [encoding,replaceInvalidCharactersWith,&colNum,&columnIsUsed]
+        (const char * start, size_t len, bool eightBit) -> CellValue
         {
+            // Short circuit for when we don't use the column
+            if (colNum < columnIsUsed.size() && !columnIsUsed[colNum]) {
+                return CellValue();
+            }
+
             if (!eightBit) {
                 char buf[len];
                 if (replaceInvalidCharactersWith >= 0) {
@@ -351,8 +357,14 @@ parseFixedWidthCsvRow(const char * & line,
             bool eightBit = false;
             bool ok = false;
 
+            bool parseColumn = colNum >= columnIsUsed.size()
+                || columnIsUsed[colNum];
+            
             auto pushChar = [&] (char c)
                 {
+                    if (!parseColumn)
+                        return;
+                    
                     if (len == buflen) {
                         std::unique_ptr<char[]> newBuf(new char[buflen * 2]);
                         std::copy(s, s + len, newBuf.get());
@@ -700,6 +712,11 @@ struct ImportTextProcedureWorkInstance
         namedBound = config.named->bind(scope);
         timestampBound = config.timestamp->bind(scope);
 
+        for (size_t i = 0;  i < inputColumnNames.size();  ++i) {
+            cerr << "column " << i << " name " << inputColumnNames[i]
+                 << " used " << scope.columnsUsed[i] << endl;
+        }
+        
         // Do we have a "select *"?  In that case, we can perform various
         // optimizations to avoid calling into the SQL layer
         SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
@@ -942,7 +959,6 @@ struct ImportTextProcedureWorkInstance
         bool isNamedLineNumber = config.named->surface == "lineNumber()";
 
         std::atomic<uint64_t> numSkipped(0);
-        std::atomic<uint64_t> totalLinesProcessed(0);
 
         Timer timer;
 
@@ -978,6 +994,12 @@ struct ImportTextProcedureWorkInstance
                                 size_t numVals,
                                 std::vector<std::pair<ColumnPath, CellValue> > extra)>
             specializedRecorder;
+
+            /// Lines done in this thread
+            uint64_t linesDone = 0;
+            
+            /// Bytes done in this thread
+            uint64_t bytesDone = 0;
         };
 
         PerThreadAccumulator<ThreadAccum> accum;
@@ -1012,29 +1034,37 @@ struct ImportTextProcedureWorkInstance
                            int chunkNum,
                            int64_t lineNum)
         {
-            byteCount += length + 1;
-            if (++lineCount % PROGRESS_RATE == 0) {
-                iterationStep->value = lineCount;
-                onProgress(jsonEncode(iterationStep));
-            }
-            int64_t actualLineNum = lineNum + lineOffset;
-#if 1
-            uint64_t linesDone = totalLinesProcessed.fetch_add(1);
-
-            if (linesDone && linesDone % 100000 == 0) {
-
-                double wall = timer.elapsed_wall();
-                INFO_MSG(this->logger)
-                    << "done " << linesDone << " in " << wall
-                    << "s at " << linesDone / wall * 0.000001
-                    << "M lines/second on "
-                    << timer.elapsed_cpu() / timer.elapsed_wall()
-                    << " CPUs";
-            }
-#endif
-
             auto & threadAccum = accum.get();
 
+            threadAccum.linesDone += 1;
+            threadAccum.bytesDone += length + 1;
+
+            if (threadAccum.linesDone > 100 || threadAccum.bytesDone > 65536) {
+                byteCount += threadAccum.bytesDone;
+                uint64_t linesDone
+                    = lineCount.fetch_add(threadAccum.linesDone)
+                    + threadAccum.linesDone;
+
+                if (linesDone % PROGRESS_RATE_LOW < PROGRESS_RATE_LOW) {
+                    iterationStep->value = linesDone;
+                    onProgress(jsonEncode(iterationStep));
+                }
+                
+                // Look for the wraparound of the modulus
+                if (linesDone % 100000 < threadAccum.linesDone) {
+                    double wall = timer.elapsed_wall();
+                    INFO_MSG(this->logger)
+                        << "done " << linesDone << " in " << wall
+                        << "s at " << linesDone / wall * 0.000001
+                        << "M lines/second on "
+                        << timer.elapsed_cpu() / timer.elapsed_wall()
+                        << " CPUs";
+                }
+                threadAccum.bytesDone = 0;
+                threadAccum.linesDone = 0;
+            }
+            
+            int64_t actualLineNum = lineNum + lineOffset;
 
             // Skip lines if we are asked to
             if (config.skipLineRegex.initialized()) {
@@ -1063,7 +1093,8 @@ struct ImportTextProcedureWorkInstance
                                             isTextLine,
                                             hasQuoteChar, logger,
                                             config.ignoreExtraColumns,
-                                            config.processExcelFormulas);
+                                            config.processExcelFormulas,
+                                            scope.columnsUsed);
 
                 if (errorMsg) {
                     if(config.allowMultiLines) {
@@ -1304,16 +1335,23 @@ struct ImportTextProcedureWorkInstance
             doneChunk(0, lineNum);
         }
 
+        // Accumulate any from the end
+        accum.forEach([&] (ThreadAccum * accum)
+                      {
+                          byteCount += accum->bytesDone;
+                          lineCount += accum->linesDone;
+                      });
+        
         double wall = timer.elapsed_wall();
         INFO_MSG(logger)
-            << "imported " << totalLinesProcessed << " in " << wall
-            << "s at " << totalLinesProcessed / wall * 0.000001
+            << "imported " << lineCount << " in " << wall
+            << "s at " << lineCount / wall * 0.000001
             << "M lines/second on "
             << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs";
         INFO_MSG(logger)
             << "done " << byteCount * 0.000001 << " megabytes at "
             << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec";
-        INFO_MSG(logger) << "processed " << totalLinesProcessed << " lines";
+        INFO_MSG(logger) << "processed " << lineCount << " lines";
         
         recorder.commit();
 
