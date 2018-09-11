@@ -55,6 +55,8 @@ ImportTextConfigDescription::ImportTextConfigDescription()
              "Maximum number of lines to process.  Bad lines including empty lines "
              "contribute to the limit.  As a result, it is possible for the dataset "
              "to contain less rows that the requested limit.");
+    addAuto("preHeaderOffset", &ImportTextConfig::preHeaderOffset,
+             "Skip the first n lines before reading the header (if present).");
     addField("offset", &ImportTextConfig::offset,
              "Skip the first n lines (excluding the header if present).", int64_t(0));
     addField("encoding", &ImportTextConfig::encoding,
@@ -558,6 +560,13 @@ struct ImportTextProcedureWorkInstance
         // Get the file timestamp out
         ts = stream.info().lastModified;
 
+        std::string line;
+        
+        // Skip those up to the offset
+        for (size_t i = 0;  stream && i < config.preHeaderOffset;  ++i, ++lineOffset) {
+            getline(stream, line);
+        }
+
         string header;
 
         if (config.delimiter.length() == 1) {
@@ -773,9 +782,7 @@ struct ImportTextProcedureWorkInstance
             << "writing " << knownColumnNames.size() << " columns "
             << jsonEncodeStr(knownColumnNames);
 
-        std::string line;
-
-        // Skip those up to the offset
+        // Skip those up to the offset now we've done the header
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
             getline(stream, line);
         }
