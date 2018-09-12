@@ -40,20 +40,19 @@ struct FrozenMemoryRegion {
 
     FrozenMemoryRegion(std::shared_ptr<void> handle,
                        const char * data,
-                       size_t length);
+                       size_t length) noexcept;
 
-
-    const char * data() const
+    const char * data() const noexcept
     {
         return data_;
     }
 
-    size_t length() const
+    size_t length() const noexcept
     {
         return length_;
     }
 
-    size_t memusage() const
+    size_t memusage() const noexcept
     {
         return length();
     }
@@ -141,8 +140,8 @@ struct FrozenMemoryRegionT {
     }
 
 private:
-    const T * data_;
-    size_t length_;
+    const T * data_ = nullptr;
+    size_t length_ = 0;
     FrozenMemoryRegion raw_;
 };
 
@@ -180,11 +179,14 @@ struct MutableMemoryRegion {
 
     std::shared_ptr<void> handle() const;
 
+    // Reset the region (stealing the handle) to be null
+    std::shared_ptr<void> reset();
+
 private:
     struct Itl;
     std::shared_ptr<Itl> itl;
-    char * const data_ = nullptr;
-    size_t const length_ = 0;
+    char * data_ = nullptr;
+    size_t length_ = 0;
 };
 
 template<typename T>
