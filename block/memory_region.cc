@@ -62,7 +62,7 @@ getStream()
 FrozenMemoryRegion::
 FrozenMemoryRegion(std::shared_ptr<void> handle,
                    const char * data,
-                   size_t length)
+                   size_t length) noexcept
     : data_(data), length_(length), handle_(std::move(handle))
 {
 }
@@ -136,6 +136,18 @@ freeze()
     return itl->owner->freeze(*this);
 }
 
+std::shared_ptr<void>
+MutableMemoryRegion::
+reset()
+{
+    data_ = nullptr;
+    length_ = 0;
+    std::shared_ptr<void> result(std::move(itl->handle));
+    itl->owner = nullptr;
+    itl->data = nullptr;
+    itl->length = 0;
+    return result;
+}
 
 FrozenMemoryRegion
 mapFile(const Url & filename, size_t startOffset, ssize_t length)
@@ -204,6 +216,24 @@ commit()
 {
 }
 
+// Return the set of pages that are completely covered by this memory block
+static std::pair<void *, size_t>
+getPageRange(const void * mem, size_t length)
+{
+    void * startAddr = (void *)((((size_t)mem) + 4095) / 4096 * 4096);
+    //cerr << "startAddr = " << startAddr << " for " << mem << endl;
+    size_t offset = (char *)startAddr - (char *)mem;
+    ExcAssertLess(offset, 4096);
+    if (offset >= length) {
+        return { 0, 0 };
+    }
+    size_t realLen = length - offset;
+    size_t pageLen = realLen / 4096 * 4096;
+    ExcAssertGreaterEqual(startAddr, mem);
+    ExcAssertLessEqual(pageLen, length);
+    return { startAddr, pageLen };
+}
+
 MutableMemoryRegion
 MemorySerializer::
 allocateWritable(uint64_t bytesRequired,
@@ -234,7 +264,48 @@ FrozenMemoryRegion
 MemorySerializer::
 freeze(MutableMemoryRegion & region)
 {
-    return FrozenMemoryRegion(region.handle(), region.data(), region.length());
+    char * data = region.data();
+    size_t length = region.length();
+
+    void * pageStart;
+    size_t pageLen;
+    std::tie(pageStart, pageLen) = getPageRange(data, length);
+
+    std::shared_ptr<void> handle;
+    
+    if (pageLen > 0) {
+        // Set protection to read-only for full pages to ensure it's really frozen
+        //cerr << "protecting " << pageStart << " for " << pageLen
+        //     << " with range " << (void *)region.data()
+        //     << " for " << region.length()
+        //     << endl;
+        int res = mprotect(pageStart, pageLen, PROT_READ);
+        if (res == -1) {
+            throw MLDB::Exception(errno, "mprotect READ");
+        }
+
+        // Do this late so a mprotect exception will not destroy our region
+        handle = region.reset();
+        
+        // Keep handle so that when it goes out of scope, the memory is freed
+        auto unprotectAndFree = [handle,pageStart,pageLen] (void * mem)
+            {
+                int res = mprotect(pageStart, pageLen, PROT_READ | PROT_WRITE);
+                if (res == -1) {
+                    throw MLDB::Exception(errno, "mprotect READ|WRITE");
+                }
+                
+                // Will be freed by handle going out of scope in the capture
+            };
+
+        handle.reset(handle.get(), std::move(unprotectAndFree));
+    }
+    else {
+        handle = region.reset();
+    }
+    
+    FrozenMemoryRegion result(handle, data, length);
+    return result;
 }
 
 
