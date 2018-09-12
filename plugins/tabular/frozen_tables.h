@@ -49,11 +49,11 @@ struct FrozenIntegerTable {
     FrozenIntegerTableMetadata md;
     FrozenMemoryRegionT<uint64_t> storage;
 
-    size_t memusage() const;
+    size_t memusage() const noexcept;
 
-    size_t size() const;
+    size_t size() const noexcept;
 
-    uint64_t decode(uint64_t i, uint64_t val) const
+    uint64_t decode(uint64_t i, uint64_t val) const noexcept
     {
         return uint64_t(i * md.slope) + val + md.offset;
     }

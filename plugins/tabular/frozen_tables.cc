@@ -36,14 +36,14 @@ IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenIntegerTableMetadata)
 
 size_t
 FrozenIntegerTable::
-memusage() const
+memusage() const noexcept
 {
     return storage.memusage();
 }
 
 size_t
 FrozenIntegerTable::
-size() const
+size() const noexcept
 {
     return md.numEntries;
 }
@@ -472,7 +472,7 @@ freeze(MappedSerializer & serializer)
     if (stats.totalBytes > 10000000 // 10MB
         && bytesPerEntry > 64) {
         std::tie(forward, reverse)
-            = ZstdStringTransducer::train(blobs, serializer);
+            = trainZstdTransducer(blobs, serializer);
     }
     if (!forward
         && stats.uniqueLongLengths == 0
@@ -486,52 +486,6 @@ freeze(MappedSerializer & serializer)
     }
 
     MutableBlobTable compressedBlobs;
-
-#if 0    
-    std::function<void ()> compress = compressor.getHost("generateAll");
-    std::function<void ()> length = compressor.getHost("length");
-
-    // The pipeline we create for this operation is as follows:
-    // in order map over i = 0..blobs.size()
-    //    extract offset[i] as end
-    //    extract offset[i - 1] as start
-    //    length = end - start
-    //    add length to lengths
-    //    data = compress from (offset[i] to offset[i - 1])
-    //    add data to blobs
-    //
-    // (parallel map [i 0 blobs.size()]
-    //  (let [end offset(i)
-    //        start offset(- i 1)
-    //        len (- end start)
-    //        bl blob(data start end)
-    //        data compress(bl)]
-    //   (insert lengths i length)
-    //   (insert blobs i blob)))
-    //
-    // FOREACH
-
-    Parameter<uint32_t> i("i");
-    Constant<uint32_t> one(1);
-    Function<uint64_t (uint64_t)> getOffset = offsets.getFunction("get");
-    Plus<uint64_t> iPlusOne(i, one);
-    
-    
-    Function<void (size_t)> mapper("mapper", blob);
-
-    Parameter<size_t> i("i");
-    Function mapper("mapper", i);
-    Variable start = mapper.local<uint64_t>("start");
-    Variable end = mapper.local<uint64_t>("end");
-    Variable length = mapper.local<uint64_t>("length");
-    Assign a1(start, Call(getOffset, i - 1));
-    Assign a2(end, Call(getOffset, i));
-    Assign a3(length, end - start);
-    
-    Operation operation
-        = parallelMapInOrderReduce(Range(0, i), mapper, reducer);
-
-#endif
 
     size_t compressedBytes = 0;
     size_t numSamples = 0;
@@ -585,36 +539,9 @@ freeze(MappedSerializer & serializer)
     result.itl->offset = std::move(frozenCompressedBlobs.itl->offset);
     result.itl->length = lengths.freeze(serializer);
     result.itl->transducer = std::move(reverse);
+
+    ExcAssertLess(result.memusage(), 1000000000);
     
-
-#if 0
-    MutableBlobTable compressedBlobs;
-
-    
-    FrozenIntegerTable frozenOffsets
-        = offsets.freeze(serializer);
-    MutableMemoryRegion region
-        = serializer.allocateWritable(totalBytes, 1 /* alignment */);
-
-    char * c = region.data();
-
-    size_t currentOffset = 0;
-
-    for (size_t i = 0;  i < blobs.size();  ++i) {
-        size_t length = blobs[i].length();
-        std::memcpy(c, blobs[i].data(), length);
-        c += length;
-        currentOffset += length;
-    }
-
-    ExcAssertEqual(c - region.data(), totalBytes);
-    ExcAssertEqual(currentOffset, totalBytes);
-
-    FrozenBlobTable result;
-    result.itl->blobData = region.freeze();
-    result.itl->offset = std::move(frozenOffsets);
-#endif
-
     return result;
 }
 

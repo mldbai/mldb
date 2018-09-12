@@ -10,7 +10,7 @@
 #include "transducer.h"
 #include "mldb/ext/zstd/lib/dictBuilder/zdict.h"
 #include "mldb/ext/zstd/lib/zstd.h"
-#include "mldb/http/http_exception.h"
+#include "mldb/types/annotated_exception.h"
 
 #include "mldb/block/memory_region.h"
 #include "mldb/base/scope.h"
@@ -186,26 +186,38 @@ memusage() const
 /* ZSTD STRING TRANSDUCER                                                    */
 /*****************************************************************************/
 
-struct ZstdStringTransducer::Itl {
-    Itl()
-        : dict(nullptr)
+struct ZstdStringTransducerCommon {
+    ZstdStringTransducerCommon()
+        : dict(nullptr), cdict(nullptr)
     {
     }
 
-    ~Itl()
+    ~ZstdStringTransducerCommon()
     {
         ZSTD_DDict * prev = dict.exchange(nullptr);
         if (prev) {
             ZSTD_freeDDict(prev);
+        }
+
+        ZSTD_CDict * cprev = cdict.exchange(nullptr);
+        if (cprev) {
+            ZSTD_freeCDict(cprev);
         }
     }
 
     FrozenMemoryRegion formatData;
     
     mutable std::atomic<ZSTD_DDict *> dict;
+    mutable std::atomic<ZSTD_CDict *> cdict;
 
     mutable std::mutex contextPoolLock;
     mutable std::vector<std::shared_ptr<ZSTD_DCtx> > contextPool;
+    mutable std::vector<std::shared_ptr<ZSTD_CCtx> > compressContextPool;
+
+    void serializeParameters(StructuredSerializer & serializer) const
+    {
+        serializer.newEntry("dict")->copy(formatData);
+    }
 
     size_t memusage() const
     {
@@ -215,11 +227,229 @@ struct ZstdStringTransducer::Itl {
     }
 };
 
-std::pair<std::shared_ptr<ZstdStringTransducer>,
-          std::shared_ptr<ZstdStringTransducer> >
-ZstdStringTransducer::
-train(const std::vector<std::string> & blobs,
-      MappedSerializer & serializer)
+struct ZstdCompressor: public StringTransducer {
+    
+    ZstdCompressor(std::shared_ptr<ZstdStringTransducerCommon> itl)
+        : itl(itl)
+    {
+    }
+    
+    virtual std::string_view
+    generateAll(std::string_view input,
+                char * outputBuffer,
+                size_t outputLength) const override
+    {
+        std::shared_ptr<ZSTD_CCtx> context;
+            
+        {
+            std::unique_lock<std::mutex> guard(itl->contextPoolLock);
+            if (!itl->compressContextPool.empty()) {
+                context = itl->compressContextPool.back();
+                itl->compressContextPool.pop_back();
+            }
+        }
+    
+        auto freeContext = [&] ()
+            {
+                if (!context)
+                    return;
+                std::unique_lock<std::mutex> guard(itl->contextPoolLock);
+                itl->compressContextPool.emplace_back(std::move(context));
+            };
+        
+        Scope_Exit(freeContext());
+
+        if (!context) {
+            context.reset(ZSTD_createCCtx(), ZSTD_freeCCtx);
+        }
+
+        if (!itl->cdict.load()) {
+            ZSTD_CDict * dict = ZSTD_createCDict(itl->formatData.data(),
+                                                 itl->formatData.length(),
+                                                 10 /* compression level */);
+            ZSTD_CDict * previous = nullptr;
+            if (!itl->cdict.compare_exchange_strong(previous, dict)) {
+                ZSTD_freeCDict(dict);
+            }
+        }
+        
+        size_t res
+            = ZSTD_compress_usingCDict(context.get(),
+                                       outputBuffer, outputLength,
+                                       input.data(), input.size(),
+                                       itl->cdict.load());
+
+        if (ZSTD_isError(res)) {
+            throw AnnotatedException(500, "Error with compressing: "
+                                     + string(ZSTD_getErrorName(res)));
+        }
+        
+        return std::string_view(outputBuffer, res);
+    }
+    
+    virtual size_t getOutputLength(std::string_view input) const override
+    {
+        throw AnnotatedException(500, "Can't get output length for zstd compressor");
+    }
+    
+    virtual size_t getTemporaryBufferSize(std::string_view input,
+                                          ssize_t outputLength) const override
+    {
+        return ZSTD_compressBound(input.size());
+    }
+    
+    virtual bool needsTemporaryBuffer() const override
+    {
+        return true;
+    }
+    
+    virtual bool canGetOutputLength() const override
+    {
+        return false;
+    }
+    
+    virtual std::string type() const override
+    {
+        return "zsc";
+    }
+
+    virtual void serializeParameters(StructuredSerializer & serializer)
+        const override
+    {
+        return itl->serializeParameters(serializer);
+    }
+
+    virtual size_t memusage() const override
+    {
+        return sizeof(*this) + itl->memusage();
+    }
+
+    std::shared_ptr<ZstdStringTransducerCommon> itl;
+};
+
+struct ZstdDecompressor: public StringTransducer {
+    
+    ZstdDecompressor(std::shared_ptr<ZstdStringTransducerCommon> itl)
+        : itl(itl)
+    {
+    }
+
+    virtual std::string_view
+    generateAll(std::string_view input,
+                char * outputBuffer,
+                size_t outputLength) const override
+    {
+        size_t storageSize = input.length();
+        const char * data = input.data();
+    
+        std::shared_ptr<ZSTD_DCtx> context;
+            
+        {
+            std::unique_lock<std::mutex> guard(itl->contextPoolLock);
+            if (!itl->contextPool.empty()) {
+                context = itl->contextPool.back();
+                itl->contextPool.pop_back();
+            }
+            guard.unlock();
+
+            if (!context)
+                context.reset(ZSTD_createDCtx(), ZSTD_freeDCtx);
+        }
+    
+        auto freeContext = [&] ()
+            {
+                if (!context)
+                    return;
+                std::unique_lock<std::mutex> guard(itl->contextPoolLock);
+                itl->contextPool.emplace_back(std::move(context));
+            };
+
+        Scope_Exit(freeContext());
+                    
+        if (!context) {
+            context.reset(ZSTD_createDCtx(), ZSTD_freeDCtx);
+        }
+    
+        if (!itl->dict.load()) {
+            ZSTD_DDict * dict = ZSTD_createDDict(itl->formatData.data(),
+                                                 itl->formatData.length());
+            ZSTD_DDict * previous = nullptr;
+            if (!itl->dict.compare_exchange_strong(previous, dict)) {
+                ZSTD_freeDDict(dict);
+            }
+        }
+    
+        auto res = ZSTD_decompress_usingDDict(context.get(),
+                                              outputBuffer,
+                                              outputLength,
+                                              data, storageSize,
+                                              itl->dict.load());
+    
+        if (ZSTD_isError(res)) {
+            throw AnnotatedException(500, "Error with decompressing: "
+                                     + string(ZSTD_getErrorName(res)));
+        }
+
+        return std::string_view(outputBuffer, res);
+    }
+    
+    virtual size_t getOutputLength(std::string_view input) const override
+    {
+        const char * data = input.data();
+        auto res = ZSTD_getDecompressedSize(data, input.length());
+        if (ZSTD_isError(res)) {
+            throw AnnotatedException(500, "Error with decompressing: "
+                                     + string(ZSTD_getErrorName(res)));
+        }
+        return res;
+    }
+    
+    virtual size_t getTemporaryBufferSize(std::string_view input,
+                                          ssize_t outputLength) const override
+    {
+        auto res = ZSTD_getDecompressedSize(input.data(), input.length());
+        if (ZSTD_isError(res)) {
+            throw AnnotatedException(500, "Error with decompressing: "
+                                     + string(ZSTD_getErrorName(res)));
+        }
+
+        return res;
+    }
+
+    virtual bool needsTemporaryBuffer() const override
+    {
+        return true;
+    }
+
+    virtual bool canGetOutputLength() const override
+    {
+        return true;  // can be provided
+    }
+
+    virtual std::string type() const override
+    {
+        return "zs";
+    }
+
+    virtual void serializeParameters(StructuredSerializer & serializer)
+        const override
+    {
+        itl->serializeParameters(serializer);
+    }
+
+    virtual size_t memusage() const override
+    {
+        return sizeof(*this)
+            + itl->memusage();
+    }
+
+    std::shared_ptr<ZstdStringTransducerCommon> itl;
+};
+
+std::pair<std::shared_ptr<StringTransducer>,
+          std::shared_ptr<StringTransducer> >
+trainZstdTransducer(const std::vector<std::string> & blobs,
+                    MappedSerializer & serializer)
 {
     // Let the dictionary size be 5% of the total
     size_t dictionarySize = 131072;//32768; //info->totalBytes / 20;
@@ -257,8 +487,8 @@ train(const std::vector<std::string> & blobs,
                                        sampleSizes.data(),
                                        sampleSizes.size());
     if (ZDICT_isError(res)) {
-        throw HttpReturnException(500, "Error with dictionary: "
-                                  + string(ZDICT_getErrorName(res)));
+        throw AnnotatedException(500, "Error with dictionary: "
+                                 + string(ZDICT_getErrorName(res)));
     }
         
     Date after = Date::now();
@@ -271,201 +501,16 @@ train(const std::vector<std::string> & blobs,
          << currentOffset << " bytes of samples in "
          << elapsed << " seconds" << endl;
 
-    // Now compress another 1MB to see what the ratio is...
-    std::shared_ptr<ZSTD_CDict> dict
-        (ZSTD_createCDict(dictionary.data(), res, 1 /* compression level */),
-         ZSTD_freeCDict);
-        
-    std::shared_ptr<ZSTD_CCtx> context
-        (ZSTD_createCCtx(), ZSTD_freeCCtx);
-
     MutableMemoryRegion dictRegion
         = serializer.allocateWritable(dictionary.length(), 1);
     std::memcpy(dictRegion.data(), dictionary.data(), dictionary.length());
     auto formatData = dictRegion.freeze();
 
+    auto data = std::make_shared<ZstdStringTransducerCommon>();
+    data->formatData = std::move(formatData);
 
-    throw Exception("train");
-    
-#if 0
-    size_t compressedBytes = 0;
-    size_t numSamples = 0;
-    size_t uncompressedBytes = 0;
-
-    MutableBlobTable compressedBlobs;
-
-    for (size_t i = 0 /*valNumber*/;  i < blobs.size();  ++i) {
-        const std::string & v = blobs[i];
-        size_t len = v.length();
-        PossiblyDynamicBuffer<char, 65536> buf(ZSTD_compressBound(len));
-
-        size_t res
-            = ZSTD_compress_usingCDict(context.get(),
-                                       buf.data(), buf.size(),
-                                       v.data(), len,
-                                       dict.get());
-
-        if (ZSTD_isError(res)) {
-            throw HttpReturnException(500, "Error with compressing: "
-                                      + string(ZSTD_getErrorName(res)));
-        }
-
-        compressedBlobs.add(std::string(buf.data(), res));
-
-        uncompressedBytes += len;
-        compressedBytes += res;
-        numSamples += 1;
-    }
-
-    after = Date::now();
-    elapsed = after.secondsSince(before);
-
-    //cerr << "compressed " << numSamples << " samples with "
-    //     << uncompressedBytes << " bytes to " << compressedBytes
-    //     << " bytes at " << 100.0 * compressedBytes / uncompressedBytes
-    //     << "% compression at "
-    //     << numSamples / elapsed << "/s" << endl;
-
-    FrozenBlobTable frozenCompressedBlobs
-        = compressedBlobs.freezeUncompressed(serializer, false /* allow compression */);
-
-    cerr << "frozenCompressedBlobs.memusage() = "
-         << frozenCompressedBlobs.memusage() << endl;
-
-    FrozenBlobTable result;
-    MutableMemoryRegion dictRegion
-        = serializer.allocateWritable(dictionary.length(), 1);
-    std::memcpy(dictRegion.data(), dictionary.data(), dictionary.length());
-    result.itl->formatData = dictRegion.freeze();
-    result.itl->md.format = ZSTD;
-    result.itl->blobData = std::move(frozenCompressedBlobs.itl->blobData);
-    result.itl->offset = std::move(frozenCompressedBlobs.itl->offset);
-
-    cerr << "result.memusage() = "
-         << result.memusage() << endl;
-
-    return result;
-#endif
-}
-
-std::string_view
-ZstdStringTransducer::
-generateAll(std::string_view input,
-            char * outputBuffer,
-            size_t outputLength) const
-{
-    size_t storageSize = input.length();
-    const char * data = input.data();
-    
-    std::shared_ptr<ZSTD_DCtx> context;
-            
-    {
-        std::unique_lock<std::mutex> guard(itl->contextPoolLock);
-        if (!itl->contextPool.empty()) {
-            context = itl->contextPool.back();
-            itl->contextPool.pop_back();
-        }
-    }
-    
-    auto freeContext = [&] ()
-        {
-            if (!context)
-                return;
-            std::unique_lock<std::mutex> guard(itl->contextPoolLock);
-            itl->contextPool.emplace_back(std::move(context));
-        };
-
-    Scope_Exit(freeContext());
-                    
-    if (!context) {
-        context.reset(ZSTD_createDCtx(),
-                      [] (ZSTD_DCtx * context) { ZSTD_freeDCtx(context); });
-    }
-    
-    if (!itl->dict.load()) {
-        ZSTD_DDict * dict = ZSTD_createDDict(itl->formatData.data(),
-                                             itl->formatData.length());
-        ZSTD_DDict * previous = nullptr;
-        if (!itl->dict.compare_exchange_strong(previous, dict)) {
-            ZSTD_freeDDict(dict);
-        }
-    }
-    
-    auto res = ZSTD_decompress_usingDDict(context.get(),
-                                          outputBuffer,
-                                          outputLength,
-                                          data, storageSize,
-                                          itl->dict.load());
-    
-    if (ZSTD_isError(res)) {
-        throw HttpReturnException(500, "Error with decompressing: "
-                                  + string(ZSTD_getErrorName(res)));
-    }
-
-    return std::string_view(outputBuffer, res);
-}
-
-size_t
-ZstdStringTransducer::
-getOutputLength(std::string_view input) const
-{
-    const char * data = input.data();
-    auto res = ZSTD_getDecompressedSize(data, input.length());
-    if (ZSTD_isError(res)) {
-        throw HttpReturnException(500, "Error with decompressing: "
-                                  + string(ZSTD_getErrorName(res)));
-    }
-    return res;
-}
-
-size_t
-ZstdStringTransducer::
-getTemporaryBufferSize(std::string_view input,
-                       ssize_t outputLength) const
-{
-    auto res = ZSTD_getDecompressedSize(input.data(), input.length());
-    if (ZSTD_isError(res)) {
-        throw HttpReturnException(500, "Error with decompressing: "
-                                  + string(ZSTD_getErrorName(res)));
-    }
-
-    return res;
-}
-
-bool
-ZstdStringTransducer::
-needsTemporaryBuffer() const
-{
-    return true;
-}
-
-bool
-ZstdStringTransducer::
-canGetOutputLength() const
-{
-    return true;  // can be provided
-}
-
-std::string
-ZstdStringTransducer::
-type() const
-{
-    return "zs";
-}
-
-void
-ZstdStringTransducer::
-serializeParameters(StructuredSerializer & serializer) const
-{
-    serializer.newEntry("dict")->copy(itl->formatData);
-}
-
-size_t
-ZstdStringTransducer::
-memusage() const
-{
-    return sizeof(*this)
-        + itl->memusage();
+    return { std::make_shared<ZstdCompressor>(data),
+             std::make_shared<ZstdDecompressor>(data) };
 }
 
 
@@ -514,6 +559,56 @@ struct TableCharacterTransducer: public CharacterTransducer {
 };
 
 namespace {
+
+struct NullStringTransducer: public StringTransducer {
+    virtual ~NullStringTransducer()
+    {
+    }
+
+    virtual std::string_view
+    generateAll(std::string_view input,
+                char * outputBuffer,
+                size_t outputLength) const override
+    {
+        return std::string_view();
+    }
+    
+    virtual size_t getOutputLength(std::string_view input) const override
+    {
+        return 0;
+    }
+    
+    virtual size_t getTemporaryBufferSize(std::string_view input,
+                                          ssize_t outputLength) const override
+    {
+        return 0;
+    }
+
+    virtual bool needsTemporaryBuffer() const override
+    {
+        return false;
+    }
+
+    virtual bool canGetOutputLength() const override
+    {
+        return true;
+    }
+    
+    virtual std::string type() const override
+    {
+        return "null";
+    }
+
+    virtual void serializeParameters(StructuredSerializer & serializer)
+        const override
+    {
+    }
+
+    size_t memusage() const override
+    {
+        return sizeof(*this);
+    }
+};
 
 struct PositionInfo {
     uint32_t counts[256] = {0};
@@ -583,6 +678,8 @@ struct ForwardIdTransducer: public StringTransducer {
                                  char * outputBuffer,
                                  size_t outputLength) const
     {
+        //cerr << "generateAll for " << input << endl;
+        //cerr << "outputLength = " << outputLength << endl;
         ExcAssertEqual(outputLength, info->totalOutputBytes);
 
         int currentInt = 0;
@@ -591,9 +688,15 @@ struct ForwardIdTransducer: public StringTransducer {
         
         auto doneCurrent = [&] ()
             {
+                // If there is no entropy at all in the input, then we don't
+                // even write one byte
+                if (outputLength == 0)
+                    return;
+
                 size_t width = info->ints[currentInt].bitWidth;
                 for (size_t i = 0;  i < width;  i += 8) {
                     //cerr << "writing byte " << (current % 256) << endl;
+                    ExcAssertLess(outputPos, outputLength);
                     outputBuffer[outputPos++] = current % 256;
                     current = current >> 8;
                 }
@@ -686,6 +789,9 @@ struct BackwardIdTransducer: public StringTransducer {
         auto getNewInt = [&] () -> uint64_t
             {
                 ++intNumber;
+                if (intNumber == 0 && info->ints.empty()) {
+                    return 0;
+                }
                 ExcAssertLess(intNumber, info->ints.size());
                 int numBytes = (info->ints[intNumber].bitWidth + 7) / 8;
 
@@ -737,7 +843,7 @@ struct BackwardIdTransducer: public StringTransducer {
     
     size_t getOutputLength(std::string_view input) const
     {
-        throw HttpReturnException
+        throw AnnotatedException
             (400, "Transducer does not implement getSize()");
     }
 
@@ -795,7 +901,10 @@ trainIdTransducer(const std::vector<std::string> & blobs,
         }
     }
 
-    ExcAssert(!lengthsFound.empty());
+    if (lengthsFound.empty()) {
+        return { std::make_shared<NullStringTransducer>(),
+                 std::make_shared<NullStringTransducer>() };
+    }
     
     size_t maxLength = lengthsFound.back();
     
@@ -815,7 +924,7 @@ trainIdTransducer(const std::vector<std::string> & blobs,
     std::vector<std::unique_ptr<CharacterTransducer> > transducers;
     
     for (size_t p = 0;  p < maxLength;  ++p) {
-        cerr << p << "=" << charsPerPosition[p].uniqueCounts << " ";
+        //cerr << p << "=" << charsPerPosition[p].uniqueCounts << " ";
         bits += log2(charsPerPosition[p].uniqueCounts);
 
         if (bits > 64 && charsPerPosition[p].uniqueCounts > 1) {

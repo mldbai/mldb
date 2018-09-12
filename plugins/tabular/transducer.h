@@ -203,38 +203,10 @@ struct IdentityStringTransducer: public StringTransducer {
 /* ZSTD STRING TRANSDUCER                                                    */
 /*****************************************************************************/
 
-struct ZstdStringTransducer: public StringTransducer {
-    
-    ZstdStringTransducer(StructuredSerializer & serializer);
-
-    static std::pair<std::shared_ptr<ZstdStringTransducer>,
-                     std::shared_ptr<ZstdStringTransducer> >
-    train(const std::vector<std::string> & strings,
-          MappedSerializer & serializer);
-    
-    virtual std::string_view
-    generateAll(std::string_view input,
-                char * outputBuffer,
-                size_t outputLength) const;
-    
-    virtual size_t getOutputLength(std::string_view input) const;
-    
-    virtual size_t getTemporaryBufferSize(std::string_view input,
-                                          ssize_t outputLength) const;
-
-    virtual bool needsTemporaryBuffer() const;
-
-    virtual bool canGetOutputLength() const;
-
-    virtual std::string type() const;
-
-    virtual void serializeParameters(StructuredSerializer & serializer) const;
-
-    virtual size_t memusage() const;
-    
-    struct Itl;
-    std::shared_ptr<Itl> itl;
-};
+std::pair<std::shared_ptr<StringTransducer>,
+          std::shared_ptr<StringTransducer> >
+trainZstdTransducer(const std::vector<std::string> & strings,
+                    MappedSerializer & serializer);
 
 
 /*****************************************************************************/

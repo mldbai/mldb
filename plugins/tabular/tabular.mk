@@ -12,7 +12,7 @@ LIBMLDB_TABULAR_PLUGIN_SOURCES:= \
 	transducer.cc
 
 LIBMLDB_TABULAR_PLUGIN_LINK := \
-	mldb block zstd
+	block zstd
 
 
 $(eval $(call library,mldb_tabular_plugin,$(LIBMLDB_TABULAR_PLUGIN_SOURCES),$(LIBMLDB_TABULAR_PLUGIN_LINK)))
