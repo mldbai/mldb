@@ -17,85 +17,13 @@
 #include <map>
 #include "mldb/arch/spinlock.h"
 #include "mldb/arch/exception.h"
+#include "mldb/arch/file_functions.h"
 #include <mutex>
 
 using namespace std;
 
 namespace MLDB {
 
-namespace {
-
-typedef std::pair<uint32_t, uint32_t> inode_type;
-
-size_t get_file_size(int fd)
-{
-    struct stat stats;
-    int result = fstat(fd, &stats);
-    if (result != 0)
-        throw Exception("fstat: " + string(strerror(errno)));
-    return stats.st_size;
-}
-
-size_t get_file_size(const std::string & filename)
-{
-    struct stat stats;
-    int result = stat(filename.c_str(), &stats);
-    if (result != 0)
-        throw Exception("stat: " + string(strerror(errno)));
-    return stats.st_size;
-}
-
-std::string get_link_target(const std::string & link)
-{
-    /* Interface to the readlink call */
-    size_t bufsize = 1024;
-    
-    /* Loop over, making the buffer successively larger if it is too small. */
-    while (true) {  // break in loop
-        char buf[bufsize];
-        int res = readlink(link.c_str(), buf, bufsize);
-        if (res == -1)
-            throw Exception(errno, "readlink", "get_link_name()");
-        if (res == bufsize) {
-            bufsize *= 2;
-            continue;
-        }
-        buf[res] = 0;
-        return buf;
-    }
-}
-
-std::string get_name_from_fd(int fd)
-{
-    string fname = "/proc/self/fd/%d" + std::to_string(fd);
-    return get_link_target(fname);
-}
-
-inode_type get_inode(const std::string & filename)
-{
-    struct stat st;
-
-    int res = stat(filename.c_str(), &st);
-
-    if (res != 0)
-        throw Exception(errno, "fstat", "get_inode()");
-
-    return make_pair(st.st_dev, st.st_ino);
-}
-
-inode_type get_inode(int fd)
-{
-    struct stat st;
-
-    int res = fstat(fd, &st);
-
-    if (res != 0)
-        throw Exception(errno, "fstat", "get_inode()");
-
-    return make_pair(st.st_dev, st.st_ino);
-}
-
-} // file scope
 
 /*****************************************************************************/
 /* FILE_READ_BUFFER                                                          */
