@@ -13,7 +13,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include "mldb/vfs_handlers/aws/sqs.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include <iostream>
 #include <stdlib.h>
 #include "mldb/utils/vector_utils.h"

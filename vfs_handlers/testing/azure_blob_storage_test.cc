@@ -11,7 +11,7 @@
 #include <string>
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/utils/testing/fixtures.h"
 #include "mldb/vfs/filter_streams.h"
 

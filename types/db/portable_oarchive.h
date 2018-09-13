@@ -17,6 +17,8 @@
 #include "compact_size_types.h"
 #include <cstring>
 #include <memory>
+#include <functional>
+
 
 namespace std {
 
@@ -46,6 +48,11 @@ namespace DB {
 
 
 class Nested_Writer;
+
+/// Function used to open a stream.  Initially tied to creating an ofstream;
+/// this can be replaced with more functional streams like filter_stream.
+/// (done automatically when the vfs library is linked).
+extern std::function<std::ostream * (const std::string )> defaultOpenOutputStream;
 
 
 /*****************************************************************************/

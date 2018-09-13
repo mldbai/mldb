@@ -1,18 +1,12 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* file_functions.cc
    Jeremy Barnes, 14 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-      
-
-
-   ---
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Functions to deal with files.
 */
 
-#include "mldb/utils/file_functions.h"
-#include "mldb/base/exc_assert.h"
+#include "file_read_buffer.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -20,21 +14,18 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include "mldb/utils/string_functions.h"
-#include "mldb/arch/exception.h"
-#include "mldb/arch/spinlock.h"
-#include <iostream>
 #include <map>
-#include <grp.h>
-#include <exception>
-#include "mldb/base/scope.h"
+#include "mldb/arch/spinlock.h"
+#include "mldb/arch/exception.h"
 #include <mutex>
 
-
 using namespace std;
-using namespace MLDB;
 
 namespace MLDB {
+
+namespace {
+
+typedef std::pair<uint32_t, uint32_t> inode_type;
 
 size_t get_file_size(int fd)
 {
@@ -76,7 +67,7 @@ std::string get_link_target(const std::string & link)
 
 std::string get_name_from_fd(int fd)
 {
-    string fname = MLDB::format("/proc/self/fd/%d", fd);
+    string fname = "/proc/self/fd/%d" + std::to_string(fd);
     return get_link_target(fname);
 }
 
@@ -104,94 +95,7 @@ inode_type get_inode(int fd)
     return make_pair(st.st_dev, st.st_ino);
 }
 
-void delete_file(const std::string & filename)
-{
-    int res = unlink(filename.c_str());
-    if (res != 0)
-        throw Exception(errno, "couldn't delete file " + filename, "unlink");
-}
-
-void set_file_flag(int fd, int newFlag)
-{
-    int oldFlags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, oldFlags | newFlag);
-}
-
-void unset_file_flag(int fd, int oldFlag)
-{
-    int oldFlags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, oldFlags & ~oldFlag);
-}
-
-bool is_file_flag_set(int fd, int flag)
-{
-    int oldFlags = fcntl(fd, F_GETFL, 0);
-    return ((oldFlags & flag) == flag);
-}
-
-/** Does the file exist? */
-bool fileExists(const std::string & filename)
-{
-    struct stat stats;
-    int res = stat(filename.c_str(), &stats);
-    if (res == -1)
-        return false;  // no chunks
-    return true;
-}
-
-void set_permissions(std::string filename,
-                     const std::string & perms,
-                     const std::string & group)
-{
-    if (filename.find("ipc://") == 0)
-        filename = string(filename, 6);
-
-    char * endptr;
-    if (perms != "") {
-        int mode = strtol(perms.c_str(), &endptr, 8);
-        if (*endptr != '\0')
-            throw Exception(errno, "parsing permission modes %s",
-                            perms.c_str());
-        
-        cerr << "setting permissions of " << filename << " to " << perms
-             << "(" << mode << ")" << endl;
-
-        int res = chmod(filename.c_str(), mode);
-        if (res == -1)
-            throw Exception(errno, "chmod on %s in setPermissions");
-    }
-
-    if (group != "") {
-        int groupNum = strtol(group.c_str(), &endptr, 10);
-        if (*endptr != '\0') {
-            struct group * gr = getgrnam(group.c_str());
-            if (gr == 0)
-                throw Exception(errno, "finding group \"%s\"", group.c_str());
-            groupNum = gr->gr_gid;
-        }
-        
-        cerr << "setting group of " << filename << " to " << groupNum
-             << " for group " << group << endl;
-        
-        int res = chown(filename.c_str(), -1, groupNum);
-
-        if (res == -1)
-            throw Exception(errno, "chown in setPermissions");
-    }
-}
-
-/** Call fdatasync on the file. */
-void syncFile(const std::string & filename)
-{
-    int fd = ::open(filename.c_str(), O_RDONLY);
-    if (fd == -1)
-        throw MLDB::Exception(errno, "syncFile for " + filename);
-    Scope_Exit(close(fd));
-    int res = fdatasync(fd);
-    if (res == -1)
-        throw MLDB::Exception(errno, "fdatasync for " + filename);
-}
-
+} // file scope
 
 /*****************************************************************************/
 /* FILE_READ_BUFFER                                                          */

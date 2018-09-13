@@ -9,11 +9,10 @@
 */
 
 #include "portable_iarchive.h"
-#include "mldb/utils/file_functions.h"
-#include "mldb/vfs/filter_streams.h"
-#include <boost/scoped_ptr.hpp>
+#include "file_read_buffer.h"
 #include <iostream>
 #include <algorithm>
+#include <fstream>
 
 
 using namespace std;
@@ -21,6 +20,14 @@ using namespace std;
 
 namespace MLDB {
 namespace DB {
+
+static std::istream * open_fstream_read(const std::string & filename)
+{
+    return new std::ifstream(filename.c_str());
+}
+
+std::function<std::istream * (const std::string &)> defaultOpenInputStream
+    = open_fstream_read;
 
 
 /*****************************************************************************/
@@ -233,7 +240,7 @@ void Binary_Input::open(const std::string & filename)
     if (endsWith(filename, ".gz")
         || endsWith(filename, ".bz2")
         || endsWith(filename, ".xz")) {
-        source.reset(new Stream_Source(new MLDB::filter_istream(filename)));
+        source.reset(new Stream_Source(defaultOpenInputStream(filename)));
         offset_ = 0;
         pos_ = end_ = 0;
         source->more(*this, 0);

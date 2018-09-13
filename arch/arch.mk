@@ -21,6 +21,8 @@ LIBARCH_SOURCES := \
 	abort.cc \
 	spinlock.cc \
 	dlopen_mutex.cc \
+        file_functions.cc \
+
 
 ifeq ($(ARCH),x86_64)
 LIBARCH_SOURCES += simd_vector_avx.cc

@@ -14,7 +14,7 @@
 #include "mldb/http/http_client.h"
 #include "mldb/io/legacy_event_loop.h"
 #include "mldb/io/message_loop.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/credentials/credentials.h"
 #include "mldb/credentials/credential_provider.h"
 #include "mldb/utils/testing/print_utils.h"

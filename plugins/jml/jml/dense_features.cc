@@ -15,7 +15,7 @@
 #include <boost/timer.hpp>
 #include "mldb/base/fast_float_parsing.h"
 #include <boost/timer.hpp>
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/smart_ptr_utils.h"

@@ -5,9 +5,13 @@ LIBBASE_SOURCES := \
         parse_context.cc \
 	thread_pool.cc \
 	parallel.cc \
-	optimized_path.cc
+	optimized_path.cc \
+	hex_dump.cc \
 
-LIBBASE_LINK :=	arch gc
+
+LIBBASE_LINK :=	\
+	arch \
+	gc
 
 $(eval $(call library,base,$(LIBBASE_SOURCES),$(LIBBASE_LINK)))
 

@@ -17,6 +17,7 @@
 #include "compact_size_types.h"
 #include <memory>
 #include <sstream>
+#include <functional>
 
 namespace std {
 
@@ -47,6 +48,13 @@ using namespace MLDB;
 class File_Read_Buffer;
 
 namespace DB {
+
+
+/// Function used to open a stream.  Initially tied to creating an ofstream;
+/// this can be replaced with more functional streams like filter_stream.
+/// (done automatically when the vfs library is linked).
+extern std::function<std::istream * (const std::string &)> defaultOpenInputStream;
+
 
 /*****************************************************************************/
 /* BINARY_INPUT                                                              */

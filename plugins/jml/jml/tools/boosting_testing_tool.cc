@@ -21,7 +21,7 @@
 #include "mldb/plugins/jml/jml/boosting_tool_common.h"
 #include "mldb/plugins/jml/jml/null_decoder.h"
 #include "mldb/jml/utils/command_line.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/parse_context.h"
 #include <boost/multi_array.hpp>

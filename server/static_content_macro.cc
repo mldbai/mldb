@@ -15,7 +15,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/mldb_entity.h"
 #include "mldb/base/scope.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/types/db/file_read_buffer.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/annotated_exception.h"

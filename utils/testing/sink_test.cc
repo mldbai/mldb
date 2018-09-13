@@ -14,7 +14,7 @@
 #include <sstream>
 
 #include "mldb/arch/exception.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 
 #include "mldb/io/message_loop.h"
 #include "mldb/utils/sink.h"

@@ -3,14 +3,13 @@
 
 LIBUTILS_SOURCES := \
         environment.cc \
-        file_functions.cc \
         string_functions.cc \
 	csv.cc \
-	hex_dump.cc \
 	floating_point.cc \
 	buckets.cc \
 	confidence_intervals.cc \
 	quadtree.cc \
+
 
 LIBUTILS_LINK := \
 	arch \

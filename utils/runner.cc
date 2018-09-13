@@ -25,7 +25,7 @@
 #include "mldb/arch/futex.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/scope.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/logging/logging.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/types/structure_description.h"

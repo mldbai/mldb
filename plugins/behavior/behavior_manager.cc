@@ -26,7 +26,7 @@
 #include "mldb/arch/fslock.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/vm.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/scope.h"

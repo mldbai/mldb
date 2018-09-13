@@ -10,11 +10,11 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "mldb/base/parse_context.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/base/scope.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/types/db/compact_size_types.h"
-#include "mldb/utils/hex_dump.h"
+#include "mldb/base/hex_dump.h"
 #include <boost/test/unit_test.hpp>
 
 #include <sstream>

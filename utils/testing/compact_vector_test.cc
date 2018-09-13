@@ -19,7 +19,7 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/pair_utils.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/utils/string_functions.h"
 #include <iostream>
 #include <sstream>

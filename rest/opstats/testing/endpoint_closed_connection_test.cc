@@ -12,7 +12,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/utils/hex_dump.h"
+#include "mldb/base/hex_dump.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/arch/futex.h"

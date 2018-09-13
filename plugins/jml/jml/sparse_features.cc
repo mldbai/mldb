@@ -1,9 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* sparse_features.cc
    Jeremy Barnes, 25 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Implementation of a sparse feature space.
 */
@@ -11,7 +9,7 @@
 #include "sparse_features.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/types/db/file_read_buffer.h"
 #include <boost/utility.hpp>
 
 

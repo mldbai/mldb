@@ -12,7 +12,7 @@
 #include "mldb/arch/exception_handler.h"
 #include "mldb/utils/set_utils.h"
 #include "mldb/utils/environment.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/types/db/file_read_buffer.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/base/less.h"
 #include "mldb/types/value_description.h"

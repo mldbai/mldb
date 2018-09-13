@@ -14,7 +14,7 @@
 #include "mldb/base/less.h"
 #include "mldb/base/parallel.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/utils/hex_dump.h"
+#include "mldb/base/hex_dump.h"
 #include "behavior_dataset.h"
 #include "mldb/types/any_impl.h"
 

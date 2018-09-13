@@ -14,7 +14,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 
 #include "mldb/types/any.h"
 #include "mldb/types/basic_value_descriptions.h"

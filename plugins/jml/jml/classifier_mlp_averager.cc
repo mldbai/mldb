@@ -10,7 +10,7 @@
 
 
 #include "classifier_mlp_averager.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mlp_averager.h"
 #include "mldb/jml/mlp_average/mlp_averager.h"

@@ -16,7 +16,7 @@
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/utils/string_functions.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/date.h"

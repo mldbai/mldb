@@ -8,6 +8,7 @@ LIBVFS_SOURCES := \
 	zstandard.cc \
 	snappy.cc \
 	exception_ptr.cc \
+	libdb_initialization.cc \
 
 LIBVFS_LINK := \
 	arch \
@@ -20,6 +21,7 @@ LIBVFS_LINK := \
 	xxhash \
 	zstd \
 	snappy \
+	db
 
 $(eval $(call library,vfs,$(LIBVFS_SOURCES),$(LIBVFS_LINK)))
 

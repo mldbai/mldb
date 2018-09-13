@@ -9,7 +9,7 @@
 
 #include "datasets.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/plugins/jml/jml/sparse_features.h"
 #include "mldb/plugins/jml/jml/dense_features.h"

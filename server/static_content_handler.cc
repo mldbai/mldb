@@ -10,7 +10,7 @@
 #include "mldb/server/static_content_handler.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/types/db/file_read_buffer.h"
 #include "mldb/ext/hoedown/src/buffer.h"
 #include "mldb/ext/hoedown/src/html.h"
 #include "mldb/ext/hoedown/src/document.h"

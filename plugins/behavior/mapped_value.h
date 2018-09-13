@@ -9,7 +9,7 @@
 #pragma once
 
 
-#include "mldb/utils/file_functions.h"
+#include "mldb/types/db/file_read_buffer.h"
 #include "mldb/arch/exception.h"
 #include "mldb/plugins/behavior/id.h"
 #include "mldb/compiler/compiler.h"

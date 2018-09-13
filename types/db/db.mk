@@ -4,7 +4,8 @@ LIBDB_SOURCES := \
         compact_size_types.cc \
         nested_archive.cc \
         portable_iarchive.cc \
-        portable_oarchive.cc
+        portable_oarchive.cc \
+	file_read_buffer.cc \
 
 $(eval $(call add_sources,$(LIBDB_SOURCES)))
 

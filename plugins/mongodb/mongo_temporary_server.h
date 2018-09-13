@@ -22,7 +22,7 @@
 #include "mldb/compiler/filesystem.h"
 
 #include "mldb/utils/environment.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/io/message_loop.h"
 #include "mldb/utils/runner.h"
 

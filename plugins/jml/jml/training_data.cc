@@ -11,7 +11,7 @@
 #include "training_data.h"
 #include "training_index.h"
 #include "training_index_entry.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/vector_utils.h"

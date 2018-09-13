@@ -11,7 +11,7 @@
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/arch/info.h"
-#include "mldb/utils/hex_dump.h"
+#include "mldb/base/hex_dump.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/watch/watch_impl.h"
 #include "mldb/utils/log.h"

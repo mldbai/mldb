@@ -10,7 +10,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "classifier_persist_impl.h"
 #include "mldb/arch/threads.h"
-#include "mldb/utils/file_functions.h"
+#include "mldb/arch/file_functions.h"
 #include "evaluation.h"
 
 #include "mldb/base/parallel.h"
