@@ -16,6 +16,7 @@
 #include "mldb/types/any.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/block/memory_region.h"
+#include "mldb/vfs/fs_utils.h"
 
 namespace MLDB {
 
@@ -63,6 +64,16 @@ PREDECLARE_VALUE_DESCRIPTION(ContentDescriptor);
 /*****************************************************************************/
 /* UTILITY FUNCTIONS                                                         */
 /*****************************************************************************/
+
+struct ContentHandler {
+    virtual ~ContentHandler() = 0;
+    virtual FsObjectInfo getInfo() const = 0;
+    virtual FrozenMemoryRegion getRange(uint64_t offset = 0,
+                                        int64_t length = -1) const = 0;
+};
+
+std::shared_ptr<ContentHandler>
+getContent(const ContentDescriptor & descriptor);
 
 filter_istream getContentStream(const ContentDescriptor & descriptor,
                                 const std::map<Utf8String, Any> & options
