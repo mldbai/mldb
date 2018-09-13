@@ -12,7 +12,7 @@ LIBMLDB_TABULAR_PLUGIN_SOURCES:= \
 
 
 LIBMLDB_TABULAR_PLUGIN_LINK := \
-	mldb_core block
+	block zstd sql_expression mldb_engine mldb_core
 
 
 $(eval $(call library,mldb_tabular_plugin,$(LIBMLDB_TABULAR_PLUGIN_SOURCES),$(LIBMLDB_TABULAR_PLUGIN_LINK)))
