@@ -467,6 +467,15 @@ getStream(const std::map<Utf8String, Any> & options) const
         struct Vals {
             FsObjectInfo info;
             FrozenMemoryRegion mem;
+
+#if 0
+            ~Vals()
+            {
+                cerr << endl << endl << endl;
+                cerr << "NO MORE MAPPING VALS" << endl;
+                cerr << endl << endl << endl;
+            }
+#endif
         };
 
         auto vals = std::make_shared<Vals>();
@@ -1114,6 +1123,70 @@ getDecompressedContent(const ContentDescriptor & descriptor,
                           (descriptor.getUrlStringUtf8()),
                       blockSize);
 }
+
+#if 0
+struct FilterStreamContentHandler
+    : public ContentHandler,
+      public std::enable_shared_from_this<FilterStreamContentHandler> {
+    FilterStreamContentHandler(const ContentDescriptor & descriptor)
+        : stream(descriptor.getUrlStringUtf8(), { { "mapped", "true" } })
+    {
+    }
+
+    virtual ~FilterStreamContentHandler()
+    {
+    }
+    
+    virtual FsObjectInfo getInfo() const
+    {
+        return stream.info();
+    }
+
+    virtual FrozenMemoryRegion
+    getRange(uint64_t offset, int64_t length) const
+    {
+        const char * data;
+        size_t len;
+
+        std::tie(data, len) = stream.mapped();
+        if (data) {
+            if (length == -1)
+                length = len - offset;
+            return FrozenMemoryRegion(shared_from_this(),
+                                      data, len);
+        }
+
+        std::unique_lock<std::mutex> guard(mutex);
+        
+        // We do it by seeking if we can
+        if (stream.isRandomSeekable() && false) {
+            stream.seekg(offset, ios_base::beg);
+            std::string buf;
+            throw MLDB::Exception("not implemented");
+        }
+        else {
+            if (content.empty()) {
+                content = stream.readAll();
+            }
+
+            if (length == -1)
+                length = content.length() - offset;
+            return FrozenMemoryRegion(shared_from_this(),
+                                      content.data() + offset, length);
+        }
+    }
+
+    mutable filter_istream stream;
+    mutable std::string content;
+    mutable std::mutex mutex;
+};
+
+std::shared_ptr<ContentHandler>
+getContent(const ContentDescriptor & descriptor)
+{
+    return std::make_shared<FilterStreamContentHandler>(descriptor);
+}
+#endif
 
 } // namespace MLDB
 
