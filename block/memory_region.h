@@ -38,7 +38,7 @@ struct FrozenMemoryRegion {
     FrozenMemoryRegion & operator = (FrozenMemoryRegion&&) = default;
 #endif
 
-    FrozenMemoryRegion(std::shared_ptr<void> handle,
+    FrozenMemoryRegion(std::shared_ptr<const void> handle,
                        const char * data,
                        size_t length) noexcept;
 
@@ -74,7 +74,7 @@ struct FrozenMemoryRegion {
 private:
     const char * data_ = nullptr;
     size_t length_ = 0;
-    std::shared_ptr<void> handle_;
+    std::shared_ptr<const void> handle_;
 };
 
 
@@ -160,7 +160,7 @@ struct MutableMemoryRegion {
     {
     }
 
-    MutableMemoryRegion(std::shared_ptr<void> handle,
+    MutableMemoryRegion(std::shared_ptr<const void> handle,
                         char * data,
                         size_t length,
                         MappedSerializer * owner);
@@ -177,10 +177,11 @@ struct MutableMemoryRegion {
     
     FrozenMemoryRegion freeze();
 
-    std::shared_ptr<void> handle() const;
+    std::shared_ptr<const void> handle() const;
 
-    // Reset the region (stealing the handle) to be null
-    std::shared_ptr<void> reset();
+    // Reset the region (stealing the handle) to be null.  This is mostly
+    // designed to be used by the MappedSerializer class and its descendents.
+    std::shared_ptr<const void> reset();
 
 private:
     struct Itl;

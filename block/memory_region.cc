@@ -60,7 +60,7 @@ getStream()
 /*****************************************************************************/
 
 FrozenMemoryRegion::
-FrozenMemoryRegion(std::shared_ptr<void> handle,
+FrozenMemoryRegion(std::shared_ptr<const void> handle,
                    const char * data,
                    size_t length) noexcept
     : data_(data), length_(length), handle_(std::move(handle))
@@ -97,7 +97,7 @@ reserialize(MappedSerializer & serializer) const
 /*****************************************************************************/
 
 struct MutableMemoryRegion::Itl {
-    Itl(std::shared_ptr<void> handle,
+    Itl(std::shared_ptr<const void> handle,
         char * data,
         size_t length,
         MappedSerializer * owner)
@@ -105,14 +105,14 @@ struct MutableMemoryRegion::Itl {
     {
     }
     
-    std::shared_ptr<void> handle;
+    std::shared_ptr<const void> handle;
     char * data;
     size_t length;
     MappedSerializer * owner;
 };
 
 MutableMemoryRegion::
-MutableMemoryRegion(std::shared_ptr<void> handle,
+MutableMemoryRegion(std::shared_ptr<const void> handle,
                     char * data,
                     size_t length,
                     MappedSerializer * owner)
@@ -122,7 +122,7 @@ MutableMemoryRegion(std::shared_ptr<void> handle,
 {
 }
 
-std::shared_ptr<void>
+std::shared_ptr<const void>
 MutableMemoryRegion::
 handle() const
 {
@@ -136,13 +136,13 @@ freeze()
     return itl->owner->freeze(*this);
 }
 
-std::shared_ptr<void>
+std::shared_ptr<const void>
 MutableMemoryRegion::
 reset()
 {
     data_ = nullptr;
     length_ = 0;
-    std::shared_ptr<void> result(std::move(itl->handle));
+    std::shared_ptr<const void> result(std::move(itl->handle));
     itl->owner = nullptr;
     itl->data = nullptr;
     itl->length = 0;
@@ -271,7 +271,7 @@ freeze(MutableMemoryRegion & region)
     size_t pageLen;
     std::tie(pageStart, pageLen) = getPageRange(data, length);
 
-    std::shared_ptr<void> handle;
+    std::shared_ptr<const void> handle;
     
     if (pageLen > 0) {
         // Set protection to read-only for full pages to ensure it's really frozen
@@ -288,7 +288,7 @@ freeze(MutableMemoryRegion & region)
         handle = region.reset();
         
         // Keep handle so that when it goes out of scope, the memory is freed
-        auto unprotectAndFree = [handle,pageStart,pageLen] (void * mem)
+        auto unprotectAndFree = [handle,pageStart,pageLen] (const void * mem)
             {
                 int res = mprotect(pageStart, pageLen, PROT_READ | PROT_WRITE);
                 if (res == -1) {
@@ -304,7 +304,7 @@ freeze(MutableMemoryRegion & region)
         handle = region.reset();
     }
     
-    FrozenMemoryRegion result(handle, data, length);
+    FrozenMemoryRegion result(std::move(handle), data, length);
     return result;
 }
 
