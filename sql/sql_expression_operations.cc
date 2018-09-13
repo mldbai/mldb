@@ -3602,9 +3602,9 @@ bind(SqlBindingScope & scope) const
     ColumnPath simplifiedPrefix = prefix;
     Utf8String resolvedTableName;
 
-    cerr << "binding wildcard expression " << print() << endl;
-    cerr << "prefix = " << prefix << endl;
-    cerr << "asPrefix = " << asPrefix << endl;
+    //cerr << "binding wildcard expression " << print() << endl;
+    //cerr << "prefix = " << prefix << endl;
+    //cerr << "asPrefix = " << asPrefix << endl;
 
     ColumnFilter newColumnName = ColumnFilter::identity();
 
@@ -3630,7 +3630,7 @@ bind(SqlBindingScope & scope) const
         // then it returns the empty column name
         newColumnName = ColumnFilter([=] (const ColumnPath & inputColumnName) -> ColumnPath
             {
-                cerr << "input column name " << inputColumnName << endl;
+                //cerr << "input column name " << inputColumnName << endl;
 
                 // First, check it matches the prefix
                 // We have to check the simplified prefix for regular datasets
@@ -3673,7 +3673,7 @@ bind(SqlBindingScope & scope) const
                                                         outputName);
                         }
 
-                        cerr << "renamed to " << outputName << endl;
+                        //cerr << "renamed to " << outputName << endl;
                         return outputName;
 
                     }
@@ -3685,7 +3685,7 @@ bind(SqlBindingScope & scope) const
                                                 inputColumnName);
                 }
                 
-                cerr << "kept" << endl;
+                //cerr << "kept" << endl;
                 return inputColumnName;
             });
     }   
@@ -3715,7 +3715,7 @@ bind(SqlBindingScope & scope) const
 
     BoundSqlExpression result(exec, this, allColumns.info);
 
-    cerr << "mapping has " << dInfo->mapping.size() << " entries" << endl;
+    //cerr << "mapping has " << dInfo->mapping.size() << " entries" << endl;
 
     result.decomposition = std::make_shared<std::vector<DecomposedClause> >();
     
@@ -3733,7 +3733,7 @@ bind(SqlBindingScope & scope) const
 
         expr->surface = "\"" + i.first.toUtf8String() + "\" AS \"" + i.second.toUtf8String() + "\"";
         
-        cerr << expr->print() << endl;
+        //cerr << expr->print() << endl;
         clause.expr = expr;
 
         result.decomposition->emplace_back(std::move(clause));

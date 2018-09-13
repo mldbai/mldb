@@ -3171,7 +3171,7 @@ bind(SqlBindingScope & context) const
     boundClauses.reserve(clauses.size());
     auto decomposition
         = std::make_shared<std::vector<DecomposedClause> >();
-    cerr << "doing " << clauses.size() << " clauses" << endl;
+    //cerr << "doing " << clauses.size() << " clauses" << endl;
 
     for (auto & c: clauses) {
         boundClauses.emplace_back(c->bind(context));
@@ -3182,19 +3182,19 @@ bind(SqlBindingScope & context) const
             // running it; we can know what it requires and produces by
             // looking into the info of the bound clause.
 
-            cerr << "warning: " << c->print()
-                 << " has no decomposition; halting decomposition analysis"
-                 << endl;
+            //cerr << "warning: " << c->print()
+            //     << " has no decomposition; halting decomposition analysis"
+            //     << endl;
 
             // FOR NOW.  Later, those clauses should return a single element
             // decomposition that we can use to continue the analysis.
             decomposition.reset();
         }
         else if (decomposition) {
-            cerr << "clause " << c->print() << " has "
-                 << boundClauses.back().decomposition->size()
-                 << " decompositions" << endl;
-            cerr << jsonEncodeStr(*boundClauses.back().decomposition) << endl;
+            //cerr << "clause " << c->print() << " has "
+            //     << boundClauses.back().decomposition->size()
+            //     << " decompositions" << endl;
+            //cerr << jsonEncodeStr(*boundClauses.back().decomposition) << endl;
 
             decomposition->insert(decomposition->end(),
                                   boundClauses.back().decomposition->begin(),
@@ -3202,8 +3202,8 @@ bind(SqlBindingScope & context) const
         }
     }
 
-    if (decomposition)
-        cerr << "decomposition->size() = " << decomposition->size() << endl;
+    //if (decomposition)
+    //    cerr << "decomposition->size() = " << decomposition->size() << endl;
     
     if (optimizeSingleClauseSelect(boundClauses.size() == 1)) {
         // Single value in the select.  This is just the same as running

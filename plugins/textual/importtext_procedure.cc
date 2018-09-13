@@ -721,10 +721,10 @@ struct ImportTextProcedureWorkInstance
         namedBound = config.named->bind(scope);
         timestampBound = config.timestamp->bind(scope);
 
-        for (size_t i = 0;  i < inputColumnNames.size();  ++i) {
-            cerr << "column " << i << " name " << inputColumnNames[i]
-                 << " used " << scope.columnsUsed[i] << endl;
-        }
+        //for (size_t i = 0;  i < inputColumnNames.size();  ++i) {
+        //    cerr << "column " << i << " name " << inputColumnNames[i]
+        //         << " used " << scope.columnsUsed[i] << endl;
+        //}
         
         // Do we have a "select *"?  In that case, we can perform various
         // optimizations to avoid calling into the SQL layer
@@ -743,15 +743,15 @@ struct ImportTextProcedureWorkInstance
         // Figure out the effect of each of the clauses in the select
         // statement
 
-        cerr << "select is " << config.select.print() << endl;
+        //cerr << "select is " << config.select.print() << endl;
         auto children = config.select.getChildren();
-        cerr << "has " << children.size() << " children" << endl;
+        //cerr << "has " << children.size() << " children" << endl;
         if (selectBound.decomposition) {
-            cerr << "decomposition has " << selectBound.decomposition->size()
-                 << " entries" << endl;
-            cerr << jsonEncode(selectBound.decomposition) << endl;
+            //cerr << "decomposition has " << selectBound.decomposition->size()
+            //     << " entries" << endl;
+            //cerr << jsonEncode(selectBound.decomposition) << endl;
         }
-        else cerr << "no decomposition available" << endl;
+        //else cerr << "no decomposition available" << endl;
 
         for (unsigned i = 0;  i < cols.size();  ++i) {
             const auto& col = cols[i];
@@ -841,14 +841,14 @@ struct ImportTextProcedureWorkInstance
                 // select input_column [as output_name] --> copy or move in place
                 // select expr(input_column) [ as output_name ] --> run destructive
                 
-                cerr << "scanning clause " << i << ": " << jsonEncode(d) << endl;
+                //cerr << "scanning clause " << i << ": " << jsonEncode(d) << endl;
                 
                 // Only single input to single output clauses can be run
                 // in place like this
                 // TODO: later, we can expand to multiple-input clauses...
                 if (d.inputs.size() != 1 || d.inputWildcards.size() != 0
                     || d.outputs.size() != 1 || d.outputWildcards) {
-                    cerr << "    clause fails" << endl;
+                    //cerr << "    clause fails" << endl;
                     canUseDecomposed = false;
                     otherClauses.emplace_back(d.expr->bind(scope));
                     continue;
@@ -858,7 +858,7 @@ struct ImportTextProcedureWorkInstance
                 ColumnOperation exec;
                 exec.clauseNum = i;
                 
-                cerr << "clause passes" << endl;
+                //cerr << "clause passes" << endl;
 
                 // Record whether we're the last input or not
                 for (const Path & input: d.inputs) {
@@ -900,10 +900,10 @@ struct ImportTextProcedureWorkInstance
 
                         ExcAssertEqual(varName, inputName);
                         
-                        cerr << "op " << ops.size() << ": copy "
-                             << inputName << " at " << inputIndex
-                             << " to " << outputName << " at " << outputIndex
-                             << endl;
+                        //cerr << "op " << ops.size() << ": copy "
+                        //     << inputName << " at " << inputIndex
+                        //     << " to " << outputName << " at " << outputIndex
+                        //     << endl;
                         ops.emplace_back(std::move(exec));
                         continue;
                     }
@@ -911,19 +911,19 @@ struct ImportTextProcedureWorkInstance
                     // Bind a much simpler value
                     exec.bound = op->expression->bind(scope);
                 
-                    cerr << "op " << ops.size() << ": compute "
-                         << outputName << " at " << outputIndex
-                         << " from " << inputName << " with "
-                         << op->expression->print() << endl;
+                    //cerr << "op " << ops.size() << ": compute "
+                    //     << outputName << " at " << outputIndex
+                    //     << " from " << inputName << " with "
+                    //     << op->expression->print() << endl;
 
                     ops.emplace_back(std::move(exec));
                     continue;
                 }
 
-                cerr << "*** not a select ***" << endl;
+                //cerr << "*** not a select ***" << endl;
             
-                cerr << "warning: operation " << d.expr->print() << " unhandled"
-                     << endl;
+                //cerr << "warning: operation " << d.expr->print() << " unhandled"
+                //     << endl;
 
                 otherClauses.emplace_back(d.expr->bind(scope));
                 canUseDecomposed = false;
@@ -946,16 +946,16 @@ struct ImportTextProcedureWorkInstance
                         }
                     }
 
-                    if (op.moveInputs) {
-                        cerr << "turning clause " << clauseNum
-                             << " from copy into move" << endl;
-                    }
+                    //if (op.moveInputs) {
+                    //    cerr << "turning clause " << clauseNum
+                    //         << " from copy into move" << endl;
+                    //}
                 }
             }
         }
         
-        cerr << "with " << otherClauses.size() << " other clauses" << endl;
-        cerr << "canUseDecomposed = " << canUseDecomposed << endl;
+        //cerr << "with " << otherClauses.size() << " other clauses" << endl;
+        //cerr << "canUseDecomposed = " << canUseDecomposed << endl;
         
         // Do we have a "where true'?  In that case, we don't need to
         // call the SQL parser
@@ -1032,7 +1032,7 @@ struct ImportTextProcedureWorkInstance
                 return true;
             };
 
-        cerr << "outputColumnNames = " << jsonEncode(knownColumnNames) << endl;
+        //cerr << "outputColumnNames = " << jsonEncode(knownColumnNames) << endl;
         
         atomic<ssize_t> lineCount(0);
         atomic<ssize_t> byteCount(0);
