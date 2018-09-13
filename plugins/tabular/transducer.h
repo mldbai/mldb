@@ -89,6 +89,10 @@ struct CharacterTransducer: public Transducer {
 /* STRING STATS                                                              */
 /*****************************************************************************/
 
+/** Structure that analyzes strings or blobs rapidly and provides just
+    enough information to decide how best to process them.
+*/
+
 struct StringStats {
     uint64_t totalBytes = 0;
 

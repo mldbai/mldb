@@ -688,6 +688,10 @@ struct ForwardIdTransducer: public StringTransducer {
         
         auto doneCurrent = [&] ()
             {
+                //cerr << "doneCurrent " << current << " in "
+                //<< info->ints[currentInt].bitWidth << " bits of "
+                //<< log2(current) << endl;
+
                 // If there is no entropy at all in the input, then we don't
                 // even write one byte
                 if (outputLength == 0)
@@ -709,6 +713,14 @@ struct ForwardIdTransducer: public StringTransducer {
 
         for (size_t i = 0;  i < input.length();  ++i) {
             uint64_t contrib = info->transducers[i]->encode(input[i]);
+            ExcAssertLess(contrib, info->positions[i].posMultiplier);
+            
+            //cerr << "position " << i << " char " << input[i] << " contrib "
+            //     << contrib << " current " << current << " mult "
+            //     << info->positions[i].posMultiplier << " base "
+            //     << info->positions[i].baseMultiplier
+            //     << endl;
+            
             current += contrib * info->positions[i].baseMultiplier;
             if (i == input.length() - 1
                 || info->positions[i + 1].intNum != currentInt) {
@@ -786,6 +798,7 @@ struct BackwardIdTransducer: public StringTransducer {
         ExcAssertEqual(outputLength, positions.size());
 
         int intNumber = -1;
+        int offset = 0;
         auto getNewInt = [&] () -> uint64_t
             {
                 ++intNumber;
@@ -800,11 +813,12 @@ struct BackwardIdTransducer: public StringTransducer {
 
                 uint64_t result = 0;
                 for (size_t i = 0;  i < numBytes;  ++i) {
-                    //cerr << "reading byte " << (unsigned)(unsigned char)input[i] << endl;
-                    result = result | ((unsigned char)input[i] << (i*8));
+                    //cerr << "reading byte " << (unsigned)(unsigned char)input[offset + i] << endl;
+                    result = result | ((uint64_t)(unsigned char)input[offset + i] << (i*8));
                 }
+                offset += numBytes;
 
-
+                //cerr << "got new int " << result << endl;
                 
                 return result;
             };
@@ -817,6 +831,10 @@ struct BackwardIdTransducer: public StringTransducer {
                 current = getNewInt();
             }
 
+            //cerr << "position " << i << " current = " << current
+            //     << " int " << positions[i].intNum << " mult "
+            //     << positions[i].posMultiplier << endl;
+            
             uint64_t nextMultiplier = positions[i].posMultiplier;
 #if 0
             if (i == positions.size() - 1
@@ -835,6 +853,9 @@ struct BackwardIdTransducer: public StringTransducer {
             current = current / nextMultiplier;
 
             char c = transducers[i]->decode(thisPos);
+
+            //cerr << "   contrib = " << thisPos << " c = " << c << endl;
+
             outputBuffer[i] = c;
         }
 
@@ -931,7 +952,7 @@ trainIdTransducer(const std::vector<std::string> & blobs,
             ints.push_back({64});
             total = 1;
             ++intNum;
-            bits = 0;
+            bits = log2(charsPerPosition[p].uniqueCounts);
         }
 
         charsPerPosition[p].posMultiplier = charsPerPosition[p].uniqueCounts;
@@ -945,6 +966,7 @@ trainIdTransducer(const std::vector<std::string> & blobs,
 
     // There is one extra integer to hold the leftover bits
     if (bits > 0) {
+        //cerr << "leftover " << bits << " bits" << endl;
         ints.push_back({uint32_t(std::ceil(bits))});
     }
     

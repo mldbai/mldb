@@ -138,3 +138,56 @@ BOOST_AUTO_TEST_CASE( test_id_transducer_no_strings )
         = trainIdTransducer(vals, stats, serializer);
 
 }
+
+BOOST_AUTO_TEST_CASE( test_id_transducer_more_than_64_bits_entropy)
+{
+    std::vector<std::string> vals = {
+        "6c427837-93a6-4bd2-b59e-0c4aacd35c64",
+	"6c42ade5-0bc5-4ea4-a4fa-6dab617ce21e",
+	"6c431bd0-e7ff-4c45-a2c5-bac026743a90",
+	"6c4480ee-f226-4de4-9a99-6c665797c0b2",
+	"6c44b0fa-340c-4e50-8df6-1effd934ffc8",
+	"00000000-0000-0000-0000-PATATE000000",
+	"6c469d1d-ce43-4990-9d76-08e83cf85e6f",
+	"6c486dc3-4707-4c04-967e-2f6b27cd6520",
+	"6c4921d8-a3ee-434e-9bef-bb64450af455"
+    };
+
+    for (size_t len = 4;  len < vals[0].size();  ++len) {
+
+        cerr << "length " << len << endl;
+        
+        std::vector<std::string> vals2;
+        for (auto & v: vals) {
+            vals2.emplace_back(string(v, 0, len));
+        }
+        
+        StringStats stats;
+        for (auto & s: vals2) {
+            stats.add(s);
+        }
+
+        MemorySerializer serializer;
+        
+        std::shared_ptr<StringTransducer> forward, backward;
+        std::tie(forward, backward)
+            = trainIdTransducer(vals2, stats, serializer);
+
+        for (auto & s: vals2) {
+            size_t len = forward->getOutputLength(s);
+            char buf[len];
+            string_view enc = forward->generateAll(s, buf, len);
+            
+            //cerr << "enc length = " << enc.size() << endl;
+            
+            //hex_dump(enc);
+            
+            char outbuf[s.size()];
+            string_view dec = backward->generateAll(enc, outbuf, s.size());
+
+            //hex_dump(dec);
+            
+            BOOST_REQUIRE_EQUAL(s, dec);
+        }
+    }
+}
