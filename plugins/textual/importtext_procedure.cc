@@ -555,6 +555,9 @@ struct ImportTextProcedureWorkInstance
         filter_istream stream = getContentStream(config.dataFileUrl,
                                                  { { "mapped", true } });
 
+        //filter_istream stream(config.dataFileUrl.getUrlStringUtf8(),
+        //                      { { "mapped", "true" } });
+        
         // Get the file timestamp out
         ts = stream.info().lastModified;
 

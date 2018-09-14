@@ -19,6 +19,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/date.h"
 #include "mldb/utils/log.h"
+#include "mldb/base/hex_dump.h"
 
 
 using namespace std;
@@ -279,6 +280,10 @@ void forEachLineBlock(std::istream & stream,
         std::tie(mapped, mappedSize) = fistream->mapped();
     }
 
+    //cerr << "mapped = " << (void *)mapped << endl;
+    //cerr << "mappedSize = " << mappedSize << endl;
+    //hex_dump(mapped, mappedSize, mappedSize);
+    
     std::atomic<int> hasExc(false);
     std::exception_ptr exc;
 
@@ -291,11 +296,15 @@ void forEachLineBlock(std::istream & stream,
             vector<size_t> lineOffsets = {0};
             bool lastBlock = false;
             size_t myChunkNumber = 0;
+
             
             try {
                 //MLDB-1426
                 if (mapped) {
-                    const char * start = mapped + stream.tellg();
+                    std::streamsize pos = stream.tellg();
+                    if (mappedSize == 0 || pos == EOF)
+                        return;  // EOF, so nothing to read... probably empty
+                    const char * start = mapped + pos;
                     const char * current = start;
                     const char * end = mapped + mappedSize;
 

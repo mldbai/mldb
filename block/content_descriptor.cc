@@ -9,7 +9,9 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
+#include <boost/iostreams/stream_buffer.hpp>
 #include <mutex>
+#include "mldb/vfs/compressor.h"
 
 using namespace std;
 
@@ -151,9 +153,96 @@ ContentHandler::
 {
 }
 
+
 /*****************************************************************************/
 /* UTILITY FUNCTIONS                                                         */
 /*****************************************************************************/
+
+struct ContentInputStreambuf {
+
+    ContentInputStreambuf(FrozenMemoryRegion mem)
+    {
+        impl.reset(new Impl(std::move(mem)));
+    }
+
+    typedef char char_type;
+    struct category
+        : public boost::iostreams::input_seekable,
+          public boost::iostreams::device_tag,
+          public boost::iostreams::closable_tag
+    { };
+    
+    struct Impl {
+        Impl(FrozenMemoryRegion mem)
+            : mem(std::move(mem))
+        {
+        }
+
+        ~Impl()
+        {
+        }
+
+        FrozenMemoryRegion mem;
+        size_t offset = 0;
+
+        Date startDate;
+
+        std::streamsize read(char_type* s, std::streamsize n)
+        {
+            static_assert(sizeof(char_type) == 1, "content streams for single-char bytes only");
+
+            size_t charsLeft = mem.length() - offset;
+            size_t numChars = std::min<size_t>(n, charsLeft);
+            if (numChars == 0)
+                return -1;
+            std::memcpy(s, mem.data() + offset, numChars);
+            offset += numChars;
+            return numChars;
+        }
+
+        std::streampos seek(std::streamsize where, std::ios_base::seekdir dir)
+        {
+            switch (dir) {
+            case ios_base::beg:
+                offset = where;
+                break;
+            case ios_base::end:
+                offset = mem.length() - where;
+                break;
+            case ios_base::cur:
+                offset += where;
+                break;
+            default:
+                ExcAssert(false);
+                break;
+            }
+
+            return offset;
+        }
+    };
+
+    std::shared_ptr<Impl> impl;
+
+    std::streamsize read(char_type* s, std::streamsize n)
+    {
+        return impl->read(s, n);
+    }
+
+    std::streampos seek(std::streamsize where, std::ios_base::seekdir dir)
+    {
+        return impl->seek(where, dir);
+    }
+
+    bool is_open() const
+    {
+        return !!impl;
+    }
+
+    void close()
+    {
+        impl.reset();
+    }
+};
 
 filter_istream getContentStream(const ContentDescriptor & descriptor,
                                 const std::map<Utf8String, Any> & options)
@@ -169,7 +258,13 @@ filter_istream getContentStream(const ContentDescriptor & descriptor,
         }
     }
 
-    if (isMapped) {
+    std::string compression
+        = Compressor::filenameToCompression(descriptor.getUrlStringUtf8());
+    
+    cerr << "url = " << descriptor.getUrlStringUtf8() << " compression = "
+         << compression << endl;
+    
+    if (isMapped && compression == "") {
         // Just get one single big block
         auto contentHandler = getContent(descriptor);
 
@@ -197,8 +292,12 @@ filter_istream getContentStream(const ContentDescriptor & descriptor,
 
         cerr << "returning " << vals->mem.length() << " bytes mapped at "
              << (void *)vals->mem.data() << endl;
+
+        std::streambuf * buf
+            = new boost::iostreams::stream_buffer<ContentInputStreambuf>
+            (ContentInputStreambuf(vals->mem), 131072);
         
-        UriHandler handler(nullptr /* streambuf */,
+        UriHandler handler(buf /* streambuf */,
                            vals /* ownership */,
                            std::shared_ptr<FsObjectInfo>(vals, &vals->info) /* info */,
                            uriOptions);
