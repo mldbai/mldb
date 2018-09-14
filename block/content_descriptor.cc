@@ -460,7 +460,7 @@ getStream(const std::map<Utf8String, Any> & options) const
     //cerr << "url = " << descriptor.getUrlStringUtf8() << " compression = "
     //     << compression << " mapped = " << isMapped << endl;
 
-    if (isMapped) {
+    if (isMapped && compression == "") {
         // Just get one single big block
         auto contentHandler = getContent(descriptor);
 
