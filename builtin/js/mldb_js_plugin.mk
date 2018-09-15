@@ -35,7 +35,7 @@ LIBJS_LINK := jsoncpp v8 arch utils types
 JS_PLUGIN_SOURCE := \
 	js_utils.cc \
 	js_value.cc \
-	js_loader.cc \
+	js_plugin.cc \
 	js_function.cc \
 	js_common.cc \
 	dataset_js.cc \
