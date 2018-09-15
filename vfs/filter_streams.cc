@@ -231,8 +231,11 @@ filter_ostream(filter_ostream && other) noexcept
     : ostream(other.rdbuf()),
     stream(std::move(other.stream)),
     sink(std::move(other.sink)),
-    deferredFailure(false)
+    deferredFailure(other.deferredFailure.load()),
+    deferredExcPtr(std::move(other.deferredExcPtr)),
+    options(std::move(other.options))
 {
+    other.deferredFailure = false;
 }
 
 filter_ostream::
@@ -306,7 +309,10 @@ operator = (filter_ostream && other)
     exceptions(other.exceptions());
     other.exceptions(ios::goodbit);
     other.rdbuf(0);
-
+    deferredFailure = other.deferredFailure.load();
+    other.deferredFailure = false;
+    options = std::move(other.options);
+    
     return *this;
 }
 
@@ -718,7 +724,9 @@ filter_istream(filter_istream && other) noexcept
     : istream(other.rdbuf()),
     stream(std::move(other.stream)),
     sink(std::move(other.sink)),
-    deferredFailure(false)
+    deferredFailure(other.deferredFailure.load()),
+    deferredExcPtr(std::move(other.deferredExcPtr)),
+    info_(std::move(other.info_))
 {
 }
 
@@ -754,7 +762,10 @@ operator = (filter_istream && other)
     exceptions(other.exceptions());
     other.exceptions(ios::goodbit);
     other.rdbuf(0);
-
+    info_ = std::move(other.info_);
+    deferredFailure = other.deferredFailure.load();
+    deferredExcPtr = std::move(other.deferredExcPtr);
+    
     return *this;
 }
 
