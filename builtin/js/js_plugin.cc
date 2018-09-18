@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/builtin/plugin_resource.h"
-#include "mldb/server/static_content_handler.h"
+#include "mldb/engine/static_content_handler.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/rest/rest_request_binding.h"

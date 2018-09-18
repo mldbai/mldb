@@ -6,7 +6,7 @@
 */
 
 #include "python_plugin_context.h"
-#include "mldb/server/static_content_handler.h"
+#include "mldb/engine/static_content_handler.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/builtin/for_each_line.h"
 #include "mldb/vfs/fs_utils.h"

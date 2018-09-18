@@ -15,12 +15,16 @@ LIBMLDB_ENGINE_SOURCES:= \
 	plugin_collection.cc \
 	external_plugin.cc \
 	sensor_collection.cc \
+	static_content_macro.cc \
+	static_content_handler.cc \
 
 LIBMLDB_ENGINE_LINK:= \
 	sql_expression \
 	credentials \
 	mldb_core \
-	command_expression
+	command_expression \
+	hoedown \
+
 
 
 $(eval $(call library,mldb_engine,$(LIBMLDB_ENGINE_SOURCES),$(LIBMLDB_ENGINE_LINK)))

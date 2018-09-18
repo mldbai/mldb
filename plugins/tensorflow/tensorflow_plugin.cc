@@ -23,7 +23,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/engine/dataset_scope.h"
 #include "mldb/rest/rest_request_binding.h"
-#include "mldb/server/static_content_macro.h"
+#include "mldb/engine/static_content_macro.h"
 #include "mldb/sql/builtin_functions.h"
 #include "mldb/utils/log.h"
 
