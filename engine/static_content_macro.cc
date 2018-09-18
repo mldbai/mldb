@@ -31,7 +31,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 // Defined in static_content_handler.cc
-std::string renderMarkdown(const std::string & str, const MacroData & macroData);
+Utf8String renderMarkdown(const Utf8String & str, const MacroData & macroData);
 
 using namespace Json;
 
@@ -151,7 +151,7 @@ static void renderType(MacroContext & context,
                                          fd.fieldName.c_str(),
                                          getTypeName(*fd.description, context.engine).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
-                                                 renderMarkdown(fd.comment.c_str(), context)));
+                                                   renderMarkdown(fd.comment.c_str(), context).rawString()));
                 };
             vd->forEachField(nullptr, onField);
             context.writeHtml("</table>");
@@ -181,10 +181,23 @@ MacroContext::
 MacroContext(const MacroData * macroData,
              hoedown_buffer * output,
              const hoedown_buffer * text)
-    : macroData(macroData),
-      output(output),
-      text(text)
 {
+    init(macroData, output, text);
+}
+
+void
+MacroContext::
+init(const MacroData * macroData,
+     hoedown_buffer * output,
+     const hoedown_buffer * text)
+{
+    this->macroData = macroData;
+    this->output = output;
+    this->text = text;
+
+    ExcAssert(macroData);
+    ExcAssert(output);
+    // text may be null if we're not really in the context of a macro
 }
 
 void
@@ -566,6 +579,67 @@ auto regDoclink = RegisterMacro("doclink", doclinkMacro);
 auto regCodeExample = RegisterMacro("codeexaple", codeexampleMacro);
 auto regConfig = RegisterMacro("config", configMacro);
 auto regAvailableTypes = RegisterMacro("availabletypes", availabletypesMacro);
+
+
+/*****************************************************************************/
+/* STANDALONE MACRO CONTEXT                                                  */
+/*****************************************************************************/
+
+struct StandaloneMacroContext::Itl {
+    Itl(MldbEngine * engine,
+        bool hideInternalEntities)
+        : macroData{"", hideInternalEntities, engine}
+    {
+        /* Perform Markdown rendering */
+        output = hoedown_buffer_new(16384);
+    }
+
+    ~Itl()
+    {
+        hoedown_buffer_free(output);
+    }
+
+    Utf8String getHtml() const
+    {
+        return Utf8String((const char *)output->data, output->size);
+    }
+
+    Utf8String renderHtmlPage() const
+    {
+        return MLDB::renderHtmlPage(macroData.engine, getHtml());
+    }
+    
+    MacroData macroData;
+    hoedown_buffer * output = nullptr;
+};
+
+StandaloneMacroContext::
+StandaloneMacroContext(MldbEngine * engine,
+                       bool hideInternalEntities)
+    : itl(new Itl(engine, hideInternalEntities))
+{
+    MacroContext::init(&itl->macroData, itl->output);
+}
+
+StandaloneMacroContext::
+~StandaloneMacroContext()
+{
+}
+
+
+Utf8String
+StandaloneMacroContext::
+getHtml() const
+{
+    return itl->getHtml();
+}
+
+Utf8String
+StandaloneMacroContext::
+getHtmlPage() const
+{
+    return itl->renderHtmlPage();
+}
 
 } // namespace MLDB
 
