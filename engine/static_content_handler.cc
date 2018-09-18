@@ -7,7 +7,7 @@
 */
 
 #include <typeinfo>
-#include "mldb/server/static_content_handler.h"
+#include "mldb/engine/static_content_handler.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/db/file_read_buffer.h"
@@ -18,7 +18,7 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/mldb_entity.h"
-#include "static_content_macro.h"
+#include "mldb/engine/static_content_macro.h"
 #include "mldb/base/scope.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/compiler/filesystem.h"

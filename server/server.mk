@@ -7,8 +7,6 @@ $(eval $(call python_program,validator_api.wsgi,validator_api.wsgi,))
 LIBMLDB_SOURCES:= \
 	mldb_server.cc \
 	plugin_manifest.cc \
-	static_content_handler.cc \
-	static_content_macro.cc \
 
 LIBMLDB_LINK:= \
 	service_peer \
@@ -17,7 +15,6 @@ LIBMLDB_LINK:= \
 	runner \
 	credentials \
 	git2 \
-	hoedown \
 	mldb_builtin \
 	command_expression \
 	vfs_handlers \

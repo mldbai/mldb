@@ -17,7 +17,7 @@
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/vfs/fs_utils.h"
-#include "mldb/server/static_content_handler.h"
+#include "mldb/engine/static_content_handler.h"
 #include "mldb/server/plugin_manifest.h"
 #include "mldb/builtin/plugin_resource.h"
 #include "mldb/sql/sql_expression.h"
