@@ -30,7 +30,7 @@ jupyter-core==4.2.1
 
 # validator
 uWSGI==2.0.12
-pycrypto==2.6.1
+pycryptodome==3.6.6
 
 tornado==4.3
 
