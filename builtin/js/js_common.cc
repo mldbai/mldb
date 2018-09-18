@@ -1,13 +1,20 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /** js_common.cc
     Jeremy Barnes, 12 June 2015
     Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 */
 
 #include "js_common.h"
 #include "js_utils.h"
+#include "js_plugin.h"
+#include "dataset_js.h"
+#include "procedure_js.h"
+#include "sensor_js.h"
+#include "procedure_js.h"
+#include "function_js.h"
+#include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -679,6 +686,210 @@ garbageCollectionCallback(const v8::WeakCallbackInfo<JsObjectBase> & info)
     delete obj;
 }
 
+
+
+/*****************************************************************************/
+/* JS PLUGIN CONTEXT                                                         */
+/*****************************************************************************/
+
+JsPluginContext::
+JsPluginContext(const Utf8String & pluginName,
+                MldbEngine * engine,
+                std::shared_ptr<LoadedPluginResource> pluginResource)
+    : categoryName(pluginName.rawString() + " plugin"),
+      loaderName(pluginName.rawString() + " loader"),
+      category(categoryName.c_str()),
+      loader(loaderName.c_str()),
+      engine(engine),
+      pluginResource(pluginResource)
+{
+    using namespace v8;
+
+    static V8Init v8Init(engine);
+
+    isolate.init(false /* for this thread only */);
+
+    v8::Locker locker(this->isolate.isolate);
+    v8::Isolate::Scope isolate(this->isolate.isolate);
+
+    HandleScope handle_scope(this->isolate.isolate);
+
+    // Create a new context.
+    context.Reset(this->isolate.isolate,
+                  Context::New(this->isolate.isolate));
+    
+    // Enter the created context
+    Context::Scope context_scope(context.Get(this->isolate.isolate));
+    
+    // This is how we set it
+    // https://code.google.com/p/v8/issues/detail?id=54
+    v8::Local<v8::Object> globalPrototype
+        = context.Get(this->isolate.isolate)->Global()
+        ->GetPrototype().As<v8::Object>();
+    
+    auto plugin = JsPluginJS::registerMe()->NewInstance();
+    plugin->SetInternalField(0, v8::External::New(this->isolate.isolate, this));
+    plugin->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
+    if (pluginResource)
+        plugin->Set(String::NewFromUtf8(this->isolate.isolate, "args"), JS::toJS(jsonEncode(pluginResource->args)));
+    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "plugin"), plugin);
+
+    auto mldb = MldbJS::registerMe()->NewInstance();
+    this->mldb.Reset(this->isolate.isolate, mldb);
+    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->engine));
+    mldb->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
+    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "mldb"), mldb);
+
+    Stream.Reset(this->isolate.isolate, StreamJS::registerMe());
+    Dataset.Reset(this->isolate.isolate, DatasetJS::registerMe());
+    Function.Reset(this->isolate.isolate, FunctionJS::registerMe());
+    Sensor.Reset(this->isolate.isolate, SensorJS::registerMe());
+    Procedure.Reset(this->isolate.isolate, ProcedureJS::registerMe());
+    CellValue.Reset(this->isolate.isolate, CellValueJS::registerMe());
+    RandomNumberGenerator.Reset(this->isolate.isolate,
+                                RandomNumberGeneratorJS::registerMe());
+
+    auto requireTemplate
+        = FunctionTemplate::New(this->isolate.isolate,
+                                &JsPluginContext::require,
+                                v8::External::New(this->isolate.isolate, this));
+    globalPrototype
+        ->Set(String::NewFromUtf8(this->isolate.isolate, "require"),
+              requireTemplate->GetFunction());
+}
+
+JsPluginContext::
+~JsPluginContext()
+{
+}
+
+std::tuple<Utf8String,
+           Utf8String,
+           FsObjectInfo>
+JsPluginContext::
+findModuleSource(const Utf8String & moduleName)
+{
+    std::vector<Utf8String> searchPath;
+
+    if (moduleName.rawString().find("mldb/") == 0) {
+        // It's an internal MLDB plugin; we look only for code that is
+        // handled with MLDB
+        searchPath = { "file://build/x86_84/lib/mldb/js", "file://mldb/builtin/js" };
+    }
+    else {
+        throw AnnotatedException(400, "Only require modules under mldb are "
+                                 "supported",
+                                 "required", moduleName);
+    }
+
+    for (auto & path: searchPath) {
+        Utf8String filename = path + "/" + moduleName + ".js";
+        if (tryGetUriObjectInfo(filename.rawString())) {
+            MLDB_TRACE_EXCEPTIONS(false);
+            try {
+                filter_istream stream(filename.rawString());
+                return { filename, stream.readAll(), stream.info() };
+            } MLDB_CATCH_ALL {
+                continue;
+            }
+        }
+    }
+
+    throw AnnotatedException(400, "Unable to find javascript module " + moduleName,
+                             "moduleName", moduleName,
+                             "searchPath", searchPath);
+}
+
+void
+JsPluginContext::
+require(const v8::FunctionCallbackInfo<v8::Value> & args)
+{
+    v8::Isolate* isolate = args.GetIsolate();
+    v8::EscapableHandleScope scope(isolate);
+    try {
+        auto context
+            = reinterpret_cast<JsPluginContext *>
+            (v8::Handle<v8::External>::Cast(args.Data())->Value());
+        
+        Utf8String moduleName = JS::getArg<Utf8String>(args, 0, "moduleName");
+
+        auto exports = context->getModule(moduleName);
+
+        args.GetReturnValue().Set(scope.Escape(exports));
+    } HANDLE_JS_EXCEPTIONS(args);
+}
+
+v8::Handle<v8::Object>
+JsPluginContext::
+getModule(const Utf8String & moduleName)
+{
+    cerr << "require " << moduleName << endl;
+        
+    if (moduleName == "mldb") {
+        // MLDB object is special; we get it from the context
+        v8::Local<v8::Object> mldb
+            = this->mldb.Get(isolate.isolate);
+        return mldb;
+    }
+
+    using namespace v8;
+        
+    // Load, compile and run the module
+    Utf8String jsFunctionFilename;
+    Utf8String jsFunctionSource;
+    FsObjectInfo jsFunctionInfo;
+
+    std::tie(jsFunctionFilename, jsFunctionSource, jsFunctionInfo)
+        = findModuleSource(moduleName);
+        
+    // Create a string containing the JavaScript source code.
+    Handle<String> source
+        = String::NewFromUtf8(isolate.isolate,
+                              jsFunctionSource.rawData());
+
+    // Compile the source code.
+    TryCatch trycatch;
+    trycatch.SetVerbose(true);
+
+    auto script = Script::Compile
+        (source,
+         v8::String::NewFromUtf8(isolate.isolate,
+                                 jsFunctionFilename.rawData()));
+    
+    if (script.IsEmpty()) {  
+        auto rep = convertException(trycatch, "Compiling plugin script");
+        throw AnnotatedException(400, "Exception compiling plugin script", rep);
+    }
+
+    auto globals = isolate.isolate->GetCurrentContext()->Global();
+    auto module = v8::Object::New(isolate.isolate);
+
+    globals->Set(String::NewFromUtf8(isolate.isolate, "module"),
+                 module);
+        
+    // Run the script to get the result.
+    Handle<Value> result = script->Run();
+
+    if (result.IsEmpty()) {  
+        auto rep = convertException(trycatch, "Running plugin script");
+        MLDB_TRACE_EXCEPTIONS(false);
+        throw AnnotatedException(400, "Exception running plugin script", rep);
+    }
+
+    globals->Delete(String::NewFromUtf8(isolate.isolate, "module"));
+
+    auto exports = module->Get(String::NewFromUtf8(isolate.isolate, "exports"));
+
+    return JS::toObject(exports);
+}
+
+std::vector<Utf8String>
+JsPluginContext::
+knownModules()
+{
+    // TODO: scan search path
+    return { "mldb", "mldb/unittest" };
+}
 
 
 /*****************************************************************************/

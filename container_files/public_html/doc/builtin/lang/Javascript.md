@@ -330,3 +330,54 @@ use of MLDB:
   optimized path each time that one is encountered (50% probability of each).
   Note that this setting applies to the entire MLDB instance, and so should
   not be used in production.
+
+## Modules
+
+MLDB can load built-in modules using the 'require' function:
+
+```Javascript
+var mldb = require('mldb');
+var unittest = require('mldb/unittest');
+// ...
+
+The require function takes a simple module name, and returns an object that
+contains all functionality exported from the module.
+
+The following list of built-in modules is supported:
+
+![](jsmodules)
+
+
+## Developing Modules
+
+Currently MLDB has no support for loading of user-defined modules, even
+within a plugin.  This section is primarily targeted at MLDB developers,
+until such time as user-defined modules are supported.
+
+### Writing a module
+
+Writing a module involves creating a javascript file under the module path.
+Everything that the module exports needs to be assigned to the
+`module.exports` variable.
+
+Note that currently the module is executed in the global scope; eventually
+it will be executed in its own scope, and so side-effects on the global
+scope can't be relied upon.
+
+### Module documentation
+
+In order to document a module, it must export a `__markdown` or `__doc`
+string.  This will be rendered as the documentation for the module.
+
+### Javascript Markdown macros
+
+The following macros are available:
+
+* `[]!(%%jsmodules)` renders a list of all Javascript modules (see above)
+* `[]!(%%jsmodule <moduleName>)` renders the description of the given module,
+  obtained from the `__markdown` or `__doc` attributes.
+* `[]!(%%jsfunctions <moduleName>)` renders a list of functions (or other
+  exported symbols) that are available in the given module.
+* `[]!(%%jsfunction <moduleName> <functionName>) renders documentation of the
+  given function (or other exported symbol) in the given module.
+
