@@ -160,7 +160,9 @@ doCheck() const
     string::const_iterator end_it = utf8::find_invalid(data_.begin(), data_.end());
     if (end_it != data_.end())
         {
-            throw MLDB::Exception("Invalid sequence within utf-8 string");
+            throw MLDB::Exception("Invalid sequence within utf-8 string: pos "
+                                  + std::to_string(end_it - data_.begin())
+                                  + " chars: " + std::to_string((int)*end_it));
         }
 }
 
