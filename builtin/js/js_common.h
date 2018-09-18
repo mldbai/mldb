@@ -26,6 +26,7 @@ struct CellValue;
 struct ExpressionValue;
 struct MldbEngine;
 struct LoadedPluginResource;
+struct FsObjectInfo;
 
 extern Logging::Category mldbJsCategory;
 
@@ -115,6 +116,11 @@ struct JsException: public MLDB::Exception {
     ScriptException rep;
 };
 
+
+/*****************************************************************************/
+/* JS PLUGIN CONTEXT                                                         */
+/*****************************************************************************/
+
 struct JsPluginContext {
 
     /** Create a JS plugin context.  Note that pluginResource may be
@@ -156,12 +162,26 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Procedure;
     v8::Persistent<v8::FunctionTemplate> RandomNumberGenerator;
 
-    // This is the actual implemention of the MLDB object
+    /// This is the actual implemention of the MLDB object
     v8::Persistent<v8::Object> mldb;
     
-    // This implements the require function, which loads other code and
-    // objects.
+    /// This implements the require function, which loads other code and
+    /// objects.
     static void require(const v8::FunctionCallbackInfo<v8::Value> & args);
+
+    /// List set of available modules for require
+    std::vector<Utf8String> knownModules();
+    
+    /// Return the module object for a given module (cached or by loading
+    /// it).
+    v8::Handle<v8::Object> getModule(const Utf8String & module);
+
+    /// Return the source code, source filename and source filename object
+    /// info for this module
+    std::tuple<Utf8String,
+               Utf8String,
+               FsObjectInfo>
+    findModuleSource(const Utf8String & moduleName);
 };
 
 

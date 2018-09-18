@@ -22,6 +22,7 @@
 #include "mldb/rest/rest_entity.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/rest/in_process_rest_connection.h"
 
 #include "js_common.h"
 #include "mldb_js.h"
@@ -30,6 +31,7 @@
 #include "procedure_js.h"
 #include "sensor_js.h"
 #include "mldb/ext/v8-cross-build-output/include/v8.h"
+#include "mldb/engine/static_content_macro.h"
 
 #include "mldb/types/string.h"
 
@@ -44,8 +46,13 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* JS PLUGIN JS                                                                 */
+/* JS PLUGIN JS                                                              */
 /*****************************************************************************/
+
+/** This what the "plugin" object (which represents itself) looks like to a
+    JS plugin.  It's distinct from the PluginJS, which is what a generic
+    MLDB plugin looks like.
+*/
 
 v8::Local<v8::ObjectTemplate>
 JsPluginJS::
@@ -329,204 +336,6 @@ setRequestHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
 
 
 /*****************************************************************************/
-/* JS PLUGIN CONTEXT                                                         */
-/*****************************************************************************/
-
-JsPluginContext::
-JsPluginContext(const Utf8String & pluginName,
-                MldbEngine * engine,
-                std::shared_ptr<LoadedPluginResource> pluginResource)
-    : categoryName(pluginName.rawString() + " plugin"),
-      loaderName(pluginName.rawString() + " loader"),
-      category(categoryName.c_str()),
-      loader(loaderName.c_str()),
-      engine(engine),
-      pluginResource(pluginResource)
-{
-    using namespace v8;
-
-    static V8Init v8Init(engine);
-
-    isolate.init(false /* for this thread only */);
-
-    v8::Locker locker(this->isolate.isolate);
-    v8::Isolate::Scope isolate(this->isolate.isolate);
-
-    HandleScope handle_scope(this->isolate.isolate);
-
-    // Create a new context.
-    context.Reset(this->isolate.isolate,
-                  Context::New(this->isolate.isolate));
-    
-    // Enter the created context
-    Context::Scope context_scope(context.Get(this->isolate.isolate));
-    
-    // This is how we set it
-    // https://code.google.com/p/v8/issues/detail?id=54
-    v8::Local<v8::Object> globalPrototype
-        = context.Get(this->isolate.isolate)->Global()
-        ->GetPrototype().As<v8::Object>();
-    
-    auto plugin = JsPluginJS::registerMe()->NewInstance();
-    plugin->SetInternalField(0, v8::External::New(this->isolate.isolate, this));
-    plugin->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
-    if (pluginResource)
-        plugin->Set(String::NewFromUtf8(this->isolate.isolate, "args"), JS::toJS(jsonEncode(pluginResource->args)));
-    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "plugin"), plugin);
-
-    auto mldb = MldbJS::registerMe()->NewInstance();
-    this->mldb.Reset(this->isolate.isolate, mldb);
-    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->engine));
-    mldb->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
-    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "mldb"), mldb);
-
-    Stream.Reset(this->isolate.isolate, StreamJS::registerMe());
-    Dataset.Reset(this->isolate.isolate, DatasetJS::registerMe());
-    Function.Reset(this->isolate.isolate, FunctionJS::registerMe());
-    Sensor.Reset(this->isolate.isolate, SensorJS::registerMe());
-    Procedure.Reset(this->isolate.isolate, ProcedureJS::registerMe());
-    CellValue.Reset(this->isolate.isolate, CellValueJS::registerMe());
-    RandomNumberGenerator.Reset(this->isolate.isolate,
-                                RandomNumberGeneratorJS::registerMe());
-
-    auto requireTemplate
-        = FunctionTemplate::New(this->isolate.isolate,
-                                &JsPluginContext::require,
-                                v8::External::New(this->isolate.isolate, this));
-    globalPrototype
-        ->Set(String::NewFromUtf8(this->isolate.isolate, "require"),
-              requireTemplate->GetFunction());
-}
-
-JsPluginContext::
-~JsPluginContext()
-{
-}
-
-static std::tuple<Utf8String,
-                 Utf8String,
-                 FsObjectInfo>
-findModuleSource(JsPluginContext * context,
-                 const Utf8String & moduleName)
-{
-    std::vector<Utf8String> searchPath;
-
-    if (moduleName.rawString().find("mldb/") == 0) {
-        // It's an internal MLDB plugin; we look only for code that is
-        // handled with MLDB
-        searchPath = { "file://build/x86_84/lib/mldb/js", "file://mldb/builtin/js" };
-    }
-    else {
-        throw AnnotatedException(400, "Only require modules under mldb are "
-                                 "supported",
-                                 "required", moduleName);
-    }
-
-    for (auto & path: searchPath) {
-        Utf8String filename = path + "/" + moduleName + ".js";
-        if (tryGetUriObjectInfo(filename.rawString())) {
-            MLDB_TRACE_EXCEPTIONS(false);
-            try {
-                filter_istream stream(filename.rawString());
-                return { filename, stream.readAll(), stream.info() };
-            } MLDB_CATCH_ALL {
-                continue;
-            }
-        }
-    }
-
-    throw AnnotatedException(400, "Unable to find javascript module " + moduleName,
-                             "moduleName", moduleName,
-                             "searchPath", searchPath);
-}
-
-void
-JsPluginContext::
-require(const v8::FunctionCallbackInfo<v8::Value> & args)
-{
-    v8::Isolate* isolate = args.GetIsolate();
-    v8::EscapableHandleScope scope(isolate);
-    try {
-        auto context
-            = reinterpret_cast<JsPluginContext *>
-            (v8::Handle<v8::External>::Cast(args.Data())->Value());
-        
-        Utf8String moduleName = JS::getArg<Utf8String>(args, 0, "moduleName");
-        
-        cerr << "require " << moduleName << endl;
-        
-        if (moduleName == "mldb") {
-            // MLDB object is special; we get it from the context
-            v8::Local<v8::Object> mldb
-                = context->mldb.Get(isolate);
-            //= v8::Local<v8::Object>::New(isolate, context->mldb);
-            args.GetReturnValue().Set(scope.Escape(mldb));
-            return;
-        }
-
-        using namespace v8;
-        
-        // Load, compile and run the module
-        Utf8String jsFunctionFilename;
-        Utf8String jsFunctionSource;
-        FsObjectInfo jsFunctionInfo;
-
-        std::tie(jsFunctionFilename, jsFunctionSource, jsFunctionInfo)
-            = findModuleSource(context, moduleName);
-        
-        // Create a string containing the JavaScript source code.
-        Handle<String> source
-            = String::NewFromUtf8(isolate,
-                                  jsFunctionSource.rawData());
-
-        // Compile the source code.
-        TryCatch trycatch;
-        trycatch.SetVerbose(true);
-
-        auto script = Script::Compile
-            (source,
-             v8::String::NewFromUtf8(isolate,
-                                     jsFunctionFilename.rawData()));
-    
-        if (script.IsEmpty()) {  
-            auto rep = convertException(trycatch, "Compiling plugin script");
-
-#if 0            
-            {
-                std::unique_lock<std::mutex> guard(context->logMutex);
-                LOG(context->loader) << jsonEncode(rep) << endl;
-            }
-
-            MLDB_TRACE_EXCEPTIONS(false);
-#endif
-            throw AnnotatedException(400, "Exception compiling plugin script", rep);
-        }
-
-        auto globals = isolate->GetCurrentContext()->Global();
-        auto module = v8::Object::New(isolate);
-
-        globals->Set(String::NewFromUtf8(isolate, "module"),
-                     module);
-        
-        // Run the script to get the result.
-        Handle<Value> result = script->Run();
-
-        if (result.IsEmpty()) {  
-            auto rep = convertException(trycatch, "Running plugin script");
-            MLDB_TRACE_EXCEPTIONS(false);
-            throw AnnotatedException(400, "Exception running plugin script", rep);
-        }
-
-        globals->Delete(String::NewFromUtf8(isolate, "module"));
-
-        auto exports = module->Get(String::NewFromUtf8(isolate, "exports"));
-
-        args.GetReturnValue().Set(scope.Escape(exports));
-    } HANDLE_JS_EXCEPTIONS(args);
-}
-
-
-/*****************************************************************************/
 /* JS PLUGIN                                                                 */
 /*****************************************************************************/
 
@@ -644,9 +453,10 @@ handleTypeRoute(RestDirectory * engine,
                 const RestRequest & request,
                 RestRequestParsingContext & context)
 {
-    //cerr << "context.remaining = " << context.remaining << endl;
-
-    if (context.resources.back() == "run") {
+    // resources will be ["/v1","/types","/plugins","/javascript","javascript","/routes/...","..."]
+    cerr << "context.resources = " << jsonEncodeStr(context.resources) << endl;
+    
+    if (context.resources.size() == 7 && context.resources[6] == "run") {
         //cerr << "request.payload = " << request.payload << endl;
         
         auto scriptConfig = jsonDecodeStr<ScriptResource>(request.payload).toPluginConfig();
@@ -657,7 +467,190 @@ handleTypeRoute(RestDirectory * engine,
                           jsonEncodeStr(result), "application/json");
         return RestRequestRouter::MR_YES;
     }
+    else if (context.resources.size() == 7
+             && context.resources[6] == "modules") {
+        using namespace v8;
+        MldbEngine * mldb = dynamic_cast<MldbEngine *>(engine);
+        ExcAssert(mldb);
+        std::unique_ptr<JsPluginContext> itl
+            (new JsPluginContext("modules", mldb, nullptr));
 
+        // List all modules
+        auto modules = itl->knownModules();
+
+        conn.sendResponse(200, jsonEncodeStr(modules), "application/json");
+        
+        return RestRequestRouter::MR_YES;
+    }
+    else if (context.resources.size() == 7
+             && context.resources[6].startsWith("modules/")) {
+
+        MldbEngine * mldb = dynamic_cast<MldbEngine *>(engine);
+        ExcAssert(mldb);
+        std::unique_ptr<JsPluginContext> itl
+            (new JsPluginContext("modules", mldb, nullptr));
+
+        Utf8String moduleName = context.resources[6];
+        moduleName.removePrefix("modules/");
+
+        bool isDocHtml = moduleName.removeSuffix("/doc.html");
+        bool isMarkdown = moduleName.removeSuffix("/doc.md");
+
+        Utf8String symbolName;
+        if (request.params.hasValue("symbol")) {
+            symbolName = request.params.getValue("symbol");
+        }
+        
+        using namespace v8;
+        
+        //cerr << "module name " << moduleName << endl;
+        
+        v8::Locker locker(itl->isolate.isolate);
+        v8::Isolate::Scope isolate(itl->isolate.isolate);
+        
+        HandleScope handle_scope(itl->isolate.isolate);
+        Context::Scope context_scope(itl->context.Get(itl->isolate.isolate));
+
+        auto module = itl->getModule(moduleName);
+
+        // Return the JSON that describes a given exported symbol
+        auto getSymbolData = [&] (const Utf8String & symbolName)
+            -> Json::Value
+            {
+                Json::Value result;
+
+                v8::Handle<v8::Value> val
+                    = module->Get(v8::String::NewFromUtf8
+                                  (itl->isolate.isolate,
+                                   symbolName.rawString().c_str()));
+                
+                if (!val->IsObject()) {
+                    result["type"] = "value";
+                    result["value"] = (Json::Value)JS::fromJS(val);
+                }
+                else {
+                    auto object = JS::toObject(val);
+                    
+                    if (val->IsFunction()) {
+                        auto fn = JS::toFunction(val);
+                        result["type"] = "function";
+                        result["source"] = JS::utf8str(fn);
+                    }
+                    else {
+                        result["type"]
+                            = JS::utf8str(object->GetConstructorName());
+                    }
+                    
+                    auto summary = object->Get
+                        (v8::String::NewFromUtf8(itl->isolate.isolate,
+                                                 "__summary"));
+                    if (!summary->IsUndefined()) {
+                        result["summary"] = JS::utf8str(summary);
+                    }
+
+                    auto markdown = object->Get
+                        (v8::String::NewFromUtf8(itl->isolate.isolate,
+                                                 "__markdown"));
+                    if (!summary->IsUndefined()) {
+                        result["markdown"] = JS::utf8str(markdown);
+                    }
+                }
+
+                return result;
+            };
+       
+        
+        if (!symbolName.empty()) {
+
+            Json::Value symbolData = getSymbolData(symbolName);
+            const Json::Value & markdown = symbolData["markdown"];
+            
+            if (isDocHtml || isMarkdown) {
+                if (markdown.isNull()) {
+                    conn.sendResponse(404,
+                                      ("Symbol " + symbolName
+                                      + "in module " + moduleName
+                                       + " has no __markdown attribute").rawString(),
+                                      "text/plain");
+                    
+                    return MR_YES;
+                }
+                Utf8String markdownText = markdown.asStringUtf8();
+
+                if (isDocHtml) {
+                    StandaloneMacroContext context(mldb);
+                    context.writeMarkdown(markdownText);
+                    Utf8String html = context.getHtmlPage();
+                    conn.sendResponse(200, html.rawString(), "text/html");
+                    return RestRequestRouter::MR_YES;
+                }
+                else {
+                    conn.sendResponse(200, markdownText.rawString(), "text/markdown");
+                    return RestRequestRouter::MR_YES;
+                }
+            }
+            else {
+                conn.sendResponse(200, symbolData);
+                return RestRequestRouter::MR_YES;
+            }
+        }
+        
+        if (isDocHtml || isMarkdown) {
+
+            Utf8String markdownText;
+            // Look for the "__markdown" string, and if it's there render it
+            auto md = module->Get(v8::String::NewFromUtf8(itl->isolate.isolate,
+                                                          "__markdown"));
+            if (!md->IsUndefined()) {
+                markdownText = JS::utf8str(md);
+            }
+
+            cerr << "markdownText = " << markdownText << endl;
+            
+            if (md->IsUndefined()) {
+                conn.sendResponse(404,
+                                  "Module " + moduleName
+                                  + " has no __markdown attribute",
+                                  "text/plain");
+                
+                return MR_YES;
+            }
+
+            if (isDocHtml) {
+                StandaloneMacroContext context(mldb);
+                context.writeMarkdown(markdownText);
+                Utf8String html = context.getHtmlPage();
+                conn.sendResponse(200, html.rawString(), "text/html");
+                return RestRequestRouter::MR_YES;
+            }
+            else {
+                conn.sendResponse(200, markdownText.rawString(), "text/markdown");
+                return RestRequestRouter::MR_YES;
+            }
+        }
+        else {
+            auto props = module->GetOwnPropertyNames();
+
+            Json::Value result;
+            
+            for (size_t i = 0;  i < props->Length();  ++i) {
+                Utf8String prop = JS::utf8str(props->Get(i));
+                if (prop.startsWith("__"))
+                    continue;
+
+                auto symbolData = getSymbolData(prop);
+
+                result[prop] = symbolData;
+            }
+
+            conn.sendResponse(200, jsonEncodeStr(result),
+                              "application/json");
+            return RestRequestRouter::MR_YES;
+        }
+        
+        return RestRequestRouter::MR_YES;
+    }
+        
     return RestRequestRouter::MR_NO;
 }
 
@@ -753,6 +746,153 @@ regJavascript(builtinPackage(),
               "lang/Javascript.md.html",
               &JavascriptPlugin::handleTypeRoute);
 
+
+/*****************************************************************************/
+/* DOCUMENTATION MACROS                                                      */
+/*****************************************************************************/
+
+/** Documentation macro for Javascript functions. */
+
+void jsFunctionDocumentationMacro(MacroContext & context,
+                                  const std::string & macroName,
+                                  const Utf8String & args)
+{
+    auto space = args.find(' ');
+    if (space == args.end()) {
+        throw AnnotatedException(400, "jsfunction macro takes two arguments");
+    }
+
+    Utf8String moduleName(args.begin(), space);
+    ++space;
+    Utf8String functionName(space, args.end());
+    
+    RestRequest request("GET", "/v1/types/plugins/javascript/routes/modules/" + moduleName.rawString(),
+                        {{ "symbol", functionName }}, "");
+    auto connection = InProcessRestConnection::create();
+    context.engine->handleRequest(*connection, request);
+    connection->waitForResponse();
+    
+    // TODO. better exception message
+    if(connection->responseCode() != 200) {
+        throw AnnotatedException(400, "responseCode != 200 for GET modules: "
+                                 + connection->response());
+    }
+
+    auto symbol = jsonDecodeStr<Json::Value>(connection->response());
+
+    context.writeHtml("<h2>");
+    context.writeText(functionName);
+    context.writeText(" function (Javascript)");
+    context.writeHtml("</h2>");
+    context.writeMarkdown(symbol["markdown"].asStringUtf8());
+}
+
+void jsFunctionsDocumentationMacro(MacroContext & context,
+                                 const std::string & macroName,
+                                 const Utf8String & args)
+{
+    RestRequest request("GET", "/v1/types/plugins/javascript/routes/modules/" + args.rawString(),
+                        {}, "");
+    auto connection = InProcessRestConnection::create();
+    context.engine->handleRequest(*connection, request);
+    connection->waitForResponse();
+    
+    // TODO. better exception message
+    if(connection->responseCode() != 200) {
+        throw AnnotatedException(400, "responseCode != 200 for GET modules: "
+                                 + connection->response());
+    }
+
+    auto module = jsonDecodeStr<Json::Value>
+        (connection->response());
+
+    context.writeHtml("<table class=\"params table\" width='100%'><tr><th align='left'>Export</th><th>Description or value</th></tr>\n");
+
+    for (auto & symbol: module.getMemberNamesUtf8()) {
+        const Json::Value & val = module[symbol];
+        context.writeHtml("<tr><td>");
+        if (val["type"] == "function") {
+            context.writeText("function ");
+            context.writeHtml("<br><code>");
+            context.writeInternalLink("/v1/types/plugins/javascript/routes/modules/" + args.rawString() + "/doc.html?symbol=" + symbol,
+                                      symbol,
+                                      true /* follow internal redirect */);
+            context.writeHtml("</code></br>");
+            context.writeHtml("</td><td>");
+            context.writeMarkdown(val["summary"].asStringUtf8());
+        }
+        else if (val["type"] == "value") {
+            context.writeText("value " + symbol);
+            context.writeHtml("</td><td>");
+            context.writeText(val["value"].asStringUtf8());
+        }
+        context.writeHtml("</td></tr>\n");
+    }
+    context.writeHtml("</table>");
+}
+
+void jsModuleDocumentationMacro(MacroContext & context,
+                                const std::string & macroName,
+                                const Utf8String & args)
+{
+    RestRequest request("GET", "/v1/types/plugins/javascript/routes/modules/" + args.rawString() + "/doc.md",
+                        {}, "");
+    auto connection = InProcessRestConnection::create();
+    context.engine->handleRequest(*connection, request);
+    connection->waitForResponse();
+    
+    // TODO. better exception message
+    if(connection->responseCode() != 200) {
+        throw AnnotatedException(400, "responseCode != 200 for GET modules: "
+                                 + connection->response());
+    }
+
+    context.writeMarkdown(connection->response());
+}
+
+void jsModulesDocumentationMacro(MacroContext & context,
+                                 const std::string & macroName,
+                                 const Utf8String & args)
+{
+    RestRequest request("GET", "/v1/types/plugins/javascript/routes/modules",
+                        {}, "");
+    auto connection = InProcessRestConnection::create();
+    context.engine->handleRequest(*connection, request);
+    connection->waitForResponse();
+    
+    // TODO. better exception message
+    if(connection->responseCode() != 200) {
+        throw AnnotatedException(400, "responseCode != 200 for GET modules: "
+                                 + connection->response());
+    }
+
+    auto modules = jsonDecodeStr<std::vector<Utf8String> >
+        (connection->response());
+    
+    context.writeHtml("<ul>");
+    for (auto & m: modules) {
+        context.writeHtml("<li><a href=\"/v1/types/plugins/javascript/routes/modules/" + m + "/doc.html\">");
+        context.writeText(m);
+        context.writeHtml("</a></li>");
+    }
+    context.writeHtml("</ul>");
+}
+
+namespace {
+
+// Add the ![](jsmodule <moduleName>) macro to document the given module
+auto regJsModule = RegisterMacro("jsmodule", jsModuleDocumentationMacro);
+
+// Add the ![](jsfunction <moduleName> <functionName>) macro
+auto regJsFunction = RegisterMacro("jsfunction", jsFunctionDocumentationMacro);
+
+// Add the ![](jsfunction <moduleName> <functionName>) macro
+auto regJsFunctions = RegisterMacro("jsfunctions", jsFunctionsDocumentationMacro);
+
+// Add the ![](jsfunction <moduleName> <functionName>) macro to list all modules
+auto regJsModules = RegisterMacro("jsmodules", jsModulesDocumentationMacro);
+
+} // file scope
 
 } // namespace MLDB
 

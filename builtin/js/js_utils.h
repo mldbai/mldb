@@ -130,6 +130,21 @@ toArray(v8::Handle<v8::Value> handle)
     return array;
 }
 
+/** Convert the Value handle to a Function handle.  Will throw if it isn't a
+    function.
+*/
+inline v8::Handle<v8::Function>
+toFunction(v8::Handle<v8::Value> handle)
+{
+    ExcAssert(!handle.IsEmpty());
+    if (!handle->IsFunction())
+        throw MLDB::Exception("value " + cstr(handle) + " is not a function");
+    auto func = handle.As<v8::Function>();
+    if (func.IsEmpty())
+        throw MLDB::Exception("value " + cstr(handle) + " is not a function");
+    return func;
+}
+
 template<typename T>
 v8::Handle<v8::Value>
 toJS(const T & t)
