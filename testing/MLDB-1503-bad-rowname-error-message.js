@@ -1,15 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var importConfig = {
     type: 'import.text',
@@ -28,7 +20,7 @@ var resp = mldb.put('/v1/procedures/import', importConfig);
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.get('/v1/query', { q: 'select * from reddit_text_file order by rowName() asc limit 2', format: 'table' });
 
@@ -46,6 +38,6 @@ var expected = [
    ]
 ];
 
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 "success"

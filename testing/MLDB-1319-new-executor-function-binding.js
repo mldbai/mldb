@@ -1,17 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    mldb.log(expr, 'IS NOT EQUAL TO', val);
-
-    throw "Assertion failure";
-}
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function testQuery(query, expected) {
     mldb.log("testing query", query);
@@ -21,8 +11,8 @@ function testQuery(query, expected) {
     mldb.log("received", resp.json);
     mldb.log("expected", expected);
     
-    assertEqual(resp.responseCode, 200);
-    assertEqual(resp.json, expected);
+    unittest.assertEqual(resp.responseCode, 200);
+    unittest.assertEqual(resp.json, expected);
 }
 
 
@@ -48,7 +38,7 @@ var resp = mldb.put('/v1/functions/poil', {
         'query': 'select * from test1 join test2 on test1.rowName() = test2.rowName() order by rowName()'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.put('/v1/functions/poil2', {
     'type': 'sql.query',
@@ -56,7 +46,7 @@ var resp = mldb.put('/v1/functions/poil2', {
         'query': 'select * from test1 join test2 on cast (test1.rowName() as integer) = cast (test2.rowName() as integer) order by rowName()'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.put('/v1/functions/poil3', {
     'type': 'sql.query',
@@ -64,7 +54,7 @@ var resp = mldb.put('/v1/functions/poil3', {
         'query': 'select * from test1 join test2 on cast (test1.rowName() as integer) = cast(test2.rowName() as integer) + $n order by rowName()'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],

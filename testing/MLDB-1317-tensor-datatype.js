@@ -1,16 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    mldb.log(JSON.stringify(expr), 'IS NOT EQUAL TO', JSON.stringify(val));
-
-    throw "Assertion failure";
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var resp = mldb.query("select [ [ 1, 2 ], [ 3, 4 ] ] as *");
 
@@ -28,7 +19,7 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select static_expression_info([ [ 10, 20 ], [ 30, 40 ] ]) as *");
 
@@ -41,7 +32,7 @@ var expected = [
                 ["info.type","INT64","-Inf"]],
      "rowName":"result"}];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select static_expression_info(normalize([ [ 10, 20 ], [ 30, 40 ] ], 1) ) as *");
 
@@ -54,7 +45,7 @@ var expected = [
                 ["info.type","FLOAT32","-Inf"]],
      "rowName":"result"}];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select normalize([ [ 10, 20 ], [ 30, 40 ] ], 1) as *");
 
@@ -65,7 +56,7 @@ var expected = [
                 ["1.1",0.4,"-Inf"]],
      "rowName":"result"}];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select static_expression_info(quantize(normalize([ [ 10, 20 ], [ 30, 40 ] ], 1), 0.1 )) as *");
 
@@ -78,7 +69,7 @@ var expected = [
                 ["info.type","FLOAT64","-Inf"]],
      "rowName":"result"}];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select quantize(normalize([ [ 10, 20 ], [ 30, 40 ] ], 1), 0.1) as *");
 
@@ -96,7 +87,7 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select [ [1], [2] ] + [ [3], [4] ] as *");
 
@@ -112,7 +103,7 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select [ [1], [2] ] + [ ['three'], ['four'] ] as *");
 
@@ -128,7 +119,7 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select { x: 1, y: 2} + 1 as *");
 
@@ -144,13 +135,13 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select 1 + { x: 1, y: 2} as *");
 
 mldb.log(resp);
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select { x: 1, y: 2} * { x: 3, y: 4} as *");
 
@@ -166,7 +157,7 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 var resp = mldb.query("select { x: 1, y: 2} * { x: 3, y: 4, z: 5 } as *");
 
@@ -183,6 +174,6 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 "success"

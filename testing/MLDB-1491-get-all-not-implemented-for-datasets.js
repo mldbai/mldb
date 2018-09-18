@@ -1,18 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function succeeded(response)
 {
@@ -63,18 +52,18 @@ var resp = mldb.get("/v1/query", { q:
     "select count(*) as cnt, author, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author", format: 'table', rowNames: false });
 
 mldb.log(resp.json);
-assertEqual(resp.responseCode, 200);
+unittest.assertEqual(resp.responseCode, 200);
 
 var resp = mldb.get("/v1/query", { q: 
     "select count(*) as cnt, author, min(earliest_timestamp({*})) as earliest, max(latest_timestamp({*})) as latest, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author", format: 'table', rowNames: false });
 
 mldb.log(resp.json);
-assertEqual(resp.responseCode, 200);
+unittest.assertEqual(resp.responseCode, 200);
 
 var resp = mldb.get("/v1/query", { q: 
     "select count(*) as cnt, author, temporal_earliest({*}), sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author", format: 'table', rowNames: false });
 mldb.log(resp.json);
-assertEqual(resp.responseCode, 400);
-assertEqual(resp.json.error, "Non-aggregator 'temporal_earliest({*})' with GROUP BY clause is not allowed");
+unittest.assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.json.error, "Non-aggregator 'temporal_earliest({*})' with GROUP BY clause is not allowed");
 
 "success"

@@ -2,7 +2,7 @@
 
 /* Full Reddit example, as a serial procedure. */
 
-function assertEqual(expr, val, msg)
+function unittest.assertEqual(expr, val, msg)
 {
     if (expr == val)
         return;
@@ -161,6 +161,6 @@ var resp2 = mldb.get("/v1/datasets/reddit_tsne_embedding/query", {select:'*', or
 
 plugin.log(resp2);
 
-assertEqual(resp.length, 20);
+unittest.assertEqual(resp.length, 20);
 
 "success"

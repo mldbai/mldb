@@ -1,5 +1,8 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
+
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
 var ts = new Date("2015-01-01");
@@ -17,20 +20,6 @@ recordExample("ex4", 6, 6, "poil");
 
 dataset.commit()
 
-
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    mldb.log("expected", val);
-    mldb.log("received", expr);
-    
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
 
 function succeeded(response)
 {
@@ -87,7 +76,7 @@ var expected = [
    [ "ex3_transformed", 8, 1, 2, 10 ],
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
 // transform our 4 elements with orderby rowName()
@@ -120,7 +109,7 @@ var expected = [
     [ "ex4_transformed", 12, 6, 6, 60 ]
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
 // transform and skip empty rows
@@ -165,7 +154,7 @@ var expected = [
     [ "ex3_transformed", 4]
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
 
@@ -198,7 +187,7 @@ var expected = [
     [ "[3]_transformed", 3 ]
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false), {},
             "Output was not the same as expected output");
 
 function runTransformWithNoFrom(query, expected) {
@@ -218,7 +207,7 @@ function runTransformWithNoFrom(query, expected) {
 
     plugin.log(resp);
 
-    assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+    unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
                 "Output was not the same as expected output");
 }
 

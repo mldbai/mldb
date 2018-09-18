@@ -3,16 +3,8 @@
 // See MLDB-195
 // Check we can left multiply by a columns
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var datasetConfig = { "id": "ds1", "type": "sparse.mutable" };
 
@@ -33,7 +25,7 @@ var expected = [
    [ "row1", 2.20 ]
 ];
 
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 "success"
 

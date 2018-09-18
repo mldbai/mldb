@@ -1,19 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -71,7 +59,7 @@ var expected1 = [
    }
 ];
 
-assertEqual(res1, expected1);
+unittest.assertEqual(res1, expected1);
 
 
 var res2 = mldb.get("/v1/query",
@@ -86,7 +74,7 @@ var expected2 = {
    "z" : [ null, "yes", null, "no" ]
 };
 
-assertEqual(res2, expected2);
+unittest.assertEqual(res2, expected2);
 
 var res3 = mldb.get("/v1/query",
                     { q: 'select x,y,z from test order by rowName()', format: "table" }).json;
@@ -101,7 +89,7 @@ var expected3 = [
    [ "ex4", 3, 0, "no" ]
 ];
 
-assertEqual(res3, expected3);
+unittest.assertEqual(res3, expected3);
 
 var res3 = mldb.get("/v1/query",
                      { q: 'select x,y,z from test order by rowName()', format: "table", headers:false }).json;
@@ -115,7 +103,7 @@ var expected3 = [
    [ "ex4", 3, 0, "no" ]
 ];
 
-assertEqual(res3, expected3);
+unittest.assertEqual(res3, expected3);
 
 var res4 = mldb.get("/v1/query",
                     { q: 'select x,y,z from test order by rowName()', format: "sparse" }).json;
@@ -149,7 +137,7 @@ var expected4 = [
    ]
 ];
 
-assertEqual(res4, expected4);
+unittest.assertEqual(res4, expected4);
 
 var res5 = mldb.get("/v1/query",
                     { q: 'select x,y,z from test order by rowName()', format: "full" }).json;
@@ -191,13 +179,13 @@ var expected5 = [
    }
 ];
 
-assertEqual(res5, expected5);
+unittest.assertEqual(res5, expected5);
 
 var res5 = mldb.get("/v1/query",
                      { q: 'select x,y,z from test order by rowName()'}).json;
 
 plugin.log(res5);
 
-assertEqual(res5, expected5);
+unittest.assertEqual(res5, expected5);
 
 "success"

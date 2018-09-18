@@ -7,21 +7,9 @@
  **/
 
 var res;
-function assertEqual(expr, val, msg) {
-    if (expr === val)
-        return;
-    if (JSON.stringify(expr) === JSON.stringify(val))
-        return;
 
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-    mldb.log("--------Latest res start--------");
-    mldb.log(res);
-    mldb.log("--------Latest res end----------");
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-          + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function checkResults(result, goldStandard) {
     var rows = result['json'];
@@ -53,13 +41,13 @@ function runTest(testNumber, buckets, goldStandard) {
             percentileBuckets: buckets
         }
     });
-    assertEqual(res['responseCode'], 201);
+    unittest.assertEqual(res['responseCode'], 201);
 
     res = mldb.post(url + "/runs", {});
-    assertEqual(res['responseCode'], 201);
+    unittest.assertEqual(res['responseCode'], 201);
 
     res = mldb.get("/v1/query", {q: "SELECT * FROM " + datasetName});
-    assertEqual(res['responseCode'], 200);
+    unittest.assertEqual(res['responseCode'], 200);
     checkResults(res, goldStandard);
 
     res = mldb.get("/v1/query", {q: "SELECT *, latest_timestamp({*}) FROM " + datasetName,
@@ -84,7 +72,7 @@ csv_conf = {
 var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 
 res = mldb.get("/v1/datasets/rNamedScores");
-assertEqual(res['json']['status']['rowCount'], 7);
+unittest.assertEqual(res['json']['status']['rowCount'], 7);
 
 var goldStandard;
 
@@ -111,7 +99,7 @@ res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
         percentileBuckets: {b1: [0, 80], b2: [50, 100]}
     }
 });
-assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['responseCode'], 400);
 
 // Test 3 ---------------------------------------------------------------------
 // Empty bucket, range too smal
@@ -158,7 +146,7 @@ res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
         percentileBuckets: {b1: [-0.2, 50], b2: [50, 1]}
     }
 });
-assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['responseCode'], 400);
 
 // Test 7 ---------------------------------------------------------------------
 // Out of range higher bound
@@ -170,7 +158,7 @@ res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
         percentileBuckets: {b1: [0, 50], b2: [50, 100.1]}
     }
 });
-assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['responseCode'], 400);
 
 // Test 8 ---------------------------------------------------------------------
 // Inverted bounds
@@ -182,17 +170,17 @@ res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
         percentileBuckets: {b1: [50, 0], b2: [50, 100]}
     }
 });
-assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['responseCode'], 400);
 
 // Test 9 ---------------------------------------------------------------------
 // Bucketize on no data
 res = mldb.put('/v1/datasets/emptyDataset', {
     type : 'sparse.mutable'
 });
-assertEqual(res['responseCode'], 201);
+unittest.assertEqual(res['responseCode'], 201);
 
 res = mldb.perform('POST', '/v1/datasets/emptyDataset/commit', {});
-assertEqual(res['responseCode'], 200);
+unittest.assertEqual(res['responseCode'], 200);
 
 res = mldb.put("/v1/procedures/bucketizeEmptyDataset", {
     type: 'bucketize',
@@ -202,7 +190,7 @@ res = mldb.put("/v1/procedures/bucketizeEmptyDataset", {
         percentileBuckets: {b1: [0, 50], b2: [50, 100]}
     }
 });
-assertEqual(res['responseCode'], 201);
+unittest.assertEqual(res['responseCode'], 201);
 
 "success"
 

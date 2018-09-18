@@ -5,19 +5,8 @@
  * Copyright (c) 2017 Element AI Inc. All rights reserved.
  **/
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var mldb2169Config = {
         type: "import.text",
@@ -37,7 +26,7 @@ var res = mldb.put("/v1/procedures/csv_proc", mldb2169Config);
 
 mldb.log(res);
 
-assertEqual(res.responseCode, 201);
+unittest.assertEqual(res.responseCode, 201);
 
 expected = [
    [ "_rowName", "a", "b" ],
@@ -51,6 +40,6 @@ expected = [
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb2169 order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quoteChar test");
+unittest.assertEqual(res.json, expected, "quoteChar test");
 
 "success"

@@ -1,19 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function testDataset(type)
 {
@@ -45,11 +33,11 @@ function testDataset(type)
 
     mldb.log(resp);
 
-    assertEqual(range[0], ts1);
-    assertEqual(range[1], ts3);
+    unittest.assertEqual(range[0], ts1);
+    unittest.assertEqual(range[1], ts3);
 
-    assertEqual(new Date(resp[0].columns[0][1]['ts']), ts1);
-    assertEqual(new Date(resp[0].columns[1][1]['ts']), ts3);
+    unittest.assertEqual(new Date(resp[0].columns[0][1]['ts']), ts1);
+    unittest.assertEqual(new Date(resp[0].columns[1][1]['ts']), ts3);
 }
 
 testDataset("beh.mutable");

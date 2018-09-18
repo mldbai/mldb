@@ -1,20 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw new Error("Assertion failure: " + msg + ": " + JSON.stringify(expr)
-                    + " not equal to " + JSON.stringify(val));
-}
-
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var file1 = "file://mldb/testing/dataset/iris.data";
 
@@ -94,7 +81,7 @@ var trainingOutput
 
 plugin.log("training output", trainingOutput);
 
-assertEqual(trainingOutput.responseCode, 201);
+unittest.assertEqual(trainingOutput.responseCode, 201);
 
 var functionConfig = {
     type: "classifier",
@@ -107,7 +94,7 @@ var functionOutput = mldb.put("/v1/functions/iris_cls", functionConfig);
 
 plugin.log(functionOutput);
 
-assertEqual(functionOutput.responseCode, 201);
+unittest.assertEqual(functionOutput.responseCode, 201);
 
 var functionInfo = mldb.get("/v1/functions/iris_cls/info");
 
@@ -236,6 +223,6 @@ var expected = {
    }
 };
 
-assertEqual(functionInfo.json, expected);
+unittest.assertEqual(functionInfo.json, expected);
 
 "success"

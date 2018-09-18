@@ -1,18 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -54,7 +43,7 @@ var expected = [
       [ "ex4", 3, "yes" ]
 ];
 
-assertEqual(res1.json, expected, "row output from JS function");
+unittest.assertEqual(res1.json, expected, "row output from JS function");
 
 // MLDB-757
 
@@ -74,7 +63,7 @@ var expected2 = [
    [ "ex4", 3 ]
 ];
 
-assertEqual(res2.json, expected2, "row input to JS function");
+unittest.assertEqual(res2.json, expected2, "row input to JS function");
 
 // MLDB-758
 
@@ -94,7 +83,7 @@ var expected3 = [
    [ "ex4", null ]
 ];
 
-assertEqual(res3.json, expected3, "undefined output of JS function");
+unittest.assertEqual(res3.json, expected3, "undefined output of JS function");
 
 
 "success"

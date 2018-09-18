@@ -2,6 +2,9 @@
 
 /* Test of sum aggregate (MLDB-327). */
 
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
+
 var dataset_config = {
     'type'    : 'sparse.mutable',
     'id'      : 'test',
@@ -51,17 +54,10 @@ plugin.log(resp);
 ]
 */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr != val) {
-        throw "Assertion failure: " + msg + ": " + expr + " not equal to " + val;
-    }
-}
-
-assertEqual(resp.responseCode, 200, "response code");
-assertEqual(resp.json[0].rowName, '"[""cat""]"', "rowName");  // MLDB-363
-assertEqual(resp.json[0].columns[0][1], "cat", "label1");
-assertEqual(resp.json[0].columns[1][1], 1, "sum of x for cat");
-assertEqual(resp.json[0].columns[2][1], 2, "sum of y for cat");
+unittest.assertEqual(resp.responseCode, 200, "response code");
+unittest.assertEqual(resp.json[0].rowName, '"[""cat""]"', "rowName");  // MLDB-363
+unittest.assertEqual(resp.json[0].columns[0][1], "cat", "label1");
+unittest.assertEqual(resp.json[0].columns[1][1], 1, "sum of x for cat");
+unittest.assertEqual(resp.json[0].columns[2][1], 2, "sum of y for cat");
 
 "success"

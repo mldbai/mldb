@@ -1,18 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 /* Example script to import a reddit dataset and run an example */
 
@@ -207,15 +196,15 @@ var res6 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_func ord
 //plugin.log(res2);
 
 plugin.log("test1");
-assertEqual(res1, res2);
+unittest.assertEqual(res1, res2);
 plugin.log("test2");
-assertEqual(res1, res3);
+unittest.assertEqual(res1, res3);
 plugin.log("test3");
-assertEqual(res1, res4);
+unittest.assertEqual(res1, res4);
 
 plugin.log("test4");
 
-assertEqual(res5, res6);
+unittest.assertEqual(res5, res6);
 
 
 var row_rest = createDataset('row', 'rest');
@@ -230,9 +219,9 @@ var res8 = mldb.get("/v1/query", {q: "select * from reddit_dataset_rows_rest ord
 
 plugin.log("test5");
 
-assertEqual(res1, res7);
+unittest.assertEqual(res1, res7);
 plugin.log("test6");
-assertEqual(res1, res8);
+unittest.assertEqual(res1, res8);
 
 
 var res9 = mldb.get("/v1/query", {q: "select * from reddit_dataset_col_rest order by rowHash() limit 10", format:"sparse"}).json;
@@ -240,11 +229,11 @@ var res10 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_rest or
 
 plugin.log("test7");
 
-assertEqual(res5, res9);
+unittest.assertEqual(res5, res9);
 
 plugin.log("test8");
 
-assertEqual(res5, res10);
+unittest.assertEqual(res5, res10);
 
 
 "success"

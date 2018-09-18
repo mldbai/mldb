@@ -1,15 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var functionConfig = {
     type: 'sql.expression',
@@ -23,7 +15,7 @@ var functionConfig = {
 
 var fn = mldb.put('/v1/functions/score_one', functionConfig);
 
-assertEqual(fn.responseCode, 201);
+unittest.assertEqual(fn.responseCode, 201);
 
 mldb.log(fn);
 
@@ -34,7 +26,7 @@ mldb.log(res);
 
 var expected = [ 6, 9, 6, 0 ];
 
-assertEqual(res.json, expected);
+unittest.assertEqual(res.json, expected);
 
 var functionConfig = {
     type: 'sql.query',
@@ -48,7 +40,7 @@ var fn = mldb.put('/v1/functions/score_many', functionConfig);
 
 mldb.log(fn);
 
-assertEqual(fn.responseCode, 201);
+unittest.assertEqual(fn.responseCode, 201);
 
 var functionConfig2 = {
     type: 'sql.expression',
@@ -62,7 +54,7 @@ var fn2 = mldb.put('/v1/functions/scorer', functionConfig2);
 
 mldb.log(fn2);
 
-assertEqual(fn2.responseCode, 201);
+unittest.assertEqual(fn2.responseCode, 201);
 
 var input = { rowsToScore: [ { x: 1, y: 2}, {a: 2, b: 3, c: 4} ] };
 
@@ -71,7 +63,7 @@ var res = mldb.get('/v1/functions/scorer/application',
 
 var expected = [ 3, 9 ];
 
-assertEqual(res.json, expected);
+unittest.assertEqual(res.json, expected);
 
 mldb.log(res);
 
@@ -122,6 +114,6 @@ var res = mldb.get('/v1/plugins/myapi/routes/predict',
 
 mldb.log(res);
 
-assertEqual(res.json, expected);
+unittest.assertEqual(res.json, expected);
 
 "success"

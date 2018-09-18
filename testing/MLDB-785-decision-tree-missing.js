@@ -1,16 +1,8 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
 /** Test that a decision tree can split purely on feature is or is not missing. */
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 // Creates a dataset with 50% density, which causes bucketed training to be used
 function createDenseDataset()
@@ -191,22 +183,22 @@ function testOutput(algorithm)
     mldb.log(model);
 
     if (algorithm == "stump") {
-        assertEqual(model.params.split.feature, "y");
-        assertEqual(model.params.split.op, "PRESENT");
-        assertEqual(model.params.action.missing, [ 1, 0 ]);
-        assertEqual(model.params.action["true"], [ 0, 1 ]);
-        assertEqual(model.params.action["false"], [ 0, 0 ]);
+        unittest.assertEqual(model.params.split.feature, "y");
+        unittest.assertEqual(model.params.split.op, "PRESENT");
+        unittest.assertEqual(model.params.action.missing, [ 1, 0 ]);
+        unittest.assertEqual(model.params.action["true"], [ 0, 1 ]);
+        unittest.assertEqual(model.params.action["false"], [ 0, 0 ]);
     } else if (algorithm == "dt") {
-        assertEqual(model.params.tree.root.split.feature, "y");
-        assertEqual(model.params.tree.root.split.op, "PRESENT");
-        assertEqual(model.params.tree.root.missing.pred, [ 1, 0 ]);
-        assertEqual(model.params.tree.root["true"].pred, [ 0, 1 ]);
+        unittest.assertEqual(model.params.tree.root.split.feature, "y");
+        unittest.assertEqual(model.params.tree.root.split.op, "PRESENT");
+        unittest.assertEqual(model.params.tree.root.missing.pred, [ 1, 0 ]);
+        unittest.assertEqual(model.params.tree.root["true"].pred, [ 0, 1 ]);
     }
     else if (algorithm == "boosted_trees") {
-        assertEqual(model.params.classifiers[0].params.tree.root.split.feature, "y");
-        assertEqual(model.params.classifiers[0].params.tree.root.split.op, "PRESENT");
-        assertEqual(model.params.classifiers[0].params.tree.root.missing.pred, [ 1, 0 ]);
-        assertEqual(model.params.classifiers[0].params.tree.root["true"].pred, [ 0, 1 ]);
+        unittest.assertEqual(model.params.classifiers[0].params.tree.root.split.feature, "y");
+        unittest.assertEqual(model.params.classifiers[0].params.tree.root.split.op, "PRESENT");
+        unittest.assertEqual(model.params.classifiers[0].params.tree.root.missing.pred, [ 1, 0 ]);
+        unittest.assertEqual(model.params.classifiers[0].params.tree.root["true"].pred, [ 0, 1 ]);
     }
 
     // Applying it with y present should return 1
@@ -218,11 +210,11 @@ function testOutput(algorithm)
                            { input: { features: { q:1 }}}).json.output.score;
 
     if (algorithm != "boosted_stumps") {
-        assertEqual(result1, 1);
-        assertEqual(result2, 0);
+        unittest.assertEqual(result1, 1);
+        unittest.assertEqual(result2, 0);
     }
     else {
-        assertEqual(result1 > result2, true);
+        unittest.assertEqual(result1 > result2, true);
     }
 }
 

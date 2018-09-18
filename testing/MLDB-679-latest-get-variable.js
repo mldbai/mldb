@@ -2,20 +2,8 @@
 
 // Test for MLDB-605; timestamp queries
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -36,14 +24,14 @@ var query1 = mldb.get('/v1/query', { q: 'SELECT * from test' });
 
 plugin.log(query1);
 
-assertEqual(query1.json[0].columns.length, 3);
+unittest.assertEqual(query1.json[0].columns.length, 3);
 
 var query2 = mldb.get('/v1/query', { q: 'SELECT x from test' });
 
-assertEqual(query2.json[0].columns.length, 3);
+unittest.assertEqual(query2.json[0].columns.length, 3);
 
 // Note that we return all tuples of a column for consistency (see MLDB-1370)
-// assertEqual(query2.json, query1.json);
+// unittest.assertEqual(query2.json, query1.json);
 
 plugin.log(query2);
 

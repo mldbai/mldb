@@ -2,16 +2,8 @@
 
 /* Test of regression. */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -48,15 +40,15 @@ var procedureOutput
     = mldb.put("/v1/procedures/svd_train", trainSvdProcedureConfig);
 
 plugin.log("procedure output", procedureOutput);
-assertEqual(procedureOutput.responseCode, 201, "failed to train SVD");
+unittest.assertEqual(procedureOutput.responseCode, 201, "failed to train SVD");
 
 var selectRowOutput = mldb.query("SELECT * FROM svdRowOutput");
 plugin.log(selectRowOutput);
-assertEqual(selectRowOutput.length, 6, "expected 6 rows");
+unittest.assertEqual(selectRowOutput.length, 6, "expected 6 rows");
 
 var selectColumnOutput = mldb.query("SELECT * FROM svdColOutput");
 plugin.log(selectColumnOutput);
-assertEqual(selectColumnOutput.length, 2, "expected 2 rows");
+unittest.assertEqual(selectColumnOutput.length, 2, "expected 2 rows");
 
 
 "success"

@@ -1,13 +1,5 @@
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 // Load the dataset
 var resp = mldb.put("/v1/procedures/airline", {
@@ -70,7 +62,7 @@ var cls2 = mldb.get("/v1/functions/classifyme2/details");
 mldb.log(cls1);
 mldb.log(cls2);
 
-assertEqual(cls1.json.model.params.classifiers[0].params.tree.root.pred,
+unittest.assertEqual(cls1.json.model.params.classifiers[0].params.tree.root.pred,
             cls2.json.model.params.classifiers[0].params.tree.root.pred);
 
 "success"

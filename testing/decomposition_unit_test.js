@@ -1,24 +1,7 @@
 // decomposition_unit_test.js
 
-//mldb = require('mldb')
-//unittest = require('mldb/unittest')
-
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
-unittest = { assertEqual: assertEqual }
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 // Test copying a column into two output columns works (no problems with
 // input/output name confusion or moving values that are later re-used).

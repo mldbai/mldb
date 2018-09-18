@@ -1,17 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    mldb.log(expr, 'IS NOT EQUAL TO', val);
-
-    throw "Assertion failure";
-}
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function testQuery(query, expected) {
     mldb.log("testing query", query);
@@ -21,8 +11,8 @@ function testQuery(query, expected) {
     mldb.log("received", resp.json);
     mldb.log("expected", expected);
     
-    assertEqual(resp.responseCode, 200);
-    assertEqual(resp.json, expected);
+    unittest.assertEqual(resp.responseCode, 200);
+    unittest.assertEqual(resp.json, expected);
 }
 
 
@@ -42,7 +32,7 @@ var resp = mldb.put('/v1/functions/poil', {
         output: 'NAMED_COLUMNS'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 
 var expected = [
@@ -65,7 +55,7 @@ var resp = mldb.put('/v1/functions/poil', {
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "all systems" ],
@@ -88,7 +78,7 @@ var resp = mldb.put('/v1/functions/poil', {
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "hello" ],
@@ -106,14 +96,14 @@ var resp = mldb.put('/v1/functions/poil', {
         output: 'NAMED_COLUMNS'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.get('/v1/query', {q: "select poil()[output] as *", format: 'table'});
 
 mldb.log(resp);
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 
-//assertEqual(resp.json.error.indexOf("must contain exactly one") != -1, true);
+//unittest.assertEqual(resp.json.error.indexOf("must contain exactly one") != -1, true);
 
 
 // Test that an extra column gives an error
@@ -124,14 +114,14 @@ var resp = mldb.put('/v1/functions/poil', {
         output: 'NAMED_COLUMNS'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.get('/v1/query', {q: "select poil()[output] as *", format: 'table'});
 
 mldb.log(resp);
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 
-assertEqual(resp.json.error.indexOf("can only contain") != -1, true);
+unittest.assertEqual(resp.json.error.indexOf("can only contain") != -1, true);
 
 
 // Test that a null column name gives an error
@@ -142,13 +132,13 @@ var resp = mldb.put('/v1/functions/poil', {
         output: 'NAMED_COLUMNS'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.get('/v1/query', {q: "select poil()[output] as *", format: 'table'});
 
 mldb.log(resp);
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 
-assertEqual(resp.json.error.indexOf("can't be null") != -1, true);
+unittest.assertEqual(resp.json.error.indexOf("can't be null") != -1, true);
 
 "success"

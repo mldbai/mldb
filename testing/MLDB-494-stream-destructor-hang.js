@@ -4,19 +4,8 @@
    function.
 */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function succeeded(response)
 {
@@ -99,7 +88,7 @@ var dataset2_config = {
 
 var dataset2 = mldb.createDataset(dataset2_config);
 
-assertEqual(mldb.get('/v1/query', {q : 'select * from test order by rowHash() limit 10'}).json,
+unittest.assertEqual(mldb.get('/v1/query', {q : 'select * from test order by rowHash() limit 10'}).json,
             mldb.get('/v1/query', {q : 'select * from test2 order by rowHash() limit 10'}).json,
            "query diff");
 

@@ -1,5 +1,8 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
+
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
 var ts = new Date("2015-01-01");
@@ -15,24 +18,9 @@ recordExample("ex3", 1, 2, "cat");
 
 dataset.commit()
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    mldb.log("expr", expr);
-    mldb.log("val", val);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
-
 var resp = mldb.get("/v1/query", {q:"SELECT y, label, x FROM test ORDER BY rowPath()", format:'table'});
 
-assertEqual(resp.responseCode, 200, "Error executing query");
+unittest.assertEqual(resp.responseCode, 200, "Error executing query");
 
 plugin.log("returned", resp.json);
 
@@ -45,14 +33,14 @@ var expected = [
 
 plugin.log("expected", expected);
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Query 1 output was not the same as expected output");
 
 // Test a group by
 
 var resp = mldb.get("/v1/query", {q:"SELECT min(x), min(y), label FROM test GROUP BY label"});
 
-assertEqual(resp.responseCode, 200, "Error executing query");
+unittest.assertEqual(resp.responseCode, 200, "Error executing query");
 
 plugin.log(resp.json);
 
@@ -75,7 +63,7 @@ expected = [
    }
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Query 2 output was not the same as expected output");
 
 "success"

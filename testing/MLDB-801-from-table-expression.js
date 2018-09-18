@@ -1,15 +1,8 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
 
 function succeeded(response)
 {
@@ -73,13 +66,13 @@ var resp = mldb.get('/v1/query', { q: 'select * from transformed', format: 'tabl
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 200);
+unittest.assertEqual(resp.responseCode, 200);
 
 var expected = [
     [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
     [ "[ex1]-[ex4]", 1, 2, 1, 2 ]
 ];
 
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 "success"

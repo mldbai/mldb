@@ -2,20 +2,8 @@
 
 /* Test of error message for classifier training with no rows. */
 
-
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function assertContains(str, val, msg)
 {
@@ -90,7 +78,7 @@ var trainingOutput
 
 plugin.log("training output", trainingOutput);
 
-assertEqual(trainingOutput.responseCode, 400);
+unittest.assertEqual(trainingOutput.responseCode, 400);
 assertContains(trainingOutput.json.error, "all rows were filtered");
 
 trainClassifierProcedureConfig.params.trainingData = "select {x} as features, y as label from test2 where false";
@@ -105,7 +93,7 @@ trainingOutput
 
 plugin.log("training output", trainingOutput);
 
-assertEqual(trainingOutput.responseCode, 400);
+unittest.assertEqual(trainingOutput.responseCode, 400);
 assertContains(trainingOutput.json.error, "dataset was empty");
 
 

@@ -1,18 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function assertContains(str, val, msg)
 {
@@ -117,17 +106,17 @@ assertSucceeded("creating SVD function", r);
 // MLDB-536
 var r = mldb.get("/v1/functions/svd/application", { input: { row: {'0': 1}}});
 plugin.log(r);
-assertEqual(r.responseCode, 200);
-assertEqual(r.json.output.embedding.shape, [20]);
+unittest.assertEqual(r.responseCode, 200);
+unittest.assertEqual(r.json.output.embedding.shape, [20]);
 
 r = mldb.get("/v1/functions/svd/application", { input: { row: {'0': '1'}}});
 plugin.log(r);
-assertEqual(r.responseCode, 400);
+unittest.assertEqual(r.responseCode, 400);
 assertContains(r.json.error, "only numbers were seen");
 
 r = mldb.get("/v1/functions/svd/application", { input: { row: {'100': 1}}});
 plugin.log(r);
-assertEqual(r.responseCode, 400);
+unittest.assertEqual(r.responseCode, 400);
 assertContains(r.json.error, "was a string in training");
 
 

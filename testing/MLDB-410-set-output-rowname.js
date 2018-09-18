@@ -1,5 +1,8 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
+
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
 var ts = new Date("2015-01-01");
@@ -15,19 +18,8 @@ recordExample("ex3", 1, 2, "cat");
 
 dataset.commit()
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
 var resp = mldb.get("/v1/query", { q: 'SELECT x,y,label FROM test ORDER BY rowName() DESC', format: 'table' });
-assertEqual(resp.responseCode, 200);
+unittest.assertEqual(resp.responseCode, 200);
 
 plugin.log(resp.json);
 
@@ -38,7 +30,7 @@ var expected = [
    [ "ex1", "cat", 0, 0 ]
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
 
@@ -48,7 +40,7 @@ var resp = mldb.get("/v1/query",
                      format: 'table'});
 plugin.log(resp);
 
-assertEqual(resp.responseCode, 200);
+unittest.assertEqual(resp.responseCode, 200);
 
 expected = [
     [ "_rowName", "label", "x", "y" ],
@@ -57,7 +49,7 @@ expected = [
     [ "ex1_transformed", "cat", 0, 0 ]
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
 "success"

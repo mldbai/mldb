@@ -4,19 +4,8 @@
    function.
 */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function succeeded(response)
 {
@@ -86,7 +75,7 @@ var dataset2_config = {
 
 var dataset2 = mldb.createDataset(dataset2_config);
 
-assertEqual(mldb.get('/v1/query', {q : 'select * from test order by rowHash()'}).json,
+unittest.assertEqual(mldb.get('/v1/query', {q : 'select * from test order by rowHash()'}).json,
             mldb.get('/v1/query', {q : 'select * from test2 order by rowHash()'}).json,
            "query diff");
 
@@ -119,13 +108,13 @@ createAndTrainProcedure(svdConfig, 'svd2');
 var resp1 = mldb.get("/v1/query", {q:"SELECT * FROM test_embedding order by rowHash()", format:'table'});
 var resp2 = mldb.get("/v1/query", {q:"SELECT * FROM test2_embedding order by rowHash()", format:'table'});
 
-assertEqual(resp1.json,
+unittest.assertEqual(resp1.json,
             resp2.json);
 
 resp1 = mldb.get("/v1/query", {q:"SELECT * FROM test_row_embedding order by rowHash()", format:'table'});
 resp2 = mldb.get("/v1/query", {q:"SELECT * FROM test2_row_embedding order by rowHash()", format:'table'});
 
-assertEqual(resp1.json,
+unittest.assertEqual(resp1.json,
             resp2.json);
 
 // MLDB-1175 transposed dataset as a FROM function
@@ -137,22 +126,22 @@ var expected = [
 
 var resp = mldb.get("/v1/query", {q:"SELECT ex00 FROM transpose(test) WHERE rowName() = 'x'", format:'table'});
 plugin.log(resp)
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 var resp = mldb.get("/v1/query", {q:"SELECT watcha.ex00 as ex00 FROM transpose(test) as watcha WHERE rowName() = 'x'", format:'table'});
 plugin.log(resp)
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 var ref = mldb.get("/v1/query", {q:"SELECT watcha.* FROM test as watcha"});
 plugin.log(resp)
 
 var resp = mldb.get("/v1/query", {q:"SELECT watcha.* FROM transpose(transpose(test)) as watcha"});
 plugin.log(resp)
-assertEqual(resp.json, ref.json);
+unittest.assertEqual(resp.json, ref.json);
 
 var resp = mldb.get("/v1/query", {q:"SELECT watcha.ex00 as ex00 FROM transpose((select * from test)) as watcha WHERE rowName() = 'x'", format:'table'});
 plugin.log(resp)
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 var expectedjoin = [
    [ "_rowName", "[ex00]-[x]" ],
@@ -170,6 +159,6 @@ var expectedjoin = [
 
 var resp = mldb.get("/v1/query", {q:'SELECT "[ex00]-[x]" FROM transpose(test as table JOIN transpose(test) as transposed_table) as watcha ORDER BY rowName()', format:'table'});
 plugin.log(resp)
-assertEqual(resp.json, expectedjoin);
+unittest.assertEqual(resp.json, expectedjoin);
 
 "success"

@@ -2,16 +2,8 @@
 
 /* Test of sync / async functionality. */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var config = { type: "sparse.mutable" };
 
@@ -23,9 +15,9 @@ var output3 = mldb.put("/v1/datasets/test3", config, {async:true});
 
 var output4 = mldb.put("/v1/datasets/test4", config, {Async:true});
 
-assertEqual(output.json.state, "ok", "test1 " + JSON.stringify(output.json));
-assertEqual(output2.json.state, "initializing", "test2 " + JSON.stringify(output2.json));
-assertEqual(output3.json.state, "initializing", "test3 " + JSON.stringify(output3.json));
-assertEqual(output4.json.state, "initializing", "test4 " + JSON.stringify(output4.json));
+unittest.assertEqual(output.json.state, "ok", "test1 " + JSON.stringify(output.json));
+unittest.assertEqual(output2.json.state, "initializing", "test2 " + JSON.stringify(output2.json));
+unittest.assertEqual(output3.json.state, "initializing", "test3 " + JSON.stringify(output3.json));
+unittest.assertEqual(output4.json.state, "initializing", "test4 " + JSON.stringify(output4.json));
 
 "success"

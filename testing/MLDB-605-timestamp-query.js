@@ -2,20 +2,8 @@
 
 // Test for MLDB-605; timestamp queries
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -40,8 +28,8 @@ var query1 = mldb.get('/v1/query',
 
 plugin.log(query1);
 
-assertEqual(query1.json.length, 1);
-assertEqual(query1.json[0][0], "row1_imp_then_click");
+unittest.assertEqual(query1.json.length, 1);
+unittest.assertEqual(query1.json[0][0], "row1_imp_then_click");
 
 var query2 = mldb.get('/v1/query',
                       { q: 'select * from test where latest_timestamp(click) < latest_timestamp(imp)',
@@ -49,8 +37,8 @@ var query2 = mldb.get('/v1/query',
 
 plugin.log(query2);
 
-assertEqual(query2.json.length, 1);
-assertEqual(query2.json[0][0], "row2_click_then_imp");
+unittest.assertEqual(query2.json.length, 1);
+unittest.assertEqual(query2.json[0][0], "row2_click_then_imp");
 
 var query3 = mldb.get('/v1/query',
                       { q: 'select * from test where latest_timestamp(click) = latest_timestamp(imp)',
@@ -58,7 +46,7 @@ var query3 = mldb.get('/v1/query',
 
 plugin.log(query3);
 
-assertEqual(query3.json.length, 1);
-assertEqual(query3.json[0][0], "row3_click_and_imp");
+unittest.assertEqual(query3.json.length, 1);
+unittest.assertEqual(query3.json[0][0], "row3_click_and_imp");
 
 "success"

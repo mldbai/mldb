@@ -1,16 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    mldb.log(expr, 'IS NOT EQUAL TO', val);
-
-    throw "Assertion failure";
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 
 function testQuery(query, expected, sortColumns) {
@@ -23,8 +14,8 @@ function testQuery(query, expected, sortColumns) {
     mldb.log("received", resp.json);
     mldb.log("expected", expected);
     
-    assertEqual(resp.responseCode, 200);
-    assertEqual(resp.json, expected);
+    unittest.assertEqual(resp.responseCode, 200);
+    unittest.assertEqual(resp.json, expected);
 }
 
 
@@ -138,7 +129,7 @@ var resp = mldb.put('/v1/functions/poil', {
         'query': 'select * from test1 join test2 on test1.x = test2.x order by rowName()'
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 // (with the AS)
 var resp = mldb.put('/v1/functions/poil_as', {
@@ -151,7 +142,7 @@ var resp = mldb.put('/v1/functions/poil_as', {
         }
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 testQuery(
     'SELECT poil() as *',
@@ -181,7 +172,7 @@ var resp = mldb.put('/v1/functions/poil_group', {
         }
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 mldb.log("testing query poil_group");
 testQuery(
@@ -206,7 +197,7 @@ var resp = mldb.put('/v1/functions/patate', {
         }
     }
 });
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.put('/v1/functions/patate_params', {
     'type': 'sql.query',
@@ -223,7 +214,7 @@ var resp = mldb.put('/v1/functions/patate_params', {
 });
 
 mldb.log(resp.json);
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 // MLDB-845... 
 var resp = mldb.put('/v1/functions/patate_params_on_clause', {
@@ -241,7 +232,7 @@ var resp = mldb.put('/v1/functions/patate_params_on_clause', {
 });
 
 mldb.log(resp.json);
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 // they should return the same thing
 var funcs = ['patate' ];

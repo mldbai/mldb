@@ -2,20 +2,8 @@
 
 /* MLDB 434: check round-trip through beh dataset. */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
-
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -48,7 +36,7 @@ var expected = [
    [ "ex112", null, 1, 1 ]
 ];
 
-assertEqual(mldb.diff(expected, data, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, data, false /* strict */), {},
             "Output was not the same as expected output");
 
 "success"

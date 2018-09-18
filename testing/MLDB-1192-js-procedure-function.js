@@ -1,18 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var fnConfig = {
     type: 'sql.expression',
@@ -23,13 +12,13 @@ var fnConfig = {
 
 var fn = mldb.createFunction(fnConfig);
 
-assertEqual(fn.type(), 'sql.expression');
+unittest.assertEqual(fn.type(), 'sql.expression');
 
 var res = fn.call({ x: 10 });
 
 mldb.log(res);
 
-assertEqual(res[0][0], [ "y", [ 100, '-Inf' ]]);
+unittest.assertEqual(res[0][0], [ "y", [ 100, '-Inf' ]]);
 
 var procConfig = {
     type: "null",
@@ -39,11 +28,11 @@ var procConfig = {
  
 var proc = mldb.createProcedure(procConfig);   
 
-assertEqual(proc.type(), 'null');
+unittest.assertEqual(proc.type(), 'null');
 
 var res = proc.run({});
 
-assertEqual(res, {});
+unittest.assertEqual(res, {});
 
 mldb.log(res);
 

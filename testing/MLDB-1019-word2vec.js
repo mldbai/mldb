@@ -1,6 +1,6 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
+function unittest.assertEqual(expr, val, msg)
 {
     if (expr == val)
         return;
@@ -116,7 +116,7 @@ var expected = [
    "Switzerland"
 ];
 
-assertEqual(res3[0], expected);
+unittest.assertEqual(res3[0], expected);
 
 //Check that the result of the pooler can be fed back into the w2vec nearest neighbor
 mldb.log("NN to pooler")
@@ -131,7 +131,7 @@ mldb.put("/v1/functions/pooler", {
 var resNNPooler = mldb.get('/v1/query', {q: "select nn({numNeighbors : 10, coords: pooler({words:" +  
                                             "tokenize('France')})[embedding]})[distances] as *", format: 'table'}).json;
 
-assertEqual(resNNPooler[0], expected);
+unittest.assertEqual(resNNPooler[0], expected);
 
 // MLDB-1020 check that we can record both 'null' and '0' which hash
 // to the same value.
@@ -221,6 +221,6 @@ expected = [
    }
 ]
 
-assertEqual(res5, expected);
+unittest.assertEqual(res5, expected);
 
 "success"
