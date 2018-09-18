@@ -1,23 +1,12 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dir = mldb.ls("archive+http://www.cs.waikato.ac.nz/~ml/weka/agridatasets.jar");
 mldb.log(dir);
 
-assertEqual(dir.objects["archive+http://www.cs.waikato.ac.nz/~ml/weka/agridatasets.jar#eucalyptus.arff"].exists, true);
+unittest.assertEqual(dir.objects["archive+http://www.cs.waikato.ac.nz/~ml/weka/agridatasets.jar#eucalyptus.arff"].exists, true);
 
 
 var stream = mldb.openStream("archive+http://www.cs.waikato.ac.nz/~ml/weka/agridatasets.jar#eucalyptus.arff");
@@ -34,7 +23,7 @@ while (!stream.eof()) {
 }
 
 mldb.log(numLines, " lines");
-assertEqual(numLines, 823);
+unittest.assertEqual(numLines, 823);
 
 var dir = mldb.ls("archive+http://public.mldb.ai/ml-20m.zip");
 mldb.log(dir);

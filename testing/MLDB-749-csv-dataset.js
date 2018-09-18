@@ -1,24 +1,13 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
+
 /**
  * MLDB-749-csv-dataset.js
  * Nicolas, 2015-07-23
  * Copyright (c) 2015 mldb.ai inc. All rights reserved.
  **/
-
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
 
 var csv_conf = {
     type: "import.text",
@@ -35,16 +24,16 @@ var csv_conf = {
 
 var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 mldb.log(res);
-assertEqual(res["responseCode"], 201);
+unittest.assertEqual(res["responseCode"], 201);
 
 var res = mldb.put("/v1/procedures/csv_proc/runs/myrun", {});
 
 mldb.log(res);
 
-assertEqual(res['json']['status']['numLineErrors'], 0);
+unittest.assertEqual(res['json']['status']['numLineErrors'], 0);
 
 res = mldb.get('/v1/datasets/iris');
-assertEqual(res['json']['status']['rowCount'], 150);
+unittest.assertEqual(res['json']['status']['rowCount'], 150);
 mldb.log(res);
 
 
@@ -105,8 +94,8 @@ csv_conf = {
 mldb.put("/v1/procedures/csv_proc", csv_conf)
 res = mldb.put("/v1/procedures/csv_proc/runs/0", {})
 mldb.log(res);
-assertEqual(res['responseCode'], 400);
-assertEqual(res['json']['error'], "Duplicate row name(s) in tabular dataset: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9");
+unittest.assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['json']['error'], "Duplicate row name(s) in tabular dataset: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9");
 
 // Test correctness of parser
 var correctnessConfig = {
@@ -162,7 +151,7 @@ var res = mldb.get("/v1/query", { q: 'select count(*) as cnt from cities group b
 mldb.log(res);
 
 // Check that the highest count is 1, ie each row name occurs exactly once
-assertEqual(res[1][1], 1);
+unittest.assertEqual(res[1][1], 1);
 
 var res = mldb.get("/v1/query", { q: 'select count(*), min(cast (rowName() as integer)), max(cast (rowName() as integer)) from cities', format: 'table' }).json;
 
@@ -178,7 +167,7 @@ var expected = [
    [ "[]", 3173958, 3173959, 2 ]
 ];
 
-assertEqual(res, expected);
+unittest.assertEqual(res, expected);
 
 var res = mldb.get("/v1/query", { q: 'select * from cities where cast (rowName() as integer) in (2, 1000, 1000000, 2000000, 3000000, 3173959) order by cast (rowName() as integer)' }).json;
 
@@ -255,7 +244,7 @@ expected = [
    }
 ];
 
-assertEqual(res, expected, "City populations CSV");
+unittest.assertEqual(res, expected, "City populations CSV");
 
 // Test loading of broken file (MLDB-994)
 // broken that fails
@@ -272,15 +261,15 @@ var brokenConfigFail = {
 }
 
 var res = mldb.put("/v1/procedures/csv_proc", brokenConfigFail);
-assertEqual(res['responseCode'], 400);
-assertEqual(res['json']['details']['runError']['details']['lineNumber'], 5);
+unittest.assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['json']['details']['runError']['details']['lineNumber'], 5);
 
 // MLDB-1404: do it 100 times to ensure we don't terminate
 
 for (var i = 0;  i < 100;  ++i) {
     res = mldb.put("/v1/procedures/csv_proc", brokenConfigFail);
-    assertEqual(res['responseCode'], 400);
-    assertEqual(res['json']['details']['runError']['details']['lineNumber'], 5);
+    unittest.assertEqual(res['responseCode'], 400);
+    unittest.assertEqual(res['json']['details']['runError']['details']['lineNumber'], 5);
 }
 
 /**/
@@ -300,8 +289,8 @@ var brokenConfigNoHeader = {
 
 
 var res = mldb.put("/v1/procedures/csv_proc", brokenConfigNoHeader)
-assertEqual(res['responseCode'], 400);
-assertEqual(res['json']['details']['runError']['details']['lineNumber'], 4);
+unittest.assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['json']['details']['runError']['details']['lineNumber'], 4);
 
 brokenConfig = {
     type: "import.text",
@@ -318,7 +307,7 @@ brokenConfig = {
 
 res = mldb.put("/v1/procedures/csv_proc", brokenConfig)
 mldb.log(res);
-assertEqual(res['json']['status']['firstRun']['status']['numLineErrors'], 4);
+unittest.assertEqual(res['json']['status']['firstRun']['status']['numLineErrors'], 4);
 
 var res = mldb.get("/v1/query", { q: 'select * from broken order by CAST (rowName() AS NUMBER) ASC limit 10', format: 'table' });
 mldb.log(res);
@@ -369,7 +358,7 @@ var config = {
 }
 
 res = mldb.put("/v1/procedures/csv_proc", config);
-assertEqual(res['responseCode'], 400); //bad rowNameColumn
+unittest.assertEqual(res['responseCode'], 400); //bad rowNameColumn
 
 var config = {
         type: "import.text",
@@ -388,16 +377,16 @@ var config = {
 mldb.put("/v1/procedures/csv_proc", config);
 
 res = mldb.get("/v1/datasets/headerRowName");
-assertEqual(res['json']['status']['rowCount'], 2);
+unittest.assertEqual(res['json']['status']['rowCount'], 2);
 
 var res = mldb.get("/v1/query", {
     q: 'SELECT * FROM headerRowName ORDER BY rowName() ASC LIMIT 10',
     format: 'table' }
 );
 try {
-    assertEqual(res['json'].length, 3);
-    assertEqual(res['json'][0], ["_rowName", "b"]);
-    assertEqual(res['json'][1], ["jambon", 4]);
+    unittest.assertEqual(res['json'].length, 3);
+    unittest.assertEqual(res['json'][0], ["_rowName", "b"]);
+    unittest.assertEqual(res['json'][1], ["jambon", 4]);
 } catch (e) {
     mldb.log(res);
     throw e;
@@ -408,9 +397,9 @@ var res = mldb.get("/v1/query", {
     format: 'table' }
 );
 try {
-    assertEqual(res['json'].length, 3);
-    assertEqual(res['json'][0], ["_rowName", "b"]);
-    assertEqual(res['json'][2], ["jambon", 4]);
+    unittest.assertEqual(res['json'].length, 3);
+    unittest.assertEqual(res['json'][0], ["_rowName", "b"]);
+    unittest.assertEqual(res['json'][2], ["jambon", 4]);
 } catch (e) {
     mldb.log(res);
     throw e;
@@ -439,9 +428,9 @@ function getCountWithOffsetLimit(dataset, offset, limit) {
 }
 
 var totalSize = getCountWithOffsetLimit("test1", 0, -1);
-assertEqual(getCountWithOffsetLimit("test2", 0, 10), 10, "expecting 10 rows only");
-assertEqual(getCountWithOffsetLimit("test3", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
-assertEqual(getCountWithOffsetLimit("test4", 10, -1), totalSize - 10, "expecting all set except 10 rows");
+unittest.assertEqual(getCountWithOffsetLimit("test2", 0, 10), 10, "expecting 10 rows only");
+unittest.assertEqual(getCountWithOffsetLimit("test3", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
+unittest.assertEqual(getCountWithOffsetLimit("test4", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
 function getCountWithOffsetLimit2(dataset, offset, limit) {
     var config = {
@@ -470,15 +459,15 @@ function getCountWithOffsetLimit2(dataset, offset, limit) {
 }
 
 var totalSize = getCountWithOffsetLimit2("test_total", 0, -1);
-assertEqual(getCountWithOffsetLimit2("test_100000", 0, 100000), 100000, "expecting 100000 rows only");
-assertEqual(getCountWithOffsetLimit2("test_98765", 0, 98765), 98765, "expecting 98765 rows only");
-assertEqual(getCountWithOffsetLimit2("test_1234567", 0, 999999), 999999, "expecting 999999 rows only");
-assertEqual(getCountWithOffsetLimit2("test_0", 0, 0), 0, "expecting 0 rows only");
-assertEqual(getCountWithOffsetLimit2("test_1", 0, 1), 1, "expecting 1 row only");
-assertEqual(getCountWithOffsetLimit2("test_10_1", 10, 1), 1, "expecting 1 row only");
-assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows only");
-assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
-assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
+unittest.assertEqual(getCountWithOffsetLimit2("test_100000", 0, 100000), 100000, "expecting 100000 rows only");
+unittest.assertEqual(getCountWithOffsetLimit2("test_98765", 0, 98765), 98765, "expecting 98765 rows only");
+unittest.assertEqual(getCountWithOffsetLimit2("test_1234567", 0, 999999), 999999, "expecting 999999 rows only");
+unittest.assertEqual(getCountWithOffsetLimit2("test_0", 0, 0), 0, "expecting 0 rows only");
+unittest.assertEqual(getCountWithOffsetLimit2("test_1", 0, 1), 1, "expecting 1 row only");
+unittest.assertEqual(getCountWithOffsetLimit2("test_10_1", 10, 1), 1, "expecting 1 row only");
+unittest.assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows only");
+unittest.assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
+unittest.assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
 //MLDB-1312 specify quoteChar
 var mldb1312Config = {
@@ -505,7 +494,7 @@ expected =
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb1312 order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quoteChar test");
+unittest.assertEqual(res.json, expected, "quoteChar test");
 
 var mldb1312Config_b = {
         type: "import.text",
@@ -523,7 +512,7 @@ var mldb1312Config_b = {
 
 
 res = mldb.put("/v1/procedures/csv_proc", mldb1312Config_b);
-assertEqual(res['responseCode'], 400);
+unittest.assertEqual(res['responseCode'], 400);
 
 var mldb1312Config_c = {
         type: "import.text",
@@ -550,6 +539,6 @@ expected =
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb1312_c order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quoteChar test");
+unittest.assertEqual(res.json, expected, "quoteChar test");
 
 "success"

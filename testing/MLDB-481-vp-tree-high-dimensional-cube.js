@@ -4,19 +4,8 @@
 // Vantage point tree on corners of a high dimensional cube is a pathological
 // case.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'embedding',
@@ -63,14 +52,14 @@ plugin.log(res);
 gres = res[0]["columns"];
 
 // First two should have distance 0, the rest should have distance sqrt(2) as a 32 bit float
-assertEqual(gres.length, 5, "length");
-assertEqual(gres[1][0], "row0_a", "name0");
-assertEqual(gres[0][0], "row0", "name1");
-assertEqual(gres[1][1], 0, "dist0");
-assertEqual(gres[0][1], 0, "dist1");
-assertEqual(gres[2][1], 1.4142135381698608, "dist2");
-assertEqual(gres[3][1], 1.4142135381698608, "dist3");
-assertEqual(gres[4][1], 1.4142135381698608, "dist4");
+unittest.assertEqual(gres.length, 5, "length");
+unittest.assertEqual(gres[1][0], "row0_a", "name0");
+unittest.assertEqual(gres[0][0], "row0", "name1");
+unittest.assertEqual(gres[1][1], 0, "dist0");
+unittest.assertEqual(gres[0][1], 0, "dist1");
+unittest.assertEqual(gres[2][1], 1.4142135381698608, "dist2");
+unittest.assertEqual(gres[3][1], 1.4142135381698608, "dist3");
+unittest.assertEqual(gres[4][1], 1.4142135381698608, "dist4");
 
 
 "success"

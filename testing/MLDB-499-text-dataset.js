@@ -2,19 +2,8 @@
 
 /* Example script to import a reddit dataset and run an example */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw new Error("Assertion failure: " + msg + ": " + JSON.stringify(expr)
-                    + " not equal to " + JSON.stringify(val));
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function succeeded(response)
 {
@@ -83,7 +72,7 @@ var resp = mldb.get("/v1/query",
 
 //plugin.log(resp.json);
 
-assertEqual(resp.json[1][1], "603,politics,trees,pics");
+unittest.assertEqual(resp.json[1][1], "603,politics,trees,pics");
 
 //MLDB-1163
 //Load csv into a non-tabular dataset. Should be slower...
@@ -97,7 +86,7 @@ var resp = mldb.get("/v1/query",
 
 //plugin.log(resp.json);
 
-assertEqual(resp.json[1][1], "603,politics,trees,pics");
+unittest.assertEqual(resp.json[1][1], "603,politics,trees,pics");
 
 // Nicolas will fix this test case as he sees fit
 /*var before = new Date();
@@ -108,7 +97,7 @@ plugin.log(resp2.json);
 
 plugin.log("took " + (after - before) / 1000.0 + "s");
 
-assertEqual(resp2.json[1][1], "4_603,politics,trees,pics");
+unittest.assertEqual(resp2.json[1][1], "4_603,politics,trees,pics");
 
 var transformConfig = {
     type: "transform",

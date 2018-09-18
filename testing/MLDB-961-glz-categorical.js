@@ -1,95 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function appendPath(path, key)
-{
-    if (typeof key == 'string') {
-        return path + "." + key;
-    }
-    else if (typeof key == 'number') {
-        return path + '[' + key + ']';
-    }
-    throw new Error("can't append path");
-}
-
-function assertNearlyEqual(v1, v2, path, relativeError)
-{
-    if (v1 === v2)
-        return true;
-
-    //mldb.log("v1 = ", typeof v1, " v2 = ", typeof v2);
-    
-    if (typeof v1 != typeof v2) {
-        mldb.log("objects differ in type at path " + path + ": "
-                 + typeof v1 + " vs " + typeof v2);
-        return false;
-    }
-
-    if (typeof v1 == 'number') {
-        var av1 = Math.abs(v1);
-        var av2 = Math.abs(v2);
-        var smallest = av1 < av2 ? av1 : av2;
-        var largest = av1 < av2 ? av2 : av2;
-
-        var diff = Math.abs(v1 - v2);
-        var relative = diff / largest;
-
-        if (relative < relativeError)
-            return true;
-        
-        var percent = relative * 100.0;
-
-        mldb.log("numbers differ at path " + path + ": " + v1 + " vs " + v2
-                 + " has " + percent + "% relative error");
-        return false;
-    }
-    if (typeof v1 == 'string') {
-        mldb.log("strings differ at path " + path + ": " + v1 + " vs " + v2);
-        return false;
-    }
-    
-    var k1 = Object.getOwnPropertyNames(v1);
-    var k2 = Object.getOwnPropertyNames(v2);
-
-    var all = {};
-    for (var i = 0;  i < k1.length;  ++i) {
-        var k = k1[i];
-        all[k] = [v1[k], undefined ];
-    }
-    for (var i = 0;  i < k2.length;  ++i) {
-        var k = k2[i];
-        if (all.hasOwnProperty(k)) {
-            all[k] = [ all[k][0], v2[k] ];
-        }
-        else {
-            all[k] = [ undefined, v2[k] ];
-        }
-    }
-
-    var result = true;
-    
-    for (k in all) {
-        //mldb.log('key ', k, ' all[k]', all[k]);
-        if (!assertNearlyEqual(all[k][0], all[k][1], appendPath(path, k),
-                              relativeError)) {
-            result = false;
-        }
-    }
-
-    return result;
-}
-
-function assertEqual(expr, val, msg)
-{
-    if (assertNearlyEqual(expr, val, "", 0.0001)) {
-        return;
-    }
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw new Error("Assertion failure: " + msg + ": " + JSON.stringify(expr)
-                    + " not equal to " + JSON.stringify(val));
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var file1 = "file://mldb/testing/dataset/iris.data";
 
@@ -178,7 +90,7 @@ var trainingOutput
 
 plugin.log("training output", trainingOutput);
 
-assertEqual(trainingOutput.responseCode, 201);
+unittest.assertEqual(trainingOutput.responseCode, 201);
 
 var functionConfig = {
     type: "classifier",
@@ -191,7 +103,7 @@ var functionOutput = mldb.put("/v1/functions/iris_cls", functionConfig);
 
 plugin.log(functionOutput);
 
-assertEqual(functionOutput.responseCode, 201);
+unittest.assertEqual(functionOutput.responseCode, 201);
 
 
 var expected = {
@@ -261,7 +173,7 @@ var expected = {
 
 var details = mldb.get("/v1/functions/iris_cls/details");
 
-assertEqual(details.json.model, expected);
+unittest.assertNearlyEqual(details.json.model, expected);
 
 
 //////////// try with condition is false
@@ -278,13 +190,13 @@ trainingOutput
 
 plugin.log("training output", trainingOutput);
 
-assertEqual(trainingOutput.responseCode, 201);
+unittest.assertEqual(trainingOutput.responseCode, 201);
 
 var functionOutput = mldb.put("/v1/functions/iris_cls2", functionConfig);
 
 plugin.log(functionOutput);
 
-assertEqual(functionOutput.responseCode, 201);
+unittest.assertEqual(functionOutput.responseCode, 201);
 
 var details = mldb.get("/v1/functions/iris_cls2/details");
 
@@ -317,6 +229,6 @@ expected = [
     }
 ];
 
-assertEqual(details.json.model.params.features, expected);
+unittest.assertEqual(details.json.model.params.features, expected);
 
 "success"

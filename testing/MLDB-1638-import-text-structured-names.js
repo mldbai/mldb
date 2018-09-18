@@ -1,15 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 // Contents of fixture:
 // a,b,c.a,c.b,"""d.a"""
@@ -30,7 +22,7 @@ var resp = mldb.put('/v1/procedures/importUnstructured', importConfig);
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.get('/v1/query', { q: 'select * from unstructured', format: 'table' });
 
@@ -39,7 +31,7 @@ var expected =  [
     [ "2", 5, 1, 2, 3, 4 ]
 ];
 
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 var importConfig = {
     type: 'import.text',
@@ -53,7 +45,7 @@ var importConfig = {
 
 var resp = mldb.put('/v1/procedures/importStructured', importConfig);
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var resp = mldb.get('/v1/query', { q: 'select * from structured', format: 'table' });
 
@@ -64,7 +56,7 @@ var expected = [
     [ "2", 1, 2, 3, 4, 5 ]
 ];
 
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 "success"
 

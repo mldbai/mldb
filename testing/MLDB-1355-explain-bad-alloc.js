@@ -3,19 +3,8 @@
 // MLDB-1010
 // Check the error message for std::bad_alloc
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function assertContains(str, val, msg)
 {
@@ -53,7 +42,7 @@ var resp = mldb.get("/v1/query", { q: 'select _fail_memory_allocation()' });
 
 mldb.log(resp.json);
 
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 assertContains(resp.json.details.context.error, "Out of memory");
 
 // Check it works in the context of a table query
@@ -62,7 +51,7 @@ var resp = mldb.get("/v1/query", { q: 'select *, _fail_memory_allocation() from 
 
 mldb.log(resp.json);
 
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 assertContains(resp.json.details.context.error, "Out of memory");
 
 
@@ -71,7 +60,7 @@ var resp = mldb.get("/v1/query", { q: 'select * from test as x join test as y on
 
 mldb.log(resp.json);
 
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 assertContains(resp.json.details.context.error, "Out of memory");
 
 

@@ -5,19 +5,8 @@
  * Copyright (c) 2017 mldb.ai inc. All rights reserved.
  **/
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var mldb2168Config = {
         type: "import.text",
@@ -45,6 +34,6 @@ expected = [
 ];
 
 var res = mldb.get("/v1/query", { q: 'select * from mldb2168 order by rowName()', format: 'table' });
-assertEqual(res.json, expected, "quoteChar test");
+unittest.assertEqual(res.json, expected, "quoteChar test");
 
 "success"

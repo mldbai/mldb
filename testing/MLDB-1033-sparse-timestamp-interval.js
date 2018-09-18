@@ -8,19 +8,8 @@
 // - MLDB-1032 (sparse.mutable record of intervals, timestamps)
 // - MLDB-1041 (sparse.mutable 4 character strings)
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var datasetConfig = {
     id: 'test',
@@ -62,7 +51,7 @@ var expected = [
 
 mldb.log(resp);
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 "success"
 

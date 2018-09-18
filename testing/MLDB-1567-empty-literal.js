@@ -4,16 +4,8 @@
 
 */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var expected = [
     [ "x", null, "NaD" ]
@@ -23,20 +15,20 @@ var resp = mldb.query('select [] as x');
 
 mldb.log(resp);
 
-assertEqual(resp[0].columns, expected);
+unittest.assertEqual(resp[0].columns, expected);
 
 resp = mldb.query('select {} as x')
 
 mldb.log(resp);
 
-assertEqual(resp[0].columns, undefined);
+unittest.assertEqual(resp[0].columns, undefined);
 
 resp = mldb.get('/v1/query', {q: 'select * from transpose(select 1)'});
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 
-assertEqual(resp.json.error.indexOf("Expected to find a ')' parsing a table expression.  This is normally because of not putting a sub-SELECT within '()' characters") != -1, true, resp.json.error);
+unittest.assertEqual(resp.json.error.indexOf("Expected to find a ')' parsing a table expression.  This is normally because of not putting a sub-SELECT within '()' characters") != -1, true, resp.json.error);
 
 "success"

@@ -1,6 +1,6 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val)
+function unittest.assertEqual(expr, val)
 {
     if (expr == val)
         return;
@@ -20,7 +20,7 @@ var resp = mldb.get("/v1/plugins/MLDB-1398-plugin");
 
 mldb.log(resp);
 
-assertEqual(resp.json.status, "Hello, world");
+unittest.assertEqual(resp.json.status, "Hello, world");
 
 "success"
 

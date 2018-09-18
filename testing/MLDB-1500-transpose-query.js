@@ -1,16 +1,5 @@
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function succeeded(response)
 {
@@ -102,7 +91,7 @@ expected = [
 
 mldb.log(res)
 
-assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
             "output was not the same as expected output in batch executor desc");
 
 res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) asc, rowName() limit 2' });
@@ -125,7 +114,7 @@ expected = [
 
 mldb.log(res)
 
-assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
             "output was not the same as expected output in batch executor asc");
 
 // now with the pipeline executor
@@ -147,7 +136,7 @@ expected = [
 
 mldb.log(res)
 
-assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
             "output was not the same as expected output in pipeline executor");
 
 // now with the pipeline executor
@@ -168,7 +157,7 @@ expected = [
 
 mldb.log(res)
 
-assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
             "output was not the same as expected output in pipeline executor");
 
 //check with non aggregator expression in order by in the presence of a group by
@@ -177,7 +166,7 @@ res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width fro
 
 mldb.log(res.json.error)
 
-assertEqual(res.json.error, "Non-aggregator 'horizontal_count({*})' with GROUP BY clause is not allowed",
+unittest.assertEqual(res.json.error, "Non-aggregator 'horizontal_count({*})' with GROUP BY clause is not allowed",
             "Did not get the expected error");
 
 "success"

@@ -1,15 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
@@ -34,7 +26,7 @@ dataset.commit()
 var resp = mldb.query('select rowPath(), rowPathElement(0), rowPathElement(1), rowPathElement(-1), * from test where rowPathElement(-1) = rowPathElement(1)');
 mldb.log(resp);
 
-assertEqual(resp.length, 5);
+unittest.assertEqual(resp.length, 5);
 
 
 var resp = mldb.query('select rowPath(), rowPathElement(2) from test limit 1');
@@ -56,7 +48,7 @@ var expected = [
    }
 ];
 mldb.log(resp);
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 
 var resp = mldb.query('select rowPath(), * from (select 1) as x join row_dataset({x:1}) as y');
@@ -80,6 +72,6 @@ var expected = [
    }
 ];
 
-assertEqual(resp, expected);
+unittest.assertEqual(resp, expected);
 
 "success"

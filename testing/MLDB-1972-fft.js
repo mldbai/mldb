@@ -1,15 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var resp = mldb.query("select impulse(32) as i");
 
@@ -68,6 +60,6 @@ var resp = mldb.query("select quantize(fft(fft(shifted_impulse(32, 31), 'forward
 mldb.log(resp);
 
 // Make sure that the inverse of an FFT is equal to the original input
-assertEqual(resp[0].columns[0][1], 1);
+unittest.assertEqual(resp[0].columns[0][1], 1);
 
 "success"

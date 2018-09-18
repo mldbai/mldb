@@ -2,19 +2,8 @@
 
 /* Example script to import a reddit dataset and check that the SVD works */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function succeeded(response)
 {
@@ -104,7 +93,7 @@ var expected = [
    [ "[]", 2553 ]
 ];
 
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 
 "success"

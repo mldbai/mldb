@@ -1,16 +1,7 @@
 // This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    mldb.log(expr, 'IS NOT EQUAL TO', val);
-
-    throw "Assertion failure";
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 
 function testQuery(query, expected) {
@@ -21,8 +12,8 @@ function testQuery(query, expected) {
     mldb.log("received", resp.json);
     mldb.log("expected", expected);
     
-    assertEqual(resp.responseCode, 200);
-    assertEqual(resp.json, expected);
+    unittest.assertEqual(resp.responseCode, 200);
+    unittest.assertEqual(resp.json, expected);
 }
 
 var resp = mldb.put('/v1/functions/poil', {
@@ -35,7 +26,7 @@ var resp = mldb.put('/v1/functions/poil', {
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "Z" ],
@@ -66,7 +57,7 @@ testQuery('SELECT x.* FROM row_dataset({x: 1, y:2, z: \'three\'}) AS x ORDER BY 
 
 var resp = mldb.put("/v1/functions/x", { type: "sql.query", params: { query: "SELECT * from row_dataset({a:1,b:2})", output: "NAMED_COLUMNS"} });
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 expected = [
    [ "_rowName", "output.a", "output.b" ],

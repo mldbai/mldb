@@ -2,19 +2,8 @@
 
 /* Test of SQL expression function. */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     type: 'sparse.mutable',
@@ -61,7 +50,7 @@ resp = mldb.get("/v1/functions/expr/application",
 
 plugin.log(resp);
 
-assertEqual(resp.json.output.z, 3);
+unittest.assertEqual(resp.json.output.z, 3);
 
 resp = mldb.get("/v1/query",
                 {q: "SELECT expr({*}) AS * FROM test ORDER BY rowName()",
@@ -77,7 +66,7 @@ var expected = [
     [ "ex4", 6 ]
 ];
 
-assertEqual(resp.json, expected);
+unittest.assertEqual(resp.json, expected);
 
 var functionConfig2 = {
     id: "query",
@@ -101,14 +90,14 @@ var resp = mldb.get("/v1/functions/query/application",
 
 plugin.log(resp);
 
-assertEqual(resp.json.output.z, 1);
+unittest.assertEqual(resp.json.output.z, 1);
 
 var resp2 = mldb.get("/v1/functions/query/application",
                      {input:{row: 'ex2', offset:100}});
 
 plugin.log(resp2);
 
-assertEqual(resp2.json.output.z, 102);
+unittest.assertEqual(resp2.json.output.z, 102);
 
 // The output of the last line of the script is returned as the result of the script,
 // just like in Javscript eval

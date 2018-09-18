@@ -1,6 +1,6 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
+function unittest.assertEqual(expr, val, msg)
 {
     if (expr == val)
         return;
@@ -60,8 +60,8 @@ var resp = mldb.post('/v1/plugins', pluginConfig);
 
 plugin.log(resp);
 
-assertEqual(resp.responseCode, 201);
-assertEqual(resp.json.status, "SamplePlugin is loaded");
+unittest.assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.json.status, "SamplePlugin is loaded");
 
 
 var functionConfig = {
@@ -73,7 +73,7 @@ var resp = mldb.post('/v1/functions', functionConfig);
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 201);
+unittest.assertEqual(resp.responseCode, 201);
 
 resp = mldb.get('/v1/query', { q: 'select hello()' , format: 'table' });
 

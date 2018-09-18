@@ -1,15 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset = mldb.createDataset({type:'sparse.mutable',id:'test'});
 
@@ -34,7 +26,7 @@ var resp = mldb.get("/v1/query", {q: 'SELECT pivot(what, how) AS * NAMED who FRO
 
 plugin.log(resp.json);
 
-assertEqual(resp.responseCode, 200, "Error executing query");
+unittest.assertEqual(resp.responseCode, 200, "Error executing query");
 
 expected = [
    [
@@ -50,7 +42,7 @@ expected = [
    ]
 ];
 
-assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+unittest.assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Query 2 output was not the same as expected output");
 
 "success"

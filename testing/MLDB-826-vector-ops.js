@@ -2,19 +2,8 @@
 
 /* Full Reddit example, as a serial procedure. */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 //smaller tests
 
@@ -24,31 +13,31 @@ mldb.post("/v1/datasets/eg/rows", {
 })
 mldb.post("/v1/datasets/eg/commit", {})
 
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_sum([a,b], [a,b]) from eg",
     format:'table', headers: 'false'}).json,
     [["r1",20,40]]
 )
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_sum([a], [b]) from eg",
     format:'table', headers: 'false'}).json,
     [["r1",30]]
 )
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_diff([a,b], [a,b]) from eg",
     format:'table', headers: 'false'}).json,
     [["r1",0,0]]
 )
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_product([a,b], [a,b]) from eg",
     format:'table', headers: 'false'}).json,
     [["r1",100,400]]
 )
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_quotient([a,b], [a,b]) from eg",
     format:'table', headers: 'false'}).json,
@@ -64,25 +53,25 @@ mldb.post("/v1/datasets/eg2/rows", {
 })
 mldb.post("/v1/datasets/eg2/commit", {})
 
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_sum([a1, a2], [b1, b2]) from eg2",
     format:'table', headers: 'false'}).json,
     [["r1",30,55]]
 )
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_diff([a1, a2], [b1, b2]) from eg2",
     format:'table', headers: 'false'}).json,
     [["r1",-10,45]]
 )
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_product([a1, a2], [b1, b2]) from eg2",
     format:'table', headers: 'false'}).json,
     [["r1",200,250]]
 )
-assertEqual(
+unittest.assertEqual(
     mldb.get("/v1/query", {
     q:"select vector_quotient([a1, a2], [b1, b2]) from eg2",
     format:'table', headers: 'false'}).json,

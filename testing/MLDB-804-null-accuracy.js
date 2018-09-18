@@ -3,19 +3,8 @@
 // MLDB-804
 // Check we validate accuracy config
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 function assertContains(str, val, msg)
 {
@@ -40,7 +29,7 @@ var resp = mldb.put("/v1/procedures/test1", config);
 
 mldb.log(resp);
 
-assertEqual(resp.responseCode, 400);
+unittest.assertEqual(resp.responseCode, 400);
 assertContains(resp.json.error, "classifier.test expects a scalar named 'score' and a scalar named 'label'");
 
 "success"

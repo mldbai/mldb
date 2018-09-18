@@ -2,19 +2,8 @@
 
 /* Test of regression. */
 
-function assertEqual(expr, val, msg)
-{
-    if (expr == val)
-        return;
-    if (JSON.stringify(expr) == JSON.stringify(val))
-        return;
-
-    plugin.log("expected", val);
-    plugin.log("received", expr);
-
-    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
-        + " not equal to " + JSON.stringify(val);
-}
+var mldb = require('mldb')
+var unittest = require('mldb/unittest')
 
 var dataset_config = {
     'type'    : 'sparse.mutable',
@@ -65,7 +54,7 @@ var procedureOutput
     = mldb.put("/v1/procedures/cls_train", trainClassifierProcedureConfig);
 
 plugin.log("procedure output", procedureOutput);
-assertEqual(procedureOutput.responseCode, 201);
+unittest.assertEqual(procedureOutput.responseCode, 201);
 
 var trainingOutput
     = mldb.put("/v1/procedures/cls_train/runs/1", {});
@@ -98,7 +87,7 @@ var resp = mldb.get('/v1/query', { q: 'select label, sum(regressor(  {{x,y} as f
 
 plugin.log(resp);
 
-assertEqual(resp.responseCode, 200);
+unittest.assertEqual(resp.responseCode, 200);
 
 if (Math.abs(result - 10) > 0.0001)
     throw "Regressor is not regressing";
