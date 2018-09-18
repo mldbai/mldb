@@ -140,8 +140,8 @@ int handleLink(hoedown_buffer *ob,
     return 1;
 }
 
-std::string renderMarkdown(const char * buf, size_t len,
-                           const MacroData & macroData)
+Utf8String renderMarkdown(const char * buf, size_t len,
+                          const MacroData & macroData)
 {
     auto renderer = hoedown_html_renderer_new(HOEDOWN_HTML_USE_XHTML,
                                               0 /* data.toc_level */,
@@ -172,9 +172,47 @@ std::string renderMarkdown(const char * buf, size_t len,
     return result;
 }
 
-std::string renderMarkdown(const std::string & str, const MacroData & macroData)
+Utf8String renderMarkdown(const Utf8String & str, const MacroData & macroData)
 {
-    return renderMarkdown(str.c_str(), str.length(), macroData);
+    return renderMarkdown(str.rawData(), str.rawLength(), macroData);
+}
+
+// Render a full HTML page from the given body content
+Utf8String renderHtmlPage(MldbEngine * engine, const Utf8String & htmlBody)
+{
+    Utf8String result;
+    result += "<!DOCTYPE html>\n";
+    result += "<html>\n";
+    result += "<head>\n";
+    result += "<meta charset='utf-8' />\n";
+    result += "<title>MLDB Documentation</title>\n";
+    result += "<script src='" + engine->prefixUrl("/resources/js/mathjax_TeX-AMS-MML_HTMLorMML.js").rawString() + "'></script>\n";
+    result += "<link rel='stylesheet' href='" + engine->prefixUrl("/resources/css/prism.css").rawString() + "'>\n";
+    result += "<link rel='stylesheet' href='" + engine->prefixUrl("/resources/css/doc.css").rawString() + "'>\n";
+    result += "<script src='" + engine->prefixUrl("/resources/js/jquery-1.11.2.min.js").rawString() + "'></script>\n";
+    result += "<script src='" + engine->prefixUrl("/resources/js/prism.js").rawString() + "'></script>\n";
+    result += "<script>\n";
+    result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";
+    result += "  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n";
+    result += "  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)\n";
+    result += "  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');\n";
+    result += "  if(window.location.origin == 'http://mldb.ai')\n";
+    result += "  { ga('create', 'UA-16909325-9', 'auto'); }\n";
+    result += "  else\n";
+    result += "  { ga('create', 'UA-16909325-10', {'cookieDomain': 'none'}); }\n";
+    result += "  ga('send', 'pageview');\n";
+    result += "</script>\n";
+    result += "</head>\n";
+    result += "<body style='margin-left: 50px; max-width: 1000px'>\n";
+    result += htmlBody;
+    result += "</body>\n";
+    result += "</html>\n";
+
+    std::string raw = result.stealRawString();
+    boost::algorithm::replace_all(raw, "{{HTTP_BASE_URL}}",
+                                  engine->prefixUrl());
+    result = std::move(raw);
+    return result;
 }
 
 RestRequestRouter::OnProcessRequest
@@ -262,36 +300,11 @@ getStaticRouteHandler(string dir, MldbEngine * engine, bool hideInternalEntities
                 MLDB::File_Read_Buffer buf(filenameToLoad);
 
                 // Render the document
-                std::string result;
-                result += "<!DOCTYPE html>\n";
-                result += "<html>\n";
-                result += "<head>\n";
-                result += "<meta charset='utf-8' />\n";
-                result += "<title>MLDB Documentation</title>\n";
-                result += "<script src='" + engine->prefixUrl("/resources/js/mathjax_TeX-AMS-MML_HTMLorMML.js").rawString() + "'></script>\n";
-                result += "<link rel='stylesheet' href='" + engine->prefixUrl("/resources/css/prism.css").rawString() + "'>\n";
-                result += "<link rel='stylesheet' href='" + engine->prefixUrl("/resources/css/doc.css").rawString() + "'>\n";
-                result += "<script src='" + engine->prefixUrl("/resources/js/jquery-1.11.2.min.js").rawString() + "'></script>\n";
-                result += "<script src='" + engine->prefixUrl("/resources/js/prism.js").rawString() + "'></script>\n";
-                result += "<script>\n";
-                result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";
-                result += "  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n";
-                result += "  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)\n";
-                result += "  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');\n";
-                result += "  if(window.location.origin == 'http://mldb.ai')\n";
-                result += "  { ga('create', 'UA-16909325-9', 'auto'); }\n";
-                result += "  else\n";
-                result += "  { ga('create', 'UA-16909325-10', {'cookieDomain': 'none'}); }\n";
-                result += "  ga('send', 'pageview');\n";
-                result += "</script>\n";
-                result += "</head>\n";
-                result += "<body style='margin-left: 50px; max-width: 1000px'>\n";
-                result += renderMarkdown(buf.start(), buf.size(), macroData);
-                result += "</body>\n";
-                result += "</html>\n";
-
-                boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", engine->prefixUrl());
-                connection.sendResponse(200, result, mimeType);
+                Utf8String result
+                    = renderHtmlPage(engine,
+                                     renderMarkdown(buf.start(), buf.size(),
+                                                    macroData));
+                connection.sendResponse(200, result.rawString(), mimeType);
                 return RestRequestRouter::MR_YES;
             }
 
