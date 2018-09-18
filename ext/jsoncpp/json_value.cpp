@@ -1307,6 +1307,14 @@ Value::getMemberNames() const
 #endif
    return members;
 }
+
+std::vector<Utf8String>
+Value::getMemberNamesUtf8() const
+{
+    auto members = getMemberNames();
+    return std::vector<Utf8String>(members.begin(), members.end());
+}
+
 //
 //# ifdef JSON_USE_CPPTL
 //EnumMemberNames
