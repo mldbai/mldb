@@ -41,24 +41,21 @@ struct Compressor {
     };
 
     /** Compress the given data block, and write the result into the
-        given buffer.  Returns the number of output bytes written to
-        consume the entire input buffer.
+        given buffer.
 
         This will call onData zero or more times.
     */
-    virtual size_t compress(const char * data, size_t len,
+    virtual void compress(const char * data, size_t len,
                             const OnData & onData) = 0;
     
     /** Flush the stream at the given flush level.  This will call onData
-        zero or more times.  Returns the number of output bytes written to
-        consume the entier input buffer.
+        zero or more times.
     */
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData) = 0;
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) = 0;
 
-    /** Finish the stream... no more data can be written to it afterwards,
-        and everything will be put into the compression
+    /** Finish the stream... no more data can be written to it afterwards.
     */
-    virtual size_t finish(const OnData & onData) = 0;
+    virtual void finish(const OnData & onData) = 0;
 
     /** Convert a filename to a compression scheme.  Returns the empty
         string if it isn't found.
@@ -137,20 +134,19 @@ struct Decompressor {
     static constexpr int64_t LENGTH_INSUFFICIENT_DATA = -2;
     
     /** Decompress the given data block, and write the result into the
-        given buffer.  Returns the number of output bytes written to
-        consume the entire input buffer.
+        given buffer.
 
         This will call onData zero or more times.
     */
-    virtual size_t decompress(const char * data, size_t len,
+    virtual void decompress(const char * data, size_t len,
                               const OnData & onData) = 0;
     
     /** Finish decompressing the stream... no more data can be read from
-        it afterwards, and everything will be put into decompression.
+        it afterwards.
 
         This may also do things like check the checksums, etc.
     */
-    virtual size_t finish(const OnData & onData) = 0;
+    virtual void finish(const OnData & onData) = 0;
 
     /** Create a compressor with the given scheme.  Returns nullptr if
         the given compression scheme isn't found.

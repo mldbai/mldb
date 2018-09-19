@@ -152,8 +152,6 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
     {
         auto sBefore = s;
 
-        size_t numWritten = 0;
-
         // First, return any buffered characters from outbuf
         auto numBuffered = std::min<std::streamsize>(n, outbuf.size() - outbufPos);
         std::copy(outbuf.data() + outbufPos,
@@ -161,7 +159,6 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
                   s);
         s += numBuffered;
         n -= numBuffered;
-        numWritten += numBuffered;
         outbufPos += numBuffered;
 
         // Clear outbuf buffer once it's all used up
@@ -182,7 +179,6 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
                 std::copy(data, data + numGenerated, s);
                 s += numGenerated;
                 n -= numGenerated;
-                numWritten += numGenerated;
 
                 // Everything else gets buffered for next time
                 outbuf.append(data + numGenerated, dataLength - numGenerated);
@@ -193,11 +189,11 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
         while (n > 0) {
             ssize_t numRead = boost::iostreams::read(src, inbuf.data(), inbuf.size());
             if (numRead <= 0) {
-                numWritten += decompressor->finish(onData);
+                decompressor->finish(onData);
                 break;
             }
             else {
-                numWritten += decompressor->decompress(inbuf.data(), numRead, onData);
+                decompressor->decompress(inbuf.data(), numRead, onData);
             }
         }
 

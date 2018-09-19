@@ -27,7 +27,7 @@ struct SnappyCompressor: public Compressor {
     {
     }
 
-    virtual size_t compress(const char * data, size_t len, const OnData & onData) override
+    virtual void compress(const char * data, size_t len, const OnData & onData) override
     {
         PossiblyDynamicBuffer<char, 131072> buf(snappy::MaxCompressedLength(len));
         size_t bytesDone = 0;
@@ -38,17 +38,16 @@ struct SnappyCompressor: public Compressor {
             written += onData(buf.data() + written,
                               buf.size() - written);
         }
-        return written;
     }
     
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData) override
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override
     {
-        return 0;  // flush is a no-op since no buffering is done
+        // flush is a no-op since no buffering is done
     }
 
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
-        return 0;  // finish is a no-op since no buffering is done
+        // finish is a no-op since no buffering is done
     }
 };
 
@@ -74,7 +73,7 @@ struct SnappyDecompressor: public Decompressor {
         return decompressedSize;
     }
     
-    virtual size_t
+    virtual void
     decompress(const char * data, size_t len, const OnData & onData) override
     {
         size_t decompressedSize;
@@ -91,12 +90,10 @@ struct SnappyDecompressor: public Decompressor {
             written += onData(decompressed.data() + written,
                               decompressedSize - written);
         }
-        return len;
     }
     
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
-        return 0;
     }
 };
 

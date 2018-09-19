@@ -84,7 +84,7 @@ struct ZlibStreamCommon: public z_stream {
         return result;
     }
 
-    size_t flush(FlushLevel flushLevel, const OnData & onData)
+    void flush(FlushLevel flushLevel, const OnData & onData)
     {
         int zlibFlushLevel;
         switch (flushLevel) {
@@ -96,12 +96,12 @@ struct ZlibStreamCommon: public z_stream {
             throw Exception("bad flush level");
         }
 
-        return pump(0, 0, onData, zlibFlushLevel);
+        pump(0, 0, onData, zlibFlushLevel);
     }
 
-    size_t finish(const OnData & onData)
+    void finish(const OnData & onData)
     {
-        return pump(0, 0, onData, Z_FINISH);
+        pump(0, 0, onData, Z_FINISH);
     }
 };
 
@@ -130,20 +130,20 @@ struct GzipCompressor : public Compressor, public ZlibStreamCommon {
         deflateEnd(this);
     }
 
-    virtual size_t compress(const char * data, size_t len,
+    virtual void compress(const char * data, size_t len,
                             const OnData & onData)
     {
-        return pump(data, len, onData, Z_NO_FLUSH);
+        pump(data, len, onData, Z_NO_FLUSH);
     }
     
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData)
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override
     {
-        return ZlibStreamCommon::flush(flushLevel, onData);
+        ZlibStreamCommon::flush(flushLevel, onData);
     }
 
-    virtual size_t finish(const OnData & onData)
+    virtual void finish(const OnData & onData) override
     {
-        return ZlibStreamCommon::finish(onData);
+        ZlibStreamCommon::finish(onData);
     }
 };
 
@@ -329,26 +329,26 @@ struct GzipDecompressor: public Decompressor, public ZlibStreamCommon {
         return LENGTH_UNKNOWN;
     }
     
-    virtual size_t decompress(const char * data, size_t len,
-                              const OnData & onData) override
+    virtual void decompress(const char * data, size_t len,
+                            const OnData & onData) override
     {
         size_t headerDone = 0;
         if (!header.done()) {
             headerDone = header.process(data, len);
             //cerr << "header used " << headerDone << " characters" << endl;
             if (headerDone == len)
-                return headerDone;
+                return;
             ExcAssert(header.done());
         }
 
-        return headerDone + pump(data + headerDone,
-                                 len - headerDone, onData,
-                                 Z_NO_FLUSH);
+        pump(data + headerDone,
+             len - headerDone, onData,
+             Z_NO_FLUSH);
     }
     
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
-        return pump(0, 0, onData, Z_FINISH);
+        pump(0, 0, onData, Z_FINISH);
     }
 };
 

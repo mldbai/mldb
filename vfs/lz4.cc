@@ -206,8 +206,8 @@ struct Lz4Compressor : public Compressor {
             XXH32_freeState(streamChecksumState);
     }
 
-    virtual size_t compress(const char * s, size_t n,
-                            const OnData & onData)
+    virtual void compress(const char * s, size_t n,
+                          const OnData & onData)
     {
         if (writeHeader) {
             head.write(onData);
@@ -225,14 +225,12 @@ struct Lz4Compressor : public Compressor {
 
             if (pos == buffer.size()) flush(FLUSH_SYNC, onData);
         }
-        
-        return n;
     }
     
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData)
+    virtual void flush(FlushLevel flushLevel, const OnData & onData)
     {
         if (pos == 0)
-            return 0;
+            return;
 
         if (head.streamChecksum())
             XXH32_update(streamChecksumState, buffer.data(), pos);
@@ -264,24 +262,20 @@ struct Lz4Compressor : public Compressor {
         }
         
         pos = 0;
-
-        return compressedSize;
     }
 
-    virtual size_t finish(const OnData & onData)
+    virtual void finish(const OnData & onData)
     {
-        size_t result = 0;
-        if (writeHeader) result += head.write(onData);
-        if (pos) result += flush(FLUSH_RESTART, onData);
+        if (writeHeader) head.write(onData);
+        if (pos) flush(FLUSH_RESTART, onData);
 
         const uint32_le eos = 0;
-        result += write(onData, &eos, sizeof(eos));
-
+        write(onData, &eos, sizeof(eos));
+        
         if (head.streamChecksum()) {
             uint32_le checksum = XXH32_digest(streamChecksumState);
-            result += write(onData, &checksum, sizeof(checksum));
+            write(onData, &checksum, sizeof(checksum));
         }
-        return result;
     }
 
     // write all data
@@ -334,7 +328,7 @@ struct Lz4Decompressor: public Decompressor {
         return LENGTH_UNKNOWN;
     }
     
-    virtual size_t decompress(const char * data, size_t len,
+    virtual void decompress(const char * data, size_t len,
                               const OnData & onData) override
     {
         if (!cur) {
@@ -444,26 +438,22 @@ struct Lz4Decompressor: public Decompressor {
                 }
             }
         }
-
-        return done;
     }
     
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
         if (state != FINISHED)
             throw Exception("lz4 stream is truncated");
-        return 0;
     }
 
     // write all data
-    size_t write(const OnData & onData, const void * mem, size_t len)
+    void write(const OnData & onData, const void * mem, size_t len)
     {
         size_t done = 0;
         while (done < len) {
             done += onData(((const char *)mem) + done,
                            len - done);
         }
-        return done;
     }
 
     enum State {

@@ -172,12 +172,12 @@ struct NullCompressor : public Compressor {
 
     virtual ~NullCompressor();
 
-    virtual size_t compress(const char * data, size_t len,
-                            const OnData & onData);
+    virtual void compress(const char * data, size_t len,
+                          const OnData & onData) override;
     
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData);
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override;
 
-    virtual size_t finish(const OnData & onData);
+    virtual void finish(const OnData & onData) override;
 };
 
 NullCompressor::
@@ -190,7 +190,7 @@ NullCompressor::
 {
 }
 
-size_t
+void
 NullCompressor::
 compress(const char * data, size_t len, const OnData & onData)
 {
@@ -200,22 +200,18 @@ compress(const char * data, size_t len, const OnData & onData)
         done += onData(data + done, len - done);
     
     ExcAssertEqual(done, len);
-
-    return done;
 }
     
-size_t
+void
 NullCompressor::
 flush(FlushLevel flushLevel, const OnData & onData)
 {
-    return 0;
 }
 
-size_t
+void
 NullCompressor::
 finish(const OnData & onData)
 {
-    return 0;
 }
 
 static Compressor::Register<NullCompressor>
@@ -234,11 +230,11 @@ struct NullDecompressor : public Decompressor {
 
     virtual int64_t decompressedSize(const char * block, size_t blockLen,
                                      int64_t totalLen) const override;
-
-    virtual size_t decompress(const char * data, size_t len,
+    
+    virtual void decompress(const char * data, size_t len,
                               const OnData & onData) override;
 
-    virtual size_t finish(const OnData & onData) override;
+    virtual void finish(const OnData & onData) override;
 };
 
 NullDecompressor::
@@ -254,7 +250,7 @@ decompressedSize(const char * block, size_t blockLen,
     return totalLen;
 }
 
-size_t
+void
 NullDecompressor::
 decompress(const char * data, size_t len, const OnData & onData)
 {
@@ -264,15 +260,12 @@ decompress(const char * data, size_t len, const OnData & onData)
         done += onData(data + done, len - done);
     
     ExcAssertEqual(done, len);
-
-    return done;
 }
     
-size_t
+void
 NullDecompressor::
 finish(const OnData & onData)
 {
-    return 0;
 }
 
 static Decompressor::Register<NullDecompressor>

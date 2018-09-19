@@ -147,20 +147,20 @@ struct LzmaCompressor : public Compressor, public LzmaStreamCommon {
                             + lzma_strerror(res));
     }
 
-    virtual size_t compress(const char * data, size_t len,
-                            const OnData & onData)
+    virtual void compress(const char * data, size_t len,
+                          const OnData & onData) override
     {
-        return pump(data, len, onData, LZMA_RUN);
+        pump(data, len, onData, LZMA_RUN);
     }
     
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData)
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override
     {
-        return LzmaStreamCommon::flush(flushLevel, onData);
+        LzmaStreamCommon::flush(flushLevel, onData);
     }
 
-    virtual size_t finish(const OnData & onData)
+    virtual void finish(const OnData & onData) override
     {
-        return LzmaStreamCommon::finish(onData);
+        LzmaStreamCommon::finish(onData);
     }
 };
 
@@ -193,15 +193,14 @@ struct LzmaDecompressor: public Decompressor, public LzmaStreamCommon {
         return LENGTH_UNKNOWN;
     }
     
-    virtual size_t decompress(const char * data, size_t len,
-                              const OnData & onData) override
+    virtual void decompress(const char * data, size_t len,
+                            const OnData & onData) override
     {
-        return pump(data, len, onData, LZMA_RUN);
+        pump(data, len, onData, LZMA_RUN);
     }
     
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
-        return 0;
     }
 };
 

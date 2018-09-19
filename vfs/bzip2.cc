@@ -155,20 +155,20 @@ struct BzipCompressor : public Compressor, public BzlibStreamCommon {
         BZ2_bzCompressEnd(this);
     }
 
-    virtual size_t compress(const char * data, size_t len,
-                            const OnData & onData)
+    virtual void compress(const char * data, size_t len,
+                          const OnData & onData)
     {
-        return pump(data, len, onData, BZ_RUN);
+        pump(data, len, onData, BZ_RUN);
     }
     
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData)
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override
     {
-        return BzlibStreamCommon::flush(flushLevel, onData);
+        BzlibStreamCommon::flush(flushLevel, onData);
     }
 
-    virtual size_t finish(const OnData & onData)
+    virtual void finish(const OnData & onData) override
     {
-        return BzlibStreamCommon::finish(onData);
+        BzlibStreamCommon::finish(onData);
     }
 };
 
@@ -214,15 +214,14 @@ struct BzipDecompressor: public Decompressor, public BzlibStreamCommon {
         return LENGTH_UNKNOWN;
     }
     
-    virtual size_t decompress(const char * data, size_t len,
-                              const OnData & onData) override
+    virtual void decompress(const char * data, size_t len,
+                            const OnData & onData) override
     {
-        return pump(data, len, onData, BZ_RUN);
+        pump(data, len, onData, BZ_RUN);
     }
     
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
-        return 0;
     }
 };
 

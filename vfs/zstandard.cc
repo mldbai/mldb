@@ -48,7 +48,7 @@ struct ZStandardCompressor: public Compressor {
         ZSTD_initCStream(stream, compressionLevel);
     }
 
-    virtual size_t compress(const char * data, size_t len, const OnData & onData) override
+    virtual void compress(const char * data, size_t len, const OnData & onData) override
     {
         ZSTD_inBuffer inBuf{data, len, 0};
 
@@ -61,32 +61,26 @@ struct ZStandardCompressor: public Compressor {
             }
             writeAll(onData);
         }
-
-        return len;
     }
     
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData) override
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override
     {
-        size_t result = 0;
         size_t bytesLeft = -1;
         while (bytesLeft != 0) {
             outBuf.pos = 0;
             bytesLeft = ZSTD_flushStream(stream, &outBuf);
-            result += writeAll(onData);
+            writeAll(onData);
         }
-        return result;
     }
 
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
-        size_t result = 0;
         size_t bytesLeft = -1;
         while (bytesLeft != 0) {
             outBuf.pos = 0;
             bytesLeft = ZSTD_endStream(stream, &outBuf);
-            result += writeAll(onData);
+            writeAll(onData);
         }
-        return result;
     }
 
     size_t writeAll(const OnData & onData)
@@ -144,8 +138,8 @@ struct ZStandardDecompressor: public Decompressor {
         
     }
     
-    virtual size_t decompress(const char * data, size_t len,
-                              const OnData & onData) override
+    virtual void decompress(const char * data, size_t len,
+                            const OnData & onData) override
     {
         ZSTD_inBuffer inBuf{data, len, 0};
 
@@ -161,13 +155,10 @@ struct ZStandardDecompressor: public Decompressor {
                 throw Exception("Extra bytes at end of decompressed zstandard stream");
             }
         }
-        
-        return len;
     }
     
-    virtual size_t finish(const OnData & onData) override
+    virtual void finish(const OnData & onData) override
     {
-        return 0;
     }
 
     size_t writeAll(const OnData & onData)
