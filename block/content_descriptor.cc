@@ -264,26 +264,61 @@ filter_istream getContentStream(const ContentDescriptor & descriptor,
     cerr << "url = " << descriptor.getUrlStringUtf8() << " compression = "
          << compression << endl;
     
-    if (isMapped && compression == "") {
+    while (isMapped) {  // actually an if, but allows break
         // Just get one single big block
         auto contentHandler = getContent(descriptor);
 
         struct Vals {
             FsObjectInfo info;
             FrozenMemoryRegion mem;
-
-            ~Vals()
-            {
-                cerr << endl << endl << endl;
-                cerr << "NO MORE MAPPING VALS" << endl;
-                cerr << endl << endl << endl;
-            }
         };
 
         auto vals = std::make_shared<Vals>();
         vals->info = contentHandler->getInfo();
         vals->mem = contentHandler->getRange();
 
+        std::shared_ptr<Decompressor> decompressor;
+        if (compression != "") {
+            // Get the decompressor and decompress the block with it
+            decompressor.reset(Decompressor::create(compression));
+
+            int64_t outputSize = decompressor
+                ->decompressedSize(vals->mem.data(),
+                                   vals->mem.length(),
+                                   vals->mem.length());
+
+            if (outputSize < 0) {
+                break;
+            }
+
+            static MemorySerializer serializer;
+            
+            // Create a writeable memory block to hold the decompressed
+            // version
+            auto output
+                = serializer.allocateWritable(outputSize, 4096 /* alignment */);
+
+            size_t pos = 0;
+            auto onData = [&] (const char * data, size_t len)
+                {
+                    ssize_t remaining = output.length() - pos;
+                    if (remaining < len) {
+                        throw AnnotatedException
+                            (400, "Compressor length was wrong",
+                             "url", descriptor.getUrlString());
+                    }
+                    std::memcpy(output.data() + pos, data, len);
+                    pos += len;
+                    return len;
+                };
+            
+            decompressor->decompress(vals->mem.data(), vals->mem.length(),
+                                     onData);
+
+            vals->mem = output.freeze();
+            vals->info.size = outputSize;
+        }
+        
         UriHandlerOptions uriOptions;
         uriOptions.isForwardSeekable = true;
         uriOptions.isRandomSeekable = true;
@@ -314,7 +349,7 @@ struct FilterStreamContentHandler
     : public ContentHandler,
       public std::enable_shared_from_this<FilterStreamContentHandler> {
     FilterStreamContentHandler(const ContentDescriptor & descriptor)
-        : stream(descriptor.getUrlStringUtf8(), { { "mapped", "true" } })
+        : stream(descriptor.getUrlStringUtf8(), { { "mapped", "true" }, { "compression", "none" } })
     {
     }
 
@@ -334,7 +369,7 @@ struct FilterStreamContentHandler
         size_t len;
 
         std::tie(data, len) = stream.mapped();
-        if (data) {
+        if (data && length) {
             if (length == -1)
                 length = len - offset;
             return FrozenMemoryRegion(shared_from_this(),
