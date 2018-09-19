@@ -457,10 +457,10 @@ getStream(const std::map<Utf8String, Any> & options) const
     std::string compression
         = Compressor::filenameToCompression(descriptor.getUrlStringUtf8());
     
-    //cerr << "url = " << descriptor.getUrlStringUtf8() << " compression = "
-    //     << compression << " mapped = " << isMapped << endl;
-
-    if (isMapped && compression == "") {
+    cerr << "url = " << descriptor.getUrlStringUtf8() << " compression = "
+         << compression << endl;
+    
+    while (isMapped) {  // actually an if, but allows break
         // Just get one single big block
         auto contentHandler = getContent(descriptor);
 
@@ -502,7 +502,7 @@ getStream(const std::map<Utf8String, Any> & options) const
                                    vals->mem.length());
 
             if (outputSize < 0) {
-                throw Exception("decompressed size unknown");
+                break;
             }
 
             static MemorySerializer serializer;
@@ -555,17 +555,10 @@ getStream(const std::map<Utf8String, Any> & options) const
         filter_istream stream(handler, descriptor.getUrlStringUtf8(), options2);
         return stream;
     }
-    else {
-        // Not mapped.  We go block by block.
-    
-        std::map<std::string, std::string> options2;
-        for (auto & opt: options) {
-            options2[opt.first.rawString()] = opt.second.asJson().toString();
-        }
 
-        filter_istream result(descriptor.getUrlStringUtf8(), options2);
-        return result;
-    }
+    // Not mapped.  We go block by block.
+    filter_istream result(descriptor.getUrlStringUtf8(), options2);
+    return result;
 }
 
 std::shared_ptr<ContentHandler>
@@ -1129,7 +1122,7 @@ struct FilterStreamContentHandler
     : public ContentHandler,
       public std::enable_shared_from_this<FilterStreamContentHandler> {
     FilterStreamContentHandler(const ContentDescriptor & descriptor)
-        : stream(descriptor.getUrlStringUtf8(), { { "mapped", "true" } })
+        : stream(descriptor.getUrlStringUtf8(), { { "mapped", "true" }, { "compression", "none" } })
     {
     }
 
@@ -1149,7 +1142,7 @@ struct FilterStreamContentHandler
         size_t len;
 
         std::tie(data, len) = stream.mapped();
-        if (data) {
+        if (data && length) {
             if (length == -1)
                 length = len - offset;
             return FrozenMemoryRegion(shared_from_this(),
