@@ -18,7 +18,7 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* SNAPPY COMPRESSOR                                                      */
+/* SNAPPY COMPRESSOR                                                         */
 /*****************************************************************************/
 
 struct SnappyCompressor: public Compressor {
@@ -57,11 +57,23 @@ registerSnappyCompressor("snappy", {"snappy"});
 
 
 /*****************************************************************************/
-/* SNAPPY DECOMPRESSOR                                                    */
+/* SNAPPY DECOMPRESSOR                                                       */
 /*****************************************************************************/
 
 struct SnappyDecompressor: public Decompressor {
 
+    virtual int64_t decompressedSize(const char * block, size_t blockLen,
+                                     int64_t totalLen) const override
+    {
+        size_t decompressedSize;
+
+        if (!snappy::GetUncompressedLength(block, blockLen, &decompressedSize)) {
+            return LENGTH_INSUFFICIENT_DATA;
+        }
+        
+        return decompressedSize;
+    }
+    
     virtual size_t
     decompress(const char * data, size_t len, const OnData & onData) override
     {

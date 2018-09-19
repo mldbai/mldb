@@ -50,7 +50,8 @@ struct Compressor {
                             const OnData & onData) = 0;
     
     /** Flush the stream at the given flush level.  This will call onData
-        zero or more times.
+        zero or more times.  Returns the number of output bytes written to
+        consume the entier input buffer.
     */
     virtual size_t flush(FlushLevel flushLevel, const OnData & onData) = 0;
 
@@ -114,9 +115,27 @@ struct Compressor {
 struct Decompressor {
 
     virtual ~Decompressor();
-
+    
     typedef std::function<size_t (const char * data, size_t len)> OnData;
 
+    /** Return the decompressed size, given a block containing the start
+        of the data, a length of the block, and the total length of all
+        of the comrpessed data (the block doesn't need to contain
+        all of the data, in case it's not available).
+
+        Will return
+
+        - a length >= 0 if the length is known;
+        - LENGTH_UNKNOWN if the length cannot be known by this decompressor
+        - LENGTH_INSUFFICIENT_DATA if there is not enough data to know
+          the length in the block, but with more data it would be known.
+    */
+    virtual int64_t decompressedSize(const char * block, size_t blockLen,
+                                     int64_t totalLen) const = 0;
+
+    static constexpr int64_t LENGTH_UNKNOWN = -1;
+    static constexpr int64_t LENGTH_INSUFFICIENT_DATA = -2;
+    
     /** Decompress the given data block, and write the result into the
         given buffer.  Returns the number of output bytes written to
         consume the entire input buffer.

@@ -3,11 +3,8 @@
     Copyright (c) 2014 mldb.ai inc.  All rights reserved.
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-    boost iostreams filter implementation for lz4.
-
-    Note that this library assumes that we're running on a little endian
-    processor (x86).
-
+    Filter implementation for lz4.  Using concepts from Boost iostreams but
+    not actually using the library.
 */
 
 #pragma once
@@ -18,7 +15,6 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/endian.h"
 
-#include <boost/iostreams/concepts.hpp>
 #include <ios>
 #include <vector>
 #include <cstring>
@@ -58,11 +54,21 @@ void write(Sink& sink, T* typedData, size_t size)
     char* data = (char*) typedData;
 
     while (size > 0) {
-        size_t written = boost::iostreams::write(sink, data, size);
+        size_t written = sink.write(sink, data, size);
         if (!written) throw lz4_error("unable to write bytes");
 
         data += written;
         size -= written;
+    }
+}
+
+template<typename T>
+void write(const std::function<size_t (const char *, size_t)> & onData,
+           T* typedData, size_t size)
+{
+    size_t done = 0;
+    while (done < size) {
+        done += onData(((const char *)typedData) + done, size - done);
     }
 }
 
@@ -72,14 +78,13 @@ void read(Source& src, T* typedData, size_t size)
     char* data = (char*) typedData;
 
     while (size > 0) {
-        ssize_t read = boost::iostreams::read(src, data, size);
+        ssize_t read = src.read(src, data, size);
         if (read < 0) throw lz4_error("premature end of stream");
 
         data += read;
         size -= read;
     }
 }
-
 
 /******************************************************************************/
 /* HEADER                                                                     */
@@ -122,27 +127,33 @@ struct MLDB_PACKED Header
         Header head;
         lz4::read(src, &head, sizeof(head));
 
-        if (head.magic != MagicConst)
-            throw lz4_error("invalid magic number");
-
-        if (head.version() != 1)
-            throw lz4_error("unsupported lz4 version");
-
-        if (!head.blockIndependence())
-            throw lz4_error("unsupported option: block dependence");
-
-        checkBlockId(head.blockId());
-
-        if (head.checkBits != head.checksumOptions())
-            throw lz4_error("corrupted options");
-
+        head.validate();
+        
         return head;
     }
 
+    void validate()
+    {
+        if (magic != MagicConst)
+            throw lz4_error("invalid magic number");
+
+        if (version() != 1)
+            throw lz4_error("unsupported lz4 version");
+
+        if (!blockIndependence())
+            throw lz4_error("unsupported option: block dependence");
+
+        checkBlockId(blockId());
+
+        if (checkBits != checksumOptions())
+            throw lz4_error("corrupted options");
+    }
+    
     template<typename Sink>
-    void write(Sink& sink)
+    size_t write(Sink& sink)
     {
         lz4::write(sink, this, sizeof(*this));
+        return sizeof(*this);
     }
 
 private:
@@ -167,8 +178,7 @@ static_assert(sizeof(Header) == 7, "sizeof(lz4::Header) == 7");
 /* LZ4 COMPRESSOR                                                             */
 /******************************************************************************/
 
-struct lz4_compressor : public boost::iostreams::multichar_output_filter
-{
+struct lz4_compressor {
     lz4_compressor(int level = 0, uint8_t blockSizeId = 7) :
         head(blockSizeId,
              true /* independent blocks */,
@@ -283,8 +293,7 @@ private:
 /* LZ4 DECOMPRESSOR                                                           */
 /******************************************************************************/
 
-struct lz4_decompressor : public boost::iostreams::multichar_input_filter
-{
+struct lz4_decompressor {
     lz4_decompressor() : done(false), toRead(0), pos(0) {}
 
     ~lz4_decompressor()

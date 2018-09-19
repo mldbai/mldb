@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* filter_streams.cc
    Jeremy Barnes, 17 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
    
    This file is part of "Jeremy's Machine Learning Library", copyright (c)
    1999-2015 Jeremy Barnes.
@@ -20,8 +19,6 @@
 #include <fstream>
 #include <mutex>
 #include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/filter/bzip2.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
@@ -32,9 +29,8 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
-#include "ext/lzma/lzma.h"
-#include "lz4_filter.h"
 #include "fs_utils.h"
+#include "mldb/base/exc_assert.h"
 
 
 using namespace std;
@@ -333,36 +329,7 @@ void addCompression(streambuf & buf,
 {
     using namespace boost::iostreams;
 
-    if (compression == "gz" || compression == "gzip"
-        || (compression == ""
-            && (ends_with(resource, ".gz") || ends_with(resource, ".gz~")))) {
-        gzip_compressor compressor;
-        if (compressionLevel != -1) {
-            compressor = gzip_compressor(compressionLevel);
-        }
-        compressor.write(buf, "", 0);
-        stream.push(compressor);
-    }
-    else if (compression == "bz2" || compression == "bzip2"
-        || (compression == ""
-            && (ends_with(resource, ".bz2") || ends_with(resource, ".bz2~")))) {
-        if (compressionLevel == -1)
-            stream.push(bzip2_compressor());
-        else stream.push(bzip2_compressor(compressionLevel));
-    }
-    else if (compression == "lzma" || compression == "xz"
-        || (compression == ""
-            && (ends_with(resource, ".xz") || ends_with(resource, ".xz~")))) {
-        if (compressionLevel == -1)
-            stream.push(lzma_compressor());
-        else stream.push(lzma_compressor(compressionLevel));
-    }
-    else if (compression == "lz4"
-        || (compression == ""
-            && (ends_with(resource, ".lz4") || ends_with(resource, ".lz4~")))) {
-        stream.push(lz4_compressor(compressionLevel));
-    }
-    else if (compression == "none") {
+    if (compression == "none") {
         // nothing to do
     }
     else if (compression != "") {
@@ -867,33 +834,13 @@ openFromStreambuf(std::streambuf * buf,
     unique_ptr<filtering_istream> new_stream
         (new filtering_istream());
 
-    bool gzip = (compression == "gz" || compression == "gzip"
-                 || (compression == ""
-                     && (ends_with(resource, ".gz")
-                         || ends_with(resource, ".gz~"))));
-    bool bzip2 = (compression == "bz2" || compression == "bzip2"
-                 || (compression == ""
-                     && (ends_with(resource, ".bz2")
-                         || ends_with(resource, ".bz2~"))));
-    bool lzma = (compression == "xz" || compression == "lzma"
-                 || (compression == ""
-                     && (ends_with(resource, ".xz")
-                         || ends_with(resource, ".xz~"))));
-
-    bool lz4 = (compression == "lz4"
-                 || (compression == ""
-                     && (ends_with(resource, ".lz4")
-                         || ends_with(resource, ".lz4~"))));
-
-    if (gzip) new_stream->push(gzip_decompressor());
-    else if (bzip2) new_stream->push(bzip2_decompressor());
-    else if (lzma) new_stream->push(lzma_decompressor());
-    else if (lz4) new_stream->push(lz4_decompressor());
-    else if (compression == "") {
+    if (compression == "") {
         std::string compression = Compressor::filenameToCompression(resource);
         if (compression != "") {
             new_stream->push(BoostDecompressor(Decompressor::create(compression)));
         }
+    } else if (compression == "none") {
+        // no-op
     } else {
         new_stream->push(BoostDecompressor(Decompressor::create(compression)));
     }

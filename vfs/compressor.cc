@@ -8,7 +8,6 @@
 
 #include "compressor.h"
 #include "mldb/base/exc_assert.h"
-#include <zlib.h>
 #include <iostream>
 #include <mutex>
 #include <map>
@@ -233,6 +232,9 @@ struct NullDecompressor : public Decompressor {
 
     virtual ~NullDecompressor();
 
+    virtual int64_t decompressedSize(const char * block, size_t blockLen,
+                                     int64_t totalLen) const override;
+
     virtual size_t decompress(const char * data, size_t len,
                               const OnData & onData) override;
 
@@ -242,6 +244,14 @@ struct NullDecompressor : public Decompressor {
 NullDecompressor::
 ~NullDecompressor()
 {
+}
+
+int64_t
+NullDecompressor::
+decompressedSize(const char * block, size_t blockLen,
+                 int64_t totalLen) const
+{
+    return totalLen;
 }
 
 size_t
@@ -271,189 +281,4 @@ static Decompressor::Register<NullDecompressor>
 registerNoneDecompressor("none", {});
 
 
-/*****************************************************************************/
-/* GZIP COMPRESSOR                                                           */
-/*****************************************************************************/
-
-struct GzipCompressor : public Compressor {
-
-    GzipCompressor(int level);
-
-    virtual ~GzipCompressor();
-
-    void open(int level);
-
-    virtual size_t compress(const char * data, size_t len,
-                            const OnData & onData);
-    
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData);
-
-    virtual size_t finish(const OnData & onData);
-
-private:
-    struct Itl;
-    std::unique_ptr<Itl> itl;
-};
-
-struct GzipCompressor::Itl : public z_stream {
-
-    Itl(int compressionLevel)
-    {
-        zalloc = 0;
-        zfree = 0;
-        opaque = 0;
-        int res = deflateInit2(this, compressionLevel, Z_DEFLATED, 15 + 16, 9,
-                               Z_DEFAULT_STRATEGY);
-        if (res != Z_OK)
-            throw Exception("deflateInit2 failed");
-    }
-
-    ~Itl()
-    {
-        deflateEnd(this);
-    }
-
-    size_t pump(const char * data, size_t len, const OnData & onData,
-                int flushLevel)
-    {
-        size_t bufSize = 131072;
-        char output[bufSize];
-        next_in = (Bytef *)data;
-        avail_in = len;
-        size_t result = 0;
-
-        do {
-            next_out = (Bytef *)output;
-            avail_out = bufSize;
-
-            int res = deflate(this, flushLevel);
-
-            
-            //cerr << "pumping " << len << " bytes through with flushLevel "
-            //     << flushLevel << " returned " << res << endl;
-
-            size_t bytesWritten = (const char *)next_out - output;
-
-            switch (res) {
-            case Z_OK:
-                if (bytesWritten)
-                    onData(output, bytesWritten);
-                result += bytesWritten;
-                break;
-
-            case Z_STREAM_ERROR:
-                throw Exception("Stream error on zlib");
-
-            case Z_STREAM_END:
-                if (bytesWritten)
-                    onData(output, bytesWritten);
-                result += bytesWritten;
-                return result;
-
-            default:
-                throw Exception("unknown output from deflate");
-            };
-        } while (avail_in != 0);
-
-        if (flushLevel == Z_FINISH)
-            throw Exception("finished without getting to Z_STREAM_END");
-
-        return result;
-    }
-
-
-    size_t compress(const char * data, size_t len, const OnData & onData)
-    {
-        return pump(data, len, onData, Z_NO_FLUSH);
-    }
-
-    size_t flush(FlushLevel flushLevel, const OnData & onData)
-    {
-        int zlibFlushLevel;
-        switch (flushLevel) {
-        case FLUSH_NONE:       zlibFlushLevel = Z_NO_FLUSH;       break;
-        case FLUSH_AVAILABLE:  zlibFlushLevel = Z_PARTIAL_FLUSH;  break;
-        case FLUSH_SYNC:       zlibFlushLevel = Z_SYNC_FLUSH;     break;
-        case FLUSH_RESTART:    zlibFlushLevel = Z_FULL_FLUSH;     break;
-        default:
-            throw Exception("bad flush level");
-        }
-
-        return pump(0, 0, onData, zlibFlushLevel);
-    }
-
-    size_t finish(const OnData & onData)
-    {
-        return pump(0, 0, onData, Z_FINISH);
-    }
-};
-
-GzipCompressor::
-GzipCompressor(int compressionLevel)
-{
-    itl.reset(new Itl(compressionLevel));
-}
-
-GzipCompressor::
-~GzipCompressor()
-{
-}
-
-void
-GzipCompressor::
-open(int compressionLevel)
-{
-    itl.reset(new Itl(compressionLevel));
-}
-
-size_t
-GzipCompressor::
-compress(const char * data, size_t len, const OnData & onData)
-{
-    return itl->compress(data, len, onData);
-}
-    
-size_t
-GzipCompressor::
-flush(FlushLevel flushLevel, const OnData & onData)
-{
-    return itl->flush(flushLevel, onData);
-}
-
-size_t
-GzipCompressor::
-finish(const OnData & onData)
-{
-    return itl->finish(onData);
-}
-
-static Compressor::Register<GzipCompressor>
-registerGzipCompressor("gzip", {"gz"});
-
-#if 0
-/*****************************************************************************/
-/* LZMA COMPRESSOR                                                           */
-/*****************************************************************************/
-
-struct LzmaCompressor : public Compressor {
-
-    LzmaCompressor();
-
-    LzmaCompressor(int level);
-
-    ~LzmaCompressor();
-
-    virtual size_t compress(const char * data, size_t len,
-                            const OnData & onData);
-    
-    virtual size_t flush(FlushLevel flushLevel, const OnData & onData);
-
-    virtual size_t finish(const OnData & onData);
-
-private:
-    struct Itl;
-    std::unique_ptr<Itl> itl;
-};
-#endif
-
-} // namespace Mldb
+} // namespace MLDB

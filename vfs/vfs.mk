@@ -5,10 +5,15 @@ LIBVFS_SOURCES := \
         filter_streams.cc \
 	http_streambuf.cc \
 	compressor.cc \
-	zstandard.cc \
-	snappy.cc \
 	exception_ptr.cc \
 	libdb_initialization.cc \
+	\
+	gzip.cc \
+	bzip2.cc \
+	lzma.cc \
+	zstandard.cc \
+	snappy.cc \
+	lz4.cc \
 
 LIBVFS_LINK := \
 	arch \
