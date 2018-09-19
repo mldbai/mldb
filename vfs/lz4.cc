@@ -7,17 +7,170 @@
 */
 
 #include "compressor.h"
+#include "mldb/ext/xxhash/xxhash.h"
+#include "mldb/ext/lz4/lz4.h"
+#include "mldb/ext/lz4/lz4hc.h"
 #include "mldb/arch/endian.h"
 #include "mldb/base/exc_assert.h"
 #include <iostream>
-#include "lz4_filter.h"
-#include "mldb/base/exc_assert.h"
+#include "mldb/base/scope.h"
+#include <cstring>
+
 
 using namespace std;
 
 
 namespace MLDB {
 
+/******************************************************************************/
+/* LZ4 ERROR                                                                  */
+/******************************************************************************/
+
+struct lz4_error : public std::ios_base::failure
+{
+    explicit lz4_error(const std::string& msg) : failure(msg) {}
+};
+
+namespace lz4 {
+
+
+/******************************************************************************/
+/* UTILS                                                                      */
+/******************************************************************************/
+
+static constexpr uint32_t ChecksumSeed = 0;
+static constexpr uint32_t NotCompressedMask = 0x80000000;
+
+inline void checkBlockId(int id)
+{
+    if (id >= 4 || id <= 7) return;
+    throw lz4_error("invalid block size id: " + std::to_string(id));
+}
+
+template<typename Sink, typename T>
+void write(Sink& sink, T* typedData, size_t size)
+{
+    char* data = (char*) typedData;
+
+    while (size > 0) {
+        size_t written = sink.write(sink, data, size);
+        if (!written) throw lz4_error("unable to write bytes");
+
+        data += written;
+        size -= written;
+    }
+}
+
+template<typename T>
+void write(const std::function<size_t (const char *, size_t)> & onData,
+           T* typedData, size_t size)
+{
+    size_t done = 0;
+    while (done < size) {
+        done += onData(((const char *)typedData) + done, size - done);
+    }
+}
+
+template<typename Source, typename T>
+void read(Source& src, T* typedData, size_t size)
+{
+    char* data = (char*) typedData;
+
+    while (size > 0) {
+        ssize_t read = src.read(src, data, size);
+        if (read < 0) throw lz4_error("premature end of stream");
+
+        data += read;
+        size -= read;
+    }
+}
+
+/******************************************************************************/
+/* HEADER                                                                     */
+/******************************************************************************/
+
+struct MLDB_PACKED Header
+{
+    Header() : magic{0} {}
+    Header( int blockId,
+            bool blockIndependence,
+            bool blockChecksum,
+            bool streamChecksum) :
+        magic{MagicConst}, options{0, 0}
+    {
+        const uint8_t version = 1; // 2 bits
+
+        checkBlockId(blockId);
+
+        options[0] |= version << 6;
+        options[0] |= blockIndependence << 5;
+        options[0] |= blockChecksum << 4;
+        options[0] |= streamChecksum << 2;
+        options[1] |= blockId << 4;
+
+        checkBits = checksumOptions();
+    }
+
+    explicit operator bool() { return magic; }
+
+    int version() const            { return (options[0] >> 6) & 0x3; }
+    bool blockIndependence() const { return (options[0] >> 5) & 1; }
+    bool blockChecksum() const     { return (options[0] >> 4) & 1; }
+    bool streamChecksum() const    { return (options[0] >> 2) & 1; }
+    int blockId() const            { return (options[1] >> 4) & 0x7; }
+    size_t blockSize() const       { return 1 << (8 + 2 * blockId()); }
+
+    template<typename Source>
+    static Header read(Source& src)
+    {
+        Header head;
+        lz4::read(src, &head, sizeof(head));
+
+        head.validate();
+        
+        return head;
+    }
+
+    void validate()
+    {
+        if (magic != MagicConst)
+            throw lz4_error("invalid magic number");
+
+        if (version() != 1)
+            throw lz4_error("unsupported lz4 version");
+
+        if (!blockIndependence())
+            throw lz4_error("unsupported option: block dependence");
+
+        checkBlockId(blockId());
+
+        if (checkBits != checksumOptions())
+            throw lz4_error("corrupted options");
+    }
+    
+    template<typename Sink>
+    size_t write(Sink& sink)
+    {
+        lz4::write(sink, this, sizeof(*this));
+        return sizeof(*this);
+    }
+
+private:
+
+    uint8_t checksumOptions() const
+    {
+        return XXH32(options, 2, ChecksumSeed) >> 8;
+    }
+
+    static constexpr uint32_t MagicConst = 0x184D2204;
+    LittleEndianPod<uint32_t> magic;
+    uint8_t options[2];
+    uint8_t checkBits;
+};
+
+static_assert(sizeof(Header) == 7, "sizeof(lz4::Header) == 7");
+
+} // namespace lz4
 
 /*****************************************************************************/
 /* LZ4 COMPRESSOR                                                            */

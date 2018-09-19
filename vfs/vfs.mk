@@ -18,11 +18,11 @@ LIBVFS_SOURCES := \
 LIBVFS_LINK := \
 	arch \
 	boost_iostreams \
-	lzmapp \
 	types \
 	$(STD_FILESYSTEM_LIBNAME) \
 	http \
 	lz4 \
+	lzma \
 	xxhash \
 	zstd \
 	snappy \
