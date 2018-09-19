@@ -1163,7 +1163,7 @@ struct FilterStreamContentHandler
     : public ContentHandler,
       public std::enable_shared_from_this<FilterStreamContentHandler> {
     FilterStreamContentHandler(const ContentDescriptor & descriptor)
-        : stream(descriptor.getUrlStringUtf8(), { { "mapped", "true" } })
+        : stream(descriptor.getUrlStringUtf8(), { { "mapped", "true" }, { "compression", "none" } })
     {
     }
 
@@ -1183,7 +1183,7 @@ struct FilterStreamContentHandler
         size_t len;
 
         std::tie(data, len) = stream.mapped();
-        if (data) {
+        if (data && length) {
             if (length == -1)
                 length = len - offset;
             return FrozenMemoryRegion(shared_from_this(),
