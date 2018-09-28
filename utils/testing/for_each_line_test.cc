@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* for_each_line_test.cc
    Wolfgang Sourdeau, 28 August 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Test for_each_line
 */
@@ -18,9 +17,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/utils/vector_utils.h"
-
-#include "mldb/builtin/for_each_line.h"
-
+#include "mldb/utils/for_each_line.h"
 
 using namespace std;
 using namespace MLDB;

@@ -24,7 +24,6 @@ $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
 $(eval $(call test,mldb_plugin_test,mldb,boost))
 $(eval $(call test,mldb_python_plugin_test,mldb,boost virtualenv))
 $(eval $(call test,MLDB-642_script_procedure_test,mldb,boost virtualenv))
-$(eval $(call test,for_each_line_test,mldb,boost))
 $(eval $(call test,svd_utils_test,mldb,boost))
 
 $(eval $(call test,mldb_reddit_test,mldb,boost))

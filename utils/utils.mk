@@ -1,5 +1,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+$(eval $(call library,log,log.cc, config))
+
 
 LIBUTILS_SOURCES := \
         environment.cc \
@@ -9,12 +11,14 @@ LIBUTILS_SOURCES := \
 	buckets.cc \
 	confidence_intervals.cc \
 	quadtree.cc \
-
+	for_each_line.cc \
 
 LIBUTILS_LINK := \
 	arch \
 	vfs \
-	db
+	db \
+	block \
+	log \
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 
@@ -22,7 +26,6 @@ $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 $(eval $(call set_compile_option,hash.cc,-fpermissive))
 
 $(eval $(call library,config,config.cc,boost_program_options))
-$(eval $(call library,log,log.cc, config))
 $(eval $(call library,progress,progress.cc,))
 $(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types utils highwayhash))
 

@@ -35,7 +35,6 @@ LIBMLDB_BUILTIN_BASE_SOURCES:= \
 	metric_space.cc \
 	matrix.cc \
 	intersection_utils.cc \
-	for_each_line.cc \
 
 LIBMLDB_BUILTIN_BASE_LINK:= \
 	mldb_core \

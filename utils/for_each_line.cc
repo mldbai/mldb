@@ -5,10 +5,10 @@
 
 */
 
+#include "for_each_line.h"
 #include <atomic>
 #include <exception>
 #include <mutex>
-#include "mldb/builtin/for_each_line.h"
 #include "mldb/arch/threads.h"
 #include <chrono>
 #include <thread>
