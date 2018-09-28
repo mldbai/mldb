@@ -61,6 +61,20 @@ struct FrozenMemoryRegion {
         range of the current one.
     */
     FrozenMemoryRegion range(size_t start, size_t end) const;
+
+    /** This tests whether the region is initialized or not.  A
+        non-initialized region has either been constructed from the
+        default constructor or moved from.
+    */
+    explicit operator bool () const noexcept { return !!handle_; }
+    
+    /// Return a combined, contiguous memory region.  In the general case
+    /// this may require reallocation of a new region and copying; however
+    /// the implementation will attempt to minimise the amount of copying
+    /// required.
+    static FrozenMemoryRegion
+    combined(const FrozenMemoryRegion & region1,
+             const FrozenMemoryRegion & region2);
     
 #if 0
     /** Re-serialize the block to the other serializer. */

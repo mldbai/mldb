@@ -91,6 +91,22 @@ reserialize(MappedSerializer & serializer) const
 }
 #endif
 
+FrozenMemoryRegion
+FrozenMemoryRegion::
+combined(const FrozenMemoryRegion & region1,
+         const FrozenMemoryRegion & region2)
+{
+    // For now, this is very simplistic.  There are many opportunities
+    // to optimize later on.
+    
+    static MemorySerializer serializer;
+    uint64_t totalLength = region1.length() + region2.length();
+    auto mem = serializer.allocateWritable(totalLength, 8 /* todo alignment */);
+    memcpy(mem.data(), region1.data(), region1.length());
+    memcpy(mem.data() + region1.length(), region2.data(), region2.length());
+    return mem.freeze();
+}
+
 
 /*****************************************************************************/
 /* MUTABLE MEMORY REGION                                                     */
