@@ -225,8 +225,8 @@ struct BoostDecompressor {
     // Basic implementation of seek that will return the current position so
     // that gcount() and tellg() will work.
     template<typename Source>
-    std::streampos seek(Source& src,
-                        std::streamsize where, std::ios_base::seekdir dir)
+    std::streampos seek(Source& src, std::streamsize where,
+                        std::ios_base::seekdir dir)
     {
         if (dir == std::ios_base::cur && where == 0) {
             return streamPos;
@@ -1180,7 +1180,7 @@ struct MemStreamingInOut {
 
 struct MemStreamingIn : public MemStreamingInOut {
     struct category
-        : public boost::iostreams::input,
+        : public boost::iostreams::input_seekable,
           public boost::iostreams::device_tag,
           public boost::iostreams::closable_tag
     {
@@ -1209,6 +1209,39 @@ struct MemStreamingIn : public MemStreamingInOut {
         }
 
         return res;
+    }
+
+    std::streampos seek(std::streamsize where, std::ios_base::seekdir dir)
+    {
+        unique_lock<mutex> guard(memStringsLock);
+        int64_t newOffset;
+            
+        switch (dir) {
+        case ios_base::beg:
+            if (where < 0 || where > targetString_.size())
+                return -1;
+            newOffset = where;
+            break;
+        case ios_base::end:
+            if (where < 0 || where > targetString_.size())
+                return -1;
+            newOffset = targetString_.size() - where;
+            break;
+        case ios_base::cur:
+            newOffset = pos_ + where;
+            if (newOffset < 0 || newOffset > targetString_.size())
+                return -1;
+            break;
+        default:
+            ExcAssert(false);
+            break;
+        }
+        
+        if (newOffset < 0 || newOffset > targetString_.size()) {
+            return -1;  // seek error
+        }
+        
+        return pos_ = newOffset;
     }
 };
 
@@ -1270,6 +1303,7 @@ struct RegisterMemHandler {
         }
         FsObjectInfo info;
         info.exists = true;
+        info.size = targetString.size();
         return UriHandler(streamBuf.get(), streamBuf, info);
     }
 

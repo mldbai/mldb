@@ -653,4 +653,22 @@ BOOST_AUTO_TEST_CASE(test_file_stream_tellg)
         stream.close();
         BOOST_CHECK_EQUAL(stream.tellg(), -1);
     }
+
+    {
+        {
+            filter_ostream stream("mem://hello.txt");
+            stream << "hello" << endl;
+            stream.close();
+        }
+
+        filter_istream stream;
+        stream.open("mem://hello.txt");
+        std::string str;
+        getline(stream, str);
+        BOOST_CHECK_EQUAL(str, "hello");
+        BOOST_CHECK_EQUAL(stream.tellg(), 6);
+        BOOST_CHECK_EQUAL(stream.info().size, 6);
+        stream.close();
+        BOOST_CHECK_EQUAL(stream.tellg(), -1);
+    }
 }
