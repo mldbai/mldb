@@ -93,7 +93,8 @@ std::vector<std::string> split(const std::string & str, char c, int limit)
         ++pos;
     }
 
-    result.push_back(string(str, start));
+    if (!str.empty())
+        result.push_back(string(str, start));
 
     return result;
 }

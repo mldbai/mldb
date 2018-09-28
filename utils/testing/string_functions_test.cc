@@ -112,8 +112,7 @@ BOOST_AUTO_TEST_CASE( test_string_split )
 {
     vector<string> res;
     res = MLDB::split("", '-');
-    BOOST_REQUIRE_EQUAL(res.size(), 1);
-    BOOST_REQUIRE_EQUAL(res[0], "");
+    BOOST_REQUIRE_EQUAL(res.size(), 0);
 
     res = MLDB::split("a-b-c", '-');
     BOOST_REQUIRE_EQUAL(res.size(), 3);
