@@ -52,7 +52,15 @@ struct ThreadPool {
         already been run.
     */
     void add(ThreadJob job);
-
+    
+    /** Add the given job, automatically binding the given arguments. */
+    template<typename Fn, typename Arg0, typename... Args>
+    void add(Fn && fn, Arg0 && arg0, Args&&... args)
+    {
+        ThreadJob job([=] () { fn(arg0, args...); });
+        add(std::move(job));
+    }
+    
     void waitForAll() const;
 
     void work() const;

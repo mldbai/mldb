@@ -557,3 +557,23 @@ BOOST_AUTO_TEST_CASE(PushPopStealWithWraparound) {
     TestPushPopSteal(std::numeric_limits<uint_fast32_t>::max() - 10 /* top and bottom of empty queue */);
 }
 
+BOOST_AUTO_TEST_CASE(threadPoolBindingAdd)
+{
+    std::atomic<int> result(0);
+
+    auto job = [&] (int i)
+        {
+            result = i;
+        };
+
+    ThreadPool threadPool;
+    threadPool.add(job, 1);
+    threadPool.waitForAll();
+
+    BOOST_CHECK_EQUAL(result, 1);
+
+    threadPool.add(job, 2);
+    threadPool.waitForAll();
+    
+    BOOST_CHECK_EQUAL(result, 2);
+}
