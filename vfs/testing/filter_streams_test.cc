@@ -607,3 +607,50 @@ BOOST_AUTO_TEST_CASE(test_empty_filter_stream_mapped)
     // but we can read it without failing
     BOOST_CHECK_EQUAL(stream.readAll(), "");
 }
+
+BOOST_AUTO_TEST_CASE(test_file_stream_tellg)
+{
+    {
+        filter_istream stream;
+        stream.open("file://mldb/utils/testing/fixtures/hello.txt");
+        std::string str;
+        getline(stream, str);
+        BOOST_CHECK_EQUAL(str, "hello");
+        BOOST_CHECK_EQUAL(stream.tellg(), 6);
+        stream.close();
+        BOOST_CHECK_EQUAL(stream.tellg(), -1);
+    }
+
+    {
+        filter_istream stream;
+        stream.open("file://mldb/utils/testing/fixtures/hello.txt.gz");
+        std::string str;
+        getline(stream, str);
+        BOOST_CHECK_EQUAL(str, "hello");
+        BOOST_CHECK_EQUAL(stream.tellg(), 6);
+        stream.close();
+        BOOST_CHECK_EQUAL(stream.tellg(), -1);
+    }
+
+    {
+        filter_istream stream;
+        stream.open("https://raw.githubusercontent.com/mldbai/mldb/master/utils/testing/fixtures/hello.txt");
+        std::string str;
+        getline(stream, str);
+        BOOST_CHECK_EQUAL(str, "hello");
+        BOOST_CHECK_EQUAL(stream.tellg(), 6);
+        stream.close();
+        BOOST_CHECK_EQUAL(stream.tellg(), -1);
+    }
+
+    {
+        filter_istream stream;
+        stream.open("https://raw.githubusercontent.com/mldbai/mldb/master/utils/testing/fixtures/hello.txt.gz");
+        std::string str;
+        getline(stream, str);
+        BOOST_CHECK_EQUAL(str, "hello");
+        BOOST_CHECK_EQUAL(stream.tellg(), 6);
+        stream.close();
+        BOOST_CHECK_EQUAL(stream.tellg(), -1);
+    }
+}

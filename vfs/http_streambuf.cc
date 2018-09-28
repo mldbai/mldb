@@ -98,10 +98,11 @@ struct HttpStreamingDownloadSource {
 
     typedef char char_type;
     struct category
-        : //input_seekable,
-        boost::iostreams::input,
+        :
+        boost::iostreams::input_seekable,
         boost::iostreams::device_tag,
-        boost::iostreams::closable_tag
+        boost::iostreams::closable_tag,
+        boost::iostreams::multichar_tag
     { };
 
     struct Impl {
@@ -142,6 +143,7 @@ struct HttpStreamingDownloadSource {
         BlockingConcurrentQueue<string> dataQueue;
         atomic<bool> eof;
 
+        uint64_t currentStartOffset = 0;
         std::string current;
         size_t currentDone;
 
@@ -162,6 +164,7 @@ struct HttpStreamingDownloadSource {
             shutdown = false;
             current = "";
             currentDone = 0;
+            currentStartOffset = 0;
             threads.clear();
         }
 
@@ -201,6 +204,8 @@ struct HttpStreamingDownloadSource {
                 return -1;
 
             if (currentDone == current.size()) {
+                currentStartOffset += currentDone;
+
                 // Get some more data
                 dataQueue.wait_dequeue(current);
                 currentDone = 0;
@@ -225,6 +230,14 @@ struct HttpStreamingDownloadSource {
             return toDo;
         }
 
+        std::streampos seek(std::streamsize where, std::ios_base::seekdir dir)
+        {
+            // If we seek to where we already are, return where we are
+            if (dir == std::ios_base::cur && where == 0)
+                return currentStartOffset + currentDone;
+            throw Exception("http streambuf can't seek");
+        }
+        
         void runThread()
         {
             try {
@@ -326,6 +339,11 @@ struct HttpStreamingDownloadSource {
         return impl->read(s, n);
     }
 
+    std::streampos seek(std::streamsize where, std::ios_base::seekdir dir)
+    {
+        return impl->seek(where, dir);
+    }        
+    
     bool is_open() const
     {
         return !!impl;

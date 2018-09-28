@@ -139,7 +139,14 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
 
 /** Adaptor to allow boost::iostreams to be served by a decompressor object. */
 
-struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
+struct BoostDecompressor {
+    typedef char char_type;
+    
+    struct category
+        : public boost::iostreams::filter_tag,
+          public boost::iostreams::input_seekable,
+          public boost::iostreams::multichar_tag {
+    };
 
     BoostDecompressor(Decompressor * decompressor)
         : decompressor(decompressor)
@@ -159,6 +166,7 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
                   s);
         s += numBuffered;
         n -= numBuffered;
+        streamPos += numBuffered;
         outbufPos += numBuffered;
 
         // Clear outbuf buffer once it's all used up
@@ -179,6 +187,7 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
                 std::copy(data, data + numGenerated, s);
                 s += numGenerated;
                 n -= numGenerated;
+                streamPos += numGenerated;
 
                 // Everything else gets buffered for next time
                 outbuf.append(data + numGenerated, dataLength - numGenerated);
@@ -199,11 +208,37 @@ struct BoostDecompressor: public boost::iostreams::multichar_input_filter {
 
         return s - sBefore;
     }
-
+    
+    template<typename Source>
+    int get(Source & src)
+    {
+        char result;
+        auto res = read(src, &result, 1);
+        //cerr << "reading single char got " << res << " characters" << endl;
+        if (res < 1)
+            return -1;
+        //cerr << "  returning " << (int)result << "'" << result << "' with pos now "
+        //     << streamPos << endl;
+        return result;
+    }
+    
+    // Basic implementation of seek that will return the current position so
+    // that gcount() and tellg() will work.
+    template<typename Source>
+    std::streampos seek(Source& src,
+                        std::streamsize where, std::ios_base::seekdir dir)
+    {
+        if (dir == std::ios_base::cur && where == 0) {
+            return streamPos;
+        }
+        throw Exception("decompressing streambuf can't seek");
+    }
+    
     std::vector<char> inbuf;  ///< Characters read from input but not yet passed to decompressor
     std::string outbuf; ///< Characters returned from decompressor but not yet written
     size_t outbufPos = 0;   ///< Position in outbuf
-
+    uint64_t streamPos = 0;
+    
     std::shared_ptr<Decompressor> decompressor;
 };
 
