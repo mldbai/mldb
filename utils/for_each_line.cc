@@ -20,6 +20,7 @@
 #include "mldb/types/date.h"
 #include "mldb/utils/log.h"
 #include "mldb/base/hex_dump.h"
+#include "mldb/block/content_descriptor.h"
 
 
 using namespace std;
@@ -243,7 +244,7 @@ forEachLineStr(const std::string & filename,
 
 
 /*****************************************************************************/
-/* FOR EACH LINE BLOCK                                                       */
+/* FOR EACH LINE BLOCK (ISTREAM)                                             */
 /*****************************************************************************/
 
 void forEachLineBlock(std::istream & stream,
@@ -471,8 +472,11 @@ void forEachLineBlock(std::istream & stream,
                 }
             }
         };
-    
-    tp.add(doBlock);
+
+    // Run the first block, which will enqueue the second before exiting
+    doBlock();
+
+    // Wait for all to be done
     tp.waitForAll();
 
     // If there was an exception, rethrow it rather than returning
@@ -482,17 +486,295 @@ void forEachLineBlock(std::istream & stream,
     }
 }
 
+
+/*****************************************************************************/
+/* FOR EACH LINE BLOCK (CONTENT HANDLER)                                     */
+/*****************************************************************************/
+
+void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
+                      uint64_t startOffset,
+                      std::function<bool (const char * line,
+                                          size_t lineLength,
+                                          int64_t blockNumber,
+                                          int64_t lineNumber)> onLine,
+                      int64_t maxLines,
+                      int maxParallelism,
+                      std::function<bool (int64_t blockNumber,
+                                          int64_t lineNumber,
+                                          size_t numLines)> startBlock,
+                      std::function<bool (int64_t blockNumber,
+                                          int64_t lineNumber)> endBlock,
+                      size_t blockSize)
+{
+    //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
+    //static constexpr int64_t BLOCK_SIZE = 20'000'000;  // 20MB blocks
+
+    std::atomic<int64_t> doneLines(0); //number of lines processed but not yet returned
+    std::atomic<int64_t> returnedLines(0); //number of lines returned
+    std::atomic<int> chunkNumber(0);
+
+    // Sub thread pool to handle the parsing of the blocks
+    ThreadPool tp(ThreadPool::instance(), maxParallelism);
+
+    std::atomic<int> hasExc(false);
+    std::exception_ptr exc;
+
+    std::atomic<uint64_t> offset(startOffset);
+
+    std::function<void (FrozenMemoryRegion)> doBlock
+        = [&] (FrozenMemoryRegion leftoverFromPreviousBlock)
+        {
+            // Contains the full first line of our block, which is made up
+            // of whatever was leftover from the previous block plus
+            // our current line
+            FrozenMemoryRegion firstLine;
+
+            // Contains the other full lines of our block, starting from 2nd
+            FrozenMemoryRegion mem;
+
+            // Contains the (partial) last line of our block
+            FrozenMemoryRegion partialLastLine;
+            
+            size_t myChunkNumber = 0;
+            int64_t startLine = doneLines;
+
+            // Offset in otherLines of line start characters
+            vector<size_t> lineOffsets;
+            
+            try {
+                //cerr << endl << endl
+                //     << "------------- starting block at line "
+                //     << startLine << endl;
+                //cerr << "with " << leftoverFromPreviousBlock.length()
+                //     << " characters leftover" << endl;
+                //hex_dump(leftoverFromPreviousBlock.data(),
+                //         leftoverFromPreviousBlock.length());
+                //cerr << "getting block at offset " << offset
+                //     << " with " << leftoverFromPreviousBlock.length()
+                //     << " bytes left over" << endl;
+                uint64_t memOffset;
+
+                // Get the next block from the underlying data source
+                std::tie(memOffset, mem)
+                    = content->getRangeContaining(offset, blockSize);
+                
+                if (!mem) {
+                    // There is no more data, so whatever is left over is
+                    // the previous block
+                    //cerr << "no more data" << endl;
+                    firstLine = std::move(leftoverFromPreviousBlock);
+                }
+                else {
+                    if (memOffset != offset) {
+                        // The block doesn't necessarily start at offset; it may start
+                        // before in which case we have to skip the extra bits
+                        size_t startAt = offset - memOffset;
+                        //cerr << "skipping " << startAt << " early bytes"
+                        //     << endl;
+                        mem = mem.range(startAt, mem.length() - startAt);
+                    }
+
+                    //cerr << "got " << mem.length() << " bytes at "
+                    //     << (void *)mem.data() << endl;
+
+                    //hex_dump(mem.data(), mem.length());
+                    
+                    size_t length = mem.length();
+                    const char * start = mem.data();
+                    const char * current = (const char *)memchr(start, '\n', length);
+                    const char * end = start + length;
+
+                    //cerr << "start = " << (void *)start
+                    //     << " current = " << (void *)current
+                    //     << " end = " << (void *)end
+                    //     << endl;
+
+                    if (!current) {
+                        // No line break in the whole chunk; it's all a partial
+                        // last line
+                        partialLastLine
+                            = FrozenMemoryRegion::combined
+                                (leftoverFromPreviousBlock,
+                                 mem);
+                    }
+                    else {
+                        firstLine
+                            = FrozenMemoryRegion::combined
+                                (leftoverFromPreviousBlock,
+                                 mem.range(0, current - start));
+
+                        //cerr << "firstLine is " << endl;
+                        //hex_dump(firstLine.data(), firstLine.length());
+
+                        ++current;
+                        ++doneLines;
+                        //cerr << "doneLines incremented for first line" << endl;
+                        
+                        // Second line starts here; record the start
+                        lineOffsets.push_back(current - start);
+                        
+                        const char * lastLineStart = current;
+                        
+                        //cerr << "start = " << (void *)start
+                        //     << " current = " << (void *)current
+                        //     << " end = " << (void *)end
+                        //     << endl;
+                        
+                        while (current
+                               && current < end
+                               && (maxLines == -1
+                                   || doneLines < maxLines) // stop with enough lines
+                               ) { 
+                            
+                            // Bail out on exception
+                            if (doneLines % 256 == 0
+                                && hasExc.load(std::memory_order_relaxed))
+                                return;
+
+                            current = (const char *)memchr(current, '\n', end - current);
+
+                            //cerr << " current now = " << (void *)current << endl;
+
+                            if (current)
+                                lastLineStart = current + 1;
+                            
+                            if (current && current < end) {
+                                ExcAssertEqual(*current, '\n');
+                                lineOffsets.push_back(current - start);
+                                ++doneLines;
+                                //cerr << "doneLines incremented for other line"
+                                //     << endl;
+                                ++current;
+                            }
+                        }
+                    
+                        // Whatever is left over is the last line, which we pass
+                        // through to the next block
+                        if (!current) {
+                            //cerr << "lastLineStart - start = "
+                            //     << lastLineStart - start << endl;
+                            //cerr << "mem.length() = " << mem.length() << endl;
+                            partialLastLine = mem.range(lastLineStart - start,
+                                                        mem.length());
+                            //cerr << "partial last line" << endl;
+                        }
+                    }
+
+                    offset += length;
+                    myChunkNumber = chunkNumber++;
+
+                    if (hasExc.load(std::memory_order_relaxed))
+                        return;
+                    
+                    if (maxLines == -1
+                        || doneLines < maxLines) {
+
+                        //cerr << "sending on partial last line with "
+                        //     << partialLastLine.length() << " characters"
+                        //     << endl;
+                        //hex_dump(partialLastLine.data(),
+                        //         partialLastLine.length());
+
+
+                        // Ready for another chunk; schedule it while we're
+                        // waiting for the next one to be ready
+                        tp.add(doBlock, std::move(partialLastLine));
+                    }
+                }
+                    
+                int64_t chunkLineNumber = startLine;
+                size_t numLines = (firstLine ? 1 : 0)
+                                + (lineOffsets.empty() ? 0 : lineOffsets.size() - 1);
+
+                if (startBlock)
+                    if (!startBlock(myChunkNumber, chunkLineNumber, numLines))
+                        return;
+
+                auto doLine = [&] (const char * line, size_t len)
+                    {
+                        // Skip \r for DOS line endings
+                        if (len > 0 && line[len - 1] == '\r')
+                            --len;
+
+                        return onLine(line, len, chunkNumber, chunkLineNumber++);
+                    };
+                
+                if (firstLine) {
+                    //cerr << "doing first line" << endl;
+                    if (maxLines == -1 || returnedLines++ < maxLines) {
+                        if (!doLine(firstLine.data(), firstLine.length())) {
+                            return;
+                        }
+                    }
+                }
+                
+                if (!lineOffsets.empty()) {
+                    size_t lastLineOffset = lineOffsets[0];
+
+                    for (unsigned i = 1;
+                         i < lineOffsets.size()
+                             && (maxLines == -1 || returnedLines++ < maxLines);
+                         ++i) {
+
+                        // Check for exception bailout every 256 lines
+                        if (i % 256 == 0
+                            && hasExc.load(std::memory_order_relaxed))
+                            return;
+
+                        const char * line = mem.data() + lastLineOffset;
+                        size_t len = lineOffsets[i] - lastLineOffset;
+
+                        //cerr << "doing other line " << i << " with "
+                        //     << len << " chars" << endl;
+                        
+                        if (!doLine(line, len))
+                            return;
+                        
+                        lastLineOffset = lineOffsets[i] + 1;  // skip \n
+                    }
+                }
+                    
+                if (endBlock)
+                    if (!endBlock(myChunkNumber, chunkLineNumber))
+                        return;
+                
+            } MLDB_CATCH_ALL {
+                //cerr << "got exception in chunk " << myChunkNumber
+                //<< " " << getExceptionString() << endl;
+                if (hasExc.fetch_add(1) == 0) {
+                    exc = std::current_exception();
+                }
+            }
+        };
+    
+    // Make the first block happen.  It will schedule others as they are
+    // discovered.
+    // TODO: later on, we can ask for all blocks in parallel...
+    doBlock(FrozenMemoryRegion());  // this will schedule a second block on the thread pool
+    
+    // Wait for all blocks to be done
+    tp.waitForAll();
+
+    // If there was an exception, rethrow it rather than returning
+    // cleanly
+    if (hasExc) {
+        std::rethrow_exception(exc);
+    }
+}
+
+
+
 /*****************************************************************************/
 /* FOR EACH CHUNK                                                            */
 /*****************************************************************************/
 
 void forEachChunk(std::istream & stream,
-                        std::function<bool (const char * chunk,
-                                            size_t chunkLength,
-                                            int64_t chunkNumber)> onChunk,
-                        size_t chunkLength,
-                        int64_t maxChunks,
-                        int maxParallelism)
+                  std::function<bool (const char * chunk,
+                                      size_t chunkLength,
+                                      int64_t chunkNumber)> onChunk,
+                  size_t chunkLength,
+                  int64_t maxChunks,
+                  int maxParallelism)
 {
     std::atomic<int> chunkNumber(0);
 
