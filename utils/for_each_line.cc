@@ -506,23 +506,26 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                                           int64_t lineNumber)> endBlock,
                       size_t blockSize)
 {
-    //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
-    //static constexpr int64_t BLOCK_SIZE = 20'000'000;  // 20MB blocks
-
-    std::atomic<int64_t> doneLines(0); //number of lines processed but not yet returned
-    std::atomic<int64_t> returnedLines(0); //number of lines returned
-    std::atomic<int> chunkNumber(0);
-
     // Sub thread pool to handle the parsing of the blocks
     ThreadPool tp(ThreadPool::instance(), maxParallelism);
 
     std::atomic<int> hasExc(false);
     std::exception_ptr exc;
 
-    std::atomic<uint64_t> offset(startOffset);
-
-    std::function<void (FrozenMemoryRegion)> doBlock
-        = [&] (FrozenMemoryRegion leftoverFromPreviousBlock)
+    /// This is what we pass to the next block once we've finished scanning for
+    /// line breaks.
+    struct PassToNextBlock {
+        FrozenMemoryRegion leftoverFromPreviousBlock;
+        uint64_t doneLines = 0;
+        bool bail = false;
+    };
+    
+    std::function<void (int chunkNumber, uint64_t offset,
+                        std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > fromPrev)> doBlock
+        = [&hasExc,&exc,content,maxLines,&doBlock,&tp,&onLine,&startBlock,&endBlock,blockSize]
+        (int chunkNumber,
+         uint64_t offset,
+         std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > fromPrevQueue)
         {
             // Contains the full first line of our block, which is made up
             // of whatever was leftover from the previous block plus
@@ -536,15 +539,33 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
             FrozenMemoryRegion partialLastLine;
             
             size_t myChunkNumber = 0;
-            int64_t startLine = doneLines;
 
             // Offset in otherLines of line start characters
             vector<size_t> lineOffsets;
             
+            // What we got from the last block
+            PassToNextBlock fromPrev;
+
+            // Queue on which we pass the state to the next block
+            std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > queue;
+
+            // Call this to tell the next block that it should bail out.  It's
+            // safe to call at any time, including before the next block has
+            // been launched and after the next block has already been told to
+            // do something else.
+            auto bailNextBlock = [&] () {
+                if (!queue)
+                    return;
+                PassToNextBlock toNext;
+                toNext.bail = true;
+                queue->enqueue(std::move(toNext));
+            };
+            
             try {
                 //cerr << endl << endl
-                //     << "------------- starting block at line "
-                //     << startLine << endl;
+                //     << "------------- starting block " << chunkNumber
+                //     << " at offset "
+                //     << offset << endl;
                 //cerr << "with " << leftoverFromPreviousBlock.length()
                 //     << " characters leftover" << endl;
                 //hex_dump(leftoverFromPreviousBlock.data(),
@@ -552,11 +573,37 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 //cerr << "getting block at offset " << offset
                 //     << " with " << leftoverFromPreviousBlock.length()
                 //     << " bytes left over" << endl;
+
+                //Date start = Date::now();
+                
+
                 uint64_t memOffset;
 
                 // Get the next block from the underlying data source
                 std::tie(memOffset, mem)
                     = content->getRangeContaining(offset, blockSize);
+
+                //Date gotData = Date::now();
+
+                //double elapsed = gotData.secondsSince(start);
+                
+                //cerr << "  chunk " << chunkNumber << " got "
+                //     << mem.length() << " bytes in " << elapsed << " seconds"
+                //     << " at " << mem.length() / elapsed / 1000000 << " MB/s"
+                //     << endl;
+                
+                fromPrevQueue->wait_dequeue(fromPrev);
+
+                // Do we bail out?  If our previous block says it has bailed,
+                // then we should too.
+                if (fromPrev.bail) {
+                    return;
+                }
+                
+                FrozenMemoryRegion leftoverFromPreviousBlock
+                    = std::move(fromPrev.leftoverFromPreviousBlock);
+                uint64_t doneLines = fromPrev.doneLines;
+                int64_t startLine = doneLines;
                 
                 if (!mem) {
                     // There is no more data, so whatever is left over is
@@ -565,6 +612,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     firstLine = std::move(leftoverFromPreviousBlock);
                 }
                 else {
+
                     if (memOffset != offset) {
                         // The block doesn't necessarily start at offset; it may start
                         // before in which case we have to skip the extra bits
@@ -574,6 +622,11 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                         mem = mem.range(startAt, mem.length() - startAt);
                     }
 
+                    // Ready for another chunk; schedule it while we're
+                    // waiting for the next one to be ready
+                    queue = std::make_shared<BlockingConcurrentQueue<PassToNextBlock> >();
+                    tp.add(doBlock, chunkNumber + 1, offset + mem.length(), queue);
+                    
                     //cerr << "got " << mem.length() << " bytes at "
                     //     << (void *)mem.data() << endl;
 
@@ -628,8 +681,10 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                             
                             // Bail out on exception
                             if (doneLines % 256 == 0
-                                && hasExc.load(std::memory_order_relaxed))
+                                && hasExc.load(std::memory_order_relaxed)) {
+                                bailNextBlock();
                                 return;
+                            }
 
                             current = (const char *)memchr(current, '\n', end - current);
 
@@ -663,11 +718,12 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     offset += length;
                     myChunkNumber = chunkNumber++;
 
-                    if (hasExc.load(std::memory_order_relaxed))
+                    if (hasExc.load(std::memory_order_relaxed)) {
+                        bailNextBlock();
                         return;
+                    }
                     
-                    if (maxLines == -1
-                        || doneLines < maxLines) {
+                    if (maxLines == -1 || doneLines < maxLines) {
 
                         //cerr << "sending on partial last line with "
                         //     << partialLastLine.length() << " characters"
@@ -676,9 +732,15 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                         //         partialLastLine.length());
 
 
-                        // Ready for another chunk; schedule it while we're
-                        // waiting for the next one to be ready
-                        tp.add(doBlock, std::move(partialLastLine));
+                        // What we pass on to the next block
+                        PassToNextBlock toNext;
+                        toNext.leftoverFromPreviousBlock
+                            = std::move(partialLastLine);
+                        toNext.doneLines = doneLines;
+                        queue->enqueue(std::move(toNext));
+                    }
+                    else {
+                        bailNextBlock();
                     }
                 }
                     
@@ -698,6 +760,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 
                         return onLine(line, len, chunkNumber, chunkLineNumber++);
                     };
+
+                auto returnedLines = startLine;
                 
                 if (firstLine) {
                     //cerr << "doing first line" << endl;
@@ -744,13 +808,26 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 if (hasExc.fetch_add(1) == 0) {
                     exc = std::current_exception();
                 }
+
+                // If the next block is waiting for instructions, tell it
+                // to bail out.
+                bailNextBlock();
             }
         };
-    
+
+    // Pretend that we have a previous block that wants to asynchronously
+    // communicate with our current block
+    auto queue = std::make_shared<BlockingConcurrentQueue<PassToNextBlock> >();
+    PassToNextBlock pass;
+    pass.doneLines = 0;
+    queue->enqueue(std::move(pass));
+
     // Make the first block happen.  It will schedule others as they are
     // discovered.
     // TODO: later on, we can ask for all blocks in parallel...
-    doBlock(FrozenMemoryRegion());  // this will schedule a second block on the thread pool
+    doBlock(0 /* chunkNumber */,
+            startOffset,
+            queue);
     
     // Wait for all blocks to be done
     tp.waitForAll();
