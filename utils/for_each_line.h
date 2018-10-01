@@ -154,7 +154,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                       std::function<bool (int64_t blockNumber,
                                           int64_t lineNumber)> endBlock
                           = nullptr,
-                      size_t blockSize = 2'000'000);
+                      size_t blockSize = 20'000'000);
 
 /** Run the given lambda over fixed size chunks read from the stream, in parallel
     as much as possible.  If there is a smaller chunk at the end (EOF is obtained),
