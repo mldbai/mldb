@@ -381,7 +381,7 @@ struct TemporaryFileSerializer::Itl {
         // Make sure we grow geometrically (doubling every update) to
         // amortize overhead and minimize number of mappings.
         numPages = std::max<size_t>
-            (numPages, (currentlyAllocated + page_size - 1) / page_size);
+            (numPages * 2, (currentlyAllocated + page_size - 1) / page_size);
 
         size_t newLength = numPages * page_size;
         
