@@ -40,13 +40,25 @@ struct Compressor {
         FLUSH_RESTART,  ///< Flush so we could restart the decompression here
     };
 
+    /** Notify the implementation of the total size of the data that will be
+        passed to compress.  Some of the compression formats can put this
+        into their header to enable better decisions on allocation.
+
+        This must be called either never or ponce before compress(), flush() or
+        finish(), and behavior is undefined if the exact same amount of data
+        is not then passed to compress().
+
+        The default implementation does nothing.
+    */
+    virtual void notifyInputSize(uint64_t inputSize);
+    
     /** Compress the given data block, and write the result into the
         given buffer.
 
         This will call onData zero or more times.
     */
     virtual void compress(const char * data, size_t len,
-                            const OnData & onData) = 0;
+                          const OnData & onData) = 0;
     
     /** Flush the stream at the given flush level.  This will call onData
         zero or more times.

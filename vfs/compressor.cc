@@ -26,6 +26,12 @@ Compressor::
 {
 }
 
+void
+Compressor::
+notifyInputSize(uint64_t inputSize)
+{
+}
+
 namespace {
 
 std::mutex mutex;

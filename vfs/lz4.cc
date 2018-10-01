@@ -95,7 +95,8 @@ struct MLDB_PACKED Header
     Header( int blockId,
             bool blockIndependence,
             bool blockChecksum,
-            bool streamChecksum) :
+            bool streamChecksum,
+            bool contentSize) :
         magic{MagicConst}, options{0, 0}
     {
         const uint8_t version = 1; // 2 bits
@@ -105,33 +106,28 @@ struct MLDB_PACKED Header
         options[0] |= version << 6;
         options[0] |= blockIndependence << 5;
         options[0] |= blockChecksum << 4;
+        options[0] |= contentSize << 3;
         options[0] |= streamChecksum << 2;
         options[1] |= blockId << 4;
-
-        checkBits = checksumOptions();
     }
 
     explicit operator bool() { return magic; }
 
+    void setContentSize(bool hasContentSize)
+    {
+        options[0] &= ~(1 << 3);
+        options[0] |= (hasContentSize << 3);
+    }
+    
     int version() const            { return (options[0] >> 6) & 0x3; }
     bool blockIndependence() const { return (options[0] >> 5) & 1; }
     bool blockChecksum() const     { return (options[0] >> 4) & 1; }
+    bool contentSize() const       { return (options[0] >> 3) & 1; }
     bool streamChecksum() const    { return (options[0] >> 2) & 1; }
     int blockId() const            { return (options[1] >> 4) & 0x7; }
     size_t blockSize() const       { return 1 << (8 + 2 * blockId()); }
 
-    template<typename Source>
-    static Header read(Source& src)
-    {
-        Header head;
-        lz4::read(src, &head, sizeof(head));
-
-        head.validate();
-        
-        return head;
-    }
-
-    void validate()
+    void validate(uint8_t checkBits, uint64_le knownContentSize)
     {
         if (magic != MagicConst)
             throw lz4_error("invalid magic number");
@@ -144,31 +140,42 @@ struct MLDB_PACKED Header
 
         checkBlockId(blockId());
 
-        if (checkBits != checksumOptions())
+        if (checkBits != checksumOptions(knownContentSize))
             throw lz4_error("corrupted options");
     }
     
     template<typename Sink>
-    size_t write(Sink& sink)
+    size_t write(Sink& sink, const uint64_le & knownContentSize)
     {
+        uint8_t checkBits = checksumOptions(knownContentSize);
         lz4::write(sink, this, sizeof(*this));
+        if (contentSize()) {
+            lz4::write(sink, &knownContentSize, sizeof(knownContentSize));
+        }
+        lz4::write(sink, &checkBits, 1);
         return sizeof(*this);
     }
 
-private:
-
-    uint8_t checksumOptions() const
+    uint8_t checksumOptions(const uint64_le & knownContentSize) const
     {
+        if (contentSize()) {
+            // Includes the hash of the content size
+            uint8_t buf[10];
+            buf[0] = options[0];
+            buf[1] = options[1];
+            memcpy(buf + 2, &knownContentSize, 8);
+            return XXH32(buf, 10, ChecksumSeed) >> 8;
+        }
+
         return XXH32(options, 2, ChecksumSeed) >> 8;
     }
 
     static constexpr uint32_t MagicConst = 0x184D2204;
     LittleEndianPod<uint32_t> magic;
     uint8_t options[2];
-    uint8_t checkBits;
 };
 
-static_assert(sizeof(Header) == 7, "sizeof(lz4::Header) == 7");
+static_assert(sizeof(Header) == 6, "sizeof(lz4::Header) == 6");
 
 } // namespace lz4
 
@@ -181,11 +188,14 @@ struct Lz4Compressor : public Compressor {
     typedef Compressor::OnData OnData;
     typedef Compressor::FlushLevel FlushLevel;
     
-    Lz4Compressor(int level, uint8_t blockSizeId = 7)
+    Lz4Compressor(int level, uint8_t blockSizeId = 7,
+                  uint64_t contentSize = 0)
         : head(blockSizeId,
                true /* independent blocks */,
                false /* block checksum */,
-               false /* stream checksum */),
+               false /* stream checksum */,
+               contentSize != 0 /* write content size */),
+          contentSize(contentSize),
           writeHeader(true),
           pos(0)
     {
@@ -206,11 +216,20 @@ struct Lz4Compressor : public Compressor {
             XXH32_freeState(streamChecksumState);
     }
 
+    virtual void notifyInputSize(uint64_t inputSize)
+    {
+        if (!writeHeader) {
+            throw Exception("lz4 input size already notified");
+        }
+        head.setContentSize(true);
+        this->contentSize = inputSize;
+    }
+    
     virtual void compress(const char * s, size_t n,
                           const OnData & onData)
     {
         if (writeHeader) {
-            head.write(onData);
+            head.write(onData, contentSize);
             writeHeader = false;
         }
 
@@ -266,7 +285,7 @@ struct Lz4Compressor : public Compressor {
 
     virtual void finish(const OnData & onData)
     {
-        if (writeHeader) head.write(onData);
+        if (writeHeader) head.write(onData, contentSize);
         if (pos) flush(FLUSH_RESTART, onData);
 
         const uint32_le eos = 0;
@@ -290,6 +309,7 @@ struct Lz4Compressor : public Compressor {
     }
     
     lz4::Header head;
+    uint64_le contentSize;
     int (*compressFn)(const char*, char*, int);
 
     bool writeHeader;
@@ -325,7 +345,26 @@ struct Lz4Decompressor: public Decompressor {
     virtual int64_t decompressedSize(const char * block, size_t blockLen,
                                      int64_t totalLen) const override
     {
-        return LENGTH_UNKNOWN;
+        if (blockLen < sizeof(lz4::Header) + sizeof(uint64_t) + 1) {
+            return LENGTH_INSUFFICIENT_DATA;
+        }
+        lz4::Header head;
+        memcpy(&head, block, sizeof(head));
+
+        if (!head.contentSize()) {
+            return LENGTH_UNKNOWN;
+        }
+        uint64_le contentSize;
+        memcpy(&contentSize, block + sizeof(head), sizeof(contentSize));
+
+        uint8_t checksum = block[sizeof(head) + sizeof(contentSize)];
+        if (head.checksumOptions(contentSize) != checksum) {
+            throw Exception("lz4 header checksum mismatch");
+        }
+        
+        if (contentSize == 0)
+            return LENGTH_UNKNOWN;
+        return contentSize;
     }
     
     virtual void decompress(const char * data, size_t len,
@@ -348,18 +387,34 @@ struct Lz4Decompressor: public Decompressor {
                 switch (state) {
 
                 case HEADER:
-                    header.validate();
 
-                    // Finished our file header
-                    setCur(BLOCK_HEADER, blockHeader);
+                    if (header.contentSize()) {
+                        setCur(CONTENT_SIZE, knownContentSize);
+                    }
+                    else {
+                        // Finished our file header
+                        setCur(HEADER_CHECKSUM, checkBits);
+                    }
+                    break;
+
+                case CONTENT_SIZE:
+                    setCur(HEADER_CHECKSUM, checkBits);
+                    break;
+                    
+                case HEADER_CHECKSUM:
+                    header.validate(checkBits, knownContentSize);
+                    
                     if (header.streamChecksum()) {
                         streamChecksumState = XXH32_createState();
                         if (XXH32_reset(streamChecksumState, lz4::ChecksumSeed) != XXH_OK) {
                             throw Exception("Error with XXhash checksum initialization");
                         }
                     }
-                    break;
+                    
+                    setCur(BLOCK_HEADER, blockHeader);
 
+                    break;
+                    
                 case BLOCK_HEADER:
                     // Finished our block header
                     if (blockHeader == 0) {
@@ -458,6 +513,8 @@ struct Lz4Decompressor: public Decompressor {
 
     enum State {
         HEADER,
+        CONTENT_SIZE,
+        HEADER_CHECKSUM,
         BLOCK_HEADER,
         BLOCK_DATA,
         BLOCK_CHECKSUM,
@@ -486,11 +543,13 @@ struct Lz4Decompressor: public Decompressor {
     }
     
     lz4::Header header;
+    uint64_le knownContentSize = 0;
+    uint8_t checkBits = 0;
     uint32_le blockHeader = 0;
     std::string blockData;
     uint32_le blockChecksum = 0;
     uint32_le streamChecksum = 0;
-
+    
     XXH32_state_t* streamChecksumState = nullptr;
 };
 

@@ -120,7 +120,7 @@ void test_compress_decompress(const std::string & input_file,
                               const std::string & zip_command,
                               const std::string & unzip_command)
 {
-    string base = "filter_streams_test-" + extension;
+    string base = "tmp/filter_streams_test-" + extension;
     string cmp1 = base + ".1." + extension;
     string cmp2 = base + ".2." + extension;
     string dec1 = base + ".1";
@@ -180,6 +180,13 @@ BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     string lz4_cmd = "./build/x86_64/bin/lz4cli";
+    test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
+}
+
+BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4_content_size )
+{
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
+    string lz4_cmd = "./build/x86_64/bin/lz4cli --content-size";
     test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
 }
 
