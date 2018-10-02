@@ -53,11 +53,39 @@ struct ContentHashesDescription
         auto onMember = [&] ()
             {
                 Utf8String key = context.fieldName();
-                Utf8String val = context.expectStringUtf8();
-                ContentHash hash{std::move(key), std::move(val)};
+
+                ContentHash hash;
+                hash.type = std::move(key);
+                if (context.isString()) {
+                    Utf8String val = context.expectStringUtf8();
+                    hash.value = std::move(val);
+                }
+                else if (context.isObject()) {
+                    auto onMember = [&] ()
+                    {
+                        if (context.fieldName() == "value") {
+                            hash.value = context.expectStringUtf8();
+                        }
+                        else if (context.fieldName() == "authority") {
+                            hash.authority = context.expectStringUtf8();
+                        }
+                        else {
+                            context.exception
+                            ("expected 'value' or 'authority' as keys "
+                             "in ContentHash, not '" + context.fieldName()
+                             + "'");
+                        }
+                    };
+
+                    context.forEachMember(onMember);
+                }
+                else {
+                    context.exception("unexpected type for ContentHash value; "
+                                      "expected string or object");
+                }
                 content->emplace_back(std::move(hash));
             };
-
+        
         context.forEachMember(onMember);
     }
     

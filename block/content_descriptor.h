@@ -55,6 +55,7 @@ enum AccessWhich {
 struct ContentHash {
     Utf8String type;   ///< Type of the content hash; defines how it is used
     Utf8String value;  ///< Value of the content hash.  Typically a hex string
+    Utf8String authority; ///< Authority which calculated the value if not std
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ContentHash);

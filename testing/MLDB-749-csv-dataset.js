@@ -47,7 +47,7 @@ csv_conf = {
         dataFileUrl : {
             url: "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
             etag: {
-                domain: "https://raw.githubusercontent.com",
+                authority: "https://raw.githubusercontent.com",
                 value: "fdb7d4717c5befa93d0f241ac4245bed1a2a10e7"
             },
             sha256: "31ad156ab55993d901bd607828045a3de18cac4144be6dc1c520bc41573a8115",
@@ -60,7 +60,11 @@ csv_conf = {
     }
 }
 
-var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf);
+
+mldb.log(res);
+
+unittest.assertEqual(res.responseCode, 201);
 
 var res = mldb.get('/v1/datasets/titanic/query', { limit: 10, format: 'table', orderBy: 'rowName()'});
 
