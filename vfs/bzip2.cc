@@ -82,6 +82,7 @@ struct BzlibStreamCommon: public bz_stream {
             size_t bytesWritten = (const char *)next_out - output;
 
             switch (res) {
+            case BZ_OK:
             case BZ_RUN_OK:
             case BZ_FLUSH_OK:
                 if (bytesWritten)
