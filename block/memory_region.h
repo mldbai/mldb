@@ -62,6 +62,12 @@ struct FrozenMemoryRegion {
     */
     FrozenMemoryRegion range(size_t start, size_t end) const;
 
+    /** Return the given number of bytes at the start. */
+    FrozenMemoryRegion rangeAtStart(size_t length) const;
+
+    /** Return the given number of bytes at the end. */
+    FrozenMemoryRegion rangeAtEnd(size_t length) const;
+    
     /** This tests whether the region is initialized or not.  A
         non-initialized region has either been constructed from the
         default constructor or moved from.
@@ -75,7 +81,10 @@ struct FrozenMemoryRegion {
     static FrozenMemoryRegion
     combined(const FrozenMemoryRegion & region1,
              const FrozenMemoryRegion & region2);
-    
+
+    static FrozenMemoryRegion
+    combined(const std::vector<FrozenMemoryRegion> & regions);
+
 #if 0
     /** Re-serialize the block to the other serializer. */
     void reserialize(MappedSerializer & serializer) const;

@@ -364,6 +364,17 @@ struct TemporaryFileSerializer::Itl {
         growArena(bytesRequired);
     }
 
+    void reserve(size_t bytesRequired)
+    {
+        std::unique_lock<std::mutex> guard(mutex);
+        if (arenas.empty()) {
+            init(bytesRequired);
+        }
+        else {
+            growArena(bytesRequired);
+        }
+    }
+    
     // mutex must be held
     void growArena(size_t bytesRequired)
     {
@@ -580,5 +591,11 @@ getLength() const
     return itl->length();
 }
 
+void
+TemporaryFileSerializer::
+reserve(size_t bytesRequired)
+{
+    itl->reserve(bytesRequired);
+}
 
 } // namespace MLDB

@@ -155,8 +155,10 @@ struct ContentHandler {
     
     virtual Date getLastModified() const = 0;
 
+    virtual AccessPattern getPattern() const = 0;
+
     virtual FrozenMemoryRegion getRange(uint64_t offset = 0,
-                                        int64_t length = -1) const = 0;
+                                        int64_t length = -1) const;
 
     /** Gets the "natural" part of the range containing the given memory
         range.  The first return value is the actual offset of the first
@@ -211,7 +213,8 @@ decompress(std::shared_ptr<ContentHandler> input,
 
 
 std::shared_ptr<ContentHandler>
-getDecompressedContent(const ContentDescriptor & descriptor);
+getDecompressedContent(const ContentDescriptor & descriptor,
+                       size_t blockSize = 1024 * 1024);
 
 
 #if 0

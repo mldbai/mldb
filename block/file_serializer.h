@@ -88,6 +88,9 @@ struct TemporaryFileSerializer: public MappedSerializer {
     virtual std::pair<uint64_t, FrozenMemoryRegion>
     getRangeContaining(size_t offset, size_t length) const;
 
+    /** Reserve the given number of bytes to ensure no file size changes. */
+    virtual void reserve(uint64_t size);
+    
     /** Return the total number of bytes currently serialized. */
     virtual size_t getLength() const;
     

@@ -78,6 +78,20 @@ range(size_t start, size_t end) const
     return FrozenMemoryRegion(handle_, data() + start, end - start);
 }
 
+FrozenMemoryRegion
+FrozenMemoryRegion::
+rangeAtStart(size_t length) const
+{
+    return range(0, length);
+}
+
+FrozenMemoryRegion
+FrozenMemoryRegion::
+rangeAtEnd(size_t length) const
+{
+    return range(this->length() - length, this->length());
+}
+
 #if 0
 void
 FrozenMemoryRegion::
@@ -96,14 +110,30 @@ FrozenMemoryRegion::
 combined(const FrozenMemoryRegion & region1,
          const FrozenMemoryRegion & region2)
 {
+    return combined({region1, region2});
+}
+
+FrozenMemoryRegion
+FrozenMemoryRegion::
+combined(const std::vector<FrozenMemoryRegion> & regions)
+{
     // For now, this is very simplistic.  There are many opportunities
     // to optimize later on.
     
     static MemorySerializer serializer;
-    uint64_t totalLength = region1.length() + region2.length();
+    uint64_t totalLength = 0;
+    for (auto & r: regions) {
+        totalLength += r.length();
+    }
+
     auto mem = serializer.allocateWritable(totalLength, 8 /* todo alignment */);
-    memcpy(mem.data(), region1.data(), region1.length());
-    memcpy(mem.data() + region1.length(), region2.data(), region2.length());
+
+    size_t offset = 0;
+    for (auto & r: regions) {
+        memcpy(mem.data() + offset, r.data(), r.length());
+        offset += r.length();
+    }
+
     return mem.freeze();
 }
 

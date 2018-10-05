@@ -360,6 +360,30 @@ ContentHandler::
 {
 }
 
+FrozenMemoryRegion
+ContentHandler::
+getRange(uint64_t offset, int64_t length) const
+{
+    uint64_t startOffset = 0;
+    FrozenMemoryRegion region;
+
+    std::tie(startOffset, region) = getRangeContaining(offset, length);
+
+    if (!region) {
+        throw Exception("Attempt to get out-of-range offset");
+    }
+    
+    uint64_t skipBytes = offset - startOffset;
+
+    region = region.range(skipBytes, region.length());
+
+    if (length != -1 && region.length() != length) {
+        throw Exception("Attempt to get out-of-range length");
+    }
+
+    return region;
+}
+
 filter_istream
 ContentHandler::
 getStream(const std::map<Utf8String, Any> & options) const
@@ -460,7 +484,7 @@ getStream(const std::map<Utf8String, Any> & options) const
         ContentInputSeekableStreambuf bufImpl(getSharedThis());
         std::streambuf * buf
             = new boost::iostreams::stream_buffer<ContentInputSeekableStreambuf>
-            (std::move(bufImpl), 131072);
+            (std::move(bufImpl), 1024 * 1024);
         
         UriHandler handler(buf /* streambuf */,
                            vals /* ownership */,
@@ -553,6 +577,11 @@ struct UrlContentHandler
         return stream.info().lastModified;
     }
 
+    virtual AccessPattern getPattern() const override
+    {
+        return ADV_UNKNOWN;
+    }
+    
     virtual FrozenMemoryRegion
     getRange(uint64_t offset, int64_t length) const override
     {
@@ -648,12 +677,34 @@ struct ContentDecompressor
     : public ContentHandler,
       public std::enable_shared_from_this<ContentDecompressor> {
 
-    ContentDecompressor(std::shared_ptr<const ContentHandler> source,
-                        std::string compression)
+    ContentDecompressor(std::shared_ptr<const ContentHandler> source__,
+                        std::string compression__,
+                        size_t blockSize)
         : serializer("tmp", "content-decompressor"),
-          source(std::move(source)),
-          compression(std::move(compression))
+          source(std::move(source__)),
+          compression(std::move(compression__)),
+          blockSize(blockSize)
     {
+        auto inputSize = source->getSize();
+
+        uint64_t firstOffset = 0;
+        FrozenMemoryRegion firstBlock;
+
+        std::tie(firstOffset, firstBlock)
+            = source->getRangeContaining(0, 4096);
+
+        ExcAssertEqual(firstOffset, 0);
+        
+        decompressor.reset(Decompressor::create(compression));
+
+        auto res = decompressor->decompressedSize(firstBlock.data(),
+                                                  firstBlock.length(),
+                                                  inputSize);
+
+        if (res >= 0) {
+            knownContentSize = res;
+        }
+        else knownContentSize = -1;
     }
     
     virtual ~ContentDecompressor()
@@ -690,11 +741,17 @@ struct ContentDecompressor
 
     virtual uint64_t getSize() const override
     {
+        if (knownContentSize >= 0)
+            return knownContentSize;
+
+        // Otherwise, we need to scan to the end to get the known size 
+        std::unique_lock<std::mutex> guard(mutex);
+        
         while (!finished) {
             getNewRegion();
         }
 
-        return doneOutputOffset;
+        return knownContentSize = doneOutputOffset;
     }
     
     virtual Date getLastModified() const override
@@ -702,18 +759,124 @@ struct ContentDecompressor
         return source->getLastModified();
     }
 
-    virtual FrozenMemoryRegion
-    getRange(uint64_t offset,
-             int64_t length) const override
+    virtual AccessPattern getPattern() const override
     {
-        throw Exception("getRange");
+        return pattern;
     }
-
+    
     virtual std::pair<uint64_t, FrozenMemoryRegion>
     getRangeContaining(uint64_t offset, uint64_t length) const override
     {
-        //cerr << "getRangeContaining at " << offset << " for " << length
-        //     << " bytes" << endl;
+        std::unique_lock<std::mutex> guard(mutex);
+
+        if (pattern == ADV_UNKNOWN) {
+            if (offset < lastStartOffset) {
+                pattern = ADV_RANDOM;
+            }
+            else {
+                pattern = ADV_SEQUENTIAL;
+            }
+        }
+
+        // If it looks like we're just scanning linearly, then attempt
+        // to service without doing anything special.
+        if (pattern == ADV_SEQUENTIAL) {
+            // If we're in the same block as last time, or just after the
+            // end, then we're still linear
+            if (offset < lastStartOffset) {
+                cerr << "not sequential; restart" << endl;
+                // We need to restart to move to random
+                pattern = ADV_RANDOM;
+                finished = false;
+                decompressor.reset();
+                regions.clear();
+                // Fall through to random
+            }
+            else {
+                if (finished) {
+                    return { doneOutputOffset, FrozenMemoryRegion() };
+                }
+        
+                //cerr << "offset = " << offset << " last = " << lastStartOffset
+                //     << "-" << lastEndOffset << " pattern = " << pattern << endl;
+                //cerr << "last returned from " << lastBlockOffset << " to "
+                //     << lastBlockOffset + lastBlock.length() << endl;
+
+                if (lastBlock
+                    && offset >= lastBlockOffset
+                    && offset + length <= lastBlockOffset + lastBlock.length()) {
+
+                    // Can service from the last read block
+                    //cerr << "can service from last read block" << endl;
+
+                    lastStartOffset = offset;
+                    lastEndOffset = offset + length;
+
+                    return { lastBlockOffset, lastBlock };
+                }
+
+                static MemorySerializer memSerializer;
+                
+                //cerr << "sequential but can't service" << endl;
+                if (offset < lastBlockOffset + lastBlock.length()) {
+                    // We're overlapping with the end of the last block
+                    // We need to take part of the last and also get some
+                    // new data
+
+                    size_t overlappingAtEnd
+                        = lastBlockOffset + lastBlock.length() - offset;
+                    
+                    //cerr << "overlapping with "
+                    //     << overlappingAtEnd
+                    //     << " bytes of last block" << endl;
+
+                    regions[offset]
+                        = lastBlock.rangeAtEnd(overlappingAtEnd);
+                }
+
+                uint64_t minToRead
+                    = offset + length
+                    - lastBlockOffset - lastBlock.length();
+
+                decompressNewBlock(memSerializer, minToRead);
+
+                if (regions.empty()) {
+                    ExcAssert(finished);
+                    return { doneOutputOffset, FrozenMemoryRegion() };
+                }
+                
+                std::vector<FrozenMemoryRegion> toCombine;
+                for (auto & r: regions) {
+                    toCombine.emplace_back(std::move(r.second));
+                }
+
+                lastBlockOffset = regions.begin()->first;
+                lastBlock = FrozenMemoryRegion::combined(toCombine);
+
+                //cerr << "got " << regions.size() << " blocks from "
+                //     << lastBlockOffset << " to "
+                //     << lastBlockOffset + lastBlock.length()
+                //     << endl;
+
+                regions.clear();
+
+                lastStartOffset = offset;
+                lastEndOffset = offset + length;
+
+                return { lastBlockOffset, lastBlock };
+            }
+        }
+
+        if (!decompressor) {
+            decompressor.reset();
+            doneInputOffset = 0;
+            doneOutputOffset = 0;
+            finished = false;
+
+            if (knownContentSize != 0) {
+                serializer.reserve(knownContentSize);
+            }
+        }
 
         while (!finished && doneOutputOffset < offset + length)
             getNewRegion();
@@ -721,16 +884,19 @@ struct ContentDecompressor
         return serializer.getRangeContaining(offset, length);
     }
 
-    void getNewRegion() const
+    // lock must be held
+    // Create a new decompressed block and add it to the map of blocks
+    void decompressNewBlock(MappedSerializer & serializer,
+                            size_t minLength)
+        const
     {
-        std::unique_lock<std::mutex> guard(mutex);
-        
         if (!decompressor)
             decompressor.reset(Decompressor::create(compression));
 
-        bool gotData = false;
-        while (!finished && !gotData) {
-            size_t maxInput = 1024 * 1024;
+        auto startOffset = doneOutputOffset;
+        
+        while (!finished && doneOutputOffset < startOffset + minLength) {
+            size_t maxInput = blockSize;
             uint64_t blockOffset;
             FrozenMemoryRegion input;
 
@@ -758,8 +924,6 @@ struct ContentDecompressor
 
                     regions[doneOutputOffset] = region.freeze();
 
-                    gotData = true;
-
                     doneOutputOffset += length;
                     
                     //cerr << "decompressed " << length << " bytes at "
@@ -775,35 +939,54 @@ struct ContentDecompressor
             doneInputOffset += input.length() - startOffset;
         }
     }
+    
+    // lock must be held...
+    void getNewRegion() const
+    {
+        decompressNewBlock(serializer, blockSize /* min length */);
+    }
 
     mutable std::mutex mutex;
     mutable TemporaryFileSerializer serializer;
+    mutable AccessPattern pattern = ADV_UNKNOWN;
     std::shared_ptr<const ContentHandler> source;
     std::string compression;
+    size_t blockSize;
+    mutable int64_t knownContentSize = -1;
     mutable uint64_t doneInputOffset = 0;
     mutable uint64_t doneOutputOffset = 0;
     mutable bool finished = false;
     mutable std::shared_ptr<Decompressor> decompressor;
     mutable std::map<uint64_t, FrozenMemoryRegion> regions;
+
+    // Offsets of the last access, used to detect and respond to linear or
+    // nearly linear access patterns
+    mutable uint64_t lastStartOffset = 0;
+    mutable uint64_t lastEndOffset = 0;
+    mutable uint64_t lastBlockOffset = 0;
+    mutable FrozenMemoryRegion lastBlock;
 };
 
 std::shared_ptr<ContentHandler>
 decompress(std::shared_ptr<ContentHandler> source,
-           const std::string & compression)
+           const std::string & compression,
+           size_t blockSize)
 {
     if (compression == "" || compression == "none" || compression == "null") {
         return source;
     }
 
-    return std::make_shared<ContentDecompressor>(source, compression);
+    return std::make_shared<ContentDecompressor>(source, compression, blockSize);
 }
 
 std::shared_ptr<ContentHandler>
-getDecompressedContent(const ContentDescriptor & descriptor)
+getDecompressedContent(const ContentDescriptor & descriptor,
+                       size_t blockSize)
 {
     return decompress(getContent(descriptor),
                       Compressor::filenameToCompression
-                          (descriptor.getUrlStringUtf8()));
+                          (descriptor.getUrlStringUtf8()),
+                      blockSize);
 }
 
 } // namespace MLDB
