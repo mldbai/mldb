@@ -611,14 +611,14 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     firstLine = std::move(leftoverFromPreviousBlock);
                 }
                 else {
-
                     if (memOffset != offset) {
                         // The block doesn't necessarily start at offset; it may start
                         // before in which case we have to skip the extra bits
                         size_t startAt = offset - memOffset;
                         //cerr << "skipping " << startAt << " early bytes"
                         //     << endl;
-                        mem = mem.range(startAt, mem.length() - startAt);
+                        mem = mem.range(startAt, mem.length());
+                        ExcAssertLess(memOffset, offset);
                     }
 
                     // Ready for another chunk; schedule it while we're

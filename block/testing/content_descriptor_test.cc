@@ -40,7 +40,6 @@ void testSequential(const std::string & filename,
 
     size_t ofs = 0;
     for (; ofs < data.size();  ofs += blockSize) {
-
         uint64_t startOffset;
         FrozenMemoryRegion region;
         std::tie(startOffset, region)
