@@ -13,6 +13,9 @@
 #include <boost/iostreams/stream_buffer.hpp>
 #include <mutex>
 #include "mldb/vfs/compressor.h"
+#include "mldb/watch/watch_impl.h"
+#include "mldb/base/thread_pool.h"
+
 
 using namespace std;
 
@@ -358,6 +361,60 @@ struct ContentInputSeekableStreambuf {
 ContentHandler::
 ~ContentHandler()
 {
+}
+
+bool
+ContentHandler::
+forEachBlockParallel(uint64_t requestedBlockSize,
+                     std::function<bool (uint64_t, FrozenMemoryRegion)> fn) const
+{
+    size_t offset = 0;
+
+    std::atomic<bool> finished(false);
+    std::atomic<int> hasExc(0);
+    std::exception_ptr exc;
+    
+    size_t maxParallelism = numCpus();
+    
+    ThreadPool tp(ThreadPool::instance(), maxParallelism);
+    
+    while (!finished && !hasExc) {
+        uint64_t startOffset;
+        FrozenMemoryRegion region;
+
+        std::tie(startOffset, region)
+            = getRangeContaining(offset, requestedBlockSize);
+
+        if (!region)
+            break;
+        
+        uint64_t toSkip = startOffset - offset;
+        ExcAssertEqual(toSkip, 0);
+
+        auto processBlock = [startOffset, region, &fn, &finished, &hasExc, &exc] ()
+            {
+                try {
+                    if (!fn(startOffset, region))
+                        finished = true;
+                } MLDB_CATCH_ALL {
+                    if (hasExc.fetch_add(1) == 0) {
+                        exc = std::current_exception();
+                    }
+                }
+            };
+
+        tp.add(std::move(processBlock));
+
+        offset = startOffset + region.length();
+    }
+
+    tp.waitForAll();
+
+    if (hasExc) {
+        std::rethrow_exception(exc);
+    }
+
+    return !finished;
 }
 
 FrozenMemoryRegion
@@ -762,6 +819,54 @@ struct ContentDecompressor
     virtual AccessPattern getPattern() const override
     {
         return pattern;
+    }
+    
+    virtual bool
+    forEachBlockParallel(uint64_t requestedBlockSize,
+                         std::function<bool (uint64_t, FrozenMemoryRegion)> fn) const
+    {
+        if (!decompressor)
+            decompressor.reset(Decompressor::create(compression));
+
+        uint64_t currentOffset = 0;
+        auto getData = [&] (size_t numBytes)
+            -> std::pair<std::shared_ptr<const char>, size_t>
+            {
+                cerr << "getData for " << numBytes << " bytes" << " at " << currentOffset
+                     << endl;
+
+                uint64_t startOffset;
+                FrozenMemoryRegion region;
+
+                std::tie(startOffset, region)
+                    = source->getRangeContaining(currentOffset, numBytes);
+                
+
+                ssize_t toSkip = currentOffset - startOffset;
+
+                cerr << "toSkip = " << toSkip << endl;
+                
+                if (toSkip > 0) {
+                    region = region.rangeAtEnd(region.length() - toSkip);
+                }
+
+                currentOffset += region.length();
+                
+                auto onFree = [region] (const char *) {};
+
+                return { std::shared_ptr<const char>(region.data(), std::move(onFree)),
+                         region.length() };
+            };
+
+        auto onBlock = [&] (size_t blockNumber,
+                            uint64_t startOffset,
+                            const char * mem,
+                            size_t length) -> bool
+            {
+                return true;
+            };
+        
+        return decompressor->forEachBlockParallel(requestedBlockSize, getData, onBlock);
     }
     
     virtual std::pair<uint64_t, FrozenMemoryRegion>

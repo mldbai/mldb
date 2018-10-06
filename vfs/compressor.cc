@@ -124,6 +124,37 @@ Decompressor::
 {
 }
 
+bool
+Decompressor::
+forEachBlockParallel(size_t requestedBlockSize,
+                     const GetDataFunction & getData,
+                     const ForEachBlockFunction & onBlock)
+{
+    bool finished = false;
+    size_t blockNumber = 0;
+    size_t currentOffset = 0;
+    size_t numChars = 0;
+    std::shared_ptr<const char> buf;
+    
+    while (std::get<0>((std::tie(buf, numChars) = getData(requestedBlockSize)))) {
+        auto onData = [&] (const char * data, size_t len) -> size_t
+            {
+                if (finished)
+                    return len;
+                if (!onBlock(blockNumber++, currentOffset, data, len)) {
+                    finished = true;
+                    return len;
+                }
+                currentOffset += len;
+                return len;
+            };
+
+        decompress(buf.get(), numChars, onData);
+    }
+    
+    return !finished;
+}
+
 Decompressor *
 Decompressor::
 create(const std::string & decompression)

@@ -10,11 +10,14 @@
 #include "mldb/ext/xxhash/xxhash.h"
 #include "mldb/ext/lz4/lz4.h"
 #include "mldb/ext/lz4/lz4hc.h"
+#include "mldb/ext/lz4/lz4frame.h"
 #include "mldb/arch/endian.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/base/thread_pool.h"
 #include <iostream>
 #include "mldb/base/scope.h"
 #include <cstring>
+#include <atomic>
 
 
 using namespace std;
@@ -216,7 +219,7 @@ struct Lz4Compressor : public Compressor {
             XXH32_freeState(streamChecksumState);
     }
 
-    virtual void notifyInputSize(uint64_t inputSize)
+    virtual void notifyInputSize(uint64_t inputSize) override
     {
         if (!writeHeader) {
             throw Exception("lz4 input size already notified");
@@ -226,7 +229,7 @@ struct Lz4Compressor : public Compressor {
     }
     
     virtual void compress(const char * s, size_t n,
-                          const OnData & onData)
+                          const OnData & onData) override
     {
         if (writeHeader) {
             head.write(onData, contentSize);
@@ -246,7 +249,7 @@ struct Lz4Compressor : public Compressor {
         }
     }
     
-    virtual void flush(FlushLevel flushLevel, const OnData & onData)
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override
     {
         if (pos == 0)
             return;
@@ -283,7 +286,7 @@ struct Lz4Compressor : public Compressor {
         pos = 0;
     }
 
-    virtual void finish(const OnData & onData)
+    virtual void finish(const OnData & onData) override
     {
         if (writeHeader) head.write(onData, contentSize);
         if (pos) flush(FLUSH_RESTART, onData);
@@ -366,9 +369,50 @@ struct Lz4Decompressor: public Decompressor {
             return LENGTH_UNKNOWN;
         return contentSize;
     }
+
+    std::string decompressBlock(std::string blockData,
+                                uint32_t blockHeader,
+                                uint32_t blockChecksum) const
+    {
+        std::string output;
+
+        cerr << "decompressing " << blockData.length() << " bytes" << endl;
+        
+        if (header.blockChecksum()) {
+            uint32_t checksum = XXH32(blockData.data(),
+                                      blockData.size(),
+                                      lz4::ChecksumSeed);
+            if (checksum != blockChecksum)
+                throw lz4_error("invalid checksum");
+        }
+        
+        if (blockHeader & lz4::NotCompressedMask) {
+            output = std::move(blockData);
+        }
+        else {
+            output.resize(header.blockSize());
+                        
+            auto decompressed
+                = LZ4_decompress_safe
+                (blockData.data(), output.data(),
+                 blockData.size(), output.size());
+
+            cerr << "decompressed " << decompressed << " of maximum "
+                 << output.size() << " with checksum "
+                 << XXH32(blockData.data(), blockData.size(), lz4::ChecksumSeed)
+                 << endl;
+            
+            if (decompressed < 0)
+                throw lz4_error(string("malformed lz4 stream: ") + LZ4F_getErrorName(decompressed));
+
+            output.resize(decompressed);
+        }
+
+        return output;
+    }
     
     virtual void decompress(const char * data, size_t len,
-                              const OnData & onData) override
+                            const OnData & onData) override
     {
         if (!cur) {
             throw Exception("Extra junk at end of compressed lz4 data");
@@ -376,12 +420,20 @@ struct Lz4Decompressor: public Decompressor {
 
         size_t done = 0;
         while (done < len) {
+            //cerr << "state " << state << endl;
+            //cerr << "header.blockSize() = " << header.blockSize() << endl;
+            //cerr << "done = " << done << " len = " << len << endl;
+            
             size_t toRead = std::min<size_t>(limit - cur, len - done);
-            std::memcpy(cur, data + done, toRead);
+            //cerr << "reading " << toRead << " of " << (limit - cur) << endl;
+            if (data != cur)
+                std::memcpy(cur, data + done, toRead);
             done += toRead;
             cur += toRead;
+
             
             if (cur == limit) {
+                //cerr << "finished state " << state << endl;
                 // we've finished our field
                 // Switch to the next state
                 switch (state) {
@@ -445,36 +497,17 @@ struct Lz4Decompressor: public Decompressor {
 
                 case BLOCK_CHECKSUM: {
                     // Finished our block, or block + checksum
-                    if (header.blockChecksum()) {
-                        uint32_t checksum = XXH32(blockData.data(),
-                                                  blockData.size(),
-                                                  lz4::ChecksumSeed);
-                        if (checksum != blockChecksum)
-                            throw lz4_error("invalid checksum");
-                    }
-                    
-                    std::string output;
-                    
-                    if (blockHeader & lz4::NotCompressedMask) {
-                        output = std::move(blockData);
-                    }
-                    else {
-                        output.resize(header.blockSize());
-                        
-                        auto decompressed
-                            = LZ4_decompress_safe
-                                (blockData.data(), output.data(),
-                                 blockData.size(), output.size());
-                        
-                        if (decompressed < 0)
-                            throw lz4_error("malformed lz4 stream");
 
-                        output.resize(decompressed);
-                    }
+                    std::string output = decompressBlock(std::move(blockData),
+                                                         blockHeader,
+                                                         blockChecksum);
+                    
                     write(onData, output.data(), output.length());
+
                     if (header.streamChecksum()) {
                         XXH32_update(streamChecksumState, output.data(), output.size());
                     }
+
                     setCur(BLOCK_HEADER, blockHeader);
                     break;
                 }
@@ -501,6 +534,124 @@ struct Lz4Decompressor: public Decompressor {
             throw Exception("lz4 stream is truncated");
     }
 
+    virtual bool
+    forEachBlockParallel(size_t requestedBlockSize,
+                         const GetDataFunction & getData,
+                         const ForEachBlockFunction & onBlock) override
+    {
+        //return Decompressor::forEachBlockParallel(requestedBlockSize, getData, onBlock);
+
+        size_t maxParallelism = numCpus();
+
+        ThreadPool tp(ThreadPool::instance(), maxParallelism);
+
+        std::shared_ptr<const char> buf;
+        size_t bufLen = 0;
+        size_t bufOffset = 0;
+        
+        // Entirely fill the given buffer, throw if we can't
+        auto getAll = [&] (char * out, size_t len)
+            {
+                //cerr << endl << endl << "getAll for " << len << endl;
+                size_t done = 0;
+                while (done < len) {
+                    //cerr << "  ===== done = " << done << " len = " << len << endl;
+                    //cerr << "bufOffset = " << bufOffset << " bufLen = " << bufLen << endl;
+                    
+                    // Try to get some more data
+                    if (bufOffset == bufLen) {
+                        std::tie(buf, bufLen) = getData(requestedBlockSize);
+                        bufOffset = 0;
+
+                        //cerr << "*** Getting new block" << endl;
+                        //cerr << "bufLen = " << bufLen << endl;
+                        
+                        if (!buf) {
+                            throw Exception("Early EOF for lz4 stream");
+                        }
+                    }
+
+                    size_t todo = std::min(len - done, bufLen - bufOffset);
+                    //cerr << " -=-=-=-=- bufOffset = " << bufOffset << " bufLen = " << bufLen
+                    //     << " todo = " << todo << endl ;
+                    memcpy(out + done, buf.get() + bufOffset, todo);
+
+                    done += todo;
+                    bufOffset += todo;
+                }
+
+                ExcAssertEqual(len, done);
+
+                //cerr << "--------------- finished getAll" << endl;
+            };
+        
+        // Give it everything to move to the next state
+        auto pumpState = [&] ()
+            {
+                getAll(cur, limit - cur);
+                decompress(cur, limit - cur, nullptr /* onData */);
+            };
+
+        while (state < BLOCK_HEADER)
+            pumpState();
+
+        State endBlockState
+            = header.blockChecksum() ? BLOCK_CHECKSUM : BLOCK_DATA;
+
+        std::atomic<bool> aborted(false);
+
+        size_t blockNumber = 0;
+        size_t blockOffset = 0;
+        size_t blockSize = header.blockSize();
+
+        
+        while (state != FINISHED && state != STREAM_CHECKSUM && !aborted) {
+            while (state != FINISHED && state != STREAM_CHECKSUM && state != endBlockState)
+                pumpState();
+
+            if (state == FINISHED || state == STREAM_CHECKSUM || aborted)
+                break;
+
+            // Finish the current state
+            getAll(cur, limit - cur);
+
+            auto processBlock = [blockData = std::move(blockData),
+                                 blockHeader = this->blockHeader,
+                                 blockChecksum = this->blockChecksum,
+                                 blockNumber,
+                                 blockOffset,
+                                 this,
+                                 &aborted,
+                                 &onBlock] ()
+                {
+                    std::string output = decompressBlock(std::move(blockData),
+                                                         blockHeader, blockChecksum);
+                    if (!onBlock(blockNumber, blockOffset,
+                                 output.data(), output.size()))
+                        aborted = true;
+
+                    //if (header.streamChecksum()) {
+                    //    XXH32_update(streamChecksumState, output.data(), output.size());
+                    //}
+                };
+
+            ++blockNumber;
+            blockOffset += blockSize;
+            
+            // Finish processing in a new thread
+            tp.add(std::move(processBlock));
+
+            //processBlock();
+            
+            // Start of a new block again
+            setCur(BLOCK_HEADER, blockHeader);
+        }
+
+        tp.waitForAll();
+        
+        return !aborted;
+    }
+    
     // write all data
     void write(const OnData & onData, const void * mem, size_t len)
     {

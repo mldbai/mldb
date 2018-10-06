@@ -506,7 +506,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                                           int64_t lineNumber)> endBlock,
                       size_t blockSize)
 {
-    // Sub thread pool to handle the parsing of the blocks
+    // Sub thread pool to handle the parsing of the blocks with limited
+    // parallelism
     ThreadPool tp(ThreadPool::instance(), maxParallelism);
 
     std::atomic<int> hasExc(false);
@@ -517,7 +518,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
     struct PassToNextBlock {
         FrozenMemoryRegion leftoverFromPreviousBlock;
         uint64_t doneLines = 0;
-        bool bail = false;
+        bool bail = false;  ///< Should we bail out (stop) immediately?
     };
     
     std::function<void (int chunkNumber, uint64_t offset,
@@ -815,23 +816,37 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
             }
         };
 
-    // Pretend that we have a previous block that wants to asynchronously
-    // communicate with our current block
-    auto queue = std::make_shared<BlockingConcurrentQueue<PassToNextBlock> >();
-    PassToNextBlock pass;
-    pass.doneLines = 0;
-    queue->enqueue(std::move(pass));
+    if (false) {
+        // Pretend that we have a previous block that wants to asynchronously
+        // communicate with our current block
+        auto queue = std::make_shared<BlockingConcurrentQueue<PassToNextBlock> >();
+        PassToNextBlock pass;
+        pass.doneLines = 0;
+        queue->enqueue(std::move(pass));
 
-    // Make the first block happen.  It will schedule others as they are
-    // discovered.
-    // TODO: later on, we can ask for all blocks in parallel...
-    doBlock(0 /* chunkNumber */,
-            startOffset,
-            queue);
+        // Make the first block happen.  It will schedule others as they are
+        // discovered.
+        // TODO: later on, we can ask for all blocks in parallel...
+        doBlock(0 /* chunkNumber */,
+                startOffset,
+                queue);
+
+        // Wait for all blocks to be done
+        tp.waitForAll();
+    }
+    else {
+        auto onBlock = [&] (uint64_t blockOffset,
+                            FrozenMemoryRegion block) -> bool
+            {
+                cerr << "got block at offset " << blockOffset
+                     << "  with " << block.length() << " characters" << endl;
+                return true;
+            };
+
+        content->forEachBlockParallel(blockSize, onBlock);
+
+    }
     
-    // Wait for all blocks to be done
-    tp.waitForAll();
-
     // If there was an exception, rethrow it rather than returning
     // cleanly
     if (hasExc) {

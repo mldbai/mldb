@@ -18,6 +18,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/block/memory_region.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/watch/watch.h"
 
 namespace MLDB {
 
@@ -157,6 +158,11 @@ struct ContentHandler {
 
     virtual AccessPattern getPattern() const = 0;
 
+    virtual bool
+    forEachBlockParallel(uint64_t requestedBlockSize,
+                         std::function<bool (uint64_t, FrozenMemoryRegion)> fn)
+        const;
+    
     virtual FrozenMemoryRegion getRange(uint64_t offset = 0,
                                         int64_t length = -1) const;
 

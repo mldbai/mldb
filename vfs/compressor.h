@@ -151,7 +151,7 @@ struct Decompressor {
         This will call onData zero or more times.
     */
     virtual void decompress(const char * data, size_t len,
-                              const OnData & onData) = 0;
+                            const OnData & onData) = 0;
     
     /** Finish decompressing the stream... no more data can be read from
         it afterwards.
@@ -160,6 +160,20 @@ struct Decompressor {
     */
     virtual void finish(const OnData & onData) = 0;
 
+
+    typedef std::function<bool (size_t blockNumber,
+                                uint64_t blockOffset,
+                                const char * blockStart,
+                                size_t blockLength)>
+        ForEachBlockFunction;
+
+    typedef std::function<std::pair<std::shared_ptr<const char>, size_t> (size_t)>
+        GetDataFunction;
+    
+    virtual bool forEachBlockParallel(size_t requestedBlockSize,
+                                      const GetDataFunction & getData,
+                                      const ForEachBlockFunction & onBlock);
+    
     /** Create a compressor with the given scheme.  Returns nullptr if
         the given compression scheme isn't found.
     */
