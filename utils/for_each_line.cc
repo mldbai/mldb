@@ -505,7 +505,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                                           int64_t lineNumber)> endBlock,
                       size_t blockSize)
 {
-    // Sub thread pool to handle the parsing of the blocks
+    // Sub thread pool to handle the parsing of the blocks with limited
+    // parallelism
     ThreadPool tp(ThreadPool::instance(), maxParallelism);
 
     std::atomic<int> hasExc(false);
@@ -516,7 +517,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
     struct PassToNextBlock {
         FrozenMemoryRegion leftoverFromPreviousBlock;
         uint64_t doneLines = 0;
-        bool bail = false;
+        bool bail = false;  ///< Should we bail out (stop) immediately?
     };
     
     std::function<void (int chunkNumber, uint64_t offset,
@@ -827,7 +828,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
     doBlock(0 /* chunkNumber */,
             startOffset,
             queue);
-    
+
     // Wait for all blocks to be done
     tp.waitForAll();
 
