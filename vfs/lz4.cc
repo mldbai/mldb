@@ -372,8 +372,9 @@ struct Lz4Decompressor: public Decompressor {
 
     std::pair<std::shared_ptr<const char>, size_t>
     decompressBlock(std::shared_ptr<const char> blockData,
-                                uint32_t blockHeader,
-                                uint32_t blockChecksum) const
+                    uint32_t blockHeader,
+                    uint32_t blockChecksum,
+                    const Allocate & allocate) const
     {
         size_t blockLength = blockHeader & ~lz4::NotCompressedMask;
         bool uncompressed = blockHeader & lz4::NotCompressedMask;
@@ -392,9 +393,7 @@ struct Lz4Decompressor: public Decompressor {
             return { std::move(blockData), blockLength };
         }
         else {
-            std::shared_ptr<char> outputData(new char[header.blockSize()],
-                                             [] (char * p) { delete[] p; });
-                        
+            auto outputData = allocate(header.blockSize());
             auto decompressed
                 = LZ4_decompress_safe
                 (blockData.get(), outputData.get(),
@@ -412,14 +411,43 @@ struct Lz4Decompressor: public Decompressor {
             return { std::move(outputData), decompressed };
         }
     }
+
+    static void memDeallocate(char * c)
+    {
+        delete[] c;
+    }
+    
+    static std::shared_ptr<char> memAllocate(size_t n)
+    {
+        return std::shared_ptr<char>(new char[n], memDeallocate);
+    }
     
     virtual void decompress(const char * data, size_t len,
                             const OnData & onData) override
+    {
+        std::shared_ptr<const char> sharedData(data, [] (const char *) {});
+        auto onSharedData = [&] (std::shared_ptr<const char> data,
+                                 size_t len)
+            {
+                size_t done = 0;
+                while (done < len) {
+                    done += onData(data.get() + done, len - done);
+                }
+            };
+
+        decompress(std::move(sharedData), len, onSharedData, memAllocate);
+    }
+
+    virtual void decompress(std::shared_ptr<const char> data__, size_t len,
+                            const OnSharedData & onData,
+                            const Allocate & allocate) override
     {
         if (!cur) {
             throw Exception("Extra junk at end of compressed lz4 data");
         }
 
+        const char * data = data__.get();
+        
         size_t done = 0;
         while (done < len) {
             //cerr << "state " << state << endl;
@@ -484,7 +512,7 @@ struct Lz4Decompressor: public Decompressor {
                         uint32_t blockSize = blockHeader;
                         blockSize &= ~lz4::NotCompressedMask;
 
-                        blockData.reset(new char[blockLength()], [] (const char * p) { delete[] p; });
+                        blockData = allocate(blockLength());
 
                         setCur(BLOCK_DATA, blockData.get(), blockLength());
                     }
@@ -507,9 +535,10 @@ struct Lz4Decompressor: public Decompressor {
                     std::tie(outputData, outputLength)
                         = decompressBlock(std::move(blockData),
                                           blockHeader,
-                                          blockChecksum);
-                    
-                    write(onData, outputData.get(), outputLength);
+                                          blockChecksum,
+                                          allocate);
+
+                    onData(outputData, outputLength);
 
                     if (header.streamChecksum()) {
                         XXH32_update(streamChecksumState, outputData.get(), outputLength);
@@ -541,16 +570,21 @@ struct Lz4Decompressor: public Decompressor {
             throw Exception("lz4 stream is truncated");
     }
 
+    virtual void finish(const OnSharedData & onData, const Allocate & allocate) override
+    {
+        if (state != FINISHED)
+            throw Exception("lz4 stream is truncated");
+    }
+
     virtual bool
     forEachBlockParallel(size_t requestedBlockSize,
                          const GetDataFunction & getData,
-                         const ForEachBlockFunction & onBlock) override
+                         const ForEachBlockFunction & onBlock,
+                         const Allocate & allocate,
+                         int maxParallelism) override
     {
         //return Decompressor::forEachBlockParallel(requestedBlockSize, getData, onBlock);
-
-        size_t maxParallelism = numCpus();
-
-        ThreadPool tp(ThreadPool::instance(), maxParallelism);
+        ThreadWorkGroup tp(maxParallelism);
 
         std::shared_ptr<const char> buf;
         size_t bufLen = 0;
@@ -602,9 +636,6 @@ struct Lz4Decompressor: public Decompressor {
         while (state < BLOCK_HEADER)
             pumpState();
 
-        State endBlockState
-            = header.blockChecksum() ? BLOCK_CHECKSUM : BLOCK_DATA;
-
         std::atomic<bool> aborted(false);
 
         size_t blockNumber = 0;
@@ -613,33 +644,51 @@ struct Lz4Decompressor: public Decompressor {
 
         
         while (state != FINISHED && state != STREAM_CHECKSUM && !aborted) {
-            while (state != FINISHED && state != STREAM_CHECKSUM && state != endBlockState)
+            while (state != FINISHED && state != STREAM_CHECKSUM && state != BLOCK_DATA)
                 pumpState();
 
             if (state == FINISHED || state == STREAM_CHECKSUM || aborted)
                 break;
 
-            // Finish the current state
-            getAll(cur, limit - cur);
-
-            auto processBlock = [blockData = std::move(blockData),
+            std::shared_ptr<const char> ourBlockData;
+            
+            // Next state is to read the block.
+            if (bufLen - bufOffset >= blockLength()) {
+                //If we have enough input data, we don't
+                // need to copy; we can simply use it straight from there
+                ourBlockData = std::shared_ptr<const char>(buf, buf.get() + bufOffset);
+                bufOffset += blockLength();
+            }
+            else {
+                // Read the block data, copying in to the buffer we recently created
+                getAll(cur, limit - cur);
+                ourBlockData = blockData;
+            }
+            
+            if (header.blockChecksum()) {
+                setCur(BLOCK_CHECKSUM, blockChecksum);
+                getAll(cur, limit - cur);
+            }
+            
+            auto processBlock = [ourBlockData = std::move(ourBlockData),
                                  blockHeader = this->blockHeader,
                                  blockChecksum = this->blockChecksum,
                                  blockNumber,
                                  blockOffset,
                                  this,
                                  &aborted,
-                                 &onBlock] ()
+                                 &onBlock,
+                                 &allocate] ()
                 {
 
                     std::shared_ptr<const char> outputData;
                     size_t outputLength;
 
                     std::tie(outputData, outputLength)
-                        = decompressBlock(std::move(blockData),
-                                          blockHeader, blockChecksum);
+                        = decompressBlock(std::move(ourBlockData),
+                                          blockHeader, blockChecksum, allocate);
                     if (!onBlock(blockNumber, blockOffset,
-                                 outputData.get(), outputLength))
+                                 outputData, outputLength))
                         aborted = true;
 
                     //if (header.streamChecksum()) {
@@ -651,9 +700,9 @@ struct Lz4Decompressor: public Decompressor {
             blockOffset += blockSize;
             
             // Finish processing in a new thread
-            tp.add(std::move(processBlock));
-
-            //processBlock();
+            if (maxParallelism > 1)
+                tp.add(std::move(processBlock));
+            else processBlock();
             
             // Start of a new block again
             setCur(BLOCK_HEADER, blockHeader);

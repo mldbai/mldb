@@ -11,6 +11,9 @@
 #include <iostream>
 #include <mutex>
 #include <map>
+#include <cstring>
+#include "mldb/base/thread_pool.h"
+
 
 using namespace std;
 
@@ -124,33 +127,89 @@ Decompressor::
 {
 }
 
+void
+Decompressor::
+decompress(std::shared_ptr<const char> data, size_t len,
+           const OnSharedData & onSharedData,
+           const Allocate & allocate)
+{
+    auto onData = [&] (const char * p, size_t len)
+        {
+            auto block = allocate(len);
+            std::memcpy(block.get(), p, len);
+            onSharedData(std::move(block), len);
+            return len;
+        };
+
+    decompress(data.get(), len, onData);
+}
+
+void
+Decompressor::
+finish(const OnSharedData & onSharedData,
+       const Allocate & allocate)
+{
+    auto onData = [&] (const char * p, size_t len)
+        {
+            auto block = allocate(len);
+            std::memcpy(block.get(), p, len);
+            onSharedData(std::move(block), len);
+            return len;
+        };
+
+    finish(onData);
+}
+
 bool
 Decompressor::
 forEachBlockParallel(size_t requestedBlockSize,
                      const GetDataFunction & getData,
-                     const ForEachBlockFunction & onBlock)
+                     const ForEachBlockFunction & onBlock,
+                     const Allocate & allocate,
+                     int maxParallelism)
 {
     bool finished = false;
     size_t blockNumber = 0;
     size_t currentOffset = 0;
     size_t numChars = 0;
     std::shared_ptr<const char> buf;
+
+    ThreadWorkGroup tp(maxParallelism);
     
     while (std::get<0>((std::tie(buf, numChars) = getData(requestedBlockSize)))) {
-        auto onData = [&] (const char * data, size_t len) -> size_t
+        auto onData = [&] (std::shared_ptr<const char> data, size_t len) -> size_t
             {
                 if (finished)
                     return len;
-                if (!onBlock(blockNumber++, currentOffset, data, len)) {
-                    finished = true;
-                    return len;
+
+                size_t myBlockNumber = blockNumber++;
+                size_t myOffset = currentOffset;
+
+                auto doBlock = [myBlockNumber, myOffset, data = std::move(data),
+                                len, &finished, &onBlock] ()
+                {
+                    if (finished)
+                        return;
+                    if (!onBlock(myBlockNumber, myOffset, std::move(data), len)) {
+                        finished = true;
+                    }
+                };
+
+                if (maxParallelism > 0) {
+                    tp.add(std::move(doBlock));
                 }
+                else {
+                    doBlock();
+                }
+                
                 currentOffset += len;
                 return len;
             };
-
-        decompress(buf.get(), numChars, onData);
+        
+        decompress(buf, numChars, onData, allocate);
     }
+
+    tp.waitForAll();
     
     return !finished;
 }

@@ -159,8 +159,11 @@ struct ContentHandler {
     virtual AccessPattern getPattern() const = 0;
 
     virtual bool
-    forEachBlockParallel(uint64_t requestedBlockSize,
-                         std::function<bool (uint64_t, FrozenMemoryRegion)> fn)
+    forEachBlockParallel(uint64_t startOffset,
+                         uint64_t requestedBlockSize,
+                         int maxParallelism,
+                         std::function<bool (size_t blockNum, uint64_t blockOffset,
+                                             FrozenMemoryRegion block)> fn)
         const;
     
     virtual FrozenMemoryRegion getRange(uint64_t offset = 0,

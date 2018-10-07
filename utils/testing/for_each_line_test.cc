@@ -52,7 +52,8 @@ void testForEachLineBlock(const std::string & data,
 
     cerr << endl;
     cerr << "test " << testNumber << " with "
-         << splitLines.size() << " lines" << endl;
+         << splitLines.size() << " lines, " << startOffset << " start offset and "
+         << maxLines << " max lines" << endl;
     cerr << "test has " << data.size() << " characters" << endl;
     
     {

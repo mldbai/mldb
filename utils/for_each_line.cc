@@ -21,7 +21,7 @@
 #include "mldb/utils/log.h"
 #include "mldb/base/hex_dump.h"
 #include "mldb/block/content_descriptor.h"
-
+#include "mldb/arch/spinlock.h"
 
 using namespace std;
 using moodycamel::BlockingConcurrentQueue;
@@ -506,10 +506,6 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                                           int64_t lineNumber)> endBlock,
                       size_t blockSize)
 {
-    // Sub thread pool to handle the parsing of the blocks with limited
-    // parallelism
-    ThreadPool tp(ThreadPool::instance(), maxParallelism);
-
     std::atomic<int> hasExc(false);
     std::exception_ptr exc;
 
@@ -520,48 +516,61 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
         uint64_t doneLines = 0;
         bool bail = false;  ///< Should we bail out (stop) immediately?
     };
+
+    // Set of queues, one per block, that grows with the amount of data
+    // TODO: make this a deque so we can remove early entries
+    Spinlock queuesMutex;
+    std::vector<std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > > queues;
+    queues.reserve(1024);
+    queues.emplace_back(new BlockingConcurrentQueue<PassToNextBlock>());
     
-    std::function<void (int chunkNumber, uint64_t offset,
-                        std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > fromPrev)> doBlock
-        = [&hasExc,&exc,content,maxLines,&doBlock,&tp,&onLine,&startBlock,&endBlock,blockSize]
+    auto getQueues = [&] (size_t blockNumber)
+        -> std::pair<std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> >,
+                     std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > >
+        {
+            std::unique_lock<Spinlock> guard(queuesMutex);
+            while (blockNumber + 1 >= queues.size())
+                queues.emplace_back(new BlockingConcurrentQueue<PassToNextBlock>());
+            return { queues[blockNumber], queues[blockNumber + 1] };
+        };
+    
+    
+    auto doBlock
+        = [&hasExc,&exc,maxLines,&onLine,&startBlock,&endBlock,&getQueues]
         (int chunkNumber,
          uint64_t offset,
-         std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > fromPrevQueue)
+         FrozenMemoryRegion mem) -> bool
         {
+            //cerr << "chunk " << chunkNumber << " with " << mem.length() << " bytes" << endl;
+            
             // Contains the full first line of our block, which is made up
             // of whatever was leftover from the previous block plus
             // our current line
             FrozenMemoryRegion firstLine;
 
-            // Contains the other full lines of our block, starting from 2nd
-            FrozenMemoryRegion mem;
-
             // Contains the (partial) last line of our block
             FrozenMemoryRegion partialLastLine;
             
-            size_t myChunkNumber = 0;
-
             // Offset in otherLines of line start characters
             vector<size_t> lineOffsets;
             
             // What we got from the last block
             PassToNextBlock fromPrev;
 
-            // Queue on which we pass the state to the next block
-            std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > queue;
-
+            std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> >
+                fromPrevQueue, toNextQueue;
+            std::tie(fromPrevQueue, toNextQueue) = getQueues(chunkNumber);
+            
             // Call this to tell the next block that it should bail out.  It's
             // safe to call at any time, including before the next block has
             // been launched and after the next block has already been told to
             // do something else.
             auto bailNextBlock = [&] () {
-                if (!queue)
-                    return;
                 PassToNextBlock toNext;
                 toNext.bail = true;
-                queue->enqueue(std::move(toNext));
+                toNextQueue->enqueue(std::move(toNext));
             };
-            
+
             try {
                 //cerr << endl << endl
                 //     << "------------- starting block " << chunkNumber
@@ -577,13 +586,6 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 
                 //Date start = Date::now();
                 
-
-                uint64_t memOffset;
-
-                // Get the next block from the underlying data source
-                std::tie(memOffset, mem)
-                    = content->getRangeContaining(offset, blockSize);
-
                 //Date gotData = Date::now();
 
                 //double elapsed = gotData.secondsSince(start);
@@ -593,166 +595,148 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 //     << " at " << mem.length() / elapsed / 1000000 << " MB/s"
                 //     << endl;
                 
+                //cerr << "got " << mem.length() << " bytes at "
+                //     << (void *)mem.data() << endl;
+
+                //hex_dump(mem.data(), mem.length());
+                    
+                size_t length = mem.length();
+                const char * start = mem.data();
+                const char * current = (const char *)memchr(start, '\n', length);
+                const char * end = start + length;
+                size_t numLinesInBlock = 0;
+                
+                //cerr << "start = " << (void *)start
+                //     << " current = " << (void *)current
+                //     << " end = " << (void *)end
+                //     << endl;
+
+                bool noBreakInChunk = false;
+                ssize_t charsUntilFirstLineBreak = -1;
+                if (!current) {
+                    noBreakInChunk = true;
+                }
+                else {
+                    charsUntilFirstLineBreak = current - start;
+                    //cerr << "firstLine is " << endl;
+                    //hex_dump(firstLine.data(), firstLine.length());
+
+                    ++current;
+                    ++numLinesInBlock;
+                    //cerr << "numLinesInBlock incremented for first line" << endl;
+                        
+                    // Second line starts here; record the start
+                    lineOffsets.push_back(current - start);
+                        
+                    const char * lastLineStart = current;
+                        
+                    //cerr << "start = " << (void *)start
+                    //     << " current = " << (void *)current
+                    //     << " end = " << (void *)end
+                    //     << endl;
+                        
+                    while (current && current < end) {
+                        // Bail out on exception
+                        if (numLinesInBlock % 256 == 0
+                            && hasExc.load(std::memory_order_relaxed)) {
+                            bailNextBlock();
+                            return false;
+                        }
+
+                        current = (const char *)memchr(current, '\n', end - current);
+
+                        //cerr << " current now = " << (void *)current << endl;
+
+                        if (current)
+                            lastLineStart = current + 1;
+                            
+                        if (current && current < end) {
+                            ExcAssertEqual(*current, '\n');
+                            lineOffsets.push_back(current - start);
+                            ++numLinesInBlock;
+                            //cerr << "doneLines incremented for other line"
+                            //     << endl;
+                            ++current;
+                        }
+                    }
+                    
+                    // Whatever is left over is the last line, which we pass
+                    // through to the next block
+                    if (!current && mem) {
+                        //cerr << "lastLineStart - start = "
+                        //     << lastLineStart - start << endl;
+                        //cerr << "mem.length() = " << mem.length() << endl;
+                        partialLastLine = mem.range(lastLineStart - start,
+                                                    mem.length());
+                        //cerr << "partial last line" << endl;
+                    }
+                }
+
+                if (hasExc.load(std::memory_order_relaxed)) {
+                    bailNextBlock();
+                    return false;
+                }
+                    
                 fromPrevQueue->wait_dequeue(fromPrev);
 
                 // Do we bail out?  If our previous block says it has bailed,
                 // then we should too.
                 if (fromPrev.bail) {
-                    return;
+                    bailNextBlock();
+                    return false;
                 }
-                
+
+                // Now we have information from the previous block, we can reconstruct
+                // our first line and know our real line numbers
                 FrozenMemoryRegion leftoverFromPreviousBlock
                     = std::move(fromPrev.leftoverFromPreviousBlock);
-                uint64_t doneLines = fromPrev.doneLines;
-                int64_t startLine = doneLines;
-                
-                if (!mem) {
-                    // There is no more data, so whatever is left over is
-                    // the previous block
-                    //cerr << "no more data" << endl;
-                    firstLine = std::move(leftoverFromPreviousBlock);
+                int64_t startLine = fromPrev.doneLines;
+                uint64_t doneLines = startLine + numLinesInBlock;
+                    
+                if (noBreakInChunk && mem) {
+                    // No line break in the whole chunk; it's all a partial
+                    // last line
+                    partialLastLine
+                        = FrozenMemoryRegion::combined
+                        (leftoverFromPreviousBlock,
+                         mem);
+                }
+                else if (mem) {
+                    firstLine
+                        = FrozenMemoryRegion::combined
+                        (leftoverFromPreviousBlock,
+                         mem.range(0, charsUntilFirstLineBreak));
                 }
                 else {
-                    if (memOffset != offset) {
-                        // The block doesn't necessarily start at offset; it may start
-                        // before in which case we have to skip the extra bits
-                        size_t startAt = offset - memOffset;
-                        //cerr << "skipping " << startAt << " early bytes"
-                        //     << endl;
-                        mem = mem.range(startAt, mem.length());
-                        ExcAssertLess(memOffset, offset);
-                    }
+                    firstLine = std::move(leftoverFromPreviousBlock);
+                    if (firstLine.length() == 0)
+                        return false;
+                }
 
-                    // Ready for another chunk; schedule it while we're
-                    // waiting for the next one to be ready
-                    queue = std::make_shared<BlockingConcurrentQueue<PassToNextBlock> >();
-                    tp.add(doBlock, chunkNumber + 1, offset + mem.length(), queue);
-                    
-                    //cerr << "got " << mem.length() << " bytes at "
-                    //     << (void *)mem.data() << endl;
+                if (maxLines == -1 || doneLines < maxLines) {
 
-                    //hex_dump(mem.data(), mem.length());
-                    
-                    size_t length = mem.length();
-                    const char * start = mem.data();
-                    const char * current = (const char *)memchr(start, '\n', length);
-                    const char * end = start + length;
-
-                    //cerr << "start = " << (void *)start
-                    //     << " current = " << (void *)current
-                    //     << " end = " << (void *)end
+                    //cerr << "sending on partial last line with "
+                    //     << partialLastLine.length() << " characters"
                     //     << endl;
-
-                    if (!current) {
-                        // No line break in the whole chunk; it's all a partial
-                        // last line
-                        partialLastLine
-                            = FrozenMemoryRegion::combined
-                                (leftoverFromPreviousBlock,
-                                 mem);
-                    }
-                    else {
-                        firstLine
-                            = FrozenMemoryRegion::combined
-                                (leftoverFromPreviousBlock,
-                                 mem.range(0, current - start));
-
-                        //cerr << "firstLine is " << endl;
-                        //hex_dump(firstLine.data(), firstLine.length());
-
-                        ++current;
-                        ++doneLines;
-                        //cerr << "doneLines incremented for first line" << endl;
-                        
-                        // Second line starts here; record the start
-                        lineOffsets.push_back(current - start);
-                        
-                        const char * lastLineStart = current;
-                        
-                        //cerr << "start = " << (void *)start
-                        //     << " current = " << (void *)current
-                        //     << " end = " << (void *)end
-                        //     << endl;
-                        
-                        while (current
-                               && current < end
-                               && (maxLines == -1
-                                   || doneLines < maxLines) // stop with enough lines
-                               ) { 
-                            
-                            // Bail out on exception
-                            if (doneLines % 256 == 0
-                                && hasExc.load(std::memory_order_relaxed)) {
-                                bailNextBlock();
-                                return;
-                            }
-
-                            current = (const char *)memchr(current, '\n', end - current);
-
-                            //cerr << " current now = " << (void *)current << endl;
-
-                            if (current)
-                                lastLineStart = current + 1;
-                            
-                            if (current && current < end) {
-                                ExcAssertEqual(*current, '\n');
-                                lineOffsets.push_back(current - start);
-                                ++doneLines;
-                                //cerr << "doneLines incremented for other line"
-                                //     << endl;
-                                ++current;
-                            }
-                        }
-                    
-                        // Whatever is left over is the last line, which we pass
-                        // through to the next block
-                        if (!current) {
-                            //cerr << "lastLineStart - start = "
-                            //     << lastLineStart - start << endl;
-                            //cerr << "mem.length() = " << mem.length() << endl;
-                            partialLastLine = mem.range(lastLineStart - start,
-                                                        mem.length());
-                            //cerr << "partial last line" << endl;
-                        }
-                    }
-
-                    offset += length;
-                    myChunkNumber = chunkNumber++;
-
-                    if (hasExc.load(std::memory_order_relaxed)) {
-                        bailNextBlock();
-                        return;
-                    }
-                    
-                    if (maxLines == -1 || doneLines < maxLines) {
-
-                        //cerr << "sending on partial last line with "
-                        //     << partialLastLine.length() << " characters"
-                        //     << endl;
-                        //hex_dump(partialLastLine.data(),
-                        //         partialLastLine.length());
+                    //hex_dump(partialLastLine.data(),
+                    //         partialLastLine.length());
 
 
-                        // What we pass on to the next block
-                        PassToNextBlock toNext;
-                        toNext.leftoverFromPreviousBlock
-                            = std::move(partialLastLine);
-                        toNext.doneLines = doneLines;
-                        queue->enqueue(std::move(toNext));
-                    }
-                    else {
-                        bailNextBlock();
-                    }
+                    // What we pass on to the next block
+                    PassToNextBlock toNext;
+                    toNext.leftoverFromPreviousBlock
+                        = std::move(partialLastLine);
+                    toNext.doneLines = doneLines;
+                    toNextQueue->enqueue(std::move(toNext));
+                }
+                else {
+                    bailNextBlock();
                 }
                     
                 int64_t chunkLineNumber = startLine;
                 size_t numLines = (firstLine ? 1 : 0)
                                 + (lineOffsets.empty() ? 0 : lineOffsets.size() - 1);
-
-                if (startBlock)
-                    if (!startBlock(myChunkNumber, chunkLineNumber, numLines))
-                        return;
-
+                
                 auto doLine = [&] (const char * line, size_t len)
                     {
                         // Skip \r for DOS line endings
@@ -761,6 +745,10 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 
                         return onLine(line, len, chunkNumber, chunkLineNumber++);
                     };
+            
+                if (startBlock)
+                    if (!startBlock(chunkNumber, chunkLineNumber, numLines))
+                        return false;
 
                 auto returnedLines = startLine;
                 
@@ -768,7 +756,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     //cerr << "doing first line" << endl;
                     if (maxLines == -1 || returnedLines++ < maxLines) {
                         if (!doLine(firstLine.data(), firstLine.length())) {
-                            return;
+                            return false;
                         }
                     }
                 }
@@ -784,7 +772,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                         // Check for exception bailout every 256 lines
                         if (i % 256 == 0
                             && hasExc.load(std::memory_order_relaxed))
-                            return;
+                            return false;
 
                         const char * line = mem.data() + lastLineOffset;
                         size_t len = lineOffsets[i] - lastLineOffset;
@@ -793,15 +781,15 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                         //     << len << " chars" << endl;
                         
                         if (!doLine(line, len))
-                            return;
+                            return false;
                         
                         lastLineOffset = lineOffsets[i] + 1;  // skip \n
                     }
                 }
                     
                 if (endBlock)
-                    if (!endBlock(myChunkNumber, chunkLineNumber))
-                        return;
+                    if (!endBlock(chunkNumber, chunkLineNumber))
+                        return false;
                 
             } MLDB_CATCH_ALL {
                 //cerr << "got exception in chunk " << myChunkNumber
@@ -813,37 +801,48 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 // If the next block is waiting for instructions, tell it
                 // to bail out.
                 bailNextBlock();
+                return false;
             }
+
+            return true;
         };
 
-    if (false) {
-        // Pretend that we have a previous block that wants to asynchronously
-        // communicate with our current block
-        auto queue = std::make_shared<BlockingConcurrentQueue<PassToNextBlock> >();
-        PassToNextBlock pass;
-        pass.doneLines = 0;
-        queue->enqueue(std::move(pass));
+    // Unblock the first block by writing to it
+    PassToNextBlock pass;
+    pass.doneLines = 0;
+    queues[0]->enqueue(std::move(pass));
+    
+    content->forEachBlockParallel(startOffset, blockSize, maxParallelism, doBlock);
 
-        // Make the first block happen.  It will schedule others as they are
-        // discovered.
-        // TODO: later on, we can ask for all blocks in parallel...
-        doBlock(0 /* chunkNumber */,
-                startOffset,
-                queue);
+    // last chunk with single last line is in the last queue entry
+    if (!hasExc && !queues.empty()) {
+        cerr << "last one; queues.size() = " << queues.size() << endl;
+        size_t chunkNumber = queues.size() - 1;
+        doBlock(chunkNumber, -1 /* offset */, FrozenMemoryRegion());
+    
+#if 0
+        if (!queues.back()->try_dequeue(pass)) {
+            throw Exception("Queue issues");
+        }
+        cerr << "total doneLines = " << pass.doneLines << endl;
+        if (pass.leftoverFromPreviousBlock) {
 
-        // Wait for all blocks to be done
-        tp.waitForAll();
-    }
-    else {
-        auto onBlock = [&] (uint64_t blockOffset,
-                            FrozenMemoryRegion block) -> bool
-            {
-                cerr << "got block at offset " << blockOffset
-                     << "  with " << block.length() << " characters" << endl;
-                return true;
-            };
+            if (!startBlock || startBlock(chunkNumber, pass.doneLines, 1 /* num in block*/)) {
+                const char * line = pass.leftoverFromPreviousBlock.data();
+                size_t len = pass.leftoverFromPreviouBlock.length();
 
-        content->forEachBlockParallel(blockSize, onBlock);
+                // Skip \r for DOS line endings
+                if (len > 0 && line[len - 1] == '\r')
+                    --len;
+
+                if (onLine(line, len, chunkNumber, pass.doneLines)) {
+                    if (endBlock) {
+                        endBlock(chunkNumber, pass.doneLines + 1);
+                    }
+                }
+            }
+        }
+#endif
 
     }
     

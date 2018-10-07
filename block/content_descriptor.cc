@@ -365,20 +365,20 @@ ContentHandler::
 
 bool
 ContentHandler::
-forEachBlockParallel(uint64_t requestedBlockSize,
-                     std::function<bool (uint64_t, FrozenMemoryRegion)> fn) const
+forEachBlockParallel(uint64_t startOffset,
+                     uint64_t requestedBlockSize,
+                     int maxParallelism,
+                     std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const
 {
-    size_t offset = 0;
+    size_t offset = startOffset;
 
     std::atomic<bool> finished(false);
-    std::atomic<int> hasExc(0);
-    std::exception_ptr exc;
     
-    size_t maxParallelism = numCpus();
+    ThreadWorkGroup tp(maxParallelism);
+
+    size_t blockNumber = 0;
     
-    ThreadPool tp(ThreadPool::instance(), maxParallelism);
-    
-    while (!finished && !hasExc) {
+    while (!finished && !tp.hasException()) {
         uint64_t startOffset;
         FrozenMemoryRegion region;
 
@@ -390,17 +390,13 @@ forEachBlockParallel(uint64_t requestedBlockSize,
         
         uint64_t toSkip = startOffset - offset;
         ExcAssertEqual(toSkip, 0);
-
-        auto processBlock = [startOffset, region, &fn, &finished, &hasExc, &exc] ()
+        size_t myBlockNumber = blockNumber++;
+        
+        auto processBlock
+            = [myBlockNumber, startOffset, region, &fn, &finished] ()
             {
-                try {
-                    if (!fn(startOffset, region))
-                        finished = true;
-                } MLDB_CATCH_ALL {
-                    if (hasExc.fetch_add(1) == 0) {
-                        exc = std::current_exception();
-                    }
-                }
+                if (!fn(myBlockNumber, startOffset, region))
+                    finished = true;
             };
 
         tp.add(std::move(processBlock));
@@ -409,10 +405,6 @@ forEachBlockParallel(uint64_t requestedBlockSize,
     }
 
     tp.waitForAll();
-
-    if (hasExc) {
-        std::rethrow_exception(exc);
-    }
 
     return !finished;
 }
@@ -822,18 +814,20 @@ struct ContentDecompressor
     }
     
     virtual bool
-    forEachBlockParallel(uint64_t requestedBlockSize,
-                         std::function<bool (uint64_t, FrozenMemoryRegion)> fn) const
+    forEachBlockParallel(uint64_t startOffset,
+                         uint64_t requestedBlockSize,
+                         int maxParallelism,
+                         std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const
     {
         if (!decompressor)
             decompressor.reset(Decompressor::create(compression));
 
-        uint64_t currentOffset = 0;
+        uint64_t currentOffset = 0 /* startOffset */;
         auto getData = [&] (size_t numBytes)
             -> std::pair<std::shared_ptr<const char>, size_t>
             {
-                cerr << "getData for " << numBytes << " bytes" << " at " << currentOffset
-                     << endl;
+                //cerr << "getData for " << numBytes << " bytes" << " at " << currentOffset
+                //     << endl;
 
                 uint64_t startOffset;
                 FrozenMemoryRegion region;
@@ -844,7 +838,7 @@ struct ContentDecompressor
 
                 ssize_t toSkip = currentOffset - startOffset;
 
-                cerr << "toSkip = " << toSkip << endl;
+                //cerr << "toSkip = " << toSkip << endl;
                 
                 if (toSkip > 0) {
                     region = region.rangeAtEnd(region.length() - toSkip);
@@ -859,14 +853,31 @@ struct ContentDecompressor
             };
 
         auto onBlock = [&] (size_t blockNumber,
-                            uint64_t startOffset,
-                            const char * mem,
+                            uint64_t blockStartOffset,
+                            std::shared_ptr<const char> mem,
                             size_t length) -> bool
             {
-                return true;
+                if (blockStartOffset + length < startOffset)
+                    return true;
+
+                if (blockStartOffset < startOffset) {
+                    size_t toSkip = startOffset - blockStartOffset;
+                    mem = std::shared_ptr<const char>(mem, mem.get() + toSkip);
+                    length -= toSkip;
+                    blockStartOffset += toSkip;
+                }
+
+                FrozenMemoryRegion region(mem, mem.get(), length);
+                return fn(blockNumber, blockStartOffset, std::move(region));
+            };
+
+        auto allocate = [&] (size_t len) -> std::shared_ptr<char>
+            {
+                return std::shared_ptr<char>(new char[len], [] (char * p) { delete[] p; });
             };
         
-        return decompressor->forEachBlockParallel(requestedBlockSize, getData, onBlock);
+        return decompressor->forEachBlockParallel(requestedBlockSize, getData, onBlock,
+                                                  allocate, maxParallelism);
     }
     
     virtual std::pair<uint64_t, FrozenMemoryRegion>
