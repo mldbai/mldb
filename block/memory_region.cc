@@ -319,7 +319,7 @@ freeze(MutableMemoryRegion & region)
 
     std::shared_ptr<const void> handle;
     
-    if (pageLen > 0) {
+    if (pageLen > 0 && false /* VMA exhaustion */) {
         // Set protection to read-only for full pages to ensure it's really frozen
         //cerr << "protecting " << pageStart << " for " << pageLen
         //     << " with range " << (void *)region.data()
