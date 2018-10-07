@@ -88,9 +88,17 @@ getIndex(CellValue & val)
         // then we reserve enough capacity to ensure we don't continually
         // reallocate the vector.
         if (indexedVals.size() == indexedVals.capacity()
-            && indexedVals.size() > 32
-            && indexedVals.size() * 2 >= sparseIndexes.size()) {
-            indexedVals.reserve(sparseIndexes.capacity());
+            && indexedVals.size() > 32) {
+            // Guess as to the capacity required
+            double occupationRatio = indexedVals.size() / sparseIndexes.size();
+            size_t capacityRequired = sparseIndexes.capacity() * occupationRatio * 2;
+            if (capacityRequired < sparseIndexes.capacity() * 2) {
+                capacityRequired = sparseIndexes.capacity() * 2;
+            }
+            if (capacityRequired > sparseIndexes.capacity()) {
+                capacityRequired = sparseIndexes.capacity();
+            }
+            indexedVals.reserve(capacityRequired);
         }
 
         indexedVals.emplace_back(std::move(val));
@@ -108,6 +116,7 @@ TabularDatasetColumn::
 reserve(size_t sz)
 {
     sparseIndexes.reserve(sz);
+    indexedVals.reserve(32);
 }
 
 std::shared_ptr<FrozenColumn>
