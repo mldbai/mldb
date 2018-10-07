@@ -370,45 +370,47 @@ struct Lz4Decompressor: public Decompressor {
         return contentSize;
     }
 
-    std::string decompressBlock(std::string blockData,
+    std::pair<std::shared_ptr<const char>, size_t>
+    decompressBlock(std::shared_ptr<const char> blockData,
                                 uint32_t blockHeader,
                                 uint32_t blockChecksum) const
     {
-        std::string output;
-
-        cerr << "decompressing " << blockData.length() << " bytes" << endl;
+        size_t blockLength = blockHeader & ~lz4::NotCompressedMask;
+        bool uncompressed = blockHeader & lz4::NotCompressedMask;
+        
+        //cerr << "decompressing " << blockLength << " bytes" << endl;
         
         if (header.blockChecksum()) {
-            uint32_t checksum = XXH32(blockData.data(),
-                                      blockData.size(),
+            uint32_t checksum = XXH32(blockData.get(),
+                                      blockLength,
                                       lz4::ChecksumSeed);
             if (checksum != blockChecksum)
                 throw lz4_error("invalid checksum");
         }
         
-        if (blockHeader & lz4::NotCompressedMask) {
-            output = std::move(blockData);
+        if (uncompressed) {
+            return { std::move(blockData), blockLength };
         }
         else {
-            output.resize(header.blockSize());
+            std::shared_ptr<char> outputData(new char[header.blockSize()],
+                                             [] (char * p) { delete[] p; });
                         
             auto decompressed
                 = LZ4_decompress_safe
-                (blockData.data(), output.data(),
-                 blockData.size(), output.size());
+                (blockData.get(), outputData.get(),
+                 blockLength, header.blockSize());
 
-            cerr << "decompressed " << decompressed << " of maximum "
-                 << output.size() << " with checksum "
-                 << XXH32(blockData.data(), blockData.size(), lz4::ChecksumSeed)
-                 << endl;
+            //cerr << "decompressed " << decompressed << " of maximum "
+            //     << output.size()
+                //     << " with checksum "
+                //     << XXH32(blockData.get(), blockLength, lz4::ChecksumSeed)
+            //     << endl;
             
             if (decompressed < 0)
                 throw lz4_error(string("malformed lz4 stream: ") + LZ4F_getErrorName(decompressed));
 
-            output.resize(decompressed);
+            return { std::move(outputData), decompressed };
         }
-
-        return output;
     }
     
     virtual void decompress(const char * data, size_t len,
@@ -481,9 +483,10 @@ struct Lz4Decompressor: public Decompressor {
                     else {
                         uint32_t blockSize = blockHeader;
                         blockSize &= ~lz4::NotCompressedMask;
-                        blockData.resize(blockSize);
 
-                        setCur(BLOCK_DATA, blockData);
+                        blockData.reset(new char[blockLength()], [] (const char * p) { delete[] p; });
+
+                        setCur(BLOCK_DATA, blockData.get(), blockLength());
                     }
                     break;
 
@@ -498,14 +501,18 @@ struct Lz4Decompressor: public Decompressor {
                 case BLOCK_CHECKSUM: {
                     // Finished our block, or block + checksum
 
-                    std::string output = decompressBlock(std::move(blockData),
-                                                         blockHeader,
-                                                         blockChecksum);
+                    std::shared_ptr<const char> outputData;
+                    size_t outputLength;
+
+                    std::tie(outputData, outputLength)
+                        = decompressBlock(std::move(blockData),
+                                          blockHeader,
+                                          blockChecksum);
                     
-                    write(onData, output.data(), output.length());
+                    write(onData, outputData.get(), outputLength);
 
                     if (header.streamChecksum()) {
-                        XXH32_update(streamChecksumState, output.data(), output.size());
+                        XXH32_update(streamChecksumState, outputData.get(), outputLength);
                     }
 
                     setCur(BLOCK_HEADER, blockHeader);
@@ -624,10 +631,15 @@ struct Lz4Decompressor: public Decompressor {
                                  &aborted,
                                  &onBlock] ()
                 {
-                    std::string output = decompressBlock(std::move(blockData),
-                                                         blockHeader, blockChecksum);
+
+                    std::shared_ptr<const char> outputData;
+                    size_t outputLength;
+
+                    std::tie(outputData, outputLength)
+                        = decompressBlock(std::move(blockData),
+                                          blockHeader, blockChecksum);
                     if (!onBlock(blockNumber, blockOffset,
-                                 output.data(), output.size()))
+                                 outputData.get(), outputLength))
                         aborted = true;
 
                     //if (header.streamChecksum()) {
@@ -697,7 +709,9 @@ struct Lz4Decompressor: public Decompressor {
     uint64_le knownContentSize = 0;
     uint8_t checkBits = 0;
     uint32_le blockHeader = 0;
-    std::string blockData;
+    uint32_t blockLength() const { return blockHeader & ~lz4::NotCompressedMask; }
+;
+    std::shared_ptr<char> blockData;
     uint32_le blockChecksum = 0;
     uint32_le streamChecksum = 0;
     
