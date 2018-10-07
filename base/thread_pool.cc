@@ -168,6 +168,19 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
     /// The maximum number of parallel jobs in the parent
     size_t maxParentJobs;
 
+    /// Do we handle exceptions?
+    bool handleExceptions;
+
+    /// Number of exceptions that we have
+    std::atomic<int> hasExc;
+
+    /// First caught exception.  Only the thread that increments hasExc from 0 to 1
+    /// may assign, and it may only be read once all threads have terminated.
+    std::exception_ptr exc;
+
+    /// Have we been aborted?
+    std::atomic<bool> aborted;
+    
     /** Return the number of jobs running.  If there are more than
         2^31 jobs running, this may give the wrong answer.
     */
@@ -191,7 +204,12 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         return finished;
     }
 
-    Itl(int numThreads)
+    int jobsFinishedWithException() const
+    {
+        return hasExc;
+    }
+
+    Itl(int numThreads, bool handleExceptions)
         : jobsStolen(0),
           jobsWithFullQueue(0),
           jobsRunLocally(0),
@@ -201,11 +219,17 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
           queues(new Queues(threadCreationEpoch)),
           parent(nullptr),
           parentJobs(0),
-          maxParentJobs(0)
+          maxParentJobs(0),
+          handleExceptions(handleExceptions),
+          hasExc(0),
+          aborted(false)
     {
         submitted = 0;
         finished = 0;
 
+        if (numThreads == -1)
+            numThreads = numCpus();
+        
         for (unsigned i = 0;  i < numThreads;  ++i) {
             workers.emplace_back([this, i] () { this->runWorker(i); });
         }
@@ -213,7 +237,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         getEntry();
     }
 
-    Itl(Itl & parent, size_t maxParentJobs)
+    Itl(Itl & parent, size_t maxParentJobs, bool handleExceptions)
         : jobsStolen(0),
           jobsWithFullQueue(0),
           jobsRunLocally(0),
@@ -223,10 +247,16 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
           queues(new Queues(threadCreationEpoch)),
           parent(&parent),
           parentJobs(0),
-          maxParentJobs(maxParentJobs)
+          maxParentJobs(maxParentJobs == -1 ? numCpus() : maxParentJobs),
+          handleExceptions(handleExceptions),
+          hasExc(0),
+          aborted(false)
     {
         submitted = 0;
         finished = 0;
+
+        // We don't create any workers as we're using the parent's workers
+
         getEntry();
     }
 
@@ -422,32 +452,39 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         try {
             job();
             finished += 1;
-        } catch (const std::exception & exc) {
+        } MLDB_CATCH_ALL {
             finished += 1;
-            cerr << "ERROR: job submitted to ThreadPool of type "
-                 << demangle(job.target_type())
-                 << " threw exception: " << exc.what() << endl;
-            cerr << "A Job in a ThreadPool which throws an exception "
-                 << "causes the program to crash, which is happening now"
-                 << endl;
-            abort();
-        }
-        MLDB_CATCH_ALL {
-            finished += 1;
-            cerr << "ERROR: job submitted to ThreadPool of type "
-                 << demangle(job.target_type())
-                 << " threw exception " << getExceptionString() << endl;
-            cerr << "A Job in a ThreadPool which throws an exception "
-                 << "causes the program to crash, which is happening now"
-                 << endl;
-            abort();
+            handleException(job);
         }
     }
 
+    void handleException(const ThreadJob & job)
+    {
+        if (handleExceptions) {
+            if (hasExc.fetch_add(1) == 0) {
+                exc = std::current_exception();
+            }
+        }
+        else {
+            cerr << "ERROR: job submitted to ThreadPool of type "
+                 << demangle(job.target_type())
+                 << " threw exception: " << getExceptionString() << endl;
+            cerr << "A Job in a root ThreadPool which throws an exception "
+                 << "causes the program to crash, which is happening now"
+                 << endl;
+            ::abort();
+        }
+    }
+
+    bool hasException() const
+    {
+        return hasExc;
+    }
+    
     /** Wait for all work in all threads to be done, and return when it
         is.
     */
-    void waitForAll()
+    bool waitForAll()
     {
         ThreadEntry & entry = getEntry();
 
@@ -457,6 +494,12 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                 stealWork(entry);
             //std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
+
+        if (hasExc) {
+            std::rethrow_exception(exc);
+        }
+
+        return aborted;
     }
 
     /** Perform some work, if possible.  Returns true if work was done,
@@ -622,14 +665,14 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
 };
 
 ThreadPool::
-ThreadPool(int numThreads)
-    : itl(std::make_shared<Itl>(numThreads))
+ThreadPool(int numThreads, bool handleExceptions)
+    : itl(std::make_shared<Itl>(numThreads, handleExceptions))
 {
 }
 
 ThreadPool::
-ThreadPool(ThreadPool & parent, int numThreads)
-    : itl(std::make_shared<Itl>(*parent.itl, numThreads))
+ThreadPool(ThreadPool & parent, int numThreads, bool handleExceptions)
+    : itl(std::make_shared<Itl>(*parent.itl, numThreads, handleExceptions))
 {
 }
 
@@ -646,11 +689,18 @@ add(ThreadJob job)
     itl->add(std::move(job));
 }
 
-void
+bool
 ThreadPool::
 waitForAll() const
 {
-    itl->waitForAll();
+    return itl->waitForAll();
+}
+
+bool
+ThreadPool::
+hasException() const
+{
+    return itl->hasException();
 }
 
 void
@@ -686,6 +736,13 @@ ThreadPool::
 jobsFinished() const
 {
     return itl->jobsFinished();
+}
+
+uint64_t
+ThreadPool::
+jobsFinishedWithException() const
+{
+    return itl->jobsFinishedWithException();
 }
 
 uint64_t
