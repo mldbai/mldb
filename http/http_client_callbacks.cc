@@ -100,7 +100,7 @@ onDone(const HttpRequest & rq, HttpClientError errorCode)
 
 HttpClientSimpleCallbacks::
 HttpClientSimpleCallbacks(const OnResponse & onResponse)
-    : onResponse_(onResponse)
+    : onResponse_(onResponse), statusCode_(0)
 {
 }
 

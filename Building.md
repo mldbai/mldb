@@ -66,7 +66,6 @@ apt-get install -y \
   libffi-dev \
   libmagic-dev \
   libfreetype6-dev \
-  libgoogle-perftools-dev \
   liblapack-dev \
   liblzma-dev \
   libpng-dev \
@@ -526,4 +525,24 @@ make -j$(nproc) compile ARCH=arm
 ```
 
 The version of MLDB will be placed in `build/arm/bin` and `build/arm/lib`
+
+
+## Build Options
+
+### Using `tcmalloc` instead of the glibc allocator (`TCMALLOC_ENABLED=1`)
+
+Google's thread caching allocator (tcmalloc) was at one point better on
+multithreaded workloads than the builtin glibc allocator (a heavily modified
+`ptmalloc2`) but that's not been true for a while (sometimes workloads these
+days are twice as slow using tcmalloc).  It also includes some good tools
+for memory profiling, which is why support is still provided to build with it.
+
+To use tcmalloc, the `google-perftools` library needs to be installed:
+
+```
+sudo apt-get install libgoogle-perftools-dev
+```
+
+and the following variable set, either in `local.mk` or on the command line:
+`TCMALLOC_ENABLED=1`.
 
