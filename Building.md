@@ -87,7 +87,11 @@ apt-get install -y \
   libavutil-dev \
   libavcodec-dev \
   libavformat-dev \
-  libavdevice-dev 
+  libavdevice-dev \
+  ocl-icd-libopencl1 \
+  opencl-headers \
+  ocl-icd-opencl-dev \
+
 ```
 ## Installing Docker
 

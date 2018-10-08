@@ -52,11 +52,12 @@ $(eval $(call library,mldb_builtin_base,$(LIBMLDB_BUILTIN_BASE_SOURCES),$(LIBMLD
 
 $(eval $(call include_sub_make,mldb_js_plugin,js))
 $(eval $(call include_sub_make,mldb_python_plugin,python))
+$(eval $(call include_sub_make,opencl))
 
 LIBMLDB_BUILTIN_LINK := \
 	mldb_builtin_base \
 	mldb_js_plugin \
 	mldb_python_plugin \
-
+	mldb_opencl_plugin \
 
 $(eval $(call library,mldb_builtin,,$(LIBMLDB_BUILTIN_LINK)))
