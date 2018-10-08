@@ -792,6 +792,9 @@ private:
         RcuProtected<Root<SubjectEntry> > subjectEntryPtr;
     };
 
+    // GC lock for the behavior and subject roots
+    mutable GcLock rootLock;
+
     // We get behaviors from here
     RcuProtected<Root<BehaviorEntry> > behaviorRoot;
 
@@ -799,9 +802,6 @@ private:
     // entry.  It's shared amongst all threads.
     RcuProtected<LightweightHash<BH, BehaviorEntry *> > behaviorPartialCache;
     std::vector<std::shared_ptr<SubjectRoot> > subjectRoots;
-
-    // GC lock for the behavior and subject roots
-    mutable GcLock rootLock;
 
     struct ThreadInfo {
         LightweightHash<uint64_t, SubjectEntry *> subjectCache;
