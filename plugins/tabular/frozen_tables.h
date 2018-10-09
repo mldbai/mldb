@@ -90,6 +90,8 @@ struct FrozenIntegerTable {
 
     uint64_t get(size_t i) const;
 
+    uint64_t getDefault(size_t i, uint64_t def = -1) const;
+    
     void serialize(StructuredSerializer & serializer) const;
 };
 

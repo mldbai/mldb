@@ -16,3 +16,5 @@ LIBMLDB_TABULAR_PLUGIN_LINK := \
 
 
 $(eval $(call library,mldb_tabular_plugin,$(LIBMLDB_TABULAR_PLUGIN_SOURCES),$(LIBMLDB_TABULAR_PLUGIN_LINK)))
+
+$(eval $(call include_sub_make,tabular_testing,testing,testing.mk))

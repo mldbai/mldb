@@ -324,7 +324,7 @@ struct TableFrozenColumn
                              bool keepNulls) const
     {
         for (size_t i = 0;  i < numEntries;  ++i) {
-            uint64_t index = indexes.get(i);
+            uint64_t index = indexes.getDefault(i, 0);
 
             CellValue val;
             if (hasNulls) {
@@ -850,7 +850,7 @@ struct IntegerFrozenColumn
                     intVal = val.toInt() - offset + hasNulls;
                     ++numNonNullRows;
                 }
-                while (rowNumber < doneRows) {
+                while (doneRows < rowNumber) {
                     table.add(0);  // for the null
                     ++doneRows;
                 }
