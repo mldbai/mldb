@@ -71,6 +71,18 @@ init(size_t numElements, uint32_t numBuckets)
     this->numWritten = 0;
 }
 
+void
+WritableBucketList::
+append(const BucketList & buckets)
+{
+    ExcAssertEqual(this->entryBits, buckets.entryBits);
+    for (size_t i = 0;  i < buckets.numEntries;  ++i) {
+        write(buckets[i]);
+    }
+
+    ExcAssertLessEqual(numWritten, numEntries);
+}
+
 
 /*****************************************************************************/
 /* BUCKET DESCRIPTIONS                                                       */

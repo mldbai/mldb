@@ -51,10 +51,7 @@ struct BucketList {
 
 /** Writable version of the above.  OK to slice. */
 struct WritableBucketList: public BucketList {
-    WritableBucketList()
-        : current(0), bitsWritten(0)
-    {
-    }
+    WritableBucketList() = default;
 
     WritableBucketList(size_t numElements, uint32_t numBuckets)
         : WritableBucketList()
@@ -97,9 +94,12 @@ struct WritableBucketList: public BucketList {
         numWritten += 1;
     }
 
-    uint64_t * current;
-    int bitsWritten;
-    size_t numWritten;
+    // Append all of the bits from buckets
+    void append(const BucketList & buckets);
+    
+    uint64_t * current = nullptr;
+    int bitsWritten = 0;
+    size_t numWritten = 0;
 };
 
 struct NumericValues {

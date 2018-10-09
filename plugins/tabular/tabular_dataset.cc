@@ -18,6 +18,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/engine/bucket.h"
 #include "mldb/base/parallel_merge_sort.h"
+#include "mldb/base/map_reduce.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/types/set_description.h"
@@ -631,26 +632,44 @@ struct TabularDataset::TabularDataStore
                             std::move(sortedStrings),
                             maxNumBuckets);
 
+            // In parallel, create a bucket list for each chunk, then
+            // add them together in order.
+
             WritableBucketList buckets(totalRows, desc.numBuckets());
 
             size_t numWritten = 0;
 
-            auto onChunk2 = [&] (size_t i)
+            // This will be called chunk by chunk in order to add the
+            // given chunk buckets to the current ones.  It's mostly
+            // a memcpy apart from dealing with the boundary conditions.
+            auto addBuckets = [&] (size_t chunkNum,
+                                   WritableBucketList chunkBuckets)
                 {
-
+                    numWritten += chunkBuckets.rowCount();
+                    buckets.append(std::move(chunkBuckets));
+                };
+            
+            auto onChunk2 = [&] (size_t i) -> WritableBucketList
+                {
+                    auto & column = *chunks[i]->columns[it->second];
+                    
+                    size_t chunkRows = column.size();
+                    WritableBucketList result(chunkRows, desc.numBuckets());
+                    
                     auto onRow = [&] (size_t rowNum, const CellValue & val)
                     {
                         uint32_t bucket = desc.getBucket(val);
-                        buckets.write(bucket);
-                        ++numWritten;
+                        result.write(bucket);
                         return true;
                     };
                 
-                    chunks[i]->columns[it->second]->forEachDense(onRow);
+                    column.forEachDense(onRow);
+
+                    return result;
                 };
-        
-            for (size_t i = 0;  i < chunks.size();  ++i)
-                onChunk2(i);
+
+            parallelMapInOrderReduce(0, chunks.size(), onChunk2, addBuckets);
+            
 
             if (numWritten != totalRows) {
                 throw AnnotatedException
