@@ -108,7 +108,8 @@ struct PartitionData {
                     for (size_t i = 0;  i < rows.size();  ++i) {
                         if (weights[i] == 0)
                             continue;
-                        data.addRow(rows[i].label, rows[i].weight * weights[i],
+                        data.addRow(rows[i].label(),
+                                    rows[i].weight * weights[i],
                                     n++);
                     }
                     ExcAssertEqual(n, numNonZero);
@@ -136,7 +137,7 @@ struct PartitionData {
                         if (weights[i] == 0)
                             continue;
                         
-                        uint32_t bucket = features[f].buckets[rows[i].exampleNum];
+                        uint32_t bucket = features[f].buckets[rows[i].exampleNum()];
                         writer.write(bucket);
                         ++n;
                     }
@@ -156,22 +157,24 @@ struct PartitionData {
 
     /// Entry for an individual row
     struct Row {
-        bool label;                 ///< Label associated with
+        Row(bool label, float weight, unsigned exampleNum)
+            : weight(weight), exampleNum_(label | (exampleNum << 1))
+        {
+        }
+        
         float weight;               ///< Weight of the example 
-        int exampleNum;             ///< index into feature array
+        unsigned exampleNum_;       ///< index into feature array
+
+        ///< Label associated with
+        bool label() const { return exampleNum_ & 1; }
+        unsigned exampleNum() const { return exampleNum_ >> 1; }
     };
     
     // Entry for an individual feature
     struct Feature {
-        Feature()
-            : active(false), ordinal(true),
-              info(nullptr)
-        {
-        }
-
-        bool active;  ///< If true, the feature can be split on
-        bool ordinal; ///< If true, it's continuous valued; otherwise categ.
-        const DatasetFeatureSpace::ColumnInfo * info;
+        bool active = false;  ///< If true, the feature can be split on
+        bool ordinal = true; ///< If true, it's continuous valued; else categ.
+        const DatasetFeatureSpace::ColumnInfo * info = nullptr;
         BucketList buckets;  ///< List of bucket numbers, per example
     };
 
@@ -191,12 +194,12 @@ struct PartitionData {
     void addRow(const Row & row)
     {
         rows.push_back(row);
-        wAll[row.label] += row.weight;
+        wAll[row.label()] += row.weight;
     }
 
     void addRow(bool label, float weight, int exampleNum)
     {
-        rows.emplace_back(Row{label, weight, exampleNum});
+        rows.emplace_back(label, weight, exampleNum);
         wAll[label] += weight;
     }
 
@@ -278,7 +281,7 @@ struct PartitionData {
         // gets too low, we do essentially random accesses and it kills
         // our cache performance.  In that case we can re-index to reduce
         // the size.
-        double useRatio = 1.0 * rows.size() / rows.back().exampleNum;
+        double useRatio = 1.0 * rows.size() / rows.back().exampleNum();
 
         //todo: Re-index when usable data fits inside cache
         bool reIndex = useRatio < 0.25;
@@ -296,7 +299,7 @@ struct PartitionData {
             //int minBucket = INFINITY;
 
             for (size_t i = 0;  i < rows.size();  ++i) {
-                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
+                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum()];
                 //maxBucket = std::max(maxBucket, bucket);
                 //minBucket = std::min(minBucket, bucket);
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
@@ -336,10 +339,10 @@ struct PartitionData {
             sides[1].rows.reserve(rows.size());
 
             for (size_t i = 0;  i < rows.size();  ++i) {
-                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
+                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum()];
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 lr[i] = side;
-                sides[side].addRow(rows[i].label, rows[i].weight, numOnSide[side]++);
+                sides[side].addRow(rows[i].label(), rows[i].weight, numOnSide[side]++);
             }
 
             for (unsigned i = 0;  i < nf;  ++i) {
@@ -353,7 +356,7 @@ struct PartitionData {
 
                 for (size_t j = 0;  j < rows.size();  ++j) {
                     int side = lr[j];
-                    newFeatures[side].write(features[i].buckets[rows[j].exampleNum]);
+                    newFeatures[side].write(features[i].buckets[rows[j].exampleNum()]);
                     ++index[side];
                 }
 
@@ -394,11 +397,11 @@ struct PartitionData {
         
         for (size_t j = 0;  j < numRows;  ++j) {
             const Row & r = rows[j];
-            int bucket = buckets[r.exampleNum];
+            int bucket = buckets[r.exampleNum()];
             bucketTransitions += (bucket != lastBucket);
             lastBucket = bucket;
 
-            w[bucket][r.label] += r.weight;
+            w[bucket][r.label()] += r.weight;
             maxBucket = std::max(maxBucket, bucket);
         }
         
@@ -666,10 +669,10 @@ struct PartitionData {
     {
         W wAll;
         for (auto & r: rows) {
-            int label = r.label;
+            int label = r.label();
             ExcAssert(label >= 0 && label < 2);
             ExcAssert(r.weight > 0);
-            wAll[r.label] += r.weight;
+            wAll[label] += r.weight;
         }
         
        return getLeaf(tree, wAll);
