@@ -267,11 +267,16 @@ struct PartitionData {
 
         bool ordinal = features[featureToSplitOn].ordinal;
 
+        // Density of example numbers within our set of rows.  When this
+        // gets too low, we do essentially random accesses and it kills
+        // our cache performance.  In that case we can re-index to reduce
+        // the size.
         double useRatio = 1.0 * rows.size() / rows.back().exampleNum;
 
         //todo: Re-index when usable data fits inside cache
-        bool reIndex = useRatio < 0.1;
+        bool reIndex = useRatio < 0.25;
         //reIndex = false;
+        //using namespace std;
         //cerr << "useRatio = " << useRatio << endl;
 
         if (!reIndex) {
