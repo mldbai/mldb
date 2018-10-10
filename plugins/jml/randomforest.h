@@ -440,7 +440,7 @@ struct PartitionData {
                 maxSplits[i] = maxBucket;
             };
 
-        if (depth < 4 || true) {
+        if (depth < 4 || rows.size() * nf > 100000) {
             parallelMap(0, nf + 1, doFeature);
         }
         else {
@@ -648,20 +648,26 @@ struct PartitionData {
         if (leftRows == 0 || rightRows == 0)
             throw MLDB::Exception("Invalid split in random forest");
 
-        ThreadPool tp;
-        // Put the smallest one on the thread pool, so that we have the highest
-        // probability of running both on our thread in case of lots of work.
-        if (leftRows < rightRows) {
-            tp.add(runLeft);
+        if (leftRows + rightRows < 1000) {
+            runLeft();
             runRight();
         }
         else {
-            tp.add(runRight);
-            runLeft();
+            ThreadPool tp;
+            // Put the smallest one on the thread pool, so that we have the highest
+            // probability of running both on our thread in case of lots of work.
+            if (leftRows < rightRows) {
+                tp.add(runLeft);
+                runRight();
+            }
+            else {
+                tp.add(runRight);
+                runLeft();
+            }
+
+            tp.waitForAll();
         }
         
-        tp.waitForAll();
-
         if (left && right) {
             ML::Tree::Node * node = tree.new_node();
             ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
