@@ -362,6 +362,70 @@ struct PartitionData {
         return { std::move(left), std::move(right) };
     }
 
+    // Core kernel of the decision tree search algorithm.  Transfer the
+    // example weight into the appropriate (bucket,label) accumulator.
+    // Returns whether
+    static std::pair<bool, int>
+    testFeatureKernel(const Row * rows,
+                      size_t numRows,
+                      const BucketList & buckets,
+                      W * w /* buckets.numBuckets entries */)
+    {
+        // Number of the last bucket we saw.  Enables us to determine if
+        // we change buckets at any point.
+        int lastBucket = -1;
+
+        // Number of times we've changed bucket numbers.  Since lastBucket
+        // starts off at -1, this will be incremented to 0 on the first loop
+        // iteration.
+        int bucketTransitions = -1;
+
+        // Maximum bucket number we've seen.  Can significantly reduce the
+        // work required to search the buckets later on, as those without
+        // an example have no possible split point.
+        int maxBucket = -1;
+        
+        for (size_t j = 0;  j < numRows;  ++j) {
+            const Row & r = rows[j];
+            int bucket = buckets[r.exampleNum];
+            bucketTransitions += (bucket != lastBucket);
+            lastBucket = bucket;
+
+            w[bucket][r.label] += r.weight;
+            maxBucket = std::max(maxBucket, bucket);
+        }
+        
+        return { bucketTransitions > 0, maxBucket };
+    }
+    
+    static
+    std::tuple<std::vector<W> /* bucket W */,
+               int /* maxSplit */,
+               bool /* feature is still active */ >
+    testFeatureNumber(int featureNum,
+                      const std::vector<Feature> & features,
+                      const std::vector<Row> & rows)
+    {
+        const Feature & feature = features.at(featureNum);
+        const BucketList & buckets = feature.buckets;
+        int nb = buckets.numBuckets;
+
+        std::vector<W> w(nb);
+        int maxBucket = -1;
+
+        if (!feature.active)
+            return { {}, -1, false };
+
+        // Is s feature still active?
+        bool isActive;
+
+        std::tie(isActive, maxBucket)
+            = testFeatureKernel(rows.data(), rows.size(),
+                                buckets, w.data());
+
+        return { std::move(w), maxBucket, isActive };
+    }
+        
     /** Test all features for a split.  Returns the feature number,
         the bucket number and the goodness of the split.
 
@@ -392,7 +456,6 @@ struct PartitionData {
             if (!features[i].active)
                 continue;
             ++activeFeatures;
-            w[i].resize(features[i].buckets.numBuckets);
             totalNumBuckets += features[i].buckets.numBuckets;
         }
 
@@ -404,40 +467,24 @@ struct PartitionData {
 
         W wAll;
 
-        auto doFeature = [&] (int i)
+        auto doWAll = [&rows=this->rows, &wAll] ()
             {
-                int maxBucket = -1;
-
+                for (auto & r: rows) {
+                    wAll[r.label] += r.weight;
+                }
+            };
+        
+        auto doFeature = [&doWAll, nf, &features=this->features,
+                          &w, &rows=this->rows, &maxSplits]
+            (int i)
+            {
                 if (i == nf) {
-                    for (auto & r: rows) {
-                        wAll[r.label] += r.weight;
-                    }
+                    doWAll();
                     return;
                 }
 
-                if (!features[i].active)
-                    return;
-                bool twoBuckets = false;
-                int lastBucket = -1;
-
-                for (size_t j = 0;  j < rows.size();  ++j) {
-                    auto & r = rows[j];
-                    int bucket = features[i].buckets[r.exampleNum];
-
-                    twoBuckets = twoBuckets
-                        || (lastBucket != -1 && bucket != lastBucket);
-                    lastBucket = bucket;
-
-                    w[i][bucket][r.label] += r.weight;
-                    maxBucket = std::max(maxBucket, bucket);
-                }
-
-                // If all examples were in a single bucket, then the
-                // feature is no longer active.
-                if (!twoBuckets)
-                    features[i].active = false;
-
-                maxSplits[i] = maxBucket;
+                std::tie(w[i], maxSplits[i], features[i].active)
+                    = testFeatureNumber(i, features, rows);
             };
 
         if (depth < 4 || rows.size() * nf > 100000) {
