@@ -48,17 +48,28 @@ init(size_t numElements, uint32_t numBuckets)
 
     // Take a number of bits per entry that evenly divides into
     // 64 bits.
-    if (entryBits == 0) ;
-    else if (entryBits == 1) ;
-    else if (entryBits == 2) ;
-    else if (entryBits <= 4)
+    if (entryBits == 0) entryShift = 0;
+    else if (entryBits == 1) entryShift = 0;
+    else if (entryBits == 2) entryShift = 1;
+    else if (entryBits <= 4) {
         entryBits = 4;
-    else if (entryBits <= 8)
+        entryShift = 2;
+    }
+    else if (entryBits <= 8) {
         entryBits = 8;
-    else if (entryBits <= 16)
+        entryShift = 3;
+    }
+    else if (entryBits <= 16) {
         entryBits = 16;
-    else entryBits = 32;
+        entryShift = 4;
+    }
+    else {
+        entryBits = 32;
+        entryShift = 5;
+    }
 
+
+    
     //cerr << "using " << entryBits << " bits for " << numBuckets
     //     << " buckets" << endl;
 
@@ -66,6 +77,7 @@ init(size_t numElements, uint32_t numBuckets)
     auto writableStorage = makeSharedArray<uint64_t>(numWords);
     this->current = writableStorage.get();
     this->storage = writableStorage;
+    this->storagePtr = this->current;
     this->bitsWritten = 0;
     this->numEntries = numElements;
     this->numWritten = 0;

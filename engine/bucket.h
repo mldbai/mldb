@@ -23,30 +23,28 @@ struct Utf8String;
 /** Holds an array of bucket indexes, efficiently. */
 struct BucketList {
 
-    BucketList()
-        : entryBits(0), numBuckets(0), numEntries(0)
+    MLDB_ALWAYS_INLINE uint32_t operator [] (uint32_t i) const
     {
-    }
-
-    inline uint32_t operator [] (uint32_t i) const
-    {
-        //ExcAssertLess(i, numEntries);
-        size_t wordNum = (i * entryBits) / 64;
-        size_t bitNum = (i * entryBits) % 64;
-        uint32_t result = (storage.get()[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
-        //ExcAssertLess(result, numBuckets);
+        size_t wordNum = (i << entryShift) / 64;
+        size_t bitNum = (i << entryShift) % 64;
+        uint32_t result = (storagePtr[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
         return result;
     }
-
-    std::shared_ptr<const uint64_t> storage;
-    int entryBits;
-    int numBuckets;
-    size_t numEntries;
 
     size_t rowCount() const
     {
         return numEntries;
     }
+
+protected:
+    std::shared_ptr<const uint64_t> storage;
+    const uint64_t * storagePtr = nullptr;
+
+public:
+    int entryBits = 0;
+    int entryShift = 0;
+    int numBuckets = 0;
+    size_t numEntries = 0;
 };
 
 /** Writable version of the above.  OK to slice. */
@@ -75,6 +73,7 @@ struct WritableBucketList: public BucketList {
         result.numWritten = 0;
         result.bitsWritten = 0;
         result.entryBits = this->entryBits;
+        result.entryShift = this->entryShift;
         result.numBuckets = -1;
         result.numEntries = -1;
         return result;
