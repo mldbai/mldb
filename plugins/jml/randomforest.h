@@ -17,6 +17,7 @@
 #include "mldb/plugins/jml/jml/decision_tree.h"
 #include "mldb/plugins/jml/jml/committee.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/map_reduce.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/engine/column_scope.h"
 #include "mldb/engine/bucket.h"
@@ -254,7 +255,8 @@ struct PartitionData {
     
     /** Split the partition here. */
     std::pair<PartitionData, PartitionData>
-    split(int featureToSplitOn, int splitValue, const W & wLeft, const W & wRight)
+    split(int featureToSplitOn, int splitValue,
+          const W & wLeft, const W & wRight)
     {
      //   std::cerr << "spliting on feature " << featureToSplitOn << " bucket " << splitValue << std::endl;
 
@@ -402,14 +404,109 @@ struct PartitionData {
         
         return { bucketTransitions > 0, maxBucket };
     }
+
+    static double scoreSplit(const W & wFalse, const W & wTrue)
+    {
+        double score
+            = 2.0 * (  sqrt(wFalse[0] * wFalse[1])
+                       + sqrt(wTrue[0] * wTrue[1]));
+        return score;
+    };
+
+    static std::tuple<double /* bestScore */,
+                      int /* bestSplit */,
+                      W /* bestLeft */,
+                      W /* bestRight */>
+    chooseSplitKernel(const W * w /* buckets.numBuckets entries */,
+                      int maxBucket,
+                      bool ordinal,
+                      const W & wAll)
+    {
+        double bestScore = INFINITY;
+        int bestSplit = -1;
+        
+        W bestLeft;
+        W bestRight;
+
+        if (ordinal) {
+            // Calculate best split point for ordered values
+            W wFalse = wAll, wTrue;
+
+            // Now test split points one by one
+            for (unsigned j = 0;  j < maxBucket;  ++j) {
+                if (w[j].empty())
+                    continue;                   
+
+                double s = scoreSplit(wFalse, wTrue);
+
+#if 0                
+                if (debug) {
+                    std::cerr << "  ord split " << j << " "
+                              << features.info->bucketDescriptions.getValue(j)
+                              << " had score " << s << std::endl;
+                    std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
+                    std::cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << std::endl;
+                }
+#endif
+                
+                if (s < bestScore) {
+                    bestScore = s;
+                    bestSplit = j;
+                    bestRight = wFalse;
+                    bestLeft = wTrue;
+                }
+                
+                wFalse -= w[j];
+                wTrue += w[j];
+            }
+        }
+        else {
+            // Calculate best split point for non-ordered values
+            // Now test split points one by one
+
+            for (unsigned j = 0;  j <= maxBucket;  ++j) {
+                    
+                if (w[j].empty())
+                    continue;
+
+                W wFalse = wAll;
+                wFalse -= w[j];                    
+
+                double s = scoreSplit(wFalse, w[j]);
+
+#if 0                    
+                if (debug) {
+                    std::cerr << "  non ord split " << j << " "
+                              << features.info->bucketDescriptions.getValue(j)
+                              << " had score " << s << std::endl;
+                    std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
+                    std::cerr << "    true:  " << w[j][0] << " " << w[j][1] << std::endl;
+                }
+#endif
+                    
+                if (s < bestScore) {
+                    bestScore = s;
+                    bestSplit = j;
+                    bestRight = wFalse;
+                    bestLeft = w[j];
+                }
+            }
+
+        }
+
+        return { bestScore, bestSplit, bestLeft, bestRight };
+    }
     
     static
-    std::tuple<std::vector<W> /* bucket W */,
-               int /* maxSplit */,
+    std::tuple<double /* bestScore */,
+               int /* bestSplit */,
+               W /* bestLeft */,
+               W /* bestRight */,
                bool /* feature is still active */ >
     testFeatureNumber(int featureNum,
                       const std::vector<Feature> & features,
-                      const std::vector<Row> & rows)
+                      const std::vector<Row> & rows,
+                      const W & wAll)
     {
         const Feature & feature = features.at(featureNum);
         const BucketList & buckets = feature.buckets;
@@ -418,8 +515,13 @@ struct PartitionData {
         std::vector<W> w(nb);
         int maxBucket = -1;
 
+        double bestScore = INFINITY;
+        int bestSplit = -1;
+        W bestLeft;
+        W bestRight;
+
         if (!feature.active)
-            return { {}, -1, false };
+            return std::make_tuple(bestScore, bestSplit, bestLeft, bestRight, false);
 
         // Is s feature still active?
         bool isActive;
@@ -428,7 +530,13 @@ struct PartitionData {
             = testFeatureKernel(rows.data(), rows.size(),
                                 buckets, w.data());
 
-        return { std::move(w), maxBucket, isActive };
+        if (isActive) {
+            std::tie(bestScore, bestSplit, bestLeft, bestRight)
+                = chooseSplitKernel(w.data(), maxBucket, feature.ordinal,
+                                    wAll);
+        }
+
+        return { bestScore, bestSplit, bestLeft, bestRight, isActive };
     }
         
     /** Test all features for a split.  Returns the feature number,
@@ -453,11 +561,6 @@ struct PartitionData {
 
         int nf = features.size();
 
-        // For each feature, for each bucket, for each label
-        // weight for each bucket and last valid bucket
-        std::vector< std::vector<W> > w(nf);
-        std::vector< int > maxSplits(nf);
-
         size_t totalNumBuckets = 0;
         size_t activeFeatures = 0;
 
@@ -474,21 +577,6 @@ struct PartitionData {
                  << std::endl;
         }
 
-        auto doFeature = [&features=this->features,
-                          &w, &rows=this->rows, &maxSplits] (int i)
-            {
-                std::tie(w[i], maxSplits[i], features[i].active)
-                    = testFeatureNumber(i, features, rows);
-            };
-
-        if (depth < 4 || rows.size() * nf > 100000) {
-            parallelMap(0, nf, doFeature);
-        }
-        else {
-            for (unsigned i = 0;  i < nf;  ++i)
-                doFeature(i);
-        }
-
         double bestScore = INFINITY;
         int bestFeature = -1;
         int bestSplit = -1;
@@ -496,105 +584,53 @@ struct PartitionData {
         W bestLeft;
         W bestRight;
 
+        // Reduction over the best split that comes in feature by feature;
+        // we find the best global split score and store it.  This is done
+        // in order to be sure that we deterministically pick the right
+        // one.
+        auto findBest = [&] (int feature,
+                             const std::tuple<double, int, W, W> & val)
+            {
+                double score = std::get<0>(val);
+                if (score < bestScore) {
+                    bestFeature = feature;
+                    std::tie(bestScore, bestSplit, bestLeft, bestRight) = val;
+                }
+            };
+
+        // Parallel map over all features
+        auto doFeature = [&] (int i)
+            {
+                double score;
+                int split = -1;
+                W bestLeft, bestRight;
+
+                std::tie(score, split, bestLeft, bestRight, features[i].active)
+                    = testFeatureNumber(i, features, rows, wAll);
+                return std::make_tuple(score, split, bestLeft, bestRight);
+            };
+
+        if (depth < 4 || rows.size() * nf > 100000) {
+            parallelMapInOrderReduce(0, nf, doFeature, findBest);
+        }
+        else {
+            for (unsigned i = 0;  i < nf;  ++i)
+                doFeature(i);
+        }
+
         int bucketsEmpty = 0;
         int bucketsOne = 0;
         int bucketsBoth = 0;
 
-        // Score each feature
-        for (unsigned i = 0;  i < nf;  ++i) {
-            if (!features[i].active)
-                continue;
-
-            W wAll; // TODO: do we need this?
+#if 0        
             for (auto & wt: w[i]) {
-                wAll += wt;
+                //wAll += wt;
                 bucketsEmpty += wt[0] == 0 && wt[1] == 0;
                 bucketsBoth += wt[0] != 0 && wt[1] != 0;
                 bucketsOne += (wt[0] == 0) ^ (wt[1] == 0);
             }
-
-            auto score = [] (const W & wFalse, const W & wTrue) -> double
-                {
-                    double score
-                    = 2.0 * (  sqrt(wFalse[0] * wFalse[1])
-                             + sqrt(wTrue[0] * wTrue[1]));
-                    return score;
-                };
+#endif
             
-            if (debug) {
-                std::cerr << "feature " << i << " " << features[i].info->columnName
-                     << std::endl;
-                std::cerr << "    all: " << wAll[0] << " " << wAll[1] << std::endl;
-            }
-
-            int maxBucket = maxSplits[i];
-
-            if (features[i].ordinal) {
-                // Calculate best split point for ordered values
-                W wFalse = wAll, wTrue;
-
-                // Now test split points one by one
-                for (unsigned j = 0;  j < maxBucket;  ++j) {
-                    if (w[i][j].empty())
-                        continue;                   
-
-                    double s = score(wFalse, wTrue);
-
-                    if (debug) {
-                        std::cerr << "  ord split " << j << " "
-                             << features[i].info->bucketDescriptions.getValue(j)
-                             << " had score " << s << std::endl;
-                        std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
-                        std::cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << std::endl;
-                    }
-
-                    if (s < bestScore) {
-                        bestScore = s;
-                        bestFeature = i;
-                        bestSplit = j;
-                        bestRight = wFalse;
-                        bestLeft = wTrue;
-                    }
-
-                   wFalse -= w[i][j];
-                   wTrue += w[i][j];
-
-                }
-            }
-            else {
-                // Calculate best split point for non-ordered values
-                // Now test split points one by one
-
-                for (unsigned j = 0;  j <= maxBucket;  ++j) {
-
-                    if (w[i][j].empty())
-                        continue;
-
-                    W wFalse = wAll;
-                    wFalse -= w[i][j];                    
-
-                    double s = score(wFalse, w[i][j]);
-
-                    if (debug) {
-                        std::cerr << "  non ord split " << j << " "
-                             << features[i].info->bucketDescriptions.getValue(j)
-                             << " had score " << s << std::endl;
-                        std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
-                        std::cerr << "    true:  " << w[i][j][0] << " " << w[i][j][1] << std::endl;
-                    }
-             
-                    if (s < bestScore) {
-                        bestScore = s;
-                        bestFeature = i;
-                        bestSplit = j;
-                        bestRight = wFalse;
-                        bestLeft = w[i][j];
-                    }
-                }
-
-            }
-        }
-        
         if (debug) {
             std::cerr << "buckets: empty " << bucketsEmpty << " one " << bucketsOne
                  << " both " << bucketsBoth << std::endl;
