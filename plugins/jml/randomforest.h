@@ -190,11 +190,13 @@ struct PartitionData {
     void addRow(const Row & row)
     {
         rows.push_back(row);
+        wAll[row.label] += row.weight;
     }
 
     void addRow(bool label, float weight, int exampleNum)
     {
         rows.emplace_back(Row{label, weight, exampleNum});
+        wAll[label] += weight;
     }
 
     //This structure hold the weights (false and true) for any particular split
@@ -247,9 +249,12 @@ struct PartitionData {
 
     typedef WT<ML::FixedPointAccum64> W;
 
+    // Weights matrix of all rows
+    W wAll;
+    
     /** Split the partition here. */
     std::pair<PartitionData, PartitionData>
-    split(int featureToSplitOn, int splitValue, const W & wLeft, const W & wRight, const W & wAll)
+    split(int featureToSplitOn, int splitValue, const W & wLeft, const W & wRight)
     {
      //   std::cerr << "spliting on feature " << featureToSplitOn << " bucket " << splitValue << std::endl;
 
@@ -437,9 +442,13 @@ struct PartitionData {
         - W from the right side of the split
         - W total (in case no split is found)
     */
-    std::tuple<double, int, int, W, W, W>
+    std::tuple<double, int, int, W, W>
     testAll(int depth)
     {
+        // We have no impurity in our bucket.  Time to stop
+        if (wAll[0] == 0 || wAll[1] == 0)
+            return std::make_tuple(1.0, -1, -1, wAll, W());
+
         bool debug = false;
 
         int nf = features.size();
@@ -465,39 +474,20 @@ struct PartitionData {
                  << std::endl;
         }
 
-        W wAll;
-
-        auto doWAll = [&rows=this->rows, &wAll] ()
+        auto doFeature = [&features=this->features,
+                          &w, &rows=this->rows, &maxSplits] (int i)
             {
-                for (auto & r: rows) {
-                    wAll[r.label] += r.weight;
-                }
-            };
-        
-        auto doFeature = [&doWAll, nf, &features=this->features,
-                          &w, &rows=this->rows, &maxSplits]
-            (int i)
-            {
-                if (i == nf) {
-                    doWAll();
-                    return;
-                }
-
                 std::tie(w[i], maxSplits[i], features[i].active)
                     = testFeatureNumber(i, features, rows);
             };
 
         if (depth < 4 || rows.size() * nf > 100000) {
-            parallelMap(0, nf + 1, doFeature);
+            parallelMap(0, nf, doFeature);
         }
         else {
-            for (unsigned i = 0;  i <= nf;  ++i)
+            for (unsigned i = 0;  i < nf;  ++i)
                 doFeature(i);
         }
-
-        // We have no impurity in our bucket.  Time to stop
-        if (wAll[0] == 0 || wAll[1] == 0)
-            return std::make_tuple(1.0, -1, -1, wAll, W(), wAll);
 
         double bestScore = INFINITY;
         int bestFeature = -1;
@@ -616,7 +606,7 @@ struct PartitionData {
                  << std::endl;
         }
 
-        return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight, wAll);
+        return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
     }
 
     static void fillinBase(ML::Tree::Base * node, const W & wAll)
@@ -665,9 +655,8 @@ struct PartitionData {
         int bestSplit;
         W wLeft;
         W wRight;
-        W wAll;
         
-        std::tie(bestScore, bestFeature, bestSplit, wLeft, wRight, wAll)
+        std::tie(bestScore, bestFeature, bestSplit, wLeft, wRight)
             = testAll(depth);
 
         if (bestFeature == -1) {
@@ -678,7 +667,7 @@ struct PartitionData {
         }
 
         std::pair<PartitionData, PartitionData> splits
-            = split(bestFeature, bestSplit, wLeft, wRight, wAll);
+            = split(bestFeature, bestSplit, wLeft, wRight);
 
         //cerr << "done split in " << timer.elapsed() << endl;
 
