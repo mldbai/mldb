@@ -105,11 +105,11 @@ struct PartitionData {
                 if (f == data.features.size()) {
                     // Do the row index
                     size_t n = 0;
-                    for (size_t i = 0;  i < rows.size();  ++i) {
-                        if (weights[i] == 0)
+                    for (size_t i = 0;  i < rowCount();  ++i) {
+                        if (weights[i] == 0 || getWeight(i) == 0)
                             continue;
-                        data.addRow(rows[i].label(),
-                                    rows[i].weight * weights[i],
+                        data.addRow(getLabel(i),
+                                    getWeight(i) * weights[i],
                                     n++);
                     }
                     ExcAssertEqual(n, numNonZero);
@@ -137,7 +137,7 @@ struct PartitionData {
                         if (weights[i] == 0)
                             continue;
                         
-                        uint32_t bucket = features[f].buckets[rows[i].exampleNum()];
+                        uint32_t bucket = features[f].buckets[getExampleNum(i)];
                         writer.write(bucket);
                         ++n;
                     }
@@ -179,27 +179,57 @@ struct PartitionData {
     };
 
     // All rows of data in this partition
-    std::vector<Row> rows;
+    std::vector<Row> rows_;
 
+    Row getRow(size_t i) const
+    {
+        return rows_[i];
+    }
+
+    float getWeight(size_t i) const
+    {
+        return rows_[i].weight;
+    }
+
+    unsigned getExampleNum(size_t i) const
+    {
+        return rows_[i].exampleNum();
+    }
+
+    bool getLabel(size_t i) const
+    {
+        return rows_[i].label();
+    }
+    
+    size_t rowCount() const
+    {
+        return rows_.size();
+    }
+
+    unsigned highestExampleNum() const
+    {
+        return rows_.back().exampleNum();
+    }
+    
     // All features that are active
     std::vector<Feature> features;
 
     /** Reserve enough space for the given number of rows. */
     void reserve(size_t n)
     {
-        rows.reserve(n);
+        rows_.reserve(n);
     }
 
     /** Add the given row. */
     void addRow(const Row & row)
     {
-        rows.push_back(row);
+        rows_.push_back(row);
         wAll[row.label()] += row.weight;
     }
 
     void addRow(bool label, float weight, int exampleNum)
     {
-        rows.emplace_back(label, weight, exampleNum);
+        rows_.emplace_back(label, weight, exampleNum);
         wAll[label] += weight;
     }
 
@@ -281,7 +311,7 @@ struct PartitionData {
         // gets too low, we do essentially random accesses and it kills
         // our cache performance.  In that case we can re-index to reduce
         // the size.
-        double useRatio = 1.0 * rows.size() / rows.back().exampleNum();
+        double useRatio = 1.0 * rowCount() / highestExampleNum();
 
         //todo: Re-index when usable data fits inside cache
         bool reIndex = useRatio < 0.25;
@@ -290,24 +320,23 @@ struct PartitionData {
         //cerr << "useRatio = " << useRatio << endl;
 
         if (!reIndex) {
-
-            sides[0].rows.reserve(rows.size());
-            sides[1].rows.reserve(rows.size());
+            sides[0].reserve(rowCount());
+            sides[1].reserve(rowCount());
 
             //this is for debug only
             //int maxBucket = 0;
             //int minBucket = INFINITY;
 
-            for (size_t i = 0;  i < rows.size();  ++i) {
-                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum()];
+            for (size_t i = 0;  i < rowCount();  ++i) {
+                int bucket = features[featureToSplitOn].buckets[getExampleNum(i)];
                 //maxBucket = std::max(maxBucket, bucket);
                 //minBucket = std::min(minBucket, bucket);
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                sides[side].addRow(rows[i]);
+                sides[side].addRow(getRow(i));
             }
 
-            rows.clear();
-            rows.shrink_to_fit();
+            rows_.clear();
+            rows_.shrink_to_fit();
             features.clear();
 
             /*if (right.rows.size() == 0 || left.rows.size() == 0)
@@ -330,19 +359,19 @@ struct PartitionData {
             // For each example, it goes either in left or right, depending
             // upon the value of the chosen feature.
 
-            std::vector<uint8_t> lr(rows.size());
+            std::vector<uint8_t> lr(rowCount());
             bool ordinal = features[featureToSplitOn].ordinal;
             size_t numOnSide[2] = { 0, 0 };
 
             // TODO: could reserve less than this...
-            sides[0].rows.reserve(rows.size());
-            sides[1].rows.reserve(rows.size());
+            sides[0].reserve(rowCount());
+            sides[1].reserve(rowCount());
 
-            for (size_t i = 0;  i < rows.size();  ++i) {
-                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum()];
+            for (size_t i = 0;  i < rowCount();  ++i) {
+                int bucket = features[featureToSplitOn].buckets[getExampleNum(i)];
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 lr[i] = side;
-                sides[side].addRow(rows[i].label(), rows[i].weight, numOnSide[side]++);
+                sides[side].addRow(getLabel(i), getWeight(i), numOnSide[side]++);
             }
 
             for (unsigned i = 0;  i < nf;  ++i) {
@@ -354,9 +383,9 @@ struct PartitionData {
                 newFeatures[1].init(numOnSide[1], features[i].info->distinctValues);
                 size_t index[2] = { 0, 0 };
 
-                for (size_t j = 0;  j < rows.size();  ++j) {
+                for (size_t j = 0;  j < rowCount();  ++j) {
                     int side = lr[j];
-                    newFeatures[side].write(features[i].buckets[rows[j].exampleNum()]);
+                    newFeatures[side].write(features[i].buckets[getExampleNum(j)]);
                     ++index[side];
                 }
 
@@ -364,8 +393,8 @@ struct PartitionData {
                 sides[1].features[i].buckets = newFeatures[1];
             }
 
-            rows.clear();
-            rows.shrink_to_fit();
+            rows_.clear();
+            rows_.shrink_to_fit();
             features.clear();
         }
 
@@ -375,8 +404,9 @@ struct PartitionData {
     // Core kernel of the decision tree search algorithm.  Transfer the
     // example weight into the appropriate (bucket,label) accumulator.
     // Returns whether
+    template<typename GetNextRowFn>
     static std::pair<bool, int>
-    testFeatureKernel(const Row * rows,
+    testFeatureKernel(GetNextRowFn&& getNextRow,
                       size_t numRows,
                       const BucketList & buckets,
                       W * w /* buckets.numBuckets entries */)
@@ -396,7 +426,7 @@ struct PartitionData {
         int maxBucket = -1;
         
         for (size_t j = 0;  j < numRows;  ++j) {
-            const Row & r = rows[j];
+            Row r = getNextRow();
             int bucket = buckets[r.exampleNum()];
             bucketTransitions += (bucket != lastBucket);
             lastBucket = bucket;
@@ -408,6 +438,9 @@ struct PartitionData {
         return { bucketTransitions > 0, maxBucket };
     }
 
+    // Calculates the score of a split, which is a measure of the
+    // amount of mutual entropy between the label and the given
+    // candidate split point.
     static double scoreSplit(const W & wFalse, const W & wTrue)
     {
         double score
@@ -416,6 +449,7 @@ struct PartitionData {
         return score;
     };
 
+    // Chooses which is the best split for a given feature.
     static std::tuple<double /* bestScore */,
                       int /* bestSplit */,
                       W /* bestLeft */,
@@ -529,8 +563,14 @@ struct PartitionData {
         // Is s feature still active?
         bool isActive;
 
+        unsigned rowNumber = 0;
+        auto getNextRow = [&] ()
+            {
+                return rows[rowNumber++];
+            };
+        
         std::tie(isActive, maxBucket)
-            = testFeatureKernel(rows.data(), rows.size(),
+            = testFeatureKernel(getNextRow, rows.size(),
                                 buckets, w.data());
 
         if (isActive) {
@@ -609,11 +649,11 @@ struct PartitionData {
                 W bestLeft, bestRight;
 
                 std::tie(score, split, bestLeft, bestRight, features[i].active)
-                    = testFeatureNumber(i, features, rows, wAll);
+                = testFeatureNumber(i, features, rows_, wAll);
                 return std::make_tuple(score, split, bestLeft, bestRight);
             };
 
-        if (depth < 4 || rows.size() * nf > 100000) {
+        if (depth < 4 || rowCount() * nf > 100000) {
             parallelMapInOrderReduce(0, nf, doFeature, findBest);
         }
         else {
@@ -667,23 +707,15 @@ struct PartitionData {
 
     ML::Tree::Ptr getLeaf(ML::Tree & tree)
     {
-        W wAll;
-        for (auto & r: rows) {
-            int label = r.label();
-            ExcAssert(label >= 0 && label < 2);
-            ExcAssert(r.weight > 0);
-            wAll[label] += r.weight;
-        }
-        
        return getLeaf(tree, wAll);
     }  
 
     ML::Tree::Ptr train(int depth, int maxDepth,
                         ML::Tree & tree)
     {
-        if (rows.empty())
+        if (rows_.empty())
             return ML::Tree::Ptr();
-        if (rows.size() < 2)
+        if (rowCount() < 2)
             return getLeaf(tree);
 
         if (depth >= maxDepth)
@@ -717,8 +749,8 @@ struct PartitionData {
         auto runLeft = [&] () { left = splits.first.train(depth + 1, maxDepth, tree); };
         auto runRight = [&] () { right = splits.second.train(depth + 1, maxDepth, tree); };
 
-        size_t leftRows = splits.first.rows.size();
-        size_t rightRows = splits.second.rows.size();
+        size_t leftRows = splits.first.rowCount();
+        size_t rightRows = splits.second.rowCount();
 
         if (leftRows == 0 || rightRows == 0)
             throw MLDB::Exception("Invalid split in random forest");
