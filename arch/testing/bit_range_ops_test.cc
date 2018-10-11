@@ -398,3 +398,59 @@ BOOST_AUTO_TEST_CASE( test_Bit_Buffer_advance )
     BOOST_CHECK_EQUAL(buffer.current_offset(data), (1LL << 33) - 1);
     #pragma GCC diagnostic pop
 }
+
+BOOST_AUTO_TEST_CASE(testExtraBits)
+{
+    constexpr uint64_t MINUS1 = std::numeric_limits<uint64_t>::max();
+
+    {
+        uint64_t data[] = {MINUS1};
+
+        BOOST_CHECK_EQUAL(data[0], MINUS1);
+        
+        MLDB::Bit_Writer<uint64_t> writer(data);
+        writer.zeroExtraBits();
+
+        BOOST_CHECK_EQUAL(data[0], MINUS1);
+    }
+
+    {
+        uint64_t data[] = {MINUS1};
+
+        BOOST_CHECK_EQUAL(data[0], MINUS1);
+        
+        MLDB::Bit_Writer<uint64_t> writer(data);
+        writer.write(0, 1);
+
+        BOOST_CHECK_EQUAL(data[0], MINUS1 - 1);
+
+        writer.zeroExtraBits();
+
+        BOOST_CHECK_EQUAL(data[0], 0);
+    }        
+    
+    {
+        uint64_t data[] = {MINUS1};
+
+        BOOST_CHECK_EQUAL(data[0], MINUS1);
+        
+        MLDB::Bit_Writer<uint64_t> writer(data);
+        writer.write(0, 63);
+        writer.zeroExtraBits();
+
+        BOOST_CHECK_EQUAL(data[0], 0);
+    }        
+
+    {
+        uint64_t data[] = {MINUS1, MINUS1};
+
+        BOOST_CHECK_EQUAL(data[0], MINUS1);
+        
+        MLDB::Bit_Writer<uint64_t> writer(data);
+        writer.write(0, 64);
+        writer.zeroExtraBits();
+
+        BOOST_CHECK_EQUAL(data[0], 0);
+        BOOST_CHECK_EQUAL(data[1], MINUS1);
+    }        
+}

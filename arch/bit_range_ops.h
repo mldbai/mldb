@@ -388,7 +388,7 @@ struct Bit_Buffer {
 
         This allows further optimizations to be made.
     */
-    Data extractFast(shift_t bits)
+    MLDB_ALWAYS_INLINE Data extractFast(shift_t bits)
     {
         Data result = extract_bit_range(data.curr(), data.next(), bit_ofs, bits);
         advance(bits);
@@ -422,7 +422,7 @@ struct Bit_Buffer {
     /// bound checking is performed and it is up to the caller to ensure that
     /// the sum of the current offset and the "bits" parameter is within
     /// [0, sizeof(buffer)[.
-    void advance(ssize_t bits)
+    MLDB_ALWAYS_INLINE void advance(ssize_t bits)
     {
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
@@ -627,6 +627,18 @@ struct Bit_Writer {
         return (data - start) * sizeof(Data) * 8 + bit_ofs;
     }
 
+    /** Fill any unwritten bits in the current word with zeros.  This
+        enables for determinism in the produced data and avoids things
+        like uninitialized value errors in Valgrind.
+    */
+    void zeroExtraBits()
+    {
+        size_t numExtraBits = sizeof(Data) * 8 - bit_ofs;
+        if (numExtraBits == sizeof(Data) * 8)
+            return;
+        write(0, numExtraBits);
+    }
+    
 private:
     Data * data;
     size_t bit_ofs;
