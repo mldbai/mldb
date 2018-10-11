@@ -6,3 +6,9 @@
 */
 
 #include "randomforest.h"
+
+namespace MLDB {
+
+MemorySerializer PartitionData::serializer;
+
+} // namespace MLDB

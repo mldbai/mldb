@@ -253,16 +253,19 @@ run(const ProcedureRunConfig & run,
 
     PartitionData allData(featureSpace);
 
-    allData.reserve(numRowsKept);
+    auto writer = allData.getRowWriter(numRowsKept, numRowsKept);
+
     size_t numRows = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
         if (!wheres[i].isTrue() || labels[i].empty()
             || weights[i].empty() || weights[i].toDouble() == 0)
             continue;
-        allData.addRow(labels[i].isTrue(), weights[i].toDouble(), numRows++);
+        writer.addRow(labels[i].isTrue(), weights[i].toDouble(), numRows++);
     }
     ExcAssertEqual(numRows, numRowsKept);
 
+    writer.commit();
+    
     const float trainprop = 1.0f;
     int totalResultCount = runProcConf.featureVectorSamplings*runProcConf.featureSamplings;
     vector<shared_ptr<Decision_Tree>> results(totalResultCount);

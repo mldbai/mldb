@@ -21,6 +21,9 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/engine/column_scope.h"
 #include "mldb/engine/bucket.h"
+#include "mldb/arch/bitops.h"
+#include "mldb/arch/bit_range_ops.h"
+#include "mldb/block/memory_region.h"
 
 namespace MLDB {
 
@@ -44,6 +47,73 @@ struct PartitionData {
         }
     }
 
+    static MemorySerializer serializer;
+    
+    /// Defines how weights are stored in rows
+    enum WeightFormat {
+        WF_INT_MULTIPLE,  ///< Stored as an int multiplied by a constant
+        WF_TABLE,         ///< Stored as an index into a fixed table
+        WF_FLOAT          ///< Stored directly as a 32 bit float
+    };
+
+    WeightFormat weightFormat = WF_FLOAT;
+    int weightBits = 32;
+    FrozenMemoryRegionT<float> weightFormatTable;
+    float weightMultiplier = 0;
+
+    void copyWeights(const PartitionData & other)
+    {
+        weightFormat = other.weightFormat;
+        weightBits = other.weightBits;
+        weightFormatTable = other.weightFormatTable;
+        weightMultiplier = other.weightMultiplier;
+    }
+    
+    union u_f {
+        uint32_t u;
+        float f;
+    };
+
+    float decodeWeight(uint32_t weightBits) const
+    {
+
+        switch (weightFormat) {
+        case WF_INT_MULTIPLE:
+            return weightMultiplier * weightBits;
+        case WF_TABLE:
+            return weightFormatTable.data()[weightBits];
+        case WF_FLOAT: {
+            u_f uf;
+            uf.u = weightBits;
+            return uf.f;
+        }
+        }
+        throw Exception("Unknown weight encoding");
+    }
+
+    uint32_t encodeWeight_(float weight) const
+    {
+        switch (weightFormat) {
+        case WF_INT_MULTIPLE:
+            return weight / weightMultiplier;
+        case WF_TABLE:
+            throw Exception("WF_TABLE not encoding yet");
+        case WF_FLOAT: {
+            u_f uf;
+            uf.f = weight;
+            return uf.u;
+        }
+        }
+        throw Exception("Unknown weight encoding");
+    }
+
+    uint32_t encodeWeight(float weight) const
+    {
+        uint32_t result = encodeWeight_(weight);
+        //ExcAssertEqual(weight, decodeWeight(result));
+        return result;
+    }
+    
     /** Create a new dataset with the same labels, different weights
         (by element-wise multiplication), and with
         zero weights filtered out such that example numbers are strictly
@@ -55,8 +125,77 @@ struct PartitionData {
         PartitionData data;
         data.features = this->features;
         data.fs = this->fs;
-        data.reserve(numNonZero);
 
+#if 1
+        using namespace std;
+
+        // Analyze the weights.  This may allow us to store them in a lot
+        // less bits than we would have otherwise.
+
+        std::vector<float> allWeights;
+        float minWeight = INFINITY;
+        
+        for (size_t i = 0;  i < weights.size();  ++i) {
+            float weight = getWeight(i) * weights[i];
+            ExcAssert(!isnan(weight));
+            ExcAssertGreaterEqual(weight, 0);
+            if (weight != 0) {
+                allWeights.push_back(weight);
+                minWeight = std::min(minWeight, weight);
+            }
+        }
+
+#if 1        
+        std::sort(allWeights.begin(), allWeights.end());
+
+        float lastWeight = -1;
+        std::vector<float> uniqueWeights;
+        bool integerUniqueWeights = true;
+        int maxIntFactor = 0;
+        for (float w: allWeights) {
+            if (w != lastWeight) {
+                uniqueWeights.push_back(w);
+                float floatMult = w / minWeight;
+                int intMult = round(floatMult);
+                bool isInt = intMult * minWeight == w;//floatMult == intMult;
+                if (!isInt) {
+                    cerr << "intMult = " << intMult << " floatMult = "
+                         << floatMult << endl;
+                    integerUniqueWeights = false;
+                }
+                else maxIntFactor = intMult;
+            }
+            lastWeight = w;
+        }
+
+        cerr << "total of " << uniqueWeights.size() << " unique weights"
+             << endl;
+        cerr << "integerUniqueWeights = " << integerUniqueWeights << endl;
+        cerr << "maxIntFactor = " << maxIntFactor << endl;
+
+        int numWeightsToEncode = 0;
+        if (integerUniqueWeights) {
+            data.weightFormat = WF_INT_MULTIPLE;
+            data.weightMultiplier = minWeight;
+            data.weightBits = MLDB::highest_bit(maxIntFactor, -1) + 1;
+        }
+        else if (uniqueWeights.size() < 4096) { /* max 16kb of cache */
+            data.weightFormat = WF_TABLE;
+            auto mutableWeightFormatTable
+                = serializer.allocateWritableT<float>(uniqueWeights.size());
+            std::memcpy(mutableWeightFormatTable.data(),
+                        uniqueWeights.data(),
+                        uniqueWeights.size() * sizeof(float));
+            data.weightFormatTable = mutableWeightFormatTable.freeze();
+            data.weightBits = MLDB::highest_bit(numWeightsToEncode, -1) + 1;
+        }
+        else {
+            data.weightFormat = WF_FLOAT;
+            data.weightBits = 32;
+        }
+#endif        
+#endif
+        
         std::vector<WritableBucketList>
             featureBuckets(features.size());
 
@@ -105,14 +244,20 @@ struct PartitionData {
                 if (f == data.features.size()) {
                     // Do the row index
                     size_t n = 0;
+
+                    RowWriter writer
+                        = data.getRowWriter(numNonZero, numNonZero);
+
                     for (size_t i = 0;  i < rowCount();  ++i) {
                         if (weights[i] == 0 || getWeight(i) == 0)
                             continue;
-                        data.addRow(getLabel(i),
-                                    getWeight(i) * weights[i],
-                                    n++);
+                        writer.addRow(getLabel(i),
+                                      getWeight(i) * weights[i],
+                                      n++);
                     }
+                    
                     ExcAssertEqual(n, numNonZero);
+                    writer.commit();
                     return;
                 }
 
@@ -157,17 +302,27 @@ struct PartitionData {
 
     /// Entry for an individual row
     struct Row {
-        Row(bool label, float weight, unsigned exampleNum)
-            : weight(weight), exampleNum_(label | (exampleNum << 1))
-        {
-        }
+        //Row(bool label, uint32_t encodedWeight, uint32_t exampleNum)
+        //    : label_(label), encodedWeight_(encodedWeight),
+        //      exampleNum_(exampleNum)
+        //{
+        //}
         
-        float weight;               ///< Weight of the example 
-        unsigned exampleNum_;       ///< index into feature array
+        bool label_;                 ///< Label associated with example
+        uint32_t encodedWeight_;    ///< Weight of the example 
+        uint32_t exampleNum_;        ///< index into feature array
 
         ///< Label associated with
-        bool label() const { return exampleNum_ & 1; }
-        unsigned exampleNum() const { return exampleNum_ >> 1; }
+        bool label() const { return label_; }
+        uint32_t exampleNum() const { return exampleNum_; }
+        uint32_t encodedWeight() const { return encodedWeight_; }
+    };
+
+    /// Version of Row that has the weight decoded
+    struct DecodedRow {
+        bool label;
+        float weight;
+        uint32_t exampleNum;
     };
     
     // Entry for an individual feature
@@ -179,59 +334,88 @@ struct PartitionData {
     };
 
     // All rows of data in this partition
-    std::vector<Row> rows_;
+    //std::vector<Row> rows_;
 
+    // Encoded data for our row
+    FrozenMemoryRegionT<uint64_t> rowData;
+
+    // Number of entries in rowData
+    size_t numRowEntries;
+
+    int exampleNumBits;
+    uint64_t exampleNumMask;
+    uint64_t weightMask;
+    int totalBits;
+
+    MLDB_ALWAYS_INLINE Row decodeRow(uint64_t allBits) const
+    {
+        Row result;
+        result.exampleNum_ = allBits & exampleNumMask;
+        allBits >>= exampleNumBits;
+        result.encodedWeight_ = allBits & weightMask;
+        allBits >>= weightBits;
+        ExcAssertLessEqual(allBits, 1);
+        result.label_ = allBits;
+        return result;
+    }
+    
+    MLDB_ALWAYS_INLINE uint64_t getRowBits(size_t i) const
+    {
+        ML::Bit_Extractor<uint64_t> extractor(rowData.data());
+        extractor.advance(totalBits * i);
+        return extractor.extractFast<uint64_t>(totalBits);
+    }
+    
     Row getRow(size_t i) const
     {
-        return rows_[i];
+        return decodeRow(getRowBits(i));
     }
 
+    DecodedRow getDecodedRow(size_t i) const
+    {
+        Row row = getRow(i);
+        return { row.label(),
+                 decodeWeight(row.encodedWeight_),
+                 row.exampleNum()
+               };
+    }
+    
     float getWeight(size_t i) const
     {
-        return rows_[i].weight;
+        uint64_t allBits = getRowBits(i);
+        allBits >>= exampleNumBits;
+        return decodeWeight(allBits & weightMask);
     }
 
-    unsigned getExampleNum(size_t i) const
+    uint32_t getExampleNum(size_t i) const
     {
-        return rows_[i].exampleNum();
+        uint64_t allBits = getRowBits(i);
+        return allBits & exampleNumMask;
     }
 
     bool getLabel(size_t i) const
     {
-        return rows_[i].label();
+        uint64_t allBits = getRowBits(i);
+        return allBits >> (weightBits + exampleNumBits);
     }
     
     size_t rowCount() const
     {
-        return rows_.size();
+        return numRowEntries;
     }
 
-    unsigned highestExampleNum() const
+    uint32_t highestExampleNum() const
     {
-        return rows_.back().exampleNum();
+        return getExampleNum(numRowEntries - 1);
+    }
+
+    void clearRows()
+    {
+        rowData = FrozenMemoryRegionT<uint64_t>();
     }
     
     // All features that are active
     std::vector<Feature> features;
-
-    /** Reserve enough space for the given number of rows. */
-    void reserve(size_t n)
-    {
-        rows_.reserve(n);
-    }
-
-    /** Add the given row. */
-    void addRow(const Row & row)
-    {
-        rows_.push_back(row);
-        wAll[row.label()] += row.weight;
-    }
-
-    void addRow(bool label, float weight, int exampleNum)
-    {
-        rows_.emplace_back(label, weight, exampleNum);
-        wAll[label] += weight;
-    }
 
     //This structure hold the weights (false and true) for any particular split
     template<typename Float>
@@ -282,7 +466,113 @@ struct PartitionData {
     };
 
     typedef WT<ML::FixedPointAccum64> W;
+    //typedef WT<float> W;
+    //typedef WT<double> W;
 
+    struct RowWriter {
+        RowWriter(PartitionData * owner,
+                  size_t maxRows,
+                  size_t maxExampleCount)
+            : owner(owner),
+              weightBits(owner->weightBits),
+              exampleNumBits(MLDB::highest_bit(maxExampleCount, -1) + 1),
+              totalBits(weightBits + exampleNumBits + 1),
+              toAllocate((totalBits * maxRows + 63) / 64 + 1 /* +1 allows extractFast */),
+              data(serializer
+                   .allocateWritableT<uint64_t>(toAllocate)),
+              writer(data.data())
+        {
+        }
+
+        void addRow(const Row & row)
+        {
+            uint64_t toWrite = row.label();
+            toWrite = (toWrite << weightBits) | row.encodedWeight_;
+            toWrite = (toWrite << exampleNumBits) | row.exampleNum();
+            writer.write(toWrite, totalBits);
+            float weight = owner->decodeWeight(row.encodedWeight_);
+
+            if (false) {
+                owner->exampleNumBits = exampleNumBits;
+                owner->exampleNumMask = (1ULL << exampleNumBits) - 1;
+                owner->weightMask = (1ULL << weightBits) - 1;
+                owner->totalBits = totalBits;
+
+                Row row2 = owner->decodeRow(toWrite);
+
+                ExcAssertEqual(row.label(), row2.label());
+                ExcAssertEqual(row.encodedWeight(), row2.encodedWeight());
+                ExcAssertEqual(row.exampleNum(), row2.exampleNum());
+                ExcAssertGreater(weight, 0);
+            }
+
+            //using namespace std;
+            //if (weight != 1.0)
+            //    cerr << "wall " << row.label() << " " << weight << endl;
+            wAll[row.label()] += weight;
+        }
+
+        void addRow(bool label, float weight, uint32_t exampleNum)
+        {
+            Row toAdd{label, owner->encodeWeight(weight), exampleNum};
+            addRow(toAdd);
+        }
+            
+        void commit()
+        {
+            owner->numRowEntries
+                = writer.current_offset(data.data()) / totalBits;
+
+            //using namespace std;
+            //cerr << "commit with " << owner->numRowEntries << " entries and "
+            //     << totalBits << " total bits" << endl;
+            //cerr << "wall = " << wAll[false] << " " << wAll[true] << endl;
+            
+            // fill in extra guard word at end, required for extractFast
+            // to work
+            writer.write(0, 64);
+            writer.zeroExtraBits();
+            owner->rowData = data.freeze();
+
+            owner->exampleNumBits = exampleNumBits;
+            owner->exampleNumMask = (1ULL << exampleNumBits) - 1;
+            owner->weightMask = (1ULL << weightBits) - 1;
+            owner->totalBits = totalBits;
+            owner->wAll = wAll;
+        }
+
+    private:
+        PartitionData * owner;
+        int weightBits;
+        int exampleNumBits;
+        int totalBits;
+        size_t toAllocate;
+        MutableMemoryRegionT<uint64_t> data;
+        Bit_Writer<uint64_t> writer;
+        W wAll;
+    };
+    
+    RowWriter getRowWriter(size_t maxRows,
+                           size_t maxExampleCount)
+    {
+        return RowWriter(this, maxRows, maxExampleCount);
+    }
+    
+#if 0    
+    /** Add the given row. */
+    void addRow(const Row & row)
+    {
+        rows_.push_back(row);
+        wAll[row.label()] += row.weight;
+    }
+
+    void addRow(bool label, float weight, int exampleNum)
+    {
+        rows_.emplace_back(label, weight, exampleNum);
+        wAll[label] += weight;
+    }
+#endif
+    
     // Weights matrix of all rows
     W wAll;
     
@@ -304,7 +594,9 @@ struct PartitionData {
         right.fs = fs;
         left.features = features;
         right.features = features;
-
+        left.copyWeights(*this);
+        right.copyWeights(*this);
+        
         bool ordinal = features[featureToSplitOn].ordinal;
 
         // Density of example numbers within our set of rows.  When this
@@ -320,25 +612,30 @@ struct PartitionData {
         //cerr << "useRatio = " << useRatio << endl;
 
         if (!reIndex) {
-            sides[0].reserve(rowCount());
-            sides[1].reserve(rowCount());
-
             //this is for debug only
             //int maxBucket = 0;
             //int minBucket = INFINITY;
 
+            RowWriter writer[2]
+                = { sides[0].getRowWriter(rowCount(), highestExampleNum()),
+                    sides[1].getRowWriter(rowCount(), highestExampleNum()) };
+            
             for (size_t i = 0;  i < rowCount();  ++i) {
-                int bucket = features[featureToSplitOn].buckets[getExampleNum(i)];
+                int bucket
+                    = features[featureToSplitOn]
+                    .buckets[getExampleNum(i)];
                 //maxBucket = std::max(maxBucket, bucket);
                 //minBucket = std::min(minBucket, bucket);
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                sides[side].addRow(getRow(i));
+                writer[side].addRow(getRow(i));
             }
 
-            rows_.clear();
-            rows_.shrink_to_fit();
+            clearRows();
             features.clear();
 
+            writer[0].commit();
+            writer[1].commit();
+        
             /*if (right.rows.size() == 0 || left.rows.size() == 0)
             {
                 std::cerr << wLeft[0] << "," << wLeft[1] << "," << wRight[0] << "," << wRight[1] << std::endl;
@@ -364,14 +661,17 @@ struct PartitionData {
             size_t numOnSide[2] = { 0, 0 };
 
             // TODO: could reserve less than this...
-            sides[0].reserve(rowCount());
-            sides[1].reserve(rowCount());
+            RowWriter writer[2]
+                = { sides[0].getRowWriter(rowCount(), rowCount()),
+                    sides[1].getRowWriter(rowCount(), rowCount()) };
 
             for (size_t i = 0;  i < rowCount();  ++i) {
-                int bucket = features[featureToSplitOn].buckets[getExampleNum(i)];
+                Row row = getRow(i);
+                int bucket = features[featureToSplitOn].buckets[row.exampleNum()];
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 lr[i] = side;
-                sides[side].addRow(getLabel(i), getWeight(i), numOnSide[side]++);
+                row.exampleNum_ = numOnSide[side]++;
+                writer[side].addRow(row);
             }
 
             for (unsigned i = 0;  i < nf;  ++i) {
@@ -393,9 +693,11 @@ struct PartitionData {
                 sides[1].features[i].buckets = newFeatures[1];
             }
 
-            rows_.clear();
-            rows_.shrink_to_fit();
+            clearRows();
             features.clear();
+
+            writer[0].commit();
+            writer[1].commit();
         }
 
         return { std::move(left), std::move(right) };
@@ -424,17 +726,17 @@ struct PartitionData {
         // work required to search the buckets later on, as those without
         // an example have no possible split point.
         int maxBucket = -1;
-        
+
         for (size_t j = 0;  j < numRows;  ++j) {
-            Row r = getNextRow();
-            int bucket = buckets[r.exampleNum()];
-            bucketTransitions += (bucket != lastBucket);
+            DecodedRow r = getNextRow();
+            int bucket = buckets[r.exampleNum];
+            bucketTransitions += (bucket != lastBucket ? 1 : 0);
             lastBucket = bucket;
 
-            w[bucket][r.label()] += r.weight;
+            w[bucket][r.label] += r.weight;
             maxBucket = std::max(maxBucket, bucket);
         }
-        
+
         return { bucketTransitions > 0, maxBucket };
     }
 
@@ -454,7 +756,7 @@ struct PartitionData {
                       int /* bestSplit */,
                       W /* bestLeft */,
                       W /* bestRight */>
-    chooseSplitKernel(const W * w /* buckets.numBuckets entries */,
+    chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                       int maxBucket,
                       bool ordinal,
                       const W & wAll)
@@ -534,6 +836,7 @@ struct PartitionData {
         return { bestScore, bestSplit, bestLeft, bestRight };
     }
     
+    template<typename GetNextRowFn>
     static
     std::tuple<double /* bestScore */,
                int /* bestSplit */,
@@ -542,7 +845,8 @@ struct PartitionData {
                bool /* feature is still active */ >
     testFeatureNumber(int featureNum,
                       const std::vector<Feature> & features,
-                      const std::vector<Row> & rows,
+                      GetNextRowFn&& getNextRow,
+                      size_t numRows,
                       const W & wAll)
     {
         const Feature & feature = features.at(featureNum);
@@ -563,14 +867,8 @@ struct PartitionData {
         // Is s feature still active?
         bool isActive;
 
-        unsigned rowNumber = 0;
-        auto getNextRow = [&] ()
-            {
-                return rows[rowNumber++];
-            };
-        
         std::tie(isActive, maxBucket)
-            = testFeatureKernel(getNextRow, rows.size(),
+            = testFeatureKernel(getNextRow, numRows,
                                 buckets, w.data());
 
         if (isActive) {
@@ -597,8 +895,9 @@ struct PartitionData {
     testAll(int depth)
     {
         // We have no impurity in our bucket.  Time to stop
-        if (wAll[0] == 0 || wAll[1] == 0)
+        if (wAll[0] == 0 || wAll[1] == 0) {
             return std::make_tuple(1.0, -1, -1, wAll, W());
+        }
 
         bool debug = false;
 
@@ -648,8 +947,14 @@ struct PartitionData {
                 int split = -1;
                 W bestLeft, bestRight;
 
+                size_t rowNumber = 0;
+                auto getNextRow = [&] () -> DecodedRow
+                {
+                    return getDecodedRow(rowNumber++);
+                };
+                
                 std::tie(score, split, bestLeft, bestRight, features[i].active)
-                = testFeatureNumber(i, features, rows_, wAll);
+                    = testFeatureNumber(i, features, getNextRow, rowCount(), wAll);
                 return std::make_tuple(score, split, bestLeft, bestRight);
             };
 
@@ -713,7 +1018,7 @@ struct PartitionData {
     ML::Tree::Ptr train(int depth, int maxDepth,
                         ML::Tree & tree)
     {
-        if (rows_.empty())
+        if (rowCount() == 0)
             return ML::Tree::Ptr();
         if (rowCount() < 2)
             return getLeaf(tree);
