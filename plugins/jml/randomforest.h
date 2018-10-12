@@ -76,6 +76,9 @@ struct PartitionData {
 
     float decodeWeight(uint32_t weightBits) const
     {
+        if (MLDB_LIKELY(weightFormat == WF_INT_MULTIPLE)) {
+            return weightMultiplier * weightBits;
+        }
 
         switch (weightFormat) {
         case WF_INT_MULTIPLE:
@@ -247,12 +250,15 @@ struct PartitionData {
 
                     RowWriter writer
                         = data.getRowWriter(numNonZero, numNonZero);
+                    RowIterator rowIterator
+                        = getRowIterator();
 
                     for (size_t i = 0;  i < rowCount();  ++i) {
-                        if (weights[i] == 0 || getWeight(i) == 0)
+                        DecodedRow row = rowIterator.getDecodedRow();
+                        if (weights[i] == 0 || row.weight == 0)
                             continue;
-                        writer.addRow(getLabel(i),
-                                      getWeight(i) * weights[i],
+                        writer.addRow(row.label,
+                                      row.weight * weights[i],
                                       n++);
                     }
                     
@@ -347,6 +353,65 @@ struct PartitionData {
     uint64_t weightMask;
     int totalBits;
 
+    struct RowIterator {
+        static constexpr size_t BUFFER_SIZE = 256;
+
+        RowIterator(const PartitionData * owner)
+            : owner(owner),
+              extractor(owner->rowData.data()),
+              totalBits(owner->totalBits),
+              numRows(owner->numRowEntries)
+        {
+        }
+
+        void prefetch()
+        {
+            ExcAssertEqual(bufferFirst, bufferLast);
+            bufferFirst = 0;
+            bufferLast = std::min<size_t>(BUFFER_SIZE, numRows - rowNumber);
+            for (size_t i = 0;  i < bufferLast;  ++i) {
+                buffer[i] = extractor.extractFastUnmasked<uint64_t>(totalBits);
+            }
+            rowNumber += bufferLast;
+        }
+        
+        MLDB_ALWAYS_INLINE uint64_t getRowBits()
+        {
+            if (bufferFirst == bufferLast) {
+                prefetch();
+            }
+            return buffer[bufferFirst++];
+        }
+
+        MLDB_ALWAYS_INLINE Row getRow()
+        {
+            return owner->decodeRow(getRowBits());
+        }
+
+        MLDB_ALWAYS_INLINE DecodedRow getDecodedRow()
+        {
+            Row row = getRow();
+            return { row.label(),
+                     owner->decodeWeight(row.encodedWeight_),
+                     row.exampleNum()
+                   };
+        }
+
+        const PartitionData * owner;
+        ML::Bit_Extractor<uint64_t> extractor;
+        int totalBits;
+        uint64_t buffer[BUFFER_SIZE];
+        size_t bufferFirst = 0;
+        size_t bufferLast = 0;
+        size_t rowNumber = 0;
+        size_t numRows;
+    };
+
+    RowIterator getRowIterator() const
+    {
+        return RowIterator(this);
+    }
+        
     MLDB_ALWAYS_INLINE Row decodeRow(uint64_t allBits) const
     {
         Row result;
@@ -354,8 +419,8 @@ struct PartitionData {
         allBits >>= exampleNumBits;
         result.encodedWeight_ = allBits & weightMask;
         allBits >>= weightBits;
-        ExcAssertLessEqual(allBits, 1);
-        result.label_ = allBits;
+        //ExcAssertLessEqual(allBits, 1);
+        result.label_ = allBits & 1;
         return result;
     }
     
@@ -366,12 +431,12 @@ struct PartitionData {
         return extractor.extractFast<uint64_t>(totalBits);
     }
     
-    Row getRow(size_t i) const
+    MLDB_ALWAYS_INLINE Row getRow(size_t i) const
     {
         return decodeRow(getRowBits(i));
     }
 
-    DecodedRow getDecodedRow(size_t i) const
+    MLDB_ALWAYS_INLINE DecodedRow getDecodedRow(size_t i) const
     {
         Row row = getRow(i);
         return { row.label(),
@@ -393,12 +458,6 @@ struct PartitionData {
         return allBits & exampleNumMask;
     }
 
-    bool getLabel(size_t i) const
-    {
-        uint64_t allBits = getRowBits(i);
-        return allBits >> (weightBits + exampleNumBits);
-    }
-    
     size_t rowCount() const
     {
         return numRowEntries;
@@ -557,22 +616,7 @@ struct PartitionData {
     {
         return RowWriter(this, maxRows, maxExampleCount);
     }
-    
-#if 0    
-    /** Add the given row. */
-    void addRow(const Row & row)
-    {
-        rows_.push_back(row);
-        wAll[row.label()] += row.weight;
-    }
 
-    void addRow(bool label, float weight, int exampleNum)
-    {
-        rows_.emplace_back(label, weight, exampleNum);
-        wAll[label] += weight;
-    }
-#endif
-    
     // Weights matrix of all rows
     W wAll;
     
@@ -619,15 +663,18 @@ struct PartitionData {
             RowWriter writer[2]
                 = { sides[0].getRowWriter(rowCount(), highestExampleNum()),
                     sides[1].getRowWriter(rowCount(), highestExampleNum()) };
+
+            RowIterator rowIterator = getRowIterator();
             
             for (size_t i = 0;  i < rowCount();  ++i) {
+                Row row = rowIterator.getRow();
                 int bucket
                     = features[featureToSplitOn]
-                    .buckets[getExampleNum(i)];
+                    .buckets[row.exampleNum_];
                 //maxBucket = std::max(maxBucket, bucket);
                 //minBucket = std::min(minBucket, bucket);
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                writer[side].addRow(getRow(i));
+                writer[side].addRow(row);
             }
 
             clearRows();
@@ -665,8 +712,10 @@ struct PartitionData {
                 = { sides[0].getRowWriter(rowCount(), rowCount()),
                     sides[1].getRowWriter(rowCount(), rowCount()) };
 
+            RowIterator rowIterator = getRowIterator();
+
             for (size_t i = 0;  i < rowCount();  ++i) {
-                Row row = getRow(i);
+                Row row = rowIterator.getRow();
                 int bucket = features[featureToSplitOn].buckets[row.exampleNum()];
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 lr[i] = side;
@@ -947,10 +996,11 @@ struct PartitionData {
                 int split = -1;
                 W bestLeft, bestRight;
 
-                size_t rowNumber = 0;
+                RowIterator rowIterator = getRowIterator();
+                
                 auto getNextRow = [&] () -> DecodedRow
                 {
-                    return getDecodedRow(rowNumber++);
+                    return rowIterator.getDecodedRow();
                 };
                 
                 std::tie(score, split, bestLeft, bestRight, features[i].active)

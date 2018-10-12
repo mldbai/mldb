@@ -121,10 +121,10 @@ struct RandomForestRNG {
 RunOutput
 RandomForestProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Json::Value &)> & onProgress) const
 {
     //Todo: we will need heuristics for those. (MLDB-1449)
-    int maxBagsAtOnce = 1;
+    int maxBagsAtOnce = 5;
     int maxTreesAtOnce = 20;
 
     RandomForestProcedureConfig runProcConf =
@@ -195,14 +195,20 @@ run(const ProcedureRunConfig & run,
     INFO_MSG(logger) << "got " << labels.size() << " labels in " << labelsTimer.elapsed();
 
     size_t numRowsKept = 0;
+    size_t numTrue = 0;
+    size_t numFalse = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
         if (!weights[i].empty()
             && weights[i].toDouble() > 0.0
             && !labels[i].empty()
-            && wheres[i].isTrue())
+            && wheres[i].isTrue()) {
+            (labels[i].isTrue() ? numTrue: numFalse) += 1;
             ++numRowsKept;
+        }
     }
 
+    cerr << "labels: false " << numFalse << " true " << numTrue << endl;
+    
     SelectExpression select({subSelect});
 
     auto getColumnsInExpression = [&] (const SqlExpression & expr)
