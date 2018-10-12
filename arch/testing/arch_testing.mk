@@ -22,6 +22,9 @@ $(eval $(call test,simd_test,arch,boost))
 $(eval $(call test,cpuid_test,arch,boost))
 endif
 
+$(eval $(call test,bit_array_test,arch,boost))
+
+
 ifeq ($(WITH_CUDA),1)
 #$(eval $(call set_compile_option,cuda_device_query_test.cc,-I$(INC)))
 

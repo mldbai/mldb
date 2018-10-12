@@ -39,18 +39,18 @@ typedef uint32_t shift_t;
 
 */
 template<typename T>
-MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
 T shrd_emulated(T low, T high, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
-    ExcAssert(bits < TBITS);
-    //if (MLDB_UNLIKELY(bits == 0)) return low;
-    low >>= bits;
-    high = (high << (TBITS - bits)) * (bits != 0);
-    return low | high;
+    //ExcAssert(bits < TBITS);
+    if (MLDB_UNLIKELY(bits == 0)) return low;
+    //low >>= bits;
+    //high = (high << (TBITS - bits)) * (bits != 0);
+    return ((low >> bits) | (high << (TBITS - bits)));
 }
 
-#if defined( MLDB_INTEL_ISA ) && ! defined(MLDB_COMPILER_NVCC)
+#if defined( MLDB_INTEL_ISA ) && ! defined(MLDB_COMPILER_NVCC) && false
 
 template<typename T>
 MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
@@ -118,10 +118,10 @@ MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T maskLower(T val, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
-    ExcAssertLessEqual(bits, TBITS);
-    if (MLDB_UNLIKELY(bits == TBITS))
-        return val;
-    T mask = (((T)1 << bits) - 1);
+    //ExcAssertLessEqual(bits, TBITS);
+    //if (MLDB_UNLIKELY(bits == TBITS))
+    //    return val;
+    T mask = bits >= TBITS ? (T)-1 : (((T)1 << bits) - 1);
     return val & mask;
 }
 
@@ -186,6 +186,14 @@ MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
 Data extract_bit_range(Data p0, Data p1, size_t bit, shift_t bits)
 {
     return maskLower(shrd(p0, p1, bit), bits); // extract and mask
+}
+
+/** Same, but high bits are not filtered out. */
+template<typename Data>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+Data extract_bit_range_unmasked(Data p0, Data p1, size_t bit, shift_t bits)
+{
+    return shrd(p0, p1, bit); // extract only
 }
 
 /** Set the given range of bits in out to the given value.  Note that val
@@ -307,8 +315,13 @@ struct Simple_Mem_Buffer {
     MLDB_ALWAYS_INLINE Data curr() const { return data[0]; }
     MLDB_ALWAYS_INLINE Data next() const { return data[1]; }
     
-    void operator += (int offset) { data += offset; }
+    MLDB_ALWAYS_INLINE void operator += (int offset) { data += offset; }
 
+    MLDB_ALWAYS_INLINE void prefetch(size_t bytesAhead)
+    {
+        __builtin_prefetch(data + bytesAhead / sizeof(Data), 0 /* read */, 3 /* locality */);
+    }
+    
     //private:
     const Data * data;  // always aligned to 2 * alignof(Data)
 };
@@ -343,6 +356,11 @@ struct Buffered_Mem_Buffer {
         b1 = data[1];
     }
 
+    MLDB_ALWAYS_INLINE void prefetch(size_t bytesAhead)
+    {
+        __builtin_prefetch(data + bytesAhead / sizeof(Data), 0 /* read */, 3 /* locality */);
+    }
+    
     //private:
     const Data * data;  // always aligned to 2 * alignof(Data)
     Data b0, b1;
@@ -395,6 +413,15 @@ struct Bit_Buffer {
         return result;
     }
 
+    // Like extractFast, but doesn't filter the top bits out
+    MLDB_ALWAYS_INLINE Data extractFastUnmasked(shift_t bits)
+    {
+        Data result = extract_bit_range_unmasked
+            (data.curr(), data.next(), bit_ofs, bits);
+        advance(bits);
+        return result;
+    }
+    
     /// Extracts bits starting from the most-significant bits of the buffer.
     Data rextract(shift_t bits)
     {
@@ -434,6 +461,11 @@ struct Bit_Buffer {
         return (data.data - start) * sizeof(Data) * 8 + bit_ofs;
     }
 
+    MLDB_ALWAYS_INLINE void prefetch(size_t bytesAhead)
+    {
+        data.prefetch(bytesAhead);
+    }
+    
 private:
     MemBuf data;
     size_t bit_ofs;     // number of bits from start
@@ -491,6 +523,13 @@ struct Bit_Extractor {
     T extractFast(int num_bits)
     {
         return buf.extractFast(num_bits);
+    }
+
+    template<typename T>
+    MLDB_COMPUTE_METHOD
+    T extractFastUnmasked(int num_bits)
+    {
+        return buf.extractFastUnmasked(num_bits);
     }
 
     template<typename T>
@@ -555,6 +594,11 @@ struct Bit_Extractor {
         return buf.current_offset(start);
     }
 
+    void prefetch(size_t bytesAhead)
+    {
+        buf.prefetch(bytesAhead);
+    }
+    
 private:
     Buffer buf;
     size_t bit_ofs;
