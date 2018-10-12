@@ -385,8 +385,10 @@ struct OpenCLKernelArgInfo {
 
     cl_kernel kernel = nullptr;
     cl_uint argNum = -1;
-    OpenCLArgAddressQualifier addressQualifier;
-    OpenCLArgAccessQualifier accessQualifier;
+    OpenCLArgAddressQualifier addressQualifier
+        = OpenCLArgAddressQualifier::GLOBAL;
+    OpenCLArgAccessQualifier accessQualifier
+        = OpenCLArgAccessQualifier::READ_ONLY;
     std::string typeName;
     Bitset<OpenCLArgTypeQualifier> typeQualifier;
     std::string name;

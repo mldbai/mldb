@@ -330,7 +330,11 @@ struct NullDecompressor : public Decompressor {
     virtual void decompress(const char * data, size_t len,
                               const OnData & onData) override;
 
+    
     virtual void finish(const OnData & onData) override;
+
+    using Decompressor::decompress;
+    using Decompressor::finish;
 };
 
 NullDecompressor::

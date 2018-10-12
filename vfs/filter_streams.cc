@@ -345,13 +345,6 @@ operator = (filter_ostream && other)
 
 namespace {
 
-bool ends_with(const std::string & str, const std::string & what)
-{
-    string::size_type result = str.rfind(what);
-    return result != string::npos
-        && result == str.size() - what.size();
-}
-
 void addCompression(streambuf & buf,
                     boost::iostreams::filtering_ostream & stream,
                     const std::string & resource,

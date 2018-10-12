@@ -156,10 +156,10 @@ registerGzipCompressor("gzip", {"gz"});
 /*****************************************************************************/
 
 struct GzipHeaderFields {
-    uint16_le id = 0x1f8b;
+    LittleEndianPod<uint16_t> id = {0x1f8b};
     uint8_t compressionMethod = 0;
     uint8_t flags = 0;
-    uint32_le timestamp = 0;
+    LittleEndianPod<uint32_t> MLDB_PACKED timestamp = {0};
     uint8_t xflags = 0;
     uint8_t os = 0;
 } MLDB_PACKED;
@@ -309,6 +309,8 @@ struct GzipDecompressor: public Decompressor, public ZlibStreamCommon {
     GzipHeaderReader header;
 
     typedef Decompressor::OnData OnData;
+    using Decompressor::decompress;
+    using Decompressor::finish;
     
     GzipDecompressor()
     {

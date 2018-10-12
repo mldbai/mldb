@@ -24,7 +24,7 @@ $(LIB)/libOpenCL.so.%:	$(OPENCL_ICD_LIB_DIR)/libOpenCL.so.%
 
 
 
-$(eval $(call set_compile_option,$(OPENCL_PLUGIN_SOURCE)))
+$(eval $(call set_compile_option,$(OPENCL_PLUGIN_SOURCE),-Wno-ignored-attributes))
 
 $(eval $(call library,mldb_opencl_plugin,$(OPENCL_PLUGIN_SOURCE),value_description sql_expression OpenCL))
 
