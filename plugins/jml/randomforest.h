@@ -24,6 +24,7 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/block/memory_region.h"
+#include "mldb/utils/lightweight_hash.h"
 
 namespace MLDB {
 
@@ -121,54 +122,93 @@ struct PartitionData {
         (by element-wise multiplication), and with
         zero weights filtered out such that example numbers are strictly
         increasing.
+
+        Each weight is multiplied by counts[i] * scale to get the new
+        weight; since this method is called from a sampling with replacement
+        procedure we only need integer counts.
     */
-    PartitionData reweightAndCompact(const std::vector<float> & weights,
-                                     size_t numNonZero) const
+    PartitionData reweightAndCompact(const std::vector<uint8_t> & counts,
+                                     size_t numNonZero,
+                                     double scale) const
     {
         PartitionData data;
         data.features = this->features;
         data.fs = this->fs;
 
-#if 1
+        ExcAssertEqual(counts.size(), rowCount());
+        
+        size_t chunkSize
+            = std::min<size_t>(100000, rowCount() / numCpus() / 4);
+
         using namespace std;
+        cerr << "chunkSize = " << chunkSize << endl;
 
         // Analyze the weights.  This may allow us to store them in a lot
         // less bits than we would have otherwise.
 
-        std::vector<float> allWeights;
+        auto doWeightChunk = [&] (size_t start)
+            -> std::tuple<LightweightHashSet<float> /* uniques */,
+                          float /* minWeight */,
+                          size_t /* numValues */>
+            {
+                size_t end = std::min(start + chunkSize, rowCount());
+
+                LightweightHashSet<float> uniques;
+                float minWeight = INFINITY;
+                size_t numValues = 0;
+                
+                for (size_t i = start;  i < end;  ++i) {
+                    float weight = getWeight(i) * counts[i] * scale;
+                    ExcAssert(!isnan(weight));
+                    ExcAssertGreaterEqual(weight, 0);
+                    if (weight != 0) {
+                        numValues += 1;
+                        uniques.insert(weight);
+                        minWeight = std::min(minWeight, weight);
+                    }
+                }
+
+                return std::make_tuple(std::move(uniques), minWeight,
+                                       numValues);
+            };
+
         float minWeight = INFINITY;
+        LightweightHashSet<float> allUniques;
+        size_t totalNumValues = 0;
         
-        for (size_t i = 0;  i < weights.size();  ++i) {
-            float weight = getWeight(i) * weights[i];
-            ExcAssert(!isnan(weight));
-            ExcAssertGreaterEqual(weight, 0);
-            if (weight != 0) {
-                allWeights.push_back(weight);
-                minWeight = std::min(minWeight, weight);
-            }
-        }
+        auto reduceWeights = [&] (size_t start,
+                                  std::tuple<LightweightHashSet<float> /* uniques */,
+                                  float /* minWeight */,
+                                  size_t /* numValues */> & info)
+            {
+                minWeight = std::min(minWeight, std::get<1>(info));
+                totalNumValues += std::get<2>(info);
+                LightweightHashSet<float> & uniques = std::get<0>(info);
+                allUniques.insert(uniques.begin(), uniques.end());
+            };
+        
+        parallelMapInOrderReduce
+            (0, rowCount() / chunkSize + 1, doWeightChunk, reduceWeights);
 
-#if 1        
-        std::sort(allWeights.begin(), allWeights.end());
+        cerr << "minWeight = " << minWeight << endl;
+        cerr << allUniques.size() << " uniques" << endl;
 
-        float lastWeight = -1;
-        std::vector<float> uniqueWeights;
+        std::vector<float> uniqueWeights(allUniques.begin(), allUniques.end());
+        std::sort(uniqueWeights.begin(), uniqueWeights.end());
+        
         bool integerUniqueWeights = true;
         int maxIntFactor = 0;
-        for (float w: allWeights) {
-            if (w != lastWeight) {
-                uniqueWeights.push_back(w);
-                float floatMult = w / minWeight;
-                int intMult = round(floatMult);
-                bool isInt = intMult * minWeight == w;//floatMult == intMult;
-                if (!isInt) {
-                    cerr << "intMult = " << intMult << " floatMult = "
-                         << floatMult << endl;
-                    integerUniqueWeights = false;
-                }
-                else maxIntFactor = intMult;
+        for (float w: uniqueWeights) {
+            float floatMult = w / minWeight;
+            int intMult = round(floatMult);
+            bool isInt = intMult * minWeight == w;//floatMult == intMult;
+            if (!isInt && false) {
+                cerr << "intMult = " << intMult << " floatMult = "
+                     << floatMult << " intMult * minWeight = "
+                     << intMult * minWeight << endl;
+                integerUniqueWeights = false;
             }
-            lastWeight = w;
+            else maxIntFactor = intMult;
         }
 
         cerr << "total of " << uniqueWeights.size() << " unique weights"
@@ -196,20 +236,18 @@ struct PartitionData {
             data.weightFormat = WF_FLOAT;
             data.weightBits = 32;
         }
-#endif        
-#endif
-        
+
         std::vector<WritableBucketList>
             featureBuckets(features.size());
 
         // We split the rows up into tranches to increase parallism
         // To do so, we need to know how many items are in each
         // tranche and where its items start
-        size_t numTranches = std::min<size_t>(8, weights.size() / 1024);
+        size_t numTranches = std::min<size_t>(8, rowCount() / 1024);
         if (numTranches == 0)
             numTranches = 1;
         //numTranches = 1;
-        size_t numPerTranche = weights.size() / numTranches;
+        size_t numPerTranche = rowCount() / numTranches;
 
         // Find the splits such that each one has a multiple of 64
         // non-zero entries (this is a requirement to write them
@@ -224,17 +262,17 @@ struct PartitionData {
             trancheSplits.push_back(start);
             size_t n = 0;
             size_t end = start;
-            for (; end < weights.size()
+            for (; end < rowCount()
                      && (end < start + numPerTranche
                          || n == 0
                          || n % 64 != 0);  ++end) {
-                n += weights[end] != 0;
+                n += counts[end] != 0;
             }
             trancheCounts.push_back(n);
             trancheOffsets.push_back(offset);
             offset += n;
             start = end;
-            ExcAssertLessEqual(start, weights.size());
+            ExcAssertLessEqual(start, rowCount());
         }
         ExcAssertEqual(offset, numNonZero);
         trancheOffsets.push_back(offset);
@@ -255,10 +293,10 @@ struct PartitionData {
 
                     for (size_t i = 0;  i < rowCount();  ++i) {
                         DecodedRow row = rowIterator.getDecodedRow();
-                        if (weights[i] == 0 || row.weight == 0)
+                        if (counts[i] == 0 || row.weight == 0)
                             continue;
                         writer.addRow(row.label,
-                                      row.weight * weights[i],
+                                      row.weight * counts[i] * scale,
                                       n++);
                     }
                     
@@ -285,7 +323,7 @@ struct PartitionData {
 
                     size_t n = 0;
                     for (size_t i = start;  i < end;  ++i) {
-                        if (weights[i] == 0)
+                        if (counts[i] == 0)
                             continue;
                         
                         uint32_t bucket = features[f].buckets[getExampleNum(i)];
@@ -354,7 +392,7 @@ struct PartitionData {
     int totalBits;
 
     struct RowIterator {
-        static constexpr size_t BUFFER_SIZE = 256;
+        static constexpr size_t BUFFER_SIZE = 64;
 
         RowIterator(const PartitionData * owner)
             : owner(owner),

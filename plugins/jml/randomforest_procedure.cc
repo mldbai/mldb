@@ -185,24 +185,31 @@ run(const ProcedureRunConfig & run,
 
     Timer labelsTimer;
 
-    std::vector<std::vector<CellValue> > labelsWhereWeight
-        = colScope.run({boundLabel, boundWhere, boundWeight});
+    std::vector<std::vector<float> > labelsWhereWeight
+        = colScope.runFloat({boundLabel, boundWhere, boundWeight});
 
-    const std::vector<CellValue> & labels = labelsWhereWeight[0];
-    const std::vector<CellValue> & wheres = labelsWhereWeight[1];
-    const std::vector<CellValue> & weights = labelsWhereWeight[2];
+    std::vector<float> & labels = labelsWhereWeight[0];
+    std::vector<float> & wheres = labelsWhereWeight[1];
+    std::vector<float> & weights = labelsWhereWeight[2];
 
     INFO_MSG(logger) << "got " << labels.size() << " labels in " << labelsTimer.elapsed();
 
+    auto keepExample = [&] (size_t i) -> bool
+        {
+            return
+                !isnan(weights[i])
+                && weights[i] > 0.0
+                && !isnan(labels[i])
+                && !isnan(wheres[i])
+                && wheres[i] != 0;
+        };
+    
     size_t numRowsKept = 0;
     size_t numTrue = 0;
     size_t numFalse = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
-        if (!weights[i].empty()
-            && weights[i].toDouble() > 0.0
-            && !labels[i].empty()
-            && wheres[i].isTrue()) {
-            (labels[i].isTrue() ? numTrue: numFalse) += 1;
+        if (keepExample(i)) {
+            (!!labels[i] ? numTrue: numFalse) += 1;
             ++numRowsKept;
         }
     }
@@ -263,18 +270,22 @@ run(const ProcedureRunConfig & run,
 
     size_t numRows = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
-        if (!wheres[i].isTrue() || labels[i].empty()
-            || weights[i].empty() || weights[i].toDouble() == 0)
+        if (!keepExample(i))
             continue;
-        writer.addRow(labels[i].isTrue(), weights[i].toDouble(), numRows++);
+        writer.addRow(!!labels[i], weights[i], numRows++);
     }
     ExcAssertEqual(numRows, numRowsKept);
 
     writer.commit();
+
+    // Save memory by removing these now they are no longer needed
+    labels = std::vector<float>();
+    weights = std::vector<float>();
+    wheres = std::vector<float>();
     
     const float trainprop = 1.0f;
     int totalResultCount = runProcConf.featureVectorSamplings*runProcConf.featureSamplings;
-    vector<shared_ptr<Decision_Tree>> results(totalResultCount);
+    vector<shared_ptr<Decision_Tree> > results(totalResultCount);
 
     auto contFeatureSpace = featureSpace;
 
@@ -284,8 +295,11 @@ run(const ProcedureRunConfig & run,
 
             size_t numPartitions = std::min<size_t>(numRows, 32);
 
-            distribution<float> trainingWeights(numRows);
+            distribution<uint8_t> trainingWeights(numRows);
             std::atomic<size_t> numNonZero(0);
+
+            std::mutex totalTrainingWeightMutex;
+            double totalTrainingWeight = 0;
             
             // Parallelize the setup, since the slow part is random number
             // generation and we set up each bag independently
@@ -302,45 +316,49 @@ run(const ProcedureRunConfig & run,
 
                 size_t numRowsInPartition = last - first;
 
-                distribution<float> in_training(numRowsInPartition);
+                distribution<uint8_t> in_training(numRowsInPartition);
                 vector<int> tr_ex_nums(numRowsInPartition);
                 std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
                 std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);
                 
                 for (unsigned i = 0;  i < numRowsInPartition * trainprop;  ++i)
-                    in_training[tr_ex_nums[i]] = 1.0;
+                    in_training[tr_ex_nums[i]] = 1;
 
-                distribution<float> example_weights(numRowsInPartition);
-
+                distribution<uint8_t> example_weights(numRowsInPartition);
+                
                 // Generate our example weights.
                 for (unsigned i = 0;  i < numRowsInPartition;  ++i)
-                    example_weights[myrng(numRowsInPartition)] += 1.0;
+                    example_weights[myrng(numRowsInPartition)] += 1;
 
                 size_t partitionNumNonZero = 0;
                 double totalTrainingWeights = 0;
                 for (unsigned i = 0;  i < numRowsInPartition;  ++i) {
-                    float wt = in_training[i] * example_weights[i];
+                    uint8_t wt = in_training[i] * example_weights[i];
                     trainingWeights[first + i] = wt;
                     partitionNumNonZero += (wt != 0);
                     totalTrainingWeights += wt;
                 }
 
-                SIMD::vec_scale(trainingWeights.data() + first,
-                                1.0 / (totalTrainingWeights * numPartitions),
-                                trainingWeights.data() + first,
-                                numRowsInPartition);
+                //SIMD::vec_scale(trainingWeights.data() + first,
+                //                1.0 / (totalTrainingWeights * numPartitions),
+                //                trainingWeights.data() + first,
+                //                numRowsInPartition);
                 numNonZero += partitionNumNonZero;
+
+                std::unique_lock<std::mutex> guard(totalTrainingWeightMutex);
+                totalTrainingWeight += totalTrainingWeights;
             };
 
             parallelMap(0, numPartitions, doPartition);
 
             INFO_MSG(logger) << "bag " << bag << " weight generation took "
-                 << bagTimer.elapsed();
+            << bagTimer.elapsed();
 
             INFO_MSG(logger) << "numNonZero = " << numNonZero;
             
-            auto data = allData.reweightAndCompact(trainingWeights, numNonZero);
-
+            auto data = allData.reweightAndCompact(trainingWeights, numNonZero,
+                                                   1.0 / totalTrainingWeight);
+            
             INFO_MSG(logger) << "bag " << bag << " setup took " << bagTimer.elapsed();
 
             auto trainFeaturePartition = [&] (int partitionNum)
