@@ -401,12 +401,18 @@ struct PartitionData {
     struct RowIterator {
         static constexpr size_t BUFFER_SIZE = 64;
 
+        static constexpr size_t CACHE_LINE_SIZE = 64;
+        
         RowIterator(const PartitionData * owner)
             : owner(owner),
               extractor(owner->rowData.data()),
               totalBits(owner->totalBits),
               numRows(owner->numRowEntries)
         {
+            linesToPrefetch = 0; /* BUFFER_SIZE * totalBits / CACHE_LINE_SIZE;*/
+
+            for (int i = 0;  i < linesToPrefetch * 2;  ++i)
+                extractor.prefetch(i * CACHE_LINE_SIZE);
         }
 
         void prefetch()
@@ -414,6 +420,9 @@ struct PartitionData {
             ExcAssertEqual(bufferFirst, bufferLast);
             bufferFirst = 0;
             bufferLast = std::min<size_t>(BUFFER_SIZE, numRows - rowNumber);
+            if (bufferLast == BUFFER_SIZE)
+                for (int i = 0;  i <= linesToPrefetch;  ++i)
+                    extractor.prefetch(linesToPrefetch + i * CACHE_LINE_SIZE);
             for (size_t i = 0;  i < bufferLast;  ++i) {
                 buffer[i] = extractor.extractFastUnmasked<uint64_t>(totalBits);
             }
@@ -450,6 +459,7 @@ struct PartitionData {
         size_t bufferLast = 0;
         size_t rowNumber = 0;
         size_t numRows;
+        int linesToPrefetch = 0;  // How many cache lines do we prefetch?
     };
 
     RowIterator getRowIterator() const
