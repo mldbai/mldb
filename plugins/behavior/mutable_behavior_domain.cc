@@ -1599,7 +1599,7 @@ getSubjectStats(bool needDistinctBehaviors,
     // Get the distinct behaviors
     if (needDistinctBehaviors) {
 
-        LightweightHash_Set<int> distinctBehaviors;
+        LightweightHashSet<int> distinctBehaviors;
 
         auto onBeh = [&] (BI beh, uint64_t ts, int)
             {

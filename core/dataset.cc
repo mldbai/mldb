@@ -290,7 +290,7 @@ uint64_t
 MatrixView::
 getRowColumnCount(const RowPath & row) const
 {
-    LightweightHash_Set<ColumnHash> cols;
+    LightweightHashSet<ColumnHash> cols;
     for (auto & c: getRow(row).columns)
         cols.insert(std::get<0>(c));
     return cols.size();
@@ -322,7 +322,7 @@ getColumnStats(const ColumnPath & column, ColumnStats & stats) const
 
     stats = ColumnStats();
 
-    LightweightHash_Set<RowHash> rows;
+    LightweightHashSet<RowHash> rows;
     bool oneOnly = true;
     bool isNumeric = true;
 

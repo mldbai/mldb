@@ -196,7 +196,7 @@ ExpressionValue
 SqlExpressionDatasetScope::RowScope::
 getColumnCount() const
 {
-    LightweightHash_Set<ColumnHash> columns;
+    LightweightHashSet<ColumnHash> columns;
     Date ts = Date::negativeInfinity();
 
     if (row) {

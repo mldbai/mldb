@@ -47,7 +47,7 @@ struct BehaviorSvd {
     int numSingularValues;
     std::vector<BH> denseBehaviors;
     std::vector<BH> sparseBehaviors;
-    LightweightHash_Set<uint64_t> biasedBehaviors;
+    LightweightHashSet<uint64_t> biasedBehaviors;
 
     IntersectionSpace space;
     bool calcLongTail;

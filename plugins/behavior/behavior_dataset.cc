@@ -497,7 +497,7 @@ struct BehaviorColumnIndex: public ColumnIndex {
 
         // Now for each value we need to fill it in
 
-        LightweightHash_Set<SH> rows;
+        LightweightHashSet<SH> rows;
 
         // For each value
         for (auto & v: info.values) {

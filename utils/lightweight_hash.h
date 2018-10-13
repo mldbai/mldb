@@ -1190,56 +1190,56 @@ template<typename Key, class Hash = std::hash<Key>,
          class Bucket = Key,
          class Ops = ScalarOps<Key, Hash>,
          class Storage = LogMemStorage<Bucket> >
-struct LightweightHash_Set
+struct LightweightHashSet
     : public LightweightHashBase<Key, Bucket, Ops, Storage> {
 
-    typedef LightweightHashIterator<Key, const Key, const LightweightHash_Set,
+    typedef LightweightHashIterator<Key, const Key, const LightweightHashSet,
                                       const Bucket>
     const_iterator;
     typedef const_iterator iterator;
 
     typedef LightweightHashBase<Key, Bucket, Ops, Storage> Base;
 
-    LightweightHash_Set()
+    LightweightHashSet()
     {
     }
 
-    LightweightHash_Set(const std::initializer_list<Key> & init)
+    LightweightHashSet(const std::initializer_list<Key> & init)
         : Base(init.begin(), init.end(), init.size())
     {
     }
 
     template<class Iterator>
-    LightweightHash_Set(Iterator first, Iterator last, size_t capacity = 0)
+    LightweightHashSet(Iterator first, Iterator last, size_t capacity = 0)
         : Base(first, last, capacity)
     {
     }
 
-    LightweightHash_Set(const LightweightHash_Set & other)
+    LightweightHashSet(const LightweightHashSet & other)
         : Base(other)
     {
     }
 
-    LightweightHash_Set(LightweightHash_Set && other)
+    LightweightHashSet(LightweightHashSet && other)
         : Base(std::move(other))
     {
     }
 
-    LightweightHash_Set & operator = (const LightweightHash_Set & other)
+    LightweightHashSet & operator = (const LightweightHashSet & other)
     {
-        LightweightHash_Set new_me(other);
+        LightweightHashSet new_me(other);
         swap(new_me);
         return *this;
     }
 
-    LightweightHash_Set & operator = (LightweightHash_Set && other)
+    LightweightHashSet & operator = (LightweightHashSet && other)
     {
-        LightweightHash_Set new_me(std::move(other));
+        LightweightHashSet new_me(std::move(other));
         swap(new_me);
         return *this;
     }
 
-    void swap(LightweightHash_Set & other)
+    void swap(LightweightHashSet & other)
     {
         Base::swap(other);
     }
