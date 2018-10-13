@@ -336,6 +336,11 @@ struct RowStream {
                    const std::vector<ColumnPath> & columnNames,
                    double * output);
     
+    /** Same, but for floats. */
+    virtual void
+    extractNumbers(size_t numRows,
+                   const std::vector<ColumnPath> & columnNames,
+                   float * output);
 };
 
 

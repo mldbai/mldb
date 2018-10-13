@@ -38,29 +38,33 @@ struct ColumnScope: public SqlExpressionMldbScope {
         // Initialize with a dense column for each input
         RowScope(size_t rowIndex,
                  const std::vector<std::vector<CellValue> > & inputs)
-            : rowIndex(rowIndex), inputs(&inputs),
-              cellInputs(nullptr), numericInputs(nullptr)
+            : rowIndex(rowIndex), inputs(&inputs)
         {
         }
 
         // Initialize for an already-extracted row of CellValues
         RowScope(const CellValue * cellInputs)
-            : rowIndex(-1), inputs(nullptr),
-              cellInputs(cellInputs), numericInputs(nullptr)
+            : cellInputs(cellInputs)
         {
         }
 
         // Initialize for an already-extracted row of doubles
         RowScope(const double * numericInputs)
-            : rowIndex(-1), inputs(nullptr),
-              cellInputs(nullptr), numericInputs(numericInputs)
+            : numericInputs(numericInputs)
         {
         }
 
-        size_t rowIndex;
-        const std::vector<std::vector<CellValue> > * inputs;
-        const CellValue * cellInputs;
-        const double * numericInputs;
+        // Initialize for an already-extracted row of doubles
+        RowScope(const float * numericInputs)
+            : floatInputs(numericInputs)
+        {
+        }
+        
+        size_t rowIndex = -1;
+        const std::vector<std::vector<CellValue> > * inputs = nullptr;
+        const CellValue * cellInputs = nullptr;
+        const double * numericInputs = nullptr;
+        const float * floatInputs = nullptr;
     };
     
     virtual ColumnGetter
@@ -93,6 +97,18 @@ struct ColumnScope: public SqlExpressionMldbScope {
     std::vector<std::vector<CellValue> >
     run(const std::vector<BoundSqlExpression> & exprs) const;
 
+    /** Same as run(), but converts to doubles.  Empty values will
+        be converted to a NaN.
+    */
+    std::vector<std::vector<double> >
+    runDouble(const std::vector<BoundSqlExpression> & exprs) const;
+
+    /** Same as run(), but converts to floats.  Empty values will
+        be converted to a NaN.
+    */
+    std::vector<std::vector<float> >
+    runFloat(const std::vector<BoundSqlExpression> & exprs) const;
+    
     /** Run the expression over a dataset, calling the given
         lambda for each row that is generated.  This method of
         running a query is extremely efficient for datasets
@@ -140,12 +156,21 @@ struct ColumnScope: public SqlExpressionMldbScope {
                          std::function<bool (size_t rowNum,
                                              double * vals)> onVal) const;
 
+    bool
+    runIncrementalFloat(const std::vector<BoundSqlExpression> & exprs,
+                        std::function<bool (size_t rowNum,
+                                            float * vals)> onVal) const;
+
 private:
     template<typename Val>
     bool
     runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
                     std::function<bool (size_t rowNum,
                                         Val * vals)> onVal) const;
+
+    template<typename Val>
+    std::vector<std::vector<Val> >
+    runT(const std::vector<BoundSqlExpression> & exprs) const;
 };
 
 } // namespace MLDB

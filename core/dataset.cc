@@ -179,6 +179,22 @@ extractNumbers(size_t numValues,
         output[i] = tmpOutput[i].toDouble();
     }
 }
+
+void
+RowStream::
+extractNumbers(size_t numValues,
+               const std::vector<ColumnPath> & columnNames,
+               float * output)
+{
+    std::unique_ptr<CellValue[]> tmpOutput
+        (new CellValue[numValues * columnNames.size()]);
+
+    extractColumns(numValues, columnNames, tmpOutput.get());
+
+    for (size_t i = 0;  i < numValues * columnNames.size();  ++i) {
+        output[i] = tmpOutput[i].toDouble();
+    }
+}
     
 
 
