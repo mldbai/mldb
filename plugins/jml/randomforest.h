@@ -48,6 +48,13 @@ struct PartitionData {
         }
     }
 
+    void clear()
+    {
+        clearRows();
+        features.clear();
+        fs.reset();
+    }
+    
     static MemorySerializer serializer;
     
     /// Defines how weights are stored in rows

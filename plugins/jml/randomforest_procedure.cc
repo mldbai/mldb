@@ -289,6 +289,8 @@ run(const ProcedureRunConfig & run,
 
     auto contFeatureSpace = featureSpace;
 
+    std::atomic<int> bagsDone(0);
+    
     auto doFeatureVectorSampling = [&] (int bag)
         {
             Timer bagTimer;
@@ -361,6 +363,11 @@ run(const ProcedureRunConfig & run,
             
             INFO_MSG(logger) << "bag " << bag << " setup took " << bagTimer.elapsed();
 
+            // The last one clears the original data to save space
+            if (bagsDone.fetch_add(1) == runProcConf.featureVectorSamplings - 1) {
+                allData.clear();
+            }
+            
             auto trainFeaturePartition = [&] (int partitionNum)
             {
                 mt19937 rng(bag + 371 + partitionNum);
