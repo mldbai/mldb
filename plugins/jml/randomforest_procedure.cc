@@ -35,6 +35,9 @@ using namespace ML;
 
 namespace MLDB {
 
+using namespace RF;
+
+
 DEFINE_STRUCTURE_DESCRIPTION(RandomForestProcedureConfig);
 
 RandomForestProcedureConfigDescription::
@@ -264,9 +267,13 @@ run(const ProcedureRunConfig & run,
     int numFeatures = knownInputColumns.size();
     INFO_MSG(logger) << "NUM FEATURES : " << numFeatures;
 
+    MemorySerializer serializer;
+
+    
     PartitionData allData(featureSpace);
 
-    auto writer = allData.getRowWriter(numRowsKept, numRowsKept);
+    auto writer = allData.rows.getRowWriter(numRowsKept, numRowsKept,
+                                            serializer);
 
     size_t numRows = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
@@ -276,7 +283,7 @@ run(const ProcedureRunConfig & run,
     }
     ExcAssertEqual(numRows, numRowsKept);
 
-    writer.commit();
+    allData.rows = writer.freeze(serializer);
 
     // Save memory by removing these now they are no longer needed
     labels = std::vector<float>();
@@ -359,7 +366,8 @@ run(const ProcedureRunConfig & run,
             INFO_MSG(logger) << "numNonZero = " << numNonZero;
             
             auto data = allData.reweightAndCompact(trainingWeights, numNonZero,
-                                                   1.0 / totalTrainingWeight);
+                                                   1.0 / totalTrainingWeight,
+                                                   serializer);
             
             INFO_MSG(logger) << "bag " << bag << " setup took " << bagTimer.elapsed();
 
@@ -385,7 +393,7 @@ run(const ProcedureRunConfig & run,
 
                 Timer timer;
                 ML::Tree tree;
-                tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree);
+                tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree, serializer);
                 INFO_MSG(logger) << "bag " << bag << " partition " << partitionNum << " took "
                      << timer.elapsed();
 

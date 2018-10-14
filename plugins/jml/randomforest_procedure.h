@@ -1,4 +1,4 @@
-/** randomforest_procedure.h                                            -*- C++ -*-
+/** randomforest_procedure.h                                       -*- C++ -*-
     Mathieu Marquis Bolduc, 11 Mars 2016
     Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 

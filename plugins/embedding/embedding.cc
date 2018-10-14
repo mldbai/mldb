@@ -579,15 +579,19 @@ struct EmbeddingDataset::Itl
         BucketDescriptions descriptions;
         descriptions.initialize(valueList, maxNumBuckets);
 
+        static MemorySerializer serializer;
+        
         // Finally, perform the bucketed lookup
-        WritableBucketList buckets(columnVals.size(), descriptions.numBuckets());
+        WritableBucketList buckets(columnVals.size(), descriptions.numBuckets(),
+                                   serializer);
 
         for (auto& v : columnVals) {
             uint32_t bucket = descriptions.getBucket(v);
             buckets.write(bucket);
         }
 
-        return std::make_tuple(std::move(buckets), std::move(descriptions));
+        return std::make_tuple(buckets.freeze(serializer),
+                               std::move(descriptions));
     }
 
     /** Return a RowValueInfo that describes all rows that could be returned

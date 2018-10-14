@@ -17,6 +17,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/path.h"
 #include "mldb/types/url.h"
+#include "memory_region_fwd.h"
 
 namespace MLDB {
 
