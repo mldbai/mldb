@@ -14,7 +14,6 @@
 #include <memory>
 #include <vector>
 #include "mldb/base/exc_assert.h"
-#include "mldb/block/memory_region.h"
 
 namespace MLDB {
 
@@ -26,7 +25,6 @@ struct BucketList {
 
     MLDB_ALWAYS_INLINE uint32_t operator [] (uint32_t i) const
     {
-        //ExcAssertLess(i, numEntries);
         size_t wordNum = (i << entryShift) / 64;
         size_t bitNum = (i << entryShift) % 64;
         uint32_t result = (storagePtr[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
@@ -38,10 +36,8 @@ struct BucketList {
         return numEntries;
     }
 
-private:
-    friend class WritableBucketList;
-    friend class ParallelWritableBucketList;
-    FrozenMemoryRegionT<uint64_t> storage;
+protected:
+    std::shared_ptr<const uint64_t> storage;
     const uint64_t * storagePtr = nullptr;
 
 public:
@@ -52,19 +48,37 @@ public:
 };
 
 /** Writable version of the above.  OK to slice. */
-struct WritableBucketList {
+struct WritableBucketList: public BucketList {
     WritableBucketList() = default;
 
-    WritableBucketList(size_t numElements, uint32_t numBuckets,
-                       MappedSerializer & serializer)
+    WritableBucketList(size_t numElements, uint32_t numBuckets)
         : WritableBucketList()
     {
-        init(numElements, numBuckets, serializer);
+        init(numElements, numBuckets);
     }
 
-    void init(size_t numElements, uint32_t numBuckets,
-              MappedSerializer & serializer);
-    
+    void init(size_t numElements, uint32_t numBuckets);
+
+    // Return a writer at the given offset, which must be a
+    // multiple of 64.  This allows the bucket list to be
+    // written from multiple threads.  Must only be called
+    // without any writing having taken place
+    WritableBucketList atOffset(size_t offset)
+    {
+        ExcAssertEqual(numWritten, 0);
+        size_t bitsToSkip = offset * entryBits;
+        ExcAssertEqual(bitsToSkip % 64, 0);
+        WritableBucketList result;
+        result.current = current + bitsToSkip / 64;
+        result.numWritten = 0;
+        result.bitsWritten = 0;
+        result.entryBits = this->entryBits;
+        result.entryShift = this->entryShift;
+        result.numBuckets = -1;
+        result.numEntries = -1;
+        return result;
+    }
+
     inline void write(uint64_t value)
     {
         //ExcAssertLess(value, numBuckets);
@@ -80,53 +94,11 @@ struct WritableBucketList {
     }
 
     // Append all of the bits from buckets
-    //void append(const WritableBucketList & buckets);
-
-    BucketList freeze(MappedSerializer & serializer);
-
-    size_t rowCount() const
-    {
-        return numWritten;
-    }
-    
-    MLDB_ALWAYS_INLINE uint32_t operator [] (uint32_t i) const
-    {
-        //ExcAssertLess(i, numEntries);
-        size_t wordNum = (i << entryShift) / 64;
-        size_t bitNum = (i << entryShift) % 64;
-        uint32_t result = (storage.data()[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
-        return result;
-    }
+    void append(const BucketList & buckets);
     
     uint64_t * current = nullptr;
     int bitsWritten = 0;
     size_t numWritten = 0;
-    MutableMemoryRegionT<uint64_t> storage;
-
-    int entryBits = 0;
-    int entryShift = 0;
-    int numBuckets = 0;
-    size_t numEntries = 0;
-};
-
-struct ParallelWritableBucketList: public WritableBucketList {
-
-    ParallelWritableBucketList() = default;
-    
-    ParallelWritableBucketList(size_t numElements, uint32_t numBuckets,
-                               MappedSerializer & serializer)
-        : WritableBucketList(numElements, numBuckets, serializer)
-    {
-    }
-
-    // Return a writer at the given offset, which must be a
-    // multiple of 64.  This allows the bucket list to be
-    // written from multiple threads.  Must only be called
-    // without any writing having taken place
-    WritableBucketList atOffset(size_t offset);
-
-    // Append all of the bits from buckets
-    void append(const WritableBucketList & buckets);
 };
 
 struct NumericValues {
@@ -239,7 +211,6 @@ struct BucketDescriptions {
 
     static std::tuple<BucketList, BucketDescriptions>
     merge(const std::vector<std::tuple<BucketList, BucketDescriptions> > & inputs,
-          MappedSerializer & serializer,
           int numBuckets = -1);
 };
 

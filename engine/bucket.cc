@@ -33,32 +33,7 @@ makeSharedArray(size_t len)
                               [] (T * p) { delete[] p; });
 }
 
-// Return a number of bits per entry that evenly divides into
-// 64 bits.
-static int getEntryShift(int entryBits)
-{
-    if (entryBits == 0) return 0;
-    else if (entryBits == 1) return 0;
-    else if (entryBits == 2) return 1;
-    else if (entryBits <= 4) {
-        return 2;
-    }
-    else if (entryBits <= 8) {
-        return 3;
-    }
-    else if (entryBits <= 16) {
-        return 4;
-    }
-    else if (entryBits <= 32) {
-        return 5;
-    }
-    else {
-        return 6;
-    }
 }
-
-} // file scope
-
 
 /*****************************************************************************/
 /* BUCKET LIST                                                               */
@@ -66,40 +41,51 @@ static int getEntryShift(int entryBits)
 
 void
 WritableBucketList::
-init(size_t numElements, uint32_t numBuckets,
-     MappedSerializer & serializer)
+init(size_t numElements, uint32_t numBuckets)
 {
     this->numBuckets = numBuckets;
     entryBits = highest_bit(numBuckets) + 1;
-    entryShift = getEntryShift(entryBits);
-    entryBits = entryBits == 0 ? 0 : 1 << entryShift;
+
+    // Take a number of bits per entry that evenly divides into
+    // 64 bits.
+    if (entryBits == 0) entryShift = 0;
+    else if (entryBits == 1) entryShift = 0;
+    else if (entryBits == 2) entryShift = 1;
+    else if (entryBits <= 4) {
+        entryBits = 4;
+        entryShift = 2;
+    }
+    else if (entryBits <= 8) {
+        entryBits = 8;
+        entryShift = 3;
+    }
+    else if (entryBits <= 16) {
+        entryBits = 16;
+        entryShift = 4;
+    }
+    else {
+        entryBits = 32;
+        entryShift = 5;
+    }
+
+
+    
+    //cerr << "using " << entryBits << " bits for " << numBuckets
+    //     << " buckets" << endl;
 
     size_t numWords = (entryBits * numElements + 63) / 64;
-    this->storage = serializer.allocateWritableT<uint64_t>(numWords);
-    this->current = this->storage.data();
-    //memset(current, 255, numWords * sizeof(*current));
+    auto writableStorage = makeSharedArray<uint64_t>(numWords);
+    this->current = writableStorage.get();
+    this->storage = writableStorage;
+    this->storagePtr = this->current;
     this->bitsWritten = 0;
     this->numEntries = numElements;
     this->numWritten = 0;
 }
 
-BucketList
-WritableBucketList::
-freeze(MappedSerializer & serializer)
-{
-    BucketList result;
-    result.entryBits = entryBits;
-    result.entryShift = entryShift;
-    result.numBuckets = numBuckets;
-    result.numEntries = numEntries;
-    result.storage = this->storage.freeze();
-    result.storagePtr = result.storage.data();
-    return result;
-}
-
 void
-ParallelWritableBucketList::
-append(const WritableBucketList & buckets)
+WritableBucketList::
+append(const BucketList & buckets)
 {
     ExcAssertEqual(this->entryBits, buckets.entryBits);
     for (size_t i = 0;  i < buckets.numEntries;  ++i) {
@@ -107,26 +93,6 @@ append(const WritableBucketList & buckets)
     }
 
     ExcAssertLessEqual(numWritten, numEntries);
-}
-
-WritableBucketList
-ParallelWritableBucketList::
-atOffset(size_t offset)
-{
-    ExcAssertEqual(numWritten, 0);
-    size_t bitsToSkip = offset * entryBits;
-    ExcAssertEqual(bitsToSkip % 64, 0);
-
-    WritableBucketList result;
-    result.current = current + bitsToSkip / 64;
-    result.numWritten = 0;
-    result.bitsWritten = 0;
-    result.entryBits = this->entryBits;
-    result.entryShift = this->entryShift;
-    result.numBuckets = -1;
-    result.numEntries = -1;
-
-    return result;
 }
 
 
@@ -349,7 +315,6 @@ numBuckets() const
 std::tuple<BucketList, BucketDescriptions>
 BucketDescriptions::
 merge(const std::vector<std::tuple<BucketList, BucketDescriptions> > & inputs,
-      MappedSerializer & serializer,
       int numBuckets)
 {
     BucketDescriptions desc;
@@ -376,7 +341,7 @@ merge(const std::vector<std::tuple<BucketList, BucketDescriptions> > & inputs,
                     std::move(stringValues), numBuckets);
     
     // Finally, perform the bucketed lookup
-    WritableBucketList buckets(totalRows, desc.numBuckets(), serializer);
+    WritableBucketList buckets(totalRows, desc.numBuckets());
 
     for (auto & i: inputs) {
         const BucketDescriptions & d = std::get<1>(i);
@@ -391,7 +356,7 @@ merge(const std::vector<std::tuple<BucketList, BucketDescriptions> > & inputs,
         }
     }
 
-    return std::make_tuple(buckets.freeze(serializer), std::move(desc));
+    return std::make_tuple(std::move(buckets), std::move(desc));
 }
 
 } // namespace MLDB

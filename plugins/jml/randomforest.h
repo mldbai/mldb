@@ -176,7 +176,7 @@ struct PartitionData {
             data.rows.weightEncoder.weightBits = 32;
         }
 
-        std::vector<ParallelWritableBucketList>
+        std::vector<WritableBucketList>
             featureBuckets(features.size());
 
         // We split the rows up into tranches to increase parallism
@@ -250,8 +250,7 @@ struct PartitionData {
                     return;
 
                 featureBuckets[f].init(numNonZero,
-                                       data.features[f].info->distinctValues,
-                                       serializer);
+                                       data.features[f].info->distinctValues);
 
                 auto onTranche = [&] (size_t tr)
                 {
@@ -276,7 +275,7 @@ struct PartitionData {
 
                 parallelMap(0, numTranches, onTranche);
 
-                data.features[f].buckets = featureBuckets[f].freeze(serializer);
+                data.features[f].buckets = std::move(featureBuckets[f]);
             };
 
         MLDB::parallelMap(0, data.features.size() + 1, doFeature);
@@ -402,8 +401,8 @@ struct PartitionData {
                     continue;
 
                 WritableBucketList newFeatures[2];
-                newFeatures[0].init(numOnSide[0], features[i].info->distinctValues, serializer);
-                newFeatures[1].init(numOnSide[1], features[i].info->distinctValues, serializer);
+                newFeatures[0].init(numOnSide[0], features[i].info->distinctValues);
+                newFeatures[1].init(numOnSide[1], features[i].info->distinctValues);
                 size_t index[2] = { 0, 0 };
 
                 for (size_t j = 0;  j < rows.rowCount();  ++j) {
@@ -412,8 +411,8 @@ struct PartitionData {
                     ++index[side];
                 }
 
-                sides[0].features[i].buckets = newFeatures[0].freeze(serializer);
-                sides[1].features[i].buckets = newFeatures[1].freeze(serializer);
+                sides[0].features[i].buckets = std::move(newFeatures[0]);
+                sides[1].features[i].buckets = std::move(newFeatures[1]);
             }
 
             rows.clear();

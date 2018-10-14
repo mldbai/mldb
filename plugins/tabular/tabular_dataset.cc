@@ -635,8 +635,7 @@ struct TabularDataset::TabularDataStore
             // In parallel, create a bucket list for each chunk, then
             // add them together in order.
 
-            ParallelWritableBucketList buckets(totalRows, desc.numBuckets(),
-                                               owner->serializer);
+            WritableBucketList buckets(totalRows, desc.numBuckets());
 
             size_t numWritten = 0;
 
@@ -644,7 +643,7 @@ struct TabularDataset::TabularDataStore
             // given chunk buckets to the current ones.  It's mostly
             // a memcpy apart from dealing with the boundary conditions.
             auto addBuckets = [&] (size_t chunkNum,
-                                   WritableBucketList & chunkBuckets)
+                                   WritableBucketList chunkBuckets)
                 {
                     numWritten += chunkBuckets.rowCount();
                     buckets.append(std::move(chunkBuckets));
@@ -655,8 +654,7 @@ struct TabularDataset::TabularDataStore
                     auto & column = *chunks[i]->columns[it->second];
                     
                     size_t chunkRows = column.size();
-                    WritableBucketList result(chunkRows, desc.numBuckets(),
-                                              owner->serializer);
+                    WritableBucketList result(chunkRows, desc.numBuckets());
                     
                     auto onRow = [&] (size_t rowNum, const CellValue & val)
                     {
@@ -684,9 +682,7 @@ struct TabularDataset::TabularDataStore
 
             ExcAssertEqual(numWritten, totalRows);
 
-            static MemorySerializer serializer;
-            
-            return std::make_tuple(buckets.freeze(serializer), std::move(desc));
+            return std::make_tuple(std::move(buckets), std::move(desc));
         }
 
         virtual uint64_t getColumnRowCount(const ColumnPath & column) const override

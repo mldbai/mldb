@@ -494,17 +494,13 @@ getColumnBuckets(const ColumnPath & column,
     distinctValues.clear();  distinctValues.shrink_to_fit();
     vals2.clear();  vals2.shrink_to_fit();
 
-    static MemorySerializer serializer;
-    
-    WritableBucketList buckets(totalRows, descriptions.numBuckets(),
-                               serializer);
+    WritableBucketList buckets(totalRows, descriptions.numBuckets());
     for (auto & b: bucketNumbers) {
         ExcAssert(b != -1);
         buckets.write(b);
     }
 
-    return std::make_tuple(buckets.freeze(serializer),
-                           std::move(descriptions));
+    return std::make_tuple(std::move(buckets), std::move(descriptions));
 }
 
 
