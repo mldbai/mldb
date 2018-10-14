@@ -384,9 +384,6 @@ struct PartitionData {
         BucketList buckets;  ///< List of bucket numbers, per example
     };
 
-    // All rows of data in this partition
-    //std::vector<Row> rows_;
-
     // Encoded data for our row
     FrozenMemoryRegionT<uint64_t> rowData;
 
@@ -399,7 +396,7 @@ struct PartitionData {
     int totalBits;
 
     struct RowIterator {
-        static constexpr size_t BUFFER_SIZE = 64;
+        static constexpr size_t BUFFER_SIZE = 8;
 
         static constexpr size_t CACHE_LINE_SIZE = 64;
         
@@ -409,10 +406,15 @@ struct PartitionData {
               totalBits(owner->totalBits),
               numRows(owner->numRowEntries)
         {
-            linesToPrefetch = 0; /* BUFFER_SIZE * totalBits / CACHE_LINE_SIZE;*/
+            //linesToPrefetch = BUFFER_SIZE * totalBits / CACHE_LINE_SIZE;
+            //linesToPrefetch = 2;
 
-            for (int i = 0;  i < linesToPrefetch * 2;  ++i)
-                extractor.prefetch(i * CACHE_LINE_SIZE);
+            //for (int i = 0;  i < linesToPrefetch * 2;  ++i)
+            //    extractor.prefetch(i * CACHE_LINE_SIZE);
+            extractor.prefetch(0);
+            extractor.prefetch(64);
+            //extractor.prefetch(128);
+            //extractor.prefetch(192);
         }
 
         void prefetch()
@@ -431,6 +433,8 @@ struct PartitionData {
         
         MLDB_ALWAYS_INLINE uint64_t getRowBits()
         {
+            extractor.prefetch(64);
+            return extractor.extractFastUnmasked<uint64_t>(totalBits);
             if (bufferFirst == bufferLast) {
                 prefetch();
             }
@@ -1063,7 +1067,7 @@ struct PartitionData {
                 return std::make_tuple(score, split, bestLeft, bestRight);
             };
 
-        if (depth < 4 || rowCount() * nf > 100000) {
+        if (depth < 4 || rowCount() * nf > 20000) {
             parallelMapInOrderReduce(0, nf, doFeature, findBest);
         }
         else {
