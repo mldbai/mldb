@@ -30,8 +30,6 @@ namespace RF {
 /** Holds the set of data for a partition of a decision tree. */
 struct PartitionData {
 
-    
-    
     PartitionData()
         : fs(nullptr)
     {
@@ -176,9 +174,6 @@ struct PartitionData {
             data.rows.weightEncoder.weightBits = 32;
         }
 
-        std::vector<ParallelWritableBucketList>
-            featureBuckets(features.size());
-
         // We split the rows up into tranches to increase parallism
         // To do so, we need to know how many items are in each
         // tranche and where its items start
@@ -249,9 +244,10 @@ struct PartitionData {
                 if (!data.features[f].active)
                     return;
 
-                featureBuckets[f].init(numNonZero,
-                                       data.features[f].info->distinctValues,
-                                       serializer);
+                ParallelWritableBucketList featureBuckets
+                    (numNonZero,
+                     data.features[f].info->distinctValues,
+                     serializer);
 
                 auto onTranche = [&] (size_t tr)
                 {
@@ -259,7 +255,7 @@ struct PartitionData {
                     size_t end = trancheSplits[tr + 1];
                     size_t offset = trancheOffsets[tr];
                     
-                    auto writer = featureBuckets[f].atOffset(offset);
+                    auto writer = featureBuckets.atOffset(offset);
 
                     size_t n = 0;
                     for (size_t i = start;  i < end;  ++i) {
@@ -276,7 +272,7 @@ struct PartitionData {
 
                 parallelMap(0, numTranches, onTranche);
 
-                data.features[f].buckets = featureBuckets[f].freeze(serializer);
+                data.features[f].buckets = featureBuckets.freeze(serializer);
             };
 
         MLDB::parallelMap(0, data.features.size() + 1, doFeature);
