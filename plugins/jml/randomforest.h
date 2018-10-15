@@ -380,7 +380,12 @@ struct PartitionData {
             // For each example, it goes either in left or right, depending
             // upon the value of the chosen feature.
 
-            std::vector<uint8_t> lr(rows.rowCount());
+            struct LREx {
+                uint32_t exampleNum:31;
+                uint32_t side:1;
+            };
+            
+            std::vector<LREx> lr(rows.rowCount());
             bool ordinal = features[featureToSplitOn].ordinal;
             size_t numOnSide[2] = { 0, 0 };
 
@@ -399,7 +404,8 @@ struct PartitionData {
                 Row row = rowIterator.getRow();
                 int bucket = features[featureToSplitOn].buckets[row.exampleNum()];
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                lr[i] = side;
+                lr[i].side = side;
+                lr[i].exampleNum = row.exampleNum();
                 row.exampleNum_ = numOnSide[side]++;
                 writer[side].addRow(row);
             }
@@ -413,14 +419,10 @@ struct PartitionData {
                                     features[i].info->distinctValues);
                 newFeatures[1].init(numOnSide[1],
                                     features[i].info->distinctValues);
-                size_t index[2] = { 0, 0 };
 
                 for (size_t j = 0;  j < rows.rowCount();  ++j) {
-                    int side = lr[j];
-                    // TODO BUG: should be index[side]
-                    newFeatures[side].write(features[i].buckets[rows.getExampleNum(j)]);
-                    
-                    ++index[side];
+                    int side = lr[j].side;
+                    newFeatures[side].write(features[i].buckets[lr[j].exampleNum]);
                 }
 
                 sides[0].features[i].buckets = std::move(newFeatures[0]);
