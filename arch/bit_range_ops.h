@@ -50,6 +50,15 @@ T shrd_emulated(T low, T high, shift_t bits)
     return ((low >> bits) | (high << (TBITS - bits)));
 }
 
+// shrd but with undefined behaviour if bits is 0 or >= TBITS
+template<typename T>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+T shrd_emulated_unsafe(T low, T high, shift_t bits)
+{
+    static constexpr int TBITS = sizeof(T) * 8;
+    return ((low >> bits) | (high << (TBITS - bits)));
+}
+
 #if defined( MLDB_INTEL_ISA ) && ! defined(MLDB_COMPILER_NVCC) && false
 
 template<typename T>
@@ -57,8 +66,22 @@ MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
 T shrd(T low, T high, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
-    ExcAssert(bits < TBITS);
     if (MLDB_UNLIKELY(bits == TBITS)) return low;
+    __asm__ ("shrd   %[bits], %[high], %[low] \n\t"
+            : [low] "+r,r" (low)
+            : [bits] "J,c" ((uint8_t)bits), [high] "r,r" (high)
+            : "cc"
+             );
+
+    return low;
+
+}
+
+template<typename T>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+T shrd_unsafe(T low, T high, shift_t bits)
+{
+    static constexpr int TBITS = sizeof(T) * 8;
     __asm__ ("shrd   %[bits], %[high], %[low] \n\t"
             : [low] "+r,r" (low)
             : [bits] "J,c" ((uint8_t)bits), [high] "r,r" (high)
@@ -94,9 +117,22 @@ unsigned long long shrd(unsigned long long low, unsigned long long high, shift_t
 
 // There's no 8 byte shrd instruction available
 MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+unsigned long long shrd_unsafe(unsigned long long low, unsigned long long high, shift_t bits)
+{
+    return shrd_emulated_unsafe(low, high, bits);
+}
+
+// There's no 8 byte shrd instruction available
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 signed long long shrd(signed long long low, signed long long high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
+}
+
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+signed long long shrd_unsafe(signed long long low, signed long long high, shift_t bits)
+{
+    return shrd_emulated_unsafe(low, high, bits);
 }
 #endif
 
@@ -108,6 +144,13 @@ MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T shrd(T low, T high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
+}
+
+template<typename T>
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+T shrd_unsafe(T low, T high, shift_t bits)
+{
+    return shrd_emulated_unsafe(low, high, bits);
 }
 
 #endif // MLDB_INTEL_ISA
@@ -188,12 +231,28 @@ Data extract_bit_range(Data p0, Data p1, size_t bit, shift_t bits)
     return maskLower(shrd(p0, p1, bit), bits); // extract and mask
 }
 
+/** Same, but the low and high values are passed it making it pure. */
+template<typename Data>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+Data extract_bit_range_unsafe(Data p0, Data p1, size_t bit, shift_t bits)
+{
+    return maskLower(shrd_unsafe(p0, p1, bit), bits); // extract and mask
+}
+
 /** Same, but high bits are not filtered out. */
 template<typename Data>
 MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
 Data extract_bit_range_unmasked(Data p0, Data p1, size_t bit, shift_t bits)
 {
     return shrd(p0, p1, bit); // extract only
+}
+
+/** Same, but high bits are not filtered out. */
+template<typename Data>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+Data extract_bit_range_unmasked_unsafe(Data p0, Data p1, size_t bit, shift_t bits)
+{
+    return shrd_unsafe(p0, p1, bit); // extract only
 }
 
 /** Set the given range of bits in out to the given value.  Note that val
@@ -413,10 +472,26 @@ struct Bit_Buffer {
         return result;
     }
 
+    MLDB_ALWAYS_INLINE Data extractFastUnsafe(shift_t bits)
+    {
+        Data result = extract_bit_range_unsafe(data.curr(), data.next(), bit_ofs, bits);
+        advance(bits);
+        return result;
+    }
+
     // Like extractFast, but doesn't filter the top bits out
     MLDB_ALWAYS_INLINE Data extractFastUnmasked(shift_t bits)
     {
         Data result = extract_bit_range_unmasked
+            (data.curr(), data.next(), bit_ofs, bits);
+        advance(bits);
+        return result;
+    }
+    
+    // Like extractFast, but doesn't filter the top bits out
+    MLDB_ALWAYS_INLINE Data extractFastUnmaskedUnsafe(shift_t bits)
+    {
+        Data result = extract_bit_range_unmasked_unsafe
             (data.curr(), data.next(), bit_ofs, bits);
         advance(bits);
         return result;
@@ -532,6 +607,20 @@ struct Bit_Extractor {
         return buf.extractFastUnmasked(num_bits);
     }
 
+    template<typename T>
+    MLDB_COMPUTE_METHOD
+    T extractFastUnsafe(int num_bits)
+    {
+        return buf.extractFastUnsafe(num_bits);
+    }
+
+    template<typename T>
+    MLDB_COMPUTE_METHOD
+    T extractFastUnmaskedUnsafe(int num_bits)
+    {
+        return buf.extractFastUnmaskedUnsafe(num_bits);
+    }
+    
     template<typename T>
     MLDB_COMPUTE_METHOD
     void extract(T & where, int num_bits)
