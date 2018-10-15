@@ -331,7 +331,7 @@ struct Rows {
 
     RowWriter getRowWriter(size_t maxRows,
                            size_t maxExampleCount,
-                           MappedSerializer & serializer) const
+                           MappedSerializer & serializer)
     {
         return RowWriter(&weightEncoder, maxRows, maxExampleCount, serializer);
     }
