@@ -433,7 +433,6 @@ struct PartitionData {
         return { std::move(left), std::move(right) };
     }
 
-    template<typename GetNextRowFn>
     static
     std::tuple<double /* bestScore */,
                int /* bestSplit */,
@@ -442,7 +441,7 @@ struct PartitionData {
                bool /* feature is still active */ >
     testFeatureNumber(int featureNum,
                       const std::vector<Feature> & features,
-                      GetNextRowFn&& getNextRow,
+                      Rows::RowIterator rowIterator,
                       size_t numRows,
                       const W & wAll)
     {
@@ -465,7 +464,7 @@ struct PartitionData {
         bool isActive;
 
         std::tie(isActive, maxBucket)
-            = testFeatureKernel(getNextRow, numRows,
+            = testFeatureKernel(rowIterator, numRows,
                                 buckets, w.data());
 
         if (isActive) {
@@ -546,13 +545,9 @@ struct PartitionData {
 
                 Rows::RowIterator rowIterator = rows.getRowIterator();
                 
-                auto getNextRow = [&] () -> DecodedRow
-                {
-                    return rowIterator.getDecodedRow();
-                };
-                
                 std::tie(score, split, bestLeft, bestRight, features[i].active)
-                    = testFeatureNumber(i, features, getNextRow, rows.rowCount(), rows.wAll);
+                    = testFeatureNumber(i, features, rowIterator,
+                                        rows.rowCount(), rows.wAll);
                 return std::make_tuple(score, split, bestLeft, bestRight);
             };
 

@@ -241,7 +241,7 @@ struct Rows {
 
         MLDB_ALWAYS_INLINE uint64_t getRowBits()
         {
-            return extractor.extractFastUnmasked<uint64_t>(totalBits);
+            return extractor.extractFastUnmaskedUnsafe<uint64_t>(totalBits);
         }
 
         MLDB_ALWAYS_INLINE Row getRow()

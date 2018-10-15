@@ -29,7 +29,7 @@ struct BucketList {
     {
         Bit_Extractor<uint32_t> extractor(storagePtr);
         extractor.advance(i * entryBits);
-        return extractor.extractFast<uint32_t>(entryBits);
+        return extractor.extractFastUnsafe<uint32_t>(entryBits);
     }
 
     size_t rowCount() const
@@ -81,7 +81,7 @@ struct WritableBucketList {
     {
         Bit_Extractor<uint32_t> extractor(storage.data());
         extractor.advance(i * entryBits);
-        return extractor.extractFast<uint32_t>(entryBits);
+        return extractor.extractFastUnsafe<uint32_t>(entryBits);
     }
 
     Bit_Writer<uint32_t> writer = nullptr;

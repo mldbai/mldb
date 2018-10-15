@@ -13,13 +13,13 @@
 namespace MLDB {
 namespace RF {
 
+#define MLDB_NEVER_INLINE __attribute__((__noinline__))
 
 // Core kernel of the decision tree search algorithm.  Transfer the
 // example weight into the appropriate (bucket,label) accumulator.
 // Returns whether
-template<typename GetNextRowFn>
-static std::pair<bool, int>
-testFeatureKernel(GetNextRowFn&& getNextRow,
+static MLDB_NEVER_INLINE std::pair<bool, int>
+testFeatureKernel(Rows::RowIterator rowIterator,
                   size_t numRows,
                   const BucketList & buckets,
                   W * w /* buckets.numBuckets entries */)
@@ -39,9 +39,9 @@ testFeatureKernel(GetNextRowFn&& getNextRow,
     int maxBucket = -1;
 
     for (size_t j = 0;  j < numRows;  ++j) {
-        DecodedRow r = getNextRow();
+        DecodedRow r = rowIterator.getDecodedRow();
         int bucket = buckets[r.exampleNum];
-        ExcAssertLess(bucket, buckets.numBuckets);
+        //ExcAssertLess(bucket, buckets.numBuckets);
         bucketTransitions += (bucket != lastBucket ? 1 : 0);
         lastBucket = bucket;
 
@@ -64,10 +64,11 @@ static double scoreSplit(const W & wFalse, const W & wTrue)
 };
 
 // Chooses which is the best split for a given feature.
-static std::tuple<double /* bestScore */,
-                  int /* bestSplit */,
-                  W /* bestLeft */,
-                  W /* bestRight */>
+static MLDB_NEVER_INLINE
+std::tuple<double /* bestScore */,
+           int /* bestSplit */,
+           W /* bestLeft */,
+           W /* bestRight */>
 chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                   int maxBucket,
                   bool ordinal,
