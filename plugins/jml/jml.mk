@@ -42,6 +42,8 @@ $(eval $(call include_sub_make,ml_testing,testing,ml_testing.mk))
 
 # Jml plugins
 LIBMLDB_JML_PLUGIN_SOURCES:= \
+	randomforest.cc \
+	randomforest_kernels.cc \
 	randomforest_procedure.cc \
 	classifier.cc \
 	probabilizer.cc \
@@ -49,7 +51,6 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 	jml_plugin.cc \
 	accuracy.cc \
 	experiment_procedure.cc \
-	randomforest.cc \
 	dataset_feature_space.cc \
 	kmeans_interface.cc \
 	em_interface.cc \

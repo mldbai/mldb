@@ -13,6 +13,7 @@
 #endif
 
 #define MLDB_ALWAYS_INLINE __attribute__((__always_inline__)) inline 
+#define MLDB_NEVER_INLINE __attribute__((__noinline__))
 #define MLDB_NORETURN __attribute__((__noreturn__))
 #define MLDB_UNUSED  __attribute__((__unused__))
 #define MLDB_PACKED  __attribute__((__packed__))
