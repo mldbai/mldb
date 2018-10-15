@@ -456,7 +456,7 @@ struct Bit_Buffer {
         bit_ofs %= sizeof(Data) * 8;
     }
 
-    size_t current_offset(const Data * start)
+    size_t current_offset(const Data * start) const
     {
         return (data.data - start) * sizeof(Data) * 8 + bit_ofs;
     }
@@ -589,12 +589,12 @@ struct Bit_Extractor {
     OutputIterator extract(shift_t num_bits, size_t num_objects,
                            OutputIterator where);
 
-    size_t current_offset(const Data * start)
+    size_t current_offset(const Data * start) const
     {
         return buf.current_offset(start);
     }
 
-    void prefetch(size_t bytesAhead)
+    void prefetch(size_t bytesAhead) const
     {
         buf.prefetch(bytesAhead);
     }
@@ -616,6 +616,12 @@ struct Bit_Writer {
     {
     }
 
+    void reset(Data * data)
+    {
+        this->data = data;
+        this->bit_ofs = 0;
+    }
+    
     /// Writes bits starting from the least-significant bits of the buffer.
     void write(Data val, shift_t bits)
     {
@@ -666,7 +672,7 @@ struct Bit_Writer {
         bit_ofs %= sizeof(Data) * 8;
     }
 
-    size_t current_offset(Data * start)
+    size_t current_offset(Data * start) const
     {
         return (data - start) * sizeof(Data) * 8 + bit_ofs;
     }

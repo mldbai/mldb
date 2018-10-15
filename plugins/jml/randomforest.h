@@ -227,8 +227,8 @@ struct PartitionData {
                     size_t n = 0;
 
                     RowWriter writer
-                        = rows.getRowWriter(numNonZero, numNonZero,
-                                            serializer);
+                        = data.rows.getRowWriter(numNonZero, numNonZero,
+                                                 serializer);
                     Rows::RowIterator rowIterator
                         = rows.getRowIterator();
 
@@ -335,8 +335,12 @@ struct PartitionData {
             //int minBucket = INFINITY;
 
             RowWriter writer[2]
-                = { rows.getRowWriter(rows.rowCount(), rows.highestExampleNum(), serializer),
-                    rows.getRowWriter(rows.rowCount(), rows.highestExampleNum(), serializer) };
+                = { rows.getRowWriter(rows.rowCount(),
+                                      rows.highestExampleNum(),
+                                      serializer),
+                    rows.getRowWriter(rows.rowCount(),
+                                      rows.highestExampleNum(),
+                                      serializer) };
 
             Rows::RowIterator rowIterator = rows.getRowIterator();
             
@@ -383,8 +387,12 @@ struct PartitionData {
 
             // TODO: could reserve less than this...
             RowWriter writer[2]
-                = { rows.getRowWriter(rows.rowCount(), rows.rowCount(), serializer),
-                    rows.getRowWriter(rows.rowCount(), rows.rowCount(), serializer) };
+                = { rows.getRowWriter(rows.rowCount(),
+                                      rows.rowCount(),
+                                      serializer),
+                    rows.getRowWriter(rows.rowCount(),
+                                      rows.rowCount(),
+                                      serializer) };
 
             Rows::RowIterator rowIterator = rows.getRowIterator();
 
@@ -402,14 +410,17 @@ struct PartitionData {
                     continue;
 
                 WritableBucketList newFeatures[2];
-                newFeatures[0].init(numOnSide[0], features[i].info->distinctValues, serializer);
-                newFeatures[1].init(numOnSide[1], features[i].info->distinctValues, serializer);
-                size_t index[2] = { 0, 0 };
+
+                newFeatures[0].init(numOnSide[0],
+                                    features[i].info->distinctValues,
+                                    serializer);
+                newFeatures[1].init(numOnSide[1],
+                                    features[i].info->distinctValues,
+                                    serializer);
 
                 for (size_t j = 0;  j < rows.rowCount();  ++j) {
                     int side = lr[j];
                     newFeatures[side].write(features[i].buckets[rows.getExampleNum(j)]);
-                    ++index[side];
                 }
 
                 sides[0].features[i].buckets = newFeatures[0].freeze(serializer);
