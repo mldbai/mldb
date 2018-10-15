@@ -23,42 +23,6 @@
 
 namespace MLDB {
 
-namespace {
-
-template<typename T>
-static std::shared_ptr<T>
-makeSharedArray(size_t len)
-{
-    return std::shared_ptr<T>(new T[len],
-                              [] (T * p) { delete[] p; });
-}
-
-// Return a number of bits per entry that evenly divides into
-// 64 bits.
-static int getEntryShift(int entryBits)
-{
-    if (entryBits == 0) return 0;
-    else if (entryBits == 1) return 0;
-    else if (entryBits == 2) return 1;
-    else if (entryBits <= 4) {
-        return 2;
-    }
-    else if (entryBits <= 8) {
-        return 3;
-    }
-    else if (entryBits <= 16) {
-        return 4;
-    }
-    else if (entryBits <= 32) {
-        return 5;
-    }
-    else {
-        return 6;
-    }
-}
-
-} // file scope
-
 
 /*****************************************************************************/
 /* BUCKET LIST                                                               */
@@ -70,17 +34,15 @@ init(size_t numElements, uint32_t numBuckets,
      MappedSerializer & serializer)
 {
     this->numBuckets = numBuckets;
-    entryBits = highest_bit(numBuckets) + 1;
-    entryShift = getEntryShift(entryBits);
-    entryBits = entryBits == 0 ? 0 : 1 << entryShift;
 
-    size_t numWords = (entryBits * numElements + 63) / 64;
-    this->storage = serializer.allocateWritableT<uint64_t>(numWords);
-    this->current = this->storage.data();
+    // Minimum of 1 bit to avoid divide by zero on rowCount()
+    this->entryBits = highest_bit(numBuckets, 0) + 1;
+
+    size_t numWords = (entryBits * numElements + 31) / 32 + 1 /* +1 for extractFast */;
+    this->storage = serializer.allocateWritableT<uint32_t>(numWords);
+    this->writer.reset(this->storage.data());
     //memset(current, 255, numWords * sizeof(*current));
-    this->bitsWritten = 0;
     this->numEntries = numElements;
-    this->numWritten = 0;
 }
 
 BucketList
@@ -89,7 +51,6 @@ freeze(MappedSerializer & serializer)
 {
     BucketList result;
     result.entryBits = entryBits;
-    result.entryShift = entryShift;
     result.numBuckets = numBuckets;
     result.numEntries = numEntries;
     result.storage = this->storage.freeze();
@@ -105,26 +66,20 @@ append(const WritableBucketList & buckets)
     for (size_t i = 0;  i < buckets.numEntries;  ++i) {
         write(buckets[i]);
     }
-
-    ExcAssertLessEqual(numWritten, numEntries);
 }
 
 WritableBucketList
 ParallelWritableBucketList::
 atOffset(size_t offset)
 {
-    ExcAssertEqual(numWritten, 0);
     size_t bitsToSkip = offset * entryBits;
-    ExcAssertEqual(bitsToSkip % 64, 0);
+    ExcAssertEqual(bitsToSkip % 32, 0);
 
     WritableBucketList result;
-    result.current = current + bitsToSkip / 64;
-    result.numWritten = 0;
-    result.bitsWritten = 0;
+    result.writer.reset(storage.data() + bitsToSkip / 32);
+    result.storage = this->storage;
     result.entryBits = this->entryBits;
-    result.entryShift = this->entryShift;
     result.numBuckets = -1;
-    result.numEntries = -1;
 
     return result;
 }

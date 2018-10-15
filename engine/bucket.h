@@ -15,6 +15,7 @@
 #include <vector>
 #include "mldb/base/exc_assert.h"
 #include "mldb/block/memory_region.h"
+#include "mldb/arch/bit_range_ops.h"
 
 namespace MLDB {
 
@@ -26,11 +27,9 @@ struct BucketList {
 
     MLDB_ALWAYS_INLINE uint32_t operator [] (uint32_t i) const
     {
-        //ExcAssertLess(i, numEntries);
-        size_t wordNum = (i << entryShift) / 64;
-        size_t bitNum = (i << entryShift) % 64;
-        uint32_t result = (storagePtr[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
-        return result;
+        Bit_Extractor<uint32_t> extractor(storagePtr);
+        extractor.advance(i * entryBits);
+        return extractor.extractFast<uint32_t>(entryBits);
     }
 
     size_t rowCount() const
@@ -41,12 +40,11 @@ struct BucketList {
 private:
     friend class WritableBucketList;
     friend class ParallelWritableBucketList;
-    FrozenMemoryRegionT<uint64_t> storage;
-    const uint64_t * storagePtr = nullptr;
-
+    FrozenMemoryRegionT<uint32_t> storage;
+    const uint32_t * storagePtr = nullptr;
+    
 public:
     int entryBits = 0;
-    int entryShift = 0;
     int numBuckets = 0;
     size_t numEntries = 0;
 };
@@ -57,7 +55,6 @@ struct WritableBucketList {
 
     WritableBucketList(size_t numElements, uint32_t numBuckets,
                        MappedSerializer & serializer)
-        : WritableBucketList()
     {
         init(numElements, numBuckets, serializer);
     }
@@ -65,18 +62,9 @@ struct WritableBucketList {
     void init(size_t numElements, uint32_t numBuckets,
               MappedSerializer & serializer);
     
-    inline void write(uint64_t value)
+    inline void write(uint32_t value)
     {
-        //ExcAssertLess(value, numBuckets);
-        uint64_t already = bitsWritten ? *current : 0;
-        *current = already | (value << bitsWritten);
-        bitsWritten += entryBits;
-        current += (bitsWritten >= 64);
-        bitsWritten *= (bitsWritten < 64);
-
-        //ExcAssertEqual(this->operator [] (numWritten), value);
-        //ExcAssertLess(numWritten, numEntries);
-        numWritten += 1;
+        writer.write(value, entryBits);
     }
 
     // Append all of the bits from buckets
@@ -86,25 +74,20 @@ struct WritableBucketList {
 
     size_t rowCount() const
     {
-        return numWritten;
+        return numEntries;
     }
     
     MLDB_ALWAYS_INLINE uint32_t operator [] (uint32_t i) const
     {
-        //ExcAssertLess(i, numEntries);
-        size_t wordNum = (i << entryShift) / 64;
-        size_t bitNum = (i << entryShift) % 64;
-        uint32_t result = (storage.data()[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
-        return result;
+        Bit_Extractor<uint32_t> extractor(storage.data());
+        extractor.advance(i * entryBits);
+        return extractor.extractFast<uint32_t>(entryBits);
     }
-    
-    uint64_t * current = nullptr;
-    int bitsWritten = 0;
-    size_t numWritten = 0;
-    MutableMemoryRegionT<uint64_t> storage;
+
+    Bit_Writer<uint32_t> writer = nullptr;
+    MutableMemoryRegionT<uint32_t> storage;
 
     int entryBits = 0;
-    int entryShift = 0;
     int numBuckets = 0;
     size_t numEntries = 0;
 };
@@ -243,4 +226,6 @@ struct BucketDescriptions {
           int numBuckets = -1);
 };
 
-}
+} // namespace MLDB
+
+
