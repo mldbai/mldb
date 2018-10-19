@@ -833,7 +833,8 @@ OpenCLProgramBuildInfo(cl_program program, cl_device_id device)
 {
     doField(CL_PROGRAM_BUILD_STATUS, buildStatus);
     doField(CL_PROGRAM_BUILD_OPTIONS, buildOptions);
-    doField(CL_PROGRAM_BUILD_LOG, buildLog);
+    static const std::regex splitBuildLogOn("[^\n]*");
+    doField(CL_PROGRAM_BUILD_LOG, buildLog, splitBuildLogOn);
     doField(CL_PROGRAM_BINARY_TYPE, binaryType);
 }
 
@@ -950,6 +951,85 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(OpenCLKernelInfo)
 
 
 /*****************************************************************************/
+/* OPENCL EVENT INFO                                                         */
+/*****************************************************************************/
+
+DEFINE_ENUM_DESCRIPTION_INLINE(OpenCLEventCommandType)
+{
+#define DO_VALUE(name) addValue(#name, OpenCLEventCommandType::name)
+    DO_VALUE(ND_RANGE_KERNEL);
+    DO_VALUE(NATIVE_KERNEL);
+    DO_VALUE(READ_BUFFER);
+    DO_VALUE(WRITE_BUFFER);
+    DO_VALUE(COPY_BUFFER);
+    DO_VALUE(READ_IMAGE);
+    DO_VALUE(WRITE_IMAGE);
+    DO_VALUE(COPY_IMAGE);
+    DO_VALUE(COPY_BUFFER_TO_IMAGE);
+    DO_VALUE(COPY_IMAGE_TO_BUFFER);
+    DO_VALUE(MAP_BUFFER);
+    DO_VALUE(MAP_IMAGE);
+    DO_VALUE(UNMAP_MEM_OBJECT);
+    DO_VALUE(MARKER);
+    DO_VALUE(ACQUIRE_GL_OBJECTS);
+    DO_VALUE(RELEASE_GL_OBJECTS);
+    DO_VALUE(READ_BUFFER_RECT);
+    DO_VALUE(WRITE_BUFFER_RECT);
+    DO_VALUE(COPY_BUFFER_RECT);
+    DO_VALUE(USER);
+    DO_VALUE(BARRIER);
+    DO_VALUE(MIGRATE_MEM_OBJECTS);
+    DO_VALUE(FILL_BUFFER);
+    DO_VALUE(FILL_IMAGE);
+    DO_VALUE(SVM_FREE);
+    DO_VALUE(SVM_MEMCPY);
+    DO_VALUE(SVM_MEMFILL);
+    DO_VALUE(SVM_MAP);
+    DO_VALUE(SVM_UNMAP);
+#undef DO_VALUE
+}
+
+DEFINE_ENUM_DESCRIPTION_INLINE(OpenCLEventCommandExecutionStatus)
+{
+#define DO_VALUE(name) addValue(#name, OpenCLEventCommandExecutionStatus::name)
+    DO_VALUE(COMPLETE);
+    DO_VALUE(QUEUED);
+    DO_VALUE(SUBMITTED);
+    DO_VALUE(RUNNING);
+    DO_VALUE(ERROR);
+#undef DO_VALUE
+};
+
+template<typename T, typename... Args>
+void
+OpenCLEventInfo::
+doField(cl_uint what, T & where, Args&&... args)
+{
+    clInfoCall(clGetEventInfo, event, what, where, this,
+               std::forward<Args>(args)...);
+}
+
+OpenCLEventInfo::
+OpenCLEventInfo(cl_event event)
+{
+    doField(CL_EVENT_COMMAND_TYPE, commandType);
+    doField(CL_EVENT_COMMAND_EXECUTION_STATUS, executionStatus);
+    if ((int)executionStatus < 0) {
+        error = (OpenCLStatus)executionStatus;
+        executionStatus = OpenCLEventCommandExecutionStatus::ERROR;
+    }
+    else error = OpenCLStatus::SUCCESS;
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(OpenCLEventInfo)
+{
+    addField("commandType", &OpenCLEventInfo::commandType, "");
+    addField("error", &OpenCLEventInfo::error, "");
+    addField("executionStatus", &OpenCLEventInfo::executionStatus, "");
+}
+
+
+/*****************************************************************************/
 /* OPENCL PROFILING INFO                                                     */
 /*****************************************************************************/
 
@@ -981,5 +1061,20 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(OpenCLProfilingInfo)
     addField("end", &OpenCLProfilingInfo::end, "");
     addField("complete", &OpenCLProfilingInfo::complete, "");
 }
+
+
+/*****************************************************************************/
+/* OPENCL COMMAND QUEUE                                                      */
+/*****************************************************************************/
+
+DEFINE_ENUM_DESCRIPTION_INLINE(OpenCLCommandQueueProperties)
+{
+    addValue("OUT_OF_ORDER_EXEC_MODE_ENABLE",
+             OpenCLCommandQueueProperties::OUT_OF_ORDER_EXEC_MODE_ENABLE);
+    addValue("PROFILING_ENABLE",
+             OpenCLCommandQueueProperties::PROFILING_ENABLE);
+}
+
+
 
 } // namespace MLDB

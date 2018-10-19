@@ -14,12 +14,16 @@
 #include <array>
 #include <string>
 #include "mldb/types/annotated_exception.h"
+#include <iostream>
 #include <CL/cl.h>
 
 namespace MLDB {
 
 std::string clGetErrorString(int errorCode);
+struct OpenCLContext;
+struct OpenCLCommandQueue;
 
+OpenCLContext openCLCreateContext(cl_context context);
 
 /*****************************************************************************/
 /* OPENCL STATUS                                                             */
@@ -27,6 +31,7 @@ std::string clGetErrorString(int errorCode);
 
 // Wrap the OpenCL error codes so that we understand them
 enum class OpenCLStatus : cl_int {
+    SUCCESS = CL_SUCCESS
     // ... content ...
 };
 
@@ -329,7 +334,7 @@ struct OpenCLProgramBuildInfo {
 
     OpenCLBuildStatus buildStatus = OpenCLBuildStatus::NONE;
     std::string buildOptions;
-    std::string buildLog;
+    std::vector<std::string> buildLog;
     OpenCLBinaryType binaryType = OpenCLBinaryType::NONE;
 };
 
@@ -401,10 +406,7 @@ DECLARE_STRUCTURE_DESCRIPTION(OpenCLKernelInfo);
 
 struct OpenCLKernelInfo {
 
-    OpenCLKernelInfo()
-    {
-    }
-    
+    OpenCLKernelInfo() = default;
     OpenCLKernelInfo(cl_kernel kernel);
 
     template<typename T, typename... Args>
@@ -416,6 +418,74 @@ struct OpenCLKernelInfo {
     std::vector<std::string> attributes;
     std::vector<OpenCLKernelArgInfo> args;
 };
+
+/*****************************************************************************/
+/* OPENCL EVENT INFO                                                         */
+/*****************************************************************************/
+
+enum OpenCLEventCommandType : cl_uint {
+    ND_RANGE_KERNEL = CL_COMMAND_NDRANGE_KERNEL,
+    NATIVE_KERNEL = CL_COMMAND_NATIVE_KERNEL,
+    READ_BUFFER = CL_COMMAND_READ_BUFFER,
+    WRITE_BUFFER = CL_COMMAND_WRITE_BUFFER,
+    COPY_BUFFER = CL_COMMAND_COPY_BUFFER,
+    READ_IMAGE = CL_COMMAND_READ_IMAGE,
+    WRITE_IMAGE = CL_COMMAND_WRITE_IMAGE,
+    COPY_IMAGE = CL_COMMAND_COPY_IMAGE,
+    COPY_BUFFER_TO_IMAGE = CL_COMMAND_COPY_BUFFER_TO_IMAGE,
+    COPY_IMAGE_TO_BUFFER = CL_COMMAND_COPY_IMAGE_TO_BUFFER,
+    MAP_BUFFER = CL_COMMAND_MAP_BUFFER,
+    MAP_IMAGE = CL_COMMAND_MAP_IMAGE,
+    UNMAP_MEM_OBJECT = CL_COMMAND_UNMAP_MEM_OBJECT,
+    MARKER = CL_COMMAND_MARKER,
+    ACQUIRE_GL_OBJECTS = CL_COMMAND_ACQUIRE_GL_OBJECTS,
+    RELEASE_GL_OBJECTS = CL_COMMAND_RELEASE_GL_OBJECTS,
+    READ_BUFFER_RECT = CL_COMMAND_READ_BUFFER_RECT,
+    WRITE_BUFFER_RECT = CL_COMMAND_WRITE_BUFFER_RECT,
+    COPY_BUFFER_RECT = CL_COMMAND_COPY_BUFFER_RECT,
+    USER = CL_COMMAND_USER,
+    BARRIER = CL_COMMAND_BARRIER,
+    MIGRATE_MEM_OBJECTS = CL_COMMAND_MIGRATE_MEM_OBJECTS,
+    FILL_BUFFER = CL_COMMAND_FILL_BUFFER,
+    FILL_IMAGE = CL_COMMAND_FILL_IMAGE,
+    SVM_FREE = CL_COMMAND_SVM_FREE,
+    SVM_MEMCPY = CL_COMMAND_SVM_MEMCPY,
+    SVM_MEMFILL = CL_COMMAND_SVM_MEMFILL,
+    SVM_MAP = CL_COMMAND_SVM_MAP,
+    SVM_UNMAP = CL_COMMAND_SVM_UNMAP
+};
+
+DECLARE_ENUM_DESCRIPTION(OpenCLEventCommandType);
+
+enum OpenCLEventCommandExecutionStatus: cl_int {
+    COMPLETE = CL_COMPLETE,
+    QUEUED = CL_QUEUED,
+    SUBMITTED = CL_SUBMITTED,
+    RUNNING = CL_RUNNING,
+    ERROR = 1000 /* extension */
+};
+
+DECLARE_ENUM_DESCRIPTION(OpenCLEventCommandExecutionStatus);
+
+struct OpenCLEventInfo {
+
+    OpenCLEventInfo() = default;
+    OpenCLEventInfo(cl_event event);
+
+    template<typename T, typename... Args>
+    void doField(cl_uint what, T & where, Args&&... args);
+
+    OpenCLCommandQueue getCommandQueue() const;
+    OpenCLContext getContext() const;
+
+    cl_event event = nullptr;
+
+    OpenCLEventCommandType commandType;
+    OpenCLStatus error;
+    OpenCLEventCommandExecutionStatus executionStatus;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(OpenCLEventInfo);
 
 
 /*****************************************************************************/
@@ -441,5 +511,964 @@ struct OpenCLProfilingInfo {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(OpenCLProfilingInfo);
+
+
+/*****************************************************************************/
+/* OPENCL NOTIFY HANDLER                                                     */
+/*****************************************************************************/
+
+template<typename Obj>
+struct OpenCLNotify {
+    typedef void (*notify_fn) (Obj obj, void * param);
+
+    static void notify(Obj obj, void * param)
+    {
+    }
+    
+    operator notify_fn()
+    {
+        return notify;
+    }
+
+    operator void * ()
+    {
+        return this;
+    }
+};
+
+
+/*****************************************************************************/
+/* OPENCL DEVICE                                                             */
+/*****************************************************************************/
+
+struct OpenCLDevice {
+    OpenCLDevice()
+    {
+    }
+
+    OpenCLDevice(cl_device_id device)
+        : device(device)
+    {
+    }
+
+    cl_device_id device = nullptr;
+
+    OpenCLDeviceInfo getDeviceInfo() const
+    {
+        ExcCheck(device, "Uninitialized OpenCL device");
+        return OpenCLDeviceInfo(device);
+    }
+
+    operator cl_device_id () const
+    {
+        ExcCheck(device, "Uninitialized OpenCL device");
+        return device;
+    }
+};
+
+
+/*****************************************************************************/
+/* OPENCL PLATFORM                                                           */
+/*****************************************************************************/
+
+struct OpenCLPlatform {
+    OpenCLPlatform()
+    {
+    }
+    
+    OpenCLPlatform(cl_platform_id platform)
+        : platform(platform)
+    {
+    }
+
+    ~OpenCLPlatform()
+    {
+    }
+
+    cl_platform_id platform = nullptr;
+
+    OpenCLPlatformInfo getPlatformInfo() const
+    {
+        ExcCheck(platform, "Platform not initialized");
+        return OpenCLPlatformInfo(platform);
+    }
+
+    OpenCLDevice getDevice(Bitset<OpenCLDeviceType> types
+                           = (OpenCLDeviceType)CL_DEVICE_TYPE_ALL) const
+    {
+        auto devs = getDevices(1, types);
+        if (devs.empty())
+            throw AnnotatedException(400, "No OpenCL devices found");
+        return std::move(devs[0]);
+    }
+    
+    size_t getDeviceCount(Bitset<OpenCLDeviceType> types
+                          = (OpenCLDeviceType)CL_DEVICE_TYPE_ALL) const
+    {
+        ExcCheck(platform, "Platform not initialized");
+
+        cl_uint deviceIdCount = 0;
+
+        cl_int error
+            = clGetDeviceIDs (platform, (cl_device_type)types.val, 0, nullptr,
+                              &deviceIdCount);
+        checkOpenCLError(error, "clGetDeviceIds");
+
+        return deviceIdCount;
+    }
+    
+    std::vector<OpenCLDevice>
+    getDevices(ssize_t count = -1,
+            Bitset<OpenCLDeviceType> types
+            = (OpenCLDeviceType)CL_DEVICE_TYPE_ALL) const
+    {
+        ExcCheck(platform, "Platform not initialized");
+
+        cl_uint deviceIdCount = getDeviceCount(types);
+
+        if (count != -1 && count < deviceIdCount)
+            deviceIdCount = count;
+        
+        std::vector<cl_device_id> deviceIds (deviceIdCount);
+        cl_int error
+            = clGetDeviceIDs (platform, (cl_device_type)types.val,
+                              deviceIdCount,
+                              deviceIds.data (), nullptr);
+        checkOpenCLError(error, "clGetDeviceIds");
+
+        std::vector<OpenCLDevice> devices(deviceIds.begin(), deviceIds.end());
+        return devices;
+    }
+};
+
+inline std::vector<OpenCLPlatform>
+getOpenCLPlatforms()
+{
+    cl_uint platformIdCount = 0;
+    cl_int error = clGetPlatformIDs (0, nullptr, &platformIdCount);
+    checkOpenCLError(error, "clGetPlatformIds");
+
+    std::vector<cl_platform_id> platformIds (platformIdCount);
+    error = clGetPlatformIDs (platformIdCount, platformIds.data(), nullptr);
+    checkOpenCLError(error, "clGetPlatformIds");
+
+    return { platformIds.begin(), platformIds.end() };
+}
+
+
+/*****************************************************************************/
+/* OPENCL REFCOUNTED                                                         */
+/*****************************************************************************/
+
+inline void clRetain(cl_context context)
+{
+    cl_int res = clRetainContext(context);
+    checkOpenCLError(res, "clRetainContext");
+}
+
+inline void clRelease(cl_context context)
+{
+    cl_int res = clReleaseContext(context);
+    checkOpenCLError(res, "clReleseContext");
+}
+
+inline void clRetain(cl_command_queue queue)
+{
+    cl_int res = clRetainCommandQueue(queue);
+    checkOpenCLError(res, "clRetainQueue");
+}
+
+inline void clRelease(cl_command_queue queue)
+{
+    cl_int res = clReleaseCommandQueue(queue);
+    checkOpenCLError(res, "clReleseQueue");
+}
+
+inline void clRetain(cl_event event)
+{
+    cl_int res = clRetainEvent(event);
+    checkOpenCLError(res, "clRetainEvent");
+}
+
+inline void clRelease(cl_event event)
+{
+    cl_int res = clReleaseEvent(event);
+    checkOpenCLError(res, "clReleaseEvent");
+}
+
+inline void clRetain(cl_program program)
+{
+    cl_int res = clRetainProgram(program);
+    checkOpenCLError(res, "clRetainProgram");
+}
+
+inline void clRelease(cl_program program)
+{
+    cl_int res = clReleaseProgram(program);
+    checkOpenCLError(res, "clReleaseProgram");
+}
+
+inline void clRetain(cl_kernel kernel)
+{
+    cl_int res = clRetainKernel(kernel);
+    checkOpenCLError(res, "clRetainKernel");
+}
+
+inline void clRelease(cl_kernel kernel)
+{
+    cl_int res = clReleaseKernel(kernel);
+    checkOpenCLError(res, "clReleaseKernel");
+}
+
+inline void clRetain(cl_mem buffer)
+{
+    cl_int res = clRetainMemObject(buffer);
+    checkOpenCLError(res, "clRetainMemObject");
+}
+
+inline void clRelease(cl_mem buffer)
+{
+    cl_int res = clReleaseMemObject(buffer);
+    checkOpenCLError(res, "clReleaseMemObject");
+}
+
+template<typename Handle>
+struct OpenCLRefCounted {
+    Handle handle = nullptr;
+
+    OpenCLRefCounted()
+    {
+    }
+    
+    OpenCLRefCounted(Handle handle)
+        : handle(handle)
+    {
+        clRetain(handle);
+    }
+
+    OpenCLRefCounted(OpenCLRefCounted && other)
+        : handle(other.handle)
+    {
+        other.handle = nullptr;
+    }
+
+    OpenCLRefCounted(const OpenCLRefCounted & other)
+        : OpenCLRefCounted(other.handle)
+    {
+    }
+
+    OpenCLRefCounted & operator = (OpenCLRefCounted && other)
+    {
+        OpenCLRefCounted newMe(std::move(other));
+        swap(newMe);
+        return *this;
+    }
+    
+    OpenCLRefCounted & operator = (const OpenCLRefCounted & other)
+    {
+        OpenCLRefCounted newMe(other);
+        swap(newMe);
+        return *this;
+    }
+
+#if 0    
+    OpenCLRefCounted(cl_device_id device)
+        : OpenCLRefCounted(&device, 1 /* numDevices */)
+    {
+    }
+#endif
+    
+    ~OpenCLRefCounted()
+    {
+        if (!handle)
+            return;
+
+        clRelease(handle);
+    }
+
+    void swap(OpenCLRefCounted & other)
+    {
+        std::swap(handle, other.handle);
+    }
+
+    operator Handle() const
+    {
+        ExcCheck(handle, "Use of uninitialized OpenCL handle "
+                 + MLDB::type_name<Handle>());
+        return handle;
+    }
+};
+
+
+/*****************************************************************************/
+/* OPENCL EVENT                                                              */
+/*****************************************************************************/
+
+struct OpenCLEvent {
+    OpenCLRefCounted<cl_event> event;
+
+    OpenCLEvent()
+    {
+    }
+
+    OpenCLEvent(cl_event event)
+        : event(event)
+    {
+    }
+
+    // Used to pass to functions that need a place to put their event.
+    // This will return a pointer to its own handle, first clearing the
+    // current event.
+    operator cl_event * ()
+    {
+        OpenCLRefCounted<cl_event> oldEvent;
+        event.swap(oldEvent);
+        return &event.handle;
+    }
+
+    void waitUntilFinished() const
+    {
+        event.operator cl_event();  // check it's not null
+
+        cl_int error
+            = clWaitForEvents(1 /* numEvents */,
+                              &event.handle);
+        checkOpenCLError(error, "clWaitForEvents");
+    }
+
+    OpenCLProfilingInfo getProfilingInfo() const
+    {
+        return OpenCLProfilingInfo(event.operator cl_event());
+    }
+
+    OpenCLEventCommandExecutionStatus getStatus() const
+    {
+        ExcCheck(event, "Uninitialized OpenCL event");
+        cl_int result;
+        cl_int res
+            = clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                             sizeof(result), &result, nullptr);
+        checkOpenCLError(res, "clGetEventInfo(EVENT_COMMAND_EXECUTION_STATUS)");
+
+        if (result < 0)
+            return OpenCLEventCommandExecutionStatus::ERROR;
+        return (OpenCLEventCommandExecutionStatus)result;
+    }
+
+    OpenCLStatus getError() const
+    {
+        ExcCheck(event, "Uninitialized OpenCL event");
+        cl_int result;
+        cl_int res
+            = clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                             sizeof(result), &result, nullptr);
+        checkOpenCLError(res, "clGetEventInfo(EVENT_COMMAND_EXECUTION_STATUS)");
+
+        if (result < 0)
+            return OpenCLStatus(result);
+
+        if (result == OpenCLEventCommandExecutionStatus::COMPLETE)
+            return OpenCLStatus::SUCCESS;
+
+        if (getStatus() != OpenCLEventCommandExecutionStatus::COMPLETE) {
+            throw OpenCLException(CL_INVALID_EVENT,
+                                  "OpenCLEvent::getError(): operation is not complete: " + jsonEncode((OpenCLEventCommandExecutionStatus)result).asString());
+        }
+        
+        return (OpenCLStatus)result;
+    }
+
+    void assertSuccess() const
+    {
+        if (getError() != OpenCLStatus::SUCCESS) {
+            throw OpenCLException((cl_int)getError(),
+                                  "OpenCLEvent::assertSuccess(): operation failed: ",
+                                  "info", getInfo());
+        }
+        if (getStatus() != OpenCLEventCommandExecutionStatus::COMPLETE) {
+            throw OpenCLException(CL_INVALID_EVENT,
+                                  "OpenCLEvent::assertSuccess(): operation is not complete: " + jsonEncode(getStatus()).asString(),
+                                  "info", getInfo());
+        }
+    }
+    
+    OpenCLEventInfo getInfo() const
+    {
+        return OpenCLEventInfo(event);
+    }
+};
+
+
+/*****************************************************************************/
+/* OPENCL EVENT LIST                                                         */
+/*****************************************************************************/
+
+struct OpenCLEventList {
+    OpenCLEventList()
+    {
+    }
+    
+    OpenCLEventList(const OpenCLEvent & event)
+        : events({event})
+    {
+    }
+
+    OpenCLEventList(OpenCLEvent && event)
+        : events({std::move(event)})
+    {
+    }
+
+    OpenCLEventList(std::initializer_list<OpenCLEvent> ev)
+        : events(ev)
+    {
+    }
+
+    // Relies on events in memory being just an array
+    operator const cl_event * () const
+    {
+        return events.empty() ? nullptr : &events[0].event.handle;
+    }
+
+    size_t size() const
+    {
+        return events.size();
+    }
+    
+    std::vector<OpenCLEvent> events;
+};
+
+/*****************************************************************************/
+/* OPENCL COMMAND QUEUE                                                      */
+/*****************************************************************************/
+
+enum class OpenCLCommandQueueProperties: cl_command_queue_properties {
+    OUT_OF_ORDER_EXEC_MODE_ENABLE = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
+    PROFILING_ENABLE = CL_QUEUE_PROFILING_ENABLE
+};
+
+DECLARE_ENUM_DESCRIPTION(OpenCLCommandQueueProperties);
+
+struct OpenCLCommandQueue {
+    OpenCLRefCounted<cl_command_queue> queue;
+
+    OpenCLCommandQueue()
+    {
+    }
+
+    OpenCLCommandQueue(cl_command_queue queue)
+        : queue(queue)
+    {
+    }
+    
+    operator cl_command_queue() const
+    {
+        return queue;
+    }
+
+    void flush()
+    {
+        cl_int error = clFlush(queue);
+        checkOpenCLError(error, "clFlush");
+    }
+
+    void finish()
+    {
+        cl_int error = clFinish(queue);
+        checkOpenCLError(error, "clFinish");
+    }
+
+    OpenCLEvent launch(cl_kernel kernel,
+                       std::vector<size_t> range,
+                       std::vector<size_t> work = std::vector<size_t>(),
+                       OpenCLEventList before = OpenCLEventList())
+    {
+        OpenCLEvent result;
+
+        ExcAssert(work.empty() || work.size() == range.size());
+        
+        cl_int error = clEnqueueNDRangeKernel
+            (queue, kernel,
+             range.size(),
+             nullptr /* offsets */,
+             range.data(),
+             work.empty() ? nullptr : work.data(),
+             before.size(), before,
+             result);
+        
+        checkOpenCLError(error, "clEnqueueNDRangeKernel");
+
+        return result;
+    }
+
+    OpenCLEvent enqueueReadBuffer(cl_mem buffer,
+                                  size_t offset,
+                                  size_t length,
+                                  void * target,
+                                  OpenCLEventList before = OpenCLEventList())
+    {
+        OpenCLEvent result;
+        
+        cl_int error
+            = clEnqueueReadBuffer(queue, buffer, CL_FALSE /* blocking */,
+                                  offset, length, target,
+                                  before.size(), before,
+                                  result);
+
+        checkOpenCLError(error, "clEnqueueReadBuffer");
+
+        return result;
+    }
+    
+#if 0    
+    OpenCLContext getContext() const
+    {
+    }
+
+    OpenCLDevice getDevice() const
+    {
+    }
+
+    cl_uint getReferenceCountUnsafe() const
+    {
+    }
+
+    Bitset<OpenCLQueueProperties> getProperties() const
+    {
+        Bitset<OpenCLQueueProperties> result;
+    }
+#endif
+
+#if 0    
+    template<typename A1>
+    void doEnqueue(cl_int (*fn) (cl_command_queue, A1 a1,
+                                 cl_uint numEventsInWaitList,
+                                 const cl_event * waitList,
+                                 cl_event * event),
+                   A1 a1,
+                   const OpenCLEventList & waitFor,
+                   OpenCLEvent & waitOn)
+    {
+    }
+
+    template<typename Res, typename A1>
+     Res doEnqueue(Res (*fn) (cl_command_queue, A1 a1,
+                              cl_uint numEventsInWaitList,
+                              const cl_event * waitList,
+                              cl_event * event,
+                              cl_int * error),
+                   A1 a1,
+                   const OpenCLEventList & waitFor,
+                   OpenCLEvent & waitOn);
+#endif
+};
+
+
+/*****************************************************************************/
+/* OPENCL KERNEL                                                             */
+/*****************************************************************************/
+
+/// Used to bind a local array of the given size into a kernel
+template<typename T>
+struct LocalArray {
+    LocalArray(size_t n)
+        : n(n)
+    {
+    }
+
+    size_t n;
+
+    size_t bytes() const { return n * sizeof(T); }
+};
+
+struct OpenCLKernel {
+    OpenCLRefCounted<cl_kernel> kernel;
+
+    OpenCLKernel()
+    {
+    }
+
+    OpenCLKernel(cl_kernel kernel)
+        : kernel(kernel)
+    {
+    }
+
+    OpenCLKernelInfo getInfo() const
+    {
+        return OpenCLKernelInfo(kernel);
+    }
+    
+    operator cl_kernel () const
+    {
+        return kernel;
+    }
+
+    OpenCLContext getContext() const;
+    
+    template<typename T>
+    void bindArg(int argNum, const T & data,
+                 typename std::enable_if<std::is_pod<T>::value>::type * = 0)
+    {
+        cl_int error = clSetKernelArg(kernel, argNum, sizeof(data), &data);
+        checkOpenCLError(error, "clSetKernelArg: arg " + std::to_string(argNum)
+                         + " of type " + type_name<T>());
+    }
+
+#if 0    
+    template<typename T>
+    void bindArg(int argNum, T * data)
+    {
+        using namespace std;
+        auto mem = getContext().createBuffer(0, sizeof(T), data);
+        cl_mem memValue = mem;
+        cl_int error = clSetKernelArg(kernel, argNum, sizeof(memValue), &memValue);
+        checkOpenCLError(error, "clSetKernelArg: arg " + std::to_string(argNum)
+                         + " of type " + type_name<T>());
+    }
+#endif
+    
+    template<typename T>
+    void bindArg(int argNum, const LocalArray<T> & data)
+    {
+        cl_int error = clSetKernelArg(kernel, argNum, data.bytes(), nullptr);
+        checkOpenCLError(error, "clSetKernelArg: arg " + std::to_string(argNum)
+                         + " of type " + type_name<T>());
+    }
+
+    void bindArg(int argNum, cl_mem data)
+    {
+        cl_int error = clSetKernelArg(kernel, argNum, sizeof(data), &data);
+        checkOpenCLError(error, "clSetKernelArg: arg " + std::to_string(argNum)
+                         + " of type cl_mem");
+    }
+
+    void bindArgs(int argNum)
+    {
+        // verify that the required number of arguments are there
+        if (argNum != getInfo().args.size()) {
+            throw AnnotatedException(400, "Attempt to bind wrong number of "
+                                     "arguments to kernel");
+        }
+    }
+    
+    template<typename Arg1, typename... Args>
+    void bindArgs(int argNum, Arg1&& arg1, Args&&... args)
+    {
+        bindArg(argNum, std::forward<Arg1>(arg1));
+        bindArgs(argNum + 1, std::forward<Args>(args)...);
+    }
+    
+    template<typename... Args>
+    void bind(Args&&... args)
+    {
+        bindArgs(0, std::forward<Args>(args)...);
+    }
+};
+
+
+/*****************************************************************************/
+/* OPENCL PROGRAM                                                            */
+/*****************************************************************************/
+
+struct OpenCLProgram {
+    OpenCLRefCounted<cl_program> program;
+
+    OpenCLProgram()
+    {
+    }
+
+    OpenCLProgram(cl_program program)
+        : program(program)
+    {
+    }
+    
+    operator cl_program () const
+    {
+        return program;
+    }
+
+    OpenCLContext getContext() const;
+
+    std::vector<OpenCLProgramBuildInfo>
+    build(const std::vector<OpenCLDevice> & devices,
+          const std::string & options)
+    {
+        cl_int error MLDB_UNUSED
+            = clBuildProgram(program, devices.size() /*deviceIdCount*/,
+                             &devices[0].device,
+                             options.c_str(),
+                             nullptr, nullptr);
+        //checkOpenCLError(error, "clBuildProgram");
+
+        std::vector<OpenCLProgramBuildInfo> result;
+        for (auto & device: devices) {
+            result.emplace_back(program, device);
+        }
+        return result;
+    }
+
+    OpenCLProgramBuildInfo getProgramInfo(const OpenCLDevice & device)
+    {
+        return OpenCLProgramBuildInfo(program, device);
+        
+    }
+    
+    OpenCLKernel createKernel(const std::string & name)
+    {
+        cl_int error;
+        cl_kernel result = clCreateKernel (program, name.c_str(), &error);
+        checkOpenCLError(error, "clCreateKernel");
+        return result;
+    }
+};
+
+
+/*****************************************************************************/
+/* OPENCL MEM OBJECT                                                         */
+/*****************************************************************************/
+
+struct OpenCLMemObject {
+    OpenCLRefCounted<cl_mem> buffer;
+
+    OpenCLMemObject()
+    {
+    }
+
+    OpenCLMemObject(cl_mem buffer)
+        : buffer(buffer)
+    {
+    }
+    
+    operator cl_mem () const
+    {
+        return buffer;
+    }
+
+};
+
+
+/*****************************************************************************/
+/* OPENCL CONTEXT                                                            */
+/*****************************************************************************/
+
+struct OpenCLContext {
+    OpenCLRefCounted<cl_context> context;
+
+    OpenCLContext()
+    {
+    }
+
+    OpenCLContext(cl_context context)
+        : context(context)
+    {
+    }
+
+    OpenCLContext(cl_device_id device)
+        : OpenCLContext(&device, 1 /* numDevices */)
+    {
+    }
+
+    OpenCLContext(Bitset<cl_device_type> type,
+                  cl_platform_id platform)
+    {
+        const cl_context_properties contextProperties [] =
+            {
+                CL_CONTEXT_PLATFORM,
+                reinterpret_cast<cl_context_properties> (platform),
+                //CL_CONTEXT_INTEROP_USER_SYNC,
+                //reinterpret_cast<cl_context_properties> (userSync),
+                0, 0
+            };
+
+        cl_int error;
+
+        this->context
+            = clCreateContextFromType(contextProperties,
+                                      type.val,
+                                      &staticErrorHandler, nullptr, &error);
+            
+        checkOpenCLError(error, "clCreateContextFromType");
+    }
+
+    OpenCLContext(const std::vector<OpenCLDevice> & devices)
+        : OpenCLContext(&devices[0].device, devices.size())
+    {
+    }
+    
+    OpenCLContext(const cl_device_id * first,
+                  size_t numDevices,
+                  Bitset<cl_device_type> type = 0)
+    {
+        const cl_context_properties contextProperties [] =
+            {
+                //CL_CONTEXT_PLATFORM,
+                //reinterpret_cast<cl_context_properties> (platform),
+                //CL_CONTEXT_INTEROP_USER_SYNC,
+                //reinterpret_cast<cl_context_properties> (userSync),
+                0, 0
+            };
+
+        cl_int error;
+
+        this->context
+            = clCreateContext(contextProperties,
+                              numDevices,
+                              first,
+                              &staticErrorHandler, nullptr, &error);
+
+        checkOpenCLError(error, "clCreateContext");
+    }
+
+    ~OpenCLContext()
+    {
+    }
+
+    static void staticErrorHandler(const char * error,
+                                   const void * param,
+                                   size_t paramSize,
+                                   void * This)
+    {
+        using namespace std;
+        cerr << "got context error " << error << " with param of size "
+             << paramSize << endl;
+        abort();
+    }
+    
+    cl_uint getReferenceCountUnsafe() const
+    {
+        ExcCheck(context, "Uninitialized OpenCL context");
+        cl_uint result;
+        cl_int res
+            = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT,
+                               sizeof(result), &result, nullptr);
+        checkOpenCLError(res, "clGetContextInfo(REFERENCE_COUNT)");
+        return result;
+    }
+
+    std::vector<OpenCLDevice>
+    getDevices() const
+    {
+        auto ndev = getDeviceCount();
+
+        ExcCheck(context, "Uninitialized OpenCL context");
+        std::vector<cl_device_id> result(ndev);
+        cl_int res
+            = clGetContextInfo(context, CL_CONTEXT_DEVICES,
+                               result.size() * sizeof(cl_device_id),
+                               result.data(), nullptr);
+        checkOpenCLError(res, "clGetContextInfo(DEVICES)");
+        return std::vector<OpenCLDevice>(result.begin(), result.end());
+    }
+    
+    size_t getDeviceCount() const
+    {
+        ExcCheck(context, "Uninitialized OpenCL context");
+        cl_uint result;
+        cl_int res
+            = clGetContextInfo(context, CL_CONTEXT_NUM_DEVICES,
+                               sizeof(result), &result, nullptr);
+        checkOpenCLError(res, "clGetContextInfo(NUM_DEVICES)");
+        return result;
+    }
+
+    OpenCLCommandQueue
+    createCommandQueue(const OpenCLDevice & device,
+                    Bitset<OpenCLCommandQueueProperties> props
+                        = (OpenCLCommandQueueProperties)0)
+    {
+        cl_int error;
+        cl_command_queue queue
+            = clCreateCommandQueue (context, device,
+                                    (cl_command_queue_properties)props.val,
+                                    &error);
+        checkOpenCLError (error, "clCreateCommandQueue");
+        return queue;
+    }
+
+    OpenCLMemObject
+    createBuffer(cl_mem_flags options,
+                 size_t bytes)
+    {
+        cl_int error;
+        cl_mem result
+            = clCreateBuffer (context,
+                              options,
+                              bytes, nullptr, &error);
+        checkOpenCLError(error, "clCreateBuffer");
+        return result;
+    }
+
+    OpenCLMemObject
+    createBuffer(cl_mem_flags options,
+                 void * buf, size_t bytes)
+    {
+        cl_int error;
+        cl_mem result
+            = clCreateBuffer (context,
+                              options | CL_MEM_USE_HOST_PTR,
+                              bytes, buf, &error);
+        checkOpenCLError(error, "clCreateBuffer");
+        return result;
+    }
+
+    OpenCLMemObject
+    createBuffer(cl_mem_flags options,
+                 const void * buf, size_t bytes)
+    {
+        cl_int error;
+        cl_mem result
+            = clCreateBuffer (context,
+                              options | CL_MAP_READ | CL_MEM_USE_HOST_PTR,
+                              bytes, (void *)buf, &error);
+        checkOpenCLError(error, "clCreateBuffer");
+        return result;
+    }
+
+    OpenCLProgram
+    createProgram(const Utf8String & programSource)
+    {
+	size_t lengths [1] = { programSource.rawLength() };
+	const char* sources [1] = { programSource.rawData() };
+
+        cl_int error;
+        cl_program result = clCreateProgramWithSource(context, 1, sources, lengths, &error);
+        checkOpenCLError(error, "clCreateProgramWithSource");
+        return result;
+    }
+    
+    operator cl_context() const
+    {
+        ExcCheck(context, "Uninitialized OpenCL context");
+        return context;
+    }
+};
+
+inline OpenCLContext
+OpenCLProgram::
+getContext() const
+{
+    cl_context context;
+    cl_int error = clGetProgramInfo(program, CL_PROGRAM_CONTEXT,
+                                    sizeof(context), &context, 0);
+    checkOpenCLError(error, "clGetProgramInfo CL_PROGRAM_CONTEXT");
+    return context;
+}
+
+inline OpenCLContext
+OpenCLKernel::
+getContext() const
+{
+    cl_context context;
+    cl_int error = clGetKernelInfo(kernel, CL_KERNEL_CONTEXT,
+                                   sizeof(context), &context, 0);
+    checkOpenCLError(error, "clGetKernelInfo CL_KERNEL_CONTEXT");
+    return context;
+}
+
+inline OpenCLContext openCLCreateContext(cl_context context)
+{
+    return context;
+}
+
+
 
 } // namespace MLDB
