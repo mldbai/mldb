@@ -260,7 +260,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     
     for (int i = workerId;  i < numBuckets;  i += get_local_size(0)) {
         //printf("zeroing %d\n", i);
-        zeroW(w + workerId);
+        zeroW(w + i);
     }
     
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -284,6 +284,8 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     
     for (int i = workerId;  i < numBuckets;  i += get_local_size(0)) {
         //printf("copying %d\n", i);
+        //wOut[i].vals[0] = w[i].vals[0];
+        //wOut[i].vals[1] = w[i].vals[1];
         incrementWOut(wOut + i, w + i);
     }
 
