@@ -66,6 +66,7 @@ testFeatureKernel(Rows::RowIterator rowIterator,
                   const BucketList & buckets,
                   W * w /* buckets.numBuckets entries */)
 {
+    //return testFeatureKernelCpu(rowIterator, numRows, buckets, w);
     return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
 }
 

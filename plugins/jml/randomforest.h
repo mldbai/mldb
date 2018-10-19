@@ -223,7 +223,8 @@ struct PartitionData {
 
                     RowWriter writer
                         = data.rows.getRowWriter(numNonZero, numNonZero,
-                                                 serializer);
+                                                 serializer,
+                                                 false /* sequential example num */);
                     Rows::RowIterator rowIterator
                         = rows.getRowIterator();
 
@@ -333,10 +334,12 @@ struct PartitionData {
             RowWriter writer[2]
                 = { rows.getRowWriter(rows.rowCount(),
                                       rows.highestExampleNum(),
-                                      serializer),
+                                      serializer,
+                                      false /* sequential example nums */),
                     rows.getRowWriter(rows.rowCount(),
                                       rows.highestExampleNum(),
-                                      serializer) };
+                                      serializer,
+                                      false /* sequential example nums */) };
 
             Rows::RowIterator rowIterator = rows.getRowIterator();
             
@@ -385,10 +388,12 @@ struct PartitionData {
             RowWriter writer[2]
                 = { rows.getRowWriter(rows.rowCount(),
                                       rows.rowCount(),
-                                      serializer),
+                                      serializer,
+                                      true /* sequential example nums */),
                     rows.getRowWriter(rows.rowCount(),
                                       rows.rowCount(),
-                                      serializer) };
+                                      serializer,
+                                      true /* sequential example nums */) };
 
             Rows::RowIterator rowIterator = rows.getRowIterator();
 

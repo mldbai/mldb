@@ -181,10 +181,12 @@ struct RowWriter {
     RowWriter(const WeightEncoder * weightEncoder,
               size_t maxRows,
               size_t maxExampleCount,
-              MappedSerializer & serializer)
+              MappedSerializer & serializer,
+              bool sequentialExampleNums)
         : weightEncoder(weightEncoder),
           weightBits(weightEncoder->weightBits),
-          exampleNumBits(MLDB::highest_bit(maxExampleCount, -1) + 1),
+          exampleNumBits(sequentialExampleNums
+                         ? 0 : MLDB::highest_bit(maxExampleCount, -1) + 1),
           totalBits(weightBits + exampleNumBits + 1),
           toAllocate((totalBits * maxRows + 63) / 64 + 1 /* +1 allows extractFast */),
           data(serializer
@@ -197,7 +199,8 @@ struct RowWriter {
     {
         uint64_t toWrite = row.label();
         toWrite = (toWrite << weightBits) | row.encodedWeight_;
-        toWrite = (toWrite << exampleNumBits) | row.exampleNum();
+        if (exampleNumBits > 0)
+            toWrite = (toWrite << exampleNumBits) | row.exampleNum();
         writer.write(toWrite, totalBits);
         float weight = weightEncoder->decodeWeight(row.encodedWeight_);
         wAll[row.label()] += weight;
@@ -256,7 +259,7 @@ struct Rows {
 
         MLDB_ALWAYS_INLINE Row getRow()
         {
-            return owner->decodeRow(getRowBits());
+            return owner->decodeRow(getRowBits(), rowNumber++);
         }
 
         MLDB_ALWAYS_INLINE DecodedRow getDecodedRow()
@@ -271,6 +274,7 @@ struct Rows {
         const Rows * owner;
         ML::Bit_Extractor<uint64_t> extractor;
         int totalBits;
+        uint32_t rowNumber = 0;
     };
 
     RowIterator getRowIterator() const
@@ -278,11 +282,17 @@ struct Rows {
         return RowIterator(this, rowData.data(), totalBits);
     }
         
-    MLDB_ALWAYS_INLINE Row decodeRow(uint64_t allBits) const
+    MLDB_ALWAYS_INLINE Row
+    decodeRow(uint64_t allBits, uint32_t rowNumber) const
     {
         Row result;
-        result.exampleNum_ = allBits & exampleNumMask;
-        allBits >>= exampleNumBits;
+        if (exampleNumBits == 0) {
+            result.exampleNum_ = rowNumber;
+        }
+        else {
+            result.exampleNum_ = allBits & exampleNumMask;
+            allBits >>= exampleNumBits;
+        }
         result.encodedWeight_ = allBits & weightMask;
         allBits >>= weightEncoder.weightBits;
         //ExcAssertLessEqual(allBits, 1);
@@ -299,7 +309,7 @@ struct Rows {
     
     MLDB_ALWAYS_INLINE Row getRow(size_t i) const
     {
-        return decodeRow(getRowBits(i));
+        return decodeRow(getRowBits(i), i);
     }
 
     MLDB_ALWAYS_INLINE DecodedRow getDecodedRow(size_t i) const
@@ -320,6 +330,8 @@ struct Rows {
 
     uint32_t getExampleNum(size_t i) const
     {
+        if (exampleNumBits == 0)
+            return i;
         uint64_t allBits = getRowBits(i);
         return allBits & exampleNumMask;
     }
@@ -341,9 +353,11 @@ struct Rows {
 
     RowWriter getRowWriter(size_t maxRows,
                            size_t maxExampleCount,
-                           MappedSerializer & serializer)
+                           MappedSerializer & serializer,
+                           bool sequentialExampleNums)
     {
-        return RowWriter(&weightEncoder, maxRows, maxExampleCount, serializer);
+        return RowWriter(&weightEncoder, maxRows, maxExampleCount, serializer,
+                         sequentialExampleNums);
     }
 };
 

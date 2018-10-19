@@ -273,7 +273,8 @@ run(const ProcedureRunConfig & run,
     PartitionData allData(featureSpace);
 
     auto writer = allData.rows.getRowWriter(numRowsKept, numRowsKept,
-                                            serializer);
+                                            serializer,
+                                            false /* sequenial example nums */);
 
     size_t numRows = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {

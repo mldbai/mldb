@@ -137,7 +137,7 @@ void getDecodedRow(uint32_t rowNumber,
     //printf("exampleMask = %016lx example = %016lx\n",
     //       createMask64(exampleBits),
     //       bits & createMask64(exampleBits));
-    *example = bits & createMask64(exampleBits);
+    *example = exampleBits == 0 ? rowNumber : bits & createMask64(exampleBits);
     *weight = decodeWeight((bits >> exampleBits) & createMask64(weightBits),
                            weightEncoding, weightMultiplier, weightTable);
     *label = (bits & (1 << (weightBits + exampleBits))) != 0;
