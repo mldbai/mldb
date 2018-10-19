@@ -63,6 +63,16 @@ struct WT {
         return *this;
     }
 
+    bool operator == (const WT & other) const
+    {
+        return v[0] == other.v[0] && v[1] == other.v[1];
+    }
+
+    bool operator != (const WT & other) const
+    {
+        return ! operator == (other);
+    }
+
     typedef Float FloatType;
 };
 

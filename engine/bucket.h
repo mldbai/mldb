@@ -37,7 +37,6 @@ struct BucketList {
         return numEntries;
     }
 
-private:
     friend class WritableBucketList;
     friend class ParallelWritableBucketList;
     FrozenMemoryRegionT<uint32_t> storage;
