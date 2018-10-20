@@ -526,7 +526,7 @@ handleTypeRoute(RestDirectory * engine,
                 
                 if (!val->IsObject()) {
                     result["type"] = "value";
-                    result["value"] = (Json::Value)JS::fromJS(val);
+                    result["value"] = JS::fromJS(val).operator Json::Value();
                 }
                 else {
                     auto object = JS::toObject(val);

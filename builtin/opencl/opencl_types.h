@@ -228,13 +228,13 @@ struct OpenCLDeviceInfo {
     cl_uint maxWriteImageArgs = 0;
     cl_uint memBaseAddrAlign = 0;
     std::string name;
-    std::array<cl_uint, 7> nativeVectorWidth;
+    std::array<uint32_t /*cl_uint*/, 7> nativeVectorWidth;
     std::string openCLCVersion;
     cl_uint partitionMaxSubDevices = 0;
     std::vector<OpenCLPartitionProperty> partitionProperties;
     Bitset<OpenCLPartitionAffinityDomain> partitionAffinityDomain;
     std::vector<OpenCLPartitionProperty> partitionType;
-    std::array<cl_uint, 7> preferredVectorWidth;
+    std::array<uint32_t /*cl_uint*/, 7> preferredVectorWidth;
     size_t printfBufferSize = 0;
     cl_bool preferredInteropUserSync = false;
     std::string profile;
@@ -1267,7 +1267,7 @@ struct OpenCLContext {
     {
     }
 
-    OpenCLContext(Bitset<cl_device_type> type,
+    OpenCLContext(Bitset<uint32_t /*cl_device_type*/> type,
                   cl_platform_id platform)
     {
         const cl_context_properties contextProperties [] =
@@ -1296,7 +1296,7 @@ struct OpenCLContext {
     
     OpenCLContext(const cl_device_id * first,
                   size_t numDevices,
-                  Bitset<cl_device_type> type = 0)
+                  Bitset<uint32_t /*cl_device_type*/> type = 0)
     {
         const cl_context_properties contextProperties [] =
             {

@@ -275,9 +275,7 @@ calculate()
     if (!entries.empty())
         stats.push_back(BinaryStats(current, entries.back().score));
 
-    bestF = bestF;
-    bestMcc = bestMcc;
-    auc = totalAuc;
+    this->auc = totalAuc;
 }
 
 void

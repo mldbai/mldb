@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
-
 /* tuple_utils.h                                                   -*- C++ -*-
    Jeremy Barnes, 21 April 2014
    Copyright (c) 2014 mldb.ai inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
    Utilities for use with tuples.
 */
@@ -92,7 +91,7 @@ std::tuple<Args...> detuplize(const std::tuple<Args...> & res)
 template<typename... Args>
 std::tuple<Args...> detuplize(std::tuple<Args...> && res)
 {
-    return res;
+    return std::move(res);
 }
 
 } // namespace MLDB

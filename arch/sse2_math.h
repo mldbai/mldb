@@ -115,15 +115,15 @@ inline v2df sse2_floor(v2df x)
 
 inline v4sf sse2_trunc_unsafe(v4sf x)
 {
-    return __builtin_ia32_cvtdq2ps(__builtin_ia32_cvttps2dq(x));
+    return _mm_cvtepi32_ps(_mm_cvttps_epi32(x));
 }
 
 
 inline v4sf sse2_floor_unsafe(v4sf x)
 {
-    v4si tr       = __builtin_ia32_cvttps2dq(x);
+    v4si tr       = (v4si)_mm_cvttps_epi32(x);
     v4si neg      = (v4si)_mm_cmplt_ps(x, vec_splat(0.0f));
-    v4sf res      = __builtin_ia32_cvtdq2ps(tr);
+    v4sf res      = _mm_cvtepi32_ps((__m128i)tr);
     v4si exact    = (v4si)_mm_cmpeq_ps(res, x);
     v4sf fixmask  = _mm_andnot_ps((v4sf)exact, (v4sf)neg);
     v4sf fix      = _mm_and_ps(fixmask, vec_splat(1.0f));

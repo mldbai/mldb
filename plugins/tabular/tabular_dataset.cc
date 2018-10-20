@@ -1093,6 +1093,11 @@ struct TabularDataset::TabularDataStore
             return val.toDouble();
         }
 
+        static float extractVal(const CellValue & val, float *)
+        {
+            return val.toDouble();
+        }
+
         static CellValue extractVal(CellValue val, CellValue *)
         {
             return val;
@@ -1157,6 +1162,14 @@ struct TabularDataset::TabularDataStore
                        double * output) override
         {
             return extractT<double>(numValues, columnNames, output);
+        }
+
+        virtual void
+        extractNumbers(size_t numValues,
+                       const std::vector<ColumnPath> & columnNames,
+                       float * output) override
+        {
+            return extractT<float>(numValues, columnNames, output);
         }
 
         virtual void

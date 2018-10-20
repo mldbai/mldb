@@ -547,7 +547,7 @@ guess_info(const Feature & feat) const
 
     if (debug) cerr << "result now " << result << endl;
 
-    return result;
+    return std::move(result);
 }
 
 Feature_Info Dataset_Index::
@@ -586,7 +586,7 @@ guess_info_categorical(const Feature & feat) const
         else result.set_type(REAL);
     }
 
-    return result;
+    return std::move(result);
 }
 
 
