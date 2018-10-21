@@ -896,6 +896,50 @@ struct OpenCLEvent {
     {
         return OpenCLEventInfo(event);
     }
+
+    typedef std::function<void (const OpenCLEvent & event, cl_int status)> Callback;
+    
+    struct CallbackInfo {
+        Callback callback;
+
+        // If we set a callback, keep
+        OpenCLRefCounted<cl_event> event;
+    };
+    
+    static void doCallback(cl_event event, cl_int status, void * userData)
+    {
+        auto info = reinterpret_cast<CallbackInfo*>(userData);
+
+        // Ensure that it's destroyed no matter what
+        std::unique_ptr<CallbackInfo> infoPtr(info);
+        
+        try {
+            info->callback(OpenCLEvent(event), status);
+        } MLDB_CATCH_ALL {
+            using namespace std;
+            cerr << "An exception thrown by an OpenCL callback of type "
+                 << demangle(info->callback.target_type().name())
+                 << " threw an exception.  This leads to immediate termination "
+                 << "of the program, which is happening now." << endl;
+            abort();
+        }
+    }
+    
+    void addCallback(Callback callback,
+                     OpenCLEventCommandExecutionStatus status
+                         = OpenCLEventCommandExecutionStatus::COMPLETE)
+    {
+        std::unique_ptr<CallbackInfo> info
+            (new CallbackInfo({std::move(callback), event}));
+
+        cl_int error
+            = clSetEventCallback(event, status,
+                                 doCallback, info.get());
+
+        checkOpenCLError(error, "clSetEventCallback");
+
+        info.release();
+    }
 };
 
 
@@ -977,6 +1021,12 @@ struct OpenCLCommandQueue {
         checkOpenCLError(error, "clFinish");
     }
 
+    void wait(const OpenCLEventList & events)
+    {
+        cl_int error = clWaitForEvents(events.size(), events);
+        checkOpenCLError(error, "clWaitForEvents");
+    }
+    
     OpenCLEvent launch(cl_kernel kernel,
                        std::vector<size_t> range,
                        std::vector<size_t> work = std::vector<size_t>(),
@@ -1018,7 +1068,33 @@ struct OpenCLCommandQueue {
 
         return result;
     }
-    
+
+    OpenCLEvent enqueueMarker(OpenCLEventList waitFor)
+    {
+        OpenCLEvent result;
+        
+        cl_int error
+            = clEnqueueMarkerWithWaitList
+                (queue, waitFor.size(), waitFor, result);
+
+        checkOpenCLError(error, "clEnqueueMarkerWithWaitList");
+
+        return result;
+    }
+
+    OpenCLEvent enqueueBarrier(OpenCLEventList waitFor)
+    {
+        OpenCLEvent result;
+        
+        cl_int error
+            = clEnqueueBarrierWithWaitList
+                (queue, waitFor.size(), waitFor, result);
+
+        checkOpenCLError(error, "clEnqueueMarkerWithWaitList");
+
+        return result;
+    }
+
 #if 0    
     OpenCLContext getContext() const
     {
