@@ -327,3 +327,164 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
         }
     }
 }
+
+#if 0
+
+double scoreSplit(W wFalse, W wTrue)
+{
+    double score
+        = 2.0 * (  sqrt(wFalse[0] * wFalse[1])
+                   + sqrt(wTrue[0] * wTrue[1]));
+    return score;
+}
+
+typedef struct SplitOut {
+    double bestScore;
+    int bestSplit;
+    W bestLeft;
+    W bestRight;
+};
+
+__kernel void
+scoreSplitKernel(int maxuint32_t numRowsPerWorkgroup,
+                  
+                  __global const uint64_t * rowData,
+                  uint32_t totalBits,
+                  uint32_t weightBits,
+                  uint32_t exampleBits,
+                  uint32_t numRows,
+                  
+                  __global const uint32_t * bucketData,
+                  uint32_t bucketBits,
+                  uint32_t numBuckets,
+                  
+                  int weightEncoding,
+                  float weightMultiplier,
+                  __global const float * weightTable,
+                  
+                  __global const W * w,
+                  bool ordinal,
+                  __global const W * wAll,
+                  __global SplitOut * splitOut)
+{
+    // First, we calculate the W values
+    
+
+
+    double bestScore = INFINITY;
+    int bestSplit = -1;
+    W bestLeft;
+    W bestRight;
+
+    if (ordinal) {
+        // Calculate best split point for ordered values
+        W wFalse = wAll, wTrue;
+
+        // Now test split points one by one
+        for (unsigned j = 0;  j < maxBucket;  ++j) {
+            if (w[j].empty())
+                continue;                   
+
+            double s = scoreSplit(wFalse, wTrue);
+
+#if 0                
+            if (debug) {
+                std::cerr << "  ord split " << j << " "
+                          << features.info->bucketDescriptions.getValue(j)
+                          << " had score " << s << std::endl;
+                std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
+                std::cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << std::endl;
+            }
+#endif
+                
+            if (s < bestScore) {
+                bestScore = s;
+                bestSplit = j;
+                bestRight = wFalse;
+                bestLeft = wTrue;
+            }
+                
+            wFalse -= w[j];
+            wTrue += w[j];
+        }
+    }
+    else {
+        // Calculate best split point for non-ordered values
+        // Now test split points one by one
+
+        for (unsigned j = 0;  j <= maxBucket;  ++j) {
+                    
+            if (w[j].empty())
+                continue;
+
+            W wFalse = wAll;
+            wFalse -= w[j];                    
+
+            double s = scoreSplit(wFalse, w[j]);
+
+#if 0                    
+            if (debug) {
+                std::cerr << "  non ord split " << j << " "
+                          << features.info->bucketDescriptions.getValue(j)
+                          << " had score " << s << std::endl;
+                std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
+                std::cerr << "    true:  " << w[j][0] << " " << w[j][1] << std::endl;
+            }
+#endif
+                    
+            if (s < bestScore) {
+                bestScore = s;
+                bestSplit = j;
+                bestRight = wFalse;
+                bestLeft = w[j];
+            }
+        }
+
+    }
+
+    return { bestScore, bestSplit, bestLeft, bestRight };
+}
+
+
+__kernel void testAndScoreFeature(uint32_t numRowsPerWorkgroup,
+
+                                  __global const uint64_t * rowData,
+                                  uint32_t totalBits,
+                                  uint32_t weightBits,
+                                  uint32_t exampleBits,
+                                  uint32_t numRows,
+
+                                  __global const uint32_t * bucketData,
+                                  uint32_t bucketBits,
+                                  uint32_t numBuckets,
+                                  
+                                  int weightEncoding,
+                                  float weightMultiplier,
+                                  __global const float * weightTable,
+
+                                  __local W * w)
+{
+    int maxBucket = -1;
+
+    double bestScore = INFINITY;
+    int bestSplit = -1;
+    W bestLeft;
+    W bestRight;
+
+    // Is s feature still active?
+    bool isActive;
+
+    std::tie(isActive, maxBucket)
+        = testFeatureKernel(rowIterator, numRows,
+                            buckets, w.data());
+
+    if (isActive) {
+        std::tie(bestScore, bestSplit, bestLeft, bestRight)
+            = chooseSplitKernel(w.data(), maxBucket, feature.ordinal,
+                                wAll);
+    }
+
+    return { bestScore, bestSplit, bestLeft, bestRight, isActive };
+}
+
+#endif

@@ -533,7 +533,210 @@ testAllCpu(int depth,
 
     return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
 }
+
+struct OpenCLKernelContext {
+    OpenCLContext context;
+    std::vector<OpenCLDevice> devices;
+    OpenCLProgram program;
+    OpenCLCommandQueue queue;
+};
+
+OpenCLKernelContext getKernelContext()
+{
+    static const OpenCLProgram program = getTestFeatureProgramOpenCL();
+
+    OpenCLContext context = program.getContext();
+
+    auto devices = context.getDevices();
+
+    auto queue = context.createCommandQueue
+        (devices[0],
+         OpenCLCommandQueueProperties::PROFILING_ENABLE);
+
     
+    OpenCLKernelContext result;
+    result.program = program;
+    result.context = program.getContext();
+    result.devices = context.getDevices();
+    result.queue = queue;
+    return result;
+}
+
+std::tuple<double, int, int, W, W>
+testAllOpenCL(int depth,
+              std::vector<Feature> & features,
+              const Rows & rows)
+{
+    // We have no impurity in our bucket.  Time to stop
+    if (rows.wAll[0] == 0 || rows.wAll[1] == 0) {
+        return std::make_tuple(1.0, -1, -1, rows.wAll, W());
+    }
+
+    static std::mutex mutex;
+    std::unique_lock<std::mutex> guard(mutex);
+    
+    int nf = features.size();
+
+    size_t activeFeatures = 0;
+
+    for (unsigned i = 0;  i < nf;  ++i) {
+        if (!features[i].active)
+            continue;
+        ++activeFeatures;
+    }
+
+    //cerr << "doing " << rows.rowCount() << " rows with "
+    //     << activeFeatures << " active features" << endl;
+    
+    double bestScore = INFINITY;
+    int bestFeature = -1;
+    int bestSplit = -1;
+        
+    W bestLeft;
+    W bestRight;
+
+    // Reduction over the best split that comes in feature by feature;
+    // we find the best global split score and store it.  This is done
+    // in order to be sure that we deterministically pick the right
+    // one.
+    auto findBest = [&] (int feature,
+                         const std::tuple<double, int, W, W> & val)
+        {
+            double score = std::get<0>(val);
+            if (score < bestScore
+                || (score == bestScore && feature < bestFeature)) {
+                bestFeature = feature;
+                std::tie(bestScore, bestSplit, bestLeft, bestRight) = val;
+            }
+        };
+    
+    static OpenCLKernelContext kernelContext = getKernelContext();
+    
+    OpenCLContext & context = kernelContext.context;
+    
+    // Transfer rows, weights on the GPU; these are shared across all features
+    OpenCLMemObject rowData
+        = context.createBuffer(0,
+                               (const void *)rows.rowData.data(),
+                               rows.rowData.memusage());
+    
+    OpenCLMemObject weightData
+        = context.createBuffer(CL_MEM_READ_ONLY, 4);
+    
+    if (rows.weightEncoder.weightFormat == WF_TABLE) {
+        weightData = context.createBuffer
+            (0,
+             (const void *)rows.weightEncoder.weightFormatTable.data(),
+             rows.weightEncoder.weightFormatTable.memusage());
+    }
+
+    OpenCLCommandQueue & queue = kernelContext.queue;
+    
+    OpenCLEventList featureEvents;
+    
+
+    auto doFeature = [&] (int i) {
+
+        if (!features[i].active)
+            return;
+
+        const BucketList & buckets = features[i].buckets;
+
+        std::vector<W> w(buckets.numBuckets);
+        
+        OpenCLKernel kernel
+            = kernelContext.program.createKernel("testFeatureKernel");
+
+        OpenCLMemObject bucketData
+            = context.createBuffer(0,
+                                   (const void *)buckets.storage.data(),
+                                   buckets.storage.memusage());
+
+        OpenCLMemObject wOut
+            = context.createBuffer(CL_MEM_READ_WRITE,
+                                   w.data(),
+                                   sizeof(W) * w.size());
+
+        int minMax[2] = { INT_MAX, INT_MIN };
+        
+        OpenCLMemObject minMaxOut
+            = context.createBuffer(CL_MEM_READ_WRITE,
+                                   minMax,
+                                   sizeof(minMax[0]) * 2);
+
+        size_t numRows = rows.rowCount();
+        
+        int numRowsPerWorkItem = (numRows + 1023) / 1024;
+    
+        kernel.bind(numRowsPerWorkItem,
+                    rowData,
+                    rows.totalBits,
+                    rows.weightEncoder.weightBits,
+                    rows.exampleNumBits,
+                    (uint32_t)numRows,
+                    bucketData,
+                    buckets.entryBits,
+                    buckets.numBuckets,
+                    rows.weightEncoder.weightFormat,
+                    rows.weightEncoder.weightMultiplier,
+                    weightData,
+                    LocalArray<W>(buckets.numBuckets),
+                    wOut,
+                    minMaxOut);
+    
+        OpenCLEvent runKernel
+            = queue.launch(kernel,
+                           { 1024 },
+                           { 256 });
+
+        OpenCLEvent wTransfer
+            = queue.enqueueReadBuffer(wOut, 0 /* offset */,
+                                      sizeof(W) * buckets.numBuckets /* length */,
+                                      w.data(),
+                                      runKernel /* before */);
+
+        OpenCLEvent minMaxTransfer
+            = queue.enqueueReadBuffer(minMaxOut, 0 /* offset */,
+                                      sizeof(minMax[0]) * 2 /* length */,
+                                      minMax,
+                                      runKernel);
+    
+        OpenCLEvent doneFeature = queue.enqueueMarker
+            ({ runKernel, wTransfer, minMaxTransfer });
+
+        doneFeature.waitUntilFinished();
+        runKernel.assertSuccess();
+        wTransfer.assertSuccess();
+        minMaxTransfer.assertSuccess();
+        doneFeature.assertSuccess();
+        
+        bool active = (minMax[0] != minMax[1]);
+        int maxBucket = minMax[1];
+
+        ExcAssertLessEqual(minMax[1], buckets.numBuckets);
+        ExcAssertGreaterEqual(minMax[1], 0);
+        
+        if (active) {
+            findBest(i, chooseSplitKernel(w.data(), maxBucket, features[i].ordinal,
+                                          rows.wAll));
+        }
+        else {
+            features[i].active = false;
+        }
+    };
+
+    cerr << rows.rowCount() << " rows, " << nf << " features";
+    
+    for (int i = 0;  i < nf;  ++i) {
+        doFeature(i);
+        cerr << " " << i;
+    }
+
+    cerr << endl;
+    
+    return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
+}
+
 std::tuple<double, int, int, W, W>
 testAll(int depth,
         std::vector<Feature> & features,
