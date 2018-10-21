@@ -10,6 +10,7 @@
 #include "mldb/builtin/opencl/opencl_types.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/base/map_reduce.h"
 
 using namespace std;
 
@@ -104,10 +105,6 @@ getOpenCLDevices()
     throw AnnotatedException(500, "No OpenCL platform found");
 }
 
-struct AtInit {
-
-
-} atInit;
 
 OpenCLProgram getTestFeatureProgramOpenCL()
 {
@@ -267,7 +264,6 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
 }
 
 // Chooses which is the best split for a given feature.
-MLDB_NEVER_INLINE
 std::tuple<double /* bestScore */,
            int /* bestSplit */,
            W /* bestLeft */,
@@ -351,6 +347,157 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
 
     return { bestScore, bestSplit, bestLeft, bestRight };
 }
+
+std::tuple<double /* bestScore */,
+           int /* bestSplit */,
+           W /* bestLeft */,
+           W /* bestRight */,
+           bool /* feature is still active */ >
+testFeatureNumber(int featureNum,
+                  const std::vector<Feature> & features,
+                  Rows::RowIterator rowIterator,
+                  size_t numRows,
+                  const W & wAll)
+{
+    const Feature & feature = features.at(featureNum);
+    const BucketList & buckets = feature.buckets;
+    int nb = buckets.numBuckets;
+
+    std::vector<W> w(nb);
+    int maxBucket = -1;
+
+    double bestScore = INFINITY;
+    int bestSplit = -1;
+    W bestLeft;
+    W bestRight;
+
+    if (!feature.active)
+        return std::make_tuple(bestScore, bestSplit, bestLeft, bestRight, false);
+
+    // Is s feature still active?
+    bool isActive;
+
+    std::tie(isActive, maxBucket)
+        = testFeatureKernel(rowIterator, numRows,
+                            buckets, w.data());
+
+    if (isActive) {
+        std::tie(bestScore, bestSplit, bestLeft, bestRight)
+            = chooseSplitKernel(w.data(), maxBucket, feature.ordinal,
+                                wAll);
+    }
+
+    return { bestScore, bestSplit, bestLeft, bestRight, isActive };
+}
+
+std::tuple<double, int, int, W, W>
+testAllCpu(int depth,
+           std::vector<Feature> & features,
+           const Rows & rows)
+{
+    // We have no impurity in our bucket.  Time to stop
+    if (rows.wAll[0] == 0 || rows.wAll[1] == 0) {
+        return std::make_tuple(1.0, -1, -1, rows.wAll, W());
+    }
+
+    bool debug = false;
+
+    int nf = features.size();
+
+    size_t totalNumBuckets = 0;
+    size_t activeFeatures = 0;
+
+    for (unsigned i = 0;  i < nf;  ++i) {
+        if (!features[i].active)
+            continue;
+        ++activeFeatures;
+        totalNumBuckets += features[i].buckets.numBuckets;
+    }
+
+    if (debug) {
+        std::cerr << "total of " << totalNumBuckets << " buckets" << std::endl;
+        std::cerr << activeFeatures << " of " << nf << " features active"
+                  << std::endl;
+    }
+
+    double bestScore = INFINITY;
+    int bestFeature = -1;
+    int bestSplit = -1;
+        
+    W bestLeft;
+    W bestRight;
+
+    // Reduction over the best split that comes in feature by feature;
+    // we find the best global split score and store it.  This is done
+    // in order to be sure that we deterministically pick the right
+    // one.
+    auto findBest = [&] (int feature,
+                         const std::tuple<double, int, W, W> & val)
+        {
+            double score = std::get<0>(val);
+            if (score < bestScore) {
+                bestFeature = feature;
+                std::tie(bestScore, bestSplit, bestLeft, bestRight) = val;
+            }
+        };
+
+    // Parallel map over all features
+    auto doFeature = [&] (int i)
+        {
+            double score;
+            int split = -1;
+            W bestLeft, bestRight;
+
+            Rows::RowIterator rowIterator = rows.getRowIterator();
+                
+            std::tie(score, split, bestLeft, bestRight, features[i].active)
+            = testFeatureNumber(i, features, rowIterator,
+                                rows.rowCount(), rows.wAll);
+            return std::make_tuple(score, split, bestLeft, bestRight);
+        };
+
+    if (depth < 4 || rows.rowCount() * nf > 20000) {
+        parallelMapInOrderReduce(0, nf, doFeature, findBest);
+    }
+    else {
+        for (unsigned i = 0;  i < nf;  ++i)
+            doFeature(i);
+    }
+
+    int bucketsEmpty = 0;
+    int bucketsOne = 0;
+    int bucketsBoth = 0;
+
+#if 0        
+    for (auto & wt: w[i]) {
+        //wAll += wt;
+        bucketsEmpty += wt[0] == 0 && wt[1] == 0;
+        bucketsBoth += wt[0] != 0 && wt[1] != 0;
+        bucketsOne += (wt[0] == 0) ^ (wt[1] == 0);
+    }
+#endif
+            
+    if (debug) {
+        std::cerr << "buckets: empty " << bucketsEmpty << " one " << bucketsOne
+                  << " both " << bucketsBoth << std::endl;
+        std::cerr << "bestScore " << bestScore << std::endl;
+        std::cerr << "bestFeature " << bestFeature << " "
+                  << features[bestFeature].info->columnName << std::endl;
+        std::cerr << "bestSplit " << bestSplit << " "
+                  << features[bestFeature].info->bucketDescriptions.getValue(bestSplit)
+                  << std::endl;
+    }
+
+    return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
+}
     
+std::tuple<double, int, int, W, W>
+testAll(int depth,
+        std::vector<Feature> & features,
+        const Rows & rows)
+{
+    return testAllOpenCL(depth, features, rows);
+}
+
 } // namespace RF
 } // namespace MLDB

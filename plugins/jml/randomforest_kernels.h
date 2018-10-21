@@ -30,7 +30,7 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 // Calculates the score of a split, which is a measure of the
 // amount of mutual entropy between the label and the given
 // candidate split point.
-static double scoreSplit(const W & wFalse, const W & wTrue)
+inline double scoreSplit(const W & wFalse, const W & wTrue)
 {
     double score
         = 2.0 * (  sqrt(wFalse[0] * wFalse[1])
@@ -49,5 +49,37 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                   bool ordinal,
                   const W & wAll);
     
+std::tuple<double /* bestScore */,
+           int /* bestSplit */,
+           W /* bestLeft */,
+           W /* bestRight */,
+           bool /* feature is still active */ >
+testFeatureNumber(int featureNum,
+                  const std::vector<Feature> & features,
+                  Rows::RowIterator rowIterator,
+                  size_t numRows,
+                  const W & wAll);
+
+/** Main kernel for random forest training.
+
+    Test all features for a split.  Returns the feature number,
+    the bucket number and the goodness of the split.
+
+    Outputs
+    - Z score of split
+    - Feature number
+    - Split point (bucket number)
+    - W for the left side of the split
+    - W from the right side of the split
+
+    Features that are inactive from here on are recorded by mutating
+    the active flag in the features argument.
+*/
+
+std::tuple<double, int, int, W, W>
+testAll(int depth,
+        std::vector<Feature> & features,
+        const Rows & rows);
+
 } // namespace RF
 } // namespace MLDB
