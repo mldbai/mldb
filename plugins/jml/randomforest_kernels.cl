@@ -188,23 +188,23 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
     atom_add(&wOut->vals[1], wIn->vals[1]);
 }
 
-void testRow(uint32_t rowId,
+uint32_t testRow(uint32_t rowId,
 
-             __global const uint64_t * rowData,
-             uint32_t totalBits,
-             uint32_t weightBits,
-             uint32_t exampleBits,
-             uint32_t numRows,
+                 __global const uint64_t * rowData,
+                 uint32_t totalBits,
+                 uint32_t weightBits,
+                 uint32_t exampleBits,
+                 uint32_t numRows,
                    
-             __global const uint32_t * bucketData,
-             uint32_t bucketBits,
-             uint32_t numBuckets,
+                 __global const uint32_t * bucketData,
+                 uint32_t bucketBits,
+                 uint32_t numBuckets,
                    
-             int weightEncoding,
-             float weightMultiplier,
-             __global const float * weightTable,
+                 int weightEncoding,
+                 float weightMultiplier,
+                 __global const float * weightTable,
                    
-             __local W * w)
+                 __local W * w)
 {
     uint32_t exampleNum;
     float weight;
@@ -223,6 +223,8 @@ void testRow(uint32_t rowId,
     //           rowId, exampleNum, bucket, numBuckets, weight, label);
 
     incrementW(w + bucket, label, weight);
+
+    return bucket;
 }
 
 __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
@@ -242,11 +244,19 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
                                 __global const float * weightTable,
 
                                 __local W * w,
-                                __global W * wOut)
+                                __global W * wOut,
+                                __global int * minMaxOut)
 {
     const uint32_t workGroupId = get_global_id (0);
     const uint32_t workerId = get_local_id(0);
 
+    __local int minWorkgroupBucket, maxWorkgroupBucket;
+
+    if (workerId == 0) {
+        minWorkgroupBucket = INT_MAX;
+        maxWorkgroupBucket = INT_MIN;
+    }
+    
     //printf("workGroupId = %d workerId = %d\n",
     //       workGroupId, workerId);
     
@@ -270,16 +280,26 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     //if (rowId > 4)
     //    return;
 
+    int minBucket = INT_MAX;
+    int maxBucket = INT_MIN;
+
     for (int i = 0;  i < numRowsPerWorkgroup;  ++i) {
         int rowId = workGroupId * numRowsPerWorkgroup + i;
         //printf("rowId = %d, numRows = %d\n", rowId, numRows);
         if (rowId < numRows) {
-            testRow(rowId, rowData, totalBits, weightBits, exampleBits, numRows,
-                    bucketData, bucketBits, numBuckets,
-                    weightEncoding, weightMultiplier, weightTable, w);
+            int bucket
+                = testRow(rowId, rowData, totalBits, weightBits, exampleBits,
+                          numRows,
+                          bucketData, bucketBits, numBuckets,
+                          weightEncoding, weightMultiplier, weightTable, w);
+            minBucket = min(minBucket, bucket);
+            maxBucket = max(maxBucket, bucket);
         }
     }
-        
+
+    atomic_min(&minWorkgroupBucket, minBucket);
+    atomic_max(&maxWorkgroupBucket, maxBucket);
+    
     barrier(CLK_LOCAL_MEM_FENCE);
     
     for (int i = workerId;  i < numBuckets;  i += get_local_size(0)) {
@@ -289,8 +309,15 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
         incrementWOut(wOut + i, w + i);
     }
 
-    barrier(CLK_GLOBAL_MEM_FENCE);
-
+    if (workerId == 0) {
+        //printf("index %d minBucket %d maxBucket %d\n",
+        //       workGroupId, minWorkgroupBucket, maxWorkgroupBucket);
+        atomic_min(minMaxOut + 0, minWorkgroupBucket);
+        atomic_max(minMaxOut + 1, maxWorkgroupBucket);
+    }
+    
+    //barrier(CLK_GLOBAL_MEM_FENCE);
+    
     if (workGroupId == 0 && false) {
         for (int i = 256;  i < 266 && i < numBuckets;  ++i) {
             printf("local bucket %d W = (%g, %g)\n",

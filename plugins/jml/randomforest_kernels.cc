@@ -169,16 +169,25 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     OpenCLMemObject weightData
         = context.createBuffer(CL_MEM_READ_ONLY, 4);
 
-#if 0
-    = context.createBuffer(0,
-                               (const void *)rowIterator.owner->weightEncoder.weightFormatTable.data(),
-                               rowIterator.owner->weightEncoder.weightFormatTable.memusage());
-#endif
+    if (rowIterator.owner->weightEncoder.weightFormat == WF_TABLE) {
+        weightData = context.createBuffer
+            (0,
+             (const void *)rowIterator.owner->weightEncoder.weightFormatTable.data(),
+             rowIterator.owner->weightEncoder.weightFormatTable.memusage());
+    }
 
     OpenCLMemObject wOut
         = context.createBuffer(CL_MEM_READ_WRITE,
                                w,
                                sizeof(W) * buckets.numBuckets);
+
+
+    int minMax[2] = { INT_MAX, INT_MIN };
+    
+    OpenCLMemObject minMaxOut
+        = context.createBuffer(CL_MEM_READ_WRITE,
+                               minMax,
+                               sizeof(minMax[0]) * 2);
 
     int numRowsPerWorkItem = (numRows + 1023) / 1024;
     
@@ -195,13 +204,16 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                 rowIterator.owner->weightEncoder.weightMultiplier,
                 weightData,
                 LocalArray<W>(buckets.numBuckets),
-                wOut);
+                wOut,
+                minMaxOut);
     
     auto devices = context.getDevices();
     
     auto queue = context.createCommandQueue
         (devices[0],
          OpenCLCommandQueueProperties::PROFILING_ENABLE);
+
+    Date before = Date::now();
     
     OpenCLEvent runKernel
         = queue.launch(kernel,
@@ -213,26 +225,49 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                                   sizeof(W) * buckets.numBuckets /* length */,
                                   w,
                                   runKernel /* before */);
+
+    OpenCLEvent minMaxTransfer
+        = queue.enqueueReadBuffer(minMaxOut, 0 /* offset */,
+                                  sizeof(minMax[0]) * 2 /* length */,
+                                  minMax,
+                                  runKernel);
     
-    transfer.waitUntilFinished();
-
+    queue.wait({transfer, minMaxTransfer});
     transfer.assertSuccess();
+    minMaxTransfer.assertSuccess();
 
+    Date after = Date::now();
+
+    cerr << "gpu took " << after.secondsSince(before) * 1000 << "ms" << endl;
+    
 #if 0    
     for (size_t i = 0;  i < 10 && i < buckets.numBuckets;  ++i) {
         cerr << "w[" << i << "] = (" << w[i].v[0] << " " << w[i].v[1] << ")"
              << endl;
     }
 #endif
+
+    bool active = (minMax[0] != minMax[1]);
+    int maxBucket = minMax[1];
     
     if (true) {
 
         std::vector<W> wCpu(buckets.numBuckets);
+
+        bool cpuActive;
+        int cpuMaxBucket;
+
+        Date before = Date::now();
         
-        testFeatureKernelCpu(rowIterator,
-                             numRows,
-                             buckets,
-                             wCpu.data());
+        std::tie(cpuActive, cpuMaxBucket)
+            = testFeatureKernelCpu(rowIterator,
+                                   numRows,
+                                   buckets,
+                                   wCpu.data());
+
+        Date after = Date::now();
+        
+        cerr << "cpu took " << after.secondsSince(before) * 1000 << "ms" << endl;
 
         for (size_t i = 0;  i < buckets.numBuckets;  ++i) {
             if (w[i] != wCpu[i]) {
@@ -240,6 +275,14 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                      << w[i].v[0] << "," << w[i].v[1] << "), cpu = ("
                      << wCpu[i].v[0] << "," << wCpu[i].v[1] << ")" << endl;
             }
+        }
+
+        if (cpuActive != active) {
+            cerr << "error: active CPU = " << cpuActive << " != gpu " << active << endl;
+        }
+        if (cpuMaxBucket != maxBucket) {
+            cerr << "error: max bucket CPU = " << cpuMaxBucket
+                 << " != gpu " << maxBucket << endl;
         }
     }
 
@@ -260,7 +303,7 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     cerr << jsonEncode(profile);
 #endif
     
-    return { false, -1 };
+    return { active, maxBucket };
 }
 
 // Chooses which is the best split for a given feature.
