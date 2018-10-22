@@ -14,11 +14,11 @@ typedef unsigned uint32_t;
 typedef unsigned long uint64_t;
 typedef long int64_t;
 
-static const __constant float VAL_2_HL = 1.0f * (1ULL << 63);
-static const __constant float HL_2_VAL = 1.0f / (1ULL << 63);
-static const __constant float VAL_2_H = (1ULL << 31);
-static const __constant float H_2_VAL = 1.0f / (1ULL << 31);
-static const __constant float ADD_TO_ROUND = 0.5f / (1ULL << 63);
+static const __constant float VAL_2_HL = 1.0f * (1UL << 63);
+static const __constant float HL_2_VAL = 1.0f / (1UL << 63);
+static const __constant float VAL_2_H = (1UL << 31);
+static const __constant float H_2_VAL = 1.0f / (1UL << 31);
+static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 63);
 
 float decodeWeight(uint32_t bits, int floatEncoding, float baseMultiplier,
                    __global const float * table)
@@ -252,6 +252,14 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     __local int minWorkgroupBucket, maxWorkgroupBucket;
 
+    if (workGroupId == 0) {
+        printf("global size %ld, num groups %ld, local size %ld, numRows %d\n",
+               get_global_size(0),
+               get_num_groups(0),
+               get_local_size(0),
+               numRows);
+    }
+    
     if (workerId == 0) {
         minWorkgroupBucket = INT_MAX;
         maxWorkgroupBucket = INT_MIN;
@@ -285,6 +293,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     for (int i = 0;  i < numRowsPerWorkgroup;  ++i) {
         int rowId = workGroupId * numRowsPerWorkgroup + i;
+        //int rowId = workGroupId + i * get_num_groups(0);
         //printf("rowId = %d, numRows = %d\n", rowId, numRows);
         if (rowId < numRows) {
             int bucket

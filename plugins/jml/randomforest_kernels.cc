@@ -67,8 +67,8 @@ testFeatureKernel(Rows::RowIterator rowIterator,
                   const BucketList & buckets,
                   W * w /* buckets.numBuckets entries */)
 {
-    //return testFeatureKernelCpu(rowIterator, numRows, buckets, w);
-    return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
+    return testFeatureKernelCpu(rowIterator, numRows, buckets, w);
+    //return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
 }
 
 std::vector<OpenCLDevice>
@@ -578,11 +578,13 @@ testAllOpenCL(int depth,
     int nf = features.size();
 
     size_t activeFeatures = 0;
-
+    size_t totalBuckets = 0;
+    
     for (unsigned i = 0;  i < nf;  ++i) {
         if (!features[i].active)
             continue;
         ++activeFeatures;
+        totalBuckets += features[i].buckets.numBuckets;
     }
 
     //cerr << "doing " << rows.rowCount() << " rows with "
@@ -620,6 +622,8 @@ testAllOpenCL(int depth,
                                (const void *)rows.rowData.data(),
                                rows.rowData.memusage());
     
+    cerr << "sending over " << rows.rowData.memusage() / 1000000.0 << "mb of rows" << endl;
+
     OpenCLMemObject weightData
         = context.createBuffer(CL_MEM_READ_ONLY, 4);
     
@@ -633,7 +637,9 @@ testAllOpenCL(int depth,
     OpenCLCommandQueue & queue = kernelContext.queue;
     
     OpenCLEventList featureEvents;
-    
+
+    std::vector<std::vector<W> > allW(nf);
+    std::vector<std::array<int, 2> > allMinMax(nf);
 
     auto doFeature = [&] (int i) {
 
@@ -642,11 +648,16 @@ testAllOpenCL(int depth,
 
         const BucketList & buckets = features[i].buckets;
 
-        std::vector<W> w(buckets.numBuckets);
+        std::vector<W> & w = allW[i];
+        w.resize(buckets.numBuckets);
         
         OpenCLKernel kernel
             = kernelContext.program.createKernel("testFeatureKernel");
 
+        //OpenCLKernelWorkgroupInfo info(kernel, context.getDevices()[0]);
+
+        //cerr << jsonEncodeStr(info) << endl;
+        
         OpenCLMemObject bucketData
             = context.createBuffer(0,
                                    (const void *)buckets.storage.data(),
@@ -657,18 +668,21 @@ testAllOpenCL(int depth,
                                    w.data(),
                                    sizeof(W) * w.size());
 
-        int minMax[2] = { INT_MAX, INT_MIN };
+        std::array<int, 2> & minMax = allMinMax[i];
+        minMax = { INT_MAX, INT_MIN };
         
         OpenCLMemObject minMaxOut
             = context.createBuffer(CL_MEM_READ_WRITE,
-                                   minMax,
+                                   minMax.data(),
                                    sizeof(minMax[0]) * 2);
 
         size_t numRows = rows.rowCount();
+
+        size_t workGroupSize = 1024;
         
-        int numRowsPerWorkItem = (numRows + 1023) / 1024;
+        size_t numRowsPerWorkItem = (numRows + workGroupSize - 1) / workGroupSize;
     
-        kernel.bind(numRowsPerWorkItem,
+        kernel.bind((uint32_t)numRowsPerWorkItem,
                     rowData,
                     rows.totalBits,
                     rows.weightEncoder.weightBits,
@@ -686,8 +700,8 @@ testAllOpenCL(int depth,
     
         OpenCLEvent runKernel
             = queue.launch(kernel,
-                           { 1024 },
-                           { 256 });
+                           { workGroupSize },
+                           { 1024 });
 
         OpenCLEvent wTransfer
             = queue.enqueueReadBuffer(wOut, 0 /* offset */,
@@ -698,22 +712,51 @@ testAllOpenCL(int depth,
         OpenCLEvent minMaxTransfer
             = queue.enqueueReadBuffer(minMaxOut, 0 /* offset */,
                                       sizeof(minMax[0]) * 2 /* length */,
-                                      minMax,
+                                      minMax.data(),
                                       runKernel);
     
-        OpenCLEvent doneFeature = queue.enqueueMarker
+        OpenCLEvent doneFeature = queue.enqueueBarrier
             ({ runKernel, wTransfer, minMaxTransfer });
 
-        doneFeature.waitUntilFinished();
+        featureEvents.events.emplace_back(std::move(doneFeature));
+
+#if 1
+        //doneFeature.waitUntilFinished();
+        runKernel.waitUntilFinished();
+        wTransfer.waitUntilFinished();
+        minMaxTransfer.waitUntilFinished();
         runKernel.assertSuccess();
         wTransfer.assertSuccess();
         minMaxTransfer.assertSuccess();
-        doneFeature.assertSuccess();
+        //doneFeature.assertSuccess();
+#endif
         
+        queue.finish();
+    };
+
+    for (int i = 0;  i < nf;  ++i) {
+        doFeature(i);
+    }
+
+    queue.finish();
+
+    for (auto & f: featureEvents.events) {
+        f.assertSuccess();
+    }
+    
+    for (int i = 0;  i < nf;  ++i) {
+
+        if (!features[i].active)
+            continue;
+
+        std::vector<W> & w = allW[i];
+        std::array<int, 2> & minMax = allMinMax[i];
+        
+
         bool active = (minMax[0] != minMax[1]);
         int maxBucket = minMax[1];
 
-        ExcAssertLessEqual(minMax[1], buckets.numBuckets);
+        ExcAssertLessEqual(minMax[1], features[i].buckets.numBuckets);
         ExcAssertGreaterEqual(minMax[1], 0);
         
         if (active) {
@@ -725,14 +768,18 @@ testAllOpenCL(int depth,
         }
     };
 
-    cerr << rows.rowCount() << " rows, " << nf << " features";
-    
-    for (int i = 0;  i < nf;  ++i) {
-        doFeature(i);
-        cerr << " " << i;
-    }
+    //cerr << rows.rowCount() << " rows, " << nf << " features";
 
-    cerr << endl;
+    //parallelMap(0, nf, doFeature);
+    
+    //for (int i = 0;  i < nf;  ++i) {
+    //    doFeature(i);
+        //cerr << " " << i;
+    //}
+
+    //cerr << endl;
+
+    //cerr << "rows has " << rowData.referenceCount() << " references" << endl;
     
     return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
 }
@@ -742,7 +789,12 @@ testAll(int depth,
         std::vector<Feature> & features,
         const Rows & rows)
 {
-    return testAllOpenCL(depth, features, rows);
+    if (rows.rowCount() < 100000) {
+        return testAllCpu(depth, features, rows);
+    }
+    else {
+        return testAllOpenCL(depth, features, rows);
+    }
 }
 
 } // namespace RF
