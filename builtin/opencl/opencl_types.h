@@ -400,10 +400,6 @@ struct OpenCLKernelArgInfo {
 };
 
 
-struct OpenCLKernelInfo;
-
-DECLARE_STRUCTURE_DESCRIPTION(OpenCLKernelInfo);
-
 struct OpenCLKernelInfo {
 
     OpenCLKernelInfo() = default;
@@ -418,6 +414,35 @@ struct OpenCLKernelInfo {
     std::vector<std::string> attributes;
     std::vector<OpenCLKernelArgInfo> args;
 };
+
+DECLARE_STRUCTURE_DESCRIPTION(OpenCLKernelInfo);
+
+
+/*****************************************************************************/
+/* OPENCL KERNEL WORKGROUP INFO                                              */
+/*****************************************************************************/
+
+struct OpenCLKernelWorkgroupInfo {
+
+    OpenCLKernelWorkgroupInfo() = default;
+    OpenCLKernelWorkgroupInfo(cl_kernel kernel, cl_device_id device);
+
+    template<typename T, typename... Args>
+    void doField(cl_uint what, T & where, Args&&... args);
+
+    cl_kernel kernel = nullptr;
+    cl_device_id device = nullptr;
+    
+    std::array<size_t, 3> globalWorkSize = { 0, 0, 0 };
+    size_t workGroupSize = 0;
+    std::array<size_t, 3> compileWorkGroupSize = { 0, 0, 0 };
+    cl_ulong localMemSize = 0;
+    size_t preferredWorkGroupSizeMultiple = 0;
+    cl_ulong privateMemSize = 0;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(OpenCLKernelWorkgroupInfo);
+
 
 /*****************************************************************************/
 /* OPENCL EVENT INFO                                                         */
@@ -672,6 +697,15 @@ inline void clRelease(cl_context context)
     checkOpenCLError(res, "clReleseContext");
 }
 
+inline int clRefCount(cl_context context)
+{
+    cl_uint refCount;
+    cl_int res = clGetContextInfo(context, CL_CONTEXT_REFERENCE_COUNT,
+                                  sizeof(refCount), &refCount, nullptr);
+    checkOpenCLError(res, "clGetContextInfo CL_CONTEXT_REFERENCE_COUNT");
+    return refCount;
+}
+
 inline void clRetain(cl_command_queue queue)
 {
     cl_int res = clRetainCommandQueue(queue);
@@ -682,6 +716,15 @@ inline void clRelease(cl_command_queue queue)
 {
     cl_int res = clReleaseCommandQueue(queue);
     checkOpenCLError(res, "clReleseQueue");
+}
+
+inline int clRefCount(cl_command_queue command_queue)
+{
+    cl_uint refCount;
+    cl_int res = clGetCommandQueueInfo(command_queue, CL_QUEUE_REFERENCE_COUNT,
+                                  sizeof(refCount), &refCount, nullptr);
+    checkOpenCLError(res, "clGetCommandQueueInfo CL_QUEUE_REFERENCE_COUNT");
+    return refCount;
 }
 
 inline void clRetain(cl_event event)
@@ -696,6 +739,15 @@ inline void clRelease(cl_event event)
     checkOpenCLError(res, "clReleaseEvent");
 }
 
+inline int clRefCount(cl_event event)
+{
+    cl_uint refCount;
+    cl_int res = clGetEventInfo(event, CL_EVENT_REFERENCE_COUNT,
+                                  sizeof(refCount), &refCount, nullptr);
+    checkOpenCLError(res, "clGetEventInfo CL_EVENT_REFERENCE_COUNT");
+    return refCount;
+}
+
 inline void clRetain(cl_program program)
 {
     cl_int res = clRetainProgram(program);
@@ -706,6 +758,15 @@ inline void clRelease(cl_program program)
 {
     cl_int res = clReleaseProgram(program);
     checkOpenCLError(res, "clReleaseProgram");
+}
+
+inline int clRefCount(cl_program program)
+{
+    cl_uint refCount;
+    cl_int res = clGetProgramInfo(program, CL_PROGRAM_REFERENCE_COUNT,
+                                  sizeof(refCount), &refCount, nullptr);
+    checkOpenCLError(res, "clGetProgramInfo CL_PROGRAM_REFERENCE_COUNT");
+    return refCount;
 }
 
 inline void clRetain(cl_kernel kernel)
@@ -720,6 +781,15 @@ inline void clRelease(cl_kernel kernel)
     checkOpenCLError(res, "clReleaseKernel");
 }
 
+inline int clRefCount(cl_kernel kernel)
+{
+    cl_uint refCount;
+    cl_int res = clGetKernelInfo(kernel, CL_KERNEL_REFERENCE_COUNT,
+                                 sizeof(refCount), &refCount, nullptr);
+    checkOpenCLError(res, "clGetKernelInfo CL_KERNEL_REFERENCE_COUNT");
+    return refCount;
+}
+
 inline void clRetain(cl_mem buffer)
 {
     cl_int res = clRetainMemObject(buffer);
@@ -732,6 +802,15 @@ inline void clRelease(cl_mem buffer)
     checkOpenCLError(res, "clReleaseMemObject");
 }
 
+inline int clRefCount(cl_mem buffer)
+{
+    cl_uint refCount;
+    cl_int res = clGetMemObjectInfo(buffer, CL_MEM_REFERENCE_COUNT,
+                                    sizeof(refCount), &refCount, nullptr);
+    checkOpenCLError(res, "clGetMemObjectInfo CL_MEM_REFERENCE_COUNT");
+    return refCount;
+}
+
 template<typename Handle>
 struct OpenCLRefCounted {
     Handle handle = nullptr;
@@ -740,10 +819,11 @@ struct OpenCLRefCounted {
     {
     }
     
-    OpenCLRefCounted(Handle handle)
+    OpenCLRefCounted(Handle handle, bool alreadyRetained = false)
         : handle(handle)
     {
-        clRetain(handle);
+        if (!alreadyRetained)
+            clRetain(handle);
     }
 
     OpenCLRefCounted(OpenCLRefCounted && other)
@@ -797,6 +877,11 @@ struct OpenCLRefCounted {
                  + MLDB::type_name<Handle>());
         return handle;
     }
+
+    int referenceCount() const
+    {
+        return clRefCount(handle);
+    }
 };
 
 
@@ -812,7 +897,7 @@ struct OpenCLEvent {
     }
 
     OpenCLEvent(cl_event event)
-        : event(event)
+        : event(event, true /* already retained */)
     {
     }
 
@@ -940,6 +1025,11 @@ struct OpenCLEvent {
 
         info.release();
     }
+
+    int referenceCount() const
+    {
+        return event.referenceCount();
+    }
 };
 
 
@@ -980,6 +1070,7 @@ struct OpenCLEventList {
     
     std::vector<OpenCLEvent> events;
 };
+
 
 /*****************************************************************************/
 /* OPENCL COMMAND QUEUE                                                      */
@@ -1136,6 +1227,11 @@ struct OpenCLCommandQueue {
                    const OpenCLEventList & waitFor,
                    OpenCLEvent & waitOn);
 #endif
+
+    int referenceCount() const
+    {
+        return queue.referenceCount();
+    }
 };
 
 
@@ -1164,7 +1260,7 @@ struct OpenCLKernel {
     }
 
     OpenCLKernel(cl_kernel kernel)
-        : kernel(kernel)
+        : kernel(kernel, true /* already retained */)
     {
     }
 
@@ -1238,6 +1334,11 @@ struct OpenCLKernel {
     {
         bindArgs(0, std::forward<Args>(args)...);
     }
+
+    int referenceCount() const
+    {
+        return kernel.referenceCount();
+    }
 };
 
 
@@ -1295,6 +1396,11 @@ struct OpenCLProgram {
         checkOpenCLError(error, "clCreateKernel");
         return result;
     }
+
+    int referenceCount() const
+    {
+        return program.referenceCount();
+    }
 };
 
 
@@ -1309,8 +1415,8 @@ struct OpenCLMemObject {
     {
     }
 
-    OpenCLMemObject(cl_mem buffer)
-        : buffer(buffer)
+    OpenCLMemObject(cl_mem buffer, bool alreadyRetained)
+        : buffer(buffer, alreadyRetained)
     {
     }
     
@@ -1319,6 +1425,10 @@ struct OpenCLMemObject {
         return buffer;
     }
 
+    int referenceCount() const
+    {
+        return buffer.referenceCount();
+    }
 };
 
 
@@ -1470,7 +1580,7 @@ struct OpenCLContext {
                               options,
                               bytes, nullptr, &error);
         checkOpenCLError(error, "clCreateBuffer");
-        return result;
+        return OpenCLMemObject(result, true /* already retained */);
     }
 
     OpenCLMemObject
@@ -1483,7 +1593,7 @@ struct OpenCLContext {
                               options | CL_MEM_USE_HOST_PTR,
                               bytes, buf, &error);
         checkOpenCLError(error, "clCreateBuffer");
-        return result;
+        return OpenCLMemObject(result, true /* already retained */);
     }
 
     OpenCLMemObject
@@ -1496,7 +1606,7 @@ struct OpenCLContext {
                               options | CL_MAP_READ | CL_MEM_USE_HOST_PTR,
                               bytes, (void *)buf, &error);
         checkOpenCLError(error, "clCreateBuffer");
-        return result;
+        return OpenCLMemObject(result, true /* already retained */);
     }
 
     OpenCLProgram

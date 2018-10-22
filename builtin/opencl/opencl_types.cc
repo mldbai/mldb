@@ -951,6 +951,53 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(OpenCLKernelInfo)
 
 
 /*****************************************************************************/
+/* OPENCL KERNEL WORKGROUP INFO                                              */
+/*****************************************************************************/
+
+OpenCLKernelWorkgroupInfo::
+OpenCLKernelWorkgroupInfo(cl_kernel kernel, cl_device_id device)
+    : kernel(kernel), device(device)
+{
+    doField(CL_KERNEL_GLOBAL_WORK_SIZE, globalWorkSize,
+            OpenCLIgnoreExceptions());
+    doField(CL_KERNEL_WORK_GROUP_SIZE, workGroupSize);
+    doField(CL_KERNEL_COMPILE_WORK_GROUP_SIZE, compileWorkGroupSize);
+    doField(CL_KERNEL_LOCAL_MEM_SIZE, localMemSize);
+    doField(CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+            preferredWorkGroupSizeMultiple);
+    doField(CL_KERNEL_PRIVATE_MEM_SIZE, privateMemSize);
+}
+
+template<typename T, typename... Args>
+void
+OpenCLKernelWorkgroupInfo::
+doField(cl_uint what, T & where, Args&&... args)
+{
+    //cerr << "doField at " << ((const char *)(&where) - (const char *)this)
+    //     << endl;
+    try {
+        clInfoCall(clGetKernelWorkGroupInfo, kernel, device, what, where, this,
+                   std::forward<Args>(args)...);
+    } MLDB_CATCH_ALL {
+        cerr << "failing call was " << what << endl;
+        throw;
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(OpenCLKernelWorkgroupInfo)
+{
+    addField("workGroupSize", &OpenCLKernelWorkgroupInfo::workGroupSize, "");
+    addField("compileWorkGroupSize",
+             &OpenCLKernelWorkgroupInfo::compileWorkGroupSize, "");
+    addField("localMemSize", &OpenCLKernelWorkgroupInfo::localMemSize, "");
+    addField("preferredWorkGroupSizeMultiple",
+             &OpenCLKernelWorkgroupInfo::preferredWorkGroupSizeMultiple, "");
+    addField("privateMemSize", &OpenCLKernelWorkgroupInfo::privateMemSize, "");
+    addField("globalWorkSize", &OpenCLKernelWorkgroupInfo::globalWorkSize, "");
+}
+
+
+/*****************************************************************************/
 /* OPENCL EVENT INFO                                                         */
 /*****************************************************************************/
 
