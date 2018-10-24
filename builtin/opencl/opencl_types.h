@@ -533,6 +533,18 @@ struct OpenCLProfilingInfo {
     cl_ulong start = 0;
     cl_ulong end = 0;
     cl_ulong complete = 0;
+
+    OpenCLProfilingInfo relative() const
+    {
+        OpenCLProfilingInfo newInfo(*this);
+        if (newInfo.complete != 0) newInfo.complete -= newInfo.end;
+        newInfo.end -= newInfo.start;
+        newInfo.start -= newInfo.submit;
+        newInfo.submit -= newInfo.queued;
+        newInfo.queued = 0;
+        return newInfo;
+    }
+
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(OpenCLProfilingInfo);
@@ -819,7 +831,7 @@ struct OpenCLRefCounted {
     {
     }
     
-    OpenCLRefCounted(Handle handle, bool alreadyRetained = false)
+    OpenCLRefCounted(Handle handle, bool alreadyRetained)
         : handle(handle)
     {
         if (!alreadyRetained)
@@ -833,7 +845,7 @@ struct OpenCLRefCounted {
     }
 
     OpenCLRefCounted(const OpenCLRefCounted & other)
-        : OpenCLRefCounted(other.handle)
+        : OpenCLRefCounted(other.handle, false /* already retained */)
     {
     }
 
@@ -851,6 +863,12 @@ struct OpenCLRefCounted {
         return *this;
     }
 
+    void reset(Handle handle, bool alreadyRetained)
+    {
+        OpenCLRefCounted newMe(handle, alreadyRetained);
+        *this = std::move(newMe);
+    }
+    
 #if 0    
     OpenCLRefCounted(cl_device_id device)
         : OpenCLRefCounted(&device, 1 /* numDevices */)
@@ -1091,7 +1109,7 @@ struct OpenCLCommandQueue {
     }
 
     OpenCLCommandQueue(cl_command_queue queue)
-        : queue(queue)
+        : queue(queue, true /* implicitly retained */)
     {
     }
     
@@ -1354,7 +1372,7 @@ struct OpenCLProgram {
     }
 
     OpenCLProgram(cl_program program)
-        : program(program)
+        : program(program, false /* already retained */)
     {
     }
     
@@ -1444,7 +1462,7 @@ struct OpenCLContext {
     }
 
     OpenCLContext(cl_context context)
-        : context(context)
+        : context(context, false /* implicitly retained */)
     {
     }
 
@@ -1468,9 +1486,10 @@ struct OpenCLContext {
         cl_int error;
 
         this->context
-            = clCreateContextFromType(contextProperties,
-                                      type.val,
-                                      &staticErrorHandler, nullptr, &error);
+            .reset(clCreateContextFromType(contextProperties,
+                                           type.val,
+                                           &staticErrorHandler, nullptr, &error),
+                   true /* already retained */);
             
         checkOpenCLError(error, "clCreateContextFromType");
     }
@@ -1496,10 +1515,11 @@ struct OpenCLContext {
         cl_int error;
 
         this->context
-            = clCreateContext(contextProperties,
-                              numDevices,
-                              first,
-                              &staticErrorHandler, nullptr, &error);
+            .reset(clCreateContext(contextProperties,
+                                   numDevices,
+                                   first,
+                                   &staticErrorHandler, nullptr, &error),
+                   true /* already retained */);
 
         checkOpenCLError(error, "clCreateContext");
     }
