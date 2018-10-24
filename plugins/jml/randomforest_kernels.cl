@@ -45,14 +45,20 @@ uint64_t createMask64(int numBits)
     return numBits >= 64 ? -1 : (((uint64_t)1 << numBits) - 1);
 }
 
-uint32_t extractBitRange64(__global const uint64_t * data,
-                           int numBits,
-                           int entryNumber)
+inline uint64_t extractBitRange64(__global const uint64_t * data,
+                                  int numBits,
+                                  int entryNumber,
+                                  uint64_t mask)
 {
-    int bitNumber = numBits * entryNumber;
+    long bitNumber = numBits * (long)entryNumber;
     int wordNumber = bitNumber / 64;
     int wordOffset = bitNumber % 64;
 
+    //return data[wordNumber];
+    
+    //printf("reading word number %d in worker %ld\n",
+    //       wordNumber, get_global_id(0));
+    
     //printf("wordNumber = %d, bitNumber = %d\n", wordNumber, wordOffset);
     
     int bottomBits = min(numBits, 64 - wordOffset);
@@ -61,7 +67,7 @@ uint32_t extractBitRange64(__global const uint64_t * data,
     //printf("numBits = %d, bottomBits = %d, topBits = %d\n",
     //       numBits, bottomBits, topBits);
     
-    uint64_t mask = createMask64(numBits);
+    //uint64_t mask = createMask64(numBits);
 
     //printf("mask = %016lx\n", mask);
     
@@ -96,18 +102,18 @@ uint32_t extractBitRange32(__global const uint32_t * data,
     //printf("numBits = %d, bottomBits = %d, topBits = %d\n",
     //       numBits, bottomBits, topBits);
     
-    uint64_t mask = createMask64(numBits);
+    uint32_t mask = createMask32(numBits);
 
     //printf("mask = %08x\n", mask);
     
-    uint64_t val = data[wordNumber];
+    uint32_t val = data[wordNumber];
 
     //printf("val = %08x\n", val);
 
     val >>= wordOffset;
 
     if (topBits > 0) {
-        uint64_t val2 = data[wordNumber + 1];
+        uint32_t val2 = data[wordNumber + 1];
         val = val | val2 << bottomBits;
     }
     val = val & mask;
@@ -129,18 +135,27 @@ void getDecodedRow(uint32_t rowNumber,
                    
                    uint32_t * example,
                    float * weight,
-                   bool * label)
+                   bool * label,
+
+                   uint64_t mask,
+                   uint32_t exampleMask,
+                   uint32_t weightMask,
+                   uint32_t labelMask)
 {
-    uint64_t bits = extractBitRange64(rowData, totalBits, rowNumber);
+    //*example = rowNumber;
+    //*weight = weightMultiplier;
+    //*label = (rowNumber % 4 == 0);
+    //return;
+    uint64_t bits = extractBitRange64(rowData, totalBits, rowNumber, mask);
     //printf("rowNum %d bits = %016lx weightBits = %d exampleBits = %d\n",
     //       rowNumber, bits, weightBits, exampleBits);
     //printf("exampleMask = %016lx example = %016lx\n",
     //       createMask64(exampleBits),
     //       bits & createMask64(exampleBits));
-    *example = exampleBits == 0 ? rowNumber : bits & createMask64(exampleBits);
-    *weight = decodeWeight((bits >> exampleBits) & createMask64(weightBits),
+    *example = exampleBits == 0 ? rowNumber : bits & exampleMask;
+    *weight = decodeWeight((bits >> exampleBits) & weightMask,
                            weightEncoding, weightMultiplier, weightTable);
-    *label = (bits & (1 << (weightBits + exampleBits))) != 0;
+    *label = (bits & labelMask) != 0;
 }
 
 uint32_t getBucket(uint32_t exampleNum,
@@ -156,6 +171,12 @@ typedef struct W {
 } W;
 
 void zeroW(__local W * w)
+{
+    w->vals[0] = 0;
+    w->vals[1] = 0;
+}
+
+void zeroWPrivate(__private W * w)
 {
     w->vals[0] = 0;
     w->vals[1] = 0;
@@ -178,8 +199,15 @@ double decodeW(int64_t v)
 
 void incrementW(__local W * w, bool label, float weight)
 {
+    //if (weight != 0.0)
+    //    return;
+    
     int64_t inc = encodeW(weight);
+#if 1
     atom_add(&w->vals[label ? 1 : 0], inc);
+#else
+    w->vals[label ? 1 : 0] += inc;
+#endif
 }
 
 void incrementWOut(__global W * wOut, __local const W * wIn)
@@ -204,20 +232,31 @@ uint32_t testRow(uint32_t rowId,
                  float weightMultiplier,
                  __global const float * weightTable,
                    
-                 __local W * w)
+                 __local W * w,
+
+                 uint64_t mask,
+                 uint32_t exampleMask,
+                 uint32_t weightMask,
+                 uint32_t labelMask)
 {
-    uint32_t exampleNum;
-    float weight;
-    bool label;
+    uint32_t exampleNum = 0;
+    float weight = 1.0;
+    bool label = false;
 
-    uint32_t bucket;
+    uint32_t bucket;// = rowId % numBuckets;
 
+#if 1
     getDecodedRow(rowId, rowData, totalBits, weightBits, exampleBits, numRows,
                   weightEncoding, weightMultiplier, weightTable,
-                  &exampleNum, &weight, &label);
+                  &exampleNum, &weight, &label,
+                  mask, exampleMask, weightMask, labelMask);
     
     bucket = getBucket(exampleNum, bucketData, bucketBits, numBuckets);
-
+    bucket = min(bucket, numBuckets - 1);
+#else
+    bucket = rowId % numBuckets;
+#endif
+    
     //if (rowId < 10)
     //    printf("rowId %d exampleNum %d bucket %d of %d weight %g label %d\n",
     //           rowId, exampleNum, bucket, numBuckets, weight, label);
@@ -250,14 +289,25 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     const uint32_t workGroupId = get_global_id (0);
     const uint32_t workerId = get_local_id(0);
 
+#if 0    
+    W myW[512];
+
+    for (int i = 0;  i < numBuckets;  ++i) {
+        zeroWPrivate(myW + i);
+        //myW[i].vals[0] = 0;
+        //myW[i].vals[1] = 0;
+    }
+#endif
+    
     __local int minWorkgroupBucket, maxWorkgroupBucket;
 
     if (workGroupId == 0) {
-        printf("global size %ld, num groups %ld, local size %ld, numRows %d\n",
+        printf("global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d\n",
                get_global_size(0),
                get_num_groups(0),
                get_local_size(0),
-               numRows);
+               numRows,
+               numRowsPerWorkgroup);
     }
     
     if (workerId == 0) {
@@ -291,16 +341,27 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     int minBucket = INT_MAX;
     int maxBucket = INT_MIN;
 
-    for (int i = 0;  i < numRowsPerWorkgroup;  ++i) {
-        int rowId = workGroupId * numRowsPerWorkgroup + i;
-        //int rowId = workGroupId + i * get_num_groups(0);
+    int i = 0;
+    
+    uint64_t mask = createMask64(totalBits);
+    uint32_t exampleMask = createMask32(exampleBits);
+    uint32_t weightMask = createMask32(weightBits);
+    uint32_t labelMask = (1 << (weightBits + exampleBits));
+
+    for (i = 0;  i < numRowsPerWorkgroup;  ++i) {
+        //int rowId = workGroupId * numRowsPerWorkgroup + i;
+        int rowId = workGroupId + i * get_local_size(0);
+        //if (workGroupId == 0)
+        //    printf("i = %d getting row %d in worker %d with %ld groups\n",
+        //           i, rowId, workGroupId, get_local_size(0));
         //printf("rowId = %d, numRows = %d\n", rowId, numRows);
         if (rowId < numRows) {
             int bucket
                 = testRow(rowId, rowData, totalBits, weightBits, exampleBits,
                           numRows,
                           bucketData, bucketBits, numBuckets,
-                          weightEncoding, weightMultiplier, weightTable, w);
+                          weightEncoding, weightMultiplier, weightTable, w,
+                          mask, exampleMask, weightMask, labelMask);
             minBucket = min(minBucket, bucket);
             maxBucket = max(maxBucket, bucket);
         }
@@ -308,6 +369,9 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     atomic_min(&minWorkgroupBucket, minBucket);
     atomic_max(&maxWorkgroupBucket, maxBucket);
+    
+    //minBucket = work_group_reduce_min(minBucket);
+    //maxBucket = work_group_reduce_max(maxBucket);
     
     barrier(CLK_LOCAL_MEM_FENCE);
     

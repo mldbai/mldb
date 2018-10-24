@@ -11,6 +11,9 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/map_reduce.h"
+#include "mldb/base/scope.h"
+#include <condition_variable>
+
 
 using namespace std;
 
@@ -572,8 +575,34 @@ testAllOpenCL(int depth,
         return std::make_tuple(1.0, -1, -1, rows.wAll, W());
     }
 
+    static constexpr int PARALLELISM = 1;
+    
+    static std::atomic<int> numRunning(0);
     static std::mutex mutex;
+    static std::atomic<int> numWaiting(0);
+
+    ++numWaiting;
+    static std::condition_variable cv;
     std::unique_lock<std::mutex> guard(mutex);
+
+    
+    cv.wait(guard, [&] () { return numRunning < PARALLELISM; });
+
+    --numWaiting;
+    numRunning += 1;
+
+    cerr << "started; numRunning now " << numRunning << " numWaiting = "
+         << numWaiting << endl;
+    
+    guard.unlock();
+
+    auto onExit = ScopeExit([&] () noexcept
+                            { guard.lock();
+                              numRunning -= 1;
+                              cv.notify_one();
+                              cerr << "finished; numRunning now "
+                                   << numRunning << " numWaiting = "
+                                     << numWaiting << endl;});
     
     int nf = features.size();
 
@@ -612,7 +641,7 @@ testAllOpenCL(int depth,
             }
         };
     
-    static OpenCLKernelContext kernelContext = getKernelContext();
+    OpenCLKernelContext kernelContext = getKernelContext();
     
     OpenCLContext & context = kernelContext.context;
     
@@ -624,6 +653,11 @@ testAllOpenCL(int depth,
     
     cerr << "sending over " << rows.rowData.memusage() / 1000000.0 << "mb of rows" << endl;
 
+    uint64_t maxBit = rows.rowData.memusage() * 8;
+    cerr << "row bit maximum is " << log2(maxBit) << endl;
+    
+    Date start = Date::now();
+    
     OpenCLMemObject weightData
         = context.createBuffer(CL_MEM_READ_ONLY, 4);
     
@@ -636,11 +670,19 @@ testAllOpenCL(int depth,
 
     OpenCLCommandQueue & queue = kernelContext.queue;
     
-    OpenCLEventList featureEvents;
+    OpenCLEventList featureEventsList;
 
     std::vector<std::vector<W> > allW(nf);
     std::vector<std::array<int, 2> > allMinMax(nf);
 
+    struct FeatureEvents {
+        OpenCLEvent runKernel;
+    };
+
+    std::vector<FeatureEvents> featureEvents(nf);
+    
+    size_t numRows = rows.rowCount();
+        
     auto doFeature = [&] (int i) {
 
         if (!features[i].active)
@@ -676,11 +718,10 @@ testAllOpenCL(int depth,
                                    minMax.data(),
                                    sizeof(minMax[0]) * 2);
 
-        size_t numRows = rows.rowCount();
-
-        size_t workGroupSize = 1024;
+        size_t workGroupSize = 65536;
         
-        size_t numRowsPerWorkItem = (numRows + workGroupSize - 1) / workGroupSize;
+        size_t numRowsPerWorkItem
+            = (numRows + workGroupSize - 1) / workGroupSize;
     
         kernel.bind((uint32_t)numRowsPerWorkItem,
                     rowData,
@@ -701,7 +742,9 @@ testAllOpenCL(int depth,
         OpenCLEvent runKernel
             = queue.launch(kernel,
                            { workGroupSize },
-                           { 1024 });
+                           { 256 });
+
+        featureEvents[i].runKernel = runKernel;
 
         OpenCLEvent wTransfer
             = queue.enqueueReadBuffer(wOut, 0 /* offset */,
@@ -715,12 +758,12 @@ testAllOpenCL(int depth,
                                       minMax.data(),
                                       runKernel);
     
-        OpenCLEvent doneFeature = queue.enqueueBarrier
+        OpenCLEvent doneFeature = queue.enqueueMarker
             ({ runKernel, wTransfer, minMaxTransfer });
 
-        featureEvents.events.emplace_back(std::move(doneFeature));
+        featureEventsList.events.emplace_back(std::move(doneFeature));
 
-#if 1
+#if 0
         //doneFeature.waitUntilFinished();
         runKernel.waitUntilFinished();
         wTransfer.waitUntilFinished();
@@ -731,7 +774,7 @@ testAllOpenCL(int depth,
         //doneFeature.assertSuccess();
 #endif
         
-        queue.finish();
+        //queue.finish();
     };
 
     for (int i = 0;  i < nf;  ++i) {
@@ -740,7 +783,7 @@ testAllOpenCL(int depth,
 
     queue.finish();
 
-    for (auto & f: featureEvents.events) {
+    for (auto & f: featureEventsList.events) {
         f.assertSuccess();
     }
     
@@ -751,7 +794,16 @@ testAllOpenCL(int depth,
 
         std::vector<W> & w = allW[i];
         std::array<int, 2> & minMax = allMinMax[i];
+
+        auto profile = featureEvents[i].runKernel.getProfilingInfo();
+
+        uint64_t timeTakenNs = profile.end - profile.start;
         
+        cerr << jsonEncodeStr(profile.relative()) << endl;
+        cerr << "did " << numRows << " rows on "
+             << features[i].buckets.numBuckets << " buckets in "
+             << timeTakenNs / 1000000.0 << " ms at "
+             << timeTakenNs * 1.0 / numRows << " ns/row" << endl;
 
         bool active = (minMax[0] != minMax[1]);
         int maxBucket = minMax[1];
@@ -768,6 +820,14 @@ testAllOpenCL(int depth,
         }
     };
 
+    Date finished = Date::now();
+
+    double elapsed = finished.secondsSince(start);
+
+    cerr << "did " << rows.rowCount() << " rows over " << activeFeatures
+         << " features in " << elapsed * 1000.0 << " ms at " << elapsed * 1000000000.0 / rows.rowCount() / activeFeatures << " ns/row-feature" << endl;
+    cerr << endl;
+    
     //cerr << rows.rowCount() << " rows, " << nf << " features";
 
     //parallelMap(0, nf, doFeature);
@@ -780,6 +840,17 @@ testAllOpenCL(int depth,
     //cerr << endl;
 
     //cerr << "rows has " << rowData.referenceCount() << " references" << endl;
+
+#if 0    
+    guard.lock();
+
+
+    numRunning -= 1;
+
+    cerr << "finished; numRunning now " << numRunning << endl;
+
+    cv.notify_one();
+#endif
     
     return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
 }
@@ -789,7 +860,7 @@ testAll(int depth,
         std::vector<Feature> & features,
         const Rows & rows)
 {
-    if (rows.rowCount() < 100000) {
+    if (rows.rowCount() < 1000000) {
         return testAllCpu(depth, features, rows);
     }
     else {
