@@ -1331,6 +1331,12 @@ struct OpenCLKernel {
                          + " of type cl_mem");
     }
 
+    template<typename T>
+    void bindArg(int argNum, std::vector<T> & data);
+
+    template<typename T>
+    void bindArg(int argNum, const std::vector<T> & data);
+
     void bindArgs(int argNum)
     {
         // verify that the required number of arguments are there
@@ -1629,6 +1635,20 @@ struct OpenCLContext {
         return OpenCLMemObject(result, true /* already retained */);
     }
 
+    template<typename T>
+    OpenCLMemObject
+    createBuffer(std::vector<T> & data)
+    {
+        return createBuffer(0, data.data(), sizeof(T) * data.size());
+    }
+
+    template<typename T>
+    OpenCLMemObject
+    createBuffer(const std::vector<T> & data)
+    {
+        return createBuffer(0, data.data(), sizeof(T) * data.size());
+    }
+    
     OpenCLProgram
     createProgram(const Utf8String & programSource)
     {
@@ -1675,6 +1695,27 @@ inline OpenCLContext openCLCreateContext(cl_context context)
     return context;
 }
 
+template<typename T>
+void
+OpenCLKernel::
+bindArg(int argNum, std::vector<T> & data)
+{
+    auto context = getContext();
+    auto mem = context.createBuffer(0, data.data(),
+                                    sizeof(T) * data.length());
+    bindArg(argNum, mem);
+}
+
+template<typename T>
+void
+OpenCLKernel::
+bindArg(int argNum, const std::vector<T> & data)
+{
+    auto context = getContext();
+    auto mem = context.createBuffer(0, data.data(),
+                                    sizeof(T) * data.length());
+    bindArg(argNum, mem);
+}
 
 
 } // namespace MLDB
