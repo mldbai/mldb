@@ -33,16 +33,35 @@ WritableBucketList::
 init(size_t numElements, uint32_t numBuckets,
      MappedSerializer & serializer)
 {
+    return init(numElements, numBuckets,
+                serializer.allocateWritableT<uint32_t>
+                (wordsRequired(numElements, numBuckets)));
+}
+
+void
+WritableBucketList::
+init(size_t numElements, uint32_t numBuckets,
+     MutableMemoryRegionT<uint32_t> mem)
+{
+    ExcAssertGreaterEqual(mem.length(), wordsRequired(numElements, numBuckets));
+
     this->numBuckets = numBuckets;
 
     // Minimum of 1 bit to avoid divide by zero on rowCount()
     this->entryBits = highest_bit(numBuckets, 0) + 1;
-
-    size_t numWords = (entryBits * numElements + 31) / 32 + 1 /* +1 for extractFast */;
-    this->storage = serializer.allocateWritableT<uint32_t>(numWords);
+    this->storage = std::move(mem);
     this->writer.reset(this->storage.data());
     //memset(current, 255, numWords * sizeof(*current));
     this->numEntries = numElements;
+}
+
+size_t
+WritableBucketList::
+wordsRequired(size_t numElements, uint32_t numBuckets)
+{
+    int entryBits = highest_bit(numBuckets, 0) + 1;
+    size_t numWords = (entryBits * numElements + 31) / 32 + 1 /* +1 for extractFast */;
+    return numWords;
 }
 
 BucketList

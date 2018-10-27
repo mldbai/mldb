@@ -190,7 +190,7 @@ struct RowWriter {
           totalBits(weightBits + exampleNumBits + 1),
           toAllocate((totalBits * maxRows + 63) / 64 + 1 /* +1 allows extractFast */),
           data(serializer
-               .allocateWritableT<uint64_t>(toAllocate)),
+               .allocateWritableT<uint64_t>(toAllocate, 4096 /* page aligned */)),
           writer(data.data())
     {
     }

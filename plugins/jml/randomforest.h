@@ -23,6 +23,8 @@
 #include "mldb/engine/column_scope.h"
 #include "mldb/engine/bucket.h"
 #include "mldb/utils/lightweight_hash.h"
+#include <cmath>
+
 
 namespace MLDB {
 namespace RF {
@@ -96,7 +98,7 @@ struct PartitionData {
                 
                 for (size_t i = start;  i < end;  ++i) {
                     float weight = rows.getWeight(i) * counts[i] * scale;
-                    ExcAssert(!isnan(weight));
+                    ExcAssert(!std::isnan(weight));
                     ExcAssertGreaterEqual(weight, 0);
                     if (weight != 0) {
                         numValues += 1;
@@ -127,6 +129,7 @@ struct PartitionData {
         parallelMapInOrderReduce
             (0, rows.rowCount() / chunkSize + 1, doWeightChunk, reduceWeights);
 
+        using namespace std;
         cerr << "minWeight = " << minWeight << endl;
         cerr << allUniques.size() << " uniques" << endl;
 
@@ -213,6 +216,34 @@ struct PartitionData {
         trancheOffsets.push_back(offset);
         trancheSplits.push_back(start);
 
+        // Get a contiguous block of memory for all of the feature blocks;
+        // this enables a single GPU transfer and a single GPU argument
+        // list
+        std::vector<size_t> bucketMemoryOffsets(1, 0);
+        size_t bucketMemoryRequired = 0;
+
+        for (int f = 0;  f < features.size();  ++f) {
+            size_t bytesRequired = 0;
+            if (data.features[f].active) {
+                size_t wordsRequired
+                    = WritableBucketList::wordsRequired
+                        (numNonZero,
+                         data.features[f].info->distinctValues);
+                bytesRequired = wordsRequired * 4;
+            }
+            bucketMemoryRequired += bytesRequired;
+            bucketMemoryOffsets.push_back(bucketMemoryRequired);
+        }
+
+        MutableMemoryRegionT<uint32_t> mutableBucketMemory
+            = serializer.allocateWritableT<uint32_t>
+            (bucketMemoryRequired / 4, 4096 /* page aligned */);
+
+        auto myRange = mutableBucketMemory.rangeBytes(0, bucketMemoryRequired);
+
+        ExcAssertEqual(myRange.length(),  bucketMemoryRequired / 4);
+
+        
         // This gets called for each feature.  It's further subdivided
         // per tranche.
         auto doFeature = [&] (size_t f)
@@ -245,10 +276,25 @@ struct PartitionData {
                 if (!data.features[f].active)
                     return;
 
+#if 0                
+                using namespace std;
+                cerr << "mem.length()= " << mutableBucketMemory.length()
+                     << endl;
+                cerr << "mem.data() = " << mutableBucketMemory.data()
+                     << endl;
+                cerr << "offset from " << bucketMemoryOffsets[f]
+                     << " to " << bucketMemoryOffsets[f + 1] << endl;
+#endif
+                
+                auto mem
+                    = mutableBucketMemory
+                      .rangeBytes(bucketMemoryOffsets[f],
+                                  bucketMemoryOffsets[f + 1]);
+                
                 ParallelWritableBucketList featureBuckets
                     (numNonZero,
                      data.features[f].info->distinctValues,
-                     serializer);
+                     mem);
 
                 auto onTranche = [&] (size_t tr)
                 {
@@ -278,6 +324,8 @@ struct PartitionData {
 
         MLDB::parallelMap(0, data.features.size() + 1, doFeature);
 
+        data.bucketMemory = mutableBucketMemory.freeze();
+        
         return data;
     }
 
@@ -286,6 +334,9 @@ struct PartitionData {
 
     /// Rows in this partition
     Rows rows;
+
+    /// Memory for all feature buckets
+    FrozenMemoryRegionT<uint32_t> bucketMemory;
     
     /// All known features in this partition
     std::vector<Feature> features;
@@ -359,7 +410,9 @@ struct PartitionData {
 
             sides[0].rows = writer[0].freeze(serializer);
             sides[1].rows = writer[1].freeze(serializer);
-        
+
+            sides[0].bucketMemory = sides[1].bucketMemory = bucketMemory;
+            
             /*if (right.rows.size() == 0 || left.rows.size() == 0)
             {
                 std::cerr << wLeft[0] << "," << wLeft[1] << "," << wRight[0] << "," << wRight[1] << std::endl;
@@ -406,18 +459,54 @@ struct PartitionData {
                 writer[side].addRow(row);
             }
 
+            // Get a contiguous block of memory for all of the feature
+            // blocks on each side; this enables a single GPU transfer
+            // and a single GPU argument list.
+            std::vector<size_t> bucketMemoryOffsets[2];
+            MutableMemoryRegionT<uint32_t> mutableBucketMemory[2];
+            
+            for (int side = 0;  side < 2;  ++side) {
+
+                bucketMemoryOffsets[side].resize(1, 0);
+                size_t bucketMemoryRequired = 0;
+
+                for (int f = 0;  f < nf;  ++f) {
+                    size_t bytesRequired = 0;
+                    if (features[f].active) {
+                        size_t wordsRequired
+                            = WritableBucketList::wordsRequired
+                            (numOnSide[side],
+                             features[f].info->distinctValues);
+                        bytesRequired = wordsRequired * 4;
+                    }
+                    bucketMemoryRequired += bytesRequired;
+                    bucketMemoryOffsets[side].push_back(bucketMemoryRequired);
+                }
+
+                mutableBucketMemory[side]
+                    = serializer.allocateWritableT<uint32_t>
+                    (bucketMemoryRequired / 4, 4096 /* page aligned */);
+            }
+            
+                
             for (unsigned i = 0;  i < nf;  ++i) {
                 if (!features[i].active)
                     continue;
 
                 WritableBucketList newFeatures[2];
 
-                newFeatures[0].init(numOnSide[0],
-                                    features[i].info->distinctValues,
-                                    serializer);
-                newFeatures[1].init(numOnSide[1],
-                                    features[i].info->distinctValues,
-                                    serializer);
+                newFeatures[0]
+                    .init(numOnSide[0],
+                          features[i].info->distinctValues,
+                          mutableBucketMemory[0]
+                              .rangeBytes(bucketMemoryOffsets[0][i],
+                                          bucketMemoryOffsets[0][i + 1]));
+                newFeatures[1]
+                    .init(numOnSide[1],
+                          features[i].info->distinctValues,
+                          mutableBucketMemory[1]
+                              .rangeBytes(bucketMemoryOffsets[1][i],
+                                          bucketMemoryOffsets[1][i + 1]));
 
                 for (size_t j = 0;  j < rows.rowCount();  ++j) {
                     int side = lr[j];
@@ -433,6 +522,9 @@ struct PartitionData {
 
             sides[0].rows = writer[0].freeze(serializer);
             sides[1].rows = writer[1].freeze(serializer);
+
+            sides[0].bucketMemory = mutableBucketMemory[0].freeze();
+            sides[1].bucketMemory = mutableBucketMemory[1].freeze();
         }
 
         return { std::move(left), std::move(right) };
@@ -479,7 +571,7 @@ struct PartitionData {
         W wRight;
         
         std::tie(bestScore, bestFeature, bestSplit, wLeft, wRight)
-            = testAll(depth, features, rows);
+            = testAll(depth, features, rows, bucketMemory);
 
         if (bestFeature == -1) {
             ML::Tree::Leaf * leaf = tree.new_leaf();

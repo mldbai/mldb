@@ -52,6 +52,20 @@ public:
 struct WritableBucketList {
     WritableBucketList() = default;
 
+    /** How many bytes are required (aligned at uint32_t) for the given
+        number of buckets each containing a number up to numElements?
+    */
+    static size_t wordsRequired(size_t numElements, uint32_t numBuckets);
+    
+    /** Initialize from already-allocated memory.  There must be at least
+        wordsRequired words already allocated.
+    */
+    WritableBucketList(size_t numElements, uint32_t numBuckets,
+                       MutableMemoryRegionT<uint32_t> mem)
+    {
+        init(numElements, numBuckets, mem);
+    }
+
     WritableBucketList(size_t numElements, uint32_t numBuckets,
                        MappedSerializer & serializer)
     {
@@ -60,14 +74,14 @@ struct WritableBucketList {
 
     void init(size_t numElements, uint32_t numBuckets,
               MappedSerializer & serializer);
+
+    void init(size_t numElements, uint32_t numBuckets,
+              MutableMemoryRegionT<uint32_t> mem);
     
     inline void write(uint32_t value)
     {
         writer.write(value, entryBits);
     }
-
-    // Append all of the bits from buckets
-    //void append(const WritableBucketList & buckets);
 
     BucketList freeze(MappedSerializer & serializer);
 
@@ -101,6 +115,12 @@ struct ParallelWritableBucketList: public WritableBucketList {
     {
     }
 
+    ParallelWritableBucketList(size_t numElements, uint32_t numBuckets,
+                               MutableMemoryRegionT<uint32_t> mem)
+        : WritableBucketList(numElements, numBuckets, std::move(mem))
+    {
+    }
+    
     // Return a writer at the given offset, which must be a
     // multiple of 64.  This allows the bucket list to be
     // written from multiple threads.  Must only be called

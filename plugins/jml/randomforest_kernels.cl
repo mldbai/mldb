@@ -250,9 +250,26 @@ uint32_t testRow(uint32_t rowId,
                   weightEncoding, weightMultiplier, weightTable,
                   &exampleNum, &weight, &label,
                   mask, exampleMask, weightMask, labelMask);
+
+    if (false) {
+        bucket = exampleNum % numBuckets;
+        incrementW(w + bucket, label, weight);
+        return bucket;
+    }
+    
+    //if (exampleNum >= numRows) {
+    //    printf("ERROR EXAMPLE NUM: got %d numRows %d row %d feature %d\n",
+    //           exampleNum, numRows, rowId, get_global_id(0));
+    //    return 0;
+    //}
     
     bucket = getBucket(exampleNum, bucketData, bucketBits, numBuckets);
-    bucket = min(bucket, numBuckets - 1);
+    if (bucket >= numBuckets) {
+        printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
+               bucket, numBuckets, rowId, get_global_id(0));
+        return 0;
+    }
+    //bucket = min(bucket, numBuckets - 1);
 #else
     bucket = rowId % numBuckets;
 #endif
@@ -274,21 +291,36 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
                                 uint32_t exampleBits,
                                 uint32_t numRows,
 
-                                __global const uint32_t * bucketData,
-                                uint32_t bucketBits,
-                                uint32_t numBuckets,
+                                __global const uint32_t * allBucketData,
+                                __global const uint32_t * bucketDataOffsets,
+                                __global const uint32_t * bucketNumbers,
+                                __global const uint32_t * bucketEntryBits,
 
                                 int weightEncoding,
                                 float weightMultiplier,
                                 __global const float * weightTable,
 
+                                __global const uint32_t * featureActive,
+                                
                                 __local W * w,
-                                __global W * wOut,
-                                __global int * minMaxOut)
+                                __global W * allWOut,
+                                __global int * allMinMaxOut)
 {
     const uint32_t workGroupId = get_global_id (0);
     const uint32_t workerId = get_local_id(0);
+    const uint32_t f = get_global_id(1);
 
+    uint32_t bucketDataOffset = bucketDataOffsets[f];
+    uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
+    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
+    uint32_t bucketBits = bucketEntryBits[f];
+
+    __global W * wOut = allWOut + bucketNumbers[f];
+    __global int * minMaxOut = allMinMaxOut + 2 * f;
+    
+    if (!featureActive[f])
+        return;
+    
 #if 0    
     W myW[512];
 
@@ -302,19 +334,24 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     __local int minWorkgroupBucket, maxWorkgroupBucket;
 
     if (workGroupId == 0) {
-        printf("global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d\n",
+        printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, buckets %d-%d, offset %d\n",
+               get_global_id(1),
                get_global_size(0),
                get_num_groups(0),
                get_local_size(0),
                numRows,
-               numRowsPerWorkgroup);
+               numRowsPerWorkgroup,
+               numBuckets,
+               bucketNumbers[f],
+               bucketNumbers[f + 1],
+               bucketDataOffset);
     }
     
     if (workerId == 0) {
         minWorkgroupBucket = INT_MAX;
         maxWorkgroupBucket = INT_MIN;
     }
-    
+
     //printf("workGroupId = %d workerId = %d\n",
     //       workGroupId, workerId);
     
@@ -337,7 +374,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     //if (rowId > 4)
     //    return;
-
+    
     int minBucket = INT_MAX;
     int maxBucket = INT_MIN;
 
@@ -374,7 +411,8 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     //maxBucket = work_group_reduce_max(maxBucket);
     
     barrier(CLK_LOCAL_MEM_FENCE);
-    
+
+
     for (int i = workerId;  i < numBuckets;  i += get_local_size(0)) {
         //printf("copying %d\n", i);
         //wOut[i].vals[0] = w[i].vals[0];
@@ -389,7 +427,21 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
         atomic_max(minMaxOut + 1, maxWorkgroupBucket);
     }
     
-    //barrier(CLK_GLOBAL_MEM_FENCE);
+    barrier(CLK_GLOBAL_MEM_FENCE);
+
+    if (workGroupId == 0) {
+        printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, min %d, max %d\n",
+               get_global_id(1),
+               get_global_size(0),
+               get_num_groups(0),
+               get_local_size(0),
+               numRows,
+               numRowsPerWorkgroup,
+               numBuckets,
+               minMaxOut[0],
+               minMaxOut[1]);
+    }
+
     
     if (workGroupId == 0 && false) {
         for (int i = 256;  i < 266 && i < numBuckets;  ++i) {

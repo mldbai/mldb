@@ -79,7 +79,8 @@ testFeatureNumber(int featureNum,
 std::tuple<double, int, int, W, W>
 testAll(int depth,
         std::vector<Feature> & features,
-        const Rows & rows);
+        const Rows & rows,
+        FrozenMemoryRegionT<uint32_t> bucketData);
 
 } // namespace RF
 } // namespace MLDB

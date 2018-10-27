@@ -223,6 +223,8 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                        { 1024 },//(rowIterator.owner->rowCount() + 63numRowsPerWorkItem - 1) / numRowsPerWorkItem },
                        { 256 });
 
+    queue.flush();
+    
     OpenCLEvent transfer
         = queue.enqueueReadBuffer(wOut, 0 /* offset */,
                                   sizeof(W) * buckets.numBuckets /* length */,
@@ -234,6 +236,8 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                                   sizeof(minMax[0]) * 2 /* length */,
                                   minMax,
                                   runKernel);
+
+    queue.flush();
     
     queue.wait({transfer, minMaxTransfer});
     transfer.assertSuccess();
@@ -439,7 +443,8 @@ testFeatureNumber(int featureNum,
 std::tuple<double, int, int, W, W>
 testAllCpu(int depth,
            std::vector<Feature> & features,
-           const Rows & rows)
+           const Rows & rows,
+           FrozenMemoryRegionT<uint32_t> bucketData)
 {
     // We have no impurity in our bucket.  Time to stop
     if (rows.wAll[0] == 0 || rows.wAll[1] == 0) {
@@ -565,17 +570,31 @@ OpenCLKernelContext getKernelContext()
     return result;
 }
 
+#if 0
+std::string
+generateOpenCLBitExtractor(uint64_t numBits)
+{
+    std::string result;
+
+    BitArray<uint64_t> array(numBits);
+
+    return result;
+}
+#endif
+
 std::tuple<double, int, int, W, W>
 testAllOpenCL(int depth,
               std::vector<Feature> & features,
-              const Rows & rows)
+              const Rows & rows,
+              FrozenMemoryRegionT<uint32_t> bucketData_)
 {
     // We have no impurity in our bucket.  Time to stop
     if (rows.wAll[0] == 0 || rows.wAll[1] == 0) {
         return std::make_tuple(1.0, -1, -1, rows.wAll, W());
     }
 
-    static constexpr int PARALLELISM = 1;
+#if 1    
+    static constexpr int PARALLELISM = 2;
     
     static std::atomic<int> numRunning(0);
     static std::mutex mutex;
@@ -591,8 +610,8 @@ testAllOpenCL(int depth,
     --numWaiting;
     numRunning += 1;
 
-    cerr << "started; numRunning now " << numRunning << " numWaiting = "
-         << numWaiting << endl;
+    //cerr << "started; numRunning now " << numRunning << " numWaiting = "
+    //     << numWaiting << endl;
     
     guard.unlock();
 
@@ -600,24 +619,250 @@ testAllOpenCL(int depth,
                             { guard.lock();
                               numRunning -= 1;
                               cv.notify_one();
-                              cerr << "finished; numRunning now "
-                                   << numRunning << " numWaiting = "
-                                     << numWaiting << endl;});
+                              //cerr << "finished; numRunning now "
+                              //     << numRunning << " numWaiting = "
+                              //       << numWaiting << endl;
+                            });
+#elif 0
+    static std::mutex mutex;
+    std::unique_lock<std::mutex> guard(mutex);
+#endif
     
-    int nf = features.size();
+    unsigned nf = features.size();
 
     size_t activeFeatures = 0;
     size_t totalBuckets = 0;
+    size_t maxBuckets = 0;
     
-    for (unsigned i = 0;  i < nf;  ++i) {
-        if (!features[i].active)
-            continue;
-        ++activeFeatures;
-        totalBuckets += features[i].buckets.numBuckets;
+    std::vector<uint32_t> bucketDataOffsets;
+    std::vector<uint32_t> bucketEntryBits;
+    std::vector<uint32_t> bucketNumbers(1, 0);
+    std::vector<uint32_t> featuresActive;
+    
+    for (int i = 0;  i < nf;  ++i) {
+        const BucketList & buckets = features[i].buckets;
+
+        bucketEntryBits.push_back(buckets.entryBits);
+        
+        uint32_t offset
+            = buckets.storage.data()
+            - bucketData_.data();
+        cerr << "i = " << i << " offset = " << offset << endl;
+        bucketDataOffsets.push_back(offset);
+
+        featuresActive.push_back(features[i].active);
+        
+        if (features[i].active) {
+            ++activeFeatures;
+            totalBuckets += features[i].buckets.numBuckets;
+            maxBuckets = std::max<size_t>(maxBuckets,
+                                          features[i].buckets.numBuckets);
+        }
+
+        bucketNumbers.push_back(totalBuckets);
+
+        cerr << "feature " << i << " buckets from " << bucketNumbers[i]
+             << " to " << bucketNumbers[i + 1] << " numBuckets "
+             << bucketNumbers[i + 1] - bucketNumbers[i] << endl;
     }
 
-    //cerr << "doing " << rows.rowCount() << " rows with "
-    //     << activeFeatures << " active features" << endl;
+    cerr << "doing " << rows.rowCount() << " rows with "
+         << activeFeatures << " active features and "
+         << totalBuckets << " total buckets" << endl;
+
+    ExcAssertEqual(bucketDataOffsets.size(), nf);
+    ExcAssertEqual(bucketEntryBits.size(), nf);
+    ExcAssertEqual(bucketNumbers.size(), nf + 1);
+    ExcAssertEqual(featuresActive.size(), nf);
+
+    // Shouldn't happen, except during development / testing
+    if (totalBuckets == 0 || activeFeatures == 0) {
+        return std::make_tuple(1.0, -1, -1, rows.wAll, W());
+    }
+    
+    OpenCLKernelContext kernelContext = getKernelContext();
+    
+    OpenCLContext & context = kernelContext.context;
+
+    cerr << "rows.rowData.data() = " << rows.rowData.data() << endl;
+    cerr << "bucketData_.data() = " << bucketData_.data() << endl;
+
+    Date beforeTransfer = Date::now();
+    
+    // Transfer rows, weights on the GPU; these are shared across all features
+    OpenCLMemObject clRowData
+        = context.createBuffer(0,
+                               (const void *)rows.rowData.data(),
+                               (rows.rowData.memusage() + 4095) / 4096 * 4096);
+
+    OpenCLMemObject clBucketData
+        = context.createBuffer(0,
+                               (const void *)bucketData_.data(),
+                               (bucketData_.memusage() + 4095) / 4096 * 4096);
+
+    OpenCLMemObject clBucketDataOffsets
+        = context.createBuffer(bucketDataOffsets);
+
+    
+    std::vector<W> allW(totalBuckets);
+    std::vector<std::array<int, 2> > allMinMax(nf);
+
+    // TODO: fill don't transfer
+    OpenCLMemObject clAllW
+        = context.createBuffer(CL_MEM_READ_WRITE,
+                               allW.data(),
+                               sizeof(W) * allW.size());
+
+    // TODO: fill don't transfer
+    OpenCLMemObject clAllMinMax
+        = context.createBuffer(CL_MEM_READ_WRITE,
+                               allMinMax.data(),
+                               sizeof(allMinMax[0]) * allMinMax.size());
+
+    OpenCLMemObject clBucketNumbers
+        = context.createBuffer(bucketNumbers);
+    
+    OpenCLMemObject clBucketEntryBits
+        = context.createBuffer(bucketEntryBits);
+
+    OpenCLMemObject clFeaturesActive
+        = context.createBuffer(featuresActive);
+    
+    OpenCLMemObject clWeightData
+        = context.createBuffer(CL_MEM_READ_ONLY, 4);
+    
+    if (rows.weightEncoder.weightFormat == WF_TABLE) {
+        clWeightData = context.createBuffer
+            (0,
+             (const void *)rows.weightEncoder.weightFormatTable.data(),
+             rows.weightEncoder.weightFormatTable.memusage());
+    }
+
+    double elapsedTransfer = Date::now().secondsSince(beforeTransfer);
+    
+    cerr << "sending over " << rows.rowData.memusage() / 1000000.0
+         << "mb of rows and " << bucketData_.memusage() / 1000000.0
+         << "mb of buckets in " << elapsedTransfer * 1000.0 << " ms at "
+         << (rows.rowData.memusage() + bucketData_.memusage()) / 1000000.0 / elapsedTransfer
+         << "mb/s" << endl;
+
+    //uint64_t maxBit = rows.rowData.memusage() * 8;
+    //cerr << "row bit maximum is " << log2(maxBit) << endl;
+    
+    Date start = Date::now();
+    
+    size_t numRows = rows.rowCount();
+
+    cerr << "total offset = " << bucketData_.memusage() / 4 << endl;
+
+    Date beforeKernel = Date::now();
+    
+    OpenCLKernel kernel
+        = kernelContext.program.createKernel("testFeatureKernel");
+
+    Date afterKernel = Date::now();
+
+    cerr << "kernel took " << afterKernel.secondsSince(beforeKernel) * 1000
+         << "ms" << endl;
+    
+    //OpenCLKernelWorkgroupInfo info(kernel, context.getDevices()[0]);
+    
+    //cerr << jsonEncodeStr(info) << endl;
+    
+    size_t workGroupSize = 65536;
+        
+    size_t numRowsPerWorkItem
+        = (numRows + workGroupSize - 1) / workGroupSize;
+
+    kernel.bind((uint32_t)numRowsPerWorkItem,
+                clRowData,
+                rows.totalBits,
+                rows.weightEncoder.weightBits,
+                rows.exampleNumBits,
+                (uint32_t)numRows,
+                clBucketData,
+                clBucketDataOffsets,
+                clBucketNumbers,
+                clBucketEntryBits,
+                rows.weightEncoder.weightFormat,
+                rows.weightEncoder.weightMultiplier,
+                clWeightData,
+                clFeaturesActive,
+                LocalArray<W>(maxBuckets),
+                clAllW,
+                clAllMinMax);
+
+    cerr << "kernel bind took " << afterKernel.secondsUntil(Date::now()) * 1000
+         << "ms" << endl;
+    
+    auto queue = kernelContext.context.createCommandQueue
+        (kernelContext.devices[0],
+         OpenCLCommandQueueProperties::PROFILING_ENABLE);
+
+    //auto & queue = kernelContext.queue;
+
+    Date beforeLaunch = Date::now();
+    
+    OpenCLEvent runKernel
+        = queue.launch(kernel,
+                       { workGroupSize, nf },
+                       { 256, 1 });
+
+    cerr << "launch took " << Date::now().secondsSince(beforeLaunch) * 1000
+         << "ms" << endl;
+    
+    queue.flush();
+    
+    //queue.finish();
+
+    OpenCLEvent wTransfer
+        = queue.enqueueReadBuffer
+            (clAllW, 0 /* offset */,
+             sizeof(W) * allW.size() /* length */,
+             allW.data(),
+             runKernel /* before */);
+    
+    //queue.finish();
+
+    OpenCLEvent minMaxTransfer
+        = queue.enqueueReadBuffer
+            (clAllMinMax, 0 /* offset */,
+             sizeof(allMinMax[0]) * allMinMax.size() /* length */,
+             allMinMax.data(),
+             runKernel);
+    
+    //queue.finish();
+
+    OpenCLEvent doneFeature = queue.enqueueMarker
+        ({ runKernel, wTransfer, minMaxTransfer });
+    
+    //queue.finish();
+
+    Date beforeWait = Date::now();
+    
+    doneFeature.waitUntilFinished();
+
+    runKernel.assertSuccess();
+
+    cerr << "wait wall time is " << Date::now().secondsSince(beforeWait) * 1000
+         << "ms" << endl;
+    
+    cerr << "wall time is " << Date::now().secondsSince(afterKernel)* 1000
+         << "ms" << endl;
+
+    auto profile = runKernel.getProfilingInfo();
+    
+    uint64_t timeTakenNs = profile.end - profile.start;
+    
+    cerr << "kernel " << jsonEncodeStr(profile.relative()) << endl;
+    cerr << "w " << jsonEncodeStr(wTransfer.getProfilingInfo().relative())
+         << endl;
+    cerr << "minmax " << jsonEncodeStr(minMaxTransfer.getProfilingInfo().relative())
+         << endl;
+    cerr << "did " << numRows << " rows in "
+         << timeTakenNs / 1000000.0 << " ms at "
+         << timeTakenNs * 1.0 / numRows / activeFeatures << " ns/row-feature"
+         << endl;
     
     double bestScore = INFINITY;
     int bestFeature = -1;
@@ -641,160 +886,17 @@ testAllOpenCL(int depth,
             }
         };
     
-    OpenCLKernelContext kernelContext = getKernelContext();
-    
-    OpenCLContext & context = kernelContext.context;
-    
-    // Transfer rows, weights on the GPU; these are shared across all features
-    OpenCLMemObject rowData
-        = context.createBuffer(0,
-                               (const void *)rows.rowData.data(),
-                               rows.rowData.memusage());
-    
-    cerr << "sending over " << rows.rowData.memusage() / 1000000.0 << "mb of rows" << endl;
 
-    uint64_t maxBit = rows.rowData.memusage() * 8;
-    cerr << "row bit maximum is " << log2(maxBit) << endl;
-    
-    Date start = Date::now();
-    
-    OpenCLMemObject weightData
-        = context.createBuffer(CL_MEM_READ_ONLY, 4);
-    
-    if (rows.weightEncoder.weightFormat == WF_TABLE) {
-        weightData = context.createBuffer
-            (0,
-             (const void *)rows.weightEncoder.weightFormatTable.data(),
-             rows.weightEncoder.weightFormatTable.memusage());
-    }
 
-    OpenCLCommandQueue & queue = kernelContext.queue;
-    
-    OpenCLEventList featureEventsList;
-
-    std::vector<std::vector<W> > allW(nf);
-    std::vector<std::array<int, 2> > allMinMax(nf);
-
-    struct FeatureEvents {
-        OpenCLEvent runKernel;
-    };
-
-    std::vector<FeatureEvents> featureEvents(nf);
-    
-    size_t numRows = rows.rowCount();
-        
-    auto doFeature = [&] (int i) {
-
-        if (!features[i].active)
-            return;
-
-        const BucketList & buckets = features[i].buckets;
-
-        std::vector<W> & w = allW[i];
-        w.resize(buckets.numBuckets);
-        
-        OpenCLKernel kernel
-            = kernelContext.program.createKernel("testFeatureKernel");
-
-        //OpenCLKernelWorkgroupInfo info(kernel, context.getDevices()[0]);
-
-        //cerr << jsonEncodeStr(info) << endl;
-        
-        OpenCLMemObject bucketData
-            = context.createBuffer(0,
-                                   (const void *)buckets.storage.data(),
-                                   buckets.storage.memusage());
-
-        OpenCLMemObject wOut
-            = context.createBuffer(CL_MEM_READ_WRITE,
-                                   w.data(),
-                                   sizeof(W) * w.size());
-
-        std::array<int, 2> & minMax = allMinMax[i];
-        minMax = { INT_MAX, INT_MIN };
-        
-        OpenCLMemObject minMaxOut
-            = context.createBuffer(CL_MEM_READ_WRITE,
-                                   minMax.data(),
-                                   sizeof(minMax[0]) * 2);
-
-        size_t workGroupSize = 65536;
-        
-        size_t numRowsPerWorkItem
-            = (numRows + workGroupSize - 1) / workGroupSize;
-    
-        kernel.bind((uint32_t)numRowsPerWorkItem,
-                    rowData,
-                    rows.totalBits,
-                    rows.weightEncoder.weightBits,
-                    rows.exampleNumBits,
-                    (uint32_t)numRows,
-                    bucketData,
-                    buckets.entryBits,
-                    buckets.numBuckets,
-                    rows.weightEncoder.weightFormat,
-                    rows.weightEncoder.weightMultiplier,
-                    weightData,
-                    LocalArray<W>(buckets.numBuckets),
-                    wOut,
-                    minMaxOut);
-    
-        OpenCLEvent runKernel
-            = queue.launch(kernel,
-                           { workGroupSize },
-                           { 256 });
-
-        featureEvents[i].runKernel = runKernel;
-
-        OpenCLEvent wTransfer
-            = queue.enqueueReadBuffer(wOut, 0 /* offset */,
-                                      sizeof(W) * buckets.numBuckets /* length */,
-                                      w.data(),
-                                      runKernel /* before */);
-
-        OpenCLEvent minMaxTransfer
-            = queue.enqueueReadBuffer(minMaxOut, 0 /* offset */,
-                                      sizeof(minMax[0]) * 2 /* length */,
-                                      minMax.data(),
-                                      runKernel);
-    
-        OpenCLEvent doneFeature = queue.enqueueMarker
-            ({ runKernel, wTransfer, minMaxTransfer });
-
-        featureEventsList.events.emplace_back(std::move(doneFeature));
-
-#if 0
-        //doneFeature.waitUntilFinished();
-        runKernel.waitUntilFinished();
-        wTransfer.waitUntilFinished();
-        minMaxTransfer.waitUntilFinished();
-        runKernel.assertSuccess();
-        wTransfer.assertSuccess();
-        minMaxTransfer.assertSuccess();
-        //doneFeature.assertSuccess();
-#endif
-        
-        //queue.finish();
-    };
-
-    for (int i = 0;  i < nf;  ++i) {
-        doFeature(i);
-    }
-
-    queue.finish();
-
-    for (auto & f: featureEventsList.events) {
-        f.assertSuccess();
-    }
-    
     for (int i = 0;  i < nf;  ++i) {
 
         if (!features[i].active)
             continue;
 
-        std::vector<W> & w = allW[i];
-        std::array<int, 2> & minMax = allMinMax[i];
+        const W * w = allW.data() + bucketNumbers[i];
+        const std::array<int, 2> & minMax = allMinMax[i];
 
+#if 0        
         auto profile = featureEvents[i].runKernel.getProfilingInfo();
 
         uint64_t timeTakenNs = profile.end - profile.start;
@@ -804,15 +906,25 @@ testAllOpenCL(int depth,
              << features[i].buckets.numBuckets << " buckets in "
              << timeTakenNs / 1000000.0 << " ms at "
              << timeTakenNs * 1.0 / numRows << " ns/row" << endl;
+#endif
 
+        cerr << "feature " << i << " numBuckets "
+             << features[i].buckets.numBuckets
+             << " min " << minMax[0] << " max " << minMax[1] << endl;
+
+        if (minMax[1] >= features[i].buckets.numBuckets) {
+            cerr << "***** error" << endl;
+            abort();
+        }
+        
         bool active = (minMax[0] != minMax[1]);
         int maxBucket = minMax[1];
 
-        ExcAssertLessEqual(minMax[1], features[i].buckets.numBuckets);
+        ExcAssertLess(minMax[1], features[i].buckets.numBuckets);
         ExcAssertGreaterEqual(minMax[1], 0);
         
         if (active) {
-            findBest(i, chooseSplitKernel(w.data(), maxBucket, features[i].ordinal,
+            findBest(i, chooseSplitKernel(w, maxBucket, features[i].ordinal,
                                           rows.wAll));
         }
         else {
@@ -858,13 +970,14 @@ testAllOpenCL(int depth,
 std::tuple<double, int, int, W, W>
 testAll(int depth,
         std::vector<Feature> & features,
-        const Rows & rows)
+        const Rows & rows,
+        FrozenMemoryRegionT<uint32_t> bucketData)
 {
-    if (rows.rowCount() < 1000000) {
-        return testAllCpu(depth, features, rows);
+    if (rows.rowCount() < 10000) {
+        return testAllCpu(depth, features, rows, bucketData);
     }
     else {
-        return testAllOpenCL(depth, features, rows);
+        return testAllOpenCL(depth, features, rows, bucketData);
     }
 }
 
