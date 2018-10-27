@@ -149,6 +149,7 @@ struct MutableMemoryRegion::Itl {
         MappedSerializer * owner)
         : handle(std::move(handle)), data(data), length(length), owner(owner)
     {
+        ExcAssert(owner);
     }
     
     std::shared_ptr<const void> handle;
@@ -172,6 +173,7 @@ std::shared_ptr<const void>
 MutableMemoryRegion::
 handle() const
 {
+    ExcAssert(itl);
     return itl->handle;
 }
 
@@ -179,19 +181,40 @@ FrozenMemoryRegion
 MutableMemoryRegion::
 freeze()
 {
+    ExcAssert(itl);
+    ExcAssert(itl->owner);
     return itl->owner->freeze(*this);
+}
+
+MutableMemoryRegion
+MutableMemoryRegion::
+range(size_t startByte, size_t endByte) const
+{
+    ExcAssertLessEqual(startByte, endByte);
+    ExcAssertLessEqual(endByte, length_);
+
+    ExcAssert(itl);
+    ExcAssert(itl->owner);
+    
+    MutableMemoryRegion result;
+    result.itl = this->itl;
+    result.data_ = this->data_ + startByte;
+    result.length_ = (endByte - startByte);
+
+    ExcAssert(result.itl->owner);
+
+    return result;
 }
 
 std::shared_ptr<const void>
 MutableMemoryRegion::
 reset()
 {
+    ExcAssert(itl);
     data_ = nullptr;
     length_ = 0;
     std::shared_ptr<const void> result(std::move(itl->handle));
-    itl->owner = nullptr;
-    itl->data = nullptr;
-    itl->length = 0;
+    itl.reset();
     return result;
 }
 
@@ -292,7 +315,11 @@ allocateWritable(uint64_t bytesRequired,
     if (alignment < sizeof(void *)) {
         alignment = sizeof(void *);
     }
-    int res = posix_memalign(&mem, alignment, bytesRequired);
+
+    size_t bytesToAllocate
+        = (bytesRequired + alignment - 1) / alignment * alignment;
+    
+    int res = posix_memalign(&mem, alignment, bytesToAllocate);
     if (res != 0) {
         cerr << "bytesRequired = " << bytesRequired
              << " alignment = " << alignment << endl;

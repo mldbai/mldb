@@ -198,6 +198,8 @@ struct MutableMemoryRegion {
     {
         return length_;
     }
+
+    MutableMemoryRegion range(size_t startByte, size_t endByte) const;
     
     FrozenMemoryRegion freeze();
 
@@ -235,6 +237,12 @@ struct MutableMemoryRegionT {
     size_t length() const
     {
         return length_;
+    }
+
+    MutableMemoryRegionT<T> rangeBytes(size_t start, size_t end) const
+    {
+        MutableMemoryRegionT result(raw.range(start, end));
+        return result;
     }
     
     FrozenMemoryRegionT<T> freeze()
@@ -274,9 +282,10 @@ struct MappedSerializer {
 
     template<typename T>
     MutableMemoryRegionT<T>
-    allocateWritableT(size_t numItems)
+    allocateWritableT(size_t numItems,
+                      size_t alignment = alignof(T))
     {
-        return allocateWritable(numItems * sizeof(T), alignof(T));
+        return allocateWritable(numItems * sizeof(T), alignment);
     }
 
     /** Freeze the given block of writable memory into a fixed, frozen
