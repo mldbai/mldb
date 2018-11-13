@@ -197,7 +197,20 @@ double decodeW(int64_t v)
     return v * HL_2_VAL;
 }
 
-void incrementW(__local W * w, bool label, float weight)
+void incrementWLocal(__local W * w, bool label, float weight)
+{
+    //if (weight != 0.0)
+    //    return;
+    
+    int64_t inc = encodeW(weight);
+#if 1
+    atom_add(&w->vals[label ? 1 : 0], inc);
+#else
+    w->vals[label ? 1 : 0] += inc;
+#endif
+}
+
+void incrementWGlobal(__global W * w, bool label, float weight)
 {
     //if (weight != 0.0)
     //    return;
@@ -233,7 +246,9 @@ uint32_t testRow(uint32_t rowId,
                  __global const float * weightTable,
                    
                  __local W * w,
-
+                 __global W * wOut,
+                 uint32_t maxLocalBuckets,
+                 
                  uint64_t mask,
                  uint32_t exampleMask,
                  uint32_t weightMask,
@@ -278,7 +293,12 @@ uint32_t testRow(uint32_t rowId,
     //    printf("rowId %d exampleNum %d bucket %d of %d weight %g label %d\n",
     //           rowId, exampleNum, bucket, numBuckets, weight, label);
 
-    incrementW(w + bucket, label, weight);
+    if (bucket < maxLocalBuckets) {
+        incrementWLocal(w + bucket, label, weight);
+    }
+    else {
+        incrementWGlobal(wOut + bucket, label, weight);
+    }
 
     return bucket;
 }
@@ -363,11 +383,12 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     //printf("workerId = %d, localsize[0] = %d\n",
     //       workerId, get_local_size(0));
     
-    for (int i = workerId;  i < numBuckets;  i += get_local_size(0)) {
-        //printf("zeroing %d\n", i);
+    for (int i = workerId;  i < numBuckets && i < maxLocalBuckets;
+         i += get_local_size(0)) {
+        //printf("zeroing %d of %d for feature %d\n", i, numBuckets, f);
         zeroW(w + i);
     }
-    
+
     barrier(CLK_LOCAL_MEM_FENCE);
     //if (rowId % 10000 == 0)
     //    printf("afer barrier %d\n", rowId);
@@ -398,6 +419,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
                           numRows,
                           bucketData, bucketBits, numBuckets,
                           weightEncoding, weightMultiplier, weightTable, w,
+                          wOut, maxLocalBuckets,
                           mask, exampleMask, weightMask, labelMask);
             minBucket = min(minBucket, bucket);
             maxBucket = max(maxBucket, bucket);

@@ -633,7 +633,14 @@ testAllOpenCL(int depth,
 
     size_t activeFeatures = 0;
     size_t totalBuckets = 0;
+
+    static constexpr size_t MAX_LOCAL_BUCKETS = 512;  // 8192 bytes
+    
+    // Maximum number of buckets
     size_t maxBuckets = 0;
+
+    // Maximum number of buckets for all with less than MAX_LOCAL_BUCKETS
+    size_t maxLocalBuckets = 0;
     
     std::vector<uint32_t> bucketDataOffsets;
     std::vector<uint32_t> bucketEntryBits;
@@ -658,6 +665,11 @@ testAllOpenCL(int depth,
             totalBuckets += features[i].buckets.numBuckets;
             maxBuckets = std::max<size_t>(maxBuckets,
                                           features[i].buckets.numBuckets);
+            if (features[i].buckets.numBuckets <= MAX_LOCAL_BUCKETS) {
+                maxLocalBuckets
+                    = std::max<size_t>(maxLocalBuckets,
+                                       features[i].buckets.numBuckets);
+            }
         }
 
         bucketNumbers.push_back(totalBuckets);
@@ -789,7 +801,8 @@ testAllOpenCL(int depth,
                 rows.weightEncoder.weightMultiplier,
                 clWeightData,
                 clFeaturesActive,
-                LocalArray<W>(maxBuckets),
+                LocalArray<W>(maxLocalBuckets),
+                (uint32_t)maxLocalBuckets,
                 clAllW,
                 clAllMinMax);
 
