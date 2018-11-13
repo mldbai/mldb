@@ -506,10 +506,12 @@ testAllCpu(int depth,
             W bestLeft, bestRight;
 
             Rows::RowIterator rowIterator = rows.getRowIterator();
-                
-            std::tie(score, split, bestLeft, bestRight, features[i].active)
-            = testFeatureNumber(i, features, rowIterator,
-                                rows.rowCount(), rows.wAll);
+
+            bool stillActive;
+            std::tie(score, split, bestLeft, bestRight, stillActive)
+                = testFeatureNumber(i, features, rowIterator,
+                                    rows.rowCount(), rows.wAll);
+            newActive[i] = stillActive;
             return std::make_tuple(score, split, bestLeft, bestRight);
         };
 
@@ -690,7 +692,8 @@ testAllOpenCL(int depth,
 
     // Shouldn't happen, except during development / testing
     if (totalBuckets == 0 || activeFeatures == 0) {
-        return std::make_tuple(1.0, -1, -1, rows.wAll, W());
+        return std::make_tuple(1.0, -1, -1, rows.wAll, W(),
+                               std::vector<uint8_t>(features.size(), false));
     }
     
     OpenCLKernelContext kernelContext = getKernelContext();
