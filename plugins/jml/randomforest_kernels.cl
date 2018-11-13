@@ -48,12 +48,21 @@ uint64_t createMask64(int numBits)
 inline uint64_t extractBitRange64(__global const uint64_t * data,
                                   int numBits,
                                   int entryNumber,
-                                  uint64_t mask)
+                                  uint64_t mask,
+                                  uint32_t dataLength)
 {
     long bitNumber = numBits * (long)entryNumber;
+    if (bitNumber >= INT_MAX) {
+        printf("bit number requires > 32 bits: %ld\n", bitNumber); 
+    }
     int wordNumber = bitNumber / 64;
     int wordOffset = bitNumber % 64;
 
+    if (wordNumber >= dataLength) {
+        printf("OUT OF RANGE WORD %d vs %d\n", wordNumber, dataLength);
+        return 0;
+    }
+    
     //return data[wordNumber];
     
     //printf("reading word number %d in worker %ld\n",
@@ -88,12 +97,17 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
 
 uint32_t extractBitRange32(__global const uint32_t * data,
                            int numBits,
-                           int entryNumber)
+                           int entryNumber,
+                           uint32_t dataLength)
 {
     int bitNumber = numBits * entryNumber;
     int wordNumber = bitNumber / 32;
     int wordOffset = bitNumber % 32;
 
+    if (wordNumber >= dataLength) {
+        printf("OUT OF RANGE WORD 32 %d vs %d\n", wordNumber, dataLength);
+        return 0;
+    }
     //printf("wordNumber = %d, bitNumber = %d\n", wordNumber, wordOffset);
     
     int bottomBits = min(numBits, 32 - wordOffset);
@@ -124,6 +138,7 @@ uint32_t extractBitRange32(__global const uint32_t * data,
 void getDecodedRow(uint32_t rowNumber,
 
                    __global const uint64_t * rowData,
+                   uint32_t rowDataLength,
                    uint32_t totalBits,
                    uint32_t weightBits,
                    uint32_t exampleBits,
@@ -146,7 +161,8 @@ void getDecodedRow(uint32_t rowNumber,
     //*weight = weightMultiplier;
     //*label = (rowNumber % 4 == 0);
     //return;
-    uint64_t bits = extractBitRange64(rowData, totalBits, rowNumber, mask);
+    uint64_t bits = extractBitRange64(rowData, totalBits, rowNumber, mask,
+                                      rowDataLength);
     //printf("rowNum %d bits = %016lx weightBits = %d exampleBits = %d\n",
     //       rowNumber, bits, weightBits, exampleBits);
     //printf("exampleMask = %016lx example = %016lx\n",
@@ -160,10 +176,11 @@ void getDecodedRow(uint32_t rowNumber,
 
 uint32_t getBucket(uint32_t exampleNum,
                    __global const uint32_t * bucketData,
+                   uint32_t bucketDataLength,
                    uint32_t bucketBits,
                    uint32_t numBuckets)
 {
-    return extractBitRange32(bucketData, bucketBits, exampleNum);
+    return extractBitRange32(bucketData, bucketBits, exampleNum, bucketDataLength);
 }
 
 typedef struct W {
@@ -232,12 +249,14 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
 uint32_t testRow(uint32_t rowId,
 
                  __global const uint64_t * rowData,
+                 uint32_t rowDataLength,
                  uint32_t totalBits,
                  uint32_t weightBits,
                  uint32_t exampleBits,
                  uint32_t numRows,
                    
                  __global const uint32_t * bucketData,
+                 uint32_t bucketDataLength,
                  uint32_t bucketBits,
                  uint32_t numBuckets,
                    
@@ -261,7 +280,8 @@ uint32_t testRow(uint32_t rowId,
     uint32_t bucket;// = rowId % numBuckets;
 
 #if 1
-    getDecodedRow(rowId, rowData, totalBits, weightBits, exampleBits, numRows,
+    getDecodedRow(rowId, rowData, rowDataLength,
+                  totalBits, weightBits, exampleBits, numRows,
                   weightEncoding, weightMultiplier, weightTable,
                   &exampleNum, &weight, &label,
                   mask, exampleMask, weightMask, labelMask);
@@ -278,7 +298,8 @@ uint32_t testRow(uint32_t rowId,
     //    return 0;
     //}
     
-    bucket = getBucket(exampleNum, bucketData, bucketBits, numBuckets);
+    bucket = getBucket(exampleNum, bucketData, bucketDataLength,
+                       bucketBits, numBuckets);
     if (bucket >= numBuckets) {
         printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
                bucket, numBuckets, rowId, get_global_id(0));
@@ -306,6 +327,7 @@ uint32_t testRow(uint32_t rowId,
 __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
                                 __global const uint64_t * rowData,
+                                uint32_t rowDataLength,
                                 uint32_t totalBits,
                                 uint32_t weightBits,
                                 uint32_t exampleBits,
@@ -323,21 +345,23 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
                                 __global const uint32_t * featureActive,
                                 
                                 __local W * w,
+                                uint32_t maxLocalBuckets,
                                 __global W * allWOut,
                                 __global int * allMinMaxOut)
 {
     const uint32_t workGroupId = get_global_id (0);
     const uint32_t workerId = get_local_id(0);
     const uint32_t f = get_global_id(1);
-
+    
     uint32_t bucketDataOffset = bucketDataOffsets[f];
+    uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
     uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
     __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
     uint32_t bucketBits = bucketEntryBits[f];
 
     __global W * wOut = allWOut + bucketNumbers[f];
     __global int * minMaxOut = allMinMaxOut + 2 * f;
-    
+
     if (!featureActive[f])
         return;
     
@@ -415,9 +439,10 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
         //printf("rowId = %d, numRows = %d\n", rowId, numRows);
         if (rowId < numRows) {
             int bucket
-                = testRow(rowId, rowData, totalBits, weightBits, exampleBits,
+                = testRow(rowId, rowData, rowDataLength,
+                          totalBits, weightBits, exampleBits,
                           numRows,
-                          bucketData, bucketBits, numBuckets,
+                          bucketData, bucketDataLength, bucketBits, numBuckets,
                           weightEncoding, weightMultiplier, weightTable, w,
                           wOut, maxLocalBuckets,
                           mask, exampleMask, weightMask, labelMask);

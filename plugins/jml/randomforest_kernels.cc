@@ -792,6 +792,7 @@ testAllOpenCL(int depth,
 
     kernel.bind((uint32_t)numRowsPerWorkItem,
                 clRowData,
+                (uint32_t)rows.rowData.length(),
                 rows.totalBits,
                 rows.weightEncoder.weightBits,
                 rows.exampleNumBits,
