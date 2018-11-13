@@ -156,30 +156,30 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     OpenCLKernel kernel
         = program.createKernel("testFeatureKernel");
 
-    cerr << "row data of " << rowIterator.owner->rowData.memusage()
-         << " bytes and " << numRows << " rows" << endl;
+    //cerr << "row data of " << rowIterator.owner->rowData.memusage()
+    //     << " bytes and " << numRows << " rows" << endl;
     
-    OpenCLMemObject rowData
+    OpenCLMemObject clRowData
         = context.createBuffer(0,
                                (const void *)rowIterator.owner->rowData.data(),
                                rowIterator.owner->rowData.memusage());
 
-    OpenCLMemObject bucketData
+    OpenCLMemObject clBucketData
         = context.createBuffer(0,
                                (const void *)buckets.storage.data(),
                                buckets.storage.memusage());
 
-    OpenCLMemObject weightData
+    OpenCLMemObject clWeightData
         = context.createBuffer(CL_MEM_READ_ONLY, 4);
 
     if (rowIterator.owner->weightEncoder.weightFormat == WF_TABLE) {
-        weightData = context.createBuffer
+        clWeightData = context.createBuffer
             (0,
              (const void *)rowIterator.owner->weightEncoder.weightFormatTable.data(),
              rowIterator.owner->weightEncoder.weightFormatTable.memusage());
     }
 
-    OpenCLMemObject wOut
+    OpenCLMemObject clWOut
         = context.createBuffer(CL_MEM_READ_WRITE,
                                w,
                                sizeof(W) * buckets.numBuckets);
@@ -187,28 +187,40 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
 
     int minMax[2] = { INT_MAX, INT_MIN };
     
-    OpenCLMemObject minMaxOut
+    OpenCLMemObject clMinMaxOut
         = context.createBuffer(CL_MEM_READ_WRITE,
                                minMax,
                                sizeof(minMax[0]) * 2);
 
-    int numRowsPerWorkItem = (numRows + 1023) / 1024;
+    size_t workGroupSize = 65536;
+        
+    uint32_t numRowsPerWorkItem
+        = (numRows + workGroupSize - 1) / workGroupSize;
+
+    const std::vector<int32_t> clBucketDataOffsets = { 0, (int32_t)buckets.storage.length() };
+    const std::vector<int32_t> clBucketNumbers = { 0, buckets.numBuckets };
+    const std::vector<int32_t> clBucketEntryBits = { buckets.entryBits };
+    const std::vector<int32_t> clFeaturesActive = { true };
     
     kernel.bind(numRowsPerWorkItem,
-                rowData,
+                clRowData,
+                (uint32_t)rowIterator.owner->rowData.length(),
                 rowIterator.totalBits,
                 rowIterator.owner->weightEncoder.weightBits,
                 rowIterator.owner->exampleNumBits,
                 (uint32_t)numRows,
-                bucketData,
-                buckets.entryBits,
-                buckets.numBuckets,
+                clBucketData,
+                clBucketDataOffsets,
+                clBucketNumbers,
+                clBucketEntryBits,
                 rowIterator.owner->weightEncoder.weightFormat,
                 rowIterator.owner->weightEncoder.weightMultiplier,
-                weightData,
+                clWeightData,
+                clFeaturesActive,
                 LocalArray<W>(buckets.numBuckets),
-                wOut,
-                minMaxOut);
+                buckets.numBuckets,
+                clWOut,
+                clMinMaxOut);
     
     auto devices = context.getDevices();
     
@@ -220,19 +232,19 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     
     OpenCLEvent runKernel
         = queue.launch(kernel,
-                       { 1024 },//(rowIterator.owner->rowCount() + 63numRowsPerWorkItem - 1) / numRowsPerWorkItem },
-                       { 256 });
+                       { workGroupSize, 1 },
+                       { 256, 1 });
 
     queue.flush();
     
     OpenCLEvent transfer
-        = queue.enqueueReadBuffer(wOut, 0 /* offset */,
+        = queue.enqueueReadBuffer(clWOut, 0 /* offset */,
                                   sizeof(W) * buckets.numBuckets /* length */,
                                   w,
                                   runKernel /* before */);
 
     OpenCLEvent minMaxTransfer
-        = queue.enqueueReadBuffer(minMaxOut, 0 /* offset */,
+        = queue.enqueueReadBuffer(clMinMaxOut, 0 /* offset */,
                                   sizeof(minMax[0]) * 2 /* length */,
                                   minMax,
                                   runKernel);
