@@ -44,6 +44,7 @@ $(eval $(call include_sub_make,ml_testing,testing,ml_testing.mk))
 LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest.cc \
 	randomforest_kernels.cc \
+	randomforest_types.cc \
 	randomforest_procedure.cc \
 	classifier.cc \
 	probabilizer.cc \

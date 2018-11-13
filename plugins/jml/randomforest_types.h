@@ -16,6 +16,9 @@
 #include "mldb/utils/fixed_point_accum.h"
 
 namespace MLDB {
+
+PREDECLARE_VALUE_DESCRIPTION(FixedPointAccum64);
+
 namespace RF {
 
 //This structure hold the weights (false and true) for any particular split
@@ -25,8 +28,8 @@ struct WT {
         : v { 0, 0 }
     {
     }
-
-    Float v[2];
+    
+    std::array<Float, 2> v;
 
     Float & operator [] (bool i)
     {
@@ -76,9 +79,12 @@ struct WT {
     typedef Float FloatType;
 };
 
-typedef WT<ML::FixedPointAccum64> W;
+
+typedef WT<FixedPointAccum64> W;
 //typedef WT<float> W;
 //typedef WT<double> W;
+
+DECLARE_STRUCTURE_DESCRIPTION(W);
 
 // Entry for an individual feature
 struct Feature {
