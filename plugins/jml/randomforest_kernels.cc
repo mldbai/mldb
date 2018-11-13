@@ -276,14 +276,29 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
         
         cerr << "cpu took " << after.secondsSince(before) * 1000 << "ms" << endl;
 
+        W totalGpu, totalCpu;
         for (size_t i = 0;  i < buckets.numBuckets;  ++i) {
+            totalGpu += w[i];
+            totalCpu += wCpu[i];
             if (w[i] != wCpu[i]) {
                 cerr << "error on w " << i << ": gpu = ("
-                     << w[i].v[0] << "," << w[i].v[1] << "), cpu = ("
-                     << wCpu[i].v[0] << "," << wCpu[i].v[1] << ")" << endl;
+                     << w[i].v[0] << "," << w[i].v[1] << ") = "
+                     << w[i].v[0] + w[i].v[1] << ", cpu = ("
+                     << wCpu[i].v[0] << "," << wCpu[i].v[1] << ") = "
+                     << wCpu[i].v[0] + wCpu[i].v[1] << endl;
             }
         }
 
+        if (totalGpu != totalCpu) {
+            cerr << "totals differ: "
+                 << ": gpu = ("
+                 << totalGpu.v[0] << "," << totalGpu.v[1] << ") = "
+                 << totalGpu.v[0] + totalGpu.v[1] << ", cpu = ("
+                 << totalCpu.v[0] << "," << totalCpu.v[1] << ") = "
+                 << totalCpu.v[0] + totalCpu.v[1] << endl;                    
+                    
+        }
+        
         if (cpuActive != active) {
             cerr << "error: active CPU = " << cpuActive << " != gpu " << active << endl;
         }
@@ -492,6 +507,13 @@ testAllCpu(int depth,
                          const std::tuple<double, int, W, W> & val)
         {
             double score = std::get<0>(val);
+
+            //cerr << "CPU: feature " << feature << " score "
+            //     << score << " split " << std::get<1>(val)
+            //     << " left " << jsonEncodeStr(std::get<2>(val))
+            //     << " right " << jsonEncodeStr(std::get<3>(val))
+            //     << endl;
+
             if (score < bestScore) {
                 bestFeature = feature;
                 std::tie(bestScore, bestSplit, bestLeft, bestRight) = val;
@@ -700,8 +722,8 @@ testAllOpenCL(int depth,
     
     OpenCLContext & context = kernelContext.context;
 
-    cerr << "rows.rowData.data() = " << rows.rowData.data() << endl;
-    cerr << "bucketData_.data() = " << bucketData_.data() << endl;
+    //cerr << "rows.rowData.data() = " << rows.rowData.data() << endl;
+    //cerr << "bucketData_.data() = " << bucketData_.data() << endl;
 
     Date beforeTransfer = Date::now();
     
@@ -769,7 +791,7 @@ testAllOpenCL(int depth,
     
     size_t numRows = rows.rowCount();
 
-    cerr << "total offset = " << bucketData_.memusage() / 4 << endl;
+    //cerr << "total offset = " << bucketData_.memusage() / 4 << endl;
 
     Date beforeKernel = Date::now();
     
@@ -896,6 +918,12 @@ testAllOpenCL(int depth,
     auto findBest = [&] (int feature,
                          const std::tuple<double, int, W, W> & val)
         {
+            //cerr << "GPU: feature " << feature << " score "
+            //     << std::get<0>(val) << " split " << std::get<1>(val)
+            //     << " left " << jsonEncodeStr(std::get<2>(val))
+            //     << " right " << jsonEncodeStr(std::get<3>(val))
+            //     << endl;
+                                       
             double score = std::get<0>(val);
             if (score < bestScore
                 || (score == bestScore && feature < bestFeature)) {
@@ -926,12 +954,13 @@ testAllOpenCL(int depth,
              << timeTakenNs * 1.0 / numRows << " ns/row" << endl;
 #endif
 
-        cerr << "feature " << i << " numBuckets "
-             << features[i].buckets.numBuckets
-             << " min " << minMax[0] << " max " << minMax[1] << endl;
+        //cerr << "feature " << i << " numBuckets "
+        //     << features[i].buckets.numBuckets
+        //     << " min " << minMax[0] << " max " << minMax[1] << endl;
 
         if (minMax[1] >= features[i].buckets.numBuckets) {
-            cerr << "***** error" << endl;
+            cerr << "***** error minMax: " << minMax[1] << " numBuckets "
+                 << features[i].buckets.numBuckets << endl;
             abort();
         }
         
@@ -992,11 +1021,33 @@ testAll(int depth,
         const Rows & rows,
         FrozenMemoryRegionT<uint32_t> bucketData)
 {
-    if (rows.rowCount() < 10000) {
+    if (rows.rowCount() < 10000 && false) {
         return testAllCpu(depth, features, rows, bucketData);
     }
     else {
-        return testAllOpenCL(depth, features, rows, bucketData);
+        //static std::mutex mutex;
+        //std::unique_lock<std::mutex> guard(mutex);
+
+        Date beforeCpu = Date::now();
+        auto cpuOutput = testAllCpu(depth, features, rows, bucketData);
+        Date afterCpu = Date::now();
+        auto gpuOutput = testAllOpenCL(depth, features, rows, bucketData);
+        Date afterGpu = Date::now();
+
+        cerr << "CPU took " << afterCpu.secondsSince(beforeCpu) * 1000.0
+             << "ms; GPU took " << afterGpu.secondsSince(afterCpu) * 1000.0
+             << "ms" << endl;
+
+        if (cpuOutput != gpuOutput) {
+            cerr << "difference in outputs: " << endl;
+            cerr << "rows.rowCount() = " << rows.rowCount() << endl;
+            cerr << "depth = " << depth << endl;
+            cerr << "cpu: " << jsonEncode(cpuOutput) << endl;
+            cerr << "gpu: " << jsonEncode(gpuOutput) << endl;
+            abort();
+        }
+
+        return cpuOutput;
     }
 }
 

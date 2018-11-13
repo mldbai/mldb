@@ -377,7 +377,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     
     __local int minWorkgroupBucket, maxWorkgroupBucket;
 
-    if (workGroupId == 0) {
+    if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, buckets %d-%d, offset %d\n",
                get_global_id(1),
                get_global_size(0),
@@ -460,23 +460,24 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     barrier(CLK_LOCAL_MEM_FENCE);
 
 
-    for (int i = workerId;  i < numBuckets;  i += get_local_size(0)) {
-        //printf("copying %d\n", i);
+    for (int i = workerId;  i < numBuckets && i < maxLocalBuckets;
+         i += get_local_size(0)) {
+        //printf("copying %d group %ld\n", i, get_group_id(0));
         //wOut[i].vals[0] = w[i].vals[0];
         //wOut[i].vals[1] = w[i].vals[1];
         incrementWOut(wOut + i, w + i);
     }
 
     if (workerId == 0) {
-        //printf("index %d minBucket %d maxBucket %d\n",
-        //       workGroupId, minWorkgroupBucket, maxWorkgroupBucket);
+        //printf("feat %d index %d minBucket %d maxBucket %d\n",
+        //       f, workGroupId, minWorkgroupBucket, maxWorkgroupBucket);
         atomic_min(minMaxOut + 0, minWorkgroupBucket);
         atomic_max(minMaxOut + 1, maxWorkgroupBucket);
     }
     
     barrier(CLK_GLOBAL_MEM_FENCE);
 
-    if (workGroupId == 0) {
+    if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, min %d, max %d\n",
                get_global_id(1),
                get_global_size(0),
@@ -487,16 +488,6 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
                numBuckets,
                minMaxOut[0],
                minMaxOut[1]);
-    }
-
-    
-    if (workGroupId == 0 && false) {
-        for (int i = 256;  i < 266 && i < numBuckets;  ++i) {
-            printf("local bucket %d W = (%g, %g)\n",
-                   i, decodeW(w[i].vals[0]), decodeW(w[i].vals[1]));
-            printf("global bucket %d W = (%g, %g)\n",
-                   i, decodeW(wOut[i].vals[0]), decodeW(wOut[i].vals[1]));
-        }
     }
 }
 

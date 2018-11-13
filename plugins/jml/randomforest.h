@@ -325,6 +325,13 @@ struct PartitionData {
         MLDB::parallelMap(0, data.features.size() + 1, doFeature);
 
         data.bucketMemory = mutableBucketMemory.freeze();
+
+        for (size_t i = 0;  i < data.features.size();  ++i) {
+            if (features[i].active) {
+                ExcAssertGreaterEqual(data.features[i].buckets.storage.data(),
+                                      data.bucketMemory.data());
+            }
+        }
         
         return data;
     }
@@ -525,6 +532,24 @@ struct PartitionData {
 
             sides[0].bucketMemory = mutableBucketMemory[0].freeze();
             sides[1].bucketMemory = mutableBucketMemory[1].freeze();
+
+#if 0            
+            using namespace std;
+            for (int side = 0;  side < 2;  ++side) {
+                for (size_t i = 0;  i < nf;  ++i) {
+                    if (!features[i].active)
+                        continue;
+                    ostringstream str;
+                    str  << "side " << side << " feature " << i << " offset "
+                         << sides[side].features[i].buckets.storage.data()
+                          - sides[side].bucketMemory.data()
+                         << " should be "
+                         << bucketMemoryOffsets[side][i] / 4 << endl;
+                    cerr << str.str();
+
+                }
+            }
+#endif
         }
 
         return { std::move(left), std::move(right) };
@@ -604,8 +629,19 @@ struct PartitionData {
         size_t leftRows = splits.first.rows.rowCount();
         size_t rightRows = splits.second.rows.rowCount();
 
-        if (leftRows == 0 || rightRows == 0)
-            throw MLDB::Exception("Invalid split in random forest");
+        if (leftRows == 0 || rightRows == 0) {
+            throw AnnotatedException(400,
+                                     "Invalid split in random forest",
+                                     "leftRows", leftRows,
+                                     "rightRows", rightRows,
+                                     "bestFeature", bestFeature,
+                                     "name", features[bestFeature].info->columnName,
+                                     "bestSplit", bestSplit,
+                                     "wLeft0", (double)wLeft.v[0],
+                                     "wLeft1", (double)wLeft.v[1],
+                                     "wRight0", (double)wRight.v[0],
+                                     "wRight1", (double)wRight.v[1]);
+        }
 
         if (leftRows + rightRows < 1000) {
             runLeft();
