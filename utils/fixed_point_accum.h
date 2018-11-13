@@ -11,7 +11,7 @@
 #include "mldb/compiler/compiler.h"
 #include "mldb/utils/float_traits.h"
 
-namespace ML {
+namespace MLDB {
 
 /** A structure to accumulate values between zero and one in a single 32
     bit integer. */
@@ -220,4 +220,4 @@ inline float operator / (const FixedPointAccum64 & f1,
     return f1.operator float() / f2.operator float();
 }
 
-} // namespace ML
+} // namespace MLDB

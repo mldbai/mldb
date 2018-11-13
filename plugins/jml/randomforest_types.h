@@ -10,10 +10,10 @@
 
 #include "mldb/engine/bucket.h"
 #include "mldb/block/memory_region.h"
-#include "mldb/plugins/jml/jml/fixed_point_accum.h"
 #include "dataset_feature_space.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
+#include "mldb/utils/fixed_point_accum.h"
 
 namespace MLDB {
 namespace RF {

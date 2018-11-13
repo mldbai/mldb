@@ -25,7 +25,7 @@
 #include <string>
 
 #include "split_fwd.h"
-#include "fixed_point_accum.h"
+#include "mldb/utils/fixed_point_accum.h"
 
 namespace ML {
 

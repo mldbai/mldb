@@ -19,7 +19,7 @@
 #include "mldb/plugins/jml/multi_array_utils.h"
 #include "mldb/utils/xdiv.h"
 #include "split.h"
-#include "fixed_point_accum.h"
+#include "mldb/utils/fixed_point_accum.h"
 
 namespace ML {
 

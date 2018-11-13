@@ -5,6 +5,12 @@ if [ -d /usr/include/python3.6 ] ; then
     exit 0;
 fi
 
+
+if [ -d /usr/include/python3.5 ] ; then
+    echo "3.5m";
+    exit 0;
+fi
+
 if [ -d /usr/include/python3.4 ] ; then
     echo "3.4";
     exit 0;
