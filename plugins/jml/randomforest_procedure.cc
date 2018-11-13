@@ -384,11 +384,30 @@ run(const ProcedureRunConfig & run,
 
                 PartitionData mydata(data);
 
-                // Cull the features according to the sampling proportion
-                for (unsigned i = 0;  i < data.features.size();  ++i) {
-                    if (mydata.features[i].active
-                        && uniform01(rng) > procedureConfig.featureVectorSamplingProp) {
-                        mydata.features[i].active = false;
+                for (int attempt = 0;  true /* break in loop */; ++attempt) {
+                    int numActiveFeatures = 0;
+
+                    // Cull the features according to the sampling proportion
+                    for (unsigned i = 0;  i < data.features.size();  ++i) {
+                        if (data.features[i].active
+                            && uniform01(rng) > procedureConfig.featureVectorSamplingProp) {
+                            mydata.features[i].active = false;
+                        }
+                        else {
+                            mydata.features[i].active = true;
+                            ++numActiveFeatures;
+                        }
+                    }
+                    
+                    if (numActiveFeatures == 0) {
+                        if (attempt == 9) {
+                            throw AnnotatedException
+                                (400, "Feature partition had no features; "
+                                 "consider increasing featureVectorSamplingProp");
+                        }
+                    }
+                    else {
+                        break;
                     }
                 }
 
