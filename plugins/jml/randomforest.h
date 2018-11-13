@@ -569,10 +569,19 @@ struct PartitionData {
         int bestSplit;
         W wLeft;
         W wRight;
+        std::vector<uint8_t> newActive;
         
-        std::tie(bestScore, bestFeature, bestSplit, wLeft, wRight)
+        std::tie(bestScore, bestFeature, bestSplit, wLeft, wRight,
+                 newActive)
             = testAll(depth, features, rows, bucketMemory);
 
+        ExcAssertEqual(newActive.size(), features.size());
+        
+        // Record the active flag back
+        for (size_t i = 0;  i < features.size();  ++i) {
+            features[i].active = newActive[i];
+        }
+        
         if (bestFeature == -1) {
             ML::Tree::Leaf * leaf = tree.new_leaf();
             fillinBase(leaf, /*wLeft + wRight*/ rows.wAll);

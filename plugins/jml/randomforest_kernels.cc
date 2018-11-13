@@ -440,15 +440,21 @@ testFeatureNumber(int featureNum,
     return { bestScore, bestSplit, bestLeft, bestRight, isActive };
 }
 
-std::tuple<double, int, int, W, W>
+std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAllCpu(int depth,
-           std::vector<Feature> & features,
+           const std::vector<Feature> & features,
            const Rows & rows,
            FrozenMemoryRegionT<uint32_t> bucketData)
 {
+    std::vector<uint8_t> newActive;
+    for (auto & f: features) {
+        newActive.push_back(f.active);
+    }
+
     // We have no impurity in our bucket.  Time to stop
     if (rows.wAll[0] == 0 || rows.wAll[1] == 0) {
-        return std::make_tuple(1.0, -1, -1, rows.wAll, W());
+        return std::make_tuple(1.0, -1, -1, rows.wAll, W(),
+                               std::vector<uint8_t>(features.size(), false));
     }
 
     bool debug = false;
@@ -539,7 +545,8 @@ testAllCpu(int depth,
                   << std::endl;
     }
 
-    return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
+    return std::make_tuple(bestScore, bestFeature, bestSplit,
+                           bestLeft, bestRight, newActive);
 }
 
 struct OpenCLKernelContext {
@@ -570,30 +577,24 @@ OpenCLKernelContext getKernelContext()
     return result;
 }
 
-#if 0
-std::string
-generateOpenCLBitExtractor(uint64_t numBits)
-{
-    std::string result;
-
-    BitArray<uint64_t> array(numBits);
-
-    return result;
-}
-#endif
-
-std::tuple<double, int, int, W, W>
+std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAllOpenCL(int depth,
-              std::vector<Feature> & features,
+              const std::vector<Feature> & features,
               const Rows & rows,
               FrozenMemoryRegionT<uint32_t> bucketData_)
 {
     // We have no impurity in our bucket.  Time to stop
     if (rows.wAll[0] == 0 || rows.wAll[1] == 0) {
-        return std::make_tuple(1.0, -1, -1, rows.wAll, W());
+        return std::make_tuple(1.0, -1, -1, rows.wAll, W(),
+                               std::vector<uint8_t>(features.size(), false));
     }
 
-#if 1    
+    std::vector<uint8_t> newActive;
+    for (auto & f: features) {
+        newActive.push_back(f.active);
+    }
+    
+#if 1
     static constexpr int PARALLELISM = 2;
     
     static std::atomic<int> numRunning(0);
@@ -928,7 +929,7 @@ testAllOpenCL(int depth,
                                           rows.wAll));
         }
         else {
-            features[i].active = false;
+            newActive[i] = false;
         }
     };
 
@@ -964,12 +965,13 @@ testAllOpenCL(int depth,
     cv.notify_one();
 #endif
     
-    return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
+    return std::make_tuple(bestScore, bestFeature, bestSplit,
+                           bestLeft, bestRight, newActive);
 }
 
-std::tuple<double, int, int, W, W>
+std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
-        std::vector<Feature> & features,
+        const std::vector<Feature> & features,
         const Rows & rows,
         FrozenMemoryRegionT<uint32_t> bucketData)
 {

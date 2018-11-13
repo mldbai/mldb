@@ -71,14 +71,15 @@ testFeatureNumber(int featureNum,
     - Split point (bucket number)
     - W for the left side of the split
     - W from the right side of the split
+    - A new list of active features
 
     Features that are inactive from here on are recorded by mutating
     the active flag in the features argument.
 */
 
-std::tuple<double, int, int, W, W>
+std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
-        std::vector<Feature> & features,
+        const std::vector<Feature> & features,
         const Rows & rows,
         FrozenMemoryRegionT<uint32_t> bucketData);
 
