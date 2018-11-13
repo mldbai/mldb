@@ -1144,6 +1144,9 @@ struct OpenCLCommandQueue {
         OpenCLEvent result;
 
         ExcAssert(work.empty() || work.size() == range.size());
+
+        // TODO: check for too much local memory on enqueue failure
+        //cl_ulong localMemSize = clGetKernelWorkGroupInfo(kernel, ...);
         
         cl_int error = clEnqueueNDRangeKernel
             (queue, kernel,
@@ -1254,6 +1257,34 @@ struct OpenCLCommandQueue {
 
 
 /*****************************************************************************/
+/* OPENCL MEM OBJECT                                                         */
+/*****************************************************************************/
+
+struct OpenCLMemObject {
+    OpenCLRefCounted<cl_mem> buffer;
+
+    OpenCLMemObject()
+    {
+    }
+
+    OpenCLMemObject(cl_mem buffer, bool alreadyRetained)
+        : buffer(buffer, alreadyRetained)
+    {
+    }
+    
+    operator cl_mem () const
+    {
+        return buffer;
+    }
+
+    int referenceCount() const
+    {
+        return buffer.referenceCount();
+    }
+};
+
+
+/*****************************************************************************/
 /* OPENCL KERNEL                                                             */
 /*****************************************************************************/
 
@@ -1319,6 +1350,12 @@ struct OpenCLKernel {
     template<typename T>
     void bindArg(int argNum, const LocalArray<T> & data)
     {
+        if (data.bytes() > 32767) {
+            using namespace std;
+            cerr << "warning: asking for " << data.bytes() / 1024.0
+                 << "kb of local memory; many devices will fail to launch"
+                 << endl;
+        }
         cl_int error = clSetKernelArg(kernel, argNum, data.bytes(), nullptr);
         checkOpenCLError(error, "clSetKernelArg: arg " + std::to_string(argNum)
                          + " of type " + type_name<T>());
@@ -1356,6 +1393,14 @@ struct OpenCLKernel {
     template<typename... Args>
     void bind(Args&&... args)
     {
+        if (sizeof...(args) != getInfo().args.size()) {
+            throw AnnotatedException(400, "Attempt to bind wrong number of "
+                                     "arguments to kernel: got "
+                                     + std::to_string(sizeof...(args))
+                                     + " expected "
+                                     + std::to_string(getInfo().args.size()),
+                                     "args", getInfo());
+        }
         bindArgs(0, std::forward<Args>(args)...);
     }
 
@@ -1363,6 +1408,8 @@ struct OpenCLKernel {
     {
         return kernel.referenceCount();
     }
+
+    std::vector<OpenCLMemObject> boundMemObjects;
 };
 
 
@@ -1424,34 +1471,6 @@ struct OpenCLProgram {
     int referenceCount() const
     {
         return program.referenceCount();
-    }
-};
-
-
-/*****************************************************************************/
-/* OPENCL MEM OBJECT                                                         */
-/*****************************************************************************/
-
-struct OpenCLMemObject {
-    OpenCLRefCounted<cl_mem> buffer;
-
-    OpenCLMemObject()
-    {
-    }
-
-    OpenCLMemObject(cl_mem buffer, bool alreadyRetained)
-        : buffer(buffer, alreadyRetained)
-    {
-    }
-    
-    operator cl_mem () const
-    {
-        return buffer;
-    }
-
-    int referenceCount() const
-    {
-        return buffer.referenceCount();
     }
 };
 
@@ -1542,7 +1561,6 @@ struct OpenCLContext {
         using namespace std;
         cerr << "got context error " << error << " with param of size "
              << paramSize << endl;
-        abort();
     }
     
     cl_uint getReferenceCountUnsafe() const
@@ -1702,8 +1720,9 @@ bindArg(int argNum, std::vector<T> & data)
 {
     auto context = getContext();
     auto mem = context.createBuffer(0, data.data(),
-                                    sizeof(T) * data.length());
+                                    sizeof(T) * data.size());
     bindArg(argNum, mem);
+    boundMemObjects.emplace_back(std::move(mem));
 }
 
 template<typename T>
@@ -1713,8 +1732,9 @@ bindArg(int argNum, const std::vector<T> & data)
 {
     auto context = getContext();
     auto mem = context.createBuffer(0, data.data(),
-                                    sizeof(T) * data.length());
+                                    sizeof(T) * data.size());
     bindArg(argNum, mem);
+    boundMemObjects.emplace_back(std::move(mem));
 }
 
 
