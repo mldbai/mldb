@@ -518,7 +518,7 @@ testAllCpu(int depth,
     }
     else {
         for (unsigned i = 0;  i < nf;  ++i)
-            doFeature(i);
+            findBest(i, doFeature(i));
     }
 
     int bucketsEmpty = 0;
