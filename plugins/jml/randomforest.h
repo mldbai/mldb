@@ -12,6 +12,8 @@
 
 #include "randomforest_types.h"
 #include "randomforest_kernels.h"
+#include "mldb/types/annotated_exception.h"
+#include "mldb/types/basic_value_descriptions.h"
 #include "mldb/plugins/jml/dataset_feature_space.h"
 #include "mldb/plugins/jml/jml/tree.h"
 #include "mldb/plugins/jml/jml/stump_training_bin.h"

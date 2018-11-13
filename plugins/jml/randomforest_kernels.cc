@@ -12,6 +12,8 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/map_reduce.h"
 #include "mldb/base/scope.h"
+#include "mldb/types/vector_description.h"
+#include "mldb/types/tuple_description.h"
 #include <condition_variable>
 
 
