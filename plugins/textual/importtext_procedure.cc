@@ -1092,7 +1092,7 @@ struct ImportTextProcedureWorkInstance
                 }
                 
                 // Look for the wraparound of the modulus
-                if (linesDone % 100000 < threadAccum.linesDone) {
+                if (linesDone % 1000000 < threadAccum.linesDone) {
                     double wall = timer.elapsed_wall();
                     INFO_MSG(this->logger)
                         << "done " << linesDone << " in " << wall
