@@ -430,9 +430,11 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     uint32_t weightMask = createMask32(weightBits);
     uint32_t labelMask = (1 << (weightBits + exampleBits));
 
-    for (i = 0;  i < numRowsPerWorkgroup;  ++i) {
+    // global id 0 does 0, 1024, 2048, ...
+    
+    for (int rowId = get_global_id(0);  rowId < numRows;  rowId += get_global_size(0)) {
         //int rowId = workGroupId * numRowsPerWorkgroup + i;
-        int rowId = workGroupId + i * get_local_size(0);
+        //int rowId = workGroupId + i * get_local_size(0);
         //if (workGroupId == 0)
         //    printf("i = %d getting row %d in worker %d with %ld groups\n",
         //           i, rowId, workGroupId, get_local_size(0));
