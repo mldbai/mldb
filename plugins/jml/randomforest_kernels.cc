@@ -721,7 +721,7 @@ testAllOpenCL(int depth,
 
     
     std::vector<W> allW(totalBuckets);
-    std::vector<std::array<int, 2> > allMinMax(nf);
+    std::vector<std::array<int32_t, 2> > allMinMax(nf, { INT_MAX, INT_MIN });
 
     // TODO: fill don't transfer
     OpenCLMemObject clAllW
