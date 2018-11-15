@@ -38,32 +38,25 @@ testFeatureKernelCpu(Rows::RowIterator rowIterator,
                      const BucketList & buckets,
                      W * w /* buckets.numBuckets entries */)
 {
-    // Number of the last bucket we saw.  Enables us to determine if
-    // we change buckets at any point.
-    int lastBucket = -1;
-
-    // Number of times we've changed bucket numbers.  Since lastBucket
-    // starts off at -1, this will be incremented to 0 on the first loop
-    // iteration.
-    int bucketTransitions = -1;
-
+    // Minimum bucket number we've seen
+    int minBucket = INT_MAX;
+    
     // Maximum bucket number we've seen.  Can significantly reduce the
     // work required to search the buckets later on, as those without
     // an example have no possible split point.
-    int maxBucket = -1;
+    int maxBucket = INT_MIN;
 
     for (size_t j = 0;  j < numRows;  ++j) {
         DecodedRow r = rowIterator.getDecodedRow();
         int bucket = buckets[r.exampleNum];
         //ExcAssertLess(bucket, buckets.numBuckets);
-        bucketTransitions += (bucket != lastBucket ? 1 : 0);
-        lastBucket = bucket;
 
         w[bucket][r.label] += r.weight;
         maxBucket = std::max(maxBucket, bucket);
+        minBucket = std::min(minBucket, bucket);
     }
 
-    return { bucketTransitions > 0, maxBucket };
+    return { minBucket < maxBucket, maxBucket };
 }
 
 std::pair<bool, int>
