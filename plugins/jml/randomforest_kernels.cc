@@ -697,6 +697,7 @@ testAllOpenCL(int depth,
     // Maximum number of buckets for all with less than MAX_LOCAL_BUCKETS
     size_t maxLocalBuckets = 0;
     
+    uint32_t lastBucketDataOffset = 0;
     std::vector<uint32_t> bucketDataOffsets;
     std::vector<uint32_t> bucketEntryBits;
     std::vector<uint32_t> bucketNumbers(1, 0);
@@ -706,16 +707,21 @@ testAllOpenCL(int depth,
         const BucketList & buckets = features[i].buckets;
 
         bucketEntryBits.push_back(buckets.entryBits);
-        
-        uint32_t offset
-            = buckets.storage.data()
-            - bucketData_.data();
-        cerr << "i = " << i << " offset = " << offset << endl;
-        bucketDataOffsets.push_back(offset);
 
         featuresActive.push_back(features[i].active);
         
         if (features[i].active) {
+            ExcAssertGreaterEqual((void *)buckets.storage.data(),
+                                  (void *)bucketData_.data());
+        
+            uint32_t offset
+                = buckets.storage.data()
+                - bucketData_.data();
+
+            //cerr << "i = " << i << " offset = " << offset << endl;
+            bucketDataOffsets.push_back(offset);
+            lastBucketDataOffset = offset + bucketData_.length();
+            
             ++activeFeatures;
             totalBuckets += features[i].buckets.numBuckets;
             maxBuckets = std::max<size_t>(maxBuckets,
@@ -726,23 +732,39 @@ testAllOpenCL(int depth,
                                        features[i].buckets.numBuckets);
             }
         }
+        else {
+            bucketDataOffsets.push_back(lastBucketDataOffset);
+        }
 
         bucketNumbers.push_back(totalBuckets);
 
-        cerr << "feature " << i << " buckets from " << bucketNumbers[i]
-             << " to " << bucketNumbers[i + 1] << " numBuckets "
-             << bucketNumbers[i + 1] - bucketNumbers[i] << endl;
+        //cerr << "feature " << i << " buckets from " << bucketNumbers[i]
+        //     << " to " << bucketNumbers[i + 1] << " numBuckets "
+        //     << bucketNumbers[i + 1] - bucketNumbers[i] << endl;
     }
 
-    cerr << "doing " << rows.rowCount() << " rows with "
-         << activeFeatures << " active features and "
-         << totalBuckets << " total buckets" << endl;
+    bucketDataOffsets.push_back(lastBucketDataOffset);
+    //cerr << "bucketNumbers are " << jsonEncode(bucketNumbers) << endl;
+    
+    //cerr << "doing " << rows.rowCount() << " rows with "
+    //     << activeFeatures << " active features and "
+    //     << totalBuckets << " total buckets" << endl;
 
-    ExcAssertEqual(bucketDataOffsets.size(), nf);
+    ExcAssertEqual(bucketDataOffsets.size(), nf + 1);
     ExcAssertEqual(bucketEntryBits.size(), nf);
     ExcAssertEqual(bucketNumbers.size(), nf + 1);
     ExcAssertEqual(featuresActive.size(), nf);
 
+    
+    //cerr << "bucketDataOffsets = " << jsonEncodeStr(bucketDataOffsets)
+    //     << endl;
+    //for (auto & b: bucketDataOffsets) {
+    //    int b2 = b;
+    //    if (b2 < 0) {
+    //        cerr << "b = " << b << " b2 = " << b2 << endl;
+    //    }
+    //}
+    
     // Shouldn't happen, except during development / testing
     if (totalBuckets == 0 || activeFeatures == 0) {
         return std::make_tuple(1.0, -1, -1, rows.wAll, W(),
