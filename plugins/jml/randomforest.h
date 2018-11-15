@@ -350,6 +350,145 @@ struct PartitionData {
     /// All known features in this partition
     std::vector<Feature> features;
 
+    void splitWithoutReindex(PartitionData * sides,
+                             int featureToSplitOn, int splitValue,
+                             MappedSerializer & serializer)
+    {
+        bool ordinal = features[featureToSplitOn].ordinal;
+
+        RowWriter writer[2]
+            = { rows.getRowWriter(rows.rowCount(),
+                                  rows.highestExampleNum(),
+                                  serializer,
+                                  false /* sequential example nums */),
+                rows.getRowWriter(rows.rowCount(),
+                                  rows.highestExampleNum(),
+                                  serializer,
+                                  false /* sequential example nums */) };
+
+        Rows::RowIterator rowIterator = rows.getRowIterator();
+            
+        for (size_t i = 0;  i < rows.rowCount();  ++i) {
+            Row row = rowIterator.getRow();
+            int bucket
+                = features[featureToSplitOn]
+                .buckets[row.exampleNum_];
+            int side = ordinal ? bucket > splitValue : bucket != splitValue;
+            writer[side].addRow(row);
+        }
+
+        rows.clear();
+        features.clear();
+
+        sides[0].rows = writer[0].freeze(serializer);
+        sides[1].rows = writer[1].freeze(serializer);
+
+        sides[0].bucketMemory = sides[1].bucketMemory = bucketMemory;
+    }
+
+    void splitAndReindex(PartitionData * sides,
+                         int featureToSplitOn, int splitValue,
+                         MappedSerializer & serializer)
+    {
+        int nf = features.size();
+
+        // For each example, it goes either in left or right, depending
+        // upon the value of the chosen feature.
+
+        std::vector<uint8_t> lr(rows.rowCount());
+        bool ordinal = features[featureToSplitOn].ordinal;
+        size_t numOnSide[2] = { 0, 0 };
+
+        // TODO: could reserve less than this...
+        RowWriter writer[2]
+            = { rows.getRowWriter(rows.rowCount(),
+                                  rows.rowCount(),
+                                  serializer,
+                                  true /* sequential example nums */),
+                rows.getRowWriter(rows.rowCount(),
+                                  rows.rowCount(),
+                                  serializer,
+                                  true /* sequential example nums */) };
+
+        Rows::RowIterator rowIterator = rows.getRowIterator();
+
+        for (size_t i = 0;  i < rows.rowCount();  ++i) {
+            Row row = rowIterator.getRow();
+            int bucket = features[featureToSplitOn].buckets[row.exampleNum()];
+            int side = ordinal ? bucket > splitValue : bucket != splitValue;
+            lr[i] = side;
+            row.exampleNum_ = numOnSide[side]++;
+            writer[side].addRow(row);
+        }
+
+        // Get a contiguous block of memory for all of the feature
+        // blocks on each side; this enables a single GPU transfer
+        // and a single GPU argument list.
+        std::vector<size_t> bucketMemoryOffsets[2];
+        MutableMemoryRegionT<uint32_t> mutableBucketMemory[2];
+            
+        for (int side = 0;  side < 2;  ++side) {
+
+            bucketMemoryOffsets[side].resize(1, 0);
+            size_t bucketMemoryRequired = 0;
+
+            for (int f = 0;  f < nf;  ++f) {
+                size_t bytesRequired = 0;
+                if (features[f].active) {
+                    size_t wordsRequired
+                        = WritableBucketList::wordsRequired
+                        (numOnSide[side],
+                         features[f].info->distinctValues);
+                    bytesRequired = wordsRequired * 4;
+                }
+                bucketMemoryRequired += bytesRequired;
+                bucketMemoryOffsets[side].push_back(bucketMemoryRequired);
+            }
+
+            mutableBucketMemory[side]
+                = serializer.allocateWritableT<uint32_t>
+                (bucketMemoryRequired / 4, 4096 /* page aligned */);
+        }
+            
+                
+        for (unsigned i = 0;  i < nf;  ++i) {
+            if (!features[i].active)
+                continue;
+
+            WritableBucketList newFeatures[2];
+
+            newFeatures[0]
+                .init(numOnSide[0],
+                      features[i].info->distinctValues,
+                      mutableBucketMemory[0]
+                      .rangeBytes(bucketMemoryOffsets[0][i],
+                                  bucketMemoryOffsets[0][i + 1]));
+            newFeatures[1]
+                .init(numOnSide[1],
+                      features[i].info->distinctValues,
+                      mutableBucketMemory[1]
+                      .rangeBytes(bucketMemoryOffsets[1][i],
+                                  bucketMemoryOffsets[1][i + 1]));
+
+            for (size_t j = 0;  j < rows.rowCount();  ++j) {
+                int side = lr[j];
+                newFeatures[side].write(features[i].buckets[rows.getExampleNum(j)]);
+            }
+
+            sides[0].features[i].buckets = newFeatures[0].freeze(serializer);
+            sides[1].features[i].buckets = newFeatures[1].freeze(serializer);
+        }
+
+        rows.clear();
+        features.clear();
+
+        sides[0].rows = writer[0].freeze(serializer);
+        sides[1].rows = writer[1].freeze(serializer);
+
+        sides[0].bucketMemory = mutableBucketMemory[0].freeze();
+        sides[1].bucketMemory = mutableBucketMemory[1].freeze();
+    }
+    
     /** Split the partition here. */
     std::pair<PartitionData, PartitionData>
     split(int featureToSplitOn, int splitValue,
@@ -372,8 +511,6 @@ struct PartitionData {
         left.rows.weightEncoder = this->rows.weightEncoder;
         right.rows.weightEncoder = this->rows.weightEncoder;
         
-        bool ordinal = features[featureToSplitOn].ordinal;
-
         // Density of example numbers within our set of rows.  When this
         // gets too low, we do essentially random accesses and it kills
         // our cache performance.  In that case we can re-index to reduce
@@ -387,171 +524,11 @@ struct PartitionData {
         //cerr << "useRatio = " << useRatio << endl;
 
         if (!reIndex) {
-            //this is for debug only
-            //int maxBucket = 0;
-            //int minBucket = INFINITY;
-
-            RowWriter writer[2]
-                = { rows.getRowWriter(rows.rowCount(),
-                                      rows.highestExampleNum(),
-                                      serializer,
-                                      false /* sequential example nums */),
-                    rows.getRowWriter(rows.rowCount(),
-                                      rows.highestExampleNum(),
-                                      serializer,
-                                      false /* sequential example nums */) };
-
-            Rows::RowIterator rowIterator = rows.getRowIterator();
-            
-            for (size_t i = 0;  i < rows.rowCount();  ++i) {
-                Row row = rowIterator.getRow();
-                int bucket
-                    = features[featureToSplitOn]
-                    .buckets[row.exampleNum_];
-                //maxBucket = std::max(maxBucket, bucket);
-                //minBucket = std::min(minBucket, bucket);
-                int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                writer[side].addRow(row);
-            }
-
-            rows.clear();
-            features.clear();
-
-            sides[0].rows = writer[0].freeze(serializer);
-            sides[1].rows = writer[1].freeze(serializer);
-
-            sides[0].bucketMemory = sides[1].bucketMemory = bucketMemory;
-            
-            /*if (right.rows.size() == 0 || left.rows.size() == 0)
-            {
-                std::cerr << wLeft[0] << "," << wLeft[1] << "," << wRight[0] << "," << wRight[1] << std::endl;
-                std::cerr << wAll[0] << "," << wAll[1] << std::endl;
-                std::cerr << "splitValue: " << splitValue << std::endl;
-                std::cerr << "isordinal: " << ordinal << std::endl;
-                std::cerr << "max bucket" << maxBucket << std::endl;
-                std::cerr << "min bucket" << minBucket << std::endl;
-            }
-
-            ExcAssert(left.rows.size() > 0);
-            ExcAssert(right.rows.size() > 0);*/
+            splitWithoutReindex(sides, featureToSplitOn, splitValue,
+                                serializer);
         }
         else {
-
-            int nf = features.size();
-
-            // For each example, it goes either in left or right, depending
-            // upon the value of the chosen feature.
-
-            std::vector<uint8_t> lr(rows.rowCount());
-            bool ordinal = features[featureToSplitOn].ordinal;
-            size_t numOnSide[2] = { 0, 0 };
-
-            // TODO: could reserve less than this...
-            RowWriter writer[2]
-                = { rows.getRowWriter(rows.rowCount(),
-                                      rows.rowCount(),
-                                      serializer,
-                                      true /* sequential example nums */),
-                    rows.getRowWriter(rows.rowCount(),
-                                      rows.rowCount(),
-                                      serializer,
-                                      true /* sequential example nums */) };
-
-            Rows::RowIterator rowIterator = rows.getRowIterator();
-
-            for (size_t i = 0;  i < rows.rowCount();  ++i) {
-                Row row = rowIterator.getRow();
-                int bucket = features[featureToSplitOn].buckets[row.exampleNum()];
-                int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                lr[i] = side;
-                row.exampleNum_ = numOnSide[side]++;
-                writer[side].addRow(row);
-            }
-
-            // Get a contiguous block of memory for all of the feature
-            // blocks on each side; this enables a single GPU transfer
-            // and a single GPU argument list.
-            std::vector<size_t> bucketMemoryOffsets[2];
-            MutableMemoryRegionT<uint32_t> mutableBucketMemory[2];
-            
-            for (int side = 0;  side < 2;  ++side) {
-
-                bucketMemoryOffsets[side].resize(1, 0);
-                size_t bucketMemoryRequired = 0;
-
-                for (int f = 0;  f < nf;  ++f) {
-                    size_t bytesRequired = 0;
-                    if (features[f].active) {
-                        size_t wordsRequired
-                            = WritableBucketList::wordsRequired
-                            (numOnSide[side],
-                             features[f].info->distinctValues);
-                        bytesRequired = wordsRequired * 4;
-                    }
-                    bucketMemoryRequired += bytesRequired;
-                    bucketMemoryOffsets[side].push_back(bucketMemoryRequired);
-                }
-
-                mutableBucketMemory[side]
-                    = serializer.allocateWritableT<uint32_t>
-                    (bucketMemoryRequired / 4, 4096 /* page aligned */);
-            }
-            
-                
-            for (unsigned i = 0;  i < nf;  ++i) {
-                if (!features[i].active)
-                    continue;
-
-                WritableBucketList newFeatures[2];
-
-                newFeatures[0]
-                    .init(numOnSide[0],
-                          features[i].info->distinctValues,
-                          mutableBucketMemory[0]
-                              .rangeBytes(bucketMemoryOffsets[0][i],
-                                          bucketMemoryOffsets[0][i + 1]));
-                newFeatures[1]
-                    .init(numOnSide[1],
-                          features[i].info->distinctValues,
-                          mutableBucketMemory[1]
-                              .rangeBytes(bucketMemoryOffsets[1][i],
-                                          bucketMemoryOffsets[1][i + 1]));
-
-                for (size_t j = 0;  j < rows.rowCount();  ++j) {
-                    int side = lr[j];
-                    newFeatures[side].write(features[i].buckets[rows.getExampleNum(j)]);
-                }
-
-                sides[0].features[i].buckets = newFeatures[0].freeze(serializer);
-                sides[1].features[i].buckets = newFeatures[1].freeze(serializer);
-            }
-
-            rows.clear();
-            features.clear();
-
-            sides[0].rows = writer[0].freeze(serializer);
-            sides[1].rows = writer[1].freeze(serializer);
-
-            sides[0].bucketMemory = mutableBucketMemory[0].freeze();
-            sides[1].bucketMemory = mutableBucketMemory[1].freeze();
-
-#if 0            
-            using namespace std;
-            for (int side = 0;  side < 2;  ++side) {
-                for (size_t i = 0;  i < nf;  ++i) {
-                    if (!features[i].active)
-                        continue;
-                    ostringstream str;
-                    str  << "side " << side << " feature " << i << " offset "
-                         << sides[side].features[i].buckets.storage.data()
-                          - sides[side].bucketMemory.data()
-                         << " should be "
-                         << bucketMemoryOffsets[side][i] / 4 << endl;
-                    cerr << str.str();
-
-                }
-            }
-#endif
+            splitAndReindex(sides, featureToSplitOn, splitValue, serializer);
         }
 
         return { std::move(left), std::move(right) };
