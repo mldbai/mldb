@@ -15,7 +15,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/tuple_description.h"
 #include <condition_variable>
-
+#include <sstream>
 
 using namespace std;
 
@@ -541,17 +541,41 @@ testAllCpu(int depth,
                 = testFeatureNumber(i, features, rowIterator,
                                     rows.rowCount(), rows.wAll);
             newActive[i] = stillActive;
+
             return std::make_tuple(score, split, bestLeft, bestRight);
         };
 
-    if (depth < 4 || rows.rowCount() * nf > 20000) {
+#if 0
+    for (unsigned i = 0;  i < nf;  ++i) {
+        if (depth < 3) {
+            if (!features[i].active)
+                continue;
+            Date beforeCpu = Date::now();
+            findBest(i, doFeature(i));
+            Date afterCpu = Date::now();
+
+            std::ostringstream str;
+            str << "    feature " << i << " buckets "
+                << features[i].buckets.numBuckets
+                << " CPU took "
+                << afterCpu.secondsSince(beforeCpu) * 1000.0
+                << "ms" << endl;
+            cerr << str.str();
+        }
+        else {
+            findBest(i, doFeature(i));
+        }
+    }
+#else
+    if (depth < 4 || (uint64_t)rows.rowCount() * (uint64_t)nf > 20000) {
         parallelMapInOrderReduce(0, nf, doFeature, findBest);
     }
     else {
         for (unsigned i = 0;  i < nf;  ++i)
             findBest(i, doFeature(i));
     }
-
+#endif
+    
     int bucketsEmpty = 0;
     int bucketsOne = 0;
     int bucketsBoth = 0;
@@ -626,7 +650,7 @@ testAllOpenCL(int depth,
     }
     
 #if 1
-    static constexpr int PARALLELISM = 2;
+    static constexpr int PARALLELISM = 4;
     
     static std::atomic<int> numRunning(0);
     static std::mutex mutex;
@@ -655,7 +679,7 @@ testAllOpenCL(int depth,
                               //     << numRunning << " numWaiting = "
                               //       << numWaiting << endl;
                             });
-#elif 0
+#elif 1
     static std::mutex mutex;
     std::unique_lock<std::mutex> guard(mutex);
 #endif
@@ -1026,12 +1050,61 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
         const std::vector<Feature> & features,
         const Rows & rows,
-        FrozenMemoryRegionT<uint32_t> bucketData)
+        FrozenMemoryRegionT<uint32_t> bucketData,
+        int partition,
+        int sampling)
 {
-    if (rows.rowCount() < 10000 && false) {
-        return testAllCpu(depth, features, rows, bucketData);
+    if (rows.rowCount() < 1000000 || true) {
+        if (depth < 3 && false) {
+            //static std::mutex mutex;
+            //std::unique_lock<std::mutex> guard(mutex);
+
+            Date beforeCpu = Date::now();
+            auto res = testAllCpu(depth, features, rows, bucketData);
+            Date afterCpu = Date::now();
+
+            int activeFeatures = 0;
+            int activeBuckets = 0;
+
+            for (auto & f: features) {
+                if (!f.active)
+                    continue;
+                ++activeFeatures;
+                activeBuckets += f.buckets.numBuckets;
+            }
+            
+            std::ostringstream str;
+            str << partition << " " << sampling
+                << " depth " << depth << " rows " << rows.rowCount()
+                << " features " << activeFeatures
+                << " buckets " << activeBuckets << " CPU took "
+                << afterCpu.secondsSince(beforeCpu) * 1000.0
+                << "ms" << endl;
+            cerr << str.str();
+            return res;
+        }
+        else {
+            return testAllCpu(depth, features, rows, bucketData);
+        }
     }
     else {
+        static constexpr int MAX_GPU_JOBS = 4;
+        static std::atomic<int> numGpuJobs = 0;
+        
+
+        if (numGpuJobs.fetch_add(1) >= MAX_GPU_JOBS) {
+            --numGpuJobs;
+            return testAllCpu(depth, features, rows, bucketData);
+        }
+        else {
+            auto onExit = ScopeExit([&] () noexcept { --numGpuJobs; });
+            try {
+                return testAllOpenCL(depth, features, rows, bucketData);
+            } MLDB_CATCH_ALL {
+                return testAllCpu(depth, features, rows, bucketData);
+            }
+        }
+        
         //static std::mutex mutex;
         //std::unique_lock<std::mutex> guard(mutex);
 
@@ -1041,9 +1114,11 @@ testAll(int depth,
         auto gpuOutput = testAllOpenCL(depth, features, rows, bucketData);
         Date afterGpu = Date::now();
 
-        cerr << "CPU took " << afterCpu.secondsSince(beforeCpu) * 1000.0
-             << "ms; GPU took " << afterGpu.secondsSince(afterCpu) * 1000.0
-             << "ms" << endl;
+        ostringstream str;
+        str << "CPU took " << afterCpu.secondsSince(beforeCpu) * 1000.0
+            << "ms; GPU took " << afterGpu.secondsSince(afterCpu) * 1000.0
+            << "ms" << endl;
+        cerr << str.str();
 
         if (cpuOutput != gpuOutput) {
             cerr << "difference in outputs: " << endl;
