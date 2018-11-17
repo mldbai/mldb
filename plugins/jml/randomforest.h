@@ -601,6 +601,7 @@ struct PartitionData {
                 W left;
                 W right;
                 std::vector<int> activeFeatures;
+                bool direction;  // 0 = left to right, 1 = right to left
             };
 
             std::vector<PartitionSplit> partitionSplits(buckets.size());
@@ -671,7 +672,8 @@ struct PartitionData {
 
                 partitionSplits[partition] =
                     { bestScore, bestFeature, bestSplit, bestLeft, bestRight,
-                      std::move(activeFeatures) };
+                      std::move(activeFeatures),
+                      bestLeft.count() <= bestRight.count() };
                 
                 cerr << "partition " << partition << " of " << buckets.size()
                      << " with " << bestLeft.count() + bestRight.count()
@@ -694,6 +696,15 @@ struct PartitionData {
             buckets.resize(buckets.size() * 2,
                            std::vector<W>(numActiveBuckets));
             wAll.resize(wAll.size() * 2);
+
+            // Those buckets which are transfering right to left should
+            // start with the weight on the right
+            for (size_t i = 0;  i < rightOffset;  ++i) {
+                if (partitionSplits[i].direction) {
+                    std::swap(buckets[i], buckets[i + rightOffset]);
+                    std::swap(wAll[i], wAll[i + rightOffset]);
+                }
+            }
             
             Rows::RowIterator rowIterator = rows.getRowIterator();
 
@@ -711,11 +722,15 @@ struct PartitionData {
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 double weight = row.weight;
                 bool label = row.label;
+
+                int direction = partitionSplits[partition].direction;
                 
-                if (side) {
-                    // We only need to update features on one side, as we
-                    // transfer the weight rather than sum it from the
-                    // beginning.
+                // We only need to update features on one side, as we
+                // transfer the weight rather than sum it from the
+                // beginning.
+                
+                if (direction == 0 && side == 1) {
+                    // Transfer from left to right
 
                     // Update the partition number to be on the right side
                     partitions[i] = partition + rightOffset;
@@ -731,6 +746,28 @@ struct PartitionData {
                         buckets[partition][startBucket + bucket].sub(label, weight);
                         buckets[partition + rightOffset][startBucket + bucket].add(label, weight);
                     }
+                }
+                else if (direction == 0 && side == 0) {
+                    // already on left side; nothing to do
+                }
+                else if (direction == 1 && side == 0) {
+                    // Transfer from right to left
+                    
+                    // Update the wAll, transfering weight from right to left
+                    wAll[partition].add(label, weight);
+                    wAll[partition + rightOffset].sub(label, weight);
+                    
+                    // Transfer the weight from each of the features
+                    for (auto & f: partitionSplits[partition].activeFeatures) {
+                        int startBucket = bucketOffsets[f];
+                        int bucket = features[f].buckets[row.exampleNum];
+                        buckets[partition][startBucket + bucket].add(label, weight);
+                        buckets[partition + rightOffset][startBucket + bucket].sub(label, weight);
+                    }
+                }
+                else {
+                    // Keep on the right side, but update partition number
+                    partitions[i] = partition + rightOffset;
                 }
             }
             
