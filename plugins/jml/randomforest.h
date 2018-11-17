@@ -556,10 +556,289 @@ struct PartitionData {
        return getLeaf(tree, rows.wAll);
     }  
 
+    void trainPartitionedRecursive(int depth, int maxDepth,
+                                   ML::Tree & tree,
+                                   MappedSerializer & serializer,
+                                   const std::vector<uint32_t> & bucketOffsets,
+                                   const std::vector<int> activeFeatures,
+                                   std::vector<W> bucketsIn)
+    {
+        using namespace std;
+
+        cerr << activeFeatures.size() << " active features "
+             << jsonEncodeStr(activeFeatures) << " active buckets "
+             << bucketsIn.size() << endl;
+        
+        int numActiveBuckets = bucketsIn.size();
+
+        // This is our total for each bucket across the whole lot
+        // We keep track of it per-partition (there are up to 256
+        // partitions, which corresponds to a fanout of 8)
+        std::vector<std::vector<W> > buckets;
+        buckets.reserve(256);
+        buckets.emplace_back(std::move(bucketsIn));
+
+        // How many rows are in each bucket?
+        std::vector<uint32_t> bucketRows;
+        bucketRows.reserve(256);
+        bucketRows.emplace_back(rows.rowCount());
+
+        // Which partition is each row in?  Initially, everything
+        // is in partition zero, but as we start to split, we end up
+        // splitting them amongst many partitions
+        std::vector<uint8_t> partitions(rows.rowCount(), 0);
+
+        // What is our weight total for each of our partitions?
+        std::vector<W> wAll = { rows.wAll };
+        
+        // We go down level by level
+        for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
+             ++depth, ++myDepth) {
+
+            cerr << "depth " << depth << endl;
+            
+            // Find the new split point for each partition
+            struct PartitionSplit {
+                double score = INFINITY;
+                int feature = -1;
+                int value = -1;
+                W left;
+                W right;
+                std::vector<int> activeFeatures;
+            };
+
+            std::vector<PartitionSplit> partitionSplits(buckets.size());
+            
+            for (int partition = 0;  partition < buckets.size();  ++partition) {
+
+                double bestScore = INFINITY;
+                int bestFeature = -1;
+                int bestSplit = -1;
+                
+                W bestLeft;
+                W bestRight;
+
+                // Reduction over the best split that comes in feature by
+                // feature; we find the best global split score and store
+                // it.  This is done in order to be sure that we
+                // deterministically pick the right one.
+                auto findBest = [&] (int af,
+                                     const std::tuple<int, double, int, W, W>
+                                         & val)
+                    {
+                        double score = std::get<1>(val);
+
+                        cerr << "af " << af << " f " << std::get<0>(val)
+                             << " score " << std::get<1>(val) << " split "
+                             << std::get<2>(val) << " nb "
+                             << bucketOffsets[std::get<0>(val) + 1]
+                                - bucketOffsets[std::get<0>(val)]
+                             << endl;
+                        
+                        if (score < bestScore) {
+                            std::tie(bestFeature, bestScore, bestSplit, bestLeft,
+                                     bestRight) = val;
+                        }
+                    };
+            
+                // Finally, we re-split
+                auto doFeature = [&] (int af)
+                    {
+                        int f = activeFeatures.at(af);
+                        int startBucket = bucketOffsets[f];
+                        int endBucket MLDB_UNUSED = bucketOffsets[f + 1];
+                        W * wFeature = buckets[partition].data() + startBucket;
+
+                        //cerr << "partition " << partition << " af " << af
+                        //<< " f " << f << " buckets " << startBucket
+                        //<< " to " << endBucket << " of " << buckets[partition].size() << " should be " << features[f].buckets.numBuckets << endl;
+                        
+                        int maxBucket = endBucket - startBucket - 1;
+                        bool isActive = true;
+
+#if 0                        
+                        std::tie(isActive, maxBucket)
+                            = testFeatureKernel(rows.getRowIterator(),
+                                                rows.rowCount(),
+                                                features[f].buckets,
+                                                wFeature);
+
+                        //cerr << "  feature " << f << " "
+                        //     << endBucket - startBucket << " buckets";
+                        //for (size_t i = 0;  i < (endBucket - startBucket) && i < 10;  ++i) {
+                        //    cerr << " " << jsonEncodeStr(wFeature[i]);
+                        //}
+#endif
+                        
+                        double bestScore = INFINITY;
+                        int bestSplit = -1;
+                        W bestLeft;
+                        W bestRight;
+
+                        if (isActive) {
+                            std::tie(bestScore, bestSplit, bestLeft, bestRight)
+                                = chooseSplitKernel(wFeature, maxBucket,
+                                                    features[f].ordinal,
+                                                    wAll[partition]);
+                        }
+
+                        //cerr << " score " << bestScore << " split "
+                        //     << bestSplit << endl;
+                        
+                        return std::make_tuple(f, bestScore, bestSplit,
+                                               bestLeft, bestRight);
+                    };
+            
+
+                parallelMapInOrderReduce(0, activeFeatures.size(),
+                                         doFeature, findBest);
+
+                partitionSplits[partition] =
+                    { bestScore, bestFeature, bestSplit, bestLeft, bestRight,
+                      std::move(activeFeatures) };
+                
+                cerr << "partition " << partition << " of " << buckets.size()
+                     << " with " << bucketRows[partition] << " rows: "
+                     << bestScore << " " << bestFeature;
+                if (bestFeature != -1) {
+                    cerr << " " << features[bestFeature].info->columnName
+                         << " " << bestSplit
+                         << " " << features[bestFeature].info->bucketDescriptions.getSplit(bestSplit);
+                }
+                cerr << " " << jsonEncodeStr(bestLeft) << " "
+                     << jsonEncodeStr(bestRight)
+                     << endl;
+            }
+            
+            // Firstly, we double the number of partitions.  The left all
+            // go with the lower partition numbers, the right have the higher
+            // partition numbers.
+            size_t rightOffset = buckets.size();
+
+            buckets.resize(buckets.size() * 2,
+                           std::vector<W>(numActiveBuckets));
+
+            bucketRows.resize(bucketRows.size() * 2, 0);
+            
+            wAll.resize(wAll.size() * 2);
+            
+            std::vector<uint32_t> numInPartition(buckets.size());
+                        
+            Rows::RowIterator rowIterator = rows.getRowIterator();
+
+            for (size_t i = 0;  i < rows.rowCount();  ++i) {
+                // TODO: for each feature, choose right to left vs left to
+                // right based upon processing the smallest number of
+                // shifts
+
+                DecodedRow row = rowIterator.getDecodedRow();
+                int partition = partitions[i];
+                int splitFeature = partitionSplits[partition].feature;
+                int splitValue = partitionSplits[partition].value;
+                bool ordinal = features[splitFeature].ordinal;
+                int bucket = features[splitFeature].buckets[row.exampleNum];
+                int side = ordinal ? bucket > splitValue : bucket != splitValue;
+                double weight = row.weight;
+                bool label = row.label;
+                
+                if (side) {
+                    // We only need to update features on one side, as we
+                    // transfer the weight rather than sum it from the
+                    // beginning.
+
+                    // Update the partition number to be on the right side
+                    partitions[i] = partition + rightOffset;
+
+                    // Update number of rows (TODO: can be more efficient)
+                    --bucketRows[partition];
+                    ++bucketRows[partition + rightOffset];
+                    
+                    // Update the wAll, transfering weight from left to right
+                    wAll[partition][label] -= weight;
+                    wAll[partition + rightOffset][label] += weight;
+                    
+                    // Transfer the weight from each of the features
+                    for (auto & f: partitionSplits[partition].activeFeatures) {
+                        int startBucket = bucketOffsets[f];
+                        int bucket = features[f].buckets[row.exampleNum];
+                        buckets[partition][startBucket + bucket][label] -= weight;
+                        buckets[partition + rightOffset][startBucket + bucket][label] += weight;
+                    }
+                }
+            }
+            
+            // Create the nodes for the tree, and continue on to the next
+            // iteration.
+
+            // ...
+
+            // Ready for the next level
+        }
+    }
+    
+    void trainPartitioned(int depth, int maxDepth,
+                          ML::Tree & tree,
+                          MappedSerializer & serializer)
+    {
+        // First, grab the bucket totals for each bucket across the whole
+        // lot.
+        size_t numActiveBuckets = 0;
+        std::vector<uint32_t> bucketOffsets = { 0 };
+        std::vector<int> activeFeatures;
+        for (auto & f: features) {
+            if (f.active) {
+                activeFeatures.push_back(bucketOffsets.size() - 1);
+                numActiveBuckets += f.buckets.numBuckets;
+            }
+            bucketOffsets.push_back(numActiveBuckets);
+        }
+
+        std::vector<W> buckets(numActiveBuckets);
+        
+        // Start by initializing the weights for each feature, if
+        // this isn't passed in already
+        auto initFeature = [&] (int f)
+            {
+                int startBucket = bucketOffsets[f];
+                bool active;
+                int maxBucket;
+                std::tie(active, maxBucket)
+                    = testFeatureKernel(rows.getRowIterator(),
+                                        rows.rowCount(),
+                                        features[f].buckets,
+                                        buckets.data() + startBucket);
+
+#if 0 // debug
+                W wAll1;
+                auto it = rows.getRowIterator();
+                for (size_t i = 0;  i < rows.rowCount();  ++i) {
+                    auto row = it.getDecodedRow();
+                    wAll1[row.label] += row.weight;
+                }
+
+                W wAll2;
+                for (size_t i = startBucket;  i < bucketOffsets[f + 1];  ++i) {
+                    wAll2 += buckets[i];
+                }
+
+                ExcAssertEqual(jsonEncodeStr(rows.wAll), jsonEncodeStr(wAll1));
+                ExcAssertEqual(jsonEncodeStr(rows.wAll), jsonEncodeStr(wAll2));
+#endif // debug
+            };
+
+        parallelForEach(activeFeatures, initFeature);
+
+        return trainPartitionedRecursive(depth, maxDepth, tree, serializer,
+                                         bucketOffsets, activeFeatures,
+                                         std::move(buckets));
+    }
+    
     ML::Tree::Ptr train(int depth, int maxDepth,
                         ML::Tree & tree,
                         MappedSerializer & serializer)
     {
+        using namespace std;
+        
         if (rows.rowCount() == 0)
             return ML::Tree::Ptr();
         if (rows.rowCount() < 2)
@@ -568,6 +847,18 @@ struct PartitionData {
         if (depth >= maxDepth)
             return getLeaf(tree);
 
+        if (depth == 0) {
+            Date before = Date::now();
+            trainPartitioned(depth, maxDepth, tree, serializer);
+            Date after = Date::now();
+            cerr << "partitioned took " << after.secondsSince(before) * 1000.0
+                 << "ms" << endl;
+        }
+
+        Date before;
+        if (depth == 0)
+            before = Date::now();
+        
         double bestScore;
         int bestFeature;
         int bestSplit;
@@ -640,6 +931,12 @@ struct PartitionData {
             }
 
             tp.waitForAll();
+        }
+
+        if (depth == 0) {
+            Date after = Date::now();
+            cerr << "recursive took " << after.secondsSince(before) * 1000.0
+                 << "ms" << endl;
         }
         
         if (left && right) {
