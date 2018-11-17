@@ -1072,9 +1072,7 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
         const std::vector<Feature> & features,
         const Rows & rows,
-        FrozenMemoryRegionT<uint32_t> bucketData,
-        int partition,
-        int sampling)
+        FrozenMemoryRegionT<uint32_t> bucketData)
 {
     if (rows.rowCount() < 1000000 || true) {
         if (depth < 3 && false) {
@@ -1096,8 +1094,7 @@ testAll(int depth,
             }
             
             std::ostringstream str;
-            str << partition << " " << sampling
-                << " depth " << depth << " rows " << rows.rowCount()
+            str << "depth " << depth << " rows " << rows.rowCount()
                 << " features " << activeFeatures
                 << " buckets " << activeBuckets << " CPU took "
                 << afterCpu.secondsSince(beforeCpu) * 1000.0
