@@ -284,6 +284,12 @@ struct Rows {
                    };
         }
 
+        MLDB_ALWAYS_INLINE void skipRow()
+        {
+            extractor.advance(totalBits);
+            ++rowNumber;
+        }
+        
         const Rows * owner;
         ML::Bit_Extractor<uint64_t> extractor;
         int totalBits;

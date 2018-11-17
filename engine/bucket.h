@@ -32,6 +32,12 @@ struct BucketList {
         return extractor.extractFastUnsafe<uint32_t>(entryBits);
     }
 
+    MLDB_ALWAYS_INLINE uint32_t at (uint32_t i) const
+    {
+        ExcAssertLess(i, numEntries);
+        return operator [] (i);
+    }
+
     size_t rowCount() const
     {
         return numEntries;

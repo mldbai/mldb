@@ -691,8 +691,8 @@ struct PartitionData {
             // Firstly, we double the number of partitions.  The left all
             // go with the lower partition numbers, the right have the higher
             // partition numbers.
-            size_t rightOffset = buckets.size();
-
+            int rightOffset = buckets.size();
+            
             buckets.resize(buckets.size() * 2,
                            std::vector<W>(numActiveBuckets));
             wAll.resize(wAll.size() * 2);
@@ -713,9 +713,20 @@ struct PartitionData {
                 // right based upon processing the smallest number of
                 // shifts
 
-                DecodedRow row = rowIterator.getDecodedRow();
                 int partition = partitions[i];
                 int splitFeature = partitionSplits[partition].feature;
+                
+                if (splitFeature == -1) {
+                    // reached a leaf here, nothing to split                    
+                    rowIterator.skipRow();
+                    continue;
+                }
+                
+                DecodedRow row = rowIterator.getDecodedRow();
+
+                int leftPartition = partition;
+                int rightPartition = partition + rightOffset;
+
                 int splitValue = partitionSplits[partition].value;
                 bool ordinal = features[splitFeature].ordinal;
                 int bucket = features[splitFeature].buckets[row.exampleNum];
@@ -723,52 +734,45 @@ struct PartitionData {
                 double weight = row.weight;
                 bool label = row.label;
 
+                // Set the new partition number
+                partitions[i] = partition + side * rightOffset;
+
+                // 0 = left to right, 1 = right to left
                 int direction = partitionSplits[partition].direction;
                 
-                // We only need to update features on one side, as we
+                // We only need to update features on the wrong side, as we
                 // transfer the weight rather than sum it from the
-                // beginning.
-                
-                if (direction == 0 && side == 1) {
-                    // Transfer from left to right
+                // beginning.  This means less work for unbalanced splits
+                // (which are typically most of them, especially for discrete
+                // buckets)
 
-                    // Update the partition number to be on the right side
-                    partitions[i] = partition + rightOffset;
+                if (direction != side) {
+                    int fromPartition, toPartition;
+                    if (direction == 0 && side == 1) {
+                        // Transfer from left to right
+                        fromPartition = leftPartition;
+                        toPartition   = rightPartition;
+                    }
+                    else {
+                        // Transfer from right to left
+                        fromPartition = rightPartition;
+                        toPartition   = leftPartition;
+                    }
 
-                    // Update the wAll, transfering weight from left to right
-                    wAll[partition].sub(label, weight);
-                    wAll[partition + rightOffset].add(label, weight);
+                    // Update the wAll, transfering weight
+                    wAll[fromPartition].sub(label, weight);
+                    wAll[toPartition  ].add(label, weight);
                     
                     // Transfer the weight from each of the features
                     for (auto & f: partitionSplits[partition].activeFeatures) {
                         int startBucket = bucketOffsets[f];
                         int bucket = features[f].buckets[row.exampleNum];
-                        buckets[partition][startBucket + bucket].sub(label, weight);
-                        buckets[partition + rightOffset][startBucket + bucket].add(label, weight);
+                        buckets[fromPartition][startBucket + bucket]
+                            .sub(label, weight);
+                        buckets[toPartition  ][startBucket + bucket]
+                            .add(label, weight);
                     }
-                }
-                else if (direction == 0 && side == 0) {
-                    // already on left side; nothing to do
-                }
-                else if (direction == 1 && side == 0) {
-                    // Transfer from right to left
-                    
-                    // Update the wAll, transfering weight from right to left
-                    wAll[partition].add(label, weight);
-                    wAll[partition + rightOffset].sub(label, weight);
-                    
-                    // Transfer the weight from each of the features
-                    for (auto & f: partitionSplits[partition].activeFeatures) {
-                        int startBucket = bucketOffsets[f];
-                        int bucket = features[f].buckets[row.exampleNum];
-                        buckets[partition][startBucket + bucket].add(label, weight);
-                        buckets[partition + rightOffset][startBucket + bucket].sub(label, weight);
-                    }
-                }
-                else {
-                    // Keep on the right side, but update partition number
-                    partitions[i] = partition + rightOffset;
-                }
+                }               
             }
             
             // Create the nodes for the tree, and continue on to the next
