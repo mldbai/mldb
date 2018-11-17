@@ -556,6 +556,95 @@ struct PartitionData {
        return getLeaf(tree, rows.wAll);
     }  
 
+    struct PartitionSplit {
+        double score = INFINITY;
+        int feature = -1;
+        int value = -1;
+        W left;
+        W right;
+        std::vector<int> activeFeatures;
+        bool direction;  // 0 = left to right, 1 = right to left
+    };
+
+    static void updateBuckets(const Rows & rows,
+                              const std::vector<Feature> & features,
+                              std::vector<uint8_t> & partitions,
+                              std::vector<std::vector<W> > & buckets,
+                              std::vector<W> & wAll,
+                              const std::vector<uint32_t> & bucketOffsets,
+                              const std::vector<PartitionSplit> & partitionSplits,
+                              int rightOffset)
+    {
+        Rows::RowIterator rowIterator = rows.getRowIterator();
+
+        for (size_t i = 0;  i < rows.rowCount();  ++i) {
+            // TODO: for each feature, choose right to left vs left to
+            // right based upon processing the smallest number of
+            // shifts
+
+            int partition = partitions[i];
+            int splitFeature = partitionSplits[partition].feature;
+                
+            if (splitFeature == -1) {
+                // reached a leaf here, nothing to split                    
+                rowIterator.skipRow();
+                continue;
+            }
+                
+            DecodedRow row = rowIterator.getDecodedRow();
+
+            int leftPartition = partition;
+            int rightPartition = partition + rightOffset;
+
+            int splitValue = partitionSplits[partition].value;
+            bool ordinal = features[splitFeature].ordinal;
+            int bucket = features[splitFeature].buckets[row.exampleNum];
+            int side = ordinal ? bucket > splitValue : bucket != splitValue;
+            double weight = row.weight;
+            bool label = row.label;
+
+            // Set the new partition number
+            partitions[i] = partition + side * rightOffset;
+
+            // 0 = left to right, 1 = right to left
+            int direction = partitionSplits[partition].direction;
+                
+            // We only need to update features on the wrong side, as we
+            // transfer the weight rather than sum it from the
+            // beginning.  This means less work for unbalanced splits
+            // (which are typically most of them, especially for discrete
+            // buckets)
+
+            if (direction != side) {
+                int fromPartition, toPartition;
+                if (direction == 0 && side == 1) {
+                    // Transfer from left to right
+                    fromPartition = leftPartition;
+                    toPartition   = rightPartition;
+                }
+                else {
+                    // Transfer from right to left
+                    fromPartition = rightPartition;
+                    toPartition   = leftPartition;
+                }
+
+                // Update the wAll, transfering weight
+                wAll[fromPartition].sub(label, weight);
+                wAll[toPartition  ].add(label, weight);
+                    
+                // Transfer the weight from each of the features
+                for (auto & f: partitionSplits[partition].activeFeatures) {
+                    int startBucket = bucketOffsets[f];
+                    int bucket = features[f].buckets[row.exampleNum];
+                    buckets[fromPartition][startBucket + bucket]
+                        .sub(label, weight);
+                    buckets[toPartition  ][startBucket + bucket]
+                        .add(label, weight);
+                }
+            }               
+        }
+    }
+    
     void trainPartitionedRecursive(int depth, int maxDepth,
                                    ML::Tree & tree,
                                    MappedSerializer & serializer,
@@ -594,16 +683,6 @@ struct PartitionData {
             cerr << "depth " << depth << endl;
             
             // Find the new split point for each partition
-            struct PartitionSplit {
-                double score = INFINITY;
-                int feature = -1;
-                int value = -1;
-                W left;
-                W right;
-                std::vector<int> activeFeatures;
-                bool direction;  // 0 = left to right, 1 = right to left
-            };
-
             std::vector<PartitionSplit> partitionSplits(buckets.size());
             
             for (int partition = 0;  partition < buckets.size();  ++partition) {
@@ -705,75 +784,10 @@ struct PartitionData {
                     std::swap(wAll[i], wAll[i + rightOffset]);
                 }
             }
-            
-            Rows::RowIterator rowIterator = rows.getRowIterator();
 
-            for (size_t i = 0;  i < rows.rowCount();  ++i) {
-                // TODO: for each feature, choose right to left vs left to
-                // right based upon processing the smallest number of
-                // shifts
-
-                int partition = partitions[i];
-                int splitFeature = partitionSplits[partition].feature;
-                
-                if (splitFeature == -1) {
-                    // reached a leaf here, nothing to split                    
-                    rowIterator.skipRow();
-                    continue;
-                }
-                
-                DecodedRow row = rowIterator.getDecodedRow();
-
-                int leftPartition = partition;
-                int rightPartition = partition + rightOffset;
-
-                int splitValue = partitionSplits[partition].value;
-                bool ordinal = features[splitFeature].ordinal;
-                int bucket = features[splitFeature].buckets[row.exampleNum];
-                int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                double weight = row.weight;
-                bool label = row.label;
-
-                // Set the new partition number
-                partitions[i] = partition + side * rightOffset;
-
-                // 0 = left to right, 1 = right to left
-                int direction = partitionSplits[partition].direction;
-                
-                // We only need to update features on the wrong side, as we
-                // transfer the weight rather than sum it from the
-                // beginning.  This means less work for unbalanced splits
-                // (which are typically most of them, especially for discrete
-                // buckets)
-
-                if (direction != side) {
-                    int fromPartition, toPartition;
-                    if (direction == 0 && side == 1) {
-                        // Transfer from left to right
-                        fromPartition = leftPartition;
-                        toPartition   = rightPartition;
-                    }
-                    else {
-                        // Transfer from right to left
-                        fromPartition = rightPartition;
-                        toPartition   = leftPartition;
-                    }
-
-                    // Update the wAll, transfering weight
-                    wAll[fromPartition].sub(label, weight);
-                    wAll[toPartition  ].add(label, weight);
-                    
-                    // Transfer the weight from each of the features
-                    for (auto & f: partitionSplits[partition].activeFeatures) {
-                        int startBucket = bucketOffsets[f];
-                        int bucket = features[f].buckets[row.exampleNum];
-                        buckets[fromPartition][startBucket + bucket]
-                            .sub(label, weight);
-                        buckets[toPartition  ][startBucket + bucket]
-                            .add(label, weight);
-                    }
-                }               
-            }
+            updateBuckets(rows, features,
+                          partitions, buckets, wAll,
+                          bucketOffsets, partitionSplits, rightOffset);
             
             // Create the nodes for the tree, and continue on to the next
             // iteration.
