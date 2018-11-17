@@ -41,6 +41,7 @@ namespace RF {
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(W)
 {
     addField("v", &W::v, "Weights for false, true label");
+    addField("c", &W::c, "Count of examples in bucket");
 }
 
 } // namespace RF

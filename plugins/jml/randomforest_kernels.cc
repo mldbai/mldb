@@ -51,7 +51,7 @@ testFeatureKernelCpu(Rows::RowIterator rowIterator,
         int bucket = buckets[r.exampleNum];
         //ExcAssertLess(bucket, buckets.numBuckets);
 
-        w[bucket][r.label] += r.weight;
+        w[bucket].add(r.label, r.weight);
         maxBucket = std::max(maxBucket, bucket);
         minBucket = std::min(minBucket, bucket);
     }

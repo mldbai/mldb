@@ -24,16 +24,19 @@ namespace RF {
 //This structure hold the weights (false and true) for any particular split
 template<typename Float>
 struct WT {
-    WT()
-        : v { 0, 0 }
-    {
-    }
-    
-    std::array<Float, 2> v;
+    std::array<Float, 2> v = { 0, 0};
+    int32_t c = 0;
 
-    Float & operator [] (bool i)
+    void add(bool i, Float val)
     {
-        return v[i];
+        v[i] += val;
+        c += 1;
+    }
+
+    void sub(bool i, Float val)
+    {
+        v[i] -= val;
+        c -= 1;
     }
 
     const Float & operator [] (bool i) const
@@ -45,10 +48,13 @@ struct WT {
 
     Float total() const { return v[0] + v[1]; }
 
+    uint32_t count() const { return c; }
+    
     WT & operator += (const WT & other)
     {
         v[0] += other.v[0];
         v[1] += other.v[1];
+        c += other.c;
         return *this;
     }
 
@@ -63,12 +69,13 @@ struct WT {
     {
         v[0] -= other.v[0];
         v[1] -= other.v[1];
+        c -= other.c;
         return *this;
     }
 
     bool operator == (const WT & other) const
     {
-        return v[0] == other.v[0] && v[1] == other.v[1];
+        return v[0] == other.v[0] && v[1] == other.v[1] && c == other.c;
     }
 
     bool operator != (const WT & other) const
@@ -209,7 +216,7 @@ struct RowWriter {
             toWrite = (toWrite << exampleNumBits) | row.exampleNum();
         writer.write(toWrite, totalBits);
         float weight = weightEncoder->decodeWeight(row.encodedWeight_);
-        wAll[row.label()] += weight;
+        wAll.add(row.label(), weight);
     }
 
     void addRow(bool label, float weight, uint32_t exampleNum)

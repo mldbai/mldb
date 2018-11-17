@@ -578,14 +578,10 @@ struct PartitionData {
         buckets.reserve(256);
         buckets.emplace_back(std::move(bucketsIn));
 
-        // How many rows are in each bucket?
-        std::vector<uint32_t> bucketRows;
-        bucketRows.reserve(256);
-        bucketRows.emplace_back(rows.rowCount());
-
         // Which partition is each row in?  Initially, everything
         // is in partition zero, but as we start to split, we end up
-        // splitting them amongst many partitions
+        // splitting them amongst many partitions.  Each partition has
+        // its own set of buckets that we maintain.
         std::vector<uint8_t> partitions(rows.rowCount(), 0);
 
         // What is our weight total for each of our partitions?
@@ -628,12 +624,12 @@ struct PartitionData {
                     {
                         double score = std::get<1>(val);
 
-                        cerr << "af " << af << " f " << std::get<0>(val)
-                             << " score " << std::get<1>(val) << " split "
-                             << std::get<2>(val) << " nb "
-                             << bucketOffsets[std::get<0>(val) + 1]
-                                - bucketOffsets[std::get<0>(val)]
-                             << endl;
+                        //cerr << "af " << af << " f " << std::get<0>(val)
+                        //     << " score " << std::get<1>(val) << " split "
+                        //     << std::get<2>(val) << " nb "
+                        //     << bucketOffsets[std::get<0>(val) + 1]
+                        //        - bucketOffsets[std::get<0>(val)]
+                        //     << endl;
                         
                         if (score < bestScore) {
                             std::tie(bestFeature, bestScore, bestSplit, bestLeft,
@@ -648,28 +644,8 @@ struct PartitionData {
                         int startBucket = bucketOffsets[f];
                         int endBucket MLDB_UNUSED = bucketOffsets[f + 1];
                         W * wFeature = buckets[partition].data() + startBucket;
-
-                        //cerr << "partition " << partition << " af " << af
-                        //<< " f " << f << " buckets " << startBucket
-                        //<< " to " << endBucket << " of " << buckets[partition].size() << " should be " << features[f].buckets.numBuckets << endl;
-                        
                         int maxBucket = endBucket - startBucket - 1;
                         bool isActive = true;
-
-#if 0                        
-                        std::tie(isActive, maxBucket)
-                            = testFeatureKernel(rows.getRowIterator(),
-                                                rows.rowCount(),
-                                                features[f].buckets,
-                                                wFeature);
-
-                        //cerr << "  feature " << f << " "
-                        //     << endBucket - startBucket << " buckets";
-                        //for (size_t i = 0;  i < (endBucket - startBucket) && i < 10;  ++i) {
-                        //    cerr << " " << jsonEncodeStr(wFeature[i]);
-                        //}
-#endif
-                        
                         double bestScore = INFINITY;
                         int bestSplit = -1;
                         W bestLeft;
@@ -698,8 +674,8 @@ struct PartitionData {
                       std::move(activeFeatures) };
                 
                 cerr << "partition " << partition << " of " << buckets.size()
-                     << " with " << bucketRows[partition] << " rows: "
-                     << bestScore << " " << bestFeature;
+                     << " with " << bestLeft.count() + bestRight.count()
+                     << " rows: " << bestScore << " " << bestFeature;
                 if (bestFeature != -1) {
                     cerr << " " << features[bestFeature].info->columnName
                          << " " << bestSplit
@@ -717,13 +693,8 @@ struct PartitionData {
 
             buckets.resize(buckets.size() * 2,
                            std::vector<W>(numActiveBuckets));
-
-            bucketRows.resize(bucketRows.size() * 2, 0);
-            
             wAll.resize(wAll.size() * 2);
             
-            std::vector<uint32_t> numInPartition(buckets.size());
-                        
             Rows::RowIterator rowIterator = rows.getRowIterator();
 
             for (size_t i = 0;  i < rows.rowCount();  ++i) {
@@ -749,20 +720,16 @@ struct PartitionData {
                     // Update the partition number to be on the right side
                     partitions[i] = partition + rightOffset;
 
-                    // Update number of rows (TODO: can be more efficient)
-                    --bucketRows[partition];
-                    ++bucketRows[partition + rightOffset];
-                    
                     // Update the wAll, transfering weight from left to right
-                    wAll[partition][label] -= weight;
-                    wAll[partition + rightOffset][label] += weight;
+                    wAll[partition].sub(label, weight);
+                    wAll[partition + rightOffset].add(label, weight);
                     
                     // Transfer the weight from each of the features
                     for (auto & f: partitionSplits[partition].activeFeatures) {
                         int startBucket = bucketOffsets[f];
                         int bucket = features[f].buckets[row.exampleNum];
-                        buckets[partition][startBucket + bucket][label] -= weight;
-                        buckets[partition + rightOffset][startBucket + bucket][label] += weight;
+                        buckets[partition][startBucket + bucket].sub(label, weight);
+                        buckets[partition + rightOffset][startBucket + bucket].add(label, weight);
                     }
                 }
             }
@@ -962,8 +929,6 @@ struct PartitionData {
             node->child_true = left;
             node->child_false = right;
             W wMissing;
-            wMissing[0] = 0.0f;
-            wMissing[1] = 0.0f;
             node->child_missing = getLeaf(tree, wMissing);
             node->z = bestScore;            
             fillinBase(node, wLeft + wRight);
