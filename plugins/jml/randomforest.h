@@ -927,9 +927,9 @@ struct PartitionData {
         ExcAssertEqual(newActive.size(), features.size());
         
         // Record the active flag back
-        for (size_t i = 0;  i < features.size();  ++i) {
-            features[i].active = newActive[i];
-        }
+        //for (size_t i = 0;  i < features.size();  ++i) {
+        //    features[i].active = newActive[i];
+        //}
         
         if (bestFeature == -1) {
             ML::Tree::Leaf * leaf = tree.new_leaf();
