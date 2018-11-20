@@ -608,6 +608,10 @@ struct PartitionData {
     {
         Rows::RowIterator rowIterator = rows.getRowIterator();
 
+        bool checkPartitionCounts = true;
+        
+        std::vector<uint32_t> numInPartition(buckets.size());
+        
         for (size_t i = 0;  i < rows.rowCount();  ++i) {
             // TODO: for each feature, choose right to left vs left to
             // right based upon processing the smallest number of
@@ -637,6 +641,10 @@ struct PartitionData {
             // Set the new partition number
             partitions[i] = partition + side * rightOffset;
 
+            // Verify partition counts?
+            if (checkPartitionCounts)
+                ++numInPartition[partition + side * rightOffset];
+            
             // 0 = left to right, 1 = right to left
             int direction = partitionSplits[partition].direction;
                 
@@ -673,6 +681,46 @@ struct PartitionData {
                         .add(label, weight);
                 }
             }               
+        }
+
+        // Make sure that the number in the buckets is actually what we
+        // expected when we calculated the split.
+        if (checkPartitionCounts) {
+            for (int i = 0;  i < partitionSplits.size();  ++i) {
+                int leftPartition = i;
+                int rightPartition = i + rightOffset;
+
+                if (numInPartition[leftPartition]
+                        != partitionSplits[i].left.count()
+                    || numInPartition[rightPartition]
+                        != partitionSplits[i].right.count()) {
+                    using namespace std;
+                    
+                    cerr << "PARTITION COUNT MISMATCH" << endl;
+                    cerr << "expected: left "
+                         << partitionSplits[i].left.count()
+                         << " right "
+                         << partitionSplits[i].right.count() << endl;
+                    cerr << "got:      left " << numInPartition[leftPartition]
+                         << " right " << numInPartition[rightPartition]
+                         << endl;
+
+                    cerr << "feature " << partitionSplits[i].feature
+                         << " " << features[partitionSplits[i].feature].info->columnName
+                         << " bucket " << partitionSplits[i].value
+                         << " " << features[partitionSplits[i].feature]
+                        .info->bucketDescriptions.getSplit(partitionSplits[i].value)
+                         << " ordinal " << features[partitionSplits[i].feature].ordinal
+                         << endl;
+
+
+                        }
+                
+                ExcAssertEqual(numInPartition[leftPartition],
+                               partitionSplits[i].left.count());
+                ExcAssertEqual(numInPartition[rightPartition],
+                               partitionSplits[i].right.count());
+            }
         }
     }
     
