@@ -724,12 +724,13 @@ struct PartitionData {
         }
     }
     
-    void trainPartitionedRecursive(int depth, int maxDepth,
-                                   ML::Tree & tree,
-                                   MappedSerializer & serializer,
-                                   const std::vector<uint32_t> & bucketOffsets,
-                                   const std::vector<int> activeFeatures,
-                                   std::vector<W> bucketsIn)
+    ML::Tree::Ptr
+    trainPartitionedRecursive(int depth, int maxDepth,
+                              ML::Tree & tree,
+                              MappedSerializer & serializer,
+                              const std::vector<uint32_t> & bucketOffsets,
+                              const std::vector<int> & activeFeatures,
+                              std::vector<W> bucketsIn) const
     {
         using namespace std;
 
