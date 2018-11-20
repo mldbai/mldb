@@ -354,7 +354,7 @@ struct PartitionData {
 
     void splitWithoutReindex(PartitionData * sides,
                              int featureToSplitOn, int splitValue,
-                             MappedSerializer & serializer)
+                             MappedSerializer & serializer) const
     {
         bool ordinal = features[featureToSplitOn].ordinal;
 
@@ -379,9 +379,6 @@ struct PartitionData {
             writer[side].addRow(row);
         }
 
-        rows.clear();
-        features.clear();
-
         sides[0].rows = writer[0].freeze(serializer);
         sides[1].rows = writer[1].freeze(serializer);
 
@@ -390,7 +387,7 @@ struct PartitionData {
 
     void splitAndReindex(PartitionData * sides,
                          int featureToSplitOn, int splitValue,
-                         MappedSerializer & serializer)
+                         MappedSerializer & serializer) const
     {
         int nf = features.size();
 
@@ -481,9 +478,6 @@ struct PartitionData {
             sides[1].features[i].buckets = newFeatures[1].freeze(serializer);
         }
 
-        rows.clear();
-        features.clear();
-
         sides[0].rows = writer[0].freeze(serializer);
         sides[1].rows = writer[1].freeze(serializer);
 
@@ -495,7 +489,7 @@ struct PartitionData {
     std::pair<PartitionData, PartitionData>
     split(int featureToSplitOn, int splitValue,
           const W & wLeft, const W & wRight,
-          MappedSerializer & serializer)
+          MappedSerializer & serializer) const
     {
      //   std::cerr << "spliting on feature " << featureToSplitOn << " bucket " << splitValue << std::endl;
         
@@ -540,20 +534,55 @@ struct PartitionData {
     {
 
         float total = float(wAll[0]) + float(wAll[1]);
-        node->examples = total;
+        node->examples = wAll.count();
         node->pred = {
              float(wAll[0]) / total,
              float(wAll[1]) / total };
     }
 
-    ML::Tree::Ptr getLeaf(ML::Tree & tree, const W& w)
+    ML::Tree::Ptr
+    getNode(ML::Tree & tree, float bestScore,
+            int bestFeature, int bestSplit,
+            ML::Tree::Ptr left, ML::Tree::Ptr right,
+            W wLeft, W wRight) const
+    {
+        ML::Tree::Node * node = tree.new_node();
+        ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
+        float splitVal = 0;
+        if (features[bestFeature].ordinal) {
+            auto splitCell = features[bestFeature].info->bucketDescriptions
+                .getSplit(bestSplit);
+            if (splitCell.isNumeric())
+                splitVal = splitCell.toDouble();
+            else splitVal = bestSplit;
+        }
+        else {
+            splitVal = bestSplit;
+        }
+
+        ML::Split split(feature, splitVal,
+                        features[bestFeature].ordinal
+                        ? ML::Split::LESS : ML::Split::EQUAL);
+            
+        node->split = split;
+        node->child_true = left;
+        node->child_false = right;
+        W wMissing;
+        node->child_missing = getLeaf(tree, wMissing);
+        node->z = bestScore;            
+        fillinBase(node, wLeft + wRight);
+
+        return node;
+    }
+        
+    ML::Tree::Ptr getLeaf(ML::Tree & tree, const W& w) const
     {     
         ML::Tree::Leaf * node = tree.new_leaf();
         fillinBase(node, w);
         return node;
     }
 
-    ML::Tree::Ptr getLeaf(ML::Tree & tree)
+    ML::Tree::Ptr getLeaf(ML::Tree & tree) const
     {
        return getLeaf(tree, rows.wAll);
     }  
@@ -800,9 +829,10 @@ struct PartitionData {
         }
     }
     
-    void trainPartitioned(int depth, int maxDepth,
-                          ML::Tree & tree,
-                          MappedSerializer & serializer)
+    ML::Tree::Ptr
+    trainPartitioned(int depth, int maxDepth,
+                     ML::Tree & tree,
+                     MappedSerializer & serializer) const
     {
         // First, grab the bucket totals for each bucket across the whole
         // lot.
@@ -859,7 +889,7 @@ struct PartitionData {
     
     ML::Tree::Ptr train(int depth, int maxDepth,
                         ML::Tree & tree,
-                        MappedSerializer & serializer)
+                        MappedSerializer & serializer) const
     {
         using namespace std;
         
@@ -911,14 +941,15 @@ struct PartitionData {
         std::pair<PartitionData, PartitionData> splits
             = split(bestFeature, bestSplit, wLeft, wRight, serializer);
 
+        
         //cerr << "done split in " << timer.elapsed() << endl;
 
         //cerr << "left had " << splits.first.rows.size() << " rows" << endl;
         //cerr << "right had " << splits.second.rows.size() << " rows" << endl;
 
         ML::Tree::Ptr left, right;
-        auto runLeft = [&] () { left = splits.first.train(depth + 1, maxDepth, tree, serializer); };
-        auto runRight = [&] () { right = splits.second.train(depth + 1, maxDepth, tree, serializer); };
+        auto runLeft = [&] () { left = splits.first.train(depth + 1, maxDepth, tree, serializer); splits.first.clear(); };
+        auto runRight = [&] () { right = splits.second.train(depth + 1, maxDepth, tree, serializer); splits.second.clear(); };
 
         size_t leftRows = splits.first.rows.rowCount();
         size_t rightRows = splits.second.rows.rowCount();
