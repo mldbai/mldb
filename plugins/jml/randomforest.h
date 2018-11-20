@@ -87,11 +87,12 @@ struct PartitionData {
         // Analyze the weights.  This may allow us to store them in a lot
         // less bits than we would have otherwise.
 
-        auto doWeightChunk = [&] (size_t start)
+        auto doWeightChunk = [=] (int chunk)
             -> std::tuple<LightweightHashSet<float> /* uniques */,
                           float /* minWeight */,
                           size_t /* numValues */>
             {
+                size_t start = chunk * chunkSize;
                 size_t end = std::min(start + chunkSize, rows.rowCount());
 
                 LightweightHashSet<float> uniques;
@@ -258,6 +259,7 @@ struct PartitionData {
                         = data.rows.getRowWriter(numNonZero, numNonZero,
                                                  serializer,
                                                  false /* sequential example num */);
+
                     Rows::RowIterator rowIterator
                         = rows.getRowIterator();
 
@@ -324,7 +326,7 @@ struct PartitionData {
                 data.features[f].buckets = featureBuckets.freeze(serializer);
             };
 
-        MLDB::parallelMap(0, data.features.size() + 1, doFeature);
+        parallelMap(0, data.features.size() + 1, doFeature);
 
         data.bucketMemory = mutableBucketMemory.freeze();
 
