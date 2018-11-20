@@ -25,6 +25,7 @@
 #include "mldb/engine/column_scope.h"
 #include "mldb/engine/bucket.h"
 #include "mldb/utils/lightweight_hash.h"
+#include "mldb/arch/timers.h"
 #include <cmath>
 
 
@@ -1230,17 +1231,30 @@ struct PartitionData {
         if (depth >= maxDepth)
             return getLeaf(tree);
 
+        ML::Tree::Ptr part;
+
+#if 0
+        return trainPartitioned(depth, maxDepth, tree, serializer);
+#elif 0
         if (depth == 0) {
+            Timer timer;
             Date before = Date::now();
-            trainPartitioned(depth, maxDepth, tree, serializer);
+            part = trainPartitioned(depth, maxDepth, tree, serializer);
             Date after = Date::now();
             cerr << "partitioned took " << after.secondsSince(before) * 1000.0
-                 << "ms" << endl;
+                 << "ms " << timer.elapsed() << endl;
         }
 
+        if (depth < 2)
+            cerr << "depth " << depth << endl;
+#endif
+        
         Date before;
-        if (depth == 0)
+        unique_ptr<Timer> timer;
+        if (depth == 0) {
             before = Date::now();
+            timer.reset(new Timer());
+        }
         
         double bestScore;
         int bestFeature;
