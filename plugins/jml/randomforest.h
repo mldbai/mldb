@@ -1331,47 +1331,104 @@ struct PartitionData {
             tp.waitForAll();
         }
 
-        if (depth == 0) {
-            Date after = Date::now();
-            cerr << "recursive took " << after.secondsSince(before) * 1000.0
-                 << "ms" << endl;
-        }
+        ML::Tree::Ptr result;
         
         if (left && right) {
-            ML::Tree::Node * node = tree.new_node();
-            ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
-            float splitVal = 0;
-            if (features[bestFeature].ordinal) {
-                auto splitCell = features[bestFeature].info->bucketDescriptions
-                    .getSplit(bestSplit);
-                if (splitCell.isNumeric())
-                    splitVal = splitCell.toDouble();
-                else splitVal = bestSplit;
-            }
-            else {
-                splitVal = bestSplit;
-            }
-
-            ML::Split split(feature, splitVal,
-                            features[bestFeature].ordinal
-                            ? ML::Split::LESS : ML::Split::EQUAL);
-            
-            node->split = split;
-            node->child_true = left;
-            node->child_false = right;
-            W wMissing;
-            node->child_missing = getLeaf(tree, wMissing);
-            node->z = bestScore;            
-            fillinBase(node, wLeft + wRight);
-
-            return node;
+            result = getNode(tree, bestScore, bestFeature, bestSplit,
+                             left, right, wLeft, wRight);
         }
         else {
-            ML::Tree::Leaf * leaf = tree.new_leaf();
-            fillinBase(leaf, wLeft + wRight);
-
-            return leaf;
+            result = getLeaf(tree, wLeft + wRight);
         }
+
+        if (depth == 0 && part) {
+            Date after = Date::now();
+            cerr << "recursive took " << after.secondsSince(before) * 1000.0
+                 << "ms " << timer->elapsed() << endl;
+
+            std::function<bool (ML::Tree::Ptr, ML::Tree::Ptr, int)> compareTrees
+                = [&] (ML::Tree::Ptr left, ML::Tree::Ptr right, int depth)
+                {
+                    auto printSummary = [&] (ML::Tree::Ptr ptr) -> std::string
+                    {
+                        std::string result;
+                        if (!ptr)
+                            return "null";
+
+                        result = "ex=" + std::to_string(ptr.examples())
+                        + " pred=" + std::to_string(ptr.pred()[0])
+                        + " " + std::to_string(ptr.pred()[1]);
+
+                        if (ptr.isNode()) {
+                            auto & n = *ptr.node();
+                            result += " " + n.split.print(*fs);
+                        }
+
+                        return result;
+                    };
+
+                    auto doPrint = [&] () -> bool
+                    {
+                        cerr << "difference at depth " << depth << endl;
+                        cerr << "  left:  " << printSummary(left) << endl;
+                        cerr << "  right: " << printSummary(right) << endl;
+                        return false;
+                    };
+
+                    if ((left.pred() != right.pred()).any()) {
+                        cerr << "different predictions at depth "
+                             << depth << ": " << left.pred()
+                             << " vs " << right.pred() << endl;
+                        return doPrint();
+                    }
+                    if (left.examples() != right.examples()) {
+                        cerr << "different examples at depth " << depth << ": "
+                             << left.examples() << " vs " << right.examples()
+                             << endl;
+                        return doPrint();
+                    }
+                    if (left.isNode() && right.isNode()) {
+                        const ML::Tree::Node & l = *left.node();
+                        const ML::Tree::Node & r = *right.node();
+
+                        if (l.split != r.split) {
+                            cerr << "different split: "
+                                 << l.split.print(*fs) << " vs "
+                                 << r.split.print(*fs) << endl;
+                            return doPrint();
+                        }
+                        if (l.z != r.z) {
+                            cerr << "different z: "
+                                 << l.z << " vs " << r.z << endl;
+                            return doPrint();
+                        }
+
+                        if (!compareTrees(l.child_true, r.child_true, depth + 1)) {
+                            cerr << "different left" << endl;
+                            return doPrint();
+                        }
+                        if (!compareTrees(l.child_false, r.child_false, depth + 1)) {
+                            cerr << "diffrent right" << endl;
+                            return doPrint();
+                        }
+                        return true;
+                    }
+                    else if (left.isLeaf() && right.isLeaf()) {
+                        // already compared
+                        return true;
+                    }
+                    else {
+                        cerr << "different type at depth " << depth << endl;
+                        return doPrint();
+                    }
+                };
+
+            ExcAssert(compareTrees(result, part, 0));
+            
+        }
+
+        
+        return result;
     }
 };
 

@@ -62,6 +62,9 @@ struct Tree {
             else return ptr_.base->examples;
         }
 
+        bool isNode() const { return is_node_ && ptr_.node; }
+        bool isLeaf() const { return !is_node_ && ptr_.leaf; }
+        
         const distribution<float> & pred() const
         {
             static const distribution<float> none;
