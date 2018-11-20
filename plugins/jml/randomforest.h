@@ -375,7 +375,7 @@ struct PartitionData {
             int bucket
                 = features[featureToSplitOn]
                 .buckets[row.exampleNum_];
-            int side = ordinal ? bucket > splitValue : bucket != splitValue;
+            int side = ordinal ? bucket >= splitValue : bucket != splitValue;
             writer[side].addRow(row);
         }
 
@@ -414,7 +414,7 @@ struct PartitionData {
         for (size_t i = 0;  i < rows.rowCount();  ++i) {
             Row row = rowIterator.getRow();
             int bucket = features[featureToSplitOn].buckets[row.exampleNum()];
-            int side = ordinal ? bucket > splitValue : bucket != splitValue;
+            int side = ordinal ? bucket >= splitValue : bucket != splitValue;
             lr[i] = side;
             row.exampleNum_ = numOnSide[side]++;
             writer[side].addRow(row);
@@ -630,8 +630,8 @@ struct PartitionData {
             int splitValue = partitionSplits[partition].value;
             bool ordinal = features[splitFeature].ordinal;
             int bucket = features[splitFeature].buckets[row.exampleNum];
-            int side = ordinal ? bucket > splitValue : bucket != splitValue;
-            double weight = row.weight;
+            int side = ordinal ? bucket >= splitValue : bucket != splitValue;
+            float weight = row.weight;
             bool label = row.label;
 
             // Set the new partition number

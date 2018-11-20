@@ -360,25 +360,28 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
             if (w[j].empty())
                 continue;                   
 
-            double s = scoreSplit(wFalse, wTrue);
+            if (wFalse.count() > 0 && wTrue.count() > 0) {
+            
+                double s = scoreSplit(wFalse, wTrue);
 
 #if 0                
-            if (debug) {
-                std::cerr << "  ord split " << j << " "
-                          << features.info->bucketDescriptions.getValue(j)
-                          << " had score " << s << std::endl;
-                std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
-                std::cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << std::endl;
-            }
+                if (debug) {
+                    std::cerr << "  ord split " << j << " "
+                              << features.info->bucketDescriptions.getValue(j)
+                              << " had score " << s << std::endl;
+                    std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
+                    std::cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << std::endl;
+                }
 #endif
                 
-            if (s < bestScore) {
-                bestScore = s;
-                bestSplit = j;
-                bestRight = wFalse;
-                bestLeft = wTrue;
+                if (s < bestScore) {
+                    bestScore = s;
+                    bestSplit = j;
+                    bestRight = wFalse;
+                    bestLeft = wTrue;
+                }
             }
-                
+            
             wFalse -= w[j];
             wTrue += w[j];
         }
@@ -391,10 +394,14 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                     
             if (w[j].empty())
                 continue;
-
+            
             W wFalse = wAll;
             wFalse -= w[j];                    
 
+            if (wFalse.count() == 0 || w[j].count() == 0) {
+                continue;
+            }
+            
             double s = scoreSplit(wFalse, w[j]);
 
 #if 0                    
