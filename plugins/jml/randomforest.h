@@ -927,15 +927,20 @@ struct PartitionData {
 
         // What is our weight total for each of our partitions?
         std::vector<W> wAll = { rows.wAll };
+
+        // Record the split, per level, per partition
+        std::vector<std::vector<PartitionSplit> > depthSplits;
+        depthSplits.reserve(8);
         
         // We go down level by level
         for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
              ++depth, ++myDepth) {
 
-            cerr << "depth " << depth << endl;
+            //cerr << "depth " << depth << endl;
             
             // Find the new split point for each partition
-            std::vector<PartitionSplit> partitionSplits(buckets.size());
+            depthSplits.emplace_back(buckets.size());
+            std::vector<PartitionSplit> & partitionSplits = depthSplits.back();
             
             for (int partition = 0;  partition < buckets.size();  ++partition) {
 
@@ -1005,7 +1010,8 @@ struct PartitionData {
                     { bestScore, bestFeature, bestSplit, bestLeft, bestRight,
                       std::move(activeFeatures),
                       bestLeft.count() <= bestRight.count() };
-                
+
+#if 0                
                 cerr << "partition " << partition << " of " << buckets.size()
                      << " with " << bestLeft.count() + bestRight.count()
                      << " rows: " << bestScore << " " << bestFeature;
@@ -1017,6 +1023,7 @@ struct PartitionData {
                 cerr << " " << jsonEncodeStr(bestLeft) << " "
                      << jsonEncodeStr(bestRight)
                      << endl;
+#endif
             }
             
             // Firstly, we double the number of partitions.  The left all
@@ -1055,6 +1062,100 @@ struct PartitionData {
 
             // Ready for the next level
         }
+
+        // Recursively go through and extract our tree.  There is no
+        // calculating going on here, just creation of the data structure.
+        std::function<ML::Tree::Ptr (int depth, int partition)> getPtr
+            = [&] (int relativeDepth, int partition)
+            {
+                auto & s = depthSplits.at(relativeDepth).at(partition);
+
+                if (s.left.count() + s.right.count() == 0) 
+                    return ML::Tree::Ptr();
+                else if (s.feature == -1)
+                    return getLeaf(tree, s.left + s.right);
+                
+                ML::Tree::Ptr left, right;
+
+                if (relativeDepth == depthSplits.size() - 1) {
+                    // asking for the last level
+                    // For now, it's a leaf.  Later, we need to recurse
+                    // by compacting our data and creating sub-trees
+                    left = getLeaf(tree, s.left);
+                    right = getLeaf(tree, s.right);
+                }
+                else {
+                    // Not the last level
+                    left = getPtr(relativeDepth + 1, partition);
+                    right = getPtr(relativeDepth + 1,
+                                   partition + (1 << relativeDepth));
+                }
+
+                if (!left && !right) {
+                    return getLeaf(tree, s.left + s.right);
+                }
+
+                if (!left)
+                    left = getLeaf(tree, s.left);
+                if (!right)
+                    right = getLeaf(tree, s.right);
+                
+                return getNode(tree, s.score, s.feature, s.value,
+                               left, right, s.left, s.right);
+#if 0
+                else {
+                    cerr << "depth " << relativeDepth << " partition "
+                         << partition << " right "
+                         << partition + (1 << relativeDepth)
+                         << " feature "
+                         << s.score << " " << s.feature << " " << s.value
+                         << " " << jsonEncodeStr(s.left)
+                         << " " << jsonEncodeStr(s.right) << endl;
+                    throw Exception("Logic error: one of left and right");
+                }
+#endif
+                
+            };
+
+        return getPtr(0, 0);
+
+#if 0        
+        std::vector<Tree::Ptr> leafPtrs;
+        
+        // Time to go to the next level
+        if (depth < maxDepth) {
+            throw Exception("TODO: deeper trees");
+        }
+        else {
+            // extract bottom layer of node pointers
+            leafPtrs.reserve(splits.back().size());
+            for (auto & s: splits.back()) {
+                Tree::Ptr left = getLeaf(tree, s.left);
+                Tree::Ptr right = getLeaf(tree, s.right);
+                Tree::Ptr node = getNode(tree, s.score, s.feature, s.split,
+                                         left, right, s.left, s.right);
+                leafPtrs.emplace_back(node);
+            }
+        }
+
+        // Go back up the levels to create the output
+        for (int i = splits.size() - 1;  i >= 0;  ++i) {
+            std::vector<Tree::Ptr> newLeafPtrs(1 << i);
+            ExcAssertEqual(newLeafPtrs.size() * 2, leafPtrs.size());
+            for (int j = 0;  j < newLeafPtrs.size();  ++i) {
+                int leftPart = j;
+                int rightPart = j + newLeafPtrs.size();
+
+                Tree::Ptr node
+                    = getNode(tree,
+                              splits[i].score, splits[i].feature,
+                              splits[i].split,
+                              leafPtrs[leftPart], leafPtrs[rightPart],
+                              splits[i].left, splits[i].right);
+                newLeafPtrs[j] = node;
+            }
+        }
+#endif
     }
     
     ML::Tree::Ptr
