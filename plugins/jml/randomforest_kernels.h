@@ -21,10 +21,22 @@ namespace RF {
 // Core kernel of the decision tree search algorithm.  Transfer the
 // example weight into the appropriate (bucket,label) accumulator.
 // Returns whether
-MLDB_NEVER_INLINE std::pair<bool, int>
+std::pair<bool, int>
 testFeatureKernel(Rows::RowIterator rowIterator,
                   size_t numRows,
                   const BucketList & buckets,
+                  W * w /* buckets.numBuckets entries */);
+
+std::pair<bool, int>
+testFeatureKernel(Rows::RowIterator rowIterator,
+                  size_t numRows,
+                  const uint16_t * buckets,
+                  W * w /* buckets.numBuckets entries */);
+
+std::pair<bool, int>
+testFeatureKernel(Rows::RowIterator rowIterator,
+                  size_t numRows,
+                  const uint32_t * buckets,
                   W * w /* buckets.numBuckets entries */);
 
 // Calculates the score of a split, which is a measure of the

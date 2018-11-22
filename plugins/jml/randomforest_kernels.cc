@@ -32,6 +32,7 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
 // Core kernel of the decision tree search algorithm.  Transfer the
 // example weight into the appropriate (bucket,label) accumulator.
 // Returns whether
+template<typename BucketList>
 std::pair<bool, int>
 testFeatureKernelCpu(Rows::RowIterator rowIterator,
                      size_t numRows,
@@ -63,6 +64,26 @@ std::pair<bool, int>
 testFeatureKernel(Rows::RowIterator rowIterator,
                   size_t numRows,
                   const BucketList & buckets,
+                  W * w /* buckets.numBuckets entries */)
+{
+    return testFeatureKernelCpu(rowIterator, numRows, buckets, w);
+    //return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
+}
+
+std::pair<bool, int>
+testFeatureKernel(Rows::RowIterator rowIterator,
+                  size_t numRows,
+                  const uint32_t * buckets,
+                  W * w /* buckets.numBuckets entries */)
+{
+    return testFeatureKernelCpu(rowIterator, numRows, buckets, w);
+    //return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
+}
+
+std::pair<bool, int>
+testFeatureKernel(Rows::RowIterator rowIterator,
+                  size_t numRows,
+                  const uint16_t * buckets,
                   W * w /* buckets.numBuckets entries */)
 {
     return testFeatureKernelCpu(rowIterator, numRows, buckets, w);
