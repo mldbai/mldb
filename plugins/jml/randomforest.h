@@ -741,9 +741,15 @@ struct PartitionData {
                           const std::vector<uint8_t> & partitions,
                           const std::vector<uint8_t> & activeInPartition,
                           const std::vector<int8_t> & transfers,
-                          std::vector<std::vector<W> > & buckets)
+                          std::vector<std::vector<W> > & buckets,
+                          volatile uint32_t & doneRows)
     {
         for (size_t i = 0;  i < decodedRows.size();  ++i) {
+            while (doneRows < i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                //std::this_thread::yield();
+            }
+
             if (transfers[i] == 0)
                 continue;
 
@@ -813,83 +819,6 @@ struct PartitionData {
                                const std::vector<float> & decodedRows)
     {
         //Rows::RowIterator rowIterator = rows.getRowIterator();
-        
-        bool checkPartitionCounts = false;
-        
-        std::vector<uint32_t> numInPartition(buckets.size());
-        std::vector<int8_t> transfers(rows.rowCount());
-        
-        for (size_t i = 0;  i < rows.rowCount();  ++i) {
-            // TODO: for each feature, choose right to left vs left to
-            // right based upon processing the smallest number of
-            // shifts
-
-            int partition = partitions[i];
-            int splitFeature = partitionSplits[partition].feature;
-                
-            if (splitFeature == -1) {
-                // reached a leaf here, nothing to split                    
-                //rowIterator.skipRow();
-                continue;
-            }
-
-            
-            //DecodedRow row = rowIterator.getDecodedRow();
-
-            float weight = fabs(decodedRows[i]);
-            bool label = decodedRows[i] < 0;
-            int exampleNum = i;
-            
-            int leftPartition = partition;
-            int rightPartition MLDB_UNUSED = partition + rightOffset;
-
-            int splitValue = partitionSplits[partition].value;
-            bool ordinal = features[splitFeature].ordinal;
-            int bucket = features[splitFeature].buckets[exampleNum];
-            //int bucket = featureBuckets[splitFeature][exampleNum];
-            int side = ordinal ? bucket >= splitValue : bucket != splitValue;
-
-            // Set the new partition number
-            partitions[i] = partition + side * rightOffset;
-
-            // Verify partition counts?
-            if (checkPartitionCounts)
-                ++numInPartition[partition + side * rightOffset];
-            
-            // 0 = left to right, 1 = right to left
-            int direction = partitionSplits[partition].direction;
-
-            // +1 = left to right; -1 = right to left
-            int8_t transfer = direction == side
-                ? 0 : direction == 0 ? 1 : -1;
-
-            if (direction != side) {
-                int fromPartition = leftPartition + direction * rightOffset;
-                int toPartition = leftPartition + side * rightOffset;
-
-#if 0
-                int fromPartition2, toPartition2;
-                if (direction == 0 && side == 1) {
-                    // Transfer from left to right
-                    fromPartition2 = leftPartition;
-                    toPartition2   = rightPartition;
-                }
-                else {
-                    // Transfer from right to left
-                    fromPartition2 = rightPartition;
-                    toPartition2   = leftPartition;
-                }
-                ExcAssertEqual(fromPartition2, fromPartition);
-                ExcAssertEqual(toPartition2, toPartition);
-                
-#endif
-                // Update the wAll, transfering weight
-                wAll[fromPartition].sub(label, weight);
-                wAll[toPartition  ].add(label, weight);
-            }
-
-            transfers[i] = transfer;
-        }
 
         // which features are active in which partition?
         std::set<int> activeFeatures;
@@ -902,9 +831,98 @@ struct PartitionData {
                 activeInPartition.at(f).at(i) = true;
             }
         }
+                
+        bool checkPartitionCounts = false;
         
-        auto doFeature = [&] (int f)
+        std::vector<uint32_t> numInPartition(buckets.size());
+        std::vector<int8_t> transfers(rows.rowCount());
+
+        volatile uint32_t doneRows = 0;
+        
+        auto testRows = [&] () {
+        
+            for (size_t i = 0;  i < rows.rowCount();  ++i, ++doneRows) {
+                // TODO: for each feature, choose right to left vs left to
+                // right based upon processing the smallest number of
+                // shifts
+
+                int partition = partitions[i];
+                int splitFeature = partitionSplits[partition].feature;
+                
+                if (splitFeature == -1) {
+                    // reached a leaf here, nothing to split                    
+                    //rowIterator.skipRow();
+                    continue;
+                }
+
+            
+                //DecodedRow row = rowIterator.getDecodedRow();
+
+                int exampleNum = i;
+
+                int splitValue = partitionSplits[partition].value;
+                bool ordinal = features[splitFeature].ordinal;
+                int bucket = features[splitFeature].buckets[exampleNum];
+                int side = ordinal ? bucket >= splitValue : bucket != splitValue;
+
+                // Set the new partition number
+                partitions[i] = partition + side * rightOffset;
+
+                // Verify partition counts?
+                if (checkPartitionCounts)
+                    ++numInPartition[partition + side * rightOffset];
+
+                // 0 = left to right, 1 = right to left
+                int direction = partitionSplits[partition].direction;
+
+                // +1 = left to right; -1 = right to left
+                int8_t transfer = direction == side
+                    ? 0 : direction == 0 ? 1 : -1;
+
+                transfers[i] = transfer;
+            }
+        };
+
+        auto doWAll = [&] () {
+            for (size_t i = 0;  i < decodedRows.size();  ++i) {
+                while (doneRows < i) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    //std::this_thread::yield();
+                }
+
+                if (transfers[i] == 0)
+                    continue;
+
+                int partition = partitions[i];
+
+                using namespace std;
+                    
+                int leftPartition = partition & (rightOffset-1);
+                float weight = fabs(decodedRows[i]);
+                bool label = decodedRows[i] < 0;
+
+                int fromPartition = leftPartition + (transfers[i] == -1) * rightOffset;
+                int toPartition = leftPartition + (transfers[i] != -1) * rightOffset;
+
+                // Update the wAll, transfering weight
+                wAll[fromPartition].sub(label, weight);
+                wAll[toPartition  ].add(label, weight);
+            }
+        };
+        
+        auto doFeature = [&] (int i)
             {
+                if (i == 0) {
+                    testRows();
+                    return;
+                }
+                else if (i == 1) {
+                    doWAll();
+                    return;
+                }
+
+                int f = i - 2;
+
                 if (!activeFeatures.count(f))
                     return;
                 int startBucket = bucketOffsets[f];
@@ -914,10 +932,10 @@ struct PartitionData {
                                       bucketOffsets, partitionSplits,
                                       rightOffset, decodedRows,
                                       partitions, activeInPartition[f],
-                                      transfers, buckets);
+                                      transfers, buckets, doneRows);
             };
 
-        parallelMap(0, features.size(), doFeature);
+        parallelMap(0, features.size() + 2, doFeature);
         
         // Make sure that the number in the buckets is actually what we
         // expected when we calculated the split.
