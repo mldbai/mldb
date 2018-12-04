@@ -377,9 +377,10 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
         W wFalse = wAll, wTrue;
 
         // Now test split points one by one
-        for (unsigned j = 0;  j < maxBucket;  ++j) {
-            if (w[j].empty())
-                continue;                   
+        for (unsigned j = 0;  j <= maxBucket;  ++j) {
+
+            //if (w[j].empty())
+            //    continue;                   
 
             if (wFalse.count() > 0 && wTrue.count() > 0) {
             
@@ -403,8 +404,10 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                 }
             }
             
-            wFalse -= w[j];
-            wTrue += w[j];
+            if (j < maxBucket) {
+                wFalse -= w[j];
+                wTrue += w[j];
+            }
         }
     }
     else {

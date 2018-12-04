@@ -269,6 +269,7 @@ run(const ProcedureRunConfig & run,
 
     MemorySerializer serializer;
 
+    Timer beforeTrees;
     
     PartitionData allData(featureSpace);
 
@@ -435,6 +436,8 @@ run(const ProcedureRunConfig & run,
 
     parallelMap(0, runProcConf.featureVectorSamplings, doFeatureVectorSampling, maxBagsAtOnce);
 
+    cerr << "tree construction took " << beforeTrees.elapsed() << endl;
+    
     shared_ptr<Committee> result = make_shared<Committee>(contFeatureSpace, labelFeature);
 
     for (unsigned i = 0;  i < totalResultCount;  ++i)
