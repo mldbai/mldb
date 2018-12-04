@@ -541,14 +541,16 @@ struct PartitionData {
              float(wAll[1]) / total };
     }
 
-    ML::Tree::Ptr
+    static ML::Tree::Ptr
     getNode(ML::Tree & tree, float bestScore,
             int bestFeature, int bestSplit,
             ML::Tree::Ptr left, ML::Tree::Ptr right,
-            W wLeft, W wRight) const
+            W wLeft, W wRight,
+            const std::vector<Feature> & features,
+            const DatasetFeatureSpace & fs)
     {
         ML::Tree::Node * node = tree.new_node();
-        ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
+        ML::Feature feature = fs.getFeature(features[bestFeature].info->columnName);
         float splitVal = 0;
         if (features[bestFeature].ordinal) {
             auto splitCell = features[bestFeature].info->bucketDescriptions
@@ -576,18 +578,13 @@ struct PartitionData {
         return node;
     }
         
-    ML::Tree::Ptr getLeaf(ML::Tree & tree, const W& w) const
+    static ML::Tree::Ptr getLeaf(ML::Tree & tree, const W & w)
     {     
         ML::Tree::Leaf * node = tree.new_leaf();
         fillinBase(node, w);
         return node;
     }
-
-    ML::Tree::Ptr getLeaf(ML::Tree & tree) const
-    {
-       return getLeaf(tree, rows.wAll);
-    }  
-
+    
     struct PartitionSplit {
         double score = INFINITY;
         int feature = -1;
@@ -1262,10 +1259,10 @@ struct PartitionData {
         if (rows.rowCount() == 0)
             return ML::Tree::Ptr();
         if (rows.rowCount() < 2)
-            return getLeaf(tree);
+            return getLeaf(tree, rows.wAll);
 
         if (depth >= maxDepth)
-            return getLeaf(tree);
+            return getLeaf(tree, rows.wAll);
 
         ML::Tree::Ptr part;
 
