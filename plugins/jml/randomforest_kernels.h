@@ -95,5 +95,114 @@ testAll(int depth,
         const Rows & rows,
         FrozenMemoryRegionT<uint32_t> bucketData);
 
+
+/*****************************************************************************/
+/* RECURSIVE RANDOM FOREST KERNELS                                           */
+/*****************************************************************************/
+
+struct PartitionSplit {
+    double score = INFINITY;
+    int feature = -1;
+    int value = -1;
+    W left;
+    W right;
+    std::vector<int> activeFeatures;
+    bool direction;  // 0 = left to right, 1 = right to left
+};
+
+struct PartitionEntry {
+    std::vector<float> decodedRows;
+    std::vector<Feature> features;
+    std::vector<int> activeFeatures;
+    std::set<int> activeFeatureSet;
+    W wAll;
+
+    // Get a contiguous block of memory for all of the feature
+    // blocks on each side; this enables a single GPU transfer
+    // and a single GPU argument list.
+    std::vector<size_t> bucketMemoryOffsets;
+    MutableMemoryRegionT<uint32_t> mutableBucketMemory;
+    FrozenMemoryRegionT<uint32_t> bucketMemory;
+};
+
+void updateBuckets(const std::vector<Feature> & features,
+                   std::vector<uint8_t> & partitions,
+                   std::vector<std::vector<W> > & buckets,
+                   std::vector<W> & wAll,
+                   const std::vector<uint32_t> & bucketOffsets,
+                   const std::vector<PartitionSplit> & partitionSplits,
+                   int rightOffset,
+                   const std::vector<float> & decodedRows);
+
+std::pair<std::vector<PartitionEntry>,
+          FrozenMemoryRegionT<uint32_t> >
+splitPartitions(const std::vector<Feature> features,
+                const std::vector<int> & activeFeatures,
+                const std::vector<float> & decodedRows,
+                const std::vector<uint8_t> & partitions,
+                const std::vector<W> & w,
+                MappedSerializer & serializer);
+
+
+/** This function takes the W values of each bucket of a number of
+    partitions, and calculates the optimal split feature and value
+    for each of the partitions.  It's the "search" part of the
+    decision tree algorithm, but across a full set of rows split into
+    multiple partitions.
+*/
+std::vector<PartitionSplit>
+getPartitionSplits(const std::vector<std::vector<W> > & buckets,
+                   const std::vector<int> & activeFeatures,
+                   const std::vector<uint32_t> & bucketOffsets,
+                   const std::vector<Feature> & features,
+                   const std::vector<W> & wAll,
+                   bool parallel);
+
+// Check that the partition counts match the W counts.
+void verifyPartitionBuckets(const std::vector<uint8_t> & partitions,
+                            const std::vector<W> & wAll);
+
+
+// Split our dataset into a separate dataset for each leaf, and
+// recurse to create a leaf node for each.  This is mutually
+// recursive with trainPartitionedRecursive.
+static std::vector<ML::Tree::Ptr>
+splitAndRecursePartitioned(int depth, int maxDepth,
+                           ML::Tree & tree,
+                           MappedSerializer & serializer,
+                           std::vector<std::vector<W> > buckets,
+                           const std::vector<uint32_t> & bucketOffsets,
+                           const std::vector<Feature> & features,
+                           const std::vector<int> & activeFeatures,
+                           const std::vector<float> & decodedRows,
+                           const std::vector<uint8_t> & partitions,
+                           const std::vector<W> & wAll,
+                           const DatasetFeatureSpace & fs);
+
+ML::Tree::Ptr
+trainPartitionedRecursive(int depth, int maxDepth,
+                          ML::Tree & tree,
+                          MappedSerializer & serializer,
+                          const std::vector<uint32_t> & bucketOffsets,
+                          const std::vector<int> & activeFeatures,
+                          std::vector<W> bucketsIn,
+                          const std::vector<float> & decodedRows,
+                          const W & wAllInput,
+                          const DatasetFeatureSpace & fs,
+                          const std::vector<Feature> & features);
+
+// Recursively go through and extract a tree from a set of recorded
+// PartitionSplits.  There is no calculating going on here, just
+// translation of the non-recuirsive data structure into a recursive
+// version.
+ML::Tree::Ptr
+extractTree(int relativeDepth, int depth, int maxDepth,
+            int partition,
+            ML::Tree & tree,
+            const std::vector<std::vector<PartitionSplit> > & depthSplits,
+            const std::vector<ML::Tree::Ptr> & leaves,
+            const std::vector<Feature> & features,
+            const DatasetFeatureSpace & fs);
+
 } // namespace RF
 } // namespace MLDB

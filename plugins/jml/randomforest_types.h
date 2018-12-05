@@ -14,6 +14,8 @@
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/utils/fixed_point_accum.h"
+#include "mldb/plugins/jml/jml/tree.h"
+
 
 namespace MLDB {
 
@@ -409,6 +411,67 @@ freeze(MappedSerializer & serializer)
 
     return result;
 }
+
+
+/*****************************************************************************/
+/* TREE MANIPULATION                                                         */
+/*****************************************************************************/
+
+inline void fillinBase(ML::Tree::Base * node, const W & wAll)
+{
+
+    float total = float(wAll[0]) + float(wAll[1]);
+    node->examples = wAll.count();
+    node->pred = {
+        float(wAll[0]) / total,
+        float(wAll[1]) / total };
+}
+
+inline ML::Tree::Ptr getLeaf(ML::Tree & tree, const W & w)
+{     
+    ML::Tree::Leaf * node = tree.new_leaf();
+    fillinBase(node, w);
+    return node;
+}
+
+inline ML::Tree::Ptr
+getNode(ML::Tree & tree, float bestScore,
+        int bestFeature, int bestSplit,
+        ML::Tree::Ptr left, ML::Tree::Ptr right,
+        W wLeft, W wRight,
+        const std::vector<Feature> & features,
+        const DatasetFeatureSpace & fs)
+{
+    ML::Tree::Node * node = tree.new_node();
+    ML::Feature feature = fs.getFeature(features[bestFeature].info->columnName);
+    float splitVal = 0;
+    if (features[bestFeature].ordinal) {
+        auto splitCell = features[bestFeature].info->bucketDescriptions
+            .getSplit(bestSplit);
+        if (splitCell.isNumeric())
+            splitVal = splitCell.toDouble();
+        else splitVal = bestSplit;
+    }
+    else {
+        splitVal = bestSplit;
+    }
+
+    ML::Split split(feature, splitVal,
+                    features[bestFeature].ordinal
+                    ? ML::Split::LESS : ML::Split::EQUAL);
+            
+    node->split = split;
+    node->child_true = left;
+    node->child_false = right;
+    W wMissing;
+    node->child_missing = getLeaf(tree, wMissing);
+    node->z = bestScore;            
+    fillinBase(node, wLeft + wRight);
+
+    return node;
+}
+        
+
 
 } // namespace RF
 } // namespace MLDB
