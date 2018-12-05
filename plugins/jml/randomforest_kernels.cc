@@ -546,13 +546,18 @@ testAllCpu(int depth,
         {
             double score = std::get<0>(val);
 
-            //cerr << "CPU: feature " << feature << " score "
-            //     << score << " split " << std::get<1>(val)
-            //     << " left " << jsonEncodeStr(std::get<2>(val))
-            //     << " right " << jsonEncodeStr(std::get<3>(val))
-            //     << endl;
-
+#if 0            
+            cerr << "CPU: rows "
+            << rows.rowCount() << " wAll " << jsonEncodeStr(rows.wAll)
+            << " feature " << feature << " score "
+                 << score << " split " << std::get<1>(val)
+                 << " left " << jsonEncodeStr(std::get<2>(val))
+                 << " right " << jsonEncodeStr(std::get<3>(val))
+                 << endl;
+#endif
+            
             if (score < bestScore) {
+                //cerr << "  *** best" << endl;
                 bestFeature = feature;
                 std::tie(bestScore, bestSplit, bestLeft, bestRight) = val;
             }

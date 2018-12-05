@@ -84,7 +84,7 @@ struct WT {
     }
 
     typedef Float FloatType;
-};
+} MLDB_PACKED MLDB_ALIGNED(4);
 
 
 typedef WT<FixedPointAccum64> W;

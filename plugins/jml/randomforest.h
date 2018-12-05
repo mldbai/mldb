@@ -27,6 +27,7 @@
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/arch/timers.h"
 #include <cmath>
+#include <thread>
 
 
 namespace MLDB {
@@ -82,9 +83,6 @@ struct PartitionData {
         size_t chunkSize
             = std::min<size_t>(100000, rows.rowCount() / numCpus() / 4);
 
-        using namespace std;
-        cerr << "chunkSize = " << chunkSize << endl;
-
         // Analyze the weights.  This may allow us to store them in a lot
         // less bits than we would have otherwise.
 
@@ -133,12 +131,10 @@ struct PartitionData {
         parallelMapInOrderReduce
             (0, rows.rowCount() / chunkSize + 1, doWeightChunk, reduceWeights);
 
-        using namespace std;
-        cerr << "minWeight = " << minWeight << endl;
-        cerr << allUniques.size() << " uniques" << endl;
-
         std::vector<float> uniqueWeights(allUniques.begin(), allUniques.end());
         std::sort(uniqueWeights.begin(), uniqueWeights.end());
+        
+        using namespace std;
         
         bool integerUniqueWeights = true;
         int maxIntFactor = 0;
@@ -492,8 +488,6 @@ struct PartitionData {
           const W & wLeft, const W & wRight,
           MappedSerializer & serializer) const
     {
-     //   std::cerr << "spliting on feature " << featureToSplitOn << " bucket " << splitValue << std::endl;
-        
         ExcAssertGreaterEqual(featureToSplitOn, 0);
         ExcAssertLess(featureToSplitOn, features.size());
 
@@ -604,9 +598,7 @@ struct PartitionData {
                               int rightOffset,
                               const std::vector<float> & decodedRows)
     {
-        //Rows::RowIterator rowIterator = rows.getRowIterator();
-        
-        bool checkPartitionCounts = true;
+        bool checkPartitionCounts = false;
 
         int rowCount = decodedRows.size();
         
@@ -767,6 +759,7 @@ struct PartitionData {
         size_t partitionMemoryOffset = 0;
         FrozenMemoryRegionT<uint32_t> partitionMemory;
 
+#if 0
         std::vector<uint32_t> partitionRowCounts(numPartitions);
 
         for (auto & p: partitions)
@@ -775,16 +768,15 @@ struct PartitionData {
         size_t rows1 = 0, rows2 = 0;
         
         for (int i = 0;  i < numPartitions;  ++i) {
-            cerr << "part " << i << " count " << w[i].count() << " rows "
-                 << partitionRowCounts[i] << endl;
+            //cerr << "part " << i << " count " << w[i].count() << " rows "
+            //     << partitionRowCounts[i] << endl;
 
             ExcAssertEqual(partitionRowCounts[i], w[i].count());
 
             rows1 += w[i].count();
             rows2 += partitionRowCounts[i];
         }
-
-        cerr << "rows1 = " << rows1 << " rows2 = " << rows2 << endl;
+#endif
         
         for (int i = 0;  i < numPartitions;  ++i) {
             int partitionRowCount = w[i].count();
@@ -794,10 +786,10 @@ struct PartitionData {
                 continue;
             }
 
-            cerr << "part " << i << " count " << w[i].count() << " rows "
-                 << partitionRowCounts[i] << endl;
+            //cerr << "part " << i << " count " << w[i].count() << " rows "
+            //     << partitionRowCounts[i] << endl;
 
-            ExcAssertEqual(partitionRowCount, partitionRowCounts[i]);
+            //ExcAssertEqual(partitionRowCount, partitionRowCounts[i]);
 
             out[i].decodedRows.reserve(partitionRowCount);
             out[i].activeFeatures = activeFeatures;  // TODO: pass in real
@@ -861,12 +853,14 @@ struct PartitionData {
                 int partitionRowCount = w[i].count();
                 if (partitionRowCount == 0)
                     continue;
+#if 0
                 cerr << "feature " << f << " partition " << i << " of "
                      << numPartitions << " rowCount "
                      << partitionRowCount
                      << " bytes " << out[i].bucketMemoryOffsets[f]
                      << " to " << out[i].bucketMemoryOffsets[f + 1]
                      << endl;
+#endif
                 partitionFeatures.at(i).init(partitionRowCount,
                                              features.at(f).buckets.numBuckets,
                                              out.at(i).mutableBucketMemory
@@ -918,9 +912,9 @@ struct PartitionData {
     {
         using namespace std;
 
-        cerr << activeFeatures.size() << " active features "
-             << jsonEncodeStr(activeFeatures) << " active buckets "
-             << bucketsIn.size() << endl;
+        //cerr << activeFeatures.size() << " active features "
+        //     << jsonEncodeStr(activeFeatures) << " active buckets "
+        //     << bucketsIn.size() << endl;
         
         int numActiveBuckets = bucketsIn.size();
         int rowCount = decodedRows.size();
@@ -949,10 +943,10 @@ struct PartitionData {
         for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
              ++depth, ++myDepth) {
 
-            cerr << endl << endl << endl;
-            cerr << "depth " << depth << endl;
+            //cerr << endl << endl << endl;
+            //cerr << "depth " << depth << endl;
 
-#if 1            
+#if 0   
             int numPartitions = buckets.size();
             // Check that our partition counts and W scores match
             std::vector<uint32_t> partitionRowCounts(numPartitions);
@@ -1045,15 +1039,22 @@ struct PartitionData {
                     };
             
 
-                parallelMapInOrderReduce(0, activeFeatures.size(),
-                                         doFeature, findBest);
+                if (depth < 4) {
+                    parallelMapInOrderReduce(0, activeFeatures.size(),
+                                             doFeature, findBest);
+                }
+                else {
+                    for (size_t i = 0;  i < activeFeatures.size();  ++i) {
+                        findBest(i, doFeature(i));
+                    }
+                }
 
                 partitionSplits[partition] =
                     { bestScore, bestFeature, bestSplit, bestLeft, bestRight,
                       std::move(activeFeatures),
                       bestFeature != -1 && bestLeft.count() <= bestRight.count() };
 
-#if 1
+#if 0
                 cerr << "partition " << partition << " of " << buckets.size()
                      << " with " << wAll[partition].count()
                      << " rows: " << bestScore << " " << bestFeature
@@ -1075,18 +1076,20 @@ struct PartitionData {
             // partition numbers.
             int rightOffset = buckets.size();
             
-            buckets.resize(buckets.size() * 2,
-                           std::vector<W>(numActiveBuckets));
+            buckets.resize(buckets.size() * 2);
             wAll.resize(wAll.size() * 2);
 
-            // Those buckets which are transfering right to left should
-            // start with the weight on the right
             for (size_t i = 0;  i < rightOffset;  ++i) {
+                buckets[i + rightOffset].resize(numActiveBuckets);
+
+                // Those buckets which are transfering right to left should
+                // start with the weight on the right
                 if (partitionSplits[i].direction) {
                     std::swap(buckets[i], buckets[i + rightOffset]);
                     std::swap(wAll[i], wAll[i + rightOffset]);
                 }
             }
+
 
             updateBuckets(features,
                           partitions, buckets, wAll,
@@ -1123,7 +1126,14 @@ struct PartitionData {
                          newData[i].features);
                 };
 
-            parallelMap(0, buckets.size(), doEntry);
+            if (depth <= 8) {
+                parallelMap(0, buckets.size(), doEntry);
+            }
+            else {
+                for (size_t i = 0;  i < buckets.size();  ++i) {
+                    doEntry(i);
+                }
+            }
         }
         
         // Recursively go through and extract our tree.  There is no
@@ -1133,10 +1143,10 @@ struct PartitionData {
             {
                 auto & s = depthSplits.at(relativeDepth).at(partition);
 
-                cerr << std::string(relativeDepth * 2, ' ')
-                     << relativeDepth << " " << partition << " "
-                     << jsonEncodeStr(s.left) << " " << jsonEncodeStr(s.right)
-                     << " " << s.feature << endl;
+                //cerr << std::string(relativeDepth * 2, ' ')
+                //     << relativeDepth << " " << partition << " "
+                //     << jsonEncodeStr(s.left) << " " << jsonEncodeStr(s.right)
+                //     << " " << s.feature << endl;
 
                 if (s.left.count() + s.right.count() == 0) 
                     return ML::Tree::Ptr();
@@ -1205,8 +1215,8 @@ struct PartitionData {
 
         std::vector<std::vector<uint16_t> > featureBuckets(features.size());
 
-        std::atomic<uint64_t> featureBucketMem(0);
-        std::atomic<uint64_t> compressedFeatureBucketMem(0);
+        //std::atomic<uint64_t> featureBucketMem(0);
+        //std::atomic<uint64_t> compressedFeatureBucketMem(0);
 
         // Start by initializing the weights for each feature, if
         // this isn't passed in already
@@ -1267,9 +1277,9 @@ struct PartitionData {
         }
         
         using namespace std;
-        cerr << "feature bucket mem = " << featureBucketMem.load() / 1000000.0
-             << "mb; compressed = "
-             << compressedFeatureBucketMem.load() / 1000000.0 << "mb" << endl;
+        //cerr << "feature bucket mem = " << featureBucketMem.load() / 1000000.0
+        //     << "mb; compressed = "
+        //     << compressedFeatureBucketMem.load() / 1000000.0 << "mb" << endl;
         
         return trainPartitionedRecursive(depth, maxDepth, tree, serializer,
                                          bucketOffsets, activeFeatures,
@@ -1283,6 +1293,8 @@ struct PartitionData {
                         ML::Tree & tree,
                         MappedSerializer & serializer) const
     {
+        bool singleThreadOnly = false;
+
         using namespace std;
         
         if (rows.rowCount() == 0)
@@ -1295,9 +1307,9 @@ struct PartitionData {
 
         ML::Tree::Ptr part;
 
-#if 0
+#if 1
         return trainPartitioned(depth, maxDepth, tree, serializer);
-#elif 1
+#elif 0
         if (depth == 0) {
             Timer timer;
             Date before = Date::now();
@@ -1373,7 +1385,7 @@ struct PartitionData {
                                      "wRight1", (double)wRight.v[1]);
         }
 
-        if (leftRows + rightRows < 1000) {
+        if (leftRows + rightRows < 1000 || singleThreadOnly) {
             runLeft();
             runRight();
         }
