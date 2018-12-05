@@ -923,6 +923,12 @@ struct PartitionData {
         return std::make_pair(std::move(out), std::move(partitionMemory));
     }
 
+    /** This function takes the W values of each bucket of a number of
+        partitions, and calculates the optimal split feature and value
+        for each of the partitions.  It's the "search" part of the
+        decision tree algorithm, but across a full set of rows split into
+        multiple partitions.
+    */
     static std::vector<PartitionSplit>
     getPartitionSplits(const std::vector<std::vector<W> > & buckets,
                        const std::vector<int> & activeFeatures,
@@ -1040,6 +1046,163 @@ struct PartitionData {
         return partitionSplits;
     }
 
+    
+    // Recursively go through and extract our tree.  There is no
+    // calculating going on here, just creation of the data structure.
+    static ML::Tree::Ptr extractTree(int relativeDepth, int depth, int maxDepth,
+                                     int partition,
+                                     ML::Tree & tree,
+                                     const std::vector<std::vector<PartitionSplit> > & depthSplits,
+                                     const std::vector<ML::Tree::Ptr> & leaves,
+                                     const std::vector<Feature> & features,
+                                     const DatasetFeatureSpace & fs)
+    {
+        auto & s = depthSplits.at(relativeDepth).at(partition);
+
+        //cerr << std::string(relativeDepth * 2, ' ')
+        //     << relativeDepth << " " << partition << " "
+        //     << jsonEncodeStr(s.left) << " " << jsonEncodeStr(s.right)
+        //     << " " << s.feature << endl;
+
+        if (s.left.count() + s.right.count() == 0) 
+            return ML::Tree::Ptr();
+        else if (s.feature == -1)
+            return getLeaf(tree, s.left + s.right);
+                
+        W total = s.left + s.right;
+
+        // No impurity
+        if (total.v[false] == 0 || total.v[true] == 0)
+            return ML::Tree::Ptr();
+                
+        ML::Tree::Ptr left, right;
+
+        if (relativeDepth == depthSplits.size() - 1) {
+            // asking for the last level.  Get it from what
+            // was calculated earlier.
+            if (depth < maxDepth) {
+                left = leaves.at(partition);
+                right = leaves.at(partition + (1 << relativeDepth));
+            }
+            else {
+                left = getLeaf(tree, s.left);
+                right = getLeaf(tree, s.right);
+            }
+        }
+        else {
+            // Not the last level
+            left = extractTree(relativeDepth + 1, depth, maxDepth, partition,
+                               tree, depthSplits, leaves, features, fs);
+            right = extractTree(relativeDepth + 1, depth, maxDepth,
+                                partition + (1 << relativeDepth),
+                                tree, depthSplits, leaves, features, fs);
+        }
+
+        if (!left)
+            left = getLeaf(tree, s.left);
+        if (!right)
+            right = getLeaf(tree, s.right);
+                
+        return getNode(tree, s.score, s.feature, s.value,
+                       left, right, s.left, s.right, features, fs);
+    }
+
+    // Check that the partition counts match the W counts.
+    static void
+    verifyPartitionBuckets(const std::vector<uint8_t> & partitions,
+                           const std::vector<W> & wAll)
+    {
+        using namespace std;
+        
+        int numPartitions = wAll.size();
+        
+        // Check that our partition counts and W scores match
+        std::vector<uint32_t> partitionRowCounts(numPartitions);
+
+        for (auto & p: partitions)
+            ++partitionRowCounts[p];
+
+        for (int i = 0;  i < numPartitions;  ++i) {
+            cerr << "part " << i << " count " << wAll[i].count() << " rows "
+                 << partitionRowCounts[i] << endl;
+        }
+
+        for (int i = 0;  i < numPartitions;  ++i) {
+            ExcAssertEqual(partitionRowCounts[i], wAll[i].count());
+        }
+    }
+
+    // Forward reference, due to this function being mutually recursive
+    // with 
+    static ML::Tree::Ptr
+    trainPartitionedRecursive_(int depth, int maxDepth,
+                               ML::Tree & tree,
+                               MappedSerializer & serializer,
+                               const std::vector<uint32_t> & bucketOffsets,
+                               const std::vector<int> & activeFeatures,
+                               std::vector<W> bucketsIn,
+                               const std::vector<float> & decodedRows,
+                               const W & wAllInput,
+                               const DatasetFeatureSpace & fs,
+                               const std::vector<Feature> & features);
+
+
+    // Split our dataset into a separate dataset for each leaf, and
+    // recurse to create a leaf node for each.  This is mutually
+    // recursive with trainPartitionedRecursive.
+    static std::vector<ML::Tree::Ptr>
+    splitAndRecursePartitioned(int depth, int maxDepth,
+                               ML::Tree & tree,
+                               MappedSerializer & serializer,
+                               std::vector<std::vector<W> > buckets,
+                               const std::vector<uint32_t> & bucketOffsets,
+                               const std::vector<Feature> & features,
+                               const std::vector<int> & activeFeatures,
+                               const std::vector<float> & decodedRows,
+                               const std::vector<uint8_t> & partitions,
+                               const std::vector<W> & wAll,
+                               const DatasetFeatureSpace & fs)
+    {
+        std::vector<ML::Tree::Ptr> leaves;
+
+        if (depth == maxDepth)
+            return leaves;
+        
+        leaves.resize(buckets.size());
+            
+        // New partitions, per row
+        std::vector<PartitionEntry> newData;
+        FrozenMemoryRegionT<uint32_t> partitionMem;
+
+        std::tie(newData, partitionMem)
+            = splitPartitions(features, activeFeatures, decodedRows,
+                              partitions, wAll, serializer);
+
+        auto doEntry = [&] (int i)
+            {
+                leaves[i] = trainPartitionedRecursive_
+                (depth, maxDepth,
+                 tree, serializer,
+                 bucketOffsets, newData[i].activeFeatures,
+                 std::move(buckets[i]),
+                 newData[i].decodedRows,
+                 newData[i].wAll,
+                 fs,
+                 newData[i].features);
+            };
+
+        if (depth <= 8) {
+            parallelMap(0, buckets.size(), doEntry);
+        }
+        else {
+            for (size_t i = 0;  i < buckets.size();  ++i) {
+                doEntry(i);
+            }
+        }
+
+        return leaves;
+    }
+    
     static ML::Tree::Ptr
     trainPartitionedRecursive(int depth, int maxDepth,
                               ML::Tree & tree,
@@ -1052,12 +1215,10 @@ struct PartitionData {
                               const DatasetFeatureSpace & fs,
                               const std::vector<Feature> & features)
     {
+        constexpr bool verifyBuckets = false;
+        
         using namespace std;
 
-        //cerr << activeFeatures.size() << " active features "
-        //     << jsonEncodeStr(activeFeatures) << " active buckets "
-        //     << bucketsIn.size() << endl;
-        
         int rowCount = decodedRows.size();
         
         // This is our total for each bucket across the whole lot
@@ -1075,7 +1236,8 @@ struct PartitionData {
 
         // What is our weight total for each of our partitions?
         std::vector<W> wAll = { wAllInput };
-
+        wAll.reserve(256);
+        
         // Record the split, per level, per partition
         std::vector<std::vector<PartitionSplit> > depthSplits;
         depthSplits.reserve(8);
@@ -1084,27 +1246,11 @@ struct PartitionData {
         for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
              ++depth, ++myDepth) {
 
-            //cerr << endl << endl << endl;
-            //cerr << "depth " << depth << endl;
-
-#if 0   
-            int numPartitions = buckets.size();
-            // Check that our partition counts and W scores match
-            std::vector<uint32_t> partitionRowCounts(numPartitions);
-
-            for (auto & p: partitions)
-                ++partitionRowCounts[p];
-
-            for (int i = 0;  i < numPartitions;  ++i) {
-                cerr << "part " << i << " count " << wAll[i].count() << " rows "
-                     << partitionRowCounts[i] << endl;
+            // Check the preconditions if we're in testing mode
+            if (verifyBuckets) {
+                verifyPartitionBuckets(partitions, wAll);
             }
 
-            for (int i = 0;  i < numPartitions;  ++i) {
-                ExcAssertEqual(partitionRowCounts[i], wAll[i].count());
-            }
-#endif
-            
             // Run a kernel to find the new split point for each partition,
             // best feature and kernel
             depthSplits.emplace_back
@@ -1122,99 +1268,20 @@ struct PartitionData {
             // Ready for the next level
         }
 
-        // If we're not at the lowest level, create new partitions for
-        // each level
-        std::vector<ML::Tree::Ptr> leaves;
+        // If we're not at the lowest level, partition our data and recurse
+        // par partition to create our leaves.
+        std::vector<ML::Tree::Ptr> leaves
+            = splitAndRecursePartitioned(depth, maxDepth, tree, serializer,
+                                         std::move(buckets), bucketOffsets,
+                                         features, activeFeatures,
+                                         decodedRows,
+                                         partitions, wAll, fs);
         
-        if (depth < maxDepth) {
-            leaves.resize(buckets.size());
-            
-            // New partitions, per row
-            std::vector<PartitionEntry> newData;
-            FrozenMemoryRegionT<uint32_t> partitionMem;
-
-            std::tie(newData, partitionMem)
-                = splitPartitions(features, activeFeatures, decodedRows,
-                                  partitions, wAll, serializer);
-
-            auto doEntry = [&] (int i)
-                {
-                    leaves[i] = trainPartitionedRecursive
-                        (depth, maxDepth,
-                         tree, serializer,
-                         bucketOffsets, newData[i].activeFeatures,
-                         std::move(buckets[i]),
-                         newData[i].decodedRows,
-                         newData[i].wAll,
-                         fs,
-                         newData[i].features);
-                };
-
-            if (depth <= 8) {
-                parallelMap(0, buckets.size(), doEntry);
-            }
-            else {
-                for (size_t i = 0;  i < buckets.size();  ++i) {
-                    doEntry(i);
-                }
-            }
-        }
-        
-        // Recursively go through and extract our tree.  There is no
-        // calculating going on here, just creation of the data structure.
-        std::function<ML::Tree::Ptr (int depth, int partition)> getPtr
-            = [&] (int relativeDepth, int partition)
-            {
-                auto & s = depthSplits.at(relativeDepth).at(partition);
-
-                //cerr << std::string(relativeDepth * 2, ' ')
-                //     << relativeDepth << " " << partition << " "
-                //     << jsonEncodeStr(s.left) << " " << jsonEncodeStr(s.right)
-                //     << " " << s.feature << endl;
-
-                if (s.left.count() + s.right.count() == 0) 
-                    return ML::Tree::Ptr();
-                else if (s.feature == -1)
-                    return getLeaf(tree, s.left + s.right);
-                
-                W total = s.left + s.right;
-
-                // No impurity
-                if (total.v[false] == 0 || total.v[true] == 0)
-                    return ML::Tree::Ptr();
-                
-                ML::Tree::Ptr left, right;
-
-                if (relativeDepth == depthSplits.size() - 1) {
-                    // asking for the last level.  Get it from what
-                    // was calculated earlier.
-                    if (depth < maxDepth) {
-                        left = leaves.at(partition);
-                        right = leaves.at(partition + (1 << relativeDepth));
-                    }
-                    else {
-                        left = getLeaf(tree, s.left);
-                        right = getLeaf(tree, s.right);
-                    }
-                }
-                else {
-                    // Not the last level
-                    left = getPtr(relativeDepth + 1, partition);
-                    right = getPtr(relativeDepth + 1,
-                                   partition + (1 << relativeDepth));
-                }
-
-                if (!left)
-                    left = getLeaf(tree, s.left);
-                if (!right)
-                    right = getLeaf(tree, s.right);
-                
-                return getNode(tree, s.score, s.feature, s.value,
-                               left, right, s.left, s.right, features, fs);
-            };
-
-        return getPtr(0, 0);
-
+        // Finally, extract a tree from the splits we've been accumulating
+        // and our leaves.
+        return extractTree(0 /*relative depth */, depth, maxDepth,
+                           0 /* partition */,
+                           tree, depthSplits, leaves, features, fs);
     }
     
     ML::Tree::Ptr
@@ -1543,6 +1610,25 @@ struct PartitionData {
         return result;
     }
 };
+
+inline ML::Tree::Ptr
+PartitionData::
+trainPartitionedRecursive_(int depth, int maxDepth,
+                           ML::Tree & tree,
+                           MappedSerializer & serializer,
+                           const std::vector<uint32_t> & bucketOffsets,
+                           const std::vector<int> & activeFeatures,
+                           std::vector<W> bucketsIn,
+                           const std::vector<float> & decodedRows,
+                           const W & wAllInput,
+                           const DatasetFeatureSpace & fs,
+                           const std::vector<Feature> & features)
+{
+    return trainPartitionedRecursive(depth, maxDepth, tree, serializer,
+                                     bucketOffsets, activeFeatures,
+                                     std::move(bucketsIn), decodedRows,
+                                     wAllInput, fs, features);
+}
 
 } // namespace RF
 } // namespace MLDB
