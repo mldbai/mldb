@@ -626,7 +626,7 @@ struct PartitionData {
         }
 
 
-        bool checkPartitionCounts = false;
+        constexpr bool checkPartitionCounts = false;
 
         int rowCount = decodedRows.size();
         
@@ -665,8 +665,8 @@ struct PartitionData {
             // Set the new partition number
             partitions[i] = partition + side * rightOffset;
             
-            ExcAssert(partitions[i] == leftPartition
-                      || partitions[i] == rightPartition);
+            //ExcAssert(partitions[i] == leftPartition
+            //          || partitions[i] == rightPartition);
             
             // Verify partition counts?
             if (checkPartitionCounts)
