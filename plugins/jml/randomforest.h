@@ -612,6 +612,9 @@ struct PartitionData {
         wAll.resize(wAll.size() * 2);
 
         for (size_t i = 0;  i < rightOffset;  ++i) {
+            if (partitionSplits[i].right.count() == 0)
+                continue;
+            
             buckets[i + rightOffset].resize(numActiveBuckets);
 
             // Those buckets which are transfering right to left should
@@ -987,8 +990,6 @@ struct PartitionData {
                     int f = activeFeatures.at(af);
                     int startBucket = bucketOffsets[f];
                     int endBucket MLDB_UNUSED = bucketOffsets[f + 1];
-                    const W * wFeature
-                        = buckets[partition].data() + startBucket;
                     int maxBucket = endBucket - startBucket - 1;
                     bool isActive = true;
                     double bestScore = INFINITY;
@@ -996,7 +997,9 @@ struct PartitionData {
                     W bestLeft;
                     W bestRight;
 
-                    if (isActive) {
+                    if (isActive && !buckets[partition].empty()) {
+                        const W * wFeature
+                            = buckets[partition].data() + startBucket;
                         std::tie(bestScore, bestSplit, bestLeft, bestRight)
                             = chooseSplitKernel(wFeature, maxBucket,
                                                 features[f].ordinal,
