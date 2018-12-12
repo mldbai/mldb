@@ -1,4 +1,4 @@
-/** bitset.h
+/** bitset.h                                                       -*- C++ -*-
     Jeremy Barnes, 21 September 2017
     Copyright (c) 2017 Element AI Inc.  All rights reserved.
     This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
@@ -11,6 +11,8 @@
 
 #include "mldb/types/value_description.h"
 #include "mldb/arch/exception.h"
+#include "mldb/arch/bitops.h"
+#include "mldb/base/exc_assert.h"
 #include <bitset>
 
 namespace MLDB {
@@ -30,19 +32,34 @@ struct Bitset {
     {
     }
 
+    Bitset(std::initializer_list<BaseEnum> vals)
+        : val(BaseEnum(0))
+    {
+        for (auto v: vals) {
+            set(v);
+        }
+    }
+    
     union {
         BaseEnum val;
-        std::bitset<sizeof(BaseEnum)> bits;
+        std::bitset<sizeof(BaseEnum) * 8> bits;
     };
 
+    static int bitNum(BaseEnum el)
+    {
+        return highest_bit((size_t)el, -1);
+    }
+    
     void set(BaseEnum el)
     {
-        bits.set((size_t)el);
+        ExcAssertGreater((size_t)el, 0);
+        bits.set(bitNum(el));
     }
 
     bool test(BaseEnum el) const
     {
-        return bits.test((size_t)el);
+        ExcAssertGreater((size_t)el, 0);
+        return bits.test(bitNum(el));
     }
     
     size_t size() const { return bits.count(); }
@@ -114,7 +131,7 @@ struct BitsetDescription
         context.startArray(val->size());
 
         for (unsigned i = 0;  i < val->size();  ++i) {
-            if (!val->test((T)i))
+            if (!val->bits.test(i))
                 continue;
             context.newArrayElement();
             T bitval((T)(1 << i));
