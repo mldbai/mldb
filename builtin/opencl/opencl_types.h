@@ -545,6 +545,16 @@ struct OpenCLProfilingInfo {
         return newInfo;
     }
 
+    OpenCLProfilingInfo operator - (cl_ulong offset) const
+    {
+        OpenCLProfilingInfo result = *this;
+        result.queued   -= offset;
+        result.submit   -= offset;
+        result.start    -= offset;
+        result.end      -= offset;
+        result.complete -= offset;
+        return result;
+    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(OpenCLProfilingInfo);
