@@ -2063,7 +2063,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // in global memory.  Since we don't get to decide per feature
     // how much shared memory is used (for the moment), we need to decide
     // ahead of time.
-    static constexpr size_t MAX_LOCAL_BUCKETS = 512;  // 8192 bytes
+    static constexpr size_t MAX_LOCAL_BUCKETS = 16384 / sizeof(W);  // 16k bytes
     
     // Maximum number of buckets
     size_t maxBuckets = 0;
@@ -2076,7 +2076,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     
     // Now we figure out how to onboard a variable number of variable
     // lengthed data segments for the feature bucket information.
-    uint32_t totalBuckets = 0;
+    uint32_t numActiveBuckets = 0;
     
     uint32_t lastBucketDataOffset = 0;
     std::vector<uint32_t> bucketMemoryOffsets;
@@ -2108,7 +2108,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             lastBucketDataOffset = offset + bucketMemory.length();
             
             ++numActiveFeatures;
-            totalBuckets += features[i].buckets.numBuckets;
+            numActiveBuckets += features[i].buckets.numBuckets;
             maxBuckets = std::max<size_t>(maxBuckets,
                                           features[i].buckets.numBuckets);
             if (features[i].buckets.numBuckets <= MAX_LOCAL_BUCKETS) {
@@ -2121,7 +2121,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             bucketMemoryOffsets.push_back(lastBucketDataOffset);
         }
 
-        bucketNumbers.push_back(totalBuckets);
+        bucketNumbers.push_back(numActiveBuckets);
     }
 
     bucketMemoryOffsets.push_back(lastBucketDataOffset);
@@ -2132,13 +2132,13 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     ExcAssertEqual(featuresActive.size(), nf);
 
     // How much memory to accumulate W over all features per partition?
-    size_t bytesPerPartition = sizeof(W) * totalBuckets;
+    size_t bytesPerPartition = sizeof(W) * numActiveBuckets;
 
     // How much memory to accumulate W over all features over the maximum
     // number of partitions?
     size_t bytesForAllPartitions = bytesPerPartition * maxPartitionCount;
 
-    cerr << "totalBuckets = " << totalBuckets << endl;
+    cerr << "numActiveBuckets = " << numActiveBuckets << endl;
     cerr << "sizeof(W) = " << sizeof(W) << endl;
     cerr << "bytesForAllPartitions = " << bytesForAllPartitions * 0.000001
          << "mb" << endl;
@@ -2356,7 +2356,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         const W * allWGpu = reinterpret_cast<const W *>(mappedBuckets.get());
 
-        std::vector<W> allWCpu(totalBuckets);
+        std::vector<W> allWCpu(numActiveBuckets);
         
         bool different = false;
             
@@ -2475,7 +2475,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             = kernelContext.program.createKernel("getPartitionSplitsKernel");
 
         getPartitionSplitsKernel
-            .bind((uint32_t)totalBuckets,
+            .bind((uint32_t)numActiveBuckets,
                   clBucketNumbers,
                   clFeaturesActive,
                   clFeatureIsOrdinal,
@@ -2485,9 +2485,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   clPartitionLocks);
 
         cerr << endl << endl << " depth " << depth << " numPartitions "
-             << numPartitionsAtDepth << endl;
-        cerr << "sizeof(PartitionSplit) CPU = " << sizeof(PartitionSplit)
-             << endl;
+             << numPartitionsAtDepth << " buckets "
+             << numPartitionsAtDepth * numActiveBuckets << endl;
 
         // We need to be a multiple of the chunk size for the buckets.  Extra
         // ones will simply exit straight away.
@@ -2566,9 +2565,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = reinterpret_cast<const W *>(mappedBuckets.get());
 
             for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-                const W * partitionBuckets = bucketsGpu + totalBuckets * i;
+                const W * partitionBuckets = bucketsGpu + numActiveBuckets * i;
                 debugBucketsCpu.emplace_back(partitionBuckets,
-                                             partitionBuckets + totalBuckets);
+                                             partitionBuckets + numActiveBuckets);
             }
             
             // Get back the CPU version of wAll
@@ -2644,11 +2643,11 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             .bind(clPartitionBuckets,
                   clWAll,
                   clPartitionSplits,
-                  (uint32_t)totalBuckets);
+                  (uint32_t)numActiveBuckets);
 
         OpenCLEvent runTransferBucketsKernel
             = queue.launch(transferBucketsKernel,
-                           { numPartitionsAtDepth, (totalBuckets + 63) / 64 * 64 },
+                           { numPartitionsAtDepth, (numActiveBuckets + 63) / 64 * 64 },
                            { 1, 64 },
                            { runPartitionSplitsKernel });
  
@@ -2661,7 +2660,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         updateBucketsKernel
             .bind((uint32_t)numPartitionsAtDepth,
-                  (uint32_t)totalBuckets,
+                  (uint32_t)numActiveBuckets,
                   clPartitions,
                   clPartitionBuckets,
                   clWAll,
@@ -2675,12 +2674,18 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   clBucketNumbers,
                   clBucketEntryBits,
                   clFeaturesActive,
-                  clFeatureIsOrdinal);
+                  clFeatureIsOrdinal,
+                  LocalArray<W>(maxLocalBuckets),
+                  (uint32_t)maxLocalBuckets);
 
+        //cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
+        //                                                context.getDevices()[0]))
+        //     << endl;
+        
         OpenCLEvent runUpdateBucketsKernel
             = queue.launch(updateBucketsKernel,
-                           { numRows, nf },
-                           { },
+                           { (numRows + 255) / 256 * 256, nf + 1 /* +1 is wAll */},
+                           { 256, 1 },
                            { runTransferBucketsKernel });
 
         allEvents.emplace_back("runUpdateBucketsKernel "
@@ -2728,10 +2733,10 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = reinterpret_cast<const W *>(mappedBuckets.get());
 
             for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-                const W * partitionBuckets = bucketsGpu + totalBuckets * i;
+                const W * partitionBuckets = bucketsGpu + numActiveBuckets * i;
 
                 if (!debugBucketsCpu[i].empty()) {
-                    for (size_t j = 0;  j < totalBuckets;  ++j) {
+                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
                         if (partitionBuckets[j] != debugBucketsCpu[i].at(j)) {
                             cerr << "part " << i << " bucket " << j
                                  << " update error: CPU "
@@ -2743,7 +2748,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                         }
                     }
                 } else {
-                    for (size_t j = 0;  j < totalBuckets;  ++j) {
+                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
                         if (partitionBuckets[j].count() != 0) {
                             cerr << "part " << i << " bucket " << j
                                  << " update error: CPU empty "

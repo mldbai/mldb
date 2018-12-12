@@ -981,25 +981,6 @@ transferBucketsKernel(__global W * allPartitionBuckets,
     }
 }
 
-#if 0
-inline void incrementWAtomic(__global W * w,
-                             bool label,
-                             float weight)
-{
-    int64_t incr = encodeW(weight);
-    w->vals[label] += incr;
-    w->count += 1;
-}
-
-inline void decrementWAtomic(__global W * w,
-                             bool label,
-                             float weight)
-{
-    int64_t incr = encodeW(weight);
-    w->vals[label] -= incr;
-    w->count -= 1;
-}
-#else
 inline void incrementWAtomic(__global W * w,
                              bool label,
                              float weight)
@@ -1017,7 +998,34 @@ inline void decrementWAtomic(__global W * w,
     atom_sub(&w->vals[label], incr);
     atom_dec(&w->count);
 }
+
+#if 0
+inline void incrementWLocal(__local W * w,
+                            bool label,
+                            float weight)
+{
+    int64_t incr = encodeW(weight);
+    atom_add(&w->vals[label], incr);
+    atom_inc(&w->count);
+}
+
+inline void decrementWLocal(__local W * w,
+                            bool label,
+                            float weight)
+{
+    int64_t incr = encodeW(weight);
+    atom_sub(&w->vals[label], incr);
+    atom_dec(&w->count);
+}
 #endif
+
+// First part: per row, accumulate
+// - weight
+// - label
+// - from
+// - to
+
+// Second part: per feature plus wAll, transfer examples
 
 __kernel void
 updateBucketsKernel(uint32_t rightOffset,
@@ -1039,16 +1047,19 @@ updateBucketsKernel(uint32_t rightOffset,
                     __global const uint32_t * bucketNumbers,
                     __global const uint32_t * bucketEntryBits,
                     __global const uint32_t * featureActive,
-                    __global const uint32_t * featureIsOrdinal)
+                    __global const uint32_t * featureIsOrdinal,
+
+                    __local W * wLocal,
+                    uint32_t maxLocalBuckets)
 {
     // Row number
     int i = get_global_id(0);
     if (i >= rowCount)
         return;
 
-    int f = get_global_id(1);
+    int f = get_global_id(1) - 1;
 
-    if (!featureActive[f] && f != 0)
+    if (f != -1 && !featureActive[f])
         return;
     
     // We may have updated partition already, so here we mask out any
@@ -1078,12 +1089,17 @@ updateBucketsKernel(uint32_t rightOffset,
         = allBucketData + splitBucketDataOffset;
     uint32_t splitBucketBits = bucketEntryBits[splitFeature];
 
-    // Our feature values go here
-    uint32_t bucketDataOffset = bucketDataOffsets[f];
-    uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
-    uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
-    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
-    uint32_t bucketBits = bucketEntryBits[f];
+#if 0    
+    // Clear our local accumulation buckets
+    for (int b = get_local_id(0);  b < numBuckets && b < maxLocalBuckets;
+         b += get_local_size(0)) {
+        //printf("zeroing %d of %d for feature %d\n", i, numBuckets, f);
+        zeroW(wLocal + b);
+    }
+
+    // Wait for all buckets to be clear
+    barrier(CLK_LOCAL_MEM_FENCE);
+#endif
     
     float weight = fabs(decodedRows[i]);
     bool label = decodedRows[i] < 0;
@@ -1092,16 +1108,16 @@ updateBucketsKernel(uint32_t rightOffset,
     int leftPartition = partition;
     int rightPartition = partition + rightOffset;
 
-    if (leftPartition >= rightOffset
-        || rightPartition >= rightOffset * 2) {
-        printf("PARTITION SCALING ERROR\n");
-    }
+    //if (leftPartition >= rightOffset
+    //    || rightPartition >= rightOffset * 2) {
+    //    printf("PARTITION SCALING ERROR\n");
+    //}
     
     int splitValue = partitionSplits[partition].value;
     bool ordinal = featureIsOrdinal[splitFeature];
     int bucket = getBucket(exampleNum,
                            splitBucketData, splitBucketDataLength,
-                           splitBucketBits, numBuckets);
+                           splitBucketBits, splitNumBuckets);
 
     int side = ordinal ? bucket >= splitValue : bucket != splitValue;
 
@@ -1133,10 +1149,9 @@ updateBucketsKernel(uint32_t rightOffset,
         fromPartition = rightPartition;
         toPartition   = leftPartition;
     }
-
-    // Update the wAll, transfering weight
         
-    if (f == 0) {
+    if (f == -1) {
+        // Update the wAll, transfering weight
         decrementWAtomic(wAll + fromPartition, label, weight);
         //if ((int)wAll[fromPartition].count < 0) {
         //    printf("NEGATIVE WALL row %d feature %d side %d direction %d from %d to %d lbl %d wt %f\n",
@@ -1144,16 +1159,19 @@ updateBucketsKernel(uint32_t rightOffset,
         //   label, weight);
         //}
         incrementWAtomic(wAll +   toPartition, label, weight);
+
+        return;
     }
 
-    if (!featureActive[f])
-        return;
-            
     // Transfer the weight from each of the features
+    // Our feature values go here
+    uint32_t bucketDataOffset = bucketDataOffsets[f];
+    uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
+    uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
+    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
+    uint32_t bucketBits = bucketEntryBits[f];
 
     int startBucket = bucketNumbers[f];
-
-
     
     bucket = getBucket(exampleNum,
                        bucketData, bucketDataLength,
