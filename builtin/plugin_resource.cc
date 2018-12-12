@@ -130,7 +130,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     }
     // if we're a script, create a temporary folder so we can do the checkout if required
     else {
-        plugin_working_dir = make_unique_directory(fs::temp_directory_path());
+        plugin_working_dir = make_unique_directory("./tmp"/*fs::temp_directory_path()*/);
     }
 
     // if we're passing in the source
