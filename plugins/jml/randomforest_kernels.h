@@ -28,6 +28,12 @@ testFeatureKernel(Rows::RowIterator rowIterator,
                   W * w /* buckets.numBuckets entries */);
 
 std::pair<bool, int>
+testFeatureKernel(const float * decodedRows,
+                  size_t numRows,
+                  const BucketList & buckets,
+                  W * w /* buckets.numBuckets entries */);
+
+std::pair<bool, int>
 testFeatureKernel(Rows::RowIterator rowIterator,
                   size_t numRows,
                   const uint16_t * buckets,
@@ -93,7 +99,7 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
         const std::vector<Feature> & features,
         const Rows & rows,
-        FrozenMemoryRegionT<uint32_t> bucketData);
+        FrozenMemoryRegionT<uint32_t> bucketMemory);
 
 
 /*****************************************************************************/
@@ -101,14 +107,17 @@ testAll(int depth,
 /*****************************************************************************/
 
 struct PartitionSplit {
-    double score = INFINITY;
+    float score = INFINITY;
     int feature = -1;
     int value = -1;
     W left;
     W right;
-    std::vector<int> activeFeatures;
     bool direction;  // 0 = left to right, 1 = right to left
+    std::vector<int> activeFeatures;
+    char padding[24 - sizeof(std::vector<int>)];  // ensure size for OpenCL
 };
+
+DECLARE_STRUCTURE_DESCRIPTION(PartitionSplit);
 
 struct PartitionEntry {
     std::vector<float> decodedRows;
@@ -125,6 +134,10 @@ struct PartitionEntry {
     FrozenMemoryRegionT<uint32_t> bucketMemory;
 };
 
+/** Given the set of splits that have been identified per partition,
+    update the list of partition numbers, buckets and W values
+    by applying the splits over each row.
+*/
 void updateBuckets(const std::vector<Feature> & features,
                    std::vector<uint8_t> & partitions,
                    std::vector<std::vector<W> > & buckets,
@@ -134,6 +147,11 @@ void updateBuckets(const std::vector<Feature> & features,
                    int rightOffset,
                    const std::vector<float> & decodedRows);
 
+/** Once we've reached the deepest possible level for a breadth first
+    split, we need to compact the dataset back down into one per
+    partition and continue recursively.  This function accomplishes
+    that.
+*/
 std::pair<std::vector<PartitionEntry>,
           FrozenMemoryRegionT<uint32_t> >
 splitPartitions(const std::vector<Feature> features,
@@ -177,7 +195,8 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const std::vector<float> & decodedRows,
                            const std::vector<uint8_t> & partitions,
                            const std::vector<W> & wAll,
-                           const DatasetFeatureSpace & fs);
+                           const DatasetFeatureSpace & fs,
+                           FrozenMemoryRegionT<uint32_t> bucketMemory);
 
 ML::Tree::Ptr
 trainPartitionedRecursive(int depth, int maxDepth,
@@ -189,7 +208,8 @@ trainPartitionedRecursive(int depth, int maxDepth,
                           const std::vector<float> & decodedRows,
                           const W & wAllInput,
                           const DatasetFeatureSpace & fs,
-                          const std::vector<Feature> & features);
+                          const std::vector<Feature> & features,
+                          FrozenMemoryRegionT<uint32_t> bucketMemory);
 
 // Recursively go through and extract a tree from a set of recorded
 // PartitionSplits.  There is no calculating going on here, just
@@ -203,6 +223,17 @@ extractTree(int relativeDepth, int depth, int maxDepth,
             const std::vector<ML::Tree::Ptr> & leaves,
             const std::vector<Feature> & features,
             const DatasetFeatureSpace & fs);
+
+
+ML::Tree::Ptr
+trainPartitionedEndToEnd(int depth, int maxDepth,
+                         ML::Tree & tree,
+                         MappedSerializer & serializer,
+                         const Rows & rows,
+                         const std::vector<Feature> & features,
+                         FrozenMemoryRegionT<uint32_t> bucketMemory,
+                         const DatasetFeatureSpace & fs);
+
 
 } // namespace RF
 } // namespace MLDB

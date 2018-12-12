@@ -9,6 +9,7 @@
 #include "randomforest_kernels.h"
 #include "mldb/builtin/opencl/opencl_types.h"
 #include "mldb/types/annotated_exception.h"
+#include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/map_reduce.h"
 #include "mldb/base/scope.h"
@@ -29,12 +30,29 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                         const BucketList & buckets,
                         W * w /* buckets.numBuckets entries */);
 
+DecodedRow decodeRow(Rows::RowIterator & rowIterator,
+                     size_t rowNumber)
+{
+    return rowIterator.getDecodedRow();
+}
+
+DecodedRow decodeRow(const float * arr,
+                     size_t rowNumber)
+{
+    float f = arr[rowNumber];
+    DecodedRow result;
+    result.label = f < 0;
+    result.exampleNum = rowNumber;
+    result.weight = fabs(f);
+    return result;
+}
+
 // Core kernel of the decision tree search algorithm.  Transfer the
 // example weight into the appropriate (bucket,label) accumulator.
-// Returns whether
-template<typename BucketList>
+// Returns whether or not the feature is still active
+template<typename RowIterator, typename BucketList>
 std::pair<bool, int>
-testFeatureKernelCpu(Rows::RowIterator rowIterator,
+testFeatureKernelCpu(RowIterator rowIterator,
                      size_t numRows,
                      const BucketList & buckets,
                      W * w /* buckets.numBuckets entries */)
@@ -48,7 +66,7 @@ testFeatureKernelCpu(Rows::RowIterator rowIterator,
     int maxBucket = INT_MIN;
 
     for (size_t j = 0;  j < numRows;  ++j) {
-        DecodedRow r = rowIterator.getDecodedRow();
+        DecodedRow r = decodeRow(rowIterator, j);//rowIterator.getDecodedRow();
         int bucket = buckets[r.exampleNum];
         //ExcAssertLess(bucket, buckets.numBuckets);
 
@@ -67,6 +85,16 @@ testFeatureKernel(Rows::RowIterator rowIterator,
                   W * w /* buckets.numBuckets entries */)
 {
     return testFeatureKernelCpu(rowIterator, numRows, buckets, w);
+    //return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
+}
+
+std::pair<bool, int>
+testFeatureKernel(const float * decodedRows,
+                  size_t numRows,
+                  const BucketList & buckets,
+                  W * w /* buckets.numBuckets entries */)
+{
+    return testFeatureKernelCpu(decodedRows, numRows, buckets, w);
     //return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
 }
 
@@ -136,7 +164,8 @@ OpenCLProgram getTestFeatureProgramOpenCL()
     OpenCLCommandQueue queue
         = context.createCommandQueue
         (devices.at(0),
-         OpenCLCommandQueueProperties::PROFILING_ENABLE);
+         { OpenCLCommandQueueProperties::PROFILING_ENABLE,
+           OpenCLCommandQueueProperties::OUT_OF_ORDER_EXEC_MODE_ENABLE} );
 
     filter_istream stream("mldb/plugins/jml/randomforest_kernels.cl");
     Utf8String source(stream.readAll());
@@ -497,7 +526,7 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAllCpu(int depth,
            const std::vector<Feature> & features,
            const Rows & rows,
-           FrozenMemoryRegionT<uint32_t> bucketData)
+           FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
     std::vector<uint8_t> newActive;
     for (auto & f: features) {
@@ -546,7 +575,7 @@ testAllCpu(int depth,
         {
             double score = std::get<0>(val);
 
-#if 0            
+#if 0
             cerr << "CPU: rows "
             << rows.rowCount() << " wAll " << jsonEncodeStr(rows.wAll)
             << " feature " << feature << " score "
@@ -672,7 +701,7 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAllOpenCL(int depth,
               const std::vector<Feature> & features,
               const Rows & rows,
-              FrozenMemoryRegionT<uint32_t> bucketData_)
+              FrozenMemoryRegionT<uint32_t> bucketMemory_)
 {
     // We have no impurity in our bucket.  Time to stop
     if (rows.wAll[0] == 0 || rows.wAll[1] == 0) {
@@ -734,7 +763,7 @@ testAllOpenCL(int depth,
     size_t maxLocalBuckets = 0;
     
     uint32_t lastBucketDataOffset = 0;
-    std::vector<uint32_t> bucketDataOffsets;
+    std::vector<uint32_t> bucketMemoryOffsets;
     std::vector<uint32_t> bucketEntryBits;
     std::vector<uint32_t> bucketNumbers(1, 0);
     std::vector<uint32_t> featuresActive;
@@ -748,15 +777,15 @@ testAllOpenCL(int depth,
         
         if (features[i].active) {
             ExcAssertGreaterEqual((void *)buckets.storage.data(),
-                                  (void *)bucketData_.data());
+                                  (void *)bucketMemory_.data());
         
             uint32_t offset
                 = buckets.storage.data()
-                - bucketData_.data();
+                - bucketMemory_.data();
 
             //cerr << "i = " << i << " offset = " << offset << endl;
-            bucketDataOffsets.push_back(offset);
-            lastBucketDataOffset = offset + bucketData_.length();
+            bucketMemoryOffsets.push_back(offset);
+            lastBucketDataOffset = offset + bucketMemory_.length();
             
             ++activeFeatures;
             totalBuckets += features[i].buckets.numBuckets;
@@ -769,7 +798,7 @@ testAllOpenCL(int depth,
             }
         }
         else {
-            bucketDataOffsets.push_back(lastBucketDataOffset);
+            bucketMemoryOffsets.push_back(lastBucketDataOffset);
         }
 
         bucketNumbers.push_back(totalBuckets);
@@ -779,22 +808,22 @@ testAllOpenCL(int depth,
         //     << bucketNumbers[i + 1] - bucketNumbers[i] << endl;
     }
 
-    bucketDataOffsets.push_back(lastBucketDataOffset);
+    bucketMemoryOffsets.push_back(lastBucketDataOffset);
     //cerr << "bucketNumbers are " << jsonEncode(bucketNumbers) << endl;
     
     //cerr << "doing " << rows.rowCount() << " rows with "
     //     << activeFeatures << " active features and "
     //     << totalBuckets << " total buckets" << endl;
 
-    ExcAssertEqual(bucketDataOffsets.size(), nf + 1);
+    ExcAssertEqual(bucketMemoryOffsets.size(), nf + 1);
     ExcAssertEqual(bucketEntryBits.size(), nf);
     ExcAssertEqual(bucketNumbers.size(), nf + 1);
     ExcAssertEqual(featuresActive.size(), nf);
 
     
-    //cerr << "bucketDataOffsets = " << jsonEncodeStr(bucketDataOffsets)
+    //cerr << "bucketMemoryOffsets = " << jsonEncodeStr(bucketMemoryOffsets)
     //     << endl;
-    //for (auto & b: bucketDataOffsets) {
+    //for (auto & b: bucketMemoryOffsets) {
     //    int b2 = b;
     //    if (b2 < 0) {
     //        cerr << "b = " << b << " b2 = " << b2 << endl;
@@ -812,7 +841,7 @@ testAllOpenCL(int depth,
     OpenCLContext & context = kernelContext.context;
 
     //cerr << "rows.rowData.data() = " << rows.rowData.data() << endl;
-    //cerr << "bucketData_.data() = " << bucketData_.data() << endl;
+    //cerr << "bucketMemory_.data() = " << bucketMemory_.data() << endl;
 
     Date beforeTransfer = Date::now();
     
@@ -824,11 +853,11 @@ testAllOpenCL(int depth,
 
     OpenCLMemObject clBucketData
         = context.createBuffer(0,
-                               (const void *)bucketData_.data(),
-                               (bucketData_.memusage() + 4095) / 4096 * 4096);
+                               (const void *)bucketMemory_.data(),
+                               (bucketMemory_.memusage() + 4095) / 4096 * 4096);
 
     OpenCLMemObject clBucketDataOffsets
-        = context.createBuffer(bucketDataOffsets);
+        = context.createBuffer(bucketMemoryOffsets);
 
     
     std::vector<W> allW(totalBuckets);
@@ -868,9 +897,9 @@ testAllOpenCL(int depth,
     double elapsedTransfer = Date::now().secondsSince(beforeTransfer);
     
     cerr << "sending over " << rows.rowData.memusage() / 1000000.0
-         << "mb of rows and " << bucketData_.memusage() / 1000000.0
+         << "mb of rows and " << bucketMemory_.memusage() / 1000000.0
          << "mb of buckets in " << elapsedTransfer * 1000.0 << " ms at "
-         << (rows.rowData.memusage() + bucketData_.memusage()) / 1000000.0 / elapsedTransfer
+         << (rows.rowData.memusage() + bucketMemory_.memusage()) / 1000000.0 / elapsedTransfer
          << "mb/s" << endl;
 
     //uint64_t maxBit = rows.rowData.memusage() * 8;
@@ -880,7 +909,7 @@ testAllOpenCL(int depth,
     
     size_t numRows = rows.rowCount();
 
-    //cerr << "total offset = " << bucketData_.memusage() / 4 << endl;
+    //cerr << "total offset = " << bucketMemory_.memusage() / 4 << endl;
 
     Date beforeKernel = Date::now();
     
@@ -1108,7 +1137,7 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
         const std::vector<Feature> & features,
         const Rows & rows,
-        FrozenMemoryRegionT<uint32_t> bucketData)
+        FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
     if (rows.rowCount() < 1000000 || true) {
         if (depth < 3 && false) {
@@ -1116,7 +1145,7 @@ testAll(int depth,
             //std::unique_lock<std::mutex> guard(mutex);
 
             Date beforeCpu = Date::now();
-            auto res = testAllCpu(depth, features, rows, bucketData);
+            auto res = testAllCpu(depth, features, rows, bucketMemory);
             Date afterCpu = Date::now();
 
             int activeFeatures = 0;
@@ -1139,7 +1168,7 @@ testAll(int depth,
             return res;
         }
         else {
-            return testAllCpu(depth, features, rows, bucketData);
+            return testAllCpu(depth, features, rows, bucketMemory);
         }
     }
     else {
@@ -1149,14 +1178,14 @@ testAll(int depth,
 
         if (numGpuJobs.fetch_add(1) >= MAX_GPU_JOBS) {
             --numGpuJobs;
-            return testAllCpu(depth, features, rows, bucketData);
+            return testAllCpu(depth, features, rows, bucketMemory);
         }
         else {
             auto onExit = ScopeExit([&] () noexcept { --numGpuJobs; });
             try {
-                return testAllOpenCL(depth, features, rows, bucketData);
+                return testAllOpenCL(depth, features, rows, bucketMemory);
             } MLDB_CATCH_ALL {
-                return testAllCpu(depth, features, rows, bucketData);
+                return testAllCpu(depth, features, rows, bucketMemory);
             }
         }
         
@@ -1164,9 +1193,9 @@ testAll(int depth,
         //std::unique_lock<std::mutex> guard(mutex);
 
         Date beforeCpu = Date::now();
-        auto cpuOutput = testAllCpu(depth, features, rows, bucketData);
+        auto cpuOutput = testAllCpu(depth, features, rows, bucketMemory);
         Date afterCpu = Date::now();
-        auto gpuOutput = testAllOpenCL(depth, features, rows, bucketData);
+        auto gpuOutput = testAllOpenCL(depth, features, rows, bucketMemory);
         Date afterGpu = Date::now();
 
         ostringstream str;
@@ -1192,6 +1221,17 @@ testAll(int depth,
 /*****************************************************************************/
 /* RECURSIVE RANDOM FOREST KERNELS                                           */
 /*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
+{
+    addField("score", &PartitionSplit::score, "");
+    addField("feature", &PartitionSplit::feature, "");
+    addField("value", &PartitionSplit::value, "");
+    addField("left", &PartitionSplit::left, "");
+    addField("right", &PartitionSplit::right, "");
+    addField("direction", &PartitionSplit::direction, "");
+    addField("activeFeatures", &PartitionSplit::activeFeatures, "");
+}
 
 void updateBuckets(const std::vector<Feature> & features,
                    std::vector<uint8_t> & partitions,
@@ -1229,13 +1269,11 @@ void updateBuckets(const std::vector<Feature> & features,
         }
     }
 
-
     constexpr bool checkPartitionCounts = false;
 
     int rowCount = decodedRows.size();
         
     std::vector<uint32_t> numInPartition(buckets.size());
-    std::vector<int8_t> transfers(rowCount);
         
     for (size_t i = 0;  i < rowCount;  ++i) {
         // TODO: for each feature, choose right to left vs left to
@@ -1298,6 +1336,10 @@ void updateBuckets(const std::vector<Feature> & features,
                 toPartition   = leftPartition;
             }
 
+            //cerr << "row " << i << " side " << side << " direction "
+            //     << direction << " from " << fromPartition
+            //     << " to " << toPartition << endl;
+            
             // Update the wAll, transfering weight
             wAll[fromPartition].sub(label, weight);
             wAll[toPartition  ].add(label, weight);
@@ -1306,6 +1348,11 @@ void updateBuckets(const std::vector<Feature> & features,
             for (auto & f: partitionSplits[partition].activeFeatures) {
                 int startBucket = bucketOffsets[f];
                 int bucket = features[f].buckets[exampleNum];
+                
+                //cerr << "  feature " << f << " bucket " << bucket
+                //     << " offset " << startBucket + bucket << " lbl "
+                //     << label << " weight " << weight << endl;
+
                 buckets[fromPartition][startBucket + bucket]
                     .sub(label, weight);
                 buckets[toPartition  ][startBucket + bucket]
@@ -1552,8 +1599,9 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
 
                 if (score == INFINITY) return;
 
-#if 0                        
-                cerr << "af " << af << " f " << std::get<0>(val)
+#if 1   
+                cerr << "part " << partition << " af " << af
+                << " f " << std::get<0>(val)
                 << " score " << std::get<1>(val) << " split "
                 << std::get<2>(val)
                 << endl;
@@ -1614,9 +1662,11 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
         }
 
         partitionSplits[partition] =
-            { bestScore, bestFeature, bestSplit, bestLeft, bestRight,
+            { (float)bestScore, bestFeature, bestSplit, bestLeft, bestRight,
+              bestFeature != -1 && bestLeft.count() <= bestRight.count(),
               std::move(activeFeatures),
-              bestFeature != -1 && bestLeft.count() <= bestRight.count() };
+              {}
+            };
 
 #if 0
         cerr << "partition " << partition << " of " << buckets.size()
@@ -1678,7 +1728,8 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const std::vector<float> & decodedRows,
                            const std::vector<uint8_t> & partitions,
                            const std::vector<W> & wAll,
-                           const DatasetFeatureSpace & fs)
+                           const DatasetFeatureSpace & fs,
+                           FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
     std::vector<ML::Tree::Ptr> leaves;
 
@@ -1705,7 +1756,8 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                  newData[i].decodedRows,
                  newData[i].wAll,
                  fs,
-                 newData[i].features);
+                 newData[i].features,
+                 bucketMemory);
         };
 
     if (depth <= 8) {
@@ -1721,16 +1773,17 @@ splitAndRecursePartitioned(int depth, int maxDepth,
 }
     
 ML::Tree::Ptr
-trainPartitionedRecursive(int depth, int maxDepth,
-                          ML::Tree & tree,
-                          MappedSerializer & serializer,
-                          const std::vector<uint32_t> & bucketOffsets,
-                          const std::vector<int> & activeFeatures,
-                          std::vector<W> bucketsIn,
-                          const std::vector<float> & decodedRows,
-                          const W & wAllInput,
-                          const DatasetFeatureSpace & fs,
-                          const std::vector<Feature> & features)
+trainPartitionedRecursiveCpu(int depth, int maxDepth,
+                             ML::Tree & tree,
+                             MappedSerializer & serializer,
+                             const std::vector<uint32_t> & bucketOffsets,
+                             const std::vector<int> & activeFeatures,
+                             std::vector<W> bucketsIn,
+                             const std::vector<float> & decodedRows,
+                             const W & wAllInput,
+                             const DatasetFeatureSpace & fs,
+                             const std::vector<Feature> & features,
+                             FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
     constexpr bool verifyBuckets = false;
         
@@ -1792,7 +1845,8 @@ trainPartitionedRecursive(int depth, int maxDepth,
                                      std::move(buckets), bucketOffsets,
                                      features, activeFeatures,
                                      decodedRows,
-                                     partitions, wAll, fs);
+                                     partitions, wAll, fs,
+                                     bucketMemory);
         
     // Finally, extract a tree from the splits we've been accumulating
     // and our leaves.
@@ -1859,6 +1913,972 @@ ML::Tree::Ptr extractTree(int relativeDepth, int depth, int maxDepth,
                 
     return getNode(tree, s.score, s.feature, s.value,
                    left, right, s.left, s.right, features, fs);
+}
+
+static std::vector<float> decodeRows(const Rows & rows)
+{
+    std::vector<float> decodedRows(rows.rowCount());
+        
+    auto it = rows.getRowIterator();
+        
+    for (size_t i = 0;  i < rows.rowCount();  ++i) {
+        DecodedRow row = it.getDecodedRow();
+        ExcAssertEqual(i, row.exampleNum);
+        decodedRows[i] = row.weight * (1-2*row.label);
+    }
+
+    return decodedRows;
+}
+
+ML::Tree::Ptr
+trainPartitionedEndToEndCpu(int depth, int maxDepth,
+                            ML::Tree & tree,
+                            MappedSerializer & serializer,
+                            const Rows & rows,
+                            const std::vector<Feature> & features,
+                            FrozenMemoryRegionT<uint32_t> bucketMemory,
+                            const DatasetFeatureSpace & fs)
+{
+    // First, grab the bucket totals for each bucket across the whole
+    // lot.
+    size_t numActiveBuckets = 0;
+    std::vector<uint32_t> bucketOffsets = { 0 };
+    std::vector<int> activeFeatures;
+    for (auto & f: features) {
+        if (f.active) {
+            activeFeatures.push_back(bucketOffsets.size() - 1);
+            numActiveBuckets += f.buckets.numBuckets;
+        }
+        bucketOffsets.push_back(numActiveBuckets);
+    }
+
+    std::vector<W> buckets(numActiveBuckets);
+
+    std::vector<std::vector<uint16_t> > featureBuckets(features.size());
+
+    // Keep a cache of our decoded weights, with the sign
+    // being the label
+    std::vector<float> decodedRows = decodeRows(rows);
+        
+    //std::atomic<uint64_t> featureBucketMem(0);
+    //std::atomic<uint64_t> compressedFeatureBucketMem(0);
+
+    // Start by initializing the weights for each feature, if
+    // this isn't passed in already
+    auto initFeature = [&] (int f)
+        {
+#if 0
+            const auto & feature = features[f];
+            auto & fb = featureBuckets[f];
+            size_t ne = feature.buckets.numEntries;
+            fb.resize(ne);
+            featureBucketMem += sizeof(featureBuckets[0][0]) * ne;
+            compressedFeatureBucketMem += feature.buckets.storage.memusage();
+            for (size_t i = 0;  i < ne;  ++i) {
+                fb[i] = feature.buckets[i];
+            }
+#endif
+
+            // Distribute weights into buckets for the first iteration
+            int startBucket = bucketOffsets[f];
+            bool active;
+            int maxBucket;
+            std::tie(active, maxBucket)
+            = testFeatureKernel(decodedRows.data(),
+                                decodedRows.size(),
+                                features[f].buckets,
+                                buckets.data() + startBucket);
+                
+#if 0 // debug
+            W wAll1;
+            auto it = rows.getRowIterator();
+            for (size_t i = 0;  i < rows.rowCount();  ++i) {
+                auto row = it.getDecodedRow();
+                wAll1[row.label] += row.weight;
+            }
+
+            W wAll2;
+            for (size_t i = startBucket;  i < bucketOffsets[f + 1];  ++i) {
+                wAll2 += buckets[i];
+            }
+
+            ExcAssertEqual(jsonEncodeStr(rows.wAll), jsonEncodeStr(wAll1));
+            ExcAssertEqual(jsonEncodeStr(rows.wAll), jsonEncodeStr(wAll2));
+#endif // debug
+        };
+
+    parallelForEach(activeFeatures, initFeature);
+
+    using namespace std;
+    //cerr << "feature bucket mem = " << featureBucketMem.load() / 1000000.0
+    //     << "mb; compressed = "
+    //     << compressedFeatureBucketMem.load() / 1000000.0 << "mb" << endl;
+        
+    return trainPartitionedRecursive(depth, maxDepth, tree, serializer,
+                                     bucketOffsets, activeFeatures,
+                                     std::move(buckets),
+                                     decodedRows,
+                                     rows.wAll,
+                                     fs, features, bucketMemory);
+}
+
+ML::Tree::Ptr
+trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
+                               ML::Tree & tree,
+                               MappedSerializer & serializer,
+                               const Rows & rows,
+                               const std::vector<Feature> & features,
+                               FrozenMemoryRegionT<uint32_t> bucketMemory,
+                               const DatasetFeatureSpace & fs)
+{
+    constexpr bool debugKernelOutput = false;
+
+    // First, figure out the memory requirements.  This means sizing all
+    // kinds of things so that we can make our allocations statically.
+
+    // How many rows in this partition?
+    size_t numRows = rows.rowCount();
+
+    // How many features?
+    size_t nf = features.size();
+    
+    // Which of our features do we need to consider?  This allows us to
+    // avoid sizing things too large for the number of features that are
+    // actually active.
+    std::vector<int> activeFeatures;
+
+    // How many iterations can we run for?  This may be reduced if the
+    // memory is not available to run the full width
+    int numIterations = std::min(8, maxDepth - depth);
+
+    // How many partitions will we have at our widest?
+    int maxPartitionCount = 1 << numIterations;
+    
+    size_t rowCount = rows.rowCount();
+    
+
+    // How many buckets do we keep in shared memory?  Features with
+    // less than this number of buckets will be accumulated in shared
+    // memory which is faster.  Features with more will be accumulated
+    // in global memory.  Since we don't get to decide per feature
+    // how much shared memory is used (for the moment), we need to decide
+    // ahead of time.
+    static constexpr size_t MAX_LOCAL_BUCKETS = 512;  // 8192 bytes
+    
+    // Maximum number of buckets
+    size_t maxBuckets = 0;
+
+    // Maximum number of buckets for all with less than MAX_LOCAL_BUCKETS
+    size_t maxLocalBuckets = 0;
+
+    // Number of active features
+    size_t numActiveFeatures = 0;
+    
+    // Now we figure out how to onboard a variable number of variable
+    // lengthed data segments for the feature bucket information.
+    uint32_t totalBuckets = 0;
+    
+    uint32_t lastBucketDataOffset = 0;
+    std::vector<uint32_t> bucketMemoryOffsets;
+    std::vector<uint32_t> bucketEntryBits;
+    std::vector<uint32_t> bucketNumbers(1, 0);
+    std::vector<uint32_t> featuresActive;
+    std::vector<uint32_t> featureIsOrdinal;
+    
+    for (int i = 0;  i < nf;  ++i) {
+        const BucketList & buckets = features[i].buckets;
+
+        bucketEntryBits.push_back(buckets.entryBits);
+
+        featuresActive.push_back(features[i].active);
+        featureIsOrdinal.push_back(features[i].ordinal);
+        
+        if (features[i].active) {
+            ExcAssertGreaterEqual((void *)buckets.storage.data(),
+                                  (void *)bucketMemory.data());
+        
+            activeFeatures.push_back(i);
+
+            uint32_t offset
+                = buckets.storage.data()
+                - bucketMemory.data();
+
+            //cerr << "i = " << i << " offset = " << offset << endl;
+            bucketMemoryOffsets.push_back(offset);
+            lastBucketDataOffset = offset + bucketMemory.length();
+            
+            ++numActiveFeatures;
+            totalBuckets += features[i].buckets.numBuckets;
+            maxBuckets = std::max<size_t>(maxBuckets,
+                                          features[i].buckets.numBuckets);
+            if (features[i].buckets.numBuckets <= MAX_LOCAL_BUCKETS) {
+                maxLocalBuckets
+                    = std::max<size_t>(maxLocalBuckets,
+                                       features[i].buckets.numBuckets);
+            }
+        }
+        else {
+            bucketMemoryOffsets.push_back(lastBucketDataOffset);
+        }
+
+        bucketNumbers.push_back(totalBuckets);
+    }
+
+    bucketMemoryOffsets.push_back(lastBucketDataOffset);
+
+    ExcAssertEqual(bucketMemoryOffsets.size(), nf + 1);
+    ExcAssertEqual(bucketEntryBits.size(), nf);
+    ExcAssertEqual(bucketNumbers.size(), nf + 1);
+    ExcAssertEqual(featuresActive.size(), nf);
+
+    // How much memory to accumulate W over all features per partition?
+    size_t bytesPerPartition = sizeof(W) * totalBuckets;
+
+    // How much memory to accumulate W over all features over the maximum
+    // number of partitions?
+    size_t bytesForAllPartitions = bytesPerPartition * maxPartitionCount;
+
+    cerr << "totalBuckets = " << totalBuckets << endl;
+    cerr << "sizeof(W) = " << sizeof(W) << endl;
+    cerr << "bytesForAllPartitions = " << bytesForAllPartitions * 0.000001
+         << "mb" << endl;
+    cerr << "numIterations = " << numIterations << endl;
+
+    OpenCLKernelContext kernelContext = getKernelContext();
+    OpenCLContext & context = kernelContext.context;
+
+    auto queue = kernelContext.context.createCommandQueue
+        (kernelContext.devices[0],
+         OpenCLCommandQueueProperties::PROFILING_ENABLE);
+
+    size_t rowMemorySizePageAligned
+        = (rows.rowData.memusage() + 4095) / 4096 * 4096;
+    
+    Date before = Date::now();
+
+    std::vector<std::pair<std::string, OpenCLEvent> > allEvents;
+
+    // First, we need to send over the rows, as the very first thing to
+    // be done is to expand them.
+    //
+    // Create the buffer...
+    OpenCLMemObject clRowData
+        = context.createBuffer(CL_MEM_READ_ONLY,
+                               rowMemorySizePageAligned);
+
+    // ... and send it over
+    OpenCLEvent copyRowData
+        = queue.enqueueWriteBuffer
+            (clRowData, 0 /* offset */, rowMemorySizePageAligned,
+             (const void *)rows.rowData.data());
+
+    allEvents.emplace_back("copyRowData", copyRowData);
+    
+    // Same for our weight data
+    OpenCLMemObject clWeightData
+        = context.createBuffer(CL_MEM_READ_ONLY, 4);
+    
+    if (rows.weightEncoder.weightFormat == WF_TABLE) {
+        clWeightData = context.createBuffer
+            (0,
+             (const void *)rows.weightEncoder.weightFormatTable.data(),
+             rows.weightEncoder.weightFormatTable.memusage());
+    }
+
+    // This one contains an expanded version of the row data, with one float
+    // per row rather than bit-compressed.  It's expanded on the GPU so that
+    // the compressed version can be passed over the PCIe bus and not the
+    // expanded version.
+    OpenCLMemObject clExpandedRowData
+        = context.createBuffer(CL_MEM_READ_WRITE,
+                               sizeof(float) * rowCount);
+
+    // Our first kernel expands the data.  It's pretty simple, as a warm
+    // up for the rest.
+    OpenCLKernel decompressRowsKernel
+        = kernelContext.program.createKernel("decompressRowsKernel");
+    
+    decompressRowsKernel.bind(clRowData,
+                          (uint32_t)rows.rowData.length(),
+                          rows.totalBits,
+                          rows.weightEncoder.weightBits,
+                          rows.exampleNumBits,
+                          (uint32_t)numRows,
+                          rows.weightEncoder.weightFormat,
+                          rows.weightEncoder.weightMultiplier,
+                          clWeightData,
+                          clExpandedRowData);
+
+    OpenCLEvent runExpandRows
+        = queue.launch(decompressRowsKernel, { 65536 }, { 256 },
+                       { copyRowData });
+    
+    allEvents.emplace_back("runExpandRows", runExpandRows);
+
+    std::vector<float> debugExpandedRowsCpu;
+    
+    if (debugKernelOutput) {
+        OpenCLEvent mapExpandedRows;
+        std::shared_ptr<const void> mappedExpandedRows;
+
+        std::tie(mappedExpandedRows, mapExpandedRows)
+            = queue.enqueueMapBuffer(clExpandedRowData, CL_MAP_READ,
+                                     0 /* offset */, sizeof(float) * rowCount,
+                                     { runExpandRows });
+        
+        mapExpandedRows.waitUntilFinished();
+
+        debugExpandedRowsCpu = decodeRows(rows);
+
+        const float * expandedRowsGpu
+            = reinterpret_cast<const float *>(mappedExpandedRows.get());
+
+        bool different = false;
+        
+        for (size_t i = 0;  i < rowCount;  ++i) {
+            if (debugExpandedRowsCpu[i] != expandedRowsGpu[i]) {
+                cerr << "row " << i << " CPU " << debugExpandedRowsCpu[i]
+                     << " GPU " << expandedRowsGpu[i] << endl;
+                different = true;
+            }
+        }
+
+        ExcAssert(!different);
+    }
+
+    // Next we need to distribute the weignts into the first set of
+    // buckets.  This is done with the testFeatureKernelExpanded.
+
+    // Before that, we need to set up some memory objects to be used
+    // by the kernel.
+
+    size_t bucketMemorySizePageAligned
+        = (bucketMemory.memusage() + 4095) / 4096 * 4096;
+    
+    OpenCLMemObject clBucketData
+        = context.createBuffer(CL_MEM_READ_ONLY, bucketMemorySizePageAligned);
+
+    OpenCLMemObject clBucketNumbers
+        = context.createBuffer(bucketNumbers);
+    
+    OpenCLMemObject clBucketEntryBits
+        = context.createBuffer(bucketEntryBits);
+
+    OpenCLMemObject clFeaturesActive
+        = context.createBuffer(featuresActive);
+    
+    OpenCLEvent transferBucketData
+        = queue.enqueueWriteBuffer
+            (clBucketData, 0 /* offset */, bucketMemorySizePageAligned,
+             (const void *)bucketMemory.data());
+    
+    allEvents.emplace_back("transferBucketData", transferBucketData);
+
+    OpenCLMemObject clBucketDataOffsets
+        = context.createBuffer(bucketMemoryOffsets);
+    
+    // Our wAll array contains the sum of all of the W buckets across
+    // each partition.  We allocate a single array at the start and just
+    // use more and more each iteration.
+
+    size_t wAllBytes = maxPartitionCount * sizeof(W);
+
+    OpenCLMemObject clWAll
+        = context.createBuffer(CL_MEM_READ_WRITE, wAllBytes);
+
+    // The first one is initialized by the input wAll
+    OpenCLEvent copyWAll
+        = queue.enqueueWriteBuffer(clWAll, 0, sizeof(W),
+                                   &rows.wAll);
+
+    allEvents.emplace_back("copyWAll", copyWAll);
+
+    
+    // The rest are initialized to zero
+    OpenCLEvent initializeWAll
+        = queue.enqueueFillBuffer(clWAll, 0 /* pattern */,
+                                  sizeof(W) /* offset */,
+                                  wAllBytes - sizeof(W));
+
+    allEvents.emplace_back("initializeWAll", initializeWAll);
+    
+    // Our W buckets live here, per partition.  We never need to see it on
+    // the host, so we allow it to be initialized and live on the device.
+    // Note that we only use the beginning 1/256th at the start, and we
+    // double the amount of what we use until we're using the whole lot
+    // on the last iteration
+    OpenCLMemObject clPartitionBuckets
+        = context.createBuffer(CL_MEM_READ_WRITE, bytesForAllPartitions);
+
+    // Before we use this, it needs to be zero-filled (only the first
+    // set for a single partition)
+    OpenCLEvent fillFirstBuckets
+        = queue.enqueueFillBuffer(clPartitionBuckets, 0 /* pattern */,
+                                  0 /* offset */, bytesPerPartition);
+
+    allEvents.emplace_back("fillFirstBuckets", fillFirstBuckets);
+
+    OpenCLKernel testFeatureKernel
+        = kernelContext.program.createKernel("testFeatureKernelExpanded");
+
+    testFeatureKernel.bind(clExpandedRowData,
+                           (uint32_t)numRows,
+                           clBucketData,
+                           clBucketDataOffsets,
+                           clBucketNumbers,
+                           clBucketEntryBits,
+                           clFeaturesActive,
+                           LocalArray<W>(maxLocalBuckets),
+                           (uint32_t)maxLocalBuckets,
+                           clPartitionBuckets);
+                           
+    OpenCLEvent runTestFeatureKernel
+        = queue.launch(testFeatureKernel,
+                       { 65536, nf },
+                       { 256, 1 },
+                       { transferBucketData, fillFirstBuckets, runExpandRows });
+
+    allEvents.emplace_back("runTestFeatureKernel", runTestFeatureKernel);
+
+    if (debugKernelOutput) {
+        // Get that data back (by mapping), and verify it against the
+        // CPU-calcualted version.
+
+        OpenCLEvent mapBuckets;
+        std::shared_ptr<const void> mappedBuckets;
+
+        std::tie(mappedBuckets, mapBuckets)
+            = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                                     0 /* offset */, bytesPerPartition,
+                                     { runTestFeatureKernel });
+        
+        mapBuckets.waitUntilFinished();
+
+        const W * allWGpu = reinterpret_cast<const W *>(mappedBuckets.get());
+
+        std::vector<W> allWCpu(totalBuckets);
+        
+        bool different = false;
+            
+        // Print out the buckets that differ from CPU to GPU
+        for (int i = 0;  i < nf;  ++i) {
+            int start = bucketNumbers[i];
+            int end = bucketNumbers[i + 1];
+            int n = end - start;
+
+            if (n == 0)
+                continue;
+
+            testFeatureKernelCpu(rows.getRowIterator(),
+                                 rowCount,
+                                 features[i].buckets,
+                                 allWCpu.data() + start);
+
+            const W * pGpu = allWGpu + start;
+            const W * pCpu = allWCpu.data() + start;
+
+            for (int j = 0;  j < n;  ++j) {
+                if (pCpu[j] != pGpu[j]) {
+                    cerr << "feat " << i << " bucket " << j << " w "
+                         << jsonEncodeStr(pGpu[j]) << " != "
+                         << jsonEncodeStr(pCpu[j]) << endl;
+                    different = true;
+                }
+            }
+        }
+
+        ExcAssert(!different);
+    }
+    
+    // Which partition is each row in?  Initially, everything
+    // is in partition zero, but as we start to split, we end up
+    // splitting them amongst many partitions.  Each partition has
+    // its own set of buckets that we maintain.
+
+    size_t partitionMemoryUsage = sizeof(uint8_t) * rowCount;
+    
+    OpenCLMemObject clPartitions
+        = context.createBuffer(CL_MEM_READ_WRITE, partitionMemoryUsage);
+
+    // Before we use this, it needs to be zero-filled
+    OpenCLEvent fillPartitions
+        = queue.enqueueFillBuffer(clPartitions, (uint8_t)0 /* pattern */,
+                                  0 /* offset */, partitionMemoryUsage);
+
+    allEvents.emplace_back("fillPartitions", fillPartitions);
+
+    // Record the split, per level, per partition
+    std::vector<std::vector<PartitionSplit> > depthSplits;
+    depthSplits.reserve(8);
+
+    OpenCLMemObject clFeatureIsOrdinal
+        = context.createBuffer(featureIsOrdinal);
+    
+    // How many partitions at the current depth?
+    unsigned numPartitionsAtDepth = 1;
+
+    // Which event represents that the previous iteration of partitions
+    // are available?
+    OpenCLEvent previousIteration = runTestFeatureKernel;
+
+    // We go down level by level
+    for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
+         ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
+
+        // We need to store partition splits for each partition.  Get the
+        // memory.  It doesn't need to be initialized on the CPU; the GPU
+        // can do its own initialization with the fillPartitionSplits kernel.
+
+        size_t partitionSplitBytes
+            = sizeof(PartitionSplit) * numPartitionsAtDepth;
+
+        OpenCLMemObject clPartitionSplits
+            = context.createBuffer(CL_MEM_READ_WRITE, partitionSplitBytes);
+
+        OpenCLKernel fillPartitionSplitsKernel
+            = kernelContext.program.createKernel("fillPartitionSplitsKernel");
+
+        fillPartitionSplitsKernel.bind(clPartitionSplits);
+
+        OpenCLEvent fillPartitionSplits
+            = queue.launch(fillPartitionSplitsKernel,
+                           { numPartitionsAtDepth });
+
+        allEvents.emplace_back("fillPartitionSplits " + std::to_string(myDepth),
+                               fillPartitionSplits);
+
+        // We also have an array of locks, one int per partition, used to
+        // ensure atomic access of the partition outputs over features.
+        // These locks are intialized to zero on the GPU.
+        size_t partitionLockBytes
+            = sizeof(int) * numPartitionsAtDepth;
+
+        OpenCLMemObject clPartitionLocks
+            = context.createBuffer(CL_MEM_READ_WRITE, partitionLockBytes);
+
+        OpenCLEvent fillPartitionLocks
+            = queue.enqueueFillBuffer(clPartitionLocks, 0 /* pattern */,
+                                      0 /* offset */,
+                                      partitionLockBytes /* length */);
+
+        allEvents.emplace_back("fillPartitionLocks " + std::to_string(myDepth),
+                               fillPartitionLocks);
+
+        // Run a kernel to find the new split point for each partition,
+        // best feature and kernel
+
+        // Now we have initialized our data, we can get to running the
+        // kernel.  This kernel is dimensioned on bucket number,
+        // feature number and partition number (ie, a 3d invocation).
+        
+        OpenCLKernel getPartitionSplitsKernel
+            = kernelContext.program.createKernel("getPartitionSplitsKernel");
+
+        getPartitionSplitsKernel
+            .bind((uint32_t)totalBuckets,
+                  clBucketNumbers,
+                  clFeaturesActive,
+                  clFeatureIsOrdinal,
+                  clPartitionBuckets,
+                  clWAll,
+                  clPartitionSplits,
+                  clPartitionLocks);
+
+        cerr << endl << endl << " depth " << depth << " numPartitions "
+             << numPartitionsAtDepth << endl;
+        cerr << "sizeof(PartitionSplit) CPU = " << sizeof(PartitionSplit)
+             << endl;
+
+        // We need to be a multiple of the chunk size for the buckets.  Extra
+        // ones will simply exit straight away.
+        size_t maxBucketsAdjusted = (maxBuckets + 255) / 256 * 256;
+        
+        OpenCLEvent runPartitionSplitsKernel
+            = queue.launch(getPartitionSplitsKernel,
+                           { maxBucketsAdjusted, nf, numPartitionsAtDepth },
+                           { 256, 1, 1 },
+                           { fillPartitionSplits, fillPartitionLocks,
+                             previousIteration, copyWAll, initializeWAll});
+
+        allEvents.emplace_back("runPartitionSplitsKernel "
+                               + std::to_string(myDepth),
+                               runPartitionSplitsKernel);
+
+        // These are parallel CPU data structures for the on-GPU ones,
+        // into which we copy the input data required to re-run the
+        // computation on the CPU so we can verify the output of the GPU
+        // algorithm.
+        std::vector<PartitionSplit> debugPartitionSplitsCpu;
+        std::vector<std::vector<W> > debugBucketsCpu;
+        std::vector<W> debugWAllCpu;
+        std::vector<uint8_t> debugPartitionsCpu;
+        
+        if (debugKernelOutput) {
+            // Map back the GPU partition splits
+            OpenCLEvent mapPartitionSplits;
+            std::shared_ptr<const void> mappedPartitionSplits;
+
+            std::tie(mappedPartitionSplits, mapPartitionSplits)
+                = queue.enqueueMapBuffer
+                   (clPartitionSplits, CL_MAP_READ,
+                    0 /* offset */,
+                    sizeof(PartitionSplit) * numPartitionsAtDepth,
+                    { runPartitionSplitsKernel });
+        
+            mapPartitionSplits.waitUntilFinished();
+
+            const PartitionSplit * partitionSplitsGpu
+                = reinterpret_cast<const PartitionSplit *>
+                    (mappedPartitionSplits.get());
+
+            // Map back the GPU partition numbers
+            OpenCLEvent mapPartitions;
+            std::shared_ptr<const void> mappedPartitions;
+
+            std::tie(mappedPartitions, mapPartitions)
+                = queue.enqueueMapBuffer
+                   (clPartitions, CL_MAP_READ,
+                    0 /* offset */,
+                    partitionMemoryUsage,
+                    { runPartitionSplitsKernel, fillPartitions });
+        
+            mapPartitions.waitUntilFinished();
+
+            const uint8_t * partitionsGpu
+                = reinterpret_cast<const uint8_t *>
+                    (mappedPartitions.get());
+
+            debugPartitionsCpu = { partitionsGpu, partitionsGpu + rowCount };
+            
+            // Construct the CPU version of buckets
+            OpenCLEvent mapBuckets;
+            std::shared_ptr<const void> mappedBuckets;
+
+            std::tie(mappedBuckets, mapBuckets)
+                = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                                         0 /* offset */,
+                                         bytesPerPartition * numPartitionsAtDepth,
+                                         { mapPartitionSplits });
+        
+            mapBuckets.waitUntilFinished();
+
+            const W * bucketsGpu
+                = reinterpret_cast<const W *>(mappedBuckets.get());
+
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                const W * partitionBuckets = bucketsGpu + totalBuckets * i;
+                debugBucketsCpu.emplace_back(partitionBuckets,
+                                             partitionBuckets + totalBuckets);
+            }
+            
+            // Get back the CPU version of wAll
+            OpenCLEvent mapWAll;
+            std::shared_ptr<const void> mappedWAll;
+
+            std::tie(mappedWAll, mapWAll)
+                = queue.enqueueMapBuffer(clWAll, CL_MAP_READ,
+                                         0 /* offset */,
+                                         sizeof(W) * numPartitionsAtDepth,
+                                         { mapBuckets });
+        
+            mapWAll.waitUntilFinished();
+
+            const W * wAllGpu
+                = reinterpret_cast<const W *>(mappedWAll.get());
+
+            debugWAllCpu = { wAllGpu, wAllGpu + numPartitionsAtDepth };
+            
+            // Run the CPU version... first getting the data in place
+            debugPartitionSplitsCpu
+                = getPartitionSplits(debugBucketsCpu,
+                                     activeFeatures, bucketNumbers,
+                                     features, debugWAllCpu,
+                                     false /* parallel */);
+
+            // Make sure we got the right thing back out
+            ExcAssertEqual(debugPartitionSplitsCpu.size(),
+                           numPartitionsAtDepth);
+
+            bool different = false;
+            
+            for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
+                // We don't compare the score as the result is different
+                // due to numerical differences in the sqrt function.
+                // Save the active features to avoid the comparison failing
+                // because they are different.
+                auto oldActiveFeatures
+                    = debugPartitionSplitsCpu[p].activeFeatures;
+                debugPartitionSplitsCpu[p].activeFeatures.clear();
+                if ((partitionSplitsGpu[p].left
+                     != debugPartitionSplitsCpu[p].left)
+                    || (partitionSplitsGpu[p].right
+                        != debugPartitionSplitsCpu[p].right)
+                    || (partitionSplitsGpu[p].feature
+                        != debugPartitionSplitsCpu[p].feature)
+                    || (partitionSplitsGpu[p].value
+                        != debugPartitionSplitsCpu[p].value)) {
+                    different = true;
+                    cerr << "partition " << p << "\nGPU "
+                         << jsonEncodeStr(partitionSplitsGpu[p])
+                         << "\nCPU " << jsonEncodeStr(debugPartitionSplitsCpu[p])
+                         << endl;
+                }
+                debugPartitionSplitsCpu[p].activeFeatures = oldActiveFeatures;
+            }
+            
+            ExcAssert(!different);
+        }
+        
+        // Double the number of partitions, create new W entries for the
+        // new partitions, and transfer those examples that are in the
+        // wrong partition to the right one
+
+        // At last, the main kernel.  Each example either stays in the same
+        // partition or shifts to a new partition.  This kernel takes care
+        // of doing the shifting.
+
+        OpenCLKernel transferBucketsKernel
+            = kernelContext.program.createKernel("transferBucketsKernel");
+
+        transferBucketsKernel
+            .bind(clPartitionBuckets,
+                  clWAll,
+                  clPartitionSplits,
+                  (uint32_t)totalBuckets);
+
+        OpenCLEvent runTransferBucketsKernel
+            = queue.launch(transferBucketsKernel,
+                           { numPartitionsAtDepth, (totalBuckets + 63) / 64 * 64 },
+                           { 1, 64 },
+                           { runPartitionSplitsKernel });
+ 
+        allEvents.emplace_back("runTransferBucketsKernel "
+                               + std::to_string(myDepth),
+                               runTransferBucketsKernel);
+
+        OpenCLKernel updateBucketsKernel
+            = kernelContext.program.createKernel("updateBucketsKernel");
+
+        updateBucketsKernel
+            .bind((uint32_t)numPartitionsAtDepth,
+                  (uint32_t)totalBuckets,
+                  clPartitions,
+                  clPartitionBuckets,
+                  clWAll,
+                  clPartitionSplits,
+
+                  clExpandedRowData,
+                  (uint32_t)numRows,                  
+
+                  clBucketData,
+                  clBucketDataOffsets,
+                  clBucketNumbers,
+                  clBucketEntryBits,
+                  clFeaturesActive,
+                  clFeatureIsOrdinal);
+
+        OpenCLEvent runUpdateBucketsKernel
+            = queue.launch(updateBucketsKernel,
+                           { numRows, nf },
+                           { },
+                           { runTransferBucketsKernel });
+
+        allEvents.emplace_back("runUpdateBucketsKernel "
+                               + std::to_string(myDepth),
+                               runUpdateBucketsKernel);
+
+        if (debugKernelOutput) {
+
+            // Run the CPU version of the computation
+            updateBuckets(features,
+                          debugPartitionsCpu,
+                          debugBucketsCpu,
+                          debugWAllCpu,
+                          bucketNumbers,
+                          debugPartitionSplitsCpu,
+                          numPartitionsAtDepth,
+                          debugExpandedRowsCpu);
+
+            // There are three things that we modify (in-place):
+            // 1) The per-partition, per-feature W buckets
+            // 2) The per-partition wAll array
+            // 3) The per-row partition number array
+            //
+            // Each of these three will be mapped back from the GPU and
+            // its accuracy verified.
+
+            bool different = false;
+
+            // 1.  Map back the W buckets and compare against the CPU
+            // version.
+
+            // Construct the CPU version of buckets
+            OpenCLEvent mapBuckets;
+            std::shared_ptr<const void> mappedBuckets;
+
+            std::tie(mappedBuckets, mapBuckets)
+                = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                                         0 /* offset */,
+                                         bytesPerPartition * numPartitionsAtDepth,
+                                         { runUpdateBucketsKernel });
+        
+            mapBuckets.waitUntilFinished();
+
+            const W * bucketsGpu
+                = reinterpret_cast<const W *>(mappedBuckets.get());
+
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                const W * partitionBuckets = bucketsGpu + totalBuckets * i;
+
+                if (!debugBucketsCpu[i].empty()) {
+                    for (size_t j = 0;  j < totalBuckets;  ++j) {
+                        if (partitionBuckets[j] != debugBucketsCpu[i].at(j)) {
+                            cerr << "part " << i << " bucket " << j
+                                 << " update error: CPU "
+                                 << jsonEncodeStr(debugBucketsCpu[i][j])
+                                 << " GPU "
+                                 << jsonEncodeStr(partitionBuckets[j])
+                                 << endl;
+                            different = true;
+                        }
+                    }
+                } else {
+                    for (size_t j = 0;  j < totalBuckets;  ++j) {
+                        if (partitionBuckets[j].count() != 0) {
+                            cerr << "part " << i << " bucket " << j
+                                 << " update error: CPU empty "
+                                 << " GPU "
+                                 << jsonEncodeStr(partitionBuckets[j])
+                                 << endl;
+                            different = true;
+                        }
+                    }
+                }
+            }
+
+            // 2.  Map back the wAll values and compare against the CPU
+            // version
+            OpenCLEvent mapWAll;
+            std::shared_ptr<const void> mappedWAll;
+
+            std::tie(mappedWAll, mapWAll)
+                = queue.enqueueMapBuffer(clWAll, CL_MAP_READ,
+                                         0 /* offset */,
+                                         sizeof(W) * numPartitionsAtDepth,
+                                         { runUpdateBucketsKernel });
+        
+            mapWAll.waitUntilFinished();
+
+            const W * wAllGpu
+                = reinterpret_cast<const W *>(mappedWAll.get());
+
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                if (wAllGpu[i] != debugWAllCpu[i]) {
+                    cerr << "part " << i << " wAll update error: CPU "
+                         << jsonEncodeStr(debugWAllCpu[i])
+                         << " GPU " << jsonEncodeStr(wAllGpu[i])
+                         << endl;
+                    different = true;
+                }
+            }
+
+            // 3.  Map back the GPU partition numbers and compare against
+            // the GPU version
+            OpenCLEvent mapPartitions;
+            std::shared_ptr<const void> mappedPartitions;
+
+            std::tie(mappedPartitions, mapPartitions)
+                = queue.enqueueMapBuffer
+                   (clPartitions, CL_MAP_READ,
+                    0 /* offset */,
+                    partitionMemoryUsage,
+                    { runUpdateBucketsKernel });
+        
+            mapPartitions.waitUntilFinished();
+
+            const uint8_t * partitionsGpu
+                = reinterpret_cast<const uint8_t *>
+                    (mappedPartitions.get());
+
+            for (size_t i = 0;  i < rowCount;  ++i) {
+                if (partitionsGpu[i] != debugPartitionsCpu[i]) {
+                    different = true;
+                    cerr << "row " << i << " partition difference: CPU "
+                         << (int)debugPartitionsCpu[i]
+                         << " GPU " << (int)partitionsGpu[i]
+                         << endl;
+                }
+            }
+
+            ExcAssert(!different);
+        }
+                
+        // Ready for the next level
+        previousIteration = runUpdateBucketsKernel;
+    }
+
+    queue.flush();
+    queue.finish();
+    
+    cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
+         << "ms" << endl;
+
+    auto first = allEvents.at(0).second.getProfilingInfo();
+
+    cerr << "  submit    queue    start      end  elapsed name" << endl;
+    
+    for (auto & e: allEvents) {
+        std::string name = e.first;
+        const OpenCLEvent & ev = e.second;
+        
+        auto info = ev.getProfilingInfo() - first.queued;
+
+        auto ms = [&] (int64_t ns) -> double
+            {
+                return ns / 1000000.0;
+            };
+        
+        cerr << format("%8.2f %8.2f %8.2f %8.2f %8.2f ",
+                       ms(info.queued), ms(info.submit), ms(info.start),
+                       ms(info.end),
+                       ms(info.end - info.start))
+             << name << endl;
+    }
+    
+    return ML::Tree::Ptr();
+}
+
+ML::Tree::Ptr
+trainPartitionedRecursive(int depth, int maxDepth,
+                          ML::Tree & tree,
+                          MappedSerializer & serializer,
+                          const std::vector<uint32_t> & bucketOffsets,
+                          const std::vector<int> & activeFeatures,
+                          std::vector<W> bucketsIn,
+                          const std::vector<float> & decodedRows,
+                          const W & wAllInput,
+                          const DatasetFeatureSpace & fs,
+                          const std::vector<Feature> & features,
+                          FrozenMemoryRegionT<uint32_t> bucketMemory)
+{
+    return trainPartitionedRecursiveCpu
+        (depth, maxDepth, tree, serializer, bucketOffsets, activeFeatures,
+         std::move(bucketsIn), decodedRows, wAllInput, fs, features,
+         std::move(bucketMemory));
+                                           
+}
+
+ML::Tree::Ptr
+trainPartitionedEndToEnd(int depth, int maxDepth,
+                         ML::Tree & tree,
+                         MappedSerializer & serializer,
+                         const Rows & rows,
+                         const std::vector<Feature> & features,
+                         FrozenMemoryRegionT<uint32_t> bucketMemory,
+                         const DatasetFeatureSpace & fs)
+{
+    return trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,
+                                          rows, features, bucketMemory, fs);
 }
 
 } // namespace RF
