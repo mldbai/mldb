@@ -1304,7 +1304,7 @@ struct OpenCLCommandQueue {
             = clEnqueueBarrierWithWaitList
                 (queue, waitFor.size(), waitFor, result);
 
-        checkOpenCLError(error, "clEnqueueMarkerWithWaitList");
+        checkOpenCLError(error, "clEnqueueBarrierWithWaitList");
 
         return result;
     }
