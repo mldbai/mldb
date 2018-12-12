@@ -1191,6 +1191,98 @@ struct OpenCLCommandQueue {
         return result;
     }
 
+    OpenCLEvent enqueueWriteBuffer(cl_mem buffer,
+                                   size_t offset,
+                                   size_t length,
+                                   const void * source,
+                                   OpenCLEventList before = OpenCLEventList())
+    {
+        OpenCLEvent result;
+        
+        cl_int error
+            = clEnqueueWriteBuffer(queue, buffer, CL_FALSE /* blocking */,
+                                   offset, length, source,
+                                   before.size(), before,
+                                   result);
+
+        checkOpenCLError(error, "clEnqueueWriteBuffer");
+
+        return result;
+    }
+
+    OpenCLEvent enqueueFillBuffer(cl_mem buffer,
+                                  const void * pattern,
+                                  size_t patternLength,
+                                  size_t offset,
+                                  size_t length,
+                                  OpenCLEventList before = OpenCLEventList())
+    {
+        OpenCLEvent result;
+        
+        cl_int error
+            = clEnqueueFillBuffer(queue, buffer,
+                                  pattern, patternLength,
+                                  offset, length,
+                                  before.size(), before,
+                                  result);
+
+        checkOpenCLError(error, "clEnqueueFillBuffer");
+
+        return result;
+    }
+
+    template<typename T>
+    OpenCLEvent enqueueFillBuffer(cl_mem buffer,
+                                  const T & pattern,
+                                  size_t offset,
+                                  size_t length,
+                                  OpenCLEventList before = OpenCLEventList())
+    {
+        return enqueueFillBuffer(std::move(buffer), &pattern, sizeof(pattern),
+                                 offset, length, std::move(before));
+    }
+
+    /** Enqueue an operation to map the buffer.  Once the operation is done
+        (the returned event tells us when), the shared pointer can be used
+        to refer to the memory.  When the shared pointer is destroyed,
+        the mapping will be undone.
+    */
+    std::pair<std::shared_ptr<void>,
+              OpenCLEvent>
+    enqueueMapBuffer(cl_mem buffer,
+                     int flags,
+                     size_t offset,
+                     size_t length,
+                     OpenCLEventList before = OpenCLEventList())
+    {
+        cl_int error = 0;
+        OpenCLEvent result;
+        
+        void * addr = clEnqueueMapBuffer
+            (queue, buffer, CL_FALSE /* blocking */, flags,
+             offset, length,
+             before.size(), before, result, &error);
+
+        checkOpenCLError(error, "clEnqueueMapBuffer");
+
+        auto unmap = [=] (void * addr) throw()
+            {
+                int res = clEnqueueUnmapMemObject(queue, buffer, addr, 0, nullptr, nullptr);
+                try {
+                    checkOpenCLError(res, "clEnququeUnmapMemObject");
+                } MLDB_CATCH_ALL {
+                    using namespace std;
+                    cerr << getExceptionString() << endl;
+                    cerr << "Error in unmapping OpenCL object aborts program"
+                         << endl;
+                    abort();
+                }
+            };
+
+        return std::make_pair(std::shared_ptr<void>(addr, unmap),
+                              std::move(result));
+    }
+    
     OpenCLEvent enqueueMarker(OpenCLEventList waitFor)
     {
         OpenCLEvent result;
@@ -1657,7 +1749,7 @@ struct OpenCLContext {
         cl_int error;
         cl_mem result
             = clCreateBuffer (context,
-                              options | CL_MAP_READ | CL_MEM_USE_HOST_PTR,
+                              options | CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
                               bytes, (void *)buf, &error);
         checkOpenCLError(error, "clCreateBuffer");
         return OpenCLMemObject(result, true /* already retained */);
