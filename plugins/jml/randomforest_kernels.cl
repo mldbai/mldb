@@ -833,6 +833,25 @@ chooseSplitKernelCategorical(__global const W * w,
     return result;
 }
 
+inline void atomic_store_int(__global int * p, int val)
+{
+    atomic_xchg(p, val);
+}
+
+inline void atomic_store_long(__global long * p, long val)
+{
+    atom_xchg(p, val);
+}
+
+inline void atomic_store_W(__global W * w, const W * val)
+{
+    printf("atomic store W (%ld,%ld,%d)\n", val->vals[0], val->vals[1], val->count);
+    atomic_store_long(&w->vals[0], val->vals[0]);
+    atomic_store_long(&w->vals[1], val->vals[1]);
+    atomic_store_int(&w->count,    val->count);
+    printf("atomic store W wrote (%ld,%ld,%d)\n", w->vals[0], w->vals[1], w->count);
+}
+
 __kernel void
 getPartitionSplitsKernel(uint32_t totalBuckets,
                          __global const uint32_t * bucketNumbers,
@@ -844,7 +863,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
 
                          __global const W * wAll,  // one per partition
                          __global PartitionSplit * splitsOut,
-                         __global int * partitionLocks)
+                         __global volatile int * partitionLocks)
 {
     int f = get_global_id(1);
 
@@ -905,21 +924,51 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     // Finally, we have each feature update the lowest split for the
     // partition.  Spin until we've acquired the lock for the partition.
     // We won't hold it for long, so the spinlock is not _too_ inefficient.
+    // NOTE: this only works because we make all workgroups apart from one
+    // return above.  In general, you can't do a simple spin lock like this
+    // in a kernel without causing a deadlock.
     while (atomic_inc(&partitionLocks[partition]) != 0) {
         atomic_dec(&partitionLocks[partition]);
     }
 
+    // We can only access the splitOut values via atomic operations, as the
+    // non-atomic global memory operations are only eventually consistent
+    // over workgroups, and on AMD GPUs the writes may not be visible to
+    // other workgroups until the kernel has finished.
+    
+    float currentScore = atomic_xchg(&splitOut->score, best.score);
+    int currentFeature = atomic_xchg(&splitOut->feature, best.feature);
+    
     // If we have the best score or an equal score and a lower feature number
     // (for determinism), then we update the output
-    if (best.score < splitOut->score
-        || (best.score == splitOut->score
-            && best.feature < splitOut->feature)) {
-        *splitOut = best;
+    if (best.score < currentScore
+        || (best.score == currentScore
+            && best.feature < currentFeature)) {
+
+        //printf("BEST, %.10f < %.10f\n", best.score, currentScore);
+        
+        // Copy the rest in, atomically
+        atomic_store_int(&splitOut->value, best.value);
+
+        atomic_store_long(&splitOut->left.vals[0], best.left.vals[0]);
+        atomic_store_long(&splitOut->left.vals[1], best.left.vals[1]);
+        atomic_store_int(&splitOut->left.count, best.left.count);
+
+        atomic_store_long(&splitOut->right.vals[0], best.right.vals[0]);
+        atomic_store_long(&splitOut->right.vals[1], best.right.vals[1]);
+        atomic_store_int(&splitOut->right.count, best.right.count);
+
+        atomic_store_int(&splitOut->direction, best.direction);
         
         // Shouldn't be needed, but just in case...
         mem_fence(CLK_GLOBAL_MEM_FENCE);
     }
-
+    else {
+        // Not the best, exchange them back
+        atomic_xchg(&splitOut->score, currentScore);
+        atomic_xchg(&splitOut->feature, currentFeature);
+    }
+    
     // Finally, release the lock to let another feature in
     atomic_dec(&partitionLocks[partition]);
 }
