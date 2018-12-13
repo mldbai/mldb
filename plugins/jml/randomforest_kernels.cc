@@ -2430,6 +2430,74 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
 
+        if (debugKernelOutput) {
+            // Verify that the input prerequisites are OK:
+            // - The counts are all non-negative
+            // - The wAll values are all non-negative
+            // - The bucket totals all match the wAll values
+
+            // To do this, we pull back the W and wAll wAll buckets
+            OpenCLEvent mapBuckets;
+            std::shared_ptr<const void> mappedBuckets;
+
+            std::tie(mappedBuckets, mapBuckets)
+                = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                                         0 /* offset */,
+                                         bytesPerPartition * numPartitionsAtDepth,
+                                         { previousIteration });
+        
+            mapBuckets.waitUntilFinished();
+
+            const W * bucketsGpu
+                = reinterpret_cast<const W *>(mappedBuckets.get());
+            
+            // Get back the CPU version of wAll
+            OpenCLEvent mapWAll;
+            std::shared_ptr<const void> mappedWAll;
+
+            std::tie(mappedWAll, mapWAll)
+                = queue.enqueueMapBuffer(clWAll, CL_MAP_READ,
+                                         0 /* offset */,
+                                         sizeof(W) * numPartitionsAtDepth,
+                                         { previousIteration });
+        
+            mapWAll.waitUntilFinished();
+
+            const W * wAllGpu
+                = reinterpret_cast<const W *>(mappedWAll.get());
+
+            bool problem = false;
+            
+            for (int p = 0;  p < numPartitionsAtDepth / 2;  ++p) {
+
+                if (wAllGpu[p].count() < 0
+                    || wAllGpu[p].v[0] < 0.0
+                    || wAllGpu[p].v[1] < 0.0) {
+                    cerr << "partition " << p << " wAll error: "
+                         << jsonEncodeStr(wAllGpu[p]) << endl;
+                    problem = true;
+                }
+
+                //W wAllPartition;
+                
+                for (int b = 0;  b < numActiveBuckets;  ++b) {
+
+                    if (bucketsGpu[p * numActiveBuckets + b].count() < 0
+                        || bucketsGpu[p * numActiveBuckets + b].v[0] < 0.0
+                        || bucketsGpu[p * numActiveBuckets + b].v[1] < 0.0) {
+
+                        cerr << "partition " << p << " bucket " << b << " error: "
+                             << jsonEncodeStr(bucketsGpu[p * numActiveBuckets + b])
+                             << endl;
+                        problem = true;
+                    }
+                        
+                    //wAllPartition += bucketsGpu[p * numActiveBuckets + b];
+                }
+            }
+
+            ExcAssert(!problem);
+        }
         // We need to store partition splits for each partition.  Get the
         // memory.  It doesn't need to be initialized on the CPU; the GPU
         // can do its own initialization with the fillPartitionSplits kernel.
@@ -2520,7 +2588,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         if (debugKernelOutput) {
             // Map back the GPU partition splits
             OpenCLEvent mapPartitionSplits;
-            std::shared_ptr<const void> mappedPartitionSplits;
+            std::shared_ptr<void> mappedPartitionSplits;
 
             std::tie(mappedPartitionSplits, mapPartitionSplits)
                 = queue.enqueueMapBuffer
@@ -2531,8 +2599,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         
             mapPartitionSplits.waitUntilFinished();
 
-            const PartitionSplit * partitionSplitsGpu
-                = reinterpret_cast<const PartitionSplit *>
+            PartitionSplit * partitionSplitsGpu
+                = reinterpret_cast<PartitionSplit *>
                     (mappedPartitionSplits.get());
 
             // Map back the GPU partition numbers
@@ -2606,6 +2674,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             bool different = false;
             
             for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
+
+                new (&partitionSplitsGpu[p].activeFeatures) std::vector<int>;
+                
                 // We don't compare the score as the result is different
                 // due to numerical differences in the sqrt function.
                 // Save the active features to avoid the comparison failing
