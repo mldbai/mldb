@@ -15,6 +15,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/tuple_description.h"
+#include "mldb/utils/environment.h"
 #include <condition_variable>
 #include <sstream>
 
@@ -2022,6 +2023,10 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
                                      fs, features, bucketMemory);
 }
 
+EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
+
+
+
 ML::Tree::Ptr
 trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                                ML::Tree & tree,
@@ -2031,7 +2036,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                                FrozenMemoryRegionT<uint32_t> bucketMemory,
                                const DatasetFeatureSpace & fs)
 {
-    constexpr bool debugKernelOutput = false;
+    const bool debugKernelOutput = DEBUG_RF_OPENCL_KERNELS;
 
     // First, figure out the memory requirements.  This means sizing all
     // kinds of things so that we can make our allocations statically.
