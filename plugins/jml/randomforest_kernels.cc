@@ -1600,7 +1600,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
 
                 if (score == INFINITY) return;
 
-#if 1   
+#if 0
                 cerr << "part " << partition << " af " << af
                 << " f " << std::get<0>(val)
                 << " score " << std::get<1>(val) << " split "
@@ -2468,8 +2468,10 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
             bool problem = false;
             
-            for (int p = 0;  p < numPartitionsAtDepth / 2;  ++p) {
-
+            for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
+                
+                cerr << "partition " << p << " count " << wAllGpu[p].count() << endl;
+                
                 if (wAllGpu[p].count() < 0
                     || wAllGpu[p].v[0] < 0.0
                     || wAllGpu[p].v[1] < 0.0) {
@@ -2478,21 +2480,40 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                     problem = true;
                 }
 
-                //W wAllPartition;
-                
-                for (int b = 0;  b < numActiveBuckets;  ++b) {
 
-                    if (bucketsGpu[p * numActiveBuckets + b].count() < 0
-                        || bucketsGpu[p * numActiveBuckets + b].v[0] < 0.0
-                        || bucketsGpu[p * numActiveBuckets + b].v[1] < 0.0) {
+                for (int f = 0;  f < nf;  ++f) {
+                    int first = bucketNumbers[f];
+                    int last = bucketNumbers[f + 1];
+                    int nb = last - first;
 
-                        cerr << "partition " << p << " bucket " << b << " error: "
-                             << jsonEncodeStr(bucketsGpu[p * numActiveBuckets + b])
-                             << endl;
+                    if (nb == 0)
+                        continue;
+                    
+                    W wAllPartition;
+                    
+                    for (int b = 0;  b < nb;  ++b) {
+                        
+                        const W * featureBuckets = bucketsGpu + (p * numActiveBuckets) + first;
+                        
+                        if (featureBuckets[b].count() < 0
+                            || featureBuckets[b].v[0] < 0.0 || featureBuckets[b].v[1] < 0.0) {
+                            cerr << "partition " << p << " feature " << f
+                                 << " bucket " << b << " error: "
+                                 << jsonEncodeStr(bucketsGpu[p * numActiveBuckets + b])
+                                 << endl;
+                            problem = true;
+                        }
+
+                        wAllPartition += featureBuckets[b];
+                    }
+
+                    if (wAllPartition != wAllGpu[p]) {
+                        cerr << "partition " << p << " feature " << f
+                             << " wAll consistency error: feature = "
+                             << jsonEncodeStr(wAllPartition) << " wAll = "
+                             << jsonEncodeStr(wAllGpu[p]) << endl;
                         problem = true;
                     }
-                        
-                    //wAllPartition += bucketsGpu[p * numActiveBuckets + b];
                 }
             }
 
@@ -2760,7 +2781,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         
         OpenCLEvent runUpdateBucketsKernel
             = queue.launch(updateBucketsKernel,
-                           { (numRows + 255) / 256 * 256, nf + 1 /* +1 is wAll */},
+                           { 65536, nf + 1 /* +1 is wAll */},
                            { 256, 1 },
                            { runTransferBucketsKernel });
 
@@ -2815,6 +2836,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                     for (size_t j = 0;  j < numActiveBuckets;  ++j) {
                         if (partitionBuckets[j] != debugBucketsCpu[i].at(j)) {
                             cerr << "part " << i << " bucket " << j
+                                 << " num " << numActiveBuckets * i + j
                                  << " update error: CPU "
                                  << jsonEncodeStr(debugBucketsCpu[i][j])
                                  << " GPU "

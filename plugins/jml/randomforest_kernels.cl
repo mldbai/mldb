@@ -199,13 +199,6 @@ void zeroW(__local W * w)
     w->count = 0;
 }
 
-void zeroWPrivate(__private W * w)
-{
-    w->vals[0] = 0;
-    w->vals[1] = 0;
-    w->count = 0;
-}
-
 int64_t encodeW(float f)
 {
     int64_t result = convert_long((f + ADD_TO_ROUND) * VAL_2_HL);
@@ -223,17 +216,16 @@ float decodeW(int64_t v)
 
 void incrementWLocal(__local W * w, bool label, float weight)
 {
-    //if (weight != 0.0)
-    //    return;
-    
     int64_t inc = encodeW(weight);
-#if 1
     atom_add(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
-#else
-    w->vals[label ? 1 : 0] += inc;
-    ++w->count;
-#endif
+}
+
+void decrementWLocal(__local W * w, bool label, float weight)
+{
+    int64_t inc = encodeW(weight);
+    atom_sub(&w->vals[label ? 1 : 0], inc);
+    atom_dec(&w->count);
 }
 
 void incrementWGlobal(__global W * w, bool label, float weight)
@@ -255,7 +247,10 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
 {
     atom_add(&wOut->vals[0], wIn->vals[0]);
     atom_add(&wOut->vals[1], wIn->vals[1]);
-    atom_add(&wOut->count,   wIn->count);
+    int oldCount = atom_add(&wOut->count,   wIn->count);
+    if (oldCount < 0 || oldCount + wIn->count < 0) {
+        printf("W COUNT < 0: %d + %d = %d\n", oldCount, wIn->count, oldCount + wIn->count);
+    }
 }
 
 uint32_t testRow(uint32_t rowId,
@@ -370,16 +365,6 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     if (!featureActive[f])
         return;
-    
-#if 0    
-    W myW[512];
-
-    for (int i = 0;  i < numBuckets;  ++i) {
-        zeroWPrivate(myW + i);
-        //myW[i].vals[0] = 0;
-        //myW[i].vals[1] = 0;
-    }
-#endif
     
     __local int minWorkgroupBucket, maxWorkgroupBucket;
 
@@ -519,9 +504,9 @@ decompressRowsKernel(__global const uint64_t * rowData,
                      
                      __global float * decompressedWeightsOut)
 {
-    if (get_global_id(0) == 0) {
-        printf("sizeof(W) = %d\n", sizeof(W));
-    }
+    //if (get_global_id(0) == 0) {
+    //    printf("sizeof(W) = %d\n", sizeof(W));
+    //}
 
     uint32_t exampleNum = 0;
     float weight = 1.0;
@@ -674,6 +659,8 @@ __kernel void
 fillPartitionSplitsKernel(__global PartitionSplit * splits)
 {
     int n = get_global_id(0);
+    //printf("filling partition %d at %ld\n",
+    //       n, (long)(((__global char *)(splits + n)) - (__global char *)splits));
     PartitionSplit spl = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
                            0, { 0, 0, 0, 0, 0, 0 } };
     splits[n] = spl;
@@ -707,8 +694,10 @@ chooseSplitKernelOrdinal(__global const W * w,
 
     int f = get_global_id(1);
 
+    int p = get_global_id(2);
+    
     //if (bucket == 0) {
-    //    printf("feature %d is ordinal\n", f);
+    //   printf("feature %d is ordinal\n", f);
     //}
 
     // Calculate best split point for ordered values
@@ -721,9 +710,12 @@ chooseSplitKernelOrdinal(__global const W * w,
     // Now test split points one by one
     for (unsigned j = 0;  j < numBuckets;  ++j) {
 
-        //printf("split %d false = (%f,%f,%d) true = (%f,%f,%d)\n", j,
-        //       decodeW(wFalse.vals[0]), decodeW(wFalse.vals[1]), wFalse.count,
-        //       decodeW(wTrue.vals[0]), decodeW(wTrue.vals[1]), wTrue.count);
+        if (wFalse.count < 0 || wTrue.count < 0)
+            printf("p %d f %d split %d false = (%.4f,%.4f,%d) true = (%.4f,%.4f,%d) cur = (%.4f,%.4f,%d) all=(%.4f,%.4f,%d)\n", p, f, j,
+                   decodeW(wFalse.vals[0]), decodeW(wFalse.vals[1]), wFalse.count,
+                   decodeW(wTrue.vals[0]), decodeW(wTrue.vals[1]), wTrue.count,
+                   decodeW(w[j].vals[0]), decodeW(w[j].vals[1]), w[j].count,
+                   decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count);
         //printf("split %d false = (%d) true = (%d)\n", j,
         //       wFalse.count,
         //       wTrue.count);
@@ -732,7 +724,7 @@ chooseSplitKernelOrdinal(__global const W * w,
             
             float s = scoreSplit(wFalse, wTrue);
 
-            //if (f == 4 && get_global_id(2) == 4) {
+            //if (f == 4 && get_global_id(2) == 61) {
             //    printf("p %d f %d bucket %d score %.10f\n",
             //           (uint32_t)get_global_id(2), f, j, s);
             //}
@@ -810,10 +802,10 @@ chooseSplitKernelCategorical(__global const W * w,
             
         double s = scoreSplit(wFalse, w[j]);
 
-        if (f == 4 && get_global_id(2) == 4) {
-            printf("p %d f %d bucket %d score %\n",
-                   get_global_id(2), f, j, s);
-        }
+        //if (f == 3 && get_global_id(2) == 61) {
+        //    printf("p %d f %d bucket %d score %.10f\n",
+        //           get_global_id(2), f, j, s);
+        //}
             
         if (s < bestScore) {
             bestScore = s;
@@ -874,6 +866,9 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     int bucket = get_global_id(0);
     int partition = get_global_id(2);
     int numPartitions = get_global_size(2);
+
+    if (wAll[partition].count == 0)
+        return;
     
     //if (partition == 0 && bucket == 0) {
     //    printf("sizeof(PartitionSplit) = %d\n", sizeof(PartitionSplit));
@@ -991,8 +986,11 @@ transferBucketsKernel(__global W * allPartitionBuckets,
 
     int i = get_global_id(0);
 
-    if (partitionSplits[i].right.count == 0)
-        return;
+    // Commented out because it causes spurious differences in the debugging code between
+    // the two sides.  It doesn' thave any effect on the output, though, and saves some
+    // work.
+    //if (partitionSplits[i].right.count == 0)
+    //    return;
             
     int j = get_global_id(1);
 
@@ -1101,147 +1099,173 @@ updateBucketsKernel(uint32_t rightOffset,
                     __local W * wLocal,
                     uint32_t maxLocalBuckets)
 {
-    // Row number
-    int i = get_global_id(0);
-    if (i >= rowCount)
-        return;
-
     int f = get_global_id(1) - 1;
 
     if (f != -1 && !featureActive[f])
         return;
     
-    // We may have updated partition already, so here we mask out any
-    // possible offset.
-    int partition = partitions[i] & (rightOffset - 1);
-    int splitFeature = partitionSplits[partition].feature;
-                
-    if (splitFeature == -1) {
-        // reached a leaf here, nothing to split                    
-        return;
-    }
-
     // We have to set up to access two different features:
     // 1) The feature we're splitting on for this example (splitFeature)
     // 2) The feature we're updating for the split (f)
     // Thus, we need to perform the same work twice, once for each of the
     // features.
     
-    // Split feature values go here
-    uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
-    uint32_t splitBucketDataLength
-        = bucketDataOffsets[splitFeature + 1]
-        - splitBucketDataOffset;
-    uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1]
-        - bucketNumbers[splitFeature];
-    __global const uint32_t * splitBucketData
-        = allBucketData + splitBucketDataOffset;
-    uint32_t splitBucketBits = bucketEntryBits[splitFeature];
+    uint32_t bucketDataOffset;
+    uint32_t bucketDataLength;
+    uint32_t numBuckets;
+    __global const uint32_t * bucketData;
+    uint32_t bucketBits;
+    uint32_t numLocalBuckets = 0;
 
-#if 0    
+    // Pointer to the global array we eventually want to update
+    __global W * wGlobal;
+
+    if (f == -1) {
+        numLocalBuckets = rightOffset * 2;
+        wGlobal = wAll;
+    }
+    else {
+        bucketDataOffset = bucketDataOffsets[f];
+        bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
+        numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
+        bucketData = allBucketData + bucketDataOffset;
+        bucketBits = bucketEntryBits[f];
+        numLocalBuckets = min(numBuckets, maxLocalBuckets);
+        wGlobal = partitionBuckets;
+    }
+
+    //numLocalBuckets = 0;
+    
     // Clear our local accumulation buckets
-    for (int b = get_local_id(0);  b < numBuckets && b < maxLocalBuckets;
+    for (int b = get_local_id(0);  b < numLocalBuckets;
          b += get_local_size(0)) {
-        //printf("zeroing %d of %d for feature %d\n", i, numBuckets, f);
         zeroW(wLocal + b);
     }
 
     // Wait for all buckets to be clear
     barrier(CLK_LOCAL_MEM_FENCE);
-#endif
     
-    float weight = fabs(decodedRows[i]);
-    bool label = decodedRows[i] < 0;
-    int exampleNum = i;
+    for (int i = get_global_id(0);  i < rowCount;  i += get_global_size(0)) {
+
+        // We may have updated partition already, so here we mask out any
+        // possible offset.
+        int partition = partitions[i] & (rightOffset - 1);
+        int splitFeature = partitionSplits[partition].feature;
+                
+        if (splitFeature == -1) {
+            // reached a leaf here, nothing to split                    
+            continue;
+        }
+
+        // Split feature values go here
+        uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
+        uint32_t splitBucketDataLength
+            = bucketDataOffsets[splitFeature + 1]
+            - splitBucketDataOffset;
+        uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1]
+            - bucketNumbers[splitFeature];
+        __global const uint32_t * splitBucketData
+            = allBucketData + splitBucketDataOffset;
+        uint32_t splitBucketBits = bucketEntryBits[splitFeature];
+
+        float weight = fabs(decodedRows[i]);
+        bool label = decodedRows[i] < 0;
+        int exampleNum = i;
             
-    int leftPartition = partition;
-    int rightPartition = partition + rightOffset;
+        int leftPartition = partition;
+        int rightPartition = partition + rightOffset;
 
-    //if (leftPartition >= rightOffset
-    //    || rightPartition >= rightOffset * 2) {
-    //    printf("PARTITION SCALING ERROR\n");
-    //}
+        if (leftPartition >= rightOffset
+            || rightPartition >= rightOffset * 2) {
+            printf("PARTITION SCALING ERROR\n");
+        }
     
-    int splitValue = partitionSplits[partition].value;
-    bool ordinal = featureIsOrdinal[splitFeature];
-    int bucket = getBucket(exampleNum,
-                           splitBucketData, splitBucketDataLength,
-                           splitBucketBits, splitNumBuckets);
-
-    int side = ordinal ? bucket >= splitValue : bucket != splitValue;
-
-    // Set the new partition number from feature 0
-    if (f == 0) {
-        partitions[i] = partition + side * rightOffset;
-    }
-
-    // 0 = left to right, 1 = right to left
-    int direction = partitionSplits[partition].direction;
-
-    // We only need to update features on the wrong side, as we
-    // transfer the weight rather than sum it from the
-    // beginning.  This means less work for unbalanced splits
-    // (which are typically most of them, especially for discrete
-    // buckets)
-
-    if (direction == side) {
-        return;
-    }
-    int fromPartition, toPartition;
-    if (direction == 0 && side == 1) {
-        // Transfer from left to right
-        fromPartition = leftPartition;
-        toPartition   = rightPartition;
-    }
-    else {
-        // Transfer from right to left
-        fromPartition = rightPartition;
-        toPartition   = leftPartition;
-    }
+        int splitValue = partitionSplits[partition].value;
+        bool ordinal = featureIsOrdinal[splitFeature];
+        int bucket = getBucket(exampleNum,
+                               splitBucketData, splitBucketDataLength,
+                               splitBucketBits, splitNumBuckets);
         
-    if (f == -1) {
-        // Update the wAll, transfering weight
-        decrementWAtomic(wAll + fromPartition, label, weight);
+        int side = ordinal ? bucket >= splitValue : bucket != splitValue;
+        
+        // Set the new partition number from the wAll job
+        if (f == -1) {
+            partitions[i] = partition + side * rightOffset;
+        }
+
+        // 0 = left to right, 1 = right to left
+        int direction = partitionSplits[partition].direction;
+
+        // We only need to update features on the wrong side, as we
+        // transfer the weight rather than sum it from the
+        // beginning.  This means less work for unbalanced splits
+        // (which are typically most of them, especially for discrete
+        // buckets)
+
+        if (direction == side) {
+            continue;
+        }
+        int fromPartition, toPartition;
+        if (direction == 0 && side == 1) {
+            // Transfer from left to right
+            fromPartition = leftPartition;
+            toPartition   = rightPartition;
+        }
+        else {
+            // Transfer from right to left
+            fromPartition = rightPartition;
+            toPartition   = leftPartition;
+        }
+
+        int fromBucket, toBucket;
+        
+        if (f == -1) {
+            fromBucket = fromPartition;
+            toBucket = toPartition;
+        }
+        else {
+            int startBucket = bucketNumbers[f];
+    
+            bucket = getBucket(exampleNum,
+                               bucketData, bucketDataLength,
+                               bucketBits, numBuckets);
+
+            fromBucket = fromPartition * numActiveBuckets + startBucket + bucket;
+            toBucket = toPartition * numActiveBuckets + startBucket + bucket;
+        }
+
+        if (fromBucket < numLocalBuckets) {
+            decrementWLocal(wLocal + fromBucket, label, weight);
+        }
+        else {
+            decrementWAtomic(wGlobal + fromBucket, label, weight);
+        }
+
+        if (toBucket < numLocalBuckets) {
+            incrementWLocal(wLocal + toBucket, label, weight);
+        }
+        else {
+            incrementWAtomic(wGlobal + toBucket, label, weight);
+        }
+
+        //printf("row %d feature %d side %d direction %d from %d to %d lbl %d wt %f bkt %d -> %d\n",
+        //       i, f, side, direction, fromPartition, toPartition,
+        //       label, weight, fromBucket, toBucket);
+        
         //if ((int)wAll[fromPartition].count < 0) {
         //    printf("NEGATIVE WALL row %d feature %d side %d direction %d from %d to %d lbl %d wt %f\n",
-        //   i, f, side, direction, fromPartition, toPartition,
-        //   label, weight);
+        //           i, f, side, direction, fromPartition, toPartition,
+        //           label, weight);
         //}
-        incrementWAtomic(wAll +   toPartition, label, weight);
-
-        return;
     }
 
-    // Transfer the weight from each of the features
-    // Our feature values go here
-    uint32_t bucketDataOffset = bucketDataOffsets[f];
-    uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
-    uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
-    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
-    uint32_t bucketBits = bucketEntryBits[f];
-
-    int startBucket = bucketNumbers[f];
+    // Wait for all buckets to be updated, before we write them back to the global mem
+    barrier(CLK_LOCAL_MEM_FENCE);
     
-    bucket = getBucket(exampleNum,
-                       bucketData, bucketDataLength,
-                       bucketBits, numBuckets);
-
-    //printf("row %d feature %d side %d direction %d from %d to %d bucket %d offset %d lbl %d wt %f\n",
-    //       i, f, side, direction, fromPartition, toPartition, bucket,
-    //       startBucket + bucket, label, weight);
-
-    decrementWAtomic(partitionBuckets
-                     + fromPartition * numActiveBuckets
-                     + startBucket + bucket, label, weight);
-
-    //if ((int)partitionBuckets[fromPartition * numActiveBuckets + startBucket + bucket].count < 0) {
-    //    printf("NEGATIVE W BUCKET row %d feature %d side %d direction %d from %d to %d bucket %d offset %d lbl %d wt %f\n",
-    //           i, f, side, direction, fromPartition, toPartition, bucket,
-    //           startBucket + bucket, label, weight);
-    //}
-
-    incrementWAtomic(partitionBuckets
-                     + toPartition * numActiveBuckets
-                     + startBucket + bucket, label, weight);
+    for (int b = get_local_id(0);  b < numLocalBuckets;  b += get_local_size(0)) {
+        if (wLocal[b].count != 0) {
+            incrementWOut(wGlobal + b, wLocal + b);
+        }
+    }
 }
 
