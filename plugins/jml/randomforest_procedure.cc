@@ -75,6 +75,10 @@ RandomForestProcedureConfigDescription()
              "also be provided.");
     addField("verbosity", &RandomForestProcedureConfig::verbosity,
              "Should the procedure be verbose for debugging and tuning purposes", false);
+    addField("sampleFeatureVectors", &RandomForestProcedureConfig::sampleFeatureVectors,
+             "Should we sample feature vectors (default yes)?  Should only be set "
+             "to false for testing or with a very small number of featureVectorSamplings.",
+             true);
     addParent<ProcedureConfig>();
 
     onPostValidate = chain(validateQuery(&RandomForestProcedureConfig::trainingData,
@@ -328,18 +332,25 @@ run(const ProcedureRunConfig & run,
                 size_t numRowsInPartition = last - first;
 
                 distribution<uint8_t> in_training(numRowsInPartition);
-                vector<int> tr_ex_nums(numRowsInPartition);
-                std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
-                std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);
-                
-                for (unsigned i = 0;  i < numRowsInPartition * trainprop;  ++i)
-                    in_training[tr_ex_nums[i]] = 1;
-
                 distribution<uint8_t> example_weights(numRowsInPartition);
                 
-                // Generate our example weights.
-                for (unsigned i = 0;  i < numRowsInPartition;  ++i)
-                    example_weights[myrng(numRowsInPartition)] += 1;
+
+                if (runProcConf.sampleFeatureVectors) {
+                    vector<int> tr_ex_nums(numRowsInPartition);
+                    std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
+                    std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);
+                
+                    for (unsigned i = 0;  i < numRowsInPartition * trainprop;  ++i)
+                        in_training[tr_ex_nums[i]] = 1;
+
+                    // Generate our example weights.
+                    for (unsigned i = 0;  i < numRowsInPartition;  ++i)
+                        example_weights[myrng(numRowsInPartition)] += 1;
+                }
+                else {
+                    std::fill(in_training.begin(), in_training.end(), 1);
+                    std::fill(example_weights.begin(), example_weights.end(), 1);
+                }
 
                 size_t partitionNumNonZero = 0;
                 double totalTrainingWeights = 0;
@@ -391,7 +402,7 @@ run(const ProcedureRunConfig & run,
                     // Cull the features according to the sampling proportion
                     for (unsigned i = 0;  i < data.features.size();  ++i) {
                         if (data.features[i].active
-                            && uniform01(rng) > procedureConfig.featureVectorSamplingProp) {
+                            && uniform01(rng) > procedureConfig.featureSamplingProp) {
                             mydata.features[i].active = false;
                         }
                         else {
