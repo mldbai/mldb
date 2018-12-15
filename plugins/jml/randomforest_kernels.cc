@@ -2835,16 +2835,48 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   LocalArray<W>(maxLocalBuckets),
                   (uint32_t)maxLocalBuckets);
 
-        //cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
-        //                                                context.getDevices()[0]))
-        //     << endl;
-        
-        OpenCLEvent runUpdateBucketsKernel
-            = queue.launch(updateBucketsKernel,
-                           { 65536, nf + 1 /* +1 is wAll */},
-                           { 256, 1 },
-                           { runTransferBucketsKernel });
+        std::vector<OpenCLEvent> updateBucketsEvents;
 
+        OpenCLEvent runUpdateWAllKernel
+            = queue.launch(updateBucketsKernel,
+                           { 65536, 1 /* +1 is wAll */},
+                           { 256, 1 },
+                           { runTransferBucketsKernel },
+                           { 0, 0 });
+
+        allEvents.emplace_back("runUpdateWAllKernel "
+                               + std::to_string(myDepth),
+                               runUpdateWAllKernel);
+
+        updateBucketsEvents.emplace_back(runUpdateWAllKernel);
+        
+        for (int f = 0;  f < nf;  ++f) {
+            if (!featuresActive[f])
+                continue;
+
+            //cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
+            //                                                context.getDevices()[0]))
+            //     << endl;
+            
+            OpenCLEvent runUpdateBucketsKernel
+                = queue.launch(updateBucketsKernel,
+                               { 65536, 1 /* +1 is wAll */},
+                               { 256, 1 },
+                               { runTransferBucketsKernel },
+                               { 0, (unsigned)(f + 1) });
+
+            allEvents.emplace_back("runUpdateBucketsKernel "
+                                   + std::to_string(myDepth) + " feat "
+                                   + std::to_string(f) + " nb "
+                                   + std::to_string(bucketNumbers[f + 1] - bucketNumbers[f]),
+                                   runUpdateBucketsKernel);
+            
+            updateBucketsEvents.emplace_back(runUpdateBucketsKernel);
+        }
+
+        OpenCLEvent runUpdateBucketsKernel
+            = queue.enqueueMarker(updateBucketsEvents);
+        
         allEvents.emplace_back("runUpdateBucketsKernel "
                                + std::to_string(myDepth),
                                runUpdateBucketsKernel);

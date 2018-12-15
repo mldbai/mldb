@@ -1085,6 +1085,11 @@ struct OpenCLEventList {
     {
     }
 
+    OpenCLEventList(std::vector<OpenCLEvent> events)
+        : events(std::move(events))
+    {
+    }
+    
     // Relies on events in memory being just an array
     operator const cl_event * () const
     {
@@ -1149,11 +1154,13 @@ struct OpenCLCommandQueue {
     OpenCLEvent launch(cl_kernel kernel,
                        std::vector<size_t> range,
                        std::vector<size_t> work = std::vector<size_t>(),
-                       OpenCLEventList before = OpenCLEventList())
+                       OpenCLEventList before = OpenCLEventList(),
+                       std::vector<size_t> offsets = std::vector<size_t>())
     {
         OpenCLEvent result;
 
         ExcAssert(work.empty() || work.size() == range.size());
+        ExcAssert(offsets.empty() || offsets.size() == range.size());
 
         // TODO: check for too much local memory on enqueue failure
         //cl_ulong localMemSize = clGetKernelWorkGroupInfo(kernel, ...);
@@ -1161,7 +1168,7 @@ struct OpenCLCommandQueue {
         cl_int error = clEnqueueNDRangeKernel
             (queue, kernel,
              range.size(),
-             nullptr /* offsets */,
+             offsets.empty() ? nullptr : offsets.data(),
              range.data(),
              work.empty() ? nullptr : work.data(),
              before.size(), before,
