@@ -2038,8 +2038,12 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 {
     const bool debugKernelOutput = DEBUG_RF_OPENCL_KERNELS;
 
+    
     // First, figure out the memory requirements.  This means sizing all
     // kinds of things so that we can make our allocations statically.
+
+    // How much total memory was allocated?
+    uint64_t totalGpuAllocation = 0;
 
     // How many rows in this partition?
     size_t numRows = rows.rowCount();
@@ -2099,6 +2103,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         featureIsOrdinal.push_back(features[i].ordinal);
         
         if (features[i].active) {
+            cerr << "feature " << i << " buckets " << features[i].buckets.numBuckets << endl;
             ExcAssertGreaterEqual((void *)buckets.storage.data(),
                                   (void *)bucketMemory.data());
         
@@ -2171,23 +2176,34 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         = context.createBuffer(CL_MEM_READ_ONLY,
                                rowMemorySizePageAligned);
 
+    totalGpuAllocation += rowMemorySizePageAligned;
+
+    OpenCLEvent migrateRowData
+        = queue.enqueueMigrateBuffer(CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED,
+                                     clRowData);
+    allEvents.emplace_back("migrateRowData", migrateRowData);
+
     // ... and send it over
     OpenCLEvent copyRowData
         = queue.enqueueWriteBuffer
             (clRowData, 0 /* offset */, rowMemorySizePageAligned,
-             (const void *)rows.rowData.data());
+             (const void *)rows.rowData.data(),
+             { migrateRowData });
 
     allEvents.emplace_back("copyRowData", copyRowData);
-    
+
     // Same for our weight data
     OpenCLMemObject clWeightData
         = context.createBuffer(CL_MEM_READ_ONLY, 4);
     
+    totalGpuAllocation += 4;
+
     if (rows.weightEncoder.weightFormat == WF_TABLE) {
         clWeightData = context.createBuffer
             (0,
              (const void *)rows.weightEncoder.weightFormatTable.data(),
              rows.weightEncoder.weightFormatTable.memusage());
+        totalGpuAllocation += rows.weightEncoder.weightFormatTable.memusage();
     }
 
     // This one contains an expanded version of the row data, with one float
@@ -2197,6 +2213,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     OpenCLMemObject clExpandedRowData
         = context.createBuffer(CL_MEM_READ_WRITE,
                                sizeof(float) * rowCount);
+
+    totalGpuAllocation += sizeof(float) * rowCount;
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
@@ -2271,6 +2289,12 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     OpenCLMemObject clFeaturesActive
         = context.createBuffer(featuresActive);
+
+    totalGpuAllocation
+        += bucketMemorySizePageAligned
+        + bucketNumbers.size() * sizeof(int)
+        + bucketEntryBits.size() * sizeof(int)
+        + featuresActive.size() * sizeof(int);
     
     OpenCLEvent transferBucketData
         = queue.enqueueWriteBuffer
@@ -2281,6 +2305,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     OpenCLMemObject clBucketDataOffsets
         = context.createBuffer(bucketMemoryOffsets);
+
+    totalGpuAllocation += bucketMemoryOffsets.size() * sizeof(bucketMemoryOffsets[0]);
     
     // Our wAll array contains the sum of all of the W buckets across
     // each partition.  We allocate a single array at the start and just
@@ -2291,7 +2317,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     OpenCLMemObject clWAll
         = context.createBuffer(CL_MEM_READ_WRITE, wAllBytes);
 
-    // The first one is initialized by the input wAll
+    totalGpuAllocation += wAllBytes;
+
+        // The first one is initialized by the input wAll
     OpenCLEvent copyWAll
         = queue.enqueueWriteBuffer(clWAll, 0, sizeof(W),
                                    &rows.wAll);
@@ -2314,6 +2342,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // on the last iteration
     OpenCLMemObject clPartitionBuckets
         = context.createBuffer(CL_MEM_READ_WRITE, bytesForAllPartitions);
+
+    totalGpuAllocation += bytesForAllPartitions;
 
     // Before we use this, it needs to be zero-filled (only the first
     // set for a single partition)
@@ -2405,6 +2435,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     OpenCLMemObject clPartitions
         = context.createBuffer(CL_MEM_READ_WRITE, partitionMemoryUsage);
 
+    totalGpuAllocation += partitionMemoryUsage;
+
     // Before we use this, it needs to be zero-filled
     OpenCLEvent fillPartitions
         = queue.enqueueFillBuffer(clPartitions, (uint8_t)0 /* pattern */,
@@ -2419,6 +2451,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     OpenCLMemObject clFeatureIsOrdinal
         = context.createBuffer(featureIsOrdinal);
     
+    totalGpuAllocation += featureIsOrdinal.size() * sizeof(int);
+
     // How many partitions at the current depth?
     unsigned numPartitionsAtDepth = 1;
 
@@ -2538,6 +2572,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         OpenCLMemObject clPartitionSplits
             = context.createBuffer(CL_MEM_READ_WRITE, partitionSplitBytes);
 
+        totalGpuAllocation += partitionSplitBytes;
+        
         OpenCLKernel fillPartitionSplitsKernel
             = kernelContext.program.createKernel("fillPartitionSplitsKernel");
 
@@ -2558,6 +2594,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         OpenCLMemObject clPartitionLocks
             = context.createBuffer(CL_MEM_READ_WRITE, partitionLockBytes);
+
+        totalGpuAllocation += partitionLockBytes;
 
         OpenCLEvent fillPartitionLocks
             = queue.enqueueFillBuffer(clPartitionLocks, 0 /* pattern */,
@@ -2952,7 +2990,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     queue.finish();
 
     cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
-         << "ms" << endl;
+         << "ms with " << totalGpuAllocation / 1000000.0 << "Mb allocated" << endl;
 
     for (int i = 0;  i < mappedDepthSplits.size();  ++i) {
         depthSplits.emplace_back
@@ -2982,7 +3020,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     }
     
     std::vector<ML::Tree::Ptr> leaves;
-        
+
+    // TODO: fill this in by recursing...
+    
     // Finally, extract a tree from the splits we've been accumulating
     // and our leaves.
     return extractTree(0 /*relative depth */, depth, maxDepth,

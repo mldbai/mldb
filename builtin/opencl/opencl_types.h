@@ -1282,6 +1282,29 @@ struct OpenCLCommandQueue {
         return std::make_pair(std::shared_ptr<void>(addr, unmap),
                               std::move(result));
     }
+
+    OpenCLEvent enqueueMigrateBuffer(int flags,
+                                     cl_mem buffer,
+                                     OpenCLEventList before = OpenCLEventList())
+    {
+        return enqueueMigrateBuffers(flags, {buffer}, std::move(before));
+    }
+                                     
+    OpenCLEvent enqueueMigrateBuffers(int flags,
+                                      const std::vector<cl_mem> & buffers,
+                                      OpenCLEventList before = OpenCLEventList())
+    {
+        OpenCLEvent result;
+        
+        cl_int error
+            = clEnqueueMigrateMemObjects(queue, buffers.size(), buffers.data(), flags,
+                                         before.size(), before,
+                                         result);
+
+        checkOpenCLError(error, "clEnqueueMigrateBuffers");
+        
+        return result;
+    }
     
     OpenCLEvent enqueueMarker(OpenCLEventList waitFor)
     {
