@@ -248,9 +248,9 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
     atom_add(&wOut->vals[0], wIn->vals[0]);
     atom_add(&wOut->vals[1], wIn->vals[1]);
     int oldCount = atom_add(&wOut->count,   wIn->count);
-    if (oldCount < 0 || oldCount + wIn->count < 0) {
-        printf("W COUNT < 0: %d + %d = %d\n", oldCount, wIn->count, oldCount + wIn->count);
-    }
+    //if (oldCount < 0 || oldCount + wIn->count < 0) {
+    //    printf("W COUNT < 0: %d + %d = %d\n", oldCount, wIn->count, oldCount + wIn->count);
+    //}
 }
 
 uint32_t testRow(uint32_t rowId,

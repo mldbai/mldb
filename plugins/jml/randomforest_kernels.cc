@@ -2426,6 +2426,15 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // are available?
     OpenCLEvent previousIteration = runTestFeatureKernel;
 
+    // OpenCL version of our buckets for each depth
+    std::vector<OpenCLMemObject> clDepthSplits;
+
+    // Mapped versions of our buckets
+    std::vector<std::shared_ptr<const PartitionSplit> > mappedDepthSplits;
+    
+    // Event list for all of the buckets
+    std::vector<OpenCLEvent> clDepthSplitsEvents;
+    
     // We go down level by level
     for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
@@ -2597,6 +2606,25 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                                + std::to_string(myDepth),
                                runPartitionSplitsKernel);
 
+        // Immediately start bringing back the splits to the CPU for later processing
+        OpenCLEvent mapPartitionSplits;
+        std::shared_ptr<void> mappedPartitionSplits;
+
+        std::tie(mappedPartitionSplits, mapPartitionSplits)
+            = queue.enqueueMapBuffer
+            (clPartitionSplits, CL_MAP_READ,
+             0 /* offset */,
+             sizeof(PartitionSplit) * numPartitionsAtDepth,
+             { runPartitionSplitsKernel });
+        
+        allEvents.emplace_back("mapPartitionSplits "
+                               + std::to_string(myDepth),
+                               mapPartitionSplits);
+        clDepthSplits.push_back(clPartitionSplits);
+        mappedDepthSplits.push_back
+            (std::reinterpret_pointer_cast<const PartitionSplit>(mappedPartitionSplits));
+        clDepthSplitsEvents.emplace_back(std::move(mapPartitionSplits));
+        
         // These are parallel CPU data structures for the on-GPU ones,
         // into which we copy the input data required to re-run the
         // computation on the CPU so we can verify the output of the GPU
@@ -2922,10 +2950,15 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     queue.flush();
     queue.finish();
-    
+
     cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
          << "ms" << endl;
 
+    for (int i = 0;  i < mappedDepthSplits.size();  ++i) {
+        depthSplits.emplace_back
+            (mappedDepthSplits[i].get(), mappedDepthSplits[i].get() + (1 << i));
+    }
+    
     auto first = allEvents.at(0).second.getProfilingInfo();
 
     cerr << "  submit    queue    start      end  elapsed name" << endl;
@@ -2948,7 +2981,13 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
              << name << endl;
     }
     
-    return ML::Tree::Ptr();
+    std::vector<ML::Tree::Ptr> leaves;
+        
+    // Finally, extract a tree from the splits we've been accumulating
+    // and our leaves.
+    return extractTree(0 /*relative depth */, depth, maxDepth,
+                       0 /* partition */,
+                       tree, depthSplits, leaves, features, fs);
 }
 
 ML::Tree::Ptr
