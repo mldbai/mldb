@@ -2178,17 +2178,11 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     totalGpuAllocation += rowMemorySizePageAligned;
 
-    OpenCLEvent migrateRowData
-        = queue.enqueueMigrateBuffer(CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED,
-                                     clRowData);
-    allEvents.emplace_back("migrateRowData", migrateRowData);
-
     // ... and send it over
     OpenCLEvent copyRowData
         = queue.enqueueWriteBuffer
             (clRowData, 0 /* offset */, rowMemorySizePageAligned,
-             (const void *)rows.rowData.data(),
-             { migrateRowData });
+             (const void *)rows.rowData.data());
 
     allEvents.emplace_back("copyRowData", copyRowData);
 
