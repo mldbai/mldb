@@ -542,6 +542,39 @@ decompressRowsKernel(__global const uint64_t * rowData,
     }
 }
 
+// Decompress the data for the features, to save on access time
+__kernel void
+decompressFeatureBucketsKernel(uint32_t numRows,
+                               __global const uint32_t * allBucketData,
+                               __global const uint32_t * bucketDataOffsets,
+                               __global const uint32_t * bucketNumbers,
+                               __global const uint32_t * bucketEntryBits,
+                               
+                               __global const uint32_t * featureActive,
+                               
+                               __global uint32_t * featuresOut,
+                               __global const uint32_t * featureDataOffsets)
+{
+    int f = get_global_id(1);
+
+    if (!featureActive[f])
+        return;
+
+    uint32_t bucketDataOffset = bucketDataOffsets[f];
+    uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
+    uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
+    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
+    uint32_t bucketBits = bucketEntryBits[f];
+
+    __global uint32_t * out = featuresOut + featureDataOffsets[f] / 4;
+
+    for (int rowId = get_global_id(0);  rowId < numRows; rowId += get_global_size(0)) {
+        uint32_t bucket = getBucket(rowId, bucketData, bucketDataLength, bucketBits, numBuckets);
+        out[rowId] = bucket;
+    }
+}
+
+
 uint32_t testRowExpanded(uint32_t rowId,
 
                          __global const float * rowData,

@@ -2300,6 +2300,50 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         = context.createBuffer(bucketMemoryOffsets);
 
     totalGpuAllocation += bucketMemoryOffsets.size() * sizeof(bucketMemoryOffsets[0]);
+
+    size_t decompressedBucketDataBytes
+        = numActiveFeatures * sizeof(uint32_t) * numRows;
+    
+    // Decompress the bucket memory
+    OpenCLMemObject clDecompressedBucketData
+        = context.createBuffer(CL_MEM_READ_WRITE, decompressedBucketDataBytes);
+
+    totalGpuAllocation += decompressedBucketDataBytes;
+
+    std::vector<uint32_t> decompressedFeatureDataOffsets;
+
+    {
+        uint32_t offset = 0;
+        for (int f = 0;  f < nf;  ++f) {
+            decompressedFeatureDataOffsets.push_back(offset);
+            if (!featuresActive[f])
+                continue;
+            offset += sizeof(uint32_t) * numRows;
+        }
+        decompressedFeatureDataOffsets.push_back(offset);
+    }
+
+    OpenCLMemObject clDecompressedFeatureDataOffsets
+        = context.createBuffer(decompressedFeatureDataOffsets);
+    
+    OpenCLKernel decompressBucketsKernel
+        = kernelContext.program.createKernel("decompressFeatureBucketsKernel");
+
+    decompressBucketsKernel
+        .bind((uint32_t)numRows,
+              clBucketData,
+              clBucketDataOffsets,
+              clBucketNumbers,
+              clBucketEntryBits,
+              clFeaturesActive,
+              clDecompressedBucketData,
+              clDecompressedFeatureDataOffsets);
+
+    OpenCLEvent runDecompressBuckets
+        = queue.launch(decompressBucketsKernel, { 65536, nf }, { 256, 1 },
+                       { transferBucketData });
+    
+    allEvents.emplace_back("runDecompressBuckets", runDecompressBuckets);
     
     // Our wAll array contains the sum of all of the W buckets across
     // each partition.  We allocate a single array at the start and just
