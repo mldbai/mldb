@@ -2024,8 +2024,7 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
 }
 
 EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
-
-
+EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
 
 ML::Tree::Ptr
 trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
@@ -2357,8 +2356,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                            clBucketNumbers,
                            clBucketEntryBits,
                            clFeaturesActive,
-                           LocalArray<W>(maxLocalBuckets),
-                           (uint32_t)maxLocalBuckets,
+                           LocalArray<W>(MAX_LOCAL_BUCKETS),
+                           (uint32_t)MAX_LOCAL_BUCKETS,
                            clPartitionBuckets);
                            
     OpenCLEvent runTestFeatureKernel
@@ -2832,55 +2831,67 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   clBucketEntryBits,
                   clFeaturesActive,
                   clFeatureIsOrdinal,
-                  LocalArray<W>(maxLocalBuckets),
-                  (uint32_t)maxLocalBuckets);
+                  LocalArray<W>(MAX_LOCAL_BUCKETS),
+                  (uint32_t)MAX_LOCAL_BUCKETS);
 
-        std::vector<OpenCLEvent> updateBucketsEvents;
+        OpenCLEvent runUpdateBucketsKernel;
 
-        OpenCLEvent runUpdateWAllKernel
-            = queue.launch(updateBucketsKernel,
-                           { 65536, 1 /* +1 is wAll */},
-                           { 256, 1 },
-                           { runTransferBucketsKernel },
-                           { 0, 0 });
-
-        allEvents.emplace_back("runUpdateWAllKernel "
-                               + std::to_string(myDepth),
-                               runUpdateWAllKernel);
-
-        updateBucketsEvents.emplace_back(runUpdateWAllKernel);
+        if (RF_SEPARATE_FEATURE_UPDATES) {
         
-        for (int f = 0;  f < nf;  ++f) {
-            if (!featuresActive[f])
-                continue;
-
-            //cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
-            //                                                context.getDevices()[0]))
-            //     << endl;
+            std::vector<OpenCLEvent> updateBucketsEvents;
             
-            OpenCLEvent runUpdateBucketsKernel
+            OpenCLEvent runUpdateWAllKernel
                 = queue.launch(updateBucketsKernel,
-                               { 65536, 1 /* +1 is wAll */},
+                               { 65536, 1 },
                                { 256, 1 },
                                { runTransferBucketsKernel },
-                               { 0, (unsigned)(f + 1) });
+                               { 0, 0 });
 
-            allEvents.emplace_back("runUpdateBucketsKernel "
-                                   + std::to_string(myDepth) + " feat "
-                                   + std::to_string(f) + " nb "
-                                   + std::to_string(bucketNumbers[f + 1] - bucketNumbers[f]),
-                                   runUpdateBucketsKernel);
+            allEvents.emplace_back("runUpdateWAllKernel "
+                                   + std::to_string(myDepth),
+                                   runUpdateWAllKernel);
+
+            updateBucketsEvents.emplace_back(runUpdateWAllKernel);
+        
+            for (int f = 0;  f < nf;  ++f) {
+                if (!featuresActive[f])
+                    continue;
+
+                //cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
+                //                                                context.getDevices()[0]))
+                //     << endl;
             
-            updateBucketsEvents.emplace_back(runUpdateBucketsKernel);
-        }
+                OpenCLEvent runUpdateBucketsKernel
+                    = queue.launch(updateBucketsKernel,
+                                   { 65536, 1 },
+                                   { 256, 1 },
+                                   { runTransferBucketsKernel },
+                                   { 0, (unsigned)(f + 1) });
 
-        OpenCLEvent runUpdateBucketsKernel
-            = queue.enqueueMarker(updateBucketsEvents);
+                allEvents.emplace_back("runUpdateBucketsKernel "
+                                       + std::to_string(myDepth) + " feat "
+                                       + std::to_string(f) + " nb "
+                                       + std::to_string(bucketNumbers[f + 1] - bucketNumbers[f]),
+                                       runUpdateBucketsKernel);
+            
+                updateBucketsEvents.emplace_back(runUpdateBucketsKernel);
+            }
+
+            runUpdateBucketsKernel
+                = queue.enqueueMarker(updateBucketsEvents);
+        }
+        else {
+            runUpdateBucketsKernel
+                = queue.launch(updateBucketsKernel,
+                               { 65536, nf + 1 /* +1 is wAll */},
+                               { 256, 1 },
+                               { runTransferBucketsKernel });
+        }
         
         allEvents.emplace_back("runUpdateBucketsKernel "
                                + std::to_string(myDepth),
                                runUpdateBucketsKernel);
-
+        
         if (debugKernelOutput) {
 
             // Run the CPU version of the computation

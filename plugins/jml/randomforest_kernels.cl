@@ -1116,13 +1116,26 @@ updateBucketsKernel(uint32_t rightOffset,
     __global const uint32_t * bucketData;
     uint32_t bucketBits;
     uint32_t numLocalBuckets = 0;
+    int startBucket;
+            
 
     // Pointer to the global array we eventually want to update
     __global W * wGlobal;
 
+    __local int numLocalUpdates;
+    __local int numGlobalUpdates;
+    __local int numGlobalUpdatesDirect;
+    __local int numRows;
+    
+    if (get_local_id(0) == 0) {
+        numLocalUpdates = numGlobalUpdates = numGlobalUpdatesDirect = numRows = 0;
+    }
+    
     if (f == -1) {
         numLocalBuckets = rightOffset * 2;
         wGlobal = wAll;
+        numBuckets = numLocalBuckets;
+        startBucket = 0;
     }
     else {
         bucketDataOffset = bucketDataOffsets[f];
@@ -1130,15 +1143,17 @@ updateBucketsKernel(uint32_t rightOffset,
         numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
         bucketData = allBucketData + bucketDataOffset;
         bucketBits = bucketEntryBits[f];
-        numLocalBuckets = min(numBuckets, maxLocalBuckets);
+        numLocalBuckets = min(numBuckets * rightOffset * 2, maxLocalBuckets);
+        //printf("f %d nlb = %d nb = %d ro = %d mlb = %d\n",
+        //       f, numLocalBuckets, numBuckets, rightOffset, maxLocalBuckets);
         wGlobal = partitionBuckets;
+        startBucket = bucketNumbers[f];
     }
 
     //numLocalBuckets = 0;
     
     // Clear our local accumulation buckets
-    for (int b = get_local_id(0);  b < numLocalBuckets;
-         b += get_local_size(0)) {
+    for (int b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
         zeroW(wLocal + b);
     }
 
@@ -1218,45 +1233,55 @@ updateBucketsKernel(uint32_t rightOffset,
         }
 
         int fromBucket, toBucket;
+        int fromBucketLocal, toBucketLocal;
         
         if (f == -1) {
-            fromBucket = fromPartition;
-            toBucket = toPartition;
+            fromBucketLocal = fromBucket = fromPartition;
+            toBucketLocal = toBucket = toPartition;
         }
         else {
-            int startBucket = bucketNumbers[f];
-    
             bucket = getBucket(exampleNum,
                                bucketData, bucketDataLength,
                                bucketBits, numBuckets);
 
             fromBucket = fromPartition * numActiveBuckets + startBucket + bucket;
             toBucket = toPartition * numActiveBuckets + startBucket + bucket;
+            fromBucketLocal = fromPartition * numBuckets + bucket;
+            toBucketLocal = toPartition * numBuckets + bucket;
         }
 
-        if (fromBucket < numLocalBuckets) {
-            decrementWLocal(wLocal + fromBucket, label, weight);
+        if (fromBucketLocal < numLocalBuckets) {
+            decrementWLocal(wLocal + fromBucketLocal, label, weight);
+            //atomic_inc(&numLocalUpdates);
         }
         else {
             decrementWAtomic(wGlobal + fromBucket, label, weight);
+            //atomic_inc(&numGlobalUpdatesDirect);
         }
 
-        if (toBucket < numLocalBuckets) {
-            incrementWLocal(wLocal + toBucket, label, weight);
+        if (toBucketLocal < numLocalBuckets) {
+            incrementWLocal(wLocal + toBucketLocal, label, weight);
+            //atomic_inc(&numLocalUpdates);
         }
         else {
             incrementWAtomic(wGlobal + toBucket, label, weight);
+            //atomic_inc(&numGlobalUpdatesDirect);
+
+            if (f != -1 && false)
+                printf("row %d feature %d side %d direction %d from %d to %d lbl %d wt %f bkt %d -> %d\n",
+                       i, f, side, direction, fromPartition, toPartition,
+                       label, weight, fromBucket, toBucket);
+        
+
         }
 
-        //printf("row %d feature %d side %d direction %d from %d to %d lbl %d wt %f bkt %d -> %d\n",
-        //       i, f, side, direction, fromPartition, toPartition,
-        //       label, weight, fromBucket, toBucket);
-        
         //if ((int)wAll[fromPartition].count < 0) {
         //    printf("NEGATIVE WALL row %d feature %d side %d direction %d from %d to %d lbl %d wt %f\n",
         //           i, f, side, direction, fromPartition, toPartition,
         //           label, weight);
         //}
+
+        //atomic_inc(&numRows);
     }
 
     // Wait for all buckets to be updated, before we write them back to the global mem
@@ -1264,8 +1289,31 @@ updateBucketsKernel(uint32_t rightOffset,
     
     for (int b = get_local_id(0);  b < numLocalBuckets;  b += get_local_size(0)) {
         if (wLocal[b].count != 0) {
-            incrementWOut(wGlobal + b, wLocal + b);
+            if (f == -1) {
+                incrementWOut(wGlobal + b, wLocal + b);
+                //atomic_inc(&numGlobalUpdates);
+                continue;
+            }
+
+            // TODO: avoid div/mod if possible in these calculations
+            int partition = b / numBuckets;
+            int bucket = b % numBuckets;
+            int bucketNumberGlobal = partition * numActiveBuckets + startBucket + bucket;
+
+            //printf("f %d local bucket %d part %d buck %d nb %d nab %d global bucket %d\n",
+            //       f, b, partition, bucket, numBuckets, numActiveBuckets, bucketNumberGlobal);
+
+            incrementWOut(wGlobal + bucketNumberGlobal, wLocal + b);
+            //atomic_inc(&numGlobalUpdates);
         }
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (get_local_id(0) == 0 && false) {
+        printf("f %d nb %d nbp %d nlb %d id %d rows %d of %d loc %d dir %d global %d\n",
+               (int)f, (int)numBuckets, (int)(numBuckets*rightOffset*2), (int)numLocalBuckets, (int)get_global_id(0), (int)numRows, (int)(rowCount / get_local_size(0)),
+               numLocalUpdates, numGlobalUpdatesDirect, numGlobalUpdates);
     }
 }
 
