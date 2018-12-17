@@ -16,6 +16,7 @@ typedef unsigned long uint64_t;
 typedef long int64_t;
 typedef signed char int8_t;
 typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
 
 static const __constant float VAL_2_HL = 1.0f * (1UL << 63);
 static const __constant float HL_2_VAL = 1.0f / (1UL << 63);
@@ -98,19 +99,18 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     return val;
 }
 
-uint32_t extractBitRange32(__global const uint32_t * data,
-                           int numBits,
-                           int entryNumber,
-                           uint32_t dataLength)
+inline uint32_t extractBitRange32(__global const uint32_t * data,
+                                  int numBits,
+                                  int entryNumber)
 {
     int bitNumber = numBits * entryNumber;
     int wordNumber = bitNumber / 32;
     int wordOffset = bitNumber % 32;
 
-    if (wordNumber >= dataLength) {
-        printf("OUT OF RANGE WORD 32 %d vs %d\n", wordNumber, dataLength);
-        return 0;
-    }
+    //if (wordNumber >= dataLength) {
+    //    printf("OUT OF RANGE WORD 32 %d vs %d\n", wordNumber, dataLength);
+    //    return 0;
+    //}
     //printf("wordNumber = %d, bitNumber = %d\n", wordNumber, wordOffset);
     
     int bottomBits = min(numBits, 32 - wordOffset);
@@ -177,13 +177,13 @@ void getDecodedRow(uint32_t rowNumber,
     *label = (bits & labelMask) != 0;
 }
 
-uint32_t getBucket(uint32_t exampleNum,
-                   __global const uint32_t * bucketData,
-                   uint32_t bucketDataLength,
-                   uint32_t bucketBits,
-                   uint32_t numBuckets)
+inline uint32_t getBucket(uint32_t exampleNum,
+                          __global const uint32_t * bucketData,
+                          uint32_t bucketDataLength,
+                          uint32_t bucketBits,
+                          uint32_t numBuckets)
 {
-    return extractBitRange32(bucketData, bucketBits, exampleNum, bucketDataLength);
+    return extractBitRange32(bucketData, bucketBits, exampleNum);
 }
 
 typedef struct W {
@@ -552,7 +552,7 @@ decompressFeatureBucketsKernel(uint32_t numRows,
                                
                                __global const uint32_t * featureActive,
                                
-                               __global uint32_t * featuresOut,
+                               __global uint16_t * featuresOut,
                                __global const uint32_t * featureDataOffsets)
 {
     int f = get_global_id(1);
@@ -565,8 +565,8 @@ decompressFeatureBucketsKernel(uint32_t numRows,
     uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
     __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
     uint32_t bucketBits = bucketEntryBits[f];
-
-    __global uint32_t * out = featuresOut + featureDataOffsets[f] / 4;
+    
+    __global uint16_t * out = featuresOut + featureDataOffsets[f] / sizeof(*out);
 
     for (int rowId = get_global_id(0);  rowId < numRows; rowId += get_global_size(0)) {
         uint32_t bucket = getBucket(rowId, bucketData, bucketDataLength, bucketBits, numBuckets);
@@ -584,7 +584,10 @@ uint32_t testRowExpanded(uint32_t rowId,
                          uint32_t bucketDataLength,
                          uint32_t bucketBits,
                          uint32_t numBuckets,
-                   
+
+                         __global const uint16_t * expandedBuckets,
+                         bool useExpandedBuckets,
+                         
                          __local W * w,
                          __global W * wOut,
                          uint32_t maxLocalBuckets)
@@ -593,8 +596,14 @@ uint32_t testRowExpanded(uint32_t rowId,
     float val = rowData[rowId];
     float weight = fabs(val);
     bool label = val < 0;
-    uint32_t bucket = getBucket(exampleNum, bucketData, bucketDataLength,
-                                bucketBits, numBuckets);
+    uint32_t bucket;
+    if (!useExpandedBuckets) {
+        bucket = getBucket(exampleNum, bucketData, bucketDataLength,
+                           bucketBits, numBuckets);
+    }
+    else {
+        bucket = expandedBuckets[exampleNum];
+    }
     if (bucket >= numBuckets) {
         printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
                bucket, numBuckets, rowId, get_global_id(0));
@@ -620,6 +629,10 @@ testFeatureKernelExpanded(__global const float * expandedRows,
                           __global const uint32_t * bucketNumbers,
                           __global const uint32_t * bucketEntryBits,
 
+                          __global const uint16_t * expandedBuckets,
+                          __global const uint32_t * expandedBucketOffsets,
+                          uint32_t useExpandedBuckets,
+                          
                           __global const uint32_t * featureActive,
                                 
                           __local W * w,
@@ -636,6 +649,10 @@ testFeatureKernelExpanded(__global const float * expandedRows,
     __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
     uint32_t bucketBits = bucketEntryBits[f];
 
+    if (useExpandedBuckets) {
+        expandedBuckets += expandedBucketOffsets[f] / sizeof(expandedBuckets[0]);
+    }
+    
     __global W * wOut = allWOut + bucketNumbers[f];
 
     if (!featureActive[f])
@@ -667,6 +684,7 @@ testFeatureKernelExpanded(__global const float * expandedRows,
         testRowExpanded(rowId,
                         expandedRows, numRows,
                         bucketData, bucketDataLength, bucketBits, numBuckets,
+                        expandedBuckets, useExpandedBuckets,
                         w, wOut, maxLocalBuckets);
     }
     

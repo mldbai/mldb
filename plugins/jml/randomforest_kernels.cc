@@ -2302,7 +2302,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     totalGpuAllocation += bucketMemoryOffsets.size() * sizeof(bucketMemoryOffsets[0]);
 
     size_t decompressedBucketDataBytes
-        = numActiveFeatures * sizeof(uint32_t) * numRows;
+        = numActiveFeatures * sizeof(uint16_t) * numRows;
     
     // Decompress the bucket memory
     OpenCLMemObject clDecompressedBucketData
@@ -2310,21 +2310,21 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     totalGpuAllocation += decompressedBucketDataBytes;
 
-    std::vector<uint32_t> decompressedFeatureDataOffsets;
+    std::vector<uint32_t> decompressedBucketDataOffsets;
 
     {
         uint32_t offset = 0;
         for (int f = 0;  f < nf;  ++f) {
-            decompressedFeatureDataOffsets.push_back(offset);
+            decompressedBucketDataOffsets.push_back(offset);
             if (!featuresActive[f])
                 continue;
-            offset += sizeof(uint32_t) * numRows;
+            offset += sizeof(uint16_t) * numRows;
         }
-        decompressedFeatureDataOffsets.push_back(offset);
+        decompressedBucketDataOffsets.push_back(offset);
     }
 
-    OpenCLMemObject clDecompressedFeatureDataOffsets
-        = context.createBuffer(decompressedFeatureDataOffsets);
+    OpenCLMemObject clDecompressedBucketDataOffsets
+        = context.createBuffer(decompressedBucketDataOffsets);
     
     OpenCLKernel decompressBucketsKernel
         = kernelContext.program.createKernel("decompressFeatureBucketsKernel");
@@ -2337,13 +2337,56 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
               clBucketEntryBits,
               clFeaturesActive,
               clDecompressedBucketData,
-              clDecompressedFeatureDataOffsets);
+              clDecompressedBucketDataOffsets);
 
     OpenCLEvent runDecompressBuckets
         = queue.launch(decompressBucketsKernel, { 65536, nf }, { 256, 1 },
                        { transferBucketData });
     
     allEvents.emplace_back("runDecompressBuckets", runDecompressBuckets);
+
+    if (debugKernelOutput) {
+        OpenCLEvent mapDecompressedBucketData;
+        std::shared_ptr<const void> mappedDecompressedBucketData;
+
+        std::tie(mappedDecompressedBucketData, mapDecompressedBucketData)
+            = queue.enqueueMapBuffer(clDecompressedBucketData, CL_MAP_READ,
+                                     0 /* offset */, decompressedBucketDataBytes,
+                                     { runDecompressBuckets });
+        
+        mapDecompressedBucketData.waitUntilFinished();
+
+        const uint16_t * decompressedBucketDataGpu
+            = reinterpret_cast<const uint16_t *>(mappedDecompressedBucketData.get());
+
+        bool different = false;
+        
+        for (size_t f = 0;  f < nf;  ++f) {
+            if (!featuresActive[f])
+                continue;
+
+            cerr << "active feature " << f
+                 << " at " << decompressedBucketDataOffsets[f] << endl;
+            
+            const uint16_t * featureBuckets
+                = decompressedBucketDataGpu
+                + (decompressedBucketDataOffsets[f] / sizeof(uint16_t));
+
+            for (size_t i = 0;  i < numRows;  ++i) {
+                int bCpu = features[f].buckets[i];
+                int bGpu = featureBuckets[i];
+                
+                if (bGpu != bCpu) {
+                    cerr << "error in feature bucket: feature "
+                         << f << " bucket " << i << ": CPU "
+                         << bCpu << " GPU " << bGpu << endl;
+                    different = true;
+                }
+            }
+        }
+
+        ExcAssert(!different);
+    }
     
     // Our wAll array contains the sum of all of the W buckets across
     // each partition.  We allocate a single array at the start and just
@@ -2393,12 +2436,17 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     OpenCLKernel testFeatureKernel
         = kernelContext.program.createKernel("testFeatureKernelExpanded");
 
+    bool useExpandedBuckets = true;
+    
     testFeatureKernel.bind(clExpandedRowData,
                            (uint32_t)numRows,
                            clBucketData,
                            clBucketDataOffsets,
                            clBucketNumbers,
                            clBucketEntryBits,
+                           clDecompressedBucketData,
+                           clDecompressedBucketDataOffsets,
+                           (uint32_t)useExpandedBuckets,
                            clFeaturesActive,
                            LocalArray<W>(MAX_LOCAL_BUCKETS),
                            (uint32_t)MAX_LOCAL_BUCKETS,
