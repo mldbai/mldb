@@ -1129,7 +1129,7 @@ __kernel void
 updateBucketsKernel(uint32_t rightOffset,
                     uint32_t numActiveBuckets,
                     
-                    __global uint8_t * partitions,
+                    __global uint16_t * partitions,
                     __global W * partitionBuckets,
                     __global W * wAll,
 
@@ -1318,7 +1318,6 @@ updateBucketsKernel(uint32_t rightOffset,
             else {
                 bucket = featureExpandedBuckets[exampleNum];
             }
-
             
             fromBucket = fromPartition * numActiveBuckets + startBucket + bucket;
             toBucket = toPartition * numActiveBuckets + startBucket + bucket;

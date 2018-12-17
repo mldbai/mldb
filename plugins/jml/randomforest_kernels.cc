@@ -1235,7 +1235,7 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
 }
 
 void updateBuckets(const std::vector<Feature> & features,
-                   std::vector<uint8_t> & partitions,
+                   std::vector<uint16_t> & partitions,
                    std::vector<std::vector<W> > & buckets,
                    std::vector<W> & wAll,
                    const std::vector<uint32_t> & bucketOffsets,
@@ -1408,7 +1408,7 @@ std::pair<std::vector<PartitionEntry>,
 splitPartitions(const std::vector<Feature> features,
                 const std::vector<int> & activeFeatures,
                 const std::vector<float> & decodedRows,
-                const std::vector<uint8_t> & partitions,
+                const std::vector<uint16_t> & partitions,
                 const std::vector<W> & w,
                 MappedSerializer & serializer)
 {
@@ -1727,7 +1727,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const std::vector<Feature> & features,
                            const std::vector<int> & activeFeatures,
                            const std::vector<float> & decodedRows,
-                           const std::vector<uint8_t> & partitions,
+                           const std::vector<uint16_t> & partitions,
                            const std::vector<W> & wAll,
                            const DatasetFeatureSpace & fs,
                            FrozenMemoryRegionT<uint32_t> bucketMemory)
@@ -1803,7 +1803,7 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
     // is in partition zero, but as we start to split, we end up
     // splitting them amongst many partitions.  Each partition has
     // its own set of buckets that we maintain.
-    std::vector<uint8_t> partitions(rowCount, 0);
+    std::vector<uint16_t> partitions(rowCount, 0);
 
     // What is our weight total for each of our partitions?
     std::vector<W> wAll = { wAllInput };
@@ -2058,7 +2058,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     // How many iterations can we run for?  This may be reduced if the
     // memory is not available to run the full width
-    int numIterations = std::min(8, maxDepth - depth);
+    int numIterations = std::min(16, maxDepth - depth);
 
     // How many partitions will we have at our widest?
     int maxPartitionCount = 1 << numIterations;
@@ -2514,7 +2514,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // splitting them amongst many partitions.  Each partition has
     // its own set of buckets that we maintain.
 
-    size_t partitionMemoryUsage = sizeof(uint8_t) * rowCount;
+    size_t partitionMemoryUsage = sizeof(uint16_t) * rowCount;
     
     OpenCLMemObject clPartitions
         = context.createBuffer(CL_MEM_READ_WRITE, partitionMemoryUsage);
@@ -2523,7 +2523,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     // Before we use this, it needs to be zero-filled
     OpenCLEvent fillPartitions
-        = queue.enqueueFillBuffer(clPartitions, (uint8_t)0 /* pattern */,
+        = queue.enqueueFillBuffer(clPartitions, (uint16_t)0 /* pattern */,
                                   0 /* offset */, partitionMemoryUsage);
 
     allEvents.emplace_back("fillPartitions", fillPartitions);
@@ -2554,7 +2554,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     std::vector<OpenCLEvent> clDepthSplitsEvents;
     
     // We go down level by level
-    for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
+    for (int myDepth = 0; myDepth < 16 && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
 
         if (debugKernelOutput) {
@@ -2754,7 +2754,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::vector<PartitionSplit> debugPartitionSplitsCpu;
         std::vector<std::vector<W> > debugBucketsCpu;
         std::vector<W> debugWAllCpu;
-        std::vector<uint8_t> debugPartitionsCpu;
+        std::vector<uint16_t> debugPartitionsCpu;
         
         if (debugKernelOutput) {
             // Map back the GPU partition splits
@@ -2787,8 +2787,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         
             mapPartitions.waitUntilFinished();
 
-            const uint8_t * partitionsGpu
-                = reinterpret_cast<const uint8_t *>
+            const uint16_t * partitionsGpu
+                = reinterpret_cast<const uint16_t *>
                     (mappedPartitions.get());
 
             debugPartitionsCpu = { partitionsGpu, partitionsGpu + rowCount };
@@ -3096,8 +3096,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         
             mapPartitions.waitUntilFinished();
 
-            const uint8_t * partitionsGpu
-                = reinterpret_cast<const uint8_t *>
+            const uint16_t * partitionsGpu
+                = reinterpret_cast<const uint16_t *>
                     (mappedPartitions.get());
 
             for (size_t i = 0;  i < rowCount;  ++i) {

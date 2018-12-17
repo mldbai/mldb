@@ -819,6 +819,8 @@ struct ContentDecompressor
                          int maxParallelism,
                          std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const
     {
+        //maxParallelism = 1;
+
         if (!decompressor)
             decompressor.reset(Decompressor::create(compression));
 
