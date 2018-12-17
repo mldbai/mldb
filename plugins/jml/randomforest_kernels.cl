@@ -1144,6 +1144,11 @@ updateBucketsKernel(uint32_t rightOffset,
                     __global const uint32_t * bucketDataOffsets,
                     __global const uint32_t * bucketNumbers,
                     __global const uint32_t * bucketEntryBits,
+
+                    __global const uint16_t * expandedBuckets,
+                    __global const uint32_t * expandedBucketOffsets,
+                    uint32_t useExpandedBuckets,
+
                     __global const uint32_t * featureActive,
                     __global const uint32_t * featureIsOrdinal,
 
@@ -1167,6 +1172,7 @@ updateBucketsKernel(uint32_t rightOffset,
     __global const uint32_t * bucketData;
     uint32_t bucketBits;
     uint32_t numLocalBuckets = 0;
+    __global const uint16_t * featureExpandedBuckets;
     int startBucket;
             
 
@@ -1199,6 +1205,11 @@ updateBucketsKernel(uint32_t rightOffset,
         //       f, numLocalBuckets, numBuckets, rightOffset, maxLocalBuckets);
         wGlobal = partitionBuckets;
         startBucket = bucketNumbers[f];
+
+        if (useExpandedBuckets) {
+            featureExpandedBuckets
+                = expandedBuckets + expandedBucketOffsets[f] / sizeof(expandedBuckets[0]);
+        }
     }
 
     //numLocalBuckets = 0;
@@ -1248,9 +1259,17 @@ updateBucketsKernel(uint32_t rightOffset,
     
         int splitValue = partitionSplits[partition].value;
         bool ordinal = featureIsOrdinal[splitFeature];
-        int bucket = getBucket(exampleNum,
+        int bucket;
+
+        if (!useExpandedBuckets) {
+            bucket = getBucket(exampleNum,
                                splitBucketData, splitBucketDataLength,
                                splitBucketBits, splitNumBuckets);
+        }
+        else {
+            bucket = expandedBuckets[expandedBucketOffsets[splitFeature] / sizeof(expandedBuckets[0])
+                                     + exampleNum];
+        }
         
         int side = ordinal ? bucket >= splitValue : bucket != splitValue;
         
@@ -1291,10 +1310,16 @@ updateBucketsKernel(uint32_t rightOffset,
             toBucketLocal = toBucket = toPartition;
         }
         else {
-            bucket = getBucket(exampleNum,
-                               bucketData, bucketDataLength,
-                               bucketBits, numBuckets);
+            if (!useExpandedBuckets) {
+                bucket = getBucket(exampleNum,
+                                   bucketData, bucketDataLength,
+                                   bucketBits, numBuckets);
+            }
+            else {
+                bucket = featureExpandedBuckets[exampleNum];
+            }
 
+            
             fromBucket = fromPartition * numActiveBuckets + startBucket + bucket;
             toBucket = toPartition * numActiveBuckets + startBucket + bucket;
             fromBucketLocal = fromPartition * numBuckets + bucket;

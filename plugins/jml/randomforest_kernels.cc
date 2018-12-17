@@ -2025,6 +2025,7 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
 
 EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
 EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
+EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
 
 ML::Tree::Ptr
 trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
@@ -2436,8 +2437,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     OpenCLKernel testFeatureKernel
         = kernelContext.program.createKernel("testFeatureKernelExpanded");
 
-    bool useExpandedBuckets = true;
-    
     testFeatureKernel.bind(clExpandedRowData,
                            (uint32_t)numRows,
                            clBucketData,
@@ -2446,7 +2445,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                            clBucketEntryBits,
                            clDecompressedBucketData,
                            clDecompressedBucketDataOffsets,
-                           (uint32_t)useExpandedBuckets,
+                           (uint32_t)RF_EXPAND_FEATURE_BUCKETS,
                            clFeaturesActive,
                            LocalArray<W>(MAX_LOCAL_BUCKETS),
                            (uint32_t)MAX_LOCAL_BUCKETS,
@@ -2921,6 +2920,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   clBucketDataOffsets,
                   clBucketNumbers,
                   clBucketEntryBits,
+                  clDecompressedBucketData,
+                  clDecompressedBucketDataOffsets,
+                  (uint32_t)RF_EXPAND_FEATURE_BUCKETS,
                   clFeaturesActive,
                   clFeatureIsOrdinal,
                   LocalArray<W>(MAX_LOCAL_BUCKETS),
