@@ -2026,6 +2026,10 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
 EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
 EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
 EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
+EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 0);
+EnvOption<int, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
+EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 16384);
+
 
 ML::Tree::Ptr
 trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
@@ -2072,7 +2076,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // in global memory.  Since we don't get to decide per feature
     // how much shared memory is used (for the moment), we need to decide
     // ahead of time.
-    static constexpr size_t MAX_LOCAL_BUCKETS = 16384 / sizeof(W);  // 16k bytes
+    const size_t MAX_LOCAL_BUCKETS = RF_LOCAL_BUCKET_MEM.get() / sizeof(W);  // 16k bytes
     
     // Maximum number of buckets
     size_t maxBuckets = 0;
@@ -2157,9 +2161,15 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     OpenCLKernelContext kernelContext = getKernelContext();
     OpenCLContext & context = kernelContext.context;
 
+    Bitset<OpenCLCommandQueueProperties> queueProperties
+        = { OpenCLCommandQueueProperties::PROFILING_ENABLE };
+    if (!RF_OPENCL_SYNCHRONOUS_LAUNCH) {
+        queueProperties.set
+            (OpenCLCommandQueueProperties::OUT_OF_ORDER_EXEC_MODE_ENABLE);
+    }
+    
     auto queue = kernelContext.context.createCommandQueue
-        (kernelContext.devices[0],
-         OpenCLCommandQueueProperties::PROFILING_ENABLE);
+        (kernelContext.devices[0], queueProperties);
 
     size_t rowMemorySizePageAligned
         = (rows.rowData.memusage() + 4095) / 4096 * 4096;
@@ -2191,7 +2201,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         = context.createBuffer(CL_MEM_READ_ONLY, 4);
     
     totalGpuAllocation += 4;
-
+    
     if (rows.weightEncoder.weightFormat == WF_TABLE) {
         clWeightData = context.createBuffer
             (0,
@@ -2302,8 +2312,12 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     totalGpuAllocation += bucketMemoryOffsets.size() * sizeof(bucketMemoryOffsets[0]);
 
-    size_t decompressedBucketDataBytes
-        = numActiveFeatures * sizeof(uint16_t) * numRows;
+    size_t decompressedBucketDataBytes = 4;
+
+    if (RF_EXPAND_FEATURE_BUCKETS) {
+        decompressedBucketDataBytes
+            = numActiveFeatures * sizeof(uint16_t) * numRows;
+    }
     
     // Decompress the bucket memory
     OpenCLMemObject clDecompressedBucketData
@@ -2317,7 +2331,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         uint32_t offset = 0;
         for (int f = 0;  f < nf;  ++f) {
             decompressedBucketDataOffsets.push_back(offset);
-            if (!featuresActive[f])
+            if (!featuresActive[f] || !RF_EXPAND_FEATURE_BUCKETS)
                 continue;
             offset += sizeof(uint16_t) * numRows;
         }
@@ -2326,67 +2340,68 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     OpenCLMemObject clDecompressedBucketDataOffsets
         = context.createBuffer(decompressedBucketDataOffsets);
-    
-    OpenCLKernel decompressBucketsKernel
-        = kernelContext.program.createKernel("decompressFeatureBucketsKernel");
 
-    decompressBucketsKernel
-        .bind((uint32_t)numRows,
-              clBucketData,
-              clBucketDataOffsets,
-              clBucketNumbers,
-              clBucketEntryBits,
-              clFeaturesActive,
-              clDecompressedBucketData,
-              clDecompressedBucketDataOffsets);
-
-    OpenCLEvent runDecompressBuckets
-        = queue.launch(decompressBucketsKernel, { 65536, nf }, { 256, 1 },
-                       { transferBucketData });
-    
-    allEvents.emplace_back("runDecompressBuckets", runDecompressBuckets);
-
-    if (debugKernelOutput) {
-        OpenCLEvent mapDecompressedBucketData;
-        std::shared_ptr<const void> mappedDecompressedBucketData;
-
-        std::tie(mappedDecompressedBucketData, mapDecompressedBucketData)
-            = queue.enqueueMapBuffer(clDecompressedBucketData, CL_MAP_READ,
-                                     0 /* offset */, decompressedBucketDataBytes,
-                                     { runDecompressBuckets });
+    if (RF_EXPAND_FEATURE_BUCKETS) {
+        OpenCLKernel decompressBucketsKernel
+            = kernelContext.program.createKernel("decompressFeatureBucketsKernel");
         
-        mapDecompressedBucketData.waitUntilFinished();
+        decompressBucketsKernel
+            .bind((uint32_t)numRows,
+                  clBucketData,
+                  clBucketDataOffsets,
+                  clBucketNumbers,
+                  clBucketEntryBits,
+                  clFeaturesActive,
+                  clDecompressedBucketData,
+                  clDecompressedBucketDataOffsets);
 
-        const uint16_t * decompressedBucketDataGpu
-            = reinterpret_cast<const uint16_t *>(mappedDecompressedBucketData.get());
+        OpenCLEvent runDecompressBuckets
+            = queue.launch(decompressBucketsKernel, { 65536, nf }, { 256, 1 },
+                           { transferBucketData });
+        allEvents.emplace_back("runDecompressBuckets", runDecompressBuckets);
 
-        bool different = false;
+        if (debugKernelOutput) {
+            OpenCLEvent mapDecompressedBucketData;
+            std::shared_ptr<const void> mappedDecompressedBucketData;
+
+            std::tie(mappedDecompressedBucketData, mapDecompressedBucketData)
+                = queue.enqueueMapBuffer(clDecompressedBucketData, CL_MAP_READ,
+                                         0 /* offset */, decompressedBucketDataBytes,
+                                         { runDecompressBuckets });
         
-        for (size_t f = 0;  f < nf;  ++f) {
-            if (!featuresActive[f])
-                continue;
+            mapDecompressedBucketData.waitUntilFinished();
 
-            cerr << "active feature " << f
-                 << " at " << decompressedBucketDataOffsets[f] << endl;
+            const uint16_t * decompressedBucketDataGpu
+                = reinterpret_cast<const uint16_t *>(mappedDecompressedBucketData.get());
+
+            bool different = false;
+        
+            for (size_t f = 0;  f < nf;  ++f) {
+                if (!featuresActive[f])
+                    continue;
+
+                cerr << "active feature " << f
+                     << " at " << decompressedBucketDataOffsets[f] << endl;
             
-            const uint16_t * featureBuckets
-                = decompressedBucketDataGpu
-                + (decompressedBucketDataOffsets[f] / sizeof(uint16_t));
+                const uint16_t * featureBuckets
+                    = decompressedBucketDataGpu
+                    + (decompressedBucketDataOffsets[f] / sizeof(uint16_t));
 
-            for (size_t i = 0;  i < numRows;  ++i) {
-                int bCpu = features[f].buckets[i];
-                int bGpu = featureBuckets[i];
+                for (size_t i = 0;  i < numRows;  ++i) {
+                    int bCpu = features[f].buckets[i];
+                    int bGpu = featureBuckets[i];
                 
-                if (bGpu != bCpu) {
-                    cerr << "error in feature bucket: feature "
-                         << f << " bucket " << i << ": CPU "
-                         << bCpu << " GPU " << bGpu << endl;
-                    different = true;
+                    if (bGpu != bCpu) {
+                        cerr << "error in feature bucket: feature "
+                             << f << " bucket " << i << ": CPU "
+                             << bCpu << " GPU " << bGpu << endl;
+                        different = true;
+                    }
                 }
             }
-        }
 
-        ExcAssert(!different);
+            ExcAssert(!different);
+        }
     }
     
     // Our wAll array contains the sum of all of the W buckets across
@@ -2530,7 +2545,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     // Record the split, per level, per partition
     std::vector<std::vector<PartitionSplit> > depthSplits;
-    depthSplits.reserve(8);
+    depthSplits.reserve(16);
 
     OpenCLMemObject clFeatureIsOrdinal
         = context.createBuffer(featureIsOrdinal);
@@ -2557,6 +2572,11 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     for (int myDepth = 0; myDepth < 16 && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
 
+        if (!RF_OPENCL_SYNCHRONOUS_LAUNCH) {
+            queue.flush();
+            queue.finish();
+        }
+        
         if (debugKernelOutput) {
             // Verify that the input prerequisites are OK:
             // - The counts are all non-negative
@@ -2928,15 +2948,21 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   LocalArray<W>(MAX_LOCAL_BUCKETS),
                   (uint32_t)MAX_LOCAL_BUCKETS);
 
+        cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
+                                                        context.getDevices()[0]))
+             << endl;
+        
         OpenCLEvent runUpdateBucketsKernel;
 
+        size_t numRowKernels = RF_NUM_ROW_KERNELS;
+        
         if (RF_SEPARATE_FEATURE_UPDATES) {
         
             std::vector<OpenCLEvent> updateBucketsEvents;
             
             OpenCLEvent runUpdateWAllKernel
                 = queue.launch(updateBucketsKernel,
-                               { 65536, 1 },
+                               { numRowKernels, 1 },
                                { 256, 1 },
                                { runTransferBucketsKernel },
                                { 0, 0 });
@@ -2951,13 +2977,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 if (!featuresActive[f])
                     continue;
 
-                //cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
-                //                                                context.getDevices()[0]))
-                //     << endl;
-            
                 OpenCLEvent runUpdateBucketsKernel
                     = queue.launch(updateBucketsKernel,
-                                   { 65536, 1 },
+                                   { numRowKernels, 1 },
                                    { 256, 1 },
                                    { runTransferBucketsKernel },
                                    { 0, (unsigned)(f + 1) });
@@ -3190,6 +3212,13 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
+#if 0
+    for (size_t i = 0;  i < 19;  ++i) {
+        trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,
+                                       rows, features, bucketMemory, fs);
+    }
+#endif
+    
     return trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,
                                           rows, features, bucketMemory, fs);
 }

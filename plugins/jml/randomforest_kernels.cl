@@ -1179,19 +1179,10 @@ updateBucketsKernel(uint32_t rightOffset,
     // Pointer to the global array we eventually want to update
     __global W * wGlobal;
 
-    __local int numLocalUpdates;
-    __local int numGlobalUpdates;
-    __local int numGlobalUpdatesDirect;
-    __local int numRows;
-    
-    if (get_local_id(0) == 0) {
-        numLocalUpdates = numGlobalUpdates = numGlobalUpdatesDirect = numRows = 0;
-    }
-    
     if (f == -1) {
-        numLocalBuckets = rightOffset * 2;
+        numBuckets = rightOffset * 2;
         wGlobal = wAll;
-        numBuckets = numLocalBuckets;
+        numLocalBuckets = min(numBuckets, maxLocalBuckets);
         startBucket = 0;
     }
     else {
@@ -1356,7 +1347,6 @@ updateBucketsKernel(uint32_t rightOffset,
         //           label, weight);
         //}
 
-        //atomic_inc(&numRows);
     }
 
     // Wait for all buckets to be updated, before we write them back to the global mem
@@ -1384,11 +1374,5 @@ updateBucketsKernel(uint32_t rightOffset,
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
-
-    if (get_local_id(0) == 0 && false) {
-        printf("f %d nb %d nbp %d nlb %d id %d rows %d of %d loc %d dir %d global %d\n",
-               (int)f, (int)numBuckets, (int)(numBuckets*rightOffset*2), (int)numLocalBuckets, (int)get_global_id(0), (int)numRows, (int)(rowCount / get_local_size(0)),
-               numLocalUpdates, numGlobalUpdatesDirect, numGlobalUpdates);
-    }
 }
 
