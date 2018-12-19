@@ -247,10 +247,7 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
 {
     atom_add(&wOut->vals[0], wIn->vals[0]);
     atom_add(&wOut->vals[1], wIn->vals[1]);
-    int oldCount = atom_add(&wOut->count,   wIn->count);
-    //if (oldCount < 0 || oldCount + wIn->count < 0) {
-    //    printf("W COUNT < 0: %d + %d = %d\n", oldCount, wIn->count, oldCount + wIn->count);
-    //}
+    atom_add(&wOut->count,   wIn->count);
 }
 
 uint32_t testRow(uint32_t rowId,
@@ -1126,6 +1123,7 @@ inline void decrementWLocal(__local W * w,
 // Second part: per feature plus wAll, transfer examples
 
 __kernel void
+//__attribute__((reqd_work_group_size(256,1,1)))
 updateBucketsKernel(uint32_t rightOffset,
                     uint32_t numActiveBuckets,
                     
@@ -1147,7 +1145,7 @@ updateBucketsKernel(uint32_t rightOffset,
 
                     __global const uint16_t * expandedBuckets,
                     __global const uint32_t * expandedBucketOffsets,
-                    uint32_t useExpandedBuckets,
+                    uint32_t useExpandedBuckets_,
 
                     __global const uint32_t * featureActive,
                     __global const uint32_t * featureIsOrdinal,
@@ -1155,6 +1153,8 @@ updateBucketsKernel(uint32_t rightOffset,
                     __local W * wLocal,
                     uint32_t maxLocalBuckets)
 {
+    const bool useExpandedBuckets = true;
+    
     int f = get_global_id(1) - 1;
 
     if (f != -1 && !featureActive[f])
@@ -1203,8 +1203,6 @@ updateBucketsKernel(uint32_t rightOffset,
         }
     }
 
-    //numLocalBuckets = 0;
-    
     // Clear our local accumulation buckets
     for (int b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
         zeroW(wLocal + b);
@@ -1212,6 +1210,8 @@ updateBucketsKernel(uint32_t rightOffset,
 
     // Wait for all buckets to be clear
     barrier(CLK_LOCAL_MEM_FENCE);
+    
+    //numLocalBuckets = 0;
     
     for (int i = get_global_id(0);  i < rowCount;  i += get_global_size(0)) {
 
@@ -1225,17 +1225,6 @@ updateBucketsKernel(uint32_t rightOffset,
             continue;
         }
 
-        // Split feature values go here
-        uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
-        uint32_t splitBucketDataLength
-            = bucketDataOffsets[splitFeature + 1]
-            - splitBucketDataOffset;
-        uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1]
-            - bucketNumbers[splitFeature];
-        __global const uint32_t * splitBucketData
-            = allBucketData + splitBucketDataOffset;
-        uint32_t splitBucketBits = bucketEntryBits[splitFeature];
-
         float weight = fabs(decodedRows[i]);
         bool label = decodedRows[i] < 0;
         int exampleNum = i;
@@ -1243,16 +1232,27 @@ updateBucketsKernel(uint32_t rightOffset,
         int leftPartition = partition;
         int rightPartition = partition + rightOffset;
 
-        if (leftPartition >= rightOffset
-            || rightPartition >= rightOffset * 2) {
-            printf("PARTITION SCALING ERROR\n");
-        }
+        //if (leftPartition >= rightOffset
+        //    || rightPartition >= rightOffset * 2) {
+        //    printf("PARTITION SCALING ERROR\n");
+        //}
     
         int splitValue = partitionSplits[partition].value;
         bool ordinal = featureIsOrdinal[splitFeature];
         int bucket;
 
         if (!useExpandedBuckets) {
+            // Split feature values go here
+            uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
+            uint32_t splitBucketDataLength
+                = bucketDataOffsets[splitFeature + 1]
+                - splitBucketDataOffset;
+            uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1]
+                - bucketNumbers[splitFeature];
+            __global const uint32_t * splitBucketData
+                = allBucketData + splitBucketDataOffset;
+            uint32_t splitBucketBits = bucketEntryBits[splitFeature];
+
             bucket = getBucket(exampleNum,
                                splitBucketData, splitBucketDataLength,
                                splitBucketBits, splitNumBuckets);
@@ -1314,6 +1314,13 @@ updateBucketsKernel(uint32_t rightOffset,
             toBucket = toPartition * numActiveBuckets + startBucket + bucket;
             fromBucketLocal = fromPartition * numBuckets + bucket;
             toBucketLocal = toPartition * numBuckets + bucket;
+
+            //if (f == 0 && i < 2048 && rightOffset == 2)
+            //    printf("row %d feature %d side %d direction %d from %d to %d lbl %d wt %f bkt %d -> %d\n",
+            //           i, f, side, direction, fromPartition, toPartition,
+            //           label, weight, fromBucket, toBucket);
+        
+
         }
 
         if (fromBucketLocal < numLocalBuckets) {
@@ -1332,13 +1339,6 @@ updateBucketsKernel(uint32_t rightOffset,
         else {
             incrementWAtomic(wGlobal + toBucket, label, weight);
             //atomic_inc(&numGlobalUpdatesDirect);
-
-            if (f != -1 && false)
-                printf("row %d feature %d side %d direction %d from %d to %d lbl %d wt %f bkt %d -> %d\n",
-                       i, f, side, direction, fromPartition, toPartition,
-                       label, weight, fromBucket, toBucket);
-        
-
         }
 
         //if ((int)wAll[fromPartition].count < 0) {
@@ -1372,7 +1372,5 @@ updateBucketsKernel(uint32_t rightOffset,
             //atomic_inc(&numGlobalUpdates);
         }
     }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
 }
 

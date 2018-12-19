@@ -2027,7 +2027,8 @@ EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
 EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
 EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
 EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 0);
-EnvOption<int, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
+EnvOption<size_t, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
+EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SIZE", 256);
 EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 16384);
 
 
@@ -2963,7 +2964,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             OpenCLEvent runUpdateWAllKernel
                 = queue.launch(updateBucketsKernel,
                                { numRowKernels, 1 },
-                               { 256, 1 },
+                               { RF_ROW_KERNEL_WORKGROUP_SIZE, 1 },
                                { runTransferBucketsKernel },
                                { 0, 0 });
 
@@ -2980,7 +2981,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 OpenCLEvent runUpdateBucketsKernel
                     = queue.launch(updateBucketsKernel,
                                    { numRowKernels, 1 },
-                                   { 256, 1 },
+                                   { RF_ROW_KERNEL_WORKGROUP_SIZE, 1 },
                                    { runTransferBucketsKernel },
                                    { 0, (unsigned)(f + 1) });
 
@@ -2999,8 +3000,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         else {
             runUpdateBucketsKernel
                 = queue.launch(updateBucketsKernel,
-                               { 65536, nf + 1 /* +1 is wAll */},
-                               { 256, 1 },
+                               { numRowKernels, nf + 1 /* +1 is wAll */},
+                               { RF_ROW_KERNEL_WORKGROUP_SIZE, 1 },
                                { runTransferBucketsKernel });
         }
         
