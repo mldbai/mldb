@@ -250,6 +250,13 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
     atom_add(&wOut->count,   wIn->count);
 }
 
+void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
+{
+    atom_sub(&wOut->vals[0], wIn->vals[0]);
+    atom_sub(&wOut->vals[1], wIn->vals[1]);
+    atom_sub(&wOut->count,   wIn->count);
+}
+
 uint32_t testRow(uint32_t rowId,
 
                  __global const uint64_t * rowData,
@@ -1016,22 +1023,15 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     atomic_dec(&partitionLocks[partition]);
 }
 
-// For each partition and each bucket, start with all weight in the
-// bucket with the largest count.  That way we minimize the number of
-// rows that are in the wrong bucket.
-//
-// This is a 2 dimensional kernel:
-// Dimension 0 = partition number (from 0 to the old number of partitions)
-// Dimension 1 = bucket number (from 0 to the number of active buckets)
 __kernel void
-transferBucketsKernel(__global W * allPartitionBuckets,
-                      __global W * wAll,
-                      __global const PartitionSplit * partitionSplits,
-                      uint32_t numActiveBuckets)
+clearBucketsKernel(__global W * allPartitionBuckets,
+                   __global W * wAll,
+                   __global const PartitionSplit * partitionSplits,
+                   uint32_t numActiveBuckets)
 
 {
     uint32_t numPartitions = get_global_size(0);
-
+    
     int i = get_global_id(0);
 
     // Commented out because it causes spurious differences in the debugging code between
@@ -1045,8 +1045,6 @@ transferBucketsKernel(__global W * allPartitionBuckets,
     if (j >= numActiveBuckets)
         return;
     
-    __global W * bucketsLeft
-        = allPartitionBuckets + i * numActiveBuckets;
     __global W * bucketsRight
         = allPartitionBuckets + (i + numPartitions) * numActiveBuckets;
     
@@ -1056,23 +1054,9 @@ transferBucketsKernel(__global W * allPartitionBuckets,
 
     const W empty = { { 0, 0 }, 0 };
     
-    if (partitionSplits[i].direction) {
-        // Those buckets which are transfering right to left should
-        // start with the weight on the right
-        bucketsRight[j] = bucketsLeft[j];
-        bucketsLeft[j] = empty;
-
-        if (j == 0) {
-            wAll[i + numPartitions] = wAll[i];
-            wAll[i] = empty;
-        }
-    }
-    else {
-        // Otherwise, we start with zero on the right
-        bucketsRight[j] = empty;
-        if (j == 0) {
-            wAll[i + numPartitions] = empty;
-        }
+    bucketsRight[j] = empty;
+    if (j == 0) {
+        wAll[i + numPartitions] = empty;
     }
 }
 
@@ -1179,10 +1163,12 @@ updateBucketsKernel(uint32_t rightOffset,
     // Pointer to the global array we eventually want to update
     __global W * wGlobal;
 
+    // We always transfer weights from the left to the right, and then
+    // in a later kernel swap them
     if (f == -1) {
         numBuckets = rightOffset * 2;
         wGlobal = wAll;
-        numLocalBuckets = min(numBuckets, maxLocalBuckets);
+        numLocalBuckets = min(rightOffset, maxLocalBuckets);
         startBucket = 0;
     }
     else {
@@ -1191,7 +1177,7 @@ updateBucketsKernel(uint32_t rightOffset,
         numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
         bucketData = allBucketData + bucketDataOffset;
         bucketBits = bucketEntryBits[f];
-        numLocalBuckets = min(numBuckets * rightOffset * 2, maxLocalBuckets);
+        numLocalBuckets = min(numBuckets * rightOffset, maxLocalBuckets);
         //printf("f %d nlb = %d nb = %d ro = %d mlb = %d\n",
         //       f, numLocalBuckets, numBuckets, rightOffset, maxLocalBuckets);
         wGlobal = partitionBuckets;
@@ -1199,11 +1185,12 @@ updateBucketsKernel(uint32_t rightOffset,
 
         if (useExpandedBuckets) {
             featureExpandedBuckets
-                = expandedBuckets + expandedBucketOffsets[f] / sizeof(expandedBuckets[0]);
+                = expandedBuckets
+                + expandedBucketOffsets[f] / sizeof(expandedBuckets[0]);
         }
     }
 
-    // Clear our local accumulation buckets
+    // Clear our local accumulation buckets to get started
     for (int b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
         zeroW(wLocal + b);
     }
@@ -1232,11 +1219,6 @@ updateBucketsKernel(uint32_t rightOffset,
         int leftPartition = partition;
         int rightPartition = partition + rightOffset;
 
-        //if (leftPartition >= rightOffset
-        //    || rightPartition >= rightOffset * 2) {
-        //    printf("PARTITION SCALING ERROR\n");
-        //}
-    
         int splitValue = partitionSplits[partition].value;
         bool ordinal = featureIsOrdinal[splitFeature];
         int bucket;
@@ -1281,24 +1263,15 @@ updateBucketsKernel(uint32_t rightOffset,
         if (direction == side) {
             continue;
         }
-        int fromPartition, toPartition;
-        if (direction == 0 && side == 1) {
-            // Transfer from left to right
-            fromPartition = leftPartition;
-            toPartition   = rightPartition;
-        }
-        else {
-            // Transfer from right to left
-            fromPartition = rightPartition;
-            toPartition   = leftPartition;
-        }
 
-        int fromBucket, toBucket;
-        int fromBucketLocal, toBucketLocal;
+        int toBucketLocal, toBucketGlobal;
         
         if (f == -1) {
-            fromBucketLocal = fromBucket = fromPartition;
-            toBucketLocal = toBucket = toPartition;
+            // Since we don't touch the buckets on the left side of the
+            // partition, we don't need to have local accumulators for them.
+            // Hence, the partition number for local is the left partition.
+            toBucketLocal = leftPartition;
+            toBucketGlobal = rightPartition;
         }
         else {
             if (!useExpandedBuckets) {
@@ -1309,44 +1282,18 @@ updateBucketsKernel(uint32_t rightOffset,
             else {
                 bucket = featureExpandedBuckets[exampleNum];
             }
-            
-            fromBucket = fromPartition * numActiveBuckets + startBucket + bucket;
-            toBucket = toPartition * numActiveBuckets + startBucket + bucket;
-            fromBucketLocal = fromPartition * numBuckets + bucket;
-            toBucketLocal = toPartition * numBuckets + bucket;
 
-            //if (f == 0 && i < 2048 && rightOffset == 2)
-            //    printf("row %d feature %d side %d direction %d from %d to %d lbl %d wt %f bkt %d -> %d\n",
-            //           i, f, side, direction, fromPartition, toPartition,
-            //           label, weight, fromBucket, toBucket);
-        
-
-        }
-
-        if (fromBucketLocal < numLocalBuckets) {
-            decrementWLocal(wLocal + fromBucketLocal, label, weight);
-            //atomic_inc(&numLocalUpdates);
-        }
-        else {
-            decrementWAtomic(wGlobal + fromBucket, label, weight);
-            //atomic_inc(&numGlobalUpdatesDirect);
+            toBucketLocal = leftPartition * numBuckets + bucket;
+            toBucketGlobal
+                = rightPartition * numActiveBuckets + startBucket + bucket;
         }
 
         if (toBucketLocal < numLocalBuckets) {
             incrementWLocal(wLocal + toBucketLocal, label, weight);
-            //atomic_inc(&numLocalUpdates);
         }
         else {
-            incrementWAtomic(wGlobal + toBucket, label, weight);
-            //atomic_inc(&numGlobalUpdatesDirect);
+            incrementWAtomic(wGlobal + toBucketGlobal, label, weight);
         }
-
-        //if ((int)wAll[fromPartition].count < 0) {
-        //    printf("NEGATIVE WALL row %d feature %d side %d direction %d from %d to %d lbl %d wt %f\n",
-        //           i, f, side, direction, fromPartition, toPartition,
-        //           label, weight);
-        //}
-
     }
 
     // Wait for all buckets to be updated, before we write them back to the global mem
@@ -1355,13 +1302,12 @@ updateBucketsKernel(uint32_t rightOffset,
     for (int b = get_local_id(0);  b < numLocalBuckets;  b += get_local_size(0)) {
         if (wLocal[b].count != 0) {
             if (f == -1) {
-                incrementWOut(wGlobal + b, wLocal + b);
-                //atomic_inc(&numGlobalUpdates);
+                incrementWOut(wGlobal + b + rightOffset, wLocal + b);
                 continue;
             }
 
             // TODO: avoid div/mod if possible in these calculations
-            int partition = b / numBuckets;
+            int partition = b / numBuckets + rightOffset;
             int bucket = b % numBuckets;
             int bucketNumberGlobal = partition * numActiveBuckets + startBucket + bucket;
 
@@ -1370,6 +1316,68 @@ updateBucketsKernel(uint32_t rightOffset,
 
             incrementWOut(wGlobal + bucketNumberGlobal, wLocal + b);
             //atomic_inc(&numGlobalUpdates);
+        }
+    }
+}
+
+// For each partition and each bucket, we up to now accumulated just the
+// weight that needs to be transferred in the right hand side of the
+// partition splits.  We need to fix this up by:
+// 1.  Subtracting this weight from the left hand side
+// 2.  Flipping the buckets where the big amount of weight belongs on the
+//     right not on the left.
+//
+// This is a 2 dimensional kernel:
+// Dimension 0 = partition number (from 0 to the old number of partitions)
+// Dimension 1 = bucket number (from 0 to the number of active buckets)
+__kernel void
+fixupBucketsKernel(__global W * allPartitionBuckets,
+                   __global W * wAll,
+                   __global const PartitionSplit * partitionSplits,
+                   uint32_t numActiveBuckets)
+
+{
+    uint32_t numPartitions = get_global_size(0);
+
+    int i = get_global_id(0);
+
+    // Commented out because it causes spurious differences in the debugging code between
+    // the two sides.  It doesn' thave any effect on the output, though, and saves some
+    // work.
+    //if (partitionSplits[i].right.count == 0)
+    //    return;
+            
+    int j = get_global_id(1);
+
+    if (j >= numActiveBuckets)
+        return;
+    
+    __global W * bucketsLeft
+        = allPartitionBuckets + i * numActiveBuckets;
+    __global W * bucketsRight
+        = allPartitionBuckets + (i + numPartitions) * numActiveBuckets;
+    
+    // We double the number of partitions.  The left all
+    // go with the lower partition numbers, the right have the higher
+    // partition numbers.
+
+    const W empty = { { 0, 0 }, 0 };
+
+    decrementWOutGlobal(bucketsLeft + j, bucketsRight + j);
+    if (j == 0) {
+        decrementWOutGlobal(wAll + i, wAll + i + numPartitions);
+    }
+    
+    if (partitionSplits[i].direction) {
+        // We need to swap the buckets
+        W tmp = bucketsRight[j];
+        bucketsRight[j] = bucketsLeft[j];
+        bucketsLeft[j] = tmp;
+
+        if (j == 0) {
+            tmp = wAll[i + numPartitions];
+            wAll[i + numPartitions] = wAll[i];
+            wAll[i] = tmp;
         }
     }
 }

@@ -2921,28 +2921,38 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         // new partitions, and transfer those examples that are in the
         // wrong partition to the right one
 
-        // At last, the main kernel.  Each example either stays in the same
-        // partition or shifts to a new partition.  This kernel takes care
-        // of doing the shifting.
+        // To update buckets, we first transfer the smallest number of
+        // examples possible into the new partitions, without subtracting
+        // them from the original partitions.  Afterwards, we subtract them
+        // and swap any which are in the wrong order.  This means that we
+        // only need to keep one set of partition buckets in shared memory
+        // and saves lots of atomic operations.
 
-        OpenCLKernel transferBucketsKernel
-            = kernelContext.program.createKernel("transferBucketsKernel");
+        // First we clear everything on the right side, ready to accumulate
+        // the new buckets there.
 
-        transferBucketsKernel
+        OpenCLKernel clearBucketsKernel
+            = kernelContext.program.createKernel("clearBucketsKernel");
+
+        clearBucketsKernel
             .bind(clPartitionBuckets,
                   clWAll,
                   clPartitionSplits,
                   (uint32_t)numActiveBuckets);
 
-        OpenCLEvent runTransferBucketsKernel
-            = queue.launch(transferBucketsKernel,
+        OpenCLEvent runClearBucketsKernel
+            = queue.launch(clearBucketsKernel,
                            { numPartitionsAtDepth, (numActiveBuckets + 63) / 64 * 64 },
                            { 1, 64 },
                            { runPartitionSplitsKernel });
  
-        allEvents.emplace_back("runTransferBucketsKernel "
+        allEvents.emplace_back("runClearBucketsKernel "
                                + std::to_string(myDepth),
-                               runTransferBucketsKernel);
+                               runClearBucketsKernel);
+
+        // Now the right side buckets are clear, we can transfer the weights
+        // for the examples who have changed bucket from the left to the right.
+
 
         OpenCLKernel updateBucketsKernel
             = kernelContext.program.createKernel("updateBucketsKernel");
@@ -2978,6 +2988,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         size_t numRowKernels = RF_NUM_ROW_KERNELS;
         
+        cerr << "numRowKernels = " << numRowKernels << endl;
+        
         if (RF_SEPARATE_FEATURE_UPDATES) {
         
             std::vector<OpenCLEvent> updateBucketsEvents;
@@ -2986,7 +2998,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = queue.launch(updateBucketsKernel,
                                { numRowKernels, 1 },
                                { RF_ROW_KERNEL_WORKGROUP_SIZE, 1 },
-                               { runTransferBucketsKernel },
+                               { runClearBucketsKernel },
                                { 0, 0 });
 
             allEvents.emplace_back("runUpdateWAllKernel "
@@ -3003,7 +3015,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                     = queue.launch(updateBucketsKernel,
                                    { numRowKernels, 1 },
                                    { RF_ROW_KERNEL_WORKGROUP_SIZE, 1 },
-                                   { runTransferBucketsKernel },
+                                   { runClearBucketsKernel },
                                    { 0, (unsigned)(f + 1) });
 
                 allEvents.emplace_back("runUpdateBucketsKernel "
@@ -3023,13 +3035,32 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = queue.launch(updateBucketsKernel,
                                { numRowKernels, nf + 1 /* +1 is wAll */},
                                { RF_ROW_KERNEL_WORKGROUP_SIZE, 1 },
-                               { runTransferBucketsKernel });
+                               { runClearBucketsKernel });
         }
         
         allEvents.emplace_back("runUpdateBucketsKernel "
                                + std::to_string(myDepth),
                                runUpdateBucketsKernel);
         
+        OpenCLKernel fixupBucketsKernel
+            = kernelContext.program.createKernel("fixupBucketsKernel");
+
+        fixupBucketsKernel
+            .bind(clPartitionBuckets,
+                  clWAll,
+                  clPartitionSplits,
+                  (uint32_t)numActiveBuckets);
+
+        OpenCLEvent runFixupBucketsKernel
+            = queue.launch(fixupBucketsKernel,
+                           { numPartitionsAtDepth, (numActiveBuckets + 63) / 64 * 64 },
+                           { 1, 64 },
+                           { runUpdateBucketsKernel });
+ 
+        allEvents.emplace_back("runFixupBucketsKernel "
+                               + std::to_string(myDepth),
+                               runFixupBucketsKernel);
+
         if (debugKernelOutput) {
 
             // Run the CPU version of the computation
