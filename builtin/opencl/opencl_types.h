@@ -342,6 +342,25 @@ DECLARE_STRUCTURE_DESCRIPTION(OpenCLProgramBuildInfo);
 
 
 /*****************************************************************************/
+/* OPENCL PROGRAM INFO                                                       */
+/*****************************************************************************/
+
+struct OpenCLProgramInfo {
+    cl_program program = nullptr;
+
+    OpenCLProgramInfo() = default;
+    OpenCLProgramInfo(cl_program program);
+    
+    template<typename T, typename... Args>
+    void doField(cl_uint what, T & where, Args&&... args);
+
+    std::vector<cl_device_id> devices;
+    std::string source;
+    std::vector<std::string> binaries;
+};
+
+
+/*****************************************************************************/
 /* OPENCL KERNEL INFO                                                        */
 /*****************************************************************************/
 
@@ -1586,10 +1605,74 @@ struct OpenCLProgram {
         return result;
     }
 
-    OpenCLProgramBuildInfo getProgramInfo(const OpenCLDevice & device)
+    OpenCLProgramInfo getProgramInfo()
+    {
+        return OpenCLProgramInfo(program);
+    }
+    
+    OpenCLProgramBuildInfo getProgramBuildInfo(const OpenCLDevice & device)
     {
         return OpenCLProgramBuildInfo(program, device);
         
+    }
+
+    std::string getBinary(size_t deviceIndex = 0) const
+    {
+        ExcCheck(program, "Uninitialized OpenCL program");
+        cl_uint ndevices;
+        cl_int res
+            = clGetProgramInfo(program, CL_PROGRAM_NUM_DEVICES,
+                               sizeof(ndevices), &ndevices, nullptr);
+        checkOpenCLError(res, "clGetProgramInfo(DEVICE_COUNT)");
+
+        if (deviceIndex >= ndevices) {
+            throw AnnotatedException(400, "Invalid binary index in "
+                                     "OpenCL getBinary");
+        }
+        
+        std::vector<size_t> binarySizes(ndevices);
+
+        res = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES,
+                               binarySizes.size() * sizeof(binarySizes[0]),
+                               binarySizes.data(), nullptr);
+        checkOpenCLError(res, "clGetProgramInfo(BINARY_SIZES)");
+
+        std::string buffer(binarySizes[deviceIndex], '\0');
+
+        std::vector<char *> binaries(ndevices, nullptr);
+        binaries[deviceIndex] = buffer.data();
+        
+        res = clGetProgramInfo(program, CL_PROGRAM_BINARIES,
+                               binaries.size() * sizeof(binaries[0]),
+                               binaries.data(), nullptr);
+        checkOpenCLError(res, "clGetProgramInfo(BINARIES)");
+
+        return buffer;
+    }
+    
+    std::string getBinary(const OpenCLDevice & device) const
+    {
+        ExcCheck(program, "Uninitialized OpenCL program");
+        cl_uint ndevices;
+        cl_int res
+            = clGetProgramInfo(program, CL_PROGRAM_NUM_DEVICES,
+                               sizeof(ndevices), &ndevices, nullptr);
+        checkOpenCLError(res, "clGetProgramInfo(DEVICE_COUNT)");
+
+        std::vector<cl_device_id> devices(ndevices);
+
+        res = clGetProgramInfo(program, CL_PROGRAM_DEVICES,
+                               devices.size() * sizeof(devices[0]),
+                               devices.data(), nullptr);
+        checkOpenCLError(res, "clGetProgramInfo(DEVICES)");
+
+        for (size_t i = 0;  i < devices.size();  ++i) {
+            if (device == devices[i]) {
+                return getBinary(i);
+            }
+        }
+
+        throw AnnotatedException(400, "Unknown OpenCL device in getBinary");
     }
     
     OpenCLKernel createKernel(const std::string & name)

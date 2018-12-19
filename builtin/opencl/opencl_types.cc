@@ -118,6 +118,7 @@ std::string clGetErrorString(int errorCode)
     case -1099: return "CL_INVALID_VA_API_MEDIA_SURFACE_INTEL";
     case -1100: return "CL_VA_API_MEDIA_SURFACE_ALREADY_ACQUIRED_INTEL";
     case -1101: return "CL_VA_API_MEDIA_SURFACE_NOT_ACQUIRED_INTEL";
+    case -9999: return "CL_NVIDIA_KERNEL_EXECUTION_FAULT";
     default: return "CL_UNKNOWN_ERROR " + std::to_string(errorCode);
     }
 }
@@ -807,6 +808,7 @@ IMPLEMENT_STRUCTURE_DESCRIPTION(OpenCLPlatformInfo)
              "OpenCL platform vendor extensions");
 }
 
+
 /*****************************************************************************/
 /* OPENCL PROGRAM BUILD INFO                                                 */
 /*****************************************************************************/
@@ -853,6 +855,47 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(OpenCLProgramBuildInfo)
     addField("buildOptions", &OpenCLProgramBuildInfo::buildOptions, "");
     addField("buildLog", &OpenCLProgramBuildInfo::buildLog, "");
     addField("binaryType", &OpenCLProgramBuildInfo::binaryType, "");
+}
+
+
+/*****************************************************************************/
+/* OPENCL PROGRAM INFO                                                       */
+/*****************************************************************************/
+
+OpenCLProgramInfo::
+OpenCLProgramInfo(cl_program program)
+    : program(program)
+{
+    cl_uint numDevices;
+    doField(CL_PROGRAM_NUM_DEVICES, numDevices);
+
+    std::vector<size_t> binarySizes(numDevices);
+    doField(CL_PROGRAM_BINARY_SIZES, binarySizes);
+
+    binaries.resize(numDevices);
+    std::vector<char *> binaryPointers(numDevices);
+    for (int i = 0;  i < numDevices;  ++i) {
+        binaries[i].resize(binarySizes[i]);
+        binaryPointers[i] = binaries[i].data();
+    }
+    doField(CL_PROGRAM_BINARIES, binaryPointers);
+
+    doField(CL_PROGRAM_SOURCE, source);
+}
+
+template<typename T, typename... Args>
+void
+OpenCLProgramInfo::
+doField(cl_uint what, T & where, Args&&... args)
+{
+    clInfoCall(clGetProgramInfo, program, what, where, this,
+               std::forward<Args>(args)...);
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(OpenCLProgramInfo)
+{
+    addField("source", &OpenCLProgramInfo::source, "");
+    addField("binaries", &OpenCLProgramInfo::binaries, "");
 }
 
 
