@@ -173,13 +173,18 @@ OpenCLProgram getTestFeatureProgramOpenCL()
     
     OpenCLProgram program = context.createProgram(source);
 
-    string options = "-cl-kernel-arg-info";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
+    string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
 
     // Build for all devices
     auto buildInfo = program.build(devices, options);
     
     cerr << jsonEncode(buildInfo[0]) << endl;
 
+    std::string binary = program.getBinary();
+
+    filter_ostream stream2("randomforest_kernels.obj");
+    stream2 << binary;
+    
     return program;
 }
 
@@ -2573,7 +2578,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     for (int myDepth = 0; myDepth < 16 && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
 
-        if (!RF_OPENCL_SYNCHRONOUS_LAUNCH) {
+        if (RF_OPENCL_SYNCHRONOUS_LAUNCH) {
             queue.flush();
             queue.finish();
         }
@@ -2776,6 +2781,22 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::vector<std::vector<W> > debugBucketsCpu;
         std::vector<W> debugWAllCpu;
         std::vector<uint16_t> debugPartitionsCpu;
+
+        if (depth == 1) {
+            clDepthSplitsEvents.back().waitUntilFinished();
+
+            PartitionSplit * partitionSplitsGpu
+                = reinterpret_cast<PartitionSplit *>
+                    (mappedPartitionSplits.get());
+
+            for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
+
+                new (&partitionSplitsGpu[p].activeFeatures) std::vector<int>;
+
+                cerr << "partition " << p << " split "
+                     << jsonEncodeStr(partitionSplitsGpu[p]) << endl;
+            }
+        }
         
         if (debugKernelOutput) {
             // Map back the GPU partition splits
