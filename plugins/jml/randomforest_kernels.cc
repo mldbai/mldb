@@ -2741,14 +2741,10 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
              << numPartitionsAtDepth << " buckets "
              << numPartitionsAtDepth * numActiveBuckets << endl;
 
-        // We need to be a multiple of the chunk size for the buckets.  Extra
-        // ones will simply exit straight away.
-        size_t maxBucketsAdjusted = (maxBuckets + 255) / 256 * 256;
-        
         OpenCLEvent runPartitionSplitsKernel
             = queue.launch(getPartitionSplitsKernel,
-                           { maxBucketsAdjusted, nf, numPartitionsAtDepth },
-                           { 256, 1, 1 },
+                           { 1, nf, numPartitionsAtDepth },
+                           { 1, 1, 1 },
                            { fillPartitionSplits, fillPartitionLocks,
                              previousIteration, copyWAll, initializeWAll});
 
@@ -2784,20 +2780,46 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::vector<W> debugWAllCpu;
         std::vector<uint16_t> debugPartitionsCpu;
 
-        if (depth == 1) {
+        if (depth == maxDepth - 1) {
             clDepthSplitsEvents.back().waitUntilFinished();
 
             PartitionSplit * partitionSplitsGpu
                 = reinterpret_cast<PartitionSplit *>
                     (mappedPartitionSplits.get());
 
+            std::vector<size_t> partitionCounts;
+            
             for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
 
-                new (&partitionSplitsGpu[p].activeFeatures) std::vector<int>;
+                //new (&partitionSplitsGpu[p].activeFeatures) std::vector<int>;
 
-                cerr << "partition " << p << " split "
-                     << jsonEncodeStr(partitionSplitsGpu[p]) << endl;
+                //cerr << "partition " << p << " split "
+                //     << jsonEncodeStr(partitionSplitsGpu[p]) << endl;
+
+                partitionCounts.push_back(partitionSplitsGpu[p].left.count());
+                partitionCounts.push_back(partitionSplitsGpu[p].right.count());
             }
+
+            std::sort(partitionCounts.begin(), partitionCounts.end());
+
+            int firstNonZero = 0;
+            for (int p = 0;  p < partitionCounts.size();  ++p, ++firstNonZero) {
+                if (partitionCounts[p] > 0)
+                    break;
+            }
+
+            int numNonZero = partitionCounts.size() - firstNonZero;
+            cerr << "occupancy: " << firstNonZero << " zero, "
+                 << numNonZero << " non-zero of "
+                 << partitionCounts.size() << " partitions" << endl;
+            cerr << "mean " << numRows / numNonZero << " median "
+                 << partitionCounts[partitionCounts.size() / 2]
+                 << " max " << partitionCounts.back() << endl;
+
+            for (int i = partitionCounts.size() - 1;  i >= 0 && i >= partitionCounts.size() - 1000;  --i) {
+                cerr << "  " << partitionCounts[i] << endl;
+            }
+
         }
         
         if (debugKernelOutput) {
@@ -3267,6 +3289,8 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
+    //return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
+    //                                   rows, features, bucketMemory, fs);
 #if 0
     for (size_t i = 0;  i < 19;  ++i) {
         trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,

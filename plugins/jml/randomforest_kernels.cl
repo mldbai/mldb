@@ -56,9 +56,9 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
                                   uint32_t dataLength)
 {
     long bitNumber = numBits * (long)entryNumber;
-    if (bitNumber >= INT_MAX) {
-        printf("bit number requires > 32 bits: %ld\n", bitNumber); 
-    }
+    //if (bitNumber >= INT_MAX) {
+    //    printf("bit number requires > 32 bits: %ld\n", bitNumber); 
+    //}
     int wordNumber = bitNumber / 64;
     int wordOffset = bitNumber % 64;
 
@@ -230,30 +230,30 @@ void decrementWLocal(__local W * w, bool label, float weight)
 
 void incrementWGlobal(__global W * w, bool label, float weight)
 {
-    //if (weight != 0.0)
-    //    return;
-    
     int64_t inc = encodeW(weight);
-#if 1
     atom_add(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
-#else
-    w->vals[label ? 1 : 0] += inc;
-    ++w->count;
-#endif
 }
 
 void incrementWOut(__global W * wOut, __local const W * wIn)
 {
-    atom_add(&wOut->vals[0], wIn->vals[0]);
-    atom_add(&wOut->vals[1], wIn->vals[1]);
+    if (wIn->count == 0)
+        return;
+    if (wIn->vals[0] != 0)
+        atom_add(&wOut->vals[0], wIn->vals[0]);
+    if (wIn->vals[1] != 0)
+        atom_add(&wOut->vals[1], wIn->vals[1]);
     atom_add(&wOut->count,   wIn->count);
 }
 
 void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
 {
-    atom_sub(&wOut->vals[0], wIn->vals[0]);
-    atom_sub(&wOut->vals[1], wIn->vals[1]);
+    if (wIn->count == 0)
+        return;
+    if (wIn->vals[0] != 0)
+        atom_sub(&wOut->vals[0], wIn->vals[0]);
+    if (wIn->vals[1] != 0)
+        atom_sub(&wOut->vals[1], wIn->vals[1]);
     atom_sub(&wOut->count,   wIn->count);
 }
 
