@@ -1697,7 +1697,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
 
 // Check that the partition counts match the W counts.
 void
-verifyPartitionBuckets(const std::vector<uint8_t> & partitions,
+verifyPartitionBuckets(const std::vector<uint16_t> & partitions,
                        const std::vector<W> & wAll)
 {
     using namespace std;
@@ -1796,12 +1796,14 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
     using namespace std;
 
     int rowCount = decodedRows.size();
-        
+
+    int maxDepthBeforeRecurse = std::min(maxDepth - depth, 10);
+    
     // This is our total for each bucket across the whole lot
     // We keep track of it per-partition (there are up to 256
     // partitions, which corresponds to a depth of 8)
     std::vector<std::vector<W> > buckets;
-    buckets.reserve(256);
+    buckets.reserve(1 << maxDepthBeforeRecurse);
     buckets.emplace_back(std::move(bucketsIn));
 
     // Which partition is each row in?  Initially, everything
@@ -1812,14 +1814,14 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
 
     // What is our weight total for each of our partitions?
     std::vector<W> wAll = { wAllInput };
-    wAll.reserve(256);
+    wAll.reserve(1 << maxDepthBeforeRecurse);
         
     // Record the split, per level, per partition
     std::vector<std::vector<PartitionSplit> > depthSplits;
     depthSplits.reserve(8);
         
     // We go down level by level
-    for (int myDepth = 0; myDepth < 8 && depth < maxDepth;
+    for (int myDepth = 0; myDepth < maxDepthBeforeRecurse && depth < maxDepth;
          ++depth, ++myDepth) {
 
         // Check the preconditions if we're in testing mode
