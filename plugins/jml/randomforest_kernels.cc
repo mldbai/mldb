@@ -399,7 +399,8 @@ std::tuple<double /* bestScore */,
 chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                   int maxBucket,
                   bool ordinal,
-                  const W & wAll)
+                  const W & wAll,
+                  bool debug)
 {
     double bestScore = INFINITY;
     int bestSplit = -1;
@@ -421,15 +422,13 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
             
                 double s = scoreSplit(wFalse, wTrue);
 
-#if 0                
                 if (debug) {
                     std::cerr << "  ord split " << j << " "
-                              << features.info->bucketDescriptions.getValue(j)
+                        //                              << features.info->bucketDescriptions.getValue(j)
                               << " had score " << s << std::endl;
                     std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
                     std::cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << std::endl;
                 }
-#endif
                 
                 if (s < bestScore) {
                     bestScore = s;
@@ -463,15 +462,13 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
             
             double s = scoreSplit(wFalse, w[j]);
 
-#if 0                    
             if (debug) {
                 std::cerr << "  non ord split " << j << " "
-                          << features.info->bucketDescriptions.getValue(j)
+                    //    << features.info->bucketDescriptions.getValue(j)
                           << " had score " << s << std::endl;
                 std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
                 std::cerr << "    true:  " << w[j][0] << " " << w[j][1] << std::endl;
             }
-#endif
                     
             if (s < bestScore) {
                 bestScore = s;
@@ -1583,7 +1580,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
                    bool parallel)
 {
     std::vector<PartitionSplit> partitionSplits(buckets.size());
-        
+    
     for (int partition = 0;  partition < buckets.size();  ++partition) {
 
         double bestScore = INFINITY;
@@ -1592,7 +1589,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
                 
         W bestLeft;
         W bestRight;
-
+        
         // Reduction over the best split that comes in feature by
         // feature; we find the best global split score and store
         // it.  This is done in order to be sure that we
@@ -1601,25 +1598,27 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
                              const std::tuple<int, double, int, W, W>
                              & val)
             {
+                bool debug = false; //partition == 3 && buckets.size() == 8 && activeFeatures[af] == 4;
+
                 double score = std::get<1>(val);
 
                 if (score == INFINITY) return;
 
-#if 0
-                cerr << "part " << partition << " af " << af
-                << " f " << std::get<0>(val)
-                << " score " << std::get<1>(val) << " split "
-                << std::get<2>(val)
-                << endl;
-                cerr << "    score " << std::get<1>(val) << " "
-                << features[std::get<0>(val)].info->columnName
-                << " "
-                << features[std::get<0>(val)]
-                .info->bucketDescriptions.getSplit(std::get<2>(val))
-                << " l " << jsonEncodeStr(std::get<3>(val)) << " r "
-                << jsonEncodeStr(std::get<4>(val)) << endl;
-#endif
-                        
+                if (debug) {
+                    cerr << "part " << partition << " af " << af
+                         << " f " << std::get<0>(val)
+                         << " score " << std::get<1>(val) << " split "
+                         << std::get<2>(val)
+                         << endl;
+                    cerr << "    score " << std::get<1>(val) << " "
+                         << features[std::get<0>(val)].info->columnName
+                         << " "
+                         << features[std::get<0>(val)]
+                        .info->bucketDescriptions.getSplit(std::get<2>(val))
+                         << " l " << jsonEncodeStr(std::get<3>(val)) << " r "
+                         << jsonEncodeStr(std::get<4>(val)) << endl;
+                }
+                
                 if (score < bestScore) {
                     //cerr << "*** best" << endl;
                     std::tie(bestFeature, bestScore, bestSplit, bestLeft,
@@ -1631,22 +1630,25 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
         auto doFeature = [&] (int af)
             {
                 int f = activeFeatures.at(af);
-                int startBucket = bucketOffsets[f];
-                int endBucket MLDB_UNUSED = bucketOffsets[f + 1];
-                int maxBucket = endBucket - startBucket - 1;
                 bool isActive = true;
                 double bestScore = INFINITY;
                 int bestSplit = -1;
                 W bestLeft;
                 W bestRight;
 
-                if (isActive && !buckets[partition].empty()) {
+                bool debug = false; // partition == 3 && buckets.size() == 8 && activeFeatures[af] == 4;
+
+                if (isActive && !buckets[partition].empty()
+                    && wAll[partition].v[0] != 0.0 && wAll[partition].v[1] != 0.0) {
+                    int startBucket = bucketOffsets[f];
+                    int endBucket MLDB_UNUSED = bucketOffsets[f + 1];
+                    int maxBucket = endBucket - startBucket - 1;
                     const W * wFeature
                         = buckets[partition].data() + startBucket;
                     std::tie(bestScore, bestSplit, bestLeft, bestRight)
                         = chooseSplitKernel(wFeature, maxBucket,
                                             features[f].ordinal,
-                                            wAll[partition]);
+                                            wAll[partition], debug);
                 }
 
                 //cerr << " score " << bestScore << " split "
@@ -2816,7 +2818,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                  << partitionCounts[partitionCounts.size() / 2]
                  << " max " << partitionCounts.back() << endl;
 
-            for (int i = partitionCounts.size() - 1;  i >= 0 && i >= partitionCounts.size() - 1000;  --i) {
+            for (int i = partitionCounts.size() - 1;  i >= 0 && i >= partitionCounts.size() - 200;  --i) {
+                if (partitionCounts[i] == 0)
+                    break;
                 cerr << "  " << partitionCounts[i] << endl;
             }
 
@@ -3004,9 +3008,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   LocalArray<W>(MAX_LOCAL_BUCKETS),
                   (uint32_t)MAX_LOCAL_BUCKETS);
 
-        cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
-                                                        context.getDevices()[0]))
-             << endl;
+        //cerr << jsonEncodeStr(OpenCLKernelWorkgroupInfo(updateBucketsKernel,
+        //                                                context.getDevices()[0]))
+        //     << endl;
         
         OpenCLEvent runUpdateBucketsKernel;
 

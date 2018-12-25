@@ -65,7 +65,8 @@ std::tuple<double /* bestScore */,
 chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                   int maxBucket,
                   bool ordinal,
-                  const W & wAll);
+                  const W & wAll,
+                  bool debug = false);
     
 std::tuple<double /* bestScore */,
            int /* bestSplit */,
