@@ -2038,7 +2038,12 @@ EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
 EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 0);
 EnvOption<size_t, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
 EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SIZE", 256);
-EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 16384);
+
+// Default of 6k allows 8 parallel workgroups for a 48k SM.
+// On Nvidia, with 32 registers/work item and 256 work items/workgroup
+// (8 warps of 32 threads), we use 32 * 256 * 8 = 64k registers, which
+// means full occupancy.
+EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 6000);
 
 
 ML::Tree::Ptr
