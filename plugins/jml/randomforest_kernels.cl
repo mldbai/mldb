@@ -189,7 +189,7 @@ inline uint32_t getBucket(uint32_t exampleNum,
 typedef struct W {
     int64_t vals[2];
     int32_t count;
-    int32_t unused;
+    int32_t index;
 } W;// __attribute__((packed)) __attribute__((aligned(4)));
 
 void zeroW(__local W * w)
@@ -209,7 +209,7 @@ int64_t encodeW(float f)
     return result;
 }
 
-float decodeW(int64_t v)
+double decodeW(int64_t v)
 {
     return v * HL_2_VAL;
 }
@@ -726,18 +726,359 @@ inline double sqrt2(float x)
     return sqrt((double)x);
 }
 
-inline float scoreSplit(W wFalse, W wTrue)
+inline double scoreSplit(W wFalse, W wTrue)
 {
     double score
-        = 2.0 * (    sqrt2(decodeW(wFalse.vals[0]) * decodeW(wFalse.vals[1]))
-                   + sqrt2(decodeW(wTrue.vals[0]) * decodeW(wTrue.vals[1])));
+        = 2.0 * (    sqrt(decodeW(wFalse.vals[0]) * decodeW(wFalse.vals[1]))
+                   + sqrt(decodeW(wTrue.vals[0]) * decodeW(wTrue.vals[1])));
     return score;
 };
 
+inline void incrementW(__local W * out, __local const W * in)
+{
+    if (in->count == 0)
+        return;
+    out->vals[0] += in->vals[0];
+    out->vals[1] += in->vals[1];
+    out->count += in->count;
+}
+
+inline double scoreSplitWAll(W wTrue, W wAll)
+{
+    W wFalse = { { wAll.vals[0] - wTrue.vals[0],
+                   wAll.vals[1] - wTrue.vals[1] },
+                 0 };
+    return scoreSplit(wFalse, wTrue);
+}
+
+/* In this function, we identify empty buckets (that should not be scored)
+   by marking their index with -1.
+*/
+inline void minW(__local W * out, __local const W * in, W wAll, bool debug)
+{
+    if (in->count == 0 || in->index < 0)
+        return;
+    if (out->count == 0 || out->index < 0) {
+        *out = *in;
+        return;
+    }
+
+    double scoreIn = scoreSplitWAll(*in, wAll);
+    double scoreOut = scoreSplitWAll(*out, wAll);
+
+    if (debug) {
+        printf("score %d vs %d: %f(%08lx) vs %f(%08lx): (%f,%f,%d) vs (%f,%f,%d): %d\n",
+               in->index, out->index, scoreIn, scoreIn, scoreOut, scoreOut,
+               decodeW(in->vals[0]), decodeW(in->vals[1]), in->count,
+               decodeW(out->vals[0]), decodeW(out->vals[1]), out->count,
+               scoreIn >= scoreOut);
+    }
+    
+    // No need to check the indexes if less; the way it's structured out will
+    // always be on the higher index.
+    if (scoreIn <= scoreOut)
+        *out = *in;
+}
+
+// Post: start[0] <- start[0] + init
+//       start[n] <- sum(start[0...n]) + init
+// This is a low latency prefix sum, not work-minimizing
+void prefixSumW(__local W * w, int n, bool debug)
+{
+    // iter 0
+    // a b c d e f g h i j k l m n o p
+
+    // iter 1
+    // 0 0+1 2 2+3 4 4+5 6 6+7 8 8+9 10 10+11 12 12+13 14 14+15
+    // a a+b c c+d e e+f g g+h i i+j  k   k+l   m  m+n  o   o+p
+    //     0     1     2     3     4        5        6        7
+    
+    // j = 2, blocks of 2, one thread per block, read from 0
+    // n odd: n-1 + n
+    // n even:      n
+    
+    // iter 2
+    // 0   1   1+2     1+3 4   5   5+6     5+7    
+    // a a+b a+b+c a+b+c+d e e+f e+f+g e+f+g+h ...
+    //           0       1           2       3
+    // 8   9  9+10    9+11 12    13 13+14   13+15
+    // i i+j i+j+k i+j+k+l  m   m+n m+n+o m+n+o+p
+    //           4       5              6       7
+    
+    // j = 4, blocks of 4, two threads per block, read from 1
+    // n % 4 == 0,1:         n
+    // n % 4 == 2,3: n%4+1 + n
+    
+    // iter 3
+    // 0   1     2       3        3+4           3+5           3+6             3+7
+    // a a+b a+b+c a+b+c+d  a+b+c+d+e   a+b+c+d+e+f a+b+c+d+e+f+g a+b+c+d+e+f+g+h
+    //                              0             1             2               3
+    // 8   9    10      11      11+12         11+13         11+14           11+15
+    // i i+j i+j+k i+j+k+l  i+j+k+l+m   i+j+k+l+m+n i+j+k+l+m+n+o i+j+k+l+m+n+o+p
+    //                              4             5             6               7
+    
+    // j = 8, blocks of 8, four threads per block, read from 3
+    // n % 8 == 0,1,2,3:         n
+    // n % 8 == 4,5,6,7: n%8+3 + n
+    
+    // iter 4, blocks of 16, 8 threads per block, read from 7
+    // n % 16 < 8: n
+    // n % 16 >= 8: n%16+7+n
+
+    // iter i, j = 2^i, blocks of j, j/2 threads per block, read from j/2-1
+
+    for (int iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
+        // Each thread has one increment to do.  Here we calculate the index of
+        // the result and the index of the argument.
+
+        // If we need more than one round from our warp to process all elements,
+        // then do  it
+        for (int i = get_local_id(0);  i < n / 2;  i += get_local_size(0)) {
+            // j is the number of elements in the block.
+            int blockNum = i * 2 / blockSize;
+            int threadNumInBlock = i % (blockSize / 2);
+            int blockStart = blockNum * blockSize;
+            int halfBlockSize = blockSize/2;
+
+            // All read from this same one
+            int argIndex = blockStart + halfBlockSize - 1;
+
+            // We add to the second half of the block
+            int resultIndex = blockStart + halfBlockSize + threadNumInBlock;
+
+            if (resultIndex < n) {
+                if (debug) {
+                    printf("b %d = %d + %d = (%f,%f,%d,i%d) + (%f,%f,%d,i%d) = (%f,%f,%d)\n",
+                           resultIndex, resultIndex, argIndex,
+                           decodeW(w[resultIndex].vals[0]),
+                           decodeW(w[resultIndex].vals[1]),
+                           w[resultIndex].count, w[resultIndex].index,
+                           decodeW(w[argIndex].vals[0]),
+                           decodeW(w[argIndex].vals[1]),
+                           w[argIndex].count, w[argIndex].index,
+                           decodeW(w[resultIndex].vals[0] + w[argIndex].vals[0]),
+                           decodeW(w[resultIndex].vals[1] + w[argIndex].vals[1]),
+                           w[resultIndex].count + w[argIndex].count
+                           );
+                }
+
+                // All threads read the same value (argIndex) and write a different
+                // element of the block (resultIndex)
+                incrementW(w + resultIndex, w + argIndex);
+            }
+        }
+
+        // Make sure everything has finished on this iteration before we do the
+        // next one
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+}
+
+// Return the lowest index of the W array with a score equal to the minimum
+// score.  Only get_local_id(0) knows the actual correct result; the result
+// from the others should be ignored.
+int argMinScanW(__local W * w, int n, W wAll, bool debug)
+{
+    for (int iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
+        // If we need more than one round from our warp to process all elements,
+        // then do  it
+        for (int i = get_local_id(0);  i < n / 2;  i += get_local_size(0)) {
+            // j is the number of elements in the block.
+            int blockNum = i * 2 / blockSize;
+            int threadNumInBlock = i % (blockSize / 2);
+            int blockStart = blockNum * blockSize;
+            int halfBlockSize = blockSize/2;
+
+            // All read from this same one
+            int argIndex = blockStart + halfBlockSize - 1;
+
+            // We add to the second half of the block
+            int resultIndex = blockStart + halfBlockSize + threadNumInBlock;
+
+            if (resultIndex <  n) {
+                // Compare them, taking the minimum and pushing it right
+                minW(w + resultIndex, w + argIndex, wAll, debug);
+            }
+        }
+
+        // Make sure everything has finished on this iteration before we do the
+        // next one
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    return w[n - 1].index;
+}
+
+// Function that uses a single workgroup to scan all of the buckets in a split
+PartitionSplit
+chooseSplit(__global const W * w,
+            uint32_t numBuckets,
+            W wAll,
+            __local W * wLocal,
+            uint32_t wLocalSize,
+            bool ordinal)
+{
+    PartitionSplit result = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                              0, { 0, 0, 0, 0, 0, 0 } };
+
+    int bucket = get_global_id(0);
+    int f = get_global_id(1);
+    int p = get_global_id(2);
+
+
+    // We need some weight in both true and false for a split to make sense
+    if (wAll.vals[0] == 0 || wAll.vals[1] == 0)
+        return result;
+    
+    // Read our W array into shared memory
+    
+    // If we have more W values than local buckets, we need to
+    // do the prefix sum multiple times to fill it up completely
+
+    // Contains the prefix sum from the previous iteration
+    __local W wStart;
+
+    // Contains the best split from the previous iteration
+    __local W wBest;
+    
+    if (get_local_id(0) == 0) {
+        // Initialize wBest
+        if (ordinal) {
+            wStart.vals[0] = wStart.vals[1] = wStart.count = 0;
+            wStart.index = -1;
+        }
+        wBest.vals[0] = wBest.vals[1] = wBest.count = 0;
+        wBest.index = -1;
+    }
+
+    // Shouldn't be necessary; just in case
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    bool debug = false;//(f == 0 && p == 2 && get_global_size(2) == 8);
+    
+    for (int startBucket = 0;  startBucket < numBuckets;
+         startBucket += wLocalSize) {
+
+        //if (startBucket != 0) {
+        //    printf("f %d p %d startBucket %d\n",
+        //           f, p, startBucket);
+        //}
+        
+        int endBucket = min(startBucket + wLocalSize, numBuckets);
+        int numBucketsInIteration = endBucket - startBucket;
+        
+        for (int i = get_local_id(0);  i < numBucketsInIteration;
+             i += get_local_size(0)) {
+            wLocal[i] = w[startBucket + i];
+
+            // We don't want buckets with zero count to participate in the
+            // scoring, so those get an index of -1 to mark them as empty.
+            // They still accumulate their weight, however.
+            if (wLocal[i].count > 0)
+                wLocal[i].index = startBucket + i;
+            else wLocal[i].index = -1;
+
+            if (debug) {
+                printf("bucket %d has count %d index %d\n",
+                       startBucket + i, wLocal[i].count, wLocal[i].index);
+            }
+            
+            if (i == 0 && startBucket != 0 && debug) {
+                // Add the previous prefix to the first element
+                if (ordinal) {
+                    incrementW(wLocal, &wStart);
+
+                    printf("f %d p %d sb %d new iter (%f,%f,%d) min (%f,%f,%d,i%d) first (%f,%f,%d,i%d) in (%f,%f,%d)\n",
+                           f, p, startBucket,
+                           decodeW(wStart.vals[0]), decodeW(wStart.vals[1]),
+                           wStart.count,
+                           decodeW(wBest.vals[0]), decodeW(wBest.vals[1]),
+                           wBest.count, wBest.index,
+                           decodeW(wLocal->vals[0]), decodeW(wLocal->vals[1]),
+                           wLocal->count, wLocal->index,
+                           decodeW(w[startBucket].vals[0]),
+                           decodeW(w[startBucket].vals[1]),
+                           w[startBucket].count
+                           );
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (ordinal) {
+            // Now we've read it in, we can do our prefix sum
+            prefixSumW(wLocal, numBucketsInIteration, false /* debug */);
+
+            // Seed for the next one
+            wStart = wLocal[numBucketsInIteration - 1];
+        }
+        
+        // And then scan that to find the index of the best score
+        argMinScanW(wLocal, numBucketsInIteration, wAll, debug);
+
+        // Find if our new bucket is better than the last champion
+        minW(&wBest, wLocal + numBucketsInIteration - 1, wAll,
+             debug);
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (get_local_id(0) == 0 && ordinal) {
+        if (wStart.vals[0] != wAll.vals[0]
+            || wStart.vals[1] != wAll.vals[1]
+            || wStart.count != wAll.count) {
+            printf("Accumulation error: wAll != wStart: (%f,%f,%d) != (%f,%f,%d)\n",
+                   decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count,
+                   decodeW(wStart.vals[0]), decodeW(wStart.vals[1]), wStart.count);
+        }
+    }
+    
+    if (p < 256 && get_local_id(0) == 0 && false) {
+        //printf("f %d p %d numBuckets = %d\n",
+        //       f, p, numBuckets);
+
+#if 0        
+        printf("wAll (%f,%f,%d)\n",
+               decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count);
+
+        for (int i = 0;  i < numBuckets;  ++i) {
+            printf("  b%d in (%f,%f,%d) cum (%f,%f,%d)\n",
+                   i, decodeW(w[i].vals[0]), decodeW(w[i].vals[1]),
+                   w[i].count,
+                   decodeW(wLocal[i].vals[0]), decodeW(wLocal[i].vals[1]),
+                   wLocal[i].count);
+        }
+#endif
+        float score = scoreSplitWAll(wBest, wAll);
+
+        
+        printf("f %d p %d nb %5d wBest %4d ord %d (%f,%f,%7d) %f\n",
+               f, p, numBuckets, wBest.index, ordinal,
+               decodeW(wBest.vals[0]), decodeW(wBest.vals[1]), wBest.count,
+               score);
+    }
+    
+    result.score = scoreSplitWAll(wBest, wAll);
+    result.feature = f;
+    result.value = wBest.index + ordinal;  // ordinal indexes are offset by 1
+    result.left = wBest;
+    result.right = wAll;
+
+    result.right.vals[0] -= wBest.vals[0];
+    result.right.vals[1] -= wBest.vals[1];
+    result.right.count   -= wBest.count;
+
+    return result;
+}
+
+
 PartitionSplit
 chooseSplitKernelOrdinal(__global const W * w,
-                         int numBuckets,
-                         W wAll)
+                         uint32_t numBuckets,
+                         W wAll,
+                         __local W * wLocal,
+                         uint32_t wLocalSize)
 {
     PartitionSplit result;
 
@@ -747,10 +1088,11 @@ chooseSplitKernelOrdinal(__global const W * w,
     if (bucket != 0)
         return result;
 
-    int f = get_global_id(1);
-
-    int p = get_global_id(2);
+    // Now check our result
     
+    int f = get_global_id(1);
+    int p = get_global_id(2);
+
     //if (bucket == 0) {
     //   printf("feature %d is ordinal\n", f);
     //}
@@ -805,6 +1147,15 @@ chooseSplitKernelOrdinal(__global const W * w,
         }
     }
 
+    if (p == 0 && false) {
+        printf("real wBest %d (%f,%f,%d) %f\n",
+               bestSplit,
+               decodeW(bestLeft.vals[0]),
+               decodeW(bestLeft.vals[1]),
+               bestLeft.count,
+               bestScore);
+    }
+    
     result.score = bestScore;
 
     result.feature = f;
@@ -813,7 +1164,7 @@ chooseSplitKernelOrdinal(__global const W * w,
     result.right = bestRight;
 
     return result;
-}
+}    
 
 PartitionSplit
 chooseSplitKernelCategorical(__global const W * w,
@@ -901,29 +1252,44 @@ inline void atomic_store_W(__global W * w, const W * val)
 
 __kernel void
 getPartitionSplitsKernel(uint32_t totalBuckets,
-                         __global const uint32_t * bucketNumbers,
+                         __global const uint32_t * bucketNumbers, // [nf]
                          
-                         __global const uint32_t * featureActive,
-                         __global const uint32_t * featureIsOrdinal,
+                         __global const uint32_t * featureActive, // [nf]
+                         __global const uint32_t * featureIsOrdinal, // [nf]
                          
-                         __global const W * allW,
+                         __global const W * allW, // [np x totalBuckets]
 
                          __global const W * wAll,  // one per partition
-                         __global PartitionSplit * splitsOut,
-                         __global volatile int * partitionLocks)
+                         __global PartitionSplit * splitsOut, // [np x nf]
+
+                         __local W * wLocal,  // [wLocalSize]
+                         uint32_t wLocalSize)
 {
     int f = get_global_id(1);
+    int nf = get_global_size(1);
+    int partition = get_global_id(2);
+    
+    PartitionSplit best = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                            0, { 0, 0, 0, 0, 0, 0 } };
+
+    int bucket = get_global_id(0);
 
     // Don't do inactive features
-    if (!featureActive[f])
+    if (!featureActive[f]) {
+        if (bucket == 0) {
+            splitsOut[partition * nf + f] = best;            
+        }
         return;
+    }
     
-    int bucket = get_global_id(0);
-    int partition = get_global_id(2);
     int numPartitions = get_global_size(2);
 
-    if (wAll[partition].count == 0)
+    if (wAll[partition].count == 0) {
+        if (bucket == 0) {
+            splitsOut[partition * nf + f] = best;            
+        }
         return;
+    }
     
     //if (partition == 0 && bucket == 0) {
     //    printf("sizeof(PartitionSplit) = %d\n", sizeof(PartitionSplit));
@@ -945,83 +1311,132 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
         + bucketStart;
     
     bool ordinal = featureIsOrdinal[f];
-    PartitionSplit best;
 
+#if 1
+    best = chooseSplit(myW, numBuckets, wAll[partition],
+                       wLocal, wLocalSize, ordinal);
+#else    
     // TODO: use prefix sums to enable better parallelization (this will mean
     // multiple kernel launches, though, so not sure) or accumulate locally
     // per set of buckets and then accumulate globally in a second operation.
-    if (bucket != 0)
-        return;
 
-    if (ordinal) {
+    if (wAll[partition].vals[0] == 0 || wAll[partition].vals[1] == 0) {
+        // Nothing to do; we have either a uniformly true or a uniformly false
+        // label across the partition
+    }
+    else if (ordinal) {
         // We have to perform a prefix sum to have the data over which
         // we can calculate the split points.  This is more complicated.
-        best = chooseSplitKernelOrdinal(myW, numBuckets, wAll[partition]);
+        best = chooseSplitKernelOrdinal(myW, numBuckets, wAll[partition],
+                                        wLocal, wLocalSize);
     }
     else {
         // We have a simple search which is independent per-bucket.
         best = chooseSplitKernelCategorical(myW, numBuckets, wAll[partition]);
     }
-
-    best.direction
-        = best.feature != -1 && best.left.count <= best.right.count;
+#endif
     
-    __global PartitionSplit * splitOut = splitsOut + partition;
+    if (bucket == 0) {
+        best.direction
+            = best.feature != -1 && best.left.count <= best.right.count;
+        splitsOut[partition * nf + f] = best;
+    }
 
     //printf("part %d feature %d bucket %d score %f\n",
     //       partition, f, best.value, best.score);
-    
+
+
+#if 0    
     // Finally, we have each feature update the lowest split for the
     // partition.  Spin until we've acquired the lock for the partition.
     // We won't hold it for long, so the spinlock is not _too_ inefficient.
     // NOTE: this only works because we make all workgroups apart from one
     // return above.  In general, you can't do a simple spin lock like this
     // in a kernel without causing a deadlock.
-    while (atomic_inc(&partitionLocks[partition]) != 0) {
+    if (bucket == 0) {
+
+        printf("waiting feature %d partition %d\n", f, partition);
+
+        while (atomic_inc(&partitionLocks[partition]) != 0) {
+            atomic_dec(&partitionLocks[partition]);
+        }
+
+        printf("starting feature %d partition %d\n", f, partition);
+    
+        // We can only access the splitOut values via atomic operations, as the
+        // non-atomic global memory operations are only eventually consistent
+        // over workgroups, and on AMD GPUs the writes may not be visible to
+        // other workgroups until the kernel has finished.
+    
+        float currentScore = atomic_xchg(&splitOut->score, best.score);
+        int currentFeature = atomic_xchg(&splitOut->feature, best.feature);
+    
+        // If we have the best score or an equal score and a lower feature number
+        // (for determinism), then we update the output
+        if (best.score < currentScore
+            || (best.score == currentScore
+                && best.feature < currentFeature)) {
+
+            //printf("BEST, %.10f < %.10f\n", best.score, currentScore);
+        
+            // Copy the rest in, atomically
+            atomic_store_int(&splitOut->value, best.value);
+
+            atomic_store_long(&splitOut->left.vals[0], best.left.vals[0]);
+            atomic_store_long(&splitOut->left.vals[1], best.left.vals[1]);
+            atomic_store_int(&splitOut->left.count, best.left.count);
+
+            atomic_store_long(&splitOut->right.vals[0], best.right.vals[0]);
+            atomic_store_long(&splitOut->right.vals[1], best.right.vals[1]);
+            atomic_store_int(&splitOut->right.count, best.right.count);
+
+            atomic_store_int(&splitOut->direction, best.direction);
+        
+            // Shouldn't be needed, but just in case...
+            mem_fence(CLK_GLOBAL_MEM_FENCE);
+        }
+        else {
+            // Not the best, exchange them back
+            atomic_xchg(&splitOut->score, currentScore);
+            atomic_xchg(&splitOut->feature, currentFeature);
+        }
+    
+        // Finally, release the lock to let another feature in
         atomic_dec(&partitionLocks[partition]);
+
+        printf("finishing feature %d partition %d\n", f, partition);
     }
-
-    // We can only access the splitOut values via atomic operations, as the
-    // non-atomic global memory operations are only eventually consistent
-    // over workgroups, and on AMD GPUs the writes may not be visible to
-    // other workgroups until the kernel has finished.
-    
-    float currentScore = atomic_xchg(&splitOut->score, best.score);
-    int currentFeature = atomic_xchg(&splitOut->feature, best.feature);
-    
-    // If we have the best score or an equal score and a lower feature number
-    // (for determinism), then we update the output
-    if (best.score < currentScore
-        || (best.score == currentScore
-            && best.feature < currentFeature)) {
-
-        //printf("BEST, %.10f < %.10f\n", best.score, currentScore);
-        
-        // Copy the rest in, atomically
-        atomic_store_int(&splitOut->value, best.value);
-
-        atomic_store_long(&splitOut->left.vals[0], best.left.vals[0]);
-        atomic_store_long(&splitOut->left.vals[1], best.left.vals[1]);
-        atomic_store_int(&splitOut->left.count, best.left.count);
-
-        atomic_store_long(&splitOut->right.vals[0], best.right.vals[0]);
-        atomic_store_long(&splitOut->right.vals[1], best.right.vals[1]);
-        atomic_store_int(&splitOut->right.count, best.right.count);
-
-        atomic_store_int(&splitOut->direction, best.direction);
-        
-        // Shouldn't be needed, but just in case...
-        mem_fence(CLK_GLOBAL_MEM_FENCE);
-    }
-    else {
-        // Not the best, exchange them back
-        atomic_xchg(&splitOut->score, currentScore);
-        atomic_xchg(&splitOut->feature, currentFeature);
-    }
-    
-    // Finally, release the lock to let another feature in
-    atomic_dec(&partitionLocks[partition]);
+#endif
 }
+
+// id 0: partition number
+__kernel void
+bestPartitionSplitKernel(uint32_t nf,
+                         __global const uint32_t * featureActive, // [nf]
+                         __global const PartitionSplit * featurePartitionSplits,
+                         __global PartitionSplit * partitionSplits)
+{
+    int p = get_global_id(0);
+    int np = get_global_size(0);
+    
+    PartitionSplit best = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                            0, { 0, 0, 0, 0, 0, 0 } };
+
+    featurePartitionSplits += p * nf;
+    partitionSplits += p;
+    
+    for (int f = 0;  f < nf;  ++f) {
+        if (!featureActive[f])
+            continue;
+        if (featurePartitionSplits[f].value < 0)
+            continue;
+        if (featurePartitionSplits[f].score < best.score) {
+            best = featurePartitionSplits[f];
+        }
+    }
+
+    *partitionSplits = best;
+}                                      
 
 __kernel void
 clearBucketsKernel(__global W * allPartitionBuckets,
@@ -1382,3 +1797,124 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
     }
 }
 
+                
+#if 0
+// Split a dataset.  It compacts into two parts:
+// - An active part, with full buckets and a reduced set of partitions.
+//   typically, this will contain most of the rows and very few of the
+//   partitions.  They can be processed on the GPU efficiently.
+// - A passive part, with no buckets and a large set of partitions.
+//   This will normally contain few rows but lots of partition, and is
+//   hard to efficiently process on the GPU due to the number of kernel
+//   launches required.  As a result, it's usually better to do these
+//   on the CPU.
+
+// Split a dataset per partition.  It generates a set of offsets for
+// - expanded rows, per partition (in-place)
+// - 
+// - 
+
+PartitionSplit
+trainSplitSingleWarp(int numRows,
+                     int numBucketsPerPartition,
+                     __global float * examples,
+                     __global uint32_t * exampleNumbers,
+                     __local W * wLocal,
+                     int numLocalBuckets)
+{
+    
+
+    // Basic algorithm:
+    // - this is entered by a whole single warp, so we can assume
+    //   local memory is coherent across the entire set of threads
+    // - we don't have global memory for a scratchpad, forcing us
+    //   to keep state in registers and local memory
+    // - We have a limit of 12k of local memory, which may force us
+    //   to make multiple iterations through the data
+
+    __local PartitionSplit bestSplit;
+
+    // If we're in an ordinal feature, this is the accumulated wTrue
+    // from the previous splits.
+    __local W wAccum;
+    
+    if (get_local_id(0) == 0) {
+        clearPartitionSplit(bestSplit);
+        wAccum = { { 0, 0 }, 0 };
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    
+    // This loop makes as many passes through the data as necessary to
+    // accumulate entirely within local buckets.  We put all of the
+    // units to work, though.
+
+    // Which features are we testing on this iteration?  It will be the
+    // same set of features for each thread in the warp.
+    int fMin = 0, fMax = 0;
+        
+    for (int minBucket = 0;  minBucket < numLocalBuckets;
+         minBucket += numLocalBuckets) {
+        int maxBucket = min(numLocalBuckets, minBucket + numLocalBuckets);
+        int numBuckets = maxBucket - minBucket;
+
+        // Clear the buckets
+        for (int i = 0;  i < numBuckets;  i += get_local_dim(0)) {
+            zeroW(wLocal + i);
+        }
+        
+        barrier(CLK_LOCAL_MEM_FENCE);
+        
+        for (int i = 0;  i < rowCount;  i += get_local_dim(0)) {
+            float weight = ...;
+            bool label = ...;
+            int example = ...;
+
+            for (int f = fMin;  f <= fMax;  ++f) {
+                int bucket
+                    = expandedBuckets[f][example]
+                    + bucketStart[f]
+                    - minBucket;
+                if (bucket < 0)
+                    continue;
+                if (bucket >= numBuckets)
+                    break;
+
+                incrementWLocal(wLocal + bucket, weight, label);
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        // Now that all rows are done, we can score the splits in our
+        // buckets.
+
+        // Categorical features are easy; they can be independently
+        // tested.  Ordinal features require a prefix sum operation
+        // to properly test.
+
+        // First feature
+        for (int f = fMin;  f < fMax;  ++f) {
+            if (featureIsOrdinal[f]) {
+                // We have to perform a prefix sum of the values in
+                // our W buckets
+
+                
+
+            }
+            else {
+            }
+        }
+        
+        // ...
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Finally, we can separate our examples onto each side of the two
+    // buckets
+    
+    return bestSplit;
+}
+
+#endif

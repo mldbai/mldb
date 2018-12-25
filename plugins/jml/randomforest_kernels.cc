@@ -2681,49 +2681,19 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
             ExcAssert(!problem);
         }
-        // We need to store partition splits for each partition.  Get the
-        // memory.  It doesn't need to be initialized on the CPU; the GPU
-        // can do its own initialization with the fillPartitionSplits kernel.
 
-        size_t partitionSplitBytes
-            = sizeof(PartitionSplit) * numPartitionsAtDepth;
-
-        OpenCLMemObject clPartitionSplits
-            = context.createBuffer(CL_MEM_READ_WRITE, partitionSplitBytes);
-
-        totalGpuAllocation += partitionSplitBytes;
+        // We need to store partition splits for each partition and each
+        // feature.  Get the memory.  It doesn't need to be initialized.
+        // Layout is partition-major.
         
-        OpenCLKernel fillPartitionSplitsKernel
-            = kernelContext.program.createKernel("fillPartitionSplitsKernel");
+        size_t featurePartitionSplitBytes
+            = sizeof(PartitionSplit) * numPartitionsAtDepth * nf;
 
-        fillPartitionSplitsKernel.bind(clPartitionSplits);
+        OpenCLMemObject clFeaturePartitionSplits
+            = context.createBuffer(CL_MEM_READ_WRITE, featurePartitionSplitBytes);
 
-        OpenCLEvent fillPartitionSplits
-            = queue.launch(fillPartitionSplitsKernel,
-                           { numPartitionsAtDepth });
-
-        allEvents.emplace_back("fillPartitionSplits " + std::to_string(myDepth),
-                               fillPartitionSplits);
-
-        // We also have an array of locks, one int per partition, used to
-        // ensure atomic access of the partition outputs over features.
-        // These locks are intialized to zero on the GPU.
-        size_t partitionLockBytes
-            = sizeof(int) * numPartitionsAtDepth;
-
-        OpenCLMemObject clPartitionLocks
-            = context.createBuffer(CL_MEM_READ_WRITE, partitionLockBytes);
-
-        totalGpuAllocation += partitionLockBytes;
-
-        OpenCLEvent fillPartitionLocks
-            = queue.enqueueFillBuffer(clPartitionLocks, 0 /* pattern */,
-                                      0 /* offset */,
-                                      partitionLockBytes /* length */);
-
-        allEvents.emplace_back("fillPartitionLocks " + std::to_string(myDepth),
-                               fillPartitionLocks);
-
+        totalGpuAllocation += featurePartitionSplitBytes;
+        
         // Run a kernel to find the new split point for each partition,
         // best feature and kernel
 
@@ -2741,24 +2711,54 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   clFeatureIsOrdinal,
                   clPartitionBuckets,
                   clWAll,
-                  clPartitionSplits,
-                  clPartitionLocks);
+                  clFeaturePartitionSplits,
+                  LocalArray<W>(MAX_LOCAL_BUCKETS),
+                  (uint32_t)MAX_LOCAL_BUCKETS);
 
-        cerr << endl << endl << " depth " << depth << " numPartitions "
-             << numPartitionsAtDepth << " buckets "
-             << numPartitionsAtDepth * numActiveBuckets << endl;
+        //cerr << endl << endl << " depth " << depth << " numPartitions "
+        //     << numPartitionsAtDepth << " buckets "
+        //     << numPartitionsAtDepth * numActiveBuckets << endl;
 
         OpenCLEvent runPartitionSplitsKernel
             = queue.launch(getPartitionSplitsKernel,
-                           { 1, nf, numPartitionsAtDepth },
-                           { 1, 1, 1 },
-                           { fillPartitionSplits, fillPartitionLocks,
-                             previousIteration, copyWAll, initializeWAll});
+                           { 64, nf, numPartitionsAtDepth },
+                           { 64, 1, 1 },
+                           { previousIteration, copyWAll, initializeWAll});
 
         allEvents.emplace_back("runPartitionSplitsKernel "
                                + std::to_string(myDepth),
                                runPartitionSplitsKernel);
 
+        // Splits for each partition.
+        size_t partitionSplitBytes
+            = sizeof(PartitionSplit) * numPartitionsAtDepth;
+
+        OpenCLMemObject clPartitionSplits
+            = context.createBuffer(CL_MEM_READ_WRITE, partitionSplitBytes);
+
+        totalGpuAllocation += partitionSplitBytes;
+
+        // Now we have the best split for each feature for each partition,
+        // find the best one per partition and finally record it.
+        OpenCLKernel bestPartitionSplitKernel
+            = kernelContext.program.createKernel("bestPartitionSplitKernel");
+
+        bestPartitionSplitKernel
+            .bind((uint32_t)nf,
+                  clFeaturesActive,
+                  clFeaturePartitionSplits,
+                  clPartitionSplits);
+
+        OpenCLEvent runBestPartitionSplitKernel
+            = queue.launch(bestPartitionSplitKernel,
+                           { numPartitionsAtDepth },
+                           { },
+                           { runPartitionSplitsKernel });
+
+        allEvents.emplace_back("runBestPartitionSplitKernel "
+                               + std::to_string(myDepth),
+                               runBestPartitionSplitKernel);
+        
         // Immediately start bringing back the splits to the CPU for later processing
         OpenCLEvent mapPartitionSplits;
         std::shared_ptr<void> mappedPartitionSplits;
