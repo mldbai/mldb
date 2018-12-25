@@ -2039,11 +2039,12 @@ EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 0);
 EnvOption<size_t, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
 EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SIZE", 256);
 
-// Default of 6k allows 8 parallel workgroups for a 48k SM.
+// Default of 5.5k allows 8 parallel workgroups for a 48k SM when accounting
+// for 0.5k of local memory for the kernels.
 // On Nvidia, with 32 registers/work item and 256 work items/workgroup
 // (8 warps of 32 threads), we use 32 * 256 * 8 = 64k registers, which
 // means full occupancy.
-EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 6000);
+EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 5500);
 
 
 ML::Tree::Ptr
@@ -2186,6 +2187,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     auto queue = kernelContext.context.createCommandQueue
         (kernelContext.devices[0], queueProperties);
 
+    auto memQueue = kernelContext.context.createCommandQueue
+        (kernelContext.devices[0], queueProperties);
+    
     size_t rowMemorySizePageAligned
         = (rows.rowData.memusage() + 4095) / 4096 * 4096;
     
@@ -2205,7 +2209,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     // ... and send it over
     OpenCLEvent copyRowData
-        = queue.enqueueWriteBuffer
+        = memQueue.enqueueWriteBuffer
             (clRowData, 0 /* offset */, rowMemorySizePageAligned,
              (const void *)rows.rowData.data());
 
@@ -2264,7 +2268,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::shared_ptr<const void> mappedExpandedRows;
 
         std::tie(mappedExpandedRows, mapExpandedRows)
-            = queue.enqueueMapBuffer(clExpandedRowData, CL_MAP_READ,
+            = memQueue.enqueueMapBuffer(clExpandedRowData, CL_MAP_READ,
                                      0 /* offset */, sizeof(float) * rowCount,
                                      { runExpandRows });
         
@@ -2316,7 +2320,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         + featuresActive.size() * sizeof(int);
     
     OpenCLEvent transferBucketData
-        = queue.enqueueWriteBuffer
+        = memQueue.enqueueWriteBuffer
             (clBucketData, 0 /* offset */, bucketMemorySizePageAligned,
              (const void *)bucketMemory.data());
     
@@ -2380,7 +2384,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedDecompressedBucketData;
 
             std::tie(mappedDecompressedBucketData, mapDecompressedBucketData)
-                = queue.enqueueMapBuffer(clDecompressedBucketData, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clDecompressedBucketData, CL_MAP_READ,
                                          0 /* offset */, decompressedBucketDataBytes,
                                          { runDecompressBuckets });
         
@@ -2432,7 +2436,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         // The first one is initialized by the input wAll
     OpenCLEvent copyWAll
-        = queue.enqueueWriteBuffer(clWAll, 0, sizeof(W),
+        = memQueue.enqueueWriteBuffer(clWAll, 0, sizeof(W),
                                    &rows.wAll);
 
     allEvents.emplace_back("copyWAll", copyWAll);
@@ -2497,7 +2501,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::shared_ptr<const void> mappedBuckets;
 
         std::tie(mappedBuckets, mapBuckets)
-            = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+            = memQueue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
                                      0 /* offset */, bytesPerPartition,
                                      { runTestFeatureKernel });
         
@@ -2582,9 +2586,41 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     
     // Event list for all of the buckets
     std::vector<OpenCLEvent> clDepthSplitsEvents;
+
+    // Pre-allocate partition splits
+    for (int i = 0;  i < numIterations;  ++i) {
+
+        int numPartitionsAtDepth = 1 << i;
+        
+        // Splits for each partition.
+        size_t partitionSplitBytes
+            = sizeof(PartitionSplit) * numPartitionsAtDepth;
+
+        OpenCLMemObject clPartitionSplits
+            = context.createBuffer(CL_MEM_READ_WRITE, partitionSplitBytes);
+
+        totalGpuAllocation += partitionSplitBytes;
+
+        clDepthSplits.push_back(clPartitionSplits);
+    }
+
+    // Pre-allocate partition buckets for the widest bucket
+    // We need to store partition splits for each partition and each
+    // feature.  Get the memory.  It doesn't need to be initialized.
+    // Layout is partition-major.
+        
+    size_t featurePartitionSplitBytes
+        = sizeof(PartitionSplit) * (1 << numIterations) * nf;
+
+    OpenCLMemObject clFeaturePartitionSplits
+        = context.createBuffer(CL_MEM_READ_WRITE, featurePartitionSplitBytes);
+
+    totalGpuAllocation += featurePartitionSplitBytes;
+    
     
     // We go down level by level
-    for (int myDepth = 0; myDepth < 16 && depth < maxDepth;
+    for (int myDepth = 0;
+         myDepth < 16 && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
 
         if (RF_OPENCL_SYNCHRONOUS_LAUNCH) {
@@ -2603,7 +2639,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedBuckets;
 
             std::tie(mappedBuckets, mapBuckets)
-                = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
                                          0 /* offset */,
                                          bytesPerPartition * numPartitionsAtDepth,
                                          { previousIteration });
@@ -2618,7 +2654,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedWAll;
 
             std::tie(mappedWAll, mapWAll)
-                = queue.enqueueMapBuffer(clWAll, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clWAll, CL_MAP_READ,
                                          0 /* offset */,
                                          sizeof(W) * numPartitionsAtDepth,
                                          { previousIteration });
@@ -2681,19 +2717,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
             ExcAssert(!problem);
         }
-
-        // We need to store partition splits for each partition and each
-        // feature.  Get the memory.  It doesn't need to be initialized.
-        // Layout is partition-major.
-        
-        size_t featurePartitionSplitBytes
-            = sizeof(PartitionSplit) * numPartitionsAtDepth * nf;
-
-        OpenCLMemObject clFeaturePartitionSplits
-            = context.createBuffer(CL_MEM_READ_WRITE, featurePartitionSplitBytes);
-
-        totalGpuAllocation += featurePartitionSplitBytes;
-        
+    
         // Run a kernel to find the new split point for each partition,
         // best feature and kernel
 
@@ -2729,14 +2753,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                                + std::to_string(myDepth),
                                runPartitionSplitsKernel);
 
-        // Splits for each partition.
-        size_t partitionSplitBytes
-            = sizeof(PartitionSplit) * numPartitionsAtDepth;
-
-        OpenCLMemObject clPartitionSplits
-            = context.createBuffer(CL_MEM_READ_WRITE, partitionSplitBytes);
-
-        totalGpuAllocation += partitionSplitBytes;
+        OpenCLMemObject & clPartitionSplits = clDepthSplits[myDepth];
 
         // Now we have the best split for each feature for each partition,
         // find the best one per partition and finally record it.
@@ -2758,26 +2775,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         allEvents.emplace_back("runBestPartitionSplitKernel "
                                + std::to_string(myDepth),
                                runBestPartitionSplitKernel);
-        
-        // Immediately start bringing back the splits to the CPU for later processing
-        OpenCLEvent mapPartitionSplits;
-        std::shared_ptr<void> mappedPartitionSplits;
 
-        std::tie(mappedPartitionSplits, mapPartitionSplits)
-            = queue.enqueueMapBuffer
-            (clPartitionSplits, CL_MAP_READ,
-             0 /* offset */,
-             sizeof(PartitionSplit) * numPartitionsAtDepth,
-             { runPartitionSplitsKernel });
-        
-        allEvents.emplace_back("mapPartitionSplits "
-                               + std::to_string(myDepth),
-                               mapPartitionSplits);
-        clDepthSplits.push_back(clPartitionSplits);
-        mappedDepthSplits.push_back
-            (std::reinterpret_pointer_cast<const PartitionSplit>(mappedPartitionSplits));
-        clDepthSplitsEvents.emplace_back(std::move(mapPartitionSplits));
-        
         // These are parallel CPU data structures for the on-GPU ones,
         // into which we copy the input data required to re-run the
         // computation on the CPU so we can verify the output of the GPU
@@ -2787,12 +2785,22 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::vector<W> debugWAllCpu;
         std::vector<uint16_t> debugPartitionsCpu;
 
-        if (depth == maxDepth - 1) {
-            clDepthSplitsEvents.back().waitUntilFinished();
+        if (depth == maxDepth - 1 && false) {
+            OpenCLEvent mapPartitionSplits;
+            std::shared_ptr<void> mappedPartitionSplits;
+            
+            std::tie(mappedPartitionSplits, mapPartitionSplits)
+                = memQueue.enqueueMapBuffer
+                   (clPartitionSplits, CL_MAP_READ,
+                    0 /* offset */,
+                    sizeof(PartitionSplit) * numPartitionsAtDepth,
+                    { runPartitionSplitsKernel });
+        
+            mapPartitionSplits.waitUntilFinished();
 
             PartitionSplit * partitionSplitsGpu
                 = reinterpret_cast<PartitionSplit *>
-                    (mappedPartitionSplits.get());
+                (mappedPartitionSplits.get());
 
             std::vector<size_t> partitionCounts;
             
@@ -2814,7 +2822,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 if (partitionCounts[p] > 0)
                     break;
             }
-
+        
             int numNonZero = partitionCounts.size() - firstNonZero;
             cerr << "occupancy: " << firstNonZero << " zero, "
                  << numNonZero << " non-zero of "
@@ -2828,7 +2836,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                     break;
                 cerr << "  " << partitionCounts[i] << endl;
             }
-
+            
         }
         
         if (debugKernelOutput) {
@@ -2837,7 +2845,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<void> mappedPartitionSplits;
 
             std::tie(mappedPartitionSplits, mapPartitionSplits)
-                = queue.enqueueMapBuffer
+                = memQueue.enqueueMapBuffer
                    (clPartitionSplits, CL_MAP_READ,
                     0 /* offset */,
                     sizeof(PartitionSplit) * numPartitionsAtDepth,
@@ -2854,7 +2862,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedPartitions;
 
             std::tie(mappedPartitions, mapPartitions)
-                = queue.enqueueMapBuffer
+                = memQueue.enqueueMapBuffer
                    (clPartitions, CL_MAP_READ,
                     0 /* offset */,
                     partitionMemoryUsage,
@@ -2873,7 +2881,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedBuckets;
 
             std::tie(mappedBuckets, mapBuckets)
-                = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
                                          0 /* offset */,
                                          bytesPerPartition * numPartitionsAtDepth,
                                          { mapPartitionSplits });
@@ -2894,7 +2902,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedWAll;
 
             std::tie(mappedWAll, mapWAll)
-                = queue.enqueueMapBuffer(clWAll, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clWAll, CL_MAP_READ,
                                          0 /* offset */,
                                          sizeof(W) * numPartitionsAtDepth,
                                          { mapBuckets });
@@ -3021,8 +3029,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         size_t numRowKernels = RF_NUM_ROW_KERNELS;
         
-        cerr << "numRowKernels = " << numRowKernels << endl;
-        
         if (RF_SEPARATE_FEATURE_UPDATES) {
         
             std::vector<OpenCLEvent> updateBucketsEvents;
@@ -3124,7 +3130,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedBuckets;
 
             std::tie(mappedBuckets, mapBuckets)
-                = queue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
                                          0 /* offset */,
                                          bytesPerPartition * numPartitionsAtDepth,
                                          { runUpdateBucketsKernel });
@@ -3170,7 +3176,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedWAll;
 
             std::tie(mappedWAll, mapWAll)
-                = queue.enqueueMapBuffer(clWAll, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clWAll, CL_MAP_READ,
                                          0 /* offset */,
                                          sizeof(W) * numPartitionsAtDepth,
                                          { runUpdateBucketsKernel });
@@ -3196,7 +3202,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedPartitions;
 
             std::tie(mappedPartitions, mapPartitions)
-                = queue.enqueueMapBuffer
+                = memQueue.enqueueMapBuffer
                    (clPartitions, CL_MAP_READ,
                     0 /* offset */,
                     partitionMemoryUsage,
@@ -3225,9 +3231,34 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         previousIteration = runUpdateBucketsKernel;
     }
 
-    queue.flush();
-    queue.finish();
+    // Immediately start bringing back the splits to the CPU for later processing
+    for (int myDepth = 0, numPartitionsAtDepth = 1; myDepth < clDepthSplits.size();
+         ++myDepth, numPartitionsAtDepth *= 2) {
 
+        OpenCLEvent mapPartitionSplits;
+        std::shared_ptr<void> mappedPartitionSplits;
+        
+        std::tie(mappedPartitionSplits, mapPartitionSplits)
+            = memQueue.enqueueMapBuffer
+            (clDepthSplits[myDepth], CL_MAP_READ,
+             0 /* offset */,
+             sizeof(PartitionSplit) * numPartitionsAtDepth,
+             { previousIteration });
+        
+        allEvents.emplace_back("mapPartitionSplits "
+                               + std::to_string(myDepth),
+                               mapPartitionSplits);
+        mappedDepthSplits.push_back
+            (std::reinterpret_pointer_cast<const PartitionSplit>(mappedPartitionSplits));
+        clDepthSplitsEvents.emplace_back(std::move(mapPartitionSplits));
+    }
+
+    
+    queue.flush();
+    memQueue.flush();
+    queue.finish();
+    memQueue.finish();
+    
     cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
          << "ms with " << totalGpuAllocation / 1000000.0 << "Mb allocated" << endl;
 

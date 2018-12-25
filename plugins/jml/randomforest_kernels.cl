@@ -983,23 +983,25 @@ chooseSplit(__global const W * w,
                        startBucket + i, wLocal[i].count, wLocal[i].index);
             }
             
-            if (i == 0 && startBucket != 0 && debug) {
+            if (i == 0 && startBucket != 0) {
                 // Add the previous prefix to the first element
                 if (ordinal) {
                     incrementW(wLocal, &wStart);
 
-                    printf("f %d p %d sb %d new iter (%f,%f,%d) min (%f,%f,%d,i%d) first (%f,%f,%d,i%d) in (%f,%f,%d)\n",
-                           f, p, startBucket,
-                           decodeW(wStart.vals[0]), decodeW(wStart.vals[1]),
-                           wStart.count,
-                           decodeW(wBest.vals[0]), decodeW(wBest.vals[1]),
-                           wBest.count, wBest.index,
-                           decodeW(wLocal->vals[0]), decodeW(wLocal->vals[1]),
-                           wLocal->count, wLocal->index,
-                           decodeW(w[startBucket].vals[0]),
-                           decodeW(w[startBucket].vals[1]),
-                           w[startBucket].count
-                           );
+                    if (debug) {
+                        printf("f %d p %d sb %d new iter (%f,%f,%d) min (%f,%f,%d,i%d) first (%f,%f,%d,i%d) in (%f,%f,%d)\n",
+                               f, p, startBucket,
+                               decodeW(wStart.vals[0]), decodeW(wStart.vals[1]),
+                               wStart.count,
+                               decodeW(wBest.vals[0]), decodeW(wBest.vals[1]),
+                               wBest.count, wBest.index,
+                               decodeW(wLocal->vals[0]), decodeW(wLocal->vals[1]),
+                               wLocal->count, wLocal->index,
+                               decodeW(w[startBucket].vals[0]),
+                               decodeW(w[startBucket].vals[1]),
+                               w[startBucket].count
+                               );
+                    }
                 }
             }
         }
