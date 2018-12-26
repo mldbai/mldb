@@ -2190,6 +2190,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     auto memQueue = kernelContext.context.createCommandQueue
         (kernelContext.devices[0], queueProperties);
     
+    auto memQueue2 = kernelContext.context.createCommandQueue
+        (kernelContext.devices[0], queueProperties);
+    
     size_t rowMemorySizePageAligned
         = (rows.rowData.memusage() + 4095) / 4096 * 4096;
     
@@ -2228,6 +2231,23 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
              rows.weightEncoder.weightFormatTable.memusage());
         totalGpuAllocation += rows.weightEncoder.weightFormatTable.memusage();
     }
+
+    // We transfer the bucket data as early as possible, as it's one of the
+    // longest things to transfer
+    
+    size_t bucketMemorySizePageAligned
+        = (bucketMemory.memusage() + 4095) / 4096 * 4096;
+    
+    OpenCLMemObject clBucketData
+        = context.createBuffer(CL_MEM_READ_ONLY,
+                               bucketMemorySizePageAligned);
+
+    OpenCLEvent transferBucketData
+        = memQueue2.enqueueWriteBuffer
+            (clBucketData, 0 /* offset */, bucketMemorySizePageAligned,
+             (const void *)bucketMemory.data());
+    
+    allEvents.emplace_back("transferBucketData", transferBucketData);
 
     // This one contains an expanded version of the row data, with one float
     // per row rather than bit-compressed.  It's expanded on the GPU so that
@@ -2298,12 +2318,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // Before that, we need to set up some memory objects to be used
     // by the kernel.
 
-    size_t bucketMemorySizePageAligned
-        = (bucketMemory.memusage() + 4095) / 4096 * 4096;
-    
-    OpenCLMemObject clBucketData
-        = context.createBuffer(CL_MEM_READ_ONLY, bucketMemorySizePageAligned);
-
     OpenCLMemObject clBucketNumbers
         = context.createBuffer(bucketNumbers);
     
@@ -2319,13 +2333,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         + bucketEntryBits.size() * sizeof(int)
         + featuresActive.size() * sizeof(int);
     
-    OpenCLEvent transferBucketData
-        = memQueue.enqueueWriteBuffer
-            (clBucketData, 0 /* offset */, bucketMemorySizePageAligned,
-             (const void *)bucketMemory.data());
-    
-    allEvents.emplace_back("transferBucketData", transferBucketData);
-
     OpenCLMemObject clBucketDataOffsets
         = context.createBuffer(bucketMemoryOffsets);
 
@@ -2578,31 +2585,19 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // are available?
     OpenCLEvent previousIteration = runTestFeatureKernel;
 
-    // OpenCL version of our buckets for each depth
-    std::vector<OpenCLMemObject> clDepthSplits;
-
-    // Mapped versions of our buckets
-    std::vector<std::shared_ptr<const PartitionSplit> > mappedDepthSplits;
-    
     // Event list for all of the buckets
     std::vector<OpenCLEvent> clDepthSplitsEvents;
 
-    // Pre-allocate partition splits
-    for (int i = 0;  i < numIterations;  ++i) {
+    // Each of the numIterations partitions has double the number of buckets,
+    // so the total number is 2^(numIterations + 1) - 1.
+    size_t allPartitionSplitBytes
+        = sizeof(PartitionSplit) * (2 << numIterations);
 
-        int numPartitionsAtDepth = 1 << i;
-        
-        // Splits for each partition.
-        size_t partitionSplitBytes
-            = sizeof(PartitionSplit) * numPartitionsAtDepth;
-
-        OpenCLMemObject clPartitionSplits
-            = context.createBuffer(CL_MEM_READ_WRITE, partitionSplitBytes);
-
-        totalGpuAllocation += partitionSplitBytes;
-
-        clDepthSplits.push_back(clPartitionSplits);
-    }
+    OpenCLMemObject clAllPartitionSplits
+        = context.createBuffer(CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
+                               allPartitionSplitBytes);
+    
+    totalGpuAllocation += allPartitionSplitBytes;
 
     // Pre-allocate partition buckets for the widest bucket
     // We need to store partition splits for each partition and each
@@ -2753,18 +2748,24 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                                + std::to_string(myDepth),
                                runPartitionSplitsKernel);
 
-        OpenCLMemObject & clPartitionSplits = clDepthSplits[myDepth];
-
         // Now we have the best split for each feature for each partition,
         // find the best one per partition and finally record it.
         OpenCLKernel bestPartitionSplitKernel
             = kernelContext.program.createKernel("bestPartitionSplitKernel");
 
+        // What is our offset into partitionSplits?  In other words, where do
+        // the partitions for this iteration start?  By skipping the first
+        // bucket, this becomes trivially numPartitionsAtDepth: 1, 2, 4, 8, ...
+        // It's not technically necessary to pass it since it's one of the
+        // launch parameters, but this way is more clear.
+        uint32_t partitionSplitsOffset = numPartitionsAtDepth;
+        
         bestPartitionSplitKernel
             .bind((uint32_t)nf,
                   clFeaturesActive,
                   clFeaturePartitionSplits,
-                  clPartitionSplits);
+                  clAllPartitionSplits,
+                  partitionSplitsOffset);
 
         OpenCLEvent runBestPartitionSplitKernel
             = queue.launch(bestPartitionSplitKernel,
@@ -2791,9 +2792,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             
             std::tie(mappedPartitionSplits, mapPartitionSplits)
                 = memQueue.enqueueMapBuffer
-                   (clPartitionSplits, CL_MAP_READ,
-                    0 /* offset */,
-                    sizeof(PartitionSplit) * numPartitionsAtDepth,
+                   (clAllPartitionSplits, CL_MAP_READ,
+                    sizeof(PartitionSplit) * numPartitionsAtDepth, /* offset */
+                    sizeof(PartitionSplit) * numPartitionsAtDepth, /* length */
                     { runPartitionSplitsKernel });
         
             mapPartitionSplits.waitUntilFinished();
@@ -2846,9 +2847,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
             std::tie(mappedPartitionSplits, mapPartitionSplits)
                 = memQueue.enqueueMapBuffer
-                   (clPartitionSplits, CL_MAP_READ,
-                    0 /* offset */,
-                    sizeof(PartitionSplit) * numPartitionsAtDepth,
+                   (clAllPartitionSplits, CL_MAP_READ,
+                    sizeof(PartitionSplit) * numPartitionsAtDepth /* offset */,
+                    sizeof(PartitionSplit) * numPartitionsAtDepth /* length */,
                     { runPartitionSplitsKernel });
         
             mapPartitionSplits.waitUntilFinished();
@@ -2978,8 +2979,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         clearBucketsKernel
             .bind(clPartitionBuckets,
                   clWAll,
-                  clPartitionSplits,
-                  (uint32_t)numActiveBuckets);
+                  clAllPartitionSplits,
+                  (uint32_t)numActiveBuckets,
+                  (uint32_t)numPartitionsAtDepth);
 
         OpenCLEvent runClearBucketsKernel
             = queue.launch(clearBucketsKernel,
@@ -3004,7 +3006,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   clPartitions,
                   clPartitionBuckets,
                   clWAll,
-                  clPartitionSplits,
+                  clAllPartitionSplits,
 
                   clExpandedRowData,
                   (uint32_t)numRows,                  
@@ -3087,8 +3089,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         fixupBucketsKernel
             .bind(clPartitionBuckets,
                   clWAll,
-                  clPartitionSplits,
-                  (uint32_t)numActiveBuckets);
+                  clAllPartitionSplits,
+                  (uint32_t)numActiveBuckets,
+                  (uint32_t)numPartitionsAtDepth);
 
         OpenCLEvent runFixupBucketsKernel
             = queue.launch(fixupBucketsKernel,
@@ -3231,29 +3234,18 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         previousIteration = runUpdateBucketsKernel;
     }
 
-    // Immediately start bringing back the splits to the CPU for later processing
-    for (int myDepth = 0, numPartitionsAtDepth = 1; myDepth < clDepthSplits.size();
-         ++myDepth, numPartitionsAtDepth *= 2) {
-
-        OpenCLEvent mapPartitionSplits;
-        std::shared_ptr<void> mappedPartitionSplits;
+    OpenCLEvent mapAllPartitionSplits;
+    std::shared_ptr<void> mappedAllPartitionSplits;
         
-        std::tie(mappedPartitionSplits, mapPartitionSplits)
-            = memQueue.enqueueMapBuffer
-            (clDepthSplits[myDepth], CL_MAP_READ,
-             0 /* offset */,
-             sizeof(PartitionSplit) * numPartitionsAtDepth,
-             { previousIteration });
+    std::tie(mappedAllPartitionSplits, mapAllPartitionSplits)
+        = memQueue.enqueueMapBuffer
+        (clAllPartitionSplits, CL_MAP_READ,
+         0 /* offset */,
+         sizeof(PartitionSplit) * numPartitionsAtDepth,
+         { previousIteration });
         
-        allEvents.emplace_back("mapPartitionSplits "
-                               + std::to_string(myDepth),
-                               mapPartitionSplits);
-        mappedDepthSplits.push_back
-            (std::reinterpret_pointer_cast<const PartitionSplit>(mappedPartitionSplits));
-        clDepthSplitsEvents.emplace_back(std::move(mapPartitionSplits));
-    }
+    allEvents.emplace_back("mapAllPartitionSplits", mapAllPartitionSplits);
 
-    
     queue.flush();
     memQueue.flush();
     queue.finish();
@@ -3262,9 +3254,13 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
          << "ms with " << totalGpuAllocation / 1000000.0 << "Mb allocated" << endl;
 
-    for (int i = 0;  i < mappedDepthSplits.size();  ++i) {
+    std::shared_ptr<const PartitionSplit> mappedAllPartitionSplitsCast
+        = reinterpret_pointer_cast<const PartitionSplit>(mappedAllPartitionSplits);
+    
+    for (int i = 0;  i < numIterations;  ++i) {
         depthSplits.emplace_back
-            (mappedDepthSplits[i].get(), mappedDepthSplits[i].get() + (1 << i));
+            (mappedAllPartitionSplitsCast.get() + (1 << i),
+             mappedAllPartitionSplitsCast.get() + (2 << i));
     }
     
     auto first = allEvents.at(0).second.getProfilingInfo();

@@ -1416,8 +1416,11 @@ __kernel void
 bestPartitionSplitKernel(uint32_t nf,
                          __global const uint32_t * featureActive, // [nf]
                          __global const PartitionSplit * featurePartitionSplits,
-                         __global PartitionSplit * partitionSplits)
+                         __global PartitionSplit * partitionSplits,
+                         uint32_t partitionSplitsOffset)
 {
+    partitionSplits += partitionSplitsOffset;
+
     int p = get_global_id(0);
     int np = get_global_size(0);
     
@@ -1444,9 +1447,11 @@ __kernel void
 clearBucketsKernel(__global W * allPartitionBuckets,
                    __global W * wAll,
                    __global const PartitionSplit * partitionSplits,
-                   uint32_t numActiveBuckets)
+                   uint32_t numActiveBuckets,
+                   uint32_t partitionSplitsOffset)
 
 {
+    partitionSplits += partitionSplitsOffset;
     uint32_t numPartitions = get_global_size(0);
     
     int i = get_global_id(0);
@@ -1454,8 +1459,8 @@ clearBucketsKernel(__global W * allPartitionBuckets,
     // Commented out because it causes spurious differences in the debugging code between
     // the two sides.  It doesn' thave any effect on the output, though, and saves some
     // work.
-    //if (partitionSplits[i].right.count == 0)
-    //    return;
+    if (partitionSplits[i].right.count == 0)
+        return;
             
     int j = get_global_id(1);
 
@@ -1560,6 +1565,8 @@ updateBucketsKernel(uint32_t rightOffset,
 
     if (f != -1 && !featureActive[f])
         return;
+
+    partitionSplits += rightOffset;
     
     // We have to set up to access two different features:
     // 1) The feature we're splitting on for this example (splitFeature)
@@ -1751,9 +1758,11 @@ __kernel void
 fixupBucketsKernel(__global W * allPartitionBuckets,
                    __global W * wAll,
                    __global const PartitionSplit * partitionSplits,
-                   uint32_t numActiveBuckets)
+                   uint32_t numActiveBuckets,
+                   uint32_t partitionSplitsOffset)
 
 {
+    partitionSplits += partitionSplitsOffset;
     uint32_t numPartitions = get_global_size(0);
 
     int i = get_global_id(0);
@@ -1918,5 +1927,4 @@ trainSplitSingleWarp(int numRows,
     
     return bestSplit;
 }
-
 #endif
