@@ -1261,14 +1261,15 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
     addField("index", &PartitionSplit::index, "");
 }
 
-void updateBuckets(const std::vector<Feature> & features,
-                   std::vector<uint32_t> & partitions,
-                   std::vector<std::vector<W> > & buckets,
-                   std::vector<W> & wAll,
-                   const std::vector<uint32_t> & bucketOffsets,
-                   const std::vector<PartitionSplit> & partitionSplits,
-                   int rightOffset,
-                   const std::vector<float> & decodedRows)
+size_t updateBuckets(const std::vector<Feature> & features,
+                     std::vector<uint32_t> & partitions,
+                     std::vector<std::vector<W> > & buckets,
+                     std::vector<W> & wAll,
+                     const std::vector<uint32_t> & bucketOffsets,
+                     const std::vector<PartitionSplit> & partitionSplits,
+                     int rightOffset,
+                     const std::vector<float> & decodedRows,
+                     const std::vector<int> & activeFeatures)
 {
     ExcAssertEqual(rightOffset, buckets.size());
     ExcAssertEqual(rightOffset, wAll.size());
@@ -1282,6 +1283,8 @@ void updateBuckets(const std::vector<Feature> & features,
             
     buckets.resize(buckets.size() * 2);
     wAll.resize(wAll.size() * 2);
+
+    size_t result = 0;
 
     for (size_t i = 0;  i < rightOffset;  ++i) {
         if (partitionSplits[i].right.count() == 0)
@@ -1316,7 +1319,9 @@ void updateBuckets(const std::vector<Feature> & features,
             //rowIterator.skipRow();
             continue;
         }
-                
+
+        ++result;
+        
         //DecodedRow row = rowIterator.getDecodedRow();
 
         float weight = fabs(decodedRows[i]);
@@ -1373,7 +1378,7 @@ void updateBuckets(const std::vector<Feature> & features,
             wAll[toPartition  ].add(label, weight);
                     
             // Transfer the weight from each of the features
-            for (auto & f: partitionSplits[partition].activeFeatures) {
+            for (auto & f: activeFeatures) {
                 int startBucket = bucketOffsets[f];
                 int bucket = features[f].buckets[exampleNum];
                 
@@ -1428,6 +1433,8 @@ void updateBuckets(const std::vector<Feature> & features,
                            partitionSplits[i].right.count());
         }
     }
+
+    return result;
 }
 
 std::pair<std::vector<PartitionEntry>,
@@ -1437,6 +1444,7 @@ splitPartitions(const std::vector<Feature> features,
                 const std::vector<float> & decodedRows,
                 const std::vector<uint32_t> & partitions,
                 const std::vector<W> & w,
+                const std::vector<PartitionIndex> & indexes,
                 MappedSerializer & serializer)
 {
     using namespace std;
@@ -1488,7 +1496,8 @@ splitPartitions(const std::vector<Feature> features,
         out[i].activeFeatureSet.insert
             (activeFeatures.begin(), activeFeatures.end());
         out[i].bucketMemoryOffsets = { 0 };
-
+        out[i].index = indexes.at(i);
+        
         size_t bucketMemoryRequired = 0;
 
         out[i].features.resize(features.size());
@@ -1602,6 +1611,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
                    const std::vector<uint32_t> & bucketOffsets,
                    const std::vector<Feature> & features,
                    const std::vector<W> & wAll,
+                   const std::vector<PartitionIndex> & indexes,
                    bool parallel)
 {
     std::vector<PartitionSplit> partitionSplits(buckets.size());
@@ -1695,7 +1705,9 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
         }
 
         partitionSplits[partition] =
-            { (float)bestScore, bestFeature, bestSplit, bestLeft, bestRight,
+            { indexes[partition] /* index */,
+              (float)bestScore, bestFeature, bestSplit,
+              bestLeft, bestRight,
               bestFeature != -1 && bestLeft.count() <= bestRight.count()
             };
 
@@ -1759,6 +1771,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const std::vector<float> & decodedRows,
                            const std::vector<uint32_t> & partitions,
                            const std::vector<W> & wAll,
+                           const std::vector<PartitionIndex> & indexes,
                            const DatasetFeatureSpace & fs,
                            FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
@@ -1775,7 +1788,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
 
     std::tie(newData, partitionMem)
         = splitPartitions(features, activeFeatures, decodedRows,
-                          partitions, wAll, serializer);
+                          partitions, wAll, indexes, serializer);
 
     auto doEntry = [&] (int i)
         {
@@ -1786,6 +1799,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                  std::move(buckets[i]),
                  newData[i].decodedRows,
                  newData[i].wAll,
+                 newData[i].index,
                  fs,
                  newData[i].features,
                  bucketMemory);
@@ -1812,6 +1826,7 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
                              std::vector<W> bucketsIn,
                              const std::vector<float> & decodedRows,
                              const W & wAllInput,
+                             PartitionIndex root,
                              const DatasetFeatureSpace & fs,
                              const std::vector<Feature> & features,
                              FrozenMemoryRegionT<uint32_t> bucketMemory)
@@ -1839,6 +1854,11 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
     // enable sparseness in the tree.
     std::vector<uint32_t> partitions(rowCount, 0);
 
+    // What is the index (position in the tree) for each partition?
+    std::vector<PartitionIndex> indexes;
+    indexes.reserve(1 << maxDepthBeforeRecurse);
+    indexes.emplace_back(root);  // we're at the root of the tree
+    
     // What is our weight total for each of our partitions?
     std::vector<W> wAll = { wAllInput };
     wAll.reserve(1 << maxDepthBeforeRecurse);
@@ -1858,18 +1878,71 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
 
         // Run a kernel to find the new split point for each partition,
         // best feature and kernel
-        depthSplits.emplace_back
-            (getPartitionSplits(buckets, activeFeatures, bucketOffsets,
-                                features, wAll, depth < 4));
-            
+        std::vector<PartitionSplit> splits
+            = getPartitionSplits(buckets, activeFeatures, bucketOffsets,
+                                 features, wAll, indexes,
+                                 depth < 4 /* parallel */); 
+
         // Double the number of partitions, create new W entries for the
         // new partitions, and transfer those examples that are in the
         // wrong partition to the right one
-        updateBuckets(features,
-                      partitions, buckets, wAll,
-                      bucketOffsets, depthSplits.back(), buckets.size(),
-                      decodedRows);
+        size_t numActiveRows
+            = updateBuckets(features,
+                            partitions, buckets, wAll,
+                            bucketOffsets, splits, buckets.size(),
+                            decodedRows, activeFeatures);
+        
+        std::vector<PartitionIndex> newIndexes(splits.size() * 2);
 
+        int numActivePartitions = 0;
+        size_t numRowsInActivePartition = 0;
+        std::vector<size_t> partitionCounts;
+        for (size_t i = 0;  i < splits.size();  ++i) {
+            const PartitionSplit & p = splits[i];
+            newIndexes[i] = p.index.leftChild();
+            newIndexes[i + splits.size()] = p.index.rightChild();
+            
+            if (p.left.count() > 0 && p.right.count() > 0) {
+                ++numActivePartitions;
+                partitionCounts.push_back(p.left.count());
+                partitionCounts.push_back(p.right.count());
+                numRowsInActivePartition += p.left.count() + p.right.count();
+            }
+        }
+
+        std::sort(partitionCounts.begin(), partitionCounts.end(),
+                  std::greater<size_t>());
+
+
+        std::vector<size_t> partitionCountsCum;
+        size_t cum = 0;
+        for (auto & c: partitionCounts) {
+            cum += c;
+            partitionCountsCum.push_back(cum);
+        }
+        
+        cerr << "depth " << depth << " active partitions "
+             << numActivePartitions
+             << " of " << splits.size()
+             << " rows " << numActiveRows << " of " << decodedRows.size()
+             << " or " << numRowsInActivePartition << endl;
+
+        cerr << "dist: ";
+        for (int i = 1;  i < partitionCounts.size();  i *= 2) {
+            cerr << i << ": " << partitionCounts[i - 1] << "->"
+                 << partitionCountsCum[i - 1]
+                 << "(" << 100.0 * partitionCountsCum[i - 1] / numActiveRows
+                 << "%)" << endl;
+        }
+        cerr << endl;
+
+        // Create a map of where to move the partitions to.  This can be:
+        // - ...
+        
+        // Compact them and sort so that the partitions with examples are
+        // all at the beginning.
+        depthSplits.emplace_back(std::move(splits));
+        
         // Ready for the next level
     }
 
@@ -1880,7 +1953,7 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
                                      std::move(buckets), bucketOffsets,
                                      features, activeFeatures,
                                      decodedRows,
-                                     partitions, wAll, fs,
+                                     partitions, wAll, indexes, fs,
                                      bucketMemory);
         
     // Finally, extract a tree from the splits we've been accumulating
@@ -2054,6 +2127,7 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
                                      std::move(buckets),
                                      decodedRows,
                                      rows.wAll,
+                                     PartitionIndex::root(),
                                      fs, features, bucketMemory);
 }
 
@@ -2939,12 +3013,17 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = reinterpret_cast<const W *>(mappedWAll.get());
 
             debugWAllCpu = { wAllGpu, wAllGpu + numPartitionsAtDepth };
+
+
+            throw Exception("Need to do indexes");
+            std::vector<PartitionIndex> indexes;
             
             // Run the CPU version... first getting the data in place
             debugPartitionSplitsCpu
                 = getPartitionSplits(debugBucketsCpu,
                                      activeFeatures, bucketNumbers,
                                      features, debugWAllCpu,
+                                     indexes, 
                                      false /* parallel */);
 
             // Make sure we got the right thing back out
@@ -3323,13 +3402,14 @@ trainPartitionedRecursive(int depth, int maxDepth,
                           std::vector<W> bucketsIn,
                           const std::vector<float> & decodedRows,
                           const W & wAllInput,
+                          PartitionIndex root,
                           const DatasetFeatureSpace & fs,
                           const std::vector<Feature> & features,
                           FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
     return trainPartitionedRecursiveCpu
         (depth, maxDepth, tree, serializer, bucketOffsets, activeFeatures,
-         std::move(bucketsIn), decodedRows, wAllInput, fs, features,
+         std::move(bucketsIn), decodedRows, wAllInput, root, fs, features,
          std::move(bucketMemory));
                                            
 }

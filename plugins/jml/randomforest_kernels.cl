@@ -701,6 +701,7 @@ testFeatureKernelExpanded(__global const float * expandedRows,
 }
 
 typedef struct {
+    uint32_t index;
     float score;
     int feature;
     int value;
