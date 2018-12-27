@@ -1533,7 +1533,7 @@ __kernel void
 updateBucketsKernel(uint32_t rightOffset,
                     uint32_t numActiveBuckets,
                     
-                    __global uint16_t * partitions,
+                    __global uint32_t * partitions,
                     __global W * partitionBuckets,
                     __global W * wAll,
 
