@@ -140,7 +140,7 @@ struct PartitionEntry {
     by applying the splits over each row.
 */
 void updateBuckets(const std::vector<Feature> & features,
-                   std::vector<uint16_t> & partitions,
+                   std::vector<uint32_t> & partitions,
                    std::vector<std::vector<W> > & buckets,
                    std::vector<W> & wAll,
                    const std::vector<uint32_t> & bucketOffsets,
@@ -158,7 +158,7 @@ std::pair<std::vector<PartitionEntry>,
 splitPartitions(const std::vector<Feature> features,
                 const std::vector<int> & activeFeatures,
                 const std::vector<float> & decodedRows,
-                const std::vector<uint16_t> & partitions,
+                const std::vector<uint32_t> & partitions,
                 const std::vector<W> & w,
                 MappedSerializer & serializer);
 
@@ -175,10 +175,11 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
                    const std::vector<uint32_t> & bucketOffsets,
                    const std::vector<Feature> & features,
                    const std::vector<W> & wAll,
+                   const std::vector<PartitionIndex> & indexes,
                    bool parallel);
 
 // Check that the partition counts match the W counts.
-void verifyPartitionBuckets(const std::vector<uint16_t> & partitions,
+void verifyPartitionBuckets(const std::vector<uint32_t> & partitions,
                             const std::vector<W> & wAll);
 
 
@@ -194,7 +195,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const std::vector<Feature> & features,
                            const std::vector<int> & activeFeatures,
                            const std::vector<float> & decodedRows,
-                           const std::vector<uint16_t> & partitions,
+                           const std::vector<uint32_t> & partitions,
                            const std::vector<W> & wAll,
                            const DatasetFeatureSpace & fs,
                            FrozenMemoryRegionT<uint32_t> bucketMemory);
