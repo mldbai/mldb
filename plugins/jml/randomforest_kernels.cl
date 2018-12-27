@@ -707,7 +707,6 @@ typedef struct {
     W left;
     W right;
     int direction;
-    int activeFeatures[6];
 } PartitionSplit;
 
 __kernel void
@@ -716,8 +715,8 @@ fillPartitionSplitsKernel(__global PartitionSplit * splits)
     int n = get_global_id(0);
     //printf("filling partition %d at %ld\n",
     //       n, (long)(((__global char *)(splits + n)) - (__global char *)splits));
-    PartitionSplit spl = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                           0, { 0, 0, 0, 0, 0, 0 } };
+    PartitionSplit spl = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                           0 };
     splits[n] = spl;
 }
 
@@ -918,8 +917,8 @@ chooseSplit(__global const W * w,
             uint32_t wLocalSize,
             bool ordinal)
 {
-    PartitionSplit result = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                              0, { 0, 0, 0, 0, 0, 0 } };
+    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                              0 };
 
     int bucket = get_global_id(0);
     int f = get_global_id(1);
@@ -1271,8 +1270,8 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     int nf = get_global_size(1);
     int partition = get_global_id(2);
     
-    PartitionSplit best = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                            0, { 0, 0, 0, 0, 0, 0 } };
+    PartitionSplit best = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                            0 };
 
     int bucket = get_global_id(0);
 
@@ -1424,8 +1423,8 @@ bestPartitionSplitKernel(uint32_t nf,
     int p = get_global_id(0);
     int np = get_global_size(0);
     
-    PartitionSplit best = { INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                            0, { 0, 0, 0, 0, 0, 0 } };
+    PartitionSplit best = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                            0 };
 
     featurePartitionSplits += p * nf;
     partitionSplits += p;

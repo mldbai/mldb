@@ -1225,6 +1225,31 @@ testAll(int depth,
 /* RECURSIVE RANDOM FOREST KERNELS                                           */
 /*****************************************************************************/
 
+struct PartitionIndexDescription
+    : public ValueDescriptionT<PartitionIndex> {
+    
+    virtual void parseJsonTyped(PartitionIndex * val,
+                                JsonParsingContext & context) const
+    {
+        val->index = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const PartitionIndex * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeInt(val->index);
+    }
+
+    virtual bool isDefaultTyped(const PartitionIndex * val) const
+    {
+        return *val == PartitionIndex::none();
+    }
+};
+
+DEFINE_VALUE_DESCRIPTION_NS(PartitionIndex,
+                            PartitionIndexDescription);
+
+
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
 {
     addField("score", &PartitionSplit::score, "");
@@ -1233,7 +1258,7 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
     addField("left", &PartitionSplit::left, "");
     addField("right", &PartitionSplit::right, "");
     addField("direction", &PartitionSplit::direction, "");
-    addField("activeFeatures", &PartitionSplit::activeFeatures, "");
+    addField("index", &PartitionSplit::index, "");
 }
 
 void updateBuckets(const std::vector<Feature> & features,
@@ -1671,9 +1696,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
 
         partitionSplits[partition] =
             { (float)bestScore, bestFeature, bestSplit, bestLeft, bestRight,
-              bestFeature != -1 && bestLeft.count() <= bestRight.count(),
-              std::move(activeFeatures),
-              {}
+              bestFeature != -1 && bestLeft.count() <= bestRight.count()
             };
 
 #if 0
@@ -2930,15 +2953,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             
             for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
 
-                new (&partitionSplitsGpu[p].activeFeatures) std::vector<int>;
-                
                 // We don't compare the score as the result is different
                 // due to numerical differences in the sqrt function.
-                // Save the active features to avoid the comparison failing
-                // because they are different.
-                auto oldActiveFeatures
-                    = debugPartitionSplitsCpu[p].activeFeatures;
-                debugPartitionSplitsCpu[p].activeFeatures.clear();
                 if ((partitionSplitsGpu[p].left
                      != debugPartitionSplitsCpu[p].left)
                     || (partitionSplitsGpu[p].right
@@ -2953,7 +2969,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                          << "\nCPU " << jsonEncodeStr(debugPartitionSplitsCpu[p])
                          << endl;
                 }
-                debugPartitionSplitsCpu[p].activeFeatures = oldActiveFeatures;
             }
             
             ExcAssert(!different);
@@ -3113,7 +3128,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                           bucketNumbers,
                           debugPartitionSplitsCpu,
                           numPartitionsAtDepth,
-                          debugExpandedRowsCpu);
+                          debugExpandedRowsCpu,
+                          activeFeatures);
 
             // There are three things that we modify (in-place):
             // 1) The per-partition, per-feature W buckets
