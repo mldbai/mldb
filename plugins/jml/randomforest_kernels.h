@@ -142,9 +142,9 @@ struct PartitionIndex {
     
     uint32_t index = 0;
 
-    uint32_t depth() const
+    int32_t depth() const
     {
-        return 31 - __builtin_clz(index);
+        return index == 0 ? -1 : 31 - __builtin_clz(index);
     }
     
     PartitionIndex leftChild() const
@@ -162,6 +162,11 @@ struct PartitionIndex {
         return PartitionIndex(index >> 1);
     }
 
+    PartitionIndex parentAtDepth(int32_t depth) const
+    {
+        return PartitionIndex(index >> (this->depth() - depth));
+    }
+
     bool operator == (const PartitionIndex & other) const
     {
         return index == other.index;
@@ -176,9 +181,27 @@ struct PartitionIndex {
     {
         return index < other.index;
     }
+
+    std::string path() const
+    {
+        std::string result;
+
+        if (index == 0)
+            return result = "none";
+        if (index == 1)
+            return result = "root";
+
+        for (int d = depth() - 1;  d >= 0;  --d) {
+            result += (index & (1 << d) ? 'r' : 'l');
+        }
+
+        return result;
+    }
 };
 
 PREDECLARE_VALUE_DESCRIPTION(PartitionIndex);
+
+std::ostream & operator << (std::ostream & stream, PartitionIndex idx);
 
 /** Holds the split for a partition. */
 

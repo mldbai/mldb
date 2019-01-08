@@ -40,7 +40,6 @@ LIBMLDB_BUILTIN_PLUGIN_LINK:= \
 	sqlite-mldb \
 	ml \
 	tsne \
-	svm \
 	libstemmer \
 	edlib \
 	algebra \

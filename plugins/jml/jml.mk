@@ -37,9 +37,6 @@ LIBML_LINK := \
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 
-$(eval $(call include_sub_make,ml_testing,testing,ml_testing.mk))
-
-
 # Jml plugins
 LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest.cc \
@@ -59,7 +56,14 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 
 
 LIBMLDB_JML_PLUGIN_LINK:= \
-	ml
+	ml \
+	mldb_opencl_plugin \
+	sql_expression \
+	mldb_engine \
+	svm \
+	tsne \
+	mldb_builtin_base \
+
 
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))
 
@@ -70,5 +74,8 @@ $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JM
 #$(eval $(call mldb_builtin_plugin,jml,mldb_jml_plugin,doc))
 
 #$(eval $(call include_sub_make,jml_testing,testing,jml_testing.mk))
+
+$(eval $(call include_sub_make,ml_testing,testing,ml_testing.mk))
+
 
 
