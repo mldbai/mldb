@@ -213,8 +213,11 @@ struct PartitionSplit {
     W left;
     W right;
     bool direction;  // 0 = left to right, 1 = right to left
-    //std::vector<int> activeFeatures;
-    char padding[24 - sizeof(std::vector<int>)];  // ensure size for OpenCL
+
+    operator std::pair<PartitionIndex, PartitionSplit> const ()
+    {
+        return { index, *this };
+    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(PartitionSplit);
@@ -241,15 +244,17 @@ struct PartitionEntry {
 
     Returns the number of rows that are within an active bucket.
 */
-size_t updateBuckets(const std::vector<Feature> & features,
-                     std::vector<uint32_t> & partitions,
-                     std::vector<std::vector<W> > & buckets,
-                     std::vector<W> & wAll,
-                     const std::vector<uint32_t> & bucketOffsets,
-                     const std::vector<PartitionSplit> & partitionSplits,
-                     int rightOffset,
-                     const std::vector<float> & decodedRows,
-                     const std::vector<int> & activeFeatures);
+void
+updateBuckets(const std::vector<Feature> & features,
+              std::vector<uint32_t> & partitions, // per row
+              std::vector<std::vector<W> > & buckets,  // par part
+              std::vector<W> & wAll,  // per part
+              const std::vector<uint32_t> & bucketOffsets,
+              const std::vector<PartitionSplit> & partitionSplits,
+              const std::vector<std::pair<int32_t, int32_t> > & newPartitionNumbers,
+              int newNumPartitions,
+              const std::vector<float> & decodedRows,
+              const std::vector<int> & activeFeatures);
 
 /** Once we've reached the deepest possible level for a breadth first
     split, we need to compact the dataset back down into one per
@@ -290,7 +295,7 @@ void verifyPartitionBuckets(const std::vector<uint32_t> & partitions,
 // Split our dataset into a separate dataset for each leaf, and
 // recurse to create a leaf node for each.  This is mutually
 // recursive with trainPartitionedRecursive.
-std::vector<ML::Tree::Ptr>
+std::map<PartitionIndex, ML::Tree::Ptr>
 splitAndRecursePartitioned(int depth, int maxDepth,
                            ML::Tree & tree,
                            MappedSerializer & serializer,
@@ -325,11 +330,11 @@ trainPartitionedRecursive(int depth, int maxDepth,
 // translation of the non-recuirsive data structure into a recursive
 // version.
 ML::Tree::Ptr
-extractTree(int relativeDepth, int depth, int maxDepth,
-            int partition,
+extractTree(int depth, int maxDepth,
             ML::Tree & tree,
-            const std::vector<std::vector<PartitionSplit> > & depthSplits,
-            const std::vector<ML::Tree::Ptr> & leaves,
+            PartitionIndex root,
+            const std::map<PartitionIndex, PartitionSplit> & allSplits,
+            const std::map<PartitionIndex, ML::Tree::Ptr> & leaves,
             const std::vector<Feature> & features,
             const DatasetFeatureSpace & fs);
 

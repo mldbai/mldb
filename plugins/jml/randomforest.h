@@ -538,7 +538,7 @@ struct PartitionData {
                         ML::Tree & tree,
                         MappedSerializer & serializer) const
     {
-        bool singleThreadOnly = false;
+        constexpr bool singleThreadOnly = true;
 
         using namespace std;
         
@@ -554,7 +554,7 @@ struct PartitionData {
 
 #if 1
         return trainPartitioned(depth, maxDepth, tree, serializer);
-#elif 0
+#elif 1
         if (depth == 0) {
             Timer timer;
             Date before = Date::now();
@@ -665,9 +665,11 @@ struct PartitionData {
             cerr << "recursive took " << after.secondsSince(before) * 1000.0
                  << "ms " << timer->elapsed() << endl;
 
-            std::function<bool (ML::Tree::Ptr, ML::Tree::Ptr, int)> compareTrees
-                = [&] (ML::Tree::Ptr left, ML::Tree::Ptr right, int depth)
+            std::function<bool (ML::Tree::Ptr, ML::Tree::Ptr, PartitionIndex)> compareTrees
+                = [&] (ML::Tree::Ptr left, ML::Tree::Ptr right, PartitionIndex index)
                 {
+                    int depth = index.depth();
+
                     auto printSummary = [&] (ML::Tree::Ptr ptr) -> std::string
                     {
                         std::string result;
@@ -681,7 +683,7 @@ struct PartitionData {
 
                         if (ptr.isNode()) {
                             auto & n = *ptr.node();
-                            result += " z=" + std::to_string(n.z);
+                            result += " z=" + MLDB::format("%.12f", n.z);
                             result += " " + n.split.print(*fs);
                             result += " ex " + std::to_string((int)n.child_false.examples())
                                 + ":"+ std::to_string((int)n.child_true.examples());
@@ -692,9 +694,10 @@ struct PartitionData {
 
                     auto doPrint = [&] () -> bool
                     {
-                        cerr << "difference at depth " << depth << endl;
-                        cerr << "  left:  " << printSummary(left) << endl;
-                        cerr << "  right: " << printSummary(right) << endl;
+                        cerr << "difference at depth " << depth << " index "
+                             << index << endl;
+                        cerr << "  rec:  " << printSummary(left) << endl;
+                        cerr << "  part: " << printSummary(right) << endl;
                         return false;
                     };
 
@@ -702,12 +705,14 @@ struct PartitionData {
                     
                     if ((left.pred() != right.pred()).any()) {
                         cerr << "different predictions at depth "
-                             << depth << ": " << left.pred()
+                             << depth << " index " << index
+                             << ": " << left.pred()
                              << " vs " << right.pred() << endl;
                         different = true;
                     }
                     if (left.examples() != right.examples()) {
-                        cerr << "different examples at depth " << depth << ": "
+                        cerr << "different examples at depth "
+                        << depth << " index " << index << ": "
                              << left.examples() << " vs " << right.examples()
                              << endl;
                         different = true;
@@ -730,13 +735,13 @@ struct PartitionData {
                         }
 
                         if (!different) {
-                            if (!compareTrees(l.child_true, r.child_true, depth + 1)) {
+                            if (!compareTrees(l.child_true, r.child_true, index.leftChild())) {
                                 different = true;
                                 cerr << "different left" << endl;
                                 return doPrint();
                             }
                             
-                            if (!compareTrees(l.child_false, r.child_false, depth + 1)) {
+                            if (!compareTrees(l.child_false, r.child_false, index.rightChild())) {
                                 different = true;
                                 cerr << "different right" << endl;
                                 return doPrint();
@@ -756,7 +761,7 @@ struct PartitionData {
                 };
 
             //compareTrees(result, part, 0);
-            ExcAssert(compareTrees(result, part, 0));
+            ExcAssert(compareTrees(result, part, PartitionIndex::root()));
             
         }
 

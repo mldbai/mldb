@@ -1765,7 +1765,7 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
     partitionSplits += partitionSplitsOffset;
     uint32_t numPartitions = get_global_size(0);
 
-    int i = get_global_id(0);
+    int i = get_global_id(0);  // partition number
 
     // Commented out because it causes spurious differences in the debugging code between
     // the two sides.  It doesn' thave any effect on the output, though, and saves some
@@ -1773,11 +1773,11 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
     //if (partitionSplits[i].right.count == 0)
     //    return;
             
-    int j = get_global_id(1);
+    int j = get_global_id(1);  // bucket number in partition
 
     if (j >= numActiveBuckets)
         return;
-    
+
     __global W * bucketsLeft
         = allPartitionBuckets + i * numActiveBuckets;
     __global W * bucketsRight
@@ -1808,6 +1808,150 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
     }
 }
 
+typedef struct {
+} WorkItem;
+
+typedef struct {
+    __global WorkItem * workItems;
+    uint32_t len;
+    uint32_t read;
+    uint32_t write;
+} WorkItemData;
+
+WorkItem popWorkItem(__global WorkItemData * work)
+{
+    // Will return the same for every thread in the workgroup
+
+    
+}
+
+void pushWorkItem(__global WorkItemData * work)
+{
+    WorkItem allWorkItems[65536];
+}
+
+// Once we get down to the lower levels of the tree, there are too many
+// branches to process them all in parallel due to the amount of memory
+// required for accumulation buckets.  Instead, we change strategy.  We
+// split the problem into two:
+//
+// - One part where we still have a lot of rows per partition (we filter
+//   down to a small number of partitions that still contain most of the
+//   examples).  These can still be processed in parallel the same as
+//   before.  Typically, this will be 1/16th to 1/256th of the number of
+//   partitions, which enables another 4 to 8 levels to be done before
+//   the buckets fill up again.  This keeps the data and expanded
+//   buckets from the previous round.
+//
+//   The extra information per partition is simply the partition index.
+//
+//   This will be handled by the normal invocations on the next run
+//   through the kernel.
+//
+// - A second part with a lot of partitions, each of which has only a
+//   small number of rows per partition.  The information kept to
+//   specify one of these is:
+//   - a wAll value
+//   - a list of example numbers within the bucket
+//   - partition index
+//
+//   Each of these partitions is pushed onto a work-queue, where each
+//   partition is handled by a single work group.  The work group will
+//   accumulate the buckets in shared memory, calculate the best split,
+//   output a partition split as a result, and if recursion is required
+//   then push the right-hand bucket onto the work queue whilst
+//   continuing to process the left-hand bucket recursively.
+
+// Input: PartitionSplits
+// Output: Same, but sorted by number of examples within the partition
+
+typedef struct PartitionSortEntry {
+    uint32_t count;
+    uint32_t index;
+};
+
+// Single WG function
+// n must be a power of two
+// NOTE http://www.bealto.com/gpu-sorting_parallel-merge-local.html
+void sortPartitionBlockLocal(__local PartitionSplit * aux,
+                             uint32_t n)
+{
+    int i = get_local_id(0); // index in workgroup
+
+    // We merge sub-sequences of length 1,2,...,WG/2
+    for (int length = 1;  length < n;  length *= 2) {
+        PartitionSortEntry entry = aux[i];
+        uint32_t ikey = entry.count;
+        int ii = i & (length-1);  // index in our sequence in 0..length-1
+        int sibling = (i - ii) ^ length; // beginning of the sibling sequence
+        int pos = 0;
+
+        // increment for dichotomic search
+        for (int inc = length;  inc > 0;  inc >>= 1) {
+            int j = sibling + pos + inc - 1;
+            uint jKey = aux[j].count;
+            bool smaller = (jKey > iKey) || ( jKey == iKey && j < i );
+            pos += (smaller) ? inc : 0;
+            pos = min(pos,length);
+        }
+        int bits = 2 * length - 1; // mask for destination
+        int dest
+            = ((ii + pos) & bits)
+            | (i & ~bits); // destination index in merged sequence
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        aux[dest] = iData;
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+}
+
+void sortPartitionBlock(__global const PartitionSplit * in,
+                        __global PartitionSplit * out,
+                        uint32_t n,
+                        __local PartitionSplit * aux)
+{
+    int i = get_local_id(0);
+
+    // Copy into local memory
+    aux[i] = in[i];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Sort the local block
+    sortPartitionBlockLocal(aux, n);
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Copy the sorted block back out
+    out[i] = aux[i];
+    
+    barrier(CLK_LOCAL_MEM_FENCE);
+}
+
+void mergeSortRanges(__global const PartitionSplit * in,
+                     __global PartitionSplit * out,
+                     uint32_t n)
+{
+    
+}
+
+#define SORT_PARTITIONS_NUM_AUX_ENTRIES 512
+
+__kernel void sortPartitionsKernel(__global PartitionSplit * splits,
+                                   uint32_t numSplits)
+{
+    __local PartitionSortEntry aux[SORT_PARTITIONS_NUM_AUX_ENTRIES];
+}
+
+// Dimensions:
+// 0 = worker index
+__kernel void
+splitKernel()
+{
+    // First, 
+}
                 
 #if 0
 // Split a dataset.  It compacts into two parts:
@@ -1824,6 +1968,70 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
 // - expanded rows, per partition (in-place)
 // - 
 // - 
+
+// NOTE http://www.bealto.com/gpu-sorting_parallel-merge-local.html
+#define PartitionSplit data_t
+#define float key_t
+
+__kernel void
+ParallelMerge_Local(__global const data_t * in,__global data_t * out,__local data_t * aux)
+{
+  int i = get_local_id(0); // index in workgroup
+  int wg = get_local_size(0); // workgroup size = block size, power of 2
+
+  // Move IN, OUT to block start
+  int offset = get_group_id(0) * wg;
+  in += offset; out += offset;
+
+  // Load block in AUX[WG]
+  aux[i] = in[i];
+  barrier(CLK_LOCAL_MEM_FENCE); // make sure AUX is entirely up to date
+
+  // Now we will merge sub-sequences of length 1,2,...,WG/2
+  for (int length=1;length<wg;length<<=1)
+  {
+    data_t iData = aux[i];
+    uint iKey = getKey(iData);
+    int ii = i & (length-1);  // index in our sequence in 0..length-1
+    int sibling = (i - ii) ^ length; // beginning of the sibling sequence
+    int pos = 0;
+    for (int inc=length;inc>0;inc>>=1) // increment for dichotomic search
+    {
+      int j = sibling+pos+inc-1;
+      uint jKey = getKey(aux[j]);
+      bool smaller = (jKey < iKey) || ( jKey == iKey && j < i );
+      pos += (smaller)?inc:0;
+      pos = min(pos,length);
+    }
+    int bits = 2*length-1; // mask for destination
+    int dest = ((ii + pos) & bits) | (i & ~bits); // destination index in merged sequence
+    barrier(CLK_LOCAL_MEM_FENCE);
+    aux[dest] = iData;
+    barrier(CLK_LOCAL_MEM_FENCE);
+  }
+
+  // Write output
+  out[i] = aux[i];
+}
+
+__kernel void
+compactPartitionsKernel()
+{
+    // 1.  Sort the partitions in order from maximum to minimum number
+    //     of examples.
+
+    sortPartitions();
+
+
+    // 2.  Split into:
+    // - partitions we continue to handle breadth first
+    // - partitions we work on depth first
+
+    uint32_t maxPartition = ...;
+}
+
+
+
 
 PartitionSplit
 trainSplitSingleWarp(int numRows,
