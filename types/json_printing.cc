@@ -821,7 +821,7 @@ void
 StringJsonPrintingContext::
 writeBool(bool b)
 {
-    write(b ? "true": "false");
+    write(b == true ? "true": "false");
 }
 
 
