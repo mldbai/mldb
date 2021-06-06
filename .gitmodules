@@ -1,9 +1,9 @@
 [submodule "baseimage-docker"]
 	path = baseimage-docker
-	url = git@github.com:datacratic/baseimage-docker.git
+	url = https://github.com/mldbai/baseimage-docker.git
 [submodule "ext/tensorflow"]
 	path = plugins/tensorflow/ext/tensorflow
-	url = git@github.com:mldbai/tensorflow
+	url = https://github.com/mldbai/tensorflow
 [submodule "ext/re2"]
 	path = ext/re2
 	url = https://github.com/mldbai/re2.git
@@ -15,7 +15,7 @@
 	url = https://github.com/mldbai/eigen.git
 [submodule "ext/edlib"]
 	path = ext/edlib
-	url = git@github.com:mldbai/edlib.git
+	url = https://github.com/mldbai/edlib.git
 [submodule "ext/uap-cpp"]
 	path = plugins/html/ext/uap-cpp
 	url = https://github.com/mldbai/uap-cpp.git
@@ -33,22 +33,22 @@
 	url = https://github.com/mldbai/highwayhash.git
 [submodule "mongodb/ext/mongo-cxx-driver"]
 	path = plugins/mongodb/ext/mongo-cxx-driver
-	url = git@github.com:mldbai/mongo-cxx-driver.git
+	url = https://github.com/mldbai/mongo-cxx-driver.git
 [submodule "mongodb/ext/libbson"]
 	path = plugins/mongodb/ext/libbson
-	url = git@github.com:mldbai/libbson.git
+	url = https://github.com/mldbai/libbson.git
 [submodule "mongodb/ext/mongo-c-driver"]
 	path = plugins/mongodb/ext/mongo-c-driver
-	url = git@github.com:mldbai/mongo-c-driver.git
+	url = https://github.com/mldbai/mongo-c-driver.git
 [submodule "mongodb/ext/mnmlstc"]
 	path = plugins/mongodb/ext/mnmlstc
-	url = git@github.com:mldbai/mnmlstc.git
+	url = https://github.com/mldbai/mnmlstc.git
 [submodule "ext/v8-cross-build-output"]
 	path = ext/v8-cross-build-output
 	url = https://github.com/mldbai/v8-cross-build-output.git
 [submodule "ext/gmock"]
 	path = ext/gmock
-	url = git@github.com:mldbai/gmock-1.7.0.git
+	url = https://github.com/mldbai/gmock-1.7.0.git
 [submodule "ext/giflib"]
 	path = ext/giflib
 	url = https://github.com/mldbai/giflib.git
@@ -63,7 +63,7 @@
 	url = https://github.com/mldbai/zstd.git
 [submodule "testing/mldb_sample_plugin"]
 	path = testing/mldb_sample_plugin
-	url = git@github.com:mldbai/mldb_sample_plugin.git
+	url = https://github.com/mldbai/mldb_sample_plugin.git
 [submodule "ext/easyexif"]
 	path = ext/easyexif
 	url = https://github.com/mldbai/easyexif.git
@@ -72,25 +72,25 @@
 	url = https://github.com/mldbai/libgit2.git
 [submodule "ext/fasttext"]
 	path = ext/fasttext
-	url = git@github.com:mldbai/fastText.git
+	url = https://github.com/mldbai/fastText.git
 [submodule "ext/casablanca"]
 	path = plugins/azure/ext/casablanca
-	url = git@github.com:mldbai/cpprestsdk.git
+	url = https://github.com/mldbai/cpprestsdk.git
 [submodule "ext/azure-storage-cpp"]
 	path = plugins/azure/ext/azure-storage-cpp
-	url = git@github.com:mldbai/azure-storage-cpp.git
+	url = https://github.com/mldbai/azure-storage-cpp.git
 [submodule "pymldb"]
 	path = pymldb
-	url = git@github.com:datacratic/pymldb.git
+	url = https://github.com/datacratic/pymldb.git
 [submodule "html/ext/libhubbub"]
 	path = plugins/html/ext/libhubbub
-	url = git@github.com:mldbai/libhubbub.git
+	url = https://github.com/mldbai/libhubbub.git
 [submodule "ext/concurrentqueue"]
 	path = ext/concurrentqueue
-	url = git@github.com:mldbai/concurrentqueue.git
+	url = https://github.com/mldbai/concurrentqueue.git
 [submodule "ext/libarchive"]
 	path = ext/libarchive
-	url = git@github.com:mldbai/libarchive.git
+	url = https://github.com/mldbai/libarchive.git
 [submodule "ext/s2geometry"]
 	path = ext/s2geometry
 	url = https://github.com/mldbai/s2geometry.git
