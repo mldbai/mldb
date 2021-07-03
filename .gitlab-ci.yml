@@ -1,0 +1,35 @@
+# This file is a template, and might need editing before it works on your project.
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/C++.gitlab-ci.yml
+
+# use the official gcc image, based on debian
+# can use verions as well, like gcc:5.2
+# see https://hub.docker.com/_/gcc/
+
+image: ubuntu:20.04
+
+build:
+  stage: build
+  # instead of calling g++ directly you can also use some build toolkit like make
+  # install the necessary build tools when needed
+  before_script:
+     - apt update && DEBIAN_FRONTEND=noninteractive apt -y install make time lsb-release git autoconf build-essential libblas-dev libboost-all-dev libcap-dev libcrypto++-dev libcurl4-openssl-dev libffi-dev libmagic-dev libfreetype6-dev liblapack-dev liblzma-dev libpng-dev libpq-dev libpython3-dev libsasl2-dev libssh2-1-dev libtool libyaml-cpp-dev python3-virtualenv python3-pip unzip valgrind uuid-dev libxml++2.6-dev libsnappy-dev libssl-dev libbz2-dev libavutil-dev libavcodec-dev libavformat-dev libavdevice-dev 
+  script:
+    - git submodule update --init
+    - make -j4 -k dependencies
+    - make -j4 -k compile
+  # artifacts:
+  #   paths:
+  #     - mybinary
+  #     # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
+  #     # cache:
+  #     #   paths:
+  #     #     - "*.o"
+
+# run tests using the binary built before
+test:
+  stage: test
+  script:
+    - make -j4 -k test
