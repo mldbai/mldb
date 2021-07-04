@@ -94,3 +94,9 @@
 [submodule "ext/s2geometry"]
 	path = ext/s2geometry
 	url = https://github.com/mldbai/s2geometry.git
+[submodule "ext/cryptopp"]
+	path = ext/cryptopp
+	url = https://github.com/mldbai/cryptopp.git
+[submodule "mldb_test_data"]
+	path = mldb_test_data
+	url = https://gitlab.com/mldbai/mldb_test_data.git
