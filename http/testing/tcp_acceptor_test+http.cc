@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_disconnect_test )
                                            acceptor.effectiveTCPv4Port());
 
     {
-        auto socket = asio::ip::tcp::socket(loop.impl().ioService());
+        auto socket = asio::ip::tcp::socket(loop.impl().ioContext());
         socket.connect(serverEndpoint);
         string request = ("GET /wait HTTP/1.1\r\n"
                           "Host: *\r\n"
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_100_continue )
                                            acceptor.effectiveTCPv4Port());
 
     {
-        auto socket = asio::ip::tcp::socket(loop.impl().ioService());
+        auto socket = asio::ip::tcp::socket(loop.impl().ioContext());
         socket.connect(serverEndpoint);
 
         {

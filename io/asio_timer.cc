@@ -24,8 +24,8 @@ void
 StrandHolder::
 init(void * strand, const std::type_info * type)
 {
-    if (type != &typeid(boost::asio::strand))
-        throw MLDB::Exception("StrandHolder initialized from " + demangle(type->name()) + " not boost::asio::strand");
+    if (type != &typeid(boost::asio::io_context::strand))
+        throw MLDB::Exception("StrandHolder initialized from " + demangle(type->name()) + " not boost::asio::io_context::strand");
     this->strand = strand;
 }
 
@@ -46,8 +46,8 @@ struct AsioTimer::Impl {
         until the call chain is unwound.
     */
     struct State {
-        State(boost::asio::io_service & ioService)
-            : timer(ioService), strand(nullptr),
+        State(boost::asio::io_context & ioContext)
+            : timer(ioContext), strand(nullptr),
               firingThread(std::thread::id()),
               shutdown(false),
               handlerStatus(NO_HANDLER), firings(0),
@@ -55,8 +55,8 @@ struct AsioTimer::Impl {
         {
         }
 
-        State(boost::asio::strand & strand)
-            :  timer(strand.get_io_service()), strand(&strand),
+        State(boost::asio::io_context::strand & strand)
+            :  timer(strand.context()), strand(&strand),
                firingThread(std::thread::id()),
                shutdown(false),
                handlerStatus(NO_HANDLER), firings(0),
@@ -70,7 +70,7 @@ struct AsioTimer::Impl {
         // directly in some circumstances.
         std::recursive_mutex timerMutex;
         boost::asio::basic_waitable_timer<std::chrono::system_clock> timer;
-        boost::asio::strand * strand;
+        boost::asio::io_context::strand * strand;
         WatchesT<Date> watches;
         Date nextExpiry;
         double period;
@@ -83,12 +83,12 @@ struct AsioTimer::Impl {
 
     const std::shared_ptr<State> state;
 
-    Impl(boost::asio::io_service & ioService)
-        : state(new State(ioService))
+    Impl(boost::asio::io_context & ioContext)
+        : state(new State(ioContext))
     {
     }
 
-    Impl(boost::asio::strand & strand)
+    Impl(boost::asio::io_context::strand & strand)
         : state(new State(strand))
     {
     }
@@ -193,7 +193,6 @@ struct AsioTimer::Impl {
                      << " none " << std::hash<std::thread::id>()(std::thread::id())
                      << " use count " << state.use_count()
                      << " pin " << state->pin.use_count()
-                     << " stopped " << state->timer.get_io_service().stopped()
                      << " strand " << state->strand
                      << endl;
                 if (!doneBacktrace) {
@@ -252,8 +251,8 @@ struct AsioTimer::Impl {
 
 AsioTimer::
 AsioTimer(Date nextExpiry, double period,
-          boost::asio::io_service & ioService)
-    : impl(new Impl(ioService))
+          boost::asio::io_context & ioContext)
+    : impl(new Impl(ioContext))
 {
     arm(nextExpiry, period);
 }
@@ -261,20 +260,20 @@ AsioTimer(Date nextExpiry, double period,
 AsioTimer::
 AsioTimer(Date nextExpiry, double period,
           const StrandHolder & strand)
-    : impl(new Impl(*reinterpret_cast<boost::asio::strand *>(strand.strand)))
+    : impl(new Impl(*reinterpret_cast<boost::asio::io_context::strand *>(strand.strand)))
 {
     arm(nextExpiry, period);
 }
 
 AsioTimer::
-AsioTimer(boost::asio::io_service & ioService)
-    : impl(new Impl(ioService))
+AsioTimer(boost::asio::io_context & ioContext)
+    : impl(new Impl(ioContext))
 {
 }
 
 AsioTimer::
 AsioTimer(const StrandHolder & strand)
-    : impl(new Impl(*reinterpret_cast<boost::asio::strand *>(strand.strand)))
+    : impl(new Impl(*reinterpret_cast<boost::asio::io_context::strand *>(strand.strand)))
 {
 }
 
@@ -309,15 +308,15 @@ WatchT<Date> getTimer(Date nextExpiry,
                       EventLoop & eventLoop,
                       std::function<void (Date)> toBind)
 {
-    return getTimer(nextExpiry, period, eventLoop.impl().ioService(), toBind);
+    return getTimer(nextExpiry, period, eventLoop.impl().ioContext(), toBind);
 }
 
 WatchT<Date> getTimer(Date nextExpiry,
                       double period,
-                      boost::asio::io_service & ioService,
+                      boost::asio::io_context & ioContext,
                       std::function<void (Date)> toBind)
 {
-    auto timer = std::make_shared<AsioTimer>(ioService);
+    auto timer = std::make_shared<AsioTimer>(ioContext);
     auto watch = timer->watch();
     if (toBind)
         watch.bind(std::move(toBind));

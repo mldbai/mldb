@@ -128,7 +128,7 @@ struct LocalPeerConnection: public PeerConnection {
 
 struct MirrorPeerConnection : public PeerConnection {
 
-    MirrorPeerConnection(boost::asio::io_service & ioService);
+    MirrorPeerConnection(boost::asio::io_context & ioContext);
 
     ~MirrorPeerConnection();
 

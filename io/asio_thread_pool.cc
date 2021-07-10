@@ -27,11 +27,11 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct AsioThreadPool::Impl {
-    Impl(boost::asio::io_service & ioService,
+    Impl(boost::asio::io_context & ioContext,
          double probeIntervalSeconds = 0.1)
-        : ioService(ioService), shutdown(false)
+        : ioContext(ioContext), shutdown(false)
     {
-        work.reset(new boost::asio::io_service::work(ioService));
+        work.reset(new boost::asio::io_context::work(ioContext));
 
         threads.emplace_back([=] () { this->run(0); });
 
@@ -40,7 +40,7 @@ struct AsioThreadPool::Impl {
 
         timer = getTimer(Date::now().plusSeconds(probeIntervalSeconds),
                          probeIntervalSeconds,
-                         ioService,
+                         ioContext,
                          std::bind(&Impl::onProbe,
                                    this,
                                    std::placeholders::_1));
@@ -50,13 +50,13 @@ struct AsioThreadPool::Impl {
     ~Impl()
     {
         shutdown = true;
-        ioService.stop();
+        ioContext.stop();
         work.reset();
         for (auto & t: threads) {
-            ioService.post([] () {});
+            ioContext.post([] () {});
             t.join();
         }
-        ioService.stop();
+        ioContext.stop();
     }
 
     void ensureThreads(int minNumThreads)
@@ -81,12 +81,12 @@ struct AsioThreadPool::Impl {
 
             if (true) {
                 boost::system::error_code err;
-                int res = ioService.run(err);
+                int res = ioContext.run(err);
                 if (err)
-                    cerr << "ioService error " << err.message() << endl;
+                    cerr << "ioContext error " << err.message() << endl;
                 if (res == 0) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    //cerr << "ioService has stopped" << endl;
+                    //cerr << "ioContext has stopped" << endl;
                 }
                 continue;
             }
@@ -98,7 +98,7 @@ struct AsioThreadPool::Impl {
             nanosSleeping += timeSpentBefore * 1000000000;
 
             numHandlers += 1;
-            size_t numDone = (threadNum == 0 ? ioService.run_one(err) : ioService.run(err));
+            size_t numDone = (threadNum == 0 ? ioContext.run_one(err) : ioContext.run(err));
             ++numWakeups;
             numHandlers -= 1;
 
@@ -179,8 +179,8 @@ struct AsioThreadPool::Impl {
         //cerr << "latency = " << latency * 1000.0 << "ms" << endl;
     }
 
-    boost::asio::io_service & ioService;
-    std::unique_ptr<boost::asio::io_service::work> work;
+    boost::asio::io_context & ioContext;
+    std::unique_ptr<boost::asio::io_context::work> work;
     std::atomic<int64_t> nanosSleeping;
     std::atomic<int64_t> nanosProcessing;
     std::atomic<int> numEvents;
@@ -200,7 +200,7 @@ struct AsioThreadPool::Impl {
 
 AsioThreadPool::
 AsioThreadPool(EventLoop & eventLoop, double probeIntervalSeconds)
-    : impl(new Impl(eventLoop.impl().ioService(), probeIntervalSeconds))
+    : impl(new Impl(eventLoop.impl().ioContext(), probeIntervalSeconds))
 {
 }
 

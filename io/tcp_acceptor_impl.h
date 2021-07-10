@@ -59,7 +59,7 @@ struct TcpAcceptorImpl {
 
 private:
     struct Endpoint {
-        Endpoint(boost::asio::io_service & ioService);
+        Endpoint(boost::asio::io_context & ioContext);
         ~Endpoint();
 
         void open(const boost::asio::ip::tcp::endpoint & resolverEntry,
@@ -75,7 +75,7 @@ private:
         int effectivePort() const;
 
         bool isOpen_;
-        boost::asio::io_service & ioService_;
+        boost::asio::io_context & ioContext_;
         boost::asio::ip::tcp::acceptor acceptor_;
     };
 

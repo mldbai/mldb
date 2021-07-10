@@ -27,7 +27,7 @@ namespace MLDB {
 
     
 struct AsioPeerConnection::Itl {
-    Itl(std::shared_ptr<boost::asio::ip::tcp::socket> sock,
+    Itl(boost::asio::io_context & context, std::shared_ptr<boost::asio::ip::tcp::socket> sock,
         AsioPeerConnection * connection);
 
 
@@ -36,7 +36,7 @@ struct AsioPeerConnection::Itl {
     std::atomic<bool> shutdown_;
 
     std::shared_ptr<boost::asio::ip::tcp::socket> sock;
-    boost::asio::strand strand;
+    boost::asio::io_context::strand strand;
     AsioPeerConnection * connection;
     PeerConnectionState currentState;
     std::string currentError;
@@ -57,9 +57,9 @@ struct AsioPeerConnection::Itl {
 
 
 AsioPeerConnection::Itl::
-Itl(std::shared_ptr<boost::asio::ip::tcp::socket> sock,
+Itl(boost::asio::io_context & context, std::shared_ptr<boost::asio::ip::tcp::socket> sock,
     AsioPeerConnection * connection)
-    : strand(sock->get_io_service()),
+    : strand(context),
       connection(connection)
 {
     this->sock = sock;
@@ -76,8 +76,8 @@ Itl(std::shared_ptr<boost::asio::ip::tcp::socket> sock,
 }
 
 AsioPeerConnection::
-AsioPeerConnection(std::shared_ptr<boost::asio::ip::tcp::socket> sock)
-    : itl(new Itl(sock, this))
+AsioPeerConnection(boost::asio::io_context & context, std::shared_ptr<boost::asio::ip::tcp::socket> sock)
+    : itl(new Itl(context, sock, this))
 {
 }
 
@@ -462,7 +462,7 @@ void
 AsioPeerConnection::
 postWorkAsync(std::function<void ()> work)
 {
-    itl->strand.get_io_service().post(work);
+    boost::asio::post(itl->strand.context(), work);
 }
 
 

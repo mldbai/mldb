@@ -6,15 +6,15 @@
 
 */
 
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
 
 namespace MLDB {
 
 struct TcpSocketImpl {
-    TcpSocketImpl(boost::asio::io_service & ioService)
-        : socket(ioService)
+    TcpSocketImpl(boost::asio::io_context & ioContext)
+        : socket(ioContext)
     {
     }
 
