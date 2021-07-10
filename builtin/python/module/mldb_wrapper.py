@@ -98,9 +98,9 @@ class mldb_wrapper(object):
             self.post = functools.partial(self._post_put, 'POST')
             self.put = functools.partial(self._post_put, 'PUT')
             self.post_async = functools.partial(self._post_put, 'POST',
-                                                async=True)
+                                                asynch=True)
             self.put_async = functools.partial(self._post_put, 'PUT',
-                                               async=True)
+                                               asynch=True)
             self.create_dataset = self._mldb.create_dataset
             
         def _follow_redirect(self, url, counter):
@@ -163,8 +163,8 @@ class mldb_wrapper(object):
                 query_string.append([str(k), str(v)])
             return self._perform('GET', url, query_string, data)
 
-        def _post_put(self, verb, url, data=None, async=False):
-            if async:
+        def _post_put(self, verb, url, data=None, asynch=False):
+            if asynch:
                 return self._perform(verb, url, [], data, [['async', 'true']])
             return self._perform(verb, url, [], data)
 

@@ -200,7 +200,7 @@ JsonValueConverter::
 construct_recur(PyObject * pyObj)
 {
     Json::Value val;
-    if PyBool_Check(pyObj) {
+    if (PyBool_Check(pyObj)) {
         bool b = bp::extract<bool>(pyObj);
         val = b;
     }

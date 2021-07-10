@@ -13,6 +13,8 @@
 
 #pragma once
 
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS
+
 #include <boost/python.hpp>
 #include "mldb/types/date.h"
 #include <vector>

@@ -5,7 +5,9 @@ PYTHON_VERSION ?= $(PYTHON_VERSION_DETECTED)
 
 $(warning PYTHON_VERSION_DETECTED=$(PYTHON_VERSION_DETECTED))
 
-PYTHON_INCLUDE_PATH ?= $(VIRTUALENV)/include/python$(PYTHON_VERSION)
+PYTHON_INCLUDE_PATH_DETECTED:=$(if $(wildcard $(VIRTUALENV)/include/python$(PYTHON_VERSION)/Python.h),$(VIRTUALENV)/include/python$(PYTHON_VERSION),/usr/include/python$(PYTHON_VERSION))
+
+PYTHON_INCLUDE_PATH ?= $(PYTHON_INCLUDE_PATH_DETECTED)
 PYTHON ?= python$(PYTHON_VERSION)
 PIP ?= pip3
 PYFLAKES ?= true
@@ -20,8 +22,8 @@ RUN_PYTHONPATH := $(if $(PYTHONPATH),$(PYTHONPATH):,)$(PYTHON_PURE_LIB_PATH):$(P
 
 PYTHONPATH ?= RUN_PYTHONPATH
 
-BOOST_PYTHON_LIBRARY_FILE:=$(notdir $(wildcard /usr/lib/x86_64-linux-gnu/libboost_python*3*.so))
-BOOST_PYTHON_LIBRARY:=$(BOOST_PYTHON_LIBRARY_FILE:lib%.so=%)
+BOOST_PYTHON_LIBRARY_FILE?=$(notdir $(wildcard /usr/lib/x86_64-linux-gnu/libboost_python*3*.so))
+BOOST_PYTHON_LIBRARY?=$(BOOST_PYTHON_LIBRARY_FILE:lib%.so=%)
 
 export PYTHONPATH
 
@@ -41,15 +43,11 @@ run_ipython: python_modules
 
 endif
 
-# Constraints files support was added in pip 7.1.0.
-# Test for the function before using it.
+# Assume pip > 7.1.0 (2015) when constraints file support was added
 python_dependencies:
 	if [ -f python_requirements.txt ]; then \
 		$(PYTHON_DEPENDENCIES_PRE_CMD); \
-	        if [ -f python_constraints.txt ] && $$($(PYTHON) -c 'import pip; exit(not hasattr(pip.pip.cmdoptions, "constraints"))'); then \
-	          CONSTRAINTS_ARGS="-c python_constraints.txt"; \
-	        fi; \
-		$(PIP) install -r python_requirements.txt $$CONSTRAINTS_ARGS; \
+		$(PIP) install -r python_requirements.txt -c python_constraints.txt; \
 	fi
 
 # Loop over the python_extra_requirements.txt file and install packages in

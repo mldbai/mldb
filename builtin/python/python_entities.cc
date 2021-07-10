@@ -30,21 +30,13 @@ namespace MLDB {
 DatasetPy::
 DatasetPy(std::shared_ptr<Dataset> dataset)
     : dataset(dataset),
-      context(std::make_shared<PythonContext>("DatasetPy", dataset->engine)),
-      interpreter(context)
+      context(std::make_shared<PythonContext>("DatasetPy", dataset->engine))
 {
 }
 
 DatasetPy::
 ~DatasetPy()
 {
-    // This may be called from the Python garbage collection, which means
-    // that the GIL may already be held.  So we need to be careful with the
-    // GIL as we call it.
-
-    auto alreadyGil = assertGilAlreadyHeld();
-    
-    interpreter.destroy();
     dataset.reset();
 }
 
@@ -104,8 +96,7 @@ PythonProcedure(MldbEngine * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner),
-      context(std::make_shared<PythonContext>("ProcedurePy", owner)),
-      interpreter(context)
+      context(std::make_shared<PythonContext>("ProcedurePy", owner))
 {
     procedureConfig = config.params.asJson();
 }
@@ -180,8 +171,7 @@ PythonFunction(MldbEngine * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner, config),
-      context(std::make_shared<PythonContext>("FunctionPy", owner)),
-      interpreter(context)
+      context(std::make_shared<PythonContext>("FunctionPy", owner))
 {
     functionConfig = config.params.asJson();
 }
