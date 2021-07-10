@@ -15,7 +15,7 @@
 #include "boosted_stumps_impl.h"
 #include "stump_predict.h"
 #include "mldb/utils/environment.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include "mldb/utils/floating_point.h"
 #include "mldb/utils/vector_utils.h"
 #include "boosting_core.h"
@@ -53,16 +53,16 @@ struct Stats {
 
 class Function_Profiler {
 public:
-    boost::timer * t;
+    boost::timer::cpu_timer* t = nullptr;
     double & var;
     Function_Profiler(double & var)
         : t(0), var(var)
     {
-        if (profile) t = new boost::timer();
+        if (profile) t = new boost::timer::cpu_timer();
     }
     ~Function_Profiler()
     {
-        if (t) var += t->elapsed();
+        if (t) var += t->elapsed().wall;
         delete t;
     }
 };

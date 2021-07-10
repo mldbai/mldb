@@ -44,7 +44,7 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
 
     bool profile = false;
 
-    boost::timer t;
+    boost::timer::cpu_timert;
     double t0 = t.elapsed();
 
     size_t m = A.shape()[0];
@@ -153,7 +153,7 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
 
     //cerr << "A = " << endl << A << endl;
 
-    if (profile) cerr << "SVD: total: " << t.elapsed() << endl;
+    if (profile) cerr << "SVD: total: " << t.elapsed().wall << endl;
 
     return std::make_tuple(E, U, V);
 }

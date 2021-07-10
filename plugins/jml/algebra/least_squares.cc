@@ -13,7 +13,6 @@
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include "mldb/base/exc_assert.h"
 #include "svd.h"
-#include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
 #include "lapack.h"
 #include <cmath>
@@ -101,7 +100,7 @@ least_squares_impl(const boost::multi_array<Float, 2> & A, const distribution<Fl
 {
     using namespace std;
 
-    //boost::timer t;
+    //boost::timer::cpu_timert;
 
     if (A.shape()[0] != b.size()) {
         cerr << "A.shape()[0] = " << A.shape()[0] << endl;
@@ -172,13 +171,13 @@ least_squares_impl(const boost::multi_array<Float, 2> & A, const distribution<Fl
     x.resize(n);
  
     //using namespace std;
-    //cerr << "least_squares: took " << t.elapsed() << "s" << endl;
+    //cerr << "least_squares: took " << t.elapsed().wall << "s" << endl;
     
     return x;
     //cerr << "least squares: gels returned " << x2 << endl;
     //cerr << "least squares: A2 = " << endl << A2 << endl;
 
-    //cerr << "least_squares: " << t.elapsed() << "s" << endl;
+    //cerr << "least_squares: " << t.elapsed().wall << "s" << endl;
     //distribution<Float> x3
     //    = least_squares(A, b, boost::multi_array<Float, 2>(0, n), distribution<Float>());
     
@@ -580,7 +579,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
     doneStep("    lambda");
 
-    //cerr << "total: " << t.elapsed() << endl;
+    //cerr << "total: " << t.elapsed().wall << endl;
 
     lambda = best_lambda; //return the lambda we ended up using
     return x_best;

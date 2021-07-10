@@ -10,7 +10,6 @@
 
 #include "irls.h"
 #include "glz.h"
-#include <boost/timer.hpp>
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/arch/simd_vector.h"
@@ -20,6 +19,7 @@
 #include "mldb/plugins/jml/algebra/lapack.h"
 #include <cmath>
 #include "mldb/types/enum_description.h"
+#include <boost/timer/timer.hpp>
 
 using namespace std;
 using namespace ML;
@@ -95,7 +95,7 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
                                   std::vector<distribution<FloatCalc> > & y,
                                   double tolerance)
 {
-    boost::timer t;
+    boost::timer::cpu_timer t;
     size_t nrows = x.shape()[0], ncols = x.shape()[1];
     /* Perform an orthogonalization to determine which variables are
        linearly dependent.  This procedure uses the Modified Gram-Schmidt
@@ -254,7 +254,7 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
     }
 
     //cerr << "remove_dependent: " << nrows << "x" << ncols << ": " 
-    //     << t.elapsed() << "s" << endl;
+    //     << t.elapsed().wall << "s" << endl;
     //cerr << "dest = " << dest << endl;
 
     //for (unsigned i = 0;  i < nrows;  ++i) {

@@ -10,8 +10,8 @@
 
 #include "boosting_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
-#include <boost/progress.hpp>
+#include <boost/timer/timer.hpp>
+#include <boost/timer/progress_display.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
@@ -118,7 +118,7 @@ generate(Thread_Context & context,
 {
     vector<Feature> features = features_;
 
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     unsigned nl = training_set.label_count(predicted);
 
@@ -143,11 +143,11 @@ generate(Thread_Context & context,
 
     boost::multi_array<float, 2> last_weights = weights;
 
-    std::unique_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::timer::progress_display> progress;
 
     if (verbosity == 1 || verbosity == 2) {
         cerr << "training " << max_iter << " iterations..." << endl;
-        progress.reset(new boost::progress_display(max_iter, cerr));
+        progress.reset(new boost::timer::progress_display(max_iter, cerr));
     }
     
     if (min_iter > max_iter)
@@ -272,7 +272,7 @@ generate(Thread_Context & context,
     }
 
     if (profile)
-        cerr << "training time: " << timer.elapsed() << "s" << endl;
+        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
     
     std::shared_ptr<Committee>
         result(new Committee(feature_space, predicted));
@@ -292,7 +292,7 @@ generate_and_update(Thread_Context & context,
 {
     vector<Feature> features = features_;
 
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     unsigned nl = training_set.label_count(predicted);
 
@@ -309,11 +309,11 @@ generate_and_update(Thread_Context & context,
 
     distribution<float> training_ex_weights(training_set.example_count(), 1.0);
 
-    std::unique_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::timer::progress_display> progress;
 
     if (verbosity == 1 || verbosity == 2) {
         cerr << "training " << max_iter << " iterations..." << endl;
-        progress.reset(new boost::progress_display(max_iter, cerr));
+        progress.reset(new boost::timer::progress_display(max_iter, cerr));
     }
     
     if (verbosity > 2)
@@ -362,7 +362,7 @@ generate_and_update(Thread_Context & context,
     }
     
     if (profile)
-        cerr << "training time: " << timer.elapsed() << "s" << endl;
+        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
     
     std::shared_ptr<Committee>
         result(new Committee(feature_space, predicted));

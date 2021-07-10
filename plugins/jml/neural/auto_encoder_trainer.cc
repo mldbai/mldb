@@ -259,7 +259,7 @@ train_iter(Auto_Encoder & encoder,
     
     int nx2 = examples.size();
 
-    std::auto_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::progress_display> progress;
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx2, cerr));
 
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
@@ -328,12 +328,12 @@ train_iter(Auto_Encoder & encoder,
     
     if (randomize_order) {
         Thread_Context::RNG_Type rng = thread_context.rng();
-        std::random_shuffle(examples.begin(), examples.end(), rng);
+        std::shuffle(examples.begin(), examples.end(), rng);
     }
     
     int nx2 = examples.size();
 
-    std::auto_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::progress_display> progress;
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx2, cerr));
 
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
@@ -444,7 +444,7 @@ train(Auto_Encoder & encoder,
         if (verbosity >= 3) {
             cerr << "rmse of iteration: exact " << train_error_exact
                  << " noisy " << train_error_noisy << endl;
-            if (verbosity >= 3) cerr << timer.elapsed() << endl;
+            if (verbosity >= 3) cerr << timer.elapsed().wall << endl;
         }
         else if (verbosity == 2)
             cerr << format("  %7.5f %7.5f",
@@ -468,7 +468,7 @@ train(Auto_Encoder & encoder,
                 cerr << "training rmse of iteration: exact "
                      << train_error_exact << " noisy " << train_error_noisy
                      << endl;
-                cerr << timer.elapsed() << endl;
+                cerr << timer.elapsed().wall << endl;
             }
             else if (verbosity == 2)
                 cerr << format("  %7.5f %7.5f",
@@ -487,7 +487,7 @@ train(Auto_Encoder & encoder,
                 cerr << "testing rmse of iteration: exact "
                      << test_error_exact << " noisy " << test_error_noisy
                      << endl;
-                cerr << timer.elapsed() << endl;
+                cerr << timer.elapsed().wall << endl;
             }
             else if (verbosity == 2)
                 cerr << format("  %7.5f %7.5f",
@@ -964,7 +964,7 @@ test_and_update(const Auto_Encoder & encoder,
 
     int nx = data_in.size();
 
-    std::auto_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::progress_display> progress;
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
 
     // 20 jobs per CPU

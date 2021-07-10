@@ -406,7 +406,7 @@ struct Update_Weights_And_Scores_Parallel
             cerr << endl;
 #endif
 
-            //boost::timer timer;
+            //boost::timer::cpu_timer timer;
             double sub_correct = 0.0;
             double subtotal
                 = updater(stump, opt_info, cl_weight, weights, output, data,
@@ -415,7 +415,7 @@ struct Update_Weights_And_Scores_Parallel
 #if 0
             cerr << "updating between " << x_begin << " and " << x_end
                 //<< " with " << stump.summary()
-                 << ": " << timer.elapsed() << endl;
+                 << ": " << timer.elapsed().wall << endl;
 
             //if (timer.elapsed() > 0.1)
 #endif

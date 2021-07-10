@@ -12,7 +12,6 @@
 #include "mldb/utils/round.h"
 #include <limits>
 #include <boost/test/unit_test.hpp>
-#include <boost/test/auto_unit_test.hpp>
 #include <stdint.h>
 
 using namespace MLDB;

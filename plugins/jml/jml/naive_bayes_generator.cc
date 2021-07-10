@@ -10,14 +10,13 @@
 
 #include "naive_bayes_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
-#include <boost/progress.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "stump_training.h"
 #include "stump_training_core.h"
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/utils/smart_ptr_utils.h"
+#include <boost/timer/timer.hpp>
 
 
 using namespace std;
@@ -87,7 +86,7 @@ generate(Thread_Context & context,
          const distribution<float> & training_ex_weights,
          const std::vector<Feature> & features, int) const
 {
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     Feature predicted = model.predicted();
 

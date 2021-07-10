@@ -39,7 +39,7 @@ void do_timed_test(Array & array, const vector<Feature> & features_,
     int NUM = features.size();
     double total = 0.0;
 
-    boost::timer t;
+    boost::timer::cpu_timert;
     for (unsigned i = 0;  i < NUM;  ++i)
         array[features[i]] = i;
     total += t.elapsed();

@@ -23,7 +23,7 @@
 #include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include "mldb/arch/timers.h"
 #if MLDB_INTEL_ISA
 # include "mldb/arch/sse2.h"
@@ -679,7 +679,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
                            float min_prob,
                            bool calc_cost)
 {
-    boost::timer t;
+    boost::timer::cpu_timer t;
 
     int n = D.shape()[0];
     if (D.shape()[1] != n)
@@ -702,7 +702,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
 
     double d_total_offdiag = SIMD::vec_sum(d_totals, n);
 
-    t_D += t.elapsed();  t.restart();
+    t_D += t.elapsed().wall;  t.start();
     
     // Cost accumulated for each row
     double row_costs[n];
@@ -725,11 +725,11 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
     double cost = 0.0;
     if (calc_cost) cost = SIMD::vec_sum(row_costs, n);
 
-    t_PmQxD += t.elapsed();  t.restart();
+    t_PmQxD += t.elapsed().wall;  t.start();
     
     copy_lower_to_upper(D);
     
-    t_clu += t.elapsed();  t.restart();
+    t_clu += t.elapsed().wall;  t.start();
 
     return cost;
 }
@@ -1040,7 +1040,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     for (int iter = 0;  iter < params.max_iter;  ++iter) {
 
-        boost::timer t;
+        boost::timer::cpu_timer t;
 
         /*********************************************************************/
         // Pairwise affinities Qij
@@ -1053,7 +1053,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         vectors_to_distances(Y, D, false /* fill_upper */);
 
-        t_v2d += t.elapsed();  t.restart();
+        t_v2d += t.elapsed().wall;  t.start();
         
         if (callback
             && !callback(iter, cost, "v2d")) return Y;
@@ -1076,7 +1076,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         if (callback
             && !callback(iter, cost, "stiffness")) return Y;
 
-        t_stiffness += t.elapsed();  t.restart();
+        t_stiffness += t.elapsed().wall;  t.start();
 
         // D is now the stiffness
         const boost::multi_array<float, 2> & stiffness = D;
@@ -1089,7 +1089,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         tsne_calc_gradient(dY, Y, stiffness);
 
-        t_dY += t.elapsed();  t.restart();
+        t_dY += t.elapsed().wall;  t.start();
 
         if (callback
             && !callback(iter, cost, "gradient")) return Y;
@@ -1129,7 +1129,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         if (callback
             && !callback(iter, cost, "update")) return Y;
 
-        t_update += t.elapsed();  t.restart();
+        t_update += t.elapsed().wall;  t.start();
 
 
         /*********************************************************************/
@@ -1140,7 +1140,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         if (callback
             && !callback(iter, cost, "recenter")) return Y;
 
-        t_recenter += t.elapsed();  t.restart();
+        t_recenter += t.elapsed().wall;  t.start();
 
 
         /*********************************************************************/
@@ -1153,7 +1153,7 @@ tsne(const boost::multi_array<float, 2> & probs,
             timer.restart();
         }
         
-        t_cost += t.elapsed();  t.restart();
+        t_cost += t.elapsed().wall;  t.start();
 
         // Stop lying about P values if we're finished
         if (iter == 100) {

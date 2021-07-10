@@ -19,7 +19,7 @@
 #include "mldb/arch/timers.h"
 #include <boost/assign/list_of.hpp>
 #include <limits>
-#include <boost/test/floating_point_comparison.hpp>
+#include <boost/test/tools/floating_point_comparison.hpp>
 #include <iostream>
 #include "mldb/base/parse_context.h"
 #include "mldb/vfs/filter_streams.h"

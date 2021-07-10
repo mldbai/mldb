@@ -10,8 +10,6 @@
 
 #include "decision_tree_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
-#include <boost/progress.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "stump_training_core.h"
@@ -21,6 +19,7 @@
 #include "binary_symmetric.h"
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
+#include <boost/timer/timer.hpp>
 
 #include <random>
 #include <mutex>
@@ -178,7 +177,7 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features, int) const
 {
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     Feature predicted = model.predicted();
 
@@ -203,7 +202,7 @@ generate(Thread_Context & context,
          float & Z,
          int recursion) const
 {
-    //boost::timer timer;
+    //boost::timer::cpu_timer timer;
 
     //Feature predicted = model.predicted();
 
@@ -1023,7 +1022,7 @@ struct TreeTrainer {
         double total_false;
         double total_missing;
 
-        //boost::timer timer;
+        //boost::timer::cpu_timer timer;
         split_dataset(data, split, in_class,
                       class_true, class_false, class_missing,
                       total_true, total_false, total_missing,
@@ -1040,7 +1039,7 @@ struct TreeTrainer {
         }
 
         if (debug) {
-            //cerr << timer.elapsed() << "s split" << endl;
+            //cerr << timer.elapsed().wall << "s split" << endl;
         
             cerr << " totals: true " << total_true << " false " << total_false
                  << " missing " << total_missing << endl;
@@ -1269,13 +1268,13 @@ train_recursive_regression(Thread_Context & context,
     double total_false;
     double total_missing;
 
-    //boost::timer timer;
+    //boost::timer::cpu_timer timer;
     split_dataset(data, accum.split(), in_class,
                   class_true, class_false, class_missing,
                   total_true, total_false, total_missing,
                   validate);
 
-    //cerr << timer.elapsed() << "s split" << endl;
+    //cerr << timer.elapsed().wall << "s split" << endl;
 
     //cerr << " totals: true " << total_true << " false " << total_false
     //     << " missing " << total_missing << endl;

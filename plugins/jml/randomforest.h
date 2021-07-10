@@ -628,7 +628,7 @@ struct PartitionData {
         std::pair<PartitionData, PartitionData> splits
             = split(bestFeature, bestSplit, wLeft, wRight, wAll);
 
-        //cerr << "done split in " << timer.elapsed() << endl;
+        //cerr << "done split in " << timer.elapsed().wall << endl;
 
         //cerr << "left had " << splits.first.rows.size() << " rows" << endl;
         //cerr << "right had " << splits.second.rows.size() << " rows" << endl;

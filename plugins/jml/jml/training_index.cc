@@ -14,7 +14,7 @@
 #include "training_data.h"
 #include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/utils/vector_utils.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include "mldb/utils/string_functions.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
@@ -61,7 +61,7 @@ Dataset_Index::
 init(const Training_Data & data,
      const std::vector<Feature> & features_)
 {
-    //boost::timer t;
+    //boost::timer::cpu_timert;
 
     itl.reset(new Itl());
     itl->feature_space = data.feature_space();
@@ -174,7 +174,7 @@ init(const Training_Data & data,
 
     std::sort(itl->all_features.begin(), itl->all_features.end());
 
-    //cerr << "finalize features: " << t.elapsed() << "s" << endl;
+    //cerr << "finalize features: " << t.elapsed().wall << "s" << endl;
 
     //cerr << "Dataset_Index::init(): " << format("%6.2fs", t.elapsed()) << endl;
 }

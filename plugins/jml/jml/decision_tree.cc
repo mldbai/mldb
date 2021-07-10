@@ -10,8 +10,7 @@
 
 #include "decision_tree.h"
 #include "classifier_persist_impl.h"
-#include <boost/progress.hpp>
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include <functional>
 #include "mldb/utils/vector_utils.h"
 

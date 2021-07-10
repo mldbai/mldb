@@ -9,8 +9,8 @@
 
 #include "glz_classifier_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
-#include <boost/progress.hpp>
+#include <boost/timer/timer.hpp>
+#include <boost/timer/progress_display.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/utils/smart_ptr_utils.h"
@@ -132,7 +132,7 @@ generate(Thread_Context & thread_context,
          float & Z,
          int) const
 {
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     Feature predicted = model.predicted();
 
@@ -420,7 +420,7 @@ train_weighted(Thread_Context & thread_context,
         result.weights.push_back(-1.0F * result.weights.front());
     }
 
-    //cerr << "glz_classifier: irls time " << t.elapsed() << "s" << endl;
+    //cerr << "glz_classifier: irls time " << t.elapsed().wall << "s" << endl;
     
     return 0.0;
 }

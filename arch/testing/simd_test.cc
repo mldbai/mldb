@@ -13,7 +13,6 @@
 #include "mldb/arch/simd.h"
 
 #include <boost/test/unit_test.hpp>
-#include <boost/test/auto_unit_test.hpp>
 #include <vector>
 #include <iostream>
 
