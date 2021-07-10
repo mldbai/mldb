@@ -26,14 +26,14 @@ class ConstOptimTest(MldbUnitTest):
             "params": {}
         })
 
-        startTime = time.clock()
+        startTime = time.perf_counter()
         mldb.query('SELECT blob_length(fetch({\'file://mldb/testing/logo-new.jpg\' as url})[content]) as x')
-        deltaT = time.clock() - startTime
+        deltaT = time.perf_counter() - startTime
         mldb.log(deltaT)
 
-        startTime = time.clock()
+        startTime = time.perf_counter()
         mldb.query('SELECT x, blob_length(fetch({\'file://mldb/testing/logo-new.jpg\' as url})[content]) as y FROM sample')
-        optimizedDeltaT = time.clock() - startTime
+        optimizedDeltaT = time.perf_counter() - startTime
         mldb.log(optimizedDeltaT)
 
         mldb.put('/v1/functions/fetch2', {
@@ -42,9 +42,9 @@ class ConstOptimTest(MldbUnitTest):
             "deterministic" : False,
         })
 
-        startTime = time.clock()
+        startTime = time.perf_counter()
         mldb.query('SELECT x, blob_length(fetch2({\'file://mldb/testing/logo-new.jpg\' as url})[content]) as y FROM sample')
-        nonOptimizedDeltaT = time.clock() - startTime
+        nonOptimizedDeltaT = time.perf_counter() - startTime
         mldb.log(deltaT)
 
         self.assertTrue(nonOptimizedDeltaT > optimizedDeltaT)

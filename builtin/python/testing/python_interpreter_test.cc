@@ -67,6 +67,9 @@ BOOST_AUTO_TEST_CASE( test_capture_streams )
 BOOST_AUTO_TEST_CASE( test_python_interpreter_multithreaded )
 {
     // Make sure that multithreaded initialization of interpreters works
+    {
+        PythonInterpreter interpreter;
+    }
 
     std::atomic<bool> finished(false);
     std::atomic<int64_t> iterations(0);

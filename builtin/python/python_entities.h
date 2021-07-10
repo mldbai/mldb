@@ -47,7 +47,6 @@ struct DatasetPy {
     
     std::shared_ptr<Dataset> dataset;
     std::shared_ptr<PythonContext> context;
-    MldbPythonInterpreter interpreter;
 
     static DatasetPy* createDataset(MldbPythonContext * c,
                                     const Json::Value & config);
@@ -75,7 +74,6 @@ struct PythonProcedure: public Procedure {
     std::function<Json::Value (const ProcedureRunConfig & training)> trainPy;
 
     std::shared_ptr<PythonContext> context;
-    MldbPythonInterpreter interpreter;
     
     static void createPythonProcedure(MldbPythonContext * c,
                                      const std::string & name, 
@@ -100,7 +98,6 @@ struct PythonFunction: public Function {
     Json::Value functionConfig;
     
     std::shared_ptr<PythonContext> context;
-    MldbPythonInterpreter interpreter;
 
     static void createPythonFunction(PythonPluginContext * c,
                                   const std::string & name);

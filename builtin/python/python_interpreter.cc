@@ -164,6 +164,9 @@ enter() const
             (nullptr, std::move(recoverOldState));
     }
 
+    if (_Py_IsFinalizing()) {
+        throw MLDB::Exception("Creating PythonThread in finalizing interpreter");
+    }
     PyEval_AcquireThread(st_.get());
     return std::shared_ptr<EnterThreadToken>
         (reinterpret_cast<EnterThreadToken *>(st_.get()),
@@ -209,7 +212,7 @@ exec(const EnterThreadToken & threadToken,
     // and then to use fopenfd() to open it.
 
     int fds[2];
-    int res = pipe2(fds, 0 /* flags */);
+    int res = pipe(fds);
 
     if (res == -1)
         throw AnnotatedException(500, "Python evaluation pipe: "
@@ -338,7 +341,7 @@ namespace {
 
 std::vector<std::function<void (const EnterThreadToken &)> >
 pythonInitializers;
-size_t initializersDone = 0;
+std::atomic<size_t> initializersDone = 0;
 std::recursive_mutex initializersMutex;
 
 bool hasInitializersToRun()
@@ -525,8 +528,36 @@ PythonInterpreter(InitializationContext context)
             st = getNewInterpreter();
         }
     
+        auto endSubInterpreter = [] (PyThreadState * interp)
+	{
+	    // Yes, sub interpreters can be ended recursively
+	    // in which case, the GIL is held
+	    static thread_local int recursionCount = 0;
+	    ++recursionCount;
+	    Scope_Exit(--recursionCount);
+	    // This is tricky.  This must be called without the GIL
+	    // held.
 
-        auto endSubInterpreter = [] (PyThreadState * interp) {
+
+	    if (recursionCount > 1) {
+		auto old = PyThreadState_Swap(interp);
+		Py_EndInterpreter(interp);
+		PyThreadState_Swap(old);
+	    }
+	    else {
+		// First, we acquire the GIL and switch to the interpreter's
+		// thread, as it's only from there that it may be destroyed.
+		PyEval_AcquireThread(interp);
+
+		// Now we destroy it.  It will switch to a null thread, but
+		// not release the GIL.
+		Py_EndInterpreter(interp);
+
+		// So now we release the GIL.  We can't use PyEval_ReleaseThread
+		// as that checks that we're currently in a thread, which we're
+		// not.
+		PyEval_ReleaseLock();
+	    }
         };
     
         this->interpState.reset(st, endSubInterpreter);

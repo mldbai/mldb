@@ -7,6 +7,7 @@
 
 #pragma once
 
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <memory>
 #include <boost/python.hpp>
 #include "mldb/types/string.h"

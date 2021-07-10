@@ -157,7 +157,7 @@ class FetcherFunction(MldbUnitTest):  # noqa
 
         proc = subprocess.Popen(['/usr/bin/env', 'python',
                                  'mldb/testing/test_server.py', str(port)],
-                                preexec_fn=pre_exec)
+                                preexec_fn=None)
 
         for _ in range(10):
             time.sleep(1)

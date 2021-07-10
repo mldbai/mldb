@@ -15,5 +15,7 @@ if [ -d /usr/include/python3.2 ] ; then
     exit 0;
 fi
 
-echo "unknown";
+VERS=`python3 --version | sed 's/.*\(3\.[0-9][0-9]*\).*/\1/'`
+echo $VERS
+
 exit 0
