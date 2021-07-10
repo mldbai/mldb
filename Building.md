@@ -1,8 +1,8 @@
 # Building and running the MLDB Community Edition Docker image
 
-These instructions are designed for a vanilla installation of **Ubuntu 16.04 or 18.04** and the **GCC 6, 7 or 8** compiler and assume that you have a Github account with [SSH keys](https://help.github.com/categories/ssh/).
+These instructions are designed for a vanilla installation of **Ubuntu 20.04 and the **GCC 9** compiler.
 
-It will take around **5 minutes on a 32-core machine with 244GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines.
+It will take around **5 minutes on a 16-core machine with 32GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines.
 
 ## Installing the correct compiler toolchain
 
@@ -10,54 +10,34 @@ MLDB requires GCC version 6 or above, or clang 3.8 or above.  If you are
 using clang, then g++ must also be installed as on Ubuntu, clang is
 configured to use the c++ header files and standard library from GCC.
 
-### Under Ubuntu 18.04
+Some of the python dependencies (specifically, the `cryptography` package require a Rust compiler for the latest versions.  Since we want to be as close as possible to the latest version for packages like this, we also need to install the Rust compiler.
+
+### Under Ubuntu 20.04
 
 ```bash
-apt-get install -y g++  # To compile with GCC 7 (default)
+apt-get install -y g++ rustc  # To compile with GCC 9 (default)
 ```
 
 If you want to use a different toolchain (if you're not sure, you don't),
 you will need to install it:
 
 ```bash
-apt-get install -y g++-6 # To compile with GCC 6 using toolchain=gcc6
-apt-get install -y g++-8 # To compile with GCC 8 using toolchain=gcc8
-apt-get install -y clang-6.0 g++ # To compile with clang version 6 using toolchain=clang
+apt-get install -y clang-12 g++ rustc # To compile with clang version 12 using toolchain=clang
 ```
 
-### Under Ubuntu 16.04
-
-Since g++ 6.0 or later is not available on Ubuntu 16.04 as a native package, it
-needs to be added as an apt source.  If you attempt to build MLDB without
-installing a newer gcc, you will get a message that gcc 5 (which comes with
-Ubuntu 16.04) is not supported.
-
-```bash
-add-apt-repository ppa:ubuntu-toolchain-r/test
-apt update
-```
-
-and then one of
-
-```bash
-apt-get install -y g++-8 # To compile with GCC8 using toolchain=gcc8 (recommended)
-apt-get install -y g++-6 # To compile with GCC6 using toolchain=gcc6
-apt-get install -y g++-7 # To compile with GCC7 using toolchain=gcc7
-apt-get install -y g++-8 clang-6.0 # To compile with clang 6.0 using toolchain=clang
-```
-
-You will need to set the `toolchain=gcc6`, `toolchain=gcc7`, `tool
-
-## Installing system dependencies via `apt-get`
+## Installing system dependencies via `apt`
 
 For C++ code to compile and the Python modules to install correctly, the following system packages need to be installed:
 
 ```bash
-apt-get install -y \
+sudo apt install -y \
+  install \
+  make \
+  time \
+  lsb-release \
   git \
   autoconf \
   build-essential \
-  language-pack-en \
   libblas-dev \
   libboost-all-dev \
   libcap-dev \
@@ -87,7 +67,7 @@ apt-get install -y \
   libavutil-dev \
   libavcodec-dev \
   libavformat-dev \
-  libavdevice-dev 
+  libavdevice-dev
 ```
 ## Installing Docker
 
