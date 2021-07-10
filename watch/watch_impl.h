@@ -846,7 +846,7 @@ waitTuple(double timeToWait)
         owner->throwException(WATCH_ERR_TIMEOUT,
                               "No event found before timeout");
 
-    return std::move(res);
+    return res;
 }
 
 template<typename... T>
