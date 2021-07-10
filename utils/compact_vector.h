@@ -27,6 +27,11 @@
 #include <stdint.h>
 #include <cstring>
 
+// GCC 9 gives warnings on unaligned addresses of packed member even
+// when they are actually aligned.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+
 namespace MLDB {
 
 template<typename Data,
@@ -473,7 +478,7 @@ private:
     union {
         struct {
             char internal_[sizeof(Data) * Internal];
-        } MLDB_PACKED itl;
+        } MLDB_PACKED itl; //__attribute__((__aligned__((sizeof(Data))))) itl;
         struct {
             Pointer pointer_;
             Size capacity_;
@@ -686,3 +691,5 @@ void make_vector_set(compact_vector<D, I, S, Sf, P, A> & vec)
 }
 
 } // namespace MLDB
+
+#pragma GCC diagnostic pop
