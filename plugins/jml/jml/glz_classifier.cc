@@ -12,7 +12,7 @@
 #include "null_feature_space.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/plugins/jml/algebra/irls.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include "training_index.h"
 
 #include <limits>

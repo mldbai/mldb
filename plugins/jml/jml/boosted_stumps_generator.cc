@@ -10,8 +10,8 @@
 
 #include "boosted_stumps_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
-#include <boost/progress.hpp>
+#include <boost/timer/timer.hpp>
+#include <boost/timer/progress_display.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/arch/simd_vector.h"
@@ -159,7 +159,7 @@ generate_stumps(Thread_Context & context,
 
     vector<Feature> features = features_;
 
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     Feature predicted = model.predicted();
 
@@ -221,11 +221,11 @@ generate_stumps(Thread_Context & context,
     boost::multi_array<float, 2> weights
         = expand_weights(training_set, training_ex_weights, predicted);
     
-    std::unique_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::timer::progress_display> progress;
 
     if (verbosity == 1 || verbosity == 2) {
         cerr << "training " << max_iter << " iterations..." << endl;
-        progress.reset(new boost::progress_display(max_iter, cerr));
+        progress.reset(new boost::timer::progress_display(max_iter, cerr));
     }
     
     if (min_iter > max_iter)
@@ -354,7 +354,7 @@ generate_stumps(Thread_Context & context,
     }
     
     if (profile)
-        cerr << "training time: " << timer.elapsed() << "s" << endl;
+        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
     
     if (verbosity > 0) {
         cerr << format("best was %6.2f%% on iteration %d", best_acc * 100.0,
@@ -376,7 +376,7 @@ generate_and_update(Thread_Context & context,
 
     vector<Feature> features = features_;
 
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     unsigned nl = training_set.label_count(predicted);
 
@@ -393,11 +393,11 @@ generate_and_update(Thread_Context & context,
 
     distribution<float> training_ex_weights(training_set.example_count(), 1.0);
 
-    std::unique_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::timer::progress_display> progress;
 
     if (verbosity == 1 || verbosity == 2) {
         cerr << "training " << max_iter << " iterations..." << endl;
-        progress.reset(new boost::progress_display(max_iter, cerr));
+        progress.reset(new boost::timer::progress_display(max_iter, cerr));
     }
     
     if (verbosity > 2) {
@@ -471,7 +471,7 @@ generate_and_update(Thread_Context & context,
     }
     
     if (profile)
-        cerr << "training time: " << timer.elapsed() << "s" << endl;
+        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
     
     std::shared_ptr<Boosted_Stumps>
         result(new Boosted_Stumps(stumps));

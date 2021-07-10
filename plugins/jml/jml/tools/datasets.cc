@@ -14,7 +14,7 @@
 #include "mldb/plugins/jml/jml/sparse_features.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/plugins/jml/jml/feature_transformer.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include "mldb/plugins/jml/jml/feature_set_filter.h"
 
 using namespace std;
@@ -80,7 +80,7 @@ init(const std::vector<std::string> & files, int verbosity, bool profile)
     
     /* First, read in all of the data. */
     for (unsigned i = 0;  i < files.size();  ++i) {
-        boost::timer timer;
+        boost::timer::cpu_timer timer;
 
         /* Look for a marker to change the disposition. */
         if (files[i] == "TRAIN") {
@@ -122,7 +122,7 @@ init(const std::vector<std::string> & files, int verbosity, bool profile)
         
         if (profile)
             cerr << "[load dataset '" << files[i] << "': "
-                 << timer.elapsed() << "s]" << endl;
+                 << timer.elapsed().wall << "s]" << endl;
     }
 }
 

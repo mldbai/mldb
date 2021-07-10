@@ -10,8 +10,8 @@
 
 #include "bagging_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
-#include <boost/progress.hpp>
+#include <boost/timer/timer.hpp>
+#include <boost/timer/progress_display.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
@@ -95,7 +95,7 @@ struct Bag_Job_Info {
     vector<std::shared_ptr<Classifier_Impl> > & results;
     float train_prop;
     std::shared_ptr<Classifier_Generator> weak_learner;
-    boost::progress_display * progress;
+    boost::timer::progress_display * progress;
     int num_bags;
     
     Bag_Job_Info(const Training_Data & training_set,
@@ -221,7 +221,7 @@ generate(Thread_Context & context,
          const std::vector<Feature> & features,
          int recursion) const
 {
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     cerr << "(ex_weights != 0).count() = "
          << (ex_weights != 0).count()
@@ -259,7 +259,7 @@ generate(Thread_Context & context,
         result.add(results[i], 1.0 / num_bags);
     
     if (profile)
-        cerr << "training time: " << timer.elapsed() << "s" << endl;
+        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
     
     return make_sp(result.make_copy());
 }

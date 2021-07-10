@@ -7,6 +7,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include <boost/test/unit_test.hpp>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mount.h>
@@ -14,7 +15,6 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
 
-#include <boost/test/unit_test.hpp>
 
 #include "mldb/arch/timers.h"
 #include "mldb/base/scope.h"

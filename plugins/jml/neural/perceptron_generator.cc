@@ -163,7 +163,7 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features, int) const
 {
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
 
     Feature predicted = model.predicted();
 
@@ -333,7 +333,7 @@ generate(Thread_Context & context,
     
     if (profile)
         log("perceptron_generator", 1)
-            << "training time: " << timer.elapsed() << "s" << endl;
+            << "training time: " << timer.elapsed().wall << "s" << endl;
     
     log("perceptron_generator", 1)
         << format("best was %6.2f%% on iteration %d", best_acc * 100.0,

@@ -5,8 +5,6 @@
 
 #include "fasttext_classifier.h"
 #include "classifier_persist_impl.h"
-#include <boost/progress.hpp>
-#include <boost/timer.hpp>
 #include <functional>
 #include "mldb/utils/vector_utils.h"
 #include "mldb/plugins/jml/jml/registry.h"

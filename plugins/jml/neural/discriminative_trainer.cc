@@ -266,7 +266,7 @@ train_iter(const std::vector<const float *> & data,
     distribution<float> outputs;
     outputs.resize(nx2);    
 
-    std::auto_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::progress_display> progress;
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx2, cerr));
 
     for (unsigned x = 0;  x < nx2;  x += minibatch_size) {
@@ -394,7 +394,7 @@ train(const std::vector<distribution<float> > & training_data,
         if (verbosity >= 3) {
             cerr << "error of iteration: rmse " << train_error_rmse
                  << " noisy " << train_error_auc << endl;
-            if (verbosity >= 3) cerr << timer.elapsed() << endl;
+            if (verbosity >= 3) cerr << timer.elapsed().wall << endl;
         }
         else if (verbosity == 2)
             cerr << format("  %7.5f %7.5f",
@@ -418,7 +418,7 @@ train(const std::vector<distribution<float> > & training_data,
                 cerr << "testing error of iteration: rmse "
                      << test_error_rmse << " auc " << test_error_auc
                      << endl;
-                cerr << timer.elapsed() << endl;
+                cerr << timer.elapsed().wall << endl;
             }
             else if (verbosity == 2)
                 cerr << format("  %7.5f %7.5f",
@@ -522,7 +522,7 @@ test(const std::vector<const float *> & data,
 
     int nx = data.size();
 
-    std::auto_ptr<boost::progress_display> progress;
+    std::unique_ptr<boost::progress_display> progress;
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
 
     distribution<float> outputs;

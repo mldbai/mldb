@@ -15,7 +15,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "mldb/plugins/jml/jml/probabilizer.h"
 #include "mldb/utils/vector_utils.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include <regex>
 #include "mldb/plugins/jml/jml/null_classifier.h"
 #include "mldb/plugins/jml/jml/null_feature_space.h"
@@ -571,7 +571,7 @@ void remove_aliased_examples(Training_Data & data, const Feature & predicted,
 {
     /** Clean the dataset by removing those examples which are aliased (where
         the features are the same). */
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
     
     /* Check for aliased rows in the training data. */
     vector<Alias> aliases = remove_aliases(data, predicted);
@@ -602,7 +602,7 @@ void remove_aliased_examples(Training_Data & data, const Feature & predicted,
     }
     
     if (profile)
-        cerr << "[aliased: " << timer.elapsed() << "s]" << endl;
+        cerr << "[aliased: " << timer.elapsed().wall << "s]" << endl;
 }
 
 void do_features(const Training_Data & data,

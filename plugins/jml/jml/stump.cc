@@ -12,7 +12,7 @@
 #include "training_data.h"
 #include <algorithm>
 #include "mldb/plugins/jml/sgi_algorithm.h"
-#include <boost/progress.hpp>
+#include <boost/timer/timer.hpp>
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/utils/vector_utils.h"

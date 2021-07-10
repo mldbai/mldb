@@ -15,7 +15,6 @@
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "mldb/utils/floating_point.h"
 #include "mldb/utils/pair_utils.h"
-#include <boost/timer.hpp>
 #include "mldb/base/exc_assert.h"
 
 using namespace std;

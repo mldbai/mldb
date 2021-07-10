@@ -12,9 +12,8 @@
 #include "mldb/utils/string_functions.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 #include "mldb/base/fast_float_parsing.h"
-#include <boost/timer.hpp>
 #include "mldb/arch/file_functions.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/vfs/filter_streams.h"
@@ -948,7 +947,7 @@ init(const std::vector<Data_Source> & data_sources,
              << " rows: " << my_row_count
              << " vars: " << my_var_count << endl;
 
-        //cerr << "count vars: " << timer.elapsed() << "s" << endl;
+        //cerr << "count vars: " << timer.elapsed().wall << "s" << endl;
 
         if (first_nonempty == -1 && my_row_count != 0)
             first_nonempty = i;
@@ -1058,7 +1057,7 @@ init(const std::vector<Data_Source> & data_sources,
        are categorical. */
     bool guessed_wrong = false;
 
-    boost::timer timer;
+    boost::timer::cpu_timer timer;
     
     /* Keep on going until we get all the categorical values correct. */
     do {
@@ -1166,11 +1165,11 @@ init(const std::vector<Data_Source> & data_sources,
 
     } while (guessed_wrong);
 
-    //cerr << "read files: " << timer.elapsed() << "s" << endl;
+    //cerr << "read files: " << timer.elapsed().wall << "s" << endl;
 
     //timer.restart();
     add_data();
-    //cerr << "add_data: " << timer.elapsed() << "s" << endl;
+    //cerr << "add_data: " << timer.elapsed().wall << "s" << endl;
 
     //if (example_count()) {
     //    cerr << "got dataset" << endl;

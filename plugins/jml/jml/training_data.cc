@@ -17,9 +17,9 @@
 #include "mldb/utils/vector_utils.h"
 #include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/base/exc_assert.h"
-#include <boost/progress.hpp>
 #include "mldb/types/db/persistent.h"
 #include "mldb/arch/demangle.h"
+#include <boost/timer/timer.hpp>
 
 
 using namespace std;
@@ -314,7 +314,7 @@ Training_Data::
 fixup_grouping_features(const std::vector<Feature> & group_features,
                         std::vector<float> & offset)
 {
-    boost::timer t;
+    boost::timer::cpu_timer t;
 
     size_t nf = group_features.size();
 
@@ -369,7 +369,7 @@ fixup_grouping_features(const std::vector<Feature> & group_features,
         offset[f] += last[f] + 1.0;
     }
 
-    //cerr << "fixup_grouping_features: " << t.elapsed() << "s" << endl;
+    //cerr << "fixup_grouping_features: " << t.elapsed().wall << "s" << endl;
 }
 
 void Training_Data::
@@ -379,11 +379,11 @@ preindex(const Feature & label, const std::vector<Feature> & features)
     if (index_)
         throw Exception("preindex: already has index");
 
-    //boost::timer timer;
+    //boost::timer::cpu_timer timer;
     index_.reset(new Dataset_Index());
     index_->init(*this, label, features);
     dirty_ = false;
-    //cerr << "preindex(): " << timer.elapsed() << "s for "
+    //cerr << "preindex(): " << timer.elapsed().wall << "s for "
     //     << example_count() << " examples" << endl;
 }
 
@@ -544,11 +544,11 @@ const Dataset_Index & Training_Data::generate_index() const
     Guard guard(index_lock);
     if (!dirty_ && index_) return *index_;
 
-    //boost::timer timer;
+    //boost::timer::cpu_timer timer;
     index_.reset(new Dataset_Index());
     index_->init(*this);
     dirty_ = false;
-    //cerr << "generate_index(): " << timer.elapsed() << "s for "
+    //cerr << "generate_index(): " << timer.elapsed().wall << "s for "
     //     << example_count() << " examples" << endl;
     return *index_;
 }

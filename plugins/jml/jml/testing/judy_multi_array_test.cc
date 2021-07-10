@@ -89,7 +89,7 @@ void do_timed_test(Array & array, vector<minivec<long, 3> > & indexes)
 
     double total = 0.0;
 
-    boost::timer t;
+    boost::timer::cpu_timert;
     for (unsigned i = 0;  i < NUM;  ++i)
         array[indexes[i]] = i;
     total += t.elapsed();

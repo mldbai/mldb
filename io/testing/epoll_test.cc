@@ -10,6 +10,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
+#include <boost/test/unit_test.hpp>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/epoll.h>
