@@ -136,7 +136,9 @@ struct InternedString {
                 // TODO: maybe could swap less words if the string is
                 // short to improve performance
                 for (unsigned i = 0;  i < NUM_WORDS * 2 - 1;  ++i) {
-                    std::swap(internalWords[i], other.internalWords[i]);
+		    auto tmp = internalWords[i];
+		    internalWords[i] = other.internalWords[i];
+		    other.internalWords[i] = tmp;
                 }
             }
             else {

@@ -189,6 +189,9 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
 
     {
         Path coords1 = Path::parse("\"x.y\".z");
+	BOOST_CHECK_EQUAL(coords1.size(), 2);
+	BOOST_CHECK(!coords1[0].empty());
+	BOOST_CHECK(!coords1[1].empty());
         BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"x.y\".z");
     }
 
