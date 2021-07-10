@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include "mldb/io/event_loop.h"
 
 
@@ -17,9 +17,9 @@ namespace MLDB {
 /****************************************************************************/
 
 struct EventLoopImpl {
-    boost::asio::io_service & ioService()
+    boost::asio::io_context & ioContext()
     {
-        return ioService_;
+        return ioContext_;
     };
 
     void run();
@@ -27,12 +27,12 @@ struct EventLoopImpl {
 
     void post(const EventLoop::JobFn & jobFn)
     {
-        ioService_.post(jobFn);
+        ioContext_.post(jobFn);
     }
 
 private:
-    std::unique_ptr<boost::asio::io_service::work> work_;
-    boost::asio::io_service ioService_;
+    std::unique_ptr<boost::asio::io_context::work> work_;
+    boost::asio::io_context ioContext_;
 };
 
 } // namespace MLDB

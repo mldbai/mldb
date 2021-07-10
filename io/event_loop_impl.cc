@@ -21,8 +21,8 @@ void
 EventLoopImpl::
 run()
 {
-    work_.reset(new asio::io_service::work(ioService_));
-    ioService_.run();
+    work_.reset(new asio::io_context::work(ioContext_));
+    ioContext_.run();
 }
 
 void
@@ -32,7 +32,7 @@ terminate()
     auto clearFn = [&] {
         work_.reset();
     };
-    ioService_.post(clearFn);
-    ioService_.stop();
-    ioService_.reset();
+    ioContext_.post(clearFn);
+    ioContext_.stop();
+    ioContext_.reset();
 }

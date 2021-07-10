@@ -13,7 +13,7 @@
 
 namespace boost {
 namespace asio {
-struct io_service;
+struct io_context;
 
 // This is a typedef, and is embedded within io_context, and so can't be
 // forward declared.  See the StrandHolder workaround below.
@@ -59,7 +59,7 @@ private:
 
 struct AsioTimer {
     /** Create a timer that will be servived by the given IO service. */
-    AsioTimer(boost::asio::io_service & ioService);
+    AsioTimer(boost::asio::io_context & ioContext);
 
     /** Create a timer that will be servived by the given strand.  Note
         that this means that its callback will not be called concurrently
@@ -70,7 +70,7 @@ struct AsioTimer {
 
     // Auto-arm
     AsioTimer(Date nextExpiry, double period,
-              boost::asio::io_service & ioService);
+              boost::asio::io_context & ioContext);
     // Auto-arm
     AsioTimer(Date nextExpiry, double period,
               const StrandHolder & strand);
@@ -97,7 +97,7 @@ WatchT<Date> getTimer(Date nextExpiry,
 
 WatchT<Date> getTimer(Date nextExpiry,
                       double period,
-                      boost::asio::io_service & ioService,
+                      boost::asio::io_context & ioContext,
                       std::function<void (Date)> toBind = nullptr);
 
 WatchT<Date> getTimer(Date nextExpiry,

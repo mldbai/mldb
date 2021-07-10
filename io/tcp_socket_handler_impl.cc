@@ -63,7 +63,8 @@ requestClose(TcpSocketHandler::OnClose onClose)
             onClose();
         }
     };
-    socket_.get_io_service().post(doCloseFn);
+
+    boost::asio::post(socket_.get_executor(), std::move(doCloseFn));
 }
 
 void

@@ -39,10 +39,10 @@ BOOST_AUTO_TEST_CASE( test_invalid_requests )
     int port = acceptor.effectiveTCPv4Port();
     auto address = asio::ip::address::from_string("127.0.0.1");
     asio::ip::tcp::endpoint serverEndpoint(address, port);
-    asio::io_service ioService;
+    asio::io_context ioContext;
 
     auto openSocket = [&] () {
-        auto socket = asio::ip::tcp::socket(ioService);
+        auto socket = asio::ip::tcp::socket(ioContext);
         socket.connect(serverEndpoint);
         return socket;
     };

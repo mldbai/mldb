@@ -59,7 +59,7 @@ int bindAndReturnOpenTcpPort(boost::asio::ip::tcp::acceptor & acceptor,
 struct AsioPeerServer::Impl {
     Impl(AsioPeerServer * server)
         : server(server),
-          acceptor(eventLoop.impl().ioService()),
+          acceptor(eventLoop.impl().ioContext()),
           threads(eventLoop),
           shutdown_(false)
     {
@@ -125,8 +125,8 @@ struct AsioPeerServer::Impl {
         string hostName = uriParts[0];
         string portName = uriParts[1];
 
-        auto & ioService = eventLoop.impl().ioService();
-        ip::tcp::resolver resolver(ioService);
+        auto & ioContext = eventLoop.impl().ioContext();
+        ip::tcp::resolver resolver(ioContext);
         ip::tcp::resolver::query query(hostName, portName);
         boost::system::error_code error;
         ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query, error);
@@ -137,7 +137,7 @@ struct AsioPeerServer::Impl {
                                 + error.message());
         }
     
-        auto sock = std::make_shared<boost::asio::ip::tcp::socket>(ioService);
+        auto sock = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
 
         cerr << "peer " << peerInfo.peerName << " is connecting to "
              << info.peerName << " at " << info.uri << endl;
@@ -159,7 +159,7 @@ struct AsioPeerServer::Impl {
             + info.peerName;
         boost::asio::write(*sock, boost::asio::buffer(handshake));
 
-        auto result = std::make_shared<AsioPeerConnection>(sock);
+        auto result = std::make_shared<AsioPeerConnection>(ioContext, sock);
 
         return result;
     }
@@ -227,8 +227,8 @@ struct AsioPeerServer::Impl {
         }
 
         // OK, passed basic handshaking.  Now pass off the connection
-
-        auto conn = std::make_shared<AsioPeerConnection>(sock);
+        auto & ioContext = eventLoop.impl().ioContext();
+        auto conn = std::make_shared<AsioPeerConnection>(ioContext, sock);
 
         {
             std::unique_lock<std::mutex> guard(onNewConnectionMutex);
@@ -245,8 +245,8 @@ struct AsioPeerServer::Impl {
         if (shutdown_)
             return;
 
-        auto & ioService = eventLoop.impl().ioService();
-        auto sock = std::make_shared<boost::asio::ip::tcp::socket>(ioService);
+        auto & ioContext = eventLoop.impl().ioContext();
+        auto sock = std::make_shared<boost::asio::ip::tcp::socket>(ioContext);
 
         acceptor.async_accept(*sock,
                               std::bind(&Impl::acceptPeerConnection,
@@ -327,8 +327,8 @@ std::shared_ptr<PeerConnection>
 AsioPeerServer::
 connectToSelf()
 {
-    auto & ioService = impl->eventLoop.impl().ioService();
-    return std::make_shared<MirrorPeerConnection>(ioService);
+    auto & ioContext = impl->eventLoop.impl().ioContext();
+    return std::make_shared<MirrorPeerConnection>(ioContext);
 }
 
 void

@@ -51,7 +51,7 @@ typedef MessageLoopLogs Logs;
 
 MessageLoop::
 MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
-    : sourceActions_([&] () { handleSourceActions(); }),
+    : sourceActions_([this] () { handleSourceActions(); }),
       numThreadsCreated(0),
       shutdown_(true),
       totalSleepTime_(0.0)

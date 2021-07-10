@@ -21,7 +21,7 @@ namespace MLDB {
 
 struct AsioPeerConnection: public PeerConnection {
 
-    AsioPeerConnection(std::shared_ptr<boost::asio::ip::tcp::socket> sock);
+    AsioPeerConnection(boost::asio::io_context & context, std::shared_ptr<boost::asio::ip::tcp::socket> sock);
     ~AsioPeerConnection();
 
     virtual PeerConnectionStatus getStatus() const;

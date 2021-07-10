@@ -93,8 +93,8 @@ std::shared_ptr<PeerConnection>
 StandalonePeerServer::
 connectToSelf()
 {
-    auto & ioService = impl->eventLoop.impl().ioService();
-    return std::make_shared<MirrorPeerConnection>(ioService);
+    auto & ioContext = impl->eventLoop.impl().ioContext();
+    return std::make_shared<MirrorPeerConnection>(ioContext);
 }
 
 void

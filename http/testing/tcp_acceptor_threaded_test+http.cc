@@ -107,8 +107,8 @@ processRequests(RequestQueue & queue)
 void
 sendRequest(int port)
 {
-    boost::asio::io_service ioService;
-    auto socket = asio::ip::tcp::socket(ioService);
+    boost::asio::io_context ioContext;
+    auto socket = asio::ip::tcp::socket(ioContext);
     auto address = asio::ip::address::from_string("127.0.0.1");
     asio::ip::tcp::endpoint serverEndpoint(address, port);
     socket.connect(serverEndpoint);

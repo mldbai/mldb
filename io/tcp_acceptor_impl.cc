@@ -39,8 +39,8 @@ TcpAcceptorImpl(EventLoop & eventLoop,
                 TcpAcceptor & frontAcceptor)
     : eventLoop_(eventLoop),
       frontAcceptor_(frontAcceptor),
-      v4Endpoint_(eventLoop_.impl().ioService()),
-      v6Endpoint_(eventLoop_.impl().ioService()),
+      v4Endpoint_(eventLoop_.impl().ioContext()),
+      v6Endpoint_(eventLoop_.impl().ioContext()),
       acceptCnt_(0)
 {
 }
@@ -57,7 +57,7 @@ listen(const PortRange & portRange, const string & hostname, int backlog)
 {
     ExcAssert(!hostname.empty());
 
-    asio::ip::tcp::resolver resolver(eventLoop_.impl().ioService());
+    asio::ip::tcp::resolver resolver(eventLoop_.impl().ioContext());
     asio::ip::tcp::resolver::query query(hostname,
                                          to_string(portRange.first));
 
@@ -98,7 +98,7 @@ TcpAcceptorImpl::
 accept(TcpAcceptorImpl::Endpoint & endpoint)
 {
     auto & acceptor = endpoint.acceptor_;
-    auto & loopService = eventLoop_.impl().ioService();
+    auto & loopService = eventLoop_.impl().ioContext();
     auto nextSocket = make_shared<TcpSocketImpl>(loopService);
     auto onAcceptFn = [&, nextSocket] (const system::error_code & ec) {
         if (ec) {
@@ -123,8 +123,8 @@ accept(TcpAcceptorImpl::Endpoint & endpoint)
 /****************************************************************************/
 
 TcpAcceptorImpl::Endpoint::
-Endpoint(boost::asio::io_service & ioService)
-    : isOpen_(false), ioService_(ioService), acceptor_(ioService_)
+Endpoint(boost::asio::io_context & ioContext)
+    : isOpen_(false), ioContext_(ioContext), acceptor_(ioContext_)
 {
 }
 
@@ -149,7 +149,7 @@ open(const asio::ip::tcp::endpoint & asioEndpoint,
     while (!isOpen_) {
         bool bound(false);
         for (int i = portRange.first; i < portRange.last; i++) {
-            acceptorPtr.reset(new asio::ip::tcp::acceptor(ioService_));
+            acceptorPtr.reset(new asio::ip::tcp::acceptor(ioContext_));
             acceptorPtr->open(bindEndpoint.protocol());
             acceptorPtr->set_option(asio::socket_base::reuse_address(true));
             bindEndpoint.port(i);

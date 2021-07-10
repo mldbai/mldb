@@ -46,8 +46,8 @@ stopReading()
 /*****************************************************************************/
 
 struct MirrorPeerConnection::Impl {
-    Impl(boost::asio::io_service & ioService)
-        : strand(ioService)
+    Impl(boost::asio::io_context & ioContext)
+        : strand(ioContext)
     {
     }
 
@@ -55,13 +55,13 @@ struct MirrorPeerConnection::Impl {
     {
     }
     
-    boost::asio::strand strand;
+    boost::asio::io_context::strand strand;
 };
 
 MirrorPeerConnection::
-MirrorPeerConnection(boost::asio::io_service & ioService)
+MirrorPeerConnection(boost::asio::io_context & ioContext)
 {
-    impl.reset(new Impl(ioService));
+    impl.reset(new Impl(ioContext));
 }
 
 MirrorPeerConnection::
@@ -154,7 +154,7 @@ void
 MirrorPeerConnection::
 postWorkAsync(std::function<void ()> work)
 {
-    impl->strand.get_io_service().post(work);
+    boost::asio::post(impl->strand.context(), work);
 }
 
 

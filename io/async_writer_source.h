@@ -23,7 +23,7 @@ namespace MLDB {
 /* ASYNC WRITE RESULT                                                       */
 /****************************************************************************/
 
-/* invoked when a write operation has been performed, where "written" is the
+/* Invoked when a write operation has been performed, where "written" is the
    string that was sent, "writtenSize" is the amount of bytes from it that was
    sent; the latter is always equal to the length of the string when error is
    0 */
