@@ -316,7 +316,7 @@ struct UnionDataset::Itl
         vector<std::tuple<RowPath, CellValue> > res;
         for (int i = 0; i < datasets.size(); ++i) {
             const auto & d = datasets[i];
-            for (const auto curr: d->getColumnIndex()->getColumnValues(columnPath)) {
+            for (const auto & curr: d->getColumnIndex()->getColumnValues(columnPath)) {
                 if (filter(std::get<1>(curr))) {
                     res.emplace_back(
                         PathElement(i) + std::get<0>(curr).toUtf8String().rawString(),
@@ -327,7 +327,7 @@ struct UnionDataset::Itl
         return res;
     }
 
-    virtual size_t getRowCount() const
+    virtual uint64_t getRowCount() const
     {
         size_t count = 0;
         for (const auto & d: datasets) {
