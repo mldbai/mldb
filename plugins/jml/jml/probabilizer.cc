@@ -991,7 +991,6 @@ init(const Classifier_Impl & classifier,
                 throw Exception("GLZ_Probabilizer::init(): "
                                 "mode 1 needs 3 values per label");
 
-            this->link = link;
             this->params.clear();
             size_t ol = nl + 2;  // number of columns to create
 
