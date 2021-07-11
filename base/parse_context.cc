@@ -687,7 +687,7 @@ readahead_available() const
     size_t in_current_buffer = ebuf_ - cur_;
 
     size_t in_future_buffers = 0;
-    for (std::list<Buffer>::const_iterator it = boost::next(current_),
+    for (std::list<Buffer>::const_iterator it = std::next(current_),
              end = buffers_.end();
          it != end;  ++it) {
         in_future_buffers += it->size;

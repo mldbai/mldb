@@ -112,7 +112,7 @@ bucket_dist_reduced(vector<float> & result,
            would have enough by itself. */
         if (n >= per_bucket && num > n) {
             /* Extra split, since this one had enough by itself. */
-            float val = (v + boost::prior(it)->first) / 2.0;
+            float val = (v + std::prev(it)->first) / 2.0;
             result.push_back(val);
             bucket_sizes.push_back(num - n);
             if (debug) 
@@ -121,21 +121,21 @@ bucket_dist_reduced(vector<float> & result,
                                reinterpret_as_int(val))
                      << format("v: %16.9f 0x%08x ", v,
                                reinterpret_as_int(v))
-                     << format("prior: %16.9f 0x%08x ", boost::prior(it)->first,
-                               reinterpret_as_int(boost::prior(it)->first))
+                     << format("prior: %16.9f 0x%08x ", std::prev(it)->first,
+                               reinterpret_as_int(std::prev(it)->first))
                      << " with " << num - n
                      << " examples." << endl;
             num -= n;
         }
         if (i < (int)freqs.size() - 1
-            && (num >= per_bucket || boost::next(it)->second >= per_bucket)) {
-            float val = (v + boost::next(it)->first) * 0.5f;
+            && (num >= per_bucket || std::next(it)->second >= per_bucket)) {
+            float val = (v + std::next(it)->first) * 0.5f;
 
             // If the two values are one ulp apart, then we need to make sure
             // that it gets rounded up otherwise we will have two buckets
             // with the same split value
             if (val == v)
-                val = boost::next(it)->first;
+                val = std::next(it)->first;
 
             result.push_back(val);
             bucket_sizes.push_back(num);
@@ -145,8 +145,8 @@ bucket_dist_reduced(vector<float> & result,
                                reinterpret_as_int(val))
                      << format("v: %16.9f 0x%08x ", v,
                                reinterpret_as_int(v))
-                     << format("next: %16.9f 0x%08x ", boost::next(it)->first,
-                               reinterpret_as_int(boost::next(it)->first))
+                     << format("next: %16.9f 0x%08x ", std::next(it)->first,
+                               reinterpret_as_int(std::next(it)->first))
                      << " with " << num
                      << " examples." << endl;
             num = 0;
