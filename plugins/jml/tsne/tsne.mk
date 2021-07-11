@@ -7,7 +7,7 @@
 LIBTSNE_SOURCES := \
         tsne.cc
 
-LIBTSNE_LINK :=	utils algebra arch stats
+LIBTSNE_LINK :=	utils algebra arch stats base boost_timer
 
 $(eval $(call library,tsne,$(LIBTSNE_SOURCES),$(LIBTSNE_LINK)))
 

@@ -10,7 +10,7 @@ LIBALGEBRA_SOURCES := \
 
 $(eval $(call add_sources,$(LIBALGEBRA_SOURCES)))
 
-LIBALGEBRA_LINK :=	utils lapack blas db
+LIBALGEBRA_LINK :=	utils lapack blas db arch base value_description boost_timer
 
 $(eval $(call library,algebra,$(LIBALGEBRA_SOURCES),$(LIBALGEBRA_LINK)))
 
