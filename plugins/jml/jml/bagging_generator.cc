@@ -11,7 +11,6 @@
 #include "bagging_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include <boost/timer/timer.hpp>
-#include <boost/timer/progress_display.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
@@ -95,7 +94,6 @@ struct Bag_Job_Info {
     vector<std::shared_ptr<Classifier_Impl> > & results;
     float train_prop;
     std::shared_ptr<Classifier_Generator> weak_learner;
-    boost::timer::progress_display * progress;
     int num_bags;
     
     Bag_Job_Info(const Training_Data & training_set,
@@ -108,7 +106,7 @@ struct Bag_Job_Info {
         : training_set(training_set), training_ex_weights(training_ex_weights),
           features(features), results(results),
           train_prop(train_prop), weak_learner(weak_learner),
-          progress(0), num_bags(num_bags)
+          num_bags(num_bags)
     {
     }
 };
@@ -192,9 +190,6 @@ struct Bag_Job {
         /* No need to lock since we're the only one accessing this part of
            the array. */
         info.results[bag_num] = bag;
-
-        if (info.progress)
-            ++(*info.progress);
 
 #if 0
         if (test) {

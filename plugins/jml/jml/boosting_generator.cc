@@ -11,7 +11,6 @@
 #include "boosting_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include <boost/timer/timer.hpp>
-#include <boost/timer/progress_display.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
@@ -143,11 +142,8 @@ generate(Thread_Context & context,
 
     boost::multi_array<float, 2> last_weights = weights;
 
-    std::unique_ptr<boost::timer::progress_display> progress;
-
     if (verbosity == 1 || verbosity == 2) {
         cerr << "training " << max_iter << " iterations..." << endl;
-        progress.reset(new boost::timer::progress_display(max_iter, cerr));
     }
     
     if (min_iter > max_iter)
@@ -165,8 +161,6 @@ generate(Thread_Context & context,
     double train_acc = 0.0;
 
     for (unsigned i = 0;  i < max_iter;  ++i) {
-
-        if (progress) ++(*progress);
 
         float Z;
 
@@ -309,11 +303,8 @@ generate_and_update(Thread_Context & context,
 
     distribution<float> training_ex_weights(training_set.example_count(), 1.0);
 
-    std::unique_ptr<boost::timer::progress_display> progress;
-
     if (verbosity == 1 || verbosity == 2) {
         cerr << "training " << max_iter << " iterations..." << endl;
-        progress.reset(new boost::timer::progress_display(max_iter, cerr));
     }
     
     if (verbosity > 2)
@@ -324,8 +315,6 @@ generate_and_update(Thread_Context & context,
     double train_acc = 0.0;
 
     for (unsigned i = 0;  i < max_iter;  ++i) {
-
-        if (progress) ++(*progress);
 
         float Z;
 
