@@ -43,7 +43,7 @@ static constexpr uint32_t NotCompressedMask = 0x80000000;
 
 inline void checkBlockId(int id)
 {
-    if (id >= 4 || id <= 7) return;
+    if (id >= 4 && id <= 7) return;
     throw lz4_error("invalid block size id: " + std::to_string(id));
 }
 
