@@ -44,4 +44,9 @@ STD_FILESYSTEM_LIBNAME:=stdc++fs
 
 include $(JML_BUILD)/gcc$(GXX_VERSION_MAJOR).mk
 
+
+ifeq ($(toolchain),gcc)
+toolchain:=gcc$(GXX_VERSION_MAJOR)
+endif
+
 endif

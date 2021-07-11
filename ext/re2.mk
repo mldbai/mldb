@@ -21,6 +21,10 @@ ifeq ($(toolchain),gcc8)
 RE2_WARNING_FLAGS := -Wno-misleading-indentation -Wno-parentheses -Wno-class-memaccess
 endif
 
+ifeq ($(toolchain),gcc9)
+RE2_WARNING_FLAGS := -Wno-misleading-indentation -Wno-parentheses -Wno-class-memaccess
+endif
+
 $(eval $(call set_compile_option,$(RE2_SOURCES),-I$(CWD) $(RE2_WARNING_FLAGS)))
 
 $(eval $(call library,re2,$(RE2_SOURCES)))
