@@ -328,7 +328,7 @@ struct PolyCollection<Entity>::Registry {
             for (auto & k: keys())
                 result.trigger(k);
         }
-        return std::move(result);
+        return result;
     }
 };
 

@@ -247,7 +247,7 @@ struct Watch {
         if (!found)
             throwException(WATCH_ERR_TIMEOUT, "No event found before timeout");
 
-        return std::move(res);
+        return res;
     }
 
     /** Try to wait synchronously for the event.  Returns true in the first

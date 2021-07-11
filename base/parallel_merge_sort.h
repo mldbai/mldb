@@ -52,7 +52,7 @@ void parallelMergeSortRecursive(VecOfVecs & range, unsigned first, unsigned last
                 }
                 else run();
 
-                return std::move(t);
+                return t;
             };
 
         std::thread t1(doSide(first, mid));
