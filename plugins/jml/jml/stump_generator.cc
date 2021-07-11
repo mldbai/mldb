@@ -10,7 +10,6 @@
 #include "stump_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include <boost/timer/timer.hpp>
-#include <boost/timer/progress_display.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"

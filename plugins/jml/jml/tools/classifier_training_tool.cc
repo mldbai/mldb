@@ -17,7 +17,6 @@
 #include "mldb/plugins/jml/jml/training_index.h"
 #include "mldb/plugins/jml/jml/transform_list.h"
 #include "mldb/utils/vector_utils.h"
-#include <boost/timer/progress_display.hpp>
 #include <boost/timer/timer.hpp>
 #include "mldb/plugins/jml/stats/moments.h"
 #include "datasets.h"
