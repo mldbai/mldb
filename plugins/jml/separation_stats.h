@@ -13,6 +13,7 @@
 #include "mldb/utils/xdiv.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include <cmath>
+#include <array>
 #include "mldb/utils/any.h"
 
 
