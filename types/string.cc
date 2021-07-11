@@ -490,8 +490,8 @@ bool Utf8String::endsWith(const Utf8String & suffix) const
     if (empty())
         return false;
 
-    auto it1 = boost::prior(end()), start1 = begin();
-    auto it2 = boost::prior(suffix.end()), start2 = suffix.begin();
+    auto it1 = std::prev(end()), start1 = begin();
+    auto it2 = std::prev(suffix.end()), start2 = suffix.begin();
     
     for (;;) {
         if (*it1 != *it2)
@@ -544,8 +544,8 @@ removeSuffix(const Utf8String & suffix)
     if (empty())
         return false;
 
-    auto it1 = boost::prior(end()), start1 = begin();
-    auto it2 = boost::prior(suffix.end()), start2 = suffix.begin();
+    auto it1 = std::prev(end()), start1 = begin();
+    auto it2 = std::prev(suffix.end()), start2 = suffix.begin();
     
     for (;;) {
         if (*it1 != *it2)

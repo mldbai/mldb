@@ -49,8 +49,8 @@ BOOST_AUTO_TEST_CASE(test1)
     BOOST_CHECK(h.begin() != h.end());
     BOOST_CHECK_EQUAL(h.begin()->first, 1);
     BOOST_CHECK_EQUAL(h.begin()->second, 1);
-    BOOST_CHECK_EQUAL(boost::next(h.begin()), ch.end());
-    BOOST_CHECK_EQUAL(h.begin(), boost::prior(ch.end()));
+    BOOST_CHECK_EQUAL(std::next(h.begin()), ch.end());
+    BOOST_CHECK_EQUAL(h.begin(), std::prev(ch.end()));
 
     h[2] = 2;
 

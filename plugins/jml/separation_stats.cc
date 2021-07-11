@@ -174,7 +174,7 @@ atPercentile(float percentile) const
     if (it == stats.end())
         return stats.back();
 
-    BinaryStats upper = *it, lower = *boost::prior(it);
+    BinaryStats upper = *it, lower = *std::prev(it);
 
     // Do an interpolation
     double atUpper = upper.proportionOfPopulation(),
