@@ -10,7 +10,7 @@ LIBSQLITE_SOURCES := \
 	sqlite3.c
 
 LIBSQLITE_LINK := 
-
+	
 # gcc 4.7 and above require this
 $(eval $(call set_compile_option,sqlite3.c,-Wno-array-bounds -Wno-unused-const-variable))
 
