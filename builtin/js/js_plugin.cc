@@ -316,13 +316,13 @@ setRequestHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
                         LOG(itl->loader) << jsonEncode(exc) << endl;
                     }
 
-                    connection.sendResponse(400, jsonEncode(exc));
+                    connection.sendJsonResponse(400, jsonEncode(exc));
                     return RestRequestRouter::MR_YES;
                 }
 
                 Json::Value jsonResult = JS::fromJS(result.ToLocalChecked());
 
-                connection.sendResponse(200, jsonResult);
+                connection.sendJsonResponse(200, jsonResult);
 
                 return RestRequestRouter::MR_YES;
             };
@@ -583,7 +583,7 @@ handleTypeRoute(RestDirectory * engine,
                 }
             }
             else {
-                conn.sendResponse(200, symbolData);
+                conn.sendJsonResponse(200, symbolData);
                 return RestRequestRouter::MR_YES;
             }
         }

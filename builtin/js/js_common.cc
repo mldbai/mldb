@@ -563,6 +563,7 @@ struct V8MldbPlatform: public v8::Platform {
      */
     virtual void DumpWithoutCrashing() NON_NESTABLE_OVERRIDE {}
 };
+#endif
 
 void
 JsIsolate::
