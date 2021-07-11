@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cstdint>
+#include "mldb/compiler/compiler.h"
 
 namespace MLDB {
 
@@ -361,7 +362,7 @@ struct BigEndianPod {
         this->val = host_to_be(val);
         return *this;
     }
-};
+} MLDB_PACKED;
 
 template<typename Base>
 struct BigEndian: public BigEndianPod<Base> {
@@ -375,7 +376,7 @@ struct BigEndian: public BigEndianPod<Base> {
         this->val = host_to_be(val);
         return *this;
     }
-};
+} MLDB_PACKED;
 
 template<typename Base>
 struct LittleEndianPod {
@@ -391,7 +392,7 @@ struct LittleEndianPod {
         this->val = host_to_le(val);
         return *this;
     }
-};
+} MLDB_PACKED;
 
 template<typename Base>
 struct LittleEndian: public LittleEndianPod<Base> {
@@ -405,7 +406,7 @@ struct LittleEndian: public LittleEndianPod<Base> {
         this->val = host_to_le(val);
         return *this;
     }
-};
+} MLDB_PACKED;
 
 typedef LittleEndian<uint16_t> uint16_le;
 typedef LittleEndian<int16_t> int16_le;
