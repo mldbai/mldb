@@ -22,6 +22,11 @@ struct Procedure;
 
 struct ProcedureJS: public JsObjectBase {
 
+    ProcedureJS(std::shared_ptr<Procedure> procedure)
+        : procedure(std::move(procedure))
+    {
+    }
+
     std::shared_ptr<Procedure> procedure;
 
     static v8::Handle<v8::Object>

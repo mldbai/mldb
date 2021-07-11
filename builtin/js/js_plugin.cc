@@ -30,7 +30,7 @@
 #include "function_js.h"
 #include "procedure_js.h"
 #include "sensor_js.h"
-#include "mldb/ext/v8-cross-build-output/include/v8.h"
+#include "v8.h"
 #include "mldb/engine/static_content_macro.h"
 
 #include "mldb/types/string.h"
@@ -67,17 +67,16 @@ registerMe()
 
     result->SetInternalFieldCount(2);
 
-    result->Set(String::NewFromUtf8(isolate, "log"),
-                FunctionTemplate::New(isolate, log));
-    result->Set(String::NewFromUtf8(isolate, "setStatusHandler"),
+    result->Set(isolate, "log", FunctionTemplate::New(isolate, log));
+    result->Set(isolate, "setStatusHandler",
                 FunctionTemplate::New(isolate, setStatusHandler));
-    result->Set(String::NewFromUtf8(isolate, "setRequestHandler"),
+    result->Set(isolate, "setRequestHandler",
                 FunctionTemplate::New(isolate, setRequestHandler));
-    result->Set(String::NewFromUtf8(isolate, "serveStaticFolder"),
+    result->Set(isolate, "serveStaticFolder",
                 FunctionTemplate::New(isolate, serveStaticFolder));
-    result->Set(String::NewFromUtf8(isolate, "serveDocumentationFolder"),
+    result->Set(isolate, "serveDocumentationFolder",
                 FunctionTemplate::New(isolate, serveDocumentationFolder));
-    result->Set(String::NewFromUtf8(isolate, "getPluginDir"),
+    result->Set(isolate, "getPluginDir",
                 FunctionTemplate::New(isolate, getPluginDir));
         
     return scope.Escape(result);
@@ -164,10 +163,10 @@ setStatusHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
                 v8::HandleScope handle_scope(itl->isolate.isolate);
                 v8::Context::Scope context_scope(itl->context.Get(itl->isolate.isolate));
 
-                v8::TryCatch trycatch;
+                v8::TryCatch trycatch(itl->isolate.isolate);
                 trycatch.SetVerbose(true);
                 auto result = shargs->fn.Get(itl->isolate.isolate)
-                ->Call(shargs->self.Get(itl->isolate.isolate),
+                ->Call(itl->getLocalContext(), shargs->self.Get(itl->isolate.isolate),
                        0, nullptr);
 
                 if (result.IsEmpty()) {
@@ -183,7 +182,7 @@ setStatusHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
                     throw AnnotatedException(400, "Exception in JS status function", exc);
                 }
 
-                Json::Value jsonResult = JS::fromJS(result);
+                Json::Value jsonResult = JS::fromJS(result.ToLocalChecked());
                 return jsonResult;
             };
 
@@ -304,10 +303,10 @@ setRequestHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
                 };
                         
 
-                v8::TryCatch trycatch;
+                v8::TryCatch trycatch(itl->isolate.isolate);
                 trycatch.SetVerbose(true);
                 auto result = shargs->fn.Get(itl->isolate.isolate)
-                ->Call(shargs->self.Get(itl->isolate.isolate), 8, args);
+                ->Call(itl->getLocalContext(), shargs->self.Get(itl->isolate.isolate), 8, args);
 
                 if (result.IsEmpty()) {
                     ScriptException exc = convertException(trycatch,
@@ -321,7 +320,7 @@ setRequestHandler(const v8::FunctionCallbackInfo<v8::Value> & args)
                     return RestRequestRouter::MR_YES;
                 }
 
-                Json::Value jsonResult = JS::fromJS(result);
+                Json::Value jsonResult = JS::fromJS(result.ToLocalChecked());
 
                 connection.sendResponse(200, jsonResult);
 
@@ -364,17 +363,15 @@ JavascriptPlugin(MldbEngine * engine,
     Context::Scope context_scope(itl->context.Get(itl->isolate.isolate));
     
     // Create a string containing the JavaScript source code.
-    Handle<String> source
-        = String::NewFromUtf8(itl->isolate.isolate, jsFunctionSource.rawData());
+    Handle<String> source = JS::createString(itl->isolate.isolate, jsFunctionSource);
 
     // Compile the source code.
-    TryCatch trycatch;
+    TryCatch trycatch(itl->isolate.isolate);
     trycatch.SetVerbose(true);
 
-    auto script = Script::Compile
-        (source,
-         v8::String::NewFromUtf8(itl->isolate.isolate,
-                                 itl->pluginResource->getFilenameForErrorMessages().c_str()));
+    auto origin = JS::createScriptOrigin(itl->isolate.isolate, 
+				     itl->pluginResource->getFilenameForErrorMessages());
+    auto script = Script::Compile(itl->getLocalContext(), source, &origin);
     
     if (script.IsEmpty()) {  
         auto rep = convertException(trycatch, "Compiling plugin script");
@@ -388,10 +385,10 @@ JavascriptPlugin(MldbEngine * engine,
         throw AnnotatedException(400, "Exception compiling plugin script", rep);
     }
 
-    itl->script.Reset(itl->isolate.isolate, script);
+    itl->script.Reset(itl->isolate.isolate, script.ToLocalChecked());
 
     // Run the script to get the result.
-    Handle<Value> result = itl->script.Get(itl->isolate.isolate)->Run();
+    Handle<Value> result = JS::toLocalChecked(itl->script.Get(itl->isolate.isolate)->Run(itl->getLocalContext()));
 
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running plugin script");
@@ -518,11 +515,10 @@ handleTypeRoute(RestDirectory * engine,
             -> Json::Value
             {
                 Json::Value result;
+                auto context = itl->getLocalContext();
 
                 v8::Handle<v8::Value> val
-                    = module->Get(v8::String::NewFromUtf8
-                                  (itl->isolate.isolate,
-                                   symbolName.rawString().c_str()));
+                    = JS::toLocalChecked(module->Get(context, JS::createString(itl->isolate.isolate, symbolName)));
                 
                 if (!val->IsObject()) {
                     result["type"] = "value";
@@ -541,18 +537,15 @@ handleTypeRoute(RestDirectory * engine,
                             = JS::utf8str(object->GetConstructorName());
                     }
                     
-                    auto summary = object->Get
-                        (v8::String::NewFromUtf8(itl->isolate.isolate,
-                                                 "__summary"));
-                    if (!summary->IsUndefined()) {
-                        result["summary"] = JS::utf8str(summary);
+                    auto summary = object->Get(context, JS::createString(itl->isolate.isolate, "__summary"));
+                    if (!summary.IsEmpty()) {
+                        result["summary"] = JS::utf8str(summary.ToLocalChecked());
                     }
 
                     auto markdown = object->Get
-                        (v8::String::NewFromUtf8(itl->isolate.isolate,
-                                                 "__markdown"));
-                    if (!summary->IsUndefined()) {
-                        result["markdown"] = JS::utf8str(markdown);
+                        (context, JS::createString(itl->isolate.isolate, "__markdown"));
+                    if (!markdown.IsEmpty()) {
+                        result["markdown"] = JS::utf8str(markdown.ToLocalChecked());
                     }
                 }
 
@@ -599,15 +592,11 @@ handleTypeRoute(RestDirectory * engine,
 
             Utf8String markdownText;
             // Look for the "__markdown" string, and if it's there render it
-            auto md = module->Get(v8::String::NewFromUtf8(itl->isolate.isolate,
-                                                          "__markdown"));
-            if (!md->IsUndefined()) {
-                markdownText = JS::utf8str(md);
+            auto md = module->Get(itl->getLocalContext(), JS::createString(itl->isolate.isolate, "__markdown"));
+            if (!md.IsEmpty()) {
+                markdownText = JS::utf8str(md.ToLocalChecked());
             }
-
-            cerr << "markdownText = " << markdownText << endl;
-            
-            if (md->IsUndefined()) {
+            else {
                 conn.sendResponse(404,
                                   "Module " + moduleName
                                   + " has no __markdown attribute",
@@ -629,12 +618,12 @@ handleTypeRoute(RestDirectory * engine,
             }
         }
         else {
-            auto props = module->GetOwnPropertyNames();
+            auto props = JS::toLocalChecked(module->GetOwnPropertyNames(itl->getLocalContext()));
 
             Json::Value result;
             
             for (size_t i = 0;  i < props->Length();  ++i) {
-                Utf8String prop = JS::utf8str(props->Get(i));
+                Utf8String prop = JS::utf8str(props->Get(itl->getLocalContext(), i));
                 if (prop.startsWith("__"))
                     continue;
 
@@ -676,23 +665,23 @@ runJavascriptScript(MldbEngine * engine,
     v8::Isolate::Scope isolate(itl->isolate.isolate);
 
     HandleScope handle_scope(itl->isolate.isolate);
-    Context::Scope context_scope(itl->context.Get(itl->isolate.isolate));
+    Context::Scope context_scope(itl->getLocalContext());
         
     v8::Local<v8::Object> globalPrototype
-        = itl->context.Get(itl->isolate.isolate)
+        = itl->getLocalContext()
         ->Global()->GetPrototype().As<v8::Object>();
-    globalPrototype->Set(String::NewFromUtf8(itl->isolate.isolate, "args"),
-                         JS::toJS(jsonEncode(scriptConfig.args)));
+    JS::check(globalPrototype->Set(itl->getLocalContext(), JS::createString(itl->isolate.isolate, "args"),
+                                   JS::toJS(jsonEncode(scriptConfig.args))));
 
     // Create a string containing the JavaScript source code.
-    auto source
-        = String::NewFromUtf8(itl->isolate.isolate, jsFunctionSource.rawData());
+    auto source = JS::createString(itl->isolate.isolate, jsFunctionSource);
     
     // Compile the source code.
-    TryCatch trycatch;
+    TryCatch trycatch(itl->isolate.isolate);
     trycatch.SetVerbose(true);
 
-    auto script = Script::Compile(source, v8::String::NewFromUtf8(itl->isolate.isolate, scriptConfig.address.c_str()));
+    auto origin = JS::createScriptOrigin(itl->isolate.isolate, scriptConfig.address);
+    auto script = Script::Compile(itl->getLocalContext(), source, &origin);
     
     ScriptOutput result;
             
@@ -707,11 +696,11 @@ runJavascriptScript(MldbEngine * engine,
         result.exception.reset(new ScriptException(std::move(rep)));
     }
     else {
-        itl->script.Reset(itl->isolate.isolate, script);
-            
+        itl->script.Reset(itl->isolate.isolate, script.ToLocalChecked());
+        
         // Run the script to get the result.
-        Handle<Value> scriptResult
-            = itl->script.Get(itl->isolate.isolate)->Run();
+        auto scriptResult
+            = itl->script.Get(itl->isolate.isolate)->Run(itl->getLocalContext());
             
         if (scriptResult.IsEmpty()) {  
             auto rep = convertException(trycatch, "Running script");
@@ -724,7 +713,7 @@ runJavascriptScript(MldbEngine * engine,
             result.exception.reset(new ScriptException(std::move(rep)));
         }
         else {
-            result.result = JS::fromJS(scriptResult);
+            result.result = JS::fromJS(scriptResult.ToLocalChecked());
                 
             {
                 std::unique_lock<std::mutex> guard(itl->logMutex);

@@ -21,6 +21,11 @@ struct Sensor;
 
 struct SensorJS: public JsObjectBase {
 
+    SensorJS(std::shared_ptr<Sensor> sensor = nullptr)
+        : sensor(std::move(sensor))
+    {
+    }
+
     std::shared_ptr<Sensor> sensor;
 
     static v8::Handle<v8::Object>

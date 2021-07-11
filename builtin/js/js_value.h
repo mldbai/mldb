@@ -10,11 +10,34 @@
 #pragma once
 
 #include "js_value_fwd.h"
-#include "mldb/ext/v8-cross-build-output/include/v8.h"
+#include "v8.h"
+#include "mldb/arch/exception.h"
+
 
 namespace MLDB {
 
 namespace JS {
+
+template<typename T>
+v8::Local<T> toLocalChecked(const v8::MaybeLocal<T> & val)
+{
+    v8::Local<T> result;
+    if (!val.ToLocal(&result)) {
+        // TODO: throw JS exception instead?
+        throw MLDB::Exception("JS Expected value was not returned; JS exception in process");
+    }
+    return result;
+}
+
+template<typename T>
+T check(const v8::Maybe<T> & val)
+{
+    if (val.IsNothing()) {
+        // TODO: throw JS exception instead?
+        throw MLDB::Exception("JS expected check did not pass; JS exception in process");
+    }
+    return val.ToChecked();
+}
 
 
 /*****************************************************************************/
@@ -32,6 +55,12 @@ struct JSValue : public v8::Handle<v8::Value> {
     template<typename T>
     JSValue(const v8::Handle<T> & val)
         : v8::Handle<v8::Value>(val)
+    {
+    }
+
+    template<typename T>
+    JSValue(const v8::MaybeLocal<T> & val)
+        : v8::Handle<v8::Value>(toLocalChecked(val))
     {
     }
 

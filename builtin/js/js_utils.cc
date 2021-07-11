@@ -26,10 +26,141 @@ __thread BacktraceInfo * current_backtrace = nullptr;
 
 namespace JS {
 
+//v8::Local<v8::String> createString(v8::Isolate * isolate, const std::string & ascii);
+//toLocalChecked(v8::String::NewFromUtf8(isolate, "stack"))));
+//v8::Local<v8::String> createString(v8::Isolate * isolate, const char * ascii);
+//v8::Local<v8::String> createString(v8::Isolate * isolate, const UTF8String & str);
 
 /*****************************************************************************/
 /* UTILITIES                                                                 */
 /*****************************************************************************/
+
+v8::Local<v8::String> createString(v8::Isolate * isolate, const std::string & ascii)
+{
+    return JS::toLocalChecked(v8::String::NewFromUtf8(isolate, ascii.data(), v8::NewStringType::kNormal, ascii.length()));
+}
+
+v8::Local<v8::String> createString(v8::Isolate * isolate, const char * ascii)
+{
+    return JS::toLocalChecked(v8::String::NewFromUtf8(isolate, ascii, v8::NewStringType::kNormal));
+}
+
+v8::Local<v8::String> createString(v8::Isolate * isolate, const Utf8String & str)
+{
+    return JS::toLocalChecked(v8::String::NewFromUtf8(isolate, str.rawData(), v8::NewStringType::kNormal, str.rawLength()));
+}
+
+void set(v8::Isolate * isolate, v8::Local<v8::Object> obj, const char * str, const JSValue & val)
+{
+    auto context = isolate->GetCurrentContext();
+    check(obj->Set(context, createString(isolate, str), val));
+}
+
+void setReturnValue(const v8::FunctionCallbackInfo<v8::Value> & args, const JSValue & val)
+{
+    args.GetReturnValue().Set(val);
+}
+
+static inline int toGetKey(v8::Local<v8::Context> context, int key)
+{
+    return key;
+}
+
+static inline v8::Local<v8::Value> toGetKey(v8::Local<v8::Context> context, v8::Local<v8::Value> key)
+{
+    return key;
+}
+
+template<typename T, typename Enable = std::enable_if_t<!std::is_integral_v<T> && !std::is_convertible_v<T, JSValue>>>
+v8::Local<v8::String> toGetKey(v8::Local<v8::Context> context, T&& key)
+{
+    return createString(context->GetIsolate(), key);
+}
+
+template<typename Key>
+JSValue getImpl(v8::Local<v8::Context> context, const JSObject & obj, Key&& key)
+{
+    return JS::toLocalChecked(obj->Get(context, toGetKey(context, std::forward<Key>(key))));
+}
+
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, int el)
+{
+    return getImpl(context, obj, el);
+}
+
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const std::string & el)
+{
+    return getImpl(context, obj, el);
+}
+
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const Utf8String & el)
+{
+    return getImpl(context, obj, el);
+}
+
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const char * el)
+{
+    return getImpl(context, obj, el);
+}
+
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const v8::Local<v8::String> & el)
+{
+    return getImpl(context, obj, el);
+}
+
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const JSValue & el)
+{
+    return getImpl(context, obj, el);
+}
+
+template<typename Key>
+JSObject getObjectImpl(v8::Local<v8::Context> context, const JSObject & obj, Key&& key)
+{
+    return JS::toLocalChecked(obj->Get(context, toGetKey(context, std::forward<Key>(key)))).template As<v8::Object>();
+}
+
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, int el)
+{
+    return getObjectImpl(context, obj, el);
+}
+
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const std::string & el)
+{
+    return getObjectImpl(context, obj, el);
+}
+
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const Utf8String & el)
+{
+    return getObjectImpl(context, obj, el);
+}
+
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const char * el)
+{
+    return getObjectImpl(context, obj, el);
+}
+
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const v8::Local<v8::String> & el)
+{
+    return getObjectImpl(context, obj, el);
+}
+
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const JSValue & el)
+{
+    return getObjectImpl(context, obj, el);
+}
+
+void addMethod(v8::Isolate * isolate, v8::Local<v8::ObjectTemplate> obj, const char * str, const v8::Local<v8::FunctionTemplate> & val)
+{
+    obj->Set(isolate, str /*createString(isolate, str)*/, val);
+}
+
+#if 0
+void addMethod(v8::Isolate * isolate, v8::Local<v8::Object> obj, const char * str, const v8::Local<v8::FunctionTemplate> & val)
+{
+    auto context = isolate->GetCurrentContext();
+    check(obj->Set(context, createString(isolate, str), val));
+}
+#endif
 
 std::string cstr(const std::string & str)
 {
@@ -46,6 +177,12 @@ Utf8String utf8str(const JSValue & val)
     return from_js(val, (Utf8String *)0);
 }
 
+v8::ScriptOrigin createScriptOrigin(v8::Isolate * isolate, const Utf8String & address)
+{
+    return v8::ScriptOrigin(/*isolate,*/
+                            JS::createString(isolate, address));
+}
+
 v8::Handle<v8::Value>
 injectBacktrace(v8::Handle<v8::Value> value)
 {
@@ -58,8 +195,10 @@ injectBacktrace(v8::Handle<v8::Value> value)
     if (obj.IsEmpty())
         throw MLDB::Exception("can't inject backtrace");
 
+    auto context = isolate->GetCurrentContext();
+
     v8::Handle<v8::Value> jsStack
-        = obj->Get(v8::String::NewFromUtf8(isolate, "stack"));
+        = toLocalChecked(obj->Get(context, createString(isolate, "stack")));
 
     vector<string> jsStackElements = split(cstr(jsStack), '\n');
 
@@ -83,16 +222,18 @@ injectBacktrace(v8::Handle<v8::Value> value)
         (v8::Array::New(isolate, backtrace.size() + jsStackElements.size()));
     int n = 0;
     for (unsigned i = 0;  i < backtrace.size();  ++i, ++n) {
-        nativeStack->Set(v8::Uint32::New(isolate, n),
-                         v8::String::NewFromUtf8(isolate, ("[C++]     at " + backtrace[i].print_for_trace()).c_str()));
+        check(nativeStack->Set(context,
+                               v8::Uint32::New(isolate, n),
+                               createString(isolate, ("[C++]     at " + backtrace[i].print_for_trace()))));
     }
     
     for (int i = jsStackElements.size() - 1;  i >= 0;  --i, ++n) {
-        nativeStack->Set(v8::Uint32::New(isolate, n),
-                         v8::String::NewFromUtf8(isolate, ("[JS]  " + jsStackElements[i]).c_str()));
+        check(nativeStack->Set(context,
+                               v8::Uint32::New(isolate, n),
+                               createString(isolate, ("[JS]  " + jsStackElements[i]))));
     }
 
-    obj->Set(v8::String::NewFromUtf8(isolate, "backtrace"), nativeStack);
+    check(obj->Set(context, createString(isolate, "backtrace"), nativeStack));
 
     return obj;
 }
@@ -103,8 +244,7 @@ mapException(const std::exception & exc)
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     return isolate->ThrowException
         (injectBacktrace
-         (v8::Exception::Error(v8::String::NewFromUtf8(isolate, (type_name(exc)
-                                                + ": " + exc.what()).c_str()))));
+         (v8::Exception::Error(createString(isolate, (type_name(exc) + ": " + exc.what()).c_str()))));
 }
 
 v8::Handle<Value>
@@ -115,27 +255,28 @@ mapException(const MLDB::Exception & exc)
 
     return isolate->ThrowException
         (injectBacktrace
-         (v8::Exception::Error(v8::String::NewFromUtf8(isolate, exc.what()))));
+         (v8::Exception::Error(createString(isolate, exc.what()))));
 }
 
 v8::Handle<Value>
 mapException(const AnnotatedException & exc)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
     v8::Handle<v8::Value> error
-        = injectBacktrace(v8::Exception::Error(v8::String::NewFromUtf8(isolate, exc.what())));
+        = injectBacktrace(v8::Exception::Error(createString(isolate, exc.what())));
 
     auto obj = error.As<v8::Object>();
 
     if (obj.IsEmpty())
         throw MLDB::Exception("can't inject backtrace");
     
-    obj->Set(v8::String::NewFromUtf8(isolate, "httpCode"),
-             v8::Integer::New(isolate, exc.httpCode));
-    obj->Set(v8::String::NewFromUtf8(isolate, "details"),
-             toJS(exc.details.asJson()));
-    obj->Set(v8::String::NewFromUtf8(isolate, "error"),
-             toJS(exc.what()));
+    check(obj->Set(context, createString(isolate, "httpCode"),
+                   v8::Integer::New(isolate, exc.httpCode)));
+    check(obj->Set(context, createString(isolate, "details"),
+                   toJS(exc.details.asJson())));
+    check(obj->Set(context, createString(isolate, "error"),
+                   toJS(exc.what())));
     
     return isolate->ThrowException(error);
 }
@@ -166,7 +307,7 @@ translateCurrentException()
     }
     MLDB_CATCH_ALL {
         std::string msg = "unknown exception type";
-        auto error = v8::Exception::Error(v8::String::NewFromUtf8(isolate, msg.c_str()));
+        auto error = v8::Exception::Error(createString(isolate, msg.c_str()));
         return isolate->ThrowException(injectBacktrace(error));
     }
 }
@@ -249,12 +390,15 @@ getFunction(const std::string & script_source)
     using namespace v8;
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     EscapableHandleScope scope(isolate);
-    Handle<String> source = String::NewFromUtf8(isolate, script_source.c_str());
 
-    TryCatch tc;
+    auto context = isolate->GetCurrentContext();
+
+    Handle<String> source = createString(isolate, script_source);
+
+    TryCatch tc(isolate);
     
     // Compile the source code.
-    Handle<Script> script = Script::Compile(source);
+    Handle<Script> script = toLocalChecked(Script::Compile(context, source));
 
     if (script.IsEmpty() && tc.HasCaught())
         throw MLDB::Exception("got exception compiling: "
@@ -263,17 +407,17 @@ getFunction(const std::string & script_source)
         throw MLDB::Exception("compilation returned nothing");
     
     // Run the script to get the result (which should be a function)
-    Handle<Value> result = script->Run();
+    auto result = script->Run(context);
 
     if (result.IsEmpty() && tc.HasCaught())
         throw MLDB::Exception("got exception compiling: "
                             + JS::cstr(tc.Exception()));
     if (result.IsEmpty())
         throw MLDB::Exception("compilation returned nothing");
-    if (!result->IsFunction())
+    if (!result.ToLocalChecked()->IsFunction())
         throw MLDB::Exception("result of script isn't a function");
     
-    auto fnresult = result.As<v8::Function>();
+    auto fnresult = result.ToLocalChecked().As<v8::Function>();
 
     return scope.Escape(fnresult);
 }

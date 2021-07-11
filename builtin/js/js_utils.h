@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/ext/v8-cross-build-output/include/v8.h"
+#include "v8.h"
 #include <string>
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
@@ -43,6 +43,30 @@ namespace JS {
 /* UTILITIES                                                                 */
 /*****************************************************************************/
 
+v8::Local<v8::String> createString(v8::Isolate * isolate, const std::string & ascii);
+v8::Local<v8::String> createString(v8::Isolate * isolate, const char * ascii);
+v8::Local<v8::String> createString(v8::Isolate * isolate, const Utf8String & str);
+
+void set(v8::Isolate * isolate, v8::Local<v8::Object> obj, const char * str, const JSValue & val);
+void setReturnValue(const v8::FunctionCallbackInfo<v8::Value> & args, const JSValue & val);
+
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, int el);
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const std::string & el);
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const Utf8String & el);
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const char * el);
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const v8::Local<v8::String> & el); 
+JSValue get(v8::Local<v8::Context> context, const JSObject & obj, const JSValue & el); 
+
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, int el);
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const std::string & el);
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const Utf8String & el);
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const char * el); 
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const v8::Local<v8::String> & el); 
+JSObject getObject(v8::Local<v8::Context> context, const JSObject & obj, const JSValue & el); 
+
+void addMethod(v8::Isolate * isolate, v8::Local<v8::ObjectTemplate> obj, const char * str, const v8::Local<v8::FunctionTemplate> & val);
+//void addMethod(v8::Isolate * isolate, v8::Local<v8::Object> obj, const char * str, const v8::Local<v8::FunctionTemplate> & val);
+
 std::string cstr(const std::string & str);
 
 std::string cstr(const JSValue & val);
@@ -54,6 +78,8 @@ std::string cstr(const v8::Handle<T> & str)
 {
     return cstr(JSValue(str));
 }
+
+v8::ScriptOrigin createScriptOrigin(v8::Isolate * isolate, const Utf8String & address);
 
 struct JSPassException : public std::exception {
 //    v8::Persistent<v8::Value> jsException;
@@ -107,12 +133,13 @@ inline v8::Handle<v8::Object>
 toObject(v8::Handle<v8::Value> handle)
 {
     ExcAssert(!handle.IsEmpty());
+    auto context = v8::Isolate::GetCurrent()->GetCurrentContext();
     if (!handle->IsObject())
         throw MLDB::Exception("value " + cstr(handle) + " is not an object");
-    v8::Handle<v8::Object> object = handle->ToObject();
+    auto object = handle->ToObject(context);
     if (object.IsEmpty())
         throw MLDB::Exception("value " + cstr(handle) + " is not an object");
-    return object;
+    return toLocalChecked(object);
 }
 
 /** Convert the Value handle to an Array handle.  Will throw if it isn't an
@@ -158,10 +185,11 @@ template<typename T>
 void to_js(JSValue & val, const std::vector<T> & v)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
     v8::EscapableHandleScope scope(isolate);
     v8::Handle<v8::Array> arr(v8::Array::New(isolate, v.size()));
     for (unsigned i = 0;  i < v.size();  ++i)
-        arr->Set(v8::Uint32::New(isolate, i), toJS(v[i]));
+        check(arr->Set(context, v8::Uint32::New(isolate, i), toJS(v[i])));
     val = scope.Escape(arr);
 }
 
@@ -169,10 +197,11 @@ template<typename T, std::size_t SIZE>
 void to_js(JSValue & val, const std::array<T, SIZE> & v)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
     v8::EscapableHandleScope scope(isolate);
     v8::Local<v8::Array> arr(v8::Array::New(isolate, v.size()));
     for (unsigned i = 0;  i < v.size();  ++i)
-        arr->Set(v8::Uint32::New(isolate, i), toJS(v[i]));
+        check(arr->Set(context, v8::Uint32::New(isolate, i), toJS(v[i])));
     val = scope.Escape(arr);
 }
 
@@ -180,12 +209,13 @@ template<typename T>
 void to_js(JSValue & val, const std::set<T> & s)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
     v8::EscapableHandleScope scope(isolate);
     v8::Local<v8::Array> arr(v8::Array::New(s.size()));
     int count = 0;
     for(auto i = s.begin(); i != s.end(); ++i)
     {
-        arr->Set(v8::Uint32::New(isolate, count), toJS(*i));
+        check(arr->Set(context, v8::Uint32::New(isolate, count), toJS(*i)));
         count++;
     }
     val = scope.Escape(arr);
@@ -196,11 +226,12 @@ void to_js(JSValue & val, const std::map<std::string, T> & s)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::EscapableHandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
     v8::Local<v8::Object> obj= v8::Object::New(isolate);
     for(auto i = s.begin(); i != s.end(); ++i)
     {
-        obj->Set(v8::String::NewFromUtf8(isolate, i->first.c_str()),
-                 toJS(i->second));
+        check(obj->Set(context, createString(isolate, i->first),
+                 toJS(i->second)));
     }
     val = scope.Escape(obj);
 }
@@ -220,12 +251,14 @@ from_js(const JSValue & val, const std::map<std::string, T> * = 0)
 
     auto objPtr = v8::Object::Cast(*val);
 
-    v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+    auto context = isolate->GetCurrentContext();
+
+    v8::Local<v8::Array> properties = toLocalChecked(objPtr->GetOwnPropertyNames(context));
 
     for(int i=0; i<properties->Length(); ++i)
     {
-        v8::Local<v8::Value> key = properties->Get(i);
-        v8::Local<v8::Value> val = objPtr->Get(key);
+        v8::Local<v8::Value> key = toLocalChecked(properties->Get(context, i));
+        v8::Local<v8::Value> val = toLocalChecked(objPtr->Get(context, key));
         T val2 = from_js(JSValue(val), (T *)0);
         result[cstr(key)] = val2;
     }
@@ -262,12 +295,14 @@ from_js(const JSValue & val, const std::map<Utf8String, T> * = 0)
 
     auto objPtr = v8::Object::Cast(*val);
 
-    v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+    auto context = isolate->GetCurrentContext();
+
+    v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames(context).ToLocalChecked();
 
     for(int i=0; i<properties->Length(); ++i)
     {
-        v8::Local<v8::Value> key = properties->Get(i);
-        v8::Local<v8::Value> val = objPtr->Get(key);
+        v8::Local<v8::Value> key = toLocalChecked(properties->Get(context, i));
+        v8::Local<v8::Value> val = toLocalChecked(objPtr->Get(context, key));
         T val2 = from_js(JSValue(val), (T *)0);
         result[utf8str(key)] = val2;
     }
@@ -314,14 +349,16 @@ from_js(const JSValue & val, const std::map<K, V, H> * = 0)
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::HandleScope scope(isolate);
 
+    auto context = isolate->GetCurrentContext();
+
     auto objPtr = v8::Object::Cast(*val);
 
-    v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+    v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames(context).ToLocalChecked();
 
     for(int i=0; i<properties->Length(); ++i)
     {
-        v8::Local<v8::Value> key = properties->Get(i);
-        v8::Local<v8::Value> val = objPtr->Get(key);
+        v8::Local<v8::Value> key = toLocalChecked(properties->Get(context, i));
+        v8::Local<v8::Value> val = toLocalChecked(objPtr->Get(context, key));
         K key2 = from_js(JSValue(key), (K *)0);
         V val2 = from_js(JSValue(val), (V *)0);
         result[key2] = val2;
@@ -335,9 +372,10 @@ void to_js(JSValue & val, const std::tuple<T, V> & v)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::EscapableHandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
     v8::Local<v8::Array> arr(v8::Array::New(isolate, 2));
-    arr->Set(v8::Uint32::New(isolate, 0), toJS(v.template get<0>()));
-    arr->Set(v8::Uint32::New(isolate, 1), toJS(v.template get<1>()));
+    check(arr->Set(context, v8::Uint32::New(isolate, 0), toJS(v.template get<0>())));
+    check(arr->Set(context, v8::Uint32::New(isolate, 1), toJS(v.template get<1>())));
     val = scope.Escape(arr);
 }
 
@@ -346,9 +384,10 @@ void to_js(JSValue & val, const std::pair<T, V> & v)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::EscapableHandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
     v8::Local<v8::Array> arr(v8::Array::New(isolate, 2));
-    arr->Set(v8::Uint32::New(isolate, 0), toJS( v.first  ));
-    arr->Set(v8::Uint32::New(isolate, 1), toJS( v.second ));
+    check(arr->Set(context, v8::Uint32::New(isolate, 0), toJS( v.first  )));
+    check(arr->Set(context, v8::Uint32::New(isolate, 1), toJS( v.second )));
     val = scope.Escape(arr);
 }
 
@@ -365,30 +404,34 @@ from_js(const JSValue & val, const std::pair<T,V> * = 0)
         throw MLDB::Exception("invalid length for pair extraction");
     }
 
-    return std::make_pair(from_js(JSValue(arrPtr->Get(0)),(T *) 0),
-            from_js(JSValue(arrPtr->Get(1)),(V *) 0));
+    auto context = v8::Isolate::GetCurrent()->GetCurrentContext();
+
+    return std::make_pair(from_js(JSValue(arrPtr->Get(context, 0)),(T *) 0),
+            from_js(JSValue(arrPtr->Get(context, 1)),(V *) 0));
 }
 
 template<class Tuple, int Arg, int Size>
 struct TupleOpsJs {
 
     static void unpack(v8::Isolate * isolate,
+                       const v8::Local<v8::Context> & context,
                        v8::Local<v8::Array> & arr,
                        const Tuple & tuple)
     {
         JSValue val;
         to_js(val, std::get<Arg>(tuple));
-        arr->Set(v8::Uint32::New(isolate, Arg), val);
-        TupleOpsJs<Tuple, Arg + 1, Size>::unpack(isolate, arr, tuple);
+        check(arr->Set(context, v8::Uint32::New(isolate, Arg), val));
+        TupleOpsJs<Tuple, Arg + 1, Size>::unpack(isolate, context, arr, tuple);
     }
 
-    static void pack(v8::Array & array,
+    static void pack(const v8::Local<v8::Context> & context,
+                     v8::Array & array,
                      Tuple & tuple)
     {
         if (Arg >= array.Length()) return;
         auto & el = std::get<Arg>(tuple);
-        el = from_js(JSValue(array.Get(Arg)), &el);
-        TupleOpsJs<Tuple, Arg + 1, Size>::pack(array, tuple);
+        el = from_js(JSValue(array.Get(context, Arg)), &el);
+        TupleOpsJs<Tuple, Arg + 1, Size>::pack(context, array, tuple);
     }
 };
 
@@ -396,12 +439,14 @@ template<class Tuple, int Size>
 struct TupleOpsJs<Tuple, Size, Size> {
 
     static void unpack(v8::Isolate * isolate,
+                       const v8::Local<v8::Context> & context,
                        v8::Local<v8::Array> & array,
                        const Tuple & tuple)
     {
     }
 
-    static void pack(v8::Array & array,
+    static void pack(const v8::Local<v8::Context> & context,
+                     v8::Array & array,
                      Tuple & tuple)
     {
     }
@@ -412,9 +457,10 @@ void to_js(JSValue & val, const std::tuple<Args...> & v)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::EscapableHandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
     v8::Local<v8::Array> arr(v8::Array::New(isolate, sizeof...(Args)));
     TupleOpsJs<std::tuple<Args...>, 0, sizeof...(Args)>
-        ::unpack(isolate, arr, v);
+        ::unpack(isolate, context, arr, v);
     val = scope.Escape(arr);
 }
 
@@ -422,13 +468,17 @@ template<typename... Args>
 std::tuple<Args...>
 from_js(const JSValue & val, const std::tuple<Args...> * v = 0)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
+
     if (!val->IsArray())
         throw MLDB::Exception("invalid JSValue for tuple extraction");
 
     auto arrPtr = v8::Array::Cast(*val);
 
     std::tuple<Args...> result;
-    TupleOpsJs<std::tuple<Args...>, 0, sizeof...(Args)>::pack(*arrPtr, result);
+    TupleOpsJs<std::tuple<Args...>, 0, sizeof...(Args)>::pack(context, *arrPtr, result);
     return result;
 }
 
@@ -465,11 +515,12 @@ struct JSArgs {
         return This;
     }
 
-    v8::Handle<v8::Function> Callee() const
-    {
-        if (args1) return args1->Callee();
-        return v8::Handle<v8::Function>();
-    }
+    // https://stackoverflow.com/questions/57221103/get-the-method-name-of-the-callee-in-v8
+    //v8::Handle<v8::Function> Callee() const
+    //{
+    //    if (args1) return args1->Callee();
+    //    return v8::Handle<v8::Function>();
+    //}
 
     v8::Handle<v8::Object> This;
     const v8::FunctionCallbackInfo<v8::Value> * args1;
@@ -492,15 +543,20 @@ template<typename T>
 std::vector<T>
 from_js(const JSValue & val, const std::vector<T> * = 0)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+
     if(!val->IsArray()) {
         throw MLDB::Exception("invalid JSValue for vector extraction");
     }
+
+    auto context = isolate->GetCurrentContext();
 
     std::vector<T> result;
     auto arrPtr = v8::Array::Cast(*val);
     for(int i=0; i<arrPtr->Length(); ++i)
     {
-        result.push_back( from_js(JSValue(arrPtr->Get(i)), (T *)0) );
+        result.push_back( from_js(JSValue(arrPtr->Get(context, i)), (T *)0) );
     }
     return result;
 }
@@ -509,15 +565,20 @@ template<typename T>
 std::set<T>
 from_js(const JSValue & val, const std::set<T> * = 0)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::EscapableHandleScope scope(isolate);
+
     if(!val->IsArray()) {
         throw MLDB::Exception("invalid JSValue for set extraction");
     }
+
+    auto context = isolate->GetCurrentContext();
 
     std::set<T> result;
     auto arrPtr = v8::Array::Cast(*val);
     for(int i=0; i<arrPtr->Length(); ++i)
     {
-        result.insert( from_js(JSValue(arrPtr->Get(i)), (T *)0) );
+        result.insert( from_js(JSValue(arrPtr->Get(context, i)), (T *)0) );
     }
     return result;
 }

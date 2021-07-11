@@ -19,24 +19,95 @@
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb_js.h"
-#include "mldb/ext/v8-cross-build-output/include/libplatform/libplatform.h"
+#include "libplatform/libplatform.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/algorithm/string.hpp>
 #include <regex>
 #include "mldb/compiler/filesystem.h"
+#include "mldb/arch/futex.h"
 #include <thread>
 #include <queue>
 #include <condition_variable>
+#include <shared_mutex>
 
 
 using namespace std;
 using namespace v8;
 
+#define V8_PLATFORM_HAS_NON_NESTABLE_TASK_INTERFACE 0
+#define V8_PLATFORM_HAS_JOB_INTERFACE 0
 
+#if V8_PLATFORM_HAS_NON_NESTABLE_TASK_INTERFACE
+#  define NON_NESTABLE_OVERRIDE override
+#else
+#  define NON_NESTABLE_OVERRIDE
+#endif
 
 namespace MLDB {
 
 Logging::Category mldbJsCategory("javascript");
+
+/**
+ * V8 Tracing controller.
+ *
+ * Can be implemented by an embedder to record trace events from V8.
+ */
+class MldbV8TracingController: public v8::TracingController {
+ public:
+  virtual ~MldbV8TracingController() = default;
+
+  /**
+   * Called by TRACE_EVENT* macros, don't call this directly.
+   * The name parameter is a category group for example:
+   * TRACE_EVENT0("v8,parse", "V8.Parse")
+   * The pointer returned points to a value with zero or more of the bits
+   * defined in CategoryGroupEnabledFlags.
+   **/
+  virtual const uint8_t* GetCategoryGroupEnabled(const char* name) override {
+    static uint8_t no = 0;
+    return &no;
+  }
+
+  /**
+   * Adds a trace event to the platform tracing system. These function calls are
+   * usually the result of a TRACE_* macro from trace_event_common.h when
+   * tracing and the category of the particular trace are enabled. It is not
+   * advisable to call these functions on their own; they are really only meant
+   * to be used by the trace macros. The returned handle can be used by
+   * UpdateTraceEventDuration to update the duration of COMPLETE events.
+   */
+  virtual uint64_t AddTraceEvent(
+      char phase, const uint8_t* category_enabled_flag, const char* name,
+      const char* scope, uint64_t id, uint64_t bind_id, int32_t num_args,
+      const char** arg_names, const uint8_t* arg_types,
+      const uint64_t* arg_values,
+      std::unique_ptr<ConvertableToTraceFormat>* arg_convertables,
+      unsigned int flags) override {
+    return 0;
+  }
+  virtual uint64_t AddTraceEventWithTimestamp(
+      char phase, const uint8_t* category_enabled_flag, const char* name,
+      const char* scope, uint64_t id, uint64_t bind_id, int32_t num_args,
+      const char** arg_names, const uint8_t* arg_types,
+      const uint64_t* arg_values,
+      std::unique_ptr<ConvertableToTraceFormat>* arg_convertables,
+      unsigned int flags, int64_t timestamp) override {
+    return 0;
+  }
+
+  /**
+   * Sets the duration field of a COMPLETE trace event. It must be called with
+   * the handle returned from AddTraceEvent().
+   **/
+  virtual void UpdateTraceEventDuration(const uint8_t* category_enabled_flag,
+                                        const char* name, uint64_t handle) override {}
+
+  /** Adds tracing state change observer. */
+  virtual void AddTraceStateObserver(TraceStateObserver*) override {}
+
+  /** Removes tracing state change observer. */
+  virtual void RemoveTraceStateObserver(TraceStateObserver*) override {}
+};
 
 /**
  * V8 Platform abstraction layer.
@@ -45,77 +116,333 @@ Logging::Category mldbJsCategory("javascript");
  * initializing the rest of V8.
  */
 struct V8MldbPlatform: public v8::Platform {
+    struct MldbTaskRunner: public v8::TaskRunner {
+        MldbTaskRunner(V8MldbPlatform * platform)
+            : platform(platform), 
+              start(std::chrono::steady_clock::now()),
+              shutdown(false),
+              foregroundMessageLoop(std::bind(&MldbTaskRunner::runForegroundLoop,
+                                              this))
+        {
+        }
+
+        ~MldbTaskRunner()
+        {
+            shutdown = true;
+            foregroundLoopCondition.notify_all();
+            std::unique_lock<std::mutex> guard(mutex);
+            foregroundMessageLoop.join();
+        }
+
+        V8MldbPlatform * platform;
+        std::chrono::time_point<std::chrono::steady_clock> start;
+        std::mutex mutex;
+        std::atomic<bool> shutdown;
+        std::condition_variable foregroundLoopCondition;
+
+        typedef std::chrono::time_point<std::chrono::steady_clock> TimePoint;
+        typedef std::tuple<TimePoint, std::shared_ptr<Task>> DelayedEntry;
+        std::priority_queue<DelayedEntry, std::vector<DelayedEntry>,
+                            std::greater<DelayedEntry> >
+            queue;
+
+        std::thread foregroundMessageLoop;
+
+        void runForegroundLoop()
+        {
+            std::unique_lock<std::mutex> guard(mutex);
+
+            while (!shutdown.load()) {
+                if (queue.empty()) {
+                    foregroundLoopCondition.wait(guard);
+                }
+                else {
+                    TimePoint nextWakeup = std::get<0>(queue.top());
+                    foregroundLoopCondition.wait_until(guard, nextWakeup);
+                }
+
+                if (shutdown.load())
+                    return;
+
+                while (!queue.empty()
+                    && (std::chrono::steady_clock::now()
+                        < std::get<0>(queue.top()))) {
+                    auto entry = queue.top();
+                    queue.pop();
+                    guard.unlock();
+                    try {
+                        std::get<1>(entry)->Run();
+                    } catch (...) {
+                        guard.lock();
+                        throw;
+                    }
+                    guard.lock();
+                }
+            };
+        }
+
+        /**
+         * Schedules a task to be invoked by this TaskRunner. The TaskRunner
+         * implementation takes ownership of |task|.
+         */
+        virtual void PostTask(std::unique_ptr<Task> task) override
+        {
+            PostDelayedTask(std::move(task), 0.0);
+        }
+
+        /**
+         * Schedules a task to be invoked by this TaskRunner. The TaskRunner
+         * implementation takes ownership of |task|. The |task| cannot be nested
+         * within other task executions.
+         *
+         * Tasks which shouldn't be interleaved with JS execution must be posted with
+         * |PostNonNestableTask| or |PostNonNestableDelayedTask|. This is because the
+         * embedder may process tasks in a callback which is called during JS
+         * execution.
+         *
+         * In particular, tasks which execute JS must be non-nestable, since JS
+         * execution is not allowed to nest.
+         *
+         * Requires that |TaskRunner::NonNestableTasksEnabled()| is true.
+         */
+        virtual void PostNonNestableTask(std::unique_ptr<Task> task) NON_NESTABLE_OVERRIDE
+        {
+            throw MLDB::Exception("PostNonNestableTask");
+        }
+
+        /**
+         * Schedules a task to be invoked by this TaskRunner. The task is scheduled
+         * after the given number of seconds |delay_in_seconds|. The TaskRunner
+         * implementation takes ownership of |task|.
+         */
+        virtual void PostDelayedTask(std::unique_ptr<Task> task,
+                                     double delay_in_seconds) NON_NESTABLE_OVERRIDE
+        {
+            auto deadline = std::chrono::steady_clock::now()
+                + std::chrono::nanoseconds((long long)delay_in_seconds * 1000000000);
+            std::unique_lock<std::mutex> guard(mutex);
+            queue.emplace(deadline, std::move(task));
+            if (queue.empty() || deadline < std::get<0>(queue.top())) {
+                foregroundLoopCondition.notify_one();
+            }
+        }
+
+        /**
+         * Schedules a task to be invoked by this TaskRunner. The task is scheduled
+         * after the given number of seconds |delay_in_seconds|. The TaskRunner
+         * implementation takes ownership of |task|. The |task| cannot be nested
+         * within other task executions.
+         *
+         * Tasks which shouldn't be interleaved with JS execution must be posted with
+         * |PostNonNestableTask| or |PostNonNestableDelayedTask|. This is because the
+         * embedder may process tasks in a callback which is called during JS
+         * execution.
+         *
+         * In particular, tasks which execute JS must be non-nestable, since JS
+         * execution is not allowed to nest.
+         *
+         * Requires that |TaskRunner::NonNestableDelayedTasksEnabled()| is true.
+         */
+        virtual void PostNonNestableDelayedTask(std::unique_ptr<Task> task,
+                                                double delay_in_seconds) NON_NESTABLE_OVERRIDE
+        {
+            throw MLDB::Exception("PostNonNestableDelayedTask");
+        }
+
+        /**
+         * Schedules an idle task to be invoked by this TaskRunner. The task is
+         * scheduled when the embedder is idle. Requires that
+         * |TaskRunner::IdleTasksEnabled()| is true. Idle tasks may be reordered
+         * relative to other task types and may be starved for an arbitrarily long
+         * time if no idle time is available. The TaskRunner implementation takes
+         * ownership of |task|.
+         */
+        virtual void PostIdleTask(std::unique_ptr<IdleTask> task) override
+        {
+            throw MLDB::Exception("PostIdleTask");
+        }
+
+        /**
+         * Returns true if idle tasks are enabled for this TaskRunner.
+         */
+        virtual bool IdleTasksEnabled() override
+        {
+            return false;
+        }
+
+        /**
+         * Returns true if non-nestable tasks are enabled for this TaskRunner.
+         */
+        virtual bool NonNestableTasksEnabled() const { return true; }
+
+        /**
+         * Returns true if non-nestable delayed tasks are enabled for this TaskRunner.
+         */
+        virtual bool NonNestableDelayedTasksEnabled() const { return false; }
+    };
+
+    std::shared_ptr<MldbTaskRunner> runner;
+
+    // Protects isolateRunners
+    std::shared_mutex isolateRunnersMutex;
+
+    // Per-isolate runner (for older v8)
+    // TODO: stop leaking them...
+    std::map<const Isolate *, std::shared_ptr<MldbTaskRunner> > isolateRunners;
+
+    std::shared_ptr<MldbTaskRunner> getIsolateRunner(const Isolate * isolate)
+    {
+	{
+	    std::shared_lock lock(isolateRunnersMutex);
+	    auto it = isolateRunners.find(isolate);
+	    if (it != isolateRunners.end())
+		return it->second;
+	}
+
+	auto runner = std::make_shared<MldbTaskRunner>(this);
+
+	std::unique_lock lock(isolateRunnersMutex);
+	auto it = isolateRunners.emplace(isolate, std::move(runner)).first;
+	return it->second;
+    }
+
+    void removeIsolate(const Isolate * isolate)
+    {
+	std::unique_lock lock(isolateRunnersMutex);
+	isolateRunners.erase(isolate);
+    }
+    
     V8MldbPlatform(MldbEngine * engine)
-        : start(std::chrono::steady_clock::now()),
-          shutdown(false),
-          foregroundMessageLoop(std::bind(&V8MldbPlatform::runForegroundLoop,
-                                          this))
+        : runner(new MldbTaskRunner(this))
     {
     }
 
     ~V8MldbPlatform()
     {
-        shutdown = true;
-        foregroundLoopCondition.notify_all();
-        std::unique_lock<std::mutex> guard(mutex);
-        foregroundMessageLoop.join();
-
-        // Delete outstanding tasks (don't run them)
-        while (!queue.empty()) {
-            auto entry = queue.top();
-            Task * task = std::get<2>(entry);
-            delete task;
-            queue.pop();
-        };
     }
 
-    std::chrono::time_point<std::chrono::steady_clock> start;
-    MldbEngine * engine;
+    /**
+     * Allows the embedder to manage memory page allocations.
+     */
+    virtual PageAllocator* GetPageAllocator() override {
+        // TODO(bbudge) Make this abstract after all embedders implement this.
+        return nullptr;
+    }
 
     /**
-     * Gets the number of threads that are used to execute background tasks. Is
-     * used to estimate the number of tasks a work package should be split into.
-     * A return value of 0 means that there are no background threads available.
-     * Note that a value of 0 won't prohibit V8 from posting tasks using
-     * |CallOnBackgroundThread|.
+     * Enables the embedder to respond in cases where V8 can't allocate large
+     * blocks of memory. V8 retries the failed allocation once after calling this
+     * method. On success, execution continues; otherwise V8 exits with a fatal
+     * error.
+     * Embedder overrides of this function must NOT call back into V8.
      */
-    virtual size_t NumberOfAvailableBackgroundThreads() override
+    virtual void OnCriticalMemoryPressure() override {
+        // TODO(bbudge) Remove this when embedders override the following method.
+        // See crbug.com/634547.
+    }
+
+    /**
+     * Enables the embedder to respond in cases where V8 can't allocate large
+     * memory regions. The |length| parameter is the amount of memory needed.
+     * Returns true if memory is now available. Returns false if no memory could
+     * be made available. V8 will retry allocations until this method returns
+     * false.
+     *
+     * Embedder overrides of this function must NOT call back into V8.
+     */
+    virtual bool OnCriticalMemoryPressure(size_t length) override { return false; }
+
+    /**
+     * Gets the number of worker threads used by
+     * Call(BlockingTask)OnWorkerThread(). This can be used to estimate the number
+     * of tasks a work package should be split into. A return value of 0 means
+     * that there are no worker threads available. Note that a value of 0 won't
+     * prohibit V8 from posting tasks using |CallOnWorkerThread|.
+     */
+    virtual int NumberOfWorkerThreads() override
     {
         return ThreadPool::instance().numThreads();
     }
 
     /**
-     * Schedules a task to be invoked on a background thread. |expected_runtime|
-     * indicates that the task will run a long time. The Platform implementation
-     * takes ownership of |task|. There is no guarantee about order of execution
-     * of tasks wrt order of scheduling, nor is there a guarantee about the
-     * thread the task will be run on.
+     * Returns a TaskRunner which can be used to post a task on the foreground.
+     * The TaskRunner's NonNestableTasksEnabled() must be true. This function
+     * should only be called from a foreground thread.
      */
-    virtual void CallOnBackgroundThread(Task* task,
-                                        ExpectedRuntime expected_runtime) override
+    virtual std::shared_ptr<v8::TaskRunner> GetForegroundTaskRunner(
+        Isolate* isolate) override
     {
-        std::shared_ptr<Task> taskPtr(task);
-        auto lambda = [=] ()
+        return getIsolateRunner(isolate);
+    }
+
+    /**
+     * Schedules a task to be invoked on a worker thread.
+     */
+    virtual void CallOnWorkerThread(std::unique_ptr<Task> task) override
+    {
+        std::shared_ptr<Task> taskPtr(task.release());
+        auto lambda = [taskPtr] ()
             {
                 taskPtr->Run();
             };
-
-        if (expected_runtime == Platform::kShortRunningTask) {
-            ThreadPool::instance().add(lambda);
-        }
-        else {
-            std::thread(lambda).detach();
-        }
+        ThreadPool::instance().add(std::move(lambda));
     }
 
+    /**
+     * Schedules a task that blocks the main thread to be invoked with
+     * high-priority on a worker thread.
+     */
+    virtual void CallBlockingTaskOnWorkerThread(std::unique_ptr<Task> task) override {
+        std::shared_ptr<Task> taskPtr(task.release());
+        auto lambda = [taskPtr] ()
+            {
+                taskPtr->Run();
+            };
+        std::thread(std::move(lambda)).detach();
+    }
+
+    /**
+     * Schedules a task to be invoked with low-priority on a worker thread.
+     */
+    virtual void CallLowPriorityTaskOnWorkerThread(std::unique_ptr<Task> task) NON_NESTABLE_OVERRIDE {
+        // Embedders may optionally override this to process these tasks in a low
+        // priority pool.
+        std::shared_ptr<Task> taskPtr(task.release());
+        auto lambda = [taskPtr] ()
+            {
+                taskPtr->Run();
+            };
+        ThreadPool::instance().add(std::move(lambda));
+    }
+
+    /**
+     * Schedules a task to be invoked on a worker thread after |delay_in_seconds|
+     * expires.
+     */
+    virtual void CallDelayedOnWorkerThread(std::unique_ptr<Task> task,
+                                            double delay_in_seconds) NON_NESTABLE_OVERRIDE
+    {
+        // TODO: don't create so many threads...
+        std::shared_ptr<Task> sharedTask(task.release());
+        auto runTask = [sharedTask, delay_in_seconds]
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(uint64_t(delay_in_seconds * 1000)));
+            sharedTask->Run();
+        };
+
+        std::thread(std::move(runTask)).detach();
+    }
+
+    // Older interface
     /**
      * Schedules a task to be invoked on a foreground thread wrt a specific
      * |isolate|. Tasks posted for the same isolate should be execute in order of
      * scheduling. The definition of "foreground" is opaque to V8.
      */
-    virtual void CallOnForegroundThread(Isolate* isolate, Task* task) override
+    virtual void CallOnForegroundThread(v8::Isolate* isolate, v8::Task* task)
     {
-        CallDelayedOnForegroundThread(isolate, task, 0.0);
+	std::unique_ptr<Task> pTask(task);
+	return getIsolateRunner(isolate)->PostTask(std::move(pTask));
     }
 
     /**
@@ -124,18 +451,78 @@ struct V8MldbPlatform: public v8::Platform {
      * Tasks posted for the same isolate should be execute in order of
      * scheduling. The definition of "foreground" is opaque to V8.
      */
-    virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
-                                               double delay_in_seconds) override
+    virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task, double delay)
     {
-        auto deadline = std::chrono::steady_clock::now()
-            + std::chrono::nanoseconds((long long)delay_in_seconds * 1000000000);
-        std::unique_lock<std::mutex> guard(mutex);
-        queue.emplace(deadline, isolate, task);
-        if (queue.empty() || deadline < std::get<0>(queue.top())) {
-            foregroundLoopCondition.notify_one();
-        }
+	std::unique_ptr<Task> pTask(task);
+	return getIsolateRunner(isolate)->PostDelayedTask(std::move(pTask), delay);
     }
 
+    /**
+     * Returns true if idle tasks are enabled for the given |isolate|.
+     */
+    virtual bool IdleTasksEnabled(Isolate* isolate) override { return false; }
+
+#ifdef V8_PLATFORM_HAS_TASK_INTERFACE
+    /**
+     * Posts |job_task| to run in parallel. Returns a JobHandle associated with
+     * the Job, which can be joined or canceled.
+     * This avoids degenerate cases:
+     * - Calling CallOnWorkerThread() for each work item, causing significant
+     *   overhead.
+     * - Fixed number of CallOnWorkerThread() calls that split the work and might
+     *   run for a long time. This is problematic when many components post
+     *   "num cores" tasks and all expect to use all the cores. In these cases,
+     *   the scheduler lacks context to be fair to multiple same-priority requests
+     *   and/or ability to request lower priority work to yield when high priority
+     *   work comes in.
+     * A canonical implementation of |job_task| looks like:
+     * class MyJobTask : public JobTask {
+     *  public:
+     *   MyJobTask(...) : worker_queue_(...) {}
+     *   // JobTask:
+     *   void Run(JobDelegate* delegate) override {
+     *     while (!delegate->ShouldYield()) {
+     *       // Smallest unit of work.
+     *       auto work_item = worker_queue_.TakeWorkItem(); // Thread safe.
+     *       if (!work_item) return;
+     *       ProcessWork(work_item);
+     *     }
+     *   }
+     *
+     *   size_t GetMaxConcurrency() const override {
+     *     return worker_queue_.GetSize(); // Thread safe.
+     *   }
+     * };
+     * auto handle = PostJob(TaskPriority::kUserVisible,
+     *                       std::make_unique<MyJobTask>(...));
+     * handle->Join();
+     *
+     * PostJob() and methods of the returned JobHandle/JobDelegate, must never be
+     * called while holding a lock that could be acquired by JobTask::Run or
+     * JobTask::GetMaxConcurrency -- that could result in a deadlock. This is
+     * because [1] JobTask::GetMaxConcurrency may be invoked while holding
+     * internal lock (A), hence JobTask::GetMaxConcurrency can only use a lock (B)
+     * if that lock is *never* held while calling back into JobHandle from any
+     * thread (A=>B/B=>A deadlock) and [2] JobTask::Run or
+     * JobTask::GetMaxConcurrency may be invoked synchronously from JobHandle
+     * (B=>JobHandle::foo=>B deadlock).
+     *
+     * A sufficient PostJob() implementation that uses the default Job provided in
+     * libplatform looks like:
+     *  std::unique_ptr<JobHandle> PostJob(
+     *      TaskPriority priority, std::unique_ptr<JobTask> job_task) override {
+     *    return v8::platform::NewDefaultJobHandle(
+     *        this, priority, std::move(job_task), NumberOfWorkerThreads());
+     * }
+     */
+    virtual std::unique_ptr<JobHandle> PostJob (
+        TaskPriority priority, std::unique_ptr<JobTask> job_task) override
+    {
+         return v8::platform::NewDefaultJobHandle(
+             this, priority, std::move(job_task), NumberOfWorkerThreads());
+    }
+#endif // V8_PLATFORM_HAS_TASK_INTERFACE
+  
     /**
      * Monotonically increasing time in seconds from an arbitrary fixed point in
      * the past. This function is expected to return at least
@@ -146,108 +533,35 @@ struct V8MldbPlatform: public v8::Platform {
     virtual double MonotonicallyIncreasingTime() override
     {
         std::chrono::duration<double> diff
-            = std::chrono::steady_clock::now() - start;
+            = std::chrono::steady_clock::now() - runner->start;
         return diff.count();
     }
 
     /**
-     * Called by TRACE_EVENT* macros, don't call this directly.
-     * The name parameter is a category group for example:
-     * TRACE_EVENT0("v8,parse", "V8.Parse")
-     * The pointer returned points to a value with zero or more of the bits
-     * defined in CategoryGroupEnabledFlags.
-     **/
-    virtual const uint8_t* GetCategoryGroupEnabled(const char* name) override
-    {
-        static uint8_t no = 0;
-        return &no;
-    }
-
-    /**
-     * Gets the category group name of the given category_enabled_flag pointer.
-     * Usually used while serliazing TRACE_EVENTs.
-     **/
-    virtual const char*
-    GetCategoryGroupName(const uint8_t* category_enabled_flag) override
-    {
-        static const char dummy[] = "dummy";
-        return dummy;
-    }
-
-    /**
-     * Adds a trace event to the platform tracing system. This function call is
-     * usually the result of a TRACE_* macro from trace_event_common.h when
-     * tracing and the category of the particular trace are enabled. It is not
-     * advisable to call this function on its own; it is really only meant to be
-     * used by the trace macros. The returned handle can be used by
-     * UpdateTraceEventDuration to update the duration of COMPLETE events.
+     * Current wall-clock time in milliseconds since epoch.
+     * This function is expected to return at least millisecond-precision values.
      */
-    virtual uint64_t
-    AddTraceEvent(char phase,
-                  const uint8_t* category_enabled_flag,
-                  const char* name,
-                  const char* scope,
-                  uint64_t id, uint64_t bind_id,
-                  int32_t num_args, const char** arg_names,
-                  const uint8_t* arg_types, const uint64_t* arg_values,
-                  unsigned int flags) override
-    {
-        // TODO: hook into MLDB logging framework
-        return 0;
-    }
+    virtual double CurrentClockTimeMillis() override { return SystemClockTimeMillis(); }
 
     /**
-     * Sets the duration field of a COMPLETE trace event. It must be called with
-     * the handle returned from AddTraceEvent().
-     **/
-    virtual void
-    UpdateTraceEventDuration(const uint8_t* category_enabled_flag,
-                             const char* name, uint64_t handle) override
+     * Returns a function pointer that print a stack trace of the current stack
+     * on invocation. Disables printing of the stack trace if nullptr.
+     */
+    virtual StackTracePrinter GetStackTracePrinter() override { return nullptr; }
+
+    /**
+     * Returns an instance of a v8::TracingController. This must be non-nullptr.
+     */
+    virtual TracingController* GetTracingController() override
     {
-    }
+        return new MldbV8TracingController();
+    };
 
-    void runForegroundLoop()
-    {
-        std::unique_lock<std::mutex> guard(mutex);
-
-        while (!shutdown.load()) {
-            if (queue.empty()) {
-                foregroundLoopCondition.wait(guard);
-            }
-            else {
-                TimePoint nextWakeup = std::get<0>(queue.top());
-                foregroundLoopCondition.wait_until(guard, nextWakeup);
-            }
-
-            if (shutdown.load())
-                return;
-
-            while (!queue.empty()
-                   && (std::chrono::steady_clock::now()
-                       < std::get<0>(queue.top()))) {
-                auto entry = queue.top();
-                queue.pop();
-                guard.unlock();
-                Task * task = std::get<2>(entry);
-                task->Run();
-                delete task;
-                guard.lock();
-            }
-        };
-    }
-
-    std::mutex mutex;
-    std::atomic<bool> shutdown;
-    std::condition_variable foregroundLoopCondition;
-
-    typedef std::chrono::time_point<std::chrono::steady_clock> TimePoint;
-    typedef std::tuple<TimePoint, v8::Isolate *, Task*> DelayedEntry;
-    std::priority_queue<DelayedEntry, std::vector<DelayedEntry>,
-                        std::greater<DelayedEntry> >
-        queue;
-    //tracing::TracingController* tracing_controller_;
-
-    std::thread foregroundMessageLoop;
+    /**
+     * Tells the embedder to generate and upload a crashdump during an unexpected
+     * but non-critical scenario.
+     */
+    virtual void DumpWithoutCrashing() NON_NESTABLE_OVERRIDE {}
 };
 
 void
@@ -262,8 +576,9 @@ init(bool forThisThreadOnly)
 
 
     this->isolate->Enter();
-    v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, 50 /* frame limit */,
-                                                      v8::StackTrace::kDetailed);
+
+    this->isolate->SetCaptureStackTraceForUncaughtExceptions(true, 128 /* frame limit */,
+                                                            v8::StackTrace::kDetailed);
     this->isolate->Exit();
 
     if (forThisThreadOnly) {
@@ -327,18 +642,21 @@ V8Init(MldbEngine * engine)
 
     v8::V8::SetFlagsFromCommandLine(&v8_argc, (char **)&v8_argv, false);
 
+#if 0 // startup data should be embedded now..
     // TODO: linuxisms...
     char exePath[PATH_MAX];
     ssize_t pathLen = readlink("/proc/self/exe", exePath, PATH_MAX);
     if (pathLen == -1)
         throw AnnotatedException
-            (400, "Couldn't path to the MLDB executable; "
+            (400, "Couldn't find path to the MLDB executable; "
              "is the /proc filesystem mounted?  ("
              + string(strerror(errno)) + ")");
     std::filesystem::path path(exePath, exePath + pathLen);
     auto libPath = path.parent_path().parent_path() / "lib" / "libv8.so";
 
     v8::V8::InitializeExternalStartupData(libPath.c_str());
+#endif
+
     v8::V8::InitializePlatform(new V8MldbPlatform(engine));
     v8::V8::Initialize();
 
@@ -347,14 +665,17 @@ V8Init(MldbEngine * engine)
 
 CellValue from_js(const JS::JSValue & value, CellValue *)
 {
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
+
     if (value->IsNull() || value->IsUndefined())
         return CellValue();
     else if (value->IsNumber())
-        return CellValue(value->NumberValue());
+        return CellValue(JS::check(value->NumberValue(context)));
     else if (value->IsDate())
-        return CellValue(Date::fromSecondsSinceEpoch(value->NumberValue() / 1000.0));
+        return CellValue(Date::fromSecondsSinceEpoch(JS::check(value->NumberValue(context)) / 1000.0));
     else if (value->IsObject()) {
-        v8::Isolate* isolate = v8::Isolate::GetCurrent();
         // Look if it's already a CellValue
         JsPluginContext * cxt = JsContextScope::current();
         if (cxt->CellValue.Get(isolate)->HasInstance(value)) {
@@ -372,6 +693,7 @@ CellValue from_js(const JS::JSValue & value, CellValue *)
 void to_js(JS::JSValue & value, const CellValue & val)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+
     if (val.empty())
         value = v8::Null(isolate);
     else if (val.isExactDouble())
@@ -495,18 +817,21 @@ parseV8StackFrame(const std::string & v8StackFrameMessage)
 
 /** Convert an exception to its representation. */
 ScriptException convertException(const v8::TryCatch & trycatch,
-                                 const Utf8String & context)
+                                 const Utf8String & contextStr)
 {
     using namespace v8;
+
+    auto isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
 
     if (!trycatch.HasCaught())
         throw MLDB::Exception("function didn't return but no result");
     
     Handle<Value> exception = trycatch.Exception();
-    String::Utf8Value exception_str(exception);
+    String::Utf8Value exception_str(isolate, exception);
     
     ScriptException result;
-    result.context.push_back(context);
+    result.context.push_back(contextStr);
     string where = "(unknown error location)";
 
     Handle<Message> message = trycatch.Message();
@@ -517,13 +842,13 @@ ScriptException convertException(const v8::TryCatch & trycatch,
 
     if (!message.IsEmpty()) {
         Utf8String msgStr = JS::utf8str(message->Get());
-        Utf8String sourceLine = JS::utf8str(message->GetSourceLine());
+        Utf8String sourceLine = JS::utf8str(message->GetSourceLine(context));
         Utf8String scriptUri = JS::utf8str(message->GetScriptResourceName());
         
         //cerr << "msgStr = " << msgStr << endl;
         //cerr << "sourceLine = " << sourceLine << endl;
         
-        int line = message->GetLineNumber();
+        int line = JS::check(message->GetLineNumber(context));
         int column = message->GetStartColumn();
         int endColumn = message->GetEndColumn();
         
@@ -553,7 +878,7 @@ ScriptException convertException(const v8::TryCatch & trycatch,
         if (!stack.IsEmpty()) {
 
             for (unsigned i = 0;  i < stack->GetFrameCount();  ++i) {
-                auto frame = stack->GetFrame(i);
+                auto frame = stack->GetFrame(isolate, i);
                 ScriptStackFrame frameRep;
                 frameRep.scriptUri = JS::utf8str(frame->GetScriptNameOrSourceURL());
                 frameRep.functionName = JS::utf8str(frame->GetFunctionName());
@@ -570,7 +895,7 @@ ScriptException convertException(const v8::TryCatch & trycatch,
             }
         }
         else {
-            auto stack2 = trycatch.StackTrace();
+            auto stack2 = trycatch.StackTrace(context);
 
             if (!stack2.IsEmpty()) {
                 string traceMessage = JS::cstr(stack2);
@@ -600,10 +925,10 @@ JsObjectBase::
 ~JsObjectBase()
 {
     if (js_object_.IsEmpty()) return;
-    if (!js_object_.IsNearDeath()) {
-        ::fprintf(stderr, "JS object is not near death");
-        std::terminate();
-    }
+    //if (!js_object_.IsNearDeath()) {
+    //    ::fprintf(stderr, "JS object is not near death");
+    //    std::terminate();
+    //}
     //v8::Isolate* isolate = v8::Isolate::GetCurrent();
     //js_object_->SetInternalField(0, v8::Undefined(isolate));
     //js_object_->SetInternalField(1, v8::Undefined(isolate));
@@ -672,7 +997,7 @@ CreateFunctionTemplate(const char * name,
         = FunctionTemplate::New(isolate, constructor);
 
     t->InstanceTemplate()->SetInternalFieldCount(2);
-    t->SetClassName(v8::String::NewFromUtf8(isolate, name));
+    t->SetClassName(JS::createString(isolate, name));
 
     return t;
 }
@@ -707,55 +1032,56 @@ JsPluginContext(const Utf8String & pluginName,
 
     static V8Init v8Init(engine);
 
-    isolate.init(false /* for this thread only */);
+    this->isolate.init(false /* for this thread only */);
+    auto isolate = this->isolate.isolate;
 
-    v8::Locker locker(this->isolate.isolate);
-    v8::Isolate::Scope isolate(this->isolate.isolate);
+    v8::Locker locker(isolate);
+    v8::Isolate::Scope isolate_scope(isolate);
 
-    HandleScope handle_scope(this->isolate.isolate);
+    HandleScope handle_scope(isolate);
 
     // Create a new context.
-    context.Reset(this->isolate.isolate,
-                  Context::New(this->isolate.isolate));
+    this->context.Reset(isolate, Context::New(isolate));
     
     // Enter the created context
-    Context::Scope context_scope(context.Get(this->isolate.isolate));
+    Context::Scope context_scope(this->context.Get(isolate));
     
+    auto context = this->context.Get(isolate);
+
     // This is how we set it
     // https://code.google.com/p/v8/issues/detail?id=54
     v8::Local<v8::Object> globalPrototype
-        = context.Get(this->isolate.isolate)->Global()
-        ->GetPrototype().As<v8::Object>();
+        = context->Global()->GetPrototype().As<v8::Object>();
     
-    auto plugin = JsPluginJS::registerMe()->NewInstance();
-    plugin->SetInternalField(0, v8::External::New(this->isolate.isolate, this));
-    plugin->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
+    auto plugin = JS::toLocalChecked(JsPluginJS::registerMe()->NewInstance(context));
+    plugin->SetInternalField(0, v8::External::New(isolate, this));
+    plugin->SetInternalField(1, v8::External::New(isolate, this));
     if (pluginResource)
-        plugin->Set(String::NewFromUtf8(this->isolate.isolate, "args"), JS::toJS(jsonEncode(pluginResource->args)));
-    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "plugin"), plugin);
+        JS::check(plugin->Set(context, JS::createString(isolate, "args"), JS::toJS(jsonEncode(pluginResource->args))));
+    JS::check(globalPrototype->Set(context, JS::createString(isolate, "plugin"), plugin));
 
-    auto mldb = MldbJS::registerMe()->NewInstance();
-    this->mldb.Reset(this->isolate.isolate, mldb);
-    mldb->SetInternalField(0, v8::External::New(this->isolate.isolate, this->engine));
-    mldb->SetInternalField(1, v8::External::New(this->isolate.isolate, this));
-    globalPrototype->Set(String::NewFromUtf8(this->isolate.isolate, "mldb"), mldb);
+    auto mldb = JS::toLocalChecked(MldbJS::registerMe()->NewInstance(context));
+    this->mldb.Reset(isolate, mldb);
+    mldb->SetInternalField(0, v8::External::New(isolate, this->engine));
+    mldb->SetInternalField(1, v8::External::New(isolate, this));
+    JS::check(globalPrototype->Set(context, JS::createString(isolate, "mldb"), mldb));
 
-    Stream.Reset(this->isolate.isolate, StreamJS::registerMe());
-    Dataset.Reset(this->isolate.isolate, DatasetJS::registerMe());
-    Function.Reset(this->isolate.isolate, FunctionJS::registerMe());
-    Sensor.Reset(this->isolate.isolate, SensorJS::registerMe());
-    Procedure.Reset(this->isolate.isolate, ProcedureJS::registerMe());
-    CellValue.Reset(this->isolate.isolate, CellValueJS::registerMe());
-    RandomNumberGenerator.Reset(this->isolate.isolate,
+    Stream.Reset(isolate, StreamJS::registerMe());
+    Dataset.Reset(isolate, DatasetJS::registerMe());
+    Function.Reset(isolate, FunctionJS::registerMe());
+    Sensor.Reset(isolate, SensorJS::registerMe());
+    Procedure.Reset(isolate, ProcedureJS::registerMe());
+    CellValue.Reset(isolate, CellValueJS::registerMe());
+    RandomNumberGenerator.Reset(isolate,
                                 RandomNumberGeneratorJS::registerMe());
 
     auto requireTemplate
-        = FunctionTemplate::New(this->isolate.isolate,
+        = FunctionTemplate::New(isolate,
                                 &JsPluginContext::require,
-                                v8::External::New(this->isolate.isolate, this));
-    globalPrototype
-        ->Set(String::NewFromUtf8(this->isolate.isolate, "require"),
-              requireTemplate->GetFunction());
+                                v8::External::New(isolate, this));
+    JS::check(globalPrototype
+                ->Set(context, JS::createString(isolate, "require"),
+                      JS::toLocalChecked(requireTemplate->GetFunction(context))));
 }
 
 JsPluginContext::
@@ -823,12 +1149,13 @@ v8::Handle<v8::Object>
 JsPluginContext::
 getModule(const Utf8String & moduleName)
 {
-    cerr << "require " << moduleName << endl;
-        
+    auto isolate = this->isolate.isolate;
+    auto context = isolate->GetCurrentContext();
+    //cerr << "require " << moduleName << endl;
+
     if (moduleName == "mldb") {
         // MLDB object is special; we get it from the context
-        v8::Local<v8::Object> mldb
-            = this->mldb.Get(isolate.isolate);
+        v8::Local<v8::Object> mldb = this->mldb.Get(isolate);
         return mldb;
     }
 
@@ -843,32 +1170,27 @@ getModule(const Utf8String & moduleName)
         = findModuleSource(moduleName);
         
     // Create a string containing the JavaScript source code.
-    Handle<String> source
-        = String::NewFromUtf8(isolate.isolate,
-                              jsFunctionSource.rawData());
+    Handle<String> source = JS::createString(isolate, jsFunctionSource);
 
     // Compile the source code.
-    TryCatch trycatch;
+    TryCatch trycatch(isolate);
     trycatch.SetVerbose(true);
 
-    auto script = Script::Compile
-        (source,
-         v8::String::NewFromUtf8(isolate.isolate,
-                                 jsFunctionFilename.rawData()));
+    auto origin = JS::createScriptOrigin(isolate, jsFunctionFilename);
+    auto script = Script::Compile(context, source, &origin);
     
     if (script.IsEmpty()) {  
         auto rep = convertException(trycatch, "Compiling plugin script");
         throw AnnotatedException(400, "Exception compiling plugin script", rep);
     }
 
-    auto globals = isolate.isolate->GetCurrentContext()->Global();
-    auto module = v8::Object::New(isolate.isolate);
+    auto globals = context->Global();
+    auto module = v8::Object::New(isolate);
 
-    globals->Set(String::NewFromUtf8(isolate.isolate, "module"),
-                 module);
+    JS::check(globals->Set(context, JS::createString(isolate, "module"), module));
         
     // Run the script to get the result.
-    Handle<Value> result = script->Run();
+    auto result = JS::toLocalChecked(script)->Run(context);
 
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running plugin script");
@@ -876,9 +1198,11 @@ getModule(const Utf8String & moduleName)
         throw AnnotatedException(400, "Exception running plugin script", rep);
     }
 
-    globals->Delete(String::NewFromUtf8(isolate.isolate, "module"));
+    // We ignore the result after checking that there is no exception
 
-    auto exports = module->Get(String::NewFromUtf8(isolate.isolate, "exports"));
+    JS::check(globals->Delete(context, JS::createString(isolate, "module")));
+
+    auto exports = JS::toLocalChecked(module->Get(context, JS::createString(isolate, "exports")));
 
     return JS::toObject(exports);
 }
@@ -951,11 +1275,13 @@ namespace JS {
 Json::Value
 fromJsForRestParams(const JSValue & val)
 {
+    auto isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
     //cerr << "converting " << cstr(val) << " to rest params" << endl;
 
     if (val->IsDate()) {
         //cerr << "date" << endl;
-        double ms = val->NumberValue();
+        double ms = JS::check(val->NumberValue(context));
         MLDB::CellValue cv(Date::fromSecondsSinceEpoch(ms / 1000.0));
         return jsonEncode(cv);
     }
@@ -965,7 +1291,7 @@ fromJsForRestParams(const JSValue & val)
         Json::Value result;
 
         for (int i=0; i<arrayPtr->Length(); ++i) {
-            v8::Local<v8::Value> val = arrayPtr->Get(i);
+            auto val = arrayPtr->Get(context, i);
             result[i] = fromJsForRestParams(val);
         }
         
@@ -977,11 +1303,11 @@ fromJsForRestParams(const JSValue & val)
 
         Json::Value result;
 
-        v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+        v8::Local<v8::Array> properties = JS::toLocalChecked(objPtr->GetOwnPropertyNames(context));
         
         for (int i=0; i<properties->Length(); ++i) {
-            v8::Local<v8::Value> key = properties->Get(i);
-            v8::Local<v8::Value> val = objPtr->Get(key);
+            v8::Local<v8::Value> key = JS::toLocalChecked(properties->Get(context, i));
+            v8::Local<v8::Value> val = JS::toLocalChecked(objPtr->Get(context, key));
             result[utf8str(key)] = fromJsForRestParams(val);
         }
         
@@ -997,6 +1323,9 @@ fromJsForRestParams(const JSValue & val)
 RestParams
 from_js(const JSValue & val, const RestParams *)
 {
+    auto isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
+
     RestParams result;
 
     if (val->IsArray()) {
@@ -1004,18 +1333,18 @@ from_js(const JSValue & val, const RestParams *)
         auto arrPtr = v8::Array::Cast(*val);
 
         for (int i=0; i<arrPtr->Length(); ++i) {
-            auto arrPtr2 = v8::Array::Cast(*arrPtr->Get(i));
+            auto arrPtr2 = v8::Array::Cast(*JS::toLocalChecked(arrPtr->Get(context, i)));
             if(arrPtr2->Length() != 2) {
                 throw MLDB::Exception("invalid length for pair extraction");
             }
             
-            Json::Value param = fromJsForRestParams(arrPtr2->Get(1));
+            Json::Value param = fromJsForRestParams(arrPtr2->Get(context, 1));
 
             if (param.isString())
-                result.emplace_back(utf8str(arrPtr2->Get(0)),
+                result.emplace_back(utf8str(arrPtr2->Get(context, 0)),
                                     param.asString());
             else
-                result.emplace_back(utf8str(arrPtr2->Get(0)),
+                result.emplace_back(utf8str(arrPtr2->Get(context, 0)),
                                     param.toStringNoNewLine());
         }
 
@@ -1027,11 +1356,11 @@ from_js(const JSValue & val, const RestParams *)
 
         auto objPtr = v8::Object::Cast(*val);
 
-        v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+        v8::Local<v8::Array> properties = JS::toLocalChecked(objPtr->GetOwnPropertyNames(context));
         
         for(int i=0; i<properties->Length(); ++i) {
-            v8::Local<v8::Value> key = properties->Get(i);
-            v8::Local<v8::Value> val = objPtr->Get(key);
+            v8::Local<v8::Value> key = JS::toLocalChecked(properties->Get(context, i));
+            v8::Local<v8::Value> val = JS::toLocalChecked(objPtr->Get(context, key));
             Json::Value param = fromJsForRestParams(val);
 
             if (param.isString())

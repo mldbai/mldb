@@ -22,6 +22,11 @@ struct Function;
 
 struct FunctionJS: public JsObjectBase {
 
+    FunctionJS(std::shared_ptr<Function> function = nullptr)
+        : function(std::move(function))
+    {
+    }
+
     std::shared_ptr<Function> function;
 
     static v8::Handle<v8::Object>
