@@ -24,14 +24,9 @@ struct EnumValueRepr {
 DECLARE_STRUCTURE_DESCRIPTION(EnumValueRepr);
 
 struct StructureFieldRepr {
-    StructureFieldRepr()
-        : description(nullptr)
-    {
-    }
-
     std::string fieldName;
     std::string comment;
-    const ValueDescription * description;
+    const ValueDescription * description = nullptr;
     Json::Value defaultValue;
     int offset;
 };
@@ -40,12 +35,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StructureFieldRepr);
 
 
 struct ValueDescriptionRepr {
-    ValueDescriptionRepr()
-        : contained(nullptr)
-    {
-    }
-
-    ValueKind kind;
+    ValueKind kind = ValueKind::ANY;
     std::string cppType;
     std::string typeName;
     std::string documentationUri;
@@ -53,7 +43,7 @@ struct ValueDescriptionRepr {
     std::vector<StructureFieldRepr> structureFields;
     std::vector<EnumValueRepr> enumValues;
     std::vector<const ValueDescription *> tupleElements;
-    const ValueDescription * contained;
+    const ValueDescription * contained = nullptr;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ValueDescriptionRepr);
