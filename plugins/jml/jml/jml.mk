@@ -63,7 +63,7 @@ LIBBOOSTING_SOURCES := \
         multilabel_training_data.cc
 
 
-LIBBOOSTING_LINK :=	jml_utils utils db algebra arch judy fasttext log
+LIBBOOSTING_LINK :=	jml_utils utils db algebra arch judy fasttext log arch base value_description boost_timer vfs
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 
