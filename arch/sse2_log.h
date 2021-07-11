@@ -112,7 +112,7 @@ inline v4sf sse2_logf_unsafe(v4sf xx)
 
     y = polevl_1(x, logf_coef, 8) * z;
 
-    v4sf fe = __builtin_ia32_cvtdq2ps(e);
+    v4sf fe = _mm_cvtepi32_ps(e);
     y += vec_splat(-2.12194440e-4f) * fe;
     y += vec_splat(-0.5f) * z;
     z = x + y;
