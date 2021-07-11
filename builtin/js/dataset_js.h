@@ -22,6 +22,11 @@ struct Dataset;
 
 struct DatasetJS: public JsObjectBase {
 
+    DatasetJS(std::shared_ptr<Dataset> dataset = nullptr)
+        : dataset(std::move(dataset))
+    {
+    }
+
     std::shared_ptr<Dataset> dataset;
 
     static v8::Handle<v8::Object>

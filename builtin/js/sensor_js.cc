@@ -21,14 +21,9 @@ namespace MLDB {
 
 v8::Handle<v8::Object>
 SensorJS::
-create(std::shared_ptr<Sensor> sensor, JsPluginContext * context)
+create(std::shared_ptr<Sensor> sensor, JsPluginContext * pluginContext)
 {
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    auto obj = context->Sensor.Get(isolate)->GetFunction()->NewInstance();
-    auto * wrapped = new SensorJS();
-    wrapped->sensor = sensor;
-    wrapped->wrap(obj, context);
-    return obj;
+    return doCreateWrapper<SensorJS>(std::move(sensor), pluginContext, pluginContext->Sensor);
 }
 
 Sensor *
@@ -52,17 +47,13 @@ registerMe()
     auto fntmpl = CreateFunctionTemplate("Sensor");
     auto prototmpl = fntmpl->PrototypeTemplate();
 
-    prototmpl->Set(String::NewFromUtf8(isolate, "status"),
-                   FunctionTemplate::New(isolate, status));
-    prototmpl->Set(String::NewFromUtf8(isolate, "id"),
-                   FunctionTemplate::New(isolate, id));
-    prototmpl->Set(String::NewFromUtf8(isolate, "type"),
-                   FunctionTemplate::New(isolate, type));
-    prototmpl->Set(String::NewFromUtf8(isolate, "config"),
-                   FunctionTemplate::New(isolate, config));
-    prototmpl->Set(String::NewFromUtf8(isolate, "latest"),
-                   FunctionTemplate::New(isolate, latest));
-    
+#define ADD_METHOD(name) JS::addMethod(isolate, prototmpl, #name, FunctionTemplate::New(isolate, name))
+    ADD_METHOD(status);
+    ADD_METHOD(id);
+    ADD_METHOD(type);
+    ADD_METHOD(config);
+    ADD_METHOD(latest);
+
     return scope.Escape(fntmpl);
 }
 

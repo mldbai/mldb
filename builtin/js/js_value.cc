@@ -16,6 +16,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
 #include "mldb/ext/jsoncpp/json.h"
+#include "mldb/types/basic_value_descriptions.h"
 
 #include <cxxabi.h>
 using namespace std;
@@ -51,8 +52,10 @@ JSObject::
 add(const std::string & key, const std::string & value)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    (*this)->Set(v8::String::NewFromUtf8(isolate, key.c_str()),
-                 v8::String::NewFromUtf8(isolate, value.c_str()));
+    auto context = isolate->GetCurrentContext();
+    check((*this)->Set(context,
+                       createString(isolate, key),
+                       createString(isolate, value)));
 }
 
 void
@@ -60,8 +63,9 @@ JSObject::
 add(const std::string & key, const JSValue & value)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    (*this)->Set(v8::String::NewFromUtf8(isolate, key.c_str()),
-                 value);
+    auto context = isolate->GetCurrentContext();
+    check((*this)->Set(context, createString(isolate, key),
+                 value));
 }
 
 
@@ -139,28 +143,29 @@ void to_js(JSValue & jsval, const std::string & value)
         if (value[i] == 0 || value[i] > 127)
             isAscii = false;
     if (isAscii)
-        jsval = v8::String::NewFromUtf8(isolate, value.c_str());
+        jsval = createString(isolate, value);
     else {
         // Assume utf-8
-        jsval = v8::String::NewFromUtf8(isolate, value.c_str());
+        jsval = createString(isolate, Utf8String(value));
     }
 }
 
 void to_js(JSValue & jsval, const Utf8String & value)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    jsval = v8::String::NewFromUtf8(isolate, value.rawData());
+    jsval = createString(isolate, value);
 }
 
 void to_js(JSValue & jsval, const char * value)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    jsval = v8::String::NewFromUtf8(isolate, value);
+    jsval = createString(isolate, value);
 }
 
 void to_js(JSValue & jsval, const Json::Value & value)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
+    auto context = isolate->GetCurrentContext();
     switch(value.type()) {
     case Json::objectValue:
         {
@@ -169,8 +174,8 @@ void to_js(JSValue & jsval, const Json::Value & value)
             BOOST_FOREACH(string key, value.getMemberNames()) {
                 JSValue member;
                 to_js(member, value[key]);
-                obj->Set(v8::String::NewFromUtf8(isolate, key.c_str()),
-                         member);
+                check(obj->Set(context, createString(isolate, key),
+                         member));
             }
             jsval = scope.Escape(obj);
         }
@@ -183,7 +188,7 @@ void to_js(JSValue & jsval, const Json::Value & value)
                 {
                     JSValue elem;
                     to_js(elem, value[i]);
-                    arr->Set(i, elem);
+                    check(arr->Set(context, i, elem));
                 }
             jsval = scope.Escape(arr);
         }
@@ -192,7 +197,7 @@ void to_js(JSValue & jsval, const Json::Value & value)
         to_js(jsval, value.asDouble());
         break;
     case Json::stringValue:
-        to_js(jsval, value.asString());
+        to_js(jsval, value.asStringUtf8());
         break;
     case Json::intValue:
         to_js(jsval, value.asInt());
@@ -215,7 +220,8 @@ void to_js(JSValue & jsval, const Json::Value & value)
 void to_js(JSValue & jsval, Date value)
 {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    jsval = v8::Date::New(isolate, value.secondsSinceEpoch() * 1000.0);
+    auto context = isolate->GetCurrentContext();
+    jsval = v8::Date::New(context, value.secondsSinceEpoch() * 1000.0);
 }
 
 namespace {
@@ -224,13 +230,12 @@ int64_t check_to_int2(const JSValue & val)
 {
     //cerr << "check_to_int " << cstr(val) << endl;
 
-    int64_t ival = val->IntegerValue();
-    double dval = val->NumberValue();
+    auto context = v8::Isolate::GetCurrent()->GetCurrentContext();
 
-    //cerr << "  ival = " << ival << endl;
-    //cerr << "  dval = " << dval << endl;
+    v8::Maybe<int64_t> ival = val->IntegerValue(context);
+    v8::Maybe<double> dval = val->NumberValue(context);
 
-    if (ival != 0 && ival == dval) return ival;
+    if (ival.IsJust() && check(ival) == check(dval)) return check(ival);
 
     if (check(dval) > (double)std::numeric_limits<uint64_t>::max()
         || check(dval) < (double)std::numeric_limits<uint64_t>::min())
@@ -247,7 +252,7 @@ int64_t check_to_int2(const JSValue & val)
     if (val->IsNumber() || v8::Number::Cast(*val)) {
         //if (debug)
         //cerr << "is number" << endl;
-        double d = val->NumberValue();
+        double d = check(val->NumberValue(context));
         if (!isfinite(d))
             throw Exception("cannot convert double value "
                             + cstr(val) + " to integer");
@@ -257,8 +262,8 @@ int64_t check_to_int2(const JSValue & val)
         //if (debug)
         //cerr << "is string" << endl;
 
-        int64_t ival = val->IntegerValue();
-        if (ival != 0) return ival;
+        auto ival = val->IntegerValue(context);
+        if (ival.IsJust()) return check(ival);
         string s = MLDB::lowercase(cstr(val));
         try {
             return boost::lexical_cast<int64_t>(s);
@@ -285,9 +290,11 @@ int64_t check_to_int2(const JSValue & val)
     try_type(IsDate);
 
     if (val->IsObject()) {
-        cerr << "object: " << cstr(val->ToObject()->ObjectProtoToString())
+        cerr << "object: " << cstr(toLocalChecked(toLocalChecked(val->ToObject(context))->ObjectProtoToString(context)))
              << endl;
-        cerr << "val->NumberValue() = " << val->NumberValue() << endl;
+        cerr << "val->NumberValue(context) = "
+             << (val->NumberValue(context).IsJust() ? std::to_string(check(val->NumberValue(context))) : "NULL")
+             << endl;
     }
 
     backtrace();
@@ -359,13 +366,15 @@ float from_js(const JSValue & val, float *)
 double from_js(const JSValue & val, double *)
 {
     //cerr << "from_js double" << endl;
-    const double result = val->NumberValue();
-    if (std::isnan(result)) {
-        if (val->IsNumber()) return result;
+    auto context = v8::Isolate::GetCurrent()->GetCurrentContext();
+    auto result = val->NumberValue(context);
+    if (result.IsNothing()) {
         if (val->IsString()) {
             string s = MLDB::lowercase(cstr(val));
-            if (s == "nan" || s == "-nan")
-                return result;
+            if (s == "nan")
+                return NAN;
+            else if (s == "-nan")
+                return -NAN;
             throw MLDB::Exception("string value \"%s\" is not converible to "
                                 "floating point",
                                 s.c_str());
@@ -373,18 +382,33 @@ double from_js(const JSValue & val, double *)
         throw Exception("value \"%s\" not convertible to floating point",
                         cstr(val).c_str());
     }
-    return result;
+    return check(result);
+}
+
+// Small structure to pass an isolate or context, to paper over some of
+// the evolution in the v8 API.
+struct IsolateOrContext {
+    v8::Isolate * isolate = nullptr;
+    operator v8::Isolate * () const { return isolate; }
+    operator v8::Local<v8::Context> () const { return isolate->GetCurrentContext(); }
+};
+
+IsolateOrContext ioc(v8::Isolate * isolate)
+{
+    return { isolate };
 }
 
 bool from_js(const JSValue & val, bool *)
 {
-    bool result = val->BooleanValue();
+    auto isolate = v8::Isolate::GetCurrent();
+    bool result = check(val->BooleanValue(ioc(isolate)));
     return result;
 }
 
 std::string from_js(const JSValue & val, std::string *)
 {
-    v8::String::Utf8Value utf8Str(val);
+    auto isolate = v8::Isolate::GetCurrent();
+    v8::String::Utf8Value utf8Str(isolate, val);
     return std::string(*utf8Str, *utf8Str + utf8Str.length());
 }
 
@@ -406,9 +430,12 @@ Json::Value from_js(const JSValue & val, Json::Value *)
             Json::Value result (Json::arrayValue);
 
             auto arrPtr = v8::Array::Cast(*val);
+            v8::Isolate* isolate = v8::Isolate::GetCurrent();
+            auto context = isolate->GetCurrentContext();
+
             for(int i=0; i<arrPtr->Length(); ++i)
             {
-                result[i] = from_js(arrPtr->Get(i), (Json::Value *)0);
+                result[i] = from_js(arrPtr->Get(context, i), (Json::Value *)0);
             }
 
             return result;
@@ -416,18 +443,19 @@ Json::Value from_js(const JSValue & val, Json::Value *)
         else
         {
             v8::Isolate* isolate = v8::Isolate::GetCurrent();
+            auto context = isolate->GetCurrentContext();
             v8::HandleScope handleScope(isolate);
             Json::Value result (Json::objectValue);
             auto objPtr = v8::Object::Cast(*val);
-            v8::Handle<v8::Array> prop_names = objPtr->GetPropertyNames();
+            v8::Handle<v8::Array> prop_names = toLocalChecked(objPtr->GetPropertyNames(context));
 
             for (unsigned i = 0;  i < prop_names->Length();  ++i)
             {
                 v8::Handle<v8::String> key
-                    = prop_names->Get(v8::Uint32::New(isolate, i))->ToString();
-                if (!objPtr->HasOwnProperty(key)) continue;
+                    = toLocalChecked(toLocalChecked(prop_names->Get(context, v8::Uint32::New(isolate, i)))->ToString(context));
+                if (!check(objPtr->HasOwnProperty(context, key))) continue;
                 result[from_js(key, (Utf8String *)0)] =
-                        from_js(objPtr->Get(key), (Json::Value *)0);
+                        from_js(objPtr->Get(context, key), (Json::Value *)0);
             }
 
             return result;
@@ -462,7 +490,10 @@ Json::Value from_js(const JSValue & val, Json::Value *)
 Date from_js(const JSValue & val, Date *)
 {
     if(v8::Date::Cast(*val)->IsDate()) {
-        return Date::fromSecondsSinceEpoch(v8::Date::Cast(*val)->NumberValue()
+        v8::Isolate* isolate = v8::Isolate::GetCurrent();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+        return Date::fromSecondsSinceEpoch(check(v8::Date::Cast(*val)->NumberValue(context))
                                            / 1000.0);
     }
     if (val->IsString()) {
@@ -473,7 +504,8 @@ Date from_js(const JSValue & val, Date *)
 
 Utf8String from_js(const JSValue & val, Utf8String *)
 {
-    v8::String::Utf8Value valStr(val);
+    auto isolate = v8::Isolate::GetCurrent();
+    v8::String::Utf8Value valStr(isolate, val);
     return Utf8String(*valStr, valStr.length(), false /* check */) ;
 }
 

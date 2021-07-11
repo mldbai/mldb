@@ -7,7 +7,7 @@
     Common code for JS handling.
 */
 
-#include "mldb/ext/v8-cross-build-output/include/v8.h"
+#include "v8.h"
 #include "js_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/logging/logging.h"
@@ -53,10 +53,11 @@ struct JsIsolate {
     ~JsIsolate()
     {
         locker.reset();
-        isolate->Dispose();
+        if (isolate)
+            isolate->Dispose();
     }
 
-    v8::Isolate * isolate;
+    v8::Isolate * isolate = nullptr;
     std::shared_ptr<v8::Locker> locker;
 
     static JsIsolate * getIsolateForMyThread()
@@ -133,6 +134,7 @@ struct JsPluginContext {
 
     JsIsolate isolate;
     v8::Persistent<v8::Context> context;
+    v8::Local<v8::Context> getLocalContext() const { return context.Get(isolate.isolate); }
     v8::Persistent<v8::Script> script;
 
     std::string categoryName, loaderName;
@@ -224,6 +226,23 @@ public:
     }
     
     virtual ~JsObjectBase();
+
+    // Create a wrapper for a given wrapped object of the Wrapper type, which must have a
+    // constructor from a shared pointer to the wrapped object.
+    template<typename Wrapper, typename Wrapped>
+    static v8::Local<v8::Object>
+    doCreateWrapper(Wrapped&& wrapped, JsPluginContext * pluginContext,
+                    const v8::Persistent<v8::FunctionTemplate> & tmpl)
+    {
+        ExcAssert(pluginContext);
+        v8::Isolate* isolate = pluginContext->isolate.isolate;
+        auto context = isolate->GetCurrentContext();
+        auto obj = JS::toLocalChecked(JS::toLocalChecked(tmpl.Get(isolate)->GetFunction(context))->NewInstance(context));
+        auto * wrapper = new Wrapper(std::forward<Wrapped>(wrapped));
+        wrapper->wrap(obj, pluginContext);
+        return obj;
+    }
+
 
     template <class T>
     static inline T * unwrap(const v8::Handle<v8::Object> & handle)

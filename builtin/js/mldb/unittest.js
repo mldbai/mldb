@@ -12,6 +12,23 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
+function assertInSet(expr, setofvals, msg)
+{
+    if (setofvals.has(expr))
+        return;
+
+    for ([k,v] of setofvals.entries()) {
+        if (JSON.stringify(expr) == JSON.stringify(v))
+        return;
+    }
+
+    plugin.log("expected", setofvals);
+    plugin.log("received", expr);
+
+    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
+        + " not in value set " + JSON.stringify(setofvals);
+}
+
 assertEqual['__markdown'] = `
 ### \`assertEqual\` function
 
@@ -116,7 +133,7 @@ In the case of a difference, the function will throw an exception.
 `;
 
 
-module.exports = { assertEqual: assertEqual, assertNearlyEqual: assertNearlyEqual };
+module.exports = { assertEqual: assertEqual, assertNearlyEqual: assertNearlyEqual, assertInSet: assertInSet };
 
 module.exports['__markdown'] = `
 ## \`mldb/unittest\` module

@@ -22,14 +22,9 @@ namespace MLDB {
 
 v8::Handle<v8::Object>
 FunctionJS::
-create(std::shared_ptr<Function> function, JsPluginContext * context)
+create(std::shared_ptr<Function> function, JsPluginContext * pluginContext)
 {
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    auto obj = context->Function.Get(isolate)->GetFunction()->NewInstance();
-    auto * wrapped = new FunctionJS();
-    wrapped->function = function;
-    wrapped->wrap(obj, context);
-    return obj;
+    return doCreateWrapper<FunctionJS>(std::move(function), pluginContext, pluginContext->Function);
 }
 
 Function *
@@ -53,20 +48,14 @@ registerMe()
     auto fntmpl = CreateFunctionTemplate("Function");
     auto prototmpl = fntmpl->PrototypeTemplate();
 
-    prototmpl->Set(String::NewFromUtf8(isolate, "status"),
-                   FunctionTemplate::New(isolate, status));
-    prototmpl->Set(String::NewFromUtf8(isolate, "details"),
-                   FunctionTemplate::New(isolate, details));
-    prototmpl->Set(String::NewFromUtf8(isolate, "id"),
-                   FunctionTemplate::New(isolate, id));
-    prototmpl->Set(String::NewFromUtf8(isolate, "type"),
-                   FunctionTemplate::New(isolate, type));
-    prototmpl->Set(String::NewFromUtf8(isolate, "config"),
-                   FunctionTemplate::New(isolate, config));
-    prototmpl->Set(String::NewFromUtf8(isolate, "call"),
-                   FunctionTemplate::New(isolate, call));
-    prototmpl->Set(String::NewFromUtf8(isolate, "callJson"),
-                   FunctionTemplate::New(isolate, callJson));
+#define ADD_METHOD(name) JS::addMethod(isolate, prototmpl, #name, FunctionTemplate::New(isolate, name))
+    ADD_METHOD(status);
+    ADD_METHOD(details);
+    ADD_METHOD(id);
+    ADD_METHOD(type);
+    ADD_METHOD(config);
+    ADD_METHOD(call);
+    ADD_METHOD(callJson);
     
     return scope.Escape(fntmpl);
 }

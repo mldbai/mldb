@@ -23,6 +23,11 @@ struct MldbEngine;
 /*****************************************************************************/
 
 struct CellValueJS: public JsObjectBase {
+    CellValueJS(CellValue val)
+        : val(std::move(val))
+    {
+    }
+
     CellValue val;
 
     static v8::Handle<v8::Object>
@@ -45,6 +50,11 @@ struct CellValueJS: public JsObjectBase {
 /** Interface around an istream. */
 
 struct StreamJS: public JsObjectBase {
+
+    StreamJS(std::shared_ptr<std::istream> stream = nullptr)
+        : stream(std::move(stream))
+        {
+        }
 
     std::shared_ptr<std::istream> stream;
 
@@ -74,6 +84,11 @@ struct RandomNumberGenerator;
 
 struct RandomNumberGeneratorJS: public JsObjectBase {
 
+    RandomNumberGeneratorJS(std::shared_ptr<RandomNumberGenerator> randomNumberGenerator = nullptr)
+        : randomNumberGenerator(std::move(randomNumberGenerator))
+    {
+    }
+
     std::shared_ptr<RandomNumberGenerator> randomNumberGenerator;
 
     static v8::Handle<v8::Object>
@@ -97,6 +112,11 @@ struct RandomNumberGeneratorJS: public JsObjectBase {
 /*****************************************************************************/
 
 struct MldbJS: public JsObjectBase {
+
+    MldbJS(std::shared_ptr<MldbEngine> mldb)
+        : mldb(std::move(mldb))
+    {
+    }
 
     std::shared_ptr<MldbEngine> mldb;
 

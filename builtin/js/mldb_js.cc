@@ -47,14 +47,9 @@ struct CellValueJS::Methods {
 
 v8::Handle<v8::Object>
 CellValueJS::
-create(CellValue value, JsPluginContext * context)
+create(CellValue value, JsPluginContext * pluginContext)
 {
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    auto obj = context->CellValue.Get(isolate)->GetFunction()->NewInstance();
-    auto * wrapped = new CellValueJS();
-    wrapped->val = std::move(value);
-    wrapped->wrap(obj, context);
-    return obj;
+    return doCreateWrapper<CellValueJS>(std::move(value), pluginContext, pluginContext->CellValue);
 }
 
 CellValue &
@@ -393,14 +388,9 @@ struct StreamJS::Methods {
 
 v8::Handle<v8::Object>
 StreamJS::
-create(std::shared_ptr<std::istream> stream, JsPluginContext * context)
+create(std::shared_ptr<std::istream> stream, JsPluginContext * pluginContext)
 {
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    auto obj = context->Stream.Get(isolate)->GetFunction()->NewInstance();
-    auto * wrapped = new StreamJS();
-    wrapped->stream = stream;
-    wrapped->wrap(obj, context);
-    return obj;
+    return doCreateWrapper<StreamJS>(std::move(stream), pluginContext, pluginContext->Stream);
 }
 
 std::istream *
@@ -422,44 +412,25 @@ registerMe()
     EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("Stream");
-    auto objtmpl = fntmpl->InstanceTemplate();
+    auto prototmpl = fntmpl->PrototypeTemplate();
 
-    objtmpl->Set(String::NewFromUtf8(isolate, "readLine"),
-                 FunctionTemplate::New(isolate, Methods::readLine));
-
-    objtmpl->Set(String::NewFromUtf8(isolate, "readU8"),
-                 FunctionTemplate::New(isolate, Methods::readU8));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readI8"),
-                 FunctionTemplate::New(isolate, Methods::readI8));
-
-    objtmpl->Set(String::NewFromUtf8(isolate, "readU16LE"),
-                 FunctionTemplate::New(isolate, Methods::readU16LE));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readU16BE"),
-                 FunctionTemplate::New(isolate, Methods::readU16BE));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readI16LE"),
-                 FunctionTemplate::New(isolate, Methods::readI16LE));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readI16BE"),
-                 FunctionTemplate::New(isolate, Methods::readI16BE));
-
-    objtmpl->Set(String::NewFromUtf8(isolate, "readU32LE"),
-                 FunctionTemplate::New(isolate, Methods::readU32LE));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readU32BE"),
-                 FunctionTemplate::New(isolate, Methods::readU32BE));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readI32LE"),
-                 FunctionTemplate::New(isolate, Methods::readI32LE));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readI32BE"),
-                 FunctionTemplate::New(isolate, Methods::readI32BE));
-
-    objtmpl->Set(String::NewFromUtf8(isolate, "readBytes"),
-                 FunctionTemplate::New(isolate, Methods::readBytes));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readJson"),
-                 FunctionTemplate::New(isolate, Methods::readJson));
-    objtmpl->Set(String::NewFromUtf8(isolate, "readBlob"),
-                 FunctionTemplate::New(isolate, Methods::readBlob));
-
-    objtmpl->Set(String::NewFromUtf8(isolate, "eof"),
-                 FunctionTemplate::New(isolate, Methods::eof));
-        
+#define ADD_METHOD(name) JS::addMethod(isolate, prototmpl, #name, FunctionTemplate::New(isolate, Methods::name))
+    ADD_METHOD(readLine);
+    ADD_METHOD(readU8);
+    ADD_METHOD(readI8);
+    ADD_METHOD(readU16LE);
+    ADD_METHOD(readU16BE);
+    ADD_METHOD(readI16LE);
+    ADD_METHOD(readI16BE);
+    ADD_METHOD(readU32LE);
+    ADD_METHOD(readU32BE);
+    ADD_METHOD(readI32LE);
+    ADD_METHOD(readI32BE);
+    ADD_METHOD(readBytes);
+    ADD_METHOD(readJson);
+    ADD_METHOD(readBlob);
+    ADD_METHOD(eof);
+#undef ADD_METHOD
 
     return scope.Escape(fntmpl);
 }
@@ -550,15 +521,9 @@ struct RandomNumberGeneratorJS::Methods {
 v8::Handle<v8::Object>
 RandomNumberGeneratorJS::
 create(std::shared_ptr<RandomNumberGenerator> randomNumberGenerator,
-       JsPluginContext * context)
+       JsPluginContext * pluginContext)
 {
-    v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    auto obj = context->RandomNumberGenerator.Get(isolate)
-        ->GetFunction()->NewInstance();
-    auto * wrapped = new RandomNumberGeneratorJS();
-    wrapped->randomNumberGenerator = randomNumberGenerator;
-    wrapped->wrap(obj, context);
-    return obj;
+    return doCreateWrapper<RandomNumberGeneratorJS>(std::move(randomNumberGenerator), pluginContext, pluginContext->RandomNumberGenerator);
 }
 
 RandomNumberGenerator *
@@ -580,14 +545,13 @@ registerMe()
     EscapableHandleScope scope(isolate);
 
     auto fntmpl = CreateFunctionTemplate("RandomNumberGenerator");
-    auto objtmpl = fntmpl->InstanceTemplate();
+    auto prototmpl = fntmpl->PrototypeTemplate();
 
-    objtmpl->Set(String::NewFromUtf8(isolate, "seed"),
-                 FunctionTemplate::New(isolate, Methods::seed));
-    objtmpl->Set(String::NewFromUtf8(isolate, "normal"),
-                 FunctionTemplate::New(isolate, Methods::normal));
-    objtmpl->Set(String::NewFromUtf8(isolate, "uniform"),
-                 FunctionTemplate::New(isolate, Methods::uniform));
+#define ADD_METHOD(name) JS::addMethod(isolate, prototmpl, #name, FunctionTemplate::New(isolate, Methods::name))
+    ADD_METHOD(seed);
+    ADD_METHOD(normal);
+    ADD_METHOD(uniform);
+#undef ADD_METHOD
 
     return scope.Escape(fntmpl);
 }
@@ -629,12 +593,10 @@ struct MldbJS::Methods {
 
             auto objectIn = JS::toObject(args[0]);
 
-            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"),
-                          JS::toJS(configOut.id));
+            JS::set(isolate, objectIn, "id", JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
             if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"),
-                              JS::toJS(paramsOut));
+                JS::set(isolate, objectIn, "params", JS::toJS(paramsOut));
             }
 
             args.GetReturnValue().Set(DatasetJS::create(dataset, context));
@@ -660,10 +622,10 @@ struct MldbJS::Methods {
 
             auto objectIn = JS::toObject(args[0]);
 
-            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
+            JS::set(isolate, objectIn, "id", JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
             if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
+                JS::set(isolate, objectIn, "params", JS::toJS(paramsOut));
             }
 
             args.GetReturnValue().Set(FunctionJS::create(function, context));
@@ -689,10 +651,10 @@ struct MldbJS::Methods {
 
             auto objectIn = JS::toObject(args[0]);
 
-            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
+            JS::set(isolate, objectIn, "id", JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
             if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
+                JS::set(isolate, objectIn, "params", JS::toJS(paramsOut));
             }
 
             args.GetReturnValue().Set(SensorJS::create(sensor, context));
@@ -718,10 +680,10 @@ struct MldbJS::Methods {
 
             auto objectIn = JS::toObject(args[0]);
 
-            objectIn->Set(v8::String::NewFromUtf8(isolate, "id"), JS::toJS(configOut.id));
+            JS::set(isolate, objectIn, "id", JS::toJS(configOut.id));
             Json::Value paramsOut = jsonEncode(configOut.params);
             if (paramsOut != configJson["params"]) {
-                objectIn->Set(v8::String::NewFromUtf8(isolate, "params"), JS::toJS(paramsOut));
+                JS::set(isolate, objectIn, "params", JS::toJS(paramsOut));
             }
 
             args.GetReturnValue().Set(ProcedureJS::create(procedure, context));
@@ -770,21 +732,16 @@ struct MldbJS::Methods {
         connection->waitForResponse();
 
         v8::Handle<v8::Object> result(v8::Object::New(isolate));
-        result->Set(v8::String::NewFromUtf8(isolate, "responseCode"),
-                    JS::toJS(connection->responseCode()));
+        JS::set(isolate, result, "responseCode", JS::toJS(connection->responseCode()));
 
         if (!connection->contentType().empty())
-            result->Set(v8::String::NewFromUtf8(isolate, "contentType"),
-                        JS::toJS(connection->contentType()));
+            JS::set(isolate, result, "contentType", JS::toJS(connection->contentType()));
         if (!connection->headers().empty())
-            result->Set(v8::String::NewFromUtf8(isolate, "headers"),
-                        JS::toJS(connection->headers()));
+            JS::set(isolate, result, "headers", JS::toJS(connection->headers()));
         if (!connection->response().empty()) {
-            result->Set(v8::String::NewFromUtf8(isolate, "response"),
-                        JS::toJS(connection->response()));
+            JS::set(isolate, result, "response", JS::toJS(connection->response()));
             if (connection->contentType() == "application/json") {
-                result->Set(v8::String::NewFromUtf8(isolate, "json"),
-                            JS::toJS(Json::parse(connection->response())));
+                JS::set(isolate, result, "json", JS::toJS(Json::parse(connection->response())));
             }
         }
 
@@ -992,7 +949,9 @@ struct MldbJS::Methods {
                     printed = JS::utf8str(args[i]);
                 }
                 else if (args[i]->IsDate()) {
-                    printed = CellValue(Date::fromSecondsSinceEpoch(args[i]->NumberValue() * 0.001)).toUtf8String();
+                    auto isolate = context->isolate.isolate;
+                    auto jscontext = context->context.Get(isolate);
+                    printed = CellValue(Date::fromSecondsSinceEpoch(JS::check(args[i]->NumberValue(jscontext)) * 0.001)).toUtf8String();
                 }
                 else if (args[i]->IsObject()) {
                     Json::Value val = JS::fromJS(args[i]);
@@ -1140,7 +1099,7 @@ struct MldbJS::Methods {
     }
 
     static void
-    setPathOptimizationLevel(const v8::FunctionCallbackInfo<v8::Value> & args)
+    debugSetPathOptimizationLevel(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         using namespace v8;
         try {
@@ -1196,59 +1155,37 @@ registerMe()
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     EscapableHandleScope scope(isolate);
 
-    v8::Local<v8::ObjectTemplate> result(ObjectTemplate::New());
+    v8::Local<v8::ObjectTemplate> result(ObjectTemplate::New(isolate));
 
     result->SetInternalFieldCount(2);  // first is mldbEngine, second is plugin cxt
 
-    result->Set(String::NewFromUtf8(isolate, "log"), FunctionTemplate::New(isolate, Methods::log));
-    result->Set(String::NewFromUtf8(isolate, "openStream"),
-                FunctionTemplate::New(isolate, Methods::openStream));
-    result->Set(String::NewFromUtf8(isolate, "createDataset"),
-                FunctionTemplate::New(isolate, Methods::createDataset));
-    result->Set(String::NewFromUtf8(isolate, "createFunction"),
-                FunctionTemplate::New(isolate, Methods::createFunction));
-    result->Set(String::NewFromUtf8(isolate, "createSensor"),
-                FunctionTemplate::New(isolate, Methods::createSensor));
-    result->Set(String::NewFromUtf8(isolate, "createProcedure"),
-                FunctionTemplate::New(isolate, Methods::createProcedure));
-    result->Set(String::NewFromUtf8(isolate, "createInterval"),
-                FunctionTemplate::New(isolate, Methods::createInterval));
-    result->Set(String::NewFromUtf8(isolate, "createPath"),
-                FunctionTemplate::New(isolate, Methods::createPath));
-    result->Set(String::NewFromUtf8(isolate, "createRandomNumberGenerator"),
-                FunctionTemplate::New(isolate, Methods::createRandomNumberGenerator));
-    result->Set(String::NewFromUtf8(isolate, "perform"),
-                FunctionTemplate::New(isolate, Methods::perform));
-    result->Set(String::NewFromUtf8(isolate, "get"),
-                FunctionTemplate::New(isolate, Methods::get));
-    result->Set(String::NewFromUtf8(isolate, "put"),
-                FunctionTemplate::New(isolate, Methods::put));
-    result->Set(String::NewFromUtf8(isolate, "putAsync"),
-                FunctionTemplate::New(isolate, Methods::putAsync));
-    result->Set(String::NewFromUtf8(isolate, "post"),
-                FunctionTemplate::New(isolate, Methods::post));
-    result->Set(String::NewFromUtf8(isolate, "postAsync"),
-                FunctionTemplate::New(isolate, Methods::postAsync));
-    result->Set(String::NewFromUtf8(isolate, "del"),
-                FunctionTemplate::New(isolate, Methods::del));
-
-    result->Set(String::NewFromUtf8(isolate, "diff"),
-                FunctionTemplate::New(isolate, Methods::diff));
-    result->Set(String::NewFromUtf8(isolate, "patch"),
-                FunctionTemplate::New(isolate, Methods::patch));
-
-    result->Set(String::NewFromUtf8(isolate, "query"),
-                FunctionTemplate::New(isolate, Methods::query));
-    result->Set(String::NewFromUtf8(isolate, "sqlEscape"),
-                FunctionTemplate::New(isolate, Methods::sqlEscape));
-
-    result->Set(String::NewFromUtf8(isolate, "ls"),
-                FunctionTemplate::New(isolate, Methods::ls));
-    result->Set(String::NewFromUtf8(isolate, "getHttpBoundAddress"),
-                FunctionTemplate::New(isolate, Methods::getHttpBoundAddress));
-
-    result->Set(String::NewFromUtf8(isolate, "debugSetPathOptimizationLevel"),
-                FunctionTemplate::New(isolate, Methods::setPathOptimizationLevel));
+#define ADD_METHOD(name) JS::addMethod(isolate, result, #name, FunctionTemplate::New(isolate, Methods::name))
+    ADD_METHOD(log);
+    ADD_METHOD(openStream);
+    ADD_METHOD(createDataset);
+    ADD_METHOD(createFunction);
+    ADD_METHOD(createSensor);
+    ADD_METHOD(createProcedure);
+    ADD_METHOD(createInterval);
+    ADD_METHOD(createPath);
+    ADD_METHOD(createRandomNumberGenerator);
+    ADD_METHOD(perform);
+    ADD_METHOD(get);
+    ADD_METHOD(put);
+    ADD_METHOD(putAsync);
+    ADD_METHOD(post);
+    ADD_METHOD(postAsync);
+    ADD_METHOD(del);
+    ADD_METHOD(diff);
+    ADD_METHOD(patch);
+    ADD_METHOD(query);
+    ADD_METHOD(sqlEscape);
+    ADD_METHOD(patch);
+    ADD_METHOD(ls);
+    ADD_METHOD(getHttpBoundAddress);
+    ADD_METHOD(debugSetPathOptimizationLevel);
+#undef ADD_METHOD
+    
 
     return scope.Escape(result);
 }

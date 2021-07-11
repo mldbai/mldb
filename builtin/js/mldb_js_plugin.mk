@@ -1,8 +1,12 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-# Include the lsb-release file to know what version of v8 to link with
-include /etc/lsb-release
+USE_PLATFORM_V8 ?= 1
 
+ifeq ($(USE_PLATFORM_V8),1)
+
+V8_INCLUDE_PATH?=/usr/include/v8
+
+else
 V8_RELEASE_CODENAME?=$(if $(DISTRIB_CODENAME),$(DISTRIB_CODENAME),$(error No distribution codename found; does /etc/lsb-release exist and define DISTRIB_CODENAME?))
 
 V8_ARCH_x86_64:=x64
@@ -27,8 +31,32 @@ $(LIB)/snapshot_blob.bin: mldb/ext/v8-cross-build-output/$(V8_RELEASE_CODENAME)/
 endif
 
 LIB_v8_DEPS := $(LIB)/libv8$(so) $(LIB)/natives_blob.bin $(LIB)/snapshot_blob.bin
+V8_INCLUDE_PATH:=mldb/ext/v8-cross-build-output/include
 
-LIBJS_LINK := jsoncpp v8 arch utils types
+endif
+
+
+LIBJS_LINK := \
+	value_description \
+	v8 \
+	v8_libplatform \
+	arch \
+	utils \
+	types \
+	mldb_engine \
+	log \
+	any \
+	mldb_core \
+	rest \
+	rest_entity \
+	json_diff \
+	logging \
+	vfs \
+	base \
+	mldb_core \
+	mldb_builtin_base \
+	sql_types \
+	http
 
 # JS plugin loader
 
@@ -44,6 +72,6 @@ JS_PLUGIN_SOURCE := \
 	mldb_js.cc \
 	sensor_js.cc \
 
-$(eval $(call set_compile_option,$(JS_PLUGIN_SOURCE),-Imldb/ext/v8-cross-build-output/include))
+$(eval $(call set_compile_option,$(JS_PLUGIN_SOURCE),-I$(V8_INCLUDE_PATH) $(V8_INCLUDE_FLAGS)))
 
 $(eval $(call library,mldb_js_plugin,$(JS_PLUGIN_SOURCE),value_description $(LIBJS_LINK) sql_expression))
