@@ -232,8 +232,8 @@ int64_t check_to_int2(const JSValue & val)
 
     if (ival != 0 && ival == dval) return ival;
 
-    if (dval > std::numeric_limits<uint64_t>::max()
-        || dval < std::numeric_limits<uint64_t>::min())
+    if (check(dval) > (double)std::numeric_limits<uint64_t>::max()
+        || check(dval) < (double)std::numeric_limits<uint64_t>::min())
         throw MLDB::Exception("Cannot fit " + cstr(val) + " into an integer");
         
     v8::Local<v8::Number> num;

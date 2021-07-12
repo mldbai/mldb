@@ -789,7 +789,7 @@ Value::asInt() const
       JSON_ASSERT_MESSAGE( value_.uint_ < (unsigned)maxInt, "integer out of signed integer range" );
       return value_.uint_;
    case realValue:
-      JSON_ASSERT_MESSAGE( value_.real_ >= minInt  &&  value_.real_ <= maxInt, "Real out of signed integer range" );
+     JSON_ASSERT_MESSAGE( value_.real_ >= (double)minInt  &&  value_.real_ <= (double)maxInt, "Real out of signed integer range" );
       return Int( value_.real_ );
    case booleanValue:
       return value_.bool_ ? 1 : 0;
@@ -816,7 +816,7 @@ Value::asUInt() const
    case uintValue:
       return value_.uint_;
    case realValue:
-      JSON_ASSERT_MESSAGE( value_.real_ >= 0  &&  value_.real_ <= maxUInt,  "Real out of unsigned integer range" );
+     JSON_ASSERT_MESSAGE( value_.real_ >= 0  &&  value_.real_ <= (double)maxUInt,  "Real out of unsigned integer range" );
       return UInt( value_.real_ );
    case booleanValue:
       return value_.bool_ ? 1 : 0;
@@ -905,8 +905,8 @@ Value::isConvertibleTo( ValueType other ) const
              || other == booleanValue;
    case realValue:
       return ( other == nullValue  &&  value_.real_ == 0.0 )
-             || ( other == intValue  &&  value_.real_ >= minInt  &&  value_.real_ <= maxInt )
-             || ( other == uintValue  &&  value_.real_ >= 0  &&  value_.real_ <= maxUInt )
+	|| ( other == intValue  &&  value_.real_ >= (double)minInt  &&  value_.real_ <= (double)maxInt )
+	|| ( other == uintValue  &&  value_.real_ >= 0  &&  value_.real_ <= (double)maxUInt )
              || other == realValue
              || other == stringValue
              || other == booleanValue;
