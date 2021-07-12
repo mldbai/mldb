@@ -14,7 +14,7 @@ Copyright (c) 2013 mldb.ai inc. All rights reserved.
 #include <boost/test/unit_test.hpp>
 #include <boost/static_assert.hpp>
 
-#include <boost/test/floating_point_comparison.hpp>
+#include <boost/test/tools/floating_point_comparison.hpp>
 #include <boost/version.hpp>
 #if (BOOST_VERSION < 106500)
 using boost::test_toolbox::close_at_tolerance;

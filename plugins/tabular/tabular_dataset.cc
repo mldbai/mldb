@@ -189,7 +189,7 @@ struct PathIndexShard: public PathIndexMetadata {
         // Expansion factor to turn a hash value into a position in the
         // bucket.  This is done linearly so that we access memory
         // sequentially.
-        factor = 2.0 * input.size() / std::numeric_limits<uint64_t>::max();
+        factor = 2.0 * input.size() / (double)std::numeric_limits<uint64_t>::max();
 
         auto setEntry = [&] (size_t bucket, int chunkNumber, int indexInChunk)
             {

@@ -11,7 +11,7 @@
 #ifndef __jml__neural__testing__bprop_test_h__
 #define __jml__neural__testing__bprop_test_h__
 
-#include <boost/test/floating_point_comparison.hpp>
+#include <boost/test/tools/floating_point_comparison.hpp>
 #include "mldb/plugins/jml/neural/reverse_layer_adaptor.h"
 #include "mldb/plugins/jml/neural/reconstruct_layer_adaptor.h"
 

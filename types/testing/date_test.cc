@@ -580,12 +580,12 @@ BOOST_AUTO_TEST_CASE( test_date_iostream_print )
                       "-Inf");
     BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::notADate()),
                       "NaD");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((uint64_t)-1)),
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)(uint64_t)-1)),
                       "Inf");
 
     BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(9.22337e+18)), "Inf");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(std::numeric_limits<int64_t>::min())), "-Inf");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(9223372036854775807ULL)), "Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)std::numeric_limits<int64_t>::min())), "-Inf");
+    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)9223372036854775807ULL)), "Inf");
     
     BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(-9.22337e+18)), "-Inf");
 }
@@ -623,7 +623,7 @@ BOOST_AUTO_TEST_CASE( test_cast_to_int_same_as_quantize_to_second )
         cast_vs_quantize(123213.234);
         cast_vs_quantize(5234.4999);
         cast_vs_quantize(0.0234);
-        cast_vs_quantize(ULLONG_MAX);
+        cast_vs_quantize(ULLONG_MAX-2047);  // anything higher has undefined behavior due to limited range of uint64_t and precision of double
         // anything equal or more than 0.5 will fail because of rounding in Date::quantize MLDBFB-255
         // cast_vs_quantize(4521.5000001);
 
