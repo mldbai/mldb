@@ -1855,7 +1855,7 @@ serialize(char * start, size_t bytesAvailable,
         }
         else if (strFlags == 1) {
             // Simple encoding where we don't escape anything
-            if (len == 0 || len == 1 && stringChars()[0] == '\0') {
+            if (len == 0 || (len == 1 && stringChars()[0] == '\0')) {
                 *start++ = CVT_SIMPLE_PATH;
                 len = 0;
             }
