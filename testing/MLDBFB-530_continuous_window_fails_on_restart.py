@@ -21,14 +21,14 @@ class ContinuousWindowDsIssueTest(MldbUnitTest):  # noqa
         """
 
         save_storage_js = """
-        var uri = "file://tmp/MLDB-530-" + new Date().toISOString() + ".beh";
+        var uri = "file://tmp/MLDBFB-530-" + new Date().toISOString() + ".beh";
         var addr = "/v1/datasets/" + args.datasetId;
         var res = mldb.post(addr + "/routes/saves", { dataFileUrl: uri });
         var output = { metadata: mldb.get(addr).json.status, config: res.json};
         output;
         """
 
-        filename = 'tmp/MLDB-530-metadata.sqlite'
+        filename = 'tmp/MLDBFB-530-metadata.sqlite'
         try:
             os.mkdir('tmp')
         except OSError:
@@ -105,7 +105,7 @@ class ContinuousWindowDsIssueTest(MldbUnitTest):  # noqa
                     }
                 },
                 'from' : '1980-01-01T00:00:00Z',
-                'to' : '2020-01-01T00:00:00Z'
+                'to' : '3020-01-01T00:00:00Z'
             }
         })
 

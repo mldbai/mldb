@@ -7,7 +7,12 @@ function callAndAssert(func, expected, message)
 {
     var resp = mldb.get('/v1/query', {q:"SELECT " + func});
     unittest.assertEqual(resp.responseCode, 200, "GET /v1/query failed");
-    unittest.assertEqual(resp.json[0].columns[0][1], expected, func + "   " +  message);
+    if (expected instanceof Set) {
+        unittest.assertInSet(resp.json[0].columns[0][1], expected, func + "   " +  message);
+    }
+    else {
+        unittest.assertEqual(resp.json[0].columns[0][1], expected, func + "   " +  message);
+    }
 }
 
 function assertError(select, code, error) {
@@ -57,19 +62,19 @@ callAndAssert("floor(12.4343454)", 12, "failed on 12.4343454");
 callAndAssert("floor(-12.4343454)", -13, "failed on -12.4343454");
 
 /* logarithms */
-callAndAssert("ln(-1)", {"num":"NaN"}, "failed on positive number");
+callAndAssert("ln(-1)", new Set([{"num":"NaN"},{"num":"-NaN"}]), "failed on positive number");
 callAndAssert("ln(0)", {"num":"-Inf"}, "failed on positive number");
 callAndAssert("ln(1)", 0, "failed on positive number");
 callAndAssert("ln(2)", 0.6931471805599453094172 , "failed on 12.4343454"); 
 callAndAssert("ln(NULL)", null, "failed on null"); 
 
-callAndAssert("log(-1)", {"num":"NaN"}, "log(b,x) failed");
+callAndAssert("log(-1)", new Set([{"num":"NaN"},{"num":"-NaN"}]), "log(b,x) failed");
 callAndAssert("log(0)", {"num":"-Inf"}, "log(b,0) failed");
 callAndAssert("log(1)", 0, "log(1) failed");
 callAndAssert("log(1000)", 3, "log(1000) failed");
 callAndAssert("log(NULL)", null, "failed on null"); 
 
-callAndAssert("log(2, -1)", {"num":"NaN"}, "log(b,x) failed");
+callAndAssert("log(2, -1)", new Set([{"num":"NaN"},{"num":"-NaN"}]), "log(b,x) failed");
 callAndAssert("log(2, 0)", {"num":"-Inf"}, "log(b,0) failed");
 callAndAssert("log(2, 1)", 0, "log(b,1) failed");
 callAndAssert("log(2, 16)", 4, "log(b,16) failed");
