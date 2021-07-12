@@ -131,6 +131,9 @@ endif
 ifeq ($(toolchain),gcc9)
 S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs -Wno-attributes -Wno-comment -Wno-bool-compare -Wno-return-type -Wno-class-memaccess
 endif
+ifeq ($(toolchain),gcc10)
+S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs -Wno-attributes -Wno-comment -Wno-bool-compare -Wno-return-type -Wno-class-memaccess
+endif
 ifeq ($(toolchain),clang)
 S2_WARNING_OPTIONS:=-Wno-parentheses -Wno-absolute-value -Wno-unused-local-typedef -Wno-unused-const-variable -Wno-format -Wno-dynamic-class-memaccess -Wno-unused-private-field
 endif
