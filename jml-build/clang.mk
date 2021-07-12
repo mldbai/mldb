@@ -1,7 +1,9 @@
 # Note: clang 3.6 won't compile MLDB if GCC6 is installed
 
-CLANGXX?=clang++
-CLANG?=clang
+find_command=$(foreach command,$(firstword $(1)),$(if $(shell which $(command)),$(command),$(call find_command,$(wordlist 2,10000,$(1)))))
+
+CLANGXX?=$(call find_command,clang++ clang++-13 clang++-12 clang++-11 clang++-10 clang++-9 clang++-8)
+CLANG?=$(call find_command,clang clang-13 clang-12 clang-11 clang-10 clang-9 clang-8)
 
 CLANG_VERSION:=$(shell $(CLANGXX) --version | head -n1 | awk '{ print $4; }' | sed 's/-*//g')
 CXX_VERSION?=$(CLANG_VERSION)
