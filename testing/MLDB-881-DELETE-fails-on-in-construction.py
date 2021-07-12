@@ -11,7 +11,7 @@ from mldb import mldb, ResponseException
 resp = mldb.put_async("/v1/datasets/dummy2", {
     'type' : 'import.text',
     'params' : {
-        'dataFileUrl': 'http://public.mldb.ai/reddit.csv.gz'
+        'dataFileUrl': 'file://mldb/mldb_test_data/reddit.csv.zst'
     }
 })
 assert resp.json()['state'] == 'initializing', \

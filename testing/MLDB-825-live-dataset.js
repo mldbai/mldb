@@ -78,8 +78,8 @@ var dataset = mldb.createDataset(datasetConfig);
 
 var now = new Date("2015-01-01");
 
-var dataset_address = 'https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz'
-//var dataset_address = 'file://reddit_user_posting_behavior.csv';
+//var dataset_address = 'https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz'
+var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.zst';
 var start = new Date();
 
 var stream = mldb.openStream(dataset_address);

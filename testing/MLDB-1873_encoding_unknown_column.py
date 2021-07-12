@@ -13,7 +13,7 @@ class MLDB1873EncodingUnknownColumn(MldbUnitTest):  # noqa
         mldb.post('/v1/procedures', {
             'type': 'import.text',
             'params': {
-                'dataFileUrl': 'http://public.mldb.ai/datasets/enron.csv.gz',
+                'dataFileUrl': 'file://mldb/mldb_test_data/emails.csv.zstd',
                 'outputDataset': 'enron_data',
                 'named': "'enron_' + dataset + '_mail_' + index",
                 'where': 'dataset = 1'

@@ -436,7 +436,7 @@ function getCountWithOffsetLimit2(dataset, offset, limit) {
     var config = {
         type: "import.text",
         params: {
-            dataFileUrl : "http://public.mldb.ai/tweets.gz",
+            dataFileUrl : "file://mldb/mldb_test_data/tweets.gz",
             outputDataset: {
                 id: dataset,
             },

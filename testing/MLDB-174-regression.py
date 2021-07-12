@@ -53,7 +53,7 @@ class Mldb174Test(MldbUnitTest):
         rez = mldb.put('/v1/procedures/wine_red', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://public.mldb.ai/datasets/wine_quality/winequality-red.csv",
+                "dataFileUrl": "file://mldb/mldb_test_data/winequality-red.csv",
                 "delimiter": ";",
                 "runOnCreation": True,
                 "outputDataset": {
@@ -65,7 +65,7 @@ class Mldb174Test(MldbUnitTest):
         rez = mldb.put('/v1/procedures/wine_white', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://public.mldb.ai/datasets/wine_quality/winequality-white.csv",
+                "dataFileUrl": "file://mldb/mldb_test_data/winequality-white.csv",
                 "delimiter": ";",
                 "runOnCreation": True,
                 "outputDataset": {

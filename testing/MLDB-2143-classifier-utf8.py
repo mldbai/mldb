@@ -21,7 +21,7 @@ class MLDB2134classiferUtf8Test(MldbUnitTest):  # noqa
         mldb.put('/v1/procedures/import_iris', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "http://public.mldb.ai/iris.data",
+                "dataFileUrl": "file://mldb/mldb_test_data/iris.data",
                 "headers": [ "sepal length", "sepal width", "petal length", "petal width", "class" ],
                 "outputDataset": "iris",
                 "runOnCreation": True

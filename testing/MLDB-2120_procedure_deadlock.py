@@ -41,7 +41,7 @@ class Mldb2120ProcedureDeadlock(MldbUnitTest):  # noqa
 
         # prepare inception, a function slow enough to trigger the issue
         INCEPTION_URL = \
-            "https://public.mldb.ai/models/inception_dec_2015.zip"
+            "file://mldb/mldb_test_data/models/inception_dec_2015.zip"
 
         mldb.put('/v1/functions/inceptionJpeg', {
             "type": 'tensorflow.graph',

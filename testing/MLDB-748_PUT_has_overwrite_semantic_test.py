@@ -18,7 +18,7 @@ def test_overwrite():
     resp = mldb.perform("PUT", "/v1/datasets/dummy2", [], {
         'type' : 'text.line',
         'params' : {
-            'dataFileUrl': 'https://public.mldb.ai/reddit.csv.gz'
+            'dataFileUrl': 'file://mldb/mldb_test_data/reddit.csv.zst'
         }
     },  [['async','true']])
     # resource should be under construction
