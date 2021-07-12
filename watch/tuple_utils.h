@@ -92,7 +92,7 @@ std::tuple<Args...> detuplize(const std::tuple<Args...> & res)
 template<typename... Args>
 std::tuple<Args...> detuplize(std::tuple<Args...> && res)
 {
-    return res;
+    return std::move(res);
 }
 
 } // namespace MLDB
