@@ -11,7 +11,7 @@ from mldb import mldb, MldbUnitTest, ResponseException
 class Mldb1694(MldbUnitTest):  
     @classmethod
     def setUpClass(self):
-        inceptionUrl = 'http://public.mldb.ai/models/inception_dec_2015.zip'
+        inceptionUrl = 'file://mldb/mldb_test_data/models/inception_dec_2015.zip'
 
         mldb.put('/v1/functions/fetch', {
             "type": 'fetcher',
@@ -29,7 +29,7 @@ class Mldb1694(MldbUnitTest):
 
         mldb.log("pwet!")
 
-        self.amazingGrace = "https://public.mldb.ai/datasets/tensorflow-demo/grace_hopper.jpg"
+        self.amazingGrace = "file://mldb/mldb_test_data/grace_hopper.jpg"
  
     def test_prediction_works(self):
         self.assertTableResultEquals(

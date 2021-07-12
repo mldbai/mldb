@@ -13,7 +13,7 @@ class Mldb1507Test(MldbUnitTest):  # noqa
         mldb.put('/v1/procedures/import_titanic', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "http://public.mldb.ai/titanic_train.csv",
+                "dataFileUrl": "file://mldb/mldb_test_data/titanic_train.csv",
                 "outputDataset": {"id":"titanic_tabular", "type":"tabular"},
                 "runOnCreation": True
             }
@@ -22,7 +22,7 @@ class Mldb1507Test(MldbUnitTest):  # noqa
         mldb.put('/v1/procedures/import_titanic', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "http://public.mldb.ai/titanic_train.csv",
+                "dataFileUrl": "file://mldb/mldb_test_data/titanic_train.csv",
                 "outputDataset": {"id":"titanic_sparse", "type":"sparse.mutable"},
                 "runOnCreation": True
             }

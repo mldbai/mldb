@@ -9,7 +9,7 @@ var unittest = require('mldb/unittest')
 var config = {
     type: "import.text",
     params: {
-        dataFileUrl : "http://public.mldb.ai/tweets.gz",
+        dataFileUrl : "file://mldb/mldb_test_data/tweets.gz",
         outputDataset: {
             id: "tweets",
         },
@@ -48,7 +48,7 @@ mldb.del('/v1/procedures/csv_proc');
 var config = {
     type: "import.text",
     params: {
-        dataFileUrl : "http://public.mldb.ai/tweets.gz",
+        dataFileUrl : "file://mldb/mldb_test_data/tweets.gz",
         outputDataset: {
             id: "tweets",
         },
@@ -88,7 +88,7 @@ mldb.del('/v1/procedures/csv_proc');
 var config = {
     type: "import.text",
     params: {
-        dataFileUrl : "http://public.mldb.ai/tweets.gz",
+        dataFileUrl : "file://mldb/mldb_test_data/tweets.gz",
         outputDataset: {
             id: "tweets",
         },
@@ -128,7 +128,7 @@ mldb.del('/v1/procedures/csv_proc');
 var config = {
     type: "import.text",
     params: {
-        dataFileUrl : "http://public.mldb.ai/tweets.gz",
+        dataFileUrl : "file://mldb/mldb_test_data/tweets.gz",
         outputDataset: {
             id: "tweets",
         },

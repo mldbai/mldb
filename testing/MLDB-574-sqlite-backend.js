@@ -19,8 +19,8 @@ function createDataset()
 
     //return dataset;
 
-    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz'
-    //var dataset_address = 'file://reddit_user_posting_behavior.csv';
+    var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.zst'
+    //var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.zst';
     var now = new Date("2015-01-01");
 
     var stream = mldb.openStream(dataset_address);

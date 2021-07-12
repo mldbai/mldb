@@ -13,7 +13,7 @@ class RedditTest(MldbUnitTest):
         mldb.put('/v1/procedures/import_reddit', { 
             "type": "import.text",  
             "params": { 
-                "dataFileUrl": "http://public.mldb.ai/reddit.csv.gz",
+                "dataFileUrl": "file://mldb/mldb_test_data/reddit.csv.zst",
                 'delimiter':'', 
                 'quoteChar':'',
                 'outputDataset': 'reddit_raw',

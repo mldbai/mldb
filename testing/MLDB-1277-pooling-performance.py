@@ -15,7 +15,7 @@ class PoolingPerformanceTest(unittest.TestCase):
         res = mldb.put('/v1/procedures/import_reddit', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://public.mldb.ai/reddit.csv.gz",
+                "dataFileUrl": "file://mldb/mldb_test_data/reddit.csv.zst",
                 "delimiter": "",
                 "quoteChar": "",
                 'outputDataset': {'id': 'reddit_raw', 'type': 'sparse.mutable'},
@@ -26,7 +26,7 @@ class PoolingPerformanceTest(unittest.TestCase):
         res = mldb.put('/v1/procedures/import_reddit', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://public.mldb.ai/reddit_embedding.csv.gz",
+                "dataFileUrl": "file://mldb/mldb_test_data/reddit_embedding.csv.gz",
                 "delimiter": ",",
                 "quoteChar": "",
                 'outputDataset': {'id': 'reddit_svd_embedding', 'type': 'tabular'},

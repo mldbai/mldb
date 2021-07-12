@@ -14,7 +14,8 @@ function createDataset()
     var dataset = mldb.createDataset(dataset_config)
     plugin.log("Reddit data loader created dataset")
 
-    var dataset_address = 'https://public.mldb.ai/reddit.csv.gz'
+    //var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.zst'
+    var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.zst';
     var now = new Date();
 
     var stream = mldb.openStream(dataset_address);
@@ -72,6 +73,6 @@ try {
 }
 */
 
-plugin.log(mldb.get("/v1/datasets/reddit_dataset/query", {limit:10}));
+plugin.log(mldb.get("/v1/query", {q:'select * from reddit_dataset limit 10'}));
 
 "success"

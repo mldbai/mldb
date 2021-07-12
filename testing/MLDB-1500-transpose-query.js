@@ -38,7 +38,7 @@ function createDataset()
     var datasetConfig = {
         type: 'import.text',
         params: {
-            dataFileUrl: 'http://public.mldb.ai/reddit.csv.gz',
+            dataFileUrl: 'file://mldb/mldb_test_data/reddit.csv.zst',
             outputDataset: { id: 'reddit_text_file' },
             limit: 1000,
             delimiter: "",

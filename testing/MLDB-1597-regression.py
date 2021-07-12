@@ -13,7 +13,7 @@ class Mldb1597Test(MldbUnitTest):
         mldb.post("/v1/procedures", {
             "type": "import.text",
             "params":{
-                "dataFileUrl": "http://public.mldb.ai/regression_test.csv.gz",
+                "dataFileUrl": "file://mldb/mldb_test_data/regression_test.csv.gz",
                 "select": """
                     'd'+date_part('dow', timestamp(jseval('return new Date(d);', 'd', day))) as dow,
                     a_int,
@@ -235,7 +235,7 @@ class Mldb1597Test(MldbUnitTest):
         mldb.post("/v1/procedures", {
             "type": "import.text",
             "params":{
-                "dataFileUrl": "http://public.mldb.ai/narrow_test.csv.gz",
+                "dataFileUrl": "file://mldb/mldb_test_data/narrow_test.csv.gz",
                 "outputDataset": "narrow",
                 "runOnCreation": True
             }

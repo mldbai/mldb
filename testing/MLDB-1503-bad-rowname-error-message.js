@@ -6,7 +6,7 @@ var unittest = require('mldb/unittest')
 var importConfig = {
     type: 'import.text',
     params: {
-        dataFileUrl: 'https://public.mldb.ai/reddit.csv.gz',
+        dataFileUrl: 'file://mldb/mldb_test_data/reddit.csv.zst',
         named: "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)",
         outputDataset: { id: 'reddit_text_file' },
         limit: 1000,

@@ -25,13 +25,13 @@ while (!stream.eof()) {
 mldb.log(numLines, " lines");
 unittest.assertEqual(numLines, 823);
 
-var dir = mldb.ls("archive+http://public.mldb.ai/ml-20m.zip");
+var dir = mldb.ls("archive+file://mldb/mldb_test_data/ml-20m.zip");
 mldb.log(dir);
 
 csv_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "archive+http://public.mldb.ai/ml-20m.zip#ml-20m/links.csv",
+        dataFileUrl : "archive+file://mldb/mldb_test_data/ml-20m.zip#ml-20m/links.csv",
         outputDataset: {
             id: "csv",
         },

@@ -13,7 +13,7 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
         mldb.post("/v1/procedures", {
             "type": "import.json",
             "params": {
-                "dataFileUrl": "https://s3.amazonaws.com/public-mldb-ai/datasets/mtl_open_data/quartierssociologiques2014-1qpl.json.gz",
+                "dataFileUrl": "file://mldb/mldb_test_data/quartierssociologiques2014.json.gz",
                 "outputDataset": {
                     "id": "quartiers",
                     "type": "structured.mutable"
@@ -25,7 +25,7 @@ class MLDB2025StContains(MldbUnitTest):  # noqa
         mldb.post("/v1/procedures", {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://s3.amazonaws.com/public-mldb-ai/datasets/mtl_open_data/interventionscitoyendo.csv.gz",
+                "dataFileUrl": "file://interventionscitoyendo.csv.gz",
                 "outputDataset": "interventions",
                 "limit" : 1000 # this is for the sake of keeping the unit tests short enough. Remove to test performance.
             }
