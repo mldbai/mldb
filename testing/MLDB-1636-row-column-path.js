@@ -29,7 +29,7 @@ mldb.log(resp);
 unittest.assertEqual(resp.length, 5);
 
 
-var resp = mldb.query('select rowPath(), rowPathElement(2) from test limit 1');
+var resp = mldb.query('select rowPath(), rowPathElement(2) from test order by rowPath() desc limit 1');
 mldb.log(resp);
 
 var expected = [

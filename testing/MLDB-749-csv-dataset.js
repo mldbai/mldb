@@ -130,16 +130,19 @@ mldb.log(res);
 csv_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "http://www.maxmind.com/download/worldcities/worldcitiespop.txt.gz",
+        dataFileUrl : "file://mldb/mldb_test_data/worldcitiespop.txt.gz",
         outputDataset: {
             id: "cities",
         },
         runOnCreation: true,
-        encoding: 'latin1'
+        encoding: 'latin1',
+	timestamp: "TIMESTAMP '2012-05-03T03:14:46Z'"
     }
 }
 
 var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
+
+mldb.log("cities import: ", res);
 
 var res = mldb.get("/v1/query", { q: 'select * from cities limit 10', format: 'table' });
 
