@@ -11,5 +11,7 @@
 
 all: test programs libraries compile tests
 
-.PHONY: all test programs libraries compile tests
+failed_tests: $(patsubst %.failed,%.passed,$(wildcard $(TESTS)/*.failed))
+
+.PHONY: all test programs libraries compile tests failed_tests
 
