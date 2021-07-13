@@ -6,7 +6,7 @@ from mldb import mldb
 result = mldb.perform("PUT", "/v1/datasets/rcp", [], {
     'type' : 'beh',
     'params' : {
-        'dataFileUrl': 'https://s3.amazonaws.com/public-mldb-ai/rcp.beh'
+        'dataFileUrl': 'file://mldb/mldb_test_data/rcp.beh'
     }
 })
 assert result["statusCode"] < 400, result["response"]

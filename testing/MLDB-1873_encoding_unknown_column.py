@@ -13,7 +13,7 @@ class MLDB1873EncodingUnknownColumn(MldbUnitTest):  # noqa
         mldb.post('/v1/procedures', {
             'type': 'import.text',
             'params': {
-                'dataFileUrl': 'file://mldb/mldb_test_data/emails.csv.zstd',
+                'dataFileUrl': 'file://mldb/mldb_test_data/enron.csv.gz',
                 'outputDataset': 'enron_data',
                 'named': "'enron_' + dataset + '_mail_' + index",
                 'where': 'dataset = 1'
@@ -51,7 +51,7 @@ class MLDB1873EncodingUnknownColumn(MldbUnitTest):  # noqa
                         {* excluding(message_is_spam)} as features, 
                         message_is_spam as label 
                     from enron_features''',
-                'modelFileUrlPattern': 'file://enron_model_$runid.cls',
+                'modelFileUrlPattern': 'file://tmp/MLDB-1873_enron_model_$runid.cls',
                 'configurationFile': 'file://mldb/container_files/classifiers.json',
                 'algorithm': 'dt'
             }

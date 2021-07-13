@@ -42,7 +42,8 @@ function createDataset()
             outputDataset: { id: 'reddit_text_file' },
             limit: 1000,
             delimiter: "",
-            quoteChar: ""
+            quoteChar: "",
+	    timestamp: "TIMESTAMP '2016-08-09T16:46:52Z'"
         }
     };
 

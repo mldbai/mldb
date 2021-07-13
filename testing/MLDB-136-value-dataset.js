@@ -15,7 +15,7 @@ function createDataset()
     plugin.log("Reddit data loader created dataset")
 
     //var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.zst'
-    var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.zst';
+    var dataset_address = 'file://mldb/mldb_test_data/reddit.csv.gz';
     var now = new Date();
 
     var stream = mldb.openStream(dataset_address);

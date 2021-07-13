@@ -7,7 +7,7 @@ var datasetConfig = {
     type: "beh",
     id: "recipes",
     params: {
-        dataFileUrl: "https://s3.amazonaws.com/public-mldb-ai/rcp.beh"
+        dataFileUrl: "file://mldb/mldb_test_data/rcp.beh"
     }
 };
 
