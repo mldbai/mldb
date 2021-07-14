@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
 
     auto checkRow = [&] (const std::string & select, const std::string & where ,const std::string & answer)
         {
-            std::string query = "/v1/query?q=select "+select + " from test1 where " + where;
+            std::string query = "/v1/query?q=select%20"+select + "%20from%20test1%20where%20" + where;
             auto selectResult = proxy.get(query);
 
             BOOST_CHECK_EQUAL(selectResult.code(), 200);

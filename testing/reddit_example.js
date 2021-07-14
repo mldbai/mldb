@@ -88,7 +88,7 @@ if (trainKmeans) {
         }
     };
 
-    plugin.log(mldb.get("/v1/datasets/svd_embedding/query", {limit:10}));
+    plugin.log(mldb.query("select * from svd_embedding limit 10"));
 
     var kmeansOutput = mldb.put("/v1/procedures/reddit_kmeans", kmeansConfig);
 
@@ -146,8 +146,7 @@ var mergedDataset = mldb.createDataset(mergedConfig);
 
 plugin.log(mldb.get("/v1/datasets/reddit_embeddings"));
 
-plugin.log(mldb.get("/v1/datasets/reddit_embeddings/query",
-                    {select:"*",limit:10}));
+plugin.log(mldb.query("select * from reddit_embeddings limit 10"));
 
 // The output of the last line of the script is returned as the result of the script,
 // just like in Javscript eval
