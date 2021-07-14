@@ -71,7 +71,8 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     // 3.  Get some coordinates out of a merged dataset, and check that they are all
     //     there
 
-    auto getResult = proxy.get("/v1/query?q=select rowName(),embedding.\"0\",embedding.\"1\",cluster,x,y from reddit_embeddings limit 100").jsonBody();
+    auto getResultRaw = proxy.get("/v1/query?q=select%20rowName(),embedding.\"0\",embedding.\"1\",cluster,x,y%20from%20reddit_embeddings%20limit%20100");
+    auto getResult = getResultRaw.jsonBody();
 
     BOOST_CHECK_EQUAL(getResult.size(), 100);
 

@@ -186,7 +186,7 @@ BOOST_AUTO_TEST_CASE( test_fetcher_error )
     auto res = proxy.post("/v1/procedures", data);
     BOOST_REQUIRE_EQUAL(res.code(), 201);
 
-    res = proxy.get("/v1/query?q=SELECT * FROM " + dsId);
+    res = proxy.get("/v1/query?q=SELECT%20*%20FROM%20" + dsId);
     BOOST_REQUIRE_EQUAL(res.code(), 200);
     auto body = res.jsonBody();
     BOOST_REQUIRE_EQUAL(body.size(), 1);
