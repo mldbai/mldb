@@ -41,7 +41,7 @@ struct TestServer {
     TestServer() {
 
         // Find free port
-        int freePort = 0;
+        int freePort = 15385;
         {
             struct sockaddr_in addr;
             addr.sin_family = AF_INET;
