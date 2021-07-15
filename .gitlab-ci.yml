@@ -1,35 +1,36 @@
-# This file is a template, and might need editing before it works on your project.
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/C++.gitlab-ci.yml
-
-# use the official gcc image, based on debian
-# can use verions as well, like gcc:5.2
-# see https://hub.docker.com/_/gcc/
-
-image: ubuntu:20.04
+image: registry.gitlab.com/mldbai/mldb/mldb_build_env_ubuntu:20.04
 
 build:
   stage: build
-  # instead of calling g++ directly you can also use some build toolkit like make
-  # install the necessary build tools when needed
   before_script:
-     - apt update && DEBIAN_FRONTEND=noninteractive apt -y install make time lsb-release git autoconf build-essential libblas-dev libboost-all-dev libcap-dev libcrypto++-dev libcurl4-openssl-dev libffi-dev libmagic-dev libfreetype6-dev liblapack-dev liblzma-dev libpng-dev libpq-dev libpython3-dev libsasl2-dev libssh2-1-dev libtool libyaml-cpp-dev python3-virtualenv python3-pip unzip valgrind uuid-dev libxml++2.6-dev libsnappy-dev libssl-dev libbz2-dev libavutil-dev libavcodec-dev libavformat-dev libavdevice-dev 
+#     - apt update && DEBIAN_FRONTEND=noninteractive apt -y install make time lsb-release git autoconf build-essential libblas-dev libboost-all-dev libcap-dev libcrypto++-dev libcurl4-openssl-dev libffi-dev libmagic-dev libfreetype6-dev liblapack-dev liblzma-dev libpng-dev libpq-dev libpython3-dev libsasl2-dev libssh2-1-dev libtool libyaml-cpp-dev python3-virtualenv python3-pip unzip valgrind uuid-dev libxml++2.6-dev libsnappy-dev libssl-dev libbz2-dev libavutil-dev libavcodec-dev libavformat-dev libavdevice-dev libv8-dev locales
+#     - locale-gen en_US en_US.UTF-8
+     - locale -a
+     - locale
+     - apt update && apt -y install wget
+     - wget -qO - https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-x86_64-linux.gz | gzip -d > sccache
+     - chmod +x ./sccache
   script:
-    - git submodule update --init
+    - git submodule update --init --jobs=8
+    - declare -x SCCACHE_BUCKET=mldb-sccache-a3f9b3
+    - declare -x AWS_ACCESS_KEY_ID="$SCCACHE_AWS_AKID"
+    - declare -x AWS_SECRET_ACCESS_KEY="$SCCACHE_AWS_SECRET"
+    - declare -x SCCACHE_S3_USE_SSL=true
+    - declare -x SCCACHE_REGION=us-east-2
+    - declare -x POSTCFLAGS='-O1 -g0' POSTCXXFLAGS='-O1 -g0'
+    - declare -x PRECXX=./sccache
     - make -j4 -k dependencies
+    - ./sccache --show-stats
     - make -j32 -k compile || make -j32 -k compile || make -j32 -k compile
-  # artifacts:
-  #   paths:
-  #     - mybinary
-  #     # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
-  #     # cache:
-  #     #   paths:
-  #     #     - "*.o"
-
-# run tests using the binary built before
-test:
-  stage: test
-  script:
-    - make -j8 -k || make -j8 -k || make -j8 -k 
+    - ./sccache --show-stats
+    - declare -x LANG=en_US.utf8 LC_ALL=en_US.utf8 USER=root
+    - (make -j8 -k test || make -j8 -k test) | python3 jml-build/to_junit.py > junit.xml
+  artifacts:
+    when: always
+    paths:
+       - junit.xml
+       - build/x86_64/bin
+       - build/x86_64/lib
+       - build/x86_64/mldb_plugins
+    reports:
+      junit: junit.xml

@@ -10,12 +10,16 @@ import os
 import fileinput
 import re
 from xml.etree import ElementTree
-from StringIO import StringIO
+from io import BytesIO
+from sys import stderr
+import time
 
 # thanks to
 # https://stackoverflow.com/questions/14693701/how-can-i-remove-the-ansi-escape-sequences-from-a-string-in-python
 ansi_escape = re.compile(r'\x1b[^m]*m')
 
+
+start_time = time.time()
 
 passed = set()
 passed_times = dict()
@@ -24,12 +28,14 @@ failed = set()
 passed_pat = re.compile("\[\s*(.*)s\s*(.*)G\s*(.*)c\s*\]\s*(.*?) passed")
 failed_pat = re.compile("(.*?) FAILED")
 for l in fileinput.input():
+    stderr.write(l)
     clean_line = l \
         .replace("\x1b[0m", "") \
         .replace("\x1b[32m", "") \
         .replace("\x1b[35m", "") \
         .replace("\x1b[31m", "") \
         .replace("\x1b[1;30m", "")\
+        .replace("\x1b[0;39;49m", "")\
         .strip()
         
     if passed_pat.match(clean_line):
@@ -48,7 +54,7 @@ builder = ElementTree.TreeBuilder()
 builder.start('testsuite', {
     'errors'   : '0',
     'tests'    : str(len(passed) + len(failed)),
-    'time'     : '0',
+    'time'     : str(time.time() - start_time),
     'failures' : str(len(failed)),
     'name'     : 'tests'
 })
@@ -68,10 +74,7 @@ for f in failed:
         'message' : 'Check log'
     })
     ansi_escape.sub('', fail_content)
-    try:
-        builder.data(unicode(fail_content, 'utf-8'))
-    except:
-        builder.data(unicode(fail_content, 'latin-1'))
+    builder.data(fail_content)
     builder.end('failure')
     builder.end('testcase')
 
@@ -87,6 +90,6 @@ builder.end('testsuite')
 tree = ElementTree.ElementTree()
 element = builder.close()
 tree._setroot(element)
-io = StringIO()
+io = BytesIO()
 tree.write(io, encoding='utf-8', xml_declaration=True)
-print io.getvalue()
+print(io.getvalue().decode('utf-8'))
