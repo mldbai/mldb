@@ -19,7 +19,7 @@ build:
   script:
     - git submodule update --init
     - make -j4 -k dependencies
-    - make -j4 -k compile
+    - make -j32 -k compile || make -j32 -k compile || make -j32 -k compile
   # artifacts:
   #   paths:
   #     - mybinary
@@ -32,4 +32,4 @@ build:
 test:
   stage: test
   script:
-    - make -j4 -k test
+    - make -j8 -k || make -j8 -k || make -j8 -k 
