@@ -120,9 +120,12 @@ struct InternedString {
         return isExt() ? extBytes_ : intBytes_;
     }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wuninitialized"
     void swap(InternedString & other) noexcept
     {
-        // NOTE: this swap operator is complicated to avoid violating
+	// NOTE: this swap operator is complicated to avoid violating
         // strict aliasing rules.  For that reason, it's not used in
         // the implementation of any of the underlying functionality.
 
@@ -170,6 +173,7 @@ struct InternedString {
             }
         }
     }
+#pragma GCC diagnostic pop
 
     constexpr size_t size() const noexcept
     {
