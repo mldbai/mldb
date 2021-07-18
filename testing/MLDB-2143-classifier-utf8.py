@@ -31,40 +31,60 @@ class MLDB2134classiferUtf8Test(MldbUnitTest):  # noqa
         mldb.put("/v1/procedures/preProcess", {
             "type": "transform",
             "params": {
+                "inputData": "SELECT * EXCLUDING (class), class as label FROM iris",
+                "outputDataset": { "id": "iris_ascii",
+                                   "type": "tabular" },
+            }
+        })   
+        
+        mldb.put("/v1/procedures/preProcess", {
+            "type": "transform",
+            "params": {
                 "inputData": "SELECT * EXCLUDING (class), class + '_éç' as label FROM iris",
                 "outputDataset": { "id": "iris_utf8",
                                    "type": "tabular" },
             }
         })   
-        
-        rez = mldb.put("/v1/procedures/cat_weights", {
-            "type": "classifier.experiment",
-            "params": {
-                "experimentName": "cat",
-                "modelFileUrlPattern": "file://tmp/iris_utf8.cls",
-                "mode": "categorical",
-                "inputData": """
-                    select 
-                        {* EXCLUDING (label)} as features,
-                        label
-                    from iris_utf8
-                """,
-                "algorithm": "dt",
-                "equalizationFactor": 1,
-                "configuration": {
-                    "dt": {
-                        "type": "decision_tree",
-                        "max_depth": 10,
-                        "verbosity": 3,
-                        "update_alg": "prob"
-                    },
-                },
-            }
-        })
 
-        runResults = rez.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["weightedStatistics"]
+        ds1 = mldb.get("/v1/query", { "q": "select * from iris_ascii limit 10", "format": "table"})
+        print("ds1", ds1)
+        ds2 = mldb.get("/v1/query", { "q": "select * from iris_utf8 limit 10", "format": "table"})
+        print("ds2", ds2)
 
-        self.assertEqual(runResults, {
+        def do_query(dataset):            
+            return mldb.put("/v1/procedures/cat_weights", {
+                    "type": "classifier.experiment",
+                    "params": {
+                        "experimentName": "cat",
+                        "modelFileUrlPattern": "file://tmp/iris_utf8.cls",
+                        "mode": "categorical",
+                        "inputData": """
+                            select 
+                                {* EXCLUDING (label)} as features,
+                                label
+                            from """ + dataset,
+                        "algorithm": "dt",
+                        "equalizationFactor": 1,
+                        "configuration": {
+                            "dt": {
+                                "type": "decision_tree",
+                                "max_depth": 10,
+                                "verbosity": 3,
+                                "update_alg": "prob"
+                            },
+                        },
+                    }
+                })
+
+        rez1 = do_query("iris_ascii")
+        rez2 = do_query("iris_utf8")
+
+        runResults1 = rez1.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["weightedStatistics"]
+        runResults2 = rez2.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["weightedStatistics"]
+
+        self.assertEqual(runResults1, runResults2)
+
+        self.assertEqual(runResults1, {
             "recall": 0.9444444444444444,
             "support": 72.0,
             "f1Score": 0.9446548821548821,
