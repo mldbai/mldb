@@ -451,7 +451,7 @@ Watch(WatchData * data)
         data->setHolder(*this);
 }
 
-inline Watch &
+Watch &
 Watch::
 operator = (Watch && other)
 {
