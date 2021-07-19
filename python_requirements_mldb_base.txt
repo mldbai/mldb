@@ -35,6 +35,6 @@ pycryptodome==3.6.6
 tornado==4.3
 
 pyOpenSSL==18.0.0
-pip==10.0.1
+pip==19.2
 
 
