@@ -35,10 +35,12 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/core/analytics.h"
 #include "mldb/types/meta_value_description.h"
+#include "mldb/types/basic_value_descriptions.h"
 #include "mldb/arch/simd.h"
 #include "mldb/utils/log.h"
 #include "mldb/builtin/shared_library_plugin.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/utils/vector_utils.h"
 
 using namespace std;
 
