@@ -50,3 +50,4 @@ container_provis/packer
 container_files/nvidia/files/*.deb
 *.bak
 file::test*
+*.DS_Store
