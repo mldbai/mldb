@@ -824,7 +824,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                     numWithMultipleBehaviors += 1;
 
                 // Atomically set the maximum number of behaviors
-                size_t knownMaxBehaviors = maxNumBehaviors;
+                uint64_t knownMaxBehaviors = maxNumBehaviors;
                 while (knownMaxBehaviors < behCounts.size()) {
                     if (maxNumBehaviors.compare_exchange_weak(knownMaxBehaviors, behCounts.size()))
                         break;

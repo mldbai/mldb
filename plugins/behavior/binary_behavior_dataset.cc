@@ -278,7 +278,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         return doGetColumnPath(BH(column.hash()));
     }
 
-    virtual size_t getRowCount() const
+    virtual uint64_t getRowCount() const
     {
         return behs->subjectCount();
     }

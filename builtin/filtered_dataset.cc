@@ -131,7 +131,7 @@ struct FilteredDataset::Itl
         return matrixView->getRowHashes(start, limit);
     }
 
-    virtual size_t getRowCount() const
+    virtual uint64_t getRowCount() const
     {
         return matrixView->getRowCount();
     }

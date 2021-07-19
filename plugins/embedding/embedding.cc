@@ -473,7 +473,7 @@ struct EmbeddingDataset::Itl
         return applyOffsetLimit(offset, limit, result);
     }
 
-    virtual size_t getRowCount() const override
+    virtual uint64_t getRowCount() const override
     {
         auto repr = committed();
         if (!repr->initialized())
