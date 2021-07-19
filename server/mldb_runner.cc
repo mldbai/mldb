@@ -7,7 +7,7 @@
 */
 
 #include "mldb/types/value_description.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/builtin/plugin_resource.h"
 #include "mldb/http/http_rest_proxy.h"
@@ -40,7 +40,7 @@ std::atomic<int> serviceShutdown(false);
 void onSignal(int sig)
 {
     serviceShutdown = true;
-    MLDB::futex_wake(serviceShutdown);
+    MLDB::wake_by_address(serviceShutdown);
 }
 
 struct CommandLineCredentialProvider: public CredentialProvider {
@@ -411,7 +411,7 @@ int main(int argc, char ** argv)
     }
 
     while (!serviceShutdown) {
-        MLDB::futex_wait(serviceShutdown, false, 10.0);
+        MLDB::wait_on_address(serviceShutdown, false, 10.0);
     }
 
     cerr << "shutting down" << endl;

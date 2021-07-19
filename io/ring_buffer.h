@@ -10,7 +10,7 @@
 #pragma once
 
 #include <vector>
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/arch/spinlock.h"
 #include <mutex>
 #include <thread>
@@ -87,13 +87,13 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             // full?  
             unsigned fullReadPosition = (writePosition + 1) % bufferSize;
             if (readPosition == fullReadPosition)
-                MLDB::futex_wait(readPosition, fullReadPosition);
+                MLDB::wait_on_address(readPosition, fullReadPosition);
             else break;
         }
 
         ring[writePosition] = request;
         writePosition = (writePosition + 1) % bufferSize;
-        MLDB::futex_wake(writePosition);
+        MLDB::wake_by_address(writePosition);
     }
 
     void push(Request && request)
@@ -103,13 +103,13 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             // full?  
             unsigned fullReadPosition = (writePosition + 1) % bufferSize;
             if (readPosition == fullReadPosition)
-                MLDB::futex_wait(readPosition, fullReadPosition);
+                MLDB::wait_on_address(readPosition, fullReadPosition);
             else break;
         }
         
         std::swap(ring[writePosition], request);
         writePosition = (writePosition + 1) % bufferSize;
-        MLDB::futex_wake(writePosition);
+        MLDB::wake_by_address(writePosition);
     }
 
     void waitUntilEmpty()
@@ -118,7 +118,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             int readPos = readPosition;
             if (readPos == writePosition)
                 return;
-            MLDB::futex_wait(readPosition, readPos);
+            MLDB::wait_on_address(readPosition, readPos);
         }
     }
 
@@ -132,7 +132,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
                        
         ring[writePosition] = request;
         writePosition = (writePosition + 1) % bufferSize;
-        MLDB::futex_wake(writePosition);
+        MLDB::wake_by_address(writePosition);
         return true;
     }
 
@@ -146,7 +146,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
                        
         std::swap(ring[writePosition], request);
         writePosition = (writePosition + 1) % bufferSize;
-        MLDB::futex_wake(writePosition);
+        MLDB::wake_by_address(writePosition);
         return true;
     }
 
@@ -160,7 +160,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             // Wait until write position != read position, ie not full
             for (;;) {
                 if (writePosition == readPosition)
-                    MLDB::futex_wait(writePosition, readPosition);
+                    MLDB::wait_on_address(writePosition, readPosition);
                 else break;
             }
 
@@ -168,7 +168,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
-        MLDB::futex_wake(readPosition);
+        MLDB::wake_by_address(readPosition);
 
         return result;
     }
@@ -184,7 +184,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
 
             // Wait until write position != read position, ie not full
             if (writePosition == readPosition) {
-                MLDB::futex_wait(writePosition, readPosition, maxWaitTime);
+                MLDB::wait_on_address(writePosition, readPosition, maxWaitTime);
                 if (writePosition == readPosition) return false;
             }
 
@@ -193,7 +193,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             //ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
-        MLDB::futex_wake(readPosition);
+        MLDB::wake_by_address(readPosition);
 
         return true;
     }
@@ -215,7 +215,7 @@ struct RingBufferSWMR : public RingBufferBase<Request> {
             //ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
-        MLDB::futex_wake(readPosition);
+        MLDB::wake_by_address(readPosition);
 
         return true;
     }
@@ -273,7 +273,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
             unsigned fullReadPosition = (writePosition + 1) % bufferSize;
             if (readPosition == fullReadPosition) {
                 guard.unlock();
-                MLDB::futex_wait(readPosition, fullReadPosition);
+                MLDB::wait_on_address(readPosition, fullReadPosition);
                 guard.lock();
             }
             else break;
@@ -282,7 +282,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         //ring[writePosition] = request;
         ring[writePosition] = request;
         writePosition = (writePosition + 1) % bufferSize;
-        MLDB::futex_wake(writePosition);
+        MLDB::wake_by_address(writePosition);
     }
 
     bool tryPush(const Request & request)
@@ -298,7 +298,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         //ring[writePosition] = request;
         ring[writePosition] = request;
         writePosition = (writePosition + 1) % bufferSize;
-        MLDB::futex_wake(writePosition);
+        MLDB::wake_by_address(writePosition);
 
         return true;
     }
@@ -316,7 +316,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         //ring[writePosition] = request;
         ring[writePosition] = std::move(request);
         writePosition = (writePosition + 1) % bufferSize;
-        MLDB::futex_wake(writePosition);
+        MLDB::wake_by_address(writePosition);
 
         return true;
     }
@@ -329,7 +329,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
             // Wait until write position != read position, ie not full
             for (;;) {
                 if (writePosition == readPosition)
-                    MLDB::futex_wait(writePosition, readPosition);
+                    MLDB::wait_on_address(writePosition, readPosition);
                 else break;
             }
 
@@ -337,7 +337,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
             ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
-        MLDB::futex_wake(readPosition);
+        MLDB::wake_by_address(readPosition);
 
         return result;
     }
@@ -350,7 +350,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
         result = ring[readPosition];
         ring[readPosition] = Request();
         readPosition = (readPosition + 1) % bufferSize;
-        MLDB::futex_wake(readPosition);
+        MLDB::wake_by_address(readPosition);
         
         return true;
     }
@@ -361,7 +361,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
             // Wait until write position != read position, ie not full
             for (;;) {
                 if (writePosition == readPosition) {
-                    if (MLDB::futex_wait(writePosition, readPosition, maxWaitTime) == -1
+                    if (MLDB::wait_on_address(writePosition, readPosition, maxWaitTime) == -1
                         && errno == ETIMEDOUT)
                         return false;
                 }
@@ -372,7 +372,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
             ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
-        MLDB::futex_wake(readPosition);
+        MLDB::wake_by_address(readPosition);
 
         return true;
     }
@@ -388,7 +388,7 @@ struct RingBufferSRMW : public RingBufferBase<Request> {
             ring[readPosition] = Request();
             readPosition = (readPosition + 1) % bufferSize;
         }
-        MLDB::futex_wake(readPosition);
+        MLDB::wake_by_address(readPosition);
         
         return result;
     }

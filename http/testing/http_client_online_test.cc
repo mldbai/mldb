@@ -14,7 +14,7 @@
 #include <string>
 #include <boost/test/unit_test.hpp>
 
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/io/legacy_event_loop.h"
 #include "mldb/http/http_client.h"
 
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_chunked_encoding )
         status = newStatus;
         body = move(newBody);
         done = true;
-        MLDB::futex_wake(done);
+        MLDB::wake_by_address(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
 
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_chunked_encoding )
 
     while (!done) {
         int oldDone = done;
-        MLDB::futex_wait(done, oldDone);
+        MLDB::wait_on_address(done, oldDone);
     }
 
     BOOST_CHECK_EQUAL(error, HttpClientError::None);

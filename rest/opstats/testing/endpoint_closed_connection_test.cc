@@ -15,7 +15,7 @@
 #include "mldb/base/hex_dump.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/exception_handler.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include <chrono>
 #include <thread>
 #include "mldb/http/http_endpoint.h"
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
                     //string response(buf, buf + res);
                     //cerr << "response is " << response << endl;
                 
-                    futex_wait(shutdown, 0, 0.001 /* seconds */);
+                    wait_on_address(shutdown, 0, 0.001 /* seconds */);
 
                     doneRequests += 1;
 
@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE( test_protocol_dump )
     //MLDB::sleep(10.0);
 
     shutdown = true;
-    futex_wake(shutdown);
+    wake_by_address(shutdown);
 
     tg.join_all();
 

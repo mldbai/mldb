@@ -7,7 +7,7 @@
 #include "async_event_source.h"
 #include <sys/timerfd.h>
 #include "mldb/arch/exception.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/base/exc_assert.h"
 #include <iostream>
 #include "message_loop.h"
@@ -41,7 +41,7 @@ waitConnectionState(int state) const
         if (current == state) return;
         ExcAssertGreaterEqual(current, DISCONNECTED);
         ExcAssertLessEqual(current, CONNECTED);
-        MLDB::futex_wait(connectionState_, current);
+        MLDB::wait_on_address(connectionState_, current);
     }
 }
 

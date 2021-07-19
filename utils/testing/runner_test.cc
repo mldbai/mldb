@@ -13,7 +13,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "mldb/arch/exception.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/arch/threads.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     std::atomic<int> done(false);
     auto onTerminate = [&] (const RunResult & result) {
         done = true;
-        MLDB::futex_wake(done);
+        MLDB::wake_by_address(done);
     };
 
     auto onStdOut = [&] (string && message) {
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     stdInSink.requestClose();
 
     while (!done) {
-        MLDB::futex_wait(done, false);
+        MLDB::wait_on_address(done, false);
     }
 
     BOOST_CHECK_EQUAL(MLDB::hexify_string(receivedStdOut),
@@ -740,7 +740,7 @@ BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
                  + "; terminateCount: " + to_string(terminateCount)
                  + "\n");
         terminateCount++;
-        MLDB::futex_wake(terminateCount);
+        MLDB::wake_by_address(terminateCount);
     };
     for (int i = 0; i < maxRuns; i++) {
         auto onTerminate = [=] (const RunResult & result) {
@@ -753,7 +753,7 @@ BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
 
     while (terminateCount < maxRuns) {
         int current(terminateCount);
-        MLDB::futex_wait(terminateCount, current);
+        MLDB::wait_on_address(terminateCount, current);
     }
 
     loop.shutdown();

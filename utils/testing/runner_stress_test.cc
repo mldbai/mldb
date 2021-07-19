@@ -13,7 +13,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "mldb/arch/exception.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/utils/testing/watchdog.h"
@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         --activeThreads;
         // cerr << "activeThreads now: " + to_string(activeThreads) + "\n";
         if (activeThreads == 0) {
-            MLDB::futex_wake(activeThreads);
+            MLDB::wake_by_address(activeThreads);
         }
         cerr << "thread shutting down\n";
     };
@@ -228,7 +228,7 @@ BOOST_AUTO_TEST_CASE( test_stress_runner )
         cout << "performing interference on stdout\n";
         cerr << "performing interference on stderr\n";
         // int n = activeThreads;
-        // MLDB::futex_wait(activeThreads, n);
+        // MLDB::wait_on_address(activeThreads, n);
     }
 
     for (thread & current: threads) {

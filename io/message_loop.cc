@@ -14,7 +14,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/demangle.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/date.h"
@@ -139,9 +139,9 @@ shutdown()
     shutdown_ = true;
 
     // We could be asleep (in which case we sleep on the shutdown_ futex and
-    // will be woken by the futex_wake) or blocked in epoll (in which case
+    // will be woken by the wake_by_address) or blocked in epoll (in which case
     // we will get the addSource event to wake us up).
-    MLDB::futex_wake(shutdown_);
+    MLDB::wake_by_address(shutdown_);
     addSource("_shutdown", nullptr);
 
     for (auto & t: threads)
@@ -217,7 +217,7 @@ removeSourceSync(AsyncEventSource * source)
     if (!r) return false;
 
     while(source->connectionState_ != AsyncEventSource::DISCONNECTED) {
-        MLDB::futex_wait(source->connectionState_, AsyncEventSource::CONNECTED);
+        MLDB::wait_on_address(source->connectionState_, AsyncEventSource::CONNECTED);
     }
 
     return true;
@@ -236,7 +236,7 @@ void
 MessageLoop::
 wakeupMainThread()
 {
-    MLDB::futex_wake(shutdown_);
+    MLDB::wake_by_address(shutdown_);
 }
 
 void
@@ -327,7 +327,7 @@ runWorkerThread()
 
         duty.notifyBeforeSleep();
         if (sleepTime > 0) {
-            MLDB::futex_wait(shutdown_, 0, sleepTime);
+            MLDB::wait_on_address(shutdown_, 0, sleepTime);
             totalSleepTime_ += sleepTime;
         }
         duty.notifyAfterSleep();
@@ -447,7 +447,7 @@ processAddSource(const SourceEntry & entry)
     }
 
     entry.source->connectionState_ = AsyncEventSource::CONNECTED;
-    MLDB::futex_wake(entry.source->connectionState_);
+    MLDB::wake_by_address(entry.source->connectionState_);
 }
 
 void
@@ -479,7 +479,7 @@ processRemoveSource(const SourceEntry & rmEntry)
     }
 
     entry.source->connectionState_ = AsyncEventSource::DISCONNECTED;
-    MLDB::futex_wake(entry.source->connectionState_);
+    MLDB::wake_by_address(entry.source->connectionState_);
 }
 
 void

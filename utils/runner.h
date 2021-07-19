@@ -233,8 +233,8 @@ private:
     void attemptTaskTermination();
 
     int runRequests_;
-    std::atomic<int> activeRequest_;
-    std::atomic<int32_t> running_;
+    mutable std::atomic<int> activeRequest_;
+    mutable std::atomic<int32_t> running_;
 
     Date startDate_;
     Date endDate_;
@@ -246,7 +246,7 @@ private:
 
         Used as a futex, so it's atomic
     */
-    std::atomic<pid_t> childPid_;
+    mutable std::atomic<pid_t> childPid_;
 
     std::shared_ptr<AsyncFdOutputSink> stdInSink_;
     int childStdinFd_;

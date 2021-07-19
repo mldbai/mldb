@@ -262,7 +262,7 @@ triggerGenericLocked(const Any & vals)
     else {
         saved.emplace_back(vals);
         ++numSaved;
-        MLDB::futex_wake(numSaved);
+        MLDB::wake_by_address(numSaved);
     }
 }
 
@@ -288,7 +288,7 @@ errorLocked(const WatchError & error)
     else {
         saved.emplace_back(error);
         ++numSaved;
-        MLDB::futex_wake(numSaved);
+        MLDB::wake_by_address(numSaved);
     }
 }
 
@@ -320,7 +320,7 @@ tryWaitMaybeGeneric(double timeToWait)
             = std::max(0.0, Date::now().secondsUntil(limit));
 
         if (secondsToWait > 0) {
-            MLDB::futex_wait(numSaved, 0, secondsToWait);
+            MLDB::wait_on_address(numSaved, 0, secondsToWait);
             if (!numSaved)
                 continue;
         }

@@ -56,7 +56,7 @@ AsyncModelBench(HttpMethod method,
         // }
         if (numResponses == maxReqs) {
             // cerr << "received all responses\n";
-            MLDB::futex_wake(numResponses);
+            MLDB::wake_by_address(numResponses);
         }
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
@@ -95,7 +95,7 @@ AsyncModelBench(HttpMethod method,
         //          + "; max reqs: " + to_string(maxReqs)
         //          + "\n");
         int old(numResponses);
-        MLDB::futex_wait(numResponses, old);
+        MLDB::wait_on_address(numResponses, old);
     }
     Date end = Date::now();
 
