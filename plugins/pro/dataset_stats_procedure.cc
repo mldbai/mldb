@@ -15,9 +15,9 @@
 #include "mldb/types/date.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/core/mldb_engine.h"
-#include "mldb/engine/bound_queries.h"
+#include "mldb/core/bound_queries.h"
 #include "mldb/base/per_thread_accumulator.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 #include "mldb/plugins/pro/pro_plugin.h"
 
 using namespace std;

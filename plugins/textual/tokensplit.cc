@@ -8,10 +8,10 @@
 */
 
 #include "tokensplit.h"
-#include "mldb/engine/analytics.h"
+#include "mldb/core/analytics.h"
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 #include "mldb/engine/function_collection.h"
 #include "types/structure_description.h"
 #include "mldb/types/any_impl.h"

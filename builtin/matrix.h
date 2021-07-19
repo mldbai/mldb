@@ -12,7 +12,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/sql/cell_value.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/log_fwd.h"
 #include "mldb/utils/progress.h"

@@ -25,7 +25,7 @@
 #include "tokenize.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/annotated_exception.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 #include "mldb/types/value_description.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/base/optimized_path.h"

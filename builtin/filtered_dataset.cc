@@ -8,8 +8,8 @@
 
 #include "mldb/engine/dataset_collection.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/engine/dataset_scope.h"
-#include "mldb/engine/analytics.h"
+#include "mldb/core/dataset_scope.h"
+#include "mldb/core/analytics.h"
 #include "filtered_dataset.h"
 #include "mldb/types/any_impl.h"
 

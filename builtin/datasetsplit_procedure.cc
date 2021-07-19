@@ -7,16 +7,16 @@
 #include "types/basic_value_descriptions.h"
 #include "types/distribution_description.h"
 #include "types/map_description.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 #include "mldb/builtin/matrix.h"
-#include "mldb/engine/analytics.h"
+#include "mldb/core/analytics.h"
 #include "types/any_impl.h"
 #include "mldb/utils/string_functions.h"
 #include "arch/timers.h"
 #include "types/optional_description.h"
 #include "mldb/builtin/sql_config_validator.h"
 #include "mldb/builtin/sql_expression_extractors.h"
-#include "mldb/engine/bound_queries.h"
+#include "mldb/core/bound_queries.h"
 #include <random>
 
 using namespace std;

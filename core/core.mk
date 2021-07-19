@@ -8,6 +8,11 @@ LIBMLDB_CORE_SOURCES:= \
 	value_function.cc \
 	mldb_entity.cc \
 	mldb_engine.cc \
+	dataset_scope.cc \
+	bound_queries.cc \
+	bucket.cc \
+	analytics.cc \
+
 
 LIBMLDB_CORE_LINK:= \
 	sql_expression rest_entity rest

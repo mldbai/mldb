@@ -1,11 +1,7 @@
 LIBMLDB_ENGINE_SOURCES:= \
 	dataset_utils.cc \
-	analytics.cc \
-	dataset_scope.cc \
-	bound_queries.cc \
 	forwarded_dataset.cc \
 	column_scope.cc \
-	bucket.cc \
 	dataset_collection.cc \
 	procedure_collection.cc \
 	procedure_run_collection.cc \

@@ -8,7 +8,7 @@
 #pragma once
 
 #include "mldb/sql/sql_expression.h"
-#include "mldb/engine/analytics.h"
+#include "mldb/core/analytics.h"
 #include "mldb/utils/log_fwd.h"
 
 

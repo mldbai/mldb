@@ -9,7 +9,7 @@
 #include "bsoncxx/builder/stream/document.hpp"
 
 #include "sql/sql_expression.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 
 
 

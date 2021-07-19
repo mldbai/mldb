@@ -25,7 +25,7 @@
 #include "mldb/utils/vantage_point_tree.h"
 #include "mldb/plugins/jml/tsne/tsne.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/engine/analytics.h"
+#include "mldb/core/analytics.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/jml_serialization.h"

@@ -9,7 +9,7 @@
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 #include "mldb/types/annotated_exception.h"
 #include <random>
 #include <unordered_set>
