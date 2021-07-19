@@ -14,7 +14,7 @@
 #include "mldb/arch/arch.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/arch/spinlock.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/base/exc_check.h"
 #include "mldb/base/scope.h"
 #include <iterator>
@@ -388,8 +388,8 @@ struct GcLockBase::Data {
 
     Atomic atomic;
    
-    std::atomic<int32_t> visibleFutex;
-    std::atomic<int32_t> exclusiveFutex;
+    std::atomic<uint32_t> visibleFutex;
+    std::atomic<uint32_t> exclusiveFutex;
 
     /** Human readable string. */
     std::string print() const;
@@ -493,7 +493,7 @@ updateAtomic(Atomic & oldValue, Atomic & newValue, RunDefer runDefer)
         // uncontrollably.
         ++data->visibleFutex;
         //data->visibleFutex = newValue.visibleEpoch();
-        futex_wake(data->visibleFutex);
+        wake_by_address(data->visibleFutex);
         if (runDefer) {
             runDefers();
         }
@@ -566,7 +566,7 @@ enterCS(ThreadGcInfoEntry * entry, RunDefer runDefer)
         if (newValue.exclusive()) {
             // We don't check the error, as a spurious wakeup will just
             // make the loop continue.
-            futex_wait(data->exclusiveFutex, 1);
+            wait_on_address(data->exclusiveFutex, 1);
             current = data->atomic;
             continue;
         }
@@ -628,7 +628,7 @@ enterCSExclusive(ThreadGcInfoEntry * entry)
 
     for (;;) {
         if (current.exclusive()) {
-            futex_wait(data->exclusiveFutex, 1);
+            wait_on_address(data->exclusiveFutex, 1);
             current = data->atomic;
             continue;
         }
@@ -706,7 +706,7 @@ exitCSExclusive(ThreadGcInfoEntry * entry)
     
     // Wake everything waiting on the exclusive lock
     data->exclusiveFutex.store(0, std::memory_order_release);
-    futex_wake(data->exclusiveFutex);
+    wake_by_address(data->exclusiveFutex);
     
     entry->inEpoch = -1;
 }
@@ -747,13 +747,21 @@ visibleBarrier()
         if (i % 128 == 127 || true) {
             // Note that we don't care about the actual value of the visible
             // epoch, only that it's different from the current one
-            long res = futex_wait(data->visibleFutex, current.visibleEpoch());
+            long res = wait_on_address(data->visibleFutex, current.visibleEpoch());
             if (res == -1) {
                 if (errno == EAGAIN || errno == EINTR) continue;
-                throw MLDB::Exception(errno, "futex_wait");
+                throw MLDB::Exception(errno, "wait_on_address");
             }
         }
     }
+}
+
+static void futex_unlock(void * futex)
+{
+    std::atomic<uint32_t> & lock = *reinterpret_cast<std::atomic<uint32_t> *>(futex);
+    int newLock = lock.fetch_add(1) + 1;
+    if (newLock == 0)
+        wake_by_address(lock);
 }
 
 void
@@ -780,10 +788,11 @@ deferBarrier()
         // TODO: this is a very inefficient implementation... we could do a lot
         // better especially in the non-contended case
         
-        std::atomic<int> lock(0);
+        std::atomic<uint32_t> lock(0);
+
         defer(futex_unlock, &lock);
         --lock;
-        futex_wait(lock, -1);
+        wait_on_address(lock, -1);
     }
 
     // If certain threads aren't allowed to execute deferred work

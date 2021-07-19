@@ -77,7 +77,7 @@ struct TestPeer: public ServicePeer {
         auto runPulseThread = [&] ()
             {
                 while (!shutdown_) {
-                    MLDB::futex_wait(shutdown_, 0, 0.1);
+                    MLDB::wait_on_address(shutdown_, 0, 0.1);
                     if (shutdown_)
                         return;
 
@@ -92,7 +92,7 @@ struct TestPeer: public ServicePeer {
     {
         ServicePeer::shutdown();
         shutdown_ = true;
-        MLDB::futex_wake(shutdown_);
+        MLDB::wake_by_address(shutdown_);
         if (pulseThread) {
             pulseThread->join();
             pulseThread.reset();

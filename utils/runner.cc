@@ -22,7 +22,7 @@
 #include <iostream>
 #include <utility>
 
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/scope.h"
 #include "mldb/arch/file_functions.h"
@@ -145,7 +145,7 @@ handleChildStatus(const struct epoll_event & event)
                 break;
             case ProcessState::RUNNING:
                 childPid_ = status.pid;
-                MLDB::futex_wake(childPid_);
+                MLDB::wake_by_address(childPid_);
                 break;
             case ProcessState::STOPPED:
                 if (task_.runResult.state == RunResult::LAUNCH_ERROR) {
@@ -155,7 +155,7 @@ handleChildStatus(const struct epoll_event & event)
                     task_.runResult.updateFromStatus(status.childStatus);
                     childPid_ = -3;
                 }
-                MLDB::futex_wake(childPid_);
+                MLDB::wake_by_address(childPid_);
                 task_.statusState = ProcessState::DONE;
                 if (stdInSink_ && stdInSink_->state != OutputSink::CLOSED) {
                     stdInSink_->requestClose();
@@ -193,7 +193,7 @@ handleChildStatus(const struct epoll_event & event)
             // We will never get another event, so we need to clean up 
             // everything here.
             childPid_ = -3;
-            MLDB::futex_wake(childPid_);
+            MLDB::wake_by_address(childPid_);
 
             task_.runResult.state = RunResult::PARENT_EXITED;
             task_.runResult.signum = SIGHUP;
@@ -314,7 +314,7 @@ attemptTaskTermination()
            since "running_" will be reset to true when the MessageLoop
            processes its delayed jobs. */
         running_ = false;
-        MLDB::futex_wake(running_);
+        MLDB::wake_by_address(running_);
     }
     /* This block is useful for debugging the termination workflow of the
        subprocess, therefore it should be kept 2 years after this date:
@@ -472,9 +472,9 @@ doRunImpl(const vector<string> & command,
     */
     bool oldRunning(running_);
     running_ = true;
-    MLDB::futex_wake(running_);
+    MLDB::wake_by_address(running_);
     activeRequest_++;
-    MLDB::futex_wake(activeRequest_);
+    MLDB::wake_by_address(activeRequest_);
     if (oldRunning) {
         throw MLDB::Exception("already running");
     }
@@ -600,10 +600,10 @@ waitRunning(double secondsToWait) const
                 timeout = true;
                 break;
             }
-            MLDB::futex_wait(activeRequest_, currentActive, timeToWait);
+            MLDB::wait_on_address(activeRequest_, currentActive, timeToWait);
         }
         else {
-            MLDB::futex_wait(activeRequest_, currentActive);
+            MLDB::wait_on_address(activeRequest_, currentActive);
         }
     }
 
@@ -621,8 +621,8 @@ waitStart(double secondsToWait) const
         if (timeToWait < 0)
             break;
         if (isfinite(timeToWait))
-            MLDB::futex_wait(childPid_, -1, timeToWait);
-        else MLDB::futex_wait(childPid_, -1);
+            MLDB::wait_on_address(childPid_, -1, timeToWait);
+        else MLDB::wait_on_address(childPid_, -1);
     }
 
     return childPid_ > 0;
@@ -633,7 +633,7 @@ Runner::
 waitTermination() const
 {
     while (running_) {
-        MLDB::futex_wait(running_, true);
+        MLDB::wait_on_address(running_, true);
     }
 }
 

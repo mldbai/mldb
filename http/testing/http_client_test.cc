@@ -20,7 +20,7 @@
 
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/ext/jsoncpp/reader.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/utils/testing/watchdog.h"
 #include "mldb/io/asio_thread_pool.h"
 #include "mldb/io/event_loop.h"
@@ -66,7 +66,7 @@ doRequest(LegacyEventLoop & legacyLoop,
         HttpClientError & errorCode = get<0>(response);
         errorCode = error;
         done = true;
-        MLDB::futex_wake(done);
+        MLDB::wake_by_address(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
 
@@ -75,7 +75,7 @@ doRequest(LegacyEventLoop & legacyLoop,
 
     while (!done) {
         int oldDone = done;
-        MLDB::futex_wait(done, oldDone);
+        MLDB::wait_on_address(done, oldDone);
     }
 
     return response;
@@ -126,7 +126,7 @@ doUploadRequest(LegacyEventLoop & loop,
         HttpClientError & errorCode = get<0>(response);
         errorCode = error;
         done = true;
-        MLDB::futex_wake(done);
+        MLDB::wake_by_address(done);
     };
 
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
@@ -140,7 +140,7 @@ doUploadRequest(LegacyEventLoop & loop,
 
     while (!done) {
         int oldDone = done;
-        MLDB::futex_wait(done, oldDone);
+        MLDB::wait_on_address(done, oldDone);
     }
 
     return response;
@@ -371,7 +371,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
             // BOOST_CHECK_EQUAL(jsonBody["type"], "text/plain");
             done++;
             if (done == maxRequests) {
-                MLDB::futex_wake(done);
+                MLDB::wake_by_address(done);
             }
         };
 
@@ -384,7 +384,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
 
     while (done < maxRequests) {
         int oldDone = done;
-        MLDB::futex_wait(done, oldDone);
+        MLDB::wait_on_address(done, oldDone);
     }
 
     threadPool.shutdown();
@@ -425,7 +425,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
             BOOST_CHECK_EQUAL(status, 200);
 
             if (numResponses == numReqs) {
-                MLDB::futex_wake(numResponses);
+                MLDB::wake_by_address(numResponses);
             }
         };
 
@@ -446,7 +446,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
         cerr << "all requests performed, awaiting responses...\n";
         while (numResponses < maxReqs) {
             int old(numResponses);
-            MLDB::futex_wait(numResponses, old);
+            MLDB::wait_on_address(numResponses, old);
         }
         cerr << ("performed " + to_string(maxReqs)
                  + " requests; missed: " + to_string(missedReqs)
@@ -485,14 +485,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done = true;
-            MLDB::futex_wake(done);
+            MLDB::wake_by_address(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
 
         getClient.get("/", cbs);
         while (!done) {
             int old = done;
-            MLDB::futex_wait(done, old);
+            MLDB::wait_on_address(done, old);
         }
     };
 
@@ -588,14 +588,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_timeout )
                        HttpClientError errorCode, int status,
                        string && headers, string && body) {
         done++;
-        MLDB::futex_wake(done);
+        MLDB::wake_by_address(done);
     };
     auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
     client.get("/timeout", cbs, {}, {}, 1);
     client.get("/", cbs, {}, {}, 1);
 
     while (done < 2) {
-        MLDB::futex_wait(done, done);
+        MLDB::wait_on_address(done, done);
     }
 
     threadPool.shutdown();
@@ -627,14 +627,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done++;
-            MLDB::futex_wake(done);
+            MLDB::wake_by_address(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
         client.get("/connection-close", cbs);
         client.get("/", cbs);
 
         while (done < 2) {
-            MLDB::futex_wait(done, done);
+            MLDB::wait_on_address(done, done);
         }
     }
 
@@ -654,13 +654,13 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done++;
-            MLDB::futex_wake(done);
+            MLDB::wake_by_address(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
         for (size_t i = 0; i < 3; i++) {
             client.post("/quiet-connection-close", cbs, string("no data"));
             while (done < i) {
-                MLDB::futex_wait(done, done);
+                MLDB::wait_on_address(done, done);
             }
         }
 
@@ -675,14 +675,14 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
                            HttpClientError errorCode, int status,
                            string && headers, string && body) {
             done++;
-            MLDB::futex_wake(done);
+            MLDB::wake_by_address(done);
         };
         auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
         client.get("/abrupt-connection-close", cbs);
         client.get("/", cbs);
 
         while (done < 2) {
-            MLDB::futex_wait(done, done);
+            MLDB::wait_on_address(done, done);
         }
     }
 

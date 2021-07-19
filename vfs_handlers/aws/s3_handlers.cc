@@ -20,7 +20,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/exception_ptr.h"
 #include "mldb/vfs_handlers/aws/s3.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 
 using namespace std;
 using namespace MLDB;
@@ -238,7 +238,7 @@ struct S3Downloader {
     {
         closed = true;
         while (activeRqs > 0) {
-            MLDB::futex_wait(activeRqs, activeRqs);
+            MLDB::wait_on_address(activeRqs, activeRqs);
         }
         excPtrHandler.rethrowIfSet();
     }
@@ -280,7 +280,7 @@ private:
             ExcAssertEqual(state, QUERY);
             data = move(newData);
             setState(RESPONSE);
-            MLDB::futex_wake(state);
+            MLDB::wake_by_address(state);
         }
 
         std::string retrieve()
@@ -294,7 +294,7 @@ private:
         void setState(int newState)
         {
             state = newState;
-            MLDB::futex_wake(state);
+            MLDB::wake_by_address(state);
         }
 
         bool isIdle()
@@ -309,7 +309,7 @@ private:
             if (timeout > 0.0) {
                 int old = state;
                 if (state != RESPONSE) {
-                    MLDB::futex_wait(state, old, timeout);
+                    MLDB::wait_on_address(state, old, timeout);
                 }
             }
 
@@ -317,7 +317,7 @@ private:
         }
 
     private:
-        std::atomic<int> state;
+        mutable std::atomic<int> state;  // mutable since we wait on it
         string data;
     };
 
@@ -416,7 +416,7 @@ private:
             excPtrHandler.takeCurrentException();
         }
         activeRqs--;
-        MLDB::futex_wake(activeRqs);
+        MLDB::wake_by_address(activeRqs);
     }
 
     size_t getChunkSize(unsigned int chunkNbr)
@@ -626,7 +626,7 @@ struct S3Uploader {
             ExcAssert(current.size() > 0);
         }
         while (activeRqs == metadata.numRequests) {
-            MLDB::futex_wait(activeRqs, activeRqs);
+            MLDB::wait_on_address(activeRqs, activeRqs);
         }
         if (excPtrHandler.hasException() && onException) {
             onException(current_exception());
@@ -679,7 +679,7 @@ struct S3Uploader {
             excPtrHandler.takeCurrentException();
         }
         activeRqs--;
-        MLDB::futex_wake(activeRqs);
+        MLDB::wake_by_address(activeRqs);
     }
 
     string close()
@@ -693,7 +693,7 @@ struct S3Uploader {
             flush(true);
         }
         while (activeRqs > 0) {
-            MLDB::futex_wait(activeRqs, activeRqs);
+            MLDB::wait_on_address(activeRqs, activeRqs);
         }
         if (excPtrHandler.hasException() && onException) {
             onException(current_exception());

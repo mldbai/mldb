@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_disconnect_test )
     acceptor.listen(0, "localhost");
     sendRequest(acceptor.effectiveTCPv4Port());
     while (queue.writePosition == 0) {
-        MLDB::futex_wait(queue.writePosition, 0);
+        MLDB::wait_on_address(queue.writePosition, 0);
     }
 
     cerr << "pushing finalisation request\n";

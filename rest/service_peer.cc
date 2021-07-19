@@ -7,7 +7,7 @@
 
 #include "mldb/types/value_description.h"
 #include "service_peer.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/arch/info.h"

@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/watch/watch.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include <thread>
 #include <atomic>
 #include <list>
@@ -887,7 +887,7 @@ tryWaitMaybe(double timeToWait)
             = std::max(0.0, Date::now().secondsUntil(limit));
 
         if (secondsToWait > 0) {
-            MLDB::futex_wait(numSaved, 0, secondsToWait);
+            MLDB::wait_on_address(numSaved, 0, secondsToWait);
             if (!numSaved)
                 continue;
         }
@@ -940,7 +940,7 @@ triggerLocked(const T &... args)
     else {
         saved.emplace_back(std::tuple<T...>(args...));
         ++numSaved;
-        MLDB::futex_wake(numSaved);
+        MLDB::wake_by_address(numSaved);
     }
 }
 
@@ -985,7 +985,7 @@ errorLocked(const WatchError & error)
     else {
         saved.emplace_back(error);
         ++numSaved;
-        MLDB::futex_wake(numSaved);
+        MLDB::wake_by_address(numSaved);
     }
 }
 

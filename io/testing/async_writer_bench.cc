@@ -150,7 +150,7 @@ void doBench(const string & label,
         numWriteResults++;
         if (numWriteResults == numMessages) {
             lastWriteResult = Date::now();
-            MLDB::futex_wake(numWriteResults);
+            MLDB::wake_by_address(numWriteResults);
         }
     };
 
@@ -189,7 +189,7 @@ void doBench(const string & label,
 
     while (numWriteResults < numMessages) {
         int old = numWriteResults;
-        MLDB::futex_wait(numWriteResults, old);
+        MLDB::wait_on_address(numWriteResults, old);
     }
 
     while (bytesRead < totalBytes) {

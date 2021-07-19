@@ -6,7 +6,7 @@
 */
 
 #include "etcd_peer_discovery.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include "mldb/arch/info.h"
 #include "mldb/logging/logging.h"
 #include "mldb/watch/watch_impl.h"
@@ -104,7 +104,7 @@ void
 EtcdPeerDiscovery::
 wakeup()
 {
-    MLDB::futex_wake(shutdown_);
+    MLDB::wake_by_address(shutdown_);
 }
 
 void

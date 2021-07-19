@@ -129,8 +129,8 @@ struct AsyncEventSource {
     /** The parent message loop. */
     MessageLoop * parent_;
 
-    /** The connection state to the message loop. */
-    std::atomic<int> connectionState_;
+    /** The connection state to the message loop.  Mutable as we do futex operations even when it's const. */
+    mutable std::atomic<int> connectionState_;
 };
 
 
@@ -194,7 +194,7 @@ struct WakeupEventSource : public AsyncEventSource {
     virtual bool processOne();
 
 private:    
-    MLDB::WakeupFd wakeup;
+    MLDB::WakeupFD wakeup;
 };
 #endif
 

@@ -12,7 +12,7 @@
 #include "mldb/arch/exception.h"
 #include <iostream>
 
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include <semaphore.h>
 
 namespace MLDB {

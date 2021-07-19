@@ -24,7 +24,7 @@
 #include <boost/algorithm/string.hpp>
 #include <regex>
 #include "mldb/compiler/filesystem.h"
-#include "mldb/arch/futex.h"
+#include "mldb/arch/wait_on_address.h"
 #include <thread>
 #include <queue>
 #include <condition_variable>
