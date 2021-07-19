@@ -24,6 +24,7 @@ $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 
 # gcc 4.7
 $(eval $(call set_compile_option,hash.cc,-fpermissive))
+$(eval $(call set_compile_option,confidence_intervals.cc,-O3))
 
 $(eval $(call library,config,config.cc,boost_program_options))
 $(eval $(call library,progress,progress.cc,))

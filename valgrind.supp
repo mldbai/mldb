@@ -1077,3 +1077,25 @@
    fun:_dl_init
    ...
 }
+
+{
+   GCC9 -O1
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:__cxa_allocate_exception
+   fun:_ZN5boost15throw_exceptionISt14overflow_errorEEvRKT_
+   ...
+   fun:_dl_init
+   ...
+}
+
+{
+   GCC -O1
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:_ZN4MLDB20ValueDescriptionInitISt3mapINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS_8JsonDiffESt4lessIS7_ESaISt4pairIKS7_S8_EEEE6createEv
+   ...
+   fun:_GLOBAL__sub_I_json_diff.cc
+}
