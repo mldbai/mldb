@@ -7,8 +7,8 @@
    Test of watches.
 */
 
-#include "mldb/watch/watch.h"
 #include "mldb/watch/watch_impl.h"
+#include "mldb/watch/watch.h"
 #include "mldb/utils/testing/watchdog.h"
 
 #define BOOST_TEST_MAIN
