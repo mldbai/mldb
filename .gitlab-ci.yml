@@ -11,7 +11,8 @@ build:
      - wget -qO - https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-x86_64-linux.gz | gzip -d > sccache
      - chmod +x ./sccache
   script:
-    - git submodule update --init --jobs=8
+    - git submodule init
+    - git submodule update --jobs=8 --depth=1 --progress
     - declare -x SCCACHE_BUCKET=mldb-sccache-a3f9b3
     - declare -x AWS_ACCESS_KEY_ID="$SCCACHE_AWS_AKID"
     - declare -x AWS_SECRET_ACCESS_KEY="$SCCACHE_AWS_SECRET"
