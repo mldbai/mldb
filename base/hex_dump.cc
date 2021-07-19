@@ -15,19 +15,19 @@ using namespace std;
 
 namespace MLDB {
 
-void hex_dump(const void * mem, size_t total_memory, size_t max_size)
+void hex_dump(const void * mem, size_t total_memory, size_t max_size, std::ostream & stream)
 {
     const char * buffer = (const char *)mem;
 
     for (unsigned i = 0;  i < total_memory && i < max_size;  i += 16) {
-        cerr << MLDB::format("%04x | ", i);
+        stream << MLDB::format("%04x | ", i);
         for (unsigned j = i;  j < i + 16;  ++j) {
             if (j < total_memory)
                 cerr << MLDB::format("%02x ", (int)*(unsigned char *)(buffer + j));
             else cerr << "   ";
         }
         
-        cerr << "| ";
+        stream << "| ";
         
         for (unsigned j = i;  j < i + 16;  ++j) {
             if (j < total_memory) {
@@ -37,13 +37,13 @@ void hex_dump(const void * mem, size_t total_memory, size_t max_size)
             }
             else cerr << " ";
         }
-        cerr << endl;
+        stream << endl;
     }
 }
 
-void hex_dump(std::string_view mem, size_t max_size)
+  void hex_dump(std::string_view mem, size_t max_size, std::ostream & stream)
 {
-    hex_dump(mem.data(), mem.length(), max_size);
+  hex_dump(mem.data(), mem.length(), max_size, stream);
 }
 
 } // namespace MLDB
