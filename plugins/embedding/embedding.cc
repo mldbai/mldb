@@ -26,8 +26,8 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/timers.h"
-#include "mldb/engine/dataset_scope.h"
-#include "mldb/engine/bucket.h"
+#include "mldb/core/dataset_scope.h"
+#include "mldb/core/bucket.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/engine/dataset_utils.h"
 #include <boost/algorithm/clamp.hpp>

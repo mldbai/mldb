@@ -7,7 +7,7 @@
     Structures to bucketize sets of cellvalues
 */
 
-#include "mldb/engine/bucket.h"
+#include "mldb/core/bucket.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/annotated_exception.h"

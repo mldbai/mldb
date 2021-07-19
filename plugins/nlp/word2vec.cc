@@ -15,7 +15,7 @@
 #include "mldb/utils/distribution.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/utils/log.h"
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 #include "mldb/types/annotated_exception.h"
 
 using namespace std;

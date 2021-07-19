@@ -16,7 +16,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/scope.h"
-#include "mldb/engine/bucket.h"
+#include "mldb/core/bucket.h"
 #include "mldb/base/parallel_merge_sort.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/hash_wrapper_description.h"

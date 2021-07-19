@@ -19,7 +19,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/engine/column_scope.h"
-#include "mldb/engine/bucket.h"
+#include "mldb/core/bucket.h"
 
 namespace MLDB {
 

@@ -13,7 +13,7 @@
 #include "mldb/utils/buckets.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/core/dataset.h"
-#include "mldb/engine/bucket.h"
+#include "mldb/core/bucket.h"
 #include "mldb/plugins/jml/jml/label.h"
 #include "mldb/utils/log_fwd.h"
 

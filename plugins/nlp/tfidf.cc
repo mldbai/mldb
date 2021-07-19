@@ -18,7 +18,7 @@
 #include "mldb/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
-#include "mldb/engine/analytics.h"
+#include "mldb/core/analytics.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/filter_streams.h"

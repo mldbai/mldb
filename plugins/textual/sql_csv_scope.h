@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "mldb/engine/dataset_scope.h"
+#include "mldb/core/dataset_scope.h"
 
 
 namespace MLDB {
