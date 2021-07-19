@@ -952,7 +952,7 @@ struct SparseMatrixDataset::Itl
         return MR_NO;
     }
 
-    virtual size_t getRowCount() const override
+    virtual uint64_t getRowCount() const override
     {
         auto trans = getReadTransaction();
         return trans->matrix->rowCount();
