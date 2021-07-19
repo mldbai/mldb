@@ -68,7 +68,7 @@ getRowHashes(ssize_t start, ssize_t limit) const
     return std::vector<RowHash>(it, end);
 }
 
-size_t
+uint64_t
 MergedMatrixView::
 getRowCount() const
 {

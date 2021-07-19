@@ -80,7 +80,7 @@ struct MatrixView {
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
-    virtual size_t getRowCount() const = 0;
+    virtual uint64_t getRowCount() const = 0;
 
     /// Can be implemented by getRowPathName() then knownRow().  Deprecated.
     //virtual bool knownRowHash(const RowHash & row) const = 0;

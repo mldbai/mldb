@@ -231,7 +231,7 @@ struct SampledDataset::Itl
         return matrix->getRowColumnCount(row);
     }
 
-    virtual size_t getRowCount() const
+    virtual uint64_t getRowCount() const
     {
         return sampledRows.size();
     }

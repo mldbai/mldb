@@ -42,7 +42,7 @@ struct MongoMatrixView : MatrixView {
         return vector<RowHash>{};
     }
 
-    size_t getRowCount() const override
+    uint64_t getRowCount() const override
     {
         return -1;
     }

@@ -54,7 +54,7 @@ struct MergedMatrixView : public MatrixView
     std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const;
 
-    size_t getRowCount() const;
+    uint64_t getRowCount() const;
     bool knownRow(const RowPath & row) const;
     MatrixNamedRow getRow(const RowPath & row) const;
 

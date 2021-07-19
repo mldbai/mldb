@@ -906,7 +906,7 @@ struct TabularDataset::TabularDataStore
             return stats;
         }
 
-        virtual size_t getRowCount() const override
+        virtual uint64_t getRowCount() const override
         {
             return rowCount;
         }
@@ -1326,7 +1326,7 @@ struct TabularDataset::TabularDataStore
         return currentState.load()->getColumnStats(column, stats);
     }
 
-    virtual size_t getRowCount() const override
+    virtual uint64_t getRowCount() const override
     {
         return currentState.load()->getRowCount();
     }

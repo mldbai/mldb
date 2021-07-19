@@ -662,7 +662,7 @@ struct BehaviorMatrixView: public MatrixView {
         return applyOffsetLimit(offset, limit, result);
     }
 
-    virtual size_t getRowCount() const
+    virtual uint64_t getRowCount() const
     {
         return behs->subjectCount();
     }
