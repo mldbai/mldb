@@ -507,7 +507,7 @@ struct SqliteSparseDataset::Itl
         return runQuery<ColumnPath>(query);
     }
 
-    virtual size_t getRowCount() const
+    virtual uint64_t getRowCount() const
     {
         return runScalarQuery<size_t>("SELECT count(DISTINCT rowName) FROM rows");
     }

@@ -873,7 +873,7 @@ struct JoinedDataset::Itl
         return result;
     }
 
-    virtual size_t getRowCount() const
+    virtual uint64_t getRowCount() const
     {
         return rowIndex.size();
     }
