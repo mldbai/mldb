@@ -14,6 +14,7 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/sql/sql_utils.h"
+#include "mldb/types/any_impl.h"
 
 using namespace std;
 
