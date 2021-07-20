@@ -156,6 +156,7 @@ struct FileSerializer::Itl {
 
     bool expandLastArena(size_t bytesRequired)
     {
+#if __linux__
         verifyLength();
 
         size_t newLength
@@ -196,6 +197,9 @@ struct FileSerializer::Itl {
         verifyLength();
 
         return true;
+#else
+    return false;  /* no mremap available */
+#endif
     }
 
     std::mutex mutex;
