@@ -133,7 +133,11 @@ static FsObjectInfo extractInfo(const struct stat & stats)
     FsObjectInfo objectInfo;
 
     objectInfo.exists = true;
+#if __APPLE__
+    objectInfo.lastModified = Date::fromTimespec(stats.st_mtimespec);
+#else
     objectInfo.lastModified = Date::fromTimespec(stats.st_mtim);
+#endif
     objectInfo.size = stats.st_size;
 
     return objectInfo;
@@ -142,10 +146,8 @@ static FsObjectInfo extractInfo(const struct stat & stats)
 /* LOCALURLFSHANDLER */
 
 enum FileAction {
-    FA_CONTINUE = FTW_CONTINUE,
-    FA_SKIP_SIBLINGS = FTW_SKIP_SIBLINGS,
-    FA_SKIP_SUBTREE = FTW_SKIP_SUBTREE,
-    FA_STOP = FTW_STOP
+    FA_CONTINUE = 0,
+    FA_STOP = 1
 };
 
 enum FileType {
@@ -210,8 +212,6 @@ struct ScanFilesData {
         ScanFilesData * d = scanFilesThreadData;
         ExcAssert(d);
         try {
-            if (d->maxDepth != -1 && ftwbuf->level > d->maxDepth)
-                return FTW_SKIP_SIBLINGS;
             string dir(fpath, fpath + ftwbuf->base);
             string basename(fpath + ftwbuf->base);
 
@@ -222,7 +222,7 @@ struct ScanFilesData {
         } MLDB_CATCH_ALL {
             d->thrown = std::current_exception();
             d->isThrown = true;
-            return FTW_STOP;
+            return FA_STOP;
         }
     }
 }; 
@@ -240,7 +240,7 @@ static void scanFiles(const std::string & path,
     int res = nftw(path.c_str(),
                    &ScanFilesData::onFile, 
                    maxDepth == -1 ? 100 : maxDepth + 1,
-                   FTW_ACTIONRETVAL);
+                   0 /* flags */);
 
     if (data.isThrown) {
         auto exc = data.thrown;
@@ -366,7 +366,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
                     else if (onSubdir("file://" + dir + basename,
                                       depth))
                         return FA_CONTINUE;
-                    else return FA_SKIP_SUBTREE;
+                    else return FA_STOP;
                 }
                 else return FA_CONTINUE;
             };
