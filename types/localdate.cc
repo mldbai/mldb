@@ -13,20 +13,17 @@
 #include <boost/date_time/local_time/local_time.hpp>
 #include <arch/exception.h>
 #include "mldb/base/scope.h"
-#include <sys/stat.h>
-
+#include "mldb/arch/file_functions.h"
 
 #include "date.h"
 #include "localdate.h"
+#include "mldb/arch/info.h"
 
 using namespace std;
 using namespace boost::local_time;
 using namespace boost::posix_time;
 
 namespace {
-
-static tz_database tz_db;
-std::once_flag once;
 
 string
 dirName(const string & filename)
@@ -38,6 +35,9 @@ dirName(const string & filename)
 
     return dirname;
 }
+
+static tz_database tz_db;
+std::once_flag once;
 
 const boost::posix_time::ptime
 epoch(boost::gregorian::date(1970, 1, 1));
@@ -132,35 +132,6 @@ year() const
     return time.tm_year + 1900;
 }
 
-static std::string get_link_target(const std::string & link)
-{
-    /* Interface to the readlink call */
-    size_t bufsize = 1024;
-    
-    /* Loop over, making the buffer successively larger if it is too small. */
-    while (true) {  // break in loop
-        char buf[bufsize];
-        int res = readlink(link.c_str(), buf, bufsize);
-        if (res == -1)
-            throw MLDB::Exception(errno, "readlink", "get_link_name()");
-        if (res == bufsize) {
-            bufsize *= 2;
-            continue;
-        }
-        buf[res] = 0;
-        return buf;
-    }
-}
-
-static bool fileExists(const std::string & filename)
-{
-    struct stat stats;
-    int res = stat(filename.c_str(), &stats);
-    if (res == -1)
-        return false;  // file doesn't exist
-    return true;
-}
-
 string
 LocalDate::
 findTimezoneSpec()
@@ -168,18 +139,18 @@ findTimezoneSpec()
 {
     /* first, we attempt to load the csv from a path relative to the
        executable */
-    string exeName = get_link_target("/proc/self/exe");
+    std::string exeName = get_exe_name();
 
     /* the ".." entries enable this code to work from tests are well
        as from regular programs */
     string specFile = (dirName(exeName)
-                       + "/../../../" LIB "/date_timezone_spec.csv");
+                       + "/../lib/date_timezone_spec.csv");
     if (fileExists(specFile)) {
         return specFile;
     }
 
     /* second, we attempt to load from the current directory */
-    specFile = LIB "/date_timezone_spec.csv";
+    specFile = "lib/date_timezone_spec.csv";
     if (fileExists(specFile)) {
         return specFile;
     }
