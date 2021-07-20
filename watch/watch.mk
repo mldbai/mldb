@@ -3,6 +3,6 @@
 LIBWATCH_SOURCES := \
 	watch.cc \
 
-$(eval $(call library,watch,$(LIBWATCH_SOURCES),jsoncpp gc any types))
+$(eval $(call library,watch,$(LIBWATCH_SOURCES),gc any types))
 
 $(eval $(call include_sub_make,watch_testing,testing))
