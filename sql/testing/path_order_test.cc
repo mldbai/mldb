@@ -15,6 +15,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include <set>
 #include <unordered_set>
+#include <random>
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -50,7 +51,8 @@ BOOST_AUTO_TEST_CASE(test_ordered2)
     cerr << jsonEncodeStr(lengthBuckets) << endl;
 
     for (unsigned i = 0;  i < 10;  ++i) {
-        std::random_shuffle(paths.begin(), paths.end());
+        std::mt19937 g(i + 1);
+        std::shuffle(paths.begin(), paths.end(), g);
         std::unordered_set<Path> unordered;
         std::unordered_set<uint64_t> unorderedHashes;
         std::set<Path> ordered;
