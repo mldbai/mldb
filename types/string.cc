@@ -16,6 +16,7 @@
 #include "mldb/arch/demangle.h"
 #include <cxxabi.h>
 #include <unicode/unistr.h>
+#include <clocale>
 
 using namespace std;
 

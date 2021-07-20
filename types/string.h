@@ -499,8 +499,6 @@ Utf8String getUtf8ExceptionString();
 
 namespace std {
 
-template<typename T> struct hash;
-
 template<>
 struct hash<MLDB::Utf8String>
     : public std::unary_function<MLDB::Utf8String, size_t>

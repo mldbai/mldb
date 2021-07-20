@@ -15,6 +15,7 @@
 #include <memory>
 #include <unordered_map>
 #include <set>
+#include <utility>
 #include "mldb/arch/exception.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"

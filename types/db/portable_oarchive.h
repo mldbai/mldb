@@ -15,26 +15,14 @@
 #include "mldb/arch/exception.h"
 #include "mldb/arch/endian.h"
 #include "compact_size_types.h"
+#include "types/vector_fwd.h"
+#include "types/map_fwd.h"
+#include "types/unordered_map_fwd.h"
+#include "types/set_fwd.h"
 #include <cstring>
 #include <memory>
 #include <functional>
 
-
-namespace std {
-
-template<class T, class A>
-class vector;
-
-template<class K, class V, class L, class A>
-class map;
-
-template<class K, class V, class H, class P, class A>
-class unordered_map;
-
-template<class V, class L, class A>
-class set;
-
-} // namespace std
 
 namespace boost {
 
