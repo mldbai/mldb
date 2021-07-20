@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
+#include "mldb/arch/wakeup_fd.h"
 
 #include "mldb/arch/exception.h"
 #include "mldb/base/scope.h"
@@ -70,7 +71,6 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
     : HttpClientImpl(baseUrl, numParallel, queueSize),
       baseUrl_(baseUrl),
       fd_(-1),
-      wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
       timerFd_(-1),
       multi_(curl_multi_init()),
       connectionStash_(numParallel),
@@ -89,7 +89,8 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
         throw MLDB::Exception(errno, "epoll_create");
     }
 
-    addFd(wakeup_.fd(), false, EPOLLIN);
+    wakeup_.reset(new WakeupFD(WFD_NONBLOCK, WFD_CLOEXEC));
+    addFd(wakeup_->fd(), false, EPOLLIN);
 
     timerFd_ = ::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
     addFd(timerFd_, false, EPOLLIN);
@@ -206,7 +207,9 @@ enqueueRequest(const string & verb, const string & resource,
         Guard guard(queueLock_);
         queue_.emplace(std::make_shared<HttpRequest>(verb, url, callbacks, content, headers, timeout));
     }
-    wakeup_.signal();
+
+    // Wakeup the message loop so it sees that there is something new to do
+    wakeup_->signal();
 
     return true;
 }
@@ -292,7 +295,7 @@ void
 HttpClientImplV1::
 handleEvent(const ::epoll_event & event)
 {
-    if (event.data.fd == wakeup_.fd()) {
+    if (event.data.fd == wakeup_->fd()) {
         handleWakeupEvent();
     }
     else if (event.data.fd == timerFd_) {
@@ -308,7 +311,7 @@ HttpClientImplV1::
 handleWakeupEvent()
 {
     /* Deduplication of wakeup events */
-    while (wakeup_.tryRead());
+    while (wakeup_->tryRead());
 
     size_t numAvail = avlConnections_.size() - nextAvail_;
     if (numAvail > 0) {
@@ -393,7 +396,7 @@ checkMultiInfos()
                 throw MLDB::Exception("failed to remove handle to multi");
             }
             releaseConnection(conn);
-            wakeup_.signal();
+            wakeup_->signal();
         }
     }
 }
