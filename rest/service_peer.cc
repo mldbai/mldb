@@ -64,7 +64,7 @@ addRoutes()
         = [] (RestConnection & connection,
               const RestRequest & request,
               const RestRequestParsingContext & context) {
-        connection.sendResponse(200, "1");
+        connection.sendJsonResponse(200, "1");
         return RestRequestRouter::MR_YES;
     };
     

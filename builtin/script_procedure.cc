@@ -118,7 +118,7 @@ run(const ProcedureRunConfig & run,
             details["exception"] = jsonEncode(parsed.exception);
     }
 
-    Json::Value result = Json::parse(connection->response());
+    Json::Value result = Json::parse(connection->response().rawString());
 
     return RunOutput(result["result"], details);
 }

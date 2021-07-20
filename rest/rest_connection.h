@@ -33,20 +33,20 @@ struct RestConnection {
                               const char * response,
                               std::string contentType)
     {
-        return sendResponse(responseCode, std::string(response),
+        return sendResponse(responseCode, Utf8String(response),
                             std::move(contentType));
     }
     
     /** Send the given response back on the connection. */
     virtual void sendResponse(int responseCode,
-                              std::string response,
+                              Utf8String response,
                               std::string contentType) = 0;
     
     /** Send the given response back on the connection. */
     virtual void
-    sendResponse(int responseCode,
-                 const Json::Value & response,
-                 std::string contentType = "application/json") = 0;
+    sendJsonResponse(int responseCode,
+                     const Json::Value & response,
+                     std::string contentType = "application/json") = 0;
     
     virtual void sendResponse(int responseCode)
     {
@@ -59,7 +59,7 @@ struct RestConnection {
         an HTTP connection, this will fail.
     */
     virtual void sendHttpResponse(int responseCode,
-                                  std::string response,
+                                  Utf8String response,
                                   std::string contentType,
                                   RestParams headers) = 0;
     
@@ -79,23 +79,23 @@ struct RestConnection {
                            RestParams headers = RestParams()) = 0;
     
     /** Send a payload (or a chunk of a payload) for an HTTP connection. */
-    virtual void sendPayload(std::string payload) = 0;
+    virtual void sendPayload(Utf8String payload) = 0;
 
     /** Finish the response, recycling or closing the connection. */
     virtual void finishResponse() = 0;
 
     /** Send the given error string back on the connection. */
     virtual void sendErrorResponse(int responseCode,
-                                   std::string error,
+                                   Utf8String error,
                                    std::string contentType) = 0;
     
     virtual void sendErrorResponse(int responseCode, const char * error,
                                    std::string contentType)
     {
-        sendErrorResponse(responseCode, std::string(error), "application/json");
+        sendErrorResponse(responseCode, Utf8String(error), contentType);
     }
 
-    virtual void sendErrorResponse(int responseCode, const Json::Value & error)
+    virtual void sendJsonErrorResponse(int responseCode, const Json::Value & error)
         = 0;
 
     virtual bool responseSent() const = 0;

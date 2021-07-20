@@ -741,7 +741,7 @@ struct MldbJS::Methods {
         if (!connection->response().empty()) {
             JS::set(isolate, result, "response", JS::toJS(connection->response()));
             if (connection->contentType() == "application/json") {
-                JS::set(isolate, result, "json", JS::toJS(Json::parse(connection->response())));
+		JS::set(isolate, result, "json", JS::toJS(Json::parse(connection->response().rawString())));
             }
         }
 
