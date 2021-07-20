@@ -28,11 +28,24 @@ struct Any {
     {
     }
 
-    template<typename T>
+    template<typename T,
+             typename E1 = std::enable_if_t<!std::is_convertible_v<const T *, const Any *>>>
     Any(const T & val,
         const ValueDescriptionT<T> * desc = getDefaultDescriptionShared((T *)0).get(),
         typename std::enable_if<!std::is_same<T, Any>::value>::type * = 0)
     : obj_(new T(val)),
+      type_(&typeid(val)),
+      desc_(desc)
+    {
+        //ExcAssertEqual(desc->type, type_);
+    }
+
+    template<typename T,
+             typename E1 = std::enable_if_t<!std::is_convertible_v<const T *, const Any *>>>
+    Any(T && val,
+        const ValueDescriptionT<T> * desc = getDefaultDescriptionShared((T *)0).get(),
+        typename std::enable_if<!std::is_same<T, Any>::value>::type * = 0)
+    : obj_(new T(std::move(val))),
       type_(&typeid(val)),
       desc_(desc)
     {
@@ -53,6 +66,27 @@ struct Any {
           desc_(other.desc_)
     {
     }
+
+    Any(Any && other) noexcept
+        : obj_(std::move(other.obj_)),
+          type_(other.type_),
+          desc_(other.desc_)
+    {
+        other.type_ = nullptr;
+        other.desc_ = nullptr;
+    }
+
+    Any & operator = (Any && other) noexcept
+    {
+        obj_ = std::move(other.obj_);
+        type_ = other.type_;
+        desc_ = other.desc_;
+        other.type_ = nullptr;
+        other.desc_ = nullptr;
+        return *this;
+    }
+
+    Any & operator = (const Any & other) = default;
 
     Any(std::nullptr_t)
         : type_(nullptr), desc_(nullptr)
