@@ -25,6 +25,8 @@
 namespace MLDB {
 
 struct WakeupFD;
+struct TimerFD;
+
 
 /****************************************************************************/
 /* HTTP CLIENT IMPL V1                                                      */
@@ -123,7 +125,7 @@ private:
 
     int fd_;
     std::shared_ptr<WakeupFD> wakeup_;
-    int timerFd_;
+    std::unique_ptr<TimerFD> timerFd_;
 
     struct CurlMultiCleanup {
         void operator () (CURLM *);

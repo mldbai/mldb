@@ -9,7 +9,7 @@
 #include <poll.h>
 #include <string.h>
 #include <sys/epoll.h>
-#include <sys/timerfd.h>
+#include "mldb/io/timerfd.h"
 #include "mldb/arch/wakeup_fd.h"
 
 #include "mldb/arch/exception.h"
@@ -17,7 +17,6 @@
 #include "mldb/utils/string_functions.h"
 
 #include "mldb/http/http_header.h"
-// #include "openssl_threading.h"
 #include "mldb/http/http_client_callbacks.h"
 #include "mldb/http/http_client_impl_v1.h"
 
@@ -71,7 +70,6 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
     : HttpClientImpl(baseUrl, numParallel, queueSize),
       baseUrl_(baseUrl),
       fd_(-1),
-      timerFd_(-1),
       multi_(curl_multi_init()),
       connectionStash_(numParallel),
       avlConnections_(numParallel),
@@ -92,8 +90,8 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
     wakeup_.reset(new WakeupFD(WFD_NONBLOCK, WFD_CLOEXEC));
     addFd(wakeup_->fd(), false, EPOLLIN);
 
-    timerFd_ = ::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
-    addFd(timerFd_, false, EPOLLIN);
+    timerFd_.reset(new TimerFD(TIMER_MONOTONIC, TIMER_CLOSE_ON_EXEC));
+    addFd(timerFd_->fd(), false, EPOLLIN);
 
     /* multi */
     ::curl_multi_setopt(multi_.get(), CURLMOPT_SOCKETFUNCTION,
@@ -245,9 +243,8 @@ HttpClientImplV1::
 cleanupFds()
     noexcept
 {
-    if (timerFd_ != -1) {
-        ::close(timerFd_);
-    }
+    timerFd_.reset();
+    
     if (fd_ != -1) {
         ::close(fd_);
     }
@@ -298,7 +295,7 @@ handleEvent(const ::epoll_event & event)
     if (event.data.fd == wakeup_->fd()) {
         handleWakeupEvent();
     }
-    else if (event.data.fd == timerFd_) {
+    else if (event.data.fd == timerFd_->fd()) {
         handleTimerEvent();
     }
     else {
@@ -334,13 +331,8 @@ void
 HttpClientImplV1::
 handleTimerEvent()
 {
-    uint64_t misses;
-    ssize_t len = ::read(timerFd_, &misses, sizeof(misses));
-    if (len == -1) {
-        if (errno != EAGAIN) {
-            throw MLDB::Exception(errno, "read timerd");
-        }
-    }
+    // Clear the timer fd by reading the number of missed timers
+    timerFd_->read();
     int runningHandles;
     CURLMcode rc = ::curl_multi_socket_action(multi_.get(),
                                               CURL_SOCKET_TIMEOUT, 0,
@@ -458,16 +450,7 @@ onCurlTimerEvent(long timeoutMs)
         throw MLDB::Exception("unhandled timeout value: %ld", timeoutMs);
     }
 
-    struct itimerspec timespec;
-    memset(&timespec, 0, sizeof(timespec));
-    if (timeoutMs > 0) {
-        timespec.it_value.tv_sec = timeoutMs / 1000;
-        timespec.it_value.tv_nsec = (timeoutMs % 1000) * 1000000;
-    }
-    int res = ::timerfd_settime(timerFd_, 0, &timespec, nullptr);
-    if (res == -1) {
-        throw MLDB::Exception(errno, "timerfd_settime");
-    }
+    timerFd_->setTimeout(std::chrono::milliseconds(timeoutMs));
 
     if (timeoutMs == 0) {
         int runningHandles;
