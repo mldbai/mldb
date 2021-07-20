@@ -13,7 +13,6 @@
 #include "mldb/arch/format.h"
 #include "fast_int_parsing.h"
 #include "fast_float_parsing.h"
-#include <boost/utility.hpp>
 #include <cassert>
 #include <fstream>
 
