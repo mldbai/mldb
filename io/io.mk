@@ -17,6 +17,7 @@ LIBIO_SOURCES := \
 	message_loop.cc \
 	async_event_source.cc \
 	async_writer_source.cc \
+	timerfd.cc \
 
 LIBIO_LINK := logging watch
 

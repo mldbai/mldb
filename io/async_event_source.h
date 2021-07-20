@@ -10,6 +10,7 @@
 
 #include <functional>
 #include "mldb/arch/exception.h"
+#include "mldb/io/timerfd.h"
 #include <thread>
 #include <atomic>
 
@@ -169,7 +170,7 @@ struct PeriodicEventSource : public AsyncEventSource {
     }
 
 private:    
-    int timerFd;
+    TimerFD timerFd;
     double timePeriodSeconds;
     std::function<void (uint64_t)> onTimeout;
     bool singleThreaded_;

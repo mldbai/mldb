@@ -8,7 +8,7 @@
 
 #include "remote_peer.h"
 #include "service_peer.h"
-#include <sys/timerfd.h>
+#include "mldb/io/timerfd.h"
 #include "mldb/watch/watch_impl.h"
 #include "call_me_back.h"
 #include "mldb/types/vector_description.h"
