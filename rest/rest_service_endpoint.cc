@@ -26,13 +26,13 @@ namespace MLDB {
 
 void
 RestServiceEndpoint::ConnectionId::
-sendResponse(int responseCode, std::string response, std::string contentType)
+sendResponse(int responseCode, Utf8String response, std::string contentType)
 {
     if (itl->responseSent)
         throw MLDB::Exception("response already sent");
 
     if (itl->endpoint->logResponse)
-        itl->endpoint->logResponse(*this, responseCode, response,
+        itl->endpoint->logResponse(*this, responseCode, response.rawString(),
                                    contentType);
 
     if (itl->http)
@@ -46,8 +46,8 @@ sendResponse(int responseCode, std::string response, std::string contentType)
 
 void
 RestServiceEndpoint::ConnectionId::
-sendResponse(int responseCode,
-             const Json::Value & response, std::string contentType)
+sendJsonResponse(int responseCode,
+                 const Json::Value & response, std::string contentType)
 {
     if (itl->responseSent)
         throw MLDB::Exception("response already sent");
@@ -57,8 +57,8 @@ sendResponse(int responseCode,
                                    contentType);
 
     if (itl->http)
-        itl->http->sendResponse(responseCode,
-                                std::move(response), std::move(contentType));
+        itl->http->sendJsonResponse(responseCode,
+                                    std::move(response), std::move(contentType));
     else
         throw MLDB::Exception("missing connection handler");
 
@@ -68,7 +68,7 @@ sendResponse(int responseCode,
 void
 RestServiceEndpoint::ConnectionId::
 sendErrorResponse(int responseCode,
-                  std::string error, std::string contentType)
+                  Utf8String error, std::string contentType)
 {
     using namespace std;
     cerr << "sent error response " << responseCode << " " << error
@@ -79,11 +79,11 @@ sendErrorResponse(int responseCode,
 
 
     if (itl->endpoint->logResponse)
-        itl->endpoint->logResponse(*this, responseCode, error,
+        itl->endpoint->logResponse(*this, responseCode, error.rawString(),
                                    contentType);
             
     if (itl->http)
-        itl->http->sendResponse(responseCode, std::move(error));
+        itl->http->sendResponse(responseCode, std::move(error), "");
     else
         throw MLDB::Exception("missing connection handler");
     
@@ -92,7 +92,7 @@ sendErrorResponse(int responseCode,
 
 void
 RestServiceEndpoint::ConnectionId::
-sendErrorResponse(int responseCode, const Json::Value & error)
+sendJsonErrorResponse(int responseCode, const Json::Value & error)
 {
     using namespace std;
     cerr << "sent error response " << responseCode << " " << error
@@ -106,7 +106,7 @@ sendErrorResponse(int responseCode, const Json::Value & error)
                                    "application/json");
 
     if (itl->http)
-        itl->http->sendResponse(responseCode, error);
+        itl->http->sendJsonResponse(responseCode, error);
     else
         throw MLDB::Exception("missing connection handler");
     
@@ -136,14 +136,14 @@ sendRedirect(int responseCode, std::string location)
 void
 RestServiceEndpoint::ConnectionId::
 sendHttpResponse(int responseCode,
-                 std::string response, std::string contentType,
+                 Utf8String response, std::string contentType,
                  RestParams headers)
 {
     if (itl->responseSent)
         throw MLDB::Exception("response already sent");
 
     if (itl->endpoint->logResponse)
-        itl->endpoint->logResponse(*this, responseCode, response,
+        itl->endpoint->logResponse(*this, responseCode, response.rawString(),
                                    contentType);
 
     if (itl->http)
@@ -191,16 +191,16 @@ sendHttpResponseHeader(int responseCode,
 
 void
 RestServiceEndpoint::ConnectionId::
-sendPayload(std::string payload)
+sendPayload(Utf8String payload)
 {
     if (itl->chunkedEncoding) {
         if (payload.empty()) {
             throw MLDB::Exception("Can't send empty chunk over a chunked connection");
         }
-        itl->http->sendHttpChunk(std::move(payload),
+        itl->http->sendHttpChunk(payload.stealRawString(),
                                  HttpLegacySocketHandler::NEXT_CONTINUE);
     }
-    else itl->http->send(std::move(payload));
+    else itl->http->send(payload.stealRawString());
 }
 
 void
@@ -274,12 +274,12 @@ init()
     httpEndpoint.onRequest
         = [=] (std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> connection,
                const HttpHeader & header,
-               const std::string & payload)
+               const Utf8String & payload)
         {
             std::string requestId = this->getHttpRequestId();
             ConnectionId connectionId(connection, requestId, this);
             this->doHandleRequest(connectionId,
-                                  RestRequest(header, payload));
+                                  RestRequest(header, payload.rawString()));
         };
 }
 

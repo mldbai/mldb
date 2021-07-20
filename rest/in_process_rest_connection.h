@@ -29,61 +29,61 @@ public:
     // pointer.
     static std::shared_ptr<InProcessRestConnection> create();
 
-    virtual ~InProcessRestConnection();
+    virtual ~InProcessRestConnection() override;
 
     using RestConnection::sendResponse;
 
     /** Send the given response back on the connection. */
     virtual void sendResponse(int responseCode,
-                              std::string response,
-                              std::string contentType);
+                              Utf8String response,
+                              std::string contentType) override;
 
     /** Send the given response back on the connection. */
     virtual void
-    sendResponse(int responseCode,
-                 const Json::Value & response,
-                 std::string contentType = "application/json");
+    sendJsonResponse(int responseCode,
+                     const Json::Value & response,
+                     std::string contentType = "application/json") override;
 
-    virtual void sendRedirect(int responseCode, std::string location);
+    virtual void sendRedirect(int responseCode, std::string location) override;
 
     /** Send an HTTP-only response with the given headers.  If it's not
         an HTTP connection, this will fail.
     */
     virtual void sendHttpResponse(int responseCode,
-                                  std::string response, std::string contentType,
-                                  RestParams headers);
+                                  Utf8String response, std::string contentType,
+                                  RestParams headers) override;
 
     virtual void
     sendHttpResponseHeader(int responseCode,
                            std::string contentType, ssize_t contentLength,
-                           RestParams headers = RestParams());
+                           RestParams headers = RestParams()) override;
 
-    virtual void sendPayload(std::string payload);
+    virtual void sendPayload(Utf8String payload) override;
 
-    virtual void finishResponse();
+    virtual void finishResponse() override;
 
     /** Send the given error string back on the connection. */
     virtual void sendErrorResponse(int responseCode,
-                                   std::string error,
-                                   std::string contentType);
+                                   Utf8String error,
+                                   std::string contentType) override;
 
     using RestConnection::sendErrorResponse;
 
-    virtual void sendErrorResponse(int responseCode, const Json::Value & error);
-    virtual bool responseSent() const;
-    virtual bool isConnected() const;
+    virtual void sendJsonErrorResponse(int responseCode, const Json::Value & error) override;
+    virtual bool responseSent() const override;
+    virtual bool isConnected() const override;
 
     int responseCode() const;
     const std::string & contentType() const;
     const RestParams & headers() const;
-    const std::string & response() const;
-    std::string stealResponse();
+    const Utf8String & response() const;
+    Utf8String stealResponse();
 
     virtual std::shared_ptr<RestConnection>
-    capture(std::function<void ()> onDisconnect = nullptr);
+    capture(std::function<void ()> onDisconnect = nullptr) override;
 
     virtual std::shared_ptr<RestConnection>
-    captureInConnection(std::shared_ptr<void> toCapture = nullptr);
+    captureInConnection(std::shared_ptr<void> toCapture = nullptr) override;
 
     // In the case of a captured connection, this will block until the full
     // response has been received.  This is used to deal with asynchronous

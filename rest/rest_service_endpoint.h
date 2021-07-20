@@ -92,36 +92,36 @@ struct RestServiceEndpoint {
 
         void sendResponse(int responseCode,
                           const char * response,
-                          std::string contentType)
+                          std::string contentType) override
         {
-            return sendResponse(responseCode, std::string(response),
+            return sendResponse(responseCode, Utf8String(response),
                                 std::move(contentType));
         }
 
         /** Send the given response back on the connection. */
         void sendResponse(int responseCode,
-                          std::string response,
-                          std::string contentType);
+                          Utf8String response,
+                          std::string contentType) override;
 
         /** Send the given response back on the connection. */
-        void sendResponse(int responseCode,
-                          const Json::Value & response,
-                          std::string contentType = "application/json");
+        void sendJsonResponse(int responseCode,
+                              const Json::Value & response,
+                              std::string contentType = "application/json") override;
 
         void sendResponse(int responseCode)
         {
             return sendResponse(responseCode, "", "");
         }
 
-        void sendRedirect(int responseCode, std::string location);
+        void sendRedirect(int responseCode, std::string location) override;
 
         /** Send an HTTP-only response with the given headers.  If it's not
             an HTTP connection, this will fail.
         */
         void sendHttpResponse(int responseCode,
-                              std::string response,
+                              Utf8String response,
                               std::string contentType,
-                              RestParams headers);
+                              RestParams headers) override;
 
         enum {
             UNKNOWN_CONTENT_LENGTH = -1,
@@ -136,42 +136,42 @@ struct RestServiceEndpoint {
         void sendHttpResponseHeader(int responseCode,
                                     std::string contentType,
                                     ssize_t contentLength,
-                                    RestParams headers = RestParams());
+                                    RestParams headers = RestParams()) override;
 
         /** Send a payload (or a chunk of a payload) for an HTTP connection. */
-        void sendPayload(std::string payload);
+        void sendPayload(Utf8String payload) override;
 
         /** Finish the response, recycling or closing the connection. */
-        void finishResponse();
+        void finishResponse() override;
 
         /** Send the given error string back on the connection. */
         void sendErrorResponse(int responseCode,
-                               std::string error,
-                               std::string contentType);
+                               Utf8String error,
+                               std::string contentType) override;
 
         void sendErrorResponse(int responseCode, const char * error,
-                               std::string contentType)
+                               std::string contentType) override
         {
-            sendErrorResponse(responseCode, std::string(error), "application/json");
+            sendErrorResponse(responseCode, Utf8String(error), "application/json");
         }
 
-        void sendErrorResponse(int responseCode, const Json::Value & error);
+        void sendJsonErrorResponse(int responseCode, const Json::Value & error) override;
 
-        bool responseSent() const
+        bool responseSent() const override
         {
             return itl->responseSent;
         }
 
-        bool isConnected() const
+        bool isConnected() const override
         {
             return itl->http->isConnected();
         }
 
         virtual std::shared_ptr<RestConnection>
-        capture(std::function<void ()> onDisconnect);
+        capture(std::function<void ()> onDisconnect) override;
 
         virtual std::shared_ptr<RestConnection>
-        captureInConnection(std::shared_ptr<void> piggyBack);
+        captureInConnection(std::shared_ptr<void> piggyBack) override;
     };
 
     void init();

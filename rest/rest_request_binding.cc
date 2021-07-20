@@ -135,7 +135,7 @@ createRequestValidater(const Json::Value & argHelp,
                 details["unknownParameters"].append(std::move(detail));
             }
 
-            connection.sendErrorResponse(400, exc);
+            connection.sendJsonErrorResponse(400, exc);
             return false;
         };
 

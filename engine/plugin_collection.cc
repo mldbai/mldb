@@ -110,7 +110,7 @@ initRoutes(RouteManager & manager)
             auto key = manager.getKey(cxt);
 
             try {
-                connection.sendResponse(200, jsonEncode(plugin->getVersion()));
+                connection.sendJsonResponse(200, jsonEncode(plugin->getVersion()));
                 return RestRequestRouter::MR_YES;
             }
             catch (const AnnotatedException & exc) {

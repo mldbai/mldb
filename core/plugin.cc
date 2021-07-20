@@ -73,7 +73,7 @@ handleRequest(RestConnection & connection,
         + "' does not respond to custom route '" + context.remaining + "'";
     error["details"]["verb"] = request.verb;
     error["details"]["resource"] = request.resource;
-    connection.sendErrorResponse(400, error);
+    connection.sendJsonErrorResponse(400, error);
     return RestRequestRouter::MR_ERROR;
 }
 

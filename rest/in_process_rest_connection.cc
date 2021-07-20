@@ -28,7 +28,7 @@ struct InProcessRestConnection::Itl {
     int responseCode = -1;
     std::string contentType;
     RestParams headers;
-    std::string response;
+    Utf8String response;
 
     enum State {
         NOTHING_SENT,
@@ -98,7 +98,7 @@ InProcessRestConnection::
 
 void
 InProcessRestConnection::
-sendResponse(int responseCode, std::string response, std::string contentType)
+sendResponse(int responseCode, Utf8String response, std::string contentType)
 {
     std::unique_lock<std::mutex> guard(itl->responseMutex);
     itl->startResponse();
@@ -111,7 +111,7 @@ sendResponse(int responseCode, std::string response, std::string contentType)
 
 void
 InProcessRestConnection::
-sendResponse(int responseCode,
+sendJsonResponse(int responseCode,
              const Json::Value & response,
              std::string contentType)
 {
@@ -139,7 +139,7 @@ sendRedirect(int responseCode, std::string location)
 void
 InProcessRestConnection::
 sendHttpResponse(int responseCode,
-                 std::string response, std::string contentType,
+                 Utf8String response, std::string contentType,
                  RestParams headers)
 {
     std::unique_lock<std::mutex> guard(itl->responseMutex);
@@ -169,7 +169,7 @@ sendHttpResponseHeader(int responseCode,
 
 void
 InProcessRestConnection::
-sendPayload(std::string payload)
+sendPayload(Utf8String payload)
 {
     std::unique_lock<std::mutex> guard(itl->responseMutex);
     itl->continueResponse();
@@ -186,7 +186,7 @@ finishResponse()
 
 void InProcessRestConnection::
 sendErrorResponse(int responseCode,
-                  std::string error, std::string contentType)
+                  Utf8String error, std::string contentType)
 {
     std::unique_lock<std::mutex> guard(itl->responseMutex);
     itl->startResponse();
@@ -198,7 +198,7 @@ sendErrorResponse(int responseCode,
 }
 
 void InProcessRestConnection::
-sendErrorResponse(int responseCode, const Json::Value & error)
+sendJsonErrorResponse(int responseCode, const Json::Value & error)
 {
     std::unique_lock<std::mutex> guard(itl->responseMutex);
     itl->startResponse();
@@ -262,7 +262,7 @@ headers() const
     return itl->headers;
 }
 
-const std::string &
+const Utf8String &
 InProcessRestConnection::
 response() const
 {
@@ -271,7 +271,7 @@ response() const
     return itl->response;
 }
 
-std::string
+Utf8String
 InProcessRestConnection::
 stealResponse()
 {

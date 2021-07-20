@@ -402,7 +402,7 @@ processRequest(RestConnection & connection,
         } catch (const std::exception & exc) {
             return sendExceptionResponse(connection, exc);
         } catch (...) {
-            connection.sendErrorResponse(500, "unknown exception");
+            connection.sendJsonErrorResponse(500, "unknown exception");
             return MR_YES;
         }
     }
@@ -655,7 +655,7 @@ addHelpRoute(PathSpec path, RequestFilter filter)
             } else {
                 getHelp(help, "", set<string>());
             }
-            connection.sendResponse(200, help);
+            connection.sendJsonResponse(200, help);
             return MR_YES;
         };
 
@@ -985,7 +985,7 @@ void
 RestRequestRouter::
 defaultNotFoundHandler(RestConnection & connection,
                        const RestRequest & request) {
-    connection.sendErrorResponse(404, "unknown resource " + request.verb + " " +  request.resource);
+    connection.sendJsonErrorResponse(404, "unknown resource " + request.verb + " " +  request.resource);
 };
 
 RestRequestMatchResult
@@ -1000,7 +1000,7 @@ sendExceptionResponse(RestConnection & connection,
         code = val["httpCode"].asInt();
     }
 
-    connection.sendResponse(code, val);
+    connection.sendJsonResponse(code, val);
     return RestRequestRouter::MR_ERROR;
 }
 

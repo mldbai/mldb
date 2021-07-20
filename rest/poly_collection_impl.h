@@ -230,7 +230,7 @@ struct PolyCollection<Entity>::Registry {
         guard.unlock();
 
         if (!it->second.docRoute) {
-            connection.sendErrorResponse(404, "type " + type + " has no documentation registered");
+            connection.sendJsonErrorResponse(404, "type " + type + " has no documentation registered");
             return MR_YES;
         }
         return it->second.docRoute(server, connection, req, const_cast<RestRequestParsingContext &>(cxt));
@@ -282,7 +282,7 @@ struct PolyCollection<Entity>::Registry {
                       const RestRequestParsingContext & cxt)
     {
         Json::Value result = getTypeInfo(nounPlural, type);
-        connection.sendResponse(200, result);
+        connection.sendJsonResponse(200, result);
         return MR_YES;
     }
 
@@ -305,7 +305,7 @@ struct PolyCollection<Entity>::Registry {
         guard.unlock();
 
         if (!it->second.customRoute) {
-            connection.sendErrorResponse(404, "type " + type + " has no custom route handler registered");
+            connection.sendJsonErrorResponse(404, "type " + type + " has no custom route handler registered");
             return MR_YES;
         }
         return it->second.customRoute(server, connection, req, const_cast<RestRequestParsingContext &>(cxt));

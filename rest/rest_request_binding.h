@@ -723,7 +723,7 @@ struct RestRequestBinder {
     catch (const std::exception & exc) { \
         return sendExceptionResponse(connection, exc); \
     } catch (...) { \
-        connection.sendErrorResponse(400, "unknown exception"); \
+        connection.sendJsonErrorResponse(400, "unknown exception"); \
         return RestRequestRouter::MR_ERROR; \
     }
 
@@ -1154,7 +1154,7 @@ struct RestRequestBinder<TypeList<PositionedDualTypes...> > {
                     if (excFn)
                         return excFn("unknown exception", std::current_exception(),
                                      connection, request, context);
-                    connection.sendErrorResponse(400, "unknown exception");
+                    connection.sendJsonErrorResponse(400, "unknown exception");
                     return RestRequestRouter::MR_ERROR;
                 }
             };
@@ -1211,7 +1211,7 @@ struct RestRequestBinder<TypeList<PositionedDualTypes...> > {
                     if (excFn)
                         return excFn("unknown exception", std::current_exception(),
                                      connection, request, context);
-                    connection.sendErrorResponse(400, "unknown exception");
+                    connection.sendJsonErrorResponse(400, "unknown exception");
                     return RestRequestRouter::MR_ERROR;
                 }
             };

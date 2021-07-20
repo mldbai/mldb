@@ -67,7 +67,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
     }
 
     if (format == "full" || format == "") {
-        connection.sendResponse(200, jsonEncodeStr(sparseOutput),
+        connection.sendResponse(200, jsonEncodeUtf8(sparseOutput),
                                 "application/json");
     }
     else if (format == "sparse") {
@@ -93,7 +93,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
             output.emplace_back(std::move(rowOut));
         }
 
-        connection.sendResponse(200, jsonEncodeStr(output),
+        connection.sendResponse(200, jsonEncodeUtf8(output),
                                 "application/json");
     }
     else if (format == "soa") {
@@ -117,7 +117,8 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                 vals[i] = val;
             }
         }
-        connection.sendResponse(200, jsonEncodeStr(output),
+
+        connection.sendResponse(200, jsonEncodeUtf8(output),
                                 "application/json");
     }
     else if (format == "aos") {
@@ -140,7 +141,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
 
             output.emplace_back(std::move(row));
         }
-        connection.sendResponse(200, jsonEncodeStr(output),
+        connection.sendResponse(200, jsonEncodeUtf8(output),
                                 "application/json");
     }
     else if (format == "table") {
@@ -231,39 +232,39 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
             output.push_back(rowOut);
         }
 
-        connection.sendResponse(200, jsonEncodeStr(output),
+        connection.sendResponse(200, jsonEncodeUtf8(output),
                                 "application/json");
     }
     else if (format == "atom") {
         if (sparseOutput.size() > 1) {
-            connection.sendErrorResponse(400, "Query with atom format returning multiple rows. Consider using limit.");
+            connection.sendJsonErrorResponse(400, "Query with atom format returning multiple rows. Consider using limit.");
             return;
         }
 
         if (sparseOutput.size() == 0) {
-            connection.sendErrorResponse(400, "Query with atom format returned no rows.");
+            connection.sendJsonErrorResponse(400, "Query with atom format returned no rows.");
             return;
         }
 
         const auto& columns = sparseOutput[0].columns;
 
         if (columns.size() == 0) {
-            connection.sendErrorResponse(400, "Query with atom format returned no columns.");
+            connection.sendJsonErrorResponse(400, "Query with atom format returned no columns.");
             return;
         }
 
         if (columns.size() > 1) {
-            connection.sendErrorResponse(400, "Query with atom format returned multiple columns.");
+            connection.sendJsonErrorResponse(400, "Query with atom format returned multiple columns.");
             return;
         }
 
         const auto& val = std::get<1>(columns[0]);
 
-        connection.sendResponse(200, jsonEncodeStr(val),
+        connection.sendResponse(200, jsonEncodeUtf8(val),
                                 "application/json"); 
     }
     else {
-        connection.sendErrorResponse(400, "Unknown output format '" + format + "'");
+        connection.sendJsonErrorResponse(400, "Unknown output format '" + format + "'");
     }
 }
 
@@ -506,7 +507,7 @@ initRoutes(RouteManager & manager)
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
             } MLDB_CATCH_ALL {
-                connection.sendErrorResponse(400, "Unknown exception was thrown");
+                connection.sendJsonErrorResponse(400, "Unknown exception was thrown");
                 return RestRequestRouter::MR_ERROR;
             }
         };

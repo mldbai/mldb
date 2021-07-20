@@ -72,22 +72,22 @@ struct HttpRestConnection: public RestConnection {
 
     /** Send the given response back on the connection. */
     virtual void sendResponse(int responseCode,
-                              std::string response,
-                              std::string contentType);
+                              Utf8String response,
+                              std::string contentType) override;
     
     /** Send the given response back on the connection. */
-    virtual void sendResponse(int responseCode,
-                              const Json::Value & response,
-                              std::string contentType = "application/json");
+    virtual void sendJsonResponse(int responseCode,
+                                  const Json::Value & response,
+                                  std::string contentType = "application/json") override;
     
-    virtual void sendRedirect(int responseCode, std::string location);
+    virtual void sendRedirect(int responseCode, std::string location) override;
 
     /** Send an HTTP-only response with the given headers.  If it's not
         an HTTP connection, this will fail.
     */
     virtual void sendHttpResponse(int responseCode,
-                                  std::string response, std::string contentType,
-                                  RestParams headers);
+                                  Utf8String response, std::string contentType,
+                                  RestParams headers) override;
 
     /** Send an HTTP-only response header.  This will not close the connection.  A
         contentLength of -1 means don't send it (for when the content length is
@@ -97,35 +97,35 @@ struct HttpRestConnection: public RestConnection {
     virtual void sendHttpResponseHeader(int responseCode,
                                         std::string contentType,
                                         ssize_t contentLength,
-                                        RestParams headers = RestParams());
+                                        RestParams headers = RestParams()) override;
     
     /** Send a payload (or a chunk of a payload) for an HTTP connection. */
-    virtual void sendPayload(std::string payload);
+    virtual void sendPayload(Utf8String payload) override;
 
     /** Finish the response, recycling or closing the connection. */
-    virtual void finishResponse();
+    virtual void finishResponse() override;
 
     /** Send the given error string back on the connection. */
     virtual void sendErrorResponse(int responseCode,
-                                   std::string error,
-                                   std::string contentType);
+                                   Utf8String error,
+                                   std::string contentType) override;
     
-    virtual void sendErrorResponse(int responseCode, const Json::Value & error);
+    virtual void sendJsonErrorResponse(int responseCode, const Json::Value & error) override;
 
     using RestConnection::sendErrorResponse;
 
-    virtual bool responseSent() const
+    virtual bool responseSent() const override
     {
         return responseSent_;
     }
 
-    virtual bool isConnected() const;
+    virtual bool isConnected() const override;
 
     virtual std::shared_ptr<RestConnection>
-    capture(std::function<void ()> onDisconnect);
+    capture(std::function<void ()> onDisconnect) override;
 
     virtual std::shared_ptr<RestConnection>
-    captureInConnection(std::shared_ptr<void> piggyBack);
+    captureInConnection(std::shared_ptr<void> piggyBack) override;
 };
 
 
