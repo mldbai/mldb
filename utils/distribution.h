@@ -209,10 +209,13 @@ public:
         return (*this - mean()).two_norm() / sqrt(this->size());
     }
 
-    int count() const
+    size_t count() const
     {
-        return std::count_if(this->begin(), this->end(),
-                             std::bind2nd(std::not_equal_to<F>(), F()));
+        size_t result = 0;
+        for (auto v: *this) {
+            result += v != F();
+        }
+        return result;
     }
 
     F max() const

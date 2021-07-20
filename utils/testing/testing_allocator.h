@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "mldb/jml/utils/hash_map.h"
+#include "mldb/jml/utils/unordered_map.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
 #include <string.h>
@@ -36,7 +36,7 @@ struct Testing_Allocator_Data {
         bool freed;
     };
 
-    typedef hash_map<void *, Alloc_Info> Info;
+    typedef unordered_map<void *, Alloc_Info> Info;
     Info info;
 
     size_t objects_allocated;

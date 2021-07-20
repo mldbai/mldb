@@ -82,6 +82,7 @@ BOOST_AUTO_TEST_CASE( test_forEachLine_throw )
     atomic<int> count(0);
     auto processLine = [&] (const string & data, int64_t lineNum) {
         if (count.fetch_add(1) > 500) {
+            MLDB_TRACE_EXCEPTIONS(false);
             throw MLDB::Exception("thrown");
         }
     };

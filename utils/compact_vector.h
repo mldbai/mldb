@@ -42,8 +42,8 @@ template<typename Data,
          class Allocator = std::allocator<Data> >
 class compact_vector {
 public:
-    typedef typename std::vector<Data>::iterator iterator;
-    typedef typename std::vector<Data>::const_iterator const_iterator;
+    typedef Data * iterator;
+    typedef const Data * const_iterator;
     typedef Pointer pointer;
     typedef Size size_type;
     typedef Data value_type;
