@@ -7,6 +7,7 @@
 # Date library for MLDB.
 
 LIBVALUE_DESCRIPTION_SOURCES := \
+	string.cc \
 	value_description.cc \
 	basic_value_descriptions.cc \
 	libc_value_descriptions.cc \
@@ -14,10 +15,13 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	json_printing.cc \
 	dtoa.c \
 	meta_value_description.cc \
-	distribution_description.cc
+	distribution_description.cc \
+	../ext/jsoncpp/json_reader.cpp \
+	../ext/jsoncpp/json_writer.cpp \
+	../ext/jsoncpp/json_value.cpp
 
 LIBVALUE_DESCRIPTION_LINK := \
-	arch jsoncpp base
+	arch base
 
 $(eval $(call library,value_description,$(LIBVALUE_DESCRIPTION_SOURCES),$(LIBVALUE_DESCRIPTION_LINK)))
 
@@ -27,7 +31,6 @@ $(eval $(call library,any,any.cc,value_description))
 LIBTYPES_SOURCES := \
 	date.cc \
 	localdate.cc \
-	string.cc \
 	url.cc \
 	periodic_utils.cc \
 	dtoa.c \
@@ -37,7 +40,7 @@ LIBTYPES_SOURCES := \
 	annotated_exception.cc \
 
 LIBTYPES_LINK := \
-	rt boost_regex boost_date_time jsoncpp googleurl cityhash value_description highwayhash re2 any
+	rt boost_regex boost_date_time googleurl cityhash value_description highwayhash re2 any
 
 $(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
 $(eval $(call set_compile_option,regex.cc,-I$(RE2_INCLUDE_PATH)))

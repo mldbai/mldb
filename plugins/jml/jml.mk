@@ -29,7 +29,6 @@ LIBML_SOURCES := \
 
 LIBML_LINK := \
 	$(STD_FILESYSTEM_LIBNAME) \
-	jsoncpp \
 	types \
 	value_description \
 	algebra \

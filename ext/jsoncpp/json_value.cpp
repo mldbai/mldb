@@ -1462,6 +1462,13 @@ Value::toString() const
 }
 
 std::string
+Value::toStringUtf8() const
+{
+   FastWriter writer;
+   return writer.write( *this );
+}
+
+std::string
 Value::toStringNoNewLine() const
 {
     std::string str = toString();
@@ -1470,6 +1477,14 @@ Value::toStringNoNewLine() const
     return str;
 }
 
+std::string
+Value::toStringNoNewLineUtf8() const
+{
+    std::string str = toString();
+    if (str.back() == '\n')
+        str.erase(str.size() - 1);
+    return str;
+}
 
 Value::const_iterator
 Value::begin() const
