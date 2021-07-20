@@ -17,6 +17,7 @@
 #include "mldb/credentials/credential_provider.h"
 #include "mldb/credentials/credentials.h"
 #include "mldb/compiler/filesystem.h"
+#include "mldb/utils/testing/watchdog.h"
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
@@ -89,6 +90,7 @@ int main(int argc, char ** argv)
     string httpListenPort = "11700-18000";
     string httpListenHost = "0.0.0.0";
     string runScript;
+    int watchdogTimeout = -1;
     bool dontExitAfterScript = false;
 
     string cacheDir;
@@ -129,6 +131,9 @@ int main(int argc, char ** argv)
          "Base path in etcd")
 #endif
         ("num-threads,t", value(&numThreads), "Number of HTTP worker threads")
+        ("watchdog-timeout",
+         value(&watchdogTimeout)->default_value(watchdogTimeout),
+         "set a watchdog timer to terminate after n seconds (-1 = no timeout)")
         ("http-listen-port,p",
          value(&httpListenPort)->default_value(httpListenPort),
          "Port to listen on for HTTP")
@@ -240,6 +245,11 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
+    std::unique_ptr<Watchdog> watchdog;
+    if (watchdogTimeout != -1) {
+	watchdog.reset(new Watchdog(watchdogTimeout));
+    }
+    
     // Add these first so that if needed they can be used to load the credentials
     // file
     if (!addCredentials.empty()) {

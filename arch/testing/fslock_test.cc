@@ -20,6 +20,7 @@
 #include <thread>
 #include "mldb/arch/fslock.h"
 #include "mldb/arch/exception.h"
+#include "mldb/utils/testing/watchdog.h"
 
 
 using namespace std;
@@ -37,6 +38,8 @@ cleanupLock(const string basename)
 /* stress test ensuring that the file mutex implementation is effective */
 BOOST_AUTO_TEST_CASE( test_lock_race )
 {
+    Watchdog watchdog(10.0);
+
     const int numBlocks(10);
     const int numThreads(10);
 
@@ -84,6 +87,8 @@ BOOST_AUTO_TEST_CASE( test_lock_race )
 /* ensure that stale locks are handled properly using tryLock */
 BOOST_AUTO_TEST_CASE( test_stale_and_trylock )
 {
+    Watchdog watchdog(10.0);
+
     // TestFolderFixture dir("stale_trylock");
     string lockedFile = "tmp/some_file";
 
@@ -110,6 +115,8 @@ BOOST_AUTO_TEST_CASE( test_stale_and_trylock )
 /* ensure that stale locks are handled properly using lock */
 BOOST_AUTO_TEST_CASE( test_stale_and_lock )
 {
+    Watchdog watchdog(10.0);
+
     // TestFolderFixture dir("stale_lock");
     string lockedFile = "tmp/some_file";
 
