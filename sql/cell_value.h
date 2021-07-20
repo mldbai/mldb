@@ -8,6 +8,7 @@
 #pragma once
 
 #include <atomic>
+#include <utility>
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/date.h"
 #include "mldb/types/value_description_fwd.h"
@@ -584,8 +585,6 @@ std::ostream & operator << (std::ostream & stream, const CellValue::CellType & v
 
 // Allow std::unordered_xxx<CellValue> to work
 namespace std {
-
-template<typename T> struct hash;
 
 template<>
 struct hash<MLDB::CellValue> : public std::unary_function<MLDB::CellValue, size_t>
