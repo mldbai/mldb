@@ -9,7 +9,6 @@
 #pragma once
 
 #include "mldb/compiler/filesystem.h"
-#include <stdlib.h>
 
 namespace MLDB {
 
@@ -19,24 +18,7 @@ namespace MLDB {
     This is a wrapper around the mkstemp function.
 */
 std::filesystem::path
-make_unique_directory(const std::filesystem::path & current)
-{
-    std::string path = current;
-    char filename[path.length() + 8];
-    std::copy(path.begin(), path.end(), filename);
-    filename[path.length()] = '/';
-    std::fill(filename + path.length() + 1,
-              filename + path.length() + 7,
-              'X');
-    filename[path.length() + 7] = 0;
-    
-    char * res = ::mkdtemp(filename);
-    if (!res) {
-        throw Exception(errno, "make_unique_directory mkdtemp");
-    }
-
-    return std::string(res);
-}        
+make_unique_directory(const std::filesystem::path & current);
 
     
 } // namespace MLDB
