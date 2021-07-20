@@ -25,9 +25,11 @@ struct RWLock {
         pthread_rwlockattr_t lockattr;
         int res = pthread_rwlockattr_init(&lockattr);
         check_err(res);
+#ifdef LINUX
         pthread_rwlockattr_setkind_np(&lockattr,
                                       PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
         check_err(res);
+#endif
 
         res = pthread_rwlock_init(&rwlock, &lockattr);
         check_err(res);
