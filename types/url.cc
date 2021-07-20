@@ -323,8 +323,8 @@ decodeUri(Utf8String in)
 #else
     Utf8String inCopy(in);
     Utf8String out;
-    char high;
-    char low;
+    unsigned char high;
+    unsigned char low;
     char buffer[5]; // utf-8 has at most 4 bytes + \0
     for (Utf8String::iterator it = in.find('%'); it != in.end();
             it = in.find('%'))
@@ -358,7 +358,7 @@ decodeUri(Utf8String in)
 
             if (bufferIndex == 0) {
                 // the first byte tells us how many bytes to look for
-                char c = buffer[0] << 1;
+                signed char c = buffer[0] << 1;
                 while (c < 0) {
                     c = c << 1;
                     ++remaining;

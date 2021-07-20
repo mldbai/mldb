@@ -210,7 +210,7 @@ perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
     if (i != -1) P[i] = 0;
     double tot = P.total();
 
-    if (!isfinite(tot) || tot == 0) {
+    if (!std::isfinite(tot) || tot == 0) {
         // Perplexity is impossible, since no weights
         std::fill(P.begin(), P.end(), 1.0);
         if (i != -1)
@@ -230,7 +230,7 @@ perplexity_and_prob(const distribution<Float> & D, double beta = 1.0,
     double H = log(tot) + beta * D.dotprod(P) / tot;
     P *= 1.0 / tot;
 
-    if (!isfinite(P.total())) {
+    if (!std::isfinite(P.total())) {
 #if 1
         cerr << "beta = " << beta << endl;
         cerr << "D = " << D << endl;
@@ -307,13 +307,13 @@ binary_search_perplexity(const distribution<float> & Di,
 
         if (log_perplexity > log_required_perplexity) {
             betamin = beta;
-            if (!isfinite(betamax))
+            if (!std::isfinite(betamax))
                 beta *= 2;
             else beta = (beta + betamax) * 0.5;
         }
         else {
             betamax = beta;
-            if (!isfinite(betamin))
+            if (!std::isfinite(betamin))
                 beta /= 2;
             else beta = (beta + betamin) * 0.5;
         }
@@ -460,7 +460,8 @@ double calc_D_row(float * Di, int n)
 
     double total = 0.0;
 
-    if (false) ;
+    if (false)
+        ;  // for non-intel ISA
 #if MLDB_INTEL_ISA
     else if (n >= 8) {
         using namespace SIMD;
@@ -592,7 +593,8 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
 
     unsigned i = 0;
 
-    if (false) ;
+    if (false)
+        ;  // non-intel ISA
 
 #if MLDB_INTEL_ISA
     else if (true) {
@@ -1066,7 +1068,7 @@ tsne(const boost::multi_array<float, 2> & probs,
             last_cost = cost;
             cost = cost2;
 
-            if (isfinite(cost) && cost == last_cost) {
+            if (std::isfinite(cost) && cost == last_cost) {
                 // converged
                 break;
             }
@@ -1217,7 +1219,7 @@ float pythag_dist(const float * d1, const float * d2, int nd)
         };    
 
     for (unsigned i = 0;  i < nd;  ++i)
-        if (!isfinite(newExampleCoords[i]))
+        if (!std::isfinite(newExampleCoords[i]))
             throw MLDB::Exception("non-finite coordinates to sparseProbsFromCoords");
 
     // Distance between neighbours.  Must satisfy the triangle inequality,
@@ -1308,7 +1310,7 @@ sparseProbsFromCoords(const std::function<float (int)> & dist,
 
     for (unsigned i = 0;  i < exNeighbours.size();  ++i) {
         // Ensure distance is finite
-        ExcAssert(isfinite(exNeighbours[i].first));
+        ExcAssert(std::isfinite(exNeighbours[i].first));
 
         // Ensure that distance is positive
         ExcAssertGreaterEqual(exNeighbours[i].first, 0.0);
@@ -1981,9 +1983,9 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                     //}
 
                     ExcAssertEqual(poiDone, neighbours.indexes.size());
-                    //if (!isfinite(exampleCFactor[x]))
+                    //if (!std::isfinite(exampleCFactor[x]))
                     //    cerr << "x = " << x << " factor " << exampleCFactor[x] << endl;
-                    ExcAssert(isfinite(exampleCFactorPtr[x]));
+                    ExcAssert(std::isfinite(exampleCFactorPtr[x]));
                 } else {
                     calcRep(*qtree.root, 0, true /* inside */,
                             y, &FrepZ[x][0], exampleZ, nodesTouched, nd, exact,
@@ -2036,15 +2038,15 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                                          ZApproxValues.end(),
                                          0.0);
 
-        ExcAssert(isfinite(ZApprox));
+        ExcAssert(std::isfinite(ZApprox));
         ExcAssertNotEqual(0.0, ZApprox);
 
         double Zrecip = 1.0 / ZApprox;
-        ExcAssert(isfinite(Zrecip));
+        ExcAssert(std::isfinite(Zrecip));
         
         for (unsigned x = 0;  x < nx;  ++x) {
             for (unsigned i = 0;  i < nd;  ++i) {
-                ExcAssert(isfinite(FrepZ[x][i]));
+                ExcAssert(std::isfinite(FrepZ[x][i]));
                 FrepApprox[x][i] = FrepZ[x][i] * Zrecip;
             }
         }
@@ -2069,7 +2071,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
 
                 //cerr << "CExample1 = " << CExample << endl;
 
-                ExcAssert(isfinite(CExample));
+                ExcAssert(std::isfinite(CExample));
 
                 for (auto & p: neighbours.probs) {
                     // Be robust to zero probabilities, even though we
@@ -2078,7 +2080,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                         continue;
 
                     double CNeighbour =  pFactor * p * (logZapprox + logpFactor + logf(p));
-                    if (!isfinite(CNeighbour)) {
+                    if (!std::isfinite(CNeighbour)) {
                         cerr << "cExample = " << CExample
                              << "cNeighbour = " << CNeighbour
                              << " pFactor = " << pFactor
@@ -2095,7 +2097,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
 
                 Capprox += CExample;
 
-                ExcAssert(isfinite(Capprox));
+                ExcAssert(std::isfinite(Capprox));
             }
         }
 
@@ -2236,9 +2238,9 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 //dY[x][i] = 4.0 * (Fattr[x][i] + FrepApprox[x][i]);
                 dY[x][i] = 4.0 * (FattrApprox[x][i] + FrepApprox[x][i]);
 
-                ExcAssert(isfinite(FattrApprox[x][i]));
-                ExcAssert(isfinite(FrepApprox[x][i]));
-                ExcAssert(isfinite(dY[x][i]));
+                ExcAssert(std::isfinite(FattrApprox[x][i]));
+                ExcAssert(std::isfinite(FrepApprox[x][i]));
+                ExcAssert(std::isfinite(dY[x][i]));
 
                 maxAbsDy = std::max(maxAbsDy, fabs(dY[x][i]));
                 maxAbsY = std::max(maxAbsY, Y[x][i]);
@@ -2298,13 +2300,13 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         double cost2 = Capprox;
         if (calcC) {
             cerr << "cost " << Capprox << endl;
-            ExcAssert(isfinite(Capprox));
+            ExcAssert(std::isfinite(Capprox));
             //cerr << "Cost approx " << Capprox << " real " << C << endl;
 
             last_cost = cost;
             cost = cost2;
 
-            if (isfinite(cost) && cost == last_cost) {
+            if (std::isfinite(cost) && cost == last_cost) {
                 // converged
                 break;
             }
@@ -2557,9 +2559,9 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
 #endif
             ExcAssertEqual(poiDone, neighbours.indexes.size());
 
-            //if (!isfinite(exampleCFactor[x]))
+            //if (!std::isfinite(exampleCFactor[x]))
             //    cerr << "x = " << x << " factor " << exampleCFactor[x] << endl;
-            ExcAssert(isfinite(CFactor));
+            ExcAssert(std::isfinite(CFactor));
         } else {
             calcRep(*qtree.root, 0, false /* inside */,
                     y, FrepZApprox, ZApprox, nodesTouched, nd, exact,

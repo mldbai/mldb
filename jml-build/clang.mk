@@ -27,7 +27,7 @@ CXXEXEPOSTFLAGS = $(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY))
 
 
 
-CC ?= $(COMPILER_CACHE) $(CLANG)
+CC := $(COMPILER_CACHE) $(CLANG)
 GCCWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -fno-strict-overflow
 CFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GCCWARNINGFLAGS) -pipe -O1 -g -DNDEBUG -fno-omit-frame-pointer
 CDEBUGFLAGS := -O0 -g

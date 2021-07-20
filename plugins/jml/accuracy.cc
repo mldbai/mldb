@@ -779,7 +779,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
         {}
 
         void increment(double v, double l, double w) {
-            if (!finite(v)) return;
+            if (!std::isfinite(v)) return;
 
             mse_sum += pow(v-l, 2) * w;
             absolute_percentage.push_back(abs( (v-l)/l ));

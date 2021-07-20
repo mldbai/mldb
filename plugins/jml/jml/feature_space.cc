@@ -114,7 +114,7 @@ serialize(DB::Store_Writer & store,
     else {
         //cerr << "serializing STRING for feature " << print(feature)
         //     << " with value " << value << endl;
-        string s = (finite(value) ? finfo.categorical()->print((int)value)
+        string s = (std::isfinite(value) ? finfo.categorical()->print((int)value)
                     : format("!!!%f", value));
         //cerr << " string was " << s << endl;
         store << s;

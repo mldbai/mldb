@@ -129,6 +129,7 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists $
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).lo_OBJ)
+objs: $$(BUILD_$(CWD)/$(2).lo_OBJ)
 
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
 -include $(OBJ)/$(CWD)/$(2).d
@@ -167,6 +168,9 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists  
 	$$(if $(verbose_build),,@echo "             $(COLOR_GREEN)   $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
+compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).lo_OBJ)
+objs: $$(BUILD_$(CWD)/$(2).lo_OBJ)
+
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
 -include $(OBJ)/$(CWD)/$(2).d
 endif
@@ -190,6 +194,10 @@ $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "       $(COLOR_CYAN)[FORTRAN]$(COLOR_RESET) $(CWD)/$(1)")
 	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+
+compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).lo_OBJ)
+objs: $$(BUILD_$(CWD)/$(2).lo_OBJ)
+
 endif
 endef
 
@@ -214,6 +222,9 @@ $$(BUILD_$(CWD)/$(1).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(1).lo_COMMAND2),@echo "          $(COLOR_CYAN)[CUDA]$(COLOR_RESET)                      	$(CWD)/$(1)")
 	@$(call write_timing_to,$$@.timing) $$(BUILD_$(CWD)/$(1).lo_COMMAND2)
 	$$(if $(verbose_build),,@echo "             $(COLOR_GREEN)   $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
+
+compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).lo_OBJ)
+objs: $$(BUILD_$(CWD)/$(2).lo_OBJ)
 
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
 -include $(OBJ)/$(CWD)/$(1).d
