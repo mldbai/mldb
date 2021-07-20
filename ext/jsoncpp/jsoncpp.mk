@@ -4,11 +4,5 @@
 #
 # Support functions for javascript
 
-LIBRECOSET_JSONCPP_SOURCES := \
-	json_reader.cpp \
-	json_writer.cpp \
-	json_value.cpp
 
-LIBRECOSET_JSONCPP_LINK := 
 
-$(eval $(call library,jsoncpp,$(LIBRECOSET_JSONCPP_SOURCES),$(LIBRECOSET_JSONCPP_LINK)))

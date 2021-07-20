@@ -1,6 +1,7 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-$(eval $(call library,log,log.cc, config))
+$(eval $(call library,config,config.cc,boost_program_options))
+$(eval $(call library,log,log.cc, arch config))
 
 
 LIBUTILS_SOURCES := \
@@ -19,6 +20,10 @@ LIBUTILS_LINK := \
 	db \
 	block \
 	log \
+	arch \
+	base \
+	types \
+	$(STD_FILESYSTEM_LIBNAME)
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 
@@ -26,9 +31,8 @@ $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 $(eval $(call set_compile_option,hash.cc,-fpermissive))
 $(eval $(call set_compile_option,confidence_intervals.cc,-O3))
 
-$(eval $(call library,config,config.cc,boost_program_options))
-$(eval $(call library,progress,progress.cc,))
-$(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types utils highwayhash))
+$(eval $(call library,progress,progress.cc,types value_description arch))
+$(eval $(call library,json_diff,json_diff.cc json_utils.cc,arch base value_description types utils highwayhash))
 
 # Runner Common
 
