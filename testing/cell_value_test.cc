@@ -17,6 +17,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <climits>
+#include <random>
 
 
 using namespace std;
@@ -107,7 +108,9 @@ BOOST_AUTO_TEST_CASE( test_ordering )
 
     for (unsigned i = 0;  i < 10;  ++i) {
         vector<CellValue> unsorted = values;
-        std::random_shuffle(unsorted.begin(), unsorted.end());
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(unsorted.begin(), unsorted.end(), g);
         std::sort(unsorted.begin(), unsorted.end());
 
         BOOST_CHECK_EQUAL_COLLECTIONS(unsorted.begin(), unsorted.end(),
