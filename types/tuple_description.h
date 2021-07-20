@@ -15,6 +15,25 @@
 
 namespace MLDB {
 
+template<typename... T>
+struct TupleDescription;
+
+} // namespace MLDB
+
+namespace std {
+
+template<typename... T>
+MLDB::TupleDescription<T...> *
+getDefaultDescription(tuple<T...> * = 0);
+
+template<typename... T>
+MLDB::TupleDescription<T...> *
+getDefaultDescriptionUninitialized(tuple<T...> * = 0);
+
+} // namespace std
+
+namespace MLDB {
+
 struct TupleElementDescription {
     int offset;
     std::shared_ptr<const ValueDescription> desc;
@@ -61,9 +80,6 @@ void addTupleTypes(std::vector<TupleElementDescription> & elements)
 /*****************************************************************************/
 /* TUPLE DESCRIPTION                                                         */
 /*****************************************************************************/
-
-template<typename... T>
-struct TupleDescription;
 
 template<typename... T>
 struct TupleDescription
@@ -189,22 +205,49 @@ struct TupleDescription
     }
 };
 
+// std::swap of a tuple with an Any relies on an implicit conversion, which Any doesn't
+// like.  This is a hack to avoid instantiating std::swap for tuples, instead we go
+// element by element.  Needed for clang 12.
+template<size_t First, size_t Last>
+struct SwapElements {
+    template<typename Tuple>
+    static void swap(Tuple & t1, Tuple & t2)
+    {
+        doSwap(std::get<First>(t1), std::get<First>(t2));
+        SwapElements<First + 1, Last>::swap(t1, t2);
+    }
+};
+
+template<size_t Last>
+struct SwapElements<Last, Last> {
+    template<typename Tuple>
+    static void swap(Tuple & t1, Tuple & t2)
+    {
+    }
+};
+
+template<typename... T>
+inline void doSwap(std::tuple<T...> & t1, std::tuple<T...> & t2)
+{
+    SwapElements<0, sizeof...(T)>::swap(t1, t2);
+}
+
 } // namespace MLDB
 
 namespace std {
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescription(std::tuple<T...> * = 0)
+getDefaultDescription(std::tuple<T...> *)
 {
     return new MLDB::TupleDescription<T...>();
 }
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescriptionUninitialized(std::tuple<T...> * = 0)
+getDefaultDescriptionUninitialized(std::tuple<T...> *)
 {
     return new MLDB::TupleDescription<T...>(MLDB::constructOnly);
 }
 
-}
+} // namespace std
