@@ -18,6 +18,7 @@
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/utils/log.h"
+#include "mldb/utils/vector_utils.h"
 #include "mldb/types/structure_description.h"
 
 using namespace std;
@@ -238,16 +239,16 @@ struct SqliteSparseDataset::Itl
         ExcAssertEqual(res, SQLITE_OK);
     }
 
-    static void bindArg(sqlite3pp::statement & statement, int index, const RowPath & arg)
+    static void bindArg(sqlite3pp::statement & statement, int index, const Path & arg)
     {
-        int res = statement.bind(index, arg.toUtf8String().rawData());
+        int res = statement.bind(index, arg.toUtf8String().rawString().c_str(), false /* static lifetime */);
         ExcAssertEqual(res, SQLITE_OK);
     }
 
-    template<typename Arg>
-    static void bindArg(sqlite3pp::statement & statement, int index, Arg && arg)
+    template<typename... Args>
+    static void bindArg(sqlite3pp::statement & statement, int index, Args&&... args)
     {
-        int res = statement.bind(index, arg);
+        int res = statement.bind(index, std::forward<Args>(args)...);
         ExcAssertEqual(res, SQLITE_OK);
     }
 
@@ -437,7 +438,7 @@ struct SqliteSparseDataset::Itl
     {
         try {
             auto rowNum = runScalarQuery<int>("SELECT rowNum FROM rows WHERE rowHash = ? AND rowName = ?",
-                                              RowHash(rowName), rowName.toUtf8String().rawString().c_str());
+                                              RowHash(rowName), rowName);
 
             auto cols = runQuery<std::tuple<ColumnPath, CellValue, Date> >
                 ("SELECT cols.colName, vals.val, vals.ts FROM vals JOIN cols ON vals.colNum = cols.colNum WHERE rowNum = ?", rowNum);
