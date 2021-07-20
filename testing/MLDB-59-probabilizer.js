@@ -86,12 +86,7 @@ var mergedDataset = mldb.createDataset(mergedConfig);
 
 plugin.log(mldb.perform("GET", "/v1/datasets/reddit_embeddings"));
 
-var query = [
-    [ "select", "count(1)" ],
-    [ "groupBy", "1" ],
-    [ "where", "adventuretime IS NOT NULL" ],
-    [ "limit", "10" ]];
-plugin.log(mldb.perform("GET", "/v1/datasets/reddit_embeddings/query", query), null, 4);
+plugin.log(mldb.query("select count(1) from reddit_embeddings where adventuretime is not null group by 1 limit 10"));
 
 var trainClassifier = true;
 
@@ -192,8 +187,7 @@ if (testClassifier) {
     checkOutput("accuracy training", mldb.put("/v1/procedures/accuracy/runs/1", {}));
 }
 
-plugin.log(mldb.get("/v1/datasets/cls_test_results/query",
-                    {select:'*',orderBy:'index',limit:100}).json);
+plugin.log(mldb.query("select * from cls_test_results order by index limit 100"));
 
 
 // The output of the last line of the script is returned as the result of the script,

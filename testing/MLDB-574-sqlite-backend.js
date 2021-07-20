@@ -60,13 +60,15 @@ function createDataset()
     
     plugin.log("creating dataset took " + (end - start) / 1000 + " seconds");
 
+    plugin.log("dataset info:", mldb.get("/v1/query", {"q": "select count(*) from reddit_dataset"}));
+
     return dataset;
 }
 
 var dataset = createDataset();
 
-//var res = mldb.get("/v1/query", {q: "select * from reddit_dataset limit 10"});
-//plugin.log(res);
+var res = mldb.get("/v1/query", {q: "select * from reddit_dataset limit 10"});
+plugin.log(res);
 
 
 
@@ -103,6 +105,9 @@ function createAndTrainProcedure(config, name)
     plugin.log("procedure " + name + " took " + (end - start) / 1000 + " seconds");
 }
 
+var res = mldb.get("/v1/query", {q: "select * from transpose(reddit_dataset) limit 10"});
+plugin.log(res);
+
 // Create a dataset with just the column sums (number of users per row)
 var userCountsConfig = {
     type: "transform",
@@ -120,6 +125,9 @@ var userCountsConfig = {
 };
 
 createAndTrainProcedure(userCountsConfig, "reddit_user_counts");
+
+var res = mldb.get("/v1/query", {q: "select * from reddit_user_counts limit 10"});
+plugin.log(res);
 
 // Create a SVD procedure.  We only want to embed the 1,000 columns with the
 // highest row counts.

@@ -338,7 +338,7 @@ class ImportJsonTest(MldbUnitTest):  # noqa
             mldb.post("/v1/procedures", {
                 "type": "import.json",
                 "params": {
-                    'dataFileUrl' : 'file://',
+                    'dataFileUrl' : 'file:///idonotexist',
                     "outputDataset": {
                         'id' : "test_no_input_file",
                     },

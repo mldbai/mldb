@@ -15,12 +15,17 @@ import subprocess
 import time
 import logging
 import signal
-import prctl
 
+try:
+    import prctl
+    prctl_imported = True
+except:
+    prctl_imported = False
 
 def pre_exec():
     # new process group - all our child will be in that group
-    prctl.set_pdeathsig(signal.SIGTERM)
+    if prctl_imported:
+        prctl.set_pdeathsig(signal.SIGTERM)
     os.setpgid(0, 0)
 
 

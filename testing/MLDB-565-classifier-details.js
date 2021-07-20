@@ -26,7 +26,7 @@ recordExample("ex4", 3, 3);
 dataset.commit()
 
 
-var modelFileUrl = "file://tmp/MLDB-174.cls";
+var modelFileUrl = "file://tmp/MLDB-565.cls";
 
 var trainClassifierProcedureConfig = {
     type: "classifier.train",
@@ -78,7 +78,18 @@ var expected =  {
     "type" : "GLZ"
 };
 
+function fix_weights(details)
+{
+    plugin.log("weight", details.json.model.params.weights[0][1]);
+
+    // Deal with tiny numerical differences
+    if (Math.abs(details.json.model.params.weights[0][1]) < 1e-10) {
+        details.json.model.params.weights[0][1] = 0;
+    }    
+}
+
 var details = mldb.get("/v1/functions/cls_func/details");
+fix_weights(details);
 
 unittest.assertEqual(details.json.model, expected);
 
@@ -94,6 +105,7 @@ var createFunctionOutput
 plugin.log("classifier function output", createFunctionOutput);
 
 details = mldb.get("/v1/functions/regressor/details");
+fix_weights(details);
 
 unittest.assertEqual(details.json.model, expected);
 

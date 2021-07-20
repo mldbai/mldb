@@ -214,6 +214,7 @@ function testOutput(algorithm)
         unittest.assertEqual(result2, 0);
     }
     else {
+        mldb.log("result1 = ", result1, " result2 = ", result2);
         unittest.assertEqual(result1 > result2, true);
     }
 }

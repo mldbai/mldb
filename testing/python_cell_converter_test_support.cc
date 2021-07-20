@@ -9,6 +9,7 @@
 
 // Python includes aren't ready for c++17 which doesn't support register
 #define register 
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
 #include <Python.h>
 #include "mldb/builtin/python/pointer_fix.h" //must come before boost python

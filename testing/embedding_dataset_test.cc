@@ -11,6 +11,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/builtin/sql_functions.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/types/value_description.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
