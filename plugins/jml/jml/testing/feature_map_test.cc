@@ -14,7 +14,7 @@
 #include <vector>
 #include <map>
 #include <boost/timer.hpp>
-#include "mldb/jml/utils/hash_map.h"
+#include "mldb/jml/utils/unordered_map.h"
 
 using namespace std;
 using namespace ML;
@@ -34,7 +34,7 @@ void do_timed_test(Array & array, const vector<Feature> & features_,
     std::sort(features.begin(), features.end());
     features.erase(std::unique(features.begin(), features.end()),
                    features.end());
-    std::random_shuffle(features.begin(), features.end());
+    std::shuffle(features.begin(), features.end());
 
     int NUM = features.size();
     double total = 0.0;
@@ -80,7 +80,7 @@ void do_timed_test(Array & array, const vector<Feature> & features_,
         }
 
     t.restart();
-    std::random_shuffle(features.begin(), features.end());
+    std::shuffle(features.begin(), features.end());
     //cerr << "shuffle: " << format("%6.2fs", t.elapsed()) << endl;
 
     t.restart();
@@ -123,14 +123,14 @@ void profile(const vector<Feature> & features, string name)
     typedef std::map<Feature, unsigned long> array1_type;
     array1_type array1;
 
-    typedef std::hash_map<Feature, unsigned long> array2_type;
+    typedef std::unordered_map<Feature, unsigned long> array2_type;
     array2_type array2;
 
     typedef Feature_Map<unsigned long> array3_type;
     array3_type array3;
 
     do_timed_test(array1, features, "map");
-    do_timed_test(array2, features, "hash_map");
+    do_timed_test(array2, features, "unordered_map");
     do_timed_test(array3, features, "feature_map");
     cerr << endl << endl;
 }
@@ -171,7 +171,7 @@ void profile3()
     for (unsigned i = 0;  i < NUM;  ++i)
         features[i] = Feature(i, 0, 0);
 
-    std::random_shuffle(features.begin(), features.end());
+    std::shuffle(features.begin(), features.end());
 
     profile(features, "first sequential features");
 }
@@ -189,7 +189,7 @@ void profile4()
     for (unsigned i = NUM / 2;  i < NUM;  ++i)
         features[i] = Feature(i, rand(), rand());
 
-    std::random_shuffle(features.begin(), features.end());
+    std::shuffle(features.begin(), features.end());
 
     profile(features, "half sequential half random");
 }
@@ -210,7 +210,7 @@ void sanity1()
 
     features.erase(std::unique(features.begin(), features.end()),
                    features.end());
-    std::random_shuffle(features.begin(), features.end());
+    std::shuffle(features.begin(), features.end());
 
     NUM = features.size();
     
@@ -263,7 +263,7 @@ void sanity1()
         }
     }
 
-    std::random_shuffle(features.begin(), features.end());
+    std::shuffle(features.begin(), features.end());
     for (unsigned i = 0;  i < NUM;  ++i)
         array[features[i]] += 1;
 
@@ -332,7 +332,7 @@ void test2()
                             + features[i].print());
     }
 
-    //std::random_shuffle(features.begin(), features.end());
+    //std::shuffle(features.begin(), features.end());
 
     for (unsigned i = 0;  i < features.size();  ++i)
         array[features[i]] = i;

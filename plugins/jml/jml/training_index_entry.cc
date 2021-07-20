@@ -9,7 +9,6 @@
 */
 
 #include "training_index_entry.h"
-#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "mldb/plugins/jml/jml/feature_space.h"
@@ -74,7 +73,7 @@ Dataset_Index::Index_Entry::
 insert(float value, unsigned example, unsigned example_count, bool sparse)
 {
     check_used();
-    if (isnanf(value)) return;
+    if (std::isnan(value)) return;
 
     if (!sparse && values.empty())
         values.reserve(example_count);
@@ -280,24 +279,31 @@ get_examples(Sort_By sort_by) const
         const vector<unsigned> & examples3
             = (examples.size() ? examples : examples2);
 
-        vector<pair<float, unsigned> > pairs
-            (pair_merger(values.begin(), examples3.begin()),
-             pair_merger(values.end(), examples3.end()));
+        vector<pair<float, unsigned> > pairs;
+        ExcAssertEqual(values.size(), examples3.size());
+        pairs.reserve(values.size());
+        for (size_t i = 0;  i < values.size();  ++i) {
+            pairs.emplace_back(values[i], examples3[i]);
+        }
         sort_on_first_ascending(pairs);
         
         if (values_sorted.size()) {
             /* Should be the same whether pre-calculated or not. */
-            ExcAssert(std::equal(values_sorted.begin(),
-                              values_sorted.end(),
-                              first_extractor(pairs.begin())));
+            ExcAssertEqual(values_sorted.size(), pairs.size());
+            for (size_t i = 0;  i < values_sorted.size();  ++i) {
+                ExcAssertEqual(values_sorted[i], pairs[i].first);
+            }
         }
         else {
-            values_sorted = vector<float>(first_extractor(pairs.begin()),
-                                          first_extractor(pairs.end()));
+            values_sorted.clear();
+            values_sorted.reserve(pairs.size());
+            for (const auto & p: pairs) { values_sorted.emplace_back(p.first); }
         }
 
-        vector<unsigned> new_examples_sorted(second_extractor(pairs.begin()),
-                                             second_extractor(pairs.end()));
+        vector<unsigned> new_examples_sorted;
+        new_examples_sorted.reserve(pairs.size());
+        for (const auto & p: pairs) { new_examples_sorted.emplace_back(p.second); }
+        
         Guard guard(lock);
         if (has_examples_sorted) return examples_sorted;
         examples_sorted.swap(new_examples_sorted);
@@ -368,7 +374,7 @@ get_counts(Sort_By sort_by) const
 
         /* Use three other arrays to construct ours. */
         if (debug) cerr << "constructing from 3 arrays" << endl;
-        hash_map<unsigned, unsigned> examp_counts;
+        unordered_map<unsigned, unsigned> examp_counts;
         const vector<unsigned> & ex_counts = get_counts(BY_EXAMPLE);
         const vector<unsigned> & ex_examples = get_examples(BY_EXAMPLE);
         

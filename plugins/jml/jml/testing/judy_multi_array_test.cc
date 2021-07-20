@@ -118,7 +118,7 @@ void do_timed_test(Array & array, vector<minivec<long, 3> > & indexes)
     cerr << "sorted insert: " << format("%6.2fs", t.elapsed()) << endl;
 
     t.restart();
-    std::random_shuffle(indexes.begin(), indexes.end());
+    std::shuffle(indexes.begin(), indexes.end());
     //cerr << "shuffle: " << format("%6.2fs", t.elapsed()) << endl;
     
     t.restart();

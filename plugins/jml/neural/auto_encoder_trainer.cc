@@ -254,7 +254,7 @@ train_iter(Auto_Encoder & encoder,
     
     if (randomize_order) {
         Thread_Context::RNG_Type rng = thread_context.rng();
-        std::random_shuffle(examples.begin(), examples.end(), rng);
+        std::shuffle(examples.begin(), examples.end(), rng);
     }
     
     int nx2 = examples.size();
@@ -514,7 +514,7 @@ calc_learning_rate(const Auto_Encoder & layer,
         eig.values[i] = 1 / sqrt(eig.values.size());
 
     // Get a mutable version so that we can modify its parameters
-    auto_ptr<Auto_Encoder> modified(layer.deep_copy());
+    unique_ptr<Auto_Encoder> modified(layer.deep_copy());
     
     // Current set of parameters
     Parameters_Copy<double> params(*modified);
@@ -601,7 +601,7 @@ calc_learning_rates(const Auto_Encoder & layer,
         eig.values[i] = 1 / sqrt(eig.values.size());
 
     // Get a mutable version so that we can modify its parameters
-    auto_ptr<Auto_Encoder> modified(layer.deep_copy());
+    unique_ptr<Auto_Encoder> modified(layer.deep_copy());
     
     // Current set of parameters
     Parameters_Copy<double> params(*modified);
