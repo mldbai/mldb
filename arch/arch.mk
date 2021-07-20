@@ -59,7 +59,7 @@ $(eval $(call set_single_compile_option,simd_vector_avx.cc,-mavx))
 
 $(eval $(call library,exception_hook,exception_hook.cc,arch dl))
 
-$(eval $(call library,node_exception_tracing,node_exception_tracing.cc,exception_hook arch dl))
+#$(eval $(call library,node_exception_tracing,node_exception_tracing.cc,exception_hook arch dl))
 
 
 ifeq ($(CAL_ENABLED),1)
