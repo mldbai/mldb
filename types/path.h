@@ -13,6 +13,7 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
+#include <utility>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
