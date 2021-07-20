@@ -3,6 +3,7 @@
 $(eval $(call test,tick_counter_test,arch,boost))
 $(eval $(call test,bitops_test,arch,boost))
 $(eval $(call test,wait_on_address_test,arch,boost))
+$(eval $(call test,fslock_test,arch,boost))
 $(eval $(call test,simd_vector_test,arch,boost))
 $(eval $(call test,simd_vector_benchmark,arch,boost manual))
 $(eval $(call test,backtrace_test,arch,boost))
