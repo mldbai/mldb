@@ -5,9 +5,7 @@
    Copyright (c) 2013 mldb.ai inc.  All rights reserved.
 */
 
-#include <pthread.h>
 #include <string>
-
 
 namespace MLDB {
 
@@ -48,7 +46,7 @@ private:
     void loadMutexFile();
     void recoverMutex();
 
-    pthread_mutex_t *mutex_;
+    void *mutex_;
     int fd_;
 };
 

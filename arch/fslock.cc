@@ -6,10 +6,13 @@
 */
 
 #include <functional>
+#include <pthread.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sstream>
+#include <thread>
 
 #include "threads.h"
 #include "exception.h"
@@ -69,8 +72,8 @@ GuardedFsLock::
     noexcept
 {
     unlock();
-    if (mutex_ != nullptr) {
-        ::munmap(mutex_, sizeof(pthread_mutex_t));
+    if (static_cast<pthread_mutex_t *>(mutex_) != nullptr) {
+        ::munmap(static_cast<pthread_mutex_t *>(mutex_), sizeof(pthread_mutex_t));
     }
     if (fd_ != -1) {
         ::close(fd_);
@@ -86,7 +89,7 @@ lock()
     }
 
     while (!locked) {
-        int error = ::pthread_mutex_lock(mutex_);
+        int error = ::pthread_mutex_lock(static_cast<pthread_mutex_t *>(mutex_));
         if (error == 0) {
             locked = true;
         }
@@ -103,13 +106,15 @@ bool
 GuardedFsLock::
 tryLock()
 {
+    //cerr << "trylock() " << this << endl;
+
     if (!mutex_) {
         initMutex();
     }
 
     if (!locked) {
     recovered:
-        int error = ::pthread_mutex_trylock(mutex_);
+        int error = ::pthread_mutex_trylock(static_cast<pthread_mutex_t *>(mutex_));
         if (error == 0) {
             locked = true;
         }
@@ -131,7 +136,7 @@ unlock()
     noexcept
 {
     if (locked) {
-        int error = ::pthread_mutex_unlock(mutex_);
+        int error = ::pthread_mutex_unlock(static_cast<pthread_mutex_t *>(mutex_));
         if (error != 0) {
             perror("pthread_mutex_unlock");
             abort();
@@ -169,7 +174,10 @@ createMutexFile()
     bool success(false);
 
     /* create the file */
-    string tmpLock(lockname + "-" + to_string(gettid()));
+    std::ostringstream stream;
+    stream << std::this_thread::get_id();
+
+    string tmpLock(lockname + "-" + stream.str());
     int fd = ::open(tmpLock.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (fd == -1) {
         throw MLDB::Exception(errno, "open");
@@ -208,7 +216,7 @@ createMutexFile()
     if (error != 0) {
         throw MLDB::Exception(error, "pthread_mutexattr_init");
     }
-    error = ::pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_DEFAULT);
+    error = ::pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_ERRORCHECK);
     if (error != 0) {
         throw MLDB::Exception(error, "pthread_mutexattr_settype");
     }
@@ -216,10 +224,13 @@ createMutexFile()
     if (error != 0) {
         throw MLDB::Exception(error, "pthread_mutexattr_setpshared");
     }
+
+#ifdef PTHREAD_MUTEX_ROBUST
     error = ::pthread_mutexattr_setrobust(&mutexattr, PTHREAD_MUTEX_ROBUST);
     if (error != 0) {
         throw MLDB::Exception(error, "pthread_mutexattr_setrobust");
     }
+#endif
 
     error = ::pthread_mutex_init(newMutex, &mutexattr);
     if (error != 0) {
@@ -253,7 +264,7 @@ loadMutexFile()
     else {
         void *mutex = ::mmap(nullptr, sizeof(pthread_mutex_t),
                              PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (mutex == MAP_FAILED) {
+        if (static_cast<pthread_mutex_t *>(mutex) == MAP_FAILED) {
             ::close(fd);
             throw MLDB::Exception(errno, "mmap");
         }
@@ -267,11 +278,14 @@ void
 GuardedFsLock::
 recoverMutex()
 {
-    int error = ::pthread_mutex_consistent(mutex_);
+    int error;
+#ifdef __linux__
+    error = ::pthread_mutex_consistent(static_cast<pthread_mutex_t *>(mutex_));
     if (error != 0) {
         throw MLDB::Exception(error, "pthread_mutex_consistent");
     }
-    error = ::pthread_mutex_unlock(mutex_);
+#endif
+    error = ::pthread_mutex_unlock(static_cast<pthread_mutex_t *>(mutex_));
     if (error != 0 && error != EPERM) {
         throw MLDB::Exception(error, "pthread_mutex_unlock");
     }
