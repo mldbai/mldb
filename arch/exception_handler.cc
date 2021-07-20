@@ -19,7 +19,9 @@
 #include "exception_hook.h"
 #include "format.h"
 #include "threads.h"
+#include "rtti_utils.h"
 
+#include "exception_internals.h"
 
 using namespace std;
 
@@ -68,6 +70,9 @@ bool get_trace_exceptions()
 static const std::exception *
 to_std_exception(void* object, const std::type_info * tinfo)
 {
+#if 1
+    return is_convertible<std::exception>(object, *tinfo);
+#elif defined( LIBSTDCXX )
     /* Check if its a class.  If not, we can't see if it's a std::exception.
        The abi::__class_type_info is the base class of all types of type
        info for types that are classes (of which std::exception is one).
@@ -75,7 +80,7 @@ to_std_exception(void* object, const std::type_info * tinfo)
     const abi::__class_type_info * ctinfo
         = dynamic_cast<const abi::__class_type_info *>(tinfo);
 
-    if (!ctinfo) return 0;
+    if (!ctinfo) return nullptr;
 
     /* The thing thrown was an object.  Now, check if it is derived from
     std::exception. */
@@ -91,32 +96,81 @@ to_std_exception(void* object, const std::type_info * tinfo)
     void * obj_ptr = object;
     bool can_catch = etinfo->__do_catch(tinfo, &obj_ptr, 0);
 
-    if (!can_catch) return 0;
+    if (!can_catch) return nullptr;
 
     /* obj_ptr points to a std::exception; extract it and get the
     exception message.
     */
     return (const std::exception *)obj_ptr;
+#elif defined (_LIBCPP_VERSION)
+    // If there might be an uncaught exception
+    using namespace __cxxabiv1;
+    __cxa_eh_globals* globals = __cxa_get_globals();
+    if (!globals) return nullptr;
+
+    __cxa_exception* exception_header = globals->caughtExceptions;
+    // If there is an uncaught exception
+    if (!exception_header) return nullptr;
+
+    _Unwind_Exception* unwind_exception =
+        reinterpret_cast<_Unwind_Exception*>(exception_header + 1) - 1;
+
+    if (!__isOurExceptionClass(unwind_exception))
+        return nullptr;
+
+    void* thrown_object =
+        __getExceptionClass(unwind_exception) == kOurDependentExceptionClass ?
+            ((__cxa_dependent_exception*)exception_header)->primaryException :
+            exception_header + 1;
+
+    const __shim_type_info* thrown_type =
+        static_cast<const __shim_type_info*>(exception_header->exceptionType);
+    const char* name = thrown_type->name();
+
+    // If the uncaught exception can be caught with std::exception&
+    const __shim_type_info* catch_type =
+        static_cast<const __shim_type_info*>(&typeid(std::exception));
+    if (catch_type->can_catch(thrown_type, thrown_object))
+    {
+        // Include the what() message from the exception
+        const std::exception* e = static_cast<const std::exception*>(thrown_object);
+        return e;
+    }
+
+    return nullptr;
+#endif
 }
 
 /** We install this handler for when an exception is thrown. */
 
 void default_exception_tracer(void * object, const std::type_info * tinfo)
 {
-    //cerr << "trace_exception: trace_exceptions = " << get_trace_exceptions()
-    //     << " at " << &trace_exceptions << endl;
-
     if (!get_trace_exceptions()) return;
 
+    //const std::exception * exc = nullptr;
+    bool noAlloc = tinfo == &typeid(std::bad_alloc);
+
+#if 0
+    std::exception_ptr excp = std::current_exception();
+    try {
+        MLDB_TRACE_EXCEPTIONS(false);
+        std::rethrow_exception(excp);
+    } catch (const std::bad_alloc & cexc) {
+        noAlloc = true;
+        exc = &cexc;
+    } catch (const MLDB::SilentException & cexc) {
+        // We don't want these exceptions to be printed out.
+        return;
+    } catch (const std::exception & cexc) {
+        exc = &cexc;
+    } catch (...) {
+    }
+#endif
     const std::exception * exc = to_std_exception(object, tinfo);
 
-    // We don't want these exceptions to be printed out.
-    if (dynamic_cast<const MLDB::SilentException *>(exc)) return;
+    if (exc && dynamic_cast<const MLDB::SilentException *>(exc)) return;
 
-    /* avoid allocations when std::bad_alloc is thrown */
-    bool noAlloc = dynamic_cast<const std::bad_alloc *>(exc);
-
-    size_t bufferSize(1024*1024);
+    size_t bufferSize(1024*64);
     char buffer[bufferSize];
     char datetime[128];
     size_t totalWritten(0), written, remaining(bufferSize);
@@ -138,6 +192,7 @@ void default_exception_tracer(void * object, const std::type_info * tinfo)
         heapDemangled = char_demangle(tinfo->name());
         demangled = heapDemangled;
     }
+
     auto pid = getpid();
     auto tid = gettid();
 
@@ -198,7 +253,7 @@ end:
                                       reports, datetime, pid, tid);
 
         std::ofstream file(path, std::ios_base::app);
-        if(file) {
+        if (file) {
             file << getenv("_") << endl;
             backtrace(file, 3);
             file.close();

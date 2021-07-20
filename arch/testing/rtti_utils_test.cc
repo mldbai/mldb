@@ -46,7 +46,7 @@ struct T1 {
 };
 
 struct T2 : public T1 {
-
+    virtual ~T2() {}
     int i;
 };
 
@@ -134,16 +134,17 @@ BOOST_AUTO_TEST_CASE( test_is_convertible )
     BOOST_CHECK(MLDB::is_convertible<T2>(T9()));
     BOOST_CHECK(MLDB::is_convertible<T1>(T9()));
 
+#if 0 // dynamic cast not supported by is_convertible under all standard C++ library implementations
     {
         T2 obj;
-        T1 * volatile p = &obj;
+        T1 * p = &obj;
 
         BOOST_CHECK(MLDB::is_convertible<T2>(*p));
     }
 
     {
         T3 obj;
-        T1 * volatile p = &obj;
+        T1 * p = &obj;
 
         BOOST_CHECK_EQUAL(MLDB::is_convertible<T3>(*p), &obj);
         BOOST_CHECK_EQUAL(MLDB::is_convertible<T2>(*p), &obj);
@@ -161,5 +162,6 @@ BOOST_AUTO_TEST_CASE( test_is_convertible )
         BOOST_CHECK_EQUAL(MLDB::is_convertible<T6>(*p), dynamic_cast<T6 *>(p));
         BOOST_CHECK_EQUAL(MLDB::is_convertible<T7>(*p), dynamic_cast<T7 *>(p));
     }
+#endif
 }
 

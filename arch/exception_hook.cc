@@ -52,7 +52,7 @@ struct Init {
            original function that would have been used if we hadn't overridden
            it here.
         */
-        
+#if __linux__        
         /** Fist, we dynamically load the C++ standard library */
         handle = dlopen(0, RTLD_LAZY | RTLD_GLOBAL);
         if (!handle) {
@@ -63,6 +63,19 @@ struct Init {
         
         /** Secondly, we lookup the symbol __cxa_throw */
         old_handler = (cxa_throw_type) dlvsym(handle, "__cxa_throw", "CXXABI_1.3");
+#elif __APPLE__
+        /** Fist, we dynamically load the C++ standard library */
+        handle = dlopen("libc++abi.dylib", RTLD_LAZY | RTLD_GLOBAL);
+        if (!handle) {
+            cerr << "in __cxa_throw override:" << endl;
+            cerr << "error loading libstdc++.so.6: " << dlerror() << endl;
+            abort();
+        }
+
+        old_handler = (cxa_throw_type) dlsym(handle, "__cxa_throw");
+#else
+#  error "Need to tell how to find the standard exception handler on your platform"
+#endif
         
         if (!old_handler) {
             cerr << "in __cxa_throw override:" << endl;
@@ -94,9 +107,6 @@ __cxa_throw (void *thrown_object, std::type_info *tinfo,
 {
     using namespace MLDB;
 
-    //cerr << "exception was thrown" << endl;
-    //cerr << "exception_tracer = " << exception_tracer << endl;
-    
     /** If we have installed an exception tracing hook, we follow it here. */
     if (!exception_tracer || !exception_tracer(thrown_object, tinfo)) {
         MLDB::default_exception_tracer(thrown_object, tinfo);
@@ -106,6 +116,10 @@ __cxa_throw (void *thrown_object, std::type_info *tinfo,
         MLDB::Init();
     }
 
+    if (old_handler == &__cxa_throw) {
+        cerr << "ERROR: COULDN'T FIND STANDARD EXCEPTION HANDLER" << endl;
+        abort();
+    }
     /** Now we finish by calling the old handler which will propegate the
         exception as usual. */
     MLDB::old_handler(thrown_object, tinfo, destructor);
