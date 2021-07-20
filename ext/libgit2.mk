@@ -165,8 +165,6 @@ LIBGIT2_SOURCE:= \
 LIBGIT2_LINK_Darwin:=crypto ssl z iconv curl
 LIBGIT2_LINK_linux:=crypto ssl z curl
 
-OSNAME?=linux
-
 # NOTE: to find this, run cmake in the ext/libgit2 directory, and then look at
 # CMakeFIles/git2.dir/flags.make to find the ones required.
 LIBGIT2_DEFINES_linux_x86_64:=-D_GNU_SOURCE -DGIT_ARCH_64 -DGIT_CURL -DGIT_OPENSSL -DGIT_SSH -DGIT_THREADS -DGIT_USE_NSEC -DGIT_USE_STAT_MTIM -DHAVE_FUTIMENS -DHAVE_QSORT_R -DOPENSSL_SHA1 -D_FILE_OFFSET_BITS=64 -Dgit2_EXPORTS
