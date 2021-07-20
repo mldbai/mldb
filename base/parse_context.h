@@ -321,21 +321,21 @@ struct ParseContext {
                          const char * error = "expected long integer");
     
     bool match_long_long(long long & val,
-                         long long min = LONG_LONG_MIN,
-                         long long max = LONG_LONG_MAX);
+                         long long min = LLONG_MIN,
+                         long long max = LLONG_MAX);
     
     long long
-    expect_long_long(long long min = -LONG_LONG_MAX,
-                     long long max = LONG_LONG_MAX,
+    expect_long_long(long long min = -LLONG_MAX,
+                     long long max = LLONG_MAX,
                      const char * error = "expected long long integer");
 
     bool match_unsigned_long_long(unsigned long long & val,
                                   unsigned long long min = 0,
-                                  unsigned long long max = ULONG_LONG_MAX);
+                                  unsigned long long max = ULLONG_MAX);
     
     unsigned long long
     expect_unsigned_long_long(unsigned long long min = 0,
-                              unsigned long long max = ULONG_LONG_MAX,
+                              unsigned long long max = ULLONG_MAX,
                               const char * error = "expected long long integer");
     
     /** Matches a floating point value in the given range.
