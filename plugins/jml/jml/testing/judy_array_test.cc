@@ -14,7 +14,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
-#include "mldb/jml/utils/hash_map.h"
+#include "mldb/jml/utils/unordered_map.h"
 #include <boost/timer.hpp>
 
 
@@ -431,7 +431,7 @@ void do_timed_test(Array & array, vector<unsigned long> & indexes)
     cerr << "sorted insert: " << format("%6.2fs", t.elapsed()) << endl;
 
     t.restart();
-    std::random_shuffle(indexes.begin(), indexes.end());
+    std::shuffle(indexes.begin(), indexes.end());
     //cerr << "shuffle: " << format("%6.2fs", t.elapsed()) << endl;
     
     t.restart();
@@ -472,10 +472,10 @@ void profile1()
 
 void profile2()
 {
-    typedef std::hash_map<unsigned long, unsigned long> array_type;
+    typedef std::unordered_map<unsigned long, unsigned long> array_type;
     array_type array;
 
-    timed_test1(array, 2000000, "hash_map");
+    timed_test1(array, 2000000, "unordered_map");
 }
 
 void profile3()
@@ -488,10 +488,10 @@ void profile3()
 
 void profile4()
 {
-    typedef std::hash_map<unsigned long, unsigned long> array_type;
+    typedef std::unordered_map<unsigned long, unsigned long> array_type;
     array_type array;
 
-    timed_test1(array, 20000000, "hash_map");
+    timed_test1(array, 20000000, "unordered_map");
 }
 
 void profile5()

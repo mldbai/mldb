@@ -66,7 +66,7 @@ public:
     MLDB_ALWAYS_INLINE int apply(float feature_val) const
     {
         // TODO: optimize to avoid conditionals
-        if (isnanf(feature_val)) return MISSING;
+        if (::isnan(feature_val)) return MISSING;
 
         bool equal = feature_val == split_val_;
         bool less = feature_val < split_val_;

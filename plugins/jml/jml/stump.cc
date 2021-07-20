@@ -189,7 +189,7 @@ Stump Stump::scaled(float scale) const
     return result;
 }
 
-void Stump::merge(const Stump & other, float other_weight)
+void Stump::merge_inplace(const Stump & other, float other_weight)
 {
     if (label_count() == 0) {
         *this = other;
@@ -391,14 +391,14 @@ merge(const Classifier_Impl & other, float weight) const
 {
     const Stump * as_stump = dynamic_cast<const Stump *>(&other);
     if (as_stump) {
-        auto_ptr<Boosted_Stumps>
+        unique_ptr<Boosted_Stumps>
             result(new Boosted_Stumps(feature_space(), predicted()));
         result->insert(*this, 1.0);
         result->insert(*as_stump, weight);
         return result.release();
     }
     
-    return 0;
+    return nullptr;
 }
 
 Output_Encoding

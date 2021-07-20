@@ -125,11 +125,9 @@ struct Bag_Job {
     int bag_num;
     int verbosity;
 
-    typedef mt19937 engine_type;
-
     void operator () () const
     {
-        Thread_Context::RNG_Type rng = context.rng();
+        auto rng = context.rng();
 
         int nx = info.training_set.example_count();
         /* Partition the dataset. */
@@ -146,7 +144,7 @@ struct Bag_Job {
         distribution<float> in_training(nx);
         vector<int> tr_ex_nums(nx);
         std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
-        std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), rng);
+        std::shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), context.std_rng());
         for (unsigned i = 0;  i < nx * info.train_prop;  ++i)
             in_training[tr_ex_nums[i]] = 1.0;
         distribution<float> not_training(nx, 1.0);

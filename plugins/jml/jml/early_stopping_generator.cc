@@ -10,7 +10,6 @@
 
 #include "mldb/plugins/jml/jml/early_stopping_generator.h"
 #include "mldb/arch/demangle.h"
-#include "mldb/plugins/jml/sgi_numeric.h"
 
 
 using namespace std;
@@ -79,7 +78,7 @@ generate(Thread_Context & context,
     distribution<float> in_training(nx);
     vector<int> tr_ex_nums(nx);
     std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
-    std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), rng);
+    std::shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), context.std_rng());
     for (unsigned i = 0;  i < nx * train_prop;  ++i)
         in_training[tr_ex_nums[i]] = 1.0;
     distribution<float> not_training(nx, 1.0);

@@ -256,12 +256,12 @@ insert(const Stump & stump, float weight)
 {
     if (stump.split.feature() == MISSING_FEATURE) return end();
 
-    iterator it = find(stump.split);
-    if (it == end())
+    auto it = stumps.find(stump.split);
+    if (it == stumps.end())
         return iterator
             (stumps.insert(make_pair(stump.split,
                                      stump.scaled(weight))).first);
-    else it->merge(stump, weight);
+    else it->second.merge_inplace(stump, weight);
     return it;
 }
 
@@ -467,7 +467,7 @@ accuracy(const Training_Data & data,
 std::string Boosted_Stumps::print() const
 {
     string result;
-    for (const_iterator it = begin();  it != end();  ++it) {
+    for (const_iterator it = this->begin();  it != this->end();  ++it) {
         result += it->print();
         result += '\n';
     }
@@ -736,7 +736,7 @@ merge(const Classifier_Impl & other, float weight) const
 
     const Stump * as_stump = dynamic_cast<const Stump *>(&other);
     if (as_stump) {
-        auto_ptr<Boosted_Stumps> me_copy(make_copy());
+        unique_ptr<Boosted_Stumps> me_copy(make_copy());
         me_copy->insert(*as_stump, weight);
         return me_copy.release();
     }
@@ -744,7 +744,7 @@ merge(const Classifier_Impl & other, float weight) const
     const Boosted_Stumps * as_stumps
         = dynamic_cast<const Boosted_Stumps *>(&other);
     if (as_stumps) {
-        auto_ptr<Boosted_Stumps> me_copy(make_copy());
+        unique_ptr<Boosted_Stumps> me_copy(make_copy());
         me_copy->combine(*as_stumps, weight);
         return me_copy.release();
     }

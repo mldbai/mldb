@@ -47,7 +47,7 @@ get_weight_spec(const Training_Data & data,
     /* This map lets us look up a float value and tell us which
        number of replication it belongs to.  The 0 belongs to those
        for which the value is missing. */
-    hash_map<float, int, float_hasher> order;
+    unordered_map<float, int, float_hasher> order;
     int n = 1;
     for (Dataset_Index::Freqs::const_iterator it = freqs.begin();
          it != freqs.end();  ++it, ++n) {

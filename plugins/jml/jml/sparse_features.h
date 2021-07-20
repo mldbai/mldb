@@ -79,7 +79,7 @@ public:
     using Feature_Space::parse;
 
 protected:    
-    typedef std::hash_map<std::string, int> string_lookup_type;
+    typedef std::unordered_map<std::string, int> string_lookup_type;
     mutable string_lookup_type string_lookup;
 
     mutable std::vector<Mutable_Feature_Info> info_array;

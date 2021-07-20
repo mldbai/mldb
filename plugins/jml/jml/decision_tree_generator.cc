@@ -662,7 +662,7 @@ void split_dataset(const Training_Data & data,
         float divisor = index[i].divisor();
         w *= divisor;
         
-        if (MLDB_UNLIKELY(isnanf(val))) {
+        if (MLDB_UNLIKELY(isnan(val))) {
             // We only have NaN values explicitly represented if there is a
             // feature that is both present and missing in the same example.
             // In that case, we need to deal with the missing part here.
@@ -948,8 +948,7 @@ struct TreeTrainer {
             return result;
         }
     
-        int num_non_zero = std::count_if(in_class.begin(), in_class.end(),
-                                         std::bind2nd(std::greater<float>(), 0.0));
+        int num_non_zero = std::count_if(in_class.begin(), in_class.end(), [] (auto f) { return f > 0.0; });
     
         if (debug) {
             cerr << "in_class.size() = " << in_class.size() << " num_non_zero = "
@@ -1185,7 +1184,7 @@ train_recursive_regression(Thread_Context & context,
         for (unsigned x = 0;  x < nx;  ++x) {
             if (in_class[x] == 0.0) continue;  // not in our class
             if (weights[x] == 0.0) continue;   // no weight; doesn't count
-            if (isnanf(val_found)) val_found = labels[x].value();
+            if (isnan(val_found)) val_found = labels[x].value();
             else if (val_found != labels[x].value()) {
                 all_same = false;
                 break;
@@ -1207,8 +1206,7 @@ train_recursive_regression(Thread_Context & context,
         return result;
     }
     
-    int num_non_zero = std::count_if(in_class.begin(), in_class.end(),
-                                     std::bind2nd(std::greater<float>(), 0.0));
+    int num_non_zero = std::count_if(in_class.begin(), in_class.end(), [] (auto f) { return f > 0.0; });
 
     //cerr << "in_class.size() = " << in_class.size() << " num_non_zero = "
     //     << num_non_zero << " total_weight = " << total_weight
