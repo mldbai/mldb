@@ -17,14 +17,14 @@
 #include <string>
 #include <vector>
 
-#include "mldb/arch/wakeup_fd.h"
 #include "mldb/http/curl_wrapper.h"
 #include "mldb/http/http_client.h"
 #include "mldb/http/http_client_impl.h"
 #include "mldb/http/http_header.h"
 
-
 namespace MLDB {
+
+struct WakeupFD;
 
 /****************************************************************************/
 /* HTTP CLIENT IMPL V1                                                      */
@@ -122,7 +122,7 @@ private:
     bool noSSLChecks_;
 
     int fd_;
-    WakeupFd wakeup_;
+    std::shared_ptr<WakeupFD> wakeup_;
     int timerFd_;
 
     struct CurlMultiCleanup {
