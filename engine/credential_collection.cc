@@ -188,8 +188,8 @@ getConfig(std::string key, const CredentialRule & value) const
 
 std::shared_ptr<CredentialRuleCollection>
 createCredentialCollection(MLDB::MldbEngine * engine, RestRouteManager & routeManager,
-                           std::shared_ptr<CollectionConfigStore> configStore) {
-
+                           std::shared_ptr<CollectionConfigStore> configStore)
+{
     auto result = std::make_shared<CredentialRuleCollection>(engine);
 
     // if the CollectionConfigStore is valid
