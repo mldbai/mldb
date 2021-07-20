@@ -26,7 +26,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <ftw.h>
 
 
 using namespace std;
@@ -135,129 +134,44 @@ static FsObjectInfo extractInfo(const struct stat & stats)
     FsObjectInfo objectInfo;
 
     objectInfo.exists = true;
+#if __APPLE__
+    objectInfo.lastModified = Date::fromTimespec(stats.st_mtimespec);
+    objectInfo.lastAccessed = Date::fromTimespec(stats.st_atimespec);
+#else
     objectInfo.lastModified = Date::fromTimespec(stats.st_mtim);
     objectInfo.lastAccessed = Date::fromTimespec(stats.st_atim);
+#endif
+    objectInfo.size = stats.st_size;
+
+    return objectInfo;
+}
+
+static FsObjectInfo extractInfo(const std::string & path, const fs::directory_entry & entry)
+{
+    cerr << "stat64 of " << path << endl;
+    ExcAssert(path.find("file://") == 0);
+
+    struct stat64 stats;
+    int res = ::stat64(path.c_str() + 7, &stats);
+    if (res == -1)
+        throw MLDB::Exception(errno, "stat64");
+    
+    FsObjectInfo objectInfo;
+
+    objectInfo.exists = true;
+#if __APPLE__
+    objectInfo.lastModified = Date::fromTimespec(stats.st_mtimespec);
+    objectInfo.lastAccessed = Date::fromTimespec(stats.st_atimespec);
+#else
+    objectInfo.lastModified = Date::fromTimespec(stats.st_mtim);
+    objectInfo.lastAccessed = Date::fromTimespec(stats.st_atim);
+#endif
     objectInfo.size = stats.st_size;
 
     return objectInfo;
 }
 
 /* LOCALURLFSHANDLER */
-
-enum FileAction {
-    FA_CONTINUE = FTW_CONTINUE,
-    FA_SKIP_SIBLINGS = FTW_SKIP_SIBLINGS,
-    FA_SKIP_SUBTREE = FTW_SKIP_SUBTREE,
-    FA_STOP = FTW_STOP
-};
-
-enum FileType {
-    FT_FILE = FTW_F,
-    FT_DIR  = FTW_D,
-    FT_DIR_INACCESSIBLE = FTW_DNR,
-    FT_FILE_INACCESSIBLE = FTW_NS
-};
-
-std::string print(FileType type);
-
-std::ostream & operator << (std::ostream & stream, const FileType & type);
-
-typedef std::function<FileAction (std::string dir,
-                                    std::string basename,
-                                    const struct stat & stats,
-                                    FileType type,
-                                    int depth)>
-    OnFileFound;
-
-std::string print(FileType type)
-{
-    switch (type) {
-    case FT_FILE: return "FILE";
-    case FT_DIR:  return "DIR";
-    case FT_DIR_INACCESSIBLE: return "DIR_INACCESSIBLE";
-    case FT_FILE_INACCESSIBLE: return "FILE_INACCESSIBLE";
-    default:
-        return MLDB::format("FileType(%d)", type);
-    }
-}
-
-std::ostream &
-operator << (std::ostream & stream, const FileType & type)
-{
-    return stream << print(type);
-}
-
-namespace {
-
-struct ScanFilesData;
-
-static __thread ScanFilesData * scanFilesThreadData = 0;
-
-struct ScanFilesData {
-    ScanFilesData(const OnFileFound & onFileFound,
-                  int maxDepth)
-        : onFileFound(onFileFound),
-          maxDepth(maxDepth),
-          isThrown(false)
-    {
-    }
-    
-    OnFileFound onFileFound;
-    int maxDepth;
-    std::exception_ptr thrown;
-    bool isThrown;
-
-    static int onFile (const char *fpath, const struct stat *sb,
-                       int typeflag, struct FTW *ftwbuf)
-    {
-        ScanFilesData * d = scanFilesThreadData;
-        ExcAssert(d);
-        try {
-            if (d->maxDepth != -1 && ftwbuf->level > d->maxDepth)
-                return FTW_SKIP_SIBLINGS;
-            string dir(fpath, fpath + ftwbuf->base);
-            string basename(fpath + ftwbuf->base);
-
-            FileAction action = d->onFileFound(dir, basename, *sb,
-                                               (FileType)typeflag,
-                                               ftwbuf->level);
-            return action;
-        } MLDB_CATCH_ALL {
-            d->thrown = std::current_exception();
-            d->isThrown = true;
-            return FTW_STOP;
-        }
-    }
-}; 
-
-static void scanFiles(const std::string & path,
-                      OnFileFound onFileFound,
-                      int maxDepth = -1)
-{
-    ScanFilesData data(onFileFound, maxDepth);
-
-    auto * oldData = scanFilesThreadData;
-    Scope_Exit(scanFilesThreadData = oldData);
-    scanFilesThreadData = &data;
-
-    int res = nftw(path.c_str(),
-                   &ScanFilesData::onFile, 
-                   maxDepth == -1 ? 100 : maxDepth + 1,
-                   FTW_ACTIONRETVAL);
-
-    if (data.isThrown) {
-        auto exc = data.thrown;
-        rethrow_exception(exc);
-    }
-
-    if (res == -1) {
-        if (errno == ENOENT)
-            return;
-        throw MLDB::Exception(errno, "ftw");
-    }
-}
-
-} // file scope
 
 struct LocalUrlFsHandler : public UrlFsHandler {
 
@@ -333,50 +247,38 @@ struct LocalUrlFsHandler : public UrlFsHandler {
             throw MLDB::Exception("not implemented: delimiters other than '/' "
                                 "for local files");
         
+        for (auto it = fs::recursive_directory_iterator(prefix.path()), end = fs::recursive_directory_iterator();
+             it != end;  ++it) {
+            const auto & entry = *it;
+            Utf8String filename = "file://" + entry.path();
 
-        bool result = true;
-        auto onFileFound = [&] (const std::string & dir,
-                                const std::string & basename,
-                                const struct stat & stats,
-                                FileType type,
-                                int depth) -> FileAction
-            {
-                if (type == FT_FILE) {
-                    std::string filename = "file://" + dir + basename;
+            if (entry.is_regular_file()) {
 
-                    OpenUriObject open = [=] (const std::map<std::string, std::string> & options)
-                    -> UriHandler
-                    {
-                        if (!options.empty())
-                            throw MLDB::Exception("Options not accepted by S3");
+                OpenUriObject open = [=] (const std::map<std::string, std::string> & options)
+                -> UriHandler
+                {
+                    if (!options.empty())
+                        throw MLDB::Exception("Options not accepted by file://");
 
-                        std::shared_ptr<std::istream> result(new filter_istream(filename, options));
-                        return UriHandler(result->rdbuf(), std::move(result),
-                                              getInfo(Url(filename)));
-                    };
-                    
-                    result = onObject(filename,
-                                      extractInfo(stats),
-                                      open,
-                                      depth);
-                    if (!result)
-                        return FA_STOP;
-                    else return FA_CONTINUE;
+                    std::shared_ptr<std::istream> result(new filter_istream(filename.rawString(), options));
+                    return UriHandler(result->rdbuf(), std::move(result),
+                                            getInfo(Url(filename)));
+                };
+                
+                if (!onObject(filename.rawString(), extractInfo(filename.rawString(), entry), open, it.depth()))
+                    return false;
+            }
+            else if (entry.is_regular_file()) {
+                if (!onSubdir || it.depth() == 0 || onSubdir(filename.rawString(), it.depth()))
+                    continue;
+                else {
+                    it.disable_recursion_pending();
                 }
-                else if (type == FT_DIR) {
-                    if (!onSubdir || depth == 0)
-                        return FA_CONTINUE;
-                    else if (onSubdir("file://" + dir + basename,
-                                      depth))
-                        return FA_CONTINUE;
-                    else return FA_SKIP_SUBTREE;
-                }
-                else return FA_CONTINUE;
-            };
+            }
+            // else skip it
+        }
 
-        scanFiles(prefix.path(), onFileFound, -1);
-
-        return result;
+        return true;
     }
 };
 

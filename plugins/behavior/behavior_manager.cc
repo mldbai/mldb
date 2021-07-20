@@ -17,8 +17,13 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/vfs.h>
-#include <ftw.h>
+#if defined(__linux__)
+#  include <sys/vfs.h>
+#elif defined(__APPLE__)
+#include <sys/param.h>
+#include <sys/mount.h>
+#define st_mtim st_mtimespec
+#endif
 
 #include <boost/algorithm/string/split.hpp>
 #include "mldb/compiler/filesystem.h"
@@ -54,11 +59,20 @@ getErrorString(int errNum)
 {
     char buffer[128]; /* error messages are < 80 chars most of the time */
 
+#if defined(__linux__)
     char * msg = strerror_r(errNum, buffer, sizeof(buffer));
     if (msg == nullptr) {
         throw MLDB::Exception(errno, "strerror_r");
     }
-
+#elif defined(__APPLE__)
+    int res = strerror_r(errNum, buffer, sizeof(buffer));
+    if (res != 0) {
+        throw MLDB::Exception(errno, "strerror_r");
+    }
+    char * msg = buffer;
+#else
+#  error "tell us how to do strerror on your platform"
+#endif
     return string(msg);
 }
 
@@ -460,99 +474,6 @@ prepareRemoteCache(uint64_t objectSize)
     return true;
 }
 
-namespace {
-
-enum FileAction {
-    FA_CONTINUE = FTW_CONTINUE,
-    FA_SKIP_SIBLINGS = FTW_SKIP_SIBLINGS,
-    FA_SKIP_SUBTREE = FTW_SKIP_SUBTREE,
-    FA_STOP = FTW_STOP
-};
-
-enum FileType {
-    FT_FILE = FTW_F,
-    FT_DIR  = FTW_D,
-    FT_DIR_INACCESSIBLE = FTW_DNR,
-    FT_FILE_INACCESSIBLE = FTW_NS
-};
-
-typedef std::function<FileAction (std::string dir,
-                                    std::string basename,
-                                    const struct stat & stats,
-                                    FileType type,
-                                    int depth)>
-    OnFileFound;
-
-struct ScanFilesData;
-
-static __thread ScanFilesData * scanFilesThreadData = 0;
-
-struct ScanFilesData {
-    ScanFilesData(const OnFileFound & onFileFound,
-                  int maxDepth)
-        : onFileFound(onFileFound),
-          maxDepth(maxDepth),
-          isThrown(false)
-    {
-    }
-    
-    OnFileFound onFileFound;
-    int maxDepth;
-    std::exception_ptr thrown;
-    bool isThrown;
-
-    static int onFile (const char *fpath, const struct stat *sb,
-                       int typeflag, struct FTW *ftwbuf)
-    {
-        ScanFilesData * d = scanFilesThreadData;
-        ExcAssert(d);
-        try {
-            if (d->maxDepth != -1 && ftwbuf->level > d->maxDepth)
-                return FTW_SKIP_SIBLINGS;
-            string dir(fpath, fpath + ftwbuf->base);
-            string basename(fpath + ftwbuf->base);
-
-            FileAction action = d->onFileFound(dir, basename, *sb,
-                                               (FileType)typeflag,
-                                               ftwbuf->level);
-            return action;
-        } MLDB_CATCH_ALL {
-            d->thrown = std::current_exception();
-            d->isThrown = true;
-            return FTW_STOP;
-        }
-    }
-}; 
-
-static void scanFiles(const std::string & path,
-                      OnFileFound onFileFound,
-                      int maxDepth = -1)
-{
-    ScanFilesData data(onFileFound, maxDepth);
-
-    auto * oldData = scanFilesThreadData;
-    Scope_Exit(scanFilesThreadData = oldData);
-    scanFilesThreadData = &data;
-
-    int res = nftw(path.c_str(),
-                   &ScanFilesData::onFile, 
-                   maxDepth == -1 ? 100 : maxDepth + 1,
-                   FTW_ACTIONRETVAL);
-
-    if (data.isThrown) {
-        auto exc = data.thrown;
-        rethrow_exception(exc);
-    }
-
-    if (res == -1) {
-        if (errno == ENOENT)
-            return;
-        throw MLDB::Exception(errno, "ftw");
-    }
-}
-
-} // file scope
-
 vector<BehaviorManager::RemoteCacheEntry>
 BehaviorManager::
 getRemoteCacheEntries()
@@ -561,21 +482,21 @@ getRemoteCacheEntries()
     ExcAssert(!remoteCacheDir.empty());
     vector<RemoteCacheEntry> cacheFiles;
 
-    auto onFileFound = [&] (std::string dir,
-                            std::string basename,
-                            const struct stat & stats,
-                            FileType type,
-                            int depth) {
-        if (S_ISREG(stats.st_mode)) {
-            RemoteCacheEntry newFile{dir + basename,
-                                Date::fromTimespec(stats.st_atim),
-                                stats.st_size};
-            cacheFiles.emplace_back(move(newFile));
-        }
-        return FA_CONTINUE;
+    auto onFileFound = [&] (const std::string & uri,
+                            const FsObjectInfo & info,
+                            const OpenUriObject & open,
+                            int depth) -> bool
+    {
+        RemoteCacheEntry newFile{uri,
+                                 info.lastAccessed,
+                                 info.size};
+                                 
+        cacheFiles.emplace_back(move(newFile));
+
+        return true;
     };
 
-    scanFiles(remoteCacheDir, onFileFound, -1);
+    forEachUriObject(remoteCacheDir, onFileFound);
 
     return cacheFiles;
 }
