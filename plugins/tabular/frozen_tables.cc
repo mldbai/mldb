@@ -9,7 +9,7 @@
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/types/basic_value_descriptions.h"
 
-#include "mldb/ext/zstd/lib/dictBuilder/zdict.h"
+#include "mldb/ext/zstd/lib/zdict.h"
 #include "mldb/ext/zstd/lib/zstd.h"
 #include "mldb/base/scope.h"
 #include <mutex>
