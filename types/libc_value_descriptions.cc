@@ -5,6 +5,7 @@
 
 #include "mldb/types/structure_description.h"
 #include "mldb/types/libc_value_descriptions.h"
+#include "mldb/types/value_description.h"
 
 using namespace MLDB;
 
@@ -15,7 +16,7 @@ timevalDescription::
 timevalDescription()
 {
     addField("tv_sec", &timeval::tv_sec, "seconds");
-    addField("tv_usec", &timeval::tv_usec, "micro seconds", (long)0);
+    addField("tv_usec", &timeval::tv_usec, "micro seconds", (decltype(std::declval<timeval>().tv_usec))0);
 }
 
 

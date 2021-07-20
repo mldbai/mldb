@@ -10,8 +10,7 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 
-#include "mldb/types/value_description.h"
-
+#include "mldb/types/value_description_fwd.h"
 
 /* value descriptions for "timeval" and "rusage" */
 
