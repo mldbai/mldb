@@ -8,7 +8,6 @@
 
 #include "mldb/utils/buckets.h"
 #include <iostream>
-#include <boost/utility.hpp>
 #include "mldb/arch/format.h"
 #include "mldb/utils/floating_point.h"
 #include "mldb/utils/pair_utils.h"
@@ -121,7 +120,7 @@ bucket_dist_reduced(vector<float> & result,
                                reinterpret_as_int(val))
                      << format("v: %16.9f 0x%08x ", v,
                                reinterpret_as_int(v))
-                     << format("prior: %16.9f 0x%08x ", std::prev(it)->first,
+                     << format("prev: %16.9f 0x%08x ", std::prev(it)->first,
                                reinterpret_as_int(std::prev(it)->first))
                      << " with " << num - n
                      << " examples." << endl;
