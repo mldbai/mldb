@@ -184,31 +184,31 @@ void
 HttpRestEndpoint::RestConnectionHandler::
 sendErrorResponse(int code, const Json::Value & error)
 {
-    std::string encodedError = error.toString();
+    Utf8String encodedError = error.toStringUtf8();
     
     logRequest(code);
     putResponseOnWire(HttpResponse(code, "application/json",
-                                   std::move(encodedError),
+                                   encodedError.stealRawString(),
                                    endpoint->extraHeaders),
                       nullptr, NEXT_CLOSE);
 }
 
 void
 HttpRestEndpoint::RestConnectionHandler::
-sendResponse(int code,
-             const Json::Value & response,
-             std::string contentType,
-             RestParams headers)
+sendJsonResponse(int code,
+                 const Json::Value & response,
+                 std::string contentType,
+                 RestParams headers)
 {
     return sendResponse(code,
-                        response.toString(), std::move(contentType),
+                        response.toStringUtf8(), std::move(contentType),
                         std::move(headers));
 }
 
 void
 HttpRestEndpoint::RestConnectionHandler::
 sendResponse(int code,
-             std::string body, std::string contentType,
+             Utf8String body, std::string contentType,
              RestParams headers)
 {
     for (auto & h: endpoint->extraHeaders)
@@ -216,7 +216,7 @@ sendResponse(int code,
 
     logRequest(code);
     putResponseOnWire(HttpResponse(code,
-                                   std::move(contentType), std::move(body),
+                                   std::move(contentType), body.stealRawString(),
                                    std::move(headers)));
 }
 
@@ -242,11 +242,11 @@ sendResponseHeader(int code, std::string contentType, RestParams headers)
 
 void
 HttpRestEndpoint::RestConnectionHandler::
-sendHttpChunk(std::string chunk,
+sendHttpChunk(Utf8String chunk,
               NextAction next,
               OnWriteFinished onWriteFinished)
 {
-    HttpLegacySocketHandler::send(std::move(chunk), next, onWriteFinished);
+    HttpLegacySocketHandler::send(chunk.rawString(), next, onWriteFinished);
 }
 
 inline void

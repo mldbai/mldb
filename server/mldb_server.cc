@@ -151,7 +151,7 @@ initRoutes()
                const RestRequestParsingContext & context) {
         Json::Value result;
         result["apiVersions"]["v1"] = "1.0.0";
-        connection.sendResponse(200, result);
+        connection.sendJsonResponse(200, result);
         return RestRequestRouter::MR_YES;
     };
 
@@ -182,7 +182,7 @@ initRoutes()
 
         Json::Value result;
         result["shutdown"] = true;
-        connection.sendResponse(200, result);
+        connection.sendJsonResponse(200, result);
         return RestRequestRouter::MR_YES;
     };
 
@@ -246,7 +246,7 @@ initRoutes()
 
         versionNode.notFoundHandler = [&] (RestConnection & connection,
                                            const RestRequest & request) {
-            connection.sendErrorResponse(500, errorMessage);
+            connection.sendJsonErrorResponse(500, errorMessage);
         };
 
         router.notFoundHandler = versionNode.notFoundHandler;
@@ -298,7 +298,7 @@ handleRedirectToGet(RestConnection & connection,
     
     Json::Value redirectResponse;
     Json::Reader reader;
-    if (!reader.parse(redirectConnection->response(), redirectResponse, false))
+    if (!reader.parse(redirectConnection->response().rawString(), redirectResponse, false))
         throw AnnotatedException(500, "failed to parse the redirect call");
   
     if (200 > redirectConnection->responseCode()

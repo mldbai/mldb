@@ -179,7 +179,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
         
         Json::Value runResponse;
         Json::Reader reader;
-        if (!reader.parse(connection->response(), runResponse, false)) {
+        if (!reader.parse(connection->response().rawString(), runResponse, false)) {
             throw AnnotatedException
                 (500, "failed to create the initial run",
                  "entry", key,

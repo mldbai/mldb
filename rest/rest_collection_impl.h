@@ -304,7 +304,7 @@ initNodes(RouteManager & result)
                         = nounSingular + " entry '"
                         + resource + "' does not exist or has been deleted";
                 }
-                connection.sendResponse(404, error);
+                connection.sendJsonResponse(404, error);
             }
             else {
                 context.addSharedPtr(ptr);
@@ -348,8 +348,8 @@ initRoutes(RouteManager & result)
                 auto collection = result.getCollection(cxt);
 
                 MLDB_TRACE_EXCEPTIONS(false);
-                auto resultStr = jsonEncodeStr(collection->getKeys());
-                connection.sendHttpResponse(200, resultStr,
+                auto resultStr = jsonEncodeUtf8(collection->getKeys());
+                connection.sendHttpResponse(200, std::move(resultStr),
                                             "application/json", {});
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
@@ -403,7 +403,7 @@ handleGetValue(Key key,
 
     if (found.second) {
         // under construction
-        connection.sendResponse(200, found.second->progress);
+        connection.sendJsonResponse(200, found.second->progress);
         return RestRequestRouter::MR_YES;
     }
     else {
@@ -956,7 +956,7 @@ handleGetExistingValue(Key key,
                        const RestRequest & request,
                        const RestRequestParsingContext & context) const
 {
-    connection.sendResponse(200, getExistingValue(key, value));
+    connection.sendJsonResponse(200, getExistingValue(key, value));
     return RestRequestRouter::MR_YES;
 }
 
@@ -1526,7 +1526,7 @@ addPutRoute()
                     { "EntityPath", jsonEncodeStr(path) }
                 };
 
-                connection.sendHttpResponse(202, jsonEncodeStr(status),
+                connection.sendHttpResponse(202, jsonEncodeUtf8(status),
                                             "application/json", headers);
 
                 return RestRequestRouter::MR_YES;
@@ -1566,7 +1566,7 @@ addPutRoute()
                     { "EntityPath", jsonEncodeStr(path) }
                 };
 
-                connection.sendHttpResponse(201, jsonEncodeStr(status),
+                connection.sendHttpResponse(201, jsonEncodeUtf8(status),
                                             "application/json", headers);
 
                 return RestRequestRouter::MR_YES;
@@ -1631,7 +1631,7 @@ addPostRoute()
                     { "EntityPath", jsonEncodeStr(path) }
                 };
 
-                connection.sendHttpResponse(201, jsonEncodeStr(status),
+                connection.sendHttpResponse(201, jsonEncodeUtf8(status),
                                             "application/json", headers);
 
                 return RestRequestRouter::MR_YES;
@@ -1667,7 +1667,7 @@ addPostRoute()
                     { "EntityPath", jsonEncodeStr(path) }
                 };
 
-                connection.sendHttpResponse(201, jsonEncodeStr(status),
+                connection.sendHttpResponse(201, jsonEncodeUtf8(status),
                                             "application/json", headers);
 
                 return RestRequestRouter::MR_YES;

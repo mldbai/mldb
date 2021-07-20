@@ -101,10 +101,10 @@ apply(const FunctionApplier & applier,
     // TODO. better exception message
     if(connection->responseCode() != 200) {
         throw AnnotatedException(400, "responseCode != 200 for function",
-                                 Json::parse(connection->response()));
+                                 Json::parse(connection->response().rawString()));
     }
 
-    Json::Value result = Json::parse(connection->response())["result"];
+    Json::Value result = Json::parse(connection->response().rawString())["result"];
     
     vector<tuple<PathElement, ExpressionValue>> vals;
     if(!result.isArray()) {
