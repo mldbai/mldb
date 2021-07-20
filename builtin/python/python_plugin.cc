@@ -287,8 +287,8 @@ handleRequest(RestConnection & connection,
              locals);
         
         if (last_output.exception) {
-            connection.sendResponse(last_output.getReturnCode(),
-                                    jsonEncode(last_output));
+            connection.sendJsonResponse(last_output.getReturnCode(),
+                                        jsonEncode(last_output));
         }
         else {
             last_output.result = std::move(pyRestRequest->returnValue);
@@ -301,8 +301,8 @@ handleRequest(RestConnection & connection,
             
             last_output.setReturnCode(pyRestRequest->returnCode);
 
-            connection.sendResponse(last_output.getReturnCode(),
-                                    jsonEncode(last_output.result));
+            connection.sendJsonResponse(last_output.getReturnCode(),
+                                        jsonEncode(last_output.result));
         }
         
         return MR_YES;
@@ -375,8 +375,8 @@ handleTypeRoute(RestDirectory * engine,
         }
         std::stable_sort(output.logs.begin(), output.logs.end());
         
-        conn.sendResponse(output.getReturnCode(),
-                          jsonEncode(output));
+        conn.sendJsonResponse(output.getReturnCode(),
+                              jsonEncode(output));
         
         interpreter.destroy();
         

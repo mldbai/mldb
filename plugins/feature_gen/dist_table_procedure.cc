@@ -654,7 +654,7 @@ handleRequest(RestConnection & connection,
 
         increment(result.keys, result.outcomes);
 
-        connection.sendResponse(200, Json::Value("OK"), "application/json");
+        connection.sendJsonResponse(200, Json::Value("OK"), "application/json");
         return RestRequestRouter::MR_YES;
     }
     else if (context.remaining == "/persist") {
@@ -668,7 +668,7 @@ handleRequest(RestConnection & connection,
 
         persist(result.modelFileUrl);
 
-        connection.sendResponse(200, Json::Value("OK"), "application/json");
+        connection.sendJsonResponse(200, Json::Value("OK"), "application/json");
         return RestRequestRouter::MR_YES;
 
     }

@@ -27,13 +27,13 @@ namespace MLDB {
 
 void
 HttpRestConnection::
-sendResponse(int responseCode, std::string response, std::string contentType)
+sendResponse(int responseCode, Utf8String response, std::string contentType)
 {
     if (responseSent_)
         throw MLDB::Exception("response already sent");
 
     if (endpoint->logResponse)
-        endpoint->logResponse(*this, responseCode, response,
+        endpoint->logResponse(*this, responseCode, response.rawString(),
                               contentType);
     
     http->sendResponse(responseCode,
@@ -44,9 +44,9 @@ sendResponse(int responseCode, std::string response, std::string contentType)
 
 void
 HttpRestConnection::
-sendResponse(int responseCode,
-             const Json::Value & response,
-             std::string contentType)
+sendJsonResponse(int responseCode,
+                 const Json::Value & response,
+                 std::string contentType)
 {
     using namespace std;
     //cerr << "sent response " << responseCode << " " << response
@@ -59,14 +59,14 @@ sendResponse(int responseCode,
         endpoint->logResponse(*this, responseCode, response.toString(),
                                    contentType);
 
-    http->sendResponse(responseCode, response, std::move(contentType));
+    http->sendJsonResponse(responseCode, response, std::move(contentType));
     
     responseSent_ = true;
 }
 
 void
 HttpRestConnection::
-sendErrorResponse(int responseCode, string error, string contentType)
+sendErrorResponse(int responseCode, Utf8String error, string contentType)
 {
     using namespace std;
     cerr << "sent error response " << responseCode << " " << error << endl;
@@ -76,17 +76,17 @@ sendErrorResponse(int responseCode, string error, string contentType)
 
 
     if (endpoint->logResponse)
-        endpoint->logResponse(*this, responseCode, error,
+        endpoint->logResponse(*this, responseCode, error.rawString(),
                               contentType);
             
-    http->sendResponse(responseCode, std::move(error));
+    http->sendResponse(responseCode, error.stealRawString(), "text/plain");
 
     responseSent_ = true;
 }
 
 void
 HttpRestConnection::
-sendErrorResponse(int responseCode, const Json::Value & error)
+sendJsonErrorResponse(int responseCode, const Json::Value & error)
 {
     using namespace std;
     cerr << "sent error response " << responseCode << " " << error << endl;
@@ -98,7 +98,7 @@ sendErrorResponse(int responseCode, const Json::Value & error)
         endpoint->logResponse(*this, responseCode, error.toString(),
                               "application/json");
     
-    http->sendResponse(responseCode, error);
+    http->sendJsonResponse(responseCode, error);
 
     responseSent_ = true;
 }
@@ -123,14 +123,14 @@ sendRedirect(int responseCode, std::string location)
 void
 HttpRestConnection::
 sendHttpResponse(int responseCode,
-                 std::string response, std::string contentType,
+                 Utf8String response, std::string contentType,
                  RestParams headers)
 {
     if (responseSent_)
         throw MLDB::Exception("response already sent");
 
     if (endpoint->logResponse)
-        endpoint->logResponse(*this, responseCode, response,
+        endpoint->logResponse(*this, responseCode, response.rawString(),
                               contentType);
 
     http->sendResponse(responseCode, std::move(response), std::move(contentType),
@@ -179,15 +179,15 @@ isConnected()
 
 void
 HttpRestConnection::
-sendPayload(std::string payload)
+sendPayload(Utf8String payload)
 {
     if (chunkedEncoding) {
         if (payload.empty()) {
             throw MLDB::Exception("Can't send empty chunk over a chunked connection");
         }
-        http->sendHttpChunk(std::move(payload), HttpLegacySocketHandler::NEXT_CONTINUE);
+        http->sendHttpChunk(payload.stealRawString(), HttpLegacySocketHandler::NEXT_CONTINUE);
     }
-    else http->send(std::move(payload));
+    else http->send(payload.stealRawString());
 }
 
 void
@@ -269,12 +269,12 @@ init()
     httpEndpoint->onRequest
         = [=] (std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> connection,
                const HttpHeader & header,
-               const std::string & payload)
+               const Utf8String & payload)
         {
             std::string requestId = this->getHttpRequestId();
             HttpRestConnection restConnection(connection, requestId, this);
             this->doHandleRequest(restConnection,
-                                  RestRequest(header, payload));
+                                  RestRequest(header, payload.rawString()));
         };
 }
 

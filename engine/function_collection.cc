@@ -235,7 +235,7 @@ applyBatch(const Function * function,
         };
 
     if (inputs.isNull()) {
-        connection.sendResponse(200, inputs, "application/json");
+        connection.sendJsonResponse(200, inputs, "application/json");
         return;
     }
     else if (inputs.isArray()) {
@@ -361,7 +361,7 @@ initRoutes(RouteManager & manager)
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
             } MLDB_CATCH_ALL {
-                connection.sendErrorResponse(400, "Unknown exception was thrown");
+                connection.sendJsonErrorResponse(400, "Unknown exception was thrown");
                 return RestRequestRouter::MR_ERROR;
             }
         };

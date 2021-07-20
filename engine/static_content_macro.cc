@@ -443,7 +443,7 @@ void configMacro(MacroContext & context,
         context.writeText("mldb.put(\"/v1/" + kind + "s/\"+<id>, {\n"+
                               "    \"type\": \"" + type + "\"");
         
-        Json::Value params = Json::parse(connection->response());
+        Json::Value params = Json::parse(connection->response().rawString());
         string typeName;
         bool withParams = false;
         if (!params.isNull()) {
@@ -522,7 +522,7 @@ void availabletypesMacro(MacroContext & context,
         };
 
         Json::Value params
-            = internalEntitiesFilter(Json::parse(connection->response()));
+            = internalEntitiesFilter(Json::parse(connection->response().rawString()));
 
         if(format == "list") {
             context.writeHtml("<ul>\n");

@@ -82,13 +82,13 @@ struct HttpRestEndpoint {
 
         void sendErrorResponse(int code, const Json::Value & error);
 
-        void sendResponse(int code,
-                          const Json::Value & response,
-                          std::string contentType = "application/json",
-                          RestParams headers = RestParams());
+        void sendJsonResponse(int code,
+                              const Json::Value & response,
+                              std::string contentType = "application/json",
+                              RestParams headers = RestParams());
 
         void sendResponse(int code,
-                          std::string body, std::string contentType,
+                          Utf8String, std::string contentType,
                           RestParams headers = RestParams());
 
         void sendResponseHeader(int code,
@@ -97,7 +97,7 @@ struct HttpRestEndpoint {
 
         /** Send an HTTP chunk with the appropriate headers back down the
             wire. */
-        void sendHttpChunk(std::string chunk,
+        void sendHttpChunk(Utf8String chunk,
                            NextAction next = NEXT_CONTINUE,
                            OnWriteFinished onWriteFinished = OnWriteFinished());
 
@@ -110,7 +110,7 @@ struct HttpRestEndpoint {
 
     typedef std::function<void (std::shared_ptr<RestConnectionHandler> connection,
                                 const HttpHeader & header,
-                                const std::string & payload)> OnRequest;
+                                const Utf8String & payload)> OnRequest;
 
     OnRequest onRequest;
 
