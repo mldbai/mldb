@@ -4,7 +4,7 @@
 #ifndef BASE_LOGGING_H__
 #define BASE_LOGGING_H__
 
-#include "mldb/base/exc_assert.h"
+#include <exception>
 
 struct EatShifts {
 
@@ -17,8 +17,8 @@ struct EatShifts {
 
 inline EatShifts eatShifts() { EatShifts result;  return result; }
 
-#define NOTREACHED() ExcAssert(false)
-#define DCHECK(x) ExcAssert((x)); eatShifts()
+#define NOTREACHED() throw std::logic_error("googleurl: NOTREACHED" __FILE__)
+#define DCHECK(x) if (!(x)) throw std::logic_error("googleurl: DCHECK: " #x); eatShifts()
 
 #if 0
 
