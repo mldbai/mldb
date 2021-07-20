@@ -36,4 +36,7 @@ size_t num_open_files();
 /** Turn an fd into a filename */
 std::string fd_to_filename(int fd);
 
+/** Return the name of this executable (including the full path) */
+std::string get_exe_name();
+
 } // namespace MLDB

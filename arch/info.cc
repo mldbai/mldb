@@ -25,7 +25,13 @@
 #include <dirent.h>
 #include "mldb/arch/format.h"
 #include <string.h>
+#include <sys/stat.h>
 
+#ifdef __APPLE__
+#include <libproc.h>
+#include <sys/proc_info.h>
+#include <mach-o/dyld.h>
+#endif /* __APPLE__ */
 
 using namespace std;
 
@@ -116,7 +122,14 @@ std::string all_info()
 
 size_t num_open_files()
 {
+#ifdef __linux__
     DIR * dfd = opendir("/proc/self/fd");
+#elif defined(__APPLE__)
+    DIR * dfd = opendir("/dev/fd");
+#else
+#  error "Tell us how to get open file count on your OS"
+#endif
+
     if (dfd == 0)
         throw Exception("num_open_files(): opendir(): "
                         + string(strerror(errno)));
@@ -138,6 +151,7 @@ size_t num_open_files()
 
 std::string fd_to_filename(int fd)
 {
+#if __linux__
     if (fd == -1)
         throw Exception("fd_to_filename(): invalid filename");
 
@@ -163,6 +177,58 @@ std::string fd_to_filename(int fd)
         buf[ret] = 0;
         return buf;
     }
+#elif __APPLE__
+    // Get the buffer size needed
+    struct vnode_fdinfowithpath info;
+    memset(&info, 0, sizeof(info));
+    errno = 0;
+    int res = proc_pidfdinfo(getpid(), fd, PROC_PIDFDVNODEPATHINFO, &info, sizeof(info));
+    if (res == 0)
+        throw MLDB::Exception("proc_pidfdinfo() error: " + string(strerror(errno)));
+    return info.pvip.vip_path;
+#else
+#  error "Tell us how to turn a fd into a filename for your platform"
+#endif
+}
+
+namespace {
+
+#if defined(__linux__)
+static std::string get_link_target(const std::string & link)
+{
+    /* Interface to the readlink call */
+    size_t bufsize = 1024;
+    
+    /* Loop over, making the buffer successively larger if it is too small. */
+    while (true) {  // break in loop
+        char buf[bufsize];
+        int res = readlink(link.c_str(), buf, bufsize);
+        if (res == -1)
+            throw MLDB::Exception(errno, "readlink", "get_link_name()");
+        if (res == bufsize) {
+            bufsize *= 2;
+            continue;
+        }
+        buf[res] = 0;
+        return buf;
+    }
+}
+#endif
+
+} // file scope
+
+std::string get_exe_name()
+{
+#if defined(__linux__)
+    return get_link_target("/proc/self/exe");
+#elif defined(__APPLE__)
+    char path[PATH_MAX + 1];
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) == 0)
+        return path;
+    else
+        throw MLDB::Exception("_NSGetExecutablePath: logic error; PATH_MAX is not enough");
+#endif
 }
 
 } // namespace MLDB
