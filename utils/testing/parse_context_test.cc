@@ -227,8 +227,8 @@ BOOST_AUTO_TEST_CASE( test_long_long_parsing )
     test_long_long(1);
     test_long_long(-1);
     test_long_long(-9219216340478909303LL);
-    test_long_long(LONG_LONG_MIN);
-    test_long_long(LONG_LONG_MAX);
+    test_long_long(std::numeric_limits<long long>::min());
+    test_long_long(std::numeric_limits<long long>::max());
 }
 
 static const char * testUnicode_str = "0026\n026";
@@ -455,11 +455,11 @@ BOOST_AUTO_TEST_CASE( test6 )
 
     f = context.expect_float();
     cerr << "f = " << f << endl;
-    BOOST_CHECK(isnanf(f));
+    BOOST_CHECK(isnan(f));
     context.expect_whitespace();
 
     f = context.expect_float();
-    BOOST_CHECK(isnanf(f));
+    BOOST_CHECK(isnan(f));
     context.expect_whitespace();
 
     f = context.expect_float();
@@ -467,11 +467,11 @@ BOOST_AUTO_TEST_CASE( test6 )
     context.expect_whitespace();
 
     f = context.expect_float();
-    BOOST_CHECK(isnanf(f));
+    BOOST_CHECK(isnan(f));
     context.expect_whitespace();
 
     f = context.expect_float();
-    BOOST_CHECK(isnanf(f));
+    BOOST_CHECK(isnan(f));
     context.expect_whitespace();
 
     f = context.expect_float();
@@ -534,11 +534,11 @@ BOOST_AUTO_TEST_CASE( test_chunking_stream1 )
         BOOST_CHECK_EQUAL(f, f2);
         
         f = context.expect_float();
-        BOOST_CHECK(isnanf(f));
+        BOOST_CHECK(isnan(f));
         context.expect_whitespace();
         
         f = context.expect_float();
-        BOOST_CHECK(isnanf(f));
+        BOOST_CHECK(isnan(f));
         context.expect_whitespace();
         
         f = context.expect_float();
@@ -546,11 +546,11 @@ BOOST_AUTO_TEST_CASE( test_chunking_stream1 )
         context.expect_whitespace();
         
         f = context.expect_float();
-        BOOST_CHECK(isnanf(f));
+        BOOST_CHECK(isnan(f));
         context.expect_whitespace();
         
         f = context.expect_float();
-        BOOST_CHECK(isnanf(f));
+        BOOST_CHECK(isnan(f));
         context.expect_whitespace();
         
         f = context.expect_float();
@@ -558,11 +558,11 @@ BOOST_AUTO_TEST_CASE( test_chunking_stream1 )
         context.expect_whitespace();
 
         f = context.expect_float();
-        BOOST_CHECK(isnanf(f));
+        BOOST_CHECK(isnan(f));
         context.expect_whitespace();
         
         f = context.expect_float();
-        BOOST_CHECK(isnanf(f));
+        BOOST_CHECK(isnan(f));
         
         BOOST_CHECK(context.eof());
     }
