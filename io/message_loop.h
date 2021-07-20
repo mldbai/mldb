@@ -190,7 +190,7 @@ private:
 
     /* Queue of source actions to perform */
     TypedMessageQueue<SourceAction> sourceActions_;
-    // MLDB::WakeupFd queueFd;
+    // MLDB::WakeupFD queueFd;
 
     Lock threadsLock;
     int numThreadsCreated;

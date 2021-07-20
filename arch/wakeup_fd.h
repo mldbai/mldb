@@ -9,85 +9,62 @@
 
 #pragma once
 
-#include <sys/eventfd.h>
 #include <unistd.h>
+#include <memory>
 #include "exception.h"
 
 namespace MLDB {
 
-struct WakeupFd {
-    WakeupFd(int flags = 0)
+enum WakeupFDOptions {
+    WFD_NONE = 0,
+    WFD_NONBLOCK = 1,
+    WFD_CLOEXEC = 2
+};
+
+struct WakeupFD {
+    WakeupFD(WakeupFDOptions options = WFD_NONE);
+
+    template<typename... Options>
+    WakeupFD(Options&&... options)
+        : WakeupFD(collect(std::forward<Options>(options)...))
     {
-        fd_ = ::eventfd(0, flags);
-        if (fd_ == -1)
-            throw MLDB::Exception(errno, "eventfd");
     }
 
-    WakeupFd(const WakeupFd & other) = delete;
-    WakeupFd(WakeupFd && other)
-        noexcept
-        : fd_(other.fd_)
+    static WakeupFDOptions collect()
     {
-        other.fd_ = -1;
+        return WFD_NONE;
     }
 
-    ~WakeupFd()
+    template<typename... Rest>
+    static WakeupFDOptions collect(WakeupFDOptions first, Rest&&... rest)
     {
-        if (fd_ != -1)
-            ::close(fd_);
+        return WakeupFDOptions(collect(std::forward<Rest>(rest)...) | first);
     }
 
-    int fd() const { return fd_; }
+    WakeupFD(const WakeupFD & other) = delete;
+    WakeupFD(WakeupFD && other) noexcept = default;
 
-    void signal()
-    {
-        //cerr << "wakeup signal" << endl;
-        eventfd_t val = 1;
-        int res = eventfd_write(fd_, val);
-        if (res == -1)
-            throw MLDB::Exception(errno, "eventfd write()");
-    }
+    ~WakeupFD();
 
-    eventfd_t read()
-    {
-        eventfd_t val = 0;
-        int res = eventfd_read(fd_, &val); 
-        if (res == -1)
-            throw MLDB::Exception(errno, "eventfd read()");
-        return val;
-    }
+    int fd() const;
 
-    // Only works if it was constructed with EFD_NONBLOCK
-    bool tryRead(eventfd_t & val)
-    {
-        int res = ::read(fd_, &val, 8);
-        if (res == -1 && errno == EWOULDBLOCK)
-            return false;
-        if (res == -1)
-            throw MLDB::Exception(errno, "eventfd read()");
-        if (res != sizeof(eventfd_t))
-            throw MLDB::Exception("eventfd read() returned wrong num bytes");
-        return true;
-    }
+    void signal();
 
-    // Only works if it was constructed with EFD_NONBLOCK
-    bool tryRead()
-    {
-        eventfd_t val = 0;
-        return tryRead(val);
-    }
+    bool trySignal();  // guaranteed not to block
 
-    WakeupFd & operator = (const WakeupFd & other) = delete;
-    WakeupFd & operator = (WakeupFd && other)
-        noexcept
-    {
-        fd_ = other.fd_;
-        other.fd_ = -1;
+    uint64_t read();
 
-        return *this;
-    }
+    // Only works if it was constructed with WFD_NONBLOCK
+    bool tryRead(uint64_t & val);
 
-    int fd_;
+    // Only works if it was constructed with WFD_NONBLOCK
+    bool tryRead();
+
+    WakeupFD & operator = (const WakeupFD & other) = delete;
+    WakeupFD & operator = (WakeupFD && other) noexcept = default;
+
+    struct Itl;
+    std::unique_ptr<Itl> itl_;
 };
 
 

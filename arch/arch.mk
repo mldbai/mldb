@@ -22,7 +22,8 @@ LIBARCH_SOURCES := \
 	spinlock.cc \
 	dlopen_mutex.cc \
         file_functions.cc \
-	wait_on_address.cc \
+		wait_on_address.cc \
+		wakeup_fd.cc
 
 
 ifeq ($(ARCH),x86_64)

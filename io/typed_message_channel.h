@@ -14,6 +14,7 @@
 
 #include "mldb/io/ring_buffer.h"
 #include "mldb/arch/wakeup_fd.h"
+#include "mldb/base/exc_assert.h"
 #include "mldb/io/async_event_source.h"
 
 
@@ -28,8 +29,9 @@ template<typename Message>
 struct TypedMessageSink: public AsyncEventSource {
 
     TypedMessageSink(size_t bufferSize)
-        : wakeup(EFD_NONBLOCK), buf(bufferSize)
+        : wakeup(WFD_NONBLOCK), buf(bufferSize)
     {
+        ExcAssert(selectFd() != -1);
     }
 
     std::function<void (Message && message)> onEvent;
@@ -83,7 +85,7 @@ struct TypedMessageSink: public AsyncEventSource {
 
     uint64_t size() const { return buf.ring.size() ; }
 private:
-    MLDB::WakeupFd wakeup;
+    MLDB::WakeupFD wakeup;
     MLDB::RingBufferSRMW<Message> buf;
 };
 
@@ -116,7 +118,7 @@ struct TypedMessageQueue: public AsyncEventSource
      * "maxMessages": maximum size of the queue, 0 for unlimited */
     TypedMessageQueue(const OnNotify & onNotify = nullptr, size_t maxMessages = 0)
         : maxMessages_(maxMessages),
-          wakeup_(EFD_NONBLOCK | EFD_CLOEXEC),
+          wakeup_(WFD_NONBLOCK, WFD_CLOEXEC),
           pending_(false),
           onNotify_(onNotify)
     {
@@ -209,7 +211,7 @@ private:
     std::queue<Message> queue_;
     size_t maxMessages_;
 
-    MLDB::WakeupFd wakeup_;
+    MLDB::WakeupFD wakeup_;
 
     /* notifications are pending; protected by queueLock_ */
     std::atomic<bool> pending_;
