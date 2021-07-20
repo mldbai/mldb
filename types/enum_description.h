@@ -124,7 +124,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     virtual const std::vector<std::string> getEnumKeys() const
     {
         std::vector<std::string> res;
-        for (const auto it: print) {
+        for (const auto & it: print) {
             res.push_back(it.second.first);
         }
         return res;

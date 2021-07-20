@@ -776,8 +776,6 @@ inline Path restDecode(const Utf8String & val, Path *)
 
 namespace std {
 
-template<typename T> struct hash;
-
 template<>
 struct hash<MLDB::PathElement> : public std::unary_function<MLDB::PathElement, size_t>
 {
