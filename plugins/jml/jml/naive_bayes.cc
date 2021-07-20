@@ -91,7 +91,7 @@ predict(const Feature_Set & feature_set,
             else {
                 float scale = 1.0 / (last - first);
                 while (first != last) {
-                    if (!finite((*first).second))
+                    if (!std::isfinite((*first).second))
                         weight_missing += scale;
                     else if ((*first).second >= features[f].arg)
                         weight_true += scale;
@@ -207,7 +207,7 @@ predict(const Feature_Set & feature_set,
                 SIMD::vec_add(&accum[0], &probs[f][MISSING][0], &accum[0],
                               label_count());
             else if (example_count == 1) {
-                if (!finite((*first).second))
+                if (!std::isfinite((*first).second))
                     SIMD::vec_add(&accum[0], &probs[f][MISSING][0], &accum[0],
                                   label_count());
                 else
@@ -220,7 +220,7 @@ predict(const Feature_Set & feature_set,
                     weight_missing = 0.0;
                 float scale = 1.0 / example_count;
                 while (first != last) {
-                    if (!finite((*first).second))
+                    if (!std::isfinite((*first).second))
                         weight_missing += scale;
                     else if ((*first).second >= fit->arg)
                         weight_true += scale;

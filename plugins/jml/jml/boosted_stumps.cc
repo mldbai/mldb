@@ -155,7 +155,7 @@ predict(const Feature_Set & features,
     predict_core(features, Results_Dist(result, *feature_space()));
     
     for (unsigned i = 0;  i < result.size();  ++i) {
-        if (!finite(result[i])) {
+        if (!std::isfinite(result[i])) {
             cerr << "result = " << result << endl;
             throw Exception("Boosted_Stumps::predict(): non-finite result");
         }
@@ -193,7 +193,7 @@ predict(const Feature_Set & features,
     }
 
     for (unsigned i = 0;  i < result.size();  ++i) {
-        if (!finite(result[i])) {
+        if (!std::isfinite(result[i])) {
             distribution<float> result2(label_count());
             if (bias.size()) result2 += bias;
             predict_core(features, Results_Dist(result2, *feature_space()));

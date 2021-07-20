@@ -14,6 +14,7 @@
 #include <map>
 #include <mutex>
 
+#include "mldb/arch/arch.h"
 #include "mldb/compiler/filesystem.h"
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/types/structure_description.h"
@@ -148,14 +149,17 @@ static FsObjectInfo extractInfo(const struct stat & stats)
 
 static FsObjectInfo extractInfo(const std::string & path, const fs::directory_entry & entry)
 {
-    cerr << "stat64 of " << path << endl;
     ExcAssert(path.find("file://") == 0);
 
+#if MLDB_INTEL_ISA
+#else
+#  define stat64 stat
+#endif
     struct stat64 stats;
     int res = ::stat64(path.c_str() + 7, &stats);
     if (res == -1)
         throw MLDB::Exception(errno, "stat64");
-    
+
     FsObjectInfo objectInfo;
 
     objectInfo.exists = true;

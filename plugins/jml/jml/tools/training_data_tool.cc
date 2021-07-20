@@ -159,7 +159,7 @@ struct Variable_Stats {
         double sum_vl = 0.0, n = 0.0;
         for (unsigned i = 0;  i < values.size();  ++i) {
             double v = values[i], l = labels[i];
-            if (!finite(v)) continue;
+            if (!std::isfinite(v)) continue;
             sum_vsq += v*v;  sum_v += v;
             sum_lsq += l*l;  sum_l += l;
             sum_vl  += v*l;
@@ -195,7 +195,7 @@ struct Variable_Stats {
         for (unsigned i = 0;  i < values.size();  ++i) {
             double value = values[i];
             if (std::isnan(value)) ++missing;
-            else if (!isfinite(value)) ++denorm;
+            else if (!std::isfinite(value)) ++denorm;
             else if (i != 0 && last_value == value) {
                 assert(!pairs.empty());
                 pairs.back().second += 1;
@@ -411,7 +411,7 @@ try
             cout << endl;
             double t = t_test(stats[0], stats[1]);
 
-            if (!isfinite(t) && stats[0].stddev == 0.0 && stats[1].stddev == 0)
+            if (!std::isfinite(t) && stats[0].stddev == 0.0 && stats[1].stddev == 0)
                 t = 0.0;
 
             
@@ -434,7 +434,7 @@ try
 
         for (unsigned f = 0;  f < nf;   ++f) {
             sorted[f].second.first = f;
-            if (!isfinite(t_values[f])) {
+            if (!std::isfinite(t_values[f])) {
                 sorted[f].first = INFINITY;
                 sorted[f].second.second = INFINITY;
             }
