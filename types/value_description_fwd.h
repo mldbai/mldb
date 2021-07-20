@@ -38,7 +38,14 @@ template<typename T> struct ValueDescriptionInit;
 // value_description.h file will need to be included before
 // instantiation.
 template<typename T> Json::Value jsonEncode(const T & obj);
+template<typename T> std::string jsonEncodeStr(const T & obj);
+template<typename T> Utf8String jsonEncodeUtf8(const T & obj);
+template<typename T> std::ostream & jsonEncodeToStream(const T & obj, std::ostream & stream);
+
 template<typename T> T jsonDecode(const Json::Value & json, T * = 0);
+template<typename T> T jsonDecodeStr(const std::string & json, T * = 0);
+template<typename T> T jsonDecodeStr(const Utf8String & json, T * = 0);
+template<typename T> T jsonDecodeStream(std::istream & stream, T * = 0);
 
 /** Tag structure to indicate that we want to only construct a
     description, not initialize it.  Initialization can be
