@@ -181,7 +181,7 @@ Utf8String likeToRegex(const Utf8String& filterString)
 {
     Utf8String regExFilter;
 
-    for (const auto& filterChar : filterString) {
+    for (const auto filterChar : filterString) {
 
         switch (filterChar) {
             case ('%'): {
