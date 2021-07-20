@@ -16,22 +16,22 @@
 #include <boost/iterator/zip_iterator.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <utility>
-#include <ext/functional>
+#include <functional>
 
 namespace MLDB {
 
-
+#if 0
 /*****************************************************************************/
 /* FIRST_EXTRACT_ITERATOR                                                    */
 /*****************************************************************************/
 
 template<class Iterator>
-boost::transform_iterator<__gnu_cxx::select1st<typename Iterator::value_type>,
+boost::transform_iterator<decltype(std::declval<typename Iterator::value_type>().first),
                           Iterator>
 first_extractor(const Iterator & it)
 {
-    return boost::transform_iterator
-        <__gnu_cxx::select1st<typename Iterator::value_type>, Iterator>(it);
+    return it; //boost::transform_iterator
+        //<__gnu_cxx::select1st<typename Iterator::value_type>, Iterator>(it);
 }
 
 
@@ -40,21 +40,20 @@ first_extractor(const Iterator & it)
 /*****************************************************************************/
 
 template<class Iterator>
-boost::transform_iterator<__gnu_cxx::select2nd<typename Iterator::value_type>,
+boost::transform_iterator<decltype(std::declval<typename Iterator::value_type>().second),
                           Iterator>
 second_extractor(const Iterator & it)
 {
-    return boost::transform_iterator
-        <__gnu_cxx::select2nd<typename Iterator::value_type>, Iterator>(it);
+    return it; //boost::transform_iterator
+        //<__gnu_cxx::select2nd<typename Iterator::value_type>, Iterator>(it);
 }
-
+#endif
 
 /*****************************************************************************/
 /* PAIR_MERGER                                                               */
 /*****************************************************************************/
 
 #if 0
-
 template<class X, class Y>
 struct tuple_to_pair {
 
@@ -66,6 +65,7 @@ struct tuple_to_pair {
     }
 };
 
+#if 0
 template<class Iterator1, class Iterator2>
 boost::transform_iterator<tuple_to_pair<typename Iterator1::value_type,
                                         typename Iterator2::value_type>,
@@ -78,7 +78,6 @@ pair_merger(const Iterator1 & it1, const Iterator2 & it2)
                        typename Iterator2::value_type> >
             (boost::make_zip_iterator(std::make_tuple(it1, it2)));
 }
-
 #else
 
 template<typename It1, typename It2>
@@ -125,6 +124,7 @@ pair_merger(const It1 & it1, const It2 & it2)
     return Pair_Merger<It1, It2>(it1, it2);
 }
 
+#endif
 #endif
 
 } // namespace MLDB

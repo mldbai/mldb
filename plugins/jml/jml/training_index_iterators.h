@@ -226,7 +226,7 @@ public:
     
     /** Are we missing? */
     MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
-    bool missing() const { return isnanf(value()); }
+    bool missing() const { return std::isnan(value()); }
     
     MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
     unsigned bucket() const { return index->buckets_[n]; }

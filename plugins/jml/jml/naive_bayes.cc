@@ -392,8 +392,12 @@ Naive_Bayes(DB::Store_Reader & store,
 
     store >> label_priors;
     store >> probs;
-    this->features = vector<Bayes_Feature>
-        (first_extractor(sorted.begin()), first_extractor(sorted.end()));
+    std::vector<Bayes_Feature> features;
+    features.reserve(sorted.size());
+    for (const auto & p: sorted) {
+        features.emplace_back(p.first);
+    }
+    this->features = std::move(features);
     calc_missing_total();
 }
 

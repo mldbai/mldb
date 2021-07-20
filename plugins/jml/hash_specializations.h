@@ -10,12 +10,9 @@
 
 #pragma once
 
-#define _BACKWARD_BACKWARD_WARNING_H 1
-#include <ext/hash_map>
 #include <string>
 #include "mldb/utils/floating_point.h"
-
-#define MLDB_HASH_NS __gnu_cxx
+#include "mldb/types/string.h"
 
 namespace ML {
 
@@ -27,31 +24,26 @@ inline size_t chain_hash(size_t h1, size_t h2 = 0)
 } // namespace ML
 
 
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
-
 namespace std {
 
-using MLDB_HASH_NS::hash;
-
-} // namespace std
-
-#endif
-
-namespace __gnu_cxx {
-
+#if 0
 template<>
 struct hash<std::string> {
     size_t operator () (const std::string & str) const
     {
-        return MLDB_HASH_NS::hash<const char *>()(str.c_str());
+        return std::hash<const char *>()(str.c_str());
     }
 
 };
+#endif
 
+#if 0
 template<>
 struct hash<float> : public MLDB::float_hasher {
 };
+#endif
 
+#if 0
 template<typename T>
 struct hash<T *> {
     size_t operator () (const T * ptr) const
@@ -59,6 +51,7 @@ struct hash<T *> {
         return ML::chain_hash(reinterpret_cast<size_t>(ptr));
     }
 };
+#endif
 
 template<typename X, typename Y>
 struct hash<std::pair<X, Y> > {
@@ -73,4 +66,4 @@ struct hash<std::pair<X, Y> > {
     }
 };
 
-} // namespace MLDB_HASH_NS
+} // namespace std

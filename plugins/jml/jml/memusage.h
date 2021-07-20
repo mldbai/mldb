@@ -11,21 +11,11 @@
 #pragma once
 
 #include <string>
+#include "types/map_fwd.h"
+#include "types/vector_fwd.h"
+#include "types/unordered_map_fwd.h"
+#include "types/pair_fwd.h"
 
-namespace std {
-
-template<class Key, class Data, class Compare, class Alloc> class map;
-template<class First, class Second> class pair;
-template<class T, class Alloc> class vector;
-
-};
-
-namespace __gnu_cxx {
-
-template<class Key, class Data, class Hash, class Equal, class Alloc>
-class hash_map;
-
-}
 
 namespace ML {
 
@@ -102,9 +92,9 @@ size_t memusage(const std::map<Key, Data, Compare, Alloc> & m)
 }
 
 template<class Key, class Data, class Hash, class Equal, class Alloc>
-size_t memusage(const __gnu_cxx::hash_map<Key, Data, Hash, Equal, Alloc> & m)
+size_t memusage(const std::unordered_map<Key, Data, Hash, Equal, Alloc> & m)
 {
-    typedef __gnu_cxx::hash_map<Key, Data, Hash, Equal, Alloc> array_type;
+    typedef std::unordered_map<Key, Data, Hash, Equal, Alloc> array_type;
     
     size_t num_nodes = m.size();
     size_t num_buckets = m.bucket_count();

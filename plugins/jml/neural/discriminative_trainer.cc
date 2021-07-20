@@ -257,7 +257,7 @@ train_iter(const std::vector<const float *> & data,
     
     if (randomize_order) {
         Thread_Context::RNG_Type rng = thread_context.rng();
-        std::random_shuffle(examples.begin(), examples.end(), rng);
+        std::shuffle(examples.begin(), examples.end(), rng);
     }
     
     int nx2 = examples.size();

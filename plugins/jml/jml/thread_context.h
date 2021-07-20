@@ -62,7 +62,14 @@ public:
         return uniform01_(rng_);
     }
 
-    typedef RNG_Adaptor<std::mt19937> RNG_Type;
+    typedef std::mt19937 Core_RNG_Type;
+
+    Core_RNG_Type & std_rng()
+    {
+        return rng_;
+    }
+
+    typedef RNG_Adaptor<Core_RNG_Type> RNG_Type;
     RNG_Type rng() { return RNG_Type(rng_); }
 
     /** What level are we recursed to? */
@@ -76,7 +83,7 @@ public:
     }
 
 private:
-    std::mt19937 rng_;
+    Core_RNG_Type rng_;
     std::uniform_real_distribution<> uniform01_;
     int recursion_;
 };

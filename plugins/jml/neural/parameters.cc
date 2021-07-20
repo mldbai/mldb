@@ -27,7 +27,7 @@ Parameter_Value *
 Parameter_Value::
 compatible_copy(float * first, float * last) const
 {
-    auto_ptr<Parameter_Value> result(compatible_ref(first, last));
+    unique_ptr<Parameter_Value> result(compatible_ref(first, last));
     copy_to(first, last);
     return result.release();
 }
@@ -36,7 +36,7 @@ Parameter_Value *
 Parameter_Value::
 compatible_copy(double * first, double * last) const
 {
-    auto_ptr<Parameter_Value> result(compatible_ref(first, last));
+    unique_ptr<Parameter_Value> result(compatible_ref(first, last));
     copy_to(first, last);
     return result.release();
 }
@@ -272,7 +272,7 @@ compatible_ref(F * first, F * last) const
         throw Exception("Parameters::compatible_ref(): range oob");
     }
 
-    auto_ptr<Parameters_Ref> result(new Parameters_Ref(name()));
+    unique_ptr<Parameters_Ref> result(new Parameters_Ref(name()));
 
     int i = 0;
     for (Params::const_iterator
@@ -322,7 +322,7 @@ compatible_copy(F * first, F * last) const
         throw Exception("Parameters::compatible_copy(): range oob");
     }
 
-    auto_ptr<Parameters_Ref> result(new Parameters_Ref(name()));
+    unique_ptr<Parameters_Ref> result(new Parameters_Ref(name()));
 
     int i = 0;
     for (Params::const_iterator

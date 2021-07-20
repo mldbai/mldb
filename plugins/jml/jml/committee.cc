@@ -319,7 +319,7 @@ Committee *
 Committee::
 make_copy() const
 {
-    auto_ptr<Committee> result(new Committee(*this));
+    unique_ptr<Committee> result(new Committee(*this));
     for (unsigned i = 0;  i < classifiers.size();  ++i)
         result->classifiers[i].reset(result->classifiers[i]->make_copy());
     return result.release();
