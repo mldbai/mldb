@@ -16,7 +16,7 @@ $(eval $(call include_sub_make,embedding))
 # These have already been packaged as full plugins
 $(eval $(call include_mldb_plugin,html))
 $(eval $(call include_mldb_plugin,pro))
-$(eval $(call include_mldb_plugin,av))
+#$(eval $(call include_mldb_plugin,av))
 #$(eval $(call include_mldb_plugin,tensorflow))
 
 # No source code, this is just a library to bring everything together
