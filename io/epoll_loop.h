@@ -14,17 +14,18 @@
 
 #pragma once
 
-#include <sys/epoll.h>
-
 #include <exception>
 #include <functional>
 #include <map>
 #include <mutex>
 
+#include "mldb/io/epoller.h"
 #include "mldb/io/async_event_source.h"
 
 
 namespace MLDB {
+
+struct EpollEvent;  // implementation dependent
 
 /****************************************************************************/
 /* EPOLL LOOP                                                               */
@@ -46,14 +47,13 @@ struct EpollLoop : public AsyncEventSource
 
     /* Type of callback invoked whenever an epoll event is reported for a file
      * descriptor. */
-    typedef std::function<void (const ::epoll_event &)> EpollCallback;
+    typedef std::function<void (const EpollEvent &)> EpollCallback;
 
     EpollLoop(const OnException & onException);
     virtual ~EpollLoop();
 
     /* AsyncEventSource interface */
-    virtual int selectFd() const
-    { return epollFd_; }
+    virtual int selectFd() const { return epoller.selectFd(); }
 
     virtual bool processOne();
 
@@ -122,8 +122,7 @@ private:
 
     void handleException();
 
-    int epollFd_;
-    size_t numFds_;
+    Epoller epoller;
 
     std::mutex callbackLock_;
     std::map<int, EpollCallback> fdCallbacks_;

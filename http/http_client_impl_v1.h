@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include "sys/epoll.h"
-
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -24,8 +22,9 @@
 
 namespace MLDB {
 
-struct WakeupFD;
+struct Epoller;
 struct TimerFD;
+struct WakeupFD;
 
 
 /****************************************************************************/
@@ -58,16 +57,14 @@ struct HttpClientImplV1 : public HttpClientImpl {
     size_t queuedRequests() const override;
 
 private:
-    void cleanupFds() noexcept;
-
     /* Local */
     std::vector<std::shared_ptr<HttpRequest>> popRequests(size_t number);
 
     void handleEvents();
-    void handleEvent(const ::epoll_event & event);
+    void handleEvent(const EpollEvent & event);
     void handleWakeupEvent();
     void handleTimerEvent();
-    void handleMultiEvent(const ::epoll_event & event);
+    void handleMultiEvent(const EpollEvent & event);
 
     void checkMultiInfos();
 
@@ -78,7 +75,7 @@ private:
     static int timerCallback(CURLM * multi, long timeoutMs, void * clientP);
     int onCurlTimerEvent(long timeout_ms);
 
-    void addFd(int fd, bool isMod, int flags) const;
+    void addFd(int fd, bool isMod, bool input, bool output) const;
     void removeFd(int fd) const;
 
     struct HttpConnection {
@@ -123,8 +120,8 @@ private:
     bool tcpNoDelay_;
     bool noSSLChecks_;
 
-    int fd_;
-    std::shared_ptr<WakeupFD> wakeup_;
+    std::unique_ptr<Epoller> poller_;
+    std::unique_ptr<WakeupFD> wakeup_;
     std::unique_ptr<TimerFD> timerFd_;
 
     struct CurlMultiCleanup {

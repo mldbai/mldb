@@ -95,11 +95,11 @@ Runner::
 
 void
 Runner::
-handleChildStatus(const struct epoll_event & event)
+handleChildStatus(const struct EpollEvent & event)
 {
     ProcessStatus status;
 
-    if ((event.events & EPOLLIN) != 0) {
+    if (hasInput(event)) {
         while (1) {
             char * current = (statusBuffer_ + sizeof(ProcessStatus)
                               - statusRemaining_);
@@ -178,7 +178,7 @@ handleChildStatus(const struct epoll_event & event)
         }
     }
 
-    if ((event.events & EPOLLHUP) != 0) {
+    if (hasHangup(event)) {
         // This happens when the thread that launched the process exits,
         // and the child process follows.
         removeFd(task_.statusFd, true);
@@ -212,14 +212,14 @@ handleChildStatus(const struct epoll_event & event)
 
 void
 Runner::
-handleOutputStatus(const struct epoll_event & event,
+handleOutputStatus(const EpollEvent & event,
                    int & outputFd, shared_ptr<InputSink> & sink)
 {
     char buffer[4096];
     bool closedFd(false);
     string data;
 
-    if ((event.events & EPOLLIN) != 0) {
+    if (hasInput(event)) {
         while (1) {
             ssize_t len = ::read(outputFd, buffer, sizeof(buffer));
             if (len < 0) {
@@ -252,7 +252,7 @@ handleOutputStatus(const struct epoll_event & event,
         }
     }
 
-    if (closedFd || (event.events & EPOLLHUP) != 0) {
+    if (closedFd || hasHangup(event)) {
         ExcAssert(sink != nullptr);
         sink->notifyClosed();
         sink.reset();
@@ -371,7 +371,7 @@ getStdInSink()
     stdInSink_->init(task_.stdInFd);
 
     auto stdinCopy = stdInSink_;
-    auto stdinCb = [=] (const epoll_event & event) {
+    auto stdinCb = [=] (const EpollEvent & event) {
         stdinCopy->processOne();
     };
     addFd(stdInSink_->selectFd(), true, false, stdinCb);
@@ -538,20 +538,20 @@ doRunImpl(const vector<string> & command,
         task_.statusState = ProcessState::LAUNCHING;
 
         MLDB::set_file_flag(task_.statusFd, O_NONBLOCK);
-        auto statusCb = [&] (const epoll_event & event) {
+        auto statusCb = [&] (const EpollEvent & event) {
             handleChildStatus(event);
         };
         addFd(task_.statusFd, true, false, statusCb);
         if (stdOutSink) {
             MLDB::set_file_flag(task_.stdOutFd, O_NONBLOCK);
-            auto outputCb = [=] (const epoll_event & event) {
+            auto outputCb = [=] (const EpollEvent & event) {
                 handleOutputStatus(event, task_.stdOutFd, stdOutSink_);
             };
             addFd(task_.stdOutFd, true, false, outputCb);
         }
         if (stdErrSink) {
             MLDB::set_file_flag(task_.stdErrFd, O_NONBLOCK);
-            auto outputCb = [=] (const epoll_event & event) {
+            auto outputCb = [=] (const EpollEvent & event) {
                 handleOutputStatus(event, task_.stdErrFd, stdErrSink_);
             };
             addFd(task_.stdErrFd, true, false, outputCb);

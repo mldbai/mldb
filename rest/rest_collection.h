@@ -141,7 +141,7 @@ struct BackgroundTaskBase {
     /** Set the handle of the thread that's doing this task, so we know what
         to cancel when we set up a hard cancellation.
     */
-    void setHandle(int64_t handle)
+    void setHandle(std::thread::native_handle_type handle)
     {
         std::unique_lock<std::mutex> guard(mutex);
         // std::cerr << "new task with handle " << handle << std::endl;
@@ -162,7 +162,7 @@ struct BackgroundTaskBase {
     std::exception_ptr exc;
     Json::Value progress;
     std::vector<OnProgress> onProgressFunctions;
-    int64_t handle;  ///< Handle of the thread running task
+    std::thread::native_handle_type handle;  ///< Handle of the thread running task
 };
 
 

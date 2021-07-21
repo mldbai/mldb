@@ -8,7 +8,6 @@
 #include <thread>
 #include <time.h>
 #include <limits.h>
-#include <sys/epoll.h>
 #include <algorithm>
 
 #include "mldb/arch/exception.h"
@@ -89,7 +88,7 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
 
        Adding a special source named "_shutdown" triggers shutdown-related
        events, without requiring the use of an additional signal fd. */
-    addFd(sourceActions_.selectFd(), &sourceActions_);
+    addFd(sourceActions_.selectFd(), EPOLL_INPUT, &sourceActions_);
 
     debug_ = false;
 }
@@ -344,30 +343,21 @@ runWorkerThread()
 
 Epoller::HandleEventResult
 MessageLoop::
-handleEpollEvent(epoll_event & event)
+handleEpollEvent(EpollEvent & event)
 {
     bool debug = false;
 
     if (debug) {
         cerr << "handleEvent" << endl;
-        int mask = event.events;
-                
-        cerr << "events " 
-             << (mask & EPOLLIN ? "I" : "")
-             << (mask & EPOLLOUT ? "O" : "")
-             << (mask & EPOLLPRI ? "P" : "")
-             << (mask & EPOLLERR ? "E" : "")
-             << (mask & EPOLLHUP ? "H" : "")
-             << (mask & EPOLLRDHUP ? "R" : "")
-             << endl;
+        cerr << "events " << getMaskStr(event) << " on fd " << getFd(event) << endl;
     }
     
     AsyncEventSource * source
-        = reinterpret_cast<AsyncEventSource *>(event.data.ptr);
+        = reinterpret_cast<AsyncEventSource *>(getPtr(event));
     
     if (debug) {
         cerr << "message loop " << this << " with parent " << parent_
-             << " handing source " << MLDB::type_name(*source) << " poll result "
+             << " handling source " << MLDB::type_name(*source) << " poll result "
              << Epoller::poll() << " our poll " << source->poll() << endl;
         ExcAssert(source->poll());
     }
@@ -417,7 +407,7 @@ processAddSource(const SourceEntry & entry)
     }
     int fd = entry.source->selectFd();
     if (fd != -1)
-        addFd(fd, entry.source.get());
+        addFd(fd, EPOLL_INPUT, entry.source.get());
 
     if (!needsPoll && entry.source->needsPoll) {
         needsPoll = true;

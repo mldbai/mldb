@@ -8,11 +8,12 @@
 */
 
 #include <fcntl.h>
-#include <sys/epoll.h>
 #include <poll.h>
 #include <unistd.h>
+#include <iostream>
 
 #include "mldb/base/exc_assert.h"
+#include "mldb/io/epoller.h"
 
 #include "async_writer_source.h"
 
@@ -51,7 +52,7 @@ AsyncWriterSource(const OnClosed & onClosed,
       onClosed_(onClosed),
       onReceivedData_(onReceivedData)
 {
-    auto handleQueueEventCb = [&] (const ::epoll_event & event) {
+    auto handleQueueEventCb = [&] (const EpollEvent & event) {
         queue_.processOne();
     };
     registerFdCallback(queue_.selectFd(), handleQueueEventCb);
@@ -78,7 +79,7 @@ setFd(int newFd)
 
     addFd(queue_.selectFd(), true, false);
 
-    auto handleFdEventCb = [&] (const ::epoll_event & event) {
+    auto handleFdEventCb = [this] (const EpollEvent & event) {
         this->handleFdEvent(event);
     };
     registerFdCallback(newFd, handleFdEventCb);
@@ -311,7 +312,7 @@ flush()
 
 void
 AsyncWriterSource::
-handleFdEvent(const ::epoll_event & event)
+handleFdEvent(const EpollEvent & event)
 {
     /* fd_ may be -1 here if closed from the queue handler in the same epoll
        loop. We thus need to return to ensure that no operations occur on a
@@ -320,13 +321,13 @@ handleFdEvent(const ::epoll_event & event)
         return;
     }
 
-    if ((event.events & EPOLLOUT) != 0) {
+    if (hasOutput(event)) {
         handleWriteReady();
     }
-    if (fd_ != -1 && (event.events & EPOLLIN) != 0) {
+    if (hasInput(event)) {
         handleReadReady();
     }
-    if (fd_ != -1 && (event.events & EPOLLHUP) != 0) {
+    if (hasHangup(event)) {
         handleClosing(true, true);
     }
 

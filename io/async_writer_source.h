@@ -174,7 +174,7 @@ private:
     /* fd operations */
     void flush();
 
-    void handleFdEvent(const ::epoll_event & event);
+    void handleFdEvent(const EpollEvent & event);
     void handleReadReady();
     void handleWriteReady();
     void handleWriteResult(int error, AsyncWrite && currentWrite);

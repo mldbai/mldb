@@ -17,21 +17,16 @@
 #include "mldb/io/message_loop.h"
 #include "mldb/io/async_writer_source.h"
 #include "mldb/utils/testing/print_utils.h"
+#include "mldb/arch/file_functions.h"
+
+// fix SOCK_NONBLOCK for e.g. macOS
+#ifndef SOCK_NONBLOCK
+#include <fcntl.h>
+#define SOCK_NONBLOCK O_NONBLOCK
+#endif
 
 using namespace std;
 using namespace MLDB;
-
-
-namespace {
-
-void setFileFlag(int fd, int newFlag)
-{
-    int oldFlags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, oldFlags | newFlag);
-}
-
-} // file scope
-
 
 struct WriterSource : public AsyncWriterSource {
     WriterSource(int fd, size_t maxMessages)
@@ -56,17 +51,29 @@ struct ReaderSource : public AsyncWriterSource {
 pair<int, int> makePipePair()
 {
     int fds[2];
+#if defined(__linux__)
     if (pipe2(fds, O_NONBLOCK) == -1) {
         throw MLDB::Exception(errno, "pipe2");
     }
+#else
+    if (pipe(fds) == -1) {
+        throw MLDB::Exception(errno, "pipe");
+    }
+    MLDB::set_file_flag(fds[0], O_NONBLOCK);
+    MLDB::set_file_flag(fds[1], O_NONBLOCK);    
+#endif
 
     return {fds[1], fds[0]};
 }
 
 pair<int, int> makeUnixSocketPair()
 {
-    int fds[2];
-    socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, fds);
+    int fds[2] = { -1, -1 };
+    int res = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+    if (res == -1)
+        throw MLDB::Exception(errno, "socketpair");
+    MLDB::set_file_flag(fds[0], O_NONBLOCK);
+    MLDB::set_file_flag(fds[1], O_NONBLOCK);    
     return {fds[0], fds[1]};
 }
 
@@ -116,13 +123,13 @@ pair<int, int> makeTcpSocketPair()
     if (connect(writer, (const struct sockaddr *) &addr, addrLen) == -1) {
         throw MLDB::Exception(errno, "connect");
     }
-    setFileFlag(writer, O_NONBLOCK);
+    set_file_flag(writer, O_NONBLOCK);
 
     int reader = accept(listener, (struct sockaddr *) &addr, &addrLen);
     if (reader == -1) {
         throw MLDB::Exception(errno, "accept");
     }
-    setFileFlag(reader, O_NONBLOCK);
+    set_file_flag(reader, O_NONBLOCK);
 
     close(listener);
 
@@ -193,7 +200,8 @@ void doBench(const string & label,
     }
 
     while (bytesRead < totalBytes) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        //cerr << "bytesRead " << bytesRead << " totalBytes " << totalBytes << endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     double totalTime = lastRead - start;
@@ -218,7 +226,7 @@ void benchFunction(const string & label,
         multiplier *= 10;
         auto fds = f();
         doBench(label, fds.first, fds.second,
-                10000000 / multiplier, 50 * multiplier);
+                1000000 / multiplier, 50 * multiplier);
     }
 }
 
