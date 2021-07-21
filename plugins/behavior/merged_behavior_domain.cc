@@ -301,7 +301,7 @@ init(std::vector<std::shared_ptr<BehaviorDomain> > toMerge_,
 
     //cerr << "got " << subj.size() << " subjects and "
     //     << behs.size() << " behaviors in "
-    //     << timer.elapsed() << endl;
+    //     << timer.elapsed().wall << endl;
 }
 
 MergedBehaviorDomain *

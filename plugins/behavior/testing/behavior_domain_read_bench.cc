@@ -183,7 +183,7 @@ main(int argc, char ** argv)
     ::fprintf(stderr,
               "SH are ordered: %d\nmin delta = %lu (%lx);"
               " max delta = %lu (%lx)\n",
-              ordered, minDelta, minDelta, maxDelta, maxDelta);
+              ordered, (unsigned long)minDelta, (unsigned long)minDelta, (unsigned long)maxDelta, (unsigned long)maxDelta);
 
     /* testing the distribution of SH on 100 slots */
     size_t shPerSlice = allSH.size() / 100;

@@ -2768,7 +2768,7 @@ allocate(uint32_t capacity, uint64_t timeBase,
                   " wordsRequired: %lu; bitsObtained: %lu; realCapacity: %lu\n"
                   "memSize: %lu\n",
                   (obj != nullptr),
-                  capacity, timeBase, maxTime, subjectBits, timestampBits,
+                  capacity, (unsigned long)timeBase, (unsigned long)maxTime, subjectBits, timestampBits,
                   bitsRequired, wordsRequired, bitsObtained, realCapacity, mem);
     }
     if (!obj)

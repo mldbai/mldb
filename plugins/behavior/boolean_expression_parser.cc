@@ -37,7 +37,7 @@ namespace {
 
 bool matchId(ParseContext & context, Id& id)
 {
-    uint64_t i;
+    unsigned long i;
     if (context.match_unsigned_long(i)) {
         id = Id(i);
         return true;

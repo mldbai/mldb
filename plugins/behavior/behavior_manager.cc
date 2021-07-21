@@ -17,8 +17,13 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/vfs.h>
-#include <ftw.h>
+#if defined(__linux__)
+#  include <sys/vfs.h>
+#elif defined(__APPLE__)
+#include <sys/param.h>
+#include <sys/mount.h>
+#define st_mtim st_mtimespec
+#endif
 
 #include <boost/algorithm/string/split.hpp>
 #include "mldb/compiler/filesystem.h"
@@ -54,11 +59,20 @@ getErrorString(int errNum)
 {
     char buffer[128]; /* error messages are < 80 chars most of the time */
 
+#if defined(__linux__)
     char * msg = strerror_r(errNum, buffer, sizeof(buffer));
     if (msg == nullptr) {
         throw MLDB::Exception(errno, "strerror_r");
     }
-
+#elif defined(__APPLE__)
+    int res = strerror_r(errNum, buffer, sizeof(buffer));
+    if (res != 0) {
+        throw MLDB::Exception(errno, "strerror_r");
+    }
+    char * msg = buffer;
+#else
+#  error "tell us how to do strerror on your platform"
+#endif
     return string(msg);
 }
 
@@ -460,6 +474,7 @@ prepareRemoteCache(uint64_t objectSize)
     return true;
 }
 
+#if 0
 namespace {
 
 enum FileAction {
@@ -552,6 +567,7 @@ static void scanFiles(const std::string & path,
 }
 
 } // file scope
+#endif
 
 vector<BehaviorManager::RemoteCacheEntry>
 BehaviorManager::
@@ -561,21 +577,21 @@ getRemoteCacheEntries()
     ExcAssert(!remoteCacheDir.empty());
     vector<RemoteCacheEntry> cacheFiles;
 
-    auto onFileFound = [&] (std::string dir,
-                            std::string basename,
-                            const struct stat & stats,
-                            FileType type,
-                            int depth) {
-        if (S_ISREG(stats.st_mode)) {
-            RemoteCacheEntry newFile{dir + basename,
-                                Date::fromTimespec(stats.st_atim),
-                                stats.st_size};
-            cacheFiles.emplace_back(move(newFile));
-        }
-        return FA_CONTINUE;
+    auto onFileFound = [&] (const std::string & uri,
+                            const FsObjectInfo & info,
+                            const OpenUriObject & open,
+                            int depth) -> bool
+    {
+        RemoteCacheEntry newFile{uri,
+                                 info.lastModified,
+                                 info.size};
+                                 
+        cacheFiles.emplace_back(move(newFile));
+
+        return true;
     };
 
-    scanFiles(remoteCacheDir, onFileFound, -1);
+    forEachUriObject(remoteCacheDir, onFileFound);
 
     return cacheFiles;
 }

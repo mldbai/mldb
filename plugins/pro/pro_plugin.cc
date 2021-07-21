@@ -8,7 +8,7 @@
 
 #include "pro_plugin.h"
 #include <iostream>
-#include "mldb/plugins/behavior/behavior_manager.h"
+//#include "mldb/plugins/behavior/behavior_manager.h"
 #include "mldb/core/mldb_engine.h"
 
 using namespace std;
@@ -18,7 +18,7 @@ using namespace std;
 namespace MLDB {
 
 // Static instance of a behavior manager, shared between all beh datasets
-extern BehaviorManager behManager;
+//extern BehaviorManager behManager;
 
 
 const Package & proPackage()
@@ -35,9 +35,9 @@ const Package & proPackage()
 MLDB::Plugin *
 mldbPluginEnterV100(MLDB::MldbEngine * engine)
 {
-    string cacheDir = engine->getCacheDirectory();
-    if (!cacheDir.empty()) {
-        MLDB::behManager.setRemoteCacheDir(cacheDir);
-    }
+    //string cacheDir = engine->getCacheDirectory();
+    //if (!cacheDir.empty()) {
+    //    MLDB::behManager.setRemoteCacheDir(cacheDir);
+    //}
     return nullptr;
 }
