@@ -12,9 +12,13 @@
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/prctl.h>
+#include <sys/ioctl.h>
+#if defined(__linux__)
+#  include <sys/prctl.h>
+#endif
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/errno.h>
 
 #include "arch/exception.h"
 
@@ -36,7 +40,9 @@ runChild(char * execArgs[], int childLaunchStatusFd[], ProcessFds & fds)
     ::signal(SIGTERM, SIG_DFL);
     ::signal(SIGINT, SIG_DFL);
 
+#if defined(__linux__)
     ::prctl(PR_SET_PDEATHSIG, SIGHUP);
+#endif
     if (getppid() == 1) {
         ::fprintf(stderr, "runner: parent process already dead\n");
         ::kill(getpid(), SIGHUP);
@@ -59,7 +65,9 @@ monitorChild(int childPid, int childLaunchStatusFd[], ProcessFds & fds)
 {
     int exitCode;
 
+#if defined(__linux__)
     ::prctl(PR_SET_PDEATHSIG, SIGHUP);
+#endif // __linux__
 
     ::close(childLaunchStatusFd[1]);
     childLaunchStatusFd[1] = -1;
@@ -180,9 +188,21 @@ int main(int argc, char * argv[])
         if (childLaunchStatusFd[1] != -1)
             ::close(childLaunchStatusFd[1]);
         });
+#if defined(__linux__)
     int res = ::pipe2(childLaunchStatusFd, O_CLOEXEC);
     if (res == -1)
         throw MLDB::Exception(errno, "pipe() for status");
+#else
+    int res = pipe(childLaunchStatusFd);
+    if (res == -1)
+        throw MLDB::Exception(errno, "pipe() for status");
+    res = ioctl(childLaunchStatusFd[0], FIOCLEX, 0);
+    if (res == -1)
+        throw MLDB::Exception(errno, "status pipe() O_CLOEXEC 0");
+    res = ioctl(childLaunchStatusFd[1], FIOCLEX, 0);
+    if (res == -1)
+        throw MLDB::Exception(errno, "status pipe() O_CLOEXEC 1");
+#endif
 
     int childPid = fork();
     if (childPid == 0) {

@@ -28,6 +28,9 @@
 #include "mldb/types/date.h"
 #include "mldb/types/libc_value_descriptions.h"
 #include "mldb/ext/jsoncpp/json.h"
+#include "mldb/types/value_description.h"
+#include "mldb/utils/testing/watchdog.h"
+#include "mldb/compiler/filesystem.h"
 
 #include <iostream>
 
@@ -40,11 +43,31 @@ using namespace MLDB;
 
 // #define BOOST_CHECK_EQUAL(x,y)  { ExcCheckEqual((x), (y), ""); }
 
+namespace fs = std::filesystem;
+
 struct _Init {
     _Init() {
         signal(SIGPIPE, SIG_IGN);
     }
 } myInit;
+
+fs::path findExe(const std::string & name)
+{
+    static std::vector<fs::path> searchPaths = { "/bin", "/usr/bin", "/usr/local/bin", "./build/x86_64/bin", "./build/aarch64/bin" };
+
+    for (const auto & path: searchPaths) {
+        fs::path fullPath = path / name;
+
+        std::error_code err;
+
+        if (!fs::exists(fullPath, err))
+            continue;
+
+        return fullPath;
+    }
+
+    throw MLDB::Exception("Couldn't find executable " + name);
+}
 
 #if 1
 
@@ -79,6 +102,7 @@ vector<string> pendingSignals()
 BOOST_AUTO_TEST_CASE( test_runner_no_sigchld )
 {
     BlockedSignals blockedSigs2(SIGCHLD);
+    Watchdog watchdog(30.0);
 
     BOOST_CHECK_EQUAL(pendingSignals(), vector<string>());
 
@@ -121,6 +145,8 @@ BOOST_AUTO_TEST_CASE( test_runner_no_sigchld )
 
     BOOST_CHECK(isTerminated);
     BOOST_CHECK_EQUAL(runResult.state, RunResult::LAUNCH_ERROR);
+
+    loop.shutdown();
 }
 #endif
 
@@ -129,6 +155,7 @@ BOOST_AUTO_TEST_CASE( test_runner_no_sigchld )
 BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 {
     BlockedSignals blockedSigs2(SIGCHLD);
+    Watchdog watchdog(30.0);
 
     MessageLoop loop;
 
@@ -168,7 +195,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     loop.start();
 
     auto & stdInSink = runner.getStdInSink();
-    runner.run({"build/x86_64/bin/runner_test_helper"},
+    runner.run({findExe("runner_test_helper")},
                onTerminate, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
@@ -195,6 +222,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
 BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 {
     BlockedSignals blockedSigs(SIGCHLD);
+    Watchdog watchdog(10.0);
 
     auto nullSink = make_shared<NullInputSink>();
 
@@ -214,7 +242,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         loop.start();
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/runner_test_helper"},
+        runner.run({findExe("runner_test_helper")},
                    onTerminate, nullSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -245,7 +273,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         loop.start();
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/runner_test_helper"},
+        runner.run({findExe("runner_test_helper")},
                    onTerminate, nullSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -268,6 +296,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
 BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
 {
     BlockedSignals blockedSigs(SIGCHLD);
+    Watchdog watchdog(30.0);
 
     MessageLoop loop;
 
@@ -338,6 +367,7 @@ BOOST_AUTO_TEST_CASE( test_runner_missing_exe )
 /* test the "execute" function */
 BOOST_AUTO_TEST_CASE( test_runner_execute )
 {
+    Watchdog watchdog(30.0);
     cerr << "execute test" << endl;
 
     string received;
@@ -346,7 +376,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     };
     auto stdOutSink = make_shared<CallbackInputSink>(onStdOut, nullptr);
 
-    auto result = execute({"/bin/cat", "-"},
+    auto result = execute({findExe("cat"), "-"},
                           stdOutSink, nullptr, "hello callbacks");
     BOOST_CHECK_EQUAL(received, "hello callbacks");
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
@@ -355,7 +385,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     /* If stdin is not closed, then "cat" will wait an block indefinitely.
        This test ensures this does not happen and thus that the closing of stdin
        works via the "closeStdin" parameter. */
-    result = execute({"/bin/cat"},
+    result = execute({findExe("cat")},
                       stdOutSink, nullptr, "", true);
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_NE(result.returnCode, 0);
@@ -367,6 +397,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
  * components are properly segregated */
 BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 {
+    Watchdog watchdog(30.0);
     MessageLoop loop;
 
     Runner runner;
@@ -393,7 +424,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
         auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/runner_test_helper"},
+        runner.run({findExe("runner_test_helper")},
                    onTerminate, stdOutSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -424,8 +455,9 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
 static void
 test_runner_no_output_delay_helper(bool stdout)
 {
-    double delays[3];
-    int sizes[3];
+    Watchdog watchdog(60.0);
+    double delays[3] = { 0, 0, 0 };
+    int sizes[3] = { 0, 0, 0 };
     int pos(stdout ? -1 : 0);
     shared_ptr<CallbackInputSink> stdOutSink(nullptr);
     shared_ptr<CallbackInputSink> stdErrSink(nullptr);
@@ -434,6 +466,8 @@ test_runner_no_output_delay_helper(bool stdout)
     Date last = start;
 
     auto onCapture = [&] (string && message) {
+        //cerr << "captured message " << message << endl;
+        ExcAssertLess(message.length(), 4096);
         Date now = Date::now();
         if (pos > -1 && pos < 3) {
             /* skip "helper: ready" message */
@@ -470,13 +504,24 @@ test_runner_no_output_delay_helper(bool stdout)
     loop.addSource("runner", runner);
     loop.start();
 
+    std::atomic<int> hasTerminated(false);
+    RunResult runResult;
+
     auto onTerminate = [&] (const RunResult & result) {
+        cerr << "Finished launching process: " << jsonEncode(result) << endl << endl << endl << endl << endl;
+        runResult = result;
+        hasTerminated = true;
     };
 
     auto & stdInSink = runner.getStdInSink();
-    runner.run({"/usr/bin/stdbuf", "-o0",
-                "build/x86_64/bin/runner_test_helper"},
+    runner.run({findExe("stdbuf"), "-o0",
+                findExe("runner_test_helper")},
                onTerminate, stdOutSink, stdErrSink);
+
+    runner.waitStart();
+
+    BOOST_REQUIRE(!hasTerminated);
+
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -486,6 +531,7 @@ test_runner_no_output_delay_helper(bool stdout)
     runner.waitRunning();
     runner.waitTermination();
 
+    BOOST_REQUIRE_GE(pos, 3);
     BOOST_CHECK_EQUAL(sizes[0], 6);
     BOOST_CHECK(delays[0] >= 0.9);
     BOOST_CHECK_EQUAL(sizes[1], 14);
@@ -496,6 +542,8 @@ test_runner_no_output_delay_helper(bool stdout)
     for (int i = 0; i < 3; i++) {
         ::fprintf(stderr, "%d: size: %d; delay: %f\n", i, sizes[i], delays[i]);
     }
+
+    loop.shutdown();
 }
 
 BOOST_AUTO_TEST_CASE( test_runner_no_output_delay_stdout )
@@ -513,36 +561,40 @@ BOOST_AUTO_TEST_CASE( test_runner_no_output_delay_stderr )
 /* invoke "execute" multiple time with the same MessageLoop as parameter */
 BOOST_AUTO_TEST_CASE( test_runner_multi_execute_single_loop )
 {
+    Watchdog watchdog(30.0);
     MessageLoop loop;
 
     loop.start();
 
     auto result
-           = execute(loop, {"/bin/echo", "Test 1"});
+           = execute(loop, {findExe("echo"), "Test 1"});
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
-    result = execute(loop, {"/bin/echo", "Test 2"});
+    result = execute(loop, {findExe("echo"), "Test 2"});
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
-    result = execute(loop, {"/bin/echo", "Test 3"});
+    result = execute(loop, {findExe("echo"), "Test 3"});
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
+
+    loop.shutdown();
 }
 #endif
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
 {
-    volatile bool shutdown = false;
+    Watchdog watchdog(30.0);
+    std::atomic<int> shutdown(false);
     
     std::atomic<int> doneIterations(0);
 
     auto doThread = [&] (int threadNum)
         {
             while (!shutdown) {
-                auto result = execute({ "/bin/true" },
+                auto result = execute({ findExe("true") },
                                       std::make_shared<OStreamInputSink>(&std::cout),
                                       std::make_shared<OStreamInputSink>(&std::cerr));
 
@@ -601,6 +653,7 @@ BOOST_AUTO_TEST_CASE( test_timeval_value_description )
  * pthread_exit is called. */
 BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
 {
+    Watchdog watchdog(30.0);
     MessageLoop loop;
     loop.start();
 
@@ -618,7 +671,7 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
     };
 
     auto threadProc = [=] () {
-        runner->run({"/bin/sleep", "3"}, onTerminate);
+        runner->run({findExe("sleep"), "3"}, onTerminate);
         cerr << to_string(gettid()) + ": process launched\n";
     };
 
@@ -646,11 +699,12 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
  * when the runWrapper process fails. */
 BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
 {
+    Watchdog watchdog(30.0);
     BlockedSignals blockedSigs2(SIGCHLD);
     Scope_Exit(Runner::runnerHelper.clear());
     Runner::runnerHelper = "/this/executable/does/not/exist";
 
-    auto runResult = execute({"/bin/sleep", "1"});
+    auto runResult = execute({findExe("sleep"), "1"});
 
     BOOST_CHECK_EQUAL(runResult.state, RunResult::LAUNCH_ERROR);
     BOOST_CHECK_EQUAL(runResult.returnCode, -1);
@@ -666,6 +720,7 @@ BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
  * processes. */
 BOOST_AUTO_TEST_CASE( test_runner_reuse )
 {
+    Watchdog watchdog(30.0);
     MessageLoop loop;
     loop.start();
 
@@ -696,7 +751,7 @@ BOOST_AUTO_TEST_CASE( test_runner_reuse )
             auto & stdInSink = runner->getStdInSink();
             stdInSink.write("second");
             stdInSink.requestClose();
-            runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
+            runner->run({findExe("cat"), "-"}, onTerminate, stdOutSink);
             cerr << "subsequent process started\n";
         }
         else {
@@ -708,7 +763,7 @@ BOOST_AUTO_TEST_CASE( test_runner_reuse )
     auto & stdInSink = runner->getStdInSink();
     stdInSink.write("first");
     stdInSink.requestClose();
-    runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
+    runner->run({findExe("cat"), "-"}, onTerminate, stdOutSink);
 
     lock.lock();
     loop.shutdown();
@@ -724,6 +779,7 @@ BOOST_AUTO_TEST_CASE( test_runner_reuse )
  * whenever an exception occurs in the launch phase. */
 BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
 {
+    Watchdog watchdog(30.0);
     const unsigned int maxRuns(3);
     BlockedSignals blockedSigs(SIGCHLD);
     MessageLoop loop;
@@ -733,7 +789,7 @@ BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
     loop.addSource("runner", runner);
     runner->waitConnectionState(AsyncEventSource::CONNECTED);
 
-    vector<string> command{"/bin/sleep", "2"};
+    vector<string> command{findExe("sleep"), "2"};
 
     std::atomic<int> terminateCount(0);
     auto doTerminate = [&] (int runCount) {
