@@ -149,7 +149,7 @@ read(const std::string & prefix)
 
     std::tie(values, oldStart) = reset();
 
-    std::auto_ptr<distribution<float> > vptr(values);
+    std::unique_ptr<distribution<float> > vptr(values);
 
     if (values->empty())
         return vector<StatReading>();
