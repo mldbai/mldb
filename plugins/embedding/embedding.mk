@@ -11,6 +11,31 @@ LIBMLDB_EMBEDDING_PLUGIN_SOURCES:= \
 
 
 LIBMLDB_EMBEDDING_PLUGIN_LINK:= \
+	mldb_core \
+	mldb_engine \
+	arch \
+	types \
+	utils \
+	sql_expression \
+	value_description \
+	base \
+	progress \
+	rest \
+	db \
+	vfs \
+	log \
+	link \
+	rest \
+	any \
+	watch \
+	rest_entity \
+	mldb_builtin_base \
+	mldb_builtin \
+	sql_types \
+	gc \
+	svdlibc \
+	db \
+	mldb_feature_gen_plugin \
 
 $(eval $(call library,mldb_embedding_plugin,$(LIBMLDB_EMBEDDING_PLUGIN_SOURCES),$(LIBMLDB_EMBEDDING_PLUGIN_LINK)))
 

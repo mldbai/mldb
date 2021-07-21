@@ -26,7 +26,11 @@ LIBVFS_LINK := \
 	xxhash \
 	zstd \
 	snappy \
-	db
+	db \
+	bz2 \
+	value_description \
+	googleurl \
+	z
 
 $(eval $(call library,vfs,$(LIBVFS_SOURCES),$(LIBVFS_LINK)))
 

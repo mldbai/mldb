@@ -21,11 +21,11 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	../ext/jsoncpp/json_value.cpp
 
 LIBVALUE_DESCRIPTION_LINK := \
-	arch base
+	arch base icui18n icuuc icudata
 
 $(eval $(call library,value_description,$(LIBVALUE_DESCRIPTION_SOURCES),$(LIBVALUE_DESCRIPTION_LINK)))
 
-$(eval $(call library,any,any.cc,value_description))
+$(eval $(call library,any,any.cc,value_description arch base))
 
 
 LIBTYPES_SOURCES := \
@@ -37,13 +37,14 @@ LIBTYPES_SOURCES := \
 	regex.cc \
 	periodic_utils_value_descriptions.cc \
 	path.cc \
-	annotated_exception.cc \
+	annotated_exception.cc
+
 
 LIBTYPES_LINK := \
-	rt boost_regex boost_date_time googleurl cityhash value_description highwayhash re2 any
+	$(LIBRT) boost_regex boost_date_time googleurl cityhash value_description highwayhash re2 any icui18n icuuc icudata base arch
 
-$(eval $(call set_compile_option,localdate.cc,-DLIB=\"$(LIB)\"))
-$(eval $(call set_compile_option,regex.cc,-I$(RE2_INCLUDE_PATH)))
+$(eval $(call set_compile_option,string.cc,-I$(ICU_INCLUDE_PATH)))
+$(eval $(call set_compile_option,regex.cc,-I$(RE2_INCLUDE_PATH) -I$(ICU_INCLUDE_PATH) -Wno-unused-variable))
 
 ifneq ($(PREMAKE),1)
 $(LIB)/libtypes.so: $(LIB)/date_timezone_spec.csv

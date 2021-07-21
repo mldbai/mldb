@@ -20,6 +20,27 @@ LIBMLDB_ENGINE_LINK:= \
 	mldb_core \
 	command_expression \
 	hoedown \
+	arch \
+	value_description \
+	types \
+	base \
+	watch \
+	any \
+	utils \
+	rest \
+	link \
+	rest_entity \
+	runner \
+	log \
+	logging \
+	gc \
+	io_base \
+	http \
+	utils \
+	db \
+	vfs \
+	json_diff \
+	sql_types
 
 
 
