@@ -17,6 +17,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/hash_wrapper.h"
 #include <atomic>
+#include <utility>
 
 namespace Json {
 class Value;
@@ -378,8 +379,6 @@ PREDECLARE_VALUE_DESCRIPTION(Id);
 } // namespace MLDB
 
 namespace std {
-
-template<typename T> struct hash;
 
 template<>
 struct hash<MLDB::Id> : public std::unary_function<MLDB::Id, size_t>

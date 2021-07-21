@@ -8,6 +8,9 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
+
+#if defined(__linux__)
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mount.h>
@@ -354,3 +357,5 @@ BOOST_AUTO_TEST_CASE( test_beh_manager_parse_specs )
     newFreeSpace = freeDiskSpace(mountPoint);
     BOOST_CHECK_EQUAL(newFreeSpace, freeSpace);
 }
+
+#endif /* linux */
