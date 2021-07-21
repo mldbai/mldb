@@ -90,6 +90,10 @@ performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
 
     int flags = (readerFd ? EPOLL_INPUT : 0) | (writerFd ? EPOLL_OUTPUT : 0);
 
+    if (epollFd_ == -1)
+        return;
+    ExcAssert(fd > -1);
+
     if (oneshot) {
         ExcAssert(!modify);
         epoller.addFdOneShot(fd, flags, &cb);
