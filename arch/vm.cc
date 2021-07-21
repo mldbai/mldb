@@ -18,9 +18,9 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <boost/crc.hpp>
 #include <fstream>
 #include <string.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -358,12 +358,12 @@ dump(std::ostream & stream) const
 {
     const char * p = mem;
     for (unsigned i = 0;  i < npages;  ++i, p += page_size) {
-        boost::crc_32_type calc_crc;
+        //boost::crc_32_type calc_crc;
 
         uint32_t crc = 0;
         if (entries[i].present && !entries[i].swapped) {
-            calc_crc.process_bytes(p, page_size);
-            crc = calc_crc.checksum();
+            //calc_crc.process_bytes(p, page_size);
+            //crc = calc_crc.checksum();
         }
 
         stream << format("%04x %12p ", i, p)
