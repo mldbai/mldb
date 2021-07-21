@@ -29,7 +29,7 @@ struct TcpAcceptor;
 /** An HTTP endpoint for REST calls over HTTP connections. */
 
 struct HttpRestEndpoint {
-    HttpRestEndpoint(EventLoop & ioService, bool enableLogging);
+    HttpRestEndpoint(EventLoop & ioContext, bool enableLogging);
     virtual ~HttpRestEndpoint();
 
     /** Set the Access-Control-Allow-Origin: * HTTP header */

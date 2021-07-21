@@ -20,13 +20,9 @@ using namespace MLDB;
 EpollLoop::
 EpollLoop(const OnException & onException)
     : AsyncEventSource(),
-      epollFd_(-1),
-      numFds_(0),
       onException_(onException)
 {
-    epollFd_ = ::epoll_create(666);
-    if (epollFd_ == -1)
-        throw MLDB::Exception(errno, "epoll_create");
+    epoller.init(1024 /* max FDs */, 0 /* timeout */, true /* close on exec */);
 }
 
 EpollLoop:: 
@@ -48,46 +44,34 @@ void
 EpollLoop::
 loop(int maxEvents, int timeout)
 {
-    ExcAssert(maxEvents != 0);
-
-    if (numFds_ > 0) {
-        if (maxEvents == -1) {
-            maxEvents = numFds_;
-        }
-        struct epoll_event events[maxEvents];
-
-        try {
-            int res;
-            while (true) {
-                res = epoll_wait(epollFd_, events, maxEvents, timeout);
-                if (res == -1) {
-                    if (errno == EINTR) {
-                        continue;
-                    }
-                    throw MLDB::Exception(errno, "epoll_wait");
-                }
-                break;
-            }
-
-            for (int i = 0; i < res; i++) {
-                auto * fn = static_cast<EpollCallback *>(events[i].data.ptr);
+    try {
+        auto handleEvent = [&] (EpollEvent & event)
+        {
+            try {
+                auto * fn = static_cast<EpollCallback *>(getPtr(event));
                 ExcAssert(fn != nullptr);
-                (*fn)(events[i]);
+                (*fn)(event);
+            } catch (const std::exception & exc) {
+                handleException();
             }
 
-            map<int, OnUnregistered> delayedUnregistrations;
-            {
-                std::unique_lock<mutex> guard(callbackLock_);
-                delayedUnregistrations = move(delayedUnregistrations_);
-                delayedUnregistrations_.clear();
-            }
-            for (const auto & unreg: delayedUnregistrations) {
-                unregisterFdCallback(unreg.first, false, unreg.second);
-            }
+            return Epoller::DONE;
+        };
+
+        epoller.handleEvents(timeout, maxEvents, handleEvent);
+
+        map<int, OnUnregistered> delayedUnregistrations;
+        {
+            std::unique_lock<mutex> guard(callbackLock_);
+            delayedUnregistrations = move(delayedUnregistrations_);
+            delayedUnregistrations_.clear();
         }
-        catch (const std::exception & exc) {
-            handleException();
+        for (const auto & unreg: delayedUnregistrations) {
+            unregisterFdCallback(unreg.first, false, unreg.second);
         }
+    }
+    catch (const std::exception & exc) {
+        handleException();
     }
 }
 
@@ -95,16 +79,28 @@ void
 EpollLoop::
 closeEpollFd()
 {
-    if (epollFd_ != -1) {
-        ::close(epollFd_);
-        epollFd_ = -1;
-    }
+    epoller.close();
 }
 
 void
 EpollLoop::
 performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
 {
+    EpollCallback & cb = fdCallbacks_.at(fd);
+
+    int flags = (readerFd ? EPOLL_INPUT : 0) | (writerFd ? EPOLL_OUTPUT : 0);
+
+    if (oneshot) {
+        ExcAssert(!modify);
+        epoller.addFdOneShot(fd, flags, &cb);
+    }
+    else if (modify) {
+        epoller.modifyFd(fd, flags, &cb);
+    }
+    else {
+        epoller.addFd(fd, flags, &cb);
+    }
+#if 0
     if (epollFd_ == -1)
         return;
     ExcAssert(fd > -1);
@@ -141,15 +137,22 @@ performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
     if (!modify) {
         numFds_++;
     }
+#endif
 }
 
 void
 EpollLoop::
 removeFd(int fd, bool unregisterCallback)
 {
-    if (epollFd_ == -1)
-        return;
-    ExcAssert(fd > -1);
+    ExcAssertGreaterEqual(fd, 0);
+
+    epoller.removeFd(fd);
+
+    if (unregisterCallback) {
+        unregisterFdCallback(fd, true);
+    }
+
+#if 0
 
     int res = epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, 0);
     if (res == -1) {
@@ -160,9 +163,7 @@ removeFd(int fd, bool unregisterCallback)
     }
     numFds_--;
 
-    if (unregisterCallback) {
-        unregisterFdCallback(fd, true);
-    }
+#endif
 }
 
 void

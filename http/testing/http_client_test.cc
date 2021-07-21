@@ -74,7 +74,7 @@ doRequest(LegacyEventLoop & legacyLoop,
                                  timeout);
 
     while (!done) {
-        int oldDone = done;
+        int oldDone = false;
         MLDB::wait_on_address(done, oldDone);
     }
 
@@ -152,7 +152,7 @@ doUploadRequest(LegacyEventLoop & loop,
 BOOST_AUTO_TEST_CASE( test_http_client_get )
 {
     cerr << "client_get\n";
-    MLDB::Watchdog watchdog(1000);
+    MLDB::Watchdog watchdog(60);
     EventLoop eventLoop;
     AsioThreadPool threadPool(eventLoop);
     TestHttpGetService service(eventLoop);
@@ -399,7 +399,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
 {
     cerr << "stress_test\n";
     // const int mask = 0x3ff; /* mask to use for displaying counts */
-    // MLDB::Watchdog watchdog(300);
+    MLDB::Watchdog watchdog(300);
     auto doStressTest = [&] (int numParallel) {
         cerr << ("stress test with "
                  + to_string(numParallel) + " parallel connections\n");

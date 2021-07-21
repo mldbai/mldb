@@ -26,8 +26,8 @@ struct Watchdog {
 
         cerr << "**** WATCHDOG TIMEOUT; KILLING HUNG TEST ****"
              << endl;
-        abort();
         kill(0, SIGKILL);
+        abort();
     }
     
     void runThread()

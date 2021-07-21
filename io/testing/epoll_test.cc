@@ -11,6 +11,10 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
+
+
+#if defined(__linux__)
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/epoll.h>
@@ -28,7 +32,6 @@ using namespace std;
 
 namespace {
 
-#if 1
 /* Assumption test - this disproves the race condition initially suspected
  * with EPOLLONESHOT in the following scenario:
 
@@ -197,4 +200,8 @@ BOOST_AUTO_TEST_CASE( test_epolloneshot )
     ::close(pipeFds[1]);
     ::close(epollFd);
 }
-#endif
+#else
+BOOST_AUTO_TEST_CASE( test_is_disabled )
+{
+}
+#endif /* linux */
