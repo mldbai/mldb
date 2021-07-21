@@ -11,7 +11,7 @@
 
 namespace MLDB {
 
-bool makeThreadRealTime(unsigned long long handle,
+bool makeThreadRealTime(std::thread::native_handle_type handle,
                         int priority)
 {
     struct sched_param sched;
