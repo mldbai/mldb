@@ -8,6 +8,12 @@
 
 #pragma once
 
+#include <ciso646>
+
+#if defined( _LIBCPP_VERSION )
+#  define USING_LIBCPP
+#endif
+
 #ifdef __CUDACC__
 # define MLDB_COMPILER_NVCC 1
 #endif
@@ -34,10 +40,15 @@
 // Macro to catch all exceptions apart from stack unwinding exceptions...
 // it's against the standard to do catch(...) without rethrowing.
 
+#ifdef USING_LIBCPP
+#define MLDB_CATCH_ALL \
+    catch (...)
+#else
 #define MLDB_CATCH_ALL \
     catch (__cxxabiv1::__forced_unwind& ) { \
         throw;                       \
     } catch (...)
+#endif
 
 #if __GNUC__ == 4
 #  if __CNUC_MINOR__ < 8
