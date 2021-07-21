@@ -9,11 +9,29 @@
 #pragma once
 
 #include <functional>
+#include <vector>
+#include <thread>
+#include <mutex>
+#include "mldb/arch/wakeup_fd.h"
 #include "mldb/io/async_event_source.h"
 
-struct epoll_event;
-
 namespace MLDB {
+
+struct EpollEvent;
+
+// Return the FD associated with a given epoll event
+int getFd(const EpollEvent & event);
+bool hasInput(const EpollEvent & event);
+bool hasOutput(const EpollEvent & event);
+bool hasHangup(const EpollEvent & event);
+std::string getMaskStr(const EpollEvent & event);
+void * getPtr(const EpollEvent & event);
+
+enum {
+    EPOLL_INPUT = 1,
+    EPOLL_OUTPUT = 2,
+    EPOLL_ONESHOT = 4
+};
 
 /*****************************************************************************/
 /* EPOLLER                                                                   */
@@ -29,7 +47,7 @@ struct Epoller: public AsyncEventSource {
 
     ~Epoller();
 
-    void init(int maxFds, int timeout = 0);
+    void init(int maxFds, int timeout = 0, bool closeOnExec = false);
 
     void close();
 
@@ -42,23 +60,31 @@ struct Epoller: public AsyncEventSource {
     /** Add the given fd to multiplex fd.  It will repeatedly wake up the
         loop without being restarted.
     */
-    void addFd(int fd, void * data = 0)
+    void addFd(int fd, int flags, void * data = nullptr)
     {
-        performAddFd(fd, data, false, false);
+        performAddFd(fd, data, flags, false /* restart */);
     }
     
+    /** Add the given fd to multiplex fd.  It will repeatedly wake up the
+        loop without being restarted.
+    */
+    void modifyFd(int fd, int flags, void * data = nullptr)
+    {
+        performAddFd(fd, data, flags, true /* restart */);
+    }
+
     /** Add the given fd to wake up one a one-shot basis.  It will need to
         be restarted once the event is handled.
     */
-    void addFdOneShot(int fd, void * data = 0)
+    void addFdOneShot(int fd, int flags, void * data = 0)
     {
-        performAddFd(fd, data, true, false);
+        performAddFd(fd, data, flags | EPOLL_ONESHOT, false /* restart */);
     }
 
     /** Restart a woken up one-shot fd. */
-    void restartFdOneShot(int fd, void * data = 0)
+    void restartFdOneShot(int fd, int flags, void * data = 0)
     {
-        performAddFd(fd, data, true, true);
+        performAddFd(fd, data, flags | EPOLL_ONESHOT, true /* restart */);
     }
 
     /** Remove the given fd from the multiplexer set. */
@@ -69,7 +95,7 @@ struct Epoller: public AsyncEventSource {
         SHUTDOWN
     };
 
-    typedef std::function<HandleEventResult (epoll_event & event)> HandleEvent;
+    typedef std::function<HandleEventResult (EpollEvent & event)> HandleEvent;
     typedef std::function<void ()> OnEvent;
 
     /** Default event handler function to use. */
@@ -99,13 +125,18 @@ struct Epoller: public AsyncEventSource {
         return epoll_fd;
     }
 
+    /** Poll for events.
+     * Note that:
+     * 1.  This function may return false positives, but will never return false negatives.
+     * 2.  This function cannot be called from within an event handler.
+     */
     virtual bool poll() const;
 
     virtual bool processOne();
 
 private:
     /* Perform the fd addition and modification */
-    void performAddFd(int fd, void * data, bool oneShot, bool restart);
+    void performAddFd(int fd, void * data, int flags, bool restart);
 
     /* Fd for the epoll mechanism. */
     int epoll_fd;
@@ -115,6 +146,8 @@ private:
 
     /* Number of registered file descriptors */
     size_t numFds_;
+
+    WakeupFD shutdown_;
 };
 
 } // namespace MLDB

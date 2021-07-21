@@ -8,7 +8,6 @@
 #include <thread>
 #include <time.h>
 #include <limits.h>
-#include <sys/epoll.h>
 #include <algorithm>
 
 #include "mldb/arch/exception.h"
@@ -56,6 +55,7 @@ MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
       shutdown_(true),
       totalSleepTime_(0.0)
 {
+    debug_ = false;
     init(numThreads, maxAddedLatency, epollTimeout);
 }
 
@@ -89,7 +89,7 @@ init(int numThreads, double maxAddedLatency, int epollTimeout)
 
        Adding a special source named "_shutdown" triggers shutdown-related
        events, without requiring the use of an additional signal fd. */
-    addFd(sourceActions_.selectFd(), &sourceActions_);
+    addFd(sourceActions_.selectFd(), EPOLL_INPUT, &sourceActions_);
 
     debug_ = false;
 }
@@ -344,39 +344,29 @@ runWorkerThread()
 
 Epoller::HandleEventResult
 MessageLoop::
-handleEpollEvent(epoll_event & event)
+handleEpollEvent(EpollEvent & event)
 {
     bool debug = false;
 
     if (debug) {
-        cerr << "handleEvent" << endl;
-        int mask = event.events;
-                
-        cerr << "events " 
-             << (mask & EPOLLIN ? "I" : "")
-             << (mask & EPOLLOUT ? "O" : "")
-             << (mask & EPOLLPRI ? "P" : "")
-             << (mask & EPOLLERR ? "E" : "")
-             << (mask & EPOLLHUP ? "H" : "")
-             << (mask & EPOLLRDHUP ? "R" : "")
-             << endl;
+        cerr << format("handleEvent: events %s on fd %d\n", getMaskStr(event).c_str(), getFd(event));
     }
     
     AsyncEventSource * source
-        = reinterpret_cast<AsyncEventSource *>(event.data.ptr);
+        = reinterpret_cast<AsyncEventSource *>(getPtr(event));
     
     if (debug) {
-        cerr << "message loop " << this << " with parent " << parent_
-             << " handing source " << MLDB::type_name(*source) << " poll result "
-             << Epoller::poll() << " our poll " << source->poll() << endl;
-        ExcAssert(source->poll());
+        cerr << format("message loop %p with parent %p handling events %s on source %s fds: event %d, src %d\n",
+                       this, parent_, getMaskStr(event).c_str(), MLDB::type_name(*source).c_str(),
+                       getFd(event), source->selectFd());
+        //ExcAssert(source->poll());
     }
 
     int res = source->processOne();
 
     if (debug) {
-        cerr << "source " << MLDB::type_name(*source) << " had processOne() result " << res << endl;
-        cerr << "poll() is now " << Epoller::poll() << endl;
+        cerr << format("source %s had processOne() result %d\n",
+                       MLDB::type_name(*source), res);
     }
 
     return Epoller::DONE;
@@ -417,7 +407,7 @@ processAddSource(const SourceEntry & entry)
     }
     int fd = entry.source->selectFd();
     if (fd != -1)
-        addFd(fd, entry.source.get());
+        addFd(fd, EPOLL_INPUT, entry.source.get());
 
     if (!needsPoll && entry.source->needsPoll) {
         needsPoll = true;
@@ -525,9 +515,11 @@ processOne()
 
         for (unsigned i = 0;  i < sources.size();  ++i) {
             try {
+                if (debug_)
+                    cerr << format("processOne: trying source %s\n", sources[i].name.c_str());
                 bool hasMore = sources[i].source->processOne();
                 if (debug_)
-                    cerr << "source " << sources[i].name << " has " << hasMore << endl;
+                    cerr << format("processOne: source %s has more: %d\n", sources[i].name.c_str(), hasMore);
                 more = more || hasMore;
             } catch (...) {
                 cerr << "exception processing source " << sources[i].name

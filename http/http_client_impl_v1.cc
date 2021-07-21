@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <poll.h>
 #include <string.h>
-#include <sys/epoll.h>
+#include "mldb/io/epoller.h"
 #include "mldb/io/timerfd.h"
 #include "mldb/arch/wakeup_fd.h"
 
@@ -69,7 +69,6 @@ HttpClientImplV1::
 HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
     : HttpClientImpl(baseUrl, numParallel, queueSize),
       baseUrl_(baseUrl),
-      fd_(-1),
       multi_(curl_multi_init()),
       connectionStash_(numParallel),
       avlConnections_(numParallel),
@@ -79,19 +78,15 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
         throw MLDB::Exception("'queueSize' semantics not implemented");
     }
 
-    bool success(false);
-    Scope_Exit(if (!success) { cleanupFds(); });
-
-    fd_ = epoll_create1(EPOLL_CLOEXEC);
-    if (fd_ == -1) {
-        throw MLDB::Exception(errno, "epoll_create");
-    }
+    poller_.reset(new Epoller());
+    poller_->handleEvent = [this] (const EpollEvent & event) { this->handleEvent(event); return Epoller::DONE; };
+    poller_->init(512 /* size doesn't matter since linux 2.6.8 but may for other OSs */, 0 /* timeout */, true /* close_on_exec */);
 
     wakeup_.reset(new WakeupFD(WFD_NONBLOCK, WFD_CLOEXEC));
-    addFd(wakeup_->fd(), false, EPOLLIN);
+    poller_->addFd(wakeup_->fd(), EPOLL_INPUT);
 
     timerFd_.reset(new TimerFD(TIMER_MONOTONIC, TIMER_CLOSE_ON_EXEC));
-    addFd(timerFd_->fd(), false, EPOLLIN);
+    poller_->addFd(timerFd_->fd(), EPOLL_INPUT);
 
     /* multi */
     ::curl_multi_setopt(multi_.get(), CURLMOPT_SOCKETFUNCTION,
@@ -114,8 +109,6 @@ HttpClientImplV1(const string & baseUrl, int numParallel, int queueSize)
     if (rc != ::CURLM_OK) {
         throw MLDB::Exception("curl error " + to_string(rc));
     }
-
-    success = true;
 }
 
 void
@@ -129,7 +122,6 @@ operator () (::CURLM * c)
 HttpClientImplV1::
 ~HttpClientImplV1()
 {
-    cleanupFds();
 }
 
 void
@@ -162,26 +154,13 @@ enablePipelining(bool value)
 
 void
 HttpClientImplV1::
-addFd(int fd, bool isMod, int flags)
+addFd(int fd, bool isMod, bool input, bool output)
     const
 {
-    ::epoll_event event;
-
-    ::memset(&event, 0, sizeof(event));
-
-    event.events = flags;
-    event.data.fd = fd;
-    int rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                         fd, &event);
-    if (rc == -1) {
-        rc = ::epoll_ctl(fd_, isMod ? EPOLL_CTL_ADD : EPOLL_CTL_MOD,
-                         fd, &event);
-    }
-    if (rc == -1) {
-	if (errno != EBADF) {
-            throw MLDB::Exception(errno, "epoll_ctl");
-        }
-    }
+    if (isMod)
+      poller_->modifyFd(fd, (input ? EPOLL_INPUT : 0) | (output ? EPOLL_OUTPUT : 0), nullptr);
+    else
+      poller_->addFd(fd, (input ? EPOLL_INPUT : 0) | (output ? EPOLL_OUTPUT : 0), nullptr);
 }
 
 void
@@ -189,7 +168,7 @@ HttpClientImplV1::
 removeFd(int fd)
     const
 {
-    ::epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
+    poller_->removeFd(fd);
 }
 
 bool
@@ -238,64 +217,29 @@ queuedRequests()
     return queue_.size();
 }
 
-void
-HttpClientImplV1::
-cleanupFds()
-    noexcept
-{
-    timerFd_.reset();
-    
-    if (fd_ != -1) {
-        ::close(fd_);
-    }
-}
-
 int
 HttpClientImplV1::
 selectFd()
     const
 {
-    return fd_;
+    return poller_->selectFd();
 }
 
 bool
 HttpClientImplV1::
 processOne()
 {
-    static const int nEvents(1024);
-    ::epoll_event events[nEvents];
-
-    while (true) {
-        int res = ::epoll_wait(fd_, events, nEvents, 0);
-        if (res > 0) {
-            for (int i = 0; i < res; i++) {
-                handleEvent(events[i]);
-            }
-        }
-        else if (res == 0) {
-            break;
-        }
-        else if (res == -1) {
-            if (errno == EINTR) {
-                continue;
-            }
-            else {
-                throw MLDB::Exception(errno, "epoll_wait");
-            }
-        }
-    }
-
-    return false;
+    return poller_->processOne();
 }
 
 void
 HttpClientImplV1::
-handleEvent(const ::epoll_event & event)
+handleEvent(const EpollEvent & event)
 {
-    if (event.data.fd == wakeup_->fd()) {
+    if (getFd(event) == wakeup_->fd()) {
         handleWakeupEvent();
     }
-    else if (event.data.fd == timerFd_->fd()) {
+    else if (getFd(event) == timerFd_->fd()) {
         handleTimerEvent();
     }
     else {
@@ -345,18 +289,18 @@ handleTimerEvent()
 
 void
 HttpClientImplV1::
-handleMultiEvent(const ::epoll_event & event)
+handleMultiEvent(const EpollEvent & event)
 {
     int actionFlags(0);
-    if ((event.events & EPOLLIN) != 0) {
+    if (hasInput(event)) {
         actionFlags |= CURL_CSELECT_IN;
     }
-    if ((event.events & EPOLLOUT) != 0) {
+    if (hasOutput(event)) {
         actionFlags |= CURL_CSELECT_OUT;
     }
     
     int runningHandles;
-    CURLMcode rc = ::curl_multi_socket_action(multi_.get(), event.data.fd,
+    CURLMcode rc = ::curl_multi_socket_action(multi_.get(), getFd(event),
                                               actionFlags,
                                               &runningHandles);
     if (rc != ::CURLM_OK) {
@@ -412,14 +356,14 @@ onCurlSocketEvent(CURL *e, curl_socket_t fd, int what, void *sockp)
         removeFd(fd);
     }
     else if (what != CURL_POLL_NONE) {
-        int flags(0);
+        bool hasInput = false, hasOutput = false;
         if ((what & CURL_POLL_IN)) {
-            flags |= EPOLLIN;
+            hasInput = true;
         }
         if ((what & CURL_POLL_OUT)) {
-            flags |= EPOLLOUT;
+            hasOutput = true;
         }
-        addFd(fd, (sockp != nullptr), flags);
+        addFd(fd, (sockp != nullptr), hasInput, hasOutput);
         if (sockp == nullptr) {
             CURLMcode rc = ::curl_multi_assign(multi_.get(), fd, this);
             if (rc != ::CURLM_OK) {

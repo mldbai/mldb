@@ -48,8 +48,7 @@ waitState(int expectedState)
 }
 
 std::istream &
-MLDB::operator >>
-(std::istream & stream, OutputSink & sink)
+MLDB::operator >> (std::istream & stream, OutputSink & sink)
 {
     string newData;
 
