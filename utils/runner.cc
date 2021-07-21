@@ -38,6 +38,10 @@
 
 #include <future>
 
+#if defined(__APPLE__)
+extern char ** environ;
+#endif // __APPLE__
+
 using namespace std;
 using namespace MLDB;
 
@@ -505,7 +509,11 @@ doRunImpl(const vector<string> & command,
 
     ::flockfile(stdout);
     ::flockfile(stderr);
+#if defined(__linux__)
     ::fflush_unlocked(NULL);
+#else
+    ::fflush(NULL);
+#endif
     task_.wrapperPid = fork();
     int savedErrno = errno;
     ::funlockfile(stderr);

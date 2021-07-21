@@ -15,12 +15,14 @@ struct BlockedSignals
 
     ~BlockedSignals()
     {
+#if !defined(__APPLE__) // no sigtimedwait on OSX, TODO to see what to do instead of this....
         // Clear the pending signals before we unblock them
         // This avoids us getting spurious signals, especially SIGCHLD from
         // grandchildren, etc.
         struct timespec timeout = { 0, 0 };
         siginfo_t info;
         while (::sigtimedwait(&newSet_, &info, &timeout) != -1) ;
+#endif // __APPLE__
 
         // Now unblock
         ::pthread_sigmask(SIG_UNBLOCK, &oldSet_, NULL);
