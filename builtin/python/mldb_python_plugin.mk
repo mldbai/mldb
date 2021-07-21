@@ -9,6 +9,9 @@ PYTHON_INTERPRETER_LINK := \
 	$(PYTHON_LIBRARY) \
 	$(BOOST_PYTHON_LIBRARY) \
 	vfs \
+	arch \
+	value_description \
+	types \
 
 $(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
 
@@ -29,6 +32,21 @@ PYTHON_PLUGIN_LINK := \
 	mldb_core \
 	mldb_builtin_base \
 	python_interpreter \
+	value_description \
+	arch \
+	utils \
+	types \
+	mldb_engine \
+	log \
+	any \
+	rest \
+	rest_entity \
+	json_diff \
+	logging \
+	vfs \
+	base \
+	sql_types \
+	http
 
 
 # Needed so that Python plugin can find its header

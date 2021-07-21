@@ -142,4 +142,4 @@ S2_COMPILE_OPTIONS:=-Imldb/ext/s2geometry/src -DS2_USE_EXACTFLOAT $(OPENSSL_INCL
 
 $(eval $(call set_compile_option,$(S2_CC_FILES),$(S2_COMPILE_OPTIONS) $(S2_WARNING_OPTIONS)))
 
-$(eval $(call library,s2,$(S2_CC_FILES)))
+$(eval $(call library,s2,$(S2_CC_FILES),crypto))

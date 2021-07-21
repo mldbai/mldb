@@ -15,7 +15,7 @@ LIBMLDB_CORE_SOURCES:= \
 
 
 LIBMLDB_CORE_LINK:= \
-	sql_expression rest_entity rest
+	sql_expression rest_entity rest arch value_description types base utils any watch logging log progress any
 
 
 $(eval $(call library,mldb_core,$(LIBMLDB_CORE_SOURCES),$(LIBMLDB_CORE_LINK)))
