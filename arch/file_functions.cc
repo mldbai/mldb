@@ -183,7 +183,7 @@ void syncFile(const std::string & filename)
         throw MLDB::Exception(errno, "syncFile for " + filename);
     Scope_Exit(close(fd));
 
-#if LINUX
+#if defined(__linux__)
     int res = fdatasync(fd);
 #else
     int res = fcntl(fd, F_FULLFSYNC);

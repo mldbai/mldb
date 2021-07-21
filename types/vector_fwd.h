@@ -1,17 +1,19 @@
 #pragma once
 
-#include <ciso646>
+#include "mldb/compiler/stdlib.h"
 
 namespace std {
 
-#ifdef __GLIBCXX__
+#ifdef MLDB_STDLIB_GCC
 template<class T, class A>
 class vector;
-#elif defined(_LIBCPP_VERSION)
+#elif MLDB_STDLIB_LLVM
 inline namespace __1 {
 template<class T, class A>
 class vector;
 }
+#else
+#  error "Tell us how to forward declare set for your standard library"
 #endif
 
 }

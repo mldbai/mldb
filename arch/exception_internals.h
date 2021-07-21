@@ -65,7 +65,7 @@ struct __cxa_eh_globals
 };
 
 extern "C" __cxa_eh_globals *__cxa_get_globals () throw();
-#if defined(_LIBCPP_VERSION )
+#if defined(MLDB_STDLIB_LLVM )
 uint64_t __getExceptionClass  (const _Unwind_Exception*);
 bool     __isOurExceptionClass(const _Unwind_Exception*);
 #endif
