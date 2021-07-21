@@ -12,7 +12,11 @@ LIBOPSTATS_SOURCES := \
 	connectfd.cc
 
 LIBOPSTATS_LINK := \
-	arch utils types
+	arch \
+	utils \
+	types \
+	value_description \
+	
 
 $(eval $(call library,opstats,$(LIBOPSTATS_SOURCES),$(LIBOPSTATS_LINK)))
 

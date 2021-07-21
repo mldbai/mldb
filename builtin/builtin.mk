@@ -42,6 +42,25 @@ LIBMLDB_BUILTIN_BASE_LINK:= \
 	runner \
 	git2 \
 	ssh2 \
+	arch \
+	value_description \
+	types \
+	base \
+	utils \
+	sql_expression \
+	vfs \
+	rest \
+	link \
+	rest_entity \
+	any \
+	json_diff \
+	progress \
+	log \
+	watch \
+	gc \
+	mldb_core \
+	utils \
+	sql_types \
 
 # Shared_mutex only in C++17
 $(eval $(call set_compile_option,dist_table_procedure.cc,-std=c++1z))

@@ -9,37 +9,64 @@ HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
 
+MLDB_AUTO_LIBS:= \
+	service_peer \
+	sql_expression \
+	mldb_builtin \
+	mldb_core \
+	mldb_engine \
+	rest \
+	arch \
+	types \
+	utils \
+	value_description \
+	base \
+	rest \
+	vfs \
+	log \
+	link \
+	rest \
+	any \
+	watch \
+	rest_entity \
+	mldb_builtin_base \
+	mldb_builtin \
+	sql_types \
+	http \
+	runner \
+	io_base \
+
 $(eval $(call include_sub_makes,cookbook mldb_sample_plugin))
 
 #$(warning HAS_S3_CREDENTIALS=$(HAS_S3_CREDENTIALS))
 #$(warning MANUAL_IF_NO_S3=$(MANUAL_IF_NO_S3))
 
-$(eval $(call library,mldb_test_function,test_function.cc,mldb mldb_builtin_plugins))
+$(eval $(call library,mldb_test_function,test_function.cc,mldb mldb_builtin_plugins $(MLDB_PLUGIN_AUTO_LIBS)))
 
-$(eval $(call test,run_json_test_suite,types vfs,normal))
+$(eval $(call test,run_json_test_suite,types vfs value_description arch,normal))
 
 $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
 
 
-$(eval $(call test,mldb_plugin_test,mldb,boost))
-$(eval $(call test,mldb_python_plugin_test,mldb,boost virtualenv))
-$(eval $(call test,MLDB-642_script_procedure_test,mldb,boost virtualenv))
-$(eval $(call test,svd_utils_test,mldb,boost))
+$(eval $(call test,mldb_plugin_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
+$(eval $(call test,mldb_python_plugin_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost virtualenv))
+$(eval $(call test,MLDB-642_script_procedure_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost virtualenv))
+$(eval $(call test,svd_utils_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
 
-$(eval $(call test,mldb_reddit_test,mldb,boost))
-$(eval $(call test,cell_value_test,sql_expression,boost))
-$(eval $(call test,expression_value_test,sql_expression,boost))
+$(eval $(call test,mldb_reddit_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
+$(eval $(call test,cell_value_test,arch types value_description sql_expression,boost))
+$(eval $(call test,expression_value_test,arch types value_description sql_expression,boost))
 
 # NOTE: sql_expression_test should NOT depend on the MLDB library.  If you
 # are tempted to add it, you have coupled them together and broken
 # encapsulation.  Look at sql_expression_ops.cc for some ideas of how to
 # re-decouple them.
-$(eval $(call test,sql_expression_test,sql_expression,boost))
-$(eval $(call test,dataset_select_test,mldb,boost))
-$(eval $(call test,embedding_dataset_test,mldb,boost))
-$(eval $(call test,procedure_run_test,mldb,boost))
-$(eval $(call test,python_procedure_test,mldb,boost manual)) #manual -- unclear why
-$(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
+$(eval $(call test,sql_expression_test,sql_expression types base arch value_description,boost))
+$(eval $(call test,dataset_select_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
+$(eval $(call test,embedding_dataset_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) rest_entity,boost))
+$(eval $(call test,procedure_run_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) mldb_embedding_plugin,boost))
+$(eval $(call test,python_procedure_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost manual)) #manual -- unclear why
+$(eval $(call test,mldb_internal_plugin_doc_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
 
 $(TEST)/mldb_internal_plugin_doc_test: $(foreach plugin,tensorflow mongodb postgres,$(MLDB_PLUGIN_FILES_$(plugin)))
 
@@ -54,7 +81,7 @@ $(eval $(call mldb_unit_test,MLDB-663_repeatable_svd.py))
 $(eval $(call mldb_unit_test,MLDB-563-beh-relative-paths.js))
 $(eval $(call mldb_unit_test,beh-binary-mutable-save-test.py))
 $(eval $(call mldb_unit_test,MLDBFB-320-bits_tbits_assert_fail.py))
-$(eval $(call test,mldb_mnist_test,mldb,boost))
+$(eval $(call test,mldb_mnist_test,mldb mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) mldb_embedding_plugin,boost))
 $(eval $(call mldb_unit_test,MLDB-696_uri_causes_crash.py))
 $(eval $(call mldb_unit_test,MLDBFB-401_where_on_unexisting_col_test.py))
 
@@ -65,19 +92,19 @@ $(eval $(call mldb_unit_test,MLDBFB-530_continuous_window_fails_on_restart.py))
 $(eval $(call mldb_unit_test,MLDBFB-545-incorrect_result_on_merged_ds.py,,manual))
 $(eval $(call mldb_unit_test,beh_type_check_on_load_test.py))
 
-$(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
-$(eval $(call test,mldb_startup_test,mldb,boost))
-$(eval $(call test,mldb_plugin_delete_test,mldb,boost))
-$(eval $(call test,pyplugin_static_folder_test,mldb,boost virtualenv))
-$(eval $(call test,mldb_function_delete_test,mldb mldb_test_function,boost))
-$(eval $(call test,MLDB-204-circular-references-initialization,mldb,boost))
-$(eval $(call test,MLDB-267-delete-while-loading,mldb,boost))
-$(eval $(call test,mldb_crash_multiple_py_routes,mldb,boost manual))  #manual - intermittent - MLDB-787
-$(eval $(call test,mldb_determinism_test,mldb,boost))
-$(eval $(call test,credentials_persistence_test,mldb vfs_handlers,boost))
-$(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
-$(eval $(call test,MLDB-1559-transform-method,mldb,boost))
-$(eval $(call test,mldb-1525-rowname-generator-explain,mldb,boost))
+$(eval $(call test,mldb_config_persistence_test,mldb mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) mldb_embedding_plugin,boost manual)) #this code will be removed as part of MLDB-1441
+$(eval $(call test,mldb_startup_test,mldb mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) mldb_embedding_plugin,boost))
+$(eval $(call test,mldb_plugin_delete_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) http,boost))
+$(eval $(call test,pyplugin_static_folder_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost virtualenv))
+$(eval $(call test,mldb_function_delete_test,mldb mldb_test_function $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) rest_entity,boost))
+$(eval $(call test,MLDB-204-circular-references-initialization,mldb $(MLDB_AUTO_LIBS),boost))
+$(eval $(call test,MLDB-267-delete-while-loading,mldb $(MLDB_AUTO_LIBS),boost))
+$(eval $(call test,mldb_crash_multiple_py_routes,mldb $(MLDB_AUTO_LIBS),boost manual))  #manual - intermittent - MLDB-787
+$(eval $(call test,mldb_determinism_test,mldb $(MLDB_AUTO_LIBS),boost))
+$(eval $(call test,credentials_persistence_test,mldb  $(MLDB_AUTO_LIBS)vfs_handlers,boost))
+$(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb $(MLDB_AUTO_LIBS) mldb_feature_gen_plugin mldb_jml_plugin,boost))
+$(eval $(call test,MLDB-1559-transform-method,mldb $(MLDB_AUTO_LIBS),boost))
+$(eval $(call test,mldb-1525-rowname-generator-explain,mldb $(MLDB_AUTO_LIBS),boost))
 
 $(TESTS)/credentials_persistence_test: $(BIN)/mldb_runner
 
@@ -210,8 +237,8 @@ $(eval $(call mldb_unit_test,MLDB-873_stats_table_test.py))
 $(eval $(call mldb_unit_test,MLDB-878_experiment_proc.py))
 $(eval $(call mldb_unit_test,MLDB-894_runs_can_override_conf.py))
 $(eval $(call mldb_unit_test,MLDB-917_replace_nan_inf.py))
-$(eval $(call test,MLDB-896_table_expression_serialised_as_string,mldb,boost))
-$(eval $(call test,MLDB-991_permuter_permutations,mldb,boost))
+$(eval $(call test,MLDB-896_table_expression_serialised_as_string,mldb $(MLDB_AUTO_LIBS),boost))
+$(eval $(call test,MLDB-991_permuter_permutations,mldb $(MLDB_AUTO_LIBS),boost))
 $(eval $(call mldb_unit_test,MLDB-558-python-unicode.py))
 $(eval $(call mldb_unit_test,MLDB-756-docker-plugin.js,, manual)) #Manual because there are issues with keeping the .so up to date
 $(eval $(call mldb_unit_test,MLDB-991_permuter_procedure.py))
@@ -261,11 +288,11 @@ $(eval $(call mldb_unit_test,MLDB-1033-sparse-timestamp-interval.js))
 $(eval $(call mldb_unit_test,MLDB-1026-slow-not-in.js))
 $(eval $(call mldb_unit_test,MLDB-974-slow-subquery.js))
 $(eval $(call mldb_unit_test,MLDB-1155_csv_line_endings.py))
-$(eval $(call test,MLDB-1040-invalid-requests,mldb,boost))
+$(eval $(call test,MLDB-1040-invalid-requests,mldb $(MLDB_AUTO_LIBS),boost))
 $(eval $(call mldb_unit_test,MLDB-1081-getEmbedding_honors_limit_offset.py))
 $(eval $(call mldb_unit_test,MLDB-951-run-on-creation.py))
 $(eval $(call mldb_unit_test,MLDB-1092_conf_interval.py))
-$(eval $(call test,MLDB-1092_confidence_intervals_test,mldb,boost))
+$(eval $(call test,MLDB-1092_confidence_intervals_test,mldb $(MLDB_AUTO_LIBS),boost))
 $(eval $(call mldb_unit_test,MLDB-1043-bucketize-procedure.js))
 $(eval $(call mldb_unit_test,MLDB-1025-dataset-output-with-default.py))
 $(eval $(call mldb_unit_test,MLDB-989-complex-order-by.py))
@@ -318,11 +345,11 @@ $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
 $(eval $(call include_sub_make,mldb_py_runner))
 
-$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(BOOST_PYTHON_LIBRARY) mldb_python_plugin types arch mldb))
+$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter mldb_python_plugin types arch mldb value_description))
 
 $(eval $(call python_test,python_converters_test,py_conv_test_module))
 
-$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(BOOST_PYTHON_LIBRARY) types mldb_engine mldb_python_plugin))
+$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter types mldb_engine mldb_python_plugin value_description arch sql_types http))
 
 $(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module))
 
@@ -392,7 +419,7 @@ $(eval $(call mldb_unit_test,MLDB-1636-row-column-path.js))
 $(eval $(call mldb_unit_test,MLDB-1648-path-values.js))
 $(eval $(call mldb_unit_test,MLDB-1562-join-with-in.js))
 $(eval $(call mldb_unit_test,MLDB-1802-select-orderby.py))
-$(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
+$(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb $(MLDB_AUTO_LIBS) mldb_sparse_plugin,boost))
 $(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))
 $(eval $(call mldb_unit_test,MLDBFB-509_pushed_non_printable_char_cant_query.py))
 $(eval $(call mldb_unit_test,MLDB-1355-explain-bad-alloc.js))
@@ -424,7 +451,7 @@ $(eval $(call mldb_unit_test,sign_function_test.py))
 $(eval $(call mldb_unit_test,import_text_test.py))
 $(eval $(call mldb_unit_test,alias_resolving_test.py))
 $(eval $(call mldb_unit_test,MLDB-1753_useragent_function.py,html))
-$(eval $(call test,MLDB-1742-tabular-dataset-integer-columns,mldb,boost))
+$(eval $(call test,MLDB-1742-tabular-dataset-integer-columns,mldb $(MLDB_AUTO_LIBS) mldb_tabular_plugin block,boost))
 $(eval $(call mldb_unit_test,summary_stats_proc_test.py))
 $(eval $(call mldb_unit_test,MLDB-1766_dt_categorical.py))
 $(eval $(call mldb_unit_test,MLDB-1750-dist-tables.py))
@@ -450,7 +477,7 @@ $(eval $(call mldb_unit_test,where-without-dataset.py))
 $(eval $(call mldb_unit_test,MLDB-2142-prefix-suffix.py))
 $(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,tensorflow))
 
-$(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers,boost $(MANUAL_IF_NO_S3)))
+$(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers arch value_description types base utils vfs http,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))
 $(eval $(call mldb_unit_test,stddev_builtin_fct_test.py))
 $(eval $(call mldb_unit_test,MLDB-1810-new-executor-rowpath.js))
@@ -493,7 +520,7 @@ $(eval $(call mldb_unit_test,MLDB-2077_merge_single_ds.py))
 $(eval $(call mldb_unit_test,MLDB-1935-const-optim.py))
 $(eval $(call mldb_unit_test,MLDB-2097_exif.py))
 $(eval $(call mldb_unit_test,MLDBFB-724_classifier_exp_segfault_test.py))
-$(eval $(call test,http_streambuf_test,vfs $(STD_FILESYSTEM_LIBNAME) boost_system runner io_base mldb,boost virtualenv))
+$(eval $(call test,http_streambuf_test,vfs $(STD_FILESYSTEM_LIBNAME) boost_system runner io_base mldb arch value_description service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost virtualenv))
 $(eval $(call mldb_unit_test,MLDB-2108-split-string.py))
 $(eval $(call mldb_unit_test,MLDB-2100_fetcher_timeout_test.py))
 $(eval $(call mldb_unit_test,MLDB-2110-merge-and-subselect-progress.py))

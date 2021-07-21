@@ -13,7 +13,7 @@ LIBHTTP_SOURCES := \
 	http_client_impl_v1.cc
 
 
-LIBHTTP_LINK := curl io_base arch types boost_system value_description $(STD_FILESYSTEM_LIBNAME) cityhash watch
+LIBHTTP_LINK := curl io_base arch types boost_system value_description $(STD_FILESYSTEM_LIBNAME) cityhash watch base
 
 $(eval $(call library,http,$(LIBHTTP_SOURCES),$(LIBHTTP_LINK)))
 
