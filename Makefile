@@ -1,4 +1,6 @@
-toolchain ?= gcc
+include mldb/jml-build/os/os.mk
+
+toolchain ?= $(DEFAULT_TOOLCHAIN)
 port ?= host
 PYTHON_ENABLED:=1
 DOCUMENTATION_ENABLED:=1
@@ -7,23 +9,11 @@ TCMALLOC_ENABLED?=0
 DOCKER_REGISTRY:=quay.io/
 DOCKER_USER:=mldb/
 
-# Shim for the 14.04 migration
-DIST_CODENAME:=$(shell lsb_release -sc)
-
-MACHINE_NAME:=$(shell uname -n)
-
 V8_LIB:=v8
 HOSTARCH    ?= $(shell uname -m)
 
 
 -include local.mk
-VIRTUALENV ?= virtualenv
-PYTHON ?= $(VIRTUALENV)/bin/python
-PIP ?= $(VIRTUALENV)/bin/pip
-PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==21.1.3
-PYFLAKES ?= $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
-J2 ?= $(VIRTUALENV)/bin/j2
-J2ENV ?= $(J2) -f env
 
 export VIRTUALENV
 
@@ -38,7 +28,7 @@ BUILD   ?= build
 ARCH    ?= $(HOSTARCH)
 OBJ     := $(BUILD)/$(ARCH)/obj
 BIN     := $(BUILD)/$(ARCH)/bin
-LIB	:= $(BUILD)/$(ARCH)/lib
+LIB		:= $(BUILD)/$(ARCH)/lib
 TESTS   := $(BUILD)/$(ARCH)/tests
 TMPBIN	:= $(BUILD)/$(ARCH)/tmp
 INC     := $(BUILD)/$(ARCH)/include
@@ -72,7 +62,7 @@ include $(JML_BUILD)/arch/$(ARCH).mk
 include $(JML_BUILD)/$(toolchain).mk
 
 VALGRIND ?= valgrind
-VALGRINDFLAGS := --soname-synonyms=somalloc=*tcmalloc* --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full
+VALGRINDFLAGS ?= --soname-synonyms=somalloc=*tcmalloc* --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full
 
 include $(JML_BUILD)/port.mk
 include $(JML_BUILD)/functions.mk

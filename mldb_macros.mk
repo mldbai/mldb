@@ -24,7 +24,7 @@ $$(if $(trace),$$(warning called mldb_unit_test "$(1)" "$(2)" "$(3)" "$(4)" "$(5
 
 # Pre-run setup command.  This currently checks for a Python script, and activates
 # it if necessary.
-TEST_$(1)_SETUP := $$(if $$(findstring .py,$(1))$$(findstring virtualenv,$(3)),. $$(shell readlink -f $(VIRTUALENV))/bin/activate; PYTHONPATH=$(BIN) )
+TEST_$(1)_SETUP := $$(if $$(findstring .py,$(1))$$(findstring virtualenv,$(3)),. $(VIRTUALENV)/bin/activate; PYTHONPATH=$(BIN))
 
 # Command to actually run for the test.  Constructs the call to mldb_runner and the
 # command line options to pass to it.
@@ -32,7 +32,7 @@ TEST_$(1)_RAW_COMMAND := $(call TEST_PRE_OPTIONS,$(3)) $$(BIN)/mldb_runner -h lo
 
 # Command that is run in the shell.  This takes care of printing the right message
 # out and capturing the output in the right place.
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $$(TEST_$(1)_SETUP) /usr/bin/time -v -o $(TESTS)/$(1).timing $$(TEST_$(1)_RAW_COMMAND) >> $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $$(TEST_$(1)_SETUP) $(call write_timing_to,$(TESTS)/$(1).timing) $$(TEST_$(1)_RAW_COMMAND) >> $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 $(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$(MLDB_PLUGIN_FILES_$$(plugin)))
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[MLDBTEST]$(COLOR_RESET)                     	$(1)")
@@ -58,7 +58,7 @@ endef
 
 # Plugins may depend upon core MLDB libraries, so make sure they have
 # them in their rpath directories
-MLDB_PLUGIN_EXTRA_LINK_OPTIONS:=-Wl,--rpath,$(LIB)
+MLDB_PLUGIN_EXTRA_LINK_OPTIONS:=$(call linker_rpath,$(LIB))
 
 # Add an MLDB plugin in a subdirectory
 #
@@ -110,7 +110,7 @@ endef
 #    $(4): <libDeps>: dependency libraries to link with
 
 define mldb_plugin_library
-$$(eval $$(call library,$(2),$(3),$(4),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR_RESET)",$(PLUGINS)/$(1)/lib,$$(MLDB_PLUGIN_EXTRA_LINK_OPTIONS)))
+$$(eval $$(call library,$(2),$(3),$(4) $(MLDB_PLUGIN_AUTO_LIBS),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR_RESET)",$(PLUGINS)/$(1)/lib,$$(MLDB_PLUGIN_EXTRA_LINK_OPTIONS)))
 mldb_plugins: $(PLUGINS)/$(1)/lib/lib$(2).so
 endef
 
@@ -180,7 +180,7 @@ $(PLUGINS)/$(1)/$(3)/%:	$(CWD)/$(2)/%
 else
 $(PLUGINS)/$(1)/$(3)/%:	$(CWD)/$(2)/%
 	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN CP]$(COLOR_RESET)" $(1)/$(2)$$*
-	@install -D $$< $$@
+	@$(GNU_INSTALL) -D $$< $$@
 endif
 
 MLDB_PLUGIN_$(1)_INSTALLED_FILES+=$$(MLDB_PLUGIN_$(1)_STATIC_FILES_$(2):$(2)/%=$(PLUGINS)/$(1)/$(3)/%)
@@ -239,7 +239,7 @@ mldb_plugin_$(1): $$(MLDB_PLUGIN_FILES_$(1))
 # Order-only prerequisite on the directory
 $(PLUGINS)/$(1)/mldb_plugin.json:	$(CWD)/mldb_plugin.json | $(PLUGINS)/$(1)/lib
 	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN MF]$(COLOR_RESET)" $(CWD)/mldb_plugin.json
-	@install -D $$< $$@
+	@$(GNU_INSTALL) -D $$< $$@
 
 # When we compile we should also compile the plugin
 compile: mldb_plugin_$(1)

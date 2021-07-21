@@ -1,5 +1,7 @@
 include mldb/ext/gmsl/gmsl
 
+include mldb/jml-build/os/os.mk
+
 TMPBIN ?= $(BIN)
 LIB ?= $(BIN)
 
@@ -59,7 +61,7 @@ QUOTE:="
 
 
 
-hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
+hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | $(MD5SUM)))
 
 hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
 
@@ -111,6 +113,8 @@ $(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)" "$(3)" "$(4)"))
 BUILD_$(CWD)/$(2).lo_COMMAND:=$$(PRECXX) $$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS)) $$(POSTCXXFLAGS) $$(OPTIONS_$(CWD)/$(1))
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 
+BUILD_$(CWD)/$(2).lo_COUNT_LINES:=$$(CXX) $$(CXXFLAGS) -E $$(tmpDIR)/$(CWD)/$(1) $(4) $$(POSTCXXFLAGS) $$(OPTIONS_$(CWD)/$(1))
+
 BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
 BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).lo
 
@@ -118,8 +122,9 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "           $(COLOR_CYAN)[C++]$(COLOR_RESET)                      	$(CWD)/$(1)")
-	@/usr/bin/time -v -o $$@.timing $$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+	$$(if $(verbose_build),,@$$(BUILD_$(CWD)/$(2).lo_COUNT_LINES) -o $(STDOUT_FILENAME) | grep . | wc > $$@.wc)
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "           $(COLOR_CYAN)[C++	`awk -f mldb/jml-build/print-line-counts.awk $$@.wc`]$(COLOR_RESET)		$(CWD)/$(1)")
+	@$$(call write_timing_to,$$@.timing) $$(BUILD_$(CWD)/$(2).lo_COMMAND2)
 	$$(if $(verbose_build),,@echo "           $(COLOR_GREEN)     $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
@@ -151,10 +156,14 @@ BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).l
 
 BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
 
+BUILD_$(CWD)/$(2).lo_COUNT_LINES:=$$(CC) $$(CFLAGS) -E $$(tmpDIR)/$(CWD)/$(1) $(4) $$(OPTIONS_$(CWD)/$(1))
+
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists  $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "             $(COLOR_CYAN)[C]$(COLOR_RESET)                      	$(CWD)/$(1)")
-	@/usr/bin/time -v -o $$@.timing $$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+	$$(if $(verbose_build),,@$$(BUILD_$(CWD)/$(2).lo_COUNT_LINES) -o $(STDOUT_FILENAME) | grep . | wc > $$@.wc)
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "           $(COLOR_CYAN)[C	`awk -f mldb/jml-build/print-line-counts.awk $$@.wc` ]$(COLOR_RESET)		$(CWD)/$(1)")
+	@$(call write_timing_to,$$@.timing) $$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+	$$(if $(verbose_build),,@$$(BUILD_$(CWD)/$(2).lo_COUNT_LINES) -o $(STDOUT_FILENAME) | grep . | wc > $$@.wc)
 	$$(if $(verbose_build),,@echo "             $(COLOR_GREEN)   $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
@@ -203,7 +212,7 @@ BUILD_$(CWD)/$(1).lo_COMMAND2 := $$(subst __OBJECT_FILE_PLACEHOLDER__,$$(BUILD_$
 
 $$(BUILD_$(CWD)/$(1).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(1).lo_COMMAND2),@echo "          $(COLOR_CYAN)[CUDA]$(COLOR_RESET)                      	$(CWD)/$(1)")
-	@/usr/bin/time -v -o $$@.timing $$(BUILD_$(CWD)/$(1).lo_COMMAND2)
+	@$(call write_timing_to,$$@.timing) $$(BUILD_$(CWD)/$(1).lo_COMMAND2)
 	$$(if $(verbose_build),,@echo "             $(COLOR_GREEN)   $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
 
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
@@ -397,7 +406,7 @@ LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
 
 # For this library, this is the set of command line options needed to link it in
 # to the executable.
-LIB_$(1)_LINKER_OPTIONS += -L$$(sodir) -Wl,--rpath,$$(sodir)
+LIB_$(1)_LINKER_OPTIONS += -L$$(sodir) $$(call linker_rpath,$$(sodir))
 
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
 -include $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
@@ -420,7 +429,7 @@ LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
 
 $$(LIB_$(1)_SO):	$$(dir $$(LIB_$(1)_SO))/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "            $(COLOR_YELLOW)[SO]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
-	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND2)
+	@$(call write_timing_to,$$@.timing) $$(LINK_$(1)_COMMAND2)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$$(LIB_$(1)_FILENAME)")
 
 $$(tmpLIBNAME): $$(sodir)/$$(tmpLIBNAME)$$(so)
@@ -468,12 +477,11 @@ $$(eval bindir := $(if $(5),$(5),$(BIN)))
 #$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $$(bindir)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) -Wl,--rpath,$(LIB) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
-
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $$(bindir)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(call linker_rpath,$(LIB)) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
 $$(bindir)/$(1):	$$(bindir)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook.so
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET)                   	$(1)")
-	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND)
+	@$(call write_timing_to,$$@.timing) $$(LINK_$(1)_COMMAND)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(1)")
 
 $$(foreach target,$(4) programs,$$(eval $$(target): $$(bindir)/$(1)))
@@ -492,9 +500,9 @@ endef
 # directives, and things to run in the command line.
 # $(1): the options
 
-TEST_PRE_PRE_OPTIONS_ = $(w arning TEST_PRE_PRE_OPTIONS $(1))$(if $(findstring virtualenv,$(1)),. $(shell readlink -f $(VIRTUALENV))/bin/activate; )
+TEST_PRE_PRE_OPTIONS_ = $(w arning TEST_PRE_PRE_OPTIONS $(1))$(if $(findstring virtualenv,$(1)),. $(VIRTUALENV)/bin/activate; )
 
-TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring timed,$(1)),/usr/bin/time )$(if $(findstring virtualenv,$(1)),/usr/bin/env PYTHONPATH=$(BIN) )$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) )
+TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring timed,$(1)),$(GNU_TIME) )$(if $(findstring virtualenv,$(1)),/usr/bin/env PYTHONPATH=$(BIN) )$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) )
 
 TEST_PRE_OPTIONS = $(w arning TEST_PRE_OPTIONS $(1) returned $(c all TEST_PRE_OPTIONS_,$(1)))$(call TEST_PRE_OPTIONS_,$(1))
 
@@ -535,7 +543,7 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && (($(call TEST_PRE_PRE_OPTIONS,$(3)) set -o pipefail && /usr/bin/time -v -o $(TESTS)/$(1).timing $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && (($(call TEST_PRE_PRE_OPTIONS,$(3)) set -o pipefail && $(call write_timing_to,$(TESTS)/$(1).timing) $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
