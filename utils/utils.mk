@@ -40,7 +40,7 @@ $(eval $(call library,json_diff,json_diff.cc json_utils.cc,arch base value_descr
 LIBRUNNERCOMMON_SOURCES := \
 	runner_common.cc
 
-LIBRUNNERCOMMON_LINK :=
+LIBRUNNERCOMMON_LINK := arch types value_description
 
 $(eval $(call library,runner_common,$(LIBRUNNERCOMMON_SOURCES),$(LIBRUNNERCOMMON_LINK)))
 $(eval $(call program,runner_helper,runner_common arch))

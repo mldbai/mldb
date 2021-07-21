@@ -7,6 +7,7 @@
 
 #include <sys/time.h>
 #include <sys/resource.h>
+#include "mldb/types/value_description_fwd.h"
 
 #include <string>
 
@@ -35,6 +36,7 @@ enum struct LaunchError {
 /** Turn a launch error code into a descriptive string. */
 std::string strLaunchError(LaunchError error);
             
+DECLARE_ENUM_DESCRIPTION(LaunchError);
 
 /****************************************************************************/
 /* PROCESS STATE                                                            */
@@ -42,7 +44,7 @@ std::string strLaunchError(LaunchError error);
 
 /** State of the process. */
 enum struct ProcessState {
-    UNKNOWN,    ///< Unknown status
+    UNKNOWN,       ///< Unknown status
     LAUNCHING,     ///< Being launched
     RUNNING,       ///< Currently running
     STOPPED,       ///< No longer running
@@ -51,6 +53,7 @@ enum struct ProcessState {
 
 std::string statusStateAsString(ProcessState statusState);
 
+DECLARE_ENUM_DESCRIPTION(ProcessState);
 
 /****************************************************************************/
 /* PROCESS STATUS                                                           */
@@ -64,14 +67,15 @@ struct ProcessStatus {
 
     void setErrorCodes(int newLaunchErrno, LaunchError newErrorCode);
 
-    ProcessState state;
-    pid_t pid;
-    int childStatus;
-    int launchErrno;
-    LaunchError launchErrorCode;
-    rusage usage;
+    ProcessState state = ProcessState::UNKNOWN;
+    pid_t pid = -1;
+    int childStatus = -1;
+    int launchErrno = 0;
+    LaunchError launchErrorCode = LaunchError::NONE;
+    rusage usage = {};
 };
 
+DECLARE_STRUCTURE_DESCRIPTION(ProcessStatus);
 
 /****************************************************************************/
 /* PROCESS FDS                                                              */
