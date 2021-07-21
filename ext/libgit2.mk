@@ -171,7 +171,6 @@ LIBGIT2_CLANG_FLAGS:=-Wno-unknown-warning-option
 LIBGIT2_FLAGS:= \
 	$(if $(findstring gcc,$(toolchain)),$(LIBGIT2_GCC_FLAGS)) \
 	$(if $(findstring clang,$(toolchain)),$(LIBGIT2_CLANG_FLAGS))
-OSNAME?=Linux
 
 # NOTE: to find this, run cmake in the ext/libgit2 directory, and then look at
 # CMakeFIles/git2.dir/flags.make to find the ones required.
