@@ -28,7 +28,7 @@ LIBGOOGLE_URL_SOURCES := \
 #	src/url_parse_unittest.cc \
 #	src/url_canon_unittest.cc \
 
-$(eval $(call set_compile_option,$(LIBGOOGLE_URL_SOURCES),-Duint64=uint64_t -Wno-array-bounds -Imldb/ext))
+$(eval $(call set_compile_option,$(LIBGOOGLE_URL_SOURCES),-Duint64=uint64_t -Wno-array-bounds -Imldb/ext -I$(ICU_INCLUDE_PATH)))
 
 LIBGOOGLE_URL_LINK := icui18n icuuc icudata m
 
