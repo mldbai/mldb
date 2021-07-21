@@ -72,7 +72,7 @@ to_std_exception(void* object, const std::type_info * tinfo)
 {
 #if 1
     return is_convertible<std::exception>(object, *tinfo);
-#elif defined( LIBSTDCXX )
+#elif defined( MLDB_STDLIB_GCC )
     /* Check if its a class.  If not, we can't see if it's a std::exception.
        The abi::__class_type_info is the base class of all types of type
        info for types that are classes (of which std::exception is one).
@@ -102,7 +102,7 @@ to_std_exception(void* object, const std::type_info * tinfo)
     exception message.
     */
     return (const std::exception *)obj_ptr;
-#elif defined (_LIBCPP_VERSION)
+#elif defined (MLDB_STDLIB_LLVM)
     // If there might be an uncaught exception
     using namespace __cxxabiv1;
     __cxa_eh_globals* globals = __cxa_get_globals();

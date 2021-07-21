@@ -11,11 +11,12 @@
 #include <cxxabi.h>
 #include <iostream>
 #include "demangle.h"
+#include "mldb/compiler/stdlib.h"
 
 using namespace abi;
 using namespace std;
 
-#if defined(LIBSTDCXX)
+#if MLDB_STDLIB_GCC
 
 namespace __cxxabiv1 {
 
@@ -96,7 +97,7 @@ const void * is_convertible(const std::type_info & from_type,
 }
 
 } // namespace MLDB
-#elif defined(_LIBCPP_VERSION )
+#elif MLDB_STDLIB_LLVM
 
 namespace __cxxabiv1 {
 
@@ -135,4 +136,6 @@ const void * is_convertible(const std::type_info & from_type,
 }
 
 } // namespace MLDB
+#else
+#  error "Tell us how your standard library does RTTI"
 #endif

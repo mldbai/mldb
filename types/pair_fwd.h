@@ -1,17 +1,19 @@
 #pragma once
 
-#include <ciso646>
+#include "mldb/compiler/stdlib.h"
 
 namespace std {
 
-#ifdef __GLIBCXX__
+#ifdef MLDB_STDLIB_GCC
 template<class T1, class T2>
 class pair;
-#elif defined(_LIBCPP_VERSION)
+#elif MLDB_STDLIB_LLVM
 inline namespace __1 {
 template<class T1, class T2>
 class pair;
 }
+#else
+#  error "Tell us how to forward declare pair for your standard library"
 #endif
 
 } // namespace std
