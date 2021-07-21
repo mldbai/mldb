@@ -15,7 +15,7 @@
 namespace MLDB {
 
 
-bool makeThreadRealTime(unsigned long long handle, int priority);
+bool makeThreadRealTime(std::thread::native_handle_type handle, int priority);
 
 /** Make the given boost::thread into a realtime thread with the given
     priority (from zero upwards).  This will put it into the round-robin
