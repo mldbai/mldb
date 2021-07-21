@@ -12,6 +12,7 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include "mldb/types/value_description.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/wait_on_address.h"
 #include "mldb/arch/threads.h"

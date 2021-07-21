@@ -15,7 +15,6 @@
 #include "mldb/utils/pair_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/vector_utils.h"
-#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/arch/demangle.h"
