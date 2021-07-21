@@ -23,7 +23,7 @@ LIBPARSERUTILS_SRC=\
 
 $(eval $(call set_compile_option,$(LIBPARSERUTILS_SRC),-Imldb/plugins/html/ext -Imldb/plugins/html/ext/libparserutils/src))
 
-$(eval $(call mldb_plugin_library,html,parserutils,$(LIBPARSERUTILS_SRC)))
+$(eval $(call mldb_plugin_library,html,parserutils,$(LIBPARSERUTILS_SRC),iconv))
 
 
 endif

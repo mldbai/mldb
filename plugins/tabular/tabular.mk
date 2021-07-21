@@ -12,7 +12,7 @@ LIBMLDB_TABULAR_PLUGIN_SOURCES:= \
 
 
 LIBMLDB_TABULAR_PLUGIN_LINK := \
-	block zstd sql_expression mldb_engine mldb_core
+	block zstd sql_expression mldb_engine mldb_core value_description arch types progress base vfs log rest
 
 
 $(eval $(call library,mldb_tabular_plugin,$(LIBMLDB_TABULAR_PLUGIN_SOURCES),$(LIBMLDB_TABULAR_PLUGIN_LINK)))

@@ -44,8 +44,12 @@ LIBGC_SOURCES := \
 	shared_gc_lock.cc
 
 LIBGC_LINK := \
-	rt \
 	arch
+
+ifeq ($(OSNAME),Linux)
+LIBGC_LINK += rt
+endif
+
 
 $(eval $(call library,gc,$(LIBGC_SOURCES),$(LIBGC_LINK)))
 

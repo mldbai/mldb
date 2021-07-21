@@ -10,6 +10,28 @@ LIBMLDB_SQLITE_PLUGIN_SOURCES:= \
 
 
 LIBMLDB_SQLITE_PLUGIN_LINK:= \
+       mldb_core \
+       mldb_engine \
+       arch \
+       types \
+       utils \
+       sql_expression \
+       value_description \
+       base \
+       progress \
+       rest \
+       db \
+       vfs \
+       log \
+       link \
+       rest \
+       any \
+       watch \
+       rest_entity \
+       mldb_builtin_base \
+       mldb_builtin \
+       sql_types \
+       sqlite-mldb \
 
 $(eval $(call library,mldb_sqlite_plugin,$(LIBMLDB_SQLITE_PLUGIN_SOURCES),$(LIBMLDB_SQLITE_PLUGIN_LINK)))
 

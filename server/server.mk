@@ -21,19 +21,49 @@ LIBMLDB_LINK:= \
 	mldb_core \
 	mldb_engine \
 	rest \
+	mldb_core \
+	mldb_engine \
+	arch \
+	types \
+	utils \
+	sql_expression \
+	value_description \
+	base \
+	progress \
+	rest \
+	db \
+	vfs \
+	log \
+	link \
+	rest \
+	any \
+	watch \
+	rest_entity \
+	mldb_builtin_base \
+	mldb_builtin \
+	sql_types \
+	http \
 
 
 $(eval $(call library,mldb,$(LIBMLDB_SOURCES),$(LIBMLDB_LINK)))
 $(eval $(call library_forward_dependency,mldb,mldb_builtin))
 $(eval $(call library_forward_dependency,mldb,mldb_builtin_plugins))
 
-$(eval $(call program,mldb_runner,mldb boost_program_options config))
+$(eval $(call program,mldb_runner,mldb boost_program_options config $(LIBMLDB_LINK) io_base))
 
 LIBMLDB_PLATFORM_PYTHON_SOURCES:= \
 	mldb_platform_python.cc
 
 LIBMLDB_PLATFORM_PYTHON_LINK:= \
-	mldb
+	mldb \
+	$(PYTHON_LIBRARY) \
+	 types \
+	 arch \
+	 value_description \
+	 mldb_python_plugin \
+	 io_base \
+	 python_interpreter \
+	 rest \
 
 $(eval $(call library,mldb_platform_python,$(LIBMLDB_PLATFORM_PYTHON_SOURCES),$(LIBMLDB_PLATFORM_PYTHON_LINK)))
 

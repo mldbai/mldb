@@ -13,6 +13,28 @@ LIBMLDB_NLP_PLUGIN_SOURCES:= \
 
 
 LIBMLDB_NLP_PLUGIN_LINK:= \
+	mldb_core \
+	mldb_engine \
+	arch \
+	types \
+	utils \
+	sql_expression \
+	value_description \
+	base \
+	progress \
+	rest \
+	db \
+	vfs \
+	log \
+	link \
+	rest \
+	any \
+	watch \
+	rest_entity \
+	mldb_builtin_base \
+	mldb_builtin \
+	sql_types \
+	libstemmer \
 
 $(eval $(call library,mldb_nlp_plugin,$(LIBMLDB_NLP_PLUGIN_SOURCES),$(LIBMLDB_NLP_PLUGIN_LINK)))
 

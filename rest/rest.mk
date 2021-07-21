@@ -42,11 +42,15 @@ LIBSERVICE_PEER_SOURCES := \
 	peer_info.cc \
 	event_service.cc
 
+REST_INDIRECT_DEPS := http value_description cityhash io_base vfs db any googleurl
+LINK_INDIRECT_DEPS := value_description arch gc types any
+REST_ENTITY_INDIRECT_DEPS := value_description types arch watch rest vfs
+SERVICE_PEER_INDIRECT_DEPS := arch value_description types watch log http io_base any utils logging link $(LINK_INDIRECT_DEPS) rest_entity $(REST_ENTITY_INDIRECT_DEPS)
 
-$(eval $(call library,rest,$(LIBREST_SOURCES),arch types utils log))
-$(eval $(call library,link,$(LIBLINK_SOURCES),watch))
-$(eval $(call library,rest_entity,$(LIBREST_ENTITY_SOURCES),gc link any json_diff))
-$(eval $(call library,service_peer,$(LIBSERVICE_PEER_SOURCES),rest gc link rest_entity))
+$(eval $(call library,rest,$(LIBREST_SOURCES),arch types utils log $(REST_INDIRECT_DEPS)))
+$(eval $(call library,link,$(LIBLINK_SOURCES),watch $(LINK_INDIRECT_DEPS)))
+$(eval $(call library,rest_entity,$(LIBREST_ENTITY_SOURCES),gc link any json_diff $(REST_ENTITY_INDIRECT_DEPS)))
+$(eval $(call library,service_peer,$(LIBSERVICE_PEER_SOURCES),rest gc link rest_entity $(SERVICE_PEER_INDIRECT_DEPS)))
 
 
 $(eval $(call include_sub_make,rest_testing,testing))

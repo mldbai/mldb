@@ -12,4 +12,4 @@ LZ4_GPL_COMMAND_LINE_SOURCES:=lz4cli.c bench.c datagen.c lz4io.c
 
 $(eval $(call set_compile_option,$(LIB_LZ4_SOURCES) $(LZ4_GPL_COMMAND_LINE_SOURCES),-Imldb/ext/xxhash))
 
-$(eval $(call program,lz4cli,lz4,$(LZ4_GPL_COMMAND_LINE_SOURCES)))
+$(eval $(call program,lz4cli,lz4 xxhash,$(LZ4_GPL_COMMAND_LINE_SOURCES)))

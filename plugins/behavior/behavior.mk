@@ -28,7 +28,11 @@ LIBBEHAVIOR_LINK := \
 	types \
 	value_description \
 	sql_expression \
-	mldb_builtin_base
+	mldb_builtin_base \
+	utils \
+	base \
+	cityhash \
+	vfs
 
 $(eval $(call set_compile_option,$(LIBBEHAVIOR_SOURCES),-Ipro))
 
@@ -39,7 +43,7 @@ LIBBEHAVIOR_PLUGIN_SOURCES := \
 	binary_behavior_dataset.cc \
 
 LIBBEHAVIOR_PLUGIN_LINK := \
-	behavior
+	behavior arch value_description sql_types types log vfs rest sql_expression base mldb_core mldb_engine progress
 
 $(eval $(call library,mldb_behavior_plugin,$(LIBBEHAVIOR_PLUGIN_SOURCES),$(LIBBEHAVIOR_PLUGIN_LINK)))
 

@@ -5,7 +5,7 @@ LIBSTATS_SOURCES := \
 
 $(eval $(call add_sources,$(LIBSTATS_SOURCES)))
 
-LIBSTATS_LINK :=	utils
+LIBSTATS_LINK :=	utils arch
 
 $(eval $(call library,stats,$(LIBSTATS_SOURCES),$(LIBSTATS_LINK)))
 

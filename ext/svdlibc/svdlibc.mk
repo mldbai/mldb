@@ -5,7 +5,7 @@ SVDLIBC_SOURCES := \
 	svdutil.cc \
 	las2.cc
 
-SVDLIBC_LINK :=	m
+SVDLIBC_LINK :=	m arch base
 
 $(eval $(call library,svdlibc,$(SVDLIBC_SOURCES),$(SVDLIBC_LINK)))
 

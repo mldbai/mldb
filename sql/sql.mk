@@ -7,7 +7,7 @@ SQL_TYPES_SOURCES := \
 
 # make sure well optimized even for architectures with -Os normally
 $(eval $(call set_compile_option,path.cc cell_value.cc,-O3))
-$(eval $(call library,sql_types,$(SQL_TYPES_SOURCES),types utils value_description any json_diff highwayhash hash))
+$(eval $(call library,sql_types,$(SQL_TYPES_SOURCES),arch base types utils value_description any json_diff highwayhash hash))
 
 
 SQL_EXPRESSION_SOURCES := \
@@ -41,7 +41,7 @@ SQL_EXPRESSION_SOURCES := \
 $(eval $(call set_compile_option,cell_value.cc builtin_geo_functions.cc,$(S2_COMPILE_OPTIONS) $(S2_WARNING_OPTIONS)))
 
 # NOTE: the SQL library should NOT depend on MLDB.  See the comment in testing/testing.mk
-$(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),sql_types utils value_description any json_diff highwayhash hash s2 edlib log pffft easyexif progress magic))
+$(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),arch base types value_description vfs sql_types utils value_description any json_diff highwayhash hash s2 edlib log pffft easyexif progress magic))
 
 $(eval $(call include_sub_make,sql_testing,testing,sql_testing.mk))
 

@@ -6,7 +6,7 @@ LIBJML_UTILS_SOURCES := \
 	configuration.cc
 
 LIBJML_UTILS_LINK := \
-	utils arch
+	utils arch base
 
 $(eval $(call library,jml_utils,$(LIBJML_UTILS_SOURCES),$(LIBJML_UTILS_LINK)))
 
@@ -32,7 +32,12 @@ LIBML_LINK := \
 	types \
 	value_description \
 	algebra \
-	boosting
+	boosting \
+	arch \
+	base \
+	utils \
+	db \
+	vfs \
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 
@@ -56,7 +61,34 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 
 
 LIBMLDB_JML_PLUGIN_LINK:= \
-	ml
+	ml \
+	boosting \
+	mldb_core \
+	mldb_engine \
+	arch \
+	types \
+	utils \
+	sql_expression \
+	value_description \
+	base \
+	progress \
+	rest \
+	db \
+	vfs \
+	log \
+	tsne \
+	link \
+	svm \
+	rest \
+	any \
+	watch \
+	rest_entity \
+	jml_utils \
+	mldb_builtin_base \
+	mldb_builtin \
+	sql_types \
+	algebra \
+
 
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))
 
