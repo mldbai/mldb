@@ -22,7 +22,7 @@ $(eval $(call test,print_utils_test,,boost))
 
 
 $(eval $(call program,runner_test_helper,utils))
-$(eval $(call test,runner_test,runner,boost))
+$(eval $(call test,runner_test,runner value_description,boost))
 $(eval $(call test,runner_stress_test,runner,boost manual))
 $(TESTS)/runner_test $(TESTS)/runner_stress_test: $(BIN)/runner_test_helper
 $(eval $(call test,sink_test,runner utils,boost))

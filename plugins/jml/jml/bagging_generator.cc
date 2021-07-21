@@ -14,7 +14,6 @@
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
-#include "mldb/plugins/jml/sgi_numeric.h"
 #include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"

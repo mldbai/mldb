@@ -63,6 +63,8 @@ FsObjectInfoDescription()
              "Does the object exist?");
     addField("lastModified", &FsObjectInfo::lastModified,
              "Date the object was last modified");
+    addAuto ("lastAccessed", &FsObjectInfo::lastAccessed,
+             "Date the object was last modified");
     addField("size", &FsObjectInfo::size,
              "Size in bytes of the object");
     addField("etag", &FsObjectInfo::etag,
@@ -134,6 +136,7 @@ static FsObjectInfo extractInfo(const struct stat & stats)
 
     objectInfo.exists = true;
     objectInfo.lastModified = Date::fromTimespec(stats.st_mtim);
+    objectInfo.lastAccessed = Date::fromTimespec(stats.st_atim);
     objectInfo.size = stats.st_size;
 
     return objectInfo;

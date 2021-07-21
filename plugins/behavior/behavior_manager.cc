@@ -583,7 +583,7 @@ getRemoteCacheEntries()
                             int depth) -> bool
     {
         RemoteCacheEntry newFile{uri,
-                                 info.lastModified,
+                                 info.lastAccessed,
                                  info.size};
                                  
         cacheFiles.emplace_back(move(newFile));
