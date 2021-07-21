@@ -15,6 +15,10 @@
 #include <atomic>
 #include <boost/asio.hpp>
 
+#if defined(__APPLE__)
+#include <netinet/tcp.h>
+#endif
+
 using namespace std;
 
 
@@ -125,6 +129,15 @@ getStatus() const
     }
 
     {
+#if defined(__APPLE__)
+        struct tcp_connection_info tcpinfo;
+        socklen_t len = sizeof(tcpinfo);
+        int res = getsockopt(result.fd, IPPROTO_TCP, TCP_CONNECTION_INFO, &tcpinfo, &len);
+        if (res != -1) {
+            result.rttMs = tcpinfo.tcpi_srtt;
+            result.rttVarianceMs = tcpinfo.tcpi_rttvar;
+        }
+#elif defined(__linux__)
         tcp_info tcpinfo;
         socklen_t len = sizeof(tcpinfo);
         int res = getsockopt(result.fd, IPPROTO_TCP, TCP_INFO, &tcpinfo, &len);
@@ -132,6 +145,9 @@ getStatus() const
             result.rttMs = tcpinfo.tcpi_rtt / 1000.0;
             result.rttVarianceMs = tcpinfo.tcpi_rttvar / 1000.0;
         }
+#else
+#  error "tell us how to get round trip time for your OS"
+#endif
     }
 
     // endpoints

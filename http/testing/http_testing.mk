@@ -1,14 +1,18 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-$(eval $(call test,http_header_test,http,boost manual))
-$(eval $(call test,http_parsers_test,http,boost valgrind))
-$(eval $(call test,tcp_acceptor_test+http,http,boost))
-$(eval $(call test,tcp_acceptor_threaded_test+http,http,boost))
-$(eval $(call program,http_service_bench,boost_program_options http))
-$(eval $(call library,test_services,test_http_services.cc,http io_base))
-$(eval $(call program,http_client_bench,boost_program_options http test_services value_description))
-$(eval $(call test,http_client_test,http test_services,boost))
-$(eval $(call test,http_client_online_test,http io_base,boost manual))
+HTTP_TESTING_EXTRA_LIBS:=arch types value_description io_base
+
+$(eval $(call test,http_header_test,http $(HTTP_TESTING_EXTRA_LIBS),boost manual))
+$(eval $(call test,http_parsers_test,http $(HTTP_TESTING_EXTRA_LIBS),boost valgrind))
+$(eval $(call test,tcp_acceptor_test+http,http $(HTTP_TESTING_EXTRA_LIBS),boost))
+$(eval $(call test,tcp_acceptor_threaded_test+http,http $(HTTP_TESTING_EXTRA_LIBS),boost))
+$(eval $(call program,http_service_bench,boost_program_options http $(HTTP_TESTING_EXTRA_LIBS)))
+$(eval $(call library,test_services,test_http_services.cc,http $(HTTP_TESTING_EXTRA_LIBS)))
+$(eval $(call program,http_client_bench,boost_program_options http test_services $(HTTP_TESTING_EXTRA_LIBS)))
+$(eval $(call test,http_client_test,http test_services $(HTTP_TESTING_EXTRA_LIBS),boost))
+$(eval $(call test,http_client_test2,http test_services $(HTTP_TESTING_EXTRA_LIBS),boost))
+$(eval $(call test,http_client_stress_test,http test_services $(HTTP_TESTING_EXTRA_LIBS),boost manual))  # manual: too long
+$(eval $(call test,http_client_online_test,http $(HTTP_TESTING_EXTRA_LIBS),boost manual))
 
 # The following tests needs to be adapted to the new network code:
 # $(eval $(call test,endpoint_unit_test,http,boost))

@@ -12,14 +12,14 @@ LIBIO_SOURCES := \
 	event_loop_impl.cc \
 	tcp_acceptor_impl.cc \
 	tcp_socket_handler_impl.cc \
+	timerfd.cc \
 	epoller.cc \
 	epoll_loop.cc \
 	message_loop.cc \
 	async_event_source.cc \
 	async_writer_source.cc \
-	timerfd.cc \
 
-LIBIO_LINK := logging watch
+LIBIO_LINK := logging watch types arch value_description base
 
 $(eval $(call library,io_base,$(LIBIO_SOURCES),$(LIBIO_LINK)))
 

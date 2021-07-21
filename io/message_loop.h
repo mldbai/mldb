@@ -40,8 +40,14 @@ struct MessageLoopLogs
 struct MessageLoop : public Epoller {
     typedef std::function<void ()> OnStop;
 
-    MessageLoop(int numThreads = 1, double maxAddedLatency = 0.0005,
+    explicit MessageLoop(int numThreads = 1, double maxAddedLatency = 0.0005,
                 int epollTimeout = 0);
+    
+    MessageLoop(const MessageLoop & other) = delete;
+    MessageLoop(MessageLoop&&other) = delete;
+    void operator = (const MessageLoop & other) = delete;
+    void operator = (MessageLoop && other) = delete;
+    
     ~MessageLoop();
 
     void init(int numThreads = 1, double maxAddedLatency = 0.0005,
@@ -210,7 +216,7 @@ private:
     */
     double maxAddedLatency_;
 
-    Epoller::HandleEventResult handleEpollEvent(epoll_event & event);
+    Epoller::HandleEventResult handleEpollEvent(EpollEvent & event);
     void handleSourceActions();
     void processAddSource(const SourceEntry & entry);
     void processRemoveSource(const SourceEntry & entry);
