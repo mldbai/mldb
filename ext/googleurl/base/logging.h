@@ -5,6 +5,7 @@
 #define BASE_LOGGING_H__
 
 #include <exception>
+#include <stdexcept>
 
 struct EatShifts {
 
