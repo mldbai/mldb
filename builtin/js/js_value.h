@@ -39,6 +39,14 @@ T check(const v8::Maybe<T> & val)
     return val.ToChecked();
 }
 
+// Some API methods change from X to Maybe<X>; this allows us to operate on them
+// over the different versions of the API
+template<typename T>
+T check(const T & val)
+{
+    return val;
+}
+
 
 /*****************************************************************************/
 /* JSVALUE                                                                   */
