@@ -463,7 +463,7 @@ struct V8MldbPlatform: public v8::Platform {
      */
     virtual bool IdleTasksEnabled(Isolate* isolate) override { return false; }
 
-#ifdef V8_PLATFORM_HAS_JOB_INTERFACE
+#if V8_PLATFORM_HAS_JOB_INTERFACE
     /**
      * Posts |job_task| to run in parallel. Returns a JobHandle associated with
      * the Job, which can be joined or canceled.
