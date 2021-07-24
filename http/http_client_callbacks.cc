@@ -3,7 +3,9 @@
     This file is part of MLDB. Copyright 2014 mldb.ai inc. All rights reserved.
 */
 
+#include <string>
 #include <string.h>
+#include <iostream>
 
 #include "mldb/arch/exception.h"
 #include "mldb/http/http_client_callbacks.h"
@@ -20,7 +22,7 @@ std::ostream &
 MLDB::
 operator << (std::ostream & stream, HttpClientError error)
 {
-    return stream << HttpClientCallbacks::errorMessage(error);
+    return stream << HttpClientCallbacks::errorMessage(error).c_str();
 }
 
 
