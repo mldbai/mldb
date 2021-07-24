@@ -529,35 +529,38 @@ PythonInterpreter(InitializationContext context)
         }
     
         auto endSubInterpreter = [] (PyThreadState * interp)
-	{
-	    // Yes, sub interpreters can be ended recursively
-	    // in which case, the GIL is held
-	    static thread_local int recursionCount = 0;
-	    ++recursionCount;
-	    Scope_Exit(--recursionCount);
-	    // This is tricky.  This must be called without the GIL
-	    // held.
+        {
+            // Yes, sub interpreters can be ended recursively
+            // in which case, the GIL is held
+            static thread_local int recursionCount = 0;
+            ++recursionCount;
+            Scope_Exit(--recursionCount);
+            // This is tricky.  This must be called without the GIL
+            // held.
 
 
-	    if (recursionCount > 1) {
-		auto old = PyThreadState_Swap(interp);
-		Py_EndInterpreter(interp);
-		PyThreadState_Swap(old);
-	    }
-	    else {
-		// First, we acquire the GIL and switch to the interpreter's
-		// thread, as it's only from there that it may be destroyed.
-		PyEval_AcquireThread(interp);
+            if (recursionCount > 1) {
+                auto old = PyThreadState_Swap(interp);
+                Py_EndInterpreter(interp);
+                PyThreadState_Swap(old);
+            }
+            else {
+                // First, we acquire the GIL and switch to the interpreter's
+                // thread, as it's only from there that it may be destroyed.
+                PyEval_AcquireThread(interp);
 
-		// Now we destroy it.  It will switch to a null thread, but
-		// not release the GIL.
-		Py_EndInterpreter(interp);
+                // Now we destroy it.  It will switch to a null thread, but
+                // not release the GIL.
+                Py_EndInterpreter(interp);
 
-		// So now we release the GIL.  We can't use PyEval_ReleaseThread
-		// as that checks that we're currently in a thread, which we're
-		// not.
-		PyEval_ReleaseLock();
-	    }
+                // So now we release the GIL.  We can't use PyEval_ReleaseThread
+                // as that checks that we're currently in a thread, which we're
+                // not.
+                PyThreadState_Swap(PythonInterpreter::mainInterpreter().mainThread().st_.get());
+
+                PyEval_ReleaseThread(PythonInterpreter::mainInterpreter().mainThread().st_.get());
+                //PyEval_ReleaseLock();
+            }
         };
     
         this->interpState.reset(st, endSubInterpreter);
