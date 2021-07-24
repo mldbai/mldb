@@ -51,7 +51,14 @@ ZSTD_BINARY_SOURCE:= \
 	programs/benchfn.c \
 	programs/timefn.c \
 
-$(eval $(call set_compile_option,$(ZSTD_SOURCE) $(ZSTD_BINARY_SOURCE),-Imldb/ext/zstd/include -I$(CWD)/lib -I$(CWD)/lib/common -I$(CWD)/lib/dictBuilder -I$(CWD)/lib/legacy -DZSTD_LEGACY_SUPPORT=1 -Wno-deprecated-declarations -Wno-maybe-uninitialized))
+ZSTD_GCC_FLAGS:=-Wno-deprecated-declarations -Wno-maybe-uninitialized
+ZSTD_CLANG_FLAGS:=-Wno-deprecated-declarations -Wno-maybe-uninitialized -Wno-unknown-warning-option
+
+ZSTD_FLAGS:= \
+	$(if $(findstring gcc,$(toolchain)),$(ZSTD_GCC_FLAGS)) \
+	$(if $(findstring clang,$(toolchain)),$(ZSTD_CLANG_FLAGS))
+
+$(eval $(call set_compile_option,$(ZSTD_SOURCE) $(ZSTD_BINARY_SOURCE),-Imldb/ext/zstd/include -I$(CWD)/lib -I$(CWD)/lib/common -I$(CWD)/lib/dictBuilder -I$(CWD)/lib/legacy -DZSTD_LEGACY_SUPPORT=1 $(ZSTD_FLAGS)))
 
 $(eval $(call library,zstd,$(ZSTD_SOURCE)))
 $(eval $(call program,zstd,zstd,$(ZSTD_BINARY_SOURCE)))
