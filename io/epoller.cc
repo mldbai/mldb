@@ -565,9 +565,6 @@ void
 Epoller::
 performAddFd(int fd, void * data, int flags, bool restart)
 {
-    bool input = flags & EPOLL_INPUT;  flags &= ~EPOLL_INPUT;
-    bool output = flags & EPOLL_OUTPUT;  flags &= ~EPOLL_OUTPUT;
-
     // cerr << (Date::now().print(4)
     //          + " performAddFd: epoll_fd=" + to_string(epoll_fd)
     //          + " fd=" + to_string(fd)
