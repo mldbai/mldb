@@ -121,7 +121,9 @@ struct InternedString {
     }
 
 #pragma GCC diagnostic push
+#ifndef __clang__
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #pragma GCC diagnostic ignored "-Wuninitialized"
     void swap(InternedString & other) noexcept
     {

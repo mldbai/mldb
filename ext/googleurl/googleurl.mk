@@ -19,7 +19,8 @@ LIBGOOGLE_URL_SOURCES := \
 	src/url_canon_internal.cc \
 	src/url_canon_stdurl.cc \
 	src/url_canon_path.cc \
-	src/url_canon_query.cc
+	src/url_canon_query.cc \
+	base/string16.cc
 
 
 #	src/gurl_test_main.cc \
@@ -30,7 +31,7 @@ LIBGOOGLE_URL_SOURCES := \
 
 ICU_INCLUDE_PATH?=/usr/include
 
-$(eval $(call set_compile_option,$(LIBGOOGLE_URL_SOURCES),-Duint64=uint64_t -Wno-array-bounds -Imldb/ext -I$(ICU_INCLUDE_PATH)))
+$(eval $(call set_compile_option,$(LIBGOOGLE_URL_SOURCES),-Duint64=uint64_t -Wno-array-bounds -Imldb/ext -Imldb/ext/googleurl -I$(ICU_INCLUDE_PATH)))
 
 LIBGOOGLE_URL_LINK := icui18n icuuc icudata m
 
