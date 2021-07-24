@@ -1099,3 +1099,12 @@
    ...
    fun:_GLOBAL__sub_I_json_diff.cc
 }
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:_ZN4MLDB34getDefaultDescriptionUninitializedEPNS_8JsonDiffE
+   ...
+}
