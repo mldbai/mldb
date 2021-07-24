@@ -78,7 +78,7 @@ struct TimerFD::Itl {
     Itl(TimerTypes type, int options)
     {
         fd_ = kqueue();
-        cerr << "timerfd init: fd = " << fd_ << endl;
+        //cerr << "timerfd init: fd = " << fd_ << endl;
 
         if (fd_ == -1) {
             throw MLDB::Exception(errno, "kqueue for timerfd");
