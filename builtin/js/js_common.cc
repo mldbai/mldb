@@ -29,13 +29,14 @@
 #include <queue>
 #include <condition_variable>
 #include <shared_mutex>
+#include "v8-version.h"
 
 
 using namespace std;
 using namespace v8;
 
-#define V8_PLATFORM_HAS_NON_NESTABLE_TASK_INTERFACE 0
-#define V8_PLATFORM_HAS_JOB_INTERFACE 0
+#define V8_PLATFORM_HAS_NON_NESTABLE_TASK_INTERFACE (V8_MAJOR_VERSION < 6)
+#define V8_PLATFORM_HAS_JOB_INTERFACE (V8_MAJOR_VERSION < 6)
 
 #if V8_PLATFORM_HAS_NON_NESTABLE_TASK_INTERFACE
 #  define NON_NESTABLE_OVERRIDE override
@@ -462,7 +463,7 @@ struct V8MldbPlatform: public v8::Platform {
      */
     virtual bool IdleTasksEnabled(Isolate* isolate) override { return false; }
 
-#ifdef V8_PLATFORM_HAS_TASK_INTERFACE
+#ifdef V8_PLATFORM_HAS_JOB_INTERFACE
     /**
      * Posts |job_task| to run in parallel. Returns a JobHandle associated with
      * the Job, which can be joined or canceled.
