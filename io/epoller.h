@@ -30,8 +30,7 @@ void * getPtr(const EpollEvent & event);
 enum {
     EPOLL_INPUT = 1,
     EPOLL_OUTPUT = 2,
-    EPOLL_HUP = 4,
-    EPOLL_ONESHOT = 8
+    EPOLL_ONESHOT = 4
 };
 
 /*****************************************************************************/
