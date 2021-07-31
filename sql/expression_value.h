@@ -1453,7 +1453,7 @@ struct ScalarExpressionValueInfoT: public ExpressionValueInfoT<Storage> {
 
     virtual std::string getScalarDescription() const
     {
-        return MLDB::type_name<Storage>();
+        return (std::is_signed_v<Storage> ? "i" : "u") + std::to_string(sizeof(Storage) * 8);
     }
 
     virtual std::vector<ssize_t> getEmbeddingShape() const
