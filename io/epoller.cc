@@ -388,7 +388,7 @@ init(int maxFds, int timeout, bool closeOnExec)
 
     timeout_ = timeout;
 
-    cerr << "epoller " << this << " init: kqueue fd = " << epoll_fd << endl;
+    //cerr << "epoller " << this << " init: kqueue fd = " << epoll_fd << endl;
 }
 
 void
