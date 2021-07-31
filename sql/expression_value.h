@@ -1451,9 +1451,19 @@ struct ScalarExpressionValueInfoT: public ExpressionValueInfoT<Storage> {
         return value.isAtom() || value.empty();
     }
 
-    virtual std::string getScalarDescription() const
+    static std::string getScalarDescription_switch(std::true_type)
+    {
+        return (std::is_signed_v<Storage> ? "i" : "u") + std::to_string(sizeof(Storage) * 8);
+    }
+
+    static std::string getScalarDescription_switch(std::false_type)
     {
         return MLDB::type_name<Storage>();
+    }
+
+    virtual std::string getScalarDescription() const
+    {
+        return getScalarDescription_switch(std::is_integral<Storage>());
     }
 
     virtual std::vector<ssize_t> getEmbeddingShape() const
