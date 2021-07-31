@@ -88,7 +88,7 @@ int main(int argc, char ** argv)
     int numThreads(16);
     // Defaults for operational characteristics
     string httpListenPort = "11700-18000";
-    string httpListenHost = "0.0.0.0";
+    string httpListenHost = "127.0.0.1";
     string runScript;
     int watchdogTimeout = -1;
     bool dontExitAfterScript = false;
