@@ -34,69 +34,7 @@
 using namespace std;
 using namespace MLDB;
 
-
-/* helpers functions used in tests */
-namespace {
-
-typedef tuple<HttpClientError, int, string> ClientResponse;
-
-#define CALL_MEMBER_FN(object, pointer)  (object.*(pointer))
-
-/* sync request helpers */
-template<typename Func>
-ClientResponse
-doRequest(LegacyEventLoop & legacyLoop,
-          const string & baseUrl, const string & resource,
-          Func func,
-          const RestParams & queryParams, const RestParams & headers,
-          int timeout = -1)
-{
-    ClientResponse response;
-
-    HttpClient client(legacyLoop, baseUrl, 4);
-
-    std::atomic<int> done(false);
-    auto onResponse = [&] (const HttpRequest & rq,
-                           HttpClientError error,
-                           int status,
-                           string && headers,
-                           string && body) {
-        int & code = get<1>(response);
-        code = status;
-        string & body_ = get<2>(response);
-        body_ = move(body);
-        HttpClientError & errorCode = get<0>(response);
-        errorCode = error;
-        done = true;
-        MLDB::wake_by_address(done);
-    };
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-
-    CALL_MEMBER_FN(client, func)(resource, cbs, queryParams, headers,
-                                 timeout);
-
-    while (!done) {
-        int oldDone = false;
-        MLDB::wait_on_address(done, oldDone);
-    }
-
-    return response;
-}
-
-ClientResponse
-doGetRequest(LegacyEventLoop & loop,
-             const string & baseUrl, const string & resource,
-             const RestParams & queryParams = RestParams(),
-             const RestParams & headers = RestParams(),
-             int timeout = -1)
-{
-    return doRequest(loop, baseUrl, resource, &HttpClient::get,
-                     queryParams, headers, timeout);
-}
-
-}
-
-#if 0
+#if 1
 BOOST_AUTO_TEST_CASE( test_http_client_get_minimal )
 {
     string baseUrl = "http://127.0.0.1/";
