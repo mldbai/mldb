@@ -100,44 +100,6 @@ performAddFd(int fd, bool readerFd, bool writerFd, bool modify, bool oneshot)
     else {
         epoller.addFd(fd, flags, &cb);
     }
-#if 0
-    if (epollFd_ == -1)
-        return;
-    ExcAssert(fd > -1);
-
-    struct epoll_event event;
-    if (oneshot) {
-        event.events = EPOLLONESHOT;
-    }
-    else {
-        event.events = 0;
-    }
-    if (readerFd) {
-        event.events |= EPOLLIN;
-    }
-    if (writerFd) {
-        event.events |= EPOLLOUT;
-    }
-
-    EpollCallback & cb = fdCallbacks_.at(fd);
-    event.data.ptr = &cb;
-
-    int operation = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
-
-    int res = epoll_ctl(epollFd_, operation, fd, &event);
-    if (res == -1) {
-        string message = (string("epoll_ctl:")
-                          + " modify=" + to_string(modify)
-                          + " fd=" + to_string(fd)
-                          + " readerFd=" + to_string(readerFd)
-                          + " writerFd=" + to_string(writerFd));
-        throw MLDB::Exception(errno, message);
-    }
-
-    if (!modify) {
-        numFds_++;
-    }
-#endif
 }
 
 void
@@ -151,19 +113,6 @@ removeFd(int fd, bool unregisterCallback)
     if (unregisterCallback) {
         unregisterFdCallback(fd, true);
     }
-
-#if 0
-
-    int res = epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, 0);
-    if (res == -1) {
-        throw MLDB::Exception(errno, "epoll_ctl DEL " + to_string(fd));
-    }
-    if (numFds_ == 0) {
-        throw MLDB::Exception("inconsistent number of fds registered");
-    }
-    numFds_--;
-
-#endif
 }
 
 void

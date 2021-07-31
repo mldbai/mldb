@@ -301,6 +301,8 @@ processOne()
 #include "mldb/arch/exception.h"
 #include "mldb/arch/backtrace.h"
 #include "mldb/arch/wakeup_fd.h"
+#include "mldb/base/scope.h"
+#include "mldb/base/exc_assert.h"
 #include <string.h>
 #include <iostream>
 #include <unistd.h>
@@ -484,14 +486,13 @@ handleEvents(int usToWait, int nEvents,
 
         // Do the sleep with nanosecond resolution
         // Let's hope it doesn't busy-wait
+#if 0
+        // If we're polling on a kqueue fd, trying to add to it with kqueue returns
+        // EINVAL.  Instead, we need to use kevent for the polling.  So this block
+        // is not active.
         if (usToWait != 0) {
             pollfd fd[1] = { { epoll_fd, POLLIN, 0 } };
-#if defined(__linux__)
-            timespec timeout = { 0, usToWait * 1000 };
-            int res = ppoll(fd, 1, &timeout, 0);
-#else
-            int res = ::poll(fd, 1, usToWait * 1000);
-#endif
+            int res = ::poll(fd, 1, usToWait / 1000);
             if (res == -1 && errno == EBADF) {
                 cerr << "got bad FD on sleep" << endl;
                 return -1;
@@ -501,9 +502,14 @@ handleEvents(int usToWait, int nEvents,
             //if (debug) cerr << "handleEvents: res = " << res << endl;
             if (res == 0) return 0;
         }
+#endif
 
         struct timespec ts = {0, 0};
-        int res = kevent64(epoll_fd, nullptr, 0, events, nEvents, 0, &ts);
+        if (usToWait != 0) {
+            ts.tv_sec = usToWait / 1000000;
+            ts.tv_nsec = (usToWait % 1000000) * 1000;
+        }
+        int res = kevent64(epoll_fd, nullptr, 0, events, nEvents, 0 /* flags */, &ts);
 
         if (afterSleep)
             afterSleep();
@@ -520,7 +526,7 @@ handleEvents(int usToWait, int nEvents,
             //cerr << "epoll_fd = " << epoll_fd << endl;
             //cerr << "timeout_ = " << timeout_ << endl;
             //cerr << "nEvents = " << nEvents << endl;
-            throw Exception(errno, "epoll_wait");
+            throw Exception(errno, "kevent64 in Epoller handle events");
         }
         nEvents = res;
 
@@ -544,11 +550,18 @@ bool
 Epoller::
 poll() const
 {
+#if 0   
     for (;;) {
+        // At least on OSX 11.4, when you call poll() on a kqueue fd it
+        // (possibly depending upon which threads are doing what) can cause
+        // kqueue64 to fail to add the file descriptor.  We use select instead.
+        // This is however problematic for when we have too many FDs open; in
+        // that case we may need to create a new kqueue FD just for the poll
+        // operation.
         pollfd fds[1] = { { epoll_fd, POLLIN, 0 } };
         int res = ::poll(fds, 1, 0);
 
-        //cerr << "poll res = " << res << endl;
+        //cerr << "epoller poll res on " << epoll_fd << " = " << res << endl;
 
         if (res == -1 && errno == EBADF)
             return false;
@@ -559,7 +572,117 @@ poll() const
 
         return res > 0;
     }
+#else
+    if (epoll_fd < FD_SETSIZE) {
+        for (;;) {
+            ExcAssertLess(epoll_fd, FD_SETSIZE);
+            struct fd_set toRead;
+            FD_ZERO(&toRead);
+            FD_SET(epoll_fd, &toRead);
+            struct timeval timeout = { 0, 0 };
+            int res = ::select(epoll_fd + 1, &toRead, nullptr, nullptr, &timeout);
+
+            if (res == -1 && errno == EBADF)
+                return false;
+            if (res == -1 && errno == EINTR)
+                continue;
+            if (res == -1)
+                throw MLDB::Exception("ppoll in Epoller::poll");
+
+            return res > 0;
+        }
+    }
+    else {
+        // is there a better way?  This is pretty heavy
+        int tmpfd;
+        for (;;) {
+            tmpfd = kqueue();
+            if (tmpfd == -1) {
+                if (errno == EAGAIN || errno == EINTR)
+                    continue;
+                throw MLDB::Exception(errno, "kqueue() for Epoller::poll()");
+            }
+            break;
+        }
+        Scope_Exit(::close(tmpfd));
+
+        //cerr << "polling on " << tmpfd << endl;
+
+        kevent64_s event;
+        EV_SET64(&event, epoll_fd, EVFILT_READ, EV_ADD, 0 /* fflags */, 0 /* fdata */, 0 /* udata */, 0 /* ext1 */, 0 /* ext2 */);
+
+        int res;
+        for (;;) {
+
+            res = kevent64(tmpfd, &event, 1, &event, 1, KEVENT_FLAG_IMMEDIATE, nullptr /* timeout */);
+            //struct timespec timeout = { 0, 0 };
+            //res = kevent64(epoll_fd, nullptr, 0, &event, 1, 0 /* flags */, &timeout);
+
+            cerr << "done polling on " << epoll_fd << ": res = " << res << endl;
+
+            if (res == -1) {
+                if (errno == EINTR || errno == EAGAIN)
+                    continue;
+                throw MLDB::Exception(errno, "kevent64 for Epoller::poll()");
+            }
+
+            return res > 0;
+        }
+    }
+#endif
 }
+
+std::string getFdType(int fd)
+{
+    std::vector<proc_fdinfo> infos;
+    int bufferSize = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, 0, 0);
+
+    if (bufferSize == -1) {
+        throw MLDB::Exception(errno, "proc_pidinfo");
+    }
+    infos.resize(bufferSize / sizeof(proc_fdinfo));
+    int res = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, infos.data(), bufferSize);
+    if (res == -1) {
+        throw MLDB::Exception(errno, "proc_pidinfo 2");
+    }
+
+    for (auto & fdinfo: infos) {
+        //cerr << "fd " << fdinfo.proc_fd << " is of type " << fdinfo.proc_fdtype << endl;
+        if (fdinfo.proc_fd == fd) {
+            switch (fdinfo.proc_fdtype) {
+                case PROX_FDTYPE_ATALK: return "atalk";
+                case PROX_FDTYPE_VNODE: return "vnode";
+                case PROX_FDTYPE_SOCKET: return "socket";
+                case PROX_FDTYPE_PSHM: return "shm";
+                case PROX_FDTYPE_PSEM: return "sem";
+                case PROX_FDTYPE_KQUEUE: return "kqueue";
+                case PROX_FDTYPE_PIPE: return "pipe";
+                case PROX_FDTYPE_FSEVENTS: return "fsevents";
+                case PROX_FDTYPE_NETPOLICY: return "netpolicy";
+                default: return "ftype(" + to_string(fdinfo.proc_fdtype) + ")";
+            }
+        }
+    }
+
+    throw MLDB::Exception("couldn't determine if fd type was kqueue");
+};
+
+void dumpKqueueState(int fd)
+{
+    struct kqueue_fdinfo info;
+    memset(&info, 0, sizeof(info));
+    errno = 0;
+    int res = proc_pidfdinfo(getpid(), fd, PROC_PIDFDKQUEUEINFO, &info, sizeof(info));
+    if (res == 0)
+        throw MLDB::Exception("proc_pidfdinfo() error: " + string(strerror(errno)));
+    cerr << "  *** kqueue info for fd " << fd << ":" << endl;
+    cerr << "      - pfi.openFlags: " << info.pfi.fi_openflags << endl;
+    cerr << "      - pfi.status:    " << info.pfi.fi_status << endl;
+    cerr << "      - pfi.type:      " << info.pfi.fi_type << endl;
+    cerr << "      - state:         " << info.kqueueinfo.kq_state << endl;
+    cerr << "      - rfu_1:         " << info.kqueueinfo.rfu_1 << endl;
+};
+
 
 void
 Epoller::
@@ -575,7 +698,7 @@ performAddFd(int fd, void * data, int flags, bool restart)
     bool input = flags & EPOLL_INPUT;  flags &= ~EPOLL_INPUT;
     bool output = flags & EPOLL_OUTPUT;  flags &= ~EPOLL_OUTPUT;
 
-    int kevent_flags = (restart ? EV_ENABLE : EV_ADD);
+    int kevent_flags = EV_ADD;  //(restart ? EV_ENABLE : EV_ADD); // restart applies to both read and write, which are separate.  EV_ADD has the right semantics
     auto doFlag = [&] (int inFlag, int outFlag) { if (flags & inFlag) kevent_flags |= outFlag; flags &= ~inFlag; };
     doFlag(EPOLL_ONESHOT, EV_ONESHOT);
 
@@ -583,92 +706,50 @@ performAddFd(int fd, void * data, int flags, bool restart)
         throw MLDB::Exception("Unknown flags in Epoller add");
     }
 
-    auto isKqueueFd = [&] ()
-    {
-        std::vector<proc_fdinfo> infos;
-        int bufferSize = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, 0, 0);
-
-        if (bufferSize == -1) {
-            throw MLDB::Exception(errno, "proc_pidinfo");
-        }
-        infos.resize(bufferSize / sizeof(proc_fdinfo));
-        int res = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, infos.data(), bufferSize);
-        if (res == -1) {
-            throw MLDB::Exception(errno, "proc_pidinfo 2");
-        }
-
-        for (auto & fdinfo: infos) {
-            //cerr << "fd " << fdinfo.proc_fd << " is of type " << fdinfo.proc_fdtype << endl;
-            if (fdinfo.proc_fd == fd) {
-                return fdinfo.proc_fdtype == PROX_FDTYPE_KQUEUE;
-            }
-        }
-
-        throw MLDB::Exception("couldn't determine if fd type was kqueue");
-    };
-
-    int toAddFd = fd;
-
-    if (isKqueueFd()) {
-        // We need to wrap it in a wakeupfd as we can't add a kqueue to a kqueue
-        auto wu = std::make_shared<WakeupFD>();
-
-        auto pollWakeup = [this, wu, fd] ()
-        {
-            for (;;) {
-                struct pollfd pollers[2];
-                pollers[0].fd = fd;
-                pollers[1].fd = shutdown_.fd();
-                pollers[0].events = pollers[1].events = POLLIN | POLLHUP;
-
-                int res = ::poll(pollers, 2, 100 /* ms */);
-
-                if (res == 0 || (res == -1 && (errno == EINTR || errno == EAGAIN))) {
-                    continue;
-                }
-                
-                if (pollers[0].revents != 0)
-                    wu->trySignal();
-
-                if (pollers[1].revents)
-                    break;
-            }
-        };
-
-        toAddFd = wu->fd();
-
-        std::unique_lock<std::mutex> guard(pollThreadsMutex);
-        pollThreads.emplace_back(std::move(pollWakeup));
-    }
+    struct kevent64_s events[2];
+    int nevents = 0;
 
     auto doAdd = [&] (auto kevent_filter)
     {
-        struct kevent64_s event;
-        EV_SET64(&event, toAddFd, kevent_filter, kevent_flags,
-                0 /* fflags */, 0 /* fdata */, reinterpret_cast<uint64_t>(data), 0, 0);
+        //cerr << "kevent64 adding fd " << fd << " of type " << getFdType(fd)
+        //        << " to kqueue fd " << epoll_fd << " filter "
+        //        << (kevent_filter == EVFILT_READ ? "EVFILT_READ": "EVFILT_WRITE")
+        //        << " flags " << flags << " kevent_flags: "
+        //        << ((kevent_flags & EV_ENABLE) ? "EV_ENABLE " : "")
+        //        << ((kevent_flags & EV_ADD) ? "EV_ADD " : "")
+        //        << ((kevent_flags & EV_ONESHOT) ? "EV_ONESHOT ": "")
+        //        << endl;
 
-        if (!restart) {
-            ++numFds_;
-        }
-
-        int res;
-        do {
-            //cerr << "kevent64 adding fd " << fd << " to kqueue fd " << epoll_fd << " filter " << kevent_filter << " flags " << kevent_flags << endl;
-            res = kevent64(epoll_fd, &event, 1, nullptr, 0, 0 /* flags */, nullptr);
-            //cerr << "kevent64 adding fd " << fd << " to kqueue fd " << epoll_fd << ": res = " << res << endl;
-
-            if (res == -1 && errno != EINTR && errno != EAGAIN) {
-                --numFds_;
-
-                throw MLDB::Exception("kevent64 add: %s (fd=%d, epollfd=%d, i=%d, o=%d, oneshot=%d, restart=%d)",
-                                    strerror(errno), fd, epoll_fd, input, output, ((kevent_flags & EV_ONESHOT) != 0), restart);
-            }
-        }
-        while (res == -1);
+        struct kevent64_s * event = &events[nevents++];
+        EV_SET64(event, fd, kevent_filter, kevent_flags,
+                0 /* fflags */, 0 /* fdata */, reinterpret_cast<uint64_t>(data), 0 /* ext1 */, 0 /* ext2 */);
     };
 
     if (input) doAdd(EVFILT_READ);
     if (output) doAdd(EVFILT_WRITE);
+
+    if (!restart) {
+        ++numFds_;
+    }
+
+    int res;
+    do {
+        //dumpKqueueState(epoll_fd);
+        //if (getFdType(fd) == "kqueue") {
+        //    cerr << "  CHILD KQUEUE" << endl;
+        //    dumpKqueueState(fd);
+        //}
+        res = kevent64(epoll_fd, events, nevents, nullptr, 0, 0 /* flags */, nullptr /* timeout */);
+
+        if (res == -1 && errno != EINTR && errno != EAGAIN) {
+            --numFds_;
+
+            throw MLDB::Exception("kevent64 add: %s (fd=%d, epollfd=%d, i=%d, o=%d, oneshot=%d, restart=%d)",
+                                strerror(errno), fd, epoll_fd, input, output, ((kevent_flags & EV_ONESHOT) != 0), restart);
+        }
+    }
+    while (res == -1);
+
 }
 
 bool

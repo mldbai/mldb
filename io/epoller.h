@@ -125,6 +125,11 @@ struct Epoller: public AsyncEventSource {
         return epoll_fd;
     }
 
+    /** Poll for events.
+     * Note that:
+     * 1.  This function may return false positives, but will never return false negatives.
+     * 2.  This function cannot be called from within an event handler.
+     */
     virtual bool poll() const;
 
     virtual bool processOne();

@@ -348,8 +348,7 @@ handleEpollEvent(EpollEvent & event)
     bool debug = false;
 
     if (debug) {
-        cerr << "handleEvent" << endl;
-        cerr << "events " << getMaskStr(event) << " on fd " << getFd(event) << endl;
+        cerr << "handleEvent: events " << getMaskStr(event) << " on fd " << getFd(event) << endl;
     }
     
     AsyncEventSource * source
@@ -357,16 +356,16 @@ handleEpollEvent(EpollEvent & event)
     
     if (debug) {
         cerr << "message loop " << this << " with parent " << parent_
-             << " handling source " << MLDB::type_name(*source) << " poll result "
-             << Epoller::poll() << " our poll " << source->poll() << endl;
-        ExcAssert(source->poll());
+             << " handling events " << getMaskStr(event) << " on source " << MLDB::type_name(*source)
+             << " fds: (event " << getFd(event) << ", src " << getFd(event)
+             << endl;
+        //ExcAssert(source->poll());
     }
 
     int res = source->processOne();
 
     if (debug) {
         cerr << "source " << MLDB::type_name(*source) << " had processOne() result " << res << endl;
-        cerr << "poll() is now " << Epoller::poll() << endl;
     }
 
     return Epoller::DONE;

@@ -76,6 +76,10 @@ struct AsyncEventSource {
 
     /** Returns true if there is work to be done.  May be called from more
         than one thread.  Should never block.
+
+        It's a best-effort function.  This means that
+        1.  It is allowed to return false positives.
+        2.  It may not be called from an event handler.
     */
     virtual bool poll() const
     {

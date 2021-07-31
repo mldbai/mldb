@@ -17,6 +17,7 @@
 #include <tuple>
 #include <thread>
 #include <boost/test/unit_test.hpp>
+#include "http_client_test_common.h"
 
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/ext/jsoncpp/reader.h"
@@ -33,120 +34,6 @@ using namespace std;
 using namespace MLDB;
 
 
-/* helpers functions used in tests */
-namespace {
-
-typedef tuple<HttpClientError, int, string> ClientResponse;
-
-#define CALL_MEMBER_FN(object, pointer)  (object.*(pointer))
-
-/* sync request helpers */
-template<typename Func>
-ClientResponse
-doRequest(LegacyEventLoop & legacyLoop,
-          const string & baseUrl, const string & resource,
-          Func func,
-          const RestParams & queryParams, const RestParams & headers,
-          int timeout = -1)
-{
-    ClientResponse response;
-
-    HttpClient client(legacyLoop, baseUrl, 4);
-
-    std::atomic<int> done(false);
-    auto onResponse = [&] (const HttpRequest & rq,
-                           HttpClientError error,
-                           int status,
-                           string && headers,
-                           string && body) {
-        int & code = get<1>(response);
-        code = status;
-        string & body_ = get<2>(response);
-        body_ = move(body);
-        HttpClientError & errorCode = get<0>(response);
-        errorCode = error;
-        done = true;
-        MLDB::wake_by_address(done);
-    };
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-
-    CALL_MEMBER_FN(client, func)(resource, cbs, queryParams, headers,
-                                 timeout);
-
-    while (!done) {
-        int oldDone = false;
-        MLDB::wait_on_address(done, oldDone);
-    }
-
-    return response;
-}
-
-ClientResponse
-doGetRequest(LegacyEventLoop & loop,
-             const string & baseUrl, const string & resource,
-             const RestParams & queryParams = RestParams(),
-             const RestParams & headers = RestParams(),
-             int timeout = -1)
-{
-    return doRequest(loop, baseUrl, resource, &HttpClient::get,
-                     queryParams, headers, timeout);
-}
-
-ClientResponse
-doDeleteRequest(LegacyEventLoop & loop,
-                const string & baseUrl, const string & resource,
-                const RestParams & queryParams = RestParams(),
-                const RestParams & headers = RestParams(),
-                int timeout = -1)
-{
-    return doRequest(loop, baseUrl, resource, &HttpClient::del,
-                     queryParams, headers, timeout);
-}
-
-ClientResponse
-doUploadRequest(LegacyEventLoop & loop,
-                bool isPut,
-                const string & baseUrl, const string & resource,
-                const string & body, const string & type)
-{
-    ClientResponse response;
-
-    HttpClient client(loop, baseUrl, 4);
-
-    std::atomic<int> done(false);
-    auto onResponse = [&] (const HttpRequest & rq,
-                           HttpClientError error,
-                           int status,
-                           string && headers,
-                           string && body) {
-        int & code = get<1>(response);
-        code = status;
-        string & body_ = get<2>(response);
-        body_ = move(body);
-        HttpClientError & errorCode = get<0>(response);
-        errorCode = error;
-        done = true;
-        MLDB::wake_by_address(done);
-    };
-
-    auto cbs = make_shared<HttpClientSimpleCallbacks>(onResponse);
-    HttpRequestContent content(body, type);
-    if (isPut) {
-        client.put(resource, cbs, content);
-    }
-    else {
-        client.post(resource, cbs, content);
-    }
-
-    while (!done) {
-        int oldDone = done;
-        MLDB::wait_on_address(done, oldDone);
-    }
-
-    return response;
-}
-
-}
 
 #if 1
 BOOST_AUTO_TEST_CASE( test_http_client_get )
@@ -343,7 +230,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
     legacyLoop.start();
 
     HttpClient client(legacyLoop, baseUrl);
-    size_t maxRequests(500);
+    size_t maxRequests(50);  // can't be too high as on OSX we only have 256 fds
     std::atomic<int> done(0);
 
     auto makeBody = [&] (size_t i) {
@@ -388,76 +275,6 @@ BOOST_AUTO_TEST_CASE( test_http_client_put_multi )
     }
 
     threadPool.shutdown();
-}
-#endif
-
-#if 1
-/* Ensures that all requests are correctly performed under load, including
-   when "Connection: close" is encountered once in a while.
-   Not a performance test. */
-BOOST_AUTO_TEST_CASE( test_http_client_stress_test )
-{
-    cerr << "stress_test\n";
-    // const int mask = 0x3ff; /* mask to use for displaying counts */
-    MLDB::Watchdog watchdog(300);
-    auto doStressTest = [&] (int numParallel) {
-        cerr << ("stress test with "
-                 + to_string(numParallel) + " parallel connections\n");
-
-        EventLoop eventLoop;
-        AsioThreadPool threadPool(eventLoop);
-
-        TestHttpGetService service(eventLoop);
-        string baseUrl = service.start();
-        LegacyEventLoop legacyLoop;
-        legacyLoop.start();
-
-        HttpClient client(legacyLoop, baseUrl, numParallel);
-        int maxReqs(30000), numReqs(0), missedReqs(0);
-        std::atomic<int> numResponses(0);
-
-        auto onDone = [&] (const HttpRequest & rq,
-                           HttpClientError errorCode, int status,
-                           string && headers, string && body) {
-            numResponses++;
-
-            BOOST_CHECK_EQUAL(errorCode, HttpClientError::None);
-            BOOST_CHECK_EQUAL(status, 200);
-
-            if (numResponses == numReqs) {
-                MLDB::wake_by_address(numResponses);
-            }
-        };
-
-        while (numReqs < maxReqs) {
-            const char * url = "/counter";
-            auto cbs = make_shared<HttpClientSimpleCallbacks>(onDone);
-            if (client.get(url, cbs)) {
-                numReqs++;
-                // if ((numReqs & mask) == 0 || numReqs == maxReqs) {
-                //     cerr << "performed " + to_string(numReqs) + " requests\n";
-                // }
-            }
-            else {
-                missedReqs++;
-            }
-        }
-
-        cerr << "all requests performed, awaiting responses...\n";
-        while (numResponses < maxReqs) {
-            int old(numResponses);
-            MLDB::wait_on_address(numResponses, old);
-        }
-        cerr << ("performed " + to_string(maxReqs)
-                 + " requests; missed: " + to_string(missedReqs)
-                 + "\n");
-
-        threadPool.shutdown();
-    };
-
-    doStressTest(1);
-    doStressTest(8);
-    doStressTest(128);
 }
 #endif
 
