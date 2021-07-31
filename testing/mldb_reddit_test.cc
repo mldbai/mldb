@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     
     server.init();
 
-    string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "0.0.0.0");
+    string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
     
     cerr << "http listening on " << httpBoundAddress << endl;
 
