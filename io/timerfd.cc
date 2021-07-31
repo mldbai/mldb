@@ -7,6 +7,7 @@ using namespace std;
 
 #if defined(__linux__)
 #include <sys/timerfd.h>
+#include <sys/poll.h>
 
 namespace MLDB {
 
@@ -32,14 +33,32 @@ struct TimerFD::Itl {
 
     uint64_t read() const
     {
-	uint64_t misses;
+	uint64_t misses = 0;
 	ssize_t len = ::read(fd_, &misses, sizeof(misses));
 	if (len == -1) {
 	    if (errno != EAGAIN) {
 		throw MLDB::Exception(errno, "read timerd");
 	    }
 	}
+
 	return misses;
+    }
+
+    uint64_t read(std::chrono::nanoseconds timeout) const
+    {
+	for (;;) {
+	    struct pollfd pfd = { fd_, POLLIN, 0 };
+	    int res = ::poll(&pfd, 1, timeout.count() / 1000000);
+	    // todo: race with multiple readers for nonblock
+	    if (res == -1) {
+		if (errno == EINTR || errno == EAGAIN)
+		    continue;
+		throw MLDB::Exception(errno, "TimerFD read poll()");
+	    }
+	    if (res == 0)
+		return 0;
+	    return read();
+	}
     }
 
     void setTimeout(std::chrono::nanoseconds durationFromNow)
