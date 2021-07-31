@@ -150,7 +150,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
         res = mldb.query("select static_type(CASE x WHEN 'patate' THEN 0 WHEN 'banane' THEN 1 END) as * FROM test");
         
         expected = [["_rowName", "isConstant", "kind", "scalar", "type"],
-                    ["row", 0, "scalar", "long", "MLDB::IntegerValueInfo"]]
+                    ["row", 0, "scalar", "i64", "MLDB::IntegerValueInfo"]]
 
         self.assertTableResultEquals(res, expected)
 
@@ -173,7 +173,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "dense",
                 0,
                 "scalar",
-                "long",
+                "i64",
                 "MLDB::VariantExpressionValueInfo"
             ]
         ]
@@ -199,7 +199,7 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "sparse",
                 1,
                 "scalar",
-                "long",
+                "i64",
                 "MLDB::IntegerValueInfo"
             ]
         ]
@@ -230,12 +230,12 @@ class MLDB1891CaseInImport(MldbUnitTest):  # noqa
                 "dense",
                 0,
                 "scalar",
-                "long",
+                "i64",
                 "MLDB::VariantExpressionValueInfo",
                 "b",
                 "sparse",
                 "scalar",
-                "long",
+                "i64",
                 "MLDB::IntegerValueInfo"
             ]
         ]

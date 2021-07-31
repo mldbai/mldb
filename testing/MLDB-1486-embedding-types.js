@@ -21,7 +21,7 @@ var expected = [
       "result",
       1,
       "scalar",
-      "long",
+      "i64",
       "MLDB::IntegerValueInfo"
    ]
 ];
