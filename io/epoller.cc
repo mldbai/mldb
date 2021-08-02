@@ -738,6 +738,8 @@ performAddFd(int fd, void * data, int flags, bool restart)
         //    dumpKqueueState(fd);
         //}
         res = kevent64(epoll_fd, events, nevents, nullptr, 0, 0 /* flags */, nullptr /* timeout */);
+        //res = kevent(epoll_fd, &event, 1, nullptr, 0, nullptr /* timeout */);
+        //cerr << format("kevent64 adding fd %d to kqueue fd %d: res = %d\n", fd, epoll_fd, res);
 
         if (res == -1 && errno != EINTR && errno != EAGAIN) {
             --numFds_;
