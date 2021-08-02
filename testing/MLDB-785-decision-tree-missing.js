@@ -131,6 +131,7 @@ function trainClassifier(algorithm)
                     type: "boosting",
                     min_iter: 1,
                     max_iter: 1,
+                    validate_split: 0,
                     weak_learner: {
                         type: "decision_tree",
                         verbosity: 3,
@@ -142,6 +143,7 @@ function trainClassifier(algorithm)
                     type: "boosting",
                     min_iter: 1,
                     max_iter: 1,
+                    validate_split: 0,
                     weak_learner: {
                         type: "stump",
                         verbosity: 3,
@@ -153,6 +155,7 @@ function trainClassifier(algorithm)
                     type: "boosted_stumps",
                     min_iter: 1,
                     max_iter: 1,
+                    validate_split: 0.1,
                     verbosity: 5
                 }
             },
