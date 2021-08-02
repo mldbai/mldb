@@ -10,4 +10,4 @@ $(eval $(call set_compile_option,highwayhash/scalar_highway_tree_hash.cc,-I$(CWD
 $(eval $(call set_compile_option,highwayhash/sip_hash.cc,-I$(CWD)))
 $(eval $(call set_compile_option,../highwayhash.cc,-I$(CWD)))
 
-$(eval $(call library,highwayhash,$(HIGHWAYHASH_SOURCE),arch))
+$(eval $(call library,highwayhash,$(HIGHWAYHASH_SOURCE)))
