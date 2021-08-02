@@ -6,7 +6,6 @@
 
 #include "highwayhash.h"
 #include "mldb/compiler/compiler.h"
-#include "mldb/arch/arch.h"
 #include <iostream>
 
 using namespace std;
@@ -29,6 +28,60 @@ extern "C" {
 namespace MLDB {
 
 namespace {
+
+#if MLDB_INTEL_ISA
+
+struct Regs {
+    uint32_t eax, ebx, ecx, edx;
+};
+
+MLDB_ALWAYS_INLINE Regs cpuid(uint32_t request, uint32_t ecx = 0)
+{
+    Regs result = {0, 0, 0, 0};
+    asm volatile
+        (
+#if defined(__i686__)         
+         "sub  $0x40,  %%esp\n\t"
+         "push %%ebx\n\t"
+         "push %%edx\n\t"
+#else
+         "sub  $0x40,  %%rsp\n\t"
+         "push %%rbx\n\t"
+         "push %%rdx\n\t"
+#endif
+         "cpuid\n\t"
+
+         "mov  %%eax,  0(%[addr])\n\t"
+         "mov  %%ebx,  4(%[addr])\n\t"
+         "mov  %%ecx,  8(%[addr])\n\t"
+         "mov  %%edx, 12(%[addr])\n\t"
+#if defined(__i686__)         
+         "pop  %%edx\n\t"
+         "pop  %%ebx\n\t"
+         "add  $0x40,   %%esp\n\t"
+#else
+         "pop  %%rdx\n\t"
+         "pop  %%rbx\n\t"
+         "add  $0x40,   %%rsp\n\t"
+#endif
+         : "+a" (request), "+c" (ecx)
+         : [addr] "S" (&result)
+         : "cc", "memory"
+         );
+    return result;
+}
+
+MLDB_ALWAYS_INLINE bool has_sse41()
+{
+     return cpuid(1, 0).ecx & (1 << 19);
+}
+
+MLDB_ALWAYS_INLINE bool has_avx2()
+{
+    return cpuid(7, 0).ebx & (1 << 5);
+}
+
+#endif
 
 typedef uint64 (*Hasher)
 (const uint64* key, const char* bytes, const uint64 size);
