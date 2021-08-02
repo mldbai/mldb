@@ -23,14 +23,17 @@ std::filesystem::path
 make_unique_directory(const std::filesystem::path & current)
 {
     std::string path = current;
-    ExcAssert(path.size() > 0 && path.back() == '/');
+    while (!path.empty() && path.back() == '/')
+	path.pop_back();
+    ExcAssert(!path.empty());
+
     char filename[path.length() + 8];
     std::copy(path.begin(), path.end(), filename);
     filename[path.length()] = '/';
-    std::fill(filename + path.length() + 0,
-              filename + path.length() + 6,
+    std::fill(filename + path.length() + 1,
+              filename + path.length() + 7,
               'X');
-    filename[path.length() + 6] = 0;
+    filename[path.length() + 7] = 0;
     
     char * res = ::mkdtemp(filename);
     if (!res) {
