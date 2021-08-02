@@ -6,7 +6,12 @@
 #
 import subprocess
 import time
-import prctl
+
+try:
+    import prctl
+except:
+    prctl = None
+
 import signal
 import os
 from socket import socket
@@ -152,7 +157,8 @@ class FetcherFunction(MldbUnitTest):  # noqa
 
         def pre_exec():
             # new process group - all our child will be in that group
-            prctl.set_pdeathsig(signal.SIGTERM)
+            if prctl is not None: # linux only
+                prctl.set_pdeathsig(signal.SIGTERM)
             os.setpgid(0, 0)
 
         proc = subprocess.Popen(['/usr/bin/env', 'python',
