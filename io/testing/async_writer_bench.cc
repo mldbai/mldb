@@ -140,6 +140,8 @@ void doBench(const string & label,
              int writerFd, int readerFd,
              int numMessages, size_t msgSize)
 {
+    cerr << "writing " << numMessages << " of size " << msgSize << endl;
+    
     string message = randomString(msgSize);
     MessageLoop writerLoop, readerLoop;
 
@@ -151,6 +153,7 @@ void doBench(const string & label,
     int numWritten(0);
     int numMissed(0);
     auto onWriteResult = [&] (AsyncWriteResult result) {
+        //cerr << format("got write result %d with error %d\n", numWriteResults.load(), result.error);
         if (result.error != 0) {
             throw MLDB::Exception("write error");
         }
@@ -168,9 +171,10 @@ void doBench(const string & label,
     readerLoop.start();
     Date lastRead;
     size_t totalBytes = msgSize * numMessages;
-    size_t bytesRead(0);
+    std::atomic<size_t> bytesRead(0);
     auto onReaderData = [&] (const char * data, size_t size) {
         bytesRead += size;
+        //cerr << format("read %zd new total %zd items\n", size / msgSize, bytesRead / msgSize);
         if (bytesRead == totalBytes) {
             lastRead = Date::now();
         }
@@ -178,17 +182,23 @@ void doBench(const string & label,
     auto reader = make_shared<ReaderSource>(readerFd, onReaderData, 262144);
     readerLoop.addSource("reader", reader);
 
+    cerr << "waiting for connection" << endl;
     writer->waitConnectionState(AsyncEventSource::CONNECTED);
     reader->waitConnectionState(AsyncEventSource::CONNECTED);
+    cerr << "connected" << endl;
 
     Date start = Date::now();
     std::atomic_thread_fence(std::memory_order_release);
     for (numWritten = 0 ; numWritten < numMessages;) {
+        if ((numWritten + 1) % 1000 == 0) {
+            cerr << format("writing message %d with %d missed %zd read\n", numWritten, numMissed, bytesRead / msgSize);
+        }
         if (writer->write(message, onWriteResult)) {
             numWritten++;
         }
         else {
             numMissed++;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
     std::atomic_thread_fence(std::memory_order_release);
@@ -207,7 +217,7 @@ void doBench(const string & label,
     double totalTime = lastRead - start;
     ::printf("%s,%d,%zu,%zu,%d,%f,%f,%f,%f,%f\n",
              label.c_str(),
-             numMessages, msgSize, bytesRead, numMissed,
+             numMessages, msgSize, bytesRead.load(), numMissed,
              (lastWrite - start),
              (lastWriteResult - start),
              totalTime,
@@ -226,7 +236,7 @@ void benchFunction(const string & label,
         multiplier *= 10;
         auto fds = f();
         doBench(label, fds.first, fds.second,
-                1000000 / multiplier, 50 * multiplier);
+                100000 / multiplier, 50 * multiplier);
     }
 }
 
