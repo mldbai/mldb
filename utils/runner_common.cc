@@ -10,7 +10,11 @@
 #include <unistd.h>
 #include <sys/errno.h>
 
-#include "arch/exception.h"
+#include "mldb/arch/exception.h"
+#include "mldb/types/value_description.h"
+#include "mldb/types/enum_description.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/types/libc_value_descriptions.h"
 
 #include "runner_common.h"
 
@@ -37,6 +41,19 @@ strLaunchError(LaunchError error)
                         error);
 }
 
+DEFINE_ENUM_DESCRIPTION(LaunchError);
+
+LaunchErrorDescription::
+LaunchErrorDescription()
+{
+    addValue("NONE",                     LaunchError::NONE,                     "No launch error");
+    addValue("READ_STATUS_PIPE",         LaunchError::READ_STATUS_PIPE,         "Error reading status pipe");
+    addValue("STATUS_PIPE_WRONG_LENGTH", LaunchError::STATUS_PIPE_WRONG_LENGTH, "Wrong length reading status pipe");
+    addValue("SUBTASK_LAUNCH",           LaunchError::SUBTASK_LAUNCH,           "Error launching subtask");
+    addValue("SUBTASK_WAITPID",          LaunchError::SUBTASK_WAITPID,          "Error calling waidpid()");
+    addValue("WRONG_CHILD",              LaunchError::WRONG_CHILD,              "Wrong child was reaped");
+}
+
 std::string
 statusStateAsString(ProcessState statusState)
 {
@@ -50,6 +67,16 @@ statusStateAsString(ProcessState statusState)
     throw MLDB::Exception("unknown status %d", statusState);
 }
 
+DEFINE_ENUM_DESCRIPTION(ProcessState);
+
+ProcessStateDescription::
+ProcessStateDescription()
+{
+    addValue("UNKNOWN",   ProcessState::UNKNOWN,   "Unknown state");
+    addValue("LAUNCHING", ProcessState::LAUNCHING, "Launching process");
+    addValue("RUNNING",   ProcessState::RUNNING,   "Process is running");
+    addValue("STOPPED",   ProcessState::STOPPED,   "Process has stopped");
+    addValue("DONE",      ProcessState::DONE,      "Process is done");
 }
 
 
@@ -76,6 +103,22 @@ setErrorCodes(int newLaunchErrno, LaunchError newErrorCode)
 {
     launchErrno = newLaunchErrno;
     launchErrorCode = newErrorCode;
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(ProcessStatus);
+
+ProcessStatusDescription::
+ProcessStatusDescription()
+{
+    addField("state", &ProcessStatus::state, "State of process");
+    addAuto("pid", &ProcessStatus::pid, "Process ID of status");
+    addField("childStatus", &ProcessStatus::childStatus, "Status of child", -1);
+    addField("launchErrno", &ProcessStatus::launchErrno,
+             "Errno for launch error", 0);
+    addField("launchError", &ProcessStatus::launchErrno,
+             "Error number for launch error");
+    addField("usage", &ProcessStatus::usage,
+             "Process statistics as returned by getrusage()");
 }
 
 
@@ -185,3 +228,5 @@ writeStatus(const ProcessStatus & status)
     else if (res != sizeof(status))
         throw MLDB::Exception("writing of status is incomplete");
 }
+
+} // namespace MLDB

@@ -103,7 +103,10 @@ handleChildStatus(const struct EpollEvent & event)
         while (1) {
             char * current = (statusBuffer_ + sizeof(ProcessStatus)
                               - statusRemaining_);
+            errno = 0;
             ssize_t s = ::read(task_.statusFd, current, statusRemaining_);
+            //cerr << format("runner: reading child status on fd %d returned %zd (%d %s)\n",
+            //                task_.statusFd, s, errno, strerror(errno));
             if (s == -1) {
                 if (errno == EWOULDBLOCK) {
                     break;
@@ -127,6 +130,8 @@ handleChildStatus(const struct EpollEvent & event)
             }
 
             memcpy(&status, statusBuffer_, sizeof(status));
+
+            //cerr << "got child status " << jsonEncode(status) << endl;
 
             // Set up for next message
             statusRemaining_ = sizeof(statusBuffer_);
@@ -415,7 +420,7 @@ run(const vector<string> & command,
             ExcAssert(onTerminate);
             onTerminate(result);
         }
-        catch (...) {
+        MLDB_CATCH_ALL {
             cerr << ("FATAL: Runner::runImpl::toRun caught an unhandled"
                      " exception. MessageLoop thread will die.\n");
             throw;
@@ -522,6 +527,8 @@ doRunImpl(const vector<string> & command,
         throw MLDB::Exception(savedErrno, "Runner::run fork");
     }
     else if (task_.wrapperPid == 0) {
+        // NOTE: cannot use output streams, as they may be locked by the
+        // calling process and this can cause hangs in the child process.
         try {
             task_.runWrapper(command, childFds);
         }
@@ -531,7 +538,7 @@ doRunImpl(const vector<string> & command,
             status.setErrorCodes(errno, LaunchError::SUBTASK_LAUNCH);
             childFds.writeStatus(status);
 
-            exit(-1);
+            _exit(-1);
         }
     }
     else {
@@ -770,9 +777,10 @@ postTerminate(Runner & runner)
         throw MLDB::Exception("wrapperPid <= 0, has postTerminate been executed before?");
     }
 
-    int wrapperPidStatus;
+    int wrapperPidStatus = 0;
     while (true) {
         int res = ::waitpid(wrapperPid, &wrapperPidStatus, 0);
+        //cerr << "waitpid returned " << res << " with wrapper status " << wrapperPidStatus << endl;
         if (res == wrapperPid) {
             break;
         }
