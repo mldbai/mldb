@@ -55,6 +55,7 @@ MessageLoop(int numThreads, double maxAddedLatency, int epollTimeout)
       shutdown_(true),
       totalSleepTime_(0.0)
 {
+    debug_ = false;
     init(numThreads, maxAddedLatency, epollTimeout);
 }
 
@@ -348,24 +349,24 @@ handleEpollEvent(EpollEvent & event)
     bool debug = false;
 
     if (debug) {
-        cerr << "handleEvent: events " << getMaskStr(event) << " on fd " << getFd(event) << endl;
+        cerr << format("handleEvent: events %s on fd %d\n", getMaskStr(event).c_str(), getFd(event));
     }
     
     AsyncEventSource * source
         = reinterpret_cast<AsyncEventSource *>(getPtr(event));
     
     if (debug) {
-        cerr << "message loop " << this << " with parent " << parent_
-             << " handling events " << getMaskStr(event) << " on source " << MLDB::type_name(*source)
-             << " fds: (event " << getFd(event) << ", src " << getFd(event)
-             << endl;
+        cerr << format("message loop %p with parent %p handling events %s on source %s fds: event %d, src %d\n",
+                       this, parent_, getMaskStr(event).c_str(), MLDB::type_name(*source).c_str(),
+                       getFd(event), source->selectFd());
         //ExcAssert(source->poll());
     }
 
     int res = source->processOne();
 
     if (debug) {
-        cerr << "source " << MLDB::type_name(*source) << " had processOne() result " << res << endl;
+        cerr << format("source %s had processOne() result %d\n",
+                       MLDB::type_name(*source), res);
     }
 
     return Epoller::DONE;
@@ -514,9 +515,11 @@ processOne()
 
         for (unsigned i = 0;  i < sources.size();  ++i) {
             try {
+                if (debug_)
+                    cerr << format("processOne: trying source %s\n", sources[i].name.c_str());
                 bool hasMore = sources[i].source->processOne();
                 if (debug_)
-                    cerr << "source " << sources[i].name << " has " << hasMore << endl;
+                    cerr << format("processOne: source %s has more: %d\n", sources[i].name.c_str(), hasMore);
                 more = more || hasMore;
             } catch (...) {
                 cerr << "exception processing source " << sources[i].name

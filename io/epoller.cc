@@ -401,15 +401,6 @@ close()
     //backtrace();
     ::close(epoll_fd);
     epoll_fd = -2;
-
-    std::unique_lock<std::mutex> guard(pollThreadsMutex);
-
-    for (auto & t: pollThreads) {
-        shutdown_.trySignal();
-        t.join();
-    }
-
-    pollThreads.clear();
 }
 
 void
@@ -504,12 +495,19 @@ handleEvents(int usToWait, int nEvents,
         }
 #endif
 
+        // Set up timeout.  If usToWait is -1, we wait forever (null pointer passed).  If usToWait is zero,
+        // we return immediately (zero timespec passed).  Otherwise we put the wait time in the timespec.
         struct timespec ts = {0, 0};
-        if (usToWait != 0) {
+        if (usToWait > 0) {
             ts.tv_sec = usToWait / 1000000;
             ts.tv_nsec = (usToWait % 1000000) * 1000;
         }
-        int res = kevent64(epoll_fd, nullptr, 0, events, nEvents, 0 /* flags */, &ts);
+
+        auto tsp = &ts;
+        if (usToWait == -1)
+            tsp = nullptr;
+        
+        int res = kevent64(epoll_fd, nullptr, 0, events, nEvents, 0 /* flags */, tsp);
 
         if (afterSleep)
             afterSleep();
@@ -517,12 +515,13 @@ handleEvents(int usToWait, int nEvents,
         // sys call interrupt
         if (res == -1 && errno == EINTR) continue;
         if (res == -1 && errno == EBADF) {
-            cerr << "got bad FD" << endl;
+            //cerr << format("got bad FD for Epoller fd %d; assuming it's shutting down", epoll_fd);
             return -1;
         }
         if (res == 0) return 0;
         
         if (res == -1) {
+            //cerr << format("kevent64 in Epoller handleEvents: %s fd %d timeout %d us\n", strerror(errno), epoll_fd, usToWait);
             //cerr << "epoll_fd = " << epoll_fd << endl;
             //cerr << "timeout_ = " << timeout_ << endl;
             //cerr << "nEvents = " << nEvents << endl;
@@ -711,14 +710,13 @@ performAddFd(int fd, void * data, int flags, bool restart)
 
     auto doAdd = [&] (auto kevent_filter)
     {
-        //cerr << "kevent64 adding fd " << fd << " of type " << getFdType(fd)
-        //        << " to kqueue fd " << epoll_fd << " filter "
-        //        << (kevent_filter == EVFILT_READ ? "EVFILT_READ": "EVFILT_WRITE")
-        //        << " flags " << flags << " kevent_flags: "
-        //        << ((kevent_flags & EV_ENABLE) ? "EV_ENABLE " : "")
-        //        << ((kevent_flags & EV_ADD) ? "EV_ADD " : "")
-        //        << ((kevent_flags & EV_ONESHOT) ? "EV_ONESHOT ": "")
-        //        << endl;
+        //cerr << format("kevent64 adding fd %d of type %s to kqueue fd %d filter %s flags %d kevent_flags: %s%s%s\n",
+        //               fd, getFdType(fd).c_str(), epoll_fd,
+        //               (kevent_filter == EVFILT_READ ? "EVFILT_READ": "EVFILT_WRITE"),
+        //               flags,
+        //               ((kevent_flags & EV_ENABLE) ? "EV_ENABLE " : ""),
+        //               ((kevent_flags & EV_ADD) ? "EV_ADD " : ""),
+        //               ((kevent_flags & EV_ONESHOT) ? "EV_ONESHOT ": ""));
 
         struct kevent64_s * event = &events[nevents++];
         EV_SET64(event, fd, kevent_filter, kevent_flags,

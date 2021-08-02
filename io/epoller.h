@@ -148,10 +148,6 @@ private:
     size_t numFds_;
 
     WakeupFD shutdown_;
-
-    std::mutex pollThreadsMutex;
-
-    std::vector<std::thread> pollThreads;
 };
 
 } // namespace MLDB
