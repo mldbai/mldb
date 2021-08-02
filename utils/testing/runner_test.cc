@@ -30,6 +30,7 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/value_description.h"
 #include "mldb/utils/testing/watchdog.h"
+#include "mldb/compiler/filesystem.h"
 
 #include <iostream>
 
@@ -42,11 +43,31 @@ using namespace MLDB;
 
 // #define BOOST_CHECK_EQUAL(x,y)  { ExcCheckEqual((x), (y), ""); }
 
+namespace fs = std::filesystem;
+
 struct _Init {
     _Init() {
         signal(SIGPIPE, SIG_IGN);
     }
 } myInit;
+
+fs::path findExe(const std::string & name)
+{
+    static std::vector<fs::path> searchPaths = { "/bin", "/usr/bin", "/usr/local/bin", "./build/x86_64/bin", "./build/aarch64/bin" };
+
+    for (const auto & path: searchPaths) {
+        fs::path fullPath = path / name;
+
+        std::error_code err;
+
+        if (!fs::exists(fullPath, err))
+            continue;
+
+        return fullPath;
+    }
+
+    throw MLDB::Exception("Couldn't find executable " + name);
+}
 
 #if 1
 
@@ -174,7 +195,7 @@ BOOST_AUTO_TEST_CASE( test_runner_callbacks )
     loop.start();
 
     auto & stdInSink = runner.getStdInSink();
-    runner.run({"build/x86_64/bin/runner_test_helper"},
+    runner.run({findExe("runner_test_helper")},
                onTerminate, stdOutSink, stdErrSink);
     for (const string & command: commands) {
         while (!stdInSink.write(string(command))) {
@@ -221,7 +242,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         loop.start();
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/runner_test_helper"},
+        runner.run({findExe("runner_test_helper")},
                    onTerminate, nullSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -252,7 +273,7 @@ BOOST_AUTO_TEST_CASE( test_runner_normal_exit )
         loop.start();
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/runner_test_helper"},
+        runner.run({findExe("runner_test_helper")},
                    onTerminate, nullSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -355,7 +376,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     };
     auto stdOutSink = make_shared<CallbackInputSink>(onStdOut, nullptr);
 
-    auto result = execute({"/bin/cat", "-"},
+    auto result = execute({findExe("cat"), "-"},
                           stdOutSink, nullptr, "hello callbacks");
     BOOST_CHECK_EQUAL(received, "hello callbacks");
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
@@ -364,7 +385,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
     /* If stdin is not closed, then "cat" will wait an block indefinitely.
        This test ensures this does not happen and thus that the closing of stdin
        works via the "closeStdin" parameter. */
-    result = execute({"/bin/cat"},
+    result = execute({findExe("cat")},
                       stdOutSink, nullptr, "", true);
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_NE(result.returnCode, 0);
@@ -403,7 +424,7 @@ BOOST_AUTO_TEST_CASE( test_runner_cleanup )
         auto stdOutSink = make_shared<CallbackInputSink>(onStdOut);
 
         auto & stdInSink = runner.getStdInSink();
-        runner.run({"build/x86_64/bin/runner_test_helper"},
+        runner.run({findExe("runner_test_helper")},
                    onTerminate, stdOutSink, nullSink);
         for (const string & command: commands) {
             stdInSink.write(string(command));
@@ -493,8 +514,8 @@ test_runner_no_output_delay_helper(bool stdout)
     };
 
     auto & stdInSink = runner.getStdInSink();
-    runner.run({"/usr/local/bin/stdbuf", "-o0",
-                "build/x86_64/bin/runner_test_helper"},
+    runner.run({findExe("stdbuf"), "-o0",
+                findExe("runner_test_helper")},
                onTerminate, stdOutSink, stdErrSink);
 
     runner.waitStart();
@@ -546,15 +567,15 @@ BOOST_AUTO_TEST_CASE( test_runner_multi_execute_single_loop )
     loop.start();
 
     auto result
-           = execute(loop, {"/bin/echo", "Test 1"});
+           = execute(loop, {findExe("echo"), "Test 1"});
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
-    result = execute(loop, {"/bin/echo", "Test 2"});
+    result = execute(loop, {findExe("echo"), "Test 2"});
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
-    result = execute(loop, {"/bin/echo", "Test 3"});
+    result = execute(loop, {findExe("echo"), "Test 3"});
     BOOST_CHECK_EQUAL(result.state, RunResult::RETURNED);
     BOOST_CHECK_EQUAL(result.returnCode, 0);
 
@@ -573,7 +594,7 @@ BOOST_AUTO_TEST_CASE( test_runner_fast_execution_multiple_threads )
     auto doThread = [&] (int threadNum)
         {
             while (!shutdown) {
-                auto result = execute({ "/usr/bin/true" },
+                auto result = execute({ findExe("true") },
                                       std::make_shared<OStreamInputSink>(&std::cout),
                                       std::make_shared<OStreamInputSink>(&std::cerr));
 
@@ -650,7 +671,7 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
     };
 
     auto threadProc = [=] () {
-        runner->run({"/bin/sleep", "3"}, onTerminate);
+        runner->run({findExe("sleep"), "3"}, onTerminate);
         cerr << to_string(gettid()) + ": process launched\n";
     };
 
@@ -683,7 +704,7 @@ BOOST_AUTO_TEST_CASE( test_unexisting_runner_helper )
     Scope_Exit(Runner::runnerHelper.clear());
     Runner::runnerHelper = "/this/executable/does/not/exist";
 
-    auto runResult = execute({"/bin/sleep", "1"});
+    auto runResult = execute({findExe("sleep"), "1"});
 
     BOOST_CHECK_EQUAL(runResult.state, RunResult::LAUNCH_ERROR);
     BOOST_CHECK_EQUAL(runResult.returnCode, -1);
@@ -730,7 +751,7 @@ BOOST_AUTO_TEST_CASE( test_runner_reuse )
             auto & stdInSink = runner->getStdInSink();
             stdInSink.write("second");
             stdInSink.requestClose();
-            runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
+            runner->run({findExe("cat"), "-"}, onTerminate, stdOutSink);
             cerr << "subsequent process started\n";
         }
         else {
@@ -742,7 +763,7 @@ BOOST_AUTO_TEST_CASE( test_runner_reuse )
     auto & stdInSink = runner->getStdInSink();
     stdInSink.write("first");
     stdInSink.requestClose();
-    runner->run({"/bin/cat", "-"}, onTerminate, stdOutSink);
+    runner->run({findExe("cat"), "-"}, onTerminate, stdOutSink);
 
     lock.lock();
     loop.shutdown();
@@ -768,7 +789,7 @@ BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
     loop.addSource("runner", runner);
     runner->waitConnectionState(AsyncEventSource::CONNECTED);
 
-    vector<string> command{"/bin/sleep", "2"};
+    vector<string> command{findExe("sleep"), "2"};
 
     std::atomic<int> terminateCount(0);
     auto doTerminate = [&] (int runCount) {
