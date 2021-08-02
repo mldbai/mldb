@@ -77,13 +77,13 @@ keys() const
             ExcAssert(uri.startsWith(baseUri));
             // Strip off the prefix and the / delimiter
             result.emplace_back(uri, baseUri.size() + 1);
-            return true;
+            return true /* continue */;
         };
 
     auto onDir = [&] (const Utf8String & dirName,
                       int depth)
         {
-            return false;
+            return false /* continue */;
         };
 
     forEachUriObject(baseUri + "/", onFile, onDir);
