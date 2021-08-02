@@ -1148,4 +1148,15 @@ memusage() const
     return result;
 }
 
+namespace {
+    struct InitSvdParallelMap {
+    InitSvdParallelMap()
+    {
+        svdParallelMap = &MLDB::parallelMap;
+    }
+    
+} initSvdParallelMap;
+
+}
+
 } // namespace MLDB

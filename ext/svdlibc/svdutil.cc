@@ -41,13 +41,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "svdlib.h"
 #include "svdutil.h"
 #include <string>
-#include "mldb/arch/exception.h"
-#include "mldb/arch/format.h"
-#include "mldb/base/exc_assert.h"
 
 
 using namespace std;
-using namespace MLDB;
 
 
 long *svd_longArray(long size, char empty, const char *name) {
@@ -79,22 +75,41 @@ void svd_debug(const char *fmt, ...) {
   va_end(args);
 }
 
+std::string svd_vformat(const char * fmt, va_list ap)
+{
+    char * mem;
+    string result;
+    int res = vasprintf(&mem, fmt, ap);
+    if (res < 0)
+        throw std::runtime_error("svd:vformat: vasprintf");
+
+    try {
+        result = mem;
+        free(mem);
+        return result;
+    }
+    catch (...) {
+        free(mem);
+        throw;
+    }
+}
+
 void svd_error(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
-  string message = MLDB::vformat(fmt, args);
+  string message = svd_vformat(fmt, args);
   va_end(args);
-  throw MLDB::Exception("SVD Error: " + message);
+  throw std::runtime_error(("SVD Error: " + message).c_str());
 }
 
 void svd_fatalError(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
-  string message = vformat(fmt, args);
+  string message = svd_vformat(fmt, args);
   va_end(args);
-  throw MLDB::Exception("SVD Fatal Error: " + message);
+  throw std::runtime_error(("SVD Fatal Error: " + message).c_str());
 }
 
 /************************************************************** 
@@ -380,8 +395,8 @@ double svd_random2(long *iy) {
 double svd_pythag(double a, double b) {
    double p, r, s, t, u, temp;
 
-   ExcAssert(isfinite(a));
-   ExcAssert(isfinite(b));
+   if (!isfinite(a) || !isfinite(b))
+    throw std::logic_error("svd_pythag must be called with finite arguments");
 
    p = svd_dmax(fabs(a), fabs(b));
    if (p != 0.0) {
@@ -400,8 +415,7 @@ double svd_pythag(double a, double b) {
       }
 
       if (iter == 1000) {
-          throw MLDB::Exception("svd_pythag infinite loop: %f, %f",
-                          a, b);
+          throw std::runtime_error(("svd_pythag infinite loop: " + std::to_string(a) + ", " + std::to_string(b)).c_str());
       }
    }
    return(p);
