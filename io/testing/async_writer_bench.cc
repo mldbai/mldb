@@ -190,7 +190,7 @@ void doBench(const string & label,
     Date start = Date::now();
     std::atomic_thread_fence(std::memory_order_release);
     for (numWritten = 0 ; numWritten < numMessages;) {
-        if ((numWritten + 1) % 1000 == 0) {
+        if ((numWritten + numMissed + 1) % 1000 == 0) {
             cerr << format("writing message %d with %d missed %zd read\n", numWritten, numMissed, bytesRead / msgSize);
         }
         if (writer->write(message, onWriteResult)) {
