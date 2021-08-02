@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "mldb/arch/exception.h"
+#include "mldb/base/exc_assert.h"
 
 namespace MLDB {
 
@@ -22,13 +23,14 @@ std::filesystem::path
 make_unique_directory(const std::filesystem::path & current)
 {
     std::string path = current;
+    ExcAssert(path.size() > 0 && path.back() == '/');
     char filename[path.length() + 8];
     std::copy(path.begin(), path.end(), filename);
     filename[path.length()] = '/';
-    std::fill(filename + path.length() + 1,
-              filename + path.length() + 7,
+    std::fill(filename + path.length() + 0,
+              filename + path.length() + 6,
               'X');
-    filename[path.length() + 7] = 0;
+    filename[path.length() + 6] = 0;
     
     char * res = ::mkdtemp(filename);
     if (!res) {
