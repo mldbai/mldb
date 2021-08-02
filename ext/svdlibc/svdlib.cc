@@ -34,10 +34,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "svdlib.h"
 #include "svdutil.h"
 
-#include "mldb/utils/distribution.h"
 #include <iostream>
 #include <string.h>
-
+#include <cmath>
 
 using namespace std;
 

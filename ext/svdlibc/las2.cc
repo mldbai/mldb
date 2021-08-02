@@ -17,12 +17,22 @@
 #include "svdlib.h"
 #include "svdutil.h"
 
-#include "mldb/utils/distribution.h"
 #include <iostream>
-#include "mldb/base/parallel.h"
+#include <functional>
+#include <cmath>
 
 using namespace std;
 
+void svdParallelMapNaive(size_t first, size_t last,
+                         const std::function<void (size_t)> & doWork,
+                         int maxOccupancy)
+{
+  for (size_t i = first;  i < last;  ++i) {
+    doWork(i);
+  }
+}
+
+void (*svdParallelMap) (size_t first, size_t last, const std::function<void (size_t)> & doWork, int maxOccupancy) = svdParallelMapNaive;
 
 void   purge(long n, long ll, double *r, double *q, double *ra,  
              double *qa, double *wrk, double *eta, double *oldeta, long step, 
@@ -568,7 +578,7 @@ long ritvec(long n, SVDRec R, double kappa, double *ritz, double *bnd,
               R->S[x] = tmp0;
           };
 
-      MLDB::parallelMap(0, R->d, doOutput);
+      svdParallelMap(0, R->d, doOutput, -1 /* max occupancy */);
 
   }
   SAFE_FREE(s);
@@ -1299,7 +1309,7 @@ void imtqlb(long n, double d[], double e[], double bnd[],
 	    g = (d[l+1] - p) / (2.0 * e[l]);
 
             if (!isfinite(g))
-                throw MLDB::Exception("NaN or infinite g value; probably you "
+                throw std::runtime_error("NaN or infinite g value; probably you "
                                     "have asked for more singular values than "
                                     "the effective rank of the matrix");
 
@@ -1466,7 +1476,7 @@ void imtql2(long nm, long n, double d[], double e[], double z[],
 	    g = d[m] - p + e[l] / (g + svd_fsign(r, g));
 
             if (!isfinite(g))
-                throw MLDB::Exception("NaN or infinite g value; probably you "
+                throw std::runtime_error("NaN or infinite g value; probably you "
                                     "have asked for more singular values than "
                                     "the effective rank of the matrix");
 

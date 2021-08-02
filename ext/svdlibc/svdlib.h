@@ -187,4 +187,7 @@ extern SVDRec svdLAS2(long dimensions, long iterations, double end[2],
 /* Chooses default parameter values.  Set dimensions to 0 for all dimensions: */
 extern SVDRec svdLAS2A(long dimensions, SVDParams & params);
 
+// Function that provides the parallel map operation.  Can be overridden to work multithreaded.
+extern void (*svdParallelMap) (size_t first, size_t last, const std::function<void (size_t)> & doWork, int maxOccupancy /* = -1 */);
+
 #endif /* SVDLIB_H */
