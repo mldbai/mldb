@@ -49,7 +49,7 @@ options() const
 {
     Config_Options result = Classifier_Generator::options();
     result
-        .add("validation_split", validate_split, "0<N<=1",
+        .add("validate_split", validate_split, "0<N<=1",
              "how much of training data to hold off as validation data");
     
     return result;
@@ -66,7 +66,7 @@ generate(Thread_Context & context,
     if (recursion > 10)
         throw Exception("Early_Stopping_Generator::generate(): recursion");
 
-    if (validate_split <= 0.0 || validate_split >= 1.0)
+    if (validate_split < 0.0 || validate_split > 1.0)
         throw Exception("invalid validate split value");
 
     float train_prop = 1.0 - validate_split;
@@ -107,10 +107,9 @@ generate(Thread_Context & context,
     distribution<float> validate_weights
         = not_training * example_weights * ex_weights;
 
-    if (validate_weights.total() == 0.0)
-        throw Exception("validate weights were empty");
-
-    validate_weights.normalize();
+    if (validate_weights.total() != 0.0) {
+        validate_weights.normalize();
+    }
 
     return generate(context, training_data, training_data,
                     training_weights, validate_weights,
