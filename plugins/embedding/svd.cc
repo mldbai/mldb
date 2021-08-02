@@ -1031,6 +1031,14 @@ regSvdEmbedRow(builtinPackage(),
                "Apply a trained SVD to embed a row into a coordinate space",
                "functions/SvdEmbedRow.md.html");
 
+struct InitSvdParallelMap {
+    InitSvdParallelMap()
+    {
+        svdParallelMap = &MLDB::parallelMap;
+    }
+    
+} initSvdParallelMap;
+
 } // file scope
 
 } // namespace MLDB
