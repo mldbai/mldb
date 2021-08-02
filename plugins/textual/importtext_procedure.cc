@@ -1302,7 +1302,7 @@ struct ImportTextProcedureWorkInstance
                 return true;
             } MLDB_CATCH_ALL {
                 rethrowException(400, "Error parsing CSV line",
-                                 "lineNumber", lineNum,
+                                 "lineNumber", lineNum + lineOffset,
                                  //"line", std::string(line, length),
                                  "dataFileUrl", config.dataFileUrl);
             }
