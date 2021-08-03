@@ -117,12 +117,19 @@ LIBARCHIVE_SOURCE:= \
 	libarchive/archive_write_set_options.c \
 	libarchive/archive_write_set_passphrase.c \
 	libarchive/filter_fork_posix.c \
-	libarchive/xxhash.c
+	libarchive/xxhash.c \
+	libarchive/archive_ppmd8.c \
+	libarchive/archive_read_support_filter_zstd.c \
+	libarchive/archive_write_add_filter_zstd.c \
+	libarchive/archive_disk_acl_darwin.c \
+	libarchive/archive_read_support_format_rar5.c \
+	libarchive/archive_blake2sp_ref.c \
+	libarchive/archive_blake2s_ref.c \
 
 LIBXML2_INCLUDE_DIR:=/usr/include/libxml2
 
 LIBARCHIVE_GCC_FLAGS:=-Wno-maybe-uninitialized -Wno-array-bounds -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow
-LIBARCHIVE_CLANG_FLAGS:=-Wno-maybe-uninitialized -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow
+LIBARCHIVE_CLANG_FLAGS:=-Wno-maybe-uninitialized -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow -Wno-unknown-warning-option
 
 LIBARCHIVE_FLAGS:= \
 	$(if $(findstring gcc,$(toolchain)),$(LIBARCHIVE_GCC_FLAGS)) \
@@ -131,14 +138,20 @@ LIBARCHIVE_FLAGS:= \
 
 # NOTE: to find this, run cmake in the ext/libarchive directory, and then
 # cat config.h | grep '#define' | sed 's/#define /-D/' | sed 's/ /=/' | tr '\n' ' '
-LIBARCHIVE_DEFINES_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR)
-LIBARCHIVE_LIBS_x86_64:=z xml2 dl icuuc m icudata
+# cp config.h ../libarchive-config-$(OSNAME)-$(ARCH).h
+LIBARCHIVE_DEFINES_Linux_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR)
+LIBARCHIVE_LIBS_Linux_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 zstd
 
-LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(ARCH))
-LIBARCHIVE_LIBS:=$(LIBARCHIVE_LIBS_$(ARCH))
-$(if $(LIBARCHIVE_DEFINES),,$(error LIBARCHIVE_DEFINES_$(ARCH) not defined (unknown arch $(ARCH)).  Please define in libarchive.mk))
+LIBARCHIVE_DEFINES_Darwin_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
+LIBARCHIVE_LIBS_Darwin_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
 
-$(eval $(call set_compile_option,$(LIBARCHIVE_SOURCE),-Imldb/ext/libarchive/libarchive $(LIBARCHIVE_DEFINES) $(LIBARCHIVE_FLAGS)))
+OSNAME?=Linux
+
+LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(OSNAME)_$(ARCH))
+LIBARCHIVE_LIBS:=$(LIBARCHIVE_LIBS_$(OSNAME)_$(ARCH))
+$(if $(LIBARCHIVE_DEFINES),,$(error LIBARCHIVE_DEFINES_$(OSNAME)_$(ARCH) not defined (unknown arch $(ARCH)).  Please define in libarchive.mk))
+
+$(eval $(call set_compile_option,$(LIBARCHIVE_SOURCE),-Imldb/ext/libarchive/libarchive $(LIBARCHIVE_DEFINES) $(LIBARCHIVE_FLAGS) $(OPENSSL_INCLUDE_FLAGS)))
 
 LIBARCHIVE_LIB_NAME:=archive-mldb
 
