@@ -129,7 +129,7 @@ LIBARCHIVE_SOURCE:= \
 LIBXML2_INCLUDE_DIR:=/usr/include/libxml2
 
 LIBARCHIVE_GCC_FLAGS:=-Wno-maybe-uninitialized -Wno-array-bounds -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow
-LIBARCHIVE_CLANG_FLAGS:=-Wno-maybe-uninitialized -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow
+LIBARCHIVE_CLANG_FLAGS:=-Wno-maybe-uninitialized -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow -Wno-unknown-warning-option
 
 LIBARCHIVE_FLAGS:= \
 	$(if $(findstring gcc,$(toolchain)),$(LIBARCHIVE_GCC_FLAGS)) \
@@ -139,13 +139,13 @@ LIBARCHIVE_FLAGS:= \
 # NOTE: to find this, run cmake in the ext/libarchive directory, and then
 # cat config.h | grep '#define' | sed 's/#define /-D/' | sed 's/ /=/' | tr '\n' ' '
 # cp config.h ../libarchive-config-$(OSNAME)-$(ARCH).h
-LIBARCHIVE_DEFINES_linux_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR)
-LIBARCHIVE_LIBS_linux_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 zstd
+LIBARCHIVE_DEFINES_Linux_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR)
+LIBARCHIVE_LIBS_Linux_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 zstd
 
 LIBARCHIVE_DEFINES_Darwin_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
 LIBARCHIVE_LIBS_Darwin_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
 
-OSNAME?=linux
+OSNAME?=Linux
 
 LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(OSNAME)_$(ARCH))
 LIBARCHIVE_LIBS:=$(LIBARCHIVE_LIBS_$(OSNAME)_$(ARCH))
