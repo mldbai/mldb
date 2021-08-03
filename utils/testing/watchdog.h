@@ -11,6 +11,7 @@
 #include <thread>
 #include <iostream>
 #include <signal.h>
+#include <unistd.h>
 
 namespace MLDB {
 
@@ -26,8 +27,7 @@ struct Watchdog {
 
         cerr << "**** WATCHDOG TIMEOUT; KILLING HUNG TEST ****"
              << endl;
-        abort();
-        kill(0, SIGKILL);
+        kill(getpid(), SIGKILL);
     }
     
     void runThread()

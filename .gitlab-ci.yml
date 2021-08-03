@@ -18,13 +18,14 @@ build:
     - declare -x AWS_SECRET_ACCESS_KEY="$SCCACHE_AWS_SECRET"
     - declare -x SCCACHE_S3_USE_SSL=true
     - declare -x SCCACHE_REGION=us-east-2
-    - declare -x POSTCFLAGS='-O1 -g0' POSTCXXFLAGS='-O1 -g0'
+    - declare -x POSTCFLAGS='-O2 -g0' POSTCXXFLAGS='-O2 -g0'
     - declare -x PRECXX=./sccache
     - make -j4 -k dependencies
     - ./sccache --show-stats
     - make -j32 -k compile || make -j32 -k compile || make -j32 -k compile
     - ./sccache --show-stats
     - declare -x LANG=en_US.utf8 LC_ALL=en_US.utf8 USER=root
+    - mkdir tmp
     - (make -j8 -k test || make -j8 -k test) | python3 jml-build/to_junit.py > junit.xml
   artifacts:
     when: always
