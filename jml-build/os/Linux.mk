@@ -22,4 +22,8 @@ J2 ?= $(VIRTUALENV)/bin/j2
 J2ENV ?= $(J2) -f env
 LIBRT:=rt
 
+ICU_ROOT?=/usr
+ICU_INCLUDE_PATH?=$(ICU_ROOT)/include/
+ICONV_LIBRARY:=
+
 export VIRTUALENV
