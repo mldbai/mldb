@@ -1041,264 +1041,272 @@ struct ImportTextProcedureWorkInstance
                            int chunkNum,
                            int64_t lineNum)
         {
-            auto & threadAccum = accum.get();
+            try {
+                auto & threadAccum = accum.get();
 
-            threadAccum.linesDone += 1;
-            threadAccum.bytesDone += length + 1;
+                threadAccum.linesDone += 1;
+                threadAccum.bytesDone += length + 1;
 
-            if (threadAccum.linesDone > 100 || threadAccum.bytesDone > 65536) {
-                byteCount += threadAccum.bytesDone;
-                uint64_t linesDone
-                    = lineCount.fetch_add(threadAccum.linesDone)
-                    + threadAccum.linesDone;
+                if (threadAccum.linesDone > 100 || threadAccum.bytesDone > 65536) {
+                    byteCount += threadAccum.bytesDone;
+                    uint64_t linesDone
+                        = lineCount.fetch_add(threadAccum.linesDone)
+                        + threadAccum.linesDone;
 
-                if (linesDone % PROGRESS_RATE_LOW < PROGRESS_RATE_LOW) {
-                    iterationStep->value = linesDone;
-                    onProgress(jsonEncode(iterationStep));
+                    if (linesDone % PROGRESS_RATE_LOW < PROGRESS_RATE_LOW) {
+                        iterationStep->value = linesDone;
+                        onProgress(jsonEncode(iterationStep));
+                    }
+                    
+                    // Look for the wraparound of the modulus
+                    if (linesDone % 100000 < threadAccum.linesDone) {
+                        double wall = timer.elapsed_wall();
+                        INFO_MSG(this->logger)
+                            << "done " << linesDone << " in " << wall
+                            << "s at " << linesDone / wall * 0.000001
+                            << "M lines/second on "
+                            << timer.elapsed_cpu() / timer.elapsed_wall()
+                            << " CPUs";
+                    }
+                    threadAccum.bytesDone = 0;
+                    threadAccum.linesDone = 0;
                 }
                 
-                // Look for the wraparound of the modulus
-                if (linesDone % 100000 < threadAccum.linesDone) {
-                    double wall = timer.elapsed_wall();
-                    INFO_MSG(this->logger)
-                        << "done " << linesDone << " in " << wall
-                        << "s at " << linesDone / wall * 0.000001
-                        << "M lines/second on "
-                        << timer.elapsed_cpu() / timer.elapsed_wall()
-                        << " CPUs";
+                int64_t actualLineNum = lineNum + lineOffset;
+
+                // Skip lines if we are asked to
+                if (config.skipLineRegex.initialized()) {
+                    if (regex_match(line, length,
+                                    config.skipLineRegex))
+                        return true;
                 }
-                threadAccum.bytesDone = 0;
-                threadAccum.linesDone = 0;
-            }
-            
-            int64_t actualLineNum = lineNum + lineOffset;
-
-            // Skip lines if we are asked to
-            if (config.skipLineRegex.initialized()) {
-                if (regex_match(line, length,
-                                config.skipLineRegex))
-                    return true;
-            }
-            
-            // MLDB-1111 empty lines are treated as error
-            if (length == 0)
-                return handleError("empty line", actualLineNum, 0, "");
+                
+                // MLDB-1111 empty lines are treated as error
+                if (length == 0)
+                    return handleError("empty line", actualLineNum, 0, "");
 
 
-            // Values that come in from the CSV file
-            PossiblyDynamicBuffer<CellValue> values(inputColumnNames.size());
+                // Values that come in from the CSV file
+                PossiblyDynamicBuffer<CellValue> values(inputColumnNames.size());
 
-            const char * lineStart = line;
+                const char * lineStart = line;
 
-            const size_t numInputColumn = inputColumnNames.size();
+                const size_t numInputColumn = inputColumnNames.size();
 
-            const char * errorMsg
-                    = parseFixedWidthCsvRow(line, length, values.data(),
-                                            numInputColumn,
-                                            separator, quote, encoding,
-                                            replaceInvalidCharactersWith,
-                                            isTextLine,
-                                            hasQuoteChar, logger,
-                                            config.ignoreExtraColumns,
-                                            config.processExcelFormulas,
-                                            scope.columnsUsed);
+                const char * errorMsg
+                        = parseFixedWidthCsvRow(line, length, values.data(),
+                                                numInputColumn,
+                                                separator, quote, encoding,
+                                                replaceInvalidCharactersWith,
+                                                isTextLine,
+                                                hasQuoteChar, logger,
+                                                config.ignoreExtraColumns,
+                                                config.processExcelFormulas,
+                                                scope.columnsUsed);
 
-                if (errorMsg) {
-                    if(config.allowMultiLines) {
-                        // check if we hit an error meaning we probably
-                        // have a multiline error
-                        if(errorMsg == unclosedQuoteError ||
-                           errorMsg == notEnoughColsError) {
-                            return false;
+                    if (errorMsg) {
+                        if(config.allowMultiLines) {
+                            // check if we hit an error meaning we probably
+                            // have a multiline error
+                            if(errorMsg == unclosedQuoteError ||
+                            errorMsg == notEnoughColsError) {
+                                return false;
+                            }
                         }
+
+                        return handleError(errorMsg, actualLineNum,
+                                            line - lineStart + 1,
+                                            string(line, length));
                     }
 
-                    return handleError(errorMsg, actualLineNum,
-                                           line - lineStart + 1,
-                                           string(line, length));
+                auto row = scope.bindRow(values.data(), ts, actualLineNum,
+                                        0 /* todo: chunk ofs */);
+
+                ExpressionValue nameStorage;
+                RowPath rowName;
+
+                if (isNamedLineNumber) {
+                    rowName = Path(actualLineNum);
+                }
+                else {
+                    rowName = namedBound(row, nameStorage, GET_ALL).coerceToPath();
+                }
+                row.rowName = &rowName;
+                
+                // If it doesn't match the where, don't add it
+                if (!isWhereTrue) {
+                    ExpressionValue storage;
+                    if (!whereBound(row, storage, GET_ALL).isTrue())
+                        return true;
                 }
 
-            auto row = scope.bindRow(values.data(), ts, actualLineNum,
-                                     0 /* todo: chunk ofs */);
+                // Get the timestamp for the row
+                Date rowTs = ts;
+                ExpressionValue tsStorage;
+                rowTs = timestampBound(row, tsStorage, GET_ALL)
+                        .coerceToTimestamp().toTimestamp();
 
-            ExpressionValue nameStorage;
-            RowPath rowName;
+                //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 
-            if (isNamedLineNumber) {
-                rowName = Path(actualLineNum);
-            }
-            else {
-                rowName = namedBound(row, nameStorage, GET_ALL).coerceToPath();
-            }
-            row.rowName = &rowName;
-            
-            // If it doesn't match the where, don't add it
-            if (!isWhereTrue) {
-                ExpressionValue storage;
-                if (!whereBound(row, storage, GET_ALL).isTrue())
-                    return true;
-            }
+                if (isIdentitySelect) {
+                    // If it's a select *, we don't really need to run the
+                    // select clause.  We simply record the values directly.
+                    threadAccum.specializedRecorder(std::move(rowName),
+                                                    rowTs, values.data(),
+                                                    values.size(), {});
+                }
+                else if (canUseDecomposed) {
+                    std::vector<CellValue> outputValues(knownColumnNames.size());
+                    std::vector<bool> outputValueSet(knownColumnNames.size(), false);
 
-            // Get the timestamp for the row
-            Date rowTs = ts;
-            ExpressionValue tsStorage;
-            rowTs = timestampBound(row, tsStorage, GET_ALL)
-                    .coerceToTimestamp().toTimestamp();
+                    // Apply the operations one by one
+                    for (size_t i = 0;  i < ops.size();  ++i) {
+                        const ColumnOperation & op = ops[i];
 
-            //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
+                        // Process this input
+                        if (op.bound) {
+                            ExpressionValue opStorage;
+                            const ExpressionValue & newVal
+                                = op.bound(row, opStorage, GET_ALL);
 
-            if (isIdentitySelect) {
-                // If it's a select *, we don't really need to run the
-                // select clause.  We simply record the values directly.
-                threadAccum.specializedRecorder(std::move(rowName),
-                                                rowTs, values.data(),
-                                                values.size(), {});
-            }
-            else if (canUseDecomposed) {
-                std::vector<CellValue> outputValues(knownColumnNames.size());
-                std::vector<bool> outputValueSet(knownColumnNames.size(), false);
+                            // We record the output if it is used.  This would only
+                            // not be true for operations that have no output but
+                            // do cause side effects.
+                            if (op.outCol != -1) {
+                                if (&newVal == &opStorage)
+                                    outputValues[op.outCol] = opStorage.stealAtom();
+                                else outputValues[op.outCol] = newVal.getAtom();
+                                outputValueSet[op.outCol] = true;
+                            }
+                        }
+                        else {
+                            ExcAssertEqual(op.inputCols.size(), 1);
+                            int inCol = op.inputCols[0];
 
-                // Apply the operations one by one
-                for (size_t i = 0;  i < ops.size();  ++i) {
-                    const ColumnOperation & op = ops[i];
-
-                    // Process this input
-                    if (op.bound) {
-                        ExpressionValue opStorage;
-                        const ExpressionValue & newVal
-                            = op.bound(row, opStorage, GET_ALL);
-
-                        // We record the output if it is used.  This would only
-                        // not be true for operations that have no output but
-                        // do cause side effects.
-                        if (op.outCol != -1) {
-                            if (&newVal == &opStorage)
-                                outputValues[op.outCol] = opStorage.stealAtom();
-                            else outputValues[op.outCol] = newVal.getAtom();
+                            // Copy or move value directly from input to output
+                            if (op.moveInputs) {
+                                outputValues[op.outCol] = std::move(values[inCol]);
+                            }
+                            else {
+                                outputValues[op.outCol] = values[inCol];
+                            }
                             outputValueSet[op.outCol] = true;
                         }
                     }
-                    else {
-                        ExcAssertEqual(op.inputCols.size(), 1);
-                        int inCol = op.inputCols[0];
 
-                        // Copy or move value directly from input to output
-                        if (op.moveInputs) {
-                            outputValues[op.outCol] = std::move(values[inCol]);
-                        }
-                        else {
-                            outputValues[op.outCol] = values[inCol];
-                        }
-                        outputValueSet[op.outCol] = true;
-                    }
-                }
+                    // Extra values we couldn't analyze statically, which will
+                    // be recorded when one of the columns has extra values
+                    std::vector<std::pair<ColumnPath, CellValue> > extra;
+                    
+                    for (auto & clause: otherClauses) {
+                        ExpressionValue clauseStorage;
+                        const ExpressionValue & clauseOutput
+                            = clause(row, clauseStorage, GET_ALL);
 
-                // Extra values we couldn't analyze statically, which will
-                // be recorded when one of the columns has extra values
-                std::vector<std::pair<ColumnPath, CellValue> > extra;
-                
-                for (auto & clause: otherClauses) {
-                    ExpressionValue clauseStorage;
-                    const ExpressionValue & clauseOutput
-                        = clause(row, clauseStorage, GET_ALL);
-
-                    // This must be a row output, since it's going to be
-                    // merged together
-                    if (&clauseOutput == &clauseStorage) {
-                        auto recordAtom = [&] (Path & columnName,
-                                               CellValue & value,
-                                               Date ts) -> bool
-                            {
-                                // Is it the first time we've set this column?
-                                auto it = columnIndex.find(columnName);
-                                if (it != columnIndex.end()
-                                    && !outputValueSet.at(it->second)) {
-                                    // If so, put it in output values
-                                    outputValues[it->second] = std::move(value);
-                                    outputValueSet[it->second] = true;
-                                }
-                                else {
-                                    // If not, put it in the extra values
-                                    extra.emplace_back(std::move(columnName),
-                                                       std::move(value));
-                                }
-                                return true;
-                            };
-                        
-                        clauseStorage.forEachAtomDestructive(recordAtom);
-                    }
-                    else {
-                        // We don't own the output, so we need to copy
-                        // things before we record them.
-                        
-                        auto recordAtom = [&] (const Path & columnName_,
-                                               const Path & prefix,
-                                               const CellValue & value,
-                                               Date ts) -> bool
-                            {
-                                Path columnName2;
-                                if (!prefix.empty()) {
-                                    columnName2 = prefix + columnName_;
-                                }
-                                const Path & columnName
-                                    = prefix.empty()
-                                    ? columnName_
-                                    : columnName2;
-                                
-                                // Is it the first time we've set this column?
-                                auto it = columnIndex.find(columnName);
-                                if (it != columnIndex.end()
-                                    && !outputValueSet.at(it->second)) {
-                                    // If so, put it in output values
-                                    outputValues[it->second] = value;
-                                    outputValueSet[it->second] = true;
-                                }
-                                else {
-                                    // If not, put it in the extra values
-                                    if (prefix.empty()) {
-                                        extra.emplace_back(std::move(columnName2),
-                                                           value);
+                        // This must be a row output, since it's going to be
+                        // merged together
+                        if (&clauseOutput == &clauseStorage) {
+                            auto recordAtom = [&] (Path & columnName,
+                                                CellValue & value,
+                                                Date ts) -> bool
+                                {
+                                    // Is it the first time we've set this column?
+                                    auto it = columnIndex.find(columnName);
+                                    if (it != columnIndex.end()
+                                        && !outputValueSet.at(it->second)) {
+                                        // If so, put it in output values
+                                        outputValues[it->second] = std::move(value);
+                                        outputValueSet[it->second] = true;
                                     }
                                     else {
+                                        // If not, put it in the extra values
                                         extra.emplace_back(std::move(columnName),
-                                                           value);
+                                                        std::move(value));
                                     }
-                                }
+                                    return true;
+                                };
+                            
+                            clauseStorage.forEachAtomDestructive(recordAtom);
+                        }
+                        else {
+                            // We don't own the output, so we need to copy
+                            // things before we record them.
+                            
+                            auto recordAtom = [&] (const Path & columnName_,
+                                                const Path & prefix,
+                                                const CellValue & value,
+                                                Date ts) -> bool
+                                {
+                                    Path columnName2;
+                                    if (!prefix.empty()) {
+                                        columnName2 = prefix + columnName_;
+                                    }
+                                    const Path & columnName
+                                        = prefix.empty()
+                                        ? columnName_
+                                        : columnName2;
+                                    
+                                    // Is it the first time we've set this column?
+                                    auto it = columnIndex.find(columnName);
+                                    if (it != columnIndex.end()
+                                        && !outputValueSet.at(it->second)) {
+                                        // If so, put it in output values
+                                        outputValues[it->second] = value;
+                                        outputValueSet[it->second] = true;
+                                    }
+                                    else {
+                                        // If not, put it in the extra values
+                                        if (prefix.empty()) {
+                                            extra.emplace_back(std::move(columnName2),
+                                                            value);
+                                        }
+                                        else {
+                                            extra.emplace_back(std::move(columnName),
+                                                            value);
+                                        }
+                                    }
 
-                                return true;
-                            };
-                        
-                        clauseStorage.forEachAtom(recordAtom);
-                        
+                                    return true;
+                                };
+                            
+                            clauseStorage.forEachAtom(recordAtom);
+                            
+                        }
                     }
+                    
+                    threadAccum.specializedRecorder(std::move(rowName),
+                                                    rowTs, outputValues.data(),
+                                                    outputValues.size(),
+                                                    std::move(extra));
                 }
-                
-                threadAccum.specializedRecorder(std::move(rowName),
-                                                rowTs, outputValues.data(),
-                                                outputValues.size(),
-                                                std::move(extra));
-            }
-            else {
-                ExpressionValue selectStorage;
-                const ExpressionValue & selectOutput
-                        = selectBound(row, selectStorage, GET_ALL);
+                else {
+                    ExpressionValue selectStorage;
+                    const ExpressionValue & selectOutput
+                            = selectBound(row, selectStorage, GET_ALL);
 
-                if (&selectOutput == &selectStorage) {
-                    // We can destructively work with it
-                    threadAccum.threadRecorder
-                        ->recordRowExprDestructive(std::move(rowName),
-                                                   std::move(selectStorage));
-                    }
-                    else {
-                        // We don't own the output; we will need to copy
-                        // it.
+                    if (&selectOutput == &selectStorage) {
+                        // We can destructively work with it
                         threadAccum.threadRecorder
-                            ->recordRowExpr(std::move(rowName),
-                                            selectOutput);
+                            ->recordRowExprDestructive(std::move(rowName),
+                                                    std::move(selectStorage));
+                        }
+                        else {
+                            // We don't own the output; we will need to copy
+                            // it.
+                            threadAccum.threadRecorder
+                                ->recordRowExpr(std::move(rowName),
+                                                selectOutput);
+                    }
                 }
-            }
 
-            return true;
+                return true;
+            } MLDB_CATCH_ALL {
+                rethrowException(400, "Error parsing CSV line",
+                                 "lineNumber", lineNum + lineOffset,
+                                 //"line", std::string(line, length),
+                                 "dataFileUrl", config.dataFileUrl);
+            }
+            return false;
         };
 
 
