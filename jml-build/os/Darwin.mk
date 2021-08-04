@@ -23,6 +23,7 @@ LIBRT:=
 ICU_ROOT:=/usr/local/opt/icu4c/
 ICU_INCLUDE_PATH:=$(ICU_ROOT)/include/
 LIB_icui18n_LINKER_OPTIONS:=-L$(ICU_ROOT)/lib
+ICONV_LIBRARY:=iconv
 VALGRIND:=
 VALGRINDFLAGS:=
 OPENSSL_INCLUDE_FLAGS:=-I /usr/local/opt/openssl/include
