@@ -26,7 +26,7 @@ build:
     - ./sccache --show-stats
     - declare -x LANG=en_US.utf8 LC_ALL=en_US.utf8 USER=root
     - mkdir tmp
-    - (make -j8 -k test || make -j8 -k test) | python3 jml-build/to_junit.py > junit.xml
+    - (make -j8 -k test || (echo "TEST SUITE RESTART" && make -j8 -k test)) | python3 jml-build/to_junit.py > junit.xml
   artifacts:
     when: always
     paths:
