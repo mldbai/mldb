@@ -138,7 +138,7 @@ ifeq ($(toolchain),clang)
 S2_WARNING_OPTIONS:=-Wno-parentheses -Wno-absolute-value -Wno-unused-local-typedef -Wno-unused-const-variable -Wno-format -Wno-dynamic-class-memaccess -Wno-unused-private-field
 endif
 
-S2_COMPILE_OPTIONS:=-Imldb/ext/s2geometry/src -DS2_USE_EXACTFLOAT
+S2_COMPILE_OPTIONS:=-Imldb/ext/s2geometry/src -DS2_USE_EXACTFLOAT $(OPENSSL_INCLUDE_FLAGS)
 
 $(eval $(call set_compile_option,$(S2_CC_FILES),$(S2_COMPILE_OPTIONS) $(S2_WARNING_OPTIONS)))
 

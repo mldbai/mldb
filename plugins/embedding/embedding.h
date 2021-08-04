@@ -205,12 +205,8 @@ struct ReadPixelsFunction
 /*****************************************************************************/
 
 struct ProximateVoxelsFunctionConfig {
-    ProximateVoxelsFunctionConfig()
-    {
-    }
-
     std::shared_ptr<SqlExpression> expression;
-    int range;
+    int range = -1;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ProximateVoxelsFunctionConfig);
