@@ -32,7 +32,8 @@ timer = None
 def print_long_running():
     global timer
     running = started - passed - failed
-    stderr.write(str(running))
+    if len(running) > 0:
+        stderr.write("\nRunning tests: " + str(running) + "\n")
     timer = Timer(10, print_long_running)
     timer.start()
 
@@ -41,6 +42,8 @@ print_long_running()
 passed_pat = re.compile("\[\s*(.*)s\s*(.*)G\s*(.*)c\s*\]\s*(.*?) passed")
 failed_pat = re.compile("(.*?) FAILED")
 started_pat = re.compile("(\[MLDBTEST\]|\[TESTCASE\])\s*(.*?)$")
+restart_pat = re.compile("TEST SUITE RESTART")
+
 for l in fileinput.input():
     stderr.write(l)
     clean_line = l \
@@ -52,6 +55,9 @@ for l in fileinput.input():
         .replace("\x1b[0;39;49m", "")\
         .strip()
 
+    if restart_pat.match(clean_line):
+        started = set()
+
     if started_pat.match(clean_line):
 #        print("clean", clean_line)
         test = started_pat.search(clean_line).groups()[1]
@@ -62,11 +68,17 @@ for l in fileinput.input():
         cpu_time, memory_gigs, num_cores, test = groups
         approx_wall_time = float(cpu_time)/max(0.05, float(num_cores))
         passed.add(test)
-        started.remove(test)
+        try:
+            started.remove(test)
+        except:
+            pass
         passed_times[test] = str(approx_wall_time)
     if failed_pat.match(clean_line):
         test = failed_pat.search(clean_line).groups()[0]
-        started.remove(test)
+        try:
+            started.remove(test)
+        except:
+            pass
         failed.add(test)
 
 failed.difference_update(passed)
