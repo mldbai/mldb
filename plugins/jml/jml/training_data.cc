@@ -15,10 +15,10 @@
 #include "mldb/utils/pair_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/vector_utils.h"
-#include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/arch/demangle.h"
+#include "thread_context.h"
 #include <boost/timer/timer.hpp>
 
 
@@ -404,6 +404,8 @@ Training_Data::
 partition(const std::vector<float> & sizes_, bool random,
           const Feature & group_feature) const
 {
+    Thread_Context context; // todo: should be passed in
+
     vector<std::shared_ptr<Training_Data> > output(sizes_.size());
 
     //cerr << "partitioning dataset" << endl;
@@ -419,7 +421,7 @@ partition(const std::vector<float> & sizes_, bool random,
            examples. */
         vector<int> order(example_count());
         std::iota(order.begin(), order.end(), 0);
-        if (random) std::random_shuffle(order.begin(), order.end());
+        if (random) std::shuffle(order.begin(), order.end(), context.std_rng());
         
         distribution<float> sizes(sizes_.begin(), sizes_.end());
         sizes.normalize();  sizes *= example_count();
@@ -485,7 +487,7 @@ partition(const std::vector<float> & sizes_, bool random,
         vector<int> order(group_count);
         std::iota(order.begin(), order.end(), 0);
         //cerr << "order = " << order << endl;
-        if (random) std::random_shuffle(order.begin(), order.end());
+        if (random) std::shuffle(order.begin(), order.end(), context.std_rng());
         //cerr << "order = " << order << endl;
         
         distribution<float> sizes(sizes_.begin(), sizes_.end());

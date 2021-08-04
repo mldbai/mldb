@@ -14,7 +14,6 @@
 #include "mldb/utils/floating_point.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/plugins/jml/hash_specializations.h"
-#include "mldb/plugins/jml/sgi_algorithm.h"
 #include <cmath>
 #include <algorithm>
 #include "mldb/base/parse_context.h"
@@ -274,8 +273,13 @@ public:
 
     int compare(const Feature_Set & other) const
     {
-        return std::lexicographical_compare_3way(begin(), end(),
-                                                 other.begin(), other.end());
+        auto first1 = begin(), last1 = end(), first2 = other.begin(), last2 = other.end();
+        for ( ; first1 != last1 && first2 != last2; void(++first1), void(++first2) )
+        if (*first1 != *first2) {
+            return *first1 < *first2 ? -1 : 1;
+        }
+        return first1 != last1 ? 1 :
+                first2 != last2 ? -1 : 0;
     }
 
     /** Compare the two feature sets, ignoring the values or presence of the
@@ -469,7 +473,7 @@ std::string expect_feature_name(MLDB::ParseContext & c);
 } // namespace ML
 
 
-namespace MLDB_HASH_NS {
+namespace std {
 
 template<>
 struct hash<ML::Feature> {
@@ -479,4 +483,4 @@ struct hash<ML::Feature> {
     }
 };
 
-} // namespace MLDB_HASH_NS
+} // namespace std

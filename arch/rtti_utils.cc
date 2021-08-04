@@ -11,9 +11,12 @@
 #include <cxxabi.h>
 #include <iostream>
 #include "demangle.h"
+#include "mldb/compiler/stdlib.h"
 
 using namespace abi;
 using namespace std;
+
+#if MLDB_STDLIB_GCC
 
 namespace __cxxabiv1 {
 
@@ -94,4 +97,45 @@ const void * is_convertible(const std::type_info & from_type,
 }
 
 } // namespace MLDB
-   
+#elif MLDB_STDLIB_LLVM
+
+namespace __cxxabiv1 {
+
+class __shim_type_info : public std::type_info {
+public:
+  virtual ~__shim_type_info();
+
+  virtual void noop1() const;
+  virtual void noop2() const;
+  virtual bool can_catch(const __shim_type_info *thrown_type,
+                         void *&adjustedPtr) const = 0;
+};
+
+} // namespace __cxxabiv1
+
+
+namespace MLDB {
+
+const void * is_convertible(const std::type_info & from_type,
+                            const std::type_info & to_type,
+                            const void * obj)
+{
+    auto * fromcti = static_cast<const __cxxabiv1::__shim_type_info*>(&from_type);
+    auto * tocti = static_cast<const __cxxabiv1::__shim_type_info*>(&to_type);
+
+    cerr << "converting " << demangle(fromcti->name()) << " to " << demangle(tocti->name())
+         << endl;
+
+    void * adjusted = (void *)obj;
+    bool could_upcast = tocti->can_catch(fromcti, adjusted);
+    if (could_upcast) {
+        //cerr << "could upcast" << endl;
+        return adjusted;
+    }
+    return nullptr;
+}
+
+} // namespace MLDB
+#else
+#  error "Tell us how your standard library does RTTI"
+#endif

@@ -14,7 +14,6 @@
 #include "plugins/jml/enum_info.h"
 #include "mldb/utils/floating_point.h"
 #include <boost/iterator/transform_iterator.hpp>
-#include "mldb/plugins/jml/sgi_numeric.h"
 
 namespace ML {
 
@@ -70,14 +69,42 @@ public:
     /** How we transform the output.  Default is no transform (raw output). */
     Output output;
 
-    /** Iterator types.  These are just like a normal one would be. */
-    typedef boost::transform_iterator<std::select2nd<stumps_type::value_type>,
-                                      stumps_type::iterator>
-        iterator;
-    typedef boost::transform_iterator<std::select2nd<stumps_type::value_type>,
-                                      stumps_type::const_iterator>
-        const_iterator;
+    template<typename Value, typename UnderlyingIt>
+    struct IteratorT {
+        UnderlyingIt pos;
 
+        using value_type = Value;
+        using iterator_category = std::bidirectional_iterator_tag;
+        using difference_type = ssize_t;
+        using pointer = Value *;
+        using reference = Value &;
+
+        IteratorT(UnderlyingIt pos = UnderlyingIt())
+            : pos(std::move(pos))
+        {
+        }
+
+        template<typename OtherIt>
+        IteratorT(OtherIt other)
+            : pos(std::move(other.pos))
+        {
+        }
+
+        const value_type & operator * () const { return pos->second; }
+        const value_type * operator -> () const { return &(pos->second); }
+        IteratorT & operator ++ () { ++pos;  return *this; }
+        IteratorT operator ++ (int) { auto res = *this;  return ++res; }
+        IteratorT & operator -- () { --pos;  return *this; }
+        IteratorT operator -- (int) { auto res = *this;  return --res; }
+
+        bool operator == (const IteratorT & other) const { return pos == other.pos; }
+        bool operator != (const IteratorT & other) const { return pos != other.pos; }
+        bool operator < (const IteratorT & other) const { return pos < other.pos; }
+    };
+
+    using iterator = IteratorT<Stump, stumps_type::iterator>;
+    using const_iterator = IteratorT<const Stump, stumps_type::const_iterator>;
+ 
     /* Iterators.  These do what you would expect them to... */
     iterator begin() { return iterator(stumps.begin()); }
     iterator end() { return iterator(stumps.end()); }
@@ -227,7 +254,7 @@ public:
                  jt != stumps[i]->end();  ++jt) {
                 Stump scaled = *jt;
                 scaled.action *= weights[i];
-                result.insert(scaled);
+                result.insert({scaled});
             }
         }
         return result;

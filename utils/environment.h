@@ -13,7 +13,6 @@
 
 #include <map>
 #include <string>
-#include <boost/lexical_cast.hpp>
 #include <iostream>
 
 
@@ -45,6 +44,24 @@ public:
     static const Environment & instance();
 };
 
+inline std::string from_string(std::string s, std::string *)
+{
+    return s;
+}
+
+inline int from_string(const std::string & s, int *)
+{
+    return std::stol(s);
+}
+
+inline bool from_string(const std::string & s, bool *)
+{
+    if (s == "true")
+        return true;
+    if (s == "false")
+        return false;
+    return from_string(s, (int *)0);
+}
 
 /*****************************************************************************/
 /* ENV_OPTION                                                                */
@@ -60,7 +77,8 @@ public:
     {
         const Environment & env = Environment::instance();
         if (env.count(var_name)) {
-            t_ = boost::lexical_cast<T>(env[var_name]);
+            using MLDB::from_string;
+            t_ = from_string(env[var_name], (T*)0);
             specified_ = true;
             if (Trace) {
                 using namespace std;

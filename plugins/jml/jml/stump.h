@@ -159,7 +159,7 @@ public:
 
     /** Merge with another.  The feature and the arg have to be the same for
         this to work.  An exception is thrown if not. */
-    void merge(const Stump & other, float other_weight = 1.0);
+    void merge_inplace(const Stump & other, float other_weight = 1.0);
 
     /** Scale the values of this stump.  Operates in-place. */
     void scale(float scale);
@@ -217,7 +217,7 @@ public:
     virtual Stump * make_copy() const;
 
     virtual Classifier_Impl *
-    merge(const Classifier_Impl & other, float weight = 1.0) const;
+    merge(const Classifier_Impl & other, float weight = 1.0) const override MLDB_WARN_UNUSED_RESULT;
 };
 
 

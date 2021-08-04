@@ -109,11 +109,13 @@ Dense_Feature_Space::encode(const std::vector<float> & variables) const
         throw Exception
             (format("Dense_Feature_Space::encode(): expected %zd variables, "
                     "got %zd", info_array.size(), variables.size()));
+    ExcAssertEqual(features_.size(), variables.size());
     std::shared_ptr<Mutable_Feature_Set> result
-        (new Mutable_Feature_Set(pair_merger(features_.begin(),
-                                             variables.begin()),
-                                 pair_merger(features_.end(),
-                                             variables.end())));
+        (new Mutable_Feature_Set());
+    result->reserve(features_.size());
+    for (size_t i = 0;  i < variables.size();  ++i) {
+        result->add(features_[i], variables[i]);
+    }
     result->sort();
     return result;
 }

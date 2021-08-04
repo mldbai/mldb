@@ -15,6 +15,7 @@
 #include <memory>
 #include <unordered_map>
 #include <set>
+#include <utility>
 #include "mldb/arch/exception.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
@@ -248,6 +249,13 @@ struct RegisterValueDescriptionI {
     static const RegisterValueDescription<type> registerValueDescription##type; \
     }
 
+template<typename T1, typename T2>
+void doSwap(T1 & t1, T2 & t2)
+{
+    using std::swap;
+    swap(t1, t2);
+}
+
 /*****************************************************************************/
 /* VALUE DESCRIPTION TEMPLATE                                                */
 /*****************************************************************************/
@@ -335,7 +343,7 @@ struct ValueDescriptionT : public ValueDescription {
         auto to2 = reinterpret_cast<T *>(to);
         if (from2 == to2)
             return;
-        std::swap(*from2, *to2);
+        doSwap(*from2, *to2);
     }
 
     virtual void * constructDefault() const override
@@ -540,7 +548,7 @@ T jsonDecode(const Json::Value & json, T *)
 // jsonDecode implementation for any type which:
 // 1) has a default description;
 template<typename T>
-T jsonDecodeStr(const std::string & json, T * = 0)
+T jsonDecodeStr(const std::string & json, T *)
 {
     T result;
 
@@ -553,7 +561,7 @@ T jsonDecodeStr(const std::string & json, T * = 0)
 // jsonDecode implementation for any type which:
 // 1) has a default description;
 template<typename T>
-T jsonDecodeStr(const Utf8String & json, T * = 0)
+T jsonDecodeStr(const Utf8String & json, T *)
 {
     T result;
 
@@ -567,7 +575,7 @@ T jsonDecodeStr(const Utf8String & json, T * = 0)
 // 1) has a default description;
 // NOTE: this works for UTF-8 or ASCII.
 template<typename T>
-T jsonDecodeStr(const char * str, size_t len, T * = 0)
+T jsonDecodeStr(const char * str, size_t len, T * = nullptr)
 {
     T result;
 
@@ -580,7 +588,7 @@ T jsonDecodeStr(const char * str, size_t len, T * = 0)
 // jsonDecode implementation for any type which:
 // 1) has a default description;
 template<typename T>
-T jsonDecodeStream(std::istream & stream, T * = 0)
+T jsonDecodeStream(std::istream & stream, T *)
 {
     T result;
 

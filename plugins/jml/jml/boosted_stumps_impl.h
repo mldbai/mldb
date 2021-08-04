@@ -9,12 +9,9 @@
    that we can use it while tracing the operation of the algorithm.
 */
 
-#ifndef __boosting__boosted_stumps_impl_h__
-#define __boosting__boosted_stumps_impl_h__
-
+#pragma once
 
 #include "boosted_stumps.h"
-#include "mldb/plugins/jml/sgi_algorithm.h"
 #include <iostream>
 #include "mldb/base/exc_assert.h"
 
@@ -163,6 +160,3 @@ predict_core(const Feature_Set & features, const Results & results) const
 
 } // namespace ML
 
-
-
-#endif /* __boosting__boosted_stumps_impl_h__ */

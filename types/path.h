@@ -13,6 +13,7 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
+#include <utility>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -774,8 +775,6 @@ inline Path restDecode(const Utf8String & val, Path *)
 
 
 namespace std {
-
-template<typename T> struct hash;
 
 template<>
 struct hash<MLDB::PathElement> : public std::unary_function<MLDB::PathElement, size_t>

@@ -8,8 +8,7 @@
    Utilities for runtime type info.
 */
 
-#ifndef __jml__arch__rtti_utils_h__
-#define __jml__arch__rtti_utils_h__
+#pragma once
 
 #include <typeinfo>
 
@@ -40,12 +39,16 @@ const void * is_convertible(const FromT & from_obj,
 }
 
 template<typename ToT, typename FromT>
-const void * is_convertible(const FromT & from_obj)
+const ToT * is_convertible(const FromT & from_obj)
 {
-    return is_convertible(typeid(FromT), typeid(ToT), &from_obj);
+    return (const ToT *)is_convertible(typeid(FromT), typeid(ToT), &from_obj);
     //return is_convertible(typeid(from_obj), typeid(ToT), &from_obj);
 }
 
-} // namespace MLDB
+template<typename ToT>
+const ToT * is_convertible(const void * obj, const std::type_info & from_type)
+{
+    return (const ToT *)is_convertible(from_type, typeid(ToT), obj);
+}
 
-#endif /* __jml__arch__rtti_utils_h__ */
+} // namespace MLDB

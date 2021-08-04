@@ -285,10 +285,13 @@ struct Naive_Bayes_Accum {
         
         boost::multi_array<float, 3> probs(boost::extents[features.size()][3][nl]);
         distribution<double> missing(nl);
-        output.features
-            = vector<Naive_Bayes::Bayes_Feature>
-                (first_extractor(sorted.begin()),
-                 first_extractor(sorted.end()));
+        std::vector<Naive_Bayes::Bayes_Feature> newFeatures;
+        newFeatures.reserve(sorted.size());
+        for (const auto & p: sorted) {
+            newFeatures.emplace_back(p.first);
+        }
+
+        output.features = std::move(newFeatures);
         
         for (unsigned f = 0;  f < features.size();  ++f) {
             for (unsigned l = 0;  l < nl;  ++l) {
@@ -328,7 +331,7 @@ train_weighted(Thread_Context & context,
 
     /* Test the given proportion of possible features, and return the best. */
     if (feature_prop < 1.0)
-        std::random_shuffle(features.begin(), features.end());
+        std::shuffle(features.begin(), features.end(), context.std_rng());
     
     /* Choose the top proportion of them. */
     size_t nf = (size_t)((float)features.size() * feature_prop);

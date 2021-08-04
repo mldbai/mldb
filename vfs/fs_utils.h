@@ -33,13 +33,10 @@ struct UriHandler;
 */
 
 struct FsObjectInfo {
-    FsObjectInfo()
-        : exists(false), size(-1)
-    {}
-
-    bool exists;                ///< If false, the object doesn't exist
+    bool exists = false;        ///< If false, the object doesn't exist
     Date lastModified;          ///< Date last modified
-    int64_t size;               ///< Size in bytes
+    Date lastAccessed = Date::notADate(); ///< Date last accessed
+    int64_t size = -1;          ///< Size in bytes
     std::string etag;           ///< Element tag (content hash) when supported
     std::string storageClass;   ///< Storage class of object (S3 only)
     std::string ownerId;        ///< ID of the owner (uid or identifier)

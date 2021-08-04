@@ -640,7 +640,7 @@ Layer_Stack<LayerT> *
 Layer_Stack<LayerT>::
 deep_copy() const
 {
-    std::auto_ptr<Layer_Stack<LayerT> > result
+    std::unique_ptr<Layer_Stack<LayerT> > result
         (new Layer_Stack<LayerT>(this->name()));
     for (unsigned i = 0;  i < size();  ++i)
         result->add_cast(make_sp(layers_[i]->deep_copy()));

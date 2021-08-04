@@ -1094,7 +1094,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
 
                 ts.setMax(tsIn);
 
-                if (!isnanf(denseFeatures[it->second.index])) {
+                if (!isnan(denseFeatures[it->second.index])) {
                     multiValue = true;
                     return false;
                 }

@@ -1975,8 +1975,6 @@ searchRow(const StructValue & columns,
 // Allow std::unordered_xxx<ExpressionValue> to work
 namespace std {
 
-template<typename T> struct hash;
-
 template<>
 struct hash<MLDB::ExpressionValue> : public std::unary_function<MLDB::ExpressionValue, size_t>
 {

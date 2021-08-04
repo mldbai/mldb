@@ -85,7 +85,7 @@ predict(const Feature_Set & infeatures,
 
     std::vector<int32_t> words;
   
-    for (const auto& feature : infeatures) {
+    for (const auto feature : infeatures) {
         auto it = featureMap.find(feature.first);
         if (it != featureMap.end()) {
             size_t f = (*it);
@@ -128,7 +128,7 @@ explain(const Feature_Set & feature_set,
     outputVector.zero();
     outputVector.addRow(*(fastText_->output_), label);
 
-    for (const auto&f : feature_set) {
+    for (const auto f : feature_set) {
         auto feature = f.first;
         auto it = featureMap.find(feature);
         if (it != featureMap.end()) {

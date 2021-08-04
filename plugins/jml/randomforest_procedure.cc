@@ -296,7 +296,7 @@ run(const ProcedureRunConfig & run,
                 distribution<float> in_training(numRowsInPartition);
                 vector<int> tr_ex_nums(numRowsInPartition);
                 std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
-                std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);
+                std::shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), rng);
                 
                 for (unsigned i = 0;  i < numRowsInPartition * trainprop;  ++i)
                     in_training[tr_ex_nums[i]] = 1.0;

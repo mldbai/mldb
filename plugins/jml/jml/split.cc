@@ -156,7 +156,7 @@ void
 Split::
 validate() const
 {
-    if (isnanf(split_val_)) {
+    if (std::isnan(split_val_)) {
         using namespace std;
         cerr << "split_val_ = " << split_val_ << endl;
         cerr << "feature_ = " << feature_ << endl;
@@ -179,7 +179,7 @@ void
 Split::
 validate(const Feature_Space & fs) const
 {
-    if (isnanf(split_val_)) {
+    if (std::isnan(split_val_)) {
         using namespace std;
         cerr << "split_val_ = " << split_val_ << endl;
         cerr << "feature_ = " << feature_ << endl;
