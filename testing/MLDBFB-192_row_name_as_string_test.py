@@ -8,13 +8,15 @@ import os
 import unittest
 from mldb import mldb, MldbUnitTest, ResponseException
 
+tmp_dir = os.getenv("TMP")
+
 class RowNameAsStringTest(MldbUnitTest):
     query = "SELECT * FROM csv ORDER BY rowName()"
 
     @classmethod
     def setUpClass(cls):
         tmp_file = tempfile.NamedTemporaryFile(
-            prefix=os.getcwd() + '/build/x86_64/tmp/')
+            prefix=tmp_dir + "/MLDBFB-192")
         with open(tmp_file.name, 'wt') as f:
             f.write("header\n")
             f.write("val1\n")

@@ -7,10 +7,12 @@ import datetime
 
 from mldb import mldb
 
+nans = { "NaN", "-NaN" }
+
 rez = mldb.get("/v1/query", q="select 0/0")
 js_rez = rez.json()
 mldb.log(js_rez)
-assert [x[1]["num"] for x in js_rez[0]["columns"]] == ["-NaN"]
+assert [x[1]["num"] in nans for x in js_rez[0]["columns"]] == [True]
 
 rez = mldb.get("/v1/query", q="select replace_nan(0/0, 5)")
 js_rez = rez.json()
@@ -45,7 +47,12 @@ assert [x[1] for x in js_rez[0]["columns"]] == [98, 98, 98, 98, 23]
 rez = mldb.get("/v1/query", q="select replace_null([1/0, 0/0, -1/0, -0/0, null, 23], 98)")
 js_rez = rez.json()
 mldb.log(js_rez)
-assert [x[1] for x in js_rez[0]["columns"]] == [{"num":"Inf"}, {"num":"-NaN"}, {"num":"-Inf"},{"num":"NaN"}, 98, 23]
+assert js_rez[0]["columns"][0][1]["num"] == "Inf"
+assert js_rez[0]["columns"][1][1]["num"] in nans
+assert js_rez[0]["columns"][2][1]["num"] == "-Inf"
+assert js_rez[0]["columns"][3][1]["num"] in nans
+assert js_rez[0]["columns"][4][1] == 98
+assert js_rez[0]["columns"][5][1] == 23
 
 # Create toy dataset
 dataset_config = {

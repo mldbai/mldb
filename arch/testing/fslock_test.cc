@@ -21,10 +21,13 @@
 #include "mldb/arch/fslock.h"
 #include "mldb/arch/exception.h"
 #include "mldb/utils/testing/watchdog.h"
+#include "mldb/utils/environment.h"
 
 
 using namespace std;
 using namespace MLDB;
+
+EnvOption<std::string> TMP("TMP", "./tmp");
 
 void
 cleanupLock(const string basename)
@@ -43,7 +46,7 @@ BOOST_AUTO_TEST_CASE( test_lock_race )
     const int numBlocks(10);
     const int numThreads(10);
 
-    string lockedFile = "tmp/fs_lock_test";
+    string lockedFile = TMP.get() + "/fs_lock_test";
 
     atomic<int> active[numBlocks];
 
@@ -83,7 +86,7 @@ BOOST_AUTO_TEST_CASE( test_lock_race )
     }
 }
 
-#ifdef asdsasasda__linux__ // requires robust mutexes to work
+#ifdef __linux__ // requires robust mutexes to work
 /* ensure that stale locks are handled properly using tryLock */
 BOOST_AUTO_TEST_CASE( test_stale_and_trylock )
 {

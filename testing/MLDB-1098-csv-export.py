@@ -9,11 +9,13 @@
 import tempfile
 import codecs
 import unittest
+import os
 
 if False:
     mldb_wrapper = None
 from mldb import mldb, MldbUnitTest, ResponseException
 
+tmp_dir = os.getenv('TMP')
 
 class CsvExportTest(MldbUnitTest):
     def assert_file_content(self, filename, lines_expect):
@@ -53,7 +55,7 @@ class CsvExportTest(MldbUnitTest):
         res = mldb.get('/v1/query', q='SELECT * FROM myDataset')
         mldb.log(res)
 
-        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        tmp_file = tempfile.NamedTemporaryFile(dir=tmp_dir)
 
         res = mldb.put('/v1/procedures/export', {
             'type' : 'export.csv',
@@ -87,7 +89,7 @@ class CsvExportTest(MldbUnitTest):
         mldb.put("/v1/procedures/csv_proc", csv_conf)
 
         # export it (end of roundtrip)
-        tmp_file2 = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        tmp_file2 = tempfile.NamedTemporaryFile(dir=tmp_dir)
         mldb.put('/v1/procedures/export2', {
             'type' : 'export.csv',
             'params' : {
@@ -102,7 +104,7 @@ class CsvExportTest(MldbUnitTest):
         self.assert_file_content(tmp_file2.name, lines_expect)
 
     def test_quoteChar_delimiter_noheader(self):
-        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        tmp_file = tempfile.NamedTemporaryFile(dir=tmp_dir)
         mldb.put('/v1/procedures/export3', {
             'type' : 'export.csv',
             'params' : {
@@ -158,7 +160,7 @@ class CsvExportTest(MldbUnitTest):
              ["row1",10,5]
             ])
 
-        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        tmp_file = tempfile.NamedTemporaryFile(dir=tmp_dir)
 
         with self.assertRaisesRegex(ResponseException,
                 "cells having multiple values, at row 'row.' for column '.'"):

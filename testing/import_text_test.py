@@ -3,21 +3,23 @@
 # Francois-Michel L Heureux, 2016-06-21
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
-import tempfile
+import tempfile, os
 from mldb import mldb, MldbUnitTest, ResponseException
+
+tmp_dir=os.getenv('TMP')
 
 class ImportTextTest(MldbUnitTest):
 
     @classmethod
     def setUpClass(cls):
         cls.regular_lines_file = \
-            tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+            tempfile.NamedTemporaryFile(dir=tmp_dir)
         cls.regular_lines_file.write(b"a,b,c\n")
         cls.regular_lines_file.write(b"d,e,f\n")
         cls.regular_lines_file.flush()
 
         cls.irregular_lines_file = \
-            tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+            tempfile.NamedTemporaryFile(dir=tmp_dir)
         cls.irregular_lines_file.write(b"a,b,c\n")
         cls.irregular_lines_file.write(b"d,e\n")
         cls.irregular_lines_file.write(b"f,g,h,i\n")

@@ -33,6 +33,11 @@ MLDB_ALWAYS_INLINE uint64_t ticks()
 
     return result;
 # endif // 32/64 bits
+#elif (defined(__APPLE__) && defined(MLDB_ARM_ISA)) // not accessible from user space 
+    uint64_t result;
+    // read the current counter
+    asm volatile ("mrs %0, cntpct_el0" : "=r"(result));
+    return result;
 #else // non-intel
     return 0;  
 #endif
