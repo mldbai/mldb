@@ -9,7 +9,7 @@ FASTTEXT_SOURCE := \
     src/utils.cc \
     src/fasttext.cc \
 
-$(eval $(call set_compile_option,$(FASTTEXT_SOURCE),-Imldb/ext/fasttext/src))
+$(eval $(call set_compile_option,$(FASTTEXT_SOURCE),-Imldb/ext/fasttext/src -Wno-tautological-constant-out-of-range-compare))
 
 $(eval $(call library,fasttext,$(FASTTEXT_SOURCE)))
 
