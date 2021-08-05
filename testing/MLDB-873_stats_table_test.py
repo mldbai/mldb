@@ -5,6 +5,7 @@
 # this file is part of mldb. copyright 2015 mldb.ai inc. all rights reserved.
 #
 import datetime, math
+import os
 
 from mldb import mldb
 
@@ -12,6 +13,8 @@ dataset_config = {
     'type'    : 'sparse.mutable',
     'id'      : 'toy'
 }
+
+tmpDir = os.getenv("TMP")
 
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
@@ -41,7 +44,7 @@ for output_type, output_id in [("sparse.mutable", "out_beh"),
             "outputDataset": {"type": output_type, "id": output_id},
             "outcomes": [["label", "CLICK IS NOT NULL"],
                        ["not_label", "CLICK IS NULL"]],
-            "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table.st",
+            "statsTableFileUrl": "file://" + tmpDir + "/mldb-873-stats_table.st",
             "functionName": "mySt",
             "runOnCreation": True
         }
@@ -179,7 +182,7 @@ conf = {
                         counts.label/counts.trial as ctr_$tbl,
                         1 as pwet_$tbl,
                         ln(counts.trial+1) as hoho_$tbl""",
-        "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table.st",
+        "statsTableFileUrl": "file://" + tmpDir + "/mldb-873-stats_table.st",
         "functionId": "getDerived"
     }
 }
@@ -269,7 +272,7 @@ conf = {
     "params": {
         "trainingData": "select tokenize(text, {splitChars: ' '}) as * from posneg",
         "outcomes": [["label", "CLICK IS NOT NULL"]],
-        "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
+        "statsTableFileUrl": "file://" + tmpDir + "/mldb-873-stats_table_posneg.st",
         "runOnCreation": True,
         "functionName": "myBowSt",
         "functionOutcomeToUse": "label"
@@ -296,7 +299,7 @@ conf = {
         "numNeg": 4,
         "minTrials": 1,
         "outcomeToUse": "label",
-        "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
+        "statsTableFileUrl": "file://" + tmpDir + "/mldb-873-stats_table_posneg.st",
     }
 }
 rez = mldb.put("/v1/functions/posnegz", conf)

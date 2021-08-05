@@ -22,6 +22,8 @@ try:
 except:
     prctl_imported = False
 
+binDir = os.getenv('BIN')
+    
 def pre_exec():
     # new process group - all our child will be in that group
     if prctl_imported:
@@ -44,7 +46,7 @@ class MldbRunner(object):
         if 'VIRTUALENV' in env:
             env['PATH'] = "%s/bin:%s" % (env['VIRTUALENV'], env.get('PATH', ''))
         self.mldb = None
-        self.mldb = subprocess.Popen(["build/x86_64/bin/mldb_runner",
+        self.mldb = subprocess.Popen([binDir + "/mldb_runner",
                                       "--http-listen-port", "8000-12000"],
                                      env=env,
                                      preexec_fn=pre_exec)
