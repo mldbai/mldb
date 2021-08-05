@@ -31,7 +31,6 @@ For C++ code to compile and the Python modules to install correctly, the followi
 
 ```bash
 sudo apt install -y \
-  install \
   make \
   time \
   lsb-release \
@@ -67,7 +66,8 @@ sudo apt install -y \
   libavutil-dev \
   libavcodec-dev \
   libavformat-dev \
-  libavdevice-dev
+  libavdevice-dev \
+  libv8-dev
 ```
 ## Installing Docker
 
