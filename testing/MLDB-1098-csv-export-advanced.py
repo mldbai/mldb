@@ -7,10 +7,12 @@
 
 import tempfile
 import unittest
+import os
 
 from mldb import mldb
 
-tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+tmp_dir = os.getenv('TMP')
+tmp_file = tempfile.NamedTemporaryFile(dir=tmp_dir)
 
 
 class CsvExportAdvancedTest(unittest.TestCase):

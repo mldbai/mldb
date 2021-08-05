@@ -8,7 +8,11 @@ import unittest
 import datetime
 import time
 import tempfile
+import os
+
 from mldb import mldb, MldbUnitTest
+
+tmp_dir = os.getenv('TMP')
 
 class ProcedureProgressTest(MldbUnitTest):
 
@@ -103,7 +107,7 @@ class ProcedureProgressTest(MldbUnitTest):
         resp = mldb.post("/v1/procedures/test/runs")
 
     def test_import_text_progress(self):
-        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp', mode='wt', encoding="utf-8")
+        tmp_file = tempfile.NamedTemporaryFile(dir=tmp_dir, mode='wt', encoding="utf-8")
         tmp_file.write('a,b,c\n')
         for i in range(100000):
             tmp_file.write('{},{},{}\n'.format(i,i * 10, i / 2))
