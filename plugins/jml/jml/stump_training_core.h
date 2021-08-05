@@ -1227,7 +1227,7 @@ struct Stump_Trainer {
             }
         }
         
-        if (debug && !finite(best_arg)) {
+        if (debug && !std::isfinite(best_arg)) {
             cerr << "*** best_arg non finite" << endl;
         }
 

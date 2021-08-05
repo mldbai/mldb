@@ -167,7 +167,7 @@ apply_weight_spec(const Training_Data & data, const Weight_Spec & spec_)
                 value = 1.0;
 #endif // not a problem
             }
-            else if (!finite(value))
+            else if (!std::isfinite(value))
                 throw Exception("apply_weight_spec: non-finite value "
                                 + ostream_format(value) + " in weight feature "
                                 + data.feature_space()->print(spec.feature)

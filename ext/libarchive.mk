@@ -145,6 +145,9 @@ LIBARCHIVE_LIBS_Linux_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 zst
 LIBARCHIVE_DEFINES_Darwin_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
 LIBARCHIVE_LIBS_Darwin_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
 
+LIBARCHIVE_DEFINES_Darwin_aarch64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
+LIBARCHIVE_LIBS_Darwin_aarch64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
+
 LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(OSNAME)_$(ARCH))
 LIBARCHIVE_LIBS:=$(LIBARCHIVE_LIBS_$(OSNAME)_$(ARCH))
 $(if $(LIBARCHIVE_DEFINES),,$(error LIBARCHIVE_DEFINES_$(OSNAME)_$(ARCH) not defined (unknown arch $(ARCH)).  Please define in libarchive.mk))
