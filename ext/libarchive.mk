@@ -139,13 +139,16 @@ LIBARCHIVE_FLAGS:= \
 # NOTE: to find this, run cmake in the ext/libarchive directory, and then
 # cat config.h | grep '#define' | sed 's/#define /-D/' | sed 's/ /=/' | tr '\n' ' '
 # cp config.h ../libarchive-config-$(OSNAME)-$(ARCH).h
-LIBARCHIVE_DEFINES_Linux_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR)
+LIBARCHIVE_DEFINES_Linux_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Linux-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR)
 LIBARCHIVE_LIBS_Linux_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 zstd
+
+LIBARCHIVE_DEFINES_Linux_aarch64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Linux-aarch64.h"' -I$(LIBXML2_INCLUDE_DIR)
+LIBARCHIVE_LIBS_Linux_aarch64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 zstd
 
 LIBARCHIVE_DEFINES_Darwin_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
 LIBARCHIVE_LIBS_Darwin_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
 
-LIBARCHIVE_DEFINES_Darwin_aarch64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
+LIBARCHIVE_DEFINES_Darwin_aarch64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-aarch64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
 LIBARCHIVE_LIBS_Darwin_aarch64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
 
 LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(OSNAME)_$(ARCH))
