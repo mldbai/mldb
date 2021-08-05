@@ -395,7 +395,7 @@ print(const Feature & feature, float value) const
         throw Exception("Dense_Feature_Space::print(): error: bad feature");
     
     if (info_array[feature.type()].categorical()) {
-        if (!finite(value)) return ostream_format(value);
+        if (!std::isfinite(value)) return ostream_format(value);
 
         if (round(value) != value)
             throw Exception("Dense_Feature_Space::print(): "

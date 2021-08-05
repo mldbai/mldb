@@ -694,7 +694,7 @@ calcOverlap(const Bucket & other, IntersectionSpace space) const
         return intersectionCount(it1, end1, it2, end2);
 
         while (it1 != end1 && it2 != end2) {
-#if 0 // inexplicably slower... need to look at machine code
+#if !MLDB_INTEL_ISA // inexplicably slower... need to look at machine code
             int s1 = *it1, s2 = *it2;
             result += s1 == s2;
             it1 += s1 <= s2;
