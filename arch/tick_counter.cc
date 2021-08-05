@@ -107,7 +107,7 @@ struct Init {
     Init()
     {
         ticks_overhead = calc_ticks_overhead();
-        ticks_per_second = calc_ticks_per_second();
+        ticks_per_second = calc_ticks_per_second(0.01);
         seconds_per_tick = 1.0 / ticks_per_second;
     }
 

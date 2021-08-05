@@ -14,6 +14,7 @@
 #include <iostream>
 #include <unistd.h>
 #include "mldb/arch/exception.h"
+#include "mldb/utils/environment.h"
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -26,7 +27,7 @@ namespace MLDB {
 
 namespace {
 
-const string tmpDir = "./build/x86_64/tmp/";
+  const string tmpDir = Environment::instance()["TMP"];
 const string prefixDir = "./../../../../";
 
 };

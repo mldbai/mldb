@@ -37,6 +37,9 @@ using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
+fs::path binDir = std::string(getenv("BIN"));
+fs::path tmpDir = std::string(getenv("TMP"));
+
 struct FileCleanup {
     FileCleanup(const string & filename)
         : filename_(filename)
@@ -179,14 +182,14 @@ BOOST_AUTO_TEST_CASE( test_compress_decompress_xz )
 BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    string lz4_cmd = "./build/x86_64/bin/lz4cli";
+    string lz4_cmd = binDir / "lz4cli";
     test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_zstandard )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    string zstd_cmd = "./build/x86_64/bin/zstd";
+    string zstd_cmd = binDir / "zstd";
     test_compress_decompress(input_file, "zst", zstd_cmd, zstd_cmd + " -d");
 }
 
@@ -229,9 +232,9 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
 /* ensures that empty gz/bzip2/xz streams have a valid header */
 BOOST_AUTO_TEST_CASE( test_empty_gzip )
 {
-    fs::create_directories("build/x86_64/tmp");
+    fs::create_directories(tmpDir);
 
-    string fileprefix("build/x86_64/tmp/empty.");
+    string fileprefix(tmpDir / "empty.");
     vector<string> exts = { "gz", "bz2", "xz", "lz4", "zst" };
     map<string, string> compressions = {
         { "gz", "gzip" },
@@ -291,7 +294,7 @@ BOOST_AUTO_TEST_CASE( test_large_blocks )
         block[i] = i ^ (i << 8) ^ (i << 16) ^ (1 << 24);
     }
     
-    string filename = "build/x86_64/tmp/badfile.xz4";
+    string filename = tmpDir / "badfile.xz4";
 
     FileCleanup cleanup(filename);
         

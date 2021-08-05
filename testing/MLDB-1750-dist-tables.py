@@ -10,9 +10,11 @@ from math import sqrt
 from mldb import mldb, MldbUnitTest, ResponseException
 
 def get_temporary_file():
-    return tempfile.NamedTemporaryFile(prefix=os.getcwd() + '/build/x86_64/tmp')
+    return tempfile.NamedTemporaryFile(prefix=tmp_dir)
 
 NaN = 'NaN'
+
+tmp_dir=os.getenv("TMP")
 
 class MLDB1750DistTables(MldbUnitTest):  # noqa
 

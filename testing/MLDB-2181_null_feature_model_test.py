@@ -13,8 +13,11 @@
 
 import random
 import tempfile
+import os
 
 from mldb import mldb, MldbUnitTest, ResponseException
+
+tmp_dir = os.getenv('TMP')
 
 class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
 
@@ -51,7 +54,7 @@ class Mldb2181NullFeatureModelTest(MldbUnitTest):  # noqa
             }
         })
 
-        cls.model_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        cls.model_file = tempfile.NamedTemporaryFile(dir=tmp_dir)
 
         mldb.post('/v1/procedures', {
             "type": "classifier.train",

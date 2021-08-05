@@ -14,6 +14,8 @@
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>
+#include <chrono>
+#include <thread>
 
 
 using namespace MLDB;
@@ -24,9 +26,10 @@ using boost::unit_test::test_suite;
 BOOST_AUTO_TEST_CASE( test1 )
 {
     uint64_t before = ticks();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     uint64_t after = ticks();
 
-    BOOST_CHECK(after > before);
+    BOOST_CHECK_GT(after, before);
 }
 
 BOOST_AUTO_TEST_CASE( test2 )
@@ -35,10 +38,10 @@ BOOST_AUTO_TEST_CASE( test2 )
 
     cerr << "tick overhead = " << overhead << endl;
     
-    BOOST_CHECK(overhead > 1.0);
+    BOOST_CHECK_GT(overhead, 0.0);
 
     // Tick overhead for VMs may be quite high
-    BOOST_CHECK(overhead < 10000.0);
+    BOOST_CHECK_LT(overhead, 10000.0);
 }
 
 BOOST_AUTO_TEST_CASE( test3 )
@@ -47,6 +50,6 @@ BOOST_AUTO_TEST_CASE( test3 )
 
     cerr << "ticks_per_second = " << ticks_per_second << endl;
 
-    BOOST_CHECK(ticks_per_second > 1e9);
-    BOOST_CHECK(ticks_per_second < 10e9);
+    BOOST_CHECK_GT(ticks_per_second, 1000000);
+    BOOST_CHECK_LT(ticks_per_second, 10e9);
 }

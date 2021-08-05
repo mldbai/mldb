@@ -3,9 +3,11 @@
 # mldb.ai inc, 2015
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
-import random, datetime
+import random, datetime, os
 
 from mldb import mldb
+
+tmp_dir = os.getenv("TMP")
 
 ## Create toy dataset
 dataset_config = {
@@ -40,7 +42,7 @@ procedure_conf = {
                 "trainingWhere": "rowHash() % 5 != 2",
                 "testingWhere": "rowHash() % 5 = 2",
             }],
-        "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-$runid.cls",
+        "modelFileUrlPattern": "file://" + tmp_dir + "MLDB-991-bouya-$runid.cls",
         "algorithm": "glz",
         "equalizationFactor": 0.5,
         "mode": "boolean",

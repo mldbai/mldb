@@ -1,6 +1,5 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-$(eval $(call test,tick_counter_test,arch,boost))
 $(eval $(call test,bitops_test,arch,boost))
 $(eval $(call test,wait_on_address_test,arch,boost))
 $(eval $(call test,fslock_test,arch,boost))
@@ -23,6 +22,11 @@ ifeq ($(ARCH),x86_64)
 $(eval $(call test,sse2_math_test,arch,boost))
 $(eval $(call test,simd_test,arch,boost))
 $(eval $(call test,cpuid_test,arch,boost))
+$(eval $(call test,tick_counter_test,arch,boost))
+endif
+
+ifeq ($(OSNAME)-$(ARCH),Darwin-arm64)
+$(eval $(call test,tick_counter_test,arch,boost))
 endif
 
 ifeq ($(WITH_CUDA),1)

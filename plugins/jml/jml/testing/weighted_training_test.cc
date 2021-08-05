@@ -10,9 +10,14 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/utils/distribution.h"
+#include "mldb/utils/environment.h"
 
 using namespace ML;
 using namespace std;
+
+
+const string tmpDir = Environment::instance()["TMP"];
+const string binDir = Environment::instance()["BIN"];
 
 float rand_prob() {
     return float(rand()) / float(RAND_MAX);
@@ -20,12 +25,12 @@ float rand_prob() {
 
 BOOST_AUTO_TEST_CASE( weighted_training_test )
 {
-    string filename1 = "weighted_training_test_dataset1.txt";
-    string filename2 = "weighted_training_test_dataset2.txt";
-    string modelname1 = "weighted_training_test_model1.cls";
-    string modelname2 = "weighted_training_test_model2.cls";
-    string modelname3 = "weighted_training_test_model3.cls";
-    string configname = "weighted_training_test_config.cls";
+    string filename1 = tmpDir + "/weighted_training_test_dataset1.txt";
+    string filename2 = tmpDir + "/weighted_training_test_dataset2.txt";
+    string modelname1 = tmpDir + "/weighted_training_test_model1.cls";
+    string modelname2 = tmpDir + "/weighted_training_test_model2.cls";
+    string modelname3 = tmpDir + "/weighted_training_test_model3.cls";
+    string configname = tmpDir + "/weighted_training_test_config.cls";
     
     ofstream filestream;
     filestream.open(filename1);
@@ -71,15 +76,15 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
 
         // weights: LABEL, ExampleId
         // ignore: ExampleId
-        string cmd1 = "build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
+        string cmd1 = binDir + "/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
 
         // weights: LABEL, WEIGHT, ExampleId
         // ignore: ExampleId, WEIGHT
-        string cmd2 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId -z WEIGHT";
+        string cmd2 = binDir + "/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId -z WEIGHT";
 
         // weights: LABEL, WEIGHT
         // ignore: ExampleId, WEIGHT
-        string cmd3 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname3 + " glz.verbosity=10  -W LABEL/F,WEIGHT/V -z ExampleId -z WEIGHT";
+        string cmd3 = binDir + "/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.regularization=none -E 1 "+probabilizer[probIdx]+" -o " + modelname3 + " glz.verbosity=10  -W LABEL/F,WEIGHT/V -z ExampleId -z WEIGHT";
 
 
         cout << cmd1 << endl;

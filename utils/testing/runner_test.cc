@@ -31,6 +31,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/utils/testing/watchdog.h"
 #include "mldb/compiler/filesystem.h"
+#include "mldb/utils/environment.h"
 
 #include <iostream>
 
@@ -51,9 +52,12 @@ struct _Init {
     }
 } myInit;
 
+static const std::string ARCH = Environment::instance()["ARCH"];
+static const std::string BIN = Environment::instance()["BIN"];
+
 fs::path findExe(const std::string & name)
 {
-    static std::vector<fs::path> searchPaths = { "/bin", "/usr/bin", "/usr/local/bin", "./build/x86_64/bin", "./build/aarch64/bin" };
+    static std::vector<fs::path> searchPaths = { "/bin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin", BIN, "./build/" + ARCH + "/bin" };
 
     for (const auto & path: searchPaths) {
         fs::path fullPath = path / name;

@@ -9,6 +9,8 @@ import os
 import json
 from mldb import mldb
 
+tmp_dir = os.getenv("TMP")
+
 res = mldb.perform('PUT', '/v1/datasets/myDataset', [], {
     'type' : 'beh.binary.mutable'
 })
@@ -30,7 +32,7 @@ res = mldb.perform('POST', '/v1/datasets/myDataset/rows', [], {
 })
 assert res['statusCode'] == 200, str(res)
 
-tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+tmp_file = tempfile.NamedTemporaryFile(dir=tmp_dir)
 
 res = mldb.perform('POST', '/v1/procedures', [], {
     'type' : 'transform',
