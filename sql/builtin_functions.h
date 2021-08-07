@@ -63,6 +63,11 @@ inline void checkArgsSize(size_t number, size_t minArgs, size_t maxArgs,
 
 // Calculate the effective timstamps for an expression involving two
 // operands.
+inline Date calcTs(const ExpressionValue & v1)
+{
+    return v1.getEffectiveTimestamp();
+}
+
 inline Date calcTs(const ExpressionValue & v1,
                    const ExpressionValue & v2)
 {
