@@ -1492,7 +1492,8 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
                     constantValue.coerceToString().toUtf8String());
         }
 
-        Iso8601Parser timeZoneParser(constantValue.coerceToString().toString());
+        auto coercedString = constantValue.coerceToString().toString();
+        Iso8601Parser timeZoneParser(coercedString);
 
         constantMinute = timeZoneParser.expectTimezone();
         constantTimezone = true;
@@ -1517,7 +1518,8 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
                                     timezoneoffsetEV.coerceToString().toUtf8String());
                         }
 
-                        Iso8601Parser timeZoneParser(timezoneoffsetEV.toString());
+                        auto timezoneString = timezoneoffsetEV.toString();
+                        Iso8601Parser timeZoneParser(timezoneString);
 
                         int timezoneOffset = timeZoneParser.expectTimezone();
                         date.addMinutes(timezoneOffset);
@@ -1554,7 +1556,8 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
                     constantValue.coerceToString().toUtf8String());
         }
 
-        Iso8601Parser timeZoneParser(constantValue.coerceToString().toString());
+        auto coercedString = constantValue.coerceToString().toString();
+        Iso8601Parser timeZoneParser(coercedString);
 
         constantMinute = timeZoneParser.expectTimezone();
         constantTimezone = true;
@@ -1578,7 +1581,8 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
                             throw AnnotatedException(400, "date_trunc expected a string as third argument, got " + timezoneoffsetEV.coerceToString().toUtf8String());
                         }
 
-                        Iso8601Parser timeZoneParser(timezoneoffsetEV.toString());
+                        auto timezoneString = timezoneoffsetEV.toString();
+                        Iso8601Parser timeZoneParser(timezoneString);
 
                         int timezoneOffset = timeZoneParser.expectTimezone();
                         date.addMinutes(timezoneOffset);
