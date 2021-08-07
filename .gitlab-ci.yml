@@ -2,7 +2,6 @@ image: registry.gitlab.com/mldbai/mldb/mldb_build_env_ubuntu:20.04
 
 stages:
   - build
-  - sanitize
 
 build:
   stage: build
@@ -40,10 +39,12 @@ build:
       junit: junit.xml
 
 asan:
-  stage: sanitize
+  stage: build
   before_script:
     - apt update && DEBIAN_FRONTEND=noninteractive apt -y install clang-12
   script:
+    - git submodule init
+    - git submodule update --jobs=8 --depth=1 --progress
     - declare -x SCCACHE_BUCKET=mldb-sccache-a3f9b3
     - declare -x AWS_ACCESS_KEY_ID="$SCCACHE_AWS_AKID"
     - declare -x AWS_SECRET_ACCESS_KEY="$SCCACHE_AWS_SECRET"
@@ -51,6 +52,7 @@ asan:
     - declare -x SCCACHE_REGION=us-east-2
     - declare -x POSTCFLAGS='-O2 -g0' POSTCXXFLAGS='-O2 -g0'
     - declare -x PRECXX=./sccache
+    - make -j4 -k dependencies
     - ./sccache --show-stats
     - make -j32 -k compile toolchain=clang sanitizers=address || make -j32 -k compile toolchain=clang sanitizers=address
     - ./sccache --show-stats
