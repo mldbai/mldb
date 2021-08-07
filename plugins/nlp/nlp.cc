@@ -19,6 +19,15 @@ using namespace std;
 
 namespace MLDB {
 
+namespace {
+
+struct DeleteStemmer {
+    void operator () (sb_stemmer * p) const { sb_stemmer_delete(p); }
+};
+
+using stemmer_unique_ptr = std::unique_ptr<sb_stemmer, DeleteStemmer>;
+
+} // file scope
 
 DEFINE_STRUCTURE_DESCRIPTION(Words);
 
@@ -132,7 +141,7 @@ StemmerFunction(MldbEngine * owner,
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
     //this is just to verify the language at creation time
-    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    stemmer_unique_ptr stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
         throw MLDB::Exception(MLDB::format("language `%s' not available for stemming in "
@@ -147,7 +156,7 @@ call(Words input) const
     // the sb_stemmer object is not thread safe
     // but this allocation is not very expensive as profiled
     // compared to actually doing the stemming
-    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    stemmer_unique_ptr stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     map<PathElement, pair<double, Date> > accum;
 
@@ -221,7 +230,7 @@ StemmerOnDocumentFunction(MldbEngine * owner,
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
     //this is just to verify the language at creation time
-    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    stemmer_unique_ptr stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
         throw MLDB::Exception(MLDB::format("language `%s' not available for stemming in "
@@ -236,7 +245,7 @@ call(Document doc) const
     // the sb_stemmer object is not thread safe
     // but this allocation is not very expensive as profiled
     // compared to actually doing the stemming
-    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    stemmer_unique_ptr stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     Utf8String accum;
 

@@ -81,6 +81,7 @@ createDataset(MldbPythonContext * mldbContext, const Json::Value & rawConfig)
 
     // Possible recursive call; GIL must be released
     auto nogil = releaseGil();
+    ExcAssert(mldbContext->getPyContext()->engine);
     return new DatasetPy(MLDB::createDataset
                          (mldbContext->getPyContext()->engine,
                           config));

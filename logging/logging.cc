@@ -117,7 +117,7 @@ Registry& getRegistry() {
 struct Logging::CategoryData {
     bool initialized;
     bool enabled;
-    char const * name;
+    std::string name;
     std::shared_ptr<Writer> writer;
     std::stringstream stream;
 
@@ -290,7 +290,7 @@ Logging::Category::~Category()
 }
 
 char const * Logging::Category::name() const {
-    return data->name;
+    return data->name.c_str();
 }
 
 bool Logging::Category::isEnabled() const {
@@ -330,11 +330,17 @@ std::ostream & Logging::Category::beginWrite(char const * fct, char const * file
 
     timeval now;
     gettimeofday(&now, 0);
-    char text[64];
+    constexpr size_t BUF_SIZE = 64;
+    char text[BUF_SIZE];
     auto count = strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", localtime(&now.tv_sec));
+    if (count == 0)
+        throw Exception("strftime in log: buffer too short");
     int ms = now.tv_usec / 1000;
-    sprintf(text + count, ".%03d", ms);
-    data->writer->head(text, data->name, fct, file, line);
+    auto res = snprintf(text + count, sizeof(text) - count, ".%03d", ms);
+    if (res >= sizeof(text) - count)
+        throw Exception("strftime in log: buffer too short");
+
+    data->writer->head(text, data->name.c_str(), fct, file, line);
     return data->stream;
 }
 

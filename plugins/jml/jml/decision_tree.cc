@@ -118,7 +118,7 @@ struct AccumResults {
             return;
         }
 
-        for (unsigned i = 0;  i < nl;  ++i)
+        for (unsigned i = 0;  i < nl && i < dist.size();  ++i)
             accum[i] += dist[i] * weight1 * weight;
     }
 };
@@ -127,6 +127,8 @@ struct DistResults {
     explicit DistResults(double * accum, int nl)
         : accum(accum), nl(nl)
     {
+        ExcAssertGreaterEqual(nl, 0);
+        ExcAssert(accum);
         std::fill(accum, accum + nl, 0.0);
     }
 
@@ -136,7 +138,7 @@ struct DistResults {
     MLDB_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight)
     {
-        for (unsigned i = 0;  i < nl;  ++i)
+        for (unsigned i = 0;  i < dist.size() && i < nl;  ++i)
             accum[i] += dist[i] * weight;
     }
     
@@ -152,6 +154,7 @@ struct LabelResults {
     MLDB_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight)
     {
+        ExcAssertLess(label, dist.size());
         result += weight * dist[label];
     }
 
@@ -283,6 +286,7 @@ predict_recursive_impl(const GetFeatures & get_features,
     if (!ptr) return;
 
     if (!ptr.node()) {
+        ExcAssert(ptr.leaf());
         results(ptr.leaf()->pred, weight);
         return;
     }

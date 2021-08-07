@@ -40,7 +40,8 @@ void renderMacro(hoedown_buffer *ob,
     MacroContext context(&macroData, ob, text);
     context.engine = macroData.engine;
 
-    string s((const char *)text->data, 2, text->size - 2);
+    ExcAssertGreaterEqual(text->size, 2);
+    string s((const char *)text->data + 2, (const char *)text->data + text->size);
     auto pos = s.find(' ');
     string name(s, 0, pos);
     string args(s, pos + 1);

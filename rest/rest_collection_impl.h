@@ -307,7 +307,7 @@ initNodes(RouteManager & result)
                 connection.sendJsonResponse(404, error);
             }
             else {
-                context.addSharedPtr(ptr);
+                context.addSharedPtr(std::move(ptr));
             }
         };
 

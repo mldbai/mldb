@@ -2269,11 +2269,16 @@ FunctionCallExpression::
 bind(SqlBindingScope & scope) const
 {
     //check whether it is a builtin or not
-    if (scope.functionStackDepth > 100)
+    if (scope.functionStackDepth > 50)
             throw AnnotatedException
-                (400, "Reached a stack depth of over 100 functions while "
+                (400, "Reached a stack depth of over 50 functions while "
                  "analysing query, possible infinite recursion");
     
+    //int tos;
+    //(void)tos;
+    //
+    //std::cerr << format("binding function: functionStackDepth %d stack %p\n", scope.functionStackDepth, &tos);
+
     ++scope.functionStackDepth;
     Scope_Exit(--scope.functionStackDepth);
 
