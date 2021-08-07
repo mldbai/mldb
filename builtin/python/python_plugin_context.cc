@@ -436,16 +436,13 @@ setReturnValue1(const Json::Value & rtnVal)
 
 PythonContext::
 PythonContext(const Utf8String &  name, MldbEngine * engine)
-    : categoryName(name + " plugin"),
-      loaderName(name + " loader"),
-      stdoutName(name + " stdout"),
-      stderrName(name + " stderr"),
-      category(categoryName.rawData()),
-      loader(loaderName.rawData()),
-      stdout(stdoutName.rawData()),
-      stderr(stderrName.rawData()),
+    : category((name + " plugin").rawString().c_str()),
+      loader("loader", category),
+      stdout("stdout", category),
+      stderr("stderr", category),
       engine(engine)
 {
+    ExcAssert(engine);
 }
 
 PythonContext::

@@ -1492,7 +1492,8 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
                     constantValue.coerceToString().toUtf8String());
         }
 
-        Iso8601Parser timeZoneParser(constantValue.coerceToString().toString());
+        auto coercedString = constantValue.coerceToString().toString();
+        Iso8601Parser timeZoneParser(coercedString);
 
         constantMinute = timeZoneParser.expectTimezone();
         constantTimezone = true;
@@ -1517,7 +1518,8 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
                                     timezoneoffsetEV.coerceToString().toUtf8String());
                         }
 
-                        Iso8601Parser timeZoneParser(timezoneoffsetEV.toString());
+                        auto timezoneString = timezoneoffsetEV.toString();
+                        Iso8601Parser timeZoneParser(timezoneString);
 
                         int timezoneOffset = timeZoneParser.expectTimezone();
                         date.addMinutes(timezoneOffset);
@@ -1554,7 +1556,8 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
                     constantValue.coerceToString().toUtf8String());
         }
 
-        Iso8601Parser timeZoneParser(constantValue.coerceToString().toString());
+        auto coercedString = constantValue.coerceToString().toString();
+        Iso8601Parser timeZoneParser(coercedString);
 
         constantMinute = timeZoneParser.expectTimezone();
         constantTimezone = true;
@@ -1578,7 +1581,8 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
                             throw AnnotatedException(400, "date_trunc expected a string as third argument, got " + timezoneoffsetEV.coerceToString().toUtf8String());
                         }
 
-                        Iso8601Parser timeZoneParser(timezoneoffsetEV.toString());
+                        auto timezoneString = timezoneoffsetEV.toString();
+                        Iso8601Parser timeZoneParser(timezoneString);
 
                         int timezoneOffset = timeZoneParser.expectTimezone();
                         date.addMinutes(timezoneOffset);
@@ -3113,7 +3117,7 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
     // Return the given element of a path
     checkArgsSize(args.size(), 2);
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 checkArgsSize(args.size(), 2);
@@ -3133,12 +3137,12 @@ BoundFunction path_length(const std::vector<BoundSqlExpression> & args)
     // Return the length of a path
     checkArgsSize(args.size(), 1);
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 checkArgsSize(args.size(), 1);
                 ExpressionValue result(CellValue(args[0].coerceToPath().size()),
-                                       calcTs(args[0], args[1]));
+                                       calcTs(args[0]));
                 return result;
             },
             std::make_shared<IntegerValueInfo>()

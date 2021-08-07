@@ -265,10 +265,10 @@ wait_on_address(std::atomic<uint32_t> & i, uint32_t value,
 #elif __linux__
 	(void)flags;
 	if (nsecs != INFINITY) {
-        struct timespec ttimeout;
-        ttimeout.tv_sec = timeout;
-        ttimeout.tv_nsec = (timeout - ttimeout.tv_sec) * 1000000000.0;
-		return futex_wait(address, value, &ttimeout, FUTEX_PRIVATE_FLAG);
+	    struct timespec ttimeout = {0, 0};
+	    ttimeout.tv_sec = nsecs / 1000000000;
+	    ttimeout.tv_nsec = (nsecs - ttimeout.tv_sec * 1000000000);
+	    return futex_wait(address, value, &ttimeout, FUTEX_PRIVATE_FLAG);
 	}
 	return futex_wait(address, value, NULL, FUTEX_PRIVATE_FLAG);
 #elif defined(_WIN32)

@@ -18,7 +18,7 @@ void
 DoOutput(FILE * in, FILE * out)
 {
     int len(0);
-    unique_ptr<char> buffer;
+    unique_ptr<char[]> buffer;
 
     size_t n = ::fread(&len, sizeof(len), 1, in);
     ExcCheckNotEqual(n, 0, "sizeof(len) must be 4");

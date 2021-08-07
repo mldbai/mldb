@@ -26,10 +26,7 @@ namespace MLDB {
 /** Holds the set of data for a partition of a decision tree. */
 struct PartitionData {
 
-    PartitionData()
-        : fs(nullptr)
-    {
-    }
+    PartitionData() = default;
 
     PartitionData(std::shared_ptr<const DatasetFeatureSpace> fs)
         : fs(fs), features(fs->columnInfo.size())
@@ -260,12 +257,18 @@ struct PartitionData {
         PartitionData & left = sides[0];
         PartitionData & right = sides[1];
 
+        ExcAssert(fs);
+        ExcAssert(!features.empty());
+
         left.fs = fs;
         right.fs = fs;
         left.features = features;
         right.features = features;
 
-        bool ordinal = features[featureToSplitOn].ordinal;
+        ExcAssertGreaterEqual(featureToSplitOn, 0);
+        ExcAssertLess(featureToSplitOn, features.size());
+
+        bool ordinal = features.at(featureToSplitOn).ordinal;
 
         double useRatio = 1.0 * rows.size() / rows.back().exampleNum;
 
@@ -279,34 +282,14 @@ struct PartitionData {
             sides[0].rows.reserve(rows.size());
             sides[1].rows.reserve(rows.size());
 
-            //this is for debug only
-            //int maxBucket = 0;
-            //int minBucket = INFINITY;
-
             for (size_t i = 0;  i < rows.size();  ++i) {
                 int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
-                //maxBucket = std::max(maxBucket, bucket);
-                //minBucket = std::min(minBucket, bucket);
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 sides[side].addRow(rows[i]);
             }
 
             rows.clear();
             rows.shrink_to_fit();
-            features.clear();
-
-            /*if (right.rows.size() == 0 || left.rows.size() == 0)
-            {
-                std::cerr << wLeft[0] << "," << wLeft[1] << "," << wRight[0] << "," << wRight[1] << std::endl;
-                std::cerr << wAll[0] << "," << wAll[1] << std::endl;
-                std::cerr << "splitValue: " << splitValue << std::endl;
-                std::cerr << "isordinal: " << ordinal << std::endl;
-                std::cerr << "max bucket" << maxBucket << std::endl;
-                std::cerr << "min bucket" << minBucket << std::endl;
-            }
-
-            ExcAssert(left.rows.size() > 0);
-            ExcAssert(right.rows.size() > 0);*/
         }
         else {
 
@@ -351,7 +334,6 @@ struct PartitionData {
 
             rows.clear();
             rows.shrink_to_fit();
-            features.clear();
         }
 
         return { std::move(left), std::move(right) };
@@ -597,9 +579,14 @@ struct PartitionData {
        return getLeaf(tree, wAll);
     }  
 
-    ML::Tree::Ptr train(int depth, int maxDepth,
-                        ML::Tree & tree)
+    /** Trains the tree.  Note that this is destructive; it can only be called once as it
+     *  frees its internal memory as it's going to ensure that memory usage is reasonable.
+     */
+    ML::Tree::Ptr train(int depth, int maxDepth, ML::Tree & tree)
     {
+        //std::cerr << format("depth=%d maxDepth=%d this=%p features.size()=%zd\n",
+        //                    depth, maxDepth, this, features.size());
+
         if (rows.empty())
             return ML::Tree::Ptr();
         if (rows.size() < 2)
@@ -625,8 +612,14 @@ struct PartitionData {
             return leaf;
         }
 
+        ExcAssertGreaterEqual(bestFeature, 0);
+        ExcAssertLessEqual(bestFeature, features.size());
+
         std::pair<PartitionData, PartitionData> splits
             = split(bestFeature, bestSplit, wLeft, wRight, wAll);
+
+        ExcAssertGreaterEqual(bestFeature, 0);
+        ExcAssertLessEqual(bestFeature, features.size());
 
         //cerr << "done split in " << timer.elapsed().wall << endl;
 
@@ -644,22 +637,30 @@ struct PartitionData {
             throw MLDB::Exception("Invalid split in random forest");
 
         ThreadPool tp;
-        // Put the smallest one on the thread pool, so that we have the highest
-        // probability of running both on our thread in case of lots of work.
-        if (leftRows < rightRows) {
-            tp.add(runLeft);
-            runRight();
+        try {
+            // Put the smallest one on the thread pool, so that we have the highest
+            // probability of running both on our thread in case of lots of work.
+            if (leftRows < rightRows) {
+                tp.add(runLeft);
+                runRight();
+            }
+            else {
+                tp.add(runRight);
+                runLeft();
+            }
         }
-        else {
-            tp.add(runRight);
-            runLeft();
-        }
-        
+        catch (...) {
+            tp.waitForAll();
+            throw;
+        }        
         tp.waitForAll();
+
+        ExcAssertGreaterEqual(bestFeature, 0);
+        ExcAssertLessEqual(bestFeature, features.size());
 
         if (left && right) {
             ML::Tree::Node * node = tree.new_node();
-            ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
+            ML::Feature feature = fs->getFeature(features.at(bestFeature).info->columnName);
             float splitVal = 0;
             if (features[bestFeature].ordinal) {
                 auto splitCell = features[bestFeature].info->bucketDescriptions
@@ -673,7 +674,7 @@ struct PartitionData {
             }
 
             ML::Split split(feature, splitVal,
-                            features[bestFeature].ordinal
+                            features.at(bestFeature).ordinal
                             ? ML::Split::LESS : ML::Split::EQUAL);
             
             node->split = split;

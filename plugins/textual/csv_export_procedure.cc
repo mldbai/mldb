@@ -21,6 +21,8 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/base/exc_assert.h"
+#include "mldb/utils/vector_utils.h"
 #include "csv_writer.h"
 #include "mldb/builtin/sql_config_validator.h"
 #include <memory>
@@ -137,23 +139,26 @@ run(const ProcedureRunConfig & run,
         for (const auto & col: row.columns) {
             const auto & seekColumn = std::get<0>(col); // the column to seek in
                                                       // the csv ordering
+            ExcAssertLess(lineBufferIndex, columnNames.size());
             auto columnNamesIt = columnNames.begin() + lineBufferIndex;
             size_t columnIndex;
 
             auto updatePointers = [&] () {
                 // Linear performance will hurt if there are many columns
-                for (; *columnNamesIt != seekColumn; ++ columnNamesIt) {
-                    // column must always be found, otherwise me should be in a
-                    // context where cells have multiple values.
-                    if (columnNamesIt == columnNamesEnd) {
-                        if(runProcConf.skipDuplicateCells)
-                            return false;
-
-                        throw MLDB::Exception(Utf8String("CSV export does not work over "
-                                "cells having multiple values, at row '" + row.rowName.toUtf8String() +
-                                "' for column '" + seekColumn.toUtf8String() + "'").utf8String());
-                    }
+                for (; columnNamesIt != columnNamesEnd && *columnNamesIt != seekColumn; ++ columnNamesIt) {
                 }
+
+                // column must always be found, otherwise me should be in a
+                // context where cells have multiple values.
+                if (columnNamesIt == columnNamesEnd) {
+                    if(runProcConf.skipDuplicateCells)
+                        return false;
+
+                    throw MLDB::Exception(Utf8String("CSV export does not work over "
+                            "cells having multiple values, at row '" + row.rowName.toUtf8String() +
+                            "' for column '" + seekColumn.toUtf8String() + "'").utf8String());
+                }
+
                 columnIndex = columnNamesIt - columnNamesBegin;
                 return true;
             };
