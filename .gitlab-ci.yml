@@ -1,10 +1,12 @@
 image: registry.gitlab.com/mldbai/mldb/mldb_build_env_ubuntu:20.04
 
+stages:
+  - build
+  - asan
+
 build:
   stage: build
   before_script:
-#     - apt update && DEBIAN_FRONTEND=noninteractive apt -y install make time lsb-release git autoconf build-essential libblas-dev libboost-all-dev libcap-dev libcrypto++-dev libcurl4-openssl-dev libffi-dev libmagic-dev libfreetype6-dev liblapack-dev liblzma-dev libpng-dev libpq-dev libpython3-dev libsasl2-dev libssh2-1-dev libtool libyaml-cpp-dev python3-virtualenv python3-pip unzip valgrind uuid-dev libxml++2.6-dev libsnappy-dev libssl-dev libbz2-dev libavutil-dev libavcodec-dev libavformat-dev libavdevice-dev libv8-dev locales
-#     - locale-gen en_US en_US.UTF-8
      - locale -a
      - locale
      - apt update && apt -y install wget
@@ -36,3 +38,28 @@ build:
        - build/x86_64/mldb_plugins
     reports:
       junit: junit.xml
+
+build:
+  stage: asan
+  before_script:
+    - apt update && DEBIAN_FRONTEND=noninteractive apt -y install clang-12
+  script:
+    - declare -x SCCACHE_BUCKET=mldb-sccache-a3f9b3
+    - declare -x AWS_ACCESS_KEY_ID="$SCCACHE_AWS_AKID"
+    - declare -x AWS_SECRET_ACCESS_KEY="$SCCACHE_AWS_SECRET"
+    - declare -x SCCACHE_S3_USE_SSL=true
+    - declare -x SCCACHE_REGION=us-east-2
+    - declare -x POSTCFLAGS='-O2 -g0' POSTCXXFLAGS='-O2 -g0'
+    - declare -x PRECXX=./sccache
+    - ./sccache --show-stats
+    - make -j32 -k compile toolchain=clang sanitizers=address || make -j32 -k compile toolchain=clang sanitizers=address
+    - ./sccache --show-stats
+    - declare -x LANG=en_US.utf8 LC_ALL=en_US.utf8 USER=root
+    - mkdir tmp
+    - (make -j8 -k test toolchain=clang sanitizers=address || (echo "TEST SUITE RESTART" && make -j8 -k test toolchain=clang sanitizers=address)) | python3 jml-build/to_junit.py > junit-asan.xml
+  artifacts:
+    when: always
+    paths:
+       - junit-asan.xml
+    reports:
+      junit: junit-asan.xml
