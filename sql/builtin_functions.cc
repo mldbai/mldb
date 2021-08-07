@@ -3117,7 +3117,7 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
     // Return the given element of a path
     checkArgsSize(args.size(), 2);
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 checkArgsSize(args.size(), 2);
@@ -3137,12 +3137,12 @@ BoundFunction path_length(const std::vector<BoundSqlExpression> & args)
     // Return the length of a path
     checkArgsSize(args.size(), 1);
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 checkArgsSize(args.size(), 1);
                 ExpressionValue result(CellValue(args[0].coerceToPath().size()),
-                                       calcTs(args[0], args[1]));
+                                       calcTs(args[0]));
                 return result;
             },
             std::make_shared<IntegerValueInfo>()
