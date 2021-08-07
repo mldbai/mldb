@@ -2,7 +2,7 @@ image: registry.gitlab.com/mldbai/mldb/mldb_build_env_ubuntu:20.04
 
 stages:
   - build
-  - asan
+  - sanitize
 
 build:
   stage: build
@@ -39,8 +39,8 @@ build:
     reports:
       junit: junit.xml
 
-build:
-  stage: asan
+asan:
+  stage: sanitize
   before_script:
     - apt update && DEBIAN_FRONTEND=noninteractive apt -y install clang-12
   script:
