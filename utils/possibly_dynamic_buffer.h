@@ -10,7 +10,7 @@ namespace MLDB {
 
 // Made to init and hold a non POD array of dynamic size in a memory safe
 // way.
-template<typename T, size_t MAX_STACK_ENTRIES=4096/sizeof(T)>
+template<typename T, size_t MAX_STACK_ENTRIES=1024/sizeof(T)>
 struct PossiblyDynamicBuffer {
     PossiblyDynamicBuffer(size_t sz)
         : size_(sz)
