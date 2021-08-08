@@ -6,8 +6,6 @@ stages:
 build:
   stage: build
   before_script:
-     - locale -a
-     - locale
      - apt update && apt -y install wget
      - wget -qO - https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-x86_64-linux.gz | gzip -d > sccache
      - chmod +x ./sccache
@@ -41,7 +39,9 @@ build:
 asan:
   stage: build
   before_script:
-    - apt update && DEBIAN_FRONTEND=noninteractive apt -y install clang-12
+     - apt update && apt -y install wget clang-12
+     - wget -qO - https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-x86_64-linux.gz | gzip -d > sccache
+     - chmod +x ./sccache
   script:
     - git submodule init
     - git submodule update --jobs=8 --depth=1 --progress
