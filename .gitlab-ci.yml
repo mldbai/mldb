@@ -56,7 +56,7 @@ asan:
     - declare -x PRECXX=./sccache
     - declare -x toolchain=clang
     - declare -x sanitizers=address
-    - declare -x ASAN_OPTIONS=detect_leaks=0
+    - declare -x ASAN_OPTIONS=detect_leaks=0:use_sigaltstack=false
     - make -j4 -k dependencies
     - ./sccache --show-stats
     - make -j32 -k compile || make -j32 -k compile
