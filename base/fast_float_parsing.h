@@ -14,7 +14,7 @@
 
 namespace MLDB {
 
-double binary_exp10 [10] = {
+static constexpr double binary_exp10 [10] = {
     10,
     100,
     1e4,
@@ -27,7 +27,7 @@ double binary_exp10 [10] = {
     INFINITY
 };
 
-double binary_exp10_neg [10] = {
+static constexpr double binary_exp10_neg [10] = {
     0.1,
     0.01,
     1e-4,
