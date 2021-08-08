@@ -8,6 +8,7 @@ HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev
 
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
+MANUAL_IF_SANITIZERS:=$(if $(sanitizers),manual)
 
 MLDB_AUTO_LIBS:= \
 	service_peer \
@@ -204,9 +205,9 @@ $(eval $(call mldb_unit_test,MLDB-761-sub-queries.py))
 $(eval $(call mldb_unit_test,MLDB-565-classifier-details.js))
 $(eval $(call mldb_unit_test,MLDB-1597-regression.py))
 $(eval $(call mldb_unit_test,MLDB-749-csv-dataset.js))
-$(eval $(call mldb_unit_test,MLDB-749-count-with-offset-limit.js))
+$(eval $(call mldb_unit_test,MLDB-749-count-with-offset-limit.js,,$(MANUAL_IF_SANITIZERS)))
 $(eval $(call mldb_unit_test,MLDB-749-broken-csv.js))
-$(eval $(call mldb_unit_test,MLDB-749-csv-dataset-large-file-1.js))
+$(eval $(call mldb_unit_test,MLDB-749-csv-dataset-large-file-1.js,,$(MANUAL_IF_SANITIZERS)))
 $(eval $(call mldb_unit_test,MLDB-702-row-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-770-group-by-parsing.js))
 $(eval $(call mldb_unit_test,MLDB-768-order-by-missing-function.js))
