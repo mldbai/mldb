@@ -8,6 +8,7 @@ HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev
 
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
+MANUAL_IF_SANITIZERS:=$(if $(sanitizers),manual)
 
 MLDB_AUTO_LIBS:= \
 	service_peer \
@@ -204,9 +205,9 @@ $(eval $(call mldb_unit_test,MLDB-761-sub-queries.py))
 $(eval $(call mldb_unit_test,MLDB-565-classifier-details.js))
 $(eval $(call mldb_unit_test,MLDB-1597-regression.py))
 $(eval $(call mldb_unit_test,MLDB-749-csv-dataset.js))
-$(eval $(call mldb_unit_test,MLDB-749-count-with-offset-limit.js))
+$(eval $(call mldb_unit_test,MLDB-749-count-with-offset-limit.js,,$(MANUAL_IF_SANITIZERS)))
 $(eval $(call mldb_unit_test,MLDB-749-broken-csv.js))
-$(eval $(call mldb_unit_test,MLDB-749-csv-dataset-large-file-1.js))
+$(eval $(call mldb_unit_test,MLDB-749-csv-dataset-large-file-1.js,,$(MANUAL_IF_SANITIZERS)))
 $(eval $(call mldb_unit_test,MLDB-702-row-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-770-group-by-parsing.js))
 $(eval $(call mldb_unit_test,MLDB-768-order-by-missing-function.js))
@@ -347,11 +348,11 @@ $(eval $(call include_sub_make,mldb_py_runner))
 
 $(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter mldb_python_plugin types arch mldb value_description))
 
-$(eval $(call python_test,python_converters_test,py_conv_test_module))
+$(eval $(call python_test,python_converters_test,py_conv_test_module,$(MANUAL_IF_SANITIZERS)))
 
 $(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter types mldb_engine mldb_python_plugin value_description arch sql_types http))
 
-$(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module))
+$(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module,$(MANUAL_IF_SANITIZERS)))
 
 $(eval $(call mldb_unit_test,MLDB-1011-excel-import.js))
 $(eval $(call mldb_unit_test,MLDB-1121-csv-import-duplicates.py))
