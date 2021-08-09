@@ -154,8 +154,6 @@ struct PythonContext {
     void logToStream(const char * stream,
                      const std::string & message);
     
-    Utf8String categoryName, loaderName, stdoutName, stderrName;
-
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader, stdout, stderr;
 
