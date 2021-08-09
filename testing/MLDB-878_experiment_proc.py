@@ -8,6 +8,8 @@ from random import random, gauss
 
 from mldb import mldb, MldbUnitTest, ResponseException
 
+tmp_dir = os.getenv("TMP")
+
 class Mldb878Test(MldbUnitTest):  # noqa
 
     @classmethod
@@ -46,7 +48,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "trainingWhere": "rowHash() % 5 != 2",
                         "testingWhere": "rowHash() % 5 = 2",
                     }],
-                "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-$runid.cls",
+                "modelFileUrlPattern": "file://" + tmp_dir + "/bouya-$runid.cls",
                 "algorithm": "glz",
                 "equalizationFactor": 0.5,
                 "mode": "boolean",
@@ -248,7 +250,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         "trainingWhere": "rowHash() % 5 != 2",
                         "testingWhere": "rowHash() % 5 = 2",
                     }],
-                "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-$runid.cls",
+                "modelFileUrlPattern": "file://" + tmp_dir + "/bouya-$runid.cls",
                 "algorithm": "glz",
                 "equalizationFactor": 0.5,
                 "mode": "boolean",
@@ -285,7 +287,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
         self.assertEqual(js_rez["status"]["folds"][0]["functionName"], "my_test_exp_scorer_0")
         mldb.get("/v1/functions/"+js_rez["status"]["folds"][0]["functionName"]) # make sure it exists
 
-        self.assertEqual(js_rez["status"]["folds"][0]["modelFileUrl"], "file://build/x86_64/tmp/bouya-my_test_exp-0.cls")
+        self.assertEqual(js_rez["status"]["folds"][0]["modelFileUrl"], "file://" + tmp_dir + "/bouya-my_test_exp-0.cls")
 
     def test_no_cls_write_perms(self):
         conf = {
@@ -321,7 +323,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 "params": {
                     "experimentName": "uniqueScoreOutputTest",
                     "inputData": "select {* EXCLUDING(label)} as features, label from toy",
-                    "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-pwet-$runid.cls",
+                    "modelFileUrlPattern": "file://" + tmp_dir + "/bouya-pwet-$runid.cls",
                     "algorithm": "dt",
                     "mode": "boolean",
                     "configuration": {
@@ -368,7 +370,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
             "params": {
                 "experimentName": "limitoffset",
                 "inputData": "select {* EXCLUDING(label)} as features, label from toy",
-                "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-pwet-$runid.cls",
+                "modelFileUrlPattern": "file://" + tmp_dir + "/bouya-pwet-$runid.cls",
                 "algorithm": "dt",
                 "mode": "boolean",
                 "configuration": {
@@ -422,7 +424,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         SELECT {* EXCLUDING(label)} AS features, label
                         FROM toy WHERE (rowHash() / 128) % 2 = 3""",
                     "modelFileUrlPattern":
-                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                        "file://" + tmp_dir + "/test_no_test_data_$runid.cls",
                     "algorithm": "glz",
                     "equalizationFactor": 0.5,
                     "mode": "boolean",
@@ -451,7 +453,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         SELECT {* EXCLUDING(label)} AS features, label
                         FROM toy WHERE (rowHash() / 128) % 2 = 3""",
                     "modelFileUrlPattern":
-                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                        "file:/" + tmp_dir + "/test_no_test_data_$runid.cls",
                     "algorithm": "glz",
                     "equalizationFactor": 0.5,
                     "mode": "boolean",
@@ -478,7 +480,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         SELECT {* EXCLUDING(label)} AS features, label
                         FROM toy LIMIT 1""",
                     "modelFileUrlPattern":
-                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                        "file://" + tmp_dir + "/test_no_test_data_$runid.cls",
                     "algorithm": "glz",
                     "equalizationFactor": 0.5,
                     "mode": "boolean",
@@ -507,7 +509,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         SELECT {* EXCLUDING(label)} AS features, label
                         FROM toy LIMIT 1""",
                     "modelFileUrlPattern":
-                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                        "file://" + tmp_dir + "/test_no_test_data_$runid.cls",
                     "algorithm": "glz",
                     "equalizationFactor": 0.5,
                     "mode": "boolean",
@@ -588,7 +590,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         SELECT {* EXCLUDING(label)} AS features, label
                         FROM toy OFFSET 1""",
                     "modelFileUrlPattern":
-                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                        "file://" + tmp_dir + "/test_no_test_data_$runid.cls",
                     "algorithm": "glz",
                     "equalizationFactor": 0.5,
                     "mode": "boolean",
@@ -617,7 +619,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                         SELECT {* EXCLUDING(label)} AS features, label
                         FROM toy OFFSET 1""",
                     "modelFileUrlPattern":
-                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                        "file://" + tmp_dir + "/test_no_test_data_$runid.cls",
                     "algorithm": "glz",
                     "equalizationFactor": 0.5,
                     "mode": "boolean",
