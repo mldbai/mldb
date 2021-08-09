@@ -8,6 +8,8 @@ from random import random, gauss, seed
 
 from mldb import mldb, MldbUnitTest, ResponseException
 
+tmp_dir=os.getenv('TMP')
+
 class MultiLabelClassifierTest(MldbUnitTest):  # noqa
 
     @classmethod
@@ -130,7 +132,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                                     select {* EXCLUDING(label0, label1)} as features, 
                                     {label0, label1} as label from toy
                                 """,                
-                "modelFileUrl": "file://build/x86_64/tmp/multilabel1.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/multilabel1.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
                 "multilabelStrategy": "random",
@@ -177,7 +179,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                         "trainingWhere": "rowHash() % 10 < 7",
                         "testingWhere": "rowHash() % 10 >= 7",
                     }],
-                "modelFileUrlPattern": "file://build/x86_64/tmp/multilabel1.cls",
+                "modelFileUrlPattern": "file://" + tmp_dir + "/multilabel1.cls",
                 "algorithm": "dt",
                 "equalizationFactor": 0.5,
                 "mode": "multilabel",
@@ -209,7 +211,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             "type": "classifier.train",
             "params": {
                 "trainingData": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",
-                "modelFileUrl": "file://build/x86_64/tmp/multilabel1.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/multilabel1.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
                 "multilabelStrategy": "decompose",
@@ -256,7 +258,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                         "trainingWhere": "rowHash() % 10 < 7",
                         "testingWhere": "rowHash() % 10 >= 7",
                     }],
-                "modelFileUrlPattern": "file://build/x86_64/tmp/multilabel1.cls",
+                "modelFileUrlPattern": "file://" + tmp_dir + "/multilabel1.cls",
                 "algorithm": "dt",
                 "equalizationFactor": 0.5,
                 "mode": "multilabel",
@@ -290,7 +292,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                                    select {* EXCLUDING(label0, label1)} as features, 
                                    {label0, label1} as label from trivial
                                 """,
-                "modelFileUrl": "file://build/x86_64/tmp/multilabel1.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/multilabel1.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
                 "multilabelStrategy": "one-vs-all",
@@ -331,7 +333,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                                    select {* EXCLUDING(label0, label1, label2)} as features, 
                                    {label0, label1, label2} as label from trivial2
                                 """,
-                "modelFileUrl": "file://build/x86_64/tmp/multilabel1.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/multilabel1.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
                 "multilabelStrategy": "one-vs-all",
@@ -374,7 +376,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                                    select {* EXCLUDING(label0, label1, label2)} as features, 
                                    {label0, label1, label2} as label from trivial2
                                 """,
-                "modelFileUrl": "file://build/x86_64/tmp/multilabel1.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/multilabel1.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
                 "multilabelStrategy": "one-vs-all",
@@ -447,7 +449,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             "type": "classifier.train",
             "params": {
                 "trainingData": "select {* EXCLUDING(label)} as features, label from categoricalds",
-                "modelFileUrl": "file://build/x86_64/tmp/categorical1.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/categorical1.cls",
                 "algorithm": "dt",
                 "mode": "categorical",
                 "functionName" : "classifyMe",
@@ -565,7 +567,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             "type": "classifier.train",
             "params": {
                 "trainingData": "select {* EXCLUDING(label0, label1)} as features, {label0, label1} as label from toy",
-                "modelFileUrl": "file://build/x86_64/tmp/multilabel_decompose_explain.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/multilabel_decompose_explain.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
                 "multilabelStrategy": "decompose",
@@ -587,7 +589,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         mldb.put("/v1/functions/explain", {
                 "type": "classifier.explain",
                 "params": {
-                    "modelFileUrl": "file://build/x86_64/tmp/multilabel_decompose_explain.cls",
+                    "modelFileUrl": "file://" + tmp_dir + "/multilabel_decompose_explain.cls",
                 }
             })
 
@@ -615,7 +617,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 "trainingData": """select {* EXCLUDING(label0, label1)} as features, 
                                    {label0, label1} as label from trivial
                                 """,
-                "modelFileUrl": "file://build/x86_64/tmp/multilabel_onevsall_explain.cls",
+                "modelFileUrl": "file://" + tmp_dir + "/multilabel_onevsall_explain.cls",
                 "algorithm": "dt",
                 "mode": "multilabel",
                 "multilabelStrategy": "one-vs-all",
@@ -637,7 +639,7 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
         mldb.put("/v1/functions/explain", {
                 "type": "classifier.explain",
                 "params": {
-                    "modelFileUrl": "file://build/x86_64/tmp/multilabel_onevsall_explain.cls",
+                    "modelFileUrl": "file://" + tmp_dir + "/multilabel_onevsall_explain.cls",
                 }
             })
 

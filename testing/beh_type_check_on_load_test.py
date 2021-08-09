@@ -4,14 +4,17 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 
+import os
 from mldb import mldb, MldbUnitTest, ResponseException
+
+tmp_dir = os.getenv("TMP")
 
 class BehTypeCheckOnLoadTest(MldbUnitTest):  # noqa
 
     def test_beh(self):
         params = {
             'dataFileUrl' :
-                'file://build/x86_64/tmp/BehTypeCheckOnLoadTestBeh.beh'
+                'file://' + tmp_dir + '/BehTypeCheckOnLoadTestBeh.beh'
         }
         ds = mldb.create_dataset({
             'type' : 'beh.mutable',
@@ -36,7 +39,7 @@ class BehTypeCheckOnLoadTest(MldbUnitTest):  # noqa
     def test_beh_binary(self):
         params = {
             'dataFileUrl' :
-                'file://build/x86_64/tmp/BehTypeCheckOnLoadTestBehBin.beh'
+                'file://' + tmp_dir + '/BehTypeCheckOnLoadTestBehBin.beh'
         }
         ds = mldb.create_dataset({
             'type' : 'beh.binary.mutable',

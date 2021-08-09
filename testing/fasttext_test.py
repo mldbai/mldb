@@ -9,6 +9,8 @@ import tempfile
 
 from mldb import mldb, MldbUnitTest, ResponseException
 
+tmp_dir = os.getenv('TMP')
+
 class FastTextTest(MldbUnitTest):
 
         @classmethod
@@ -57,7 +59,7 @@ class FastTextTest(MldbUnitTest):
                 "type": "classifier.train",
                 "params": {
                     "trainingData": "SELECT {tokens.*} as features, Theme as label FROM bag_of_words",
-                    "modelFileUrl": "file://tmp/src_fasttext.cls",
+                    "modelFileUrl": "file://" + tmp_dir + "/src_fasttext.cls",
                     "functionName" : 'myclassify',
                     "algorithm": "my_fasttext",
                     "mode": "categorical",
@@ -111,7 +113,7 @@ class FastTextTest(MldbUnitTest):
                     "type": "classifier.train",
                     "params": {
                         "trainingData": "SELECT {tokens.*} as features, rowHash() as label FROM bag_of_words",
-                        "modelFileUrl": "file://tmp/src_fasttext_error.cls",
+                        "modelFileUrl": "file://" + tmp_dir + "/src_fasttext_error.cls",
                         "functionName" : 'myclassify',
                         "algorithm": "my_fasttext",
                         "mode": "regression",
@@ -137,7 +139,7 @@ class FastTextTest(MldbUnitTest):
                                               Theme = 'Sports' as label 
                                        FROM bag_of_words
                                     """,
-                    "modelFileUrl": "file://tmp/src_fasttext_error.cls",
+                    "modelFileUrl": "file://" + tmp_dir + "/src_fasttext_error.cls",
                     "functionName" : 'myclassify',
                     "algorithm": "my_fasttext",
                     "mode": "boolean",
@@ -183,7 +185,7 @@ class FastTextTest(MldbUnitTest):
                 }
             }
 
-            tmp_file =  tempfile.NamedTemporaryFile(prefix=os.getcwd() + '/build/x86_64/tmp/')
+            tmp_file =  tempfile.NamedTemporaryFile(prefix=tmp_dir)
 
             mldb.put("/v1/procedures/trainer", {
                 "type": "classifier.train",

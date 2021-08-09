@@ -4,8 +4,10 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 
-import random, datetime
+import random, datetime, os
 from mldb import mldb, ResponseException
+
+tmp_dir = os.getenv("TMP")
 
 # Create toy dataset
 dataset_config = {
@@ -44,7 +46,7 @@ conf = {
     "params": {
         "trainingData":
             "select {* EXCLUDING(label)} as features, label from toy",
-        "modelFileUrl": "file://build/x86_64/tmp/bouya.cls",
+        "modelFileUrl": "file://" + tmp_dir + "/MLDB-926-bouya.cls",
         "algorithm": "glz",
         "mode": "boolean",
         "configuration": {
@@ -110,7 +112,7 @@ conf = {
     "params": {
         "trainingData":
             "select cls_func({{* EXCLUDING(label)} as features})[score] as score, label from toy",
-        "modelFileUrl": "file://build/x86_64/tmp/bouya-proba.json",
+        "modelFileUrl": "file://" + tmp_dir + "/MLDB-926-bouya-proba.json",
         "functionName": "probabilizer_func"
     }
 }
@@ -122,7 +124,7 @@ conf = {
     "type": "svd.train",
     "params": {
         "trainingData": "select * from toy",
-        "modelFileUrl": "file://build/x86_64/tmp/bouya-svd.model",
+        "modelFileUrl": "file://" + tmp_dir + "/MLDB-926-bouya-svd.model",
         "functionName": "svd_func"
     }
 }
@@ -135,7 +137,7 @@ conf = {
     "type": "tsne.train",
     "params": {
         "trainingData": "select * from toy",
-        "modelFileUrl": "file://build/x86_64/tmp/bouya-tsne.model",
+        "modelFileUrl": "file://" + tmp_dir + "/MLDB-9260-bouya-tsne.model",
         "numOutputDimensions": 2,
         "functionName": "tsne_func"
     }

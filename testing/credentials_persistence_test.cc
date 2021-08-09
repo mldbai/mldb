@@ -17,6 +17,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/types/value_description.h"
+#include "mldb/utils/environment.h"
 #include <boost/algorithm/string.hpp>
 
 #include <future>
@@ -30,6 +31,9 @@
 using namespace MLDB;
 
 namespace {
+
+std::string binDir = Environment::instance()["BIN"];
+  
 void addCredentialRule(const HttpRestProxy & conn,
                     const MLDB::CredentialRuleConfig & rule)
 {
@@ -81,7 +85,7 @@ struct SubprocessMldbRunner {
         messageLoop.addSource("runner", runner);
         messageLoop.start();
 
-        vector<string> command = { "./build/x86_64/bin/mldb_runner",
+        vector<string> command = { binDir + "/mldb_runner",
                                    "--credentials-path",
                                    path,
                                    "-p", "13345"};

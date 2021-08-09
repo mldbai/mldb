@@ -6,9 +6,11 @@
 
 import unittest
 import tempfile
+import os
 
 from mldb import mldb, MldbUnitTest, ResponseException
 
+tmp_dir = os.getenv("TMP")
 
 def create_beh_dataset():
     input_dataset_id = "testBehMerged"
@@ -34,6 +36,7 @@ def create_beh_dataset():
             "inputData" : 'SELECT {} FROM {}'.format(select, input_dataset_id),
             "outputDataset" : {"id" : dataset_name, "type" : "beh.mutable"},
             'runOnCreation' : True
+
         }
     })
 
@@ -137,7 +140,7 @@ class CountGroupByTest(MldbUnitTest):  # noqa
         """
         Testing after save & reload
         """
-        f = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        f = tempfile.NamedTemporaryFile(dir=tmp_dir)
         mldb.post('/v1/procedures', {
             'type' : 'transform',
             'params' : {
