@@ -33,7 +33,7 @@ callAndAssert("power(4,2)", 16, "failed on four");
 callAndAssert("power(-1,2)", 1, "failed on negative number");
 
 /* sqrt */
-callAndAssert("sqrt(-1)", {"num": "-NaN"}, "failed on negative number");
+callAndAssert("sqrt(-1)", new Set([{"num":"NaN"},{"num":"-NaN"}]), "failed on negative number");
 callAndAssert("sqrt(1)", 1, "failed on positive number");
 callAndAssert("sqrt(0)", 0, "failed on zero");
 callAndAssert("sqrt(4)", 2, "failed on four");

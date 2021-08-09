@@ -6,8 +6,11 @@
 
 import tempfile
 import codecs
+import os
 
 from mldb import mldb, MldbUnitTest, ResponseException
+
+tmp_dir = os.getenv('TMP')
 
 class MLDB2126exportstructuredTest(MldbUnitTest):  # noqa
 
@@ -31,7 +34,7 @@ class MLDB2126exportstructuredTest(MldbUnitTest):  # noqa
         )
         mldb.post('/v1/datasets/patate/commit')
 
-        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        tmp_file = tempfile.NamedTemporaryFile(dir=tmp_dir)
 
         res = mldb.post('/v1/procedures', {
             'type': 'export.csv',
