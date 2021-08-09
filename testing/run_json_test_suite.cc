@@ -69,7 +69,7 @@ void testFile(const std::string & filename)
             StringJsonParsingContext context(str.str());
             val = context.expectJson();
             context.expectEof();
-            cerr << "SHOULD HAVE FAILED" << endl;
+            cerr << "SHOULD HAVE NOT PASSED" << endl;
             ++unexpectedPasses;
         } catch (const std::exception & exc) {
             ++expectedFailures;
