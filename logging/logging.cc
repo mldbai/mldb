@@ -200,11 +200,8 @@ std::shared_ptr<Logging::CategoryData> Logging::CategoryData::create(char const 
     return data;
 }
 
-void Logging::CategoryData::destroy(std::shared_ptr<CategoryData> & data_) {
-    auto data = data_;
+void Logging::CategoryData::destroy(std::shared_ptr<CategoryData> & data) {
     if (data->parent == data.get()) return;
-    if (!data)
-        return;
 
     // There are two uses:
     // 1.  The current reference
@@ -236,7 +233,7 @@ void Logging::CategoryData::destroy(std::shared_ptr<CategoryData> & data_) {
 
     registry.categories.erase(dataIt);
 
-    data_.reset();
+    data.reset();
 }
 
 void Logging::CategoryData::activate(bool recurse) {
@@ -289,7 +286,7 @@ Logging::Category::Category(char const * name, bool enabled) :
 
 Logging::Category::~Category()
 {
-    //CategoryData::destroy(data);
+    CategoryData::destroy(data);
 }
 
 char const * Logging::Category::name() const {
