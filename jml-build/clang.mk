@@ -5,7 +5,7 @@ find_command=$(foreach command,$(firstword $(1)),$(if $(shell which $(command)),
 CLANGXX?=$(call find_command,clang++ clang++-13 clang++-12 clang++-11 clang++-10 clang++-9 clang++-8)
 CLANG?=$(call find_command,clang clang-13 clang-12 clang-11 clang-10 clang-9 clang-8)
 
-CLANG_VERSION:=$(shell $(CLANGXX) --version | head -n1 | awk '{ print $4; }' | sed 's/-*//g')
+CLANG_VERSION:=$(shell $(CLANGXX) --version | head -n1 | awk '{ print $$4; }' | sed 's/-*//g')
 CXX_VERSION?=$(CLANG_VERSION)
 CXX := $(COMPILER_CACHE) $(CLANGXX)
 BUILDING_WITH_CLANG:=1
