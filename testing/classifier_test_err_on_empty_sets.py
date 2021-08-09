@@ -4,6 +4,9 @@
 # This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 #
 from mldb import mldb, MldbUnitTest, ResponseException
+import os
+
+tmp_dir=os.getenv("TMP")
 
 class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
 
@@ -34,7 +37,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
                     FROM ds
                 """,
                 "modelFileUrl":
-                    "file://build/x86_64/tmp/fmlhTODO.cls",
+                    "file://" + tmp_dir + "fmlhTODO.cls",
             }
         })
 
