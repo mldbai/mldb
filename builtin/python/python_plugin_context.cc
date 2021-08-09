@@ -442,6 +442,7 @@ PythonContext(const Utf8String &  name, MldbEngine * engine)
       stderr("stderr", category),
       engine(engine)
 {
+    ExcAssert(engine);
 }
 
 PythonContext::
