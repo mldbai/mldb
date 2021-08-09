@@ -37,7 +37,7 @@ build:
     reports:
       junit: junit.xml
 
-asan:
+sanitize:
   stage: build
   interruptible: true
   before_script:
