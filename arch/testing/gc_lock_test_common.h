@@ -17,6 +17,16 @@
 
 #pragma once
 
+#if defined(__has_feature)
+#  if __has_feature(thread_sanitizer)
+#    define ATTRIBUTE_NO_SANITIZE_THREAD __attribute__((no_sanitize("thread")))
+#  else
+#    define ATTRIBUTE_NO_SANITIZE_THREAD
+#  endif
+#else
+#    define ATTRIBUTE_NO_SANITIZE_THREAD
+#endif
+
 struct ThreadGroup {
     void emplace_back(std::function<void ()> fn)
     {
@@ -205,7 +215,12 @@ struct TestBase {
     */
     std::vector<BlockHolder> allBlocks;
 
-    void checkVisible(int threadNum, unsigned long long start)
+    // The GC functionality is supposed to ensure thread safety between threads that are
+    // using it WITHOUT requiring that the protected memory be atomic.  So the thread
+    // sanitizers will find errors here; the goal of this testing is to verify that these
+    // errors never cause visible coherency problems.  So we turn off the thread sanitizer
+    // for this code.
+    void checkVisible(int threadNum, unsigned long long start) ATTRIBUTE_NO_SANITIZE_THREAD
     {
         using namespace std;
         // We're reading from someone else's pointers, so we need to lock here
@@ -312,7 +327,7 @@ struct TestBase {
         }
     }
 
-    void allocThreadSync(int threadNum)
+    void allocThreadSync(int threadNum) ATTRIBUTE_NO_SANITIZE_THREAD
     {
         using namespace std;
         gc.getEntry();

@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE( test_message_channel )
             numReceived += 1;
         };
 
-    volatile bool finished = false;
+    std::atomic<bool> finished = false;
 
     auto pushThread = [&] ()
         {
@@ -159,8 +159,10 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
         MessageLoop loop;
         loop.start();
 
-        size_t numNotifications(0);
-        size_t numPopped(0);
+        std::atomic<size_t> numNotifications(0);
+        std::atomic<size_t> numPopped(0);
+
+        std::mutex cerrMutex;  // avoids tsan data race error on cerr
 
         shared_ptr<TypedMessageQueue<string> > queue;
         auto onNotify = [&]() {
@@ -168,6 +170,7 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
             auto msgs = queue->pop_front(0);
             numPopped += msgs.size();
             if (msgs.size() > 0) {
+                std::unique_lock<std::mutex> lock(cerrMutex);
                 cerr << ("received " + to_string(numPopped) + " msgs;"
                          " last = " + msgs.back() + "\n");
             }
@@ -196,12 +199,17 @@ BOOST_AUTO_TEST_CASE( test_typed_message_queue )
         for (thread & worker: workers) {
             worker.join();
         }
-        cerr << "done pushing " + to_string(numMessages) + " msgs\n";
+
+        {
+            std::unique_lock<std::mutex> lock(cerrMutex);
+            cerr << "done pushing " + to_string(numMessages) + " msgs\n";
+        }
 
         while (numPopped < numMessages) {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         };
         
+        std::unique_lock<std::mutex> lock(cerrMutex);
         cerr << ("numNotifications: " + to_string(numNotifications)
                  + "; numPopped: "  + to_string(numPopped)
                  + "\n");

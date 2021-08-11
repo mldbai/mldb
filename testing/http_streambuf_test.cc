@@ -59,6 +59,7 @@ struct TestServer {
             close(sockfd);
         }
         baseUrl = "http://localhost:" + to_string(freePort) + "/";
+        cerr << "listening on " << baseUrl << endl;
 
         loop.addSource("runner", runner);
         loop.start();

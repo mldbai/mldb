@@ -469,9 +469,9 @@ struct SlowToCreateTestCollection: public TestCollection {
 
     ~SlowToCreateTestCollection()
     {
-        // don't do this to test that we can shutdown from the
-        // base class without a pure virtual method call
-        //this->shutdown();
+        // To avoid a data race on the vptr, we always need to call shutdown
+        // from the most derived class
+        this->shutdown();
     }
     
     std::shared_ptr<TestObject>
@@ -493,7 +493,7 @@ BOOST_AUTO_TEST_CASE ( test_destroying_while_creating )
         cerr << "test " << i << " of " << numTests << endl;
         SlowToCreateTestCollection collection;
         TestConfig config{"item1", {}};
-        collection.handlePost("item1", config, true /* must be true */);
+        collection.handlePost("item1", config, true /* must succeed */);
         // Destroy it while still being created, to test that we
         // don't crash
     }

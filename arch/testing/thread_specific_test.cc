@@ -41,8 +41,8 @@ struct Data
 
     bool init;
 
-    static size_t constructed;
-    static size_t destructed;
+    static std::atomic<size_t> constructed;
+    static std::atomic<size_t> destructed;
     static void validate()
     {
         assert(constructed == destructed);
@@ -50,8 +50,8 @@ struct Data
     }
 };
 
-size_t Data::constructed = 0;
-size_t Data::destructed = 0;
+std::atomic<size_t> Data::constructed = 0;
+std::atomic<size_t> Data::destructed = 0;
 
 typedef ThreadSpecificInstanceInfo<Data, Data> Tls;
 
