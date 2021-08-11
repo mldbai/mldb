@@ -214,9 +214,10 @@ struct RemotePeer: public RestEntity {
     mutable std::mutex messagesMutex;
     std::deque<PeerMessage> messages;
     std::deque<PeerMessage> responses;
-    int64_t currentMessageId;
-    int shutdown_;
-    Date lastMessageReceived;
+    std::atomic<int> currentMessageId;
+    std::atomic<int> shutdown_;
+    Date lastMessageReceivedOffset;
+    std::atomic<uint64_t> lastMessageReceivedMicroseconds;
 
     /** Put the given fully formed message on the queue to be sent. */
     void enqueueMessage(PeerMessage && msg);

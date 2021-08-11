@@ -40,8 +40,7 @@ TcpAcceptorImpl(EventLoop & eventLoop,
     : eventLoop_(eventLoop),
       frontAcceptor_(frontAcceptor),
       v4Endpoint_(eventLoop_.impl().ioContext()),
-      v6Endpoint_(eventLoop_.impl().ioContext()),
-      acceptCnt_(0)
+      v6Endpoint_(eventLoop_.impl().ioContext())
 {
 }
 

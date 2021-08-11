@@ -123,8 +123,8 @@ const void * is_convertible(const std::type_info & from_type,
     auto * fromcti = static_cast<const __cxxabiv1::__shim_type_info*>(&from_type);
     auto * tocti = static_cast<const __cxxabiv1::__shim_type_info*>(&to_type);
 
-    cerr << "converting " << demangle(fromcti->name()) << " to " << demangle(tocti->name())
-         << endl;
+    //cerr << "converting " << demangle(fromcti->name()) << " to " << demangle(tocti->name())
+    //     << endl;
 
     void * adjusted = (void *)obj;
     bool could_upcast = tocti->can_catch(fromcti, adjusted);
