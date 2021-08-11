@@ -168,7 +168,7 @@ void doBench(const string & label,
     readerLoop.start();
     Date lastRead;
     size_t totalBytes = msgSize * numMessages;
-    size_t bytesRead(0);
+    std::atomic<size_t> bytesRead(0);
     auto onReaderData = [&] (const char * data, size_t size) {
         bytesRead += size;
         if (bytesRead == totalBytes) {
@@ -207,7 +207,7 @@ void doBench(const string & label,
     double totalTime = lastRead - start;
     ::printf("%s,%d,%zu,%zu,%d,%f,%f,%f,%f,%f\n",
              label.c_str(),
-             numMessages, msgSize, bytesRead, numMissed,
+             numMessages, msgSize, bytesRead.load(), numMissed,
              (lastWrite - start),
              (lastWriteResult - start),
              totalTime,
