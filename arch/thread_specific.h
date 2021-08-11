@@ -46,6 +46,13 @@ struct ThreadSpecificInstanceInfo
     struct Value
     {
         Value() : object(nullptr) {}
+
+        Value(const Value & other)
+            : object(other.object.load())
+        {
+
+        }
+
         ~Value()
         {
             ThreadSpecificInstanceInfo* oldObject = destruct();
@@ -61,10 +68,8 @@ struct ThreadSpecificInstanceInfo
             if (!object) return nullptr;
 
             storage.value.~T();
-            auto oldObject = object;
-            object = nullptr;
 
-            return oldObject;
+            return object.exchange(nullptr);
         }
 
         // This can't raise with either object destruction or thread destruction
@@ -72,13 +77,13 @@ struct ThreadSpecificInstanceInfo
         void construct(ThreadSpecificInstanceInfo* newObject)
         {
             new (&storage.value) T();
-            object = newObject;
+            object.store(newObject);
         }
 
         /** The odd setup is to prevent spurious calls to the T constructor and
             destructor when we construct our parent class Value.
 
-            Note that using a union is a well defined type-puning construct in
+            Note that using a union is a well defined type-punning construct in
             gcc while reinterpret_cast<> could cause problems when used with
             strict-aliasing (I think). Feel free to simplify it if I'm wrong.
          */
@@ -93,7 +98,7 @@ struct ThreadSpecificInstanceInfo
 
 
         Lock destructLock;
-        ThreadSpecificInstanceInfo* object;
+        std::atomic<ThreadSpecificInstanceInfo*> object;
     };
 
     typedef std::deque<Value> PerThreadInfo;
