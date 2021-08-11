@@ -74,7 +74,7 @@ private:
         }
         int effectivePort() const;
 
-        bool isOpen_;
+        std::atomic<bool> isOpen_;
         boost::asio::io_context & ioContext_;
         boost::asio::ip::tcp::acceptor acceptor_;
     };
@@ -86,7 +86,6 @@ private:
 
     Endpoint v4Endpoint_;
     Endpoint v6Endpoint_;
-    int acceptCnt_;
 };
 
 } // namespace MLDB
