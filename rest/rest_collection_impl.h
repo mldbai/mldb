@@ -1315,29 +1315,19 @@ obtainSync(Config config,
            const OnProgress & onProgress)
 {
     using namespace std;
-    std::mutex done;
-    done.lock();
 
-    std::shared_ptr<Value> result;
+    std::promise<std::shared_ptr<Value> > p;
 
-    auto onDone = [&] (std::shared_ptr<Value> entry)
+    auto onDone = [&p] (std::shared_ptr<Value> entry)
         {
-            //cerr << "obtainSync done for " << jsonEncodeStr(config) << endl;
-            result = std::move(entry);
-            done.unlock();
+            p.set_value(std::move(entry));
         };
 
     //cerr << "obtainSync config = " << jsonEncode(config) << " this = " << this
     //     << endl;
 
     auto key = obtainAsync(config, onProgress, onDone);
-
-    done.lock();
-
-    //using namespace std;
-    //cerr << "obtainAsync for " << restEncode(key) << " returned" << endl;
-
-    return result;
+    return p.get_future().get();
 }
 
 template<typename Key, typename Value,
