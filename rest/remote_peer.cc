@@ -115,7 +115,8 @@ void
 RemotePeer::
 finishInit()
 {
-    lastMessageReceived = Date::now();
+    lastMessageReceivedOffset = Date::now();
+    lastMessageReceivedMicroseconds = 0;
     this->state = PS_OK;
     this->stateWatch = connection->stateWatches.add();
 
@@ -208,7 +209,7 @@ checkConnectionState()
 {
     Date now = Date::now();
 
-    double timeSinceLast = now.secondsSince(lastMessageReceived);
+    double timeSinceLast = now.secondsSince(lastMessageReceivedOffset.plusSeconds(lastMessageReceivedMicroseconds * 0.000001));
     double timeSincePing = now.secondsSince(stats.ping.latestReceived);
 
     if (timeSinceLast > 1.5) {
@@ -237,7 +238,7 @@ sendMessage(MessagePriority priority,
 {
     PeerMessage peerMessage;
     peerMessage.direction = DIR_REQUEST;
-    peerMessage.messageId = __sync_fetch_and_add(&currentMessageId, 1);
+    peerMessage.messageId = currentMessageId.fetch_add(1);
     peerMessage.priority = priority;
     peerMessage.deadline = deadline;
     peerMessage.payload = message;
@@ -414,7 +415,8 @@ gotMessage(std::string && message)
     //     << " got message from " << remotePeerInfo.peerName << ": "
     //     << message << endl;
     
-    lastMessageReceived = Date::now();
+
+    lastMessageReceivedMicroseconds = Date::now().secondsSince(lastMessageReceivedOffset) * 1000000;
 
     PeerMessage msg = PeerMessage::decode(message);
 
@@ -797,7 +799,7 @@ status() const
     result.peerName = remotePeerInfo.peerName;
     result.state = state;
     result.error = error;
-    Date lmr = lastMessageReceived;
+    Date lmr = lastMessageReceivedOffset.plusSeconds(lastMessageReceivedMicroseconds * 0.000001);
     result.lastMessageReceived = lmr;
     result.timeSinceLastMessageReceivedMs
         = 1000.0 * Date::now().secondsSince(lmr);
