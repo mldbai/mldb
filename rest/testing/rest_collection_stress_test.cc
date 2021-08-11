@@ -15,6 +15,7 @@
 #include <thread>
 #include <functional>
 #include <numeric>
+#include <mutex>
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -161,6 +162,8 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
 
     FairRWLock lock;
 
+    std::mutex doneMutex;
+
     auto mutateThread = [&] ()
         {
             int index MLDB_UNUSED = 0;
@@ -192,6 +195,7 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
                 lock.readUnlock();
             };
             
+            std::unique_lock<std::mutex> lock(doneMutex);
             cerr << "finished work thread with " << index << " mutations"
                  << endl;
         };
@@ -282,6 +286,7 @@ BOOST_AUTO_TEST_CASE( stress_test_watch_coherency )
                 lock.unlock();
             }
             
+            std::unique_lock<std::mutex> lock(doneMutex);
             cerr << "finished listen thread" << endl;
         };
 

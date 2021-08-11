@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE( test_one_writer_one_reader )
 {
     Collection1 collection;
     
-    volatile bool shutdown = false;
+    std::atomic<bool> shutdown = false;
 
     for (unsigned i = 0;  i < 20;  ++i)
         collection.addEntry("item" + to_string(i),
@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE( test_one_writer_one_reader )
                 collection.deleteEntry("item" + to_string(random() % 20));
             };
 
-            cerr << "finished writer thread" << endl;
+            //cerr << "finished writer thread" << endl;
         };
 
     auto readerThread = [&] ()
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE( test_one_writer_one_reader )
                 collection.forEachEntry(onEntry);
             };
 
-            cerr << "finished reader thread" << endl;
+            //cerr << "finished reader thread" << endl;
         };
 
     std::thread reader(readerThread);
@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE( test_multithreaded_access )
 {
     Collection1 collection;
     
-    volatile bool shutdown = false;
+    std::atomic<bool> shutdown = false;
 
     for (unsigned i = 0;  i < 20;  ++i)
         collection.addEntry("item" + to_string(i),
@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE( test_multithreaded_access )
                 collection.deleteEntry("item" + to_string(random() % 20));
             };
 
-            cerr << "finished work thread" << endl;
+            //cerr << "finished work thread" << endl;
         };
 
     int numThreads = 10;

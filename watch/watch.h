@@ -449,7 +449,7 @@ protected:
 
     /// If true, we are shutting down.  We ignore requests to release
     /// watch data.
-    bool shuttingDown;
+    std::atomic<bool> shuttingDown;
 
     /// Number of times it's triggered
     int triggers;
@@ -465,8 +465,7 @@ protected:
 
     /// Thread which is currently triggering, to allow for watches to be
     /// removed from a trigger without deadlock
-    std::thread::id triggerThread;
-
+    std::atomic<std::thread::id> triggerThread;
 };
 
 

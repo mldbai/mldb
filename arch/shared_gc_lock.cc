@@ -46,6 +46,10 @@ doOpen(bool create)
 
         // We don't want the locks to be persisted so an shm_open will do fine.
         fd = shm_open(name.c_str(), flags, 0644);
+        if (fd == -1 && errno == EEXIST) {
+            shm_unlink(name.c_str());
+            fd = shm_open(name.c_str(), flags, 0644);
+        }
         ExcCheckErrno(fd >= 0, "shm_open failed");
 
         struct stat stats;
