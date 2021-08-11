@@ -371,7 +371,7 @@ struct GcLockBase::Atomic {
 
     volatile union {
         struct {
-            epoch_t epoch;         ///< Current epoch number (could be smaller).
+            std::atomic<epoch_t> epoch;          ///< Current epoch number (could be smaller).
             std::atomic<uint16_t> in[2];         ///< How many threads in each epoch?  High bit of number 0 means exclusive
         };
         uint64_t bits;
@@ -405,14 +405,14 @@ Atomic()
 inline GcLockBase::Atomic::
 Atomic(const Atomic & other)
 {
-    bits = other.bits;
+    bits = other.atomicBits.load();
 }
 
 inline GcLockBase::Atomic &
 GcLockBase::Atomic::
 operator = (const Atomic & other)
 {
-    bits = other.bits;
+    bits = other.atomicBits.load();
     return *this;
 }
 
@@ -427,7 +427,7 @@ GcLockBase::Atomic::
 print() const
 {
     return MLDB::format("epoch: %d, in: %d, in-1: %d, visible: %d, exclusive: %d",
-                      epoch, anyInCurrent(), anyInOld(), visibleEpoch(),
+                      epoch.load(), anyInCurrent(), anyInOld(), visibleEpoch(),
                       (int)exclusive());
 }
 
@@ -460,7 +460,7 @@ updateAtomic(Atomic & oldValue, Atomic & newValue, RunDefer runDefer)
 {
     bool wake;
     try {
-        ExcAssertGreaterEqual(compareEpochs(newValue.epoch, oldValue.epoch), 0);
+        ExcAssertGreaterEqual(compareEpochs(newValue.epoch.load(), oldValue.epoch.load()), 0);
         wake = newValue.visibleEpoch() != oldValue.visibleEpoch();
     } catch (...) {
         cerr << "update: oldValue = " << oldValue.print() << endl;
@@ -724,7 +724,7 @@ visibleBarrier()
                             "deadlock");
 
     Atomic current = data->atomic;
-    int startEpoch = data->atomic.epoch;
+    int startEpoch = current.epoch;
     
     // Spin until we're visible
     for (unsigned i = 0;  ;  ++i, current = data->atomic) {
