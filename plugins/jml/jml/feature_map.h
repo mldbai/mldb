@@ -14,13 +14,14 @@
 
 #include "judy_multi_array.h"
 #include "mldb/plugins/jml/jml/feature_set.h"
+#include "mldb/arch/arch.h"
 
 
 namespace ML {
 
-#if 1
+#if MLDB_INTEL_ISA
 
-#if defined(__amd64)
+#if (MLDB_BITS == 64)
 
 struct Feature_Extractor {
 
@@ -225,6 +226,17 @@ public:
             return &base_const_iterator::operator -> ()->second;
         }
     };
+
+    iterator find (const Feature & feature)
+    {
+        return this->base_type::find(feature);
+    }
+
+    const_iterator find (const Feature & feature) const
+    {
+        return this->base_type::find(feature);
+    }
+
 };
 
 #endif
