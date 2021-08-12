@@ -35,7 +35,7 @@ CC := $(COMPILER_CACHE) $(CLANG)
 GCCWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -fno-strict-overflow
 CFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GCCWARNINGFLAGS) -pipe -O1 -g -DNDEBUG -fno-omit-frame-pointer
 CDEBUGFLAGS := -O0 -g
-CNODEBUGFLAGS := -O1 -g -DNDEBUG 
+CNODEBUGFLAGS := -O2 -g -DNDEBUG 
 
 FC ?= gfortran
 FFLAGS ?= $(ARCHFLAGS) -I. -fPIC
