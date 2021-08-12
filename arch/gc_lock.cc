@@ -849,7 +849,7 @@ doDefer(void (fn) (Args...), Args... args)
 
 #if 1
     // Nothing is in a critical section; we can run it inline
-    if (current.anyInCurrent() + current.anyInOld() == 0) {
+    if ((int)current.anyInCurrent() + (int)current.anyInOld() == 0) {
         fn(std::forward<Args>(args)...);
         return;
     }
