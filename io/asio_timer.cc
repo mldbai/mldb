@@ -24,7 +24,7 @@ void
 StrandHolder::
 init(void * strand, const std::type_info * type)
 {
-    if (type != &typeid(boost::asio::io_context::strand))
+    if (*type != typeid(boost::asio::io_context::strand))
         throw MLDB::Exception("StrandHolder initialized from " + demangle(type->name()) + " not boost::asio::io_context::strand");
     this->strand = strand;
 }
