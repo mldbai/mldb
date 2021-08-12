@@ -15,7 +15,7 @@ SO_EXTENSION:=.so
 VIRTUALENV ?= virtualenv
 PYTHON ?= $(VIRTUALENV)/bin/python
 PIP ?= $(VIRTUALENV)/bin/pip
-PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==18.0
+PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==21.2.3
 PYFLAKES ?= $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
 J2 ?= $(VIRTUALENV)/bin/j2
 J2ENV ?= $(J2) -f env

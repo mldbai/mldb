@@ -46,9 +46,9 @@ endif
 
 # Assume pip > 7.1.0 (2015) when constraints file support was added
 python_dependencies:
-	if [ -f python_requirements.txt ]; then \
+	if [ -f python_requirements_$(OSNAME).txt ]; then \
 		$(PYTHON_DEPENDENCIES_PRE_CMD); \
-		$(PIP) install -r python_requirements.txt -c python_constraints.txt; \
+		$(PIP) install -r python_requirements_$(OSNAME).txt -c python_constraints.txt; \
 	fi
 
 # Loop over the python_extra_requirements.txt file and install packages in

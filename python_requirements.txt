@@ -5,6 +5,9 @@
 # - Put version of direct dependencies here, however keep in mind that versions
 #   from the constraints files have precedence over the requirements file.
 # - Keeping a comment for weird deps would be nice.
+# - Requirements that only work on a single platform (like prctl) should be in
+#   requirements-$(OSNAME).txt instead of this file; it's only for common
+#   requirements across all platforms.
 #
 
 # jinja cli for rendering of templated config files
@@ -28,7 +31,6 @@ dateutils==0.6.12
 python-dateutil==2.8.1
 pytz==2021.1
 requests[security]==2.25.1
-python-prctl==1.8.1
 Pygments==2.9.0
 setuptools==57.1.0
 lz4==3.1.3
