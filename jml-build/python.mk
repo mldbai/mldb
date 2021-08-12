@@ -22,9 +22,9 @@ RUN_PYTHONPATH := $(if $(PYTHONPATH),$(PYTHONPATH):,)$(PYTHON_PURE_LIB_PATH):$(P
 
 PYTHONPATH ?= RUN_PYTHONPATH
 
-BOOST_PYTHON_LIBRARY_FILE?=$(notdir $(wildcard /usr/lib/$(ARCH)-linux-gnu/libboost_python*3*.so))
-$(if $(BOOST_PYTHON_LIBRARY_FILE),,$(error couldn't find the boost python library file))
-BOOST_PYTHON_LIBRARY?=$(BOOST_PYTHON_LIBRARY_FILE:lib%.so=%)
+BOOST_PYTHON_LIBRARY_FILE?=$(notdir $(wildcard /usr/lib/$(ARCH)-linux-gnu/libboost_python*3*$(SO_EXTENSION))
+#$(if $(BOOST_PYTHON_LIBRARY_FILE),,$(error couldn't find the boost python library file))
+BOOST_PYTHON_LIBRARY?=$(BOOST_PYTHON_LIBRARY_FILE:lib%$(SO_EXTENSION)=%)
 
 export PYTHONPATH
 
@@ -209,16 +209,16 @@ $$(eval $$(call library,$(1),$(2),$(3),$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(C
 ifneq ($(PREMAKE),1)
 
 ifneq ($(LIB),$(PYTHON_PLAT_LIB_PATH))
-$(PYTHON_PLAT_LIB_PATH)/$(1).so:	$(LIB)/$(1).so
+$(PYTHON_PLAT_LIB_PATH)/$(1)$(SO_EXTENSION):	$(LIB)/$(1)$(SO_EXTENSION)
 	@cp $$< $$@~ && mv $$@~ $$@
 endif
 
 
-$(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1).so
+$(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1)$(SO_EXTENSION)
 	@mkdir -p $$(dir $$@)
 	@touch $(TMPBIN)/$(1)_pymod
 
-python_modules: $(PYTHON_PLAT_LIB_PATH)/$(1).so
+python_modules: $(PYTHON_PLAT_LIB_PATH)/$(1)$(SO_EXTENSION)
 
 endif
 endef
