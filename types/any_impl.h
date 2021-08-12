@@ -27,7 +27,7 @@ as() const
                             MLDB::type_name<T>().c_str());
 
     // If the same type, conversion is trivial
-    if (type_ == &typeid(T))
+    if (*type_ == typeid(T))
         return *reinterpret_cast<T *>(obj_.get());
 
     // Otherwise, go into RTTI and see if we can make it happen
@@ -47,7 +47,7 @@ Any::
 convert(const ValueDescription & desc) const
 {
     // If the same type, conversion is trivial
-    if (type_ == &typeid(T))
+    if (type_ && *type_ == typeid(T))
         return *reinterpret_cast<T *>(obj_.get());
 
     // Otherwise, go into RTTI and see if we can make it happen
@@ -62,7 +62,7 @@ convert(const ValueDescription & desc) const
         desc.parseJson(&result, context);
         return result;
     }
-    else if (type_ == &typeid(Json::Value)) {
+    else if (*type_ == typeid(Json::Value)) {
         T result;
         StructuredJsonParsingContext context(*reinterpret_cast<const Json::Value *>(obj_.get()));
         desc.parseJson(&result, context);

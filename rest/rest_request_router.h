@@ -234,11 +234,11 @@ struct RestRequestParsingContext {
     {
         auto obj = getObject(index);
 
-        const std::type_info * tp = &typeid(As);
-        if (tp == obj.second)
+        const std::type_info & tp = typeid(As);
+        if (tp == *obj.second)
             return *reinterpret_cast<As *>(obj.first);
 
-        if (&typeid(std::shared_ptr<As>) == obj.second)
+        if (typeid(std::shared_ptr<As>) == *obj.second)
             return *reinterpret_cast<std::shared_ptr<As> *>(obj.first)->get();
 
         void * converted = nullptr; //MLDB::is_convertible(*obj.second,
