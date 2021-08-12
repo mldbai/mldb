@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE( test_lock_race )
     }
 }
 
-#ifdef __linux__ // requires robust mutexes to work
+#if (0 && defined(__linux__)) // requires robust mutexes to work
 /* ensure that stale locks are handled properly using tryLock */
 BOOST_AUTO_TEST_CASE( test_stale_and_trylock )
 {
