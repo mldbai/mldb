@@ -8,10 +8,7 @@
    An entry to the training data index.
 */
 
-#ifndef __boosting__training_index_entry_h__
-#define __boosting__training_index_entry_h__
-
-
+#pragma once
 
 #include "training_index.h"
 #include "feature_map.h"
@@ -272,8 +269,3 @@ struct Dataset_Index::Index_Entry {
 };
 
 } // namespace ML
-
-
-#endif /* __boosting__training_index_entry_h__ */
-
-
