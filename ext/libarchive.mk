@@ -128,12 +128,17 @@ LIBARCHIVE_SOURCE:= \
 
 LIBXML2_INCLUDE_DIR:=/usr/include/libxml2
 
+LIBARCHIVE_INCLUDE_PATHS:=$(LIBXML2_INCLUDE_DIR) $(LZ4_INCLUDE_PATH) $(LZMA_INCLUDE_PATH) $(ZSTD_INCLUDE_PATH) mldb/ext/zstd/lib
+
+$(warning LIBARCHIVE_INCLUDE_PATHS=$(LIBARCHIVE_INCLUDE_PATHS))
+
 LIBARCHIVE_GCC_FLAGS:=-Wno-maybe-uninitialized -Wno-array-bounds -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow
 LIBARCHIVE_CLANG_FLAGS:=-Wno-maybe-uninitialized -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow -Wno-unknown-warning-option
 
-LIBARCHIVE_FLAGS:= \
+LIBARCHIVE_FLAGS= \
 	$(if $(findstring gcc,$(toolchain)),$(LIBARCHIVE_GCC_FLAGS)) \
-	$(if $(findstring clang,$(toolchain)),$(LIBARCHIVE_CLANG_FLAGS))
+	$(if $(findstring clang,$(toolchain)),$(LIBARCHIVE_CLANG_FLAGS)) \
+	$(foreach path,$(LIBARCHIVE_INCLUDE_PATHS), -I $(path))
 
 
 # NOTE: to find this, run cmake in the ext/libarchive directory, and then
@@ -148,8 +153,8 @@ LIBARCHIVE_LIBS_Linux_aarch64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 zs
 LIBARCHIVE_DEFINES_Darwin_x86_64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-x86_64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
 LIBARCHIVE_LIBS_Darwin_x86_64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
 
-LIBARCHIVE_DEFINES_Darwin_aarch64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-aarch64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
-LIBARCHIVE_LIBS_Darwin_aarch64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
+LIBARCHIVE_DEFINES_Darwin_arm64:='-DPLATFORM_CONFIG_H="../../libarchive-config-Darwin-arm64.h"' -I$(LIBXML2_INCLUDE_DIR) -Wno-deprecated-declarations
+LIBARCHIVE_LIBS_Darwin_arm64:=z xml2 dl icui18n icuuc m icudata lzma bz2 lz4 iconv zstd
 
 LIBARCHIVE_DEFINES:=$(LIBARCHIVE_DEFINES_$(OSNAME)_$(ARCH))
 LIBARCHIVE_LIBS:=$(LIBARCHIVE_LIBS_$(OSNAME)_$(ARCH))
@@ -162,7 +167,7 @@ LIBARCHIVE_LIB_NAME:=archive-mldb
 $(eval $(call library,$(LIBARCHIVE_LIB_NAME),$(LIBARCHIVE_SOURCE),$(LIBARCHIVE_LIBS)))
 
 LIBARCHIVE_INCLUDE_DIR:=$(PWD)/libarchive
-DEPENDS_ON_LIBARCHIVE_INCLUDES:=$(LIB)/$(LIBARCHIVE_LIB_NAME).so
-DEPENDS_ON_LIBARCHIVE_LIB:=$(LIB)/$(LIBARCHIVE_LIB_NAME).so
+DEPENDS_ON_LIBARCHIVE_INCLUDES:=$(LIB)/$(LIBARCHIVE_LIB_NAME)$(SO_EXTENSION)
+DEPENDS_ON_LIBARCHIVE_LIB:=$(LIB)/$(LIBARCHIVE_LIB_NAME)$(SO_EXTENSION)
 
 libarchive:	$(DEPENDS_ON_LIBARCHIVE_LIB) $(DEPENDS_ON_LIBARCHIVE_INCLUDE)

@@ -55,6 +55,7 @@ export BIN
 export BUILD
 export TEST_TMP
 export TMP
+export SO_EXTENSION
 
 $(if $(wildcard $(JML_BUILD)/$(toolchain).mk),,$(error toolchain $(toolchain) is unknown.  Currently 'gcc', 'gcc6', 'gcc7', 'gcc8' and 'clang' are supported [looking for $(JML_BUILD)/$(toolchain).mk].))
 

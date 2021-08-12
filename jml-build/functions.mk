@@ -392,7 +392,7 @@ endef
 # $(2): source files to include in the library
 # $(3): libraries to link with
 # $(4): output name; default lib$(1)
-# $(5): output extension; default .so
+# $(5): output extension; default $(SO_EXTENSION)
 # $(6): build name; default SO
 # $(7): output dir; default $(LIB), must NOT end /
 # $(8): extra linker options
@@ -403,7 +403,7 @@ $$(if $(trace),$$(warning called library "$(1)" "$(2)" "$(3)"))
 $$(eval $$(call add_sources,$(2)))
 
 $$(eval tmpLIBNAME := $(if $(4),$(4),lib$(1)))
-$$(eval so := $(if $(5),$(5),.so))
+$$(eval so := $(strip $(if $(5),$(5),$(SO_EXTENSION))))
 $$(eval sodir := $(if $(7),$(7),$(LIB)))
 
 LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_YELLOW)[SO]$(COLOR_RESET)")
@@ -449,7 +449,7 @@ $$(tmpLIBNAME): $$(sodir)/$$(tmpLIBNAME)$$(so)
 LIB_$(1)_DEPS := $$(sodir)/$$(tmpLIBNAME)$$(so)
 
 libraries: $$(sodir)/$$(tmpLIBNAME)$$(so)
-endif
+endif # premake
 endef
 
 # add a forward dependency to a library, ie it depends upon a library defined further forwards
@@ -490,7 +490,7 @@ $$(eval bindir := $(if $(5),$(5),$(BIN)))
 
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $$(bindir)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(call linker_rpath,$(LIB)) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
-$$(bindir)/$(1):	$$(bindir)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook.so
+$$(bindir)/$(1):	$$(bindir)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET)                   	$(1)")
 	@$(call write_timing_to,$$@.timing) $$(LINK_$(1)_COMMAND)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(1)")
@@ -547,7 +547,7 @@ $(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
-$(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook.so
+$(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")
 	@$$(LINK_$(1)_COMMAND)
 
