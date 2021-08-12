@@ -220,15 +220,15 @@ commit()
 static std::pair<void *, size_t>
 getPageRange(const void * mem, size_t length)
 {
-    void * startAddr = (void *)((((size_t)mem) + 4095) / 4096 * 4096);
+    void * startAddr = (void *)((((size_t)mem) + page_size - 1) / page_size * page_size);
     //cerr << "startAddr = " << startAddr << " for " << mem << endl;
     size_t offset = (char *)startAddr - (char *)mem;
-    ExcAssertLess(offset, 4096);
+    ExcAssertLess(offset, page_size);
     if (offset >= length) {
         return { 0, 0 };
     }
     size_t realLen = length - offset;
-    size_t pageLen = realLen / 4096 * 4096;
+    size_t pageLen = realLen / page_size * page_size;
     ExcAssertGreaterEqual(startAddr, mem);
     ExcAssertLessEqual(pageLen, length);
     return { startAddr, pageLen };
@@ -275,10 +275,12 @@ freeze(MutableMemoryRegion & region)
     
     if (pageLen > 0) {
         // Set protection to read-only for full pages to ensure it's really frozen
-        //cerr << "protecting " << pageStart << " for " << pageLen
+        //cerr << "protecting " << pageStart << " at offset " << (char *)pageStart - data
+        //     << " for " << pageLen
         //     << " with range " << (void *)region.data()
         //     << " for " << region.length()
         //     << endl;
+        //cerr << "getPageSize() = " << getpagesize() << endl;
         int res = mprotect(pageStart, pageLen, PROT_READ);
         if (res == -1) {
             throw MLDB::Exception(errno, "mprotect READ");
