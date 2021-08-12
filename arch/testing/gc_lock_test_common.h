@@ -160,7 +160,7 @@ struct Allocator {
 };
 
 struct BlockHolder {
-    BlockHolder(int ** p = nullptr)
+    BlockHolder(std::atomic<int *> * p = nullptr)
         : block(p)
     {
     }
@@ -171,11 +171,11 @@ struct BlockHolder {
         return *this;
     }
 
-    std::atomic<int **> block;
+    std::atomic<std::atomic<int *> *> block;
 
-    int ** load() const { return block.load(); }
+    std::atomic<int *> * load() const { return block.load(); }
 
-    operator int ** const () { return load(); }
+    operator std::atomic<int *> * const () { return load(); }
 };
 
 template<typename Lock>
@@ -190,7 +190,7 @@ struct TestBase {
           allBlocks(nthreads)
     {
         for (unsigned i = 0;  i < nthreads;  ++i) {
-            allBlocks[i] = new int *[nblocks];
+            allBlocks[i] = new std::atomic<int *>[nblocks];
             std::fill(allBlocks[i].load(), allBlocks[i].load() + nblocks, (int *)0);
         }
     }
@@ -220,7 +220,7 @@ struct TestBase {
     // sanitizers will find errors here; the goal of this testing is to verify that these
     // errors never cause visible coherency problems.  So we turn off the thread sanitizer
     // for this code.
-    void checkVisible(int threadNum, unsigned long long start) ATTRIBUTE_NO_SANITIZE_THREAD
+    void checkVisible(int threadNum, unsigned long long start)
     {
         using namespace std;
         // We're reading from someone else's pointers, so we need to lock here
@@ -272,7 +272,7 @@ struct TestBase {
         try {
             uint64_t nErrors = 0;
 
-            int ** blocks = allBlocks[threadNum];
+            std::atomic<int *> * blocks = allBlocks[threadNum];
 
             while (!finished) {
 
@@ -327,14 +327,14 @@ struct TestBase {
         }
     }
 
-    void allocThreadSync(int threadNum) ATTRIBUTE_NO_SANITIZE_THREAD
+    void allocThreadSync(int threadNum)
     {
         using namespace std;
         gc.getEntry();
         try {
             uint64_t nErrors = 0;
 
-            int ** blocks = allBlocks[threadNum];
+            std::atomic<int *> * blocks = allBlocks[threadNum];
             int * oldBlocks[nblocks];
 
             while (!finished) {
@@ -346,9 +346,7 @@ struct TestBase {
                         ++nErrors;
                     }
                     *block = threadNum;
-                    int * oldBlock = blocks[i];
-                    blocks[i] = block;
-                    oldBlocks[i] = oldBlock;
+                    oldBlocks[i] = blocks[i].exchange(block);
                 }
 
                 std::atomic_thread_fence(std::memory_order_seq_cst);
