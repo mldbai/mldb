@@ -438,8 +438,11 @@ protected:
     /// mutex.
     mutable std::mutex mutex;
 
-    /// The set of watches we're dealing with, along with their info
-    std::vector<std::unique_ptr<WatchData> > watches;
+    /// The set of watches we're dealing with, along with their info.  It's a
+    /// shared_ptr because the watches can unregister themselves as part of
+    /// triggering; this allows us to ensure that they stay around until they
+    /// are no longer needed.
+    std::vector<std::shared_ptr<WatchData> > watches;
 
     /// This is the concrete type that is bound into the watches
     const std::type_info * boundType_;
