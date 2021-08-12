@@ -667,7 +667,8 @@ trigger(const T &... args)
 
     ++triggers;
     for (auto & w: watches) {
-        static_cast<WatchDataT<T...> *>(w.get())
+        auto kept = w;  // keep a copy of the shared_ptr
+        static_cast<WatchDataT<T...> *>(kept.get())
             ->trigger(args...);
     }
 

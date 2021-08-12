@@ -677,8 +677,10 @@ triggerGeneric(const Any & val)
     std::unique_lock<std::mutex> guard(mutex);
     triggerThread = std::this_thread::get_id();
     ++triggers;
-    for (auto & w: watches)
+    for (auto & w: watches) {
+        auto kept = w;  // Take a shared copy in case it gets untriggered
         w->triggerGeneric(val);
+    }
     triggerThread = std::thread::id();
 }
 
