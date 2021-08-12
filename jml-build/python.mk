@@ -22,7 +22,7 @@ RUN_PYTHONPATH := $(if $(PYTHONPATH),$(PYTHONPATH):,)$(PYTHON_PURE_LIB_PATH):$(P
 
 PYTHONPATH ?= RUN_PYTHONPATH
 
-BOOST_PYTHON_LIBRARY_FILE?=$(notdir $(wildcard /usr/lib/$(ARCH)-linux-gnu/libboost_python*3*$(SO_EXTENSION))
+BOOST_PYTHON_LIBRARY_FILE?=$(notdir $(wildcard /usr/lib/$(ARCH)-linux-gnu/libboost_python*3*$(SO_EXTENSION)))
 #$(if $(BOOST_PYTHON_LIBRARY_FILE),,$(error couldn't find the boost python library file))
 BOOST_PYTHON_LIBRARY?=$(BOOST_PYTHON_LIBRARY_FILE:lib%$(SO_EXTENSION)=%)
 
