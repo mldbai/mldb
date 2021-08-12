@@ -313,24 +313,24 @@ struct GcLockBase::Atomic {
     static constexpr uint16_t EXCLUSIVE_MASK = 0x8000;
     static constexpr uint16_t IN_MASK        = 0x7fff;
 
-    bool anyInCurrent() const { return in[epoch & 1] & IN_MASK; }
-    bool anyInOld() const { return in[(epoch - 1)&1] & IN_MASK; }
+    bool anyInCurrent() const { return s.in[s.epoch & 1] & IN_MASK; }
+    bool anyInOld() const { return s.in[(s.epoch - 1)&1] & IN_MASK; }
 
-    bool exclusive() const { return in[0] & EXCLUSIVE_MASK; }
+    bool exclusive() const { return s.in[0] & EXCLUSIVE_MASK; }
 
     void setExclusive()
     {
-        in[0] |= EXCLUSIVE_MASK;
+        s.in[0] |= EXCLUSIVE_MASK;
     }
 
     void resetExclusive()
     {
-        in[0] &= IN_MASK;
+        s.in[0] &= IN_MASK;
     }
 
     void resetExclusiveAtomic()
     {
-        uint16_t oldExclusive = in[0]
+        uint16_t oldExclusive = s.in[0]
             .fetch_and(IN_MASK, std::memory_order_seq_cst);
         ExcAssert(oldExclusive & EXCLUSIVE_MASK);
     }
@@ -340,18 +340,18 @@ struct GcLockBase::Atomic {
     // returns 1, it means that we are the last one to leave this epoch.
     uint16_t decrementInAtomic(uint32_t epoch)
     {
-        return in[epoch & 1]
+        return s.in[epoch & 1]
             .fetch_add(-1, std::memory_order_seq_cst) & IN_MASK;
     }
 
     void setIn(int32_t epoch, int val)
     {
-        in[epoch & 1] = (in[epoch & 1] & EXCLUSIVE_MASK) | (val & IN_MASK);
+        s.in[epoch & 1] = (s.in[epoch & 1] & EXCLUSIVE_MASK) | (val & IN_MASK);
     }
 
     void addIn(int32_t epoch, int val)
     {
-        in[epoch & 1] += val;
+        s.in[epoch & 1] += val;
     }
 
     /** Check that the invariants all hold.  Throws an exception if not. */
@@ -363,17 +363,17 @@ struct GcLockBase::Atomic {
     {
         // Set the visible epoch
         if (!anyInCurrent() && !anyInOld())
-            return epoch;
+            return s.epoch;
         else if (!anyInOld())
-            return epoch - 1;
-        else return epoch - 2;
+            return s.epoch - 1;
+        else return s.epoch - 2;
     }
 
     volatile union {
         struct {
             std::atomic<epoch_t> epoch;          ///< Current epoch number (could be smaller).
             std::atomic<uint16_t> in[2];         ///< How many threads in each epoch?  High bit of number 0 means exclusive
-        };
+        } s;
         uint64_t bits;
         std::atomic<uint64_t> atomicBits;
     };
@@ -399,7 +399,7 @@ inline GcLockBase::Atomic::
 Atomic()
 {
     std::memset((void *)this, 0, sizeof(*this));
-    epoch = gcLockStartingEpoch; // makes it easier to test overflows.
+    s.epoch = gcLockStartingEpoch; // makes it easier to test overflows.
 }
 
 inline GcLockBase::Atomic::
@@ -427,7 +427,7 @@ GcLockBase::Atomic::
 print() const
 {
     return MLDB::format("epoch: %d, in: %d, in-1: %d, visible: %d, exclusive: %d",
-                      epoch.load(), anyInCurrent(), anyInOld(), visibleEpoch(),
+                      s.epoch.load(), anyInCurrent(), anyInOld(), visibleEpoch(),
                       (int)exclusive());
 }
 
@@ -460,7 +460,7 @@ updateAtomic(Atomic & oldValue, Atomic & newValue, RunDefer runDefer)
 {
     bool wake;
     try {
-        ExcAssertGreaterEqual(compareEpochs(newValue.epoch.load(), oldValue.epoch.load()), 0);
+        ExcAssertGreaterEqual(compareEpochs(newValue.s.epoch.load(), oldValue.s.epoch.load()), 0);
         wake = newValue.visibleEpoch() != oldValue.visibleEpoch();
     } catch (...) {
         cerr << "update: oldValue = " << oldValue.print() << endl;
@@ -573,15 +573,15 @@ enterCS(ThreadGcInfoEntry * entry, RunDefer runDefer)
 
         if (newValue.anyInOld() == 0) {
             // We're entering a new epoch
-            newValue.epoch += 1;
-            newValue.setIn(newValue.epoch, 1);
+            newValue.s.epoch += 1;
+            newValue.setIn(newValue.s.epoch, 1);
         }
         else {
             // No new epoch as the old one isn't finished yet
-            newValue.addIn(newValue.epoch, 1);
+            newValue.addIn(newValue.s.epoch, 1);
         }
 
-        entry->inEpoch = newValue.epoch & 1;
+        entry->inEpoch = newValue.s.epoch & 1;
             
         if (updateAtomic(current, newValue, runDefer)) break;
     }
@@ -648,11 +648,11 @@ enterCSExclusive(ThreadGcInfoEntry * entry)
 
     // At this point, we have exclusive access... now wait for everything else
     // to exit.  This is kind of a critical section barrier.
-    int startEpoch = current.epoch;
+    int startEpoch = current.s.epoch;
     
     visibleBarrier();
     
-    ExcAssertEqual(data->atomic.epoch, startEpoch);
+    ExcAssertEqual(data->atomic.s.epoch, startEpoch);
 
 
 #if 0
@@ -676,7 +676,7 @@ enterCSExclusive(ThreadGcInfoEntry * entry)
     }
 #endif
 
-    ExcAssertEqual(data->atomic.epoch, startEpoch);
+    ExcAssertEqual(data->atomic.s.epoch, startEpoch);
 
     entry->inEpoch = startEpoch & 1;
 }
@@ -724,7 +724,7 @@ visibleBarrier()
                             "deadlock");
 
     Atomic current = data->atomic;
-    int startEpoch = current.epoch;
+    int startEpoch = current.s.epoch;
     
     // Spin until we're visible
     for (unsigned i = 0;  ;  ++i, current = data->atomic) {
@@ -732,7 +732,7 @@ visibleBarrier()
         //int i = startEpoch & 1;
 
         // Have we moved on?  If we're 2 epochs ahead we're surely not visible
-        if (current.epoch != startEpoch && current.epoch != startEpoch + 1) {
+        if (current.s.epoch != startEpoch && current.s.epoch != startEpoch + 1) {
             //cerr << "epoch moved on" << endl;
             return;
         }
@@ -844,7 +844,7 @@ doDefer(void (fn) (Args...), Args... args)
 
     Atomic current = data->atomic;
 
-    int32_t newestVisibleEpoch = current.epoch;
+    int32_t newestVisibleEpoch = current.s.epoch;
     if (current.anyInCurrent() == 0) --newestVisibleEpoch;
 
 #if 1
@@ -866,9 +866,9 @@ doDefer(void (fn) (Args...), Args... args)
         // Find the oldest live epoch
         int oldestLiveEpoch = -1;
         if (current.anyInOld() > 0)
-            oldestLiveEpoch = current.epoch - 1;
+            oldestLiveEpoch = current.s.epoch - 1;
         else if (current.anyInCurrent() > 0)
-            oldestLiveEpoch = current.epoch;
+            oldestLiveEpoch = current.s.epoch;
     
         if (oldestLiveEpoch == -1 || 
                 compareEpochs(oldestLiveEpoch, newestVisibleEpoch) > 0)
@@ -932,7 +932,7 @@ GcLockBase::
 dump()
 {
     Atomic current = data->atomic;
-    cerr << "epoch " << current.epoch << " in " << current.anyInCurrent()
+    cerr << "epoch " << current.s.epoch << " in " << current.anyInCurrent()
          << " in-1 " << current.anyInOld() << " vis " << current.visibleEpoch()
          << " excl " << current.exclusive() << endl;
     cerr << "deferred: ";
@@ -953,14 +953,14 @@ int
 GcLockBase::
 currentEpoch() const
 {
-    return data->atomic.epoch;
+    return data->atomic.s.epoch;
 }
 
 bool
 GcLockBase::
 isLockedByAnyThread() const
 {
-    return data->atomic.in[0] || data->atomic.in[1] ;
+    return data->atomic.s.in[0] || data->atomic.s.in[1] ;
 }
 
 size_t 
