@@ -269,7 +269,7 @@ bool
 ValueDescription::
 isSame(const ValueDescription* other) const
 {
-    return type == other->type;
+    return type && other->type && *type == *other->type;
 }
 
 void

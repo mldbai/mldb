@@ -113,7 +113,7 @@ struct Any {
     template<typename T>
     bool is() const
     {
-        return type_ == &typeid(T);
+        return type_ && *type_ == typeid(T);
     }
 
     template<typename T>
