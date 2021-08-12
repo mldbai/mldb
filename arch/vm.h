@@ -12,15 +12,24 @@
 #include <iostream>
 #include <vector>
 #include "mldb/arch/exception.h"
+#include "mldb/arch/arch.h"
 
 namespace MLDB {
 
+#if defined(__linux__)
+constexpr int page_shift       = 12;
+#elif defined(__APPLE__)
+#  if (MLDB_INTEL_ISA)
+constexpr int page_shift       = 12;
+#  elif (MLDB_ARM_ISA)
+constexpr int page_shift       = 14;  // M1 has 16k pages
+#  else
+#    error "Unknown apple architecture"
+#  endif
+#endif
 
-enum {
-    page_shift       = 12,
-    page_size        = 1 << page_shift,
-    page_offset_mask = page_size - 1
-};
+constexpr int page_size        = 1 << page_shift;
+constexpr int page_offset_mask = page_size - 1;
 
 static const size_t page_num_mask = ~(size_t)page_offset_mask;
 

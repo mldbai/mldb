@@ -12,6 +12,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/arch/info.h"
 #include "mldb/base/scope.h"
+#include "mldb/base/exc_assert.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -26,6 +27,19 @@ using namespace std;
 
 
 namespace MLDB {
+
+namespace {
+
+struct AtInit {
+    AtInit()
+    {
+        // Verify that the compiled-in page size is equal to the real system
+        // page size
+        ExcAssertEqual(page_size, getpagesize());
+    }
+} atInit;
+
+} // file scope
 
 std::string
 Pagemap_Entry::
