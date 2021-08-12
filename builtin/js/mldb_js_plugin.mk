@@ -17,7 +17,7 @@ V8_ARCH:=$(V8_ARCH_$(ARCH))
 
 $(if $(V8_ARCH),,$(error couldnt find v8 architecture for $(ARCH); set V8_ARCH_$(ARCH) in mldb_js_plugin.mk))
 
-$(LIB)/libv8$(so): mldb/ext/v8-cross-build-output/$(V8_RELEASE_CODENAME)/$(V8_ARCH)/libv8.so
+$(LIB)/libv8$(so): mldb/ext/v8-cross-build-output/$(V8_RELEASE_CODENAME)/$(V8_ARCH)/libv8$(SO_EXTENSION)
 	@cp $< $@~ && mv $@~ $@
 
 ifneq ($(PREMAKE),1)

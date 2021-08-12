@@ -3,6 +3,11 @@ CRYPTOPP_EXCLUDE_x86_64:=neon_simd.cpp
 
 CRYPTOPP_SOURCE := cryptlib.cpp cpu.cpp integer.cpp $(filter-out $(CRYPTOPP_EXCLUDE_$(ARCH)) cryptlib.cpp cpu.cpp integer.cpp pch.cpp simple.cpp adhoc.cpp test.cpp bench1.cpp bench2.cpp bench3.cpp datatest.cpp dlltest.cpp fipsalgt.cpp validat0.cpp validat1.cpp validat2.cpp validat3.cpp validat4.cpp validat5.cpp validat6.cpp validat7.cpp validat8.cpp validat9.cpp validat10.cpp regtest1.cpp regtest2.cpp regtest3.cpp regtest4.cpp,$(notdir $(sort $(wildcard $(CWD)/*.cpp))))
 
+CRYPTOPP_ARCH:=$(ARCH)
+ifeq ($(ARCH),amd64)
+CRYPTOPP_ARCH:=aarch64
+endif
+
 ifeq ($(ARCH),x86_64)
 $(eval $(call set_compile_option,aria_simd.cpp,-msse3))
 $(eval $(call set_compile_option,blake2b_simd.cpp,-msse4.1))
