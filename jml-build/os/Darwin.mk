@@ -28,8 +28,6 @@ HOMEBREW_OPT:=$(call find_subdirectory,/opt/homebrew/opt /usr/local/opt)
 HOMEBREW_LIB:=$(call find_subdirectory,/opt/homebrew/lib /usr/local/lib)
 HOMEBREW_INCLUDE:=$(call find_subdirectory,/opt/homebrew/include /usr/local/include)
 
-$(warning HOMEBREW_INCLUDE $(HOMEBREW_INCLUDE))
-
 ICU_ROOT:=$(HOMEBREW_OPT)/icu4c
 ICU_INCLUDE_PATH:=$(ICU_ROOT)/include/
 LIB_icui18n_LINKER_OPTIONS:=-L$(ICU_ROOT)/lib -Wl,-rpath,$(ICU_ROOT)/lib
@@ -41,8 +39,8 @@ OPENSSL_INCLUDE_FLAGS:=-I $(OPENSSL_ROOT)/include
 LIB_ssl_LINKER_OPTIONS += -L $(OPENSSL_ROOT)/lib
 LIB_crypto_LINKER_OPTIONS += -L $(OPENSSL_ROOT)/lib
 USE_PLATFORM_V8:=1
-V8_ROOT:=/usr/local/opt/v8/libexec/
-V8_INCLUDE_PATH:=/usr/local/opt/v8/libexec/include
+V8_ROOT:=$(HOMEBREW_OPT)/v8/libexec/
+V8_INCLUDE_PATH:=$(HOMEBREW_OPT)/v8/libexec/include
 V8_INCLUDE_FLAGS:=-DV8_COMPRESS_POINTERS=1 -DV8_31BIT_SMIS_ON_64BIT_ARCH=1
 LIB_v8_LINKER_OPTIONS:=-L$(V8_ROOT)
 LIB_v8_DEPS:= 
