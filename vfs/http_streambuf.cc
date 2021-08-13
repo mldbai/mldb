@@ -53,7 +53,7 @@ convertHeaderToInfo(const HttpHeader & header)
         return result;
     }
 
-    if (header.responseCode() >= 400 && header.responseCode() < 500) {
+    if (header.responseCode() >= 400 && header.responseCode() < 600) {
         result.exists = false;
         return result;
     }
