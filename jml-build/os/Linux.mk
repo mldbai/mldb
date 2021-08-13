@@ -7,6 +7,7 @@ write_timing_to=$(GNU_TIME) -v -o $(1)
 linker_rpath=-Wl,--rpath,$(1)
 
 SO_EXTENSION:=.so
+export SO_EXTENSION
 
 # Include the lsb-release file to know what version of v8 to link with
 include /etc/lsb-release

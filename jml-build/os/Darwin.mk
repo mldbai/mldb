@@ -11,6 +11,7 @@ READLINK:=readlink
 linker_rpath=
 #SO_EXTENSION:=.dylib
 SO_EXTENSION:=.so
+export SO_EXTENSION
 
 VIRTUALENV ?= virtualenv
 PYTHON ?= $(VIRTUALENV)/bin/python
