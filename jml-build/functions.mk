@@ -403,7 +403,7 @@ $$(if $(trace),$$(warning called library "$(1)" "$(2)" "$(3)"))
 $$(eval $$(call add_sources,$(2)))
 
 $$(eval tmpLIBNAME := $(if $(4),$(4),lib$(1)))
-$$(eval so := $(if $(5),$(5),$(SO_EXTENSION)))
+$$(eval so := $(strip $(if $(5),$(5),$(SO_EXTENSION))))
 $$(eval sodir := $(if $(7),$(7),$(LIB)))
 
 LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_YELLOW)[SO]$(COLOR_RESET)")
@@ -449,7 +449,7 @@ $$(tmpLIBNAME): $$(sodir)/$$(tmpLIBNAME)$$(so)
 LIB_$(1)_DEPS := $$(sodir)/$$(tmpLIBNAME)$$(so)
 
 libraries: $$(sodir)/$$(tmpLIBNAME)$$(so)
-endif
+endif # premake
 endef
 
 # add a forward dependency to a library, ie it depends upon a library defined further forwards

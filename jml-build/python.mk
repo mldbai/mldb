@@ -2,6 +2,7 @@ ifeq ($(PYTHON_ENABLED),1)
 
 PYTHON_VERSION_DETECTED := $(shell $(JML_BUILD)/detect_python.sh)
 PYTHON_VERSION ?= $(PYTHON_VERSION_DETECTED)
+PY_SO_EXTENSION?=.so# even on Darwin
 
 $(warning PYTHON_VERSION_DETECTED=$(PYTHON_VERSION_DETECTED))
 
@@ -22,9 +23,9 @@ RUN_PYTHONPATH := $(if $(PYTHONPATH),$(PYTHONPATH):,)$(PYTHON_PURE_LIB_PATH):$(P
 
 PYTHONPATH ?= RUN_PYTHONPATH
 
-BOOST_PYTHON_LIBRARY_FILE?=$(notdir $(wildcard /usr/lib/$(ARCH)-linux-gnu/libboost_python*3*$(SO_EXTENSION)))
+BOOST_PYTHON_LIBRARY_FILE?=$(notdir $(wildcard /usr/lib/$(ARCH)-linux-gnu/libboost_python*3*$(PY_SO_EXTENSION)))
 #$(if $(BOOST_PYTHON_LIBRARY_FILE),,$(error couldn't find the boost python library file))
-BOOST_PYTHON_LIBRARY?=$(BOOST_PYTHON_LIBRARY_FILE:lib%$(SO_EXTENSION)=%)
+BOOST_PYTHON_LIBRARY?=$(BOOST_PYTHON_LIBRARY_FILE:lib%$(PY_SO_EXTENSION)=%)
 
 export PYTHONPATH
 
@@ -204,21 +205,21 @@ endef
 
 define python_addon
 $$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH)))
-$$(eval $$(call library,$(1),$(2),$(3),$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
+$$(eval $$(call library,$(1),$(2),$(3),$(1),$(PY_SO_EXTENSION),"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
 
 ifneq ($(PREMAKE),1)
 
 ifneq ($(LIB),$(PYTHON_PLAT_LIB_PATH))
-$(PYTHON_PLAT_LIB_PATH)/$(1)$(SO_EXTENSION):	$(LIB)/$(1)$(SO_EXTENSION)
+$(PYTHON_PLAT_LIB_PATH)/$(1)$(PY_SO_EXTENSION):	$(LIB)/$(1)$(PY_SO_EXTENSION)
 	@cp $$< $$@~ && mv $$@~ $$@
 endif
 
 
-$(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1)$(SO_EXTENSION)
+$(TMPBIN)/$(1)_pymod: $(PYTHON_PLAT_LIB_PATH)/$(1)$(PY_SO_EXTENSION)
 	@mkdir -p $$(dir $$@)
 	@touch $(TMPBIN)/$(1)_pymod
 
-python_modules: $(PYTHON_PLAT_LIB_PATH)/$(1)$(SO_EXTENSION)
+python_modules: $(PYTHON_PLAT_LIB_PATH)/$(1)$(PY_SO_EXTENSION)
 
 endif
 endef

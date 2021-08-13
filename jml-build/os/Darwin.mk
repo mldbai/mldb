@@ -9,9 +9,7 @@ DIST_CODENAME:=$(shell sw_vers -productVersion)
 MACHINE_NAME:=$(shell uname -n)
 READLINK:=readlink
 linker_rpath=
-#SO_EXTENSION:=.dylib
-SO_EXTENSION:=.so
-export SO_EXTENSION
+SO_EXTENSION:=.dylib
 
 VIRTUALENV ?= virtualenv
 PYTHON ?= $(VIRTUALENV)/bin/python

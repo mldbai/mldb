@@ -135,7 +135,7 @@ MLDB_PLUGIN_AUTO_LIBS:=\
 
 define mldb_plugin_library
 $$(eval $$(call library,$(2),$(3),$(4) $(MLDB_PLUGIN_AUTO_LIBS),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR_RESET)",$(PLUGINS)/$(1)/lib,$$(MLDB_PLUGIN_EXTRA_LINK_OPTIONS)))
-mldb_plugins: $(PLUGINS)/$(1)/lib/lib$(2).so
+mldb_plugins: $(PLUGINS)/$(1)/lib/lib$(2)$(SO_EXTENSION)
 endef
 
 # Note: arguments to "library" function are
@@ -143,7 +143,7 @@ endef
 # $(2): source files to include in the library
 # $(3): libraries to link with
 # $(4): output name; default lib$(1)
-# $(5): output extension; default .so
+# $(5): output extension; default $(SO_EXTENSION)
 # $(6): build name; default SO
 # $(7): output dir; default $(LIB)
 
@@ -250,7 +250,7 @@ $$(foreach dir,$(3),$$(eval $$(call mldb_plugin_static_directory,$(1),$$(dir),$$
 # plugin.
 MLDB_PLUGIN_FILES_$(1) := \
 	$(PLUGINS)/$(1)/mldb_plugin.json \
-	$$(foreach lib,$(2),$(PLUGINS)/$(1)/lib/lib$$(lib).so) \
+	$$(foreach lib,$(2),$(PLUGINS)/$(1)/lib/lib$$(lib)$(SO_EXTENSION)) \
 	$$(foreach dir,$(3),$$(addprefix $(PLUGINS)/$(1)/,$$(MLDB_PLUGIN_$(1)_STATIC_FILES_$$(dir))))
 
 #$$(warning MLDB_PLUGIN_FILES_$(1) = $$(MLDB_PLUGIN_FILES_$(1)))

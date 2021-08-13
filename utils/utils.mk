@@ -56,7 +56,7 @@ LIBRUNNER_LINK := runner_common io_base value_description logging utils arch typ
 $(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
 $(eval $(call library,runner,$(LIBRUNNER_SOURCES),$(LIBRUNNER_LINK)))
 
-$(LIB)/librunner.so: $(BIN)/runner_helper
+$(LIB)/librunner$(SO_EXTENSION): $(BIN)/runner_helper
 
 # Command Expression
 
