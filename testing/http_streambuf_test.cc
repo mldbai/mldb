@@ -74,7 +74,7 @@ struct TestServer {
 
         // this is ok because it doesn't require a virtualenv
         // well actually, in Python 3 it does but it's still OK :)
-        runner.run({"/usr/bin/env", "python",
+        runner.run({"/usr/bin/env", "python3",
                     "mldb/testing/test_server.py",
                     to_string(freePort)},
                     onTerminate, nullptr, stdOutSink);
@@ -87,6 +87,7 @@ struct TestServer {
                 filter_istream in(baseUrl);
             }
             catch (const Exception & exc) {
+                cerr << "Got exception: " << exc.what() << endl;
                 continue;
             }
             break;
@@ -118,7 +119,7 @@ BOOST_AUTO_TEST_CASE( test_error_codes )
             }
             in.close();
         } catch (const Exception & e) {
-        
+            cerr << "Got exception: " << e.what() << endl;
         }
 
         // Restore cout and cerr
@@ -148,7 +149,7 @@ BOOST_AUTO_TEST_CASE( test_infinite_redirect )
         }
         in.close();
     } catch (const Exception & e) {
-    
+        cerr << "Got exception: " << e.what() << endl;
     }
 
     // Restore cout and cerr
