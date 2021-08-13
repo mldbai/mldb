@@ -37,7 +37,7 @@ MLDB_ALWAYS_INLINE uint64_t fake_ticks()
 
 } // file scope
 
-double calc_ticks_overhead()
+static double calc_ticks_overhead_once()
 {
     static const unsigned ITERATIONS = 100;
 
@@ -64,6 +64,19 @@ double calc_ticks_overhead()
     //cerr << "nt1 = " << nt1 << " nt2 = " << nt2 << " overhead = "
     //     << overhead << " result = " << result << endl;
 
+    return result;
+}
+
+double calc_ticks_overhead()
+{
+    // Do it 3 times to avoid issues if we get a context switch at the wrong time
+    double result = std::numeric_limits<double>::infinity();
+    for (int i = 0;  i < 3;  ++i) {
+        auto overhead = calc_ticks_overhead_once();
+        if (overhead == 0)
+            continue;
+        result = std::min(result, overhead);
+    }
     return result;
 }
 
