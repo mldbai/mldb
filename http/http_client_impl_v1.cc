@@ -388,13 +388,15 @@ int
 HttpClientImplV1::
 onCurlTimerEvent(long timeoutMs)
 {
-    //cerr << "onCurlTimerEvent: timeout = " + to_string(timeoutMs) + "\n";
+    // cerr << "onCurlTimerEvent: timeout = " + to_string(timeoutMs) + "\n";
 
     if (timeoutMs < -1) {
         throw MLDB::Exception("unhandled timeout value: %ld", timeoutMs);
     }
 
-    if (timeoutMs == 0 && false) {
+    timerFd_->setTimeout(std::chrono::milliseconds(timeoutMs));
+
+    if (timeoutMs == 0) {
         int runningHandles;
         CURLMcode rc = ::curl_multi_socket_action(multi_.get(),
                                                   CURL_SOCKET_TIMEOUT, 0,
@@ -403,9 +405,6 @@ onCurlTimerEvent(long timeoutMs)
             throw MLDB::Exception("curl error " + to_string(rc));
         }
         checkMultiInfos();
-    }
-    else {
-        timerFd_->setTimeout(std::chrono::milliseconds(timeoutMs));
     }
 
     return 0;
