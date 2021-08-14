@@ -87,19 +87,27 @@ void
 processRequests(RequestQueue & queue)
 {
     while (true) {
-        ThreadedRequest request = queue.pop();
+        auto request = std::make_shared<ThreadedRequest>(queue.pop());
 
-        if (!request.handler) {
+        if (!request->handler) {
             break;
         }
 
         HttpResponse response(200, "text/plain", "pong");
-        if (request.header.resource == "/wait") {
+        if (request->header.resource == "/wait") {
             cerr << "service sleeping\n";
             ::sleep(2);
             cerr << "service done sleeping\n";
         }
-        request.handler->putResponseOnWire(response);
+
+        auto onFinished = [request] ()
+        {
+            // We just use this to ensure the request isn't freed too early
+            // Once the lambda is done, it will be freed, and with it the
+            // request.
+        };
+
+        request->handler->putResponseOnWire(response, onFinished);
     }
     cerr << "exiting queue thread...\n";
 }
