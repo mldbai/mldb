@@ -65,7 +65,7 @@ private:
     typedef std::function<void(const boost::system::error_code & ec,
                                size_t bufferSize)> OnReadSome;
     OnReadSome onReadSome_;
-    std::atomic<bool> closed_;
+    std::atomic<int> closed_;
 };
 
 } // namespace MLDB
