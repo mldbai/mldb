@@ -9,6 +9,7 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include "mldb/io/tcp_socket.h"
+#include "mldb/arch/wait_on_address.h"
 #include "tcp_socket_impl.h"
 #include "tcp_socket_handler_impl.h"
 
@@ -16,6 +17,9 @@ using namespace std;
 using namespace boost;
 using namespace MLDB;
 
+constexpr auto NOT_CLOSED = 0;
+constexpr auto CLOSING = 1;
+constexpr auto CLOSED = 2;
 
 /****************************************************************************/
 /* TCP HANDLER IMPL                                                         */
@@ -26,7 +30,7 @@ TcpSocketHandlerImpl(TcpSocketHandler & handler, TcpSocket && socket)
     : handler_(handler), socket_(std::move(socket.impl().socket)),
       recvBufferSize_(262144),
       recvBuffer_(new char[recvBufferSize_]),
-      closed_(false)
+      closed_(NOT_CLOSED)
 {
     onReadSome_ = [&] (const system::error_code & ec, size_t bufferSize) {
         if (ec) {
@@ -43,14 +47,25 @@ TcpSocketHandlerImpl(TcpSocketHandler & handler, TcpSocket && socket)
 TcpSocketHandlerImpl::
 ~TcpSocketHandlerImpl()
 {
+    int closed_val = NOT_CLOSED;
+    if (closed_.compare_exchange_strong(closed_val, CLOSING)) {
+        MLDB::wake_by_address(closed_);
+        requestClose();
+    }
+
+    while (closed_ != CLOSED) {
+        MLDB::wait_on_address(closed_, CLOSING);
+    }
 }
 
 void
 TcpSocketHandlerImpl::
 close()
 {
+    socket_.cancel();
     socket_.close();
-    closed_ = true;
+    closed_ = CLOSED;
+    MLDB::wake_by_address(closed_);
 }
 
 void
@@ -80,20 +95,27 @@ TcpSocketHandlerImpl::
 requestWrite(string data, TcpSocketHandler::OnWritten onWritten)
 {
     auto dataPtr = std::make_shared<std::string>(std::move(data));
-    auto writeCompleteCond = [=] (const system::error_code & ec,
-                                  std::size_t written) {
+
+    // These lambdas capture DataPtr not because they need it, but so that
+    // its lifetime exceeds those of the ASIO operations which use it (the
+    // const_buffer does not own its data, so we need to ensure that the
+    // data is pinned by another mechanism.
+    auto writeCompleteCond = [dataPtr] (const system::error_code & ec,
+                                   std::size_t written)
+    {
         return written == dataPtr->size();
     };
-    auto onWriteComplete = [=] (const system::error_code & ec,
-                                size_t written)
-        mutable
+
+    auto onWriteComplete = [dataPtr, onWritten] (const system::error_code & ec,
+                            size_t written)
     {
         if (onWritten) {
             onWritten(ec, written);
         }
-        (void) dataPtr;
     };
-    asio::const_buffers_1 writeBuffer(dataPtr->c_str(), dataPtr->size());
+
+    asio::const_buffer writeBuffer(dataPtr->data(), dataPtr->size());
+
     async_write(socket_, writeBuffer, writeCompleteCond, onWriteComplete);
 }
 
