@@ -50,11 +50,7 @@ TcpSocketHandlerImpl::
     int closed_val = NOT_CLOSED;
     if (closed_.compare_exchange_strong(closed_val, CLOSING)) {
         MLDB::wake_by_address(closed_);
-        requestClose();
-    }
-
-    while (closed_ != CLOSED) {
-        MLDB::wait_on_address(closed_, CLOSING);
+        close();
     }
 }
 
@@ -62,6 +58,9 @@ void
 TcpSocketHandlerImpl::
 close()
 {
+    if (closed_ == CLOSED)
+        return;
+
     socket_.cancel();
     socket_.close();
     closed_ = CLOSED;
