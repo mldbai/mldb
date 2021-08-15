@@ -1761,12 +1761,10 @@ MutableSparseMatrixDatasetConfigDescription()
              "only guaranteed to be readable after a commit (so it may seem "
              "like data is being lost if read before a commit) but writes are fast. "
              "With the `consistentAfterWrite` level, a written value can "
-             "immediately be read back but writes are slower.", 
-             WT_READ_AFTER_COMMIT);
+             "immediately be read back but writes are slower.");
     addField("favor", &MutableSparseMatrixDatasetConfig::favor,
              "Whether to favor reads or writes.  Only has effect for when "
-             "`consistencyLevel` is set to `consistentAfterWrite`.",
-             TF_FAVOR_READS);
+             "`consistencyLevel` is set to `consistentAfterWrite`.");
 }
 
 /*****************************************************************************/
