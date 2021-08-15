@@ -58,8 +58,21 @@ struct ThreadSpecificInstanceInfo
             ThreadSpecificInstanceInfo* oldObject = destruct();
             if (!oldObject) return;
 
-            std::lock_guard<Lock> guard(oldObject->freeSetLock);
-            oldObject->freeSet.erase(this);
+            std::unique_lock<Lock> guard(oldObject->freeSetLock);
+            if (!oldObject->freeSet.erase(this)) {
+                // The value is being simultaneously destroyed by a) the destruction of
+                // the thread that owns it and b) the destruction of the instance that
+                // owns it.  Since this Value lives in the deque that's tied to the
+                // lifetime of this thread, we need to ensure that the object lives
+                // long enough for the instance destruction to call destruct (where it
+                // will discover that there is nothing left to do).
+
+                // To make this happen, we synchronize on the oldowner's freeing lock.
+                // Once that lock is released, we know that we can safely finish deallocating
+                // values.
+                std::unique_lock<std::mutex> guard2(oldObject->freeingMutex);
+                guard.unlock();
+            }
         }
 
         ThreadSpecificInstanceInfo* destruct()
@@ -213,8 +226,16 @@ private:
     static unsigned nextIndex;
     int index;
 
+    /// Mutex protecting the access fo the freeSet
     mutable Spinlock freeSetLock;
+
+    /// Set of Values that need to be freed
     mutable std::unordered_set<Value*> freeSet;
+
+    /// This held while values are being freed.  It's used to synchronize with the per
+    /// thread value destructor when we're simultaneously destroying instances and
+    /// threads.
+    mutable std::mutex freeingMutex;
 };
 
 template<typename T, typename Tag>
