@@ -95,7 +95,7 @@ protected:
     }
 
 private:
-    std::unique_ptr<TcpSocketHandlerImpl> impl_;
+    std::shared_ptr<TcpSocketHandlerImpl> impl_;  // shared_ptr to ensure impl outlives async calls
     TcpAcceptor * acceptor_;
 };
 

@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <string>
+#include <memory>
 #include <boost/asio/ip/tcp.hpp>
 #include "mldb/io/tcp_socket_handler.h"
 
@@ -24,7 +25,7 @@ struct TcpSocket;
 /* TCP CONNECTION HANDLER IMPL                                              */
 /****************************************************************************/
 
-struct TcpSocketHandlerImpl {
+struct TcpSocketHandlerImpl: public std::enable_shared_from_this<TcpSocketHandlerImpl> {
     TcpSocketHandlerImpl(TcpSocketHandler & handler,
                              TcpSocket && socket);
     virtual ~TcpSocketHandlerImpl();

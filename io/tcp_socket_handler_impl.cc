@@ -71,8 +71,9 @@ void
 TcpSocketHandlerImpl::
 requestClose(TcpSocketHandler::OnClose onClose)
 {
-    auto doCloseFn = [=] () {
-        close();
+    auto sharedThis = this->shared_from_this();
+    auto doCloseFn = [sharedThis, onClose] () {
+        sharedThis->close();
         if (onClose) {
             onClose();
         }
