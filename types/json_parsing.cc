@@ -19,7 +19,7 @@ using namespace std;
 
 namespace {
 
-static constexpr const size_t MAX_JSON_NESTING = 10000;
+static constexpr const size_t MAX_JSON_NESTING = 1000;
 
 /* This is a duplicate of MLDB::trim, reimplemented here in order to avoid a
  * circular dependency between libvalue_description and libutils. */
