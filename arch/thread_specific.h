@@ -134,12 +134,15 @@ struct ThreadSpecificInstanceInfo
         // which is a receipie for deadlocks.
         std::unordered_set<Value*> freeSetCopy;
         {
-            std::lock_guard<Lock> guard(freeSetLock);
+            std::unique_lock<Lock> guard(freeSetLock);
             freeSetCopy = std::move(freeSet);
-        }
 
-        for (Value* toFree : freeSetCopy)
-            toFree->destruct();
+            std::unique_lock<std::mutex> guard2(freeingMutex);
+            guard.unlock();
+
+            for (Value* toFree : freeSetCopy)
+                toFree->destruct();
+        }
 
         std::lock_guard<Lock> guard(freeIndexLock);
         freeIndexes.push_back(index);
