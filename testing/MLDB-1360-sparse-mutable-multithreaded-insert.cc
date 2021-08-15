@@ -18,7 +18,7 @@ using namespace std;
 
 using namespace MLDB;
 
-void testMtInsert(MutableSparseMatrixDatasetConfig config)
+void testMtInsert(MutableSparseMatrixDatasetConfig config, double maxSeconds)
 {
     MldbServer server;
     
@@ -45,7 +45,7 @@ void testMtInsert(MutableSparseMatrixDatasetConfig config)
                 if (done.fetch_add(1) % 1000 == 0)
                     cerr << "done " << done << " insertions" << endl;
 
-                if (i % 10 == 0 && Date::now().secondsSince(start) > 5)
+                if (i % 10 == 0 && Date::now().secondsSince(start) > maxSeconds)
                     break;
             }
         };
@@ -66,12 +66,25 @@ void testMtInsert(MutableSparseMatrixDatasetConfig config)
          << endl;
 }
 
+BOOST_AUTO_TEST_CASE( stress_test )
+{
+    cerr << "STRESSS TEST" << endl;
+    MutableSparseMatrixDatasetConfig config;
+    config.consistencyLevel = WT_READ_AFTER_WRITE;
+    config.favor = TF_FAVOR_READS;
+
+    for (int i = 0;  i < 50;  ++i) {
+        testMtInsert(config, 0.1);
+    }
+    cerr << "DONE STRESS TEST" << endl;
+}
+
 BOOST_AUTO_TEST_CASE( test_multithreaded_insert_rr )
 {
     MutableSparseMatrixDatasetConfig config;
     config.consistencyLevel = WT_READ_AFTER_WRITE;
     config.favor = TF_FAVOR_READS;
-    testMtInsert(config);
+    testMtInsert(config, 5 /* maxSeconds */);
 }
 
 BOOST_AUTO_TEST_CASE( test_multithreaded_insert_rw )
@@ -79,7 +92,7 @@ BOOST_AUTO_TEST_CASE( test_multithreaded_insert_rw )
     MutableSparseMatrixDatasetConfig config;
     config.consistencyLevel = WT_READ_AFTER_WRITE;
     config.favor = TF_FAVOR_WRITES;
-    testMtInsert(config);
+    testMtInsert(config, 5 /* maxSeconds */);
 }
 
 BOOST_AUTO_TEST_CASE( test_multithreaded_insert_wr )
@@ -87,7 +100,7 @@ BOOST_AUTO_TEST_CASE( test_multithreaded_insert_wr )
     MutableSparseMatrixDatasetConfig config;
     config.consistencyLevel = WT_READ_AFTER_COMMIT;
     config.favor = TF_FAVOR_READS;
-    testMtInsert(config);
+    testMtInsert(config, 5 /* maxSeconds */);
 }
 
 BOOST_AUTO_TEST_CASE( test_multithreaded_insert_ww )
@@ -95,5 +108,5 @@ BOOST_AUTO_TEST_CASE( test_multithreaded_insert_ww )
     MutableSparseMatrixDatasetConfig config;
     config.consistencyLevel = WT_READ_AFTER_COMMIT;
     config.favor = TF_FAVOR_WRITES;
-    testMtInsert(config);
+    testMtInsert(config, 5 /* maxSeconds */);
 }

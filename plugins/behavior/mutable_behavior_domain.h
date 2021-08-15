@@ -808,8 +808,7 @@ private:
         LightweightHash<uint64_t, BehaviorEntry *> behaviorCache;
     };
 
-    MLDB::ThreadSpecificInstanceInfo<ThreadInfo, MutableBehaviorDomain>
-        threadInfo;
+    MLDB::ThreadSpecificInstanceInfo<ThreadInfo> threadInfo;
 
 
     BehaviorEntry * obtainBehaviorEntry(const Id & behavior);
