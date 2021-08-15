@@ -20,7 +20,7 @@ using namespace MLDB;
 
 TcpSocketHandler::
 TcpSocketHandler(TcpSocket socket)
-    : impl_(new TcpSocketHandlerImpl(*this, std::move(socket)))
+    : impl_(std::make_shared<TcpSocketHandlerImpl>(*this, std::move(socket)))
 {
 }
 
