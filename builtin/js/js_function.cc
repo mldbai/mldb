@@ -48,7 +48,7 @@ struct JsFunctionThreadData {
 
 struct JsFunctionData {
     MldbEngine * engine;
-    ThreadSpecificInstanceInfo<JsFunctionThreadData, void> threadInfo;
+    ThreadSpecificInstanceInfo<JsFunctionThreadData> threadInfo;
     Utf8String scriptSource;
     std::string filenameForErrorMessages;
     std::vector<std::string> params;

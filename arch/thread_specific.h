@@ -19,8 +19,10 @@
 #include "spinlock.h"
 #include "mldb/compiler/compiler.h"
 #include <thread>
+#include <mutex>
 #include <deque>
 #include <unordered_set>
+#include <map>
 #include <mutex>
 
 namespace MLDB {
@@ -38,13 +40,14 @@ namespace MLDB {
     reads equate to a deque probe.
 
 */
-template<typename T, typename Tag>
+template<typename T>
 struct ThreadSpecificInstanceInfo
 {
     typedef Spinlock Lock;
 
-    struct Value
-    {
+    /// Holds the actual object of type T that's allocated per instance per thread,
+    /// plus some housekeeping information.
+    struct Value {
         Value() : object(nullptr) {}
 
         Value(const Value & other)
@@ -58,8 +61,20 @@ struct ThreadSpecificInstanceInfo
             ThreadSpecificInstanceInfo* oldObject = destruct();
             if (!oldObject) return;
 
-            std::lock_guard<Lock> guard(oldObject->freeSetLock);
-            oldObject->freeSet.erase(this);
+            std::unique_lock<Lock> guard(oldObject->freeSetLock);
+            if (!oldObject->freeSet.erase(this)) {
+                // The value is being simultaneously destroyed by a) the destruction of
+                // the thread that owns it and b) the destruction of the instance that
+                // owns it.  Since this Value lives in the deque that's tied to the
+                // lifetime of this thread, we need to ensure that the object lives
+                // long enough for the instance destruction to call destruct (where it
+                // will discover that there is nothing left to do).
+
+                // To make this happen, we synchronize on the oldowner's freeing lock.
+                // Once that lock is released, we know that we can safely finish deallocating
+                // values.
+                resolveDestroyRaceThreadSide(this, oldObject, guard);
+            }
         }
 
         ThreadSpecificInstanceInfo* destruct()
@@ -121,12 +136,22 @@ struct ThreadSpecificInstanceInfo
         // which is a receipie for deadlocks.
         std::unordered_set<Value*> freeSetCopy;
         {
-            std::lock_guard<Lock> guard(freeSetLock);
-            freeSetCopy = std::move(freeSet);
-        }
+            {
+                std::unique_lock<Lock> guard(freeSetLock);
+                freeSetCopy = std::move(freeSet);
+            }
 
-        for (Value* toFree : freeSetCopy)
-            toFree->destruct();
+            for (Value* toFree : freeSetCopy) {
+                ThreadSpecificInstanceInfo * owner = toFree->destruct();
+                if (owner == nullptr) {
+                    // We got a race; here we're in thread destruction trying to destroy the
+                    // values that belong to this thread, but elsewhere we're in instance
+                    // destruction trying to destroy the values that belong to a particular
+                    // instance.  We resolve this with a dance.
+                    resolveDestroyRaceInstanceSide(toFree, this);
+                }
+            }
+        }
 
         std::lock_guard<Lock> guard(freeIndexLock);
         freeIndexes.push_back(index);
@@ -213,20 +238,108 @@ private:
     static unsigned nextIndex;
     int index;
 
+    /// Mutex protecting the access fo the freeSet
     mutable Spinlock freeSetLock;
+
+    /// Set of Values that need to be freed
     mutable std::unordered_set<Value*> freeSet;
+
+    // Race handling
+    //
+    // We want deterministic behavior for the T destructors: the T that belongs to a specific
+    // ThreadSpecificInstanceInfo I for thread t should be run on the EARLIEST of either a)
+    // I's destructor being run or b) thread t disappearing.  However, this causes a potential
+    // race if thread t finishes at the same time as instance I is being destroyed.  In
+    // particular, the logic for destroying thread t assumes that the instance I is still
+    // there, and the logic for destroying instance I assumes that the values (including for
+    // thread t) are all still there).  So destroying both simultaneously requires
+    // synchronization.
+    //
+    // Since the condition is very rare, we don't synchronize in general.  Instead, we can detect
+    // when it happens because on the thread side, we're no longer in the free set of the
+    // instance, and on the instance side, the Value's object pointer is null.  So when we
+    // detect a race, we call these functions which synchronize everything.  In particular, they
+    // ensure that neither the instance nor the thread are destroyed until the other one has
+    // finished accessing what it needs to.
+    //
+    // The dance is:
+    // - The thread side unlocks the free set lock of the instance.  The instance side needs to
+    //   ensure that its memory isn't freed.
+    // - The instance side puts a false entry in resolvedRaces, and then spins waiting for it to
+    //   become true.
+    // - The thread side spins, waiting to see the entry in resolvedRaces.  When it sees it, it
+    //   sets the entry to true, and then exits allowing its memory to be released
+    // - The instance side sees the entry go to true, and exits
+    //
+    // Note that these semantics are the same as a thread barrier.  Possibly we could simplify
+    // by implementing it that way.
+
+    static std::mutex racesMutex;
+    static std::map<void *, bool> resolvedRaces;  // really a map of Value * to is client done
+
+    // Resolve from the client side.  The freeSetLock should be locked.
+    static void resolveDestroyRaceThreadSide(Value * val, ThreadSpecificInstanceInfo * object, std::unique_lock<Lock> & freeSetLock)
+    {
+        // Wait for the instance side to tell us that it's been resolved
+        //::fprintf(stderr, "RACE: thread\n");
+        freeSetLock.unlock();
+
+        for (;;) {
+            // Spin on the race being acknowledged by the instance side
+            std::unique_lock<std::mutex> guard(racesMutex);
+            auto it = resolvedRaces.find(val);
+            if (it == resolvedRaces.end())
+                continue;
+            it->second = true;
+            return;
+        }
+    }
+
+    // Resolve from the instance side
+    static void resolveDestroyRaceInstanceSide(Value * val, ThreadSpecificInstanceInfo * object)
+    {
+        //::fprintf(stderr, "RACE: instance\n");
+
+        std::unique_lock<std::mutex> guard(racesMutex);
+        auto res = resolvedRaces.emplace(val, false);
+        auto it = res.first;
+        bool inserted = res.second;
+        if (inserted == false) {
+            ::fprintf(stderr, "logic error in ThreadSpecificInstanceInfo race resolution\n");
+            abort();
+        }
+
+        racesMutex.unlock();
+
+        // Now spin until the client acknowledges that it's done
+        for (;;) {
+            std::unique_lock<std::mutex> guard(racesMutex);
+            if (it->second == false)
+                continue;
+            resolvedRaces.erase(it);
+            return;
+        }
+    }
 };
 
-template<typename T, typename Tag>
+template<typename T>
 Spinlock
-ThreadSpecificInstanceInfo<T, Tag>::freeIndexLock;
+ThreadSpecificInstanceInfo<T>::freeIndexLock;
 
-template<typename T, typename Tag>
+template<typename T>
 std::deque<size_t>
-ThreadSpecificInstanceInfo<T, Tag>::freeIndexes;
+ThreadSpecificInstanceInfo<T>::freeIndexes;
 
-template<typename T, typename Tag>
+template<typename T>
 unsigned
-ThreadSpecificInstanceInfo<T, Tag>::nextIndex = 0;
+ThreadSpecificInstanceInfo<T>::nextIndex = 0;
+
+template<typename T>
+std::mutex
+ThreadSpecificInstanceInfo<T>::racesMutex;
+
+template<typename T>
+std::map<void *, bool>
+ThreadSpecificInstanceInfo<T>::resolvedRaces;
 
 } // namespace MLDB

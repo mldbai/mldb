@@ -53,13 +53,13 @@ struct Data
 std::atomic<size_t> Data::constructed = 0;
 std::atomic<size_t> Data::destructed = 0;
 
-typedef ThreadSpecificInstanceInfo<Data, Data> Tls;
+typedef ThreadSpecificInstanceInfo<Data> Tls;
 
 
 BOOST_AUTO_TEST_CASE(sanityTest)
 {
     {
-        ThreadSpecificInstanceInfo<Data, Data> data;
+        ThreadSpecificInstanceInfo<Data> data;
         data.get();
     }
 
@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE( test_multi_instance )
 
 BOOST_AUTO_TEST_CASE(test_multi_get)
 {
-    ThreadSpecificInstanceInfo<std::shared_ptr<int>, void> info;
+    ThreadSpecificInstanceInfo<std::shared_ptr<int>> info;
 
     bool hadInfo = false;
     std::shared_ptr<int> & i1 = *info.get(&hadInfo);
@@ -197,3 +197,84 @@ BOOST_AUTO_TEST_CASE(test_multi_get)
     *i2 = 1;
     BOOST_CHECK_EQUAL(*i1, *i2);
 }
+
+BOOST_AUTO_TEST_CASE(stress_test_destroy_object_and_thread)
+{
+    struct S {
+        ThreadSpecificInstanceInfo<Data> info;
+    };
+
+    std::atomic<bool> finished(false);
+
+    // These threads instantiate and destroy instances of info
+    std::vector<std::thread> instanceThreads;
+
+    auto doInstanceThread = [&] ()
+    {
+        while (!finished) {
+            S s;
+            auto d = s.info.get();
+            d->check();
+        }
+    };
+
+    for (size_t i = 0;  i < 4;  ++i) {
+        instanceThreads.emplace_back(doInstanceThread);
+    }
+
+    // Now we're creating and destroying instances, create and destroy threads
+    auto doEphemeralThread = [&] ()
+    {
+        S s;
+        auto d = s.info.get();
+        d->check();
+    };
+
+    for (size_t i = 0;  i < 2000;  ++i) {
+        if ((i+1) % 1000 == 0) {
+            cerr << "done " << i+1 << endl;
+        }
+        std::thread t(doEphemeralThread);
+        t.join();
+    }
+
+    finished = true;
+    for (auto & t: instanceThreads)
+        t.join();
+
+    Data::validate();
+}
+
+#if 0
+BOOST_AUTO_TEST_CASE(stress_test_destroy_object_and_thread_shared)
+{
+    struct S {
+        ThreadSpecificInstanceInfo<Data> info;
+    };
+
+    std::atomic<bool> finished(false);
+
+    // These threads instantiate and destroy instances of info
+    std::vector<std::thread> instanceThreads;
+
+    std::shared_ptr<S> s(new S());
+
+    auto doInstanceThread = [&] ()
+    {
+        while (!finished) {
+            auto d = s->info.get();
+            d->check();
+        }
+    };
+
+    for (size_t i = 0;  i < 8;  ++i) {
+        instanceThreads.emplace_back(doInstanceThread);
+    }
+
+    finished = true;
+    for (auto & t: instanceThreads)
+        t.join();
+
+    Data::validate();
+}
+#endif

@@ -21,7 +21,7 @@ struct PerThreadAccumulator {
 
     std::mutex threadsLock;
     std::vector<std::shared_ptr<Payload> > threads;
-    ThreadSpecificInstanceInfo<std::shared_ptr<Payload>, void> payloadPerThread;
+    ThreadSpecificInstanceInfo<std::shared_ptr<Payload>> payloadPerThread;
 
     std::function<Payload * ()> createPayload;
     std::function<void (Payload *)> destroyPayload;

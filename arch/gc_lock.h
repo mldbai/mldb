@@ -91,8 +91,7 @@ public:
         std::string print() const;
     };
 
-    typedef ThreadSpecificInstanceInfo<ThreadGcInfoEntry, GcLockBase>
-        GcInfo;
+    typedef ThreadSpecificInstanceInfo<ThreadGcInfoEntry> GcInfo;
     typedef typename GcInfo::PerThreadInfo ThreadGcInfo;
 
     struct Atomic;
