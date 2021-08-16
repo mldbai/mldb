@@ -2134,7 +2134,7 @@ record(SI2 sub, uint64_t ts, uint32_t count, VI verb,
             if (!unsorted.compare_exchange_strong(current, newNode))
                 // Someone raced us... delete the old one (current is now
                 // pointing to the winning node)
-                delete newNode;
+                DataNode::deallocate(newNode);
         }
 #endif
 
