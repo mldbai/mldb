@@ -19,6 +19,7 @@
 #include "spinlock.h"
 #include "mldb/compiler/compiler.h"
 #include <thread>
+#include <mutex>
 #include <deque>
 #include <unordered_set>
 
