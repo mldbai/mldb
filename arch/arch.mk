@@ -23,7 +23,8 @@ LIBARCH_SOURCES := \
 	dlopen_mutex.cc \
         file_functions.cc \
 		wait_on_address.cc \
-		wakeup_fd.cc
+		wakeup_fd.cc \
+		thread_specific.cc
 
 
 ifeq ($(ARCH),x86_64)
