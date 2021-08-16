@@ -53,13 +53,13 @@ struct Data
 std::atomic<size_t> Data::constructed = 0;
 std::atomic<size_t> Data::destructed = 0;
 
-typedef ThreadSpecificInstanceInfo<Data, Data> Tls;
+typedef ThreadSpecificInstanceInfo<Data> Tls;
 
 
 BOOST_AUTO_TEST_CASE(sanityTest)
 {
     {
-        ThreadSpecificInstanceInfo<Data, Data> data;
+        ThreadSpecificInstanceInfo<Data> data;
         data.get();
     }
 
@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE( test_multi_instance )
 
 BOOST_AUTO_TEST_CASE(test_multi_get)
 {
-    ThreadSpecificInstanceInfo<std::shared_ptr<int>, void> info;
+    ThreadSpecificInstanceInfo<std::shared_ptr<int>> info;
 
     bool hadInfo = false;
     std::shared_ptr<int> & i1 = *info.get(&hadInfo);
@@ -201,7 +201,7 @@ BOOST_AUTO_TEST_CASE(test_multi_get)
 BOOST_AUTO_TEST_CASE(stress_test_destroy_object_and_thread)
 {
     struct S {
-        ThreadSpecificInstanceInfo<Data, void> info;
+        ThreadSpecificInstanceInfo<Data> info;
     };
 
     std::atomic<bool> finished(false);
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(stress_test_destroy_object_and_thread)
 BOOST_AUTO_TEST_CASE(stress_test_destroy_object_and_thread_shared)
 {
     struct S {
-        ThreadSpecificInstanceInfo<Data, void> info;
+        ThreadSpecificInstanceInfo<Data> info;
     };
 
     std::atomic<bool> finished(false);

@@ -39,7 +39,7 @@ namespace MLDB {
     reads equate to a deque probe.
 
 */
-template<typename T, typename Tag>
+template<typename T>
 struct ThreadSpecificInstanceInfo
 {
     typedef Spinlock Lock;
@@ -321,24 +321,24 @@ private:
     }
 };
 
-template<typename T, typename Tag>
+template<typename T>
 Spinlock
-ThreadSpecificInstanceInfo<T, Tag>::freeIndexLock;
+ThreadSpecificInstanceInfo<T>::freeIndexLock;
 
-template<typename T, typename Tag>
+template<typename T>
 std::deque<size_t>
-ThreadSpecificInstanceInfo<T, Tag>::freeIndexes;
+ThreadSpecificInstanceInfo<T>::freeIndexes;
 
-template<typename T, typename Tag>
+template<typename T>
 unsigned
-ThreadSpecificInstanceInfo<T, Tag>::nextIndex = 0;
+ThreadSpecificInstanceInfo<T>::nextIndex = 0;
 
-template<typename T, typename Tag>
+template<typename T>
 std::mutex
-ThreadSpecificInstanceInfo<T, Tag>::racesMutex;
+ThreadSpecificInstanceInfo<T>::racesMutex;
 
-template<typename T, typename Tag>
+template<typename T>
 std::map<void *, bool>
-ThreadSpecificInstanceInfo<T, Tag>::resolvedRaces;
+ThreadSpecificInstanceInfo<T>::resolvedRaces;
 
 } // namespace MLDB

@@ -139,7 +139,7 @@ private:
 
     // Cache of lookups for each thread to avoid needing to acquire a lock
     // very much.
-    ThreadSpecificInstanceInfo<LookupCache, void> lookupCache;
+    ThreadSpecificInstanceInfo<LookupCache> lookupCache;
 
     /** Look for the aggregator for this given stat.  If it doesn't exist,
         then initialize it from the given function.

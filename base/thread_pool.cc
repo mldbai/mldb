@@ -116,7 +116,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
     };
 
     /// This allows us to have one threadEntry per thread
-    ThreadSpecificInstanceInfo<ThreadEntry, void> threadEntries;
+    ThreadSpecificInstanceInfo<ThreadEntry> threadEntries;
 
     /// Our internal worker threads
     std::vector<std::thread> workers;
