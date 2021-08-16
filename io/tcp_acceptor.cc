@@ -77,9 +77,9 @@ void
 TcpAcceptor::
 associate(std::shared_ptr<TcpSocketHandler> handler)
 {
-    auto doAssociate = [=] () {
+    auto doAssociate = [handler, this] () {
         std::unique_lock<std::mutex> guard(associatedHandlersLock_);
-        associatedHandlers_.insert(std::move(handler));
+        associatedHandlers_.insert(handler);
         handler->setAcceptor(this);
         handler->bootstrap();
     };
