@@ -341,7 +341,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                         };
 
                     if (!weakThis.expired())
-                        parent->add(parentJob);
+                        parent->add(std::move(parentJob));
                 }
             }
             else {
