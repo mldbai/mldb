@@ -86,9 +86,7 @@ MLDB_ALWAYS_INLINE bool has_avx2()
 typedef uint64 (*Hasher)
 (const uint64* key, const char* bytes, const uint64 size);
 
-Hasher highwayHashImpl = &ScalarHighwayTreeHashC;
-
-
+Hasher highwayHashImpl = &HighwayHash64;
 
 struct AtInit {
     AtInit()
