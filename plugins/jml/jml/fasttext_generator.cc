@@ -224,7 +224,7 @@ FastText_Generator::
         }
       }
       if (threadId == 0 && args_->verbose > 0) {
-        fastTextModel.printInfo(1.0, model.getLoss());
+        fastTextModel.printInfo(0.99, model.getLoss());
         std::cout << std::endl;
       }
     };

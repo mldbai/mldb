@@ -5,6 +5,7 @@
 */
 
 #include <cstdint>
+#include "mldb/compiler/compiler.h"
 
 namespace MLDB {
 
