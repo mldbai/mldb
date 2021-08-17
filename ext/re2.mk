@@ -4,7 +4,7 @@
 #
 # Build instructions for Google's re2 regular expression engine
 
-RE2_FILES:=$(shell find $(CWD) -name "*.cc" | grep -v test | grep -v threadwin)
+RE2_FILES:=$(shell find $(CWD) -name "*.cc" | grep -v test | grep -v 'threadwin\|fuzz\|benchmark')
 RE2_SOURCES:=$(RE2_FILES:$(CWD)/%=%)
 
 RE2_WARNING_FLAGS :=
