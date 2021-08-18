@@ -89,6 +89,7 @@ struct TimerFD::Itl {
 #  include <sys/time.h>
 #  include <sys/ioctl.h>
 #  include <sys/poll.h>
+#  include <errno.h>
 
 namespace MLDB {
 

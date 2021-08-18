@@ -13,6 +13,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/string.h"
+#include <errno.h>
 
 using namespace std;
 

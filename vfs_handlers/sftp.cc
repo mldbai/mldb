@@ -28,6 +28,7 @@
 #include "mldb/credentials/credential_provider.h"
 #include <thread>
 #include <unordered_map>
+#include <errno.h>
 
 
 using namespace std;

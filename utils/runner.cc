@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include <iostream>
 #include <utility>

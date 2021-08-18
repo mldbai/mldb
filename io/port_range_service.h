@@ -14,6 +14,7 @@
 #include <iostream>
 #include <mutex>
 #include <map>
+#include <errno.h>
 
 namespace Json { struct Value; }
 

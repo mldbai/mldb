@@ -13,6 +13,7 @@
 #include "mldb/utils/string_functions.h"
 #include "asio_peer_connection.h"
 #include <boost/asio.hpp>
+#include <errno.h>
 
 using namespace std;
 

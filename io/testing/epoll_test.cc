@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <errno.h>
 
 #include <atomic>
 #include <iostream>

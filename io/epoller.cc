@@ -309,6 +309,7 @@ processOne()
 #include "mldb/types/date.h"
 #include <libproc.h>
 #include <sys/proc_info.h>
+#include <errno.h>
 
 using namespace std;
 

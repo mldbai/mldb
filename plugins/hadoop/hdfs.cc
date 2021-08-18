@@ -10,6 +10,7 @@
 #include <boost/iostreams/filtering_stream.hpp>
 
 #include "hdfs/hdfs.h"
+#include <errno.h>
 
 #include "googleurl/src/url_util.h"
 #include "mldb/arch/exception.h"

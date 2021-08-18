@@ -17,6 +17,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <errno.h>
 #if defined(__linux__)
 #  include <sys/vfs.h>
 #elif defined(__APPLE__)

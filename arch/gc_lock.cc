@@ -21,6 +21,7 @@
 #include <iostream>
 #include <map>
 #include <cstring>
+#include <errno.h>
 
 
 using namespace std;
