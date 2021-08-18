@@ -17,6 +17,7 @@
 #include "threads.h"
 #include "exception.h"
 #include "fslock.h"
+#include <errno.h>
 
 using namespace std;
 

@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
+#include <errno.h>
 #include <iostream>
 
 #include "mldb/base/exc_assert.h"
