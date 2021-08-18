@@ -18,6 +18,7 @@
 #include <boost/program_options/variables_map.hpp>
 
 #include <poll.h>
+#include <errno.h>
 
 namespace po = boost::program_options;
 

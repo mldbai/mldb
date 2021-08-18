@@ -14,6 +14,7 @@
 #include "mldb/arch/spinlock.h"
 #include <mutex>
 #include <thread>
+#include <errno.h>
 
 namespace MLDB {
 

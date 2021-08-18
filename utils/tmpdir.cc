@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
+#include <errno.h>
 
 namespace MLDB {
 

@@ -30,6 +30,7 @@
 #include <condition_variable>
 #include <shared_mutex>
 #include "v8-version.h"
+#include <errno.h>
 
 
 using namespace std;

@@ -14,6 +14,7 @@
 
 #include "mldb/arch/wait_on_address.h"
 #include <semaphore.h>
+#include <errno.h>
 
 namespace MLDB {
 

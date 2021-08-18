@@ -95,6 +95,7 @@ struct WakeupFD::Itl {
 #include <array>
 #include <fcntl.h>
 #include <poll.h>
+#include <errno.h>
 
 namespace MLDB {
 

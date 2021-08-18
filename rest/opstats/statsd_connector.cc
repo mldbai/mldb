@@ -15,6 +15,7 @@
 #include <string.h>
 #include "connectfd.h"
 #include <unistd.h>
+#include <errno.h>
 
 
 using namespace std;

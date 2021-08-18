@@ -12,6 +12,7 @@
 #include <boost/test/unit_test.hpp>
 #include <chrono>
 #include <thread>
+#include <errno.h>
 #include "mldb/arch/timers.h"
 #include "mldb/utils/testing/fixtures.h"
 #include "mldb/vfs/fs_utils.h"
