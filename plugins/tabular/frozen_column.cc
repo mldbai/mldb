@@ -847,7 +847,9 @@ struct IntegerFrozenColumn
                 const CellValue & val = column.indexedVals[v.second];
                 uint64_t intVal = 0;
                 if (!val.empty()) {
-                    intVal = val.toInt() - offset + hasNulls;
+                    // Need to do arithmetic in unsigned mode as otherwise wrapping
+                    // is undefined behavior
+                    intVal = (uint64_t)val.toInt() - (uint64_t)offset + hasNulls;
                     ++numNonNullRows;
                 }
                 while (rowNumber < doneRows) {
@@ -958,7 +960,7 @@ struct IntegerFrozenColumn
     {
         return (val == 0 && hasNulls)
             ? CellValue()
-            : CellValue(int64_t(val) + offset - hasNulls);
+            : CellValue(int64_t(val + (uint64_t)offset - (uint64_t)!!hasNulls));
             
     }
 

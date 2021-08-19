@@ -176,7 +176,12 @@ inline bool match_float(Float & result, ParseContext & c, bool lenient = true)
             return false;
     }
     
-    buf[c.get_offset() - from] = 0;
+    size_t idx = c.get_offset() - from;
+    if (idx >= sizeof(buf)) {
+        throw Exception("Buffer overflow parsing float");
+    }
+
+    buf[idx] = 0;
     char * endptr = nullptr;
     //const char* previous = setlocale(LC_NUMERIC, "C");
     double parsed = strtod(buf, &endptr);
@@ -185,7 +190,7 @@ inline bool match_float(Float & result, ParseContext & c, bool lenient = true)
     if (!endptr && !parsed)
         return false;
 
-    if (endptr != buf + c.get_offset() - from)
+    if (endptr - buf != idx)
         throw Exception("wrong endptr");
 
     tok.ignore();

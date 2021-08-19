@@ -55,9 +55,9 @@ encode() const
         //cerr << "chunk " << i++ << " at " << (p - mem) << endl;
 
         // 4 bytes of part size
-        uint32_t * p2 = (uint32_t *)p;
-        *p2 = m.size();
-        p += 4;
+        uint32_t sz = m.size();
+        std::memcpy(p, &sz, sizeof(sz));
+        p += sizeof(sz);
 
         // payload of part
         std::copy(m.data(), m.data() + m.size(), p);
@@ -92,9 +92,10 @@ decode(const std::string & msg)
     p += sizeof(header) - 4;
 
     for (unsigned i = 0;  i < header.numParts;  ++i) {
-        const uint32_t * sz = (const uint32_t *)p;
-        uint32_t partSize = *sz;
-        p += 4;
+        uint32_t sz;
+        std::memcpy(&sz, p, sizeof(sz));
+        uint32_t partSize = sz;
+        p += sizeof(sz);
 
         //cerr << "part " << i << " is size " << partSize << endl;
 

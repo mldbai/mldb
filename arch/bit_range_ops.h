@@ -46,7 +46,7 @@ T shrd_emulated(T low, T high, shift_t bits)
     ExcAssert(bits < TBITS);
     //if (MLDB_UNLIKELY(bits == 0)) return low;
     low >>= bits;
-    high = (high << (TBITS - bits)) * (bits != 0);
+    high = bits == 0 ? 0 : (high << (TBITS - bits));
     return low | high;
 }
 
@@ -248,9 +248,9 @@ void set_bit_range(Data& p0, Data& p1, Data val, shift_t bit, shift_t bits)
 template<typename T>
 T sign_extend(T raw, int sign_bit)
 {
-    using namespace std;
-    T sign = (raw & ((T)1 << sign_bit)) != 0;
-    T new_bits = T(-sign) << sign_bit;
+    using U = std::make_unsigned_t<T>;  // need to use unsigned since -x << y is ub
+    U sign = (raw & ((U)1 << sign_bit)) != 0;
+    U new_bits = U(-sign) << sign_bit;
     return raw | new_bits;
 }
 

@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE( test_uuid_id )
     BOOST_CHECK_NE(idMixed, idCaps);
 }
 
-BOOST_AUTO_TEST_CASE( test_goog64_id )
+BOOST_AUTO_TEST_CASE( test_goog128_id )
 {
     string s = "CAESEAYra3NIxLT9C8twKrzqaA";
     Id id(s);
@@ -90,16 +90,28 @@ BOOST_AUTO_TEST_CASE( test_goog64_id )
     checkSerializeReconstitute(id);
 }
 
+// For ubsan not liking member accesses to packed fields
+template<typename T>
+T extract_unaligned_t(const void * obj, size_t offset)
+{
+    T result;
+    std::memmove(&result, (const char *)obj + offset, sizeof(T));
+    return result;
+}
+
+#define extract_unaligned(obj, field) extract_unaligned_t<decltype(obj.field)>(&obj, offsetof(decltype(obj), field))
+
+
 /* ensures that the upper 64 bits of val are equal to val2 and the lower ones
  * to val1 */
 BOOST_AUTO_TEST_CASE( test_int128_64_union_alignment )
 {
     Id id;
 
-    id.valHigh = 0x0123456789abcdefLL;
-    id.valLow |= 0x1122334455667788;
-    BOOST_CHECK_EQUAL(id.val1, 0x1122334455667788);
-    BOOST_CHECK_EQUAL(id.val2, 0x0123456789abcdef);
+    id.valHigh = 0x0123456789abcdefULL;
+    id.valLow |= 0x1122334455667788ULL;
+    BOOST_CHECK_EQUAL(extract_unaligned(id, val1), 0x1122334455667788ULL);
+    BOOST_CHECK_EQUAL(extract_unaligned(id, val2), 0x0123456789abcdefULL);
 }
 
 BOOST_AUTO_TEST_CASE( test_bigdec_id )
@@ -200,23 +212,23 @@ BOOST_AUTO_TEST_CASE( test_id_basics )
 {
     Id id1("++++++++++++++++");
     BOOST_CHECK_EQUAL(id1.type, Id::BASE64_96);
-    BOOST_CHECK_EQUAL(id1.valHigh, 0);
-    BOOST_CHECK_EQUAL(id1.valLow, 0);
+    BOOST_CHECK_EQUAL(extract_unaligned(id1, valHigh), 0);
+    BOOST_CHECK_EQUAL(extract_unaligned(id1, valLow), 0);
     
     Id id2("+++++++++++++++/");
     BOOST_CHECK_EQUAL(id2.type, Id::BASE64_96);
-    BOOST_CHECK_EQUAL(id2.valHigh, 0);
-    BOOST_CHECK_EQUAL(id2.valLow, 1);
+    BOOST_CHECK_EQUAL(extract_unaligned(id2, valHigh), 0);
+    BOOST_CHECK_EQUAL(extract_unaligned(id2, valLow), 1);
 
     Id id3("+++++++++++++++0");
     BOOST_CHECK_EQUAL(id3.type, Id::BASE64_96);
-    BOOST_CHECK_EQUAL(id3.valHigh, 0);
-    BOOST_CHECK_EQUAL(id3.valLow, 2);
+    BOOST_CHECK_EQUAL(extract_unaligned(id3, valHigh), 0);
+    BOOST_CHECK_EQUAL(extract_unaligned(id3, valLow), 2);
 
     Id id4("++++/+++++++++++");
     BOOST_CHECK_EQUAL(id4.type, Id::BASE64_96);
-    BOOST_CHECK_EQUAL(id4.valHigh, 1 << 2);
-    BOOST_CHECK_EQUAL(id4.valLow, 0);
+    BOOST_CHECK_EQUAL(extract_unaligned(id4, valHigh), 1<<2);
+    BOOST_CHECK_EQUAL(extract_unaligned(id4, valLow), 0);
     BOOST_CHECK_LT(id3, id4);
 
     BOOST_CHECK_EQUAL(id1.toString().size(), id1.toStringLength());

@@ -27,6 +27,8 @@ struct PipelineResults: public SqlRowScope {
     {
     }
 
+    virtual ~PipelineResults() override {}
+
     std::vector<ExpressionValue> values;
     SqlRowScope * inner;
     BoundParameters getParam;

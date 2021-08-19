@@ -387,21 +387,22 @@ parse(const char * value, size_t len, Type type)
     }
 
     if ((type == UNKNOWN || type == BASE64_96) && len == 16) {
-        auto scanRange = [&] (const char * p, size_t l) -> int64_t
+        constexpr uint64_t NONE = std::numeric_limits<uint64_t>::max();
+        auto scanRange = [&] (const char * p, size_t l) -> uint64_t
             {
                 uint64_t res = 0;
                 for (unsigned i = 0;  i < l;  ++i) {
                     int c = base64ToDec(p[i]);
-                    if (c == -1) return -1;
+                    if (c == -1) return NONE;
                     res = res << 6 | c;
                 }
                 return res;
             };
         
-        int64_t high = scanRange(value, 8);
-        int64_t low  = scanRange(value + 8, 8);
+        uint64_t high = scanRange(value, 8);
+        uint64_t low  = scanRange(value + 8, 8);
 
-        if (low != -1 && high != -1) {
+        if (low != NONE && high != NONE) {
             r.type = BASE64_96;
             r.valLow = low | (high << 48);
             r.valHigh = high >> 16;

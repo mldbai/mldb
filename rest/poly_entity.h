@@ -73,17 +73,11 @@ struct RestDirectory;
 */
 
 struct PolyConfig {
-    PolyConfig()
-        : persistent(false),
-          deterministic(true)
-    {
-    }
-
-    Utf8String id;        ///< Id (name) of the entity.  Must be unique
-    Utf8String type;      ///< Type of the entity.
-    bool persistent;      ///< Save this object's configuration for loading
-    bool deterministic;   ///< The entity has no hidden state
-    Any params;           ///< Creation parameters, per type
+    Utf8String id;                ///< Id (name) of the entity.  Must be unique
+    Utf8String type;              ///< Type of the entity.
+    bool persistent = false;      ///< Save this object's configuration for loading
+    bool deterministic = true;    ///< The entity has no hidden state
+    Any params;                   ///< Creation parameters, per type
 };
 
 bool operator==(const PolyConfig & lhs, const PolyConfig & rhs);

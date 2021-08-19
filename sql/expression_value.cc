@@ -4055,7 +4055,7 @@ joinColumns(const ExpressionValue & val1,
         }
         
         // Present the examples
-        if (!onMatchingColumn(minCol, &lvals[0], &rvals[0],
+        if (!onMatchingColumn(minCol, lvals.data(), rvals.data(),
                               lvals.size(), rvals.size()))
             return false;
     }
@@ -4071,7 +4071,7 @@ joinColumns(const ExpressionValue & val1,
         }
         
         // Present the examples
-        if (!onMatchingColumn(col1, &lvals[0], &rvals[0],
+        if (!onMatchingColumn(col1, lvals.data(), rvals.data(),
                               lvals.size(), rvals.size()))
             return false;
     }
@@ -4087,7 +4087,7 @@ joinColumns(const ExpressionValue & val1,
         }
 
         // Present the examples
-        if (!onMatchingColumn(col2, &lvals[0], &rvals[0],
+        if (!onMatchingColumn(col2, lvals.data(), rvals.data(),
                               lvals.size(), rvals.size()))
             return false;
     }

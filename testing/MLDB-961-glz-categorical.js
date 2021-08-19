@@ -200,35 +200,29 @@ unittest.assertEqual(functionOutput.responseCode, 201);
 
 var details = mldb.get("/v1/functions/iris_cls2/details");
 
-expected = [
-    {
-        "extract" : "VALUE",
-        "feature" : "petal length"
-    },
-    {
-        "category" : "long",
-        "extract" : "VALUE_EQUALS",
-        "feature" : "petalCat"
-    },
-    {
-        "category" : "short",
-        "extract" : "VALUE_EQUALS",
-        "feature" : "petalCat"
-    },
-    {
-        "extract" : "VALUE",
-        "feature" : "sepal length"
-    },
-    {
-        "extract" : "VALUE",
-        "feature" : "sepal width"
-    },
-    {
-        "extract" : "VALUE",
-        "feature" : "petal width"
-    }
-];
+features = details.json.model.params.features;
 
-unittest.assertEqual(details.json.model.params.features, expected);
+feature_list = []
+
+for (var i = 0;  i < features.length;  ++i) {
+    var feat = features[i];
+    var key = feat.feature + '-' + feat.extract;
+    if ('category' in feat)
+        key += "-" + feat.category;
+    feature_list.push(key);
+}
+
+feature_list.sort()
+
+expected = [
+    "petal length-VALUE",
+    "petal width-VALUE",
+    "petalCat-VALUE_EQUALS-long",
+    "petalCat-VALUE_EQUALS-short",
+    "sepal length-VALUE",
+    "sepal width-VALUE"
+];
+ 
+unittest.assertEqual(feature_list, expected);
 
 "success"

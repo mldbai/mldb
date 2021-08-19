@@ -47,9 +47,9 @@ struct AddTupleTypes<Tuple, n, First, Rest...> {
     static void go(std::vector<TupleElementDescription> & elements)
     {
         auto desc = getDefaultDescriptionShared((typename std::remove_reference<First>::type *)0);
-        Tuple * tpl = 0;
-        const void * el = &std::get<n>(*tpl);
-        int offset = (size_t)el;
+        static const Tuple tpl;;
+        const void * el = &std::get<n>(tpl);
+        int offset = (size_t)el - (size_t)(&tpl);
 
         TupleElementDescription elDesc;
         elDesc.desc = desc;

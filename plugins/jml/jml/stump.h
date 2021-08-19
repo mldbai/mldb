@@ -168,10 +168,10 @@ public:
         missing predictions are scaled by the given value. */
     Stump scaled(float scale) const;
 
-    Split split;                       ///< How do we split?
-    float Z;                           ///< Z score of the rule
-    Action action;                     ///< What to do once split
-    Output_Encoding encoding;          ///< What type of predictions?
+    Split split;                             ///< How do we split?
+    float Z;                                 ///< Z score of the rule
+    Action action;                           ///< What to do once split
+    Output_Encoding encoding = OE_PM_INF;    ///< What type of predictions?
 
     /** Predict the score for all classes. */
     Label_Dist predict(const Feature_Set & features,

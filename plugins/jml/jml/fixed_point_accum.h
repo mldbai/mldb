@@ -120,21 +120,31 @@ struct FixedPointAccum64 {
     __host__ __device__ unsigned h() const { return hl >> 32; }
     __host__ __device__ unsigned l() const { return hl; }
 #endif // MLDB_COMPILER_NVCC
-    static constexpr float VAL_2_HL = 1.0f * (1ULL << 63);
-    static constexpr float HL_2_VAL = 1.0f / (1ULL << 63);
-    static constexpr float VAL_2_H = (1ULL << 31);
-    static constexpr float H_2_VAL = 1.0f / (1ULL << 31);
-    static constexpr float ADD_TO_ROUND = 0.5f / (1ULL << 63);
+    static constexpr float VAL_2_HL = 1.0f * (1ULL << 60);
+    static constexpr float HL_2_VAL = 1.0f / (1ULL << 60);
+    static constexpr float VAL_2_H = (1ULL << 28);
+    static constexpr float H_2_VAL = 1.0f / (1ULL << 28);
+    static constexpr float ADD_TO_ROUND = 0.5f / (1ULL << 60);
     
-    FixedPointAccum64()
+    constexpr FixedPointAccum64()
         : hl(0)
     {
     }
 
-    FixedPointAccum64(float value)
+    constexpr FixedPointAccum64(float value)
         : hl((value + ADD_TO_ROUND)* VAL_2_HL)
     {
     }
+
+    static constexpr FixedPointAccum64 constructFromInt(int64_t i)
+    {
+        FixedPointAccum64 result;
+        result.hl = i;
+        return result;
+    }
+
+    static constexpr FixedPointAccum64 max() { return constructFromInt(std::numeric_limits<int64_t>::max()); }
+    static constexpr FixedPointAccum64 min() { return constructFromInt(std::numeric_limits<int64_t>::min()); }
 
 #ifndef MLDB_COMPILER_NVCC
     operator float() const { return h * H_2_VAL; }
@@ -142,15 +152,22 @@ struct FixedPointAccum64 {
     operator float() const { return h() * H_2_VAL; }
 #endif
 
+    static void throwFixedPointOverflow() MLDB_NORETURN
+    {
+        throw MLDB::Exception("fixed point overflow");
+    }
+
     FixedPointAccum64 & operator += (const FixedPointAccum64 & other)
     {
-        hl += other.hl;
+        if (MLDB_UNLIKELY(__builtin_add_overflow(hl, other.hl, &hl)))
+            throwFixedPointOverflow();
         return *this;
     }
 
     FixedPointAccum64 & operator -= (const FixedPointAccum64 & other)
     {
-        hl -= other.hl;
+        if (MLDB_UNLIKELY(__builtin_sub_overflow(hl, other.hl, &hl)))
+            throwFixedPointOverflow();
         return *this;
     }
 
@@ -218,6 +235,11 @@ inline float operator / (const FixedPointAccum64 & f1,
                           const FixedPointAccum64 & f2)
 {
     return f1.operator float() / f2.operator float();
+}
+
+inline std::ostream & operator << (std::ostream & stream, const FixedPointAccum64 & accum)
+{
+    return stream << MLDB::format("%f (%016llx)", (double)accum, (long long)accum.hl);
 }
 
 } // namespace ML

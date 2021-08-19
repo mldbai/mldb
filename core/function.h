@@ -79,7 +79,7 @@ struct FunctionInfo {
 
     /**  Will the function always return the same output given the same input
     */
-    bool deterministic;
+    bool deterministic = true;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);

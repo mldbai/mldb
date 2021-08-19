@@ -513,8 +513,11 @@ get_probs(distribution<float> & probs, const W & w_,
 
     probs.resize(w.nl());
     
+    //cerr << "get_probs(): w_ = " << endl << w_.print() << endl << "w = " << endl
+    //     << w.print() << endl << " probs = " << probs << endl;
+
     C_any c(update);
-    return c(&probs[0], 0, w, epsilon, false);
+    return c(probs.data(), 0, w, epsilon, false);
 
 #else
     distribution<float> result(w.nl());
@@ -908,8 +911,9 @@ struct TreeTrainer {
         /* Use the stump trainer to accumulate for us. */
         WeightTrainer weightTrainer;
         
-        if (binary_weights.empty())
+        if (binary_weights.empty()) {
             default_w = weightTrainer.calc_default_w(data, predicted, in_class, weights, advance);
+        }
         else default_w = weightTrainer.calc_default_w(data, predicted, in_class, AddDimension(binary_weights),
                                                       advance);
 

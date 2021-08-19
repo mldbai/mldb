@@ -272,7 +272,7 @@ struct LogMemStorage {
 
     ssize_t capacity() const
     {
-        return size_t(bits_ != 0) * (1ULL << (bits_ - 1));
+        return bits_ != 0 ? (1ULL << (bits_ - 1)) : 0;
     }
     
     void reserve(size_t newCapacity)
@@ -286,6 +286,16 @@ struct LogMemStorage {
         vals_ = allocator.allocate(capacity() + 1) + 1;
 
         ExcAssertGreaterEqual(capacity(), newCapacity);
+    }
+
+    void runDestructors(void (&destroyBucket) (Bucket *))
+    {
+        auto cp = capacity();
+        if (cp == 0 || vals_ == 0)
+            return;
+        for (ssize_t i = -1;  i < cp;  ++i) {
+            destroyBucket(vals_ + i);
+        }
     }
 
     void destroy()
@@ -513,18 +523,18 @@ struct LightweightHashBase {
         return bucket != NO_BUCKET;
     }
 
+    static void destroyBucketFromDestructor(Bucket * bucket)
+    {
+        try {
+            Ops::destroyBucket(bucket);
+        } MLDB_CATCH_ALL {
+            // do nothing as destructor
+        }
+    }
+
     void destroy()
     {
-        ssize_t cp = capacity();
-
-        // Run destructors
-        for (ssize_t i = -1;  i < cp;  ++i) {
-            try {
-                Ops::destroyBucket(storage_ + i);
-                // Eat exceptions as destructors
-            } catch (...) {}
-        }
-        
+        storage_.runDestructors(destroyBucketFromDestructor);
         // Destroy the underlying memory
         storage_.destroy();
         size_ = 0;

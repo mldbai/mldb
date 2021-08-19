@@ -838,8 +838,8 @@ struct SparseMatrixDataset::Itl
             entries.push_back({col, ts, val, tag, {}});
         }
 
-        trans.matrix->recordRow(hash.hash(), &entries[0], entries.size());
-        trans.inverse->recordCol(hash.hash(), &entries[0], entries.size());
+        trans.matrix->recordRow(hash.hash(), entries.data(), entries.size());
+        trans.inverse->recordCol(hash.hash(), entries.data(), entries.size());
     }
 
     static void
@@ -890,8 +890,8 @@ struct SparseMatrixDataset::Itl
         
         vals.forEachAtom(onAtom);
 
-        trans.matrix->recordRow(hash.hash(), &entries[0], entries.size());
-        trans.inverse->recordCol(hash.hash(), &entries[0], entries.size());
+        trans.matrix->recordRow(hash.hash(), entries.data(), entries.size());
+        trans.inverse->recordCol(hash.hash(), entries.data(), entries.size());
     }
 
     virtual void

@@ -88,3 +88,55 @@ static __typeof__(int (pthread_t)) __gthrw_pthread_cancel __attribute__((__alias
 #ifdef __CUDACC__
 # define MLDB_COMPILER_NVCC 1
 #endif
+
+#if defined(__has_feature)
+#  if __has_feature(thread_sanitizer)
+#    define ATTRIBUTE_NO_SANITIZE_THREAD __attribute__((no_sanitize("thread")))
+#    define SANITIZE_THREAD 1
+#  else
+#    define ATTRIBUTE_NO_SANITIZE_THREAD
+#    define SANITIZE_THREAD 0
+#  endif
+#else
+#    define ATTRIBUTE_NO_SANITIZE_THREAD
+#    define SANITIZE_THREAD 1
+#endif
+
+#if defined(__has_feature)
+#  if __has_feature(undefined_behavior_sanitizer)
+#    define ATTRIBUTE_NO_SANITIZE_UNDEFINED __attribute__((no_sanitize("undefined")))
+#    define SANITIZE_UNDEFINED 1
+#  else
+#    define ATTRIBUTE_NO_SANITIZE_UNDEFINED
+#    define SANITIZE_UNDEFINED 0
+#  endif
+#else
+#    define ATTRIBUTE_NO_SANITIZE_UNDEFINED
+#    define SANITIZE_UNDEFINED 0
+#endif
+
+#if defined(__has_feature)
+#  if __has_feature(address_sanitizer)
+#    define ATTRIBUTE_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
+#    define SANITIZE_ADDRESS 1
+#  else
+#    define ATTRIBUTE_NO_SANITIZE_ADDRESS
+#    define SANITIZE_ADDRESS 0
+#  endif
+#else
+#    define ATTRIBUTE_NO_SANITIZE_ADDRESS
+#    define SANITIZE_ADDRESSS 0
+#endif
+
+#if defined(__has_feature)
+#  if __has_feature(memory_sanitizer)
+#    define ATTRIBUTE_NO_SANITIZE_MEMORY __attribute__((no_sanitize("memory")))
+#    define SANITIZE_MEMORY 1
+#  else
+#    define ATTRIBUTE_NO_SANITIZE_MEMORY
+#    define SANITIZE_MEMORY 0
+#  endif
+#else
+#    define ATTRIBUTE_NO_SANITIZE_MEMORY
+#    define SANITIZE_MEMORY 0
+#endif

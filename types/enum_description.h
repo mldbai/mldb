@@ -9,6 +9,7 @@
 #pragma once
 
 #include "value_description.h"
+#include "mldb/compiler/compiler.h"
 
 namespace MLDB {
 
@@ -19,6 +20,8 @@ namespace MLDB {
 
 template<typename Enum>
 struct EnumDescription: public ValueDescriptionT<Enum> {
+
+    using Underlying = std::underlying_type_t<Enum>;
 
     EnumDescription()
         : ValueDescriptionT<Enum>(ValueKind::ENUM),
@@ -66,9 +69,9 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         *val = (Enum)context.expectInt();
     }
 
-    virtual void printJsonTyped(const Enum * val, JsonPrintingContext & context) const
+    virtual void printJsonTyped(const Enum * val, JsonPrintingContext & context) const ATTRIBUTE_NO_SANITIZE_UNDEFINED
     {
-        auto it = print.find(*val);
+        auto it = print.find(static_cast<Underlying>(*val));
         if (it == print.end())
             context.writeInt((int)*val);
         else context.writeString(it->second.first);
@@ -109,7 +112,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     {
         if (!parse.insert(make_pair(name, value)).second)
             throw MLDB::Exception("double added name to enum");
-        print.insert({ value, { name, description } });
+        print.insert({ static_cast<Underlying>(value), { name, description } });
     }
 
     virtual std::vector<std::tuple<int, std::string, std::string> >
@@ -131,7 +134,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     }
 
     std::unordered_map<std::string, Enum> parse;
-    std::map<Enum, std::pair<std::string, std::string> > print;
+    std::map<Underlying, std::pair<std::string, std::string> > print;
 };
 
 } // namespace MLDB

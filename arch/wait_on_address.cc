@@ -16,7 +16,9 @@
 #include <stdexcept>
 #include <atomic>
 #include "mldb/compiler/compiler.h"
+#include "mldb/base/exc_assert.h"
 #include "exception.h"
+#include <iostream>
 
 #define MLDB_FALLTHROUGH [[fallthrough]]
 
@@ -246,7 +248,12 @@ wait_on_address(std::atomic<uint32_t> & i, uint32_t value,
 		        double timeout, WaitOnAddressLockOptions flags)
 {
 	uint32_t *address = (uint32_t *)(&i);
-	uint64_t nsecs = timeout * 1000000000.0;
+	ExcAssertGreaterEqual(timeout, 0);
+	constexpr double maxTimeout = std::numeric_limits<uint64_t>::max() / 1000000000.0;
+	auto nsecs = std::numeric_limits<uint64_t>::max();
+	if (timeout < maxTimeout) {
+		nsecs = timeout * 1000000000.0;
+	}
 	if (nsecs == 0) {
 		return ETIMEDOUT;
 	}
