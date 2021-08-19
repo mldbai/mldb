@@ -11,6 +11,7 @@
 #include "mldb/utils/xdiv.h"
 #include <iostream>
 #include <sys/time.h>
+#include <limits>
 
 using namespace std;
 

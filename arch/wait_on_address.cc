@@ -249,7 +249,7 @@ wait_on_address(std::atomic<uint32_t> & i, uint32_t value,
 {
 	uint32_t *address = (uint32_t *)(&i);
 	ExcAssertGreaterEqual(timeout, 0);
-	constexpr double maxTimeout = std::numeric_limits<uint64_t>::max() / 1000000000.0;
+	constexpr double maxTimeout = 18446744073.709551615; //std::numeric_limits<uint64_t>::max() / 1000000000.0;
 	auto nsecs = std::numeric_limits<uint64_t>::max();
 	if (timeout < maxTimeout) {
 		nsecs = timeout * 1000000000.0;
