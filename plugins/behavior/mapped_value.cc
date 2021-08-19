@@ -14,7 +14,8 @@ uint64_t readTrailingOffset(const MLDB::File_Read_Buffer & file)
 {
     if (file.end() - file.start() < 8)
         throw MLDB::Exception("can't read trailing offset that is too short");
-    uint64_t ofs = *(uint64_t *)(file.end() - 8);
+    uint64_t ofs;
+    std::memcpy(&ofs, file.end() - sizeof(ofs), sizeof(ofs));
     return ofs;
 }
 
