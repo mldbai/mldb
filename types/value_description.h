@@ -217,6 +217,11 @@ void registerValueDescription(const std::type_info & type,
                               std::function<ValueDescription * ()>,
                               bool isDefault);
 
+/** Alternative version that doesn't need a std::function */
+void registerValueDescriptionFunctions(const std::type_info & type,
+                              ValueDescription * (*create) (),
+                              bool isDefault);
+
 /** Register the value description with a two phase create then
     initialize protocol.  This is needed for recursive structures.
 */
@@ -225,20 +230,28 @@ void registerValueDescription(const std::type_info & type,
                               std::function<void (ValueDescription &)> initFn,
                               bool isDefault);
 
+/** Alternative version that doesn't need a std::function */
+void registerValueDescriptionFunctions(const std::type_info & type,
+                              ValueDescription * (*create) (),
+                              void (*initialize) (ValueDescription &),
+                              bool isDefault);
+
 template<typename T>
 struct RegisterValueDescription {
+    static ValueDescription * create() { return getDefaultDescription((T*)0); }
     RegisterValueDescription()
     {
-        registerValueDescription(typeid(T), [] () { return getDefaultDescription((T*)0); }, true);
+        registerValueDescriptionFunctions(typeid(T), create, true);
     }
 };
 
 template<typename T, typename Impl>
 struct RegisterValueDescriptionI {
+    static ValueDescription * create() { return new Impl(); }
     RegisterValueDescriptionI()
         : done(false)
     {
-        registerValueDescription(typeid(T), [] () { return new Impl(); }, true);
+        registerValueDescriptionFunctions(typeid(T), create, true);
     }
 
     bool done;
@@ -704,7 +717,7 @@ extern template struct ValueDescriptionT<Json::Value>;
 extern template struct ValueDescriptionT<bool>;
 
 template<typename T>
-struct ValueDescriptionInit {
+struct ValueDescriptionInit: public ValueDescriptionInitBase {
     static ValueDescription * create()
     {
         using MLDB::getDefaultDescriptionUninitialized;
@@ -719,9 +732,10 @@ getDefaultDescriptionShared(T *)
 {
     auto res = ValueDescription::getType<T>();
     if (!res) {
-        std::function<ValueDescription * ()> createFn
-            = &ValueDescriptionInit<T>::create;
+        auto create = ValueDescriptionInit<T>::create;
+        auto initialize = ValueDescriptionInit<T>::initialize;
 
+#if 0
         auto initFn = [] (ValueDescription & desc)
             {
                 desc.initialize();
@@ -739,10 +753,11 @@ getDefaultDescriptionShared(T *)
                 initializeDefaultDescription(*descTyped);
 #endif
             };
-        
+#endif
+
         // For now, register it if it wasn't before.  Eventually this should
         // be done elsewhere.
-        registerValueDescription(typeid(T), createFn, initFn, true);
+        registerValueDescriptionFunctions(typeid(T), create, initialize, true);
 
         res = ValueDescription::getType<T>();
     }

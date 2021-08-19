@@ -338,11 +338,23 @@ get(const std::type_info & type)
     return get(type.name());
 }
 
+void ValueDescriptionInitBase::initialize(ValueDescription & desc)
+{
+    desc.initialize();
+}
+
 void registerValueDescription(const std::type_info & type,
                               std::function<ValueDescription * ()> fn,
                               bool isDefault)
 {
-    registerValueDescription(type, fn, [] (ValueDescription &) {}, isDefault);
+    registerValueDescription(type, fn, ValueDescriptionInitBase::initialize, isDefault);
+}
+
+void registerValueDescriptionFunctions(const std::type_info & type,
+                              ValueDescription * (*create) (),
+                              bool isDefault)
+{
+    registerValueDescription(type, create, ValueDescriptionInitBase::initialize, isDefault);
 }
 
 void
@@ -359,6 +371,31 @@ registerValueDescription(const std::type_info & type,
     registry()[type.name()] = desc;
     registry()[demangle(type.name())] = desc;
     initFn(*desc);
+#if 0
+    cerr << "type " << demangle(type.name())
+         << " has description "
+         << MLDB::type_name(*desc) << " default " << isDefault << endl;
+
+    if (registry().count(type.name()))
+        throw MLDB::Exception("attempt to double register "
+                            + demangle(type.name()));
+#endif
+}
+
+void
+registerValueDescriptionFunctions(const std::type_info & type,
+                         ValueDescription * (*create) (),
+                         void (*initialize) (ValueDescription &),
+                         bool isDefault)
+{
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
+
+    std::shared_ptr<ValueDescription> desc(create());
+    ExcAssert(desc);
+    registry()[desc->typeName] = desc;
+    registry()[type.name()] = desc;
+    registry()[demangle(type.name())] = desc;
+    initialize(*desc);
 #if 0
     cerr << "type " << demangle(type.name())
          << " has description "

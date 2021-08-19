@@ -34,6 +34,10 @@ struct ValueDescription;
 template<typename T> struct ValueDescriptionT;
 template<typename T> struct ValueDescriptionInit;
 
+struct ValueDescriptionInitBase {
+    static void initialize(ValueDescription & desc);  // calls desc.initialise()
+};
+
 // Forward declarations of encoding/decoding for templates.  The
 // value_description.h file will need to be included before
 // instantiation.
@@ -149,11 +153,12 @@ getDefaultDescriptionUninitialized(T *)
                                                                 \
     struct Name::Regme {                                                \
         bool done;                                                      \
+        static ValueDescription * creator() { return new Name(); }      \
         Regme()                                                         \
             : done(false)                                               \
         {                                                               \
-            MLDB::registerValueDescription                        \
-                (typeid(Type), [] () { return new Name(); }, true);     \
+            MLDB::registerValueDescriptionFunctions                     \
+                (typeid(Type), creator, true);           \
         }                                                               \
     };                                                                  \
                                                                         \
@@ -283,7 +288,7 @@ getDefaultDescriptionUninitialized(T *)
     }                                                                   \
                                                                         \
     template<ParamList>                                                 \
-    struct ValueDescriptionInit<Type<ArgList> > {                       \
+    struct ValueDescriptionInit<Type<ArgList> >: public ValueDescriptionInitBase { \
         static ValueDescription * create()                              \
         {                                                               \
             return new Impl<ArgList>(MLDB::ConstructOnly());      \

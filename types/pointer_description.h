@@ -101,7 +101,7 @@ ValueDescriptionT<T *> * getDefaultDescriptionUninitialized(T ** ptr)
 }
 
 template<typename T>
-struct ValueDescriptionInit<T *> {
+struct ValueDescriptionInit<T *>: public ValueDescriptionInitBase {
     static MLDB::ValueDescription * create()
     {
         return getDefaultDescriptionUninitialized((T**)0);
