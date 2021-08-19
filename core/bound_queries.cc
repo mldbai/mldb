@@ -182,7 +182,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
         size_t numRows = rows.size();
-        size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
+        size_t numPerBucket = std::max((ssize_t)std::floor((float)numRows / numBuckets), (ssize_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, numRows);
         std::atomic_ulong rowCount(0);
         ProgressState progress(numRows);

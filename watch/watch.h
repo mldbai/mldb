@@ -463,8 +463,10 @@ protected:
     friend class WatchData;
     template<typename... T>  friend class WatchDataT;
 
-    /// Internal logic to release the watch with the given watch data
-    void releaseWatchWithData(WatchData * data);
+    /// Internal logic to release the watch with the given watch data.  The
+    /// holder argument is there as data->holder will have already been
+    /// nulled out, but it's needed to pass to the callback.
+    void releaseWatchWithData(WatchData * data, Watch & holder);
 
     /// Thread which is currently triggering, to allow for watches to be
     /// removed from a trigger without deadlock

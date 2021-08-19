@@ -1250,6 +1250,8 @@ getSubjectIndexImplTmpl(SH subjectHash, const SubjectIndex & subjectIndex) const
     auto subjectDelta = subjectHash.hash() - firstSH;
     int64_t testIndex
         = std::min<int64_t>(sz - 1, indexOffset + (subjectDelta * factor));
+    if (testIndex < 0)
+        testIndex = 0;
 
     /* We refine the result in case of a miss by another interpolation based
      * on the difference with the actual result. */

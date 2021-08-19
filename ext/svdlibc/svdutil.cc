@@ -41,6 +41,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "svdlib.h"
 #include "svdutil.h"
 #include <string>
+#include <random>
 
 
 using namespace std;
@@ -341,41 +342,10 @@ long svd_idamax(long n, double *dx, long incx) {
 
  ***********************************************************************/
 double svd_random2(long *iy) {
-   static long m2 = 0;
-   static long ia, ic, mic;
-   static double halfm, s;
-
-   /* If first entry, compute (max int) / 2 */
-   if (!m2) {
-      m2 = 1 << (8 * (int)sizeof(int) - 2); 
-      halfm = m2;
-
-      /* compute multiplier and increment for linear congruential 
-       * method */
-      ia = 8 * (long)(halfm * atan(1.0) / 8.0) + 5;
-      ic = 2 * (long)(halfm * (0.5 - sqrt(3.0)/6.0)) + 1;
-      mic = (m2-ic) + m2;
-
-      /* s is the scale factor for converting to floating point */
-      s = 0.5 / halfm;
-   }
-
-   /* compute next random number */
-   *iy = *iy * ia;
-
-   /* for computers which do not allow integer overflow on addition */
-   if (*iy > mic) *iy = (*iy - m2) - m2;
-
-   *iy = *iy + ic;
-
-   /* for computers whose word length for addition is greater than
-    * for multiplication */
-   if (*iy / 2 > m2) *iy = (*iy - m2) - m2;
-  
-   /* for computers whose integer overflow affects the sign bit */
-   if (*iy < 0) *iy = (*iy + m2) + m2;
-
-   return((double)(*iy) * s);
+   std::mt19937_64 engine(*iy);
+   static std::uniform_real_distribution<> distribution(0.0, 1.0);
+   *iy = engine();
+   return distribution(engine);
 }
 
 /************************************************************** 

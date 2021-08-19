@@ -118,6 +118,7 @@ class CountGroupByTest(MldbUnitTest):  # noqa
                 FROM {}
                 GROUP BY testConv)
             WHERE testConv IS NOT NULL""".format(ds))
+        mldb.log('res1', res1, 'res2', res2)
         self.assertEqual(res1[1][1], res2[1][1])
 
         res1 = mldb.query(

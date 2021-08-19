@@ -597,7 +597,20 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                                                 label : 'label0'}) as * 
                          """)
 
-        self.assertEqual(res,[
+        expected1 = [
+            [
+                "_rowName",
+                "bias",
+                "explanation.feat1"
+            ],
+            [
+                "result",
+                -0.001199985621497035,
+                1.0011999607086182
+            ]
+        ]
+
+        expected2 = [
             [
                 "_rowName",
                 "bias",
@@ -608,7 +621,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 0.0012001146096736193,
                 0.9987998604774475
             ]
-        ])
+        ]
+
+        if res != expected1 and res != expected2:
+            self.assertEqual(res, expected1)
 
     def test_onevsall_explain(self):
         conf = {
@@ -644,8 +660,22 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
             })
 
         res = mldb.query("SELECT explain({features : {5 as feat1, 0 as feat2}, label : 'label0'}) as *")
+        # Since both features have the same predictive power, it's okay for the classifier to
+        # use either one of them to predict each label.
+        expected1 = [
+            [
+                "_rowName",
+                "bias",
+                "explanation.feat1"
+            ],
+            [
+                "result",
+                0,
+                1
+            ]
+        ]
 
-        self.assertEqual(res,[
+        expected2 = [
             [
                 "_rowName",
                 "bias",
@@ -656,7 +686,10 @@ class MultiLabelClassifierTest(MldbUnitTest):  # noqa
                 0,
                 1
             ]
-        ])
+        ]
+
+        if res != expected1 and res != expected2:
+            self.assertEqual(res, expected1)
 
 if __name__ == '__main__':
     mldb.run_tests()

@@ -12,6 +12,7 @@
 #include <iostream>
 #include "demangle.h"
 #include "mldb/compiler/stdlib.h"
+#include "mldb/compiler/compiler.h"
 
 using namespace abi;
 using namespace std;
@@ -110,6 +111,14 @@ public:
   virtual bool can_catch(const __shim_type_info *thrown_type,
                          void *&adjustedPtr) const = 0;
 };
+
+#if SANITIZE_UNDEFINED
+// For some reason, these are not found in the lining stage under LLVM 12 with UBSan
+  __attribute__((__weak__)) __shim_type_info::~__shim_type_info() {};
+  void  __attribute__((__weak__)) __shim_type_info::noop1() const {};
+  void  __attribute__((__weak__)) __shim_type_info::noop2() const {};
+#endif // SANITIZE_UNDEFINED
+
 
 } // namespace __cxxabiv1
 

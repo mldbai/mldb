@@ -372,7 +372,8 @@ public:
         if (need_sorted && !is_sorted) sort();
 
         return std::make_tuple
-            (&features[0].first, &features[0].second,
+            (features.empty() ? nullptr : &features[0].first,
+            (features.empty() ? nullptr : &features[0].second),
              sizeof(std::pair<Feature, float>),
              sizeof(std::pair<Feature, float>),
              features.size());

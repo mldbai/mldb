@@ -457,10 +457,17 @@ struct C_prob {
     operator() (float * dist, int forwhich,
                 const W & w, float epsilon, bool optional) const
     {
-        for (unsigned l = 0;  l < w.nl();  ++l)
-            dist[l] 
-                = xdiv(w(l, forwhich, true),
-                       w(l, forwhich, true) + w(l, forwhich, false));
+        for (unsigned l = 0;  l < w.nl();  ++l) {
+            using namespace std;
+            auto wt = w(l, forwhich, true);
+            auto wf = w(l, forwhich, false);
+            //cerr << "min = " << FixedPointAccum64::min() << endl;
+            //cerr << "max = " << FixedPointAccum64::max() << endl;
+            //cerr << "setting label " << l << " to " << wt  << " / (" << wt << " + " << wf <<")" << endl;
+            //cerr << "wt + wf = " << wt + wf << endl;
+            //cerr << "wt / (wt + wf) = " << wt / (wt + wf) << endl;
+            dist[l] = xdiv(wt, wt + wf);
+        }
     }
 
     Stump::Update update_alg() const { return Stump::PROB; }

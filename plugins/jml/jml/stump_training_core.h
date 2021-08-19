@@ -558,6 +558,12 @@ struct Stump_Trainer {
                  << " weights " << ex_weights[i] << " " << weights[i][0]
                  << endl;
 #endif
+            if (!std::isfinite(ex_weights[i])) {
+                throw MLDB::Exception("Attempt to train with non-finite example weights");
+            }
+            if (!std::isfinite(weights[i][0])) {
+                throw MLDB::Exception("Attempt to train with non-finite class weights");
+            }
             result.add(correct_label, MISSING, ex_weights[i], &weights[i][0],
                        advance);
         }

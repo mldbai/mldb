@@ -67,7 +67,7 @@ public:
     };
 
     /** How we transform the output.  Default is no transform (raw output). */
-    Output output;
+    Output output = RAW;
 
     template<typename Value, typename UnderlyingIt>
     struct IteratorT {

@@ -590,10 +590,11 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
     std::atomic<uint64_t> numWithMultipleBehaviors(0);
     std::atomic<uint64_t> maxNumBehaviors(0);
 
-    auto quantizeTime = [&] (Date tm)
+    auto quantizeTime = [&] (Date tm) -> uint64_t
         {
             tm.quantize(timeQuantum);
-            return (uint64_t)(tm.secondsSinceEpoch() / timeQuantum);
+            ExcAssertGreater(timeQuantum, 0);
+            return safely_clamped(tm.secondsSinceEpoch() / timeQuantum);
         };
 
     uint64_t fileEarliest = quantizeTime(earliestTime());

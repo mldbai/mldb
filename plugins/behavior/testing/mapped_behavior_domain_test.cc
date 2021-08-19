@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(test_getSubjectIndex)
     }
 
     /* Retrieval of unknown indexes: sh right before first */
-    ExcAssertGreater(subjectSHs[0].hash(), 1);
+    BOOST_CHECK_GT(subjectSHs[0].hash(), 1);
     SH sh = SH(subjectSHs[0].hash() - 1);
     auto idx = mappedBeh.getSubjectIndex(sh);
     BOOST_CHECK_EQUAL(idx, SI(-1));

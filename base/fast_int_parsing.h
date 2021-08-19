@@ -179,8 +179,8 @@ inline bool match_long_long(long long int & result, ParseContext & c)
     long long unsigned mag;
     if (!match_unsigned_long_long(mag, c)) return false;
 
-    result = (long long)mag;
-    result *= sign;
+    if (__builtin_mul_overflow(mag, sign, &result))
+        c.exception("integer overflow in parsing");
 
     tok.ignore();
     return true;

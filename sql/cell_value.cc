@@ -586,7 +586,9 @@ toMonthDaySecond() const
         throw AnnotatedException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"+ 
                                         to_string(cellType()) +"' to time interval", "value", *this);
     }
-    return make_tuple(timeInterval.months, timeInterval.days, timeInterval.seconds);
+    double seconds;
+    std::memcpy(&seconds, &timeInterval.seconds, sizeof(seconds));
+    return make_tuple(timeInterval.months, timeInterval.days, seconds);
 }
 
 bool
@@ -1594,6 +1596,14 @@ void serializeBinary(char * & start, const T & bits)
     start += sizeof(bitsToSerialize);
 }
 
+template<typename T>
+void serializeBinaryUnaligned(char * & start, T bits)
+{
+    LittleEndian<T> bitsToSerialize{bits};
+    memcpy(start, &bitsToSerialize, sizeof(bitsToSerialize));
+    start += sizeof(bitsToSerialize);
+}
+
 size_t serializeUnsignedLength(uint64_t bits)
 {
     if (bits == 0)
@@ -1746,7 +1756,7 @@ serialize(char * start, size_t bytesAvailable,
         *start++ = CVT_TIME_INTERVAL;
         serializeBinary(start, timeInterval.months);
         serializeBinary(start, timeInterval.days);
-        serializeBinary(start, timeInterval.seconds);
+        serializeBinaryUnaligned(start, timeInterval.seconds);
         break;
     case ST_INTEGER:
         if (intVal < 0) {
