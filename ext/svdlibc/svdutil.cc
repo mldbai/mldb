@@ -42,7 +42,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "svdutil.h"
 #include <string>
 #include <random>
-
+#include <stdexcept>
 
 using namespace std;
 
