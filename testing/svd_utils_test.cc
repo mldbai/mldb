@@ -49,8 +49,8 @@ void testBucket(std::vector<uint32_t> subs1,
     double count22 = bucket2.calcOverlap(bucket2, HAMMING);
     BOOST_CHECK_EQUAL(count22, subs2.size());
 
-    int expected = intersectionCount(&subs1[0], &subs1[0] + subs1.size(),
-                                     &subs2[0], &subs2[0] + subs2.size());
+    int expected = intersectionCount(subs1.data(), subs1.data() + subs1.size(),
+                                     subs2.data(), subs2.data() + subs2.size());
 
     double count1 = bucket1.calcOverlap(bucket2, HAMMING);
     double count2 = bucket2.calcOverlap(bucket1, HAMMING);

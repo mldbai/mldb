@@ -12,6 +12,8 @@
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/date.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/compiler/compiler.h"
+#include "mldb/utils/floating_point.h"
 
 
 
@@ -448,6 +450,9 @@ private:
     void collapseFloatToInt()
     {
         // See if we can reduce the float to an integer
+        if (!FloatIntegerClamper<double, int64_t>::in_range(floatVal))
+            return;
+
         int64_t asInt = floatVal;
         if (asInt == floatVal) {
             // Store as an integer

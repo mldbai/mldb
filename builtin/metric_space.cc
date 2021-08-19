@@ -112,8 +112,8 @@ dist(int rowNum1, int rowNum2,
     */
         
     // Use the optimized version, since we know the sum
-    float dpResult = -2.0 * SIMD::vec_dotprod_dp(&coords1[0],
-                                                 &coords2[0],
+    float dpResult = -2.0 * SIMD::vec_dotprod_dp(coords1.data(),
+                                                 coords2.data(),
                                                  coords1.size());
     ExcAssert(isfinite(dpResult));
 

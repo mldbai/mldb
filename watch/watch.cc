@@ -182,7 +182,7 @@ releaseHolder(Watch & holder)
         // by the owner and we don't want our guard to read the
         // freed mutex after we're done.
         guard.unlock();
-        this->owner->releaseWatchWithData(this);
+        this->owner->releaseWatchWithData(this, holder);
     }
 }
 
@@ -655,7 +655,7 @@ void
 Watches::
 release(Watch & watch)
 {
-    releaseWatchWithData(watch.data);
+    releaseWatchWithData(watch.data, watch);
 }
 
 
@@ -736,7 +736,7 @@ active() const
 
 void
 Watches::
-releaseWatchWithData(WatchData * data)
+releaseWatchWithData(WatchData * data, Watch & holder)
 {
     if (!data)
         throw MLDB::Exception("can't release null data");
@@ -753,8 +753,9 @@ releaseWatchWithData(WatchData * data)
     }
     for (unsigned i = 0;  i < watches.size();  ++i) {
         if (watches[i].get() == data) {
-            if (onRelease)
-                onRelease(*watches[i]->holder, std::move(watches[i]->info));
+            if (onRelease) {
+                onRelease(holder, std::move(watches[i]->info));
+            }
             watches.erase(watches.begin() + i);
             return;
         }

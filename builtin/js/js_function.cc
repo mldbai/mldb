@@ -164,7 +164,7 @@ run(const std::vector<ExpressionValue> & args,
     auto resultMaybe = this->function.Get(this->isolate->isolate)
         ->Call(this->context.Get(this->isolate->isolate),
                this->context.Get(this->isolate->isolate)->Global(),
-               argv.size(), &argv[0]);
+               argv.size(), argv.data());
     
     if (resultMaybe.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running jseval script");

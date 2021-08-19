@@ -34,7 +34,7 @@ namespace ML {
     its feature set.
 */
 
-typedef int Feature_Id;
+typedef uint32_t Feature_Id;
 
 struct Feature {
     typedef Feature_Id id_type;
@@ -68,8 +68,8 @@ struct Feature {
     {
         id_type id1 = type(), id2 = arg1(), id3 = arg2();
         size_t result
-            = (3 * id1 + 31 * id2 + 71 * id3)
-            * (103 * id1 + 1411 * id2 + 3179 * id3);
+            = (3U * id1 + 31U * id2 + 71U * id3)
+            * (103U * id1 + 1411U * id2 + 3179U * id3);
         return result;
     }
 

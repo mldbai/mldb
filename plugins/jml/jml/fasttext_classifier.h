@@ -93,14 +93,11 @@ public:
 
     virtual FastTest_Classifier * make_copy() const;
 
-    Output_Encoding encoding;  ///< How the outputs are represented
+    Output_Encoding encoding = OE_PM_ONE;  ///< How the outputs are represented
     std::shared_ptr<fasttext::FastText> fastText_;
     std::vector<Feature> features;
 
-    //The feature map needs to be mutable else the map doesnt work in predict
-    //I suspect either some compiler const optimization 
-    //*or* a bug in the judy array const overload but I haven't found the root cause yet.
-    mutable Feature_Map<size_t> featureMap;
+    Feature_Map<size_t> featureMap;
 };
 
 

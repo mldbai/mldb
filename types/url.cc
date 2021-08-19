@@ -325,7 +325,7 @@ decodeUri(Utf8String in)
     Utf8String out;
     unsigned char high;
     unsigned char low;
-    char buffer[5]; // utf-8 has at most 4 bytes + \0
+    unsigned char buffer[5]; // utf-8 has at most 4 bytes + \0
     for (Utf8String::iterator it = in.find('%'); it != in.end();
             it = in.find('%'))
     {
@@ -358,8 +358,8 @@ decodeUri(Utf8String in)
 
             if (bufferIndex == 0) {
                 // the first byte tells us how many bytes to look for
-                signed char c = buffer[0] << 1;
-                while (c < 0) {
+                unsigned char c = buffer[0] << 1;
+                while (c & 128) {
                     c = c << 1;
                     ++remaining;
                 }
@@ -381,7 +381,7 @@ decodeUri(Utf8String in)
 
         // append the current buffer to the output
         buffer[bufferIndex] = '\0';
-        out += Utf8String(buffer);
+        out += Utf8String((char *)buffer);
     }
 
     if (in.begin() != in.end()) {

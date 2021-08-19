@@ -249,7 +249,7 @@ int gelsd(int m, int n, int nrhs, float * A, int lda, float * B, int ldb,
     //cerr << "smallsz = " << smallsz << endl;
 
     int minmn = std::min(m, n);
-    int nlvl = std::max(0, (int)(log2(minmn/(smallsz + 1))) + 1);
+    int nlvl = std::max(0, (int)(log2(minmn/(smallsz + 1.0))) + 1);
     int intwss = 3 * minmn * nlvl + 11 * minmn;
 
     std::shared_ptr<int> iwork(new int[intwss], [] (int * p) { delete[] p; });
@@ -284,7 +284,7 @@ int gelsd(int m, int n, int nrhs, double * A, int lda, double * B, int ldb,
     //cerr << "smallsz = " << smallsz << endl;
 
     int minmn = std::min(m, n);
-    int nlvl = std::max(0, (int)(log2(minmn/(smallsz + 1))) + 1);
+    int nlvl = std::max(0, (int)(log2(minmn/(smallsz + 1.0))) + 1);
     int intwss = 3 * minmn * nlvl + 11 * minmn;
 
     std::shared_ptr<int> iwork(new int[intwss], [] (int * p) { delete[] p; });

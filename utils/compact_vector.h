@@ -609,7 +609,7 @@ private:
     }
 
     static Allocator allocator;
-};
+} MLDB_ALIGNED((alignof(Data)));
 
 template<class Data, size_t Internal, class Size, bool Safe,
          class Pointer, class Allocator>

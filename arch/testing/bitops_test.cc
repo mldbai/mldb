@@ -102,7 +102,7 @@ void profile_type(const vector<uint64_t> & vals_)
 
     int trials = 10;
 
-    int total = 0;
+    uint64_t total = 0;
 
     for (unsigned t = 0;  t < trials;  ++t) {
         uint64_t tbefore = ticks();
