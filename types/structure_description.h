@@ -401,16 +401,24 @@ addParent(ValueDescriptionT<V> * description_)
     std::shared_ptr<StructureDescription<V> > description(desc2);
     parents.push_back(description);
 
-    Struct * p = nullptr;
+    constexpr size_t BASE = 0x1000;  // can't use a null pointer
+    Struct * p = reinterpret_cast<Struct *>(BASE);
     V * p2 = static_cast<V *>(p);
 
-    size_t ofs = (size_t)p2;
+    size_t ofs = reinterpret_cast<size_t>(p2) - BASE;
+
+    //using namespace std;
+    //cerr << "parent " << description_->typeName << " of " << this->typeName << " is at offset " << ofs << endl;
 
     ExcAssert(!desc2->orderedFields.empty());
 
     for (auto & oit: description->orderedFields) {
         FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
         const std::string & name = ofd.fieldName;
+
+        //cerr << "  bringing field " << ofd.fieldName << " of type " << ofd.description->typeName
+        //     << " at " << ofd.offset << ":" << ofd.width << " -> " << ofd.offset + ofs << ":" << ofd.width
+        //     << endl;
 
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
@@ -419,7 +427,7 @@ addParent(ValueDescriptionT<V> * description_)
         FieldDescription & fd = it->second;
         fd.fieldName = fieldName;
         fd.comment = ofd.comment;
-        fd.description = std::move(ofd.description);
+        fd.description = ofd.description;
         
         fd.offset = ofd.offset + ofs;
         fd.width = ofd.width;

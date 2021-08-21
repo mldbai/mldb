@@ -186,11 +186,6 @@ getRunDetails(const ProcedureRun * run) const
 /* PROCEDURE CONFIG                                                          */
 /*****************************************************************************/
 
-ProcedureConfig::
-ProcedureConfig() : runOnCreation(true)
-{
-}
-
 DEFINE_STRUCTURE_DESCRIPTION(ProcedureConfig);
 
 ProcedureConfigDescription::

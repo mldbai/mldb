@@ -197,10 +197,10 @@ CreateEntityProcedureConfigDescription::
 CreateEntityProcedureConfigDescription()
 {
     addParent<PolyConfig>();
+    addParent<ProcedureConfig>();
     addField("kind", &CreateEntityProcedureConfig::kind,
              "Kind of entity to create.  Valid values are 'function', 'procedure', "
              "'dataset' or 'plugin'.");
-    addParent<ProcedureConfig>();
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(CreateEntityProcedureOutput);
