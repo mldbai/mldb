@@ -1252,6 +1252,8 @@ getSubjectIndexImplTmpl(SH subjectHash, const SubjectIndex & subjectIndex) const
     uint64_t scaledDelta = safely_clamped(subjectDelta * factor);
     int64_t testIndex
         = std::min<int64_t>(sz - 1, indexOffset + scaledDelta);
+    if (testIndex < 0)
+        testIndex = 0;
 
     /* We refine the result in case of a miss by another interpolation based
      * on the difference with the actual result. */

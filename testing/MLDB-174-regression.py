@@ -422,16 +422,37 @@ class Mldb174Test(MldbUnitTest):
 
         # compare the weights of the model with the weights from sciki learn
         details = mldb.get('/v1/functions/regressor_l1/details').json()
-        weights = details['model']['params']['weights'][0][:-1]
-        weights_scikit_learn = [
-            -2.74455747e-03, -3.25523337e-01, 3.53340841e-03,  -1.55484223e+00,
-            1.20525662e-03, -0.00000000e+00, -8.56879480e-01, -2.56506702e-03,
-            2.63893600e-01, 0.00000000e+00, 9.06624432e-01]
-        mldb.log(weights)
-        self.assertEqual(len(weights), len(weights_scikit_learn))
-        for a,b in zip(weights, weights_scikit_learn):
+        mldb.log("details", details)
+        weights = details['model']['params']['weights'][0][:]
+        mldb.log('weights', weights)
+        keys = [(val['extract'] + '-' + val['feature']) for val in details['model']['params']['features']]
+        keys.append('BIAS')
+        table = { key: weight for (key,weight) in zip(keys,weights)}
+        #weights_scikit_learn = [
+        #    -2.74455747e-03, -3.25523337e-01, 3.53340841e-03,  -1.55484223e+00,
+        #    1.20525662e-03, -0.00000000e+00, -8.56879480e-01, -2.56506702e-03,
+        #    2.63893600e-01, 0.00000000e+00, 9.06624432e-01]
+        weights_scikit_learn = {
+            'VALUE-fixed acidity':         1.20525662e-03,
+            'VALUE-density':              -0.00000000e+00,
+            'VALUE-volatile acidity':     -8.56879480e-01,
+            'VALUE-residual sugar':       -2.56506702e-03,
+            'VALUE-alcohol':               2.63893600e-01,
+            'VALUE-citric acid':           0.00000000e+00,
+            'VALUE-sulphates':             9.06624432e-01,
+            'VALUE-total sulfur dioxide': -2.74455747e-03,
+            'VALUE-pH':                   -3.25523337e-01,
+            'VALUE-free sulfur dioxide':   3.53340841e-03,
+            'VALUE-chlorides':            -1.55484223e+00,
+            'BIAS':                        4.03724575e+00  }
+
+        mldb.log(table)
+        self.assertEqual(len(table), len(weights_scikit_learn))
+        for (key,weight) in weights_scikit_learn.items():
+            a = weight
+            b = table[key]
+            mldb.log('key', key, 'a', a, 'b', b)
             self.assertAlmostEqual(a, b, delta=1e-3)
-        # TODO add the bias when it's in there (MLDBFB-535)
 
         vals = mldb.get('/v1/query', q="""
             SELECT regressor_l1({features: {* EXCLUDING (quality)}}) as *

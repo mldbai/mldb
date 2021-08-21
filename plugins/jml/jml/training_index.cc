@@ -311,13 +311,13 @@ joint(const Feature & target, const Feature & independent,
             = independentIndex.get_mapped_labels(example_labels, target,
                                                         sort_by);
         //cerr << "mapped_labels = " << mapped_labels << endl;
-        labels = &mapped_labels[0];
+        labels = mapped_labels.data();
     }
 
     if (want_buckets) {
         const Bucket_Info & bucket_info
             = independentIndex.buckets(num_buckets);
-        buckets = &bucket_info.buckets[0];
+        buckets = bucket_info.buckets.data();
         bucket_splits = &bucket_info.splits;
     }
 
@@ -325,27 +325,27 @@ joint(const Feature & target, const Feature & independent,
         const vector<unsigned> & counts_vector
             = independentIndex.get_counts(sort_by);
         if (!counts_vector.empty())
-            counts = &counts_vector[0];
+            counts = counts_vector.data();
     }
 
     if (want_divisors) {
         const vector<float> & divisors_vector
             = independentIndex.get_divisors(sort_by);
         if (!divisors_vector.empty())
-            divisors = &divisors_vector[0];
+            divisors = divisors_vector.data();
     }
 
     if (want_examples) {
         const vector<unsigned> & examples_vector
             = independentIndex.get_examples(sort_by);
         if (!examples_vector.empty())
-            examples = &examples_vector[0];
+            examples = examples_vector.data();
     }
 
     if (want_values) {
         const vector<float> & values_vector
             = independentIndex.get_values(sort_by);
-        values = &values_vector[0];
+        values = values_vector.data();
     }
 
     Joint_Index result(values, buckets, labels, examples, counts, divisors,
@@ -408,7 +408,7 @@ dist(const Feature & feature, Sort_By sort_by, unsigned content,
     if (want_buckets) {
         const Bucket_Info & bucket_info
             = getFeatureIndex(feature).buckets(num_buckets);
-        buckets = &bucket_info.buckets[0];
+        buckets = bucket_info.buckets.data();
         bucket_splits = &bucket_info.splits;
     }
 
@@ -416,27 +416,27 @@ dist(const Feature & feature, Sort_By sort_by, unsigned content,
         const vector<unsigned> & counts_vector
             = getFeatureIndex(feature).get_counts(sort_by);
         if (!counts_vector.empty())
-            counts = &counts_vector[0];
+            counts = counts_vector.data();
     }
 
     if (want_divisors) {
         const vector<float> & divisors_vector
             = getFeatureIndex(feature).get_divisors(sort_by);
         if (!divisors_vector.empty())
-            divisors = &divisors_vector[0];
+            divisors = divisors_vector.data();
     }
 
     if (want_examples) {
         const vector<unsigned> & examples_vector
             = getFeatureIndex(feature).get_examples(sort_by);
         if (!examples_vector.empty())
-            examples = &examples_vector[0];
+            examples = examples_vector.data();
     }
 
     if (want_values) {
         const vector<float> & values_vector
             = getFeatureIndex(feature).get_values(sort_by);
-        values = &values_vector[0];
+        values = values_vector.data();
     }
 
     return Joint_Index(values, buckets, labels, examples, counts, divisors,
