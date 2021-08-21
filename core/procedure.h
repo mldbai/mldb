@@ -177,10 +177,8 @@ struct Procedure: public MldbEntity, public RestEntity {
 /*
  * Keep all the shared config parameters for procedure here.
  */
-struct ProcedureConfig
-{
-    ProcedureConfig();
-    bool runOnCreation; // force a run of the procedure upon creation
+struct ProcedureConfig {
+    bool runOnCreation = true; // force a run of the procedure upon creation
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ProcedureConfig);
