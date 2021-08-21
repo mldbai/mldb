@@ -270,7 +270,8 @@ template<typename Float>
 struct RidgeRegressionIteration {
     double lambda;
     double current_lambda;
-    double total_mse_unbiased;
+    double total_mse_unbiased = 0.0;
+    double total_mse_biased = 0.0;
     distribution<Float> x;
 
     void run(const distribution<Float> & singular_values,
@@ -362,7 +363,6 @@ struct RidgeRegressionIteration {
         doneStep("A_A_pinv");
 
         // Now figure out the performance
-        double total_mse_biased = 0.0;
         for (unsigned j = 0;  j < m;  ++j) {
 
             if (j < 10 && false)
@@ -559,6 +559,9 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
         for (unsigned i = 0;  i < iterations.size();  ++i) {
 
+            //cerr << "iteration " << i << " lambda " << iterations[i].current_lambda
+            //     << " error " << iterations[i].total_mse_unbiased << " x " << iterations[i].x << endl;
+
             if (iterations[i].total_mse_unbiased < best_error || i == 0) {
 
                 //cerr << "best_lambda " << iterations[i].current_lambda << " error : " << iterations[i].total_mse_unbiased << endl;
@@ -567,7 +570,9 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
                 best_lambda = iterations[i].current_lambda;
                 best_error = iterations[i].total_mse_unbiased;
             }
-        } 
+        }
+
+        //cerr << "x_best = " << x_best << " best_lambda = " << best_lambda << " best_error " << best_error << endl;
     }
     else {
         Iteration iter;
