@@ -46,6 +46,8 @@ struct ReadThroughBindingScope: public SqlBindingScope {
         }
 
         const SqlRowScope & outer;
+
+        virtual ~RowScope() override {}
     };
 
     /// Rebind a BoundSqlExpression from the outer scope to run on our		
@@ -212,16 +214,18 @@ struct SqlExpressionParamScope: public ReadThroughBindingScope {
     {
     }
 
-    // This row scope initializes the inner scope with itself; it should
-    // never be used unless we are in a correlated sub-select in which
-    // case we will need to thread the outer scope through.
+    // This row scope initializes the inner scope with a static and
+    // non-functional scope "inner"; it should never be used unless we
+    // are in a correlated sub-select in which case we will need to
+    // thread the outer scope through.
     struct RowScope: public ReadThroughBindingScope::RowScope {
         RowScope(const BoundParameters & params)
-            : ReadThroughBindingScope::RowScope(*this),
+            : ReadThroughBindingScope::RowScope(inner),
               params(params)
         {
         }
 
+        static SqlRowScope inner;
         const BoundParameters & params;
     };
     

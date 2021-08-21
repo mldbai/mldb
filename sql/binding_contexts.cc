@@ -345,6 +345,8 @@ doGetBoundParameter(const Utf8String & paramName)
             std::make_shared<AnyValueInfo>() };
 }
 
+SqlRowScope SqlExpressionParamScope::RowScope::inner;
+
 
 /*****************************************************************************/
 /* SQL EXPRESSION EVAL SCOPE                                                 */
