@@ -10,16 +10,16 @@ class BuiltinHashFctTest(MldbUnitTest):  # noqa
 
     def test_it(self):
         res = mldb.query("SELECT hash(1)")
-        self.assertEqual(res[1][1], 17440209749015900358)
+        self.assertEqual(res[1][1], 6012453320789867841)
 
         res = mldb.query("SELECT hash('1')")
-        self.assertEqual(res[1][1], 6436322241662563199)
+        self.assertEqual(res[1][1], 15550986982990500532)
 
         res = mldb.query("SELECT hash('abc')")
-        self.assertEqual(res[1][1], 9281407066453831864)
+        self.assertEqual(res[1][1], 12745542582516827030)
 
         res = mldb.query("SELECT hash({a: 12, b: 'coco'})")
-        self.assertEqual(res[1][1], 17779398697240081926)
+        self.assertEqual(res[1][1], 16250524440669303272)
 
         res = mldb.query("SELECT hash(NULL)")
         self.assertEqual(res[1][1], None)
