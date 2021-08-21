@@ -947,15 +947,25 @@ run(const ProcedureRunConfig & run,
         weights = exampleWeights;
     }
     else {
+        INFO_MSG(logger) << "equalization factor " << equalizationFactor;
         distribution<float> factor_accum(exampleWeights.size(), 0);
         for(int lbl=0; lbl<num_weight_labels; lbl++) {
-            double factor = pow(labelWeights[lbl].total(), -equalizationFactor);
+            double labelTotal = labelWeights[lbl].total();
+            if (labelTotal == 0.0) {
+                // No weights for a label.  Rather than crash, we simply take a default value.
+                WARNING_MSG(logger) << "class " << lbl << " has zero example weight and is unlearnable";
+                labelTotal = 1e-100;
+            }
+            double factor = pow(labelTotal, -equalizationFactor);
 
+            INFO_MSG(logger) << "weight for class " << lbl << " = " << labelTotal;
             INFO_MSG(logger) << "factor for class " << lbl << " = " << factor;
-            INFO_MSG(logger) << "weight for class " << lbl << " = " << labelWeights[lbl].total();
 
             factor_accum += factor * labelWeights[lbl];
         }
+
+        //cerr << "exampleWights = " << exampleWeights << endl;
+        //cerr << "factor_accum = " << factor_accum << endl;
 
         weights = exampleWeights * factor_accum;
         weights.normalize();

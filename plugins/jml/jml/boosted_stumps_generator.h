@@ -8,9 +8,7 @@
    Generator for a boosted_stumps.
 */
 
-#ifndef __boosting__boosted_stumps_generator_h__
-#define __boosting__boosted_stumps_generator_h__
-
+#pragma once
 
 #include "weight_updating_generator.h"
 #include "stump_generator.h"
@@ -163,7 +161,3 @@ public:
 
 
 } // namespace ML
-
-
-#endif /* __boosting__boosted_stumps_generator_h__ */
-

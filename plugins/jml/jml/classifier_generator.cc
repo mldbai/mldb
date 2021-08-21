@@ -125,6 +125,9 @@ generate(Thread_Context & context,
         std::fill(weights.data(), weights.data() + nx * nl, 1.0 / nl * nx);
     else {
         double tot = ex_weights.total();
+        if (tot == 0.0 || !std::isfinite(tot)) {
+            throw Exception("Classifier_Generator::generate(): cannot train with zero or non-finite weights");
+        }
         if (ex_weights.size() != nx)
             throw Exception("Classifier_Generator::generate(): "
                             "wrong sized example weights");
