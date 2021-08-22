@@ -219,7 +219,7 @@ FastText_Generator::
             tokenCount += localTokenCount;
             localTokenCount = 0;
             if (threadId == 0 && args_->verbose > 1) {
-                fastTextModel.printInfo(progress, model.getLoss());
+                fastTextModel.printInfo(progress == 0.0 ? 0.001 : progress, model.getLoss());
             }
         }
       }
