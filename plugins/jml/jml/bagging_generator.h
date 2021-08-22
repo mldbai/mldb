@@ -8,9 +8,7 @@
    Generator for a bagging.
 */
 
-#ifndef __boosting__bagging_generator_h__
-#define __boosting__bagging_generator_h__
-
+#pragma once
 
 #include "mldb/plugins/jml/jml/early_stopping_generator.h"
 
@@ -66,6 +64,3 @@ public:
 
 
 } // namespace ML
-
-
-#endif /* __boosting__bagging_generator_h__ */

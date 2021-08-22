@@ -17,6 +17,7 @@
 #include "mldb/arch/wait_on_address.h"
 #include "mldb/base/exc_check.h"
 #include "mldb/base/scope.h"
+#include "mldb/compiler/compiler.h"
 #include <iterator>
 #include <iostream>
 #include <map>
@@ -81,7 +82,7 @@ struct DeferredEntry1 {
     {
     }
 
-    void run()
+    void run() ATTRIBUTE_NO_SANITIZE_UNDEFINED
     {
         fn(data);
     }
@@ -97,7 +98,7 @@ struct DeferredEntry2 {
     {
     }
         
-    void run()
+    void run() ATTRIBUTE_NO_SANITIZE_UNDEFINED
     {
         fn(data1, data2);
     }
@@ -115,7 +116,7 @@ struct DeferredEntry3 {
     {
     }
         
-    void run()
+    void run() ATTRIBUTE_NO_SANITIZE_UNDEFINED
     {
         fn(data1, data2, data3);
     }
@@ -823,10 +824,13 @@ defer(std::function<void ()> work)
     defer(callFn, new std::function<void ()>(work));
 }
 
+// NOTE: ubsan doesn't like us converting function pointers, but all functions
+// take just pointers as arguments which can't cause problems on any platform
+// I know, so we just kill them here...
 template<typename... Args>
 void
 GcLockBase::
-doDefer(void (fn) (Args...), Args... args)
+doDefer(void (fn) (Args...), Args... args) ATTRIBUTE_NO_SANITIZE_UNDEFINED
 {
     // INVARIANT
     // If there is another thread that is provably in a critical section at

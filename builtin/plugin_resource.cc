@@ -165,6 +165,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
     // if we're passing in source but we want it written to disk
     if(!resource.source.empty() && resource.source.writeSourceToFile) {
+        pluginLocation = LOCAL_FILE;
         createPluginDir();
         
         filter_ostream ostream(getElementLocation(MAIN));

@@ -26,7 +26,7 @@ using namespace MLDB;
 #define CHECK_EQUAL_EXPR(val, expected) \
 BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
 
-static MldbServer *notNull = (MldbServer *)0x000008;
+static MldbServer *notNull = (MldbServer *)alignof(MldbServer);  // nearly null pointer
 
 BOOST_AUTO_TEST_CASE(test_explain)
 {
