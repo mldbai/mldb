@@ -12,6 +12,7 @@
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/utils/vector_utils.h"
+#include "mldb/utils/floating_point.h"
 #include "mldb/types/jml_serialization.h"
 #include "id_serialization.h"
 #include <boost/iterator/iterator_facade.hpp>
@@ -1245,25 +1246,25 @@ getSubjectIndexImplTmpl(SH subjectHash, const SubjectIndex & subjectIndex) const
        of indexes deduced above to the range of corresponding SH values. When
        the hashes are perfectly distributed, we should be able to hit the
        right entry nearly straight on with a direct lookup. */
-    double factor = double(numSHPerMark-1) / (lastSH - firstSH);
+    double shRange = lastSH - firstSH;
+    if (shRange == 0)
+        shRange = 1;
+    double factor = double(numSHPerMark-1) / shRange;
     //double propn = subjectHash * factor;
     auto subjectDelta = subjectHash.hash() - firstSH;
+    uint64_t scaledDelta = safely_clamped(subjectDelta * factor);
     int64_t testIndex
-        = std::min<int64_t>(sz - 1, indexOffset + (subjectDelta * factor));
+        = std::min<int64_t>(sz - 1, indexOffset + scaledDelta);
     testIndex = std::max<int64_t>(0, testIndex);
 
     /* We refine the result in case of a miss by another interpolation based
      * on the difference with the actual result. */
     SH atIndex = subjectIndex[testIndex].key;
-    int64_t diff = (int64_t)subjectHash - (int64_t)atIndex;
-    int offBy = diff * factor;
-    testIndex = testIndex + offBy;
-    if (testIndex < 0) {
-        testIndex = 0;
-    }
-    else if (testIndex > sz - 1) {
-        testIndex = sz - 1;
-    }
+    int64_t diff = subjectHash - atIndex;
+    int offBy = safely_clamped(diff * factor);
+    __builtin_add_overflow(testIndex, offBy, &testIndex);  // testIndex += offBy unless it causes an overflow
+    testIndex = std::min<int64_t>(sz - 1, testIndex);
+    testIndex = std::max<int64_t>(0, testIndex);
 
     /* We find the final position by adjusting "testIndex" one step at a time. */
     while (testIndex < (sz-1) && subjectIndex[testIndex].key < subjectHash)
