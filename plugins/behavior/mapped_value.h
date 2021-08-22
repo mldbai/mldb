@@ -48,11 +48,14 @@ struct MappedValue {
                                 + MLDB::type_name<T>());
     }
 
-    const T operator * () const
+    const T & operator * () const
     {
-        T result;
-        std::memmove(&result, ptr, sizeof(T));
-        return result;
+        return *ptr;
+    }
+
+    const T * operator -> () const
+    {
+        return ptr;
     }
 
     const T * ptr;
@@ -84,17 +87,15 @@ struct MappedArray {
         this->len = len;
     }
 
-    const T operator [] (int index) const
+    const T & operator [] (int index) const
     {
         if (index < 0 || index >= len)
             throw MLDB::Exception("accessing invalid index in mapped array: "
                                 "%d not in [0-%d]", index, len);
-        T result;
-        std::memmove(&result, ptr + index, sizeof(T));
-        return result;
+        return ptr[index];
     }
     
-    const T at(int index) const
+    const T & at(int index) const
     {
         return operator [] (index);
     }
@@ -102,7 +103,7 @@ struct MappedArray {
     size_t size() const { return len; }
     
     const T * ptr;
-    uint32_t len;
+    int len;
 
     typedef const T * const_iterator;
     const_iterator begin() const { return ptr; }

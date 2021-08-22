@@ -221,7 +221,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
     /** Do we have the old format of subject index? */
     bool indexV1() const
     {
-        return MLDB_UNLIKELY((*md).version < 4);
+        return MLDB_UNLIKELY(md->version < 4);
     }
 
     SH getSubjectHash(SI index) const
@@ -287,13 +287,13 @@ struct MappedBehaviorDomain: public BehaviorDomain {
     /** How many distinct subjects are known? */
     virtual size_t subjectCount() const
     {
-        return (*md).numSubjects;
+        return md->numSubjects;
     }
     
     /** How many distinct behaviors are known? */
     virtual size_t behaviorCount() const
     {
-        return (*md).numBehaviors;
+        return md->numBehaviors;
     }
 
     /** Return a list of behaviors. */
@@ -367,28 +367,28 @@ struct MappedBehaviorDomain: public BehaviorDomain {
 
     virtual Date earliestTime() const
     {
-        return unQuantizeTime((*md).earliest);
+        return unQuantizeTime(md->earliest);
     }
 
     virtual Date latestTime() const
     {
-        return unQuantizeTime((*md).latest);
+        return unQuantizeTime(md->latest);
     }
 
     /** Return the nominal start time in the file. */
     virtual Date nominalStart() const
     {
-        return (*md).nominalStart;
+        return md->nominalStart;
     }
 
     virtual Date nominalEnd() const
     {
-        return (*md).nominalEnd;
+        return md->nominalEnd;
     }
 
     virtual int64_t totalEventsRecorded() const
     {
-        return (*md).totalEventsRecorded;
+        return md->totalEventsRecorded;
     }
 
     virtual bool fileMetadataExists(const std::string & key) const;
@@ -404,7 +404,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
 
     Date unQuantizeTime(uint64_t tm) const
     {
-        return Date::fromSecondsSinceEpoch(tm * (*md).timeQuantum);
+        return Date::fromSecondsSinceEpoch(tm * md->timeQuantum);
     }
 
     int64_t getSubjectIndexImpl(SH subjectHash) const;
