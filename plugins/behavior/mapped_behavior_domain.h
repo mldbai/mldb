@@ -505,7 +505,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
     const uint32_le * behaviorToSubjectTimestamps;
     MappedValueArray<uint32_le> behaviorToSubjectTimestampsIndex;
 
-    MappedArray<uint32_t> subjectIdIndex;
+    MappedValueArray<uint32_le> subjectIdIndex;
     const char * subjectIdStore;
     size_t subjectIdStoreSize;
     std::vector<size_t> subjectIdAdjustOffsets;
