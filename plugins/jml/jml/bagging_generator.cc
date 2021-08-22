@@ -55,6 +55,7 @@ void
 Bagging_Generator::
 defaults()
 {
+    Classifier_Generator::defaults();
     num_bags = 10;
     validation_split = 0.35;
     weak_learner.reset();

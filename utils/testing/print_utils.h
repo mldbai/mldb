@@ -74,7 +74,7 @@ randomString(size_t size)
     static struct AtInit {
         AtInit()
         {
-            ::srandom((::getpid() << 16 | 0xffff) ^ ::time(NULL));
+            ::srandom((uint32_t(uint32_t(::getpid()) << 16) | 0xffff) ^ ::time(NULL));
         }
     } atInit;
 

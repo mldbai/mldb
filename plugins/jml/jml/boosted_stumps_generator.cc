@@ -92,6 +92,7 @@ defaults()
     cost_function = CF_EXPONENTIAL;
     output_function = Boosted_Stumps::RAW;
     short_circuit_window = 0;
+    trace_training_acc = false;
 }
 
 Config_Options

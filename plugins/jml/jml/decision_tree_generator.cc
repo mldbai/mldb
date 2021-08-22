@@ -299,7 +299,7 @@ train_weighted(Thread_Context & context,
                 ++numNonZero;
         }
         
-        cerr << "numNonZero = " << numNonZero << endl;
+        //cerr << "numNonZero = " << numNonZero << endl;
 
         if (numNonZero < COMPACT_INITIAL_DENSITY * weights_vec.size()) {
             Training_Data new_data(data.feature_space());

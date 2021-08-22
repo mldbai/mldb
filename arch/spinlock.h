@@ -24,7 +24,7 @@ namespace MLDB {
 */
 
 struct Spinlock {
-    Spinlock(int yieldAfter = 100)
+    Spinlock(uint32_t yieldAfter = 100)
         : yieldAfter(yieldAfter)
     {
     }
@@ -46,7 +46,7 @@ struct Spinlock {
 
     int acquire()
     {
-        for (int tries = 0;  true;  ++tries) {
+        for (uint32_t tries = 0;  true;  ++tries) {
             if (!value.test_and_set(std::memory_order_acquire))
                 return 0;
             if (tries == yieldAfter) {
@@ -69,7 +69,7 @@ struct Spinlock {
     std::atomic_flag value = ATOMIC_FLAG_INIT;
 
     /// How many times to spin before we yield?
-    int yieldAfter;
+    uint32_t yieldAfter;
 };
 
 } // namespace MLDB
