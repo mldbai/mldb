@@ -26,3 +26,4 @@ $(eval $(call program,behavior_domain_read_bench,base arch types boost_program_o
 
 $(eval $(call test,id_test,behavior $(BEHAVIOR_TESTING_EXTRA_LINK),boost))
 $(eval $(call program,id_profile,types behavior))
+$(eval $(call test,legacy_behavior_file_test,behavior test_utils $(BEHAVIOR_TESTING_EXTRA_LINK),boost))

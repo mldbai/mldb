@@ -17,16 +17,16 @@ namespace MLDB {
 
 template<typename Int, int Domain>
 struct IntWrapper {
-    explicit IntWrapper(Int i = 0)
+    explicit constexpr IntWrapper(Int i = 0)
         : i(i)
     {
     }
 
-    Int index() const { return i; }
+    constexpr Int index() const { return i; }
 
     Int i;
 
-    operator Int () const { return i; }
+    constexpr operator Int () const { return i; }
 } MLDB_PACKED;
 
 template<typename Int, int D>
@@ -37,7 +37,7 @@ std::ostream & operator << (std::ostream & stream, const IntWrapper<Int, D> & h)
 
 template<int Domain>
 struct HashWrapper : public IntWrapper<uint64_t, Domain> {
-    explicit HashWrapper(uint64_t h = 0)
+    explicit constexpr HashWrapper(uint64_t h = 0)
         : IntWrapper<uint64_t, Domain>(h)
     {
     }
@@ -49,11 +49,11 @@ struct HashWrapper : public IntWrapper<uint64_t, Domain> {
     }
 #endif
 
-    static HashWrapper max() { return HashWrapper(-1); }
+    static constexpr HashWrapper max() { return HashWrapper(-1); }
 
-    bool isMax() const { return hash() == -1; }
+    constexpr bool isMax() const { return hash() == -1; }
 
-    uint64_t hash() const { return this->index(); }
+    constexpr uint64_t hash() const { return this->index(); }
 
     std::string toString() const
     {

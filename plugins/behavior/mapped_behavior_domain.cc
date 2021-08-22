@@ -12,6 +12,7 @@
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/utils/vector_utils.h"
+#include "mldb/utils/floating_point.h"
 #include "mldb/types/jml_serialization.h"
 #include "id_serialization.h"
 #include <boost/iterator/iterator_facade.hpp>
@@ -29,6 +30,11 @@ constexpr size_t MAX_SUBJECT_MARKS = 32;
 
 namespace MLDB {
 
+namespace {
+
+using BitExtractor = Bit_Extractor<uint32_t, Bit_Buffer<uint32_t, Simple_Mem_Buffer<uint32_le>>>;
+
+} // file scope
 
 /*****************************************************************************/
 /* TABLES                                                                    */
@@ -42,7 +48,7 @@ struct MappedBehaviorDomain::BehaviorTable {
     {
     }
 
-    BehaviorTable(const uint32_t * data,
+    BehaviorTable(const uint32_le * data,
                    int behBits,
                    int cntBits,
                    int size,
@@ -54,7 +60,7 @@ struct MappedBehaviorDomain::BehaviorTable {
     {
     }
 
-    const uint32_t * const data;
+    const uint32_le * const data;
     const int behBits;
     const int behBits2;
     const int cntBits;
@@ -64,7 +70,7 @@ struct MappedBehaviorDomain::BehaviorTable {
 
     std::pair<BH, uint32_t> operator [] (int i) const
     {
-        MLDB::Bit_Extractor<uint32_t> extractor(data);
+        BitExtractor extractor(data);
         uint32_t beh, count;
 
         if (i < splitPos) {
@@ -87,14 +93,14 @@ struct MappedBehaviorDomain::BehaviorTable {
 
     size_t behIndex(int i) const
     {
-        MLDB::Bit_Extractor<uint32_t> extractor(data);
+        BitExtractor extractor(data);
 
         if (i < splitPos) {
             extractor.advance(i * (behBits + cntBits));
             return extractor.extract<uint32_t>(behBits);
         }
         else {
-            MLDB::Bit_Extractor<uint32_t> extractor(data);
+            BitExtractor extractor(data);
             extractor.advance(splitPos * (behBits + cntBits)
                               + (i - splitPos) * (behBits2 + cntBits));
             return extractor.extract<uint32_t>(behBits2);
@@ -104,7 +110,7 @@ struct MappedBehaviorDomain::BehaviorTable {
     template<typename Fn>
     bool forEach(const Fn & onEntry) const
     {
-        MLDB::Bit_Extractor<uint32_t> extractor(data);
+        BitExtractor extractor(data);
         uint32_t beh, count;
         
         for (unsigned i = 0;  i < splitPos;  ++i) {
@@ -126,7 +132,7 @@ struct MappedBehaviorDomain::BehaviorTable {
     template<typename Fn>
     bool forEachBeh(const Fn & onEntry) const
     {
-        MLDB::Bit_Extractor<uint32_t> extractor(data);
+        BitExtractor extractor(data);
         
         for (unsigned i = 0;  i < splitPos;  ++i) {
             uint32_t behIndex = extractor.extract<uint32_t>(behBits);
@@ -156,12 +162,12 @@ struct MappedBehaviorDomain::TimestampTable {
 
     TimestampTable(uint64_t timeOffset,
                    const MappedBehaviorDomain * owner)
-        : extractor(0), hasTable(false), timeOffset(timeOffset),
+        : extractor(nullptr), hasTable(false), timeOffset(timeOffset),
           tsOffsetBits(0), size_(0), owner(owner)
     {
     }
 
-    TimestampTable(MLDB::Bit_Extractor<uint32_t> extractor,
+    TimestampTable(BitExtractor extractor,
                    bool hasTable,
                    uint64_t timeOffset,
                    int tsOffsetBits,
@@ -176,7 +182,7 @@ struct MappedBehaviorDomain::TimestampTable {
     {
     }
 
-    MLDB::Bit_Extractor<uint32_t> extractor;
+    BitExtractor extractor;
     bool hasTable;
     uint64_t timeOffset;
     const int tsOffsetBits;
@@ -186,7 +192,7 @@ struct MappedBehaviorDomain::TimestampTable {
     uint32_t lookup(uint32_t offset) const
     {
         ExcAssertLess(offset, size_);
-        MLDB::Bit_Extractor<uint32_t> extractor(this->extractor);
+        BitExtractor extractor(this->extractor);
         extractor.advance(offset * tsOffsetBits);
         return extractor.extract<uint32_t>(tsOffsetBits);
     }
@@ -211,7 +217,7 @@ struct MappedBehaviorDomain::EventTable {
 
     EventTable(const MappedBehaviorDomain * owner,
                SI subj,
-               const MLDB::Bit_Extractor<uint32_t> & extractor,
+               const BitExtractor & extractor,
                size_t size,
                int timeBits,
                int behBits,
@@ -224,7 +230,7 @@ struct MappedBehaviorDomain::EventTable {
 
     const MappedBehaviorDomain * const owner;
     SI subj;
-    MLDB::Bit_Extractor<uint32_t> extractor;
+    BitExtractor extractor;
     size_t size_;
     int timeBits;
     int behBits;
@@ -234,7 +240,7 @@ struct MappedBehaviorDomain::EventTable {
     template<typename Fn>
     bool forEachRaw(const Fn & onEntry, unsigned startAt = 0) const
     {
-        MLDB::Bit_Extractor<uint32_t> extractor = this->extractor;
+        BitExtractor extractor = this->extractor;
 
         if (startAt)
             extractor.advance(startAt * (timeBits + behBits + cntBits));
@@ -261,7 +267,7 @@ struct MappedBehaviorDomain::EventTable {
 
             // Linear search if there is a small range
             if (range <= 32) {
-                MLDB::Bit_Extractor<uint32_t> extractor = this->extractor;
+                BitExtractor extractor = this->extractor;
                 extractor.advance(lower * (behBits + cntBits + timeBits));
 
                 for (unsigned i = lower;  i < upper;  ++i) {
@@ -285,7 +291,7 @@ struct MappedBehaviorDomain::EventTable {
             // Otherwise, binary search
             uint32_t middle = (upper + lower) / 2;
 
-            MLDB::Bit_Extractor<uint32_t> extractor = this->extractor;
+            BitExtractor extractor = this->extractor;
             extractor.advance(middle * (behBits + cntBits + timeBits));
             
             uint32_t time;
@@ -306,7 +312,7 @@ struct MappedBehaviorDomain::EventTable {
         }
 
 
-        MLDB::Bit_Extractor<uint32_t> extractor = this->extractor;
+        BitExtractor extractor = this->extractor;
 
         for (unsigned i = 0;  i < size_;  ++i) {
             uint32_t time;
@@ -379,7 +385,7 @@ struct MappedBehaviorDomain::EventTable {
     template<typename Fn>
     bool forEachTimestamp(const Fn & onEntry) const
     {
-        MLDB::Bit_Extractor<uint32_t> extractor = this->extractor;
+        BitExtractor extractor = this->extractor;
         TimestampTable tst  = owner->getTimestampTable(subj);
 
         for (unsigned i = 0;  i < size_;  ++i) {
@@ -405,7 +411,7 @@ struct MappedBehaviorDomain::EventTable {
 
     Date timestamp(int index) const
     {
-        MLDB::Bit_Extractor<uint32_t> extractor = this->extractor;
+        BitExtractor extractor = this->extractor;
         extractor.advance(index * (timeBits + behBits + cntBits));
         TimestampTable tst  = owner->getTimestampTable(subj);
         return tst.decode(extractor.extract<uint32_t>(timeBits));
@@ -450,13 +456,13 @@ numWords() const
     return numWords;
 }
 
-std::pair<const uint32_t *, uint32_t>
+std::pair<const uint32_le *, uint32_t>
 MappedBehaviorDomain::SubjectIndexEntry1::
-getData(const uint32_t * data) const
+getData(const uint32_le * data) const
 {
     int nw = numWords();
     if (nw <= 1)
-        data = &offsetLow;
+        data = (const uint32_le *)(reinterpret_cast<size_t>(this) + offsetof(SubjectIndexEntry, offsetLow));
     else {
         //cerr << "entry.offset = " << entry.offset << endl;
         data = data + offsetLow;
@@ -498,13 +504,13 @@ numWords() const
     return numWords;
 }
 
-std::pair<const uint32_t *, uint32_t>
+std::pair<const uint32_le *, uint32_t>
 MappedBehaviorDomain::SubjectIndexEntry2::
-getData(const uint32_t * data) const
+getData(const uint32_le * data) const
 {
     int nw = numWords();
     if (nw <= 1)
-        data = &offsetLow;
+        data = (const uint32_le *)(reinterpret_cast<size_t>(this) + offsetof(SubjectIndexEntry2, offsetLow));
     else {
         //cerr << "entry.offset = " << entry.offset << endl;
         data = data + offset();
@@ -580,6 +586,7 @@ MappedBehaviorDomain::
 init(const File_Read_Buffer & file, uint64_t md_offset)
 {
     this->file = file;
+
     md.init(file, md_offset);
 
     if (md->magic != magicStr("BehsHour"))
@@ -607,10 +614,10 @@ init(const File_Read_Buffer & file, uint64_t md_offset)
     behaviorIdStoreSize = md->behaviorInfoOffset - md->behaviorIdOffset;
     behaviorStats.init(file, md->behaviorInfoOffset, md->numBehaviors);
     subjectDataStore
-        = (const uint32_t *)(file.start() + md->subjectDataOffset);
+        = (const uint32_le *)(file.start() + md->subjectDataOffset);
 
     behaviorToSubjects
-        = (const uint32_t *)(file.start() + md->behaviorSubjectsOffset);
+        = (const uint32_le *)(file.start() + md->behaviorSubjectsOffset);
     behaviorToSubjectsIndex.init(file, md->behaviorToSubjectsIndexOffset,
                                   md->numBehaviors);
 
@@ -630,7 +637,7 @@ init(const File_Read_Buffer & file, uint64_t md_offset)
     // each subject in the behavior index
     if (md->version >= 2) {
         behaviorToSubjectTimestamps
-            = (const uint32_t *)
+            = (const uint32_le *)
                 (file.start()
                  + md->behaviorToSubjectTimestampsOffset);
         behaviorToSubjectTimestampsIndex
@@ -644,6 +651,7 @@ init(const File_Read_Buffer & file, uint64_t md_offset)
 
     // Version 3 adds metadata
     if (md->version >= 3) {
+        cerr << "md->fileMetadataOffset = " << md->fileMetadataOffset << endl;
         DB::Store_Reader store(file);
         store.skip(md->fileMetadataOffset);
         unsigned char c;
@@ -671,10 +679,10 @@ init(const File_Read_Buffer & file, uint64_t md_offset)
         size_t max = std::min(MAX_SUBJECT_MARKS, (size_t) md->numSubjects);
         for (size_t i = 0; i < max; i++) {
             size_t idx = i * numSHPerMark;
-            subjectMarks.push_back(subjectIndex2[idx].key.hash());
+            subjectMarks.push_back(SH(subjectIndex2[idx].key).hash());
         }
         if (md->numSubjects > 0) {
-            lastSubjectHash = subjectIndex2[md->numSubjects-1].key.hash();
+            lastSubjectHash = SH(subjectIndex2[md->numSubjects-1].key).hash();
         }
     }
     else {
@@ -682,31 +690,29 @@ init(const File_Read_Buffer & file, uint64_t md_offset)
         size_t max = std::min(MAX_SUBJECT_MARKS, (size_t) md->numSubjects);
         for (size_t i = 0; i < max; i++) {
             size_t idx = i * numSHPerMark;
-            subjectMarks.push_back(subjectIndex1[idx].key.hash());
+            subjectMarks.push_back(SH(subjectIndex1[idx].key).hash());
         }
         if (md->numSubjects > 0) {
-            lastSubjectHash = subjectIndex1[md->numSubjects-1].key.hash();
+            lastSubjectHash = SH(subjectIndex1[md->numSubjects-1].key).hash();
         }
     }
 
     // Version 5 has split behavior tables
 
-    const Metadata & md2 = *md;
-
     vector<pair<string, uint64_t> > offsets = {
-        { "behaviorIndex", md2.behaviorIndexOffset },
-        { "behaviorIdIndex", md2.behaviorIdIndexOffset },
-        { "behaviorIdStore", md2.behaviorIdOffset },
-        { "behaviorStats", md2.behaviorInfoOffset },
-        { "subjectData", md2.subjectDataOffset },
-        { "behaviorToSubjects", md2.behaviorSubjectsOffset },
-        { "behaviorToSubjectIndex", md2.behaviorToSubjectsIndexOffset },
-        { "subjectIds", md2.subjectIdDataOffset },
-        { "subjectIdIndex", md2.subjectIdIndexOffset },
-        { "behaviorToSubjectTimestamps", md2.behaviorToSubjectTimestampsOffset },
-        { "behaviorToSubjectTimestampsIndex", md2.behaviorToSubjectTimestampsIndexOffset },
-        { "fileMetadata", md2.fileMetadataOffset },
-        { "subjectIndex", md2.subjectIndexOffset },
+        { "behaviorIndex", md->behaviorIndexOffset },
+        { "behaviorIdIndex", md->behaviorIdIndexOffset },
+        { "behaviorIdStore", md->behaviorIdOffset },
+        { "behaviorStats", md->behaviorInfoOffset },
+        { "subjectData", md->subjectDataOffset },
+        { "behaviorToSubjects", md->behaviorSubjectsOffset },
+        { "behaviorToSubjectIndex", md->behaviorToSubjectsIndexOffset },
+        { "subjectIds", md->subjectIdDataOffset },
+        { "subjectIdIndex", md->subjectIdIndexOffset },
+        { "behaviorToSubjectTimestamps", md->behaviorToSubjectTimestampsOffset },
+        { "behaviorToSubjectTimestampsIndex", md->behaviorToSubjectTimestampsIndexOffset },
+        { "fileMetadata", md->fileMetadataOffset },
+        { "subjectIndex", md->subjectIndexOffset },
         { "eof", file.size() } };
 
     MLDB::sort_on_second_ascending(offsets);
@@ -855,7 +861,7 @@ getBehaviorTable(SI subj) const
     if (indexV1()) {
         const SubjectIndexEntry1 & entry = subjectIndex1[subj].value;
 
-        const uint32_t * data;
+        const uint32_le * data;
         int nw;
         std::tie(data, nw) = entry.getData(subjectDataStore);
         
@@ -873,7 +879,7 @@ getBehaviorTable(SI subj) const
     else {
         const SubjectIndexEntry2 & entry = subjectIndex2[subj].value;
 
-        const uint32_t * data;
+        const uint32_le * data;
         int nw;
         std::tie(data, nw) = entry.getData(subjectDataStore);
 
@@ -921,11 +927,11 @@ getTimestampTable(SI subj) const
     else {
         const SubjectIndexEntry2 & entry = subjectIndex2[subj].value;
 
-        const uint32_t * data;
+        const uint32_le * data;
         int nw;
         std::tie(data, nw) = entry.getData(subjectDataStore);
 
-        MLDB::Bit_Extractor<uint32_t> extractor(data);
+        BitExtractor extractor(data);
 
         // Skip the behavior table to get to the timestamp table
         extractor.advance(entry.numBehaviorTableBits());
@@ -963,11 +969,11 @@ getEventTable(SI subj) const
         cerr << "entry.countBits = " << entry.countBits << endl;
 #endif
 
-        const uint32_t * data;
+        const uint32_le * data;
         int nw;
         std::tie(data, nw) = entry.getData(subjectDataStore);
 
-        MLDB::Bit_Extractor<uint32_t> extractor(data);
+        BitExtractor extractor(data);
 
         // Skip the behavior table
         extractor.advance(entry.numBehaviorTableBits());
@@ -981,11 +987,11 @@ getEventTable(SI subj) const
     else {
         const SubjectIndexEntry2 & entry = subjectIndex2[subj].value;
 
-        const uint32_t * data;
+        const uint32_le * data;
         int nw;
         std::tie(data, nw) = entry.getData(subjectDataStore);
 
-        MLDB::Bit_Extractor<uint32_t> extractor(data);
+        BitExtractor extractor(data);
 
         // Skip the behavior table and the timestamp table
         extractor.advance(entry.numBehaviorTableBits()
@@ -1230,12 +1236,12 @@ getSubjectIndexImplTmpl(SH subjectHash, const SubjectIndex & subjectIndex) const
     }
 
     size_t indexOffset = rangeStart * numSHPerMark;
-    uint64_t firstSH = subjectIndex[indexOffset].key.hash();
+    uint64_t firstSH = SH(subjectIndex[indexOffset].key).hash();
 
     uint64_t lastSH;
     if (rangeStart < subjectMarks.size() - 1) {
         size_t lastIdx = (rangeStart + 1) * numSHPerMark;
-        lastSH = subjectIndex[lastIdx].key.hash();
+        lastSH = SH(subjectIndex[lastIdx].key).hash();
     }
     else {
         lastSH = lastSubjectHash;
@@ -1245,34 +1251,33 @@ getSubjectIndexImplTmpl(SH subjectHash, const SubjectIndex & subjectIndex) const
        of indexes deduced above to the range of corresponding SH values. When
        the hashes are perfectly distributed, we should be able to hit the
        right entry nearly straight on with a direct lookup. */
-    double factor = double(numSHPerMark-1) / (lastSH - firstSH);
+    double shRange = lastSH - firstSH;
+    if (shRange == 0)
+        shRange = 1;
+    double factor = double(numSHPerMark-1) / shRange;
     //double propn = subjectHash * factor;
     auto subjectDelta = subjectHash.hash() - firstSH;
+    uint64_t scaledDelta = safely_clamped(subjectDelta * factor);
     int64_t testIndex
-        = std::min<int64_t>(sz - 1, indexOffset + (subjectDelta * factor));
-    if (testIndex < 0)
-        testIndex = 0;
+        = std::min<int64_t>(sz - 1, indexOffset + scaledDelta);
+    testIndex = std::max<int64_t>(0, testIndex);
 
     /* We refine the result in case of a miss by another interpolation based
      * on the difference with the actual result. */
     SH atIndex = subjectIndex[testIndex].key;
-    int64_t diff = (int64_t)subjectHash - (int64_t)atIndex;
-    int offBy = diff * factor;
-    testIndex = testIndex + offBy;
-    if (testIndex < 0) {
-        testIndex = 0;
-    }
-    else if (testIndex > sz - 1) {
-        testIndex = sz - 1;
-    }
+    int64_t diff = subjectHash - atIndex;
+    int offBy = safely_clamped(diff * factor);
+    __builtin_add_overflow(testIndex, offBy, &testIndex);  // testIndex += offBy unless it causes an overflow
+    testIndex = std::min<int64_t>(sz - 1, testIndex);
+    testIndex = std::max<int64_t>(0, testIndex);
 
     /* We find the final position by adjusting "testIndex" one step at a time. */
-    while (testIndex < (sz-1) && subjectIndex[testIndex].key < subjectHash)
+    while (testIndex < (sz-1) && SH(subjectIndex[testIndex].key) < subjectHash)
         ++testIndex;
-    while (testIndex > 0 && subjectIndex[testIndex].key > subjectHash)
+    while (testIndex > 0 && SH(subjectIndex[testIndex].key) > subjectHash)
         --testIndex;
     
-    if (subjectIndex[testIndex].key != subjectHash)
+    if (SH(subjectIndex[testIndex].key) != subjectHash)
         testIndex = -1;
 
     return testIndex;
@@ -1379,12 +1384,12 @@ getBehaviorSubjectCount(BI beh, SH maxSubject, Precision p) const
     if (maxSubject.isMax())
         return behaviorStats[beh].subjectCount;
 
-    const uint32_t * data = behaviorToSubjects + behaviorToSubjectsIndex[beh];
+    const uint32_le * data = behaviorToSubjects + behaviorToSubjectsIndex[beh];
 
     int len = behaviorStats[beh].subjectCount;
     int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
-    typedef MLDB::BitArrayIterator<uint32_t> BitArrayIterator;
+    typedef MLDB::BitArrayIterator<uint32_t, uint32_le> BitArrayIterator;
 
     BitArrayIterator
         start(data, numSubjectBits, 0),
@@ -1407,12 +1412,12 @@ std::vector<SH>
 MappedBehaviorDomain::
 getSubjectHashes(BI beh, SH maxSubject, bool sorted) const
 {
-    const uint32_t * data = behaviorToSubjects + behaviorToSubjectsIndex[beh];
+    const uint32_le * data = behaviorToSubjects + behaviorToSubjectsIndex[beh];
 
     int len = getBehaviorSubjectCount(beh);
     int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
-    MLDB::Bit_Extractor<uint32_t> extractor(data);
+    BitExtractor extractor(data);
 
     vector<SH> result;
 
@@ -1460,7 +1465,7 @@ getSubjectHashesAndTimestamps(BI index, SH maxSubject, bool sorted) const
 
     auto stats = getBehaviorStats(index, BS_EARLIEST | BS_SUBJECT_COUNT);
 
-    const uint32_t * subjectData
+    const uint32_le * subjectData
         = behaviorToSubjects + behaviorToSubjectsIndex[index];
 
     bool hasTimestamps = behaviorToSubjectTimestamps != 0;
@@ -1469,7 +1474,7 @@ getSubjectHashesAndTimestamps(BI index, SH maxSubject, bool sorted) const
     if (hasTimestamps)
         offset = behaviorToSubjectTimestampsIndex[index];
 
-    const uint32_t * subjectTimestampData
+    const uint32_le * subjectTimestampData
         = behaviorToSubjectTimestamps + offset;
 
     //cerr << "index = " << index << " offset = " << offset
@@ -1478,7 +1483,7 @@ getSubjectHashesAndTimestamps(BI index, SH maxSubject, bool sorted) const
 
     uint64_t timestampBase = 0;
     int numTimestampBits = 0;
-    MLDB::Bit_Extractor<uint32_t> timeExtractor(subjectTimestampData);
+    BitExtractor timeExtractor(subjectTimestampData);
 
     if (hasTimestamps) {
         Date earliest = stats.earliest;
@@ -1491,7 +1496,7 @@ getSubjectHashesAndTimestamps(BI index, SH maxSubject, bool sorted) const
 
     int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
-    MLDB::Bit_Extractor<uint32_t> extractor(subjectData);
+    BitExtractor extractor(subjectData);
 
     for (unsigned i = 0;  i < stats.subjectCount;  ++i) {
         uint32_t sub;
@@ -1536,7 +1541,7 @@ forEachBehaviorSubject(BH beh,
 
     auto stats = getBehaviorStats(BI(index), BS_EARLIEST | BS_SUBJECT_COUNT);
 
-    const uint32_t * subjectData
+    const uint32_le * subjectData
         = behaviorToSubjects + behaviorToSubjectsIndex[index];
 
     bool hasTimestamps = behaviorToSubjectTimestamps != 0;
@@ -1547,7 +1552,7 @@ forEachBehaviorSubject(BH beh,
     if (hasTimestamps)
         offset = behaviorToSubjectTimestampsIndex[index];
 
-    const uint32_t * subjectTimestampData
+    const uint32_le * subjectTimestampData
         = behaviorToSubjectTimestamps + offset;
 
     //cerr << "index = " << index << " offset = " << offset
@@ -1556,7 +1561,7 @@ forEachBehaviorSubject(BH beh,
 
     uint64_t timestampBase = 0;
     int numTimestampBits = 0;
-    MLDB::Bit_Extractor<uint32_t> timeExtractor(subjectTimestampData);
+    BitExtractor timeExtractor(subjectTimestampData);
 
     if (hasTimestamps) {
         Date earliest = stats.earliest;
@@ -1569,7 +1574,7 @@ forEachBehaviorSubject(BH beh,
 
     int numSubjectBits = MLDB::highest_bit(md->numSubjects - 1, -1) + 1;
 
-    MLDB::Bit_Extractor<uint32_t> extractor(subjectData);
+    BitExtractor extractor(subjectData);
 
     for (unsigned i = 0;  i < stats.subjectCount;  ++i) {
         uint32_t sub;
@@ -1810,15 +1815,15 @@ coIterateBehaviorsScan(BI behi1, BI behi2,
 
     auto getExtractor = [&] (BI beh)
         {
-            const uint32_t * data
+            const uint32_le * data
             = behaviorToSubjects
             + behaviorToSubjectsIndex[beh];
 
-            return MLDB::Bit_Extractor<uint32_t>(data);
+            return BitExtractor(data);
         };
 
-    MLDB::Bit_Extractor<uint32_t> extractor1 = getExtractor(behi1);
-    MLDB::Bit_Extractor<uint32_t> extractor2 = getExtractor(behi2);
+    BitExtractor extractor1 = getExtractor(behi1);
+    BitExtractor extractor2 = getExtractor(behi2);
 
     int idx1 = 0, len1 = e1.subjectCount;
     uint32_t sub1, sub2;
@@ -1899,20 +1904,20 @@ coIterateBehaviorsLookup(BI behi1, BI behi2,
 
     auto getExtractor = [&] (BI beh)
         {
-            const uint32_t * data
+            const uint32_le * data
             = behaviorToSubjects
             + behaviorToSubjectsIndex[beh];
 
-            return MLDB::Bit_Extractor<uint32_t>(data);
+            return BitExtractor(data);
         };
 
-    MLDB::Bit_Extractor<uint32_t> extractor2 = getExtractor(behi2);
+    BitExtractor extractor2 = getExtractor(behi2);
     int len2 = e2.subjectCount;
 
-    typedef MLDB::BitArrayIterator<uint32_t> BitArrayIterator;
+    typedef MLDB::BitArrayIterator<uint32_t, uint32_le> BitArrayIterator;
 
     int len1 = e1.subjectCount;
-    const uint32_t * data1
+    const uint32_le * data1
         = behaviorToSubjects
         + behaviorToSubjectsIndex[behi1];
 

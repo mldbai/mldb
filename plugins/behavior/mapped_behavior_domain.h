@@ -10,6 +10,7 @@
 #include "behavior_domain.h"
 #include "mapped_value.h"
 #include "mldb/arch/bit_range_ops.h"
+#include "mldb/arch/endian.h"
 
 
 namespace MLDB {
@@ -25,6 +26,49 @@ namespace MLDB {
 #  define MLDB_PACKED_IF_GCC 
 #endif
 
+using BH_le = LittleEndian<BH>;
+using SH_le = LittleEndian<SH>;
+
+template<>
+struct LittleEndian<Date> {
+
+    LittleEndian(Date d = Date())
+        : val(d.secondsSinceEpoch())
+    {
+    }
+
+    LittleEndian & operator = (const Date & date)
+    {
+        val = date.secondsSinceEpoch();
+        return *this;
+    }
+
+    operator Date () const { return Date::fromSecondsSinceEpoch(val); }
+
+    LittleEndian<double> val;
+} MLDB_PACKED;
+
+using Date_le = LittleEndian<Date>;
+
+inline BH host_to_le(BH h)
+{
+    return BH(host_to_le(h.index()));
+}
+
+inline BH le_to_host(BH h)
+{
+    return BH(le_to_host(h.index()));
+}
+
+inline SH host_to_le(SH h)
+{
+    return SH(host_to_le(h.index()));
+}
+
+inline SH le_to_host(SH h)
+{
+    return SH(le_to_host(h.index()));
+}
 
 /*****************************************************************************/
 /* MAPPED BEHAVIOR DOMAIN                                                   */
@@ -54,30 +98,19 @@ struct MappedBehaviorDomain: public BehaviorDomain {
         NOTE: this version of the structure is for reading of legacy files.
     */
     struct SubjectIndexEntry1 {
-        SubjectIndexEntry1()
-            : bits1(0), bits2(0)
-        {
-        }
+        struct {
+            uint32_t offsetLow;        ///< Offset in file
 
-        union {
-            struct {
-                uint32_t offsetLow;        ///< Offset in file
+            uint32_t earliestTime:27;  ///< Offset of earliest timestamp
+            uint32_t behBits:5;        ///< Number of bits in beh number
 
-                uint32_t earliestTime:27;  ///< Offset of earliest timestamp
-                uint32_t behBits:5;        ///< Number of bits in beh number
+            uint32_t numBehaviors:27; ///< Total number of beh events
+            uint32_t indexCountBits:5; ///< 
 
-                uint32_t numBehaviors:27; ///< Total number of beh events
-                uint32_t indexCountBits:5; ///< 
-
-                uint32_t numDistinctBehaviors:19;
-                uint32_t version:3;
-                uint32_t timeBits:5; ///< Num bits used for time offset
-                uint32_t countBits:5;
-            };
-            struct {
-                uint64_t bits1;
-                uint64_t bits2;
-            };
+            uint32_t numDistinctBehaviors:19;
+            uint32_t version:3;
+            uint32_t timeBits:5; ///< Num bits used for time offset
+            uint32_t countBits:5;
         };
 
         /** Number of bits in the index part (with the behavior IDs and their
@@ -92,20 +125,12 @@ struct MappedBehaviorDomain: public BehaviorDomain {
         uint32_t numWords() const;
 
         /** Get the data for the given word. */
-        std::pair<const uint32_t *, uint32_t>
-        getData(const uint32_t * data) const;
+        std::pair<const uint32_le *, uint32_t>
+        getData(const uint32_le * data) const;
 
         uint64_t offset() const
         {
             return offsetLow;
-        }
-
-        void setOffset(uint64_t newOffset)
-        {
-            offsetLow = newOffset;
-
-            if (offset() != newOffset)
-                throw MLDB::Exception("error setting offset");
         }
 
         uint64_t numBehaviorTableBits() const
@@ -118,7 +143,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
         {
             return MLDB::highest_bit(numDistinctBehaviors - 1, -1) + 1;
         }
-    } MLDB_PACKED_IF_GCC;
+    } MLDB_PACKED;
 
     struct SubjectIndexEntry2 {
         SubjectIndexEntry2()
@@ -180,8 +205,8 @@ struct MappedBehaviorDomain: public BehaviorDomain {
         uint32_t numWords() const;
 
         /** Get the data for the given word. */
-        std::pair<const uint32_t *, uint32_t>
-        getData(const uint32_t * data) const;
+        std::pair<const uint32_le *, uint32_t>
+        getData(const uint32_le * data) const;
 
         uint64_t numBehaviorTableBits() const;
 
@@ -203,7 +228,7 @@ struct MappedBehaviorDomain: public BehaviorDomain {
                 return MLDB::highest_bit(numDistinctTimestamps - 1, -1) + 1;
             else return timeBits;
         }
-    }  MLDB_PACKED_IF_GCC;
+    }  MLDB_PACKED;
 
     typedef SubjectIndexEntry2 SubjectIndexEntry;
 
@@ -428,47 +453,42 @@ struct MappedBehaviorDomain: public BehaviorDomain {
                                 const OnBehaviors & onBehaviors) const;
 
     struct Metadata {
-        uint64_t magic = 0;
-        uint64_t version = 0;
-        uint64_t behaviorIndexOffset = 0;
-        uint64_t behaviorIdOffset = 0;
-        uint64_t behaviorIdIndexOffset = 0;
-        uint64_t behaviorInfoOffset = 0;
-        uint64_t behaviorToSubjectsIndexOffset = 0;
-        uint64_t behaviorSubjectsOffset = 0;
-        uint64_t subjectDataOffset = 0;
-        uint64_t subjectIndexOffset = 0;
-        uint64_t earliest = 0, latest = 0;
-        Date     nominalStart;  ///< Nominal start time (seconds since UTC)
-        Date     nominalEnd;    ///< Nominal end time (seconds since UTC)
-        uint32_t numBehaviors = 0;
-        uint32_t numSubjects = 0;
-        uint32_t minSubjects = 0;
-        double   timeQuantum = 0;
-        uint64_t subjectIdDataOffset = 0;
-        uint64_t subjectIdIndexOffset = 0;
-        uint64_t behaviorToSubjectTimestampsIndexOffset = 0;
-        uint64_t behaviorToSubjectTimestampsOffset = 0;
-        uint64_t idSpaceDeprecated = 0;
-        uint64_t fileMetadataOffset = 0;
-        uint64_t totalEventsRecorded = 0;
-        uint64_t forExpansion[504] = {0};
+        uint64_le magic = 0;
+        uint64_le version = 0;
+        uint64_le behaviorIndexOffset = 0;
+        uint64_le behaviorIdOffset = 0;
+        uint64_le behaviorIdIndexOffset = 0;
+        uint64_le behaviorInfoOffset = 0;
+        uint64_le behaviorToSubjectsIndexOffset = 0;
+        uint64_le behaviorSubjectsOffset = 0;
+        uint64_le subjectDataOffset = 0;
+        uint64_le subjectIndexOffset = 0;
+        uint64_le earliest = 0, latest = 0;
+        Date_le   nominalStart;  ///< Nominal start time (seconds since UTC)
+        Date_le   nominalEnd;    ///< Nominal end time (seconds since UTC)
+        uint32_le numBehaviors = 0;
+        uint32_le numSubjects = 0;
+        uint32_le minSubjects = 0;
+        uint32_le unused1 = 0;
+        double_le timeQuantum = 0;
+        uint64_le subjectIdDataOffset = 0;
+        uint64_le subjectIdIndexOffset = 0;
+        uint64_le behaviorToSubjectTimestampsIndexOffset = 0;
+        uint64_le behaviorToSubjectTimestampsOffset = 0;
+        uint64_le idSpaceDeprecated = 0;
+        uint64_le fileMetadataOffset = 0;
+        uint64_le totalEventsRecorded = 0;
+        uint64_le forExpansion[504] = {0};
     };
 
     /** This is the format into which behavior stats are mapped. */
     struct BehaviorStatsFormat {
-        BehaviorStatsFormat()
-            : hash(0), unused(0), subjectCount(0),
-              earliest(Date::positiveInfinity()),
-              latest(Date::negativeInfinity())
-        {
-        }
-    
-        BH       hash;         // 64 bit hash of behavior number
-        uint64_t unused;       // Used to be count
-        uint32_t subjectCount; // Number of subjects with this behavior
-        uint32_t unused2;      // Gap in structure
-        Date earliest, latest;
+        BH_le     hash = BH(0);     // 64 bit hash of behavior number
+        uint64_le unused = 0;       // Used to be count
+        uint32_le subjectCount = 0; // Number of subjects with this behavior
+        uint32_le unused2 = 0;      // Gap in structure
+        Date_le earliest = Date::positiveInfinity();
+        Date_le latest   = Date::negativeInfinity();
     
         std::pair<Date, Date> timeRange() const
         {
@@ -478,25 +498,25 @@ struct MappedBehaviorDomain: public BehaviorDomain {
 
     MLDB::File_Read_Buffer file;
 
-    MappedValue<Metadata> md;
-    MappedSortedKeyValueArray<BH, uint32_t> behaviorIndex; /// beh -> behindex
-    MappedArray<uint32_t> behaviorIdIndex;     /// behindex -> idoffset
+    MappedValue<Metadata> md;  // unaligned
+    MappedSortedKeyValueArray<BH_le, uint32_le> behaviorIndex; /// beh -> behindex
+    MappedValueArray<uint32_le> behaviorIdIndex;     /// behindex -> idoffset
     const char * behaviorIdStore;
     size_t behaviorIdStoreSize;
     MappedArray<BehaviorStatsFormat> behaviorStats; /// behindex -> info
-    const uint32_t * subjectDataStore;
-    MappedSortedKeyValueArray<SH, SubjectIndexEntry1> subjectIndex1; /// subjectid -> info, dataoffset
-    MappedSortedKeyValueArray<SH, SubjectIndexEntry2> subjectIndex2; /// subjectid -> info, dataoffset
+    const uint32_le * subjectDataStore;
+    MappedSortedKeyValueArray<SH_le, SubjectIndexEntry1> subjectIndex1; /// subjectid -> info, dataoffset
+    MappedSortedKeyValueArray<SH_le, SubjectIndexEntry2> subjectIndex2; /// subjectid -> info, dataoffset
     std::vector<uint64_t> subjectMarks; // range starts for the subject index
     uint64_t lastSubjectHash;
     size_t numSHPerMark;
-    const uint32_t * behaviorToSubjects;
-    MappedArray<uint32_t> behaviorToSubjectsIndex;
+    const uint32_le * behaviorToSubjects;
+    MappedValueArray<uint32_le> behaviorToSubjectsIndex;
 
-    const uint32_t * behaviorToSubjectTimestamps;
-    MappedArray<uint32_t> behaviorToSubjectTimestampsIndex;
+    const uint32_le * behaviorToSubjectTimestamps;
+    MappedValueArray<uint32_le> behaviorToSubjectTimestampsIndex;
 
-    MappedArray<uint32_t> subjectIdIndex;
+    MappedValueArray<uint32_le> subjectIdIndex;
     const char * subjectIdStore;
     size_t subjectIdStoreSize;
     std::vector<size_t> subjectIdAdjustOffsets;
