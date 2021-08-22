@@ -14,6 +14,7 @@
 #include "mldb/plugins/behavior/id.h"
 #include "mldb/compiler/compiler.h"
 #include "mldb/arch/demangle.h"
+#include "mldb/arch/endian.h"
 #include <algorithm>
 
 
@@ -30,11 +31,6 @@ uint64_t readTrailingOffset(const MLDB::File_Read_Buffer & buf);
 template<typename T>
 struct MappedValue {
 
-    MappedValue()
-        : ptr(0)
-    {
-    }
-
     void init(const char * start, uint64_t offset)
     {
         ptr = reinterpret_cast<const T *>(start + offset);
@@ -50,9 +46,10 @@ struct MappedValue {
 
     const T operator * () const
     {
+        return *ptr;
         T result;
-        std::memmove(&result, ptr, sizeof(T));
-        return result;
+        //std::memcpy(&result, ptr, sizeof(T));
+        //return result;
     }
 
     const T * operator -> () const
@@ -60,7 +57,17 @@ struct MappedValue {
         return ptr;
     }
 
-    const T * ptr;
+    const T * ptr = nullptr;
+};
+
+template<typename T>
+struct remove_endian {
+    using type = T;
+};
+
+template<typename T2>
+struct remove_endian<MLDB::LittleEndian<T2>> {
+    using type = T2;
 };
 
 
@@ -70,10 +77,6 @@ struct MappedValue {
 
 template<typename T>
 struct MappedArray {
-    MappedArray()
-        : ptr(0), len(0)
-    {
-    }
 
     void init(const MLDB::File_Read_Buffer & buf,
               uint64_t offset,
@@ -89,25 +92,74 @@ struct MappedArray {
         this->len = len;
     }
 
-    const T operator [] (int index) const
+    const T & operator [] (int index) const
     {
         if (index < 0 || index >= len)
             throw MLDB::Exception("accessing invalid index in mapped array: "
                                 "%d not in [0-%d]", index, len);
-        T result;
-        std::memmove(&result, ptr + index, sizeof(T));
-        return result;
+        return ptr[index];
+        //T result;
+        //std::memcpy(&result, ptr + index, sizeof(T));
+        //return result;
     }
     
-    const T at(int index) const
+    const T & at(int index) const
     {
         return operator [] (index);
     }
 
     size_t size() const { return len; }
     
-    const T * ptr;
-    uint32_t len;
+    const T * ptr = nullptr;
+    uint32_t len = 0;
+
+    typedef const T * const_iterator;
+    const_iterator begin() const { return ptr; }
+    const_iterator end() const { return ptr + len; }
+};
+
+
+/*****************************************************************************/
+/* MAPPED VALUE ARRAY                                                        */
+/*****************************************************************************/
+
+template<typename T, typename V = typename remove_endian<T>::type>
+struct MappedValueArray {
+
+    void init(const MLDB::File_Read_Buffer & buf,
+              uint64_t offset,
+              int len)
+    {
+        this->ptr = reinterpret_cast<const T *>(buf.start() + offset);
+        this->len = len;
+    }
+
+    void init(const char * start, uint64_t offset, int len)
+    {
+        this->ptr = reinterpret_cast<const T *>(start + offset);
+        this->len = len;
+    }
+
+    V operator [] (int index) const
+    {
+        if (index < 0 || index >= len)
+            throw MLDB::Exception("accessing invalid index in mapped array: "
+                                "%d not in [0-%d]", index, len);
+        return ptr[index];
+        //T result;
+        //std::memcpy(&result, ptr + index, sizeof(T));
+        //return result;
+    }
+    
+    V at(int index) const
+    {
+        return operator [] (index);
+    }
+
+    size_t size() const { return len; }
+    
+    const T * ptr = nullptr;
+    uint32_t len = 0;
 
     typedef const T * const_iterator;
     const_iterator begin() const { return ptr; }
@@ -184,7 +236,9 @@ struct MappedSortedArray
 /* KV ENTRY                                                                  */
 /*****************************************************************************/
 
-template<typename K, typename V>
+template<typename K, typename V,
+         typename KC = typename remove_endian<K>::type,
+         typename VC = typename remove_endian<V>::type>
 struct KVEntry {
 
     K key;
@@ -195,12 +249,12 @@ struct KVEntry {
         return key < other.key;
     }
 
-    static K extractKey(K key)
+    static KC extractKey(K key)
     {
         return key;
     }
 
-    static K extractKey(const KVEntry & kv)
+    static KC extractKey(const KVEntry & kv)
     {
         return kv.key;
     }

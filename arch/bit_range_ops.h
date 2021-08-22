@@ -299,6 +299,8 @@ MLDB_ALWAYS_INLINE signed long long fixup_extract(signed long long e, shift_t bi
 
 template<typename Data>
 struct Simple_Mem_Buffer {
+    using DataPtr = const Data *;
+
     Simple_Mem_Buffer(const Data * data)
         : data(data)
     {
@@ -315,6 +317,8 @@ struct Simple_Mem_Buffer {
 
 template<typename Data>
 struct Buffered_Mem_Buffer {
+    using DataPtr = const Data *;
+
     Buffered_Mem_Buffer()
         : data(0), b0(0), b1(0)
     {
@@ -355,12 +359,14 @@ struct Buffered_Mem_Buffer {
 
 template<typename Data, class MemBuf = Simple_Mem_Buffer<Data> >
 struct Bit_Buffer {
+    using DataPtr = typename MemBuf::DataPtr;
+
     Bit_Buffer()
         : bit_ofs(0)
     {
     }
 
-    Bit_Buffer(const Data * data)
+    Bit_Buffer(DataPtr data)
         : data(data), bit_ofs(0)
     {
     }
@@ -373,10 +379,10 @@ struct Bit_Buffer {
         Data result;
         if (bit_ofs + bits <= 8 * sizeof(Data))
             // TODO: simplify
-            result = extract_bit_range(data.curr(), Data(0), bit_ofs, bits);
+            result = extract_bit_range(Data(data.curr()), Data(0), bit_ofs, bits);
         else
             result
-                = extract_bit_range(data.curr(), data.next(), bit_ofs, bits);
+                = extract_bit_range(Data(data.curr()), Data(data.next()), bit_ofs, bits);
         advance(bits);
         return result;
     }
@@ -390,7 +396,7 @@ struct Bit_Buffer {
     */
     Data extractFast(shift_t bits)
     {
-        Data result = extract_bit_range(data.curr(), data.next(), bit_ofs, bits);
+        Data result = extract_bit_range(Data(data.curr()), Data(data.next()), bit_ofs, bits);
         advance(bits);
         return result;
     }
@@ -405,12 +411,12 @@ struct Bit_Buffer {
         Data result;
         if (bit_ofs + bits <= DBITS) {
             shift_t shift = DBITS - (bit_ofs + bits);
-            result = extract_bit_range(data.curr(), Data(0), shift, bits);
+            result = extract_bit_range(Data(data.curr()), Data(0), shift, bits);
         }
         else {
             shift_t shift = (DBITS * 2) - (bit_ofs + bits);
             result = extract_bit_range(
-                    data.next(), data.curr(), shift, bits);
+                    Data(data.next()), Data(data.curr()), shift, bits);
         }
 
         advance(bits);
@@ -467,6 +473,8 @@ private:
 template<typename Data, typename Buffer = Bit_Buffer<Data> >
 struct Bit_Extractor {
 
+    using DataPtr = typename Buffer::DataPtr;
+
     MLDB_COMPUTE_METHOD
     Bit_Extractor()
         : bit_ofs(0)
@@ -474,7 +482,7 @@ struct Bit_Extractor {
     }
 
     MLDB_COMPUTE_METHOD
-    Bit_Extractor(const Data * data)
+    Bit_Extractor(DataPtr data)
         : buf(data), bit_ofs(0)
     {
     }
@@ -649,7 +657,7 @@ struct BitArrayIterator
 
     Value dereference() const
     {
-        MLDB::Bit_Extractor<Array> extractor(data);
+        MLDB::Bit_Extractor<Value, Bit_Buffer<Value, Simple_Mem_Buffer<Array>>> extractor(data);
         extractor.advance(index * numBits);
         return extractor.template extract<Value>(numBits);
     }
