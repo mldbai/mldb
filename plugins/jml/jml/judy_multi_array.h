@@ -203,7 +203,7 @@ struct judy_multi_array_base {
 
     const_iterator find(const Key & key) const
     {
-        unsigned long key_section = Extractor().template get<MaxLevel-1>(key);
+        unsigned long key_section = Extractor().template get<Level-1>(key);
         auto it = array.find(key_section);
         return const_iterator(it);
     }
