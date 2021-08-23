@@ -260,7 +260,7 @@ wait_on_address(std::atomic<uint32_t> & i, uint32_t value,
 #if __APPLE__
 	uint64_t usecs = 0;
 	int rc;
-	if (nsecs == INFINITY) {
+	if (timeout >= maxTimeout) {
 		return ulock_wait(address, value, 0, flags);
 	}
 	do {
@@ -271,7 +271,7 @@ wait_on_address(std::atomic<uint32_t> & i, uint32_t value,
 	return rc;
 #elif __linux__
 	(void)flags;
-	if (nsecs != INFINITY) {
+	if (timeout < maxTimeout) {
 	    struct timespec ttimeout = {0, 0};
 	    ttimeout.tv_sec = nsecs / 1000000000;
 	    ttimeout.tv_nsec = (nsecs - ttimeout.tv_sec * 1000000000);
