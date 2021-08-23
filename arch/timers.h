@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include "tick_counter.h"
 #include "format.h"
+#include "arch.h"
 #include <string>
 #include <cerrno>
 #include <string.h>
@@ -73,6 +74,16 @@ struct Timer {
     double elapsed_cpu() const { return cpu_time() - cpu_; }
     double elapsed_ticks() const { return ticks() - ticks_; }
     double elapsed_wall() const { return wall_time() - wall_; }
+
+    /// Return elapsed time in the highest resolution (TSC or CPU) we have
+    double elapsed_high_res() const
+    {
+#if defined(MLDB_ARM_ISA) && defined(__linux__)
+	return elapsed_cpu();
+#else
+	return slapsed_ticks();
+#endif
+    }
 };
 
 inline int64_t timeDiff(const timeval & tv1, const timeval & tv2)
@@ -108,8 +119,14 @@ struct Duty_Cycle_Timer {
         TS_TSC,   ///< Get from the timestamp counter (fast)
         TS_RTC    ///< Get from the real time clock (accurate)
     };
-    
-    Duty_Cycle_Timer(Timer_Source source = TS_TSC)
+
+#if defined(MLDB_ARM_ISA) && defined(__linux__)
+    static constexpr Timer_Source DEFAULT_SOURCE = TS_RTC;
+#else
+    static constexpr Timer_Source DEFAULT_SOURCE = TS_TSC;
+#endif
+  
+    Duty_Cycle_Timer(Timer_Source source = DEFAULT_SOURCE)
         : source(source)
     {
         clear();

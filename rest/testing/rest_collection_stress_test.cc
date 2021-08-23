@@ -329,7 +329,7 @@ BOOST_AUTO_TEST_CASE( stress_test_collection_integrity )
                 std::string key = "item";
                 
                 if (!collection.replaceEntry(key ,
-                                             std::make_shared<double>(timer.elapsed_ticks()),
+                                             std::make_shared<double>(timer.elapsed_high_res()),
                                              false /* mustBeNewEntry */)) {
                     cerr << "failed to add the entry" << endl;
                     BOOST_ERROR("failed to replace an entry");
