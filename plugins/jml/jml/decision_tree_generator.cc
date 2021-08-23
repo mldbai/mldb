@@ -353,12 +353,12 @@ struct Tree_Accum {
 
     W best_w;
     float best_arg;
-    float best_z;
+    std::atomic<float> best_z;  // read without the lock and strictly decrementing
     Feature best_feature;
 
     bool has_result() const { return best_feature != MISSING_FEATURE; }
 
-    Lock lock;
+    std::mutex lock;
 
     const Feature_Space & fs;
 
@@ -416,10 +416,17 @@ struct Tree_Accum {
         if (tracer || print_feat)
             tracer("tree accum", 4) << w.print() << endl;
         
-        if (z < best_z) {
-            Guard guard(lock);
+        auto isBetter = [&] ()
+        {
+            // Break ties in a consistent manner: first compare z, then feature, then argument
+            // so that the output is always deterministic
+            return less_all(z, best_z.load(), feature, best_feature, arg, best_arg);
+        };
 
-            if (z < best_z) {
+        if (z <= best_z) {  // first check only checks z to avoid taking the lock
+            std::unique_lock<std::mutex> guard(lock);
+
+            if (isBetter()) {
 
 #if 0 // MLDB-784... sparse features can have a non-finite split                
                 if (!isfinite(arg)) {  // will never happen

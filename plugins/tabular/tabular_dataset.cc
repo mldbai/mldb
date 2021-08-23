@@ -71,13 +71,17 @@ struct MutablePathIndex {
             maxChunkIndex = std::max(maxChunkIndex, indexInChunk);
         }
 
-        void commit()
+        // Returns number of rows indexed
+        size_t commit()
         {
+            size_t result = 0;
+
             for (size_t i = 0;  i < INDEX_SHARDS;  ++i) {
                 size_t shard = (i + chunkNumber) % INDEX_SHARDS;
                 std::unique_lock<std::mutex> guard(owner->indexLock[shard]);
 
-                if (i == 0) {
+                // NOTE: shard == 0, not i == 0!
+                if (shard == 0) {
                     owner->maxChunkIndex
                         = std::max(owner->maxChunkIndex, maxChunkIndex);
                     owner->maxChunkNumber
@@ -90,7 +94,11 @@ struct MutablePathIndex {
                     owner->index[shard]
                         .emplace_back(hash, chunkNumber, indexInChunk);
                 }
+
+                result += toInsert[shard].size();
             }
+
+            return result;
         }
 
         std::vector<std::pair<uint64_t, uint32_t> > toInsert[INDEX_SHARDS];
@@ -110,6 +118,8 @@ struct MutablePathIndex {
     /// Index from hash to (chunk, indexInChunk)
     std::mutex indexLock[INDEX_SHARDS];
     std::vector<std::tuple<uint64_t, int, int> > index[INDEX_SHARDS];
+
+    // These are protected by indexLock[0]
     uint32_t maxChunkIndex = 0;
     uint32_t maxChunkNumber = 0;
 
@@ -173,6 +183,9 @@ struct PathIndexShard: public PathIndexMetadata {
 
         chunkBits = MLDB::highest_bit(numChunks, -1) + 1;
         offsetBits = MLDB::highest_bit(maxChunkSize - 1, -1) + 1;
+
+        ExcAssertGreater(chunkBits, 0);
+        ExcAssertGreater(offsetBits, 0);
 
         // Create a hash that's 50% full at the end, by doubling the
         // size.  We want to leave plenty of space since we handle
@@ -282,7 +295,7 @@ struct PathIndexShard: public PathIndexMetadata {
         compact_vector<std::pair<int, int>, 4> result;
         if (numEntries == 0)
             return result;
-        size_t bucket = hash * factor;
+        size_t bucket = getBucket(hash);
         while (entryIsOccupied(bucket)) {
             result.push_back(getEntry(bucket));
             ++bucket;
@@ -374,6 +387,8 @@ std::pair<PathIndex, std::vector<std::tuple<int, int, int, int> > >
 MutablePathIndex::
 freeze(MappedSerializer & serializer)
 {
+    //cerr << "freeze: maxChunkNumber " << maxChunkNumber << " maxChunkIndex " << maxChunkIndex << endl;
+
     PathIndex result;
     std::vector<std::tuple<int, int, int, int> >
         possibleCollisions[INDEX_SHARDS];
@@ -767,6 +782,7 @@ struct TabularDataset::TabularDataStore
             return getRowPathsT<RowHash>(start, limit);
         }
 
+        // ChunkNumber, IndexInChunk
         std::pair<int, int> tryLookupRow(const RowPath & rowName) const
         {
             auto chunks = rowIndex.pathPossibleChunks(rowName);
@@ -777,9 +793,36 @@ struct TabularDataset::TabularDataStore
                 Path storage;
                 if (indexInChunk < this->chunks[chunkNumber]->rowCount()
                     && this->chunks[chunkNumber]->getRowPath(indexInChunk, storage)
-                    == rowName)
+                        == rowName)
                     return {chunkNumber, indexInChunk};
             }
+#if 0
+            cerr << "tryLookupRow " << rowName << ": possible chunks " << chunks << " of " << chunks.size() << endl;
+            for (auto & c: chunks) {
+                int chunkNumber = c.first;
+                int indexInChunk = c.second;
+                cerr << "  trying " << chunkNumber << " " << indexInChunk << ": ";
+                if (indexInChunk >= this->chunks[chunkNumber]->rowCount()) {
+                    cerr << "ERRRO: indexInChunk " << indexInChunk << " >= chunk rowCount " << this->chunks[chunkNumber]->rowCount() << endl;
+                    continue;
+                }
+
+                Path storage;
+                auto & pathName = this->chunks[chunkNumber]->getRowPath(indexInChunk, storage);
+                cerr << pathName << " != " << rowName << endl;
+            }
+            cerr << "total rows " << rowCount << endl;
+            for (size_t i = 0;  i < this->chunks.size();  ++i) {
+                cerr << "chunk " << i << " has " << this->chunks[i]->rowCount() << " rows" << endl;
+                for (size_t j = 0;  j < this->chunks[i]->rowCount();  ++j) {
+                    Path storage;
+                    const Path & rowPath = this->chunks[i]->getRowPath(j, storage);
+                    if (rowPath == rowName) {
+                        cerr << "*** found at index " << j << " in chunk " << i << endl;
+                    }
+                }
+            }
+#endif
             return {-1,-1};
         }
     
@@ -1454,6 +1497,7 @@ struct TabularDataset::TabularDataStore
             // We create the row index in multiple chunks
 
             Timer rowIndexTimer;
+            std::atomic<uint64_t> rowsIndexed = 0;
 
             auto indexChunk = [&] (int chunkNum)
                 {
@@ -1468,7 +1512,7 @@ struct TabularDataset::TabularDataStore
                         recorder.record(rowName, j);
                     }
                 
-                    recorder.commit();
+                    rowsIndexed += recorder.commit();
                 };
         
             // NOTE: we currently re-index everything from the
@@ -1477,10 +1521,63 @@ struct TabularDataset::TabularDataStore
             // an important use case
             parallelMap(0, newState->chunks.size(), indexChunk);
 
+            // Verify that all of our rows were indexed
+            ExcAssertEqual(rowsIndexed, newState->rowCount);
+
+            // Verify the maxChunkIndex field
+            uint32_t maxChunkIndex = 0;
+            for (int chunkNum = 0;  chunkNum < newState->chunks.size();  ++chunkNum) {
+                if (newState->chunks[chunkNum]->rowCount())
+                    maxChunkIndex = std::max<uint32_t>(maxChunkIndex, newState->chunks[chunkNum]->rowCount() - 1);
+            }
+
+            ExcAssertEqual(index.maxChunkIndex, maxChunkIndex);
+            ExcAssertEqual(index.maxChunkNumber, newState->chunks.size() - 1);
+
             std::vector<std::tuple<int, int, int, int> > possibleCollisions;
             std::tie(newState->rowIndex, possibleCollisions)
                 = index.freeze(serializer);
 
+#if 0
+            // Verify that we find all of our rows
+            for (size_t i = 0;  i < newState->chunks.size();  ++i) {
+                auto & c = newState->chunks[i];
+                for (size_t j = 0;  j < c->rowCount();  ++j) {
+                    RowPath rowNameStorage;
+                    const RowPath & rowName = c->getRowPath(j, rowNameStorage);
+                    auto chunks = newState->rowIndex.pathPossibleChunks(rowName);
+
+                    bool found = false;
+                    for (auto & c: chunks) {
+                        auto chk = c.first;
+                        auto idx = c.second;
+
+                        if (chk == i && idx == j) {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        // index integrity problem... somehow we didn't find ours
+                        auto rowHash = rowName.hash();
+                        cerr << "NOT FOUND IN INDEX: " << rowName << " with hash " << rowHash << endl;
+                        cerr << "shard " << i << " should be " << MutablePathIndex::getShard(rowHash) << endl;
+                        cerr << "factor     " << newState->rowIndex.shards[i].factor << endl;
+                        cerr << "numEntries " << newState->rowIndex.shards[i].numEntries << endl;
+                        cerr << "chunkBits  " << (int)newState->rowIndex.shards[i].chunkBits << endl;
+                        cerr << "offsetBits " << (int)newState->rowIndex.shards[i].offsetBits << endl;
+                        cerr << "bucket " << newState->rowIndex.shards[i].getBucket(rowHash) << endl;
+                        for (size_t k = 0;  k < newState->rowIndex.shards[i].numEntries;  ++k) {
+                            auto entry = newState->rowIndex.shards[i].getEntry(k);
+                            cerr << "  entry " << k << ":" << entry.first << "=" << entry.second << endl;
+                        }
+                        ExcAssert(false);
+                    }
+                }
+            }
+
+#endif
             cerr << possibleCollisions.size() << " possible collisions"
                  << endl;
 
