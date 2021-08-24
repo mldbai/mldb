@@ -97,19 +97,68 @@ declare -x COMPILER_CACHE=./sccache
 
 ## Install MLDB's Python dependencies
 
+These are installed inside MLDB's virtual environment, not system-wide, and so won't interfere
+with the rest of the Python stuff that's going on in your system.
+
 ```
 make dependencies
 ```
 
 ## Compile MLDB
 
+This process is long.  You should use an argument to `-j` which is equal to the number of processors cores
+in your system; be aware however that some files require lots of memory to build (more than 500MB) and
+so you also need to ensure that your machine has sufficient RAM for the compilation.
+
 ```
 make -j6 -k compile
 ```
 
+It will take about 15 minutes on a relatively modern MacBook Pro.  You will see lots of output like this:
+
+```
+mldb/jml-build/clang.mk:13: building with clang++ version 12.0.5
+mldb/jml-build/python.mk:7: PYTHON_VERSION_DETECTED=3.9
+           [C++	 47kl  2.0M]		mldb/base/hash.cc
+                 [   0.0s  0.0G  0.0c ]	mldb/base/hash.cc
+                 [   0.0s  0.0G  0.0c ]	mldb/rest/testing/rest_request_binding_test.cc
+           [C++	 74kl  3.2M]		mldb/vfs_handlers/aws/testing/sns_mock_test.cc
+           [C++	 90kl  3.9M]		mldb/sql/testing/path_order_test.cc
+                 [   0.0s  0.0G  0.0c ]	mldb/vfs_handlers/aws/testing/sns_mock_test.cc
+           [C++	 85kl  3.7M]		mldb/sql/testing/path_benchmark.cc
+                 [   0.0s  0.0G  0.0c ]	mldb/sql/testing/path_order_test.cc
+           [C++	 86kl  3.7M]		mldb/sql/testing/eval_sql_test.cc
+...
+```
+
+*If you get a failure at this step*, please re-run with the extra option `verbose_build=1` in order to show
+the commands that were being run.  This will allow us to determine what caused the error:
+
+```
+make compile verbose_build=1
+```
+
 ## Run the test suite
+
+We run this with less jobs, as some of the tests load large data files and require a lot of time and memory
+to complete.  Sometimes a few tests will fail spuriously, which is why we run it twice, either because
+they took too much time (tests auto-fail after two minutes which can happen if the machine is loaded or
+not much memory is available), or due to bugs that make them sporadically fail (we are addressing those
+bugs, please let us know if you find one).
 
 ```
 make -j4 -k test || make -j4 -k test
 ```
 
+## Doing something useful with MLDB
+
+MLDB is currently being re-architected and rebuilt; as a result it's no longer being packaged as a
+stand-alone Docker container with integrated notebooks and a builtin REST API.  It's still possible
+to use it for interesting things from the command line, however.
+
+The best way to look at how to achieve something useful with MLDB is to look at the `testing` subdirectory,
+which contains a large number of integration tests which test out most of the functionality.  Typically
+I will write a script that I can run from the command-line.
+
+The documentation from an earlier version of MLDB is still available at https://docs.mldb.ai/; this will
+eventually be updated to point to the latest version.
