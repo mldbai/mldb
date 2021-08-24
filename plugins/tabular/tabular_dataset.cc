@@ -184,8 +184,8 @@ struct PathIndexShard: public PathIndexMetadata {
         chunkBits = MLDB::highest_bit(numChunks, -1) + 1;
         offsetBits = MLDB::highest_bit(maxChunkSize - 1, -1) + 1;
 
-        ExcAssertGreater(chunkBits, 0);
-        ExcAssertGreater(offsetBits, 0);
+        //ExcAssertGreater(chunkBits, 0);
+        //ExcAssertGreater(offsetBits, 0);
 
         // Create a hash that's 50% full at the end, by doubling the
         // size.  We want to leave plenty of space since we handle
