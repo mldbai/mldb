@@ -36,7 +36,7 @@ automatically available from the system, or installed here.  (We aim to make the
 in particular remove the dependency on `boost` eventually).
 
 ```
-brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.9 snappy v8 xz yaml-cpp
+brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.9 snappy v8 xz yaml-cpp libb2
 ```
 
 If your're on the Mac M1, some of the Python dependencies also require a Rust compiler to build:
@@ -45,32 +45,39 @@ If your're on the Mac M1, some of the Python dependencies also require a Rust co
 brew install rust
 ```
 
-We also need Python's `virtualenv` command:
+We also need Python's `virtualenv` command, and a couple of other system-wide Python packages
+that can't easily be installed into a virtualenv for various reasons:
 
 ```
-pip3 install virtualenv
+pip3 install virtualenv python-dateutil bottle requests
 ```
 
 ## Check out MLDB
 
 We first get MLDB from it's Git repository.  There are two ways to do it, depending upon if your machine is
-authenticated via its SSH key with GitHub.
+authenticated via its SSH key with GitHub (if you're not sure, choose the first).
 
-### If you're not on GitHub or your machine isn't authenticated via its SSH key (anyone)
+### 1: If you're not on GitHub or your machine isn't authenticated via its SSH key (anyone)
 
-In this case, you can build MLDB but you can't push changes back upstream:
+In this case, you can build MLDB but you can't push changes back upstream.
 
 ```
 git clone https://github.com/mldbai/mldb.git
 ```
 
-### If you're on GitHub and can access it via SSH (developers):
+### 2: If you're on GitHub and can access it via SSH (developers):
+
+In this case, you have access to the full set of GitHub functionality and can push code
+back to GitHub.
 
 ```
 git clone git@github.com:mldbai/mldb.git
 ```
 
 ## Change into the MLDB subdirectory
+
+The rest of the build instructions require you to have done this step and it's easy to
+forget, so don't!
 
 ```
 cd mldb
@@ -79,7 +86,7 @@ cd mldb
 ## Pull the submodules
 
 These are large: the data used for testing MLDB is about 100MB big, so it may take a while.
-We ask `git` to do four at a time in parallel in order to speed it up a bit.
+We ask `git` to do four submodules at a time in parallel in order to speed it up a bit.
 
 ```
 git submodule update --init --recursive --jobs=4
