@@ -81,7 +81,7 @@ struct Timer {
 #if defined(MLDB_ARM_ISA) && defined(__linux__)
 	return elapsed_cpu();
 #else
-	return slapsed_ticks();
+	return elapsed_ticks();
 #endif
     }
 };
