@@ -75,29 +75,6 @@ std::string hostname()
     return buf;
 }
 
-std::string fqdn_hostname(std::string const & port)
-{
-    std::string host = hostname();
-
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_CANONNAME;
-
-    struct addrinfo * info = 0;
-    int res = getaddrinfo(host.c_str(), port.c_str(), &hints, &info);
-    if (res != 0)
-        throw Exception(errno, "getaddrinfo: %s", gai_strerror(res));
-
-    if(!info)
-        throw Exception("fqdn_hostname(): no info");
-
-    std::string fqdn(info->ai_canonname);
-    freeaddrinfo(info);
-    return fqdn;
-}
-
 std::string now()
 {
     struct timeval tv;
