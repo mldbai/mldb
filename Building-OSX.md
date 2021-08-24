@@ -12,9 +12,10 @@ We test building MLDB on:
 
 * OSX Big Sur (11.4) on x86_64 (primary)
 * OSX Big Sur (11.4) on M1 (primary)
-* OSX High Sierra (10.13.6) on x86_64 (occasionally)
+* OSX Big Sur (11.2.3) on x86_64 (occasionally)
+* <strike>OSX High Sierra (10.13.6) on x86_64 (occasionally)</strike>(Homebrew no longer can install the dependencies)
 
-We use Homebrew to obtain the dependencies.
+We use Homebrew, an OSX package manager, to obtain the dependencies.
 
 ## Install Homebrew
 
@@ -69,12 +70,19 @@ git clone https://github.com/mldbai/mldb.git
 git clone git@github.com:mldbai/mldb.git
 ```
 
+## Change into the MLDB subdirectory
+
+```
+cd mldb
+```
+
 ## Pull the submodules
 
 These are large: the data used for testing MLDB is about 100MB big, so it may take a while.
+We ask `git` to do four at a time in parallel in order to speed it up a bit.
 
 ```
-git submodule update --init --recursive
+git submodule update --init --recursive --jobs=4
 ```
 
 ## Install the compilation cache (optional)
@@ -83,7 +91,7 @@ If you plan on doing lots of MLDB development, compilation times can be greatly 
 compilation cache.  For OSX, we use sccache.
 
 ```
-wget -q0 - https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-`uname -a`-darwin.gz | gzip -d > ./sccache
+curl -fsSL https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-`uname -m`-darwin.gz | gzip -d > ./sccache && chmod +x ./sccache
 declare -x COMPILER_CACHE=./sccache
 ```
 
