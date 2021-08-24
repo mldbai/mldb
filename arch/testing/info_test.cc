@@ -67,12 +67,3 @@ BOOST_AUTO_TEST_CASE( test_fd_to_filename )
     BOOST_CHECK_THROW(fd_to_filename(500), MLDB::Exception);
     BOOST_CHECK_THROW(fd_to_filename(-1), MLDB::Exception);
 }
-
-BOOST_AUTO_TEST_CASE( test_fqdn_hostname )
-{
-    auto host = hostname();
-    auto fqdn = fqdn_hostname("18142");
-    std::cerr << "host: " << host << std::endl;
-    std::cerr << "fqdn: " << fqdn << std::endl;
-}
-
