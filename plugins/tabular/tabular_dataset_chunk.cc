@@ -185,14 +185,14 @@ void
 TabularDatasetChunk::
 serialize(StructuredSerializer & serializer) const
 {
-    auto serializeAs = [&] (Utf8String name,
+    auto serializeAs = [&] (PathElement name,
                             const FrozenColumn & col)
         {
             col.serialize(*serializer.newStructure(name));
         };
     
     for (size_t i = 0;  i < columns.size();  ++i) {
-        serializeAs(to_string(i), *columns[i]);
+        serializeAs(i, *columns[i]);
     }
 
     if (!sparseColumns.empty()) {
@@ -204,6 +204,66 @@ serialize(StructuredSerializer & serializer) const
     serializeAs("rn", *rowNames);
     serializeAs("ts", *timestamps);
 }
+
+TabularDatasetChunk::
+TabularDatasetChunk(StructuredReconstituter & reconstituter)
+{
+    auto dir = reconstituter.getDirectory();
+
+    // How many columns are there?
+    ssize_t maxIndex = -1;
+    for (auto & entry: dir) {
+        using namespace std;
+        if (entry.name.isIndex())
+            maxIndex = std::max(maxIndex, entry.name.toIndex());
+    }
+
+    columns.resize(maxIndex + 1);
+
+    // Now do each one
+    for (auto & entry: dir) {
+        if (entry.name.isIndex()) {
+            ExcAssert(!columns.at(entry.name.toIndex()));
+            columns.at(entry.name.toIndex())
+                .reset(FrozenColumnFormat::thaw(*entry.getStructure()));
+        }
+        else if (entry.name == PathElement("sp")) {
+            // reconstitute the sparse columns
+            auto sparseDirectory = entry.getStructure();
+
+            for (auto & e: sparseDirectory->getDirectory()) {
+                Path p = Path::parse(e.name.toUtf8String());
+                ExcAssert(!sparseColumns.count(p));
+
+                std::shared_ptr<FrozenColumn> column
+                    (FrozenColumnFormat::thaw(*e.getStructure()));
+                sparseColumns.emplace(std::move(p), std::move(column));
+            }
+        }
+        else if (entry.name == PathElement("rn")) {
+            ExcAssert(!rowNames);
+            rowNames.reset(FrozenColumnFormat::thaw(*entry.getStructure()));
+        }
+        else if (entry.name == PathElement("ts")) {
+            ExcAssert(!timestamps);
+            timestamps.reset(FrozenColumnFormat::thaw(*entry.getStructure()));
+        }
+    }
+
+    // Verify integrity; this is user provided data
+    ExcAssert(rowNames);
+    size_t len = rowNames->size();
+    ExcAssert(timestamps);
+    ExcAssertEqual(len, timestamps->size());
+    for (size_t i = 0;  i < columns.size();  ++i) {
+        ExcAssert(columns[i]);
+        ExcAssertEqual(len, columns[i]->size());
+    }
+    for (auto & s: sparseColumns) {
+        ExcAssertEqual(s.second->size(), len);
+    }
+}
+
 
 
 /*****************************************************************************/
