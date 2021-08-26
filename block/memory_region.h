@@ -27,6 +27,90 @@ struct StructuredSerializer;
 
 
 /*****************************************************************************/
+/* DIRECTORY                                                                 */
+/*****************************************************************************/
+
+/** This is where we define a block naming scheme.
+
+    To access a block, there is:
+    - A path schema
+    - A set of parameters to that path (for example, numbers for arrays, etc);
+      these can be ranges
+    - A version for the block
+
+    Blocks are named as follows:
+    - <scheme>://path/to/object (simple block)
+    - <scheme>://path/to/object?ver=<version> (versioned block)
+    - <scheme>://path/to/object?range=123-456 (range of bytes)
+    - <scheme1>+<scheme2>://path/in/object2#path/in/object1 (nested path)
+    - op://function(block1,block2) (output of function)
+
+    Each time a block gets created, it gets a version.  That can either be
+    a hash (deterministic) of the contents, or a guaranteed globally unique
+    identifier.
+
+*/
+
+
+/*****************************************************************************/
+/* ADDRESS SPACE                                                             */
+/*****************************************************************************/
+
+/** Handle to a memory pool, which is a set of memory attached by some kind
+    of a bus to one or more devices.
+*/
+
+struct AddressSpace {
+};
+
+
+/*****************************************************************************/
+/* MEMORY REGION HANDLE                                                      */
+/*****************************************************************************/
+
+enum MemoryRegionState : uint8_t {
+    NEW,         ///< Newly created, does not yet have a size etc
+    ALLOCATED,   ///< Memory is allocated and can be written from one place
+    FROZEN,      ///< Memory is frozen and is now immutable, cacheable
+    ZOMBIE,      ///< Memory has been deleted but is still referenced
+    DELETED      ///< Memory has been disposed of
+};
+
+
+/** This is a handle to an abstract memory region.  It can be used to refer
+    to the memory region and to perform operations on it.
+
+    Note that, in general, operations need to be queued on a device's work
+    queue in order to run; they cannot be run imperatively in general.
+*/
+
+struct MemoryRegionHandle {
+};
+
+
+/*****************************************************************************/
+/* BLOCK CONTEXT                                                             */
+/*****************************************************************************/
+
+struct BlockContext {
+    /** Allocate a memory region for the given number of bytes. */
+    MemoryRegionHandle allocate(size_t bytes);
+
+    /** Allocate and initialize the given region from the host.  It remains
+        writeable.
+    */
+    MemoryRegionHandle fromHost(std::shared_ptr<char> data,
+                                size_t bytes);
+
+    /** Allocate and freeze the given region from the host.  It is no longer
+        writeable.
+    */
+    MemoryRegionHandle fromHost(std::shared_ptr<const char> data,
+                                size_t bytes);
+};
+
+
+/*****************************************************************************/
 /* FROZEN MEMORY REGION                                                      */
 /*****************************************************************************/
 
@@ -189,6 +273,11 @@ private:
     char * data_ = nullptr;
     size_t length_ = 0;
 };
+
+
+/*****************************************************************************/
+/* MUTABLE MEMORY REGION TYPED                                               */
+/*****************************************************************************/
 
 template<typename T>
 struct MutableMemoryRegionT {
@@ -390,6 +479,16 @@ struct StructuredReconstituter {
                    = getDefaultDescriptionSharedT<T>()) const
     {
         this->getObjectHelper(name, &obj, desc);
+    }
+
+    template<typename T>
+    T getObject(const PathElement & name,
+                std::shared_ptr<const ValueDescription> desc
+                   = getDefaultDescriptionSharedT<T>()) const
+    {
+        T result;
+        this->getObjectHelper(name, &result, desc);
+        return result;
     }
 
     virtual FrozenMemoryRegion

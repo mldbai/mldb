@@ -29,10 +29,8 @@ enum UnknownColumnAction {
 
 DECLARE_ENUM_DESCRIPTION(UnknownColumnAction);
 
-struct TabularDatasetConfig {
-    TabularDatasetConfig();
-
-    UnknownColumnAction unknownColumns;
+struct TabularDatasetConfig: public PersistentDatasetConfig {
+    UnknownColumnAction unknownColumns = UC_ERROR;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
