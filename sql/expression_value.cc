@@ -3981,7 +3981,7 @@ joinColumns(const ExpressionValue & val1,
 
         // Assume they have the same keys and exactly one of each; if not we
         // have to restart
-        LightweightHash_Set<uint64_t> colsFound;
+        LightweightHashSet<uint64_t> colsFound;
 
         for (size_t i = 0;  i < row1.size(); ++i) {
             const ColumnPath & col1 = std::get<0>(row1[i]);

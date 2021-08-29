@@ -98,7 +98,7 @@ call(FeatureGeneratorInput input) const
 {
     distribution<float> result(numBuckets());
 
-    LightweightHash_Set<uint64_t> doneHashes;
+    LightweightHashSet<uint64_t> doneHashes;
 
     Date ts = Date::negativeInfinity();
 

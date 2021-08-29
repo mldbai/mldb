@@ -862,7 +862,7 @@ subjectHasNDistinctBehaviors(SH subjectHash, int n) const
             return bitmap & ((uint32_t)1 << i);
         };
 
-    LightweightHash_Set<uint64_t> behaviors;
+    LightweightHashSet<uint64_t> behaviors;
 
     for (unsigned i = 0;  i < behs.size();  ++i) {
         if (!bitSet(i)) continue;
@@ -931,7 +931,7 @@ getSubjectStats(SH subjectHash,
     // 3. latest timestamp, and 4. number of recorded behaviors
     if (needDistinctBehaviors) {
 
-        LightweightHash_Set<uint64_t> hashes;
+        LightweightHashSet<uint64_t> hashes;
 
         for (unsigned i = 0;  i < behs.size();  ++i) {
             if (!bitSet(i)) continue;
@@ -1003,7 +1003,7 @@ std::vector<SH>
 MergedBehaviorDomain::
 getSubjectHashes(BH hash, SH maxSubject, bool sorted) const
 {
-    LightweightHash_Set<SH> allSubjects;
+    LightweightHashSet<SH> allSubjects;
 
     for (unsigned i = 0;  i < behs.size();  ++i) {
         std::vector<SH> subjects = behs[i]->getSubjectHashes(hash, maxSubject);
@@ -1185,7 +1185,7 @@ forEachBehaviorSubject(BH beh,
         }
     }
     else {
-        LightweightHash_Set<SH> allSubjects;
+        LightweightHashSet<SH> allSubjects;
 
         for (unsigned i = 0;  i < behs.size();  ++i) {
             std::vector<SH> subjects
@@ -1344,7 +1344,7 @@ getExactBehaviorSubjectCountImpl(BH beh, SH maxSubject, Precision p) const
             return bitmap & ((uint32_t)1 << i);
         };
 
-    LightweightHash_Set<uint64_t> allSubjects;
+    LightweightHashSet<uint64_t> allSubjects;
 
     for (unsigned i = 0;  i < behs.size();  ++i) {
         if (!bitSet(i)) continue;

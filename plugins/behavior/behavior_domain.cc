@@ -629,7 +629,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
                     = quantizeTime(getSubjectTimestampRange(subj).first);
             
                 std::map<std::pair<uint64_t, int>, int> entryCounts; // (time, beh) -> count
-                LightweightHash_Set<uint64_t> timestamps;
+                LightweightHashSet<uint64_t> timestamps;
 
                 std::map<int, int> behCounts;
                 int maxBeh = 0, maxCount = 0, maxEntryCount = 0;
@@ -1953,8 +1953,8 @@ Date
 BehaviorDomain::
 updateUnbiasedSubjectBehaviorCounts
     (SH subject,
-     const LightweightHash_Set<BH> & conv,
-     const LightweightHash_Set<BH> & ignore,
+     const LightweightHashSet<BH> & conv,
+     const LightweightHashSet<BH> & ignore,
      BehaviorCounts & counts,
      Date earliest,
      const FixDate & fixDate) const
@@ -2033,8 +2033,8 @@ BehaviorCounts
 BehaviorDomain::
 getUnbiasedSubjectBehaviorCountsFixedDate
     (SH subject,
-     const LightweightHash_Set<BH> & converters,
-     const LightweightHash_Set<BH> & ignored,
+     const LightweightHashSet<BH> & converters,
+     const LightweightHashSet<BH> & ignored,
      BehaviorCounts & counts,
      Date earliestDate,
      Date latestDate) const
@@ -2502,7 +2502,7 @@ forEachBehaviorGetSubjects(const OnBehaviorSubjects & onBehavior,
                             Order order,
                             Parallelism parallelism) const
 {
-    LightweightHash_Set<SH> keepSubs;
+    LightweightHashSet<SH> keepSubs;
     bool passAllSubs = true;
 
     // Create a list of viable subjects to filter with

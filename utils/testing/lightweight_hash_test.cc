@@ -167,7 +167,7 @@ BOOST_AUTO_TEST_CASE(test_set)
     for (unsigned j = 0;  j < nobj;  ++j)
         objects.push_back(random());
 
-    LightweightHash_Set<int> s;
+    LightweightHashSet<int> s;
 
     BOOST_CHECK_EQUAL(s.size(), 0);
 
@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE(test_set)
     cerr << "before copy" << endl;
     s.dump(cerr);
 
-    LightweightHash_Set<int> s2 = s;
+    LightweightHashSet<int> s2 = s;
 
     cerr << "after copy" << endl;
     s2.dump(cerr);

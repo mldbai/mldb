@@ -107,7 +107,7 @@ private:
     friend class BehaviorDomain;
     std::string includeRegexStr;
     std::unique_ptr<std::regex> includeRegex;
-    LightweightHash_Set<SH> inList;
+    LightweightHashSet<SH> inList;
     bool hasFilterList;
     std::vector<SH> theList;
 };
@@ -180,7 +180,7 @@ private:
     friend class BehaviorDomain;
     std::string includeRegexStr;
     std::unique_ptr<std::regex> includeRegex;
-    LightweightHash_Set<BH> inList;
+    LightweightHashSet<BH> inList;
     bool hasFilterList;
     int minSubjectCount;
 };
@@ -239,7 +239,7 @@ struct EventFilter {
             throw MLDB::Exception("Attempt to filter events with empty beh list");
     }
 
-    LightweightHash_Set<BH> behs;
+    LightweightHashSet<BH> behs;
     bool hasFilterList;
     Date earliest;
     Date latest;
@@ -827,8 +827,8 @@ struct BehaviorDomain {
     */
     virtual Date updateUnbiasedSubjectBehaviorCounts
         (SH subject,
-         const LightweightHash_Set<BH> & converters,
-         const LightweightHash_Set<BH> & ignored,
+         const LightweightHashSet<BH> & converters,
+         const LightweightHashSet<BH> & ignored,
          BehaviorCounts & counts,
          Date earliestDate = Date::negativeInfinity(),
          const FixDate & fixDate = FixDate()) const;
@@ -837,8 +837,8 @@ struct BehaviorDomain {
     virtual BehaviorCounts
     getUnbiasedSubjectBehaviorCountsFixedDate
         (SH subject,
-         const LightweightHash_Set<BH> & converters,
-         const LightweightHash_Set<BH> & ignored,
+         const LightweightHashSet<BH> & converters,
+         const LightweightHashSet<BH> & ignored,
          BehaviorCounts & counts,
          Date earliestDate = Date::negativeInfinity(),
          Date latestDate = Date::positiveInfinity()) const;
