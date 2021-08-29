@@ -43,13 +43,24 @@ MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T shrd_emulated(T low, T high, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
-    ExcAssert(bits < TBITS);
-    //if (MLDB_UNLIKELY(bits == 0)) return low;
+    //ExcAssert(bits < TBITS);
+    //return ((low >> bits) | (high << (TBITS - bits)));
+    if (MLDB_UNLIKELY(bits == 0)) return low;
     low >>= bits;
     high = bits == 0 ? 0 : (high << (TBITS - bits));
     return low | high;
 }
 
+// shrd but with undefined behaviour if bits is 0 or >= TBITS
+template<typename T>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+T shrd_emulated_unsafe(T low, T high, shift_t bits)
+{
+    static constexpr int TBITS = sizeof(T) * 8;
+    return ((low >> bits) | (high << (TBITS - bits)));
+}
+
+// NOTE: compiler these days can do it all by itself..
 #if defined( MLDB_INTEL_ISA ) && ! defined(MLDB_COMPILER_NVCC)
 
 template<typename T>
@@ -59,6 +70,20 @@ T shrd(T low, T high, shift_t bits)
     static constexpr int TBITS = sizeof(T) * 8;
     ExcAssert(bits < TBITS);
     if (MLDB_UNLIKELY(bits == TBITS)) return low;
+    __asm__ ("shrd   %[bits], %[high], %[low] \n\t"
+            : [low] "+r,r" (low)
+            : [bits] "J,c" ((uint8_t)bits), [high] "r,r" (high)
+            : "cc"
+             );
+
+    return low;
+
+}
+
+template<typename T>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+T shrd_unsafe(T low, T high, shift_t bits)
+{
     __asm__ ("shrd   %[bits], %[high], %[low] \n\t"
             : [low] "+r,r" (low)
             : [bits] "J,c" ((uint8_t)bits), [high] "r,r" (high)
@@ -94,9 +119,22 @@ unsigned long long shrd(unsigned long long low, unsigned long long high, shift_t
 
 // There's no 8 byte shrd instruction available
 MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+unsigned long long shrd_unsafe(unsigned long long low, unsigned long long high, shift_t bits)
+{
+    return shrd_emulated_unsafe(low, high, bits);
+}
+
+// There's no 8 byte shrd instruction available
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 signed long long shrd(signed long long low, signed long long high, shift_t bits)
 {
     return shrd_emulated(low, high, bits);
+}
+
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+signed long long shrd_unsafe(signed long long low, signed long long high, shift_t bits)
+{
+    return shrd_emulated_unsafe(low, high, bits);
 }
 #endif
 
@@ -110,6 +148,13 @@ T shrd(T low, T high, shift_t bits)
     return shrd_emulated(low, high, bits);
 }
 
+template<typename T>
+MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
+T shrd_unsafe(T low, T high, shift_t bits)
+{
+    return shrd_emulated_unsafe(low, high, bits);
+}
+
 #endif // MLDB_INTEL_ISA
 
 
@@ -118,10 +163,10 @@ MLDB_ALWAYS_INLINE MLDB_COMPUTE_METHOD
 T maskLower(T val, shift_t bits)
 {
     static constexpr int TBITS = sizeof(T) * 8;
-    ExcAssertLessEqual(bits, TBITS);
-    if (MLDB_UNLIKELY(bits == TBITS))
-        return val;
-    T mask = (((T)1 << bits) - 1);
+    //ExcAssertLessEqual(bits, TBITS);
+    //if (MLDB_UNLIKELY(bits == TBITS))
+    //    return val;
+    T mask = bits >= TBITS ? (T)-1 : (((T)1 << bits) - 1);
     return val & mask;
 }
 
@@ -186,6 +231,30 @@ MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
 Data extract_bit_range(Data p0, Data p1, size_t bit, shift_t bits)
 {
     return maskLower(shrd(p0, p1, bit), bits); // extract and mask
+}
+
+/** Same, but the low and high values are passed it making it pure. */
+template<typename Data>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+Data extract_bit_range_unsafe(Data p0, Data p1, size_t bit, shift_t bits)
+{
+    return maskLower(shrd_unsafe(p0, p1, bit), bits); // extract and mask
+}
+
+/** Same, but high bits are not filtered out. */
+template<typename Data>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+Data extract_bit_range_unmasked(Data p0, Data p1, size_t bit, shift_t bits)
+{
+    return shrd(p0, p1, bit); // extract only
+}
+
+/** Same, but high bits are not filtered out. */
+template<typename Data>
+MLDB_ALWAYS_INLINE MLDB_PURE_FN MLDB_COMPUTE_METHOD
+Data extract_bit_range_unmasked_unsafe(Data p0, Data p1, size_t bit, shift_t bits)
+{
+    return shrd_unsafe(p0, p1, bit); // extract only
 }
 
 /** Set the given range of bits in out to the given value.  Note that val
@@ -309,8 +378,13 @@ struct Simple_Mem_Buffer {
     MLDB_ALWAYS_INLINE Data curr() const { return data[0]; }
     MLDB_ALWAYS_INLINE Data next() const { return data[1]; }
     
-    void operator += (int offset) { data += offset; }
+    MLDB_ALWAYS_INLINE void operator += (int offset) { data += offset; }
 
+    MLDB_ALWAYS_INLINE void prefetch(size_t bytesAhead)
+    {
+        __builtin_prefetch(data + bytesAhead / sizeof(Data), 0 /* read */, 3 /* locality */);
+    }
+    
     //private:
     const Data * data;  // always aligned to 2 * alignof(Data)
 };
@@ -347,6 +421,11 @@ struct Buffered_Mem_Buffer {
         b1 = data[1];
     }
 
+    MLDB_ALWAYS_INLINE void prefetch(size_t bytesAhead)
+    {
+        __builtin_prefetch(data + bytesAhead / sizeof(Data), 0 /* read */, 3 /* locality */);
+    }
+    
     //private:
     const Data * data;  // always aligned to 2 * alignof(Data)
     Data b0, b1;
@@ -394,9 +473,34 @@ struct Bit_Buffer {
 
         This allows further optimizations to be made.
     */
-    Data extractFast(shift_t bits)
+    MLDB_ALWAYS_INLINE Data extractFast(shift_t bits)
     {
         Data result = extract_bit_range(Data(data.curr()), Data(data.next()), bit_ofs, bits);
+        advance(bits);
+        return result;
+    }
+
+    MLDB_ALWAYS_INLINE Data extractFastUnsafe(shift_t bits)
+    {
+        Data result = extract_bit_range_unsafe(data.curr(), data.next(), bit_ofs, bits);
+        advance(bits);
+        return result;
+    }
+
+    // Like extractFast, but doesn't filter the top bits out
+    MLDB_ALWAYS_INLINE Data extractFastUnmasked(shift_t bits)
+    {
+        Data result = extract_bit_range_unmasked
+            (data.curr(), data.next(), bit_ofs, bits);
+        advance(bits);
+        return result;
+    }
+    
+    // Like extractFast, but doesn't filter the top bits out
+    MLDB_ALWAYS_INLINE Data extractFastUnmaskedUnsafe(shift_t bits)
+    {
+        Data result = extract_bit_range_unmasked_unsafe
+            (data.curr(), data.next(), bit_ofs, bits);
         advance(bits);
         return result;
     }
@@ -428,18 +532,23 @@ struct Bit_Buffer {
     /// bound checking is performed and it is up to the caller to ensure that
     /// the sum of the current offset and the "bits" parameter is within
     /// [0, sizeof(buffer)[.
-    void advance(ssize_t bits)
+    MLDB_ALWAYS_INLINE void advance(ssize_t bits)
     {
         bit_ofs += bits;
         data += (bit_ofs / (sizeof(Data) * 8));
         bit_ofs %= sizeof(Data) * 8;
     }
 
-    size_t current_offset(const Data * start)
+    size_t current_offset(const Data * start) const
     {
         return (data.data - start) * sizeof(Data) * 8 + bit_ofs;
     }
 
+    MLDB_ALWAYS_INLINE void prefetch(size_t bytesAhead)
+    {
+        data.prefetch(bytesAhead);
+    }
+    
 private:
     MemBuf data;
     size_t bit_ofs;     // number of bits from start
@@ -503,6 +612,27 @@ struct Bit_Extractor {
 
     template<typename T>
     MLDB_COMPUTE_METHOD
+    T extractFastUnmasked(int num_bits)
+    {
+        return buf.extractFastUnmasked(num_bits);
+    }
+
+    template<typename T>
+    MLDB_COMPUTE_METHOD
+    T extractFastUnsafe(int num_bits)
+    {
+        return buf.extractFastUnsafe(num_bits);
+    }
+
+    template<typename T>
+    MLDB_COMPUTE_METHOD
+    T extractFastUnmaskedUnsafe(int num_bits)
+    {
+        return buf.extractFastUnmaskedUnsafe(num_bits);
+    }
+    
+    template<typename T>
+    MLDB_COMPUTE_METHOD
     void extract(T & where, int num_bits)
     {
         where = buf.extract(num_bits);
@@ -558,11 +688,16 @@ struct Bit_Extractor {
     OutputIterator extract(shift_t num_bits, size_t num_objects,
                            OutputIterator where);
 
-    size_t current_offset(const Data * start)
+    size_t current_offset(const Data * start) const
     {
         return buf.current_offset(start);
     }
 
+    void prefetch(size_t bytesAhead) const
+    {
+        buf.prefetch(bytesAhead);
+    }
+    
 private:
     Buffer buf;
     size_t bit_ofs;
@@ -580,6 +715,12 @@ struct Bit_Writer {
     {
     }
 
+    void reset(Data * data)
+    {
+        this->data = data;
+        this->bit_ofs = 0;
+    }
+    
     /// Writes bits starting from the least-significant bits of the buffer.
     void write(Data val, shift_t bits)
     {
@@ -630,11 +771,23 @@ struct Bit_Writer {
         bit_ofs %= sizeof(Data) * 8;
     }
 
-    size_t current_offset(Data * start)
+    size_t current_offset(Data * start) const
     {
         return (data - start) * sizeof(Data) * 8 + bit_ofs;
     }
 
+    /** Fill any unwritten bits in the current word with zeros.  This
+        enables for determinism in the produced data and avoids things
+        like uninitialized value errors in Valgrind.
+    */
+    void zeroExtraBits()
+    {
+        size_t numExtraBits = sizeof(Data) * 8 - bit_ofs;
+        if (numExtraBits == sizeof(Data) * 8)
+            return;
+        write(0, numExtraBits);
+    }
+    
 private:
     Data * data;
     size_t bit_ofs;
