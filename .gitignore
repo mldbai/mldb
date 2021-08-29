@@ -51,3 +51,5 @@ container_files/nvidia/files/*.deb
 *.bak
 file::test*
 *.DS_Store
+airlines
+airlines.*

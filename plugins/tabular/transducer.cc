@@ -16,6 +16,8 @@
 #include "mldb/base/scope.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/utils/vector_utils.h"
+#include "mldb/types/vector_description.h"
 
 #include "frozen_tables.h"
 
@@ -117,10 +119,11 @@ IdentityStringTransducer::
 IdentityStringTransducer()
 {
 }
-    
+
 IdentityStringTransducer::
-IdentityStringTransducer(StructuredSerializer & serializer)
+IdentityStringTransducer(StructuredReconstituter & reconstituter)
 {
+    // No parameters to reconstitute
 }
 
 std::string_view
@@ -182,12 +185,21 @@ memusage() const
     return sizeof(*this);
 }
 
+static StringTransducer::Register<IdentityStringTransducer> regId("id");
+
 
 /*****************************************************************************/
 /* ZSTD STRING TRANSDUCER                                                    */
 /*****************************************************************************/
 
 struct ZstdStringTransducer::Itl {
+    Itl() = default;
+
+    Itl(StructuredReconstituter & reconstituter)
+    {
+        formatData = reconstituter.getRegion("dict");
+    }
+
     ~Itl()
     {
         {
@@ -305,9 +317,9 @@ struct ZstdStringTransducer::Itl {
 };
 
 ZstdStringTransducer::
-ZstdStringTransducer(StructuredSerializer & serializer)
+ZstdStringTransducer(StructuredReconstituter & reconstituter)
+    : itl(std::make_shared<Itl>(reconstituter))
 {
-
 }
 
 ZstdStringTransducer::
@@ -357,7 +369,7 @@ train(const std::vector<std::string> & blobs,
     Date before = Date::now();
 
     // Perform the dictionary training
-    size_t res = ZDICT_trainFromBuffer(&dictionary[0],
+    size_t res = ZDICT_trainFromBuffer(dictionary.data(),
                                        dictionary.size(),
                                        sampleBuffer.data(),
                                        sampleSizes.data(),
@@ -465,6 +477,8 @@ type() const
     return "zsc";
 }
 
+static StringTransducer::Register<ZstdStringCompressor> regZsc("zsc");
+
 
 /*****************************************************************************/
 /* ZSTD STRING DECOMPRESSOR                                                  */
@@ -545,12 +559,19 @@ type() const
     return "zsd";
 }
 
+static StringTransducer::Register<ZstdStringDecompressor> regZsd("zsd");
+
 
 /*****************************************************************************/
 /* ID TRANSDUCER                                                             */
 /*****************************************************************************/
 
 struct TableCharacterTransducer: public CharacterTransducer {
+    TableCharacterTransducer()
+    {
+        // For reconstitution only
+    }
+    
     TableCharacterTransducer(const std::bitset<256> & table)
     {
         // If we have all set, then there is no advantage
@@ -564,11 +585,29 @@ struct TableCharacterTransducer: public CharacterTransducer {
         }
     }
 
+    TableCharacterTransducer(StructuredReconstituter & reconstituter)
+    {
+        reconstituter.getObject("t", table);
+        initIndex();
+    }
+
+    void initIndex()
+    {
+        for (size_t i = 0;  i < table.size();  ++i) {
+            index[table[i]] = i + 1;
+        }
+    }
+
+    void freeze(StructuredSerializer & serializer)
+    {
+        serializer.newObject("t", table);
+    }
+
     virtual ~TableCharacterTransducer()
     {
     }
 
-    virtual char decode(uint32_t input) const
+    virtual unsigned char decode(uint32_t input) const
     {
         return table.at(input);
     }
@@ -577,7 +616,9 @@ struct TableCharacterTransducer: public CharacterTransducer {
     {
         if (input[index] == 0)
             throw Exception(500, "Logic error in char transducer encode");
-        return index[input] - 1;
+        uint8_t result = index[input] - 1;
+        ExcAssertEqual((int)decode(result), (int)input);
+        return result;
     }
 
     virtual size_t memusage() const
@@ -587,46 +628,102 @@ struct TableCharacterTransducer: public CharacterTransducer {
     }
     
     std::vector<unsigned char> table;
-    unsigned char index[256] = {0};
+    uint8_t index[256] = {0};
 };
 
-namespace {
+DECLARE_STRUCTURE_DESCRIPTION(TableCharacterTransducer);
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(TableCharacterTransducer)
+{
+    setVersion(1);
+    addField("table", &TableCharacterTransducer::table, "");
 
-struct PositionInfo {
+    // Once we're done parsing, initialize the index
+    onPostValidate = [] (TableCharacterTransducer * transducer, JsonParsingContext &)
+    {
+        transducer->initIndex();
+    };
+}
+
+struct IdTransducerPositionInfo {
     uint32_t counts[256] = {0};
     uint32_t uniqueCounts = 0;
     std::bitset<256> bits;
 
     int intNum = 0;  ///< Which of the integers we encode this in?
     uint64_t baseMultiplier = 0;  ///< Base multiplier of this bit
-    uint16_t posMultiplier = 0;
-    uint64_t bitWidth = 0;
+    uint64_t modulus = 0;         ///< BaseMultiplier of next bit
+    uint64_t posMultiplier = 0;  // Only really need one byte
     
-    void update(unsigned char c)
+    // Encode a character to its portion in the 64 bit modulo encoding
+    uint64_t encode(unsigned char contrib) const
+    {
+        ExcAssertLess(contrib, posMultiplier);
+        uint64_t result = contrib * baseMultiplier;
+        ExcAssertEqual(decode(result), contrib);
+        return result;
+    }
+
+    // Extract this position's value from the 64 bit multiple encoding
+    unsigned char decode(uint64_t encoded) const
+    {
+        if (modulus != 0)
+            encoded %= modulus;
+        uint64_t contrib = encoded / baseMultiplier;
+        ExcAssertLess(contrib, posMultiplier);
+        return contrib;
+    }
+
+    void updateStats(unsigned char c)
     {
         uniqueCounts += (counts[c]++ == 0);
         bits.set(c);
     }
 
-    std::unique_ptr<CharacterTransducer> train() const
+    TableCharacterTransducer train() const
     {
-        return std::unique_ptr<CharacterTransducer>
-            (new TableCharacterTransducer(bits));
+        return { bits };
     }
 };
 
-struct IntInfo {
-    uint32_t bitWidth = 0;   ///< How many bits in this integer
-};
+DECLARE_STRUCTURE_DESCRIPTION(IdTransducerPositionInfo);
+DEFINE_STRUCTURE_DESCRIPTION(IdTransducerPositionInfo);
+
+IdTransducerPositionInfoDescription::IdTransducerPositionInfoDescription()
+{
+    setVersion(1);
+    addField("intNum", &IdTransducerPositionInfo::intNum, "");
+    addField("baseMultiplier", &IdTransducerPositionInfo::baseMultiplier, "");
+    addField("modulus", &IdTransducerPositionInfo::modulus, "");
+    addField("posMultiplier", &IdTransducerPositionInfo::posMultiplier, "");
+}
+
+namespace {
+    using PositionInfo = IdTransducerPositionInfo;
+} // file scope
 
 struct IdTransducerInfo {
     std::vector<PositionInfo> positions;
-    std::vector<std::unique_ptr<CharacterTransducer> > transducers;
-    std::vector<IntInfo> ints;
-    size_t totalOutputBytes = 0;
+    std::vector<TableCharacterTransducer> transducers;
+    size_t totalBits = 0;         // Total number of bits to write
+    size_t numInts() const { return (totalBits + 63) / 64; } // Total number of (64 bit) integers making up this ID
+    size_t lastIntWidth() const { return totalBits % 64; }   // Width of the last of these
+    size_t totalOutputBytes() const { return (totalBits + 7) / 8; }  // How many bytes each one produces
+    size_t widthOfInt(size_t intNumber) { return intNumber == numInts() - 1 ? lastIntWidth() : 64; }
+
+    IdTransducerInfo() = default;
+
+    IdTransducerInfo(StructuredReconstituter & reconstituter)
+    {
+        reconstituter.getObject("p", positions);
+        reconstituter.getObject("t", transducers);
+        reconstituter.getObject("b", totalBits);
+    }
 
     void freeze(StructuredSerializer & serializer) const
     {
+        serializer.newObject("p", positions);
+        serializer.newObject("t", transducers);
+        serializer.newObject("b", totalBits);
     }
 
     size_t memusage() const
@@ -634,18 +731,11 @@ struct IdTransducerInfo {
         size_t result
             = sizeof(*this)
             + positions.capacity() * sizeof(positions[0])
-            + transducers.capacity() * sizeof(transducers[0])
-            + ints.capacity() * sizeof(ints[0]);
+            + transducers.capacity() * sizeof(transducers[0]);
         for (auto & t: transducers) {
-            result += t->memusage();
+            result += t.memusage();
         }
         return result;
-    }
-
-    static IdTransducerInfo *
-    thaw(StructuredReconstituter & reconstituter)
-    {
-        throw Exception("thaw");
     }
 };
 
@@ -656,22 +746,38 @@ struct ForwardIdTransducer: public StringTransducer {
     {
     }
     
+    ForwardIdTransducer(StructuredReconstituter & reconstituter)
+        : info(std::make_shared<IdTransducerInfo>(reconstituter))
+    {
+    }
+
     std::string_view generateAll(std::string_view input,
                                  char * outputBuffer,
                                  size_t outputLength) const
     {
-        ExcAssertEqual(outputLength, info->totalOutputBytes);
+        ExcAssertEqual(outputLength, info->totalOutputBytes());
 
         int currentInt = 0;
         uint64_t current = 0;
         size_t outputPos = 0;
-        
+
+        // debug
+        size_t startPos = 0;
+        std::vector<uint64_t> contribs;
+
         auto doneCurrent = [&] ()
             {
-                ExcAssertLess(currentInt, info->ints.size());
-                size_t width = info->ints[currentInt].bitWidth;
+                // If our transducer requires no bits, there is nothing to write
+                if (info->totalBits == 0) {
+                    ExcAssert(current == 0);
+                    return;
+                }
+                //cerr << "doneCurrent: currentInt = " << currentInt << endl;
+                ExcAssertLess(currentInt, info->numInts());
+                size_t width = info->widthOfInt(currentInt);
+                //cerr << "writing int: current = " << current << endl;
                 for (size_t i = 0;  i < width;  i += 8) {
-                    //cerr << "writing byte " << (current % 256) << endl;
+                    //cerr << "  writing byte " << (current % 256) << endl;
                     outputBuffer[outputPos++] = current % 256;
                     current = current >> 8;
                 }
@@ -683,26 +789,49 @@ struct ForwardIdTransducer: public StringTransducer {
             };
 
         for (size_t i = 0;  i < input.length();  ++i) {
-            uint64_t contrib = info->transducers[i]->encode(input[i]);
-            current += contrib * info->positions[i].baseMultiplier;
+            uint64_t contrib = info->transducers[i].encode(input[i]);
+            contribs.push_back(contrib);
+            uint64_t encoded = info->positions[i].encode(contrib);
+            current += encoded;
+            ExcAssertEqual(info->positions[i].decode(encoded), contrib);
+            ExcAssertEqual(info->positions[i].decode(current), contrib);
+            //cerr << "doing character " << i << " of " << input.length()
+            //     << " intNum = " << info->positions[i].intNum
+            //     << " baseMultiplier = " << info->positions[i].baseMultiplier
+//                 << " encoder = " << MLDB::type_name(*info->transducers[i])
+            //     << " encoded " << encoded
+            //     << " current = " << current
+            //     << " contrib = " << contrib
+            //     << endl;
+
+
+            for (size_t j = startPos;  j < i;  ++j) {
+                //cerr << "  *** checking decode of previous position " << j << " = " << contribs[j] << endl;
+                ExcAssertEqual((int)info->positions[j].decode(current), (int)contribs[j]);
+            }
+            //cerr << "  *** done checking decode" << endl;
+
             if (i == input.length() - 1
                 || info->positions[i + 1].intNum != currentInt) {
                 doneCurrent();
+                startPos = i + 1;
             }
         }
+
+        ExcAssertEqual(currentInt, info->numInts());
 
         return std::string_view(outputBuffer, outputLength);
     }
     
     size_t getOutputLength(std::string_view input) const
     {
-        return info->totalOutputBytes;
+        return info->totalOutputBytes();
     }
 
     size_t getTemporaryBufferSize(std::string_view input,
                                   ssize_t outputLength) const
     {
-        return info->totalOutputBytes;
+        return info->totalOutputBytes();
     }
 
     bool needsTemporaryBuffer() const
@@ -733,14 +862,17 @@ struct ForwardIdTransducer: public StringTransducer {
     std::shared_ptr<IdTransducerInfo> info;
 };
 
-struct BackwardIdTransducer: public StringTransducer {
+static StringTransducer::Register<ForwardIdTransducer> regIdF("fid");
 
-    BackwardIdTransducer(StructuredReconstituter & reconstituter)
-    {
-    }
+struct BackwardIdTransducer: public StringTransducer {
 
     BackwardIdTransducer(std::shared_ptr<IdTransducerInfo> info)
         : info(std::move(info))
+    {
+    }
+
+    BackwardIdTransducer(StructuredReconstituter & reconstituter)
+        : info(std::make_shared<IdTransducerInfo>(reconstituter))
     {
     }
 
@@ -752,31 +884,35 @@ struct BackwardIdTransducer: public StringTransducer {
         const auto & positions = info->positions;
         const auto & transducers = info->transducers;
         
-        if (!info->ints.empty()) {
-            ExcAssertEqual(input.length(),
-                           (info->ints.size() - 1) * 8
-                           + (info->ints.back().bitWidth + 7) / 8);
-        }
-
         ExcAssertEqual(outputLength, positions.size());
 
         int intNumber = -1;
+        size_t inputPos = 0;
         auto getNewInt = [&] () -> uint64_t
             {
+                // If we always produce the same string, there is no input information
+                if (info->totalBits == 0)
+                    return 0;
                 ++intNumber;
-                ExcAssertLess(intNumber, info->ints.size());
-                int numBytes = (info->ints[intNumber].bitWidth + 7) / 8;
+                ExcAssertLess(intNumber, info->numInts());
+                size_t numBytes = (info->widthOfInt(intNumber) + 7) / 8;
 
                 //cerr << "getNewInt with " << numBytes << " bytes"
                 //     << endl;
 
+                ExcAssertLessEqual(inputPos + numBytes, input.length());
+
                 uint64_t result = 0;
                 for (size_t i = 0;  i < numBytes;  ++i) {
-                    //cerr << "reading byte " << (unsigned)(unsigned char)input[i] << endl;
-                    result = result | ((unsigned char)input[i] << (i*8));
+                    uint64_t thisByte = (unsigned char)input[i + inputPos];
+                    //cerr << "reading byte " << thisByte << endl;
+                    thisByte <<= (i*8);
+                    result = result | thisByte;
                 }
 
+                //cerr << "read int " << result << endl;
 
+                inputPos += numBytes;
                 
                 return result;
             };
@@ -784,39 +920,30 @@ struct BackwardIdTransducer: public StringTransducer {
         uint64_t current = 0;
 
         for (size_t i = 0;  i < info->positions.size();  ++i) {
+            //cerr << "position " << i << " intNum " << positions[i].intNum << " intNumber " << intNumber << " current " << current << endl;
             if (positions[i].intNum != intNumber) {
-                ExcAssertEqual(current, 0);
                 current = getNewInt();
             }
 
-            uint64_t nextMultiplier = positions[i].posMultiplier;
-#if 0
-            if (i == positions.size() - 1
-                || positions[i + 1].intNum != positions[i].intNum) {
-                nextMultiplier = -1;
-            }
-            else nextMultiplier = positions[i + 1].posMultiplier;
-#endif
-            
-            //cerr << "i = " << i << " current = " << current
-            //     << " intNum = " << positions[i].intNum << " nextMultiplier = "
-            //     << nextMultiplier << " thisPos = "
-            //     << current % nextMultiplier << endl;
-            
-            uint64_t thisPos = current % nextMultiplier;
-            current = current / nextMultiplier;
+            uint64_t contrib = info->positions[i].decode(current);
 
-            char c = transducers[i]->decode(thisPos);
+            //cerr << "i = " << i << " current = " << current
+            //     << " intNum = " << positions[i].intNum << " baseMultiplier = "
+            //     << positions[i].baseMultiplier << " posMultiplier " << positions[i].posMultiplier
+            //     << " contrib = " << contrib << endl;
+            
+            char c = transducers[i].decode(contrib);
             outputBuffer[i] = c;
         }
+
+        ExcAssertEqual(inputPos, input.length());
 
         return std::string_view(outputBuffer, outputLength);
     }
     
     size_t getOutputLength(std::string_view input) const
     {
-        throw AnnotatedException
-            (400, "Transducer does not implement getSize()");
+        return info->positions.size();
     }
 
     size_t getTemporaryBufferSize(std::string_view input,
@@ -855,15 +982,14 @@ struct BackwardIdTransducer: public StringTransducer {
 
 static StringTransducer::Register<BackwardIdTransducer> registerId("bid");
 
-
-} // file scope
-
 std::pair<std::shared_ptr<StringTransducer>,
           std::shared_ptr<StringTransducer> >
 trainIdTransducer(const std::vector<std::string> & blobs,
                   const StringStats & stats,
                   MappedSerializer & serializer)
 {
+    //cerr << "training transducer: blobs " << blobs << endl;
+
     std::vector<uint32_t> lengthsFound;
     // Which is our short length?
 
@@ -873,38 +999,48 @@ trainIdTransducer(const std::vector<std::string> & blobs,
         }
     }
 
-    ExcAssert(!lengthsFound.empty());
+    for (auto & l: stats.longLengthDistribution) {
+        lengthsFound.push_back(l.first);
+    }
+
+    size_t maxLength = lengthsFound.empty() ? 0 : lengthsFound.back();
     
-    size_t maxLength = lengthsFound.back();
-    
+    //cerr << "maxLength = " << maxLength << endl;
+
     // Look for a restricted subset of characters per position
     std::vector<PositionInfo> charsPerPosition(maxLength);
-    std::vector<IntInfo> ints;
     
     for (const std::string & b: blobs) {
         for (size_t i = 0;  i < b.size();  ++i) {
-            charsPerPosition[i].update(b[i]);
+            charsPerPosition[i].updateStats(b[i]);
         }
     }
 
     double bits = 0;
+    double totalBits = 0;
+    uint64_t writtenBits = 0;
     uint64_t total = 1;
     int intNum = 0;
-    std::vector<std::unique_ptr<CharacterTransducer> > transducers;
+    std::vector<TableCharacterTransducer> transducers;
     
     for (size_t p = 0;  p < maxLength;  ++p) {
-        cerr << p << "=" << charsPerPosition[p].uniqueCounts << " ";
-        bits += log2(charsPerPosition[p].uniqueCounts);
+        //cerr << p << "=" << charsPerPosition[p].uniqueCounts << " ";
+        double positionBits = log2(charsPerPosition[p].uniqueCounts);
+        bits += positionBits;
+        totalBits += log2(charsPerPosition[p].uniqueCounts);
 
         if (bits > 64 && charsPerPosition[p].uniqueCounts > 1) {
-            ints.push_back({64});
+            writtenBits += 64;
             total = 1;
             ++intNum;
             bits = 0;
         }
 
+        //cerr << positionBits << " " << intNum << " " << total << " " << endl;
+
         charsPerPosition[p].posMultiplier = charsPerPosition[p].uniqueCounts;
         charsPerPosition[p].baseMultiplier = total;
+        charsPerPosition[p].modulus = total * charsPerPosition[p].uniqueCounts;
         charsPerPosition[p].intNum = intNum;
 
         total *= charsPerPosition[p].uniqueCounts;
@@ -912,24 +1048,36 @@ trainIdTransducer(const std::vector<std::string> & blobs,
         transducers.emplace_back(charsPerPosition[p].train());
     }
 
-    // There is one extra integer to hold the leftover bits
-    if (bits > 0) {
-        ints.push_back({uint32_t(std::ceil(bits))});
-    }
-    
-    size_t totalOutputBytes = 8 * intNum + (std::ceil(bits) + 7) / 8;
+    writtenBits += std::ceil(bits);
+
+    cerr << endl << "totalBits = " << totalBits << " writtenBits = " << writtenBits << endl;
 
     //cerr << " bits = " << bits << " totalOutputBytes = " << totalOutputBytes
     //     << " total = " << total << endl;
     
     auto info = std::make_shared<IdTransducerInfo>();
     info->positions = std::move(charsPerPosition);
-    info->totalOutputBytes = totalOutputBytes;
+    info->totalBits = writtenBits;
     info->transducers = std::move(transducers);
-    info->ints = std::move(ints);
     
-    return { std::make_shared<ForwardIdTransducer>(info),
-             std::make_shared<BackwardIdTransducer>(info) };
+    auto forward = std::make_shared<ForwardIdTransducer>(info);
+    auto backward = std::make_shared<BackwardIdTransducer>(info);
+
+#if 0    
+    for (auto & s: blobs) {
+        size_t len = forward->getOutputLength(s);
+        char buf[len];
+        string_view enc = forward->generateAll(s, buf, len);
+        size_t len2 = backward->getOutputLength(enc);
+        ExcAssertEqual(len2, s.size());
+        char outbuf[s.size()];
+        string_view dec = backward->generateAll(enc, outbuf, len2);
+        ExcAssertEqual(dec, s);
+        cerr << "sucessfully decoded blob " << s << " to " << dec << endl;
+    }
+#endif
+
+    return { std::move(forward), std::move(backward) };
 }
 
 

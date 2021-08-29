@@ -483,9 +483,8 @@ freeze(MappedSerializer & serializer)
     if (!forward
         && stats.uniqueLongLengths == 0
         && stats.uniqueShortLengths == 1) {
-
-        //std::tie(forward, reverse)
-        //    = trainIdTransducer(blobs, stats, serializer);
+        std::tie(forward, reverse)
+            = trainIdTransducer(blobs, stats, serializer);
     }
     if (!forward) {
         return freezeUncompressed(serializer);

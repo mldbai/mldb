@@ -336,7 +336,7 @@ newObject(const PathElement & name,
         desc.printJson(val, context);
     }
     //cerr << "doing metadata " << printed << endl;
-    auto entry = newEntry("md");
+    auto entry = newEntry(name);
     auto serializeTo = entry->allocateWritable(printed.rawLength(),
                                                1 /* alignment */);
     
