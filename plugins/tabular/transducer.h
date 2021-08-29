@@ -73,11 +73,9 @@ struct Callable {
 
 
 struct CharacterTransducer: public Transducer {
-    virtual ~CharacterTransducer()
-    {
-    }
+    virtual ~CharacterTransducer() = default;
 
-    virtual char decode(uint32_t input) const = 0;
+    virtual unsigned char decode(uint32_t input) const = 0;
 
     virtual uint32_t encode(unsigned char input) const = 0;
 
@@ -175,8 +173,8 @@ struct IdentityStringTransducer: public StringTransducer {
 
     IdentityStringTransducer();
     
-    IdentityStringTransducer(StructuredSerializer & serializer);
-    
+    IdentityStringTransducer(StructuredReconstituter & reconstituter);
+
     virtual std::string_view
     generateAll(std::string_view input,
                 char * outputBuffer,
@@ -210,7 +208,7 @@ struct ZstdStringTransducer: public StringTransducer {
     struct Itl;
     std::shared_ptr<Itl> itl;
     
-    ZstdStringTransducer(StructuredSerializer & serializer);
+    ZstdStringTransducer(StructuredReconstituter & reconstituter);
     ZstdStringTransducer(std::shared_ptr<Itl> itl);
 
     virtual ~ZstdStringTransducer();
