@@ -1,4 +1,4 @@
-/** randomforest_procedure.h                                            -*- C++ -*-
+/** randomforest_procedure.h                                       -*- C++ -*-
     Mathieu Marquis Bolduc, 11 Mars 2016
     Copyright (c) 2016 mldb.ai inc.  All rights reserved.
 
@@ -23,15 +23,6 @@ namespace MLDB {
 struct RandomForestProcedureConfig : public ProcedureConfig {
     static constexpr const char * name = "randomforest.binary.train";
 
-    RandomForestProcedureConfig() : featureVectorSamplings(5),
-                                    featureSamplings(20),
-                                    featureVectorSamplingProp(0.3f),
-                                    featureSamplingProp(0.3f),
-                                    maxDepth(20),
-                                    verbosity(false)
-    {
-    }
-
     /// Query to select the training data
     InputQuery trainingData;
 
@@ -39,25 +30,28 @@ struct RandomForestProcedureConfig : public ProcedureConfig {
     Url modelFileUrl;
 
     /// Number of samplings of feature vectors
-    int featureVectorSamplings;
+    int featureVectorSamplings = 5;
 
     /// Number of samplings of features
     /// Total number of bags is featureVectorSamplings*featureSamplings
-    int featureSamplings;
+    int featureSamplings = 20;
 
-    // Proportion of FV to sample
-    float featureVectorSamplingProp;
+    /// Proportion of feature vectors to sample
+    float featureVectorSamplingProp = 0.3;
 
-    // Proportion of Feature to sample
-    float featureSamplingProp;
+    /// Proportion of Features to sample
+    float featureSamplingProp = 0.3;
 
-    // Maximum depth of each tree
-    int maxDepth;
+    /// Maximum depth of each tree
+    int maxDepth = 20;
 
-    // Debug Verbosity
-    bool verbosity;
+    /// Do we sample feature vectors?  Mostly for debugging
+    bool sampleFeatureVectors = true;
+    
+    /// Debug Verbosity
+    bool verbosity = false;
 
-    // Function name
+    /// Function name
     Utf8String functionName;
 };
 

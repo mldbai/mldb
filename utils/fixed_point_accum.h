@@ -12,7 +12,7 @@
 #include "mldb/utils/float_traits.h"
 #include <limits>
 
-namespace ML {
+namespace MLDB {
 
 /** A structure to accumulate values between zero and one in a single 32
     bit integer. */
@@ -243,4 +243,4 @@ inline std::ostream & operator << (std::ostream & stream, const FixedPointAccum6
     return stream << MLDB::format("%f (%016llx)", (double)accum, (long long)accum.hl);
 }
 
-} // namespace ML
+} // namespace MLDB

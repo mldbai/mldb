@@ -42,11 +42,11 @@ LIBML_LINK := \
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 
-$(eval $(call include_sub_make,ml_testing,testing,ml_testing.mk))
-
-
 # Jml plugins
 LIBMLDB_JML_PLUGIN_SOURCES:= \
+	randomforest.cc \
+	randomforest_kernels.cc \
+	randomforest_types.cc \
 	randomforest_procedure.cc \
 	classifier.cc \
 	probabilizer.cc \
@@ -54,7 +54,6 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 	jml_plugin.cc \
 	accuracy.cc \
 	experiment_procedure.cc \
-	randomforest.cc \
 	dataset_feature_space.cc \
 	kmeans_interface.cc \
 	em_interface.cc \
@@ -101,5 +100,8 @@ $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JM
 #$(eval $(call mldb_builtin_plugin,jml,mldb_jml_plugin,doc))
 
 #$(eval $(call include_sub_make,jml_testing,testing,jml_testing.mk))
+
+$(eval $(call include_sub_make,ml_testing,testing,ml_testing.mk))
+
 
 

@@ -35,6 +35,9 @@ using namespace ML;
 
 namespace MLDB {
 
+using namespace RF;
+
+
 DEFINE_STRUCTURE_DESCRIPTION(RandomForestProcedureConfig);
 
 RandomForestProcedureConfigDescription::
@@ -72,6 +75,10 @@ RandomForestProcedureConfigDescription()
              "also be provided.");
     addField("verbosity", &RandomForestProcedureConfig::verbosity,
              "Should the procedure be verbose for debugging and tuning purposes", false);
+    addField("sampleFeatureVectors", &RandomForestProcedureConfig::sampleFeatureVectors,
+             "Should we sample feature vectors (default yes)?  Should only be set "
+             "to false for testing or with a very small number of featureVectorSamplings.",
+             true);
     addParent<ProcedureConfig>();
 
     onPostValidate = chain(validateQuery(&RandomForestProcedureConfig::trainingData,
@@ -121,10 +128,10 @@ struct RandomForestRNG {
 RunOutput
 RandomForestProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Json::Value &)> & onProgress) const
 {
     //Todo: we will need heuristics for those. (MLDB-1449)
-    int maxBagsAtOnce = 1;
+    int maxBagsAtOnce = 5;
     int maxTreesAtOnce = 20;
 
     RandomForestProcedureConfig runProcConf =
@@ -185,24 +192,37 @@ run(const ProcedureRunConfig & run,
 
     Timer labelsTimer;
 
-    std::vector<std::vector<CellValue> > labelsWhereWeight
-        = colScope.run({boundLabel, boundWhere, boundWeight});
+    std::vector<std::vector<float> > labelsWhereWeight
+        = colScope.runFloat({boundLabel, boundWhere, boundWeight});
 
-    const std::vector<CellValue> & labels = labelsWhereWeight[0];
-    const std::vector<CellValue> & wheres = labelsWhereWeight[1];
-    const std::vector<CellValue> & weights = labelsWhereWeight[2];
+    std::vector<float> & labels = labelsWhereWeight[0];
+    std::vector<float> & wheres = labelsWhereWeight[1];
+    std::vector<float> & weights = labelsWhereWeight[2];
 
     INFO_MSG(logger) << "got " << labels.size() << " labels in " << labelsTimer.elapsed();
 
+    auto keepExample = [&] (size_t i) -> bool
+        {
+            return
+                !isnan(weights[i])
+                && weights[i] > 0.0
+                && !isnan(labels[i])
+                && !isnan(wheres[i])
+                && wheres[i] != 0;
+        };
+    
     size_t numRowsKept = 0;
+    size_t numTrue = 0;
+    size_t numFalse = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
-        if (!weights[i].empty()
-            && weights[i].toDouble() > 0.0
-            && !labels[i].empty()
-            && wheres[i].isTrue())
+        if (keepExample(i)) {
+            (!!labels[i] ? numTrue: numFalse) += 1;
             ++numRowsKept;
+        }
     }
 
+    cerr << "labels: false " << numFalse << " true " << numTrue << endl;
+    
     SelectExpression select({subSelect});
 
     auto getColumnsInExpression = [&] (const SqlExpression & expr)
@@ -251,32 +271,50 @@ run(const ProcedureRunConfig & run,
     int numFeatures = knownInputColumns.size();
     INFO_MSG(logger) << "NUM FEATURES : " << numFeatures;
 
+    MemorySerializer serializer;
+
+    Timer beforeTrees;
+    
     PartitionData allData(featureSpace);
 
-    allData.reserve(numRowsKept);
+    auto writer = allData.rows.getRowWriter(numRowsKept, numRowsKept,
+                                            serializer,
+                                            false /* sequenial example nums */);
+
     size_t numRows = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {
-        if (!wheres[i].isTrue() || labels[i].empty()
-            || weights[i].empty() || weights[i].toDouble() == 0)
+        if (!keepExample(i))
             continue;
-        allData.addRow(labels[i].isTrue(), weights[i].toDouble(), numRows++);
+        writer.addRow(!!labels[i], weights[i], numRows++);
     }
     ExcAssertEqual(numRows, numRowsKept);
 
+    allData.rows = writer.freeze(serializer);
+
+    // Save memory by removing these now they are no longer needed
+    labels = std::vector<float>();
+    weights = std::vector<float>();
+    wheres = std::vector<float>();
+    
     const float trainprop = 1.0f;
     int totalResultCount = runProcConf.featureVectorSamplings*runProcConf.featureSamplings;
-    vector<shared_ptr<Decision_Tree>> results(totalResultCount);
+    vector<shared_ptr<Decision_Tree> > results(totalResultCount);
 
     auto contFeatureSpace = featureSpace;
 
+    std::atomic<int> bagsDone(0);
+    
     auto doFeatureVectorSampling = [&] (int bag)
         {
             Timer bagTimer;
 
             size_t numPartitions = std::min<size_t>(numRows, 32);
 
-            distribution<float> trainingWeights(numRows);
+            distribution<uint8_t> trainingWeights(numRows);
             std::atomic<size_t> numNonZero(0);
+
+            std::mutex totalTrainingWeightMutex;
+            double totalTrainingWeight = 0;
             
             // Parallelize the setup, since the slow part is random number
             // generation and we set up each bag independently
@@ -293,34 +331,44 @@ run(const ProcedureRunConfig & run,
 
                 size_t numRowsInPartition = last - first;
 
-                distribution<float> in_training(numRowsInPartition);
-                vector<int> tr_ex_nums(numRowsInPartition);
-                std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
-                std::shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), rng);
+                distribution<uint8_t> in_training(numRowsInPartition);
+                distribution<uint8_t> example_weights(numRowsInPartition);
                 
-                for (unsigned i = 0;  i < numRowsInPartition * trainprop;  ++i)
-                    in_training[tr_ex_nums[i]] = 1.0;
 
-                distribution<float> example_weights(numRowsInPartition);
+                if (runProcConf.sampleFeatureVectors) {
+                    vector<int> tr_ex_nums(numRowsInPartition);
+                    std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);
+                    std::shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), rng);
+                
+                    for (unsigned i = 0;  i < numRowsInPartition * trainprop;  ++i)
+                        in_training[tr_ex_nums[i]] = 1;
 
-                // Generate our example weights.
-                for (unsigned i = 0;  i < numRowsInPartition;  ++i)
-                    example_weights[myrng(numRowsInPartition)] += 1.0;
+                    // Generate our example weights.
+                    for (unsigned i = 0;  i < numRowsInPartition;  ++i)
+                        example_weights[myrng(numRowsInPartition)] += 1;
+                }
+                else {
+                    std::fill(in_training.begin(), in_training.end(), 1);
+                    std::fill(example_weights.begin(), example_weights.end(), 1);
+                }
 
                 size_t partitionNumNonZero = 0;
                 double totalTrainingWeights = 0;
                 for (unsigned i = 0;  i < numRowsInPartition;  ++i) {
-                    float wt = in_training[i] * example_weights[i];
+                    uint8_t wt = in_training[i] * example_weights[i];
                     trainingWeights[first + i] = wt;
                     partitionNumNonZero += (wt != 0);
                     totalTrainingWeights += wt;
                 }
 
-                SIMD::vec_scale(trainingWeights.data() + first,
-                                1.0 / (totalTrainingWeights * numPartitions),
-                                trainingWeights.data() + first,
-                                numRowsInPartition);
+                //SIMD::vec_scale(trainingWeights.data() + first,
+                //                1.0 / (totalTrainingWeights * numPartitions),
+                //                trainingWeights.data() + first,
+                //                numRowsInPartition);
                 numNonZero += partitionNumNonZero;
+
+                std::unique_lock<std::mutex> guard(totalTrainingWeightMutex);
+                totalTrainingWeight += totalTrainingWeights;
             };
 
             parallelMap(0, numPartitions, doPartition);
@@ -332,9 +380,16 @@ run(const ProcedureRunConfig & run,
             
             MemorySerializer serializer;
 
-            auto data = allData.reweightAndCompact(trainingWeights, numNonZero, serializer);
-
+            auto data = allData.reweightAndCompact(trainingWeights, numNonZero,
+                                                   1.0 / totalTrainingWeight,
+                                                   serializer);
+            
             INFO_MSG(logger) << "bag " << bag << " setup took " << bagTimer.elapsed();
+
+            // The last one clears the original data to save space
+            if (bagsDone.fetch_add(1) == runProcConf.featureVectorSamplings - 1) {
+                allData.clear();
+            }
 
             auto trainFeaturePartition = [&] (int partitionNum)
             {
@@ -344,11 +399,31 @@ run(const ProcedureRunConfig & run,
                 PartitionData mydata(data);
 
                 // Cull the features according to the sampling proportion
-                for (unsigned i = 0;  i < data.features.size();  ++i) {
-                    if (mydata.features[i].active
-                        && uniform01(rng) > procedureConfig.featureVectorSamplingProp) {
-                        mydata.features[i].active = false;
+                for (int attempt = 0;  true /* break in loop */; ++attempt) {
+                    int numActiveFeatures = 0;
+
+                    // Cull the features according to the sampling proportion
+                    for (unsigned i = 0;  i < data.features.size();  ++i) {
+                        if (data.features[i].active
+                            && uniform01(rng) > procedureConfig.featureSamplingProp) {
+                            mydata.features[i].active = false;
+                        }
+                        else {
+                            mydata.features[i].active = true;
+                            ++numActiveFeatures;
+                        }
                     }
+                    
+                    if (numActiveFeatures == 0) {
+                        if (attempt == 9) {
+                            throw AnnotatedException
+                                (400, "Feature partition had no features; "
+                                 "consider increasing featureVectorSamplingProp");
+                        }
+                    }
+                    else {
+                        break;
+                      }
                 }
 
                 Timer timer;
@@ -375,6 +450,8 @@ run(const ProcedureRunConfig & run,
 
     parallelMap(0, runProcConf.featureVectorSamplings, doFeatureVectorSampling, maxBagsAtOnce);
 
+    cerr << "tree construction took " << beforeTrees.elapsed() << endl;
+    
     shared_ptr<Committee> result = make_shared<Committee>(contFeatureSpace, labelFeature);
 
     for (unsigned i = 0;  i < totalResultCount;  ++i)

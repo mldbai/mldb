@@ -54,6 +54,26 @@ inline int from_string(const std::string & s, int *)
     return std::stol(s);
 }
 
+inline unsigned long from_string(const std::string & s, unsigned long *)
+{
+    return std::stoul(s);
+}
+
+inline unsigned long long from_string(const std::string & s, unsigned long long *)
+{
+    return std::stoull(s);
+}
+
+inline float from_string(const std::string & s, float *)
+{
+    return std::stof(s);
+}
+
+inline double from_string(const std::string & s, double *)
+{
+    return std::stod(s);
+}
+
 inline bool from_string(const std::string & s, bool *)
 {
     if (s == "true")
