@@ -11,7 +11,6 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/plugins/tabular/frozen_column.h"
 #include "mldb/plugins/tabular/tabular_dataset_column.h"
-#include "mldb/server/mldb_server.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/set_description.h"
 #include "mldb/types/vector_description.h"
@@ -43,6 +42,9 @@ freezeAndTest(const std::vector<CellValue> & cells, size_t offset = 0)
     ExcAssertEqual(frozen->size(), cells.size());
 
     for (size_t i = 0;  i < cells.size();  ++i) {
+        if (frozen->get(i + offset) != cells[i]) {
+            cerr << "error at index " << i << " of " << cells.size() << endl;
+        }
         BOOST_REQUIRE_EQUAL(frozen->get(i + offset), cells[i]);
     }
 
@@ -410,3 +412,145 @@ BOOST_AUTO_TEST_CASE( test_timestamp_basics_null )
 
     freezeAndTest(vals, 1020 /* offset */);
 }
+
+BOOST_AUTO_TEST_CASE( test_half_nulls_string )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 10000;  ++i) {
+        vals.emplace_back();
+        vals.emplace_back("hello");
+    }
+
+    auto frozen = freezeAndTest(vals);
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::TableFrozenColumn");
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 1000 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_half_nulls_int )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 10;  ++i) {
+        vals.emplace_back();
+        vals.emplace_back(1);
+    }
+
+    auto frozen = freezeAndTest(vals);
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 10 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_half_nulls_int2 )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 1000;  ++i) {
+        vals.emplace_back();
+        vals.emplace_back(0);
+    }
+
+    auto frozen = freezeAndTest(vals);
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 10 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_half_nulls_double )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 1000;  ++i) {
+        vals.emplace_back();
+        vals.emplace_back(1.0);
+    }
+
+    auto frozen = freezeAndTest(vals);
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 10 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_half_nulls_double2 )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 1000;  ++i) {
+        vals.emplace_back();
+        vals.emplace_back(0.0);
+    }
+
+    auto frozen = freezeAndTest(vals);
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::IntegerFrozenColumn");
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 10 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_mostly_nulls_string )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 10000;  ++i) {
+        if (i % 1000 != 999)
+            vals.emplace_back();
+        else
+            vals.emplace_back("hello");
+    }
+
+    auto frozen = freezeAndTest(vals);
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 1000 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_mostly_nulls_int )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 20000;  ++i) {
+        if (i % 1000 != 999)
+            vals.emplace_back();
+        else
+            vals.emplace_back(0);
+    }
+
+    auto frozen = freezeAndTest(vals);
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 1000 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_mostly_nulls_double )
+{
+    std::vector<CellValue> vals;
+    for (size_t i = 0;  i < 20000;  ++i) {
+        if (i % 1000 != 999)
+            vals.emplace_back();
+        else
+            vals.emplace_back(0.0);
+    }
+
+    auto frozen = freezeAndTest(vals);
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 1000 /* offset */);
+}
+
+BOOST_AUTO_TEST_CASE( test_all_nulls )
+{
+    // 20,000 nulls
+    std::vector<CellValue> vals(20000);
+
+    auto frozen = freezeAndTest(vals);
+    BOOST_CHECK_EQUAL(MLDB::type_name(*frozen),
+                      "MLDB::TableFrozenColumn");
+
+    freezeAndTest(vals, 0 /* offset */);
+    freezeAndTest(vals, 1000 /* offset */);
+}
+

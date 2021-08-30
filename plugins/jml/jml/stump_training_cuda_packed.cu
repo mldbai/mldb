@@ -10,7 +10,7 @@
 #include <boost/utility.hpp>
 #include <boost/scoped_array.hpp>
 #include "stump_training_cuda.h"
-#include "fixed_point_accum.h"
+#include "mldb/utils/fixed_point_accum.h"
 #include "arch/cuda/device_data.h"
 
 using namespace std;

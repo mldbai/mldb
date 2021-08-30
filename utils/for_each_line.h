@@ -13,8 +13,11 @@
 #include <iostream>
 #include <functional>
 #include <string>
+#include <memory>
 
 namespace MLDB {
+
+struct ContentHandler;
 
 
 /** Run the given lambda over every line read from the stream, with the
@@ -106,7 +109,7 @@ forEachLineStr(const std::string & filename,
     the processing thread, at the beginning and end of the block
     respectively.
 
-    This is the fastest way to parse a text file.
+    This is the second fastest way to parse a text file.
 */
 
 void forEachLineBlock(std::istream & stream,
@@ -120,6 +123,38 @@ void forEachLineBlock(std::istream & stream,
                           = nullptr,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock
                           = nullptr);
+
+/** Run the given lambda over every line read from the file, with the
+    work distributed over threads each of which receive one block.  The
+    threads will be taken from the default thread pool, with a maximum of
+    maxParalellism being active.
+
+    The code is optimized as it uses the memory mapping and caching machinery
+    in the Block layer.
+
+    The startBlock and endBlock functions are called, in the context of
+    the processing thread, at the beginning and end of the block
+    respectively.
+
+    This is the fastest way to parse a text file.
+*/
+
+void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
+                      uint64_t startOffset,
+                      std::function<bool (const char * line,
+                                          size_t lineLength,
+                                          int64_t blockNumber,
+                                          int64_t lineNumber)> onLine,
+                      int64_t maxLines = -1,
+                      int maxParallelism = 8,
+                      std::function<bool (int64_t blockNumber,
+                                          int64_t lineNumber,
+                                          uint64_t numLines)> startBlock
+                          = nullptr,
+                      std::function<bool (int64_t blockNumber,
+                                          int64_t lineNumber)> endBlock
+                          = nullptr,
+                      size_t blockSize = 20'000'000);
 
 /** Run the given lambda over fixed size chunks read from the stream, in parallel
     as much as possible.  If there is a smaller chunk at the end (EOF is obtained),

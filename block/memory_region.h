@@ -17,6 +17,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/path.h"
 #include "mldb/types/url.h"
+#include "memory_region_fwd.h"
 
 namespace MLDB {
 
@@ -145,7 +146,30 @@ struct FrozenMemoryRegion {
         range of the current one.
     */
     FrozenMemoryRegion range(size_t start, size_t end) const;
+
+    /** Return the given number of bytes at the start. */
+    FrozenMemoryRegion rangeAtStart(size_t length) const;
+
+    /** Return the given number of bytes at the end. */
+    FrozenMemoryRegion rangeAtEnd(size_t length) const;
     
+    /** This tests whether the region is initialized or not.  A
+        non-initialized region has either been constructed from the
+        default constructor or moved from.
+    */
+    explicit operator bool () const noexcept { return !!handle_; }
+    
+    /// Return a combined, contiguous memory region.  In the general case
+    /// this may require reallocation of a new region and copying; however
+    /// the implementation will attempt to minimise the amount of copying
+    /// required.
+    static FrozenMemoryRegion
+    combined(const FrozenMemoryRegion & region1,
+             const FrozenMemoryRegion & region2);
+
+    static FrozenMemoryRegion
+    combined(const std::vector<FrozenMemoryRegion> & regions);
+
 #if 0
     /** Re-serialize the block to the other serializer. */
     void reserialize(MappedSerializer & serializer) const;
@@ -258,6 +282,8 @@ struct MutableMemoryRegion {
     {
         return length_;
     }
+
+    MutableMemoryRegion range(size_t startByte, size_t endByte) const;
     
     FrozenMemoryRegion freeze();
 
@@ -301,6 +327,12 @@ struct MutableMemoryRegionT {
     {
         return length_;
     }
+
+    MutableMemoryRegionT<T> rangeBytes(size_t start, size_t end) const
+    {
+        MutableMemoryRegionT result(raw.range(start, end));
+        return result;
+    }
     
     FrozenMemoryRegionT<T> freeze()
     {
@@ -339,9 +371,10 @@ struct MappedSerializer {
 
     template<typename T>
     MutableMemoryRegionT<T>
-    allocateWritableT(size_t numItems)
+    allocateWritableT(size_t numItems,
+                      size_t alignment = alignof(T))
     {
-        return allocateWritable(numItems * sizeof(T), alignof(T));
+        return allocateWritable(numItems * sizeof(T), alignment);
     }
 
     /** Freeze the given block of writable memory into a fixed, frozen

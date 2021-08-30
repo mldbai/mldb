@@ -175,6 +175,8 @@ registerLzmaCompressor("lzma", {"xz"});
 struct LzmaDecompressor: public Decompressor, public LzmaStreamCommon {
 
     typedef Decompressor::OnData OnData;
+    using Decompressor::decompress;
+    using Decompressor::finish;
 
     LzmaDecompressor()
     {

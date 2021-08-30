@@ -10,11 +10,14 @@
 #include "mldb/ext/xxhash/xxhash.h"
 #include "mldb/ext/lz4/lz4.h"
 #include "mldb/ext/lz4/lz4hc.h"
+#include "mldb/ext/lz4/lz4frame.h"
 #include "mldb/arch/endian.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/base/thread_pool.h"
 #include <iostream>
 #include "mldb/base/scope.h"
 #include <cstring>
+#include <atomic>
 
 
 using namespace std;
@@ -95,7 +98,8 @@ struct MLDB_PACKED Header
     Header( int blockId,
             bool blockIndependence,
             bool blockChecksum,
-            bool streamChecksum) :
+            bool streamChecksum,
+            bool contentSize) :
         magic{MagicConst}, options{0, 0}
     {
         const uint8_t version = 1; // 2 bits
@@ -105,33 +109,28 @@ struct MLDB_PACKED Header
         options[0] |= version << 6;
         options[0] |= blockIndependence << 5;
         options[0] |= blockChecksum << 4;
+        options[0] |= contentSize << 3;
         options[0] |= streamChecksum << 2;
         options[1] |= blockId << 4;
-
-        checkBits = checksumOptions();
     }
 
     explicit operator bool() { return magic; }
 
+    void setContentSize(bool hasContentSize)
+    {
+        options[0] &= ~(1 << 3);
+        options[0] |= (hasContentSize << 3);
+    }
+    
     int version() const            { return (options[0] >> 6) & 0x3; }
     bool blockIndependence() const { return (options[0] >> 5) & 1; }
     bool blockChecksum() const     { return (options[0] >> 4) & 1; }
+    bool contentSize() const       { return (options[0] >> 3) & 1; }
     bool streamChecksum() const    { return (options[0] >> 2) & 1; }
     int blockId() const            { return (options[1] >> 4) & 0x7; }
     size_t blockSize() const       { return 1 << (8 + 2 * blockId()); }
 
-    template<typename Source>
-    static Header read(Source& src)
-    {
-        Header head;
-        lz4::read(src, &head, sizeof(head));
-
-        head.validate();
-        
-        return head;
-    }
-
-    void validate()
+    void validate(uint8_t checkBits, uint64_le knownContentSize)
     {
         if (magic != MagicConst)
             throw lz4_error("invalid magic number");
@@ -144,31 +143,42 @@ struct MLDB_PACKED Header
 
         checkBlockId(blockId());
 
-        if (checkBits != checksumOptions())
+        if (checkBits != checksumOptions(knownContentSize))
             throw lz4_error("corrupted options");
     }
     
     template<typename Sink>
-    size_t write(Sink& sink)
+    size_t write(Sink& sink, const uint64_le & knownContentSize)
     {
+        uint8_t checkBits = checksumOptions(knownContentSize);
         lz4::write(sink, this, sizeof(*this));
+        if (contentSize()) {
+            lz4::write(sink, &knownContentSize, sizeof(knownContentSize));
+        }
+        lz4::write(sink, &checkBits, 1);
         return sizeof(*this);
     }
 
-private:
-
-    uint8_t checksumOptions() const
+    uint8_t checksumOptions(const uint64_le & knownContentSize) const
     {
+        if (contentSize()) {
+            // Includes the hash of the content size
+            uint8_t buf[10];
+            buf[0] = options[0];
+            buf[1] = options[1];
+            memcpy(buf + 2, &knownContentSize, 8);
+            return XXH32(buf, 10, ChecksumSeed) >> 8;
+        }
+
         return XXH32(options, 2, ChecksumSeed) >> 8;
     }
 
     static constexpr uint32_t MagicConst = 0x184D2204;
     LittleEndianPod<uint32_t> magic;
     uint8_t options[2];
-    uint8_t checkBits;
 };
 
-static_assert(sizeof(Header) == 7, "sizeof(lz4::Header) == 7");
+static_assert(sizeof(Header) == 6, "sizeof(lz4::Header) == 6");
 
 } // namespace lz4
 
@@ -181,11 +191,14 @@ struct Lz4Compressor : public Compressor {
     typedef Compressor::OnData OnData;
     typedef Compressor::FlushLevel FlushLevel;
     
-    Lz4Compressor(int level, uint8_t blockSizeId = 7)
+    Lz4Compressor(int level, uint8_t blockSizeId = 7,
+                  uint64_t contentSize = 0)
         : head(blockSizeId,
                true /* independent blocks */,
                false /* block checksum */,
-               false /* stream checksum */),
+               false /* stream checksum */,
+               contentSize != 0 /* write content size */),
+          contentSize(contentSize),
           writeHeader(true),
           pos(0)
     {
@@ -206,11 +219,20 @@ struct Lz4Compressor : public Compressor {
             XXH32_freeState(streamChecksumState);
     }
 
+    virtual void notifyInputSize(uint64_t inputSize) override
+    {
+        if (!writeHeader) {
+            throw Exception("lz4 input size already notified");
+        }
+        head.setContentSize(true);
+        this->contentSize = inputSize;
+    }
+    
     virtual void compress(const char * s, size_t n,
-                          const OnData & onData)
+                          const OnData & onData) override
     {
         if (writeHeader) {
-            head.write(onData);
+            head.write(onData, contentSize);
             writeHeader = false;
         }
 
@@ -227,7 +249,7 @@ struct Lz4Compressor : public Compressor {
         }
     }
     
-    virtual void flush(FlushLevel flushLevel, const OnData & onData)
+    virtual void flush(FlushLevel flushLevel, const OnData & onData) override
     {
         if (pos == 0)
             return;
@@ -264,9 +286,9 @@ struct Lz4Compressor : public Compressor {
         pos = 0;
     }
 
-    virtual void finish(const OnData & onData)
+    virtual void finish(const OnData & onData) override
     {
-        if (writeHeader) head.write(onData);
+        if (writeHeader) head.write(onData, contentSize);
         if (pos) flush(FLUSH_RESTART, onData);
 
         const uint32_le eos = 0;
@@ -290,6 +312,7 @@ struct Lz4Compressor : public Compressor {
     }
     
     lz4::Header head;
+    uint64_le contentSize;
     int (*compressFn)(const char*, char*, int);
 
     bool writeHeader;
@@ -325,41 +348,155 @@ struct Lz4Decompressor: public Decompressor {
     virtual int64_t decompressedSize(const char * block, size_t blockLen,
                                      int64_t totalLen) const override
     {
-        return LENGTH_UNKNOWN;
+        if (blockLen < sizeof(lz4::Header) + sizeof(uint64_t) + 1) {
+            return LENGTH_INSUFFICIENT_DATA;
+        }
+        lz4::Header head;
+        memcpy(&head, block, sizeof(head));
+
+        if (!head.contentSize()) {
+            return LENGTH_UNKNOWN;
+        }
+        uint64_le contentSize;
+        memcpy(&contentSize, block + sizeof(head), sizeof(contentSize));
+
+        uint8_t checksum = block[sizeof(head) + sizeof(contentSize)];
+        if (head.checksumOptions(contentSize) != checksum) {
+            throw Exception("lz4 header checksum mismatch");
+        }
+        
+        if (contentSize == 0)
+            return LENGTH_UNKNOWN;
+        return contentSize;
+    }
+
+    std::pair<std::shared_ptr<const char>, size_t>
+    decompressBlock(std::shared_ptr<const char> blockData,
+                    uint32_t blockHeader,
+                    uint32_t blockChecksum,
+                    const Allocate & allocate) const
+    {
+        size_t blockLength = blockHeader & ~lz4::NotCompressedMask;
+        bool uncompressed = blockHeader & lz4::NotCompressedMask;
+        
+        //cerr << "decompressing " << blockLength << " bytes" << endl;
+        
+        if (header.blockChecksum()) {
+            uint32_t checksum = XXH32(blockData.get(),
+                                      blockLength,
+                                      lz4::ChecksumSeed);
+            if (checksum != blockChecksum)
+                throw lz4_error("invalid checksum");
+        }
+        
+        if (uncompressed) {
+            return { std::move(blockData), blockLength };
+        }
+        else {
+            auto outputData = allocate(header.blockSize());
+            auto decompressed
+                = LZ4_decompress_safe
+                (blockData.get(), outputData.get(),
+                 blockLength, header.blockSize());
+
+            //cerr << "decompressed " << decompressed << " of maximum "
+            //     << output.size()
+                //     << " with checksum "
+                //     << XXH32(blockData.get(), blockLength, lz4::ChecksumSeed)
+            //     << endl;
+            
+            if (decompressed < 0)
+                throw lz4_error(string("malformed lz4 stream: ") + LZ4F_getErrorName(decompressed));
+
+            return { std::move(outputData), decompressed };
+        }
+    }
+
+    static void memDeallocate(char * c)
+    {
+        delete[] c;
+    }
+    
+    static std::shared_ptr<char> memAllocate(size_t n)
+    {
+        return std::shared_ptr<char>(new char[n], memDeallocate);
     }
     
     virtual void decompress(const char * data, size_t len,
-                              const OnData & onData) override
+                            const OnData & onData) override
+    {
+        std::shared_ptr<const char> sharedData(data, [] (const char *) {});
+        auto onSharedData = [&] (std::shared_ptr<const char> data,
+                                 size_t len)
+            {
+                size_t done = 0;
+                while (done < len) {
+                    done += onData(data.get() + done, len - done);
+                }
+            };
+
+        decompress(std::move(sharedData), len, onSharedData, memAllocate);
+    }
+
+    virtual void decompress(std::shared_ptr<const char> data__, size_t len,
+                            const OnSharedData & onData,
+                            const Allocate & allocate) override
     {
         if (!cur) {
             throw Exception("Extra junk at end of compressed lz4 data");
         }
 
+        const char * data = data__.get();
+        
         size_t done = 0;
         while (done < len) {
+            //cerr << "state " << state << endl;
+            //cerr << "header.blockSize() = " << header.blockSize() << endl;
+            //cerr << "done = " << done << " len = " << len << endl;
+            
             size_t toRead = std::min<size_t>(limit - cur, len - done);
-            std::memcpy(cur, data + done, toRead);
+            //cerr << "reading " << toRead << " of " << (limit - cur) << endl;
+            if (data != cur)
+                std::memcpy(cur, data + done, toRead);
             done += toRead;
             cur += toRead;
+
             
             if (cur == limit) {
+                //cerr << "finished state " << state << endl;
                 // we've finished our field
                 // Switch to the next state
                 switch (state) {
 
                 case HEADER:
-                    header.validate();
 
-                    // Finished our file header
-                    setCur(BLOCK_HEADER, blockHeader);
+                    if (header.contentSize()) {
+                        setCur(CONTENT_SIZE, knownContentSize);
+                    }
+                    else {
+                        // Finished our file header
+                        setCur(HEADER_CHECKSUM, checkBits);
+                    }
+                    break;
+
+                case CONTENT_SIZE:
+                    setCur(HEADER_CHECKSUM, checkBits);
+                    break;
+                    
+                case HEADER_CHECKSUM:
+                    header.validate(checkBits, knownContentSize);
+                    
                     if (header.streamChecksum()) {
                         streamChecksumState = XXH32_createState();
                         if (XXH32_reset(streamChecksumState, lz4::ChecksumSeed) != XXH_OK) {
                             throw Exception("Error with XXhash checksum initialization");
                         }
                     }
-                    break;
+                    
+                    setCur(BLOCK_HEADER, blockHeader);
 
+                    break;
+                    
                 case BLOCK_HEADER:
                     // Finished our block header
                     if (blockHeader == 0) {
@@ -374,9 +511,10 @@ struct Lz4Decompressor: public Decompressor {
                     else {
                         uint32_t blockSize = blockHeader;
                         blockSize &= ~lz4::NotCompressedMask;
-                        blockData.resize(blockSize);
 
-                        setCur(BLOCK_DATA, blockData);
+                        blockData = allocate(blockLength());
+
+                        setCur(BLOCK_DATA, blockData.get(), blockLength());
                     }
                     break;
 
@@ -390,36 +528,22 @@ struct Lz4Decompressor: public Decompressor {
 
                 case BLOCK_CHECKSUM: {
                     // Finished our block, or block + checksum
-                    if (header.blockChecksum()) {
-                        uint32_t checksum = XXH32(blockData.data(),
-                                                  blockData.size(),
-                                                  lz4::ChecksumSeed);
-                        if (checksum != blockChecksum)
-                            throw lz4_error("invalid checksum");
-                    }
-                    
-                    std::string output;
-                    
-                    if (blockHeader & lz4::NotCompressedMask) {
-                        output = std::move(blockData);
-                    }
-                    else {
-                        output.resize(header.blockSize());
-                        
-                        auto decompressed
-                            = LZ4_decompress_safe
-                                (blockData.data(), output.data(),
-                                 blockData.size(), output.size());
-                        
-                        if (decompressed < 0)
-                            throw lz4_error("malformed lz4 stream");
 
-                        output.resize(decompressed);
-                    }
-                    write(onData, output.data(), output.length());
+                    std::shared_ptr<const char> outputData;
+                    size_t outputLength;
+
+                    std::tie(outputData, outputLength)
+                        = decompressBlock(std::move(blockData),
+                                          blockHeader,
+                                          blockChecksum,
+                                          allocate);
+
+                    onData(outputData, outputLength);
+
                     if (header.streamChecksum()) {
-                        XXH32_update(streamChecksumState, output.data(), output.size());
+                        XXH32_update(streamChecksumState, outputData.get(), outputLength);
                     }
+
                     setCur(BLOCK_HEADER, blockHeader);
                     break;
                 }
@@ -446,6 +570,149 @@ struct Lz4Decompressor: public Decompressor {
             throw Exception("lz4 stream is truncated");
     }
 
+    virtual void finish(const OnSharedData & onData, const Allocate & allocate) override
+    {
+        if (state != FINISHED)
+            throw Exception("lz4 stream is truncated");
+    }
+
+    virtual bool
+    forEachBlockParallel(size_t requestedBlockSize,
+                         const GetDataFunction & getData,
+                         const ForEachBlockFunction & onBlock,
+                         const Allocate & allocate,
+                         int maxParallelism) override
+    {
+        //return Decompressor::forEachBlockParallel(requestedBlockSize, getData, onBlock);
+        ThreadWorkGroup tp(maxParallelism);
+
+        std::shared_ptr<const char> buf;
+        size_t bufLen = 0;
+        size_t bufOffset = 0;
+        
+        // Entirely fill the given buffer, throw if we can't
+        auto getAll = [&] (char * out, size_t len)
+            {
+                //cerr << endl << endl << "getAll for " << len << endl;
+                size_t done = 0;
+                while (done < len) {
+                    //cerr << "  ===== done = " << done << " len = " << len << endl;
+                    //cerr << "bufOffset = " << bufOffset << " bufLen = " << bufLen << endl;
+                    
+                    // Try to get some more data
+                    if (bufOffset == bufLen) {
+                        std::tie(buf, bufLen) = getData(requestedBlockSize);
+                        bufOffset = 0;
+
+                        //cerr << "*** Getting new block" << endl;
+                        //cerr << "bufLen = " << bufLen << endl;
+                        
+                        if (!buf) {
+                            throw Exception("Early EOF for lz4 stream");
+                        }
+                    }
+
+                    size_t todo = std::min(len - done, bufLen - bufOffset);
+                    //cerr << " -=-=-=-=- bufOffset = " << bufOffset << " bufLen = " << bufLen
+                    //     << " todo = " << todo << endl ;
+                    memcpy(out + done, buf.get() + bufOffset, todo);
+
+                    done += todo;
+                    bufOffset += todo;
+                }
+
+                ExcAssertEqual(len, done);
+
+                //cerr << "--------------- finished getAll" << endl;
+            };
+        
+        // Give it everything to move to the next state
+        auto pumpState = [&] ()
+            {
+                getAll(cur, limit - cur);
+                decompress(cur, limit - cur, nullptr /* onData */);
+            };
+
+        while (state < BLOCK_HEADER)
+            pumpState();
+
+        std::atomic<bool> aborted(false);
+
+        size_t blockNumber = 0;
+        size_t blockOffset = 0;
+        size_t blockSize = header.blockSize();
+
+        
+        while (state != FINISHED && state != STREAM_CHECKSUM && !aborted) {
+            while (state != FINISHED && state != STREAM_CHECKSUM && state != BLOCK_DATA)
+                pumpState();
+
+            if (state == FINISHED || state == STREAM_CHECKSUM || aborted)
+                break;
+
+            std::shared_ptr<const char> ourBlockData;
+            
+            // Next state is to read the block.
+            if (bufLen - bufOffset >= blockLength()) {
+                //If we have enough input data, we don't
+                // need to copy; we can simply use it straight from there
+                ourBlockData = std::shared_ptr<const char>(buf, buf.get() + bufOffset);
+                bufOffset += blockLength();
+            }
+            else {
+                // Read the block data, copying in to the buffer we recently created
+                getAll(cur, limit - cur);
+                ourBlockData = blockData;
+            }
+            
+            if (header.blockChecksum()) {
+                setCur(BLOCK_CHECKSUM, blockChecksum);
+                getAll(cur, limit - cur);
+            }
+            
+            auto processBlock = [ourBlockData = std::move(ourBlockData),
+                                 blockHeader = this->blockHeader,
+                                 blockChecksum = this->blockChecksum,
+                                 blockNumber,
+                                 blockOffset,
+                                 this,
+                                 &aborted,
+                                 &onBlock,
+                                 &allocate] ()
+                {
+
+                    std::shared_ptr<const char> outputData;
+                    size_t outputLength;
+
+                    std::tie(outputData, outputLength)
+                        = decompressBlock(std::move(ourBlockData),
+                                          blockHeader, blockChecksum, allocate);
+                    if (!onBlock(blockNumber, blockOffset,
+                                 outputData, outputLength))
+                        aborted = true;
+
+                    //if (header.streamChecksum()) {
+                    //    XXH32_update(streamChecksumState, output.data(), output.size());
+                    //}
+                };
+
+            ++blockNumber;
+            blockOffset += blockSize;
+            
+            // Finish processing in a new thread
+            if (maxParallelism > 1)
+                tp.add(std::move(processBlock));
+            else processBlock();
+            
+            // Start of a new block again
+            setCur(BLOCK_HEADER, blockHeader);
+        }
+
+        tp.waitForAll();
+        
+        return !aborted;
+    }
+    
     // write all data
     void write(const OnData & onData, const void * mem, size_t len)
     {
@@ -458,6 +725,8 @@ struct Lz4Decompressor: public Decompressor {
 
     enum State {
         HEADER,
+        CONTENT_SIZE,
+        HEADER_CHECKSUM,
         BLOCK_HEADER,
         BLOCK_DATA,
         BLOCK_CHECKSUM,
@@ -486,11 +755,15 @@ struct Lz4Decompressor: public Decompressor {
     }
     
     lz4::Header header;
+    uint64_le knownContentSize = 0;
+    uint8_t checkBits = 0;
     uint32_le blockHeader = 0;
-    std::string blockData;
+    uint32_t blockLength() const { return blockHeader & ~lz4::NotCompressedMask; }
+;
+    std::shared_ptr<char> blockData;
     uint32_le blockChecksum = 0;
     uint32_le streamChecksum = 0;
-
+    
     XXH32_state_t* streamChecksumState = nullptr;
 };
 

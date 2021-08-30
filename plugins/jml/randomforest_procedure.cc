@@ -330,7 +330,9 @@ run(const ProcedureRunConfig & run,
 
             INFO_MSG(logger) << "numNonZero = " << numNonZero;
             
-            auto data = allData.reweightAndCompact(trainingWeights, numNonZero);
+            MemorySerializer serializer;
+
+            auto data = allData.reweightAndCompact(trainingWeights, numNonZero, serializer);
 
             INFO_MSG(logger) << "bag " << bag << " setup took " << bagTimer.elapsed();
 
@@ -351,7 +353,7 @@ run(const ProcedureRunConfig & run,
 
                 Timer timer;
                 ML::Tree tree;
-                tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree);
+                tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree, serializer);
                 INFO_MSG(logger) << "bag " << bag << " partition " << partitionNum << " took "
                      << timer.elapsed();
 

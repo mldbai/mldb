@@ -55,4 +55,13 @@ void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
                         const std::function<void (size_t, size_t)> & doWork,
                         int occupancyLimit = -1);
 
+template<typename Container, typename Fn>
+void parallelForEach(const Container & container, Fn && fn,
+                     int occupancyLimit = -1)
+{
+    parallelMap(0, container.size(),
+                [&] (size_t v) { return fn(container[v]); },
+                occupancyLimit);
+}
+                     
 } // namespace MLDB

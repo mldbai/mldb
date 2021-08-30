@@ -36,6 +36,7 @@ LIBMLDB_EMBEDDING_PLUGIN_LINK:= \
 	svdlibc \
 	db \
 	mldb_feature_gen_plugin \
+	block \
 
 $(eval $(call library,mldb_embedding_plugin,$(LIBMLDB_EMBEDDING_PLUGIN_SOURCES),$(LIBMLDB_EMBEDDING_PLUGIN_LINK)))
 

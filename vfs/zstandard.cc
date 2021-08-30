@@ -109,6 +109,9 @@ registerZStandardCompressor("zstd", {"zst", "zstd"});
 
 struct ZStandardDecompressor: public Decompressor {
 
+    using Decompressor::decompress;
+    using Decompressor::finish;
+
     ZStandardDecompressor()
         : stream(ZSTD_createDStream()),
           outDataSize(ZSTD_DStreamOutSize()),

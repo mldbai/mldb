@@ -30,7 +30,8 @@ LIBVFS_LINK := \
 	bz2 \
 	value_description \
 	googleurl \
-	z
+	z \
+	base \
 
 $(eval $(call library,vfs,$(LIBVFS_SOURCES),$(LIBVFS_LINK)))
 

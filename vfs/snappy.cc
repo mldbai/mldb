@@ -61,6 +61,9 @@ registerSnappyCompressor("snappy", {"snappy"});
 
 struct SnappyDecompressor: public Decompressor {
 
+    using Decompressor::decompress;
+    using Decompressor::finish;
+    
     virtual int64_t decompressedSize(const char * block, size_t blockLen,
                                      int64_t totalLen) const override
     {

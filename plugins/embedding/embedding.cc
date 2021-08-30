@@ -262,6 +262,7 @@ struct EmbeddingDataset::Itl
         delete uncommitted.load();
     }
 
+    MemorySerializer backingStore;  ///< Memory holding backing data
     MetricSpace metric;
 
     GcLock lock;
@@ -579,15 +580,20 @@ struct EmbeddingDataset::Itl
         BucketDescriptions descriptions;
         descriptions.initialize(valueList, maxNumBuckets);
 
+        auto serializer = std::make_shared<MemorySerializer>();
+
         // Finally, perform the bucketed lookup
-        WritableBucketList buckets(columnVals.size(), descriptions.numBuckets());
+        WritableBucketList buckets(columnVals.size(), descriptions.numBuckets(), *serializer);
 
         for (auto& v : columnVals) {
             uint32_t bucket = descriptions.getBucket(v);
             buckets.write(bucket);
         }
 
-        return std::make_tuple(std::move(buckets), std::move(descriptions));
+        BucketList result = buckets.freeze(*serializer);
+        result.backingStore = serializer;
+
+        return std::make_tuple(result, std::move(descriptions));
     }
 
     /** Return a RowValueInfo that describes all rows that could be returned

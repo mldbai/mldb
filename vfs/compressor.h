@@ -40,13 +40,25 @@ struct Compressor {
         FLUSH_RESTART,  ///< Flush so we could restart the decompression here
     };
 
+    /** Notify the implementation of the total size of the data that will be
+        passed to compress.  Some of the compression formats can put this
+        into their header to enable better decisions on allocation.
+
+        This must be called either never or ponce before compress(), flush() or
+        finish(), and behavior is undefined if the exact same amount of data
+        is not then passed to compress().
+
+        The default implementation does nothing.
+    */
+    virtual void notifyInputSize(uint64_t inputSize);
+    
     /** Compress the given data block, and write the result into the
         given buffer.
 
         This will call onData zero or more times.
     */
     virtual void compress(const char * data, size_t len,
-                            const OnData & onData) = 0;
+                          const OnData & onData) = 0;
     
     /** Flush the stream at the given flush level.  This will call onData
         zero or more times.
@@ -115,6 +127,10 @@ struct Decompressor {
     
     typedef std::function<size_t (const char * data, size_t len)> OnData;
 
+    typedef std::function<void (std::shared_ptr<const char> data, size_t len)> OnSharedData;
+
+    typedef std::function<std::shared_ptr<char> (size_t)> Allocate;
+    
     /** Return the decompressed size, given a block containing the start
         of the data, a length of the block, and the total length of all
         of the comrpessed data (the block doesn't need to contain
@@ -139,7 +155,11 @@ struct Decompressor {
         This will call onData zero or more times.
     */
     virtual void decompress(const char * data, size_t len,
-                              const OnData & onData) = 0;
+                            const OnData & onData) = 0;
+
+    virtual void decompress(std::shared_ptr<const char> data, size_t len,
+                            const OnSharedData & onData,
+                            const Allocate & allocate);
     
     /** Finish decompressing the stream... no more data can be read from
         it afterwards.
@@ -148,6 +168,25 @@ struct Decompressor {
     */
     virtual void finish(const OnData & onData) = 0;
 
+    virtual void finish(const OnSharedData & onData,
+                        const Allocate & allocate);
+
+
+    typedef std::function<bool (size_t blockNumber,
+                                uint64_t blockOffset,
+                                std::shared_ptr<const char> blockStart,
+                                size_t blockLength)>
+        ForEachBlockFunction;
+
+    typedef std::function<std::pair<std::shared_ptr<const char>, size_t> (size_t)>
+        GetDataFunction;
+    
+    virtual bool forEachBlockParallel(size_t requestedBlockSize,
+                                      const GetDataFunction & getData,
+                                      const ForEachBlockFunction & onBlock,
+                                      const Allocate & allocate,
+                                      int maxParallelism = -1);
+    
     /** Create a compressor with the given scheme.  Returns nullptr if
         the given compression scheme isn't found.
     */

@@ -179,6 +179,22 @@ extractNumbers(size_t numValues,
         output[i] = tmpOutput[i].toDouble();
     }
 }
+
+void
+RowStream::
+extractNumbers(size_t numValues,
+               const std::vector<ColumnPath> & columnNames,
+               float * output)
+{
+    std::unique_ptr<CellValue[]> tmpOutput
+        (new CellValue[numValues * columnNames.size()]);
+
+    extractColumns(numValues, columnNames, tmpOutput.get());
+
+    for (size_t i = 0;  i < numValues * columnNames.size();  ++i) {
+        output[i] = tmpOutput[i].toDouble();
+    }
+}
     
 
 
@@ -478,13 +494,17 @@ getColumnBuckets(const ColumnPath & column,
     distinctValues.clear();  distinctValues.shrink_to_fit();
     vals2.clear();  vals2.shrink_to_fit();
 
-    WritableBucketList buckets(totalRows, descriptions.numBuckets());
+    static MemorySerializer serializer;
+    
+    WritableBucketList buckets(totalRows, descriptions.numBuckets(),
+                               serializer);
     for (auto & b: bucketNumbers) {
         ExcAssert(b != -1);
         buckets.write(b);
     }
 
-    return std::make_tuple(std::move(buckets), std::move(descriptions));
+    return std::make_tuple(buckets.freeze(serializer),
+                           std::move(descriptions));
 }
 
 
