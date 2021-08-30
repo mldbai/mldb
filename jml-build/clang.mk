@@ -19,7 +19,12 @@ CLANG_SANITIZER_memory_FLAGS:=-fsanitize=memory
 CLANG_SANITIZER_thread_FLAGS:=-fsanitize=thread
 CLANG_SANITIZER_undefined_FLAGS:=-fsanitize=undefined -fno-sanitize-recover=undefined -fno-sanitize=vptr -fvisibility=default
 
-CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(CLANGXXWARNINGFLAGS) -pipe -ggdb $(foreach dir,$(LOCAL_INCLUDE_DIR),-I$(dir)) -std=c++17 $(foreach sanitizer,$(sanitizers),$(CLANG_SANITIZER_$(sanitizer)_FLAGS) )
+COMMA?=,
+NOTHING?=
+SPACE?=$(NOTHING) $(NOTHING)
+SANITIZERS:=$(subst $(COMMA),$(SPACE),$(sanitizers))
+
+CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(CLANGXXWARNINGFLAGS) -pipe -ggdb $(foreach dir,$(LOCAL_INCLUDE_DIR),-I$(dir)) -std=c++17 $(foreach sanitizer,$(SANITIZERS),$(CLANG_SANITIZER_$(sanitizer)_FLAGS) )
 CXXNODEBUGFLAGS := -O3 -DBOOST_DISABLE_ASSERTS -DNDEBUG 
 CXXDEBUGFLAGS := -O0 -g3
 
