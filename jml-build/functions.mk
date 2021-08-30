@@ -58,7 +58,7 @@ SEMICOLON:=;
 QUOTE:="
 #"  
 # (previous line is for emacs)
-
+COMMA:=$(NOTHING),$(NOTHING)
 
 
 hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | $(MD5SUM)))
