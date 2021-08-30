@@ -38,6 +38,7 @@ LIBML_LINK := \
 	utils \
 	db \
 	vfs \
+	block \
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 
@@ -88,6 +89,7 @@ LIBMLDB_JML_PLUGIN_LINK:= \
 	mldb_builtin \
 	sql_types \
 	algebra \
+	block \
 
 
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))

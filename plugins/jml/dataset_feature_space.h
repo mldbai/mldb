@@ -46,22 +46,17 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
                         bool bucketize = false);
 
     struct ColumnInfo {
-        ColumnInfo()
-            : index(-1), distinctValues(-1)
-        {
-        }
-
         ColumnPath columnName;
         ML::Feature_Info info;
-        int index;
-
-        int distinctValues;
+        int index = -1;
+        int distinctValues = -1;
 
         // These are only filled in if bucketize is true on construction
         BucketList buckets;
         BucketDescriptions bucketDescriptions;
 
-        Utf8String print() const {
+        Utf8String print() const
+        {
             return "[Column '"+columnName.toUtf8String()
                 +"'; Info: "+info.print()+
                 "; distinctVals: "+std::to_string(distinctValues)+"]";

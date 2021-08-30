@@ -79,6 +79,20 @@ range(size_t start, size_t end) const
     return FrozenMemoryRegion(handle_, data() + start, end - start);
 }
 
+FrozenMemoryRegion
+FrozenMemoryRegion::
+rangeAtStart(size_t length) const
+{
+    return range(0, length);
+}
+
+FrozenMemoryRegion
+FrozenMemoryRegion::
+rangeAtEnd(size_t length) const
+{
+    return range(this->length() - length, this->length());
+}
+
 #if 0
 void
 FrozenMemoryRegion::
@@ -92,6 +106,40 @@ reserialize(MappedSerializer & serializer) const
 }
 #endif
 
+FrozenMemoryRegion
+FrozenMemoryRegion::
+combined(const FrozenMemoryRegion & region1,
+         const FrozenMemoryRegion & region2)
+{
+    return combined({region1, region2});
+}
+
+FrozenMemoryRegion
+FrozenMemoryRegion::
+combined(const std::vector<FrozenMemoryRegion> & regions)
+{
+    // For now, this is very simplistic.  There are many opportunities
+    // to optimize later on.
+    
+    static MemorySerializer serializer;
+    uint64_t totalLength = 0;
+    for (auto & r: regions) {
+        totalLength += r.length();
+    }
+
+    auto mem = serializer.allocateWritable(totalLength, 8 /* todo alignment */);
+
+    size_t offset = 0;
+    for (auto & r: regions) {
+        if (r.length() == 0)
+            continue;  // to avoid memcpy(nullptr, xxx, 0)
+        memcpy(mem.data() + offset, r.data(), r.length());
+        offset += r.length();
+    }
+
+    return mem.freeze();
+}
+
 
 /*****************************************************************************/
 /* MUTABLE MEMORY REGION                                                     */
@@ -104,6 +152,7 @@ struct MutableMemoryRegion::Itl {
         MappedSerializer * owner)
         : handle(std::move(handle)), data(data), length(length), owner(owner)
     {
+        ExcAssert(owner);
     }
     
     std::shared_ptr<const void> handle;
@@ -127,6 +176,7 @@ std::shared_ptr<const void>
 MutableMemoryRegion::
 handle() const
 {
+    ExcAssert(itl);
     return itl->handle;
 }
 
@@ -134,19 +184,40 @@ FrozenMemoryRegion
 MutableMemoryRegion::
 freeze()
 {
+    ExcAssert(itl);
+    ExcAssert(itl->owner);
     return itl->owner->freeze(*this);
+}
+
+MutableMemoryRegion
+MutableMemoryRegion::
+range(size_t startByte, size_t endByte) const
+{
+    ExcAssertLessEqual(startByte, endByte);
+    ExcAssertLessEqual(endByte, length_);
+
+    ExcAssert(itl);
+    ExcAssert(itl->owner);
+    
+    MutableMemoryRegion result;
+    result.itl = this->itl;
+    result.data_ = this->data_ + startByte;
+    result.length_ = (endByte - startByte);
+
+    ExcAssert(result.itl->owner);
+
+    return result;
 }
 
 std::shared_ptr<const void>
 MutableMemoryRegion::
 reset()
 {
+    ExcAssert(itl);
     data_ = nullptr;
     length_ = 0;
     std::shared_ptr<const void> result(std::move(itl->handle));
-    itl->owner = nullptr;
-    itl->data = nullptr;
-    itl->length = 0;
+    itl.reset();
     return result;
 }
 
@@ -247,7 +318,11 @@ allocateWritable(uint64_t bytesRequired,
     if (alignment < sizeof(void *)) {
         alignment = sizeof(void *);
     }
-    int res = posix_memalign(&mem, alignment, bytesRequired);
+
+    size_t bytesToAllocate
+        = (bytesRequired + alignment - 1) / alignment * alignment;
+    
+    int res = posix_memalign(&mem, alignment, bytesToAllocate);
     if (res != 0) {
         cerr << "bytesRequired = " << bytesRequired
              << " alignment = " << alignment << endl;
@@ -274,7 +349,7 @@ freeze(MutableMemoryRegion & region)
 
     std::shared_ptr<const void> handle;
     
-    if (pageLen > 0) {
+    if (pageLen > 0 && false /* VMA exhaustion */) {
         // Set protection to read-only for full pages to ensure it's really frozen
         //cerr << "protecting " << pageStart << " at offset " << (char *)pageStart - data
         //     << " for " << pageLen

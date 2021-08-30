@@ -18,7 +18,7 @@
 #include "perceptron_defs.h"
 #include <vector>
 #include "backprop_cuda.h"
-#include "fixed_point_accum.h"
+#include "mldb/utils/fixed_point_accum.h"
 
 extern "c" __sync_lock_test_and_set(...);
 

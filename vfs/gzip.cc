@@ -309,7 +309,9 @@ struct GzipDecompressor: public Decompressor, public ZlibStreamCommon {
     GzipHeaderReader header;
 
     typedef Decompressor::OnData OnData;
-    
+    using Decompressor::decompress;
+    using Decompressor::finish;    
+
     GzipDecompressor()
     {
         int res = inflateInit2(this, -15 /* 15 windowBits, no header */);

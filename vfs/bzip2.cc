@@ -184,6 +184,8 @@ registerBzipCompressor("bzip2", {"bz2", "bzip2"});
 struct BzipDecompressor: public Decompressor, public BzlibStreamCommon {
 
     typedef Decompressor::OnData OnData;
+    using Decompressor::decompress;
+    using Decompressor::finish;
 
     static int bz_decompress(bz_stream * stream, int flush)
     {

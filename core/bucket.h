@@ -14,6 +14,8 @@
 #include <memory>
 #include <vector>
 #include "mldb/base/exc_assert.h"
+#include "mldb/block/memory_region.h"
+#include "mldb/arch/bit_range_ops.h"
 
 namespace MLDB {
 
@@ -23,83 +25,118 @@ struct Utf8String;
 /** Holds an array of bucket indexes, efficiently. */
 struct BucketList {
 
-    BucketList()
-        : entryBits(0), numBuckets(0), numEntries(0)
-    {
-    }
-
-    inline uint32_t operator [] (uint32_t i) const
+    MLDB_ALWAYS_INLINE uint32_t operator [] (uint32_t i) const
     {
         //ExcAssertLess(i, numEntries);
-        size_t wordNum = (i * entryBits) / 64;
-        size_t bitNum = (i * entryBits) % 64;
-        uint32_t result = (storage.get()[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
-        //ExcAssertLess(result, numBuckets);
-        return result;
+        Bit_Extractor<uint32_t> extractor(storagePtr);
+        extractor.advance(i * entryBits);
+        return extractor.extractFast<uint32_t>(entryBits);
     }
 
-    std::shared_ptr<const uint64_t> storage;
-    int entryBits;
-    int numBuckets;
-    size_t numEntries;
+    MLDB_ALWAYS_INLINE uint32_t at (uint32_t i) const
+    {
+        ExcAssertLess(i, numEntries);
+        return operator [] (i);
+    }
 
     size_t rowCount() const
     {
         return numEntries;
     }
+
+    friend class WritableBucketList;
+    friend class ParallelWritableBucketList;
+    FrozenMemoryRegionT<uint32_t> storage;
+    const uint32_t * storagePtr = nullptr;
+    
+public:
+    int entryBits = 0;
+    int numBuckets = 0;
+    size_t numEntries = 0;
+    std::shared_ptr<void> backingStore;  ///< Used to hold a reference to memory backing this object
 };
 
 /** Writable version of the above.  OK to slice. */
-struct WritableBucketList: public BucketList {
-    WritableBucketList()
-        : current(0), bitsWritten(0)
+struct WritableBucketList {
+    WritableBucketList() = default;
+
+    /** How many bytes are required (aligned at uint32_t) for the given
+        number of buckets each containing a number up to numElements?
+    */
+    static size_t wordsRequired(size_t numElements, uint32_t numBuckets);
+    
+    /** Initialize from already-allocated memory.  There must be at least
+        wordsRequired words already allocated.
+    */
+    WritableBucketList(size_t numElements, uint32_t numBuckets,
+                       MutableMemoryRegionT<uint32_t> mem)
+    {
+        init(numElements, numBuckets, mem);
+    }
+
+    WritableBucketList(size_t numElements, uint32_t numBuckets,
+                       MappedSerializer & serializer)
+    {
+        init(numElements, numBuckets, serializer);
+    }
+
+    void init(size_t numElements, uint32_t numBuckets,
+              MappedSerializer & serializer);
+
+    void init(size_t numElements, uint32_t numBuckets,
+              MutableMemoryRegionT<uint32_t> mem);
+    
+    inline void write(uint32_t value)
+    {
+        writer.write(value, entryBits);
+    }
+
+    BucketList freeze(MappedSerializer & serializer);
+
+    size_t rowCount() const
+    {
+        return numEntries;
+    }
+    
+    MLDB_ALWAYS_INLINE uint32_t operator [] (uint32_t i) const
+    {
+        Bit_Extractor<uint32_t> extractor(storage.data());
+        extractor.advance(i * entryBits);
+        return extractor.extractFast<uint32_t>(entryBits);
+    }
+
+    Bit_Writer<uint32_t> writer = nullptr;
+    MutableMemoryRegionT<uint32_t> storage;
+
+    int entryBits = 0;
+    int numBuckets = 0;
+    size_t numEntries = 0;
+};
+
+struct ParallelWritableBucketList: public WritableBucketList {
+
+    ParallelWritableBucketList() = default;
+    
+    ParallelWritableBucketList(size_t numElements, uint32_t numBuckets,
+                               MappedSerializer & serializer)
+        : WritableBucketList(numElements, numBuckets, serializer)
     {
     }
 
-    WritableBucketList(size_t numElements, uint32_t numBuckets)
-        : WritableBucketList()
+    ParallelWritableBucketList(size_t numElements, uint32_t numBuckets,
+                               MutableMemoryRegionT<uint32_t> mem)
+        : WritableBucketList(numElements, numBuckets, std::move(mem))
     {
-        init(numElements, numBuckets);
     }
-
-    void init(size_t numElements, uint32_t numBuckets);
-
+    
     // Return a writer at the given offset, which must be a
     // multiple of 64.  This allows the bucket list to be
     // written from multiple threads.  Must only be called
     // without any writing having taken place
-    WritableBucketList atOffset(size_t offset)
-    {
-        ExcAssertEqual(numWritten, 0);
-        size_t bitsToSkip = offset * entryBits;
-        ExcAssertEqual(bitsToSkip % 64, 0);
-        WritableBucketList result;
-        result.current = current + bitsToSkip / 64;
-        result.numWritten = 0;
-        result.bitsWritten = 0;
-        result.entryBits = this->entryBits;
-        result.numBuckets = -1;
-        result.numEntries = -1;
-        return result;
-    }
+    WritableBucketList atOffset(size_t offset);
 
-    inline void write(uint64_t value)
-    {
-        //ExcAssertLess(value, numBuckets);
-        uint64_t already = bitsWritten ? *current : 0;
-        *current = already | (value << bitsWritten);
-        bitsWritten += entryBits;
-        current += (bitsWritten >= 64);
-        bitsWritten *= (bitsWritten < 64);
-
-        //ExcAssertEqual(this->operator [] (numWritten), value);
-        //ExcAssertLess(numWritten, numEntries);
-        numWritten += 1;
-    }
-
-    uint64_t * current;
-    int bitsWritten;
-    size_t numWritten;
+    // Append all of the bits from buckets
+    void append(const WritableBucketList & buckets);
 };
 
 struct NumericValues {
@@ -212,7 +249,10 @@ struct BucketDescriptions {
 
     static std::tuple<BucketList, BucketDescriptions>
     merge(const std::vector<std::tuple<BucketList, BucketDescriptions> > & inputs,
+          MappedSerializer & serializer,
           int numBuckets = -1);
 };
 
-}
+} // namespace MLDB
+
+

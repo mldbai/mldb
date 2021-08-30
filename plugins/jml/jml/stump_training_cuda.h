@@ -12,7 +12,7 @@
 #ifndef __jml__stump_training_cuda_h__
 #define __jml__stump_training_cuda_h__
 
-#include "fixed_point_accum.h"
+#include "mldb/utils/fixed_point_accum.h"
 
 namespace ML {
 namespace CUDA {

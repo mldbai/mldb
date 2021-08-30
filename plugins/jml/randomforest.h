@@ -11,7 +11,7 @@
 #pragma once
 
 #include "mldb/plugins/jml/dataset_feature_space.h"
-#include "mldb/plugins/jml/jml/fixed_point_accum.h"
+#include "mldb/utils/fixed_point_accum.h"
 #include "mldb/plugins/jml/jml/tree.h"
 #include "mldb/plugins/jml/jml/stump_training_bin.h"
 #include "mldb/plugins/jml/jml/decision_tree.h"
@@ -46,7 +46,8 @@ struct PartitionData {
         increasing.
     */
     PartitionData reweightAndCompact(const std::vector<float> & weights,
-                                     size_t numNonZero) const
+                                     size_t numNonZero,
+                                     MappedSerializer & serializer) const
     {
         PartitionData data;
         data.features = this->features;
@@ -94,6 +95,33 @@ struct PartitionData {
         trancheOffsets.push_back(offset);
         trancheSplits.push_back(start);
 
+        // Get a contiguous block of memory for all of the feature blocks;
+        // this enables a single GPU transfer and a single GPU argument
+        // list (for when we do GPUs)
+        std::vector<size_t> bucketMemoryOffsets(1, 0);
+        size_t bucketMemoryRequired = 0;
+ 
+        for (int f = 0;  f < features.size();  ++f) {
+            size_t bytesRequired = 0;
+            if (data.features[f].active) {
+                size_t wordsRequired
+                    = WritableBucketList::wordsRequired
+                        (numNonZero,
+                         data.features[f].info->distinctValues);
+                bytesRequired = wordsRequired * 4;
+            }
+            bucketMemoryRequired += bytesRequired;
+            bucketMemoryOffsets.push_back(bucketMemoryRequired);
+        }
+ 
+        MutableMemoryRegionT<uint32_t> mutableBucketMemory
+            = serializer.allocateWritableT<uint32_t>
+            (bucketMemoryRequired / 4, 4096 /* page aligned */);
+ 
+        auto myRange = mutableBucketMemory.rangeBytes(0, bucketMemoryRequired);
+ 
+        ExcAssertEqual(myRange.length(),  bucketMemoryRequired / 4);
+
         // This gets called for each feature.  It's further subdivided
         // per tranche.
         auto doFeature = [&] (size_t f)
@@ -114,10 +142,15 @@ struct PartitionData {
                 if (!data.features[f].active)
                     return;
 
-                featureBuckets[f].init(numNonZero,
-                                       data.features[f].info->distinctValues);
-
-                data.features[f].buckets = std::move(featureBuckets[f]);
+               auto mem
+                   = mutableBucketMemory
+                     .rangeBytes(bucketMemoryOffsets[f],
+                                 bucketMemoryOffsets[f + 1]);
+               
+               ParallelWritableBucketList featureBuckets
+                   (numNonZero,
+                    data.features[f].info->distinctValues,
+                    mem);
 
                 auto onTranche = [&] (size_t tr)
                 {
@@ -125,7 +158,7 @@ struct PartitionData {
                     size_t end = trancheSplits[tr + 1];
                     size_t offset = trancheOffsets[tr];
                     
-                    auto writer = featureBuckets[f].atOffset(offset);
+                    auto writer = featureBuckets.atOffset(offset);
 
                     size_t n = 0;
                     for (size_t i = start;  i < end;  ++i) {
@@ -133,6 +166,7 @@ struct PartitionData {
                             continue;
                         
                         uint32_t bucket = features[f].buckets[rows[i].exampleNum];
+                        //ExcAssertLess(bucket, features[f].info->distinctValues);
                         writer.write(bucket);
                         ++n;
                     }
@@ -141,10 +175,21 @@ struct PartitionData {
                 };
 
                 parallelMap(0, numTranches, onTranche);
+
+                data.features[f].buckets = featureBuckets.freeze(serializer);
             };
 
         MLDB::parallelMap(0, data.features.size() + 1, doFeature);
 
+        data.bucketMemory = mutableBucketMemory.freeze();
+ 
+        for (size_t i = 0;  i < data.features.size();  ++i) {
+            if (features[i].active) {
+                ExcAssertGreaterEqual(data.features[i].buckets.storage.data(),
+                                      data.bucketMemory.data());
+            }
+        }
+       
         return data;
     }
 
@@ -176,6 +221,9 @@ struct PartitionData {
 
     // All features that are active
     std::vector<Feature> features;
+
+    /// Memory for all feature buckets
+    FrozenMemoryRegionT<uint32_t> bucketMemory;
 
     /** Reserve enough space for the given number of rows. */
     void reserve(size_t n)
@@ -218,6 +266,8 @@ struct PartitionData {
 
         Float total() const { return v[0] + v[1]; }
 
+        constexpr size_t nl() const { return 2; }
+
         WT & operator += (const WT & other)
         {
             v[0] += other.v[0];
@@ -246,7 +296,8 @@ struct PartitionData {
 
     /** Split the partition here. */
     std::pair<PartitionData, PartitionData>
-    split(int featureToSplitOn, int splitValue, const W & wLeft, const W & wRight, const W & wAll)
+    split(int featureToSplitOn, int splitValue, const W & wLeft, const W & wRight, const W & wAll,
+          MappedSerializer & serializer)
     {
      //   std::cerr << "spliting on feature " << featureToSplitOn << " bucket " << splitValue << std::endl;
 
@@ -318,8 +369,8 @@ struct PartitionData {
                     continue;
 
                 WritableBucketList newFeatures[2];
-                newFeatures[0].init(numOnSide[0], features[i].info->distinctValues);
-                newFeatures[1].init(numOnSide[1], features[i].info->distinctValues);
+                newFeatures[0].init(numOnSide[0], features[i].info->distinctValues, serializer);
+                newFeatures[1].init(numOnSide[1], features[i].info->distinctValues, serializer);
                 size_t index[2] = { 0, 0 };
 
                 for (size_t j = 0;  j < rows.size();  ++j) {
@@ -328,8 +379,8 @@ struct PartitionData {
                     ++index[side];
                 }
 
-                sides[0].features[i].buckets = newFeatures[0];
-                sides[1].features[i].buckets = newFeatures[1];
+                sides[0].features[i].buckets = newFeatures[0].freeze(serializer);
+                sides[1].features[i].buckets = newFeatures[1].freeze(serializer);
             }
 
             rows.clear();
@@ -405,6 +456,9 @@ struct PartitionData {
                         || (lastBucket != -1 && bucket != lastBucket);
                     lastBucket = bucket;
 
+                    //ExcAssertLess(i, w.size());
+                    //ExcAssertLess(bucket, w[i].size());
+                    //ExcAssertLess(r.label, w[i][bucket].nl());
                     w[i][bucket][r.label] += r.weight;
                     maxBucket = std::max(maxBucket, bucket);
                 }
@@ -582,7 +636,9 @@ struct PartitionData {
     /** Trains the tree.  Note that this is destructive; it can only be called once as it
      *  frees its internal memory as it's going to ensure that memory usage is reasonable.
      */
-    ML::Tree::Ptr train(int depth, int maxDepth, ML::Tree & tree)
+    ML::Tree::Ptr train(int depth, int maxDepth,
+                        ML::Tree & tree,
+                        MappedSerializer & serializer)
     {
         //std::cerr << format("depth=%d maxDepth=%d this=%p features.size()=%zd\n",
         //                    depth, maxDepth, this, features.size());
@@ -616,7 +672,8 @@ struct PartitionData {
         ExcAssertLessEqual(bestFeature, features.size());
 
         std::pair<PartitionData, PartitionData> splits
-            = split(bestFeature, bestSplit, wLeft, wRight, wAll);
+            = split(bestFeature, bestSplit, wLeft, wRight, wAll,
+                    serializer);
 
         ExcAssertGreaterEqual(bestFeature, 0);
         ExcAssertLessEqual(bestFeature, features.size());
@@ -627,8 +684,8 @@ struct PartitionData {
         //cerr << "right had " << splits.second.rows.size() << " rows" << endl;
 
         ML::Tree::Ptr left, right;
-        auto runLeft = [&] () { left = splits.first.train(depth + 1, maxDepth, tree); };
-        auto runRight = [&] () { right = splits.second.train(depth + 1, maxDepth, tree); };
+        auto runLeft = [&] () { left = splits.first.train(depth + 1, maxDepth, tree, serializer); };
+        auto runRight = [&] () { right = splits.second.train(depth + 1, maxDepth, tree, serializer); };
 
         size_t leftRows = splits.first.rows.size();
         size_t rightRows = splits.second.rows.size();

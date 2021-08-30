@@ -68,6 +68,15 @@ get(size_t i) const
     return decode(i, val);
 }
 
+uint64_t
+FrozenIntegerTable::
+getDefault(size_t i, uint64_t def) const
+{
+    if (i >= md.numEntries)
+        return def;
+    return get(i);
+}
+
 void
 FrozenIntegerTable::
 serialize(StructuredSerializer & serializer) const

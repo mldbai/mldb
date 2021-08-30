@@ -18,7 +18,7 @@ namespace MLDB {
 
 template<typename MapFn, typename ReduceFn, typename It, typename It2>
 void
-parallelMapInOrderReduce(It first, It2 last, MapFn map, ReduceFn reduce)
+parallelMapInOrderReduce(It first, It2 last, MapFn&& map, ReduceFn&& reduce)
 {
     // Result type of map function (to be passed to reduce)
     typedef decltype(map(first)) MapResult;
@@ -55,7 +55,7 @@ parallelMapInOrderReduce(It first, It2 last, MapFn map, ReduceFn reduce)
 template<typename MapFn, typename ReduceFn>
 void
 parallelMapInOrderReduceChunked(size_t first, size_t last,
-                                MapFn map, ReduceFn reduce,
+                                MapFn&& map, ReduceFn&& reduce,
                                 size_t chunkSize)
 {
     // Result type of map function (to be passed to reduce)
@@ -92,7 +92,7 @@ parallelMapInOrderReduceChunked(size_t first, size_t last,
 template<typename MapFn, typename ReduceFn, typename It>
 void
 parallelMapInOrderReducePreChunked(const std::vector<std::pair<It, It> > & chunks,
-                                   MapFn map, ReduceFn reduce)
+                                   MapFn&& map, ReduceFn&& reduce)
 {
     // Result type of map function (to be passed to reduce)
     typedef decltype(map(chunks[0].first)) MapResult;
@@ -127,7 +127,7 @@ template<typename MapFn, typename ReduceFn, typename WorkFn,
 void
 parallelMapInOrderReduceInEqualWorkChunks
     (It first, It2 last,
-     MapFn map, ReduceFn reduce, WorkFn work,
+     MapFn&& map, ReduceFn&& reduce, WorkFn&& work,
      size_t targetNumChunks = 512)
 {
     // How many total elements to process?

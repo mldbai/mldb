@@ -55,6 +55,8 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
         filteredColumns.push_back(columnName);
     }
 
+    //cerr << "DatasetFeatureSpace: bucketize = " << bucketize << endl;
+
     auto onColumn = [&] (int i)
         {
             const ColumnPath & columnName = filteredColumns[i];
@@ -129,6 +131,10 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
 
         BucketList & buckets = std::get<0>(bucketsAndDescriptions);
         BucketDescriptions & descriptions = std::get<1>(bucketsAndDescriptions);
+
+        //for (size_t i = 0;  i < buckets.rowCount();  ++i) {
+        //    ExcAssertLess(buckets[i], descriptions.numBuckets());
+        //}
 
         if (descriptions.numeric.active) {
             result.info = ML::REAL;

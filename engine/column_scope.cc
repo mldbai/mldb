@@ -59,6 +59,11 @@ doGetColumn(const Utf8String & tableName,
                         = ExpressionValue(row.numericInputs[index],
                                           Date::notADate());
                 }
+                else if (row.floatInputs) {
+                    return storage
+                        = ExpressionValue(row.floatInputs[index],
+                                          Date::notADate());
+                }
                 else {
                     return storage
                         = ExpressionValue(row.inputs->at(index).at(row.rowIndex),
@@ -87,43 +92,14 @@ doGetFunction(const Utf8String & tableName,
     return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
 }
 
-std::vector<std::vector<CellValue> >
-ColumnScope::
-run(const std::vector<BoundSqlExpression> & exprs) const
-{
-    size_t numRows = dataset->getMatrixView()->getRowCount();
-
-    std::vector<std::vector<CellValue> > results(exprs.size());
-    for (auto & r: results)
-        r.resize(numRows);
-
-    auto onVal = [&] (size_t rowNum, CellValue * vals)
-        {
-            for (size_t i = 0;  i < exprs.size();  ++i) {
-                results[i][rowNum] = std::move(vals[i]);
-            }
-            return true;
-        };
-
-    runIncremental(exprs, onVal);
-    
-    return results;
-}
-
-/// Allow control over whether the given optimization path is run
-/// so that we can test both with and without optimization.
-static const OptimizedPath optimizeRunIncremental
-("mldb.ColumnScope.runIncremental");
-
-static void extractVals(size_t blockRows,
-                        const std::vector<ColumnPath> & columnNames,
-                        double * values, RowStream & stream)
-{
-    stream.extractNumbers(blockRows, columnNames,
-                          values);
-}
+namespace { // file scope
 
 static double extractVal(const CellValue & val, double *)
+{
+    return val.toDouble();
+}
+
+static float extractVal(const CellValue & val, float *)
 {
     return val.toDouble();
 }
@@ -136,6 +112,22 @@ static void extractVals(size_t blockRows,
                           values);
 }
 
+static void extractVals(size_t blockRows,
+                        const std::vector<ColumnPath> & columnNames,
+                        double * values, RowStream & stream)
+{
+    stream.extractNumbers(blockRows, columnNames,
+                          values);
+}
+
+static void extractVals(size_t blockRows,
+                        const std::vector<ColumnPath> & columnNames,
+                        float * values, RowStream & stream)
+{
+    stream.extractNumbers(blockRows, columnNames,
+                          values);
+}
+
 static CellValue extractVal(CellValue && val, CellValue *)
 {
     return std::move(val);
@@ -145,6 +137,58 @@ static CellValue extractVal(const CellValue & val, CellValue *)
 {
     return val;
 }
+
+} // file scope
+
+template<typename Val>
+std::vector<std::vector<Val> >
+ColumnScope::
+runT(const std::vector<BoundSqlExpression> & exprs) const
+{
+    size_t numRows = dataset->getMatrixView()->getRowCount();
+
+    std::vector<std::vector<Val> > results(exprs.size());
+    for (auto & r: results)
+        r.resize(numRows);
+
+    auto onVal = [&] (size_t rowNum, Val * vals)
+        {
+            for (size_t i = 0;  i < exprs.size();  ++i) {
+                results[i][rowNum] = extractVal(std::move(vals[i]), (Val *)0);
+            }
+            return true;
+        };
+
+    runIncrementalT<Val>(exprs, onVal);
+    
+    return results;
+}
+
+std::vector<std::vector<CellValue> >
+ColumnScope::
+run(const std::vector<BoundSqlExpression> & exprs) const
+{
+    return runT<CellValue>(exprs);
+}
+
+std::vector<std::vector<double> >
+ColumnScope::
+runDouble(const std::vector<BoundSqlExpression> & exprs) const
+{
+    return runT<double>(exprs);
+}
+
+std::vector<std::vector<float> >
+ColumnScope::
+runFloat(const std::vector<BoundSqlExpression> & exprs) const
+{
+    return runT<float>(exprs);
+}
+
+/// Allow control over whether the given optimization path is run
+/// so that we can test both with and without optimization.
+static const OptimizedPath optimizeRunIncremental
+("mldb.ColumnScope.runIncremental");
 
 template<typename Val>
 bool
@@ -341,6 +385,15 @@ runIncrementalDouble(const std::vector<BoundSqlExpression> & exprs,
                                          double * vals)> onVal) const
 {
     return runIncrementalT<double>(exprs, onVal);
+}
+
+bool
+ColumnScope::
+runIncrementalFloat(const std::vector<BoundSqlExpression> & exprs,
+                    std::function<bool (size_t rowNum,
+                                        float * vals)> onVal) const
+{
+    return runIncrementalT<float>(exprs, onVal);
 }
 
 } // namespace MLDB

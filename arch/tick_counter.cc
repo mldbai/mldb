@@ -76,6 +76,10 @@ double calc_ticks_overhead()
         auto overhead = calc_ticks_overhead_once();
         if (overhead == 0)
             continue;
+        if (overhead > 1000000) {
+            --i;
+            continue;
+        }
         result = std::min(result, overhead);
     }
     return result;
