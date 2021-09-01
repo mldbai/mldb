@@ -313,12 +313,14 @@ CellValue
 BucketDescriptions::
 getSplit(uint32_t bucket) const
 {
+    ExcAssertLess(bucket, numBuckets());
+
     if (bucket < numeric.offset)
         return CellValue(); //empty
     else if (bucket < strings.offset)
-        return numeric.splits[bucket - numeric.offset];
+        return numeric.splits.at(bucket - numeric.offset - 1);
     else if (bucket < blobs.offset)
-        return strings.buckets[bucket - strings.offset];
+        return strings.buckets.at(bucket - strings.offset);
 
     throw AnnotatedException(500, "Invalid bucket");
 }

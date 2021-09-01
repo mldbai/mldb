@@ -537,21 +537,29 @@ struct PartitionData {
 
         ML::Tree::Ptr part;
 
-#if 1
-        return trainPartitioned(depth, maxDepth, tree, serializer);
-#elif 1
-        if (depth == 0) {
-            Timer timer;
-            Date before = Date::now();
-            part = trainPartitioned(depth, maxDepth, tree, serializer);
-            Date after = Date::now();
-            cerr << "partitioned took " << after.secondsSince(before) * 1000.0
-                 << "ms " << timer.elapsed() << endl;
-        }
+        enum TrainingScheme {
+            PARTITIONED = 1,
+            RECURSIVE = 2,
+            BOTH_AND_COMPARE = 3,
+        } trainingScheme = PARTITIONED;
 
-        if (depth < 2)
-            cerr << "depth " << depth << endl;
-#endif
+        if (trainingScheme == PARTITIONED) {
+            return trainPartitioned(depth, maxDepth, tree, serializer);
+        }
+        else if (trainingScheme == BOTH_AND_COMPARE) {
+            if (depth == 0) {
+                Timer timer;
+                Date before = Date::now();
+                part = trainPartitioned(depth, maxDepth, tree, serializer);
+                Date after = Date::now();
+                cerr << "partitioned took " << after.secondsSince(before) * 1000.0
+                    << "ms " << timer.elapsed() << endl;
+            }
+
+            if (depth < 2)
+                cerr << "depth " << depth << endl;
+        }
+        // else we're in recursive only...
         
         Date before;
         unique_ptr<Timer> timer;

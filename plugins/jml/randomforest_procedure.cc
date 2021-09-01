@@ -188,7 +188,7 @@ run(const ProcedureRunConfig & run,
     auto boundWhere = runProcConf.trainingData.stm->where->bind(colScope);
     auto boundWeight = weight->bind(colScope);
 
-    INFO_MSG(logger) << "label uses columns " << jsonEncode(colScope.requiredColumns);
+    INFO_MSG(logger) << "label " << label->surface << " uses columns " << jsonEncode(colScope.requiredColumns);
 
     Timer labelsTimer;
 
@@ -214,15 +214,18 @@ run(const ProcedureRunConfig & run,
     size_t numRowsKept = 0;
     size_t numTrue = 0;
     size_t numFalse = 0;
+    double totalKeptWeight = 0.0;
+
     for (size_t i = 0;  i < labels.size();  ++i) {
         if (keepExample(i)) {
             (!!labels[i] ? numTrue: numFalse) += 1;
+            totalKeptWeight += weights[i];
             ++numRowsKept;
         }
     }
 
     cerr << "labels: false " << numFalse << " true " << numTrue << endl;
-    
+
     SelectExpression select({subSelect});
 
     auto getColumnsInExpression = [&] (const SqlExpression & expr)
@@ -279,7 +282,8 @@ run(const ProcedureRunConfig & run,
 
     auto writer = allData.rows.getRowWriter(numRowsKept, numRowsKept,
                                             serializer,
-                                            false /* sequenial example nums */);
+                                            false /* sequenial example nums */,
+                                            1.0 / totalKeptWeight);
 
     size_t numRows = 0;
     for (size_t i = 0;  i < labels.size();  ++i) {

@@ -153,7 +153,7 @@ struct NumericValues {
 
     size_t numBuckets() const
     {
-        return splits.size() + active;
+        return splits.size() + (active ? 1 : 0);
     }
 
     uint32_t getBucket(double val) const;
@@ -172,7 +172,7 @@ struct OrdinalValues {
     std::vector<CellValue> splits;
     size_t numBuckets() const
     {
-        return splits.size() + active;
+        return splits.size() + (active ? 1 : 0);
     }
 
     uint32_t getBucket(const CellValue & val) const;
@@ -221,7 +221,7 @@ struct StringValues {
 
 struct BucketDescriptions {
     BucketDescriptions();
-    bool hasNulls;
+    bool hasNulls = false;
     NumericValues numeric;
     StringValues strings;
     CategoricalValues blobs, paths;

@@ -513,7 +513,8 @@ testFeatureNumber(int featureNum,
                   const std::vector<Feature> & features,
                   Rows::RowIterator rowIterator,
                   size_t numRows,
-                  const W & wAll)
+                  const W & wAll,
+                  bool debug)
 {
     const Feature & feature = features.at(featureNum);
     const BucketList & buckets = feature.buckets;
@@ -540,7 +541,7 @@ testFeatureNumber(int featureNum,
     if (isActive) {
         std::tie(bestScore, bestSplit, bestLeft, bestRight)
             = chooseSplitKernel(w.data(), maxBucket, feature.ordinal,
-                                wAll);
+                                wAll, debug);
     }
 
     return { bestScore, bestSplit, bestLeft, bestRight, isActive };
@@ -550,7 +551,8 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAllCpu(int depth,
            const std::vector<Feature> & features,
            const Rows & rows,
-           FrozenMemoryRegionT<uint32_t> bucketMemory)
+           FrozenMemoryRegionT<uint32_t> bucketMemory,
+           bool trace)
 {
     std::vector<uint8_t> newActive;
     for (auto & f: features) {
@@ -563,7 +565,7 @@ testAllCpu(int depth,
                                std::vector<uint8_t>(features.size(), false));
     }
 
-    bool debug = false;
+    bool debug = trace;
 
     int nf = features.size();
 
@@ -619,6 +621,8 @@ testAllCpu(int depth,
     // Parallel map over all features
     auto doFeature = [&] (int i)
         {
+            if (debug)
+                cerr << "doing feature " << i << features[i].info->columnName << endl;
             double score;
             int split = -1;
             W bestLeft, bestRight;
@@ -628,7 +632,9 @@ testAllCpu(int depth,
             bool stillActive;
             std::tie(score, split, bestLeft, bestRight, stillActive)
                 = testFeatureNumber(i, features, rowIterator,
-                                    rows.rowCount(), rows.wAll);
+                                    rows.rowCount(), rows.wAll, debug);
+            if (debug)
+                cerr << "  score " << score << " split " << split << endl;
             newActive[i] = stillActive;
 
             return std::make_tuple(score, split, bestLeft, bestRight);
@@ -656,7 +662,7 @@ testAllCpu(int depth,
         }
     }
 #else
-    if (depth < 4 || (uint64_t)rows.rowCount() * (uint64_t)nf > 20000) {
+    if (!debug && (depth < 4 || (uint64_t)rows.rowCount() * (uint64_t)nf > 20000)) {
         parallelMapInOrderReduce(0, nf, doFeature, findBest);
     }
     else {
@@ -685,7 +691,7 @@ testAllCpu(int depth,
         std::cerr << "bestFeature " << bestFeature << " "
                   << features[bestFeature].info->columnName << std::endl;
         std::cerr << "bestSplit " << bestSplit << " "
-                  << features[bestFeature].info->bucketDescriptions.getValue(bestSplit)
+                  << features[bestFeature].info->bucketDescriptions.getSplit(bestSplit)
                   << std::endl;
     }
 
@@ -1164,7 +1170,8 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
         const std::vector<Feature> & features,
         const Rows & rows,
-        FrozenMemoryRegionT<uint32_t> bucketMemory)
+        FrozenMemoryRegionT<uint32_t> bucketMemory,
+        bool trace)
 {
     if (rows.rowCount() < 1000000 || true) {
         if (depth < 3 && false) {
@@ -1172,7 +1179,7 @@ testAll(int depth,
             //std::unique_lock<std::mutex> guard(mutex);
 
             Date beforeCpu = Date::now();
-            auto res = testAllCpu(depth, features, rows, bucketMemory);
+            auto res = testAllCpu(depth, features, rows, bucketMemory, trace);
             Date afterCpu = Date::now();
 
             int activeFeatures = 0;
@@ -1195,7 +1202,7 @@ testAll(int depth,
             return res;
         }
         else {
-            return testAllCpu(depth, features, rows, bucketMemory);
+            return testAllCpu(depth, features, rows, bucketMemory, trace);
         }
     }
     else {
@@ -1949,10 +1956,10 @@ verifyPartitionBuckets(const std::vector<uint32_t> & partitions,
             ++partitionRowCounts[p];
     }
 
-    for (int i = 0;  i < numPartitions;  ++i) {
-        cerr << "part " << i << " count " << wAll[i].count() << " rows "
-             << partitionRowCounts[i] << endl;
-    }
+    //for (int i = 0;  i < numPartitions;  ++i) {
+    //    cerr << "part " << i << " count " << wAll[i].count() << " rows "
+    //         << partitionRowCounts[i] << endl;
+    //}
 
     bool different = false;
     for (int i = 0;  i < numPartitions;  ++i) {
@@ -2549,7 +2556,8 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
                              FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
     constexpr bool verifyBuckets = false;
-        
+    constexpr bool debug = false;
+
     using namespace std;
 
     int rowCount = decodedRows.size();
@@ -2691,9 +2699,11 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
         if (partitionCounts.size() > maxWidth) {
             int splitCount = partitionCounts[maxWidth].first
                 + partitionCounts[maxWidth + 1].first;
-            cerr << "splitting off " << partitionCounts.size() - maxWidth
-                 << " partitions with " << splitCount
-                 << " max count due to maximum width" << endl;
+            if (debug) {
+                cerr << "splitting off " << partitionCounts.size() - maxWidth
+                    << " partitions with " << splitCount
+                    << " max count due to maximum width" << endl;
+            }
 
             for (int i = maxWidth;  i < partitionCounts.size();  ++i) {
                 uint32_t idx = partitionCounts[i].second;
@@ -2707,8 +2717,10 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
             partitionCounts.resize(maxWidth);
         }
 
-        cerr << smallPartitions.size() << " small partitions with "
-             << smallPartitionRows << " rows" << endl;
+        if (debug) {
+            cerr << smallPartitions.size() << " small partitions with "
+                << smallPartitionRows << " rows" << endl;
+        }
 
         // Do the small partitions
         std::map<PartitionIndex, ML::Tree::Ptr> smallPartitionsOut
@@ -2764,7 +2776,7 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
                 }
             }
             
-            if (i < 10) {
+            if (i < 10 && debug) {
                 cerr << "partition " << i << " index " << part << " path "
                      << splits[part].index.path()
                      << " lr " << lr << " count " << partitionCounts[i].first
@@ -2774,38 +2786,40 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
 
         indexes = std::move(newIndexes);
         
-        std::vector<size_t> partitionCountsCum;
-        size_t cum = 0;
-        for (auto & c: partitionCounts) {
-            cum += c.first;
-            partitionCountsCum.push_back(cum);
-        }
+        if (debug) {
+            std::vector<size_t> partitionCountsCum;
+            size_t cum = 0;
+            for (auto & c: partitionCounts) {
+                cum += c.first;
+                partitionCountsCum.push_back(cum);
+            }
 
-        std::vector<Path> activeFeatureNames;
-        for (auto & f: activeFeatures) {
-            activeFeatureNames.emplace_back(features[f].info->columnName);
-        }
-        
-        cerr << "depth " << depth << " active partitions "
-             << numActivePartitions
-             << " of " << splits.size()
-             << " rows " << numRowsInActivePartition
-             << " of " << decodedRows.size()
-             << " buckets "
-             << (buckets.empty() ? 0 : buckets[0].size())
-             << " features " << jsonEncodeStr(activeFeatures)
-             << " " << jsonEncodeStr(activeFeatureNames)
-             << endl;
+            std::vector<Path> activeFeatureNames;
+            for (auto & f: activeFeatures) {
+                activeFeatureNames.emplace_back(features[f].info->columnName);
+            }
+            
+            cerr << "depth " << depth << " active partitions "
+                << numActivePartitions
+                << " of " << splits.size()
+                << " rows " << numRowsInActivePartition
+                << " of " << decodedRows.size()
+                << " buckets "
+                << (buckets.empty() ? 0 : buckets[0].size())
+                << " features " << jsonEncodeStr(activeFeatures)
+                << " " << jsonEncodeStr(activeFeatureNames)
+                << endl;
 
-        cerr << "dist: ";
-        for (int i = 1;  i < partitionCounts.size();  i *= 2) {
-            cerr << i << ": " << partitionCounts[i - 1].first << "->"
-                 << partitionCountsCum[i - 1]
-                 << "("
-                 << 100.0 * partitionCountsCum[i - 1] / numRowsInActivePartition
-                 << "%)" << endl;
+            cerr << "dist: ";
+            for (int i = 1;  i < partitionCounts.size();  i *= 2) {
+                cerr << i << ": " << partitionCounts[i - 1].first << "->"
+                    << partitionCountsCum[i - 1]
+                    << "("
+                    << 100.0 * partitionCountsCum[i - 1] / numRowsInActivePartition
+                    << "%)" << endl;
+            }
+            cerr << endl;
         }
-        cerr << endl;
 
         // Double the number of partitions, create new W entries for the
         // new partitions, and transfer those examples that are in the
@@ -2816,9 +2830,11 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
                       newPartitionNumbers, partitionCounts.size(),
                       decodedRows, activeFeatures);
 
-        cerr << "depth " << depth << " time "
-             << 1000.0 * Date::now().secondsSince(start)
-             << "ms" << endl;
+        if (debug) {
+            cerr << "depth " << depth << " time "
+                << 1000.0 * Date::now().secondsSince(start)
+                << "ms" << endl;
+        }
         start = Date::now();
         
         for (auto & s: splits) {

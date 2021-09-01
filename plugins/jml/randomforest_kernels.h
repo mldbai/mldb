@@ -96,7 +96,8 @@ std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAll(int depth,
         const std::vector<Feature> & features,
         const Rows & rows,
-        FrozenMemoryRegionT<uint32_t> bucketMemory);
+        FrozenMemoryRegionT<uint32_t> bucketMemory,
+        bool trace = false);
 
 
 /*****************************************************************************/

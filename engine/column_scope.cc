@@ -204,6 +204,9 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     // complex expression.
     std::vector<int> columnNumbers;
 
+    // Are all of these simple extracts, meaning that it's simply the name of a column?
+    bool allSimpleExtracts = true;
+
     // Those that are simply reading a column get a fast path
     for (auto & e: exprs) {
         auto asColumn = dynamic_cast<const ReadColumnExpression *>
@@ -221,6 +224,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
         }
         else {
             columnNumbers.emplace_back(-1);
+            allSimpleExtracts = false;
         }
     }
 
@@ -233,7 +237,8 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
 
     bool canTakeOptimizedPath
         = rowGen.rowStream
-        && rowGen.rowStream->supportsExtendedInterface();
+        && rowGen.rowStream->supportsExtendedInterface()
+        && allSimpleExtracts;
 
     // Number of columns; for offset calculations
     size_t nc = requiredColumns.size();

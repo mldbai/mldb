@@ -197,16 +197,18 @@ struct RowWriter {
               size_t maxRows,
               size_t maxExampleCount,
               MappedSerializer & serializer,
-              bool sequentialExampleNums)
+              bool sequentialExampleNums,
+              float weightScalingFactor = 1.0)
         : weightEncoder(weightEncoder),
           weightBits(weightEncoder->weightBits),
           exampleNumBits(sequentialExampleNums
                          ? 0 : MLDB::highest_bit(maxExampleCount, -1) + 1),
-          totalBits(weightBits + exampleNumBits + 1),
+          totalBits(weightBits + exampleNumBits + 1 /* for label */),
           toAllocate((totalBits * maxRows + 63) / 64 + 1 /* +1 allows extractFast */),
           data(serializer
                .allocateWritableT<uint64_t>(toAllocate, 4096 /* page aligned */)),
-          writer(data.data())
+          writer(data.data()),
+          weightScalingFactor(weightScalingFactor)
     {
     }
 
@@ -217,7 +219,7 @@ struct RowWriter {
         if (exampleNumBits > 0)
             toWrite = (toWrite << exampleNumBits) | row.exampleNum();
         writer.write(toWrite, totalBits);
-        float weight = weightEncoder->decodeWeight(row.encodedWeight_);
+        float weight = weightEncoder->decodeWeight(row.encodedWeight_) * weightScalingFactor;
         wAll.add(row.label(), weight);
     }
 
@@ -238,6 +240,7 @@ private:
     MutableMemoryRegionT<uint64_t> data;
     Bit_Writer<uint64_t> writer;
     W wAll;
+    float weightScalingFactor;
 };
 
 struct Rows {
@@ -269,7 +272,7 @@ struct Rows {
 
         MLDB_ALWAYS_INLINE uint64_t getRowBits()
         {
-            return extractor.extractFastUnmaskedUnsafe<uint64_t>(totalBits);
+            return extractor.extractFastUnmasked<uint64_t>(totalBits);
         }
 
         MLDB_ALWAYS_INLINE Row getRow()
@@ -375,10 +378,11 @@ struct Rows {
     RowWriter getRowWriter(size_t maxRows,
                            size_t maxExampleCount,
                            MappedSerializer & serializer,
-                           bool sequentialExampleNums) const
+                           bool sequentialExampleNums,
+                           float weightScalingFactor = 1.0) const
     {
         return RowWriter(&weightEncoder, maxRows, maxExampleCount, serializer,
-                         sequentialExampleNums);
+                         sequentialExampleNums, weightScalingFactor);
     }
 };
 
