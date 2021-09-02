@@ -16,6 +16,7 @@
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/utils/environment.h"
+#include "mldb/arch/vm.h"
 #include <condition_variable>
 #include <sstream>
 
@@ -38,6 +39,10 @@ std::ostream & operator << (std::ostream & stream, PartitionIndex idx)
     return stream << idx.path();
 }
 
+size_t roundUpToPageSize(size_t mem)
+{
+    return (mem + page_size - 1) / page_size * page_size;
+}
 
 std::pair<bool, int>
 testFeatureKernelOpencl(Rows::RowIterator rowIterator,
@@ -135,7 +140,7 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 
 #if OPENCL_ENABLED
 
-EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
+EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 1);
 EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
 EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
 EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 1);
@@ -896,12 +901,12 @@ testAllOpenCL(int depth,
     OpenCLMemObject clRowData
         = context.createBuffer(0,
                                (const void *)rows.rowData.data(),
-                               (rows.rowData.memusage() + 4095) / 4096 * 4096);
+                               roundUpToPageSize(rows.rowData.memusage()));
 
     OpenCLMemObject clBucketData
         = context.createBuffer(0,
                                (const void *)bucketMemory_.data(),
-                               (bucketMemory_.memusage() + 4095) / 4096 * 4096);
+                               roundUpToPageSize(bucketMemory_.memusage()));
 
     OpenCLMemObject clBucketDataOffsets
         = context.createBuffer(bucketMemoryOffsets);
@@ -1747,7 +1752,7 @@ splitPartitions(const std::vector<Feature> features,
 
     mutablePartitionMemory
         = serializer.allocateWritableT<uint32_t>
-        (partitionMemoryOffset / 4, 4096 /* page aligned */);
+        (partitionMemoryOffset / 4, page_size);
 
     for (int i = 0;  i < numPartitions;  ++i) {
         out[i].mutableBucketMemory
@@ -3204,8 +3209,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     auto memQueue2 = kernelContext.context.createCommandQueue
         (kernelContext.devices[0], queueProperties);
     
-    size_t rowMemorySizePageAligned
-        = (rows.rowData.memusage() + 4095) / 4096 * 4096;
+    size_t rowMemorySizePageAligned = roundUpToPageSize(rows.rowData.memusage());
     
     Date before = Date::now();
 
@@ -3246,8 +3250,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // We transfer the bucket data as early as possible, as it's one of the
     // longest things to transfer
     
-    size_t bucketMemorySizePageAligned
-        = (bucketMemory.memusage() + 4095) / 4096 * 4096;
+    size_t bucketMemorySizePageAligned = roundUpToPageSize(bucketMemory.memusage());
     
     OpenCLMemObject clBucketData
         = context.createBuffer(CL_MEM_READ_ONLY,
@@ -3628,6 +3631,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     for (int myDepth = 0;
          myDepth < 16 && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
+
+        cerr << "depth = " << depth << " myDepth = " << myDepth << " numPartitions " << numPartitionsAtDepth << endl;
 
         if (RF_OPENCL_SYNCHRONOUS_LAUNCH) {
             queue.flush();
@@ -4347,8 +4352,8 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
-    //return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
-    //                                   rows, features, bucketMemory, fs);
+    return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
+                                       rows, features, bucketMemory, fs);
 
 #if OPENCL_ENABLED
 

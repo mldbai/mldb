@@ -63,7 +63,7 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     uint32_t wordOffset = bitNumber % 64;
 
     if (wordNumber >= dataLength) {
-        printf("OUT OF RANGE WORD %d vs %d\n", wordNumber, dataLength);
+        //printf("OUT OF RANGE WORD %d vs %d\n", wordNumber, dataLength);
         return 0;
     }
     
@@ -214,6 +214,11 @@ double decodeW(int64_t v)
     return v * HL_2_VAL;
 }
 
+float decodeWf(int64_t v)
+{
+    return v * HL_2_VAL;
+}
+
 #ifdef cl_khr_int64_base_atomics
 
 #define atom_add_64_local atom_add
@@ -318,6 +323,7 @@ void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
     atom_sub(&wOut->count,   wIn->count);
 }
 
+#if 0
 uint32_t testRow(uint32_t rowId,
 
                  __global const uint64_t * rowData,
@@ -547,6 +553,8 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     }
 }
 
+#endif
+
 // Take a bit-compressed representation of rows, and turn it into a
 // decompressed version with one float per row (the sign gives the
 // label, and the magnitude gives the weight).
@@ -596,10 +604,10 @@ decompressRowsKernel(__global const uint64_t * rowData,
 
         float encoded = label ? -weight : weight;
         
-        if (false && rowId < 128) {
-            printf("row %d ex %d wt %f lb %d encoded %f\n",
-                   rowId, exampleNum, weight, label, encoded);
-        }
+        //if (rowId < 128 && false) {
+            //printf("row %d ex %d wt %f lb %d encoded %f\n",
+            //       rowId, exampleNum, weight, label, encoded);
+        //}
         
         decompressedWeightsOut[rowId] = encoded;
     }
@@ -757,6 +765,7 @@ testFeatureKernelExpanded(__global const float * expandedRows,
     }
 }
 
+
 typedef struct {
     uint32_t index;
     float score;
@@ -783,11 +792,11 @@ inline double sqrt2(float x)
     return sqrt((double)x);
 }
 
-inline double scoreSplit(W wFalse, W wTrue)
+inline float scoreSplit(W wFalse, W wTrue)
 {
-    double score
-        = 2.0 * (    sqrt(decodeW(wFalse.vals[0]) * decodeW(wFalse.vals[1]))
-                   + sqrt(decodeW(wTrue.vals[0]) * decodeW(wTrue.vals[1])));
+    float score
+        = 2.0 * (    sqrt(decodeWf(wFalse.vals[0]) * decodeWf(wFalse.vals[1]))
+                   + sqrt(decodeWf(wTrue.vals[0]) * decodeWf(wTrue.vals[1])));
     return score;
 };
 
@@ -811,7 +820,7 @@ inline double scoreSplitWAll(W wTrue, W wAll)
 /* In this function, we identify empty buckets (that should not be scored)
    by marking their index with -1.
 */
-inline void minW(__local W * out, __local const W * in, W wAll, bool debug)
+inline void minW(__local W * out, __local const W * in, W wAll)
 {
     if (in->count == 0 || in->index < 0)
         return;
@@ -823,6 +832,7 @@ inline void minW(__local W * out, __local const W * in, W wAll, bool debug)
     double scoreIn = scoreSplitWAll(*in, wAll);
     double scoreOut = scoreSplitWAll(*out, wAll);
 
+#if 0
     if (debug) {
         printf("score %d vs %d: %f(%08lx) vs %f(%08lx): (%f,%f,%d) vs (%f,%f,%d): %d\n",
                in->index, out->index, scoreIn, scoreIn, scoreOut, scoreOut,
@@ -830,7 +840,8 @@ inline void minW(__local W * out, __local const W * in, W wAll, bool debug)
                decodeW(out->vals[0]), decodeW(out->vals[1]), out->count,
                scoreIn >= scoreOut);
     }
-    
+#endif
+
     // No need to check the indexes if less; the way it's structured out will
     // always be on the higher index.
     if (scoreIn <= scoreOut)
@@ -840,7 +851,7 @@ inline void minW(__local W * out, __local const W * in, W wAll, bool debug)
 // Post: start[0] <- start[0] + init
 //       start[n] <- sum(start[0...n]) + init
 // This is a low latency prefix sum, not work-minimizing
-void prefixSumW(__local W * w, uint32_t n, bool debug)
+void prefixSumW(__local W * w, uint32_t n)
 {
     // iter 0
     // a b c d e f g h i j k l m n o p
@@ -904,6 +915,7 @@ void prefixSumW(__local W * w, uint32_t n, bool debug)
             uint32_t resultIndex = blockStart + halfBlockSize + threadNumInBlock;
 
             if (resultIndex < n) {
+#if 0
                 if (debug) {
                     printf("b %d = %d + %d = (%f,%f,%d,i%d) + (%f,%f,%d,i%d) = (%f,%f,%d)\n",
                            resultIndex, resultIndex, argIndex,
@@ -918,6 +930,7 @@ void prefixSumW(__local W * w, uint32_t n, bool debug)
                            w[resultIndex].count + w[argIndex].count
                            );
                 }
+#endif
 
                 // All threads read the same value (argIndex) and write a different
                 // element of the block (resultIndex)
@@ -934,7 +947,7 @@ void prefixSumW(__local W * w, uint32_t n, bool debug)
 // Return the lowest index of the W array with a score equal to the minimum
 // score.  Only get_local_id(0) knows the actual correct result; the result
 // from the others should be ignored.
-uint32_t argMinScanW(__local W * w, uint32_t n, W wAll, bool debug)
+inline uint32_t argMinScanW(__local W * w, uint32_t n, W wAll)
 {
     for (uint32_t iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
         // If we need more than one round from our warp to process all elements,
@@ -954,7 +967,7 @@ uint32_t argMinScanW(__local W * w, uint32_t n, W wAll, bool debug)
 
             if (resultIndex <  n) {
                 // Compare them, taking the minimum and pushing it right
-                minW(w + resultIndex, w + argIndex, wAll, debug);
+                minW(w + resultIndex, w + argIndex, wAll);
             }
         }
 
@@ -966,173 +979,8 @@ uint32_t argMinScanW(__local W * w, uint32_t n, W wAll, bool debug)
     return w[n - 1].index;
 }
 
-// Function that uses a single workgroup to scan all of the buckets in a split
-PartitionSplit
-chooseSplit(__global const W * w,
-            uint32_t numBuckets,
-            W wAll,
-            __local W * wLocal,
-            uint32_t wLocalSize,
-            __local W * wStartBest,  // length 2
-            bool ordinal)
-{
-    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                              0 };
-
-    uint32_t f = get_global_id(1);
-    uint32_t p = get_global_id(2);
-
-
-    // We need some weight in both true and false for a split to make sense
-    if (wAll.vals[0] == 0 || wAll.vals[1] == 0)
-        return result;
-    
-    // Read our W array into shared memory
-    
-    // If we have more W values than local buckets, we need to
-    // do the prefix sum multiple times to fill it up completely
-
-    // Contains the prefix sum from the previous iteration
-    __local W * wStart = wStartBest;
-
-    // Contains the best split from the previous iteration
-    __local W * wBest = wStartBest + 1;
-    
-    if (get_local_id(0) == 0) {
-        // Initialize wBest
-        if (ordinal) {
-            wStart->vals[0] = wStart->vals[1] = wStart->count = 0;
-            wStart->index = -1;
-        }
-        wBest->vals[0] = wBest->vals[1] = wBest->count = 0;
-        wBest->index = -1;
-    }
-
-    // Shouldn't be necessary; just in case
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    bool debug = false;//(f == 0 && p == 2 && get_global_size(2) == 8);
-    
-    for (uint32_t startBucket = 0;  startBucket < numBuckets;
-        startBucket += wLocalSize) {
-
-        //if (startBucket != 0) {
-        //    printf("f %d p %d startBucket %d\n",
-        //           f, p, startBucket);
-        //}
-        
-        uint32_t endBucket = min(startBucket + wLocalSize, numBuckets);
-        uint32_t numBucketsInIteration = endBucket - startBucket;
-        
-        for (uint32_t i = get_local_id(0);  i < numBucketsInIteration;
-             i += get_local_size(0)) {
-            wLocal[i] = w[startBucket + i];
-
-            // We don't want buckets with zero count to participate in the
-            // scoring, so those get an index of -1 to mark them as empty.
-            // They still accumulate their weight, however.
-            if (wLocal[i].count > 0)
-                wLocal[i].index = startBucket + i;
-            else wLocal[i].index = -1;
-
-            if (debug) {
-                printf("bucket %d has count %d index %d\n",
-                       startBucket + i, wLocal[i].count, wLocal[i].index);
-            }
-            
-            if (i == 0 && startBucket != 0) {
-                // Add the previous prefix to the first element
-                if (ordinal) {
-                    incrementW(wLocal, wStart);
-
-                    if (debug) {
-                        printf("f %d p %d sb %d new iter (%f,%f,%d) min (%f,%f,%d,i%d) first (%f,%f,%d,i%d) in (%f,%f,%d)\n",
-                               f, p, startBucket,
-                               decodeW(wStart->vals[0]), decodeW(wStart->vals[1]),
-                               wStart->count,
-                               decodeW(wBest->vals[0]), decodeW(wBest->vals[1]),
-                               wBest->count, wBest->index,
-                               decodeW(wLocal->vals[0]), decodeW(wLocal->vals[1]),
-                               wLocal->count, wLocal->index,
-                               decodeW(w[startBucket].vals[0]),
-                               decodeW(w[startBucket].vals[1]),
-                               w[startBucket].count
-                               );
-                    }
-                }
-            }
-        }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        if (ordinal) {
-            // Now we've read it in, we can do our prefix sum
-            prefixSumW(wLocal, numBucketsInIteration, false /* debug */);
-
-            // Seed for the next one
-            *wStart = wLocal[numBucketsInIteration - 1];
-        }
-        
-        // And then scan that to find the index of the best score
-        argMinScanW(wLocal, numBucketsInIteration, wAll, debug);
-
-        // Find if our new bucket is better than the last champion
-        minW(wBest, wLocal + numBucketsInIteration - 1, wAll,
-             debug);
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-    }
-
-    if (get_local_id(0) == 0 && ordinal) {
-        if (wStart->vals[0] != wAll.vals[0]
-            || wStart->vals[1] != wAll.vals[1]
-            || wStart->count != wAll.count) {
-            printf("Accumulation error: wAll != wStart: (%f,%f,%d) != (%f,%f,%d)\n",
-                   decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count,
-                   decodeW(wStart->vals[0]), decodeW(wStart->vals[1]), wStart->count);
-        }
-    }
-    
-    if (p < 256 && get_local_id(0) == 0 && false) {
-        //printf("f %d p %d numBuckets = %d\n",
-        //       f, p, numBuckets);
-
-#if 0        
-        printf("wAll (%f,%f,%d)\n",
-               decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count);
-
-        for (uint32_t i = 0;  i < numBuckets;  ++i) {
-            printf("  b%d in (%f,%f,%d) cum (%f,%f,%d)\n",
-                   i, decodeW(w[i].vals[0]), decodeW(w[i].vals[1]),
-                   w[i].count,
-                   decodeW(wLocal[i].vals[0]), decodeW(wLocal[i].vals[1]),
-                   wLocal[i].count);
-        }
-#endif
-        float score = scoreSplitWAll(*wBest, wAll);
-
-        
-        printf("f %d p %d nb %5d wBest %4d ord %d (%f,%f,%7d) %f\n",
-               f, p, numBuckets, wBest->index, ordinal,
-               decodeW(wBest->vals[0]), decodeW(wBest->vals[1]), wBest->count,
-               score);
-    }
-    
-    result.score = scoreSplitWAll(*wBest, wAll);
-    result.feature = f;
-    result.value = wBest->index + ordinal;  // ordinal indexes are offset by 1
-    result.left = *wBest;
-    result.right = wAll;
-
-    result.right.vals[0] -= wBest->vals[0];
-    result.right.vals[1] -= wBest->vals[1];
-    result.right.count   -= wBest->count;
-
-    return result;
-}
-
-
-PartitionSplit
+#if 0
+inline PartitionSplit
 chooseSplitKernelOrdinal(__global const W * w,
                          uint32_t numBuckets,
                          W wAll,
@@ -1226,7 +1074,7 @@ chooseSplitKernelOrdinal(__global const W * w,
     return result;
 }    
 
-PartitionSplit
+inline PartitionSplit
 chooseSplitKernelCategorical(__global const W * w,
                              uint32_t numBuckets,
                              W wAll)
@@ -1290,6 +1138,187 @@ chooseSplitKernelCategorical(__global const W * w,
     result.right = bestRight;
 
     return result;
+}
+#endif
+
+// Function that uses a single workgroup to scan all of the buckets in a split
+inline PartitionSplit
+chooseSplit(__global const W * w,
+            uint32_t numBuckets,
+            W wAll,
+            __local W * wLocal,
+            uint32_t wLocalSize,
+            __local W * wStartBest,  // length 2
+            bool ordinal)
+{
+    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                              0 };
+
+#if 1
+
+    uint32_t f = get_global_id(1);
+    uint32_t p = get_global_id(2);
+
+
+    // We need some weight in both true and false for a split to make sense
+    if (wAll.vals[0] == 0 || wAll.vals[1] == 0)
+        return result;
+    
+    // Read our W array into shared memory
+    
+    // If we have more W values than local buckets, we need to
+    // do the prefix sum multiple times to fill it up completely
+
+    // Contains the prefix sum from the previous iteration
+    __local W * wStart = wStartBest;
+
+    // Contains the best split from the previous iteration
+    __local W * wBest = wStartBest + 1;
+    
+
+    if (get_local_id(0) == 0) {
+        // Initialize wBest
+        if (ordinal) {
+            wStart->vals[0] = wStart->vals[1] = wStart->count = 0;
+            wStart->index = -1;
+        }
+        wBest->vals[0] = wBest->vals[1] = wBest->count = 0;
+        wBest->index = -1;
+    }
+
+    // Shouldn't be necessary; just in case
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    //bool debug = false;//(f == 0 && p == 2 && get_global_size(2) == 8);
+    
+    for (uint32_t startBucket = 0;  startBucket < numBuckets;
+        startBucket += wLocalSize) {
+
+        //if (startBucket != 0) {
+        //    printf("f %d p %d startBucket %d\n",
+        //           f, p, startBucket);
+        //}
+        
+        uint32_t endBucket = min(startBucket + wLocalSize, numBuckets);
+        uint32_t numBucketsInIteration = endBucket - startBucket;
+        
+#if 1
+        for (uint32_t i = get_local_id(0);  i < numBucketsInIteration;
+             i += get_local_size(0)) {
+            wLocal[i] = w[startBucket + i];
+
+            // We don't want buckets with zero count to participate in the
+            // scoring, so those get an index of -1 to mark them as empty.
+            // They still accumulate their weight, however.
+            if (wLocal[i].count > 0)
+                wLocal[i].index = startBucket + i;
+            else wLocal[i].index = -1;
+
+            //if (debug) {
+                //printf("bucket %d has count %d index %d\n",
+                //       startBucket + i, wLocal[i].count, wLocal[i].index);
+            //}
+            
+            if (i == 0 && startBucket != 0) {
+                // Add the previous prefix to the first element
+                if (ordinal) {
+                    incrementW(wLocal, wStart);
+
+                    // if (debug) {
+                    //     printf("f %d p %d sb %d new iter (%f,%f,%d) min (%f,%f,%d,i%d) first (%f,%f,%d,i%d) in (%f,%f,%d)\n",
+                    //            f, p, startBucket,
+                    //            decodeW(wStart->vals[0]), decodeW(wStart->vals[1]),
+                    //            wStart->count,
+                    //            decodeW(wBest->vals[0]), decodeW(wBest->vals[1]),
+                    //            wBest->count, wBest->index,
+                    //            decodeW(wLocal->vals[0]), decodeW(wLocal->vals[1]),
+                    //            wLocal->count, wLocal->index,
+                    //            decodeW(w[startBucket].vals[0]),
+                    //            decodeW(w[startBucket].vals[1]),
+                    //            w[startBucket].count
+                    //            );
+                    // }
+                }
+            }
+        }
+#endif
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+#if 1
+        if (ordinal) {
+            // Now we've read it in, we can do our prefix sum
+            prefixSumW(wLocal, numBucketsInIteration);
+
+            // Seed for the next one
+            *wStart = wLocal[numBucketsInIteration - 1];
+        }
+#endif
+
+#if 1
+        // And then scan that to find the index of the best score
+        argMinScanW(wLocal, numBucketsInIteration, wAll);
+#endif
+
+#if 1
+        // Find if our new bucket is better than the last champion
+        minW(wBest, wLocal + numBucketsInIteration - 1, wAll);
+#endif
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+#if 0
+    if (get_local_id(0) == 0 && ordinal) {
+        if (wStart->vals[0] != wAll.vals[0]
+            || wStart->vals[1] != wAll.vals[1]
+            || wStart->count != wAll.count) {
+            //printf("Accumulation error: wAll != wStart: (%f,%f,%d) != (%f,%f,%d)\n",
+            //       decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count,
+            //       decodeW(wStart->vals[0]), decodeW(wStart->vals[1]), wStart->count);
+        }
+    }
+#endif
+
+#if 0
+    if (p < 256 && get_local_id(0) == 0 && false) {
+        //printf("f %d p %d numBuckets = %d\n",
+        //       f, p, numBuckets);
+
+#if 0        
+        printf("wAll (%f,%f,%d)\n",
+               decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count);
+
+        for (uint32_t i = 0;  i < numBuckets;  ++i) {
+            printf("  b%d in (%f,%f,%d) cum (%f,%f,%d)\n",
+                   i, decodeW(w[i].vals[0]), decodeW(w[i].vals[1]),
+                   w[i].count,
+                   decodeW(wLocal[i].vals[0]), decodeW(wLocal[i].vals[1]),
+                   wLocal[i].count);
+        }
+#endif
+        float score = scoreSplitWAll(*wBest, wAll);
+
+        
+        printf("f %d p %d nb %5d wBest %4d ord %d (%f,%f,%7d) %f\n",
+               f, p, numBuckets, wBest->index, ordinal,
+               decodeW(wBest->vals[0]), decodeW(wBest->vals[1]), wBest->count,
+               score);
+    }
+#endif
+
+#if 0
+    result.score = scoreSplitWAll(*wBest, wAll);
+    result.feature = f;
+    result.value = wBest->index + ordinal;  // ordinal indexes are offset by 1
+    result.left = *wBest;
+    result.right = wAll;
+
+    result.right.vals[0] -= wBest->vals[0];
+    result.right.vals[1] -= wBest->vals[1];
+    result.right.count   -= wBest->count;
+#endif
+
+    return result;
+#endif
 }
 
 __kernel void
@@ -1356,7 +1385,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
 #if 1
     best = chooseSplit(myW, numBuckets, wAll[partition],
                        wLocal, wLocalSize, wStartBest, ordinal);
-#else    
+#elif 0
     // TODO: use prefix sums to enable better parallelization (this will mean
     // multiple kernel launches, though, so not sure) or accumulate locally
     // per set of buckets and then accumulate globally in a second operation.
