@@ -18,13 +18,13 @@ typedef signed char int8_t;
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 
-static const __constant float VAL_2_HL = 1.0f * (1UL << 63);
-static const __constant float HL_2_VAL = 1.0f / (1UL << 63);
-static const __constant float VAL_2_H = (1UL << 31);
-static const __constant float H_2_VAL = 1.0f / (1UL << 31);
-static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 63);
+static const __constant float VAL_2_HL = 1.0f * (1UL << 60);
+static const __constant float HL_2_VAL = 1.0f / (1UL << 60);
+static const __constant float VAL_2_H = (1UL << 28);
+static const __constant float H_2_VAL = 1.0f / (1UL << 28);
+static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 60);
 
-float decodeWeight(uint32_t bits, int floatEncoding, float baseMultiplier,
+float decodeWeight(uint32_t bits, uint32_t floatEncoding, float baseMultiplier,
                    __global const float * table)
 {
     if (floatEncoding == 0) {
@@ -39,19 +39,19 @@ float decodeWeight(uint32_t bits, int floatEncoding, float baseMultiplier,
     else return INFINITY;
 }
 
-uint32_t createMask32(int numBits)
+uint32_t createMask32(uint32_t numBits)
 {
     return numBits >= 32 ? -1 : (((uint32_t)1 << numBits) - 1);
 }
 
-uint64_t createMask64(int numBits)
+uint64_t createMask64(uint32_t numBits)
 {
     return numBits >= 64 ? -1 : (((uint64_t)1 << numBits) - 1);
 }
 
 inline uint64_t extractBitRange64(__global const uint64_t * data,
-                                  int numBits,
-                                  int entryNumber,
+                                  uint32_t numBits,
+                                  uint32_t entryNumber,
                                   uint64_t mask,
                                   uint32_t dataLength)
 {
@@ -59,8 +59,8 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     //if (bitNumber >= INT_MAX) {
     //    printf("bit number requires > 32 bits: %ld\n", bitNumber); 
     //}
-    int wordNumber = bitNumber / 64;
-    int wordOffset = bitNumber % 64;
+    uint32_t wordNumber = bitNumber / 64;
+    uint32_t wordOffset = bitNumber % 64;
 
     if (wordNumber >= dataLength) {
         printf("OUT OF RANGE WORD %d vs %d\n", wordNumber, dataLength);
@@ -74,8 +74,8 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     
     //printf("wordNumber = %d, bitNumber = %d\n", wordNumber, wordOffset);
     
-    int bottomBits = min(numBits, 64 - wordOffset);
-    int topBits = numBits - bottomBits;
+    uint32_t bottomBits = min(numBits, 64 - wordOffset);
+    uint32_t topBits = numBits - bottomBits;
 
     //printf("numBits = %d, bottomBits = %d, topBits = %d\n",
     //       numBits, bottomBits, topBits);
@@ -100,12 +100,12 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
 }
 
 inline uint32_t extractBitRange32(__global const uint32_t * data,
-                                  int numBits,
-                                  int entryNumber)
+                                  uint32_t numBits,
+                                  uint32_t entryNumber)
 {
-    int bitNumber = numBits * entryNumber;
-    int wordNumber = bitNumber / 32;
-    int wordOffset = bitNumber % 32;
+    uint32_t bitNumber = numBits * entryNumber;
+    uint32_t wordNumber = bitNumber / 32;
+    uint32_t wordOffset = bitNumber % 32;
 
     //if (wordNumber >= dataLength) {
     //    printf("OUT OF RANGE WORD 32 %d vs %d\n", wordNumber, dataLength);
@@ -113,8 +113,8 @@ inline uint32_t extractBitRange32(__global const uint32_t * data,
     //}
     //printf("wordNumber = %d, bitNumber = %d\n", wordNumber, wordOffset);
     
-    int bottomBits = min(numBits, 32 - wordOffset);
-    int topBits = numBits - bottomBits;
+    uint32_t bottomBits = min(numBits, 32 - wordOffset);
+    uint32_t topBits = numBits - bottomBits;
 
     //printf("numBits = %d, bottomBits = %d, topBits = %d\n",
     //       numBits, bottomBits, topBits);
@@ -147,7 +147,7 @@ void getDecodedRow(uint32_t rowNumber,
                    uint32_t exampleBits,
                    uint32_t numRows,
 
-                   int weightEncoding,
+                   uint32_t weightEncoding,
                    float weightMultiplier,
                    __global const float * weightTable,
                    
@@ -214,24 +214,85 @@ double decodeW(int64_t v)
     return v * HL_2_VAL;
 }
 
+#ifdef cl_khr_int64_base_atomics
+
+#define atom_add_64_local atom_add
+#define atom_sub_64_local atom_sub
+#define atom_add_64_global atom_add
+#define atom_sub_64_global atom_sub
+
+#else
+
+// Synthesize 64 bit atomic additions/subtractions by two 32 bit atomic
+// additions/subtractions.  This works because we only use the targets to
+// accumulate; we don't read them until all accumulations are done.
+void atom_add_64_local(__local int64_t * val, int64_t arg)
+{
+    __local uint32_t * lo = ((__local uint32_t *)val) + 1;
+    __local int32_t * hi = ((__local int32_t *)val);
+    uint32_t argLo = arg & 0xffffffffU;
+    int32_t argHi = arg >> 32;
+
+    if (argLo != 0) {
+        uint32_t oldLo = atomic_add(lo, argLo);
+        if (__builtin_add_overflow(oldLo, argLo, &oldLo)) {
+            argHi += 1;
+        }
+    }
+    if (argHi != 0) {
+        atomic_add(hi, argHi);
+    }
+}
+
+void atom_sub_64_local(__local int64_t * val, int64_t arg)
+{
+    atom_add_64_local(val, -arg);  // TODO: doesn't work properly for all values of arg..
+}
+
+void atom_add_64_global(__global int64_t * val, int64_t arg)
+{
+    __global uint32_t * lo = ((__global uint32_t *)val) + 1;
+    __global int32_t * hi = ((__global int32_t *)val);
+    uint32_t argLo = arg & 0xfffffffU;
+    int32_t argHi = arg >> 32;
+
+    if (argLo != 0) {
+        uint32_t oldLo = atomic_add(lo, argLo);
+        if (__builtin_add_overflow(oldLo, argLo, &oldLo)) {
+            argHi += 1;
+        }
+    }
+    if (argHi != 0) {
+        atomic_add(hi, argHi);
+    }
+}
+
+void atom_sub_64_global(__global int64_t * val, int64_t arg)
+{
+    atom_add_64_global(val, -arg);
+}
+
+
+#endif // 64 bit base atomics
+
 void incrementWLocal(__local W * w, bool label, float weight)
 {
     int64_t inc = encodeW(weight);
-    atom_add(&w->vals[label ? 1 : 0], inc);
+    atom_add_64_local(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
 }
 
 void decrementWLocal(__local W * w, bool label, float weight)
 {
     int64_t inc = encodeW(weight);
-    atom_sub(&w->vals[label ? 1 : 0], inc);
+    atom_sub_64_local(&w->vals[label ? 1 : 0], inc);
     atom_dec(&w->count);
 }
 
 void incrementWGlobal(__global W * w, bool label, float weight)
 {
     int64_t inc = encodeW(weight);
-    atom_add(&w->vals[label ? 1 : 0], inc);
+    atom_add_64_global(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
 }
 
@@ -240,9 +301,9 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
     if (wIn->count == 0)
         return;
     if (wIn->vals[0] != 0)
-        atom_add(&wOut->vals[0], wIn->vals[0]);
+        atom_add_64_global(&wOut->vals[0], wIn->vals[0]);
     if (wIn->vals[1] != 0)
-        atom_add(&wOut->vals[1], wIn->vals[1]);
+        atom_add_64_global(&wOut->vals[1], wIn->vals[1]);
     atom_add(&wOut->count,   wIn->count);
 }
 
@@ -251,9 +312,9 @@ void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
     if (wIn->count == 0)
         return;
     if (wIn->vals[0] != 0)
-        atom_sub(&wOut->vals[0], wIn->vals[0]);
+        atom_sub_64_global(&wOut->vals[0], wIn->vals[0]);
     if (wIn->vals[1] != 0)
-        atom_sub(&wOut->vals[1], wIn->vals[1]);
+        atom_sub_64_global(&wOut->vals[1], wIn->vals[1]);
     atom_sub(&wOut->count,   wIn->count);
 }
 
@@ -271,7 +332,7 @@ uint32_t testRow(uint32_t rowId,
                  uint32_t bucketBits,
                  uint32_t numBuckets,
                    
-                 int weightEncoding,
+                 uint32_t weightEncoding,
                  float weightMultiplier,
                  __global const float * weightTable,
                    
@@ -307,7 +368,7 @@ uint32_t testRow(uint32_t rowId,
                        bucketBits, numBuckets);
     if (bucket >= numBuckets) {
         printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
-               bucket, numBuckets, rowId, get_global_id(0));
+               bucket, numBuckets, rowId, (int)get_global_id(0));
         return 0;
     }
     //bucket = min(bucket, numBuckets - 1);
@@ -343,7 +404,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
                                 __global const uint32_t * bucketNumbers,
                                 __global const uint32_t * bucketEntryBits,
 
-                                int weightEncoding,
+                                uint32_t weightEncoding,
                                 float weightMultiplier,
                                 __global const float * weightTable,
 
@@ -374,7 +435,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, buckets %d-%d, offset %d\n",
-               get_global_id(1),
+               (int)get_global_id(1),
                get_global_size(0),
                get_num_groups(0),
                get_local_size(0),
@@ -402,7 +463,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     //printf("workerId = %d, localsize[0] = %d\n",
     //       workerId, get_local_size(0));
     
-    for (int i = workerId;  i < numBuckets && i < maxLocalBuckets;
+    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(0)) {
         //printf("zeroing %d of %d for feature %d\n", i, numBuckets, f);
         zeroW(w + i);
@@ -418,8 +479,6 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     int minBucket = INT_MAX;
     int maxBucket = INT_MIN;
 
-    int i = 0;
-    
     uint64_t mask = createMask64(totalBits);
     uint32_t exampleMask = createMask32(exampleBits);
     uint32_t weightMask = createMask32(weightBits);
@@ -427,7 +486,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     // global id 0 does 0, 1024, 2048, ...
     
-    for (int rowId = get_global_id(0);  rowId < numRows;  rowId += get_global_size(0)) {
+    for (uint32_t rowId = get_global_id(0);  rowId < numRows;  rowId += get_global_size(0)) {
         //int rowId = workGroupId * numRowsPerWorkgroup + i;
         //int rowId = workGroupId + i * get_local_size(0);
         //if (workGroupId == 0)
@@ -457,7 +516,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
     barrier(CLK_LOCAL_MEM_FENCE);
 
 
-    for (int i = workerId;  i < numBuckets && i < maxLocalBuckets;
+    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(0)) {
         //printf("copying %d group %ld\n", i, get_group_id(0));
         //wOut[i].vals[0] = w[i].vals[0];
@@ -476,7 +535,7 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 
     if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, min %d, max %d\n",
-               get_global_id(1),
+               (int)get_global_id(1),
                get_global_size(0),
                get_num_groups(0),
                get_local_size(0),
@@ -502,7 +561,7 @@ decompressRowsKernel(__global const uint64_t * rowData,
                      uint32_t exampleBits,
                      uint32_t numRows,
                      
-                     int weightEncoding,
+                     uint32_t weightEncoding,
                      float weightMultiplier,
                      __global const float * weightTable,
                      
@@ -516,14 +575,14 @@ decompressRowsKernel(__global const uint64_t * rowData,
     float weight = 1.0;
     bool label = false;
 
-    uint32_t bucket;// = rowId % numBuckets;
+    //uint32_t bucket;// = rowId % numBuckets;
 
     uint64_t mask = createMask64(totalBits);
     uint32_t exampleMask = createMask32(exampleBits);
     uint32_t weightMask = createMask32(weightBits);
     uint32_t labelMask = (1 << (weightBits + exampleBits));
 
-    for (int rowId = get_global_id(0);  rowId < numRows;
+    for (uint32_t rowId = get_global_id(0);  rowId < numRows;
          rowId += get_global_size(0)) {
         getDecodedRow(rowId, rowData, rowDataLength,
                       totalBits, weightBits, exampleBits, numRows,
@@ -559,7 +618,7 @@ decompressFeatureBucketsKernel(uint32_t numRows,
                                __global uint16_t * featuresOut,
                                __global const uint32_t * featureDataOffsets)
 {
-    int f = get_global_id(1);
+    uint32_t f = get_global_id(1);
 
     if (!featureActive[f])
         return;
@@ -572,7 +631,7 @@ decompressFeatureBucketsKernel(uint32_t numRows,
     
     __global uint16_t * out = featuresOut + featureDataOffsets[f] / sizeof(*out);
 
-    for (int rowId = get_global_id(0);  rowId < numRows; rowId += get_global_size(0)) {
+    for (uint32_t rowId = get_global_id(0);  rowId < numRows; rowId += get_global_size(0)) {
         uint32_t bucket = getBucket(rowId, bucketData, bucketDataLength, bucketBits, numBuckets);
         out[rowId] = bucket;
     }
@@ -610,7 +669,7 @@ uint32_t testRowExpanded(uint32_t rowId,
     }
     if (bucket >= numBuckets) {
         printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
-               bucket, numBuckets, rowId, get_global_id(0));
+               bucket, numBuckets, rowId, (int)get_global_id(0));
         return 0;
     }
 
@@ -664,7 +723,7 @@ testFeatureKernelExpanded(__global const float * expandedRows,
     
     if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, numBuckets %d, buckets %d-%d, offset %d\n",
-               get_global_id(1),
+               (int)get_global_id(1),
                get_global_size(0),
                get_num_groups(0),
                get_local_size(0),
@@ -675,16 +734,14 @@ testFeatureKernelExpanded(__global const float * expandedRows,
                bucketDataOffset);
     }
     
-    for (int i = workerId;  i < numBuckets && i < maxLocalBuckets;
+    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(0)) {
         zeroW(w + i);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
     
-    int i = 0;
-    
-    for (int rowId = get_global_id(0);  rowId < numRows;  rowId += get_global_size(0)) {
+    for (uint32_t rowId = get_global_id(0);  rowId < numRows;  rowId += get_global_size(0)) {
         testRowExpanded(rowId,
                         expandedRows, numRows,
                         bucketData, bucketDataLength, bucketBits, numBuckets,
@@ -694,7 +751,7 @@ testFeatureKernelExpanded(__global const float * expandedRows,
     
     barrier(CLK_LOCAL_MEM_FENCE);
     
-    for (int i = workerId;  i < numBuckets && i < maxLocalBuckets;
+    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(0)) {
         incrementWOut(wOut + i, w + i);
     }
@@ -713,7 +770,7 @@ typedef struct {
 __kernel void
 fillPartitionSplitsKernel(__global PartitionSplit * splits)
 {
-    int n = get_global_id(0);
+    uint32_t n = get_global_id(0);
     //printf("filling partition %d at %ld\n",
     //       n, (long)(((__global char *)(splits + n)) - (__global char *)splits));
     PartitionSplit spl = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
@@ -783,7 +840,7 @@ inline void minW(__local W * out, __local const W * in, W wAll, bool debug)
 // Post: start[0] <- start[0] + init
 //       start[n] <- sum(start[0...n]) + init
 // This is a low latency prefix sum, not work-minimizing
-void prefixSumW(__local W * w, int n, bool debug)
+void prefixSumW(__local W * w, uint32_t n, bool debug)
 {
     // iter 0
     // a b c d e f g h i j k l m n o p
@@ -827,24 +884,24 @@ void prefixSumW(__local W * w, int n, bool debug)
 
     // iter i, j = 2^i, blocks of j, j/2 threads per block, read from j/2-1
 
-    for (int iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
+    for (uint32_t iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
         // Each thread has one increment to do.  Here we calculate the index of
         // the result and the index of the argument.
 
         // If we need more than one round from our warp to process all elements,
         // then do  it
-        for (int i = get_local_id(0);  i < n / 2;  i += get_local_size(0)) {
+        for (uint32_t i = get_local_id(0);  i < n / 2;  i += get_local_size(0)) {
             // j is the number of elements in the block.
-            int blockNum = i * 2 / blockSize;
-            int threadNumInBlock = i % (blockSize / 2);
-            int blockStart = blockNum * blockSize;
-            int halfBlockSize = blockSize/2;
+            uint32_t blockNum = i * 2 / blockSize;
+            uint32_t threadNumInBlock = i % (blockSize / 2);
+            uint32_t blockStart = blockNum * blockSize;
+            uint32_t halfBlockSize = blockSize/2;
 
             // All read from this same one
-            int argIndex = blockStart + halfBlockSize - 1;
+            uint32_t argIndex = blockStart + halfBlockSize - 1;
 
             // We add to the second half of the block
-            int resultIndex = blockStart + halfBlockSize + threadNumInBlock;
+            uint32_t resultIndex = blockStart + halfBlockSize + threadNumInBlock;
 
             if (resultIndex < n) {
                 if (debug) {
@@ -877,23 +934,23 @@ void prefixSumW(__local W * w, int n, bool debug)
 // Return the lowest index of the W array with a score equal to the minimum
 // score.  Only get_local_id(0) knows the actual correct result; the result
 // from the others should be ignored.
-int argMinScanW(__local W * w, int n, W wAll, bool debug)
+uint32_t argMinScanW(__local W * w, uint32_t n, W wAll, bool debug)
 {
-    for (int iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
+    for (uint32_t iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
         // If we need more than one round from our warp to process all elements,
         // then do  it
-        for (int i = get_local_id(0);  i < n / 2;  i += get_local_size(0)) {
+        for (uint32_t i = get_local_id(0);  i < n / 2;  i += get_local_size(0)) {
             // j is the number of elements in the block.
-            int blockNum = i * 2 / blockSize;
-            int threadNumInBlock = i % (blockSize / 2);
-            int blockStart = blockNum * blockSize;
-            int halfBlockSize = blockSize/2;
+            uint32_t blockNum = i * 2 / blockSize;
+            uint32_t threadNumInBlock = i % (blockSize / 2);
+            uint32_t blockStart = blockNum * blockSize;
+            uint32_t halfBlockSize = blockSize/2;
 
             // All read from this same one
-            int argIndex = blockStart + halfBlockSize - 1;
+            uint32_t argIndex = blockStart + halfBlockSize - 1;
 
             // We add to the second half of the block
-            int resultIndex = blockStart + halfBlockSize + threadNumInBlock;
+            uint32_t resultIndex = blockStart + halfBlockSize + threadNumInBlock;
 
             if (resultIndex <  n) {
                 // Compare them, taking the minimum and pushing it right
@@ -916,14 +973,14 @@ chooseSplit(__global const W * w,
             W wAll,
             __local W * wLocal,
             uint32_t wLocalSize,
+            __local W * wStartBest,  // length 2
             bool ordinal)
 {
     PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
                               0 };
 
-    int bucket = get_global_id(0);
-    int f = get_global_id(1);
-    int p = get_global_id(2);
+    uint32_t f = get_global_id(1);
+    uint32_t p = get_global_id(2);
 
 
     // We need some weight in both true and false for a split to make sense
@@ -936,19 +993,19 @@ chooseSplit(__global const W * w,
     // do the prefix sum multiple times to fill it up completely
 
     // Contains the prefix sum from the previous iteration
-    __local W wStart;
+    __local W * wStart = wStartBest;
 
     // Contains the best split from the previous iteration
-    __local W wBest;
+    __local W * wBest = wStartBest + 1;
     
     if (get_local_id(0) == 0) {
         // Initialize wBest
         if (ordinal) {
-            wStart.vals[0] = wStart.vals[1] = wStart.count = 0;
-            wStart.index = -1;
+            wStart->vals[0] = wStart->vals[1] = wStart->count = 0;
+            wStart->index = -1;
         }
-        wBest.vals[0] = wBest.vals[1] = wBest.count = 0;
-        wBest.index = -1;
+        wBest->vals[0] = wBest->vals[1] = wBest->count = 0;
+        wBest->index = -1;
     }
 
     // Shouldn't be necessary; just in case
@@ -956,18 +1013,18 @@ chooseSplit(__global const W * w,
 
     bool debug = false;//(f == 0 && p == 2 && get_global_size(2) == 8);
     
-    for (int startBucket = 0;  startBucket < numBuckets;
-         startBucket += wLocalSize) {
+    for (uint32_t startBucket = 0;  startBucket < numBuckets;
+        startBucket += wLocalSize) {
 
         //if (startBucket != 0) {
         //    printf("f %d p %d startBucket %d\n",
         //           f, p, startBucket);
         //}
         
-        int endBucket = min(startBucket + wLocalSize, numBuckets);
-        int numBucketsInIteration = endBucket - startBucket;
+        uint32_t endBucket = min(startBucket + wLocalSize, numBuckets);
+        uint32_t numBucketsInIteration = endBucket - startBucket;
         
-        for (int i = get_local_id(0);  i < numBucketsInIteration;
+        for (uint32_t i = get_local_id(0);  i < numBucketsInIteration;
              i += get_local_size(0)) {
             wLocal[i] = w[startBucket + i];
 
@@ -986,15 +1043,15 @@ chooseSplit(__global const W * w,
             if (i == 0 && startBucket != 0) {
                 // Add the previous prefix to the first element
                 if (ordinal) {
-                    incrementW(wLocal, &wStart);
+                    incrementW(wLocal, wStart);
 
                     if (debug) {
                         printf("f %d p %d sb %d new iter (%f,%f,%d) min (%f,%f,%d,i%d) first (%f,%f,%d,i%d) in (%f,%f,%d)\n",
                                f, p, startBucket,
-                               decodeW(wStart.vals[0]), decodeW(wStart.vals[1]),
-                               wStart.count,
-                               decodeW(wBest.vals[0]), decodeW(wBest.vals[1]),
-                               wBest.count, wBest.index,
+                               decodeW(wStart->vals[0]), decodeW(wStart->vals[1]),
+                               wStart->count,
+                               decodeW(wBest->vals[0]), decodeW(wBest->vals[1]),
+                               wBest->count, wBest->index,
                                decodeW(wLocal->vals[0]), decodeW(wLocal->vals[1]),
                                wLocal->count, wLocal->index,
                                decodeW(w[startBucket].vals[0]),
@@ -1013,26 +1070,26 @@ chooseSplit(__global const W * w,
             prefixSumW(wLocal, numBucketsInIteration, false /* debug */);
 
             // Seed for the next one
-            wStart = wLocal[numBucketsInIteration - 1];
+            *wStart = wLocal[numBucketsInIteration - 1];
         }
         
         // And then scan that to find the index of the best score
         argMinScanW(wLocal, numBucketsInIteration, wAll, debug);
 
         // Find if our new bucket is better than the last champion
-        minW(&wBest, wLocal + numBucketsInIteration - 1, wAll,
+        minW(wBest, wLocal + numBucketsInIteration - 1, wAll,
              debug);
 
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
     if (get_local_id(0) == 0 && ordinal) {
-        if (wStart.vals[0] != wAll.vals[0]
-            || wStart.vals[1] != wAll.vals[1]
-            || wStart.count != wAll.count) {
+        if (wStart->vals[0] != wAll.vals[0]
+            || wStart->vals[1] != wAll.vals[1]
+            || wStart->count != wAll.count) {
             printf("Accumulation error: wAll != wStart: (%f,%f,%d) != (%f,%f,%d)\n",
                    decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count,
-                   decodeW(wStart.vals[0]), decodeW(wStart.vals[1]), wStart.count);
+                   decodeW(wStart->vals[0]), decodeW(wStart->vals[1]), wStart->count);
         }
     }
     
@@ -1044,7 +1101,7 @@ chooseSplit(__global const W * w,
         printf("wAll (%f,%f,%d)\n",
                decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count);
 
-        for (int i = 0;  i < numBuckets;  ++i) {
+        for (uint32_t i = 0;  i < numBuckets;  ++i) {
             printf("  b%d in (%f,%f,%d) cum (%f,%f,%d)\n",
                    i, decodeW(w[i].vals[0]), decodeW(w[i].vals[1]),
                    w[i].count,
@@ -1052,24 +1109,24 @@ chooseSplit(__global const W * w,
                    wLocal[i].count);
         }
 #endif
-        float score = scoreSplitWAll(wBest, wAll);
+        float score = scoreSplitWAll(*wBest, wAll);
 
         
         printf("f %d p %d nb %5d wBest %4d ord %d (%f,%f,%7d) %f\n",
-               f, p, numBuckets, wBest.index, ordinal,
-               decodeW(wBest.vals[0]), decodeW(wBest.vals[1]), wBest.count,
+               f, p, numBuckets, wBest->index, ordinal,
+               decodeW(wBest->vals[0]), decodeW(wBest->vals[1]), wBest->count,
                score);
     }
     
-    result.score = scoreSplitWAll(wBest, wAll);
+    result.score = scoreSplitWAll(*wBest, wAll);
     result.feature = f;
-    result.value = wBest.index + ordinal;  // ordinal indexes are offset by 1
-    result.left = wBest;
+    result.value = wBest->index + ordinal;  // ordinal indexes are offset by 1
+    result.left = *wBest;
     result.right = wAll;
 
-    result.right.vals[0] -= wBest.vals[0];
-    result.right.vals[1] -= wBest.vals[1];
-    result.right.count   -= wBest.count;
+    result.right.vals[0] -= wBest->vals[0];
+    result.right.vals[1] -= wBest->vals[1];
+    result.right.count   -= wBest->count;
 
     return result;
 }
@@ -1082,9 +1139,10 @@ chooseSplitKernelOrdinal(__global const W * w,
                          __local W * wLocal,
                          uint32_t wLocalSize)
 {
-    PartitionSplit result;
+    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                              0 };
 
-    int bucket = get_global_id(0);
+    uint32_t bucket = get_global_id(0);
 
     // For now, we serialize on a single thread
     if (bucket != 0)
@@ -1092,8 +1150,8 @@ chooseSplitKernelOrdinal(__global const W * w,
 
     // Now check our result
     
-    int f = get_global_id(1);
-    int p = get_global_id(2);
+    uint32_t f = get_global_id(1);
+    uint32_t p = get_global_id(2);
 
     //if (bucket == 0) {
     //   printf("feature %d is ordinal\n", f);
@@ -1170,18 +1228,19 @@ chooseSplitKernelOrdinal(__global const W * w,
 
 PartitionSplit
 chooseSplitKernelCategorical(__global const W * w,
-                             int numBuckets,
+                             uint32_t numBuckets,
                              W wAll)
 {
-    PartitionSplit result;
+    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                              0 };
 
-    int bucket = get_global_id(0);
+    uint32_t bucket = get_global_id(0);
 
     // For now, we serialize on a single thread
     if (bucket != 0)
         return result;
 
-    int f = get_global_id(1);
+    uint32_t f = get_global_id(1);
 
     //if (bucket == 0) {
     //    printf("feature %d is categorical\n", f);
@@ -1233,25 +1292,6 @@ chooseSplitKernelCategorical(__global const W * w,
     return result;
 }
 
-inline void atomic_store_int(__global int * p, int val)
-{
-    atomic_xchg(p, val);
-}
-
-inline void atomic_store_long(__global long * p, long val)
-{
-    atom_xchg(p, val);
-}
-
-inline void atomic_store_W(__global W * w, const W * val)
-{
-    printf("atomic store W (%ld,%ld,%d)\n", val->vals[0], val->vals[1], val->count);
-    atomic_store_long(&w->vals[0], val->vals[0]);
-    atomic_store_long(&w->vals[1], val->vals[1]);
-    atomic_store_int(&w->count,    val->count);
-    printf("atomic store W wrote (%ld,%ld,%d)\n", w->vals[0], w->vals[1], w->count);
-}
-
 __kernel void
 getPartitionSplitsKernel(uint32_t totalBuckets,
                          __global const uint32_t * bucketNumbers, // [nf]
@@ -1265,16 +1305,17 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
                          __global PartitionSplit * splitsOut, // [np x nf]
 
                          __local W * wLocal,  // [wLocalSize]
-                         uint32_t wLocalSize)
+                         uint32_t wLocalSize,
+                         __local W * wStartBest) // [2]
 {
-    int f = get_global_id(1);
-    int nf = get_global_size(1);
-    int partition = get_global_id(2);
+    uint32_t f = get_global_id(1);
+    uint32_t nf = get_global_size(1);
+    uint32_t partition = get_global_id(2);
     
     PartitionSplit best = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
                             0 };
 
-    int bucket = get_global_id(0);
+    uint32_t bucket = get_global_id(0);
 
     // Don't do inactive features
     if (!featureActive[f]) {
@@ -1284,8 +1325,6 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
         return;
     }
     
-    int numPartitions = get_global_size(2);
-
     if (wAll[partition].count == 0) {
         if (bucket == 0) {
             splitsOut[partition * nf + f] = best;            
@@ -1316,7 +1355,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
 
 #if 1
     best = chooseSplit(myW, numBuckets, wAll[partition],
-                       wLocal, wLocalSize, ordinal);
+                       wLocal, wLocalSize, wStartBest, ordinal);
 #else    
     // TODO: use prefix sums to enable better parallelization (this will mean
     // multiple kernel launches, though, so not sure) or accumulate locally
@@ -1421,8 +1460,7 @@ bestPartitionSplitKernel(uint32_t nf,
 {
     partitionSplits += partitionSplitsOffset;
 
-    int p = get_global_id(0);
-    int np = get_global_size(0);
+    uint32_t p = get_global_id(0);
     
     PartitionSplit best = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
                             0 };
@@ -1430,7 +1468,7 @@ bestPartitionSplitKernel(uint32_t nf,
     featurePartitionSplits += p * nf;
     partitionSplits += p;
     
-    for (int f = 0;  f < nf;  ++f) {
+    for (uint32_t f = 0;  f < nf;  ++f) {
         if (!featureActive[f])
             continue;
         if (featurePartitionSplits[f].value < 0)
@@ -1454,7 +1492,7 @@ clearBucketsKernel(__global W * allPartitionBuckets,
     partitionSplits += partitionSplitsOffset;
     uint32_t numPartitions = get_global_size(0);
     
-    int i = get_global_id(0);
+    uint32_t i = get_global_id(0);
 
     // Commented out because it causes spurious differences in the debugging code between
     // the two sides.  It doesn' thave any effect on the output, though, and saves some
@@ -1462,7 +1500,7 @@ clearBucketsKernel(__global W * allPartitionBuckets,
     if (partitionSplits[i].right.count == 0)
         return;
             
-    int j = get_global_id(1);
+    uint32_t j = get_global_id(1);
 
     if (j >= numActiveBuckets)
         return;
@@ -1487,7 +1525,7 @@ inline void incrementWAtomic(__global W * w,
                              float weight)
 {
     int64_t incr = encodeW(weight);
-    atom_add(&w->vals[label], incr);
+    atom_add_64_global(&w->vals[label], incr);
     atom_inc(&w->count);
 }
 
@@ -1496,7 +1534,7 @@ inline void decrementWAtomic(__global W * w,
                              float weight)
 {
     int64_t incr = encodeW(weight);
-    atom_sub(&w->vals[label], incr);
+    atom_sub_64_global(&w->vals[label], incr);
     atom_dec(&w->count);
 }
 
@@ -1581,7 +1619,7 @@ updateBucketsKernel(uint32_t rightOffset,
     uint32_t bucketBits;
     uint32_t numLocalBuckets = 0;
     __global const uint16_t * featureExpandedBuckets;
-    int startBucket;
+    uint32_t startBucket;
             
 
     // Pointer to the global array we eventually want to update
@@ -1615,7 +1653,7 @@ updateBucketsKernel(uint32_t rightOffset,
     }
 
     // Clear our local accumulation buckets to get started
-    for (int b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
+    for (uint32_t b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
         zeroW(wLocal + b);
     }
 
@@ -1624,11 +1662,11 @@ updateBucketsKernel(uint32_t rightOffset,
     
     //numLocalBuckets = 0;
     
-    for (int i = get_global_id(0);  i < rowCount;  i += get_global_size(0)) {
+    for (uint32_t i = get_global_id(0);  i < rowCount;  i += get_global_size(0)) {
 
         // We may have updated partition already, so here we mask out any
         // possible offset.
-        int partition = partitions[i] & (rightOffset - 1);
+        uint32_t partition = partitions[i] & (rightOffset - 1);
         int splitFeature = partitionSplits[partition].feature;
                 
         if (splitFeature == -1) {
@@ -1638,14 +1676,14 @@ updateBucketsKernel(uint32_t rightOffset,
 
         float weight = fabs(decodedRows[i]);
         bool label = decodedRows[i] < 0;
-        int exampleNum = i;
+        uint32_t exampleNum = i;
             
-        int leftPartition = partition;
-        int rightPartition = partition + rightOffset;
+        uint32_t leftPartition = partition;
+        uint32_t rightPartition = partition + rightOffset;
 
-        int splitValue = partitionSplits[partition].value;
+        uint32_t splitValue = partitionSplits[partition].value;
         bool ordinal = featureIsOrdinal[splitFeature];
-        int bucket;
+        uint32_t bucket;
 
         if (!useExpandedBuckets) {
             // Split feature values go here
@@ -1668,7 +1706,7 @@ updateBucketsKernel(uint32_t rightOffset,
                                      + exampleNum];
         }
         
-        int side = ordinal ? bucket >= splitValue : bucket != splitValue;
+        uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
         
         // Set the new partition number from the wAll job
         if (f == -1) {
@@ -1676,7 +1714,7 @@ updateBucketsKernel(uint32_t rightOffset,
         }
 
         // 0 = left to right, 1 = right to left
-        int direction = partitionSplits[partition].direction;
+        uint32_t direction = partitionSplits[partition].direction;
 
         // We only need to update features on the wrong side, as we
         // transfer the weight rather than sum it from the
@@ -1688,7 +1726,7 @@ updateBucketsKernel(uint32_t rightOffset,
             continue;
         }
 
-        int toBucketLocal, toBucketGlobal;
+        uint32_t toBucketLocal, toBucketGlobal;
         
         if (f == -1) {
             // Since we don't touch the buckets on the left side of the
@@ -1723,7 +1761,7 @@ updateBucketsKernel(uint32_t rightOffset,
     // Wait for all buckets to be updated, before we write them back to the global mem
     barrier(CLK_LOCAL_MEM_FENCE);
     
-    for (int b = get_local_id(0);  b < numLocalBuckets;  b += get_local_size(0)) {
+    for (uint32_t b = get_local_id(0);  b < numLocalBuckets;  b += get_local_size(0)) {
         if (wLocal[b].count != 0) {
             if (f == -1) {
                 incrementWOut(wGlobal + b + rightOffset, wLocal + b);
@@ -1731,9 +1769,9 @@ updateBucketsKernel(uint32_t rightOffset,
             }
 
             // TODO: avoid div/mod if possible in these calculations
-            int partition = b / numBuckets + rightOffset;
-            int bucket = b % numBuckets;
-            int bucketNumberGlobal = partition * numActiveBuckets + startBucket + bucket;
+            uint32_t partition = b / numBuckets + rightOffset;
+            uint32_t bucket = b % numBuckets;
+            uint32_t bucketNumberGlobal = partition * numActiveBuckets + startBucket + bucket;
 
             //printf("f %d local bucket %d part %d buck %d nb %d nab %d global bucket %d\n",
             //       f, b, partition, bucket, numBuckets, numActiveBuckets, bucketNumberGlobal);
@@ -1765,7 +1803,7 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
     partitionSplits += partitionSplitsOffset;
     uint32_t numPartitions = get_global_size(0);
 
-    int i = get_global_id(0);  // partition number
+    uint32_t i = get_global_id(0);  // partition number
 
     // Commented out because it causes spurious differences in the debugging code between
     // the two sides.  It doesn' thave any effect on the output, though, and saves some
@@ -1773,7 +1811,7 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
     //if (partitionSplits[i].right.count == 0)
     //    return;
             
-    int j = get_global_id(1);  // bucket number in partition
+    uint32_t j = get_global_id(1);  // bucket number in partition
 
     if (j >= numActiveBuckets)
         return;
@@ -1786,9 +1824,6 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
     // We double the number of partitions.  The left all
     // go with the lower partition numbers, the right have the higher
     // partition numbers.
-
-    const W empty = { { 0, 0 }, 0 };
-
     decrementWOutGlobal(bucketsLeft + j, bucketsRight + j);
     if (j == 0) {
         decrementWOutGlobal(wAll + i, wAll + i + numPartitions);
@@ -1807,6 +1842,8 @@ fixupBucketsKernel(__global W * allPartitionBuckets,
         }
     }
 }
+
+#if 0 // Later... recursively do the small partitions, one per workgroup
 
 typedef struct {
 } WorkItem;
@@ -1876,26 +1913,26 @@ typedef struct PartitionSortEntry {
 void sortPartitionBlockLocal(__local PartitionSplit * aux,
                              uint32_t n)
 {
-    int i = get_local_id(0); // index in workgroup
+    uint32_t i = get_local_id(0); // index in workgroup
 
     // We merge sub-sequences of length 1,2,...,WG/2
-    for (int length = 1;  length < n;  length *= 2) {
-        PartitionSortEntry entry = aux[i];
+    for (uint32_t length = 1;  length < n;  length *= 2) {
+        struct PartitionSortEntry entry = aux[i];
         uint32_t ikey = entry.count;
-        int ii = i & (length-1);  // index in our sequence in 0..length-1
-        int sibling = (i - ii) ^ length; // beginning of the sibling sequence
-        int pos = 0;
+        uint32_t ii = i & (length-1);  // index in our sequence in 0..length-1
+        uint32_t sibling = (i - ii) ^ length; // beginning of the sibling sequence
+        uint32_t pos = 0;
 
         // increment for dichotomic search
-        for (int inc = length;  inc > 0;  inc >>= 1) {
-            int j = sibling + pos + inc - 1;
+        for (uint32_t inc = length;  inc > 0;  inc >>= 1) {
+            uint32_t j = sibling + pos + inc - 1;
             uint jKey = aux[j].count;
             bool smaller = (jKey > iKey) || ( jKey == iKey && j < i );
             pos += (smaller) ? inc : 0;
             pos = min(pos,length);
         }
-        int bits = 2 * length - 1; // mask for destination
-        int dest
+        uint32_t bits = 2 * length - 1; // mask for destination
+        uint32_t dest
             = ((ii + pos) & bits)
             | (i & ~bits); // destination index in merged sequence
 
@@ -1912,7 +1949,7 @@ void sortPartitionBlock(__global const PartitionSplit * in,
                         uint32_t n,
                         __local PartitionSplit * aux)
 {
-    int i = get_local_id(0);
+    uint32_t i = get_local_id(0);
 
     // Copy into local memory
     aux[i] = in[i];
@@ -1942,7 +1979,7 @@ void mergeSortRanges(__global const PartitionSplit * in,
 __kernel void sortPartitionsKernel(__global PartitionSplit * splits,
                                    uint32_t numSplits)
 {
-    __local PartitionSortEntry aux[SORT_PARTITIONS_NUM_AUX_ENTRIES];
+    __local struct PartitionSortEntry aux[SORT_PARTITIONS_NUM_AUX_ENTRIES];
 }
 
 // Dimensions:
@@ -1952,7 +1989,8 @@ splitKernel()
 {
     // First, 
 }
-                
+#endif
+
 #if 0
 // Split a dataset.  It compacts into two parts:
 // - An active part, with full buckets and a reduced set of partitions.
@@ -1976,11 +2014,11 @@ splitKernel()
 __kernel void
 ParallelMerge_Local(__global const data_t * in,__global data_t * out,__local data_t * aux)
 {
-  int i = get_local_id(0); // index in workgroup
-  int wg = get_local_size(0); // workgroup size = block size, power of 2
+  uint32_t i = get_local_id(0); // index in workgroup
+  uint32_t wg = get_local_size(0); // workgroup size = block size, power of 2
 
   // Move IN, OUT to block start
-  int offset = get_group_id(0) * wg;
+  uint32_t offset = get_group_id(0) * wg;
   in += offset; out += offset;
 
   // Load block in AUX[WG]
@@ -1988,23 +2026,23 @@ ParallelMerge_Local(__global const data_t * in,__global data_t * out,__local dat
   barrier(CLK_LOCAL_MEM_FENCE); // make sure AUX is entirely up to date
 
   // Now we will merge sub-sequences of length 1,2,...,WG/2
-  for (int length=1;length<wg;length<<=1)
+  for (uint32_t length=1;length<wg;length<<=1)
   {
     data_t iData = aux[i];
     uint iKey = getKey(iData);
-    int ii = i & (length-1);  // index in our sequence in 0..length-1
-    int sibling = (i - ii) ^ length; // beginning of the sibling sequence
-    int pos = 0;
-    for (int inc=length;inc>0;inc>>=1) // increment for dichotomic search
+    uint32_t ii = i & (length-1);  // index in our sequence in 0..length-1
+    uint32_t sibling = (i - ii) ^ length; // beginning of the sibling sequence
+    uint32_t pos = 0;
+    for (uint32_t inc=length;inc>0;inc>>=1) // increment for dichotomic search
     {
-      int j = sibling+pos+inc-1;
+      uint32_t j = sibling+pos+inc-1;
       uint jKey = getKey(aux[j]);
       bool smaller = (jKey < iKey) || ( jKey == iKey && j < i );
       pos += (smaller)?inc:0;
       pos = min(pos,length);
     }
-    int bits = 2*length-1; // mask for destination
-    int dest = ((ii + pos) & bits) | (i & ~bits); // destination index in merged sequence
+    uint32_t bits = 2*length-1; // mask for destination
+    uint32_t dest = ((ii + pos) & bits) | (i & ~bits); // destination index in merged sequence
     barrier(CLK_LOCAL_MEM_FENCE);
     aux[dest] = iData;
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -2034,12 +2072,12 @@ compactPartitionsKernel()
 
 
 PartitionSplit
-trainSplitSingleWarp(int numRows,
-                     int numBucketsPerPartition,
+trainSplitSingleWarp(uint32_t numRows,
+                     uint32_t numBucketsPerPartition,
                      __global float * examples,
                      __global uint32_t * exampleNumbers,
                      __local W * wLocal,
-                     int numLocalBuckets)
+                     uint32_t numLocalBuckets)
 {
     
 
@@ -2070,27 +2108,27 @@ trainSplitSingleWarp(int numRows,
 
     // Which features are we testing on this iteration?  It will be the
     // same set of features for each thread in the warp.
-    int fMin = 0, fMax = 0;
+    uint32_t fMin = 0, fMax = 0;
         
-    for (int minBucket = 0;  minBucket < numLocalBuckets;
+    for (uint32_t minBucket = 0;  minBucket < numLocalBuckets;
          minBucket += numLocalBuckets) {
-        int maxBucket = min(numLocalBuckets, minBucket + numLocalBuckets);
-        int numBuckets = maxBucket - minBucket;
+        uint32_t maxBucket = min(numLocalBuckets, minBucket + numLocalBuckets);
+        uint32_t numBuckets = maxBucket - minBucket;
 
         // Clear the buckets
-        for (int i = 0;  i < numBuckets;  i += get_local_dim(0)) {
+        for (uint32_t i = 0;  i < numBuckets;  i += get_local_dim(0)) {
             zeroW(wLocal + i);
         }
         
         barrier(CLK_LOCAL_MEM_FENCE);
         
-        for (int i = 0;  i < rowCount;  i += get_local_dim(0)) {
+        for (uint32_t i = 0;  i < rowCount;  i += get_local_dim(0)) {
             float weight = ...;
             bool label = ...;
-            int example = ...;
+            uint32_t example = ...;
 
-            for (int f = fMin;  f <= fMax;  ++f) {
-                int bucket
+            for (uint32_t f = fMin;  f <= fMax;  ++f) {
+                uint32_t bucket
                     = expandedBuckets[f][example]
                     + bucketStart[f]
                     - minBucket;
@@ -2113,7 +2151,7 @@ trainSplitSingleWarp(int numRows,
         // to properly test.
 
         // First feature
-        for (int f = fMin;  f < fMax;  ++f) {
+        for (uint32_t f = fMin;  f < fMax;  ++f) {
             if (featureIsOrdinal[f]) {
                 // We have to perform a prefix sum of the values in
                 // our W buckets

@@ -89,8 +89,10 @@ LIBMLDB_JML_PLUGIN_LINK:= \
 	sql_types \
 	algebra \
 	block \
+	OpenCL \
+	mldb_opencl_plugin \
 
-
+$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext))
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))
 
 #$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/jml/ext))

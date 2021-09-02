@@ -19,9 +19,11 @@
 #include <condition_variable>
 #include <sstream>
 
-#define OPENCL_ENABLED 0
+#define OPENCL_ENABLED 1
 
 #if OPENCL_ENABLED
+#  define CL_TARGET_OPENCL_VERSION 220
+#  include "CL/cl.h"
 #  include "mldb/builtin/opencl/opencl_types.h"
 #endif
 
@@ -132,6 +134,14 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 }
 
 #if OPENCL_ENABLED
+
+EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
+EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
+EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
+EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 1);
+EnvOption<size_t, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
+EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SIZE", 256);
+
 std::vector<OpenCLDevice>
 getOpenCLDevices()
 {
@@ -175,18 +185,23 @@ OpenCLProgram getTestFeatureProgramOpenCL()
     
     OpenCLContext context(devices);
     
-    OpenCLCommandQueue queue
-        = context.createCommandQueue
-        (devices.at(0),
-         { OpenCLCommandQueueProperties::PROFILING_ENABLE,
-           OpenCLCommandQueueProperties::OUT_OF_ORDER_EXEC_MODE_ENABLE} );
+    Bitset<OpenCLCommandQueueProperties> queueProperties
+        = { OpenCLCommandQueueProperties::PROFILING_ENABLE };
+    if (!RF_OPENCL_SYNCHRONOUS_LAUNCH) {
+        queueProperties.set
+            (OpenCLCommandQueueProperties::OUT_OF_ORDER_EXEC_MODE_ENABLE);
+    }
+    
+    auto queue = context.createCommandQueue
+        (devices.at(0), queueProperties);
 
     filter_istream stream("mldb/plugins/jml/randomforest_kernels.cl");
     Utf8String source(stream.readAll());
     
     OpenCLProgram program = context.createProgram(source);
 
-    string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
+    //string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
+    string options = "-cl-kernel-arg-info";
 
     // Build for all devices
     auto buildInfo = program.build(devices, options);
@@ -1173,7 +1188,7 @@ testAll(int depth,
         FrozenMemoryRegionT<uint32_t> bucketMemory,
         bool trace)
 {
-    if (rows.rowCount() < 1000000 || true) {
+    if (rows.rowCount() < 10000 && false) {
         if (depth < 3 && false) {
             //static std::mutex mutex;
             //std::unique_lock<std::mutex> guard(mutex);
@@ -1214,22 +1229,22 @@ testAll(int depth,
 
         if (numGpuJobs.fetch_add(1) >= MAX_GPU_JOBS) {
             --numGpuJobs;
-            return testAllCpu(depth, features, rows, bucketMemory);
+            return testAllCpu(depth, features, rows, bucketMemory, false);
         }
         else {
             auto onExit = ScopeExit([&] () noexcept { --numGpuJobs; });
             try {
                 return testAllOpenCL(depth, features, rows, bucketMemory);
             } MLDB_CATCH_ALL {
-                return testAllCpu(depth, features, rows, bucketMemory);
+                return testAllCpu(depth, features, rows, bucketMemory, false);
             }
         }
         
-        //static std::mutex mutex;
-        //std::unique_lock<std::mutex> guard(mutex);
+        static std::mutex mutex;
+        std::unique_lock<std::mutex> guard(mutex);
 
         Date beforeCpu = Date::now();
-        auto cpuOutput = testAllCpu(depth, features, rows, bucketMemory);
+        auto cpuOutput = testAllCpu(depth, features, rows, bucketMemory, false);
         Date afterCpu = Date::now();
         auto gpuOutput = testAllOpenCL(depth, features, rows, bucketMemory);
         Date afterGpu = Date::now();
@@ -3035,13 +3050,6 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
                                      fs, features, bucketMemory);
 }
 
-EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
-EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
-EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
-EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 0);
-EnvOption<size_t, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
-EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SIZE", 256);
-
 // Default of 5.5k allows 8 parallel workgroups for a 48k SM when accounting
 // for 0.5k of local memory for the kernels.
 // On Nvidia, with 32 registers/work item and 256 work items/workgroup
@@ -3182,7 +3190,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     Bitset<OpenCLCommandQueueProperties> queueProperties
         = { OpenCLCommandQueueProperties::PROFILING_ENABLE };
-    if (!RF_OPENCL_SYNCHRONOUS_LAUNCH) {
+    if (!RF_OPENCL_SYNCHRONOUS_LAUNCH && false) {
         queueProperties.set
             (OpenCLCommandQueueProperties::OUT_OF_ORDER_EXEC_MODE_ENABLE);
     }
@@ -3735,7 +3743,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                   clWAll,
                   clFeaturePartitionSplits,
                   LocalArray<W>(MAX_LOCAL_BUCKETS),
-                  (uint32_t)MAX_LOCAL_BUCKETS);
+                  (uint32_t)MAX_LOCAL_BUCKETS,
+                  LocalArray<W>(2) /* W start / W best */);
 
         //cerr << endl << endl << " depth " << depth << " numPartitions "
         //     << numPartitionsAtDepth << " buckets "
@@ -4338,8 +4347,8 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
-    return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
-                                       rows, features, bucketMemory, fs);
+    //return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
+    //                                   rows, features, bucketMemory, fs);
 
 #if OPENCL_ENABLED
 

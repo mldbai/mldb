@@ -20,9 +20,9 @@ namespace MLDB {
 struct FixedPointAccum32Unsigned {
     unsigned rep;
 
-    static constexpr float VAL_2_REP = 1ULL << 32;
-    static constexpr float REP_2_VAL = 1.0f / (1ULL << 32);
-    static constexpr float ADD_TO_ROUND = 1.0f / (1ULL << 33);
+    static constexpr float VAL_2_REP = 1ULL << 31;
+    static constexpr float REP_2_VAL = 1.0f / (1ULL << 31);
+    static constexpr float ADD_TO_ROUND = 1.0f / (1ULL << 32);
     static constexpr unsigned MAX_REP = (unsigned)-1;
 
     FixedPointAccum32Unsigned()
@@ -57,9 +57,9 @@ struct FixedPointAccum32Unsigned {
 struct FixedPointAccum32 {
     int rep;
 
-    static constexpr float VAL_2_REP = 1ULL << 31;
-    static constexpr float REP_2_VAL = 1.0f / (1ULL << 31);
-    static constexpr float ADD_TO_ROUND = 0.5f / (1ULL << 31);
+    static constexpr float VAL_2_REP = 1ULL << 30;
+    static constexpr float REP_2_VAL = 1.0f / (1ULL << 30);
+    static constexpr float ADD_TO_ROUND = 0.5f / (1ULL << 30);
 
     FixedPointAccum32()
         : rep(0)
