@@ -546,6 +546,7 @@ $(eval $(call mldb_unit_test,MLDB-2168-csv-import-skip-lines.js))
 $(eval $(call mldb_unit_test,decomposition_unit_test.js))
 $(eval $(call mldb_unit_test,MLDB-1426-mapped-import.py,,manual))
 $(eval $(call mldb_unit_test,js_module_test.js))
+$(eval $(call mldb_unit_test,opencl_test.js))
 
 $(eval $(call mldb_unit_test,benchmark-nyc-taxicabs.js,,manual))
 $(eval $(call mldb_unit_test,benchmark-tweets.js,,manual))

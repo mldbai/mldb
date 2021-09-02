@@ -410,7 +410,7 @@ LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_YELLOW)[SO]$(COLOR_RE
 
 OBJFILES_$(1):=$$(foreach file,$(2:%=$(CWD)/%.lo),$$(BUILD_$$(file)_OBJ))
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $$(sodir)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $$(POSTCXXFLAGS) $(8)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $$(sodir)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), $$(LIB_$$(lib)_LINKER_OPTIONS) $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $$(POSTCXXFLAGS) $(8)
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
 LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
@@ -488,7 +488,7 @@ $$(eval bindir := $(if $(5),$(5),$(BIN)))
 #$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $$(bindir)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(call linker_rpath,$(LIB)) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $$(bindir)/$(1) -lexception_hook -L$(LIB) -ldl $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(call linker_rpath,$(LIB)) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
 $$(bindir)/$(1):	$$(bindir)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET)                   	$(1)")
@@ -545,7 +545,7 @@ $$(eval $$(call add_sources,$$(_testsrc)))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")

@@ -104,7 +104,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
             throw MLDB::Exception("double added name '" + name + "' to enum '"
                                   + this->typeName + "'");
         
-        print.insert({ value, { name, "" } });
+        print.insert({ static_cast<Underlying>(value), { name, "" } });
     }
 
     void addValue(const std::string & name, Enum value,

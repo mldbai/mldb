@@ -100,3 +100,6 @@
 [submodule "mldb_test_data"]
 	path = mldb_test_data
 	url = https://gitlab.com/mldbai/mldb_test_data.git
+[submodule "ext/OpenCL-Headers"]
+	path = ext/OpenCL-Headers
+	url = https://github.com/mldbai/OpenCL-Headers.git
