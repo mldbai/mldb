@@ -3337,7 +3337,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     OpenCLEvent transferBucketData
         = memQueue2.enqueueWriteBuffer
-            (clBucketData, 0 /* offset */, bucketMemorySizePageAligned,
+            (clBucketData, 0 /* offset */, bucketMemory.memusage(),
              (const void *)bucketMemory.data());
     
     allEvents.emplace_back("transferBucketData", transferBucketData);
@@ -3770,7 +3770,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             
             for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
                 
-                cerr << "partition " << p << " count " << wAllGpu[p].count() << endl;
+                //cerr << "partition " << p << " count " << wAllGpu[p].count() << endl;
                 
                 if (wAllGpu[p].count() < 0
                     || wAllGpu[p].v[0] < 0.0
@@ -3948,6 +3948,10 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             
         }
         
+        // Contains which partitions can be different because of known split differences caused by
+        // rounding differences between the CPU and GPU implementations.
+        std::set<int> okayDifferentPartitions;
+
         if (debugKernelOutput) {
             // Map back the GPU partition splits
             OpenCLEvent mapPartitionSplits;
@@ -4050,8 +4054,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 //     << " GPU " << jsonEncodeStr(partitionSplitsGpu[p])
                 //     << endl;
 
-                // We don't compare the score as the result is different
-                // due to numerical differences in the sqrt function.
                 if ((partitionSplitsGpu[p].left
                      != debugPartitionSplitsCpu[p].left)
                     || (partitionSplitsGpu[p].right
@@ -4059,12 +4061,28 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                     || (partitionSplitsGpu[p].feature
                         != debugPartitionSplitsCpu[p].feature)
                     || (partitionSplitsGpu[p].value
-                        != debugPartitionSplitsCpu[p].value)) {
-                    different = true;
+                        != debugPartitionSplitsCpu[p].value)
+                    || (partitionSplitsGpu[p].index
+                        != debugPartitionSplitsCpu[p].index)
+                    /* || (partitionSplitsGpu[p].score
+                        != debugPartitionSplitsCpu[p].score) */) {
+                    float score1 = partitionSplitsGpu[p].score;
+                    float score2 = debugPartitionSplitsCpu[p].score;
+
+                    okayDifferentPartitions.insert(p);
+                    okayDifferentPartitions.insert(p + numPartitionsAtDepth);
+
+                    float relativeDifference = fabs(score1 - score2) / max(score1, score2);
+
+                    different = different || relativeDifference >= 0.001;
                     cerr << "partition " << p << "\nGPU "
                          << jsonEncodeStr(partitionSplitsGpu[p])
                          << "\nCPU " << jsonEncodeStr(debugPartitionSplitsCpu[p])
-                         << endl;
+                         << " score relative difference " << relativeDifference << endl;
+                    if ((partitionSplitsGpu[p].score != debugPartitionSplitsCpu[p].score))
+                        cerr << "score GPU: " << *(uint32_t *)(&partitionSplitsGpu[p].score)
+                             << " score CPU: " << *(uint32_t *)(&debugPartitionSplitsCpu[p].score)
+                             << endl;
                 }
             }
             
@@ -4239,7 +4257,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 newPartitionNumbers[i] = { left, right };
             }
             
-            cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
+            //cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
 
             // Run the CPU version of the computation
             updateBuckets(features,
@@ -4285,6 +4303,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 const W * partitionBuckets = bucketsGpu + numActiveBuckets * i;
                 if (newPartitionNumbers[i].first == -1)
                     continue;  // dead partition, don't verify...
+                if (okayDifferentPartitions.count(i))
+                    continue;  // is different due to a different split caused by numerical errors
 
                 if (!debugBucketsCpu[i].empty()) {
                     for (size_t j = 0;  j < numActiveBuckets;  ++j) {
@@ -4330,7 +4350,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = reinterpret_cast<const W *>(mappedWAll.get());
 
             for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-                if (newPartitionNumbers[i].first == -1)
+                if (newPartitionNumbers[i].first == -1 || okayDifferentPartitions.count(i))
                     continue;  // dead partition, don't verify...
                 if (wAllGpu[i] != debugWAllCpu[i]) {
                     cerr << "part " << i << " wAll update error: CPU "
@@ -4363,6 +4383,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::map<std::pair<int, int>, int> differenceStats;
             for (size_t i = 0;  i < rowCount;  ++i) {
                 if (partitionsGpu[i] != debugPartitionsCpu[i] && debugPartitionsCpu[i] != -1) {
+                    if (okayDifferentPartitions.count(debugPartitionsCpu[i]))
+                        continue;  // caused by known numerical issues
                     different = true;
                     differenceStats[{debugPartitionsCpu[i], partitionsGpu[i]}] += 1;
                     if (++numDifferences < 10) {
@@ -4454,7 +4476,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         auto & split = mappedAllPartitionSplitsCast.get()[i];
         PartitionIndex index(i);
         if (i < 20)
-            cerr << "split " << i << " : " << jsonEncodeStr(split) << " index " << index << " rowCount " << split.left.count() + split.right.count() << endl;
+            cerr << "split " << i << " : " << jsonEncodeStr(split) << " index " << index << " index2 "
+                 << split.index << " rowCount " << split.left.count() + split.right.count() << endl;
         if (split.valid()) {
             if (i >= numPartitionsAtDepth / 2) {
                 indexes[i - numPartitionsAtDepth / 2 + 0] = index.leftChild();

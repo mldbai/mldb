@@ -44,11 +44,11 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 // Calculates the score of a split, which is a measure of the
 // amount of mutual entropy between the label and the given
 // candidate split point.
-inline double scoreSplit(const W & wFalse, const W & wTrue)
+inline float scoreSplit(const W & wFalse, const W & wTrue)
 {
-    double score
-        = 2.0 * (  sqrt(wFalse[0] * wFalse[1])
-                   + sqrt(wTrue[0] * wTrue[1]));
+    float score
+        = 2.0f *  (  sqrt(wFalse[0] * wFalse[1])
+                   + sqrt(wTrue[0]  * wTrue[1]));
     return score;
 };
 

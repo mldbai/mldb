@@ -800,23 +800,57 @@ __kernel void
 fillPartitionSplitsKernel(__global PartitionSplit * splits)
 {
     uint32_t n = get_global_id(0);
+    uint32_t partitionIndex = n + get_global_size(0);
     //printf("filling partition %d at %ld\n",
     //       n, (long)(((__global char *)(splits + n)) - (__global char *)splits));
-    PartitionSplit spl = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                           0 };
+    PartitionSplit spl = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                           false };
     splits[n] = spl;
 }
 
-inline double sqrt2(float x)
+inline float nextFloat(float val, int32_t n)
 {
-    return sqrt((double)x);
+    int32_t ival = *(int32_t *)(&val);
+    ival += n;
+    return *(float *)(&ival);
+}
+
+int32_t floatAsInt(float val)
+{
+    return *(int32_t *)(&val);
+}
+
+inline float sqrt2(float val, int * adj)
+{
+    int low = -3;
+    int high = +3;
+    float approx = sqrt(val);
+    float bestErr = INFINITY;
+    float bestApprox = approx;
+
+    for (int i = low;  i <= high;  ++i) {
+        float guess = nextFloat(approx, i);
+        float err = fabs(val - guess * guess);
+        if (err < bestErr) {
+            bestErr = err;
+            *adj = i;
+            bestApprox = guess;
+        }
+    }
+    
+    return bestApprox;
 }
 
 inline float scoreSplit(W wFalse, W wTrue)
 {
-    float score
-        = 2.0 * (    sqrt(decodeWf(wFalse.vals[0]) * decodeWf(wFalse.vals[1]))
-                   + sqrt(decodeWf(wTrue.vals[0]) * decodeWf(wTrue.vals[1])));
+    float arg1 = decodeWf(wFalse.vals[0]) * decodeWf(wFalse.vals[1]);
+    float arg2 = decodeWf(wTrue.vals[0])  * decodeWf(wTrue.vals[1]);
+    int adj1 = 10, adj2 = 10;
+    float sr1 = sqrt2(arg1, &adj1);
+    float sr2 = sqrt2(arg2, &adj2);
+    float score = 2.0f * (sr1 + sr2);
+    if (adj1 != 0 || adj2 != 0)
+        printf("scoreSplit score=%.12f adj1=%d adj2=%d\n", score, adj1, adj2);
     return score;
 };
 
@@ -833,7 +867,9 @@ inline float scoreSplitWAll(W wTrue, W wAll)
 {
     W wFalse = { { wAll.vals[0] - wTrue.vals[0],
                    wAll.vals[1] - wTrue.vals[1] },
-                 0 };
+                 wAll.count - wTrue.count };
+    if (wFalse.count == 0 || wTrue.count == 0)
+        return INFINITY;
     return scoreSplit(wFalse, wTrue);
 }
 
@@ -1008,7 +1044,7 @@ chooseSplitKernelOrdinal(__global const W * w,
                          uint32_t wLocalSize)
 {
     PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                              0 };
+                              false };
 
     uint32_t bucket = get_global_id(0);
 
@@ -1100,7 +1136,7 @@ chooseSplitKernelCategorical(__global const W * w,
                              W wAll)
 {
     PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                              0 };
+                              false };
 
     uint32_t bucket = get_global_id(0);
 
@@ -1169,10 +1205,11 @@ chooseSplit(__global const W * w,
             __local W * wLocal,
             uint32_t wLocalSize,
             __local W * wStartBest,  // length 2
-            bool ordinal)
+            bool ordinal,
+            uint32_t partitionIndex)  // 
 {
-    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                              0 };
+    PartitionSplit result = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                              false };
 
 #if 1
 
@@ -1335,6 +1372,7 @@ chooseSplit(__global const W * w,
     result.right.vals[0] -= wBest->vals[0];
     result.right.vals[1] -= wBest->vals[1];
     result.right.count   -= wBest->count;
+    result.index = partitionIndex;
 #endif
 
     return result;
@@ -1360,9 +1398,12 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     uint32_t f = get_global_id(1);
     uint32_t nf = get_global_size(1);
     uint32_t partition = get_global_id(2);
+    uint32_t numPartitions = get_global_size(2);
     
-    PartitionSplit best = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                            0 };
+    uint32_t partitionIndex = partition + numPartitions;
+
+    PartitionSplit best = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                            false };
 
     uint32_t bucket = get_global_id(0);
 
@@ -1404,7 +1445,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
 
 #if 1
     best = chooseSplit(myW, numBuckets, wAll[partition],
-                       wLocal, wLocalSize, wStartBest, ordinal);
+                       wLocal, wLocalSize, wStartBest, ordinal, partitionIndex);
 #elif 0
     // TODO: use prefix sums to enable better parallelization (this will mean
     // multiple kernel launches, though, so not sure) or accumulate locally
@@ -1510,9 +1551,10 @@ bestPartitionSplitKernel(uint32_t nf,
     partitionSplits += partitionSplitsOffset;
 
     uint32_t p = get_global_id(0);
+    uint32_t partitionIndex = p + get_global_size(0);
     
-    PartitionSplit best = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
-                            0 };
+    PartitionSplit best = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0},
+                            false };
 
     featurePartitionSplits += p * nf;
     partitionSplits += p;
