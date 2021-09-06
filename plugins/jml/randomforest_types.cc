@@ -35,6 +35,28 @@ struct FixedPointAccum64Description
 
 DEFINE_VALUE_DESCRIPTION_NS(FixedPointAccum64, FixedPointAccum64Description);
 
+struct FixedPointAccum32Description
+    : public ValueDescriptionT<FixedPointAccum32> {
+    virtual void parseJsonTyped(FixedPointAccum32 * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectDouble();
+    }
+    
+    virtual void printJsonTyped(const FixedPointAccum32 * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeDouble(*val);
+    }
+    
+    virtual bool isDefaultTyped(const FixedPointAccum32 * val) const
+    {
+        return *val != 0;
+    }
+};
+
+DEFINE_VALUE_DESCRIPTION_NS(FixedPointAccum32, FixedPointAccum32Description);
+
 namespace RF {
 
 

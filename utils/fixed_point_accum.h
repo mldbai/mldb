@@ -10,15 +10,20 @@
 
 #include "mldb/compiler/compiler.h"
 #include "mldb/utils/float_traits.h"
+#include "mldb/arch/format.h"
+#include <cstdint>
 #include <limits>
 
 namespace MLDB {
+
+void throwFixedPointOverflow() MLDB_NORETURN;
+
 
 /** A structure to accumulate values between zero and one in a single 32
     bit integer. */
 
 struct FixedPointAccum32Unsigned {
-    unsigned rep;
+    uint32_t rep;
 
     static constexpr float VAL_2_REP = 1ULL << 31;
     static constexpr float REP_2_VAL = 1.0f / (1ULL << 31);
@@ -55,7 +60,7 @@ struct FixedPointAccum32Unsigned {
 };
 
 struct FixedPointAccum32 {
-    int rep;
+    int32_t rep;
 
     static constexpr float VAL_2_REP = 1ULL << 30;
     static constexpr float REP_2_VAL = 1.0f / (1ULL << 30);
@@ -75,7 +80,8 @@ struct FixedPointAccum32 {
 
     FixedPointAccum32 & operator += (const FixedPointAccum32 & other)
     {
-        rep += other.rep;
+        if (MLDB_UNLIKELY(__builtin_add_overflow(rep, other.rep, &rep)))
+            throwFixedPointOverflow();
         return *this;
     }
 
@@ -85,42 +91,48 @@ struct FixedPointAccum32 {
         result += other;
         return result;
     }
+
+    FixedPointAccum32 & operator -= (const FixedPointAccum32 & other)
+    {
+        if (MLDB_UNLIKELY(__builtin_sub_overflow(rep, other.rep, &rep)))
+            throwFixedPointOverflow();
+        return *this;
+    }
+
+    FixedPointAccum32 operator - (const FixedPointAccum32 & other) const
+    {
+        FixedPointAccum32 result = *this;
+        result -= other;
+        return result;
+    }
 };
 
-#ifdef MLDB_COMPILER_NVCC
-__device__
-void
-atomic_add(FixedPointAccum32 & result, FixedPointAccum32 other)
+template<typename F>
+float operator / (const FixedPointAccum32 & f1, const F & f2)
 {
-    unsigned old = atomicAdd(&result.rep, other.rep);
-    //if (result < old)
-    //    result.rep = FixedPointAccum::MAX_REP;
+    return f1.operator float() / float(f2);
 }
-__device__
-void
-atomic_add_shared(FixedPointAccum32 & result, FixedPointAccum32 other)
+
+template<typename F>
+float operator / (const F & f1, const FixedPointAccum32 & f2)
 {
-    atomic_add(result, other);
+    return float(f1) / f2.operator float();
 }
-#endif // MLDB_COMPILER_NVCC
+
+inline float operator / (const FixedPointAccum32 & f1,
+                          const FixedPointAccum32 & f2)
+{
+    return f1.operator float() / f2.operator float();
+}
+
+inline std::ostream & operator << (std::ostream & stream, const FixedPointAccum32 & accum)
+{
+    return stream << MLDB::format("%f (%016llx)", (double)accum, (long long)accum.rep);
+}
 
 struct FixedPointAccum64 {
-#ifndef MLDB_COMPILER_NVCC
-    union {
-        struct {
-            uint32_t l;
-            int32_t h;
-        };
-        int64_t hl;
-    };
-#else // MLDB_COMPILER_NVCC
-    // Note that using a union like this for NVCC forces the structure into
-    // local memory, which adversely affects the speed.
+    int64_t hl;
 
-    long long hl;
-    __host__ __device__ unsigned h() const { return hl >> 32; }
-    __host__ __device__ unsigned l() const { return hl; }
-#endif // MLDB_COMPILER_NVCC
     static constexpr float VAL_2_HL = 1.0f * (1ULL << 60);
     static constexpr float HL_2_VAL = 1.0f / (1ULL << 60);
     static constexpr float VAL_2_H = (1ULL << 28);
@@ -147,16 +159,7 @@ struct FixedPointAccum64 {
     static constexpr FixedPointAccum64 max() { return constructFromInt(std::numeric_limits<int64_t>::max()); }
     static constexpr FixedPointAccum64 min() { return constructFromInt(std::numeric_limits<int64_t>::min()); }
 
-#ifndef MLDB_COMPILER_NVCC
-    operator float() const { return h * H_2_VAL; }
-#else
-    operator float() const { return h() * H_2_VAL; }
-#endif
-
-    static void throwFixedPointOverflow() MLDB_NORETURN
-    {
-        throw MLDB::Exception("fixed point overflow");
-    }
+    operator float() const { return (hl >> 32) * H_2_VAL; }
 
     FixedPointAccum64 & operator += (const FixedPointAccum64 & other)
     {
@@ -193,32 +196,6 @@ struct FixedPointAccum64 {
         return result;
     }
 };
-
-#ifdef MLDB_COMPILER_NVCC
-__device__
-void
-atomic_add(FixedPointAccum64 & result, const FixedPointAccum64 & other)
-{
-    atomicAdd((unsigned long long *)&result.hl, other.hl);
-}
-
-__device__
-void
-atomic_add_shared(FixedPointAccum64 & result, const FixedPointAccum64 & other)
-{
-    // We have to to it in two 32 bit operations
-    unsigned old = atomicAdd((unsigned *)(&result), other.l());
-
-    // Do we have carry?
-    unsigned carry = (((unsigned)-1) - old) < other.l();
-
-    // What to we add to the high value?
-    unsigned toadd = carry + other.h();
-
-    // Do the high bit
-    if (toadd != 0) atomicAdd(((unsigned *)(&result)) + 1, toadd);
-}
-#endif // MLDB_COMPILER_NVCC
 
 template<typename F>
 float operator / (const FixedPointAccum64 & f1, const F & f2)

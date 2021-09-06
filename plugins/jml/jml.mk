@@ -25,7 +25,7 @@ LIBML_SOURCES := \
 	kmeans.cc \
 	em.cc \
 	value_descriptions.cc \
-	configuration.cc
+	configuration.cc \
 
 LIBML_LINK := \
 	$(STD_FILESYSTEM_LIBNAME) \

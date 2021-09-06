@@ -19,6 +19,7 @@
 
 namespace MLDB {
 
+PREDECLARE_VALUE_DESCRIPTION(FixedPointAccum32);
 PREDECLARE_VALUE_DESCRIPTION(FixedPointAccum64);
 
 namespace RF {

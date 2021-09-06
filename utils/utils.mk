@@ -14,6 +14,7 @@ LIBUTILS_SOURCES := \
 	quadtree.cc \
 	for_each_line.cc \
 	tmpdir.cc \
+	fixed_point_accum.cc \
 
 LIBUTILS_LINK := \
 	arch \
