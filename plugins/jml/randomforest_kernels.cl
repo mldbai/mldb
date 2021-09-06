@@ -186,11 +186,17 @@ inline uint32_t getBucket(uint32_t exampleNum,
     return extractBitRange32(bucketData, bucketBits, exampleNum);
 }
 
-typedef struct W {
+typedef struct W64 {
     int64_t vals[2];
     int32_t count;
     int32_t index;
-} W;// __attribute__((packed)) __attribute__((aligned(4)));
+} W64;
+
+typedef struct W32 {
+    int32_t vals[2];
+    int32_t count;
+    int32_t index;
+} W32;
 
 void zeroW(__local W * w)
 {
@@ -228,18 +234,29 @@ float decodeWf(int64_t v)
 
 #else
 
+#ifdef __ENDIAN_LITTLE__
+#define LOW_INDEX 0
+#define HIGH_INDEX 1
+#else
+#define LOW_INDEX 1
+#define HIGH_INDEX 0
+#endif
+
 // Synthesize 64 bit atomic additions/subtractions by two 32 bit atomic
 // additions/subtractions.  This works because we only use the targets to
 // accumulate; we don't read them until all accumulations are done.
 void atom_add_64_local(__local int64_t * val, int64_t arg)
 {
-    __local uint32_t * lo = ((__local uint32_t *)val) + 1;
-    __local int32_t * hi = ((__local int32_t *)val);
-    uint32_t argLo = arg & 0xffffffffU;
+    __local uint32_t * lo = ((__local uint32_t *)val) + LOW_INDEX;
+    __local int32_t * hi = ((__local int32_t *)val) + HIGH_INDEX;
+    uint32_t argLo = arg;
     int32_t argHi = arg >> 32;
 
     if (argLo != 0) {
         uint32_t oldLo = atomic_add(lo, argLo);
+        // Overflow if oldLo + argLo > INT_MAX or oldLo + argLo < INT_MIN
+        // So if oldLo > INT_MAX - argLo or oldLo < INT_MIN - argLo
+        //if (oldLo > INT_MAX - argLo || oldLo < INT_MIN - argLo) {
         if (__builtin_add_overflow(oldLo, argLo, &oldLo)) {
             argHi += 1;
         }
@@ -256,13 +273,16 @@ void atom_sub_64_local(__local int64_t * val, int64_t arg)
 
 void atom_add_64_global(__global int64_t * val, int64_t arg)
 {
-    __global uint32_t * lo = ((__global uint32_t *)val) + 1;
-    __global int32_t * hi = ((__global int32_t *)val);
-    uint32_t argLo = arg & 0xfffffffU;
+    __global uint32_t * lo = ((__global uint32_t *)val) + LOW_INDEX;
+    __global int32_t * hi = ((__global int32_t *)val) + HIGH_INDEX;
+    uint32_t argLo = arg;
     int32_t argHi = arg >> 32;
 
     if (argLo != 0) {
         uint32_t oldLo = atomic_add(lo, argLo);
+        // Overflow if oldLo + argLo > INT_MAX or oldLo + argLo < INT_MIN
+        // So if oldLo > INT_MAX - argLo or oldLo < INT_MIN - argLo
+        //if (oldLo > INT_MAX - argLo || oldLo < INT_MIN - argLo) {
         if (__builtin_add_overflow(oldLo, argLo, &oldLo)) {
             argHi += 1;
         }
@@ -809,7 +829,7 @@ inline void incrementW(__local W * out, __local const W * in)
     out->count += in->count;
 }
 
-inline double scoreSplitWAll(W wTrue, W wAll)
+inline float scoreSplitWAll(W wTrue, W wAll)
 {
     W wFalse = { { wAll.vals[0] - wTrue.vals[0],
                    wAll.vals[1] - wTrue.vals[1] },
@@ -829,8 +849,8 @@ inline void minW(__local W * out, __local const W * in, W wAll)
         return;
     }
 
-    double scoreIn = scoreSplitWAll(*in, wAll);
-    double scoreOut = scoreSplitWAll(*out, wAll);
+    float scoreIn = scoreSplitWAll(*in, wAll);
+    float scoreOut = scoreSplitWAll(*out, wAll);
 
 #if 0
     if (debug) {
@@ -1305,7 +1325,7 @@ chooseSplit(__global const W * w,
     }
 #endif
 
-#if 0
+#if 1
     result.score = scoreSplitWAll(*wBest, wAll);
     result.feature = f;
     result.value = wBest->index + ordinal;  // ordinal indexes are offset by 1
@@ -1618,7 +1638,7 @@ updateBucketsKernel(uint32_t rightOffset,
 
                     __global const uint16_t * expandedBuckets,
                     __global const uint32_t * expandedBucketOffsets,
-                    uint32_t useExpandedBuckets_,
+                    uint32_t useExpandedBuckets,
 
                     __global const uint32_t * featureActive,
                     __global const uint32_t * featureIsOrdinal,
@@ -1626,9 +1646,7 @@ updateBucketsKernel(uint32_t rightOffset,
                     __local W * wLocal,
                     uint32_t maxLocalBuckets)
 {
-    const bool useExpandedBuckets = true;
-    
-    int f = get_global_id(1) - 1;
+    int f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
 
     if (f != -1 && !featureActive[f])
         return;
@@ -1689,26 +1707,36 @@ updateBucketsKernel(uint32_t rightOffset,
     // Wait for all buckets to be clear
     barrier(CLK_LOCAL_MEM_FENCE);
     
-    //numLocalBuckets = 0;
+    //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
     
     for (uint32_t i = get_global_id(0);  i < rowCount;  i += get_global_size(0)) {
 
         // We may have updated partition already, so here we mask out any
-        // possible offset.
+        // possible offset (ensure that this partition number is parent partition number)
+        // (Needed because if we do all features at time, partition is both read and written by
+        // the f = -1 job, and we don't know when that job will execute).
         uint32_t partition = partitions[i] & (rightOffset - 1);
         int splitFeature = partitionSplits[partition].feature;
                 
+        uint32_t leftPartition = partition;
+        uint32_t rightPartition = partition + rightOffset;
+
         if (splitFeature == -1) {
-            // reached a leaf here, nothing to split                    
+            // reached a leaf here, nothing to split
+            // We don't change the partition number though, as the -1 can cause problems with the masking above
+            //if (f == -1) {
+            //    partitions[i] = -1;
+            //}
             continue;
         }
+
+        //if (f == -1) {
+        //    printf("row=%d partition=%d partnum=%d leftPartition=%d rightPartition=%d\n", i, partitions[i], partition, leftPartition, rightPartition);
+        //}
 
         float weight = fabs(decodedRows[i]);
         bool label = decodedRows[i] < 0;
         uint32_t exampleNum = i;
-            
-        uint32_t leftPartition = partition;
-        uint32_t rightPartition = partition + rightOffset;
 
         uint32_t splitValue = partitionSplits[partition].value;
         bool ordinal = featureIsOrdinal[splitFeature];
@@ -1751,6 +1779,12 @@ updateBucketsKernel(uint32_t rightOffset,
         // (which are typically most of them, especially for discrete
         // buckets)
 
+        //uint32_t ebo = expandedBucketOffsets[splitFeature];
+        //uint32_t ebn = ebo / sizeof(expandedBuckets[0]) + exampleNum;
+
+        //printf("fixup ex=%d part=%d splitfeat=%d splitval=%d ord=%d bucket=%d ebo=%d enb=%d dir=%d side=%d\n",
+        //       i, partition, splitFeature, splitValue, ordinal, bucket, ebo, ebn, direction, side);
+
         if (direction == side) {
             continue;
         }
@@ -1790,6 +1824,7 @@ updateBucketsKernel(uint32_t rightOffset,
     // Wait for all buckets to be updated, before we write them back to the global mem
     barrier(CLK_LOCAL_MEM_FENCE);
     
+    // Now write our local changes to the global
     for (uint32_t b = get_local_id(0);  b < numLocalBuckets;  b += get_local_size(0)) {
         if (wLocal[b].count != 0) {
             if (f == -1) {

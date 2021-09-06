@@ -169,6 +169,7 @@ OpenCLPlugin(MldbEngine * engine,
             const size_t globalWorkSize [] = { testDataSize / stride, 0, 0 };
 
             for (size_t i = 0;  i < 10;  ++i) {
+                Date before = Date::now();
                 error = clEnqueueNDRangeKernel (queue, kernel,
                                                 1, // One dimension
                                                 nullptr,
@@ -180,6 +181,8 @@ OpenCLPlugin(MldbEngine * engine,
 
                 event.waitUntilFinished();
 
+                Date after = Date::now();
+
                 cerr << "getting profiling info" << endl;
                 auto profile = event.getProfilingInfo();
 
@@ -188,6 +191,8 @@ OpenCLPlugin(MldbEngine * engine,
                 cerr << "time to run (ns):   " << profile.end - profile.start << endl;
             
                 cerr << jsonEncode(profile);
+
+                cerr << "Wall time: " << after.secondsSince(before) * 1000000.0 << "us" << endl;
 
                 // units: flop / ns = flop / s / 10^-9 = GFLOP/s
                 

@@ -15,6 +15,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/pair_description.h"
+#include "mldb/types/map_description.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/vm.h"
 #include <condition_variable>
@@ -140,7 +141,7 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 
 #if OPENCL_ENABLED
 
-EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 1);
+EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
 EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
 EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
 EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 1);
@@ -206,7 +207,7 @@ OpenCLProgram getTestFeatureProgramOpenCL()
     OpenCLProgram program = context.createProgram(source);
 
     //string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
-    string options = "-cl-kernel-arg-info";
+    string options = "-cl-kernel-arg-info -DW=W64";
 
     // Build for all devices
     auto buildInfo = program.build(devices, options);
@@ -767,7 +768,7 @@ testAllOpenCL(int depth,
     }
     
 #if 1
-    static constexpr int PARALLELISM = 4;
+    static constexpr int PARALLELISM = 8;
     
     static std::atomic<int> numRunning(0);
     static std::mutex mutex;
@@ -783,8 +784,8 @@ testAllOpenCL(int depth,
     --numWaiting;
     numRunning += 1;
 
-    //cerr << "started; numRunning now " << numRunning << " numWaiting = "
-    //     << numWaiting << endl;
+    cerr << "started; numRunning now " << numRunning << " numWaiting = "
+         << numWaiting << endl;
     
     guard.unlock();
 
@@ -835,7 +836,7 @@ testAllOpenCL(int depth,
                 = buckets.storage.data()
                 - bucketMemory_.data();
 
-            //cerr << "i = " << i << " offset = " << offset << endl;
+            cerr << "feature = " << i << " offset = " << offset << endl;
             bucketMemoryOffsets.push_back(offset);
             lastBucketDataOffset = offset + bucketMemory_.length();
             
@@ -1833,17 +1834,26 @@ splitPartitions(const std::vector<Feature> features,
     multiple partitions.
 */
 std::vector<PartitionSplit>
-getPartitionSplits(const std::vector<std::vector<W> > & buckets,
-                   const std::vector<int> & activeFeatures,
-                   const std::vector<uint32_t> & bucketOffsets,
-                   const std::vector<Feature> & features,
-                   const std::vector<W> & wAll,
-                   const std::vector<PartitionIndex> & indexes,
+getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] for each partition, feature buckets
+                   const std::vector<int> & activeFeatures,       // [naf] list of feature numbers of active features only (< nf)
+                   const std::vector<uint32_t> & bucketOffsets,   // [nf+1] offset in flat bucket list of start of feature
+                   const std::vector<Feature> & features,         // [nf] feature info
+                   const std::vector<W> & wAll,                   // [np] sum of buckets[0..nb-1] for each partition
+                   const std::vector<PartitionIndex> & indexes,   // [np] index of each partition
                    bool parallel)
 {
-    std::vector<PartitionSplit> partitionSplits(buckets.size());
+    size_t numPartitions = buckets.size();
+    size_t numBuckets = bucketOffsets.back();  // Total num buckets over ALL features
+    //cerr << "bucketOffsets = " << jsonEncodeStr(bucketOffsets) << endl;
+    for (auto & b: buckets) {
+        ExcAssertEqual(b.size(), numBuckets);
+    }
+    ExcAssertEqual(indexes.size(), numPartitions);
+    ExcAssertEqual(wAll.size(), numPartitions);
 
-    for (int partition = 0;  partition < buckets.size();  ++partition) {
+    std::vector<PartitionSplit> partitionSplits(numPartitions);
+
+    for (int partition = 0;  partition < numPartitions;  ++partition) {
 
         double bestScore = INFINITY;
         int bestFeature = -1;
@@ -1935,7 +1945,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
             { indexes.at(partition) /* index */,
               (float)bestScore, bestFeature, bestSplit,
               bestLeft, bestRight,
-              bestFeature != -1 && bestLeft.count() <= bestRight.count()
+              bestFeature != -1 && bestLeft.count() <= bestRight.count()  // direction
             };
 
 #if 0
@@ -2011,13 +2021,23 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const DatasetFeatureSpace & fs,
                            FrozenMemoryRegionT<uint32_t> bucketMemory)
 {
+    size_t numRows = decodedRows.size();
+    ExcAssertEqual(partitions.size(), numRows);
+
+    size_t numFeatures = features.size();
+    ExcAssertEqual(bucketOffsets.size(), numFeatures + 1);
+
+    size_t numPartitions = buckets.size();
+    ExcAssertEqual(wAll.size(), numPartitions);
+    ExcAssertEqual(indexes.size(), numPartitions);
+    
     std::vector<std::pair<PartitionIndex, ML::Tree::Ptr> > leaves;
 
     if (depth == maxDepth)
         return { };
         
-    leaves.reserve(buckets.size());
-            
+    leaves.resize(buckets.size()); // TODO: we double copy leaves into result
+
     // New partitions, per row
     std::vector<PartitionEntry> newData;
     FrozenMemoryRegionT<uint32_t> partitionMem;
@@ -2028,6 +2048,9 @@ splitAndRecursePartitioned(int depth, int maxDepth,
 
     auto doEntry = [&] (int i)
         {
+            if (newData[i].index == PartitionIndex::none())
+                return;
+        
             leaves[i].first = newData[i].index;
             leaves[i].second = trainPartitionedRecursive
                 (depth, maxDepth,
@@ -2051,7 +2074,16 @@ splitAndRecursePartitioned(int depth, int maxDepth,
         }
     }
 
-    return { leaves.begin(), leaves.end() };
+    std::map<PartitionIndex, ML::Tree::Ptr> result;
+    for (auto index_branch: leaves) {
+        PartitionIndex index = index_branch.first;
+        ML::Tree::Ptr branch = index_branch.second;
+        if (index == PartitionIndex::none())
+            continue;
+        result.emplace_hint(result.end(), index, branch);
+    }
+
+    return result;
 }
 
 struct PartitionExample {
@@ -2580,6 +2612,8 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
 
     using namespace std;
 
+    //cerr << "trainPartitionedRecursiveCpu: root = " << root << " depth = " << depth << " maxDepth = " << maxDepth << endl;
+
     int rowCount = decodedRows.size();
 
     int maxDepthBeforeRecurse = std::min(maxDepth - depth, 20);
@@ -2841,6 +2875,9 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
             cerr << endl;
         }
 
+        //cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
+
+
         // Double the number of partitions, create new W entries for the
         // new partitions, and transfer those examples that are in the
         // wrong partition to the right one
@@ -2897,6 +2934,8 @@ extractTree(int depth, int maxDepth,
 {
     ExcAssertEqual(root.depth(), depth);
     
+    //cerr << "extractTree: root " << root << endl;
+
     // First look for a leaf
     {
         auto it = leaves.find(root);
@@ -3062,6 +3101,46 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
 // means full occupancy.
 EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 5500);
 
+struct MapBack {
+    MapBack(OpenCLCommandQueue & queue)
+        : queue(queue)
+    {
+    }
+
+    OpenCLCommandQueue & queue;
+
+    template<typename T>
+    std::vector<T> mapVector(const OpenCLMemObject & mem, ssize_t length = -1,
+                                std::vector<OpenCLEvent> deps = {},
+                                size_t offset = 0)
+    {
+        if (length == -1) {
+            size_t sz = mem.size();
+            ExcAssertEqual(sz % sizeof(T), 0);
+            length = mem.size() / sizeof(T);
+        }
+
+        ExcAssertLessEqual(offset, length);
+        length -= offset;
+
+        OpenCLEvent mapEvent;
+        std::shared_ptr<const void> mappedMemory;
+
+        std::tie(mappedMemory, mapEvent)
+            = queue.enqueueMapBuffer
+                (mem, CL_MAP_READ,
+                offset * sizeof(T),
+                length * sizeof(T),
+                deps);
+    
+        mapEvent.waitUntilFinished();
+
+        const T * castMemory = reinterpret_cast<const T *>(mappedMemory.get());
+        
+        return std::vector<T>(castMemory, castMemory + length);
+    }
+};
+
 #if OPENCL_ENABLED
 ML::Tree::Ptr
 trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
@@ -3149,7 +3228,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = buckets.storage.data()
                 - bucketMemory.data();
 
-            //cerr << "i = " << i << " offset = " << offset << endl;
+            cerr << "feature = " << i << " offset = " << offset << " numActiveBuckets = " << numActiveBuckets << endl;
             bucketMemoryOffsets.push_back(offset);
             lastBucketDataOffset = offset + bucketMemory.length();
             
@@ -3323,7 +3402,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             }
         }
 
-        ExcAssert(!different);
+        ExcAssert(!different && "runExpandRows");
     }
 
     // Next we need to distribute the weignts into the first set of
@@ -3440,7 +3519,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 }
             }
 
-            ExcAssert(!different);
+            ExcAssert(!different && "runDecompressBuckets");
         }
     }
     
@@ -3505,14 +3584,21 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                            LocalArray<W>(MAX_LOCAL_BUCKETS),
                            (uint32_t)MAX_LOCAL_BUCKETS,
                            clPartitionBuckets);
-                           
+
+    //cerr << jsonEncode(testFeatureKernel.getInfo()) << endl;
+    //cerr << jsonEncode(OpenCLKernelWorkgroupInfo(testFeatureKernel, kernelContext.devices[0])) << endl;
+
     OpenCLEvent runTestFeatureKernel
         = queue.launch(testFeatureKernel,
                        { 65536, nf },
                        { 256, 1 },
                        { transferBucketData, fillFirstBuckets, runExpandRows });
 
+    cerr << "runTestFeatureKernel refcount 1 = " << runTestFeatureKernel.referenceCount() << endl;
+
     allEvents.emplace_back("runTestFeatureKernel", runTestFeatureKernel);
+
+    cerr << "runTestFeatureKernel refcount 2 = " << runTestFeatureKernel.referenceCount() << endl;
 
     if (debugKernelOutput) {
         // Get that data back (by mapping), and verify it against the
@@ -3525,7 +3611,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             = memQueue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
                                      0 /* offset */, bytesPerPartition,
                                      { runTestFeatureKernel });
-        
+
+        cerr << "runTestFeatureKernel refcount 3 = " << runTestFeatureKernel.referenceCount() << endl;
+
         mapBuckets.waitUntilFinished();
 
         const W * allWGpu = reinterpret_cast<const W *>(mappedBuckets.get());
@@ -3561,7 +3649,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             }
         }
 
-        ExcAssert(!different);
+        ExcAssert(!different && "runTestFeatureKernel");
     }
     
     // Which partition is each row in?  Initially, everything
@@ -3595,9 +3683,11 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // How many partitions at the current depth?
     unsigned numPartitionsAtDepth = 1;
 
+    cerr << "runTestFeatureKernel refcount 4 = " << runTestFeatureKernel.referenceCount() << endl;
+
     // Which event represents that the previous iteration of partitions
     // are available?
-    OpenCLEvent previousIteration = runTestFeatureKernel;
+    OpenCLEvent previousIteration = runTestFeatureKernel;  // CRASH HERE ON DEBUG
 
     // Event list for all of the buckets
     std::vector<OpenCLEvent> clDepthSplitsEvents;
@@ -3626,7 +3716,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     totalGpuAllocation += featurePartitionSplitBytes;
     
-    
+    Date startDepth = Date::now();
+
     // We go down level by level
     for (int myDepth = 0;
          myDepth < 16 && depth < maxDepth;
@@ -3726,7 +3817,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 }
             }
 
-            ExcAssert(!problem);
+            ExcAssert(!problem && "verifyPreconditions");
         }
     
         // Run a kernel to find the new split point for each partition,
@@ -3803,7 +3894,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::vector<W> debugWAllCpu;
         std::vector<uint32_t> debugPartitionsCpu;
 
-        if (depth == maxDepth - 1 && false) {
+        if (depth == maxDepth - 1) {
             OpenCLEvent mapPartitionSplits;
             std::shared_ptr<void> mappedPartitionSplits;
             
@@ -3932,10 +4023,12 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
             debugWAllCpu = { wAllGpu, wAllGpu + numPartitionsAtDepth };
 
-
-            throw Exception("Need to do indexes");
             std::vector<PartitionIndex> indexes;
             
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                indexes.push_back(numPartitionsAtDepth + i);
+            }
+
             // Run the CPU version... first getting the data in place
             debugPartitionSplitsCpu
                 = getPartitionSplits(debugBucketsCpu,
@@ -3951,6 +4044,11 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             bool different = false;
             
             for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
+
+                //cerr << "p = " << p << " of " << numPartitionsAtDepth << endl
+                //     << " CPU " << jsonEncodeStr(debugPartitionSplitsCpu[p]) << endl
+                //     << " GPU " << jsonEncodeStr(partitionSplitsGpu[p])
+                //     << endl;
 
                 // We don't compare the score as the result is different
                 // due to numerical differences in the sqrt function.
@@ -4015,7 +4113,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             = kernelContext.program.createKernel("updateBucketsKernel");
 
         updateBucketsKernel
-            .bind((uint32_t)numPartitionsAtDepth,
+            .bind((uint32_t)numPartitionsAtDepth,  // rightOffset
                   (uint32_t)numActiveBuckets,
                   clPartitions,
                   clPartitionBuckets,
@@ -4119,9 +4217,30 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         if (debugKernelOutput) {
 
-            // TODO
-            std::vector<std::pair<int32_t, int32_t> > newPartitionNumbers;
+            if (depth < 2) {
+                cerr << "splits " << jsonEncode(debugPartitionSplitsCpu) << endl;
+                cerr << "numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
+            }
+
+            // These give the partition numbers for the left (.first) and right (.second) of each partition
+            // or -1 if it's not active or < -2 if it's handled as a leaf
+            std::vector<std::pair<int32_t, int32_t> > newPartitionNumbers(numPartitionsAtDepth, {-1,-1});
+ 
+            ExcAssertEqual(numPartitionsAtDepth, debugPartitionSplitsCpu.size());
+
+            for (int i = 0;  i < numPartitionsAtDepth;  ++i) {
+                const PartitionSplit & split = debugPartitionSplitsCpu.at(i);
+                if (!split.valid())
+                    continue;
+                int left = i;
+                int right = i + numPartitionsAtDepth;
+                //if (split.direction)
+                //    std::swap(left, right);
+                newPartitionNumbers[i] = { left, right };
+            }
             
+            cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
+
             // Run the CPU version of the computation
             updateBuckets(features,
                           debugPartitionsCpu,
@@ -4130,7 +4249,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                           bucketNumbers,
                           debugPartitionSplitsCpu,
                           newPartitionNumbers,
-                          numPartitionsAtDepth,
+                          numPartitionsAtDepth * 2,
                           debugExpandedRowsCpu,
                           activeFeatures);
 
@@ -4164,6 +4283,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
             for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
                 const W * partitionBuckets = bucketsGpu + numActiveBuckets * i;
+                if (newPartitionNumbers[i].first == -1)
+                    continue;  // dead partition, don't verify...
 
                 if (!debugBucketsCpu[i].empty()) {
                     for (size_t j = 0;  j < numActiveBuckets;  ++j) {
@@ -4209,6 +4330,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = reinterpret_cast<const W *>(mappedWAll.get());
 
             for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                if (newPartitionNumbers[i].first == -1)
+                    continue;  // dead partition, don't verify...
                 if (wAllGpu[i] != debugWAllCpu[i]) {
                     cerr << "part " << i << " wAll update error: CPU "
                          << jsonEncodeStr(debugWAllCpu[i])
@@ -4236,19 +4359,39 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = reinterpret_cast<const uint32_t *>
                     (mappedPartitions.get());
 
+            int numDifferences = 0;
+            std::map<std::pair<int, int>, int> differenceStats;
             for (size_t i = 0;  i < rowCount;  ++i) {
-                if (partitionsGpu[i] != debugPartitionsCpu[i]) {
+                if (partitionsGpu[i] != debugPartitionsCpu[i] && debugPartitionsCpu[i] != -1) {
                     different = true;
-                    cerr << "row " << i << " partition difference: CPU "
-                         << (int)debugPartitionsCpu[i]
-                         << " GPU " << (int)partitionsGpu[i]
-                         << endl;
+                    differenceStats[{debugPartitionsCpu[i], partitionsGpu[i]}] += 1;
+                    if (++numDifferences < 10) {
+                        cerr << "row " << i << " partition difference: CPU "
+                            << (int)debugPartitionsCpu[i]
+                            << " GPU " << (int)partitionsGpu[i]
+                            << endl;
+                    }
+                    else if (numDifferences == 11) {
+                        cerr << "..." << endl;
+                    }
+                }
+            }
+
+            if (numDifferences > 0) {
+                cerr << "partition number error stats (total " << numDifferences << ")" << endl;
+                for (auto & s: differenceStats) {
+                    cerr << "  cpu: " << s.first.first << " gpu: " << s.first.second << " count: " << s.second << endl;
                 }
             }
 
             ExcAssert(!different);
         }
-                
+
+        Date doneDepth = Date::now();
+
+        cerr << "depth " << depth << " wall time is " << doneDepth.secondsSince(startDepth) * 1000 << endl;
+        startDepth = doneDepth;
+
         // Ready for the next level
         previousIteration = runUpdateBucketsKernel;
     }
@@ -4272,24 +4415,11 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     
     cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
          << "ms with " << totalGpuAllocation / 1000000.0 << "Mb allocated" << endl;
-
-    std::shared_ptr<const PartitionSplit> mappedAllPartitionSplitsCast
-        = reinterpret_pointer_cast<const PartitionSplit>(mappedAllPartitionSplits);
-
-    std::map<PartitionIndex, PartitionSplit> allSplits;
-
-    throw Exception("TODO allSplits");
-    
-    for (int i = 0;  i < numIterations;  ++i) {
-        depthSplits.emplace_back
-            (mappedAllPartitionSplitsCast.get() + (1 << i),
-             mappedAllPartitionSplitsCast.get() + (2 << i));
-    }
-    
-    auto first = allEvents.at(0).second.getProfilingInfo();
+    cerr << "numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
 
     cerr << "  submit    queue    start      end  elapsed name" << endl;
     
+    auto first = allEvents.at(0).second.getProfilingInfo();
     for (auto & e: allEvents) {
         std::string name = e.first;
         const OpenCLEvent & ev = e.second;
@@ -4301,24 +4431,94 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 return ns / 1000000.0;
             };
         
-        cerr << format("%8.2f %8.2f %8.2f %8.2f %8.2f ",
+        cerr << format("%8.3f %8.3f %8.3f %8.3f %8.3f ",
                        ms(info.queued), ms(info.submit), ms(info.start),
                        ms(info.end),
                        ms(info.end - info.start))
              << name << endl;
     }
 
-    std::map<PartitionIndex, ML::Tree::Ptr> leaves;
+    std::shared_ptr<const PartitionSplit> mappedAllPartitionSplitsCast
+        = reinterpret_pointer_cast<const PartitionSplit>(mappedAllPartitionSplits);
 
-    // TODO: fill this in by recursing...
+    std::map<PartitionIndex, PartitionSplit> allSplits;
 
-    throw Exception("TODO leaves");
+    //cerr << jsonEncode(mappedAllPartitionSplitsCast.get()[0]) << endl;
+    //cerr << jsonEncode(mappedAllPartitionSplitsCast.get()[1]) << endl;
+
+    std::vector<PartitionIndex> indexes(numPartitionsAtDepth);
+
+    cerr << "numRows = " << rowCount << endl;
+
+    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+        auto & split = mappedAllPartitionSplitsCast.get()[i];
+        PartitionIndex index(i);
+        if (i < 20)
+            cerr << "split " << i << " : " << jsonEncodeStr(split) << " index " << index << " rowCount " << split.left.count() + split.right.count() << endl;
+        if (split.valid()) {
+            if (i >= numPartitionsAtDepth / 2) {
+                indexes[i - numPartitionsAtDepth / 2 + 0] = index.leftChild();
+                indexes[i - numPartitionsAtDepth / 2 + 1] = index.rightChild();
+                ExcAssertEqual(index.depth(), depth - 1);
+            }
+            //cerr << "partition " << i << " is valid with index " << index << " depth " << index.depth() << endl;
+            allSplits.emplace_hint(allSplits.end(), index, split);
+        }
+    }
+
+    //throw Exception("TODO allSplits");
     
+    //for (int i = 0;  i < numIterations;  ++i) {
+    //    depthSplits.emplace_back
+    //        (mappedAllPartitionSplitsCast.get() + (1 << i),
+    //         mappedAllPartitionSplitsCast.get() + (2 << i));
+    //}
+    
+    cerr << "got " << allSplits.size() << " splits" << endl;
+
+
+    // If we're not at the lowest level, partition our data and recurse
+    // par partition to create our leaves.
+    Date beforeMapping = Date::now();
+
+    MapBack mapper(memQueue);
+    auto bucketsUnrolled = mapper.mapVector<W>(clPartitionBuckets);
+    auto partitions = mapper.mapVector<uint32_t>(clPartitions);
+    auto wAll = mapper.mapVector<W>(clWAll);
+    auto decodedRows = mapper.mapVector<float>(clExpandedRowData);
+
+    std::vector<std::vector<W>> buckets;
+    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+        const W * partitionBuckets = bucketsUnrolled.data() + numActiveBuckets * i;
+        buckets.emplace_back(partitionBuckets, partitionBuckets + numActiveBuckets);
+    }
+
+    Date beforeSplitAndRecurse = Date::now();
+
+    std::map<PartitionIndex, ML::Tree::Ptr> leaves
+        = splitAndRecursePartitioned(depth, maxDepth, tree, serializer,
+                                     std::move(buckets), bucketNumbers,
+                                     features, activeFeatures,
+                                     decodedRows,
+                                     partitions, wAll, indexes, fs,
+                                     bucketMemory);
+
+    Date afterSplitAndRecurse = Date::now();
+
     // Finally, extract a tree from the splits we've been accumulating
     // and our leaves.
-    return extractTree(depth, maxDepth,
-                       tree, PartitionIndex::root(),
-                       allSplits, leaves, features, fs);
+    auto result = extractTree(0, maxDepth,
+                              tree, PartitionIndex::root(),
+                              allSplits, leaves, features, fs);
+
+    Date afterExtract = Date::now();
+
+    cerr << "finished train: finishing tree took " << afterExtract.secondsSince(beforeMapping) * 1000
+         << "ms ("
+          << beforeSplitAndRecurse.secondsSince(beforeMapping) * 1000 << "ms in mapping and "
+          << afterSplitAndRecurse.secondsSince(beforeSplitAndRecurse) * 1000 << "ms in split and recurse)" << endl;
+
+    return result;
 }
 #endif // OPENCL_ENABLED
 
@@ -4352,8 +4552,8 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
-    return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
-                                       rows, features, bucketMemory, fs);
+    //return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
+    //                                   rows, features, bucketMemory, fs);
 
 #if OPENCL_ENABLED
 

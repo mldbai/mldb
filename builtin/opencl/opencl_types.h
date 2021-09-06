@@ -1433,6 +1433,15 @@ struct OpenCLMemObject {
     {
         return buffer.referenceCount();
     }
+
+    size_t size() const
+    {
+        size_t res;
+        auto ret = clGetMemObjectInfo(buffer, CL_MEM_SIZE, sizeof(res), &res, nullptr);
+        checkOpenCLError(ret, "clGetMemObjectInfo CL_MEM_SIZE");
+        return res;
+    }
+
 };
 
 
@@ -1679,10 +1688,8 @@ struct OpenCLProgram {
     OpenCLKernel createKernel(const std::string & name)
     {
         cl_int error = 0;
-        using namespace std;
-        cerr << "creating kernel " << name << endl;
         cl_kernel result = clCreateKernel (program, name.c_str(), &error);
-        checkOpenCLError(error, "clCreateKernel");
+        checkOpenCLError(error, "clCreateKernel " + name);
         return result;
     }
 
@@ -1830,8 +1837,6 @@ struct OpenCLContext {
                         = (OpenCLCommandQueueProperties)0)
     {
         cl_int error;
-        using namespace std;
-        cerr << "creating command queue with properties " << jsonEncodeStr(props) << endl;
         cl_command_queue queue
             = clCreateCommandQueue (context, device,
                                     (cl_command_queue_properties)props.val,

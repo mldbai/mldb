@@ -90,6 +90,7 @@ struct WT {
 }; // MLDB_PACKED MLDB_ALIGNED(4);
 
 
+//typedef WT<FixedPointAccum32> W;
 typedef WT<FixedPointAccum64> W;
 //typedef WT<float> W;
 //typedef WT<double> W;

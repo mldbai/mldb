@@ -24,7 +24,8 @@ struct FixedPointAccum64Description
     virtual void printJsonTyped(const FixedPointAccum64 * val,
                                 JsonPrintingContext & context) const
     {
-        context.writeDouble(*val);
+        context.writeString(MLDB::format("%.18f (%016llx)", val->operator float(), (long long)val->hl));
+        //context.writeDouble(*val);
     }
     
     virtual bool isDefaultTyped(const FixedPointAccum64 * val) const
