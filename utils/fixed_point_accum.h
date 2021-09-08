@@ -10,6 +10,7 @@
 
 #include "mldb/compiler/compiler.h"
 #include "mldb/utils/float_traits.h"
+#include <limits>
 
 namespace ML {
 

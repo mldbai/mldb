@@ -123,6 +123,20 @@ Utf8String::Utf8String(const char * in, bool check)
         doCheck();
 }
 
+Utf8String::Utf8String(const char8_t *start, size_t len, bool check)
+    :data_((const char *)start, len)
+{
+    if (check)
+        doCheck();
+}
+
+Utf8String::Utf8String(const char8_t * in, bool check)
+    : data_((const char *)in)
+{
+    if (check)
+        doCheck();
+}
+
 Utf8String::Utf8String(const std::basic_string<char32_t> & str)
 {
     // TODO: less inefficient way of doing it...
