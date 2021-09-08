@@ -52,6 +52,10 @@ struct InternedString {
         append(other.data(), other.length());
     }
 
+#pragma GCC diagnostic push
+#ifndef __clang__
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
     template<size_t OtherBytes>
     InternedString(InternedString<OtherBytes, Char> && other) noexcept
         : InternedString()
@@ -109,6 +113,7 @@ struct InternedString {
         }
         return *this;
     }
+#pragma GCC diagnostic pop
 
     ~InternedString() noexcept
     {

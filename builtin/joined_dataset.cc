@@ -1004,7 +1004,7 @@ JoinedDataset(MldbEngine * owner,
        left dataset to right dataset.
     */ 
     ProgressState joinState(100);
-    auto joinedProgress = [&](uint side, const ProgressState & state) {
+    auto joinedProgress = [&](uint32_t side, const ProgressState & state) {
         joinState = state.count / *state.total * 100 + 50 * side;
         return onProgress(joinState);
     };

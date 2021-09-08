@@ -130,12 +130,12 @@ BoundTableExpression merge(const SqlBindingScope & context,
 
     size_t steps = args.size();
     ProgressState joinState(100);
-    auto stepProgress = [&](uint step, const ProgressState & state) {
+    auto stepProgress = [&](uint32_t step, const ProgressState & state) {
         joinState = (100 / steps * state.count / *state.total) + (100 / steps * step);
         return onProgress(joinState);
     };
  
-    for (uint i = 0; i < steps; ++i) {
+    for (uint32_t i = 0; i < steps; ++i) {
         auto & arg = args[i];
         auto & combinedProgress = onProgress ? std::bind(stepProgress, i, _1) : onProgress;
     

@@ -4,4 +4,4 @@ GXX?=g++-11
 
 include $(JML_BUILD)/gcc.mk
 
-GCC_VERSION_WARNING_FLAGS:=-Wno-noexcept-type
+GCC_VERSION_WARNING_FLAGS:=-Wno-noexcept-type -Wno-overloaded-virtual -Wno-class-memaccess -Wno-array-bounds
