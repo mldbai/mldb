@@ -26,6 +26,11 @@
 #include "mldb/builtin/sql_config_validator.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/log.h"
+#include "mldb/plugins/jml/jml/decision_tree.h"
+#include "mldb/plugins/jml/jml/committee.h"
+#include "mldb/engine/column_scope.h"
+#include "mldb/base/parallel.h"
+
 
 #include <random>
 
