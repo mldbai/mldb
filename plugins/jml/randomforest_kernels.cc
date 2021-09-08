@@ -145,6 +145,7 @@ EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
 EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
 EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
 EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 1);
+EnvOption<bool> RF_USE_OPENCL("RF_USE_OPENCL", 1);
 EnvOption<size_t, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
 EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SIZE", 256);
 
@@ -2046,11 +2047,15 @@ splitAndRecursePartitioned(int depth, int maxDepth,
         = splitPartitions(features, activeFeatures, decodedRows,
                           partitions, wAll, indexes, serializer);
 
+    cerr << "splitAndRecursePartitioned: got " << newData.size() << " partitions" << endl;
+
     auto doEntry = [&] (int i)
         {
             if (newData[i].index == PartitionIndex::none())
                 return;
-        
+
+            cerr << "training leaf for index " << newData[i].index << " with " << newData[i].decodedRows.size() << " rows" << endl;
+
             leaves[i].first = newData[i].index;
             leaves[i].second = trainPartitionedRecursive
                 (depth, maxDepth,
@@ -2934,7 +2939,17 @@ extractTree(int depth, int maxDepth,
 {
     ExcAssertEqual(root.depth(), depth);
     
-    //cerr << "extractTree: root " << root << endl;
+    cerr << "extractTree: depth " << depth << " root " << root << endl;
+    if (depth == 0) {
+        cerr << " with " << splits.size() << " splits and " << leaves.size() << " leaves" << endl;
+        for (auto & s: splits) {
+            cerr << "  split " << s.first << " --> " << s.second.feature << " " << s.second.index
+                 << " " << s.second.left.count() << ":" << s.second.right.count() << " d: " << s.second.direction << endl;
+        }
+        for (auto & l: leaves) {
+            cerr << "  leaf " << l.first << " --> " << l.second.pred() << " " << l.second.examples() << endl;
+        }
+    }
 
     // First look for a leaf
     {
@@ -2942,11 +2957,13 @@ extractTree(int depth, int maxDepth,
         if (it != leaves.end()) {
             return it->second;
         }
+        cerr << "  not found in leaves" << endl;
     }
 
     // Secondly look for a split
     auto it = splits.find(root);
     if (it == splits.end()) {
+        cerr << "  split not found" << endl;
         return ML::Tree::Ptr();
     }
     auto & s = it->second;
@@ -4465,27 +4482,79 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     std::map<PartitionIndex, PartitionSplit> allSplits;
 
-    //cerr << jsonEncode(mappedAllPartitionSplitsCast.get()[0]) << endl;
-    //cerr << jsonEncode(mappedAllPartitionSplitsCast.get()[1]) << endl;
+    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+        cerr << "PARTITION " << i << " " << PartitionIndex(i) << endl;
+        cerr << jsonEncode(mappedAllPartitionSplitsCast.get()[i]) << endl;
+    }
 
     std::vector<PartitionIndex> indexes(numPartitionsAtDepth);
+    std::map<PartitionIndex, ML::Tree::Ptr> leaves;
 
     cerr << "numRows = " << rowCount << endl;
 
-    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-        auto & split = mappedAllPartitionSplitsCast.get()[i];
-        PartitionIndex index(i);
-        if (i < 20)
-            cerr << "split " << i << " : " << jsonEncodeStr(split) << " index " << index << " index2 "
-                 << split.index << " rowCount " << split.left.count() + split.right.count() << endl;
-        if (split.valid()) {
-            if (i >= numPartitionsAtDepth / 2) {
-                indexes[i - numPartitionsAtDepth / 2 + 0] = index.leftChild();
-                indexes[i - numPartitionsAtDepth / 2 + 1] = index.rightChild();
-                ExcAssertEqual(index.depth(), depth - 1);
+    std::set<int> donePositions;
+
+    std::function<void (PartitionIndex, int)> extractSplits = [&] (PartitionIndex index, int position)
+    {
+        donePositions.insert(position);
+        PartitionIndex leftIndex = index.leftChild();
+        PartitionIndex rightIndex = index.rightChild();
+
+        cerr << "position = " << position << " numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
+
+        indexes[position] = index;
+
+        auto & split = mappedAllPartitionSplitsCast.get()[position];
+
+        cerr << "  split = " << jsonEncodeStr(split) << endl;
+
+        int leftPosition = split.direction ? leftIndex.index : rightIndex.index;
+        int rightPosition = split.direction ? rightIndex.index : leftIndex.index;
+        //int leftPosition = leftIndex.index;
+        //int rightPosition = rightIndex.index;
+
+        allSplits[index] = split;
+
+        if (split.left.count() > 0 && split.right.count() > 0) {
+
+            cerr << "  testing left " << leftIndex << " with position " << leftPosition << " of " << numPartitionsAtDepth << endl;
+            if (leftPosition < numPartitionsAtDepth) {
+                auto & lsplit = mappedAllPartitionSplitsCast.get()[leftPosition];
+                cerr << "  has split " << jsonEncodeStr(lsplit) << endl;
+                ExcAssertEqual(lsplit.left.count() + lsplit.right.count(), split.left.count());
             }
-            //cerr << "partition " << i << " is valid with index " << index << " depth " << index.depth() << endl;
-            allSplits.emplace_hint(allSplits.end(), index, split);
+            if (leftPosition >= numPartitionsAtDepth || !mappedAllPartitionSplitsCast.get()[leftPosition].valid()) {
+                cerr << "    not valid; leaf" << endl;
+                leaves[leftIndex] = getLeaf(tree, split.left);
+            }
+            else {
+                cerr << "    valid; recurse" << endl;
+                extractSplits(leftIndex, leftPosition);
+            }
+
+            cerr << "  testing right " << rightIndex << " with position " << rightPosition << " of " << numPartitionsAtDepth << endl;
+            if (rightPosition < numPartitionsAtDepth) {
+                auto & rsplit = mappedAllPartitionSplitsCast.get()[rightPosition];
+                cerr << "  has split " << jsonEncodeStr(rsplit) << endl;
+                ExcAssertEqual(rsplit.left.count() + rsplit.right.count(), split.right.count());
+            }
+            if (rightPosition >= numPartitionsAtDepth || !mappedAllPartitionSplitsCast.get()[rightPosition].valid()) {
+                leaves[rightIndex] = getLeaf(tree, split.right);
+            }
+            else {
+                extractSplits(rightIndex, rightPosition);
+            }
+        }
+        else {
+            leaves[index] = getLeaf(tree, split.left + split.right);
+        }
+    };
+
+    extractSplits(PartitionIndex::root(), 1 /* index */);
+
+    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+        if (mappedAllPartitionSplitsCast.get()[i].valid() && !donePositions.count(i)) {
+            cerr << "ERROR: valid split " << i << " was not extracted" << endl;
         }
     }
 
@@ -4518,13 +4587,15 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     Date beforeSplitAndRecurse = Date::now();
 
-    std::map<PartitionIndex, ML::Tree::Ptr> leaves
+    std::map<PartitionIndex, ML::Tree::Ptr> newLeaves
         = splitAndRecursePartitioned(depth, maxDepth, tree, serializer,
                                      std::move(buckets), bucketNumbers,
                                      features, activeFeatures,
                                      decodedRows,
                                      partitions, wAll, indexes, fs,
                                      bucketMemory);
+
+    leaves.merge(std::move(newLeaves));
 
     Date afterSplitAndRecurse = Date::now();
 
@@ -4575,21 +4646,16 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
-    //return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
-    //                                   rows, features, bucketMemory, fs);
-
 #if OPENCL_ENABLED
-
-#if 0
-    for (size_t i = 0;  i < 199;  ++i) {
-        trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,
-                                       rows, features, bucketMemory, fs);
+    if (RF_USE_OPENCL) {
+        return trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,
+                                              rows, features, bucketMemory, fs);
     }
 #endif
-    
-    return trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,
-                                          rows, features, bucketMemory, fs);
-#endif
+
+    return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
+                                       rows, features, bucketMemory, fs);
+
 }
 
 } // namespace RF

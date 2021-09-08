@@ -541,7 +541,7 @@ struct PartitionData {
             PARTITIONED = 1,
             RECURSIVE = 2,
             BOTH_AND_COMPARE = 3,
-        } trainingScheme = PARTITIONED;
+        } trainingScheme = BOTH_AND_COMPARE;
 
         if (trainingScheme == PARTITIONED) {
             return trainPartitioned(depth, maxDepth, tree, serializer);

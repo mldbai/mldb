@@ -211,7 +211,7 @@ struct PartitionSplit {
     W right;
     bool direction;  // 0 = left to right, 1 = right to left
 
-    bool valid() const { return left.count() > 0 || right.count() > 0; }
+    bool valid() const { return feature != -1; }
 
     operator std::pair<PartitionIndex, PartitionSplit> const ()
     {

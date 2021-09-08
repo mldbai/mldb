@@ -11,6 +11,7 @@ var import_data_conf = {
         runOnCreation: true,
         encoding: 'ascii',
         ignoreBadLines: true,
+        limit: 10000,//10000000,
     }
 };
 
@@ -51,10 +52,10 @@ var benchmark_conf = {
         runOnCreation: true,
         modelFileUrl: "file://tmp/benchmark-airlines.cls",
         functionName: "classifyme",
-        featureVectorSamplings : 5,
-        featureSamplings : 20,
-        maxDepth : 20,
-        verbosity : 0,
+        featureVectorSamplings : 1,//5,
+        featureSamplings : 1,//20,
+        maxDepth : 3,
+        verbosity : 3,
     }
 };
 
