@@ -79,7 +79,7 @@ StatsTable(const std::string & filename)
 
 const StatsTable::BucketCounts &
 StatsTable::
-increment(const CellValue & val, const vector<uint> & outcomes) {
+increment(const CellValue & val, const vector<uint32_t> & outcomes) {
     Utf8String key = val.toUtf8String();
     auto it = counts.find(key);
     if(it == counts.end()) {
@@ -261,7 +261,7 @@ run(const ProcedureRunConfig & run,
                 INFO_MSG(logger) << message;
             }
 
-            vector<uint> encodedLabels;
+            vector<uint32_t> encodedLabels;
             for(int lbl_idx=0; lbl_idx<runProcConf.outcomes.size(); lbl_idx++) {
                 CellValue outcome = extraVals.at(lbl_idx).getAtom();
                 encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );
@@ -701,7 +701,7 @@ run(const ProcedureRunConfig & run,
                 INFO_MSG(logger) << message;
             }
 
-            vector<uint> encodedLabels;
+            vector<uint32_t> encodedLabels;
             for(int lbl_idx=0; lbl_idx < runProcConf.outcomes.size(); lbl_idx++) {
                 CellValue outcome = extraVals.at(lbl_idx).getAtom();
                 encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );

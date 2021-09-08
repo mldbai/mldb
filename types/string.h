@@ -71,6 +71,10 @@ public:
     
     Utf8String(const char *start, size_t len, bool check=true);
 
+    Utf8String(const char8_t * in, bool check=true) ;
+    
+    Utf8String(const char8_t *start, size_t len, bool check=true);
+
     Utf8String(const std::basic_string<char32_t> & str);
 
     Utf8String(const_iterator first, const const_iterator & last);

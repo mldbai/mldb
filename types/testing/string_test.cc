@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE( test_print_format )
 
    	Utf8String utf8(raw);
    	// Now iterate through the utf8 string
-   	for (Utf8String::const_iterator it = utf8.begin(); it != utf8.end(); ++it)
+   	for (Utf8String::const_iterator it = utf8.begin(), end =  utf8.end(); it != end;  ++it)
    	{
    		if (*it ==  L'é' || *it ==  L'ô')
    			numAccentedChars++;
@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE( test_print_format )
   	utf8+=raw2;
   	numAccentedChars=0;
   	// Now iterate through the utf8 string
-   	for (Utf8String::const_iterator it = utf8.begin(); it != utf8.end(); ++it)
+   	for (Utf8String::const_iterator it = utf8.begin(), end = utf8.end(); it != end;  ++it)
    	{
    		if (*it ==  L'é' || *it ==  L'ô')
    			numAccentedChars++;

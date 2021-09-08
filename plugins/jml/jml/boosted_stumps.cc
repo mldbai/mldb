@@ -501,7 +501,7 @@ output_encoding() const
 void Boosted_Stumps::calc_sum_missing()
 {
     distribution<double> totals(label_count());
-    for (const_iterator it = begin();  it != end();  ++it) {
+    for (const_iterator it = begin(), end = this->end();  it != end;  ++it) {
         distribution<double> this_val(it->action.pred_missing.begin(),
                                       it->action.pred_missing.end());
         totals += this_val;

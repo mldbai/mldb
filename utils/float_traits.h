@@ -11,30 +11,30 @@
 
 #pragma once
 
-#include "mldb/compiler/compiler.h"
+#include <utility>
 
 namespace MLDB {
 
 template<typename F1, typename F2>
 struct float_traits {
-    typedef jml_typeof(F1() + F2()) return_type;
-    typedef jml_typeof(F1() / F2(1)) fraction_type;
+    using return_type = decltype(std::declval<F1>() + std::declval<F2>());
+    using fraction_type = decltype(std::declval<F1>() / std::declval<F2>());
 };
 
 template <typename F>
 struct float_traits<F, F> {
-    typedef F return_type;
-    typedef jml_typeof(F() / F(1)) fraction_type;
+    using return_type = F;
+    using fraction_type = decltype(std::declval<F>() / std::declval<F>());
 };
 
 template<typename F1, typename F2, typename F3>
 struct float_traits3 {
-    typedef jml_typeof(*((F1*)(0)) + (*((F2*)(0))) + (*((F3*)(0)))) return_type;
+    using return_type = decltype(std::declval<F1>() + std::declval<F2>() + std::declval<F3>());
 };
 
 template <typename F>
 struct float_traits3<F, F, F> {
-    typedef F return_type;
+    using return_type = F;
 };
 
 } // namespace MLDB

@@ -42,7 +42,7 @@ struct StatsTable {
     // .second : nb of occurence of each outcome
     typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
     const BucketCounts & increment(const CellValue & val,
-                                   const std::vector<uint> & outcomes);
+                                   const std::vector<uint32_t> & outcomes);
     const BucketCounts & getCounts(const CellValue & val) const;
 
     void save(const std::string & filename) const;

@@ -154,6 +154,7 @@ ulock_wake(uint32_t *uaddr, uint32_t flags)
 	return _dlock_wake(uaddr, flags | UL_COMPARE_AND_WAIT);
 }
 
+#if 0 // not currently used
 static int
 unfair_lock_wait(uint32_t *uaddr, uint32_t val, uint32_t timeout,
 		WaitOnAddressLockOptions flags)
@@ -166,6 +167,7 @@ unfair_lock_wake(uint32_t *uaddr, uint32_t flags)
 {
 	return _dlock_wake(uaddr, flags | UL_UNFAIR_LOCK);
 }
+#endif
 
 } // namespace MLDB
 #endif /* __APPLE__ */

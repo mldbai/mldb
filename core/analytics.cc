@@ -418,7 +418,7 @@ queryFromStatementExpr(const SelectStatement & stm,
        left dataset to right dataset.
     */ 
     ProgressState joinState(100);
-    auto joinedProgress = [&](uint side, const ProgressState & state) {
+    auto joinedProgress = [&](uint32_t side, const ProgressState & state) {
         joinState = (50 * state.count / *state.total) + (50 * side);
         //cerr << "joinState.count " << joinState.count << " joinState.total " << *joinState.total << endl;
         return onProgress(joinState);
