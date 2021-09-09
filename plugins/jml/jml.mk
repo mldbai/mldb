@@ -46,6 +46,7 @@ $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest.cc \
 	randomforest_kernels.cc \
+	randomforest_kernels_opencl.cc \
 	randomforest_types.cc \
 	randomforest_procedure.cc \
 	classifier.cc \

@@ -67,5 +67,47 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(W)
     addField("c", &W::c, "Count of examples in bucket");
 }
 
+std::ostream & operator << (std::ostream & stream, PartitionIndex idx)
+{
+    return stream << idx.path();
+}
+
+struct PartitionIndexDescription
+    : public ValueDescriptionT<PartitionIndex> {
+    
+    virtual void parseJsonTyped(PartitionIndex * val,
+                                JsonParsingContext & context) const
+    {
+        val->index = context.expectInt();
+    }
+    
+    virtual void printJsonTyped(const PartitionIndex * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString(val->path());
+    }
+
+    virtual bool isDefaultTyped(const PartitionIndex * val) const
+    {
+        return *val == PartitionIndex::none();
+    }
+};
+
+DEFINE_VALUE_DESCRIPTION_NS(PartitionIndex,
+                            PartitionIndexDescription);
+
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
+{
+    addField("score", &PartitionSplit::score, "");
+    addField("feature", &PartitionSplit::feature, "");
+    addField("value", &PartitionSplit::value, "");
+    addField("left", &PartitionSplit::left, "");
+    addField("right", &PartitionSplit::right, "");
+    addField("direction", &PartitionSplit::direction, "");
+    addField("index", &PartitionSplit::index, "");
+}
+
+
 } // namespace RF
 } // namespace MLDB

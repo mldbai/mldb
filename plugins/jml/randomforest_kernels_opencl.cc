@@ -16,13 +16,13 @@
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
+#include <span>
 
 
 #if OPENCL_ENABLED
 #  define CL_TARGET_OPENCL_VERSION 220
 #  include "CL/cl.h"
 #  include "mldb/builtin/opencl/opencl_types.h"
-#endif
 
 
 using namespace std;
@@ -31,14 +31,59 @@ using namespace std;
 namespace MLDB {
 namespace RF {
 
-#if OPENCL_ENABLED
-
 EnvOption<bool> DEBUG_RF_OPENCL_KERNELS("DEBUG_RF_OPENCL_KERNELS", 0);
 EnvOption<bool> RF_SEPARATE_FEATURE_UPDATES("RF_SEPARATE_FEATURE_UPDATES", 0);
 EnvOption<bool> RF_EXPAND_FEATURE_BUCKETS("RF_EXPAND_FEATURE_BUCKETS", 0);
 EnvOption<bool> RF_OPENCL_SYNCHRONOUS_LAUNCH("RF_OPENCL_SYNCHRONOUS_LAUNCH", 1);
 EnvOption<size_t, true> RF_NUM_ROW_KERNELS("RF_NUM_ROW_KERNELS", 65536);
 EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SIZE", 256);
+
+// Default of 5.5k allows 8 parallel workgroups for a 48k SM when accounting
+// for 0.5k of local memory for the kernels.
+// On Nvidia, with 32 registers/work item and 256 work items/workgroup
+// (8 warps of 32 threads), we use 32 * 256 * 8 = 64k registers, which
+// means full occupancy.
+EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 5500);
+
+struct MapBack {
+    MapBack(OpenCLCommandQueue & queue)
+        : queue(queue)
+    {
+    }
+
+    OpenCLCommandQueue & queue;
+
+    template<typename T>
+    std::vector<T> mapVector(const OpenCLMemObject & mem, ssize_t length = -1,
+                             std::vector<OpenCLEvent> deps = {},
+                             size_t offset = 0)
+    {
+        if (length == -1) {
+            size_t sz = mem.size();
+            ExcAssertEqual(sz % sizeof(T), 0);
+            length = mem.size() / sizeof(T);
+        }
+
+        ExcAssertLessEqual(offset, length);
+        length -= offset;
+
+        OpenCLEvent mapEvent;
+        std::shared_ptr<const void> mappedMemory;
+
+        std::tie(mappedMemory, mapEvent)
+            = queue.enqueueMapBuffer
+                (mem, CL_MAP_READ,
+                offset * sizeof(T),
+                length * sizeof(T),
+                deps);
+    
+        mapEvent.waitUntilFinished();
+
+        const T * castMemory = reinterpret_cast<const T *>(mappedMemory.get());
+        
+        return std::vector<T>(castMemory, castMemory + length);
+    }
+};
 
 std::vector<OpenCLDevice>
 getOpenCLDevices()
@@ -318,8 +363,6 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
 }
 #endif
 
-#if OPENCL_ENABLED
-
 struct OpenCLKernelContext {
     OpenCLContext context;
     std::vector<OpenCLDevice> devices;
@@ -350,7 +393,7 @@ OpenCLKernelContext getKernelContext()
 
 std::tuple<double, int, int, W, W, std::vector<uint8_t> >
 testAllOpenCL(int depth,
-              const std::vector<Feature> & features,
+              const std::span<const Feature> & features,
               const Rows & rows,
               FrozenMemoryRegionT<uint32_t> bucketMemory_)
 {
@@ -783,62 +826,13 @@ testAllOpenCL(int depth,
     return std::make_tuple(bestScore, bestFeature, bestSplit,
                            bestLeft, bestRight, newActive);
 }
-#endif // OPENCL_ENABLED
 
-// Default of 5.5k allows 8 parallel workgroups for a 48k SM when accounting
-// for 0.5k of local memory for the kernels.
-// On Nvidia, with 32 registers/work item and 256 work items/workgroup
-// (8 warps of 32 threads), we use 32 * 256 * 8 = 64k registers, which
-// means full occupancy.
-EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 5500);
-
-struct MapBack {
-    MapBack(OpenCLCommandQueue & queue)
-        : queue(queue)
-    {
-    }
-
-    OpenCLCommandQueue & queue;
-
-    template<typename T>
-    std::vector<T> mapVector(const OpenCLMemObject & mem, ssize_t length = -1,
-                                std::vector<OpenCLEvent> deps = {},
-                                size_t offset = 0)
-    {
-        if (length == -1) {
-            size_t sz = mem.size();
-            ExcAssertEqual(sz % sizeof(T), 0);
-            length = mem.size() / sizeof(T);
-        }
-
-        ExcAssertLessEqual(offset, length);
-        length -= offset;
-
-        OpenCLEvent mapEvent;
-        std::shared_ptr<const void> mappedMemory;
-
-        std::tie(mappedMemory, mapEvent)
-            = queue.enqueueMapBuffer
-                (mem, CL_MAP_READ,
-                offset * sizeof(T),
-                length * sizeof(T),
-                deps);
-    
-        mapEvent.waitUntilFinished();
-
-        const T * castMemory = reinterpret_cast<const T *>(mappedMemory.get());
-        
-        return std::vector<T>(castMemory, castMemory + length);
-    }
-};
-
-#if OPENCL_ENABLED
 ML::Tree::Ptr
 trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                                ML::Tree & tree,
                                MappedSerializer & serializer,
                                const Rows & rows,
-                               const std::vector<Feature> & features,
+                               const std::span<const Feature> & features,
                                FrozenMemoryRegionT<uint32_t> bucketMemory,
                                const DatasetFeatureSpace & fs)
 {
@@ -2288,7 +2282,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     return result;
 }
-#endif // OPENCL_ENABLED
 
 } // namespace RF
 } // namespace MLDB

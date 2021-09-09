@@ -15,7 +15,7 @@
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/utils/fixed_point_accum.h"
 #include "mldb/plugins/jml/jml/tree.h"
-
+#include <span>
 
 namespace MLDB {
 
@@ -419,6 +419,141 @@ freeze(MappedSerializer & serializer)
 }
 
 
+/** Partition indexes indicate where a tree fragment exists in the
+    tree. They cover the tree space up to a depth of 32.
+
+    Index 0 is null; no partition has that index.
+    Index 1 is the root (depth 0).
+    Indexes 2 and 3 are the left and right of the root (depth 1).
+    Indexes 4 and 5 are the left children of 2 and 3; indexes 6 and 7 are
+    the right children of 2 and 3.
+
+    index 0: 0000: left =  0, right =  0, parent = 0, depth = -1
+    index 1: 0001: left =  2, right =  3, parent = 0, depth =  0
+    index 2: 0010: left =  4, right =  6, parent = 1, depth =  1
+    index 3: 0011: left =  5, right =  7, parent = 1, depth =  1
+    index 4: 0100: left =  8, right = 12, parent = 2, depth =  2
+    index 5: 0101: left =  9, right = 13, parent = 3, depth =  2
+    index 6: 0110: left = 10, right = 14, parent = 2, depth =  2
+    index 7: 0111: left = 11, right = 15, parent = 3, depth =  2
+
+    And so on down.  The advantages of this scheme are that a static array of
+    2^depth elements can be allocated that is sufficient to hold a tree of
+    that depth, with each index uniquely identifying a place in that array.
+*/
+
+struct PartitionIndex {
+    constexpr PartitionIndex() = default;
+    constexpr PartitionIndex(uint32_t index)
+        : index(index)
+    {
+    }
+
+    static constexpr PartitionIndex none() { return { 0 }; };
+    static constexpr PartitionIndex root() { return { 1 }; };
+    
+    uint32_t index = 0;
+
+    int32_t depth() const
+    {
+        return index == 0 ? -1 : 31 - __builtin_clz(index);
+    }
+    
+    PartitionIndex leftChild() const
+    {
+        return PartitionIndex(index * 2);
+    }
+    
+    PartitionIndex rightChild() const
+    {
+        return PartitionIndex(index * 2 + 1);
+    }
+    
+    PartitionIndex parent() const
+    {
+        return PartitionIndex(index >> 1);
+    }
+
+    PartitionIndex parentAtDepth(int32_t depth) const
+    {
+        return PartitionIndex(index >> (this->depth() - depth));
+    }
+
+    bool operator == (const PartitionIndex & other) const
+    {
+        return index == other.index;
+    }
+
+    bool operator != (const PartitionIndex & other) const
+    {
+        return index != other.index;
+    }
+
+    bool operator < (const PartitionIndex & other) const
+    {
+        return index < other.index;
+    }
+
+    std::string path() const
+    {
+        std::string result;
+
+        if (index == 0)
+            return result = "none";
+        if (index == 1)
+            return result = "root";
+
+        for (int d = depth() - 1;  d >= 0;  --d) {
+            result += (index & (1 << d) ? 'r' : 'l');
+        }
+
+        return result;
+    }
+};
+
+PREDECLARE_VALUE_DESCRIPTION(PartitionIndex);
+
+std::ostream & operator << (std::ostream & stream, PartitionIndex idx);
+
+/** Holds the split for a partition. */
+
+struct PartitionSplit {
+    PartitionIndex index;
+    float score = INFINITY;
+    int feature = -1;
+    int value = -1;
+    W left;
+    W right;
+    bool direction;  // 0 = left to right, 1 = right to left
+
+    bool valid() const { return feature != -1; }
+
+    operator std::pair<PartitionIndex, PartitionSplit> const ()
+    {
+        return { index, *this };
+    }
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(PartitionSplit);
+
+struct PartitionEntry {
+    std::vector<float> decodedRows;
+    std::vector<Feature> features;
+    std::span<const int> activeFeatures;
+    std::set<int> activeFeatureSet;
+    W wAll;
+    PartitionIndex index;
+    
+    // Get a contiguous block of memory for all of the feature
+    // blocks on each side; this enables a single GPU transfer
+    // and a single GPU argument list.
+    std::vector<size_t> bucketMemoryOffsets;
+    MutableMemoryRegionT<uint32_t> mutableBucketMemory;
+    FrozenMemoryRegionT<uint32_t> bucketMemory;
+};
+
+
+
 /*****************************************************************************/
 /* TREE MANIPULATION                                                         */
 /*****************************************************************************/
@@ -445,7 +580,7 @@ getNode(ML::Tree & tree, float bestScore,
         int bestFeature, int bestSplit,
         ML::Tree::Ptr left, ML::Tree::Ptr right,
         W wLeft, W wRight,
-        const std::vector<Feature> & features,
+        const std::span<const Feature> & features,
         const DatasetFeatureSpace & fs)
 {
     ML::Tree::Node * node = tree.new_node();
@@ -476,7 +611,26 @@ getNode(ML::Tree & tree, float bestScore,
 
     return node;
 }
-        
+
+
+inline DecodedRow decodeRow(Rows::RowIterator & rowIterator,
+                     size_t rowNumber)
+{
+    return rowIterator.getDecodedRow();
+}
+
+inline DecodedRow decodeRow(const float * arr,
+                     size_t rowNumber)
+{
+    float f = arr[rowNumber];
+    DecodedRow result;
+    result.label = f < 0;
+    result.exampleNum = rowNumber;
+    result.weight = fabs(f);
+    return result;
+}
+
+
 
 
 } // namespace RF
