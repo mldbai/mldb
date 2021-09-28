@@ -106,16 +106,14 @@ std::shared_ptr<const ValueDescriptionT<T> >
 getDefaultDescriptionShared(T *);
 
 template<typename T>
-std::shared_ptr<const ValueDescriptionT<T> >
-getDefaultDescriptionSharedT()
+auto getDefaultDescriptionSharedT()
 {
     using namespace MLDB;
     return getDefaultDescriptionShared((T *)0);
 }
 
 template<typename T>
-ValueDescriptionT<T> *
-getDefaultDescriptionUninitialized(T *)
+auto getDefaultDescriptionUninitialized(T *)
 {
     using namespace MLDB;
     return getDefaultDescription((T *)0);

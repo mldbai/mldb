@@ -10,6 +10,10 @@
 
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 
+#ifndef W
+#  define W W64
+#endif
+
 typedef unsigned uint32_t;
 typedef int int32_t;
 typedef unsigned long uint64_t;

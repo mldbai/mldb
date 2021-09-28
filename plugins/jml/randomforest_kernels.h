@@ -10,6 +10,7 @@
 
 #include "mldb/compiler/compiler.h"
 #include "randomforest_types.h"
+#include "mldb/block/compute_kernel.h"
 #include <span>
 
 namespace MLDB {
@@ -20,6 +21,16 @@ namespace RF {
 // row.
 std::vector<float> decodeRows(const Rows & rows);
 
+void decodeRowsKernelCpu(ComputeContext & context,
+                         MemoryArrayHandleT<const uint64_t> rowData,
+                         uint32_t rowDataLength,
+                         uint16_t weightBits,
+                         uint16_t exampleNumBits,
+                         uint32_t numRows,
+                         WeightFormat weightFormat,
+                         float weightMultiplier,
+                         MemoryArrayHandleT<const float> weightData,
+                         MemoryArrayHandleT<float> decodedRowsOut);
 
 // Core kernel of the decision tree search algorithm.  Transfer the
 // example weight into the appropriate (bucket,label) accumulator.
@@ -59,6 +70,21 @@ testFeatureKernel(Rows::RowIterator rowIterator,
                   size_t numRows,
                   const uint32_t * buckets,
                   W * w /* buckets.numBuckets entries */);
+
+void
+testFeatureKernel(ComputeContext & context,
+                  uint32_t f, uint32_t nf,
+                  MemoryArrayHandleT<const float> expandedRows,
+                  uint32_t numRows,
+
+                  std::span<const uint32_t> allBucketData,
+                  MemoryArrayHandleT<const uint32_t> bucketDataOffsets,
+                  MemoryArrayHandleT<const uint32_t> bucketNumbers,
+                  MemoryArrayHandleT<const uint32_t> bucketEntryBits,
+
+                  MemoryArrayHandleT<const uint32_t> featureActive,
+
+                  MemoryArrayHandleT<W> allWOut);
 
 // Calculates the score of a split, which is a measure of the
 // amount of mutual entropy between the label and the given
@@ -232,6 +258,28 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs);
 
+ML::Tree::Ptr
+trainPartitionedRecursiveCpu(int depth, int maxDepth,
+                             ML::Tree & tree,
+                             MappedSerializer & serializer,
+                             const std::span<const uint32_t> & bucketOffsets,
+                             const std::span<const int> & activeFeatures,
+                             std::vector<W> bucketsIn,
+                             const std::span<const float> & decodedRows,
+                             const W & wAllInput,
+                             PartitionIndex root,
+                             const DatasetFeatureSpace & fs,
+                             const std::span<const Feature> & features,
+                             FrozenMemoryRegionT<uint32_t> bucketMemory);
+
+ML::Tree::Ptr
+trainPartitionedEndToEndCpu(int depth, int maxDepth,
+                            ML::Tree & tree,
+                            MappedSerializer & serializer,
+                            const Rows & rows,
+                            const std::span<const Feature> & features,
+                            FrozenMemoryRegionT<uint32_t> bucketMemory,
+                            const DatasetFeatureSpace & fs);
 
 } // namespace RF
 } // namespace MLDB

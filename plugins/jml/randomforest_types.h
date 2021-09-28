@@ -112,6 +112,8 @@ enum WeightFormat {
     WF_FLOAT          ///< Stored directly as a 32 bit float
 };
 
+DECLARE_ENUM_DESCRIPTION(WeightFormat);
+
 struct WeightEncoder {
     WeightFormat weightFormat = WF_FLOAT;
     int weightBits = 32;

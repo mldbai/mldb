@@ -6,8 +6,9 @@ LIBBLOCK_SOURCES:= \
 	file_serializer.cc \
 	content_descriptor.cc \
 	content.cc \
+	compute_kernel.cc \
 
-$(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description any))
+$(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description any command_expression))
 
 $(eval $(call include_sub_make,testing))
 

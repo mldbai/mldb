@@ -16,7 +16,8 @@
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
-#include <span>
+#include <future>
+#include <array>
 
 
 #if OPENCL_ENABLED
@@ -45,13 +46,97 @@ EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SI
 // means full occupancy.
 EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 5500);
 
-struct MapBack {
-    MapBack(OpenCLCommandQueue & queue)
-        : queue(queue)
+struct OpenCLMemoryManager {
+    OpenCLMemoryManager(OpenCLContext context, OpenCLDevice defaultDevice)
+        : context(std::move(context)), defaultDevice(std::move(defaultDevice))
     {
     }
 
-    OpenCLCommandQueue & queue;
+    OpenCLContext context;
+    OpenCLDevice defaultDevice;
+    OpenCLCommandQueue queue;
+
+    template<typename T>
+    OpenCLArrayT<T> createArray(size_t size)
+    {
+        return context.createBuffer(CL_MEM_READ_WRITE, sizeof(T) * size);
+    }
+
+    template<typename T>
+    OpenCLArrayT<T> createInitializedArray(const std::span<T> & cpuData)
+    {
+        return context.createBuffer(cpuData);
+    }
+
+    template<typename T, size_t N>
+    OpenCLArrayT<T> createInitializedArray(const std::array<T, N> & cpuData)
+    {
+        return context.createBuffer(CL_MEM_READ_ONLY, cpuData.data(), cpuData.size() * sizeof(T));
+    }
+
+    template<typename T>
+    OpenCLArrayT<T> mapArray(const FrozenMemoryRegionT<T> & region)
+    {
+        return context.createBuffer(CL_MEM_READ_ONLY, region.data(), region.memusage());
+    }
+
+    template<typename T>
+    OpenCLArrayT<T> manageMemoryRegion(const std::vector<T> & mem)
+    {
+        return mapArray(std::span<const T>(mem));
+    }
+
+    template<typename T, size_t N>
+    OpenCLArrayT<T> mapArray(const std::span<const T, N> & region)
+    {
+        return context.createBuffer(CL_MEM_READ_ONLY, region.data(), region.size() * sizeof(T));
+    }
+
+    template<typename T, size_t N>
+    OpenCLArrayT<T> mapArray(const std::span<T, N> & region)
+    {
+        return context.createBuffer(CL_MEM_READ_ONLY, region.data(), region.size() * sizeof(T));
+    }
+
+    template<typename T, size_t N>
+    OpenCLArrayT<T> mapArray(const std::array<T, N> & region)
+    {
+        return context.createBuffer(CL_MEM_READ_ONLY, region.data(), region.size() * sizeof(T));
+    }
+
+    template<typename T, size_t N>
+    OpenCLArrayT<T> mapArray(std::array<T, N> & region)
+    {
+        return context.createBuffer(CL_MEM_READ_WRITE, region.data(), region.size() * sizeof(T));
+    }
+    
+    template<typename T>
+    std::future<std::span<T>> toCpu(OpenCLArrayT<T> & array);
+
+    template<typename T>
+    std::future<void> toCpu(OpenCLArrayT<T> & array, const std::span<T> & output);
+
+    template<typename T>
+    std::span<T> toCpuSync(OpenCLArrayT<T> & array)
+    {
+        return mapSpan<T>(array);
+    }
+
+    template<typename T>
+    void toCpuSync(OpenCLArrayT<T> & array, const std::span<T> & output)
+    {
+        OpenCLEvent mapEvent;
+
+        mapEvent = queue.enqueueReadBuffer
+                (array, 0, /* offset in bytes */
+                 output.size() * sizeof(T), /* length in bytes */
+                 output.data(), {} /* dependencies */);
+    
+        mapEvent.waitUntilFinished();
+    }
+
+    template<typename T>
+    void updateCpuSync(OpenCLArrayT<T> & array);
 
     template<typename T>
     std::vector<T> mapVector(const OpenCLMemObject & mem, ssize_t length = -1,
@@ -83,6 +168,41 @@ struct MapBack {
         
         return std::vector<T>(castMemory, castMemory + length);
     }
+
+    template<typename T>
+    std::span<T> mapSpan(const OpenCLMemObject & mem, ssize_t length = -1,
+                         std::vector<OpenCLEvent> deps = {},
+                         size_t offset = 0)
+    {
+        if (length == -1) {
+            size_t sz = mem.size();
+            ExcAssertEqual(sz % sizeof(T), 0);
+            length = mem.size() / sizeof(T);
+        }
+
+        ExcAssertLessEqual(offset, length);
+        length -= offset;
+
+        OpenCLEvent mapEvent;
+        std::shared_ptr<const void> mappedMemory;
+
+        std::tie(mappedMemory, mapEvent)
+            = queue.enqueueMapBuffer
+                (mem, CL_MAP_READ,
+                offset * sizeof(T),
+                length * sizeof(T),
+                deps);
+    
+        mapEvent.waitUntilFinished();
+
+        T * castMemory = const_cast<T *>(reinterpret_cast<const T *>(mappedMemory.get()));
+        
+        pinnedMemory.push_back(mappedMemory);
+
+        return std::span<T>(castMemory, length);
+    }
+
+    std::vector<std::shared_ptr<const void>> pinnedMemory;
 };
 
 std::vector<OpenCLDevice>
@@ -120,12 +240,9 @@ getOpenCLDevices()
 }
 
 
-OpenCLProgram getTestFeatureProgramOpenCL()
+OpenCLProgram getTestFeatureProgramOpenCL(const OpenCLDevice & device)
 {
-    static auto devices = getOpenCLDevices();
-
-    ExcAssertGreater(devices.size(), 0);
-    
+    std::vector<OpenCLDevice> devices{device};
     OpenCLContext context(devices);
     
     Bitset<OpenCLCommandQueueProperties> queueProperties
@@ -135,8 +252,7 @@ OpenCLProgram getTestFeatureProgramOpenCL()
             (OpenCLCommandQueueProperties::OUT_OF_ORDER_EXEC_MODE_ENABLE);
     }
     
-    auto queue = context.createCommandQueue
-        (devices.at(0), queueProperties);
+    auto queue = context.createCommandQueue(device, queueProperties);
 
     filter_istream stream("mldb/plugins/jml/randomforest_kernels.cl");
     Utf8String source(stream.readAll());
@@ -147,18 +263,51 @@ OpenCLProgram getTestFeatureProgramOpenCL()
     string options = "-cl-kernel-arg-info -DW=W64";
 
     // Build for all devices
-    auto buildInfo = program.build(devices, options);
+    auto buildInfo = program.build({device}, options);
     
     cerr << jsonEncode(buildInfo[0]) << endl;
 
-    std::string binary = program.getBinary();
-
-    filter_ostream stream2("randomforest_kernels.obj");
-    stream2 << binary;
+    //std::string binary = program.getBinary();
+    //filter_ostream stream2("randomforest_kernels.obj");
+    //stream2 << binary;
     
     return program;
 }
 
+#if 0
+struct Kernel {
+
+    std::shared_ptr<void> registerKernel(const Utf8String & name);
+
+    struct Register {
+
+    };
+};
+
+struct TestFeatureKernel: public Kernel {
+    TestFeatureKernel()
+    {
+        addParameter<Array<uint32_t>>("rowData");
+        addLength("rowData", "rowDataLength");
+        addParameter<uint16_t>("totalBits");
+        addParameter<uint16_t>("weightBits");
+        addParameter<uint16_t>("exampleNumBits");
+        addParameter<uint32_t>("numRows");
+        addParameter<Array<uint32_t>>("bucketData");
+        addParameter<Array<uint32_t>>("bucketDataOffsets");
+        addParameter<Array<uint32_t>>("bucketNumbers");
+        addParameter<Array<uint16_t>>("bucketEntryBits");
+        addParameter<Array<uint32_t>>("bucketEntryBits");
+        addParameter<WeightFormat>("weightFormat");
+        addParameter<float>("weightMultiplier");
+        addParameter<Array<uint32_t>>("weightData");
+        addParameter<Array<uint32_t>>("featuresActive");
+        addParameter<uint32_t>("numBuckets");
+        addOutput<Array<W>>("wOut");
+        addOutput<Array<uint32_t>>("minMaxOut");
+    }
+};
+#endif
 
 std::pair<bool, int>
 testFeatureKernelOpencl(Rows::RowIterator rowIterator,
@@ -171,7 +320,11 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     static std::mutex mutex;
     std::unique_lock<std::mutex> guard(mutex);
     
-    static OpenCLProgram program = getTestFeatureProgramOpenCL();
+    static auto devices = getOpenCLDevices();
+    if (devices.empty())
+        throw AnnotatedException(500, "No OpenCL capable devices found");
+    static auto device = devices[0];
+    static OpenCLProgram program = getTestFeatureProgramOpenCL(device);
 
     OpenCLContext context = program.getContext();
     
@@ -181,6 +334,17 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     //cerr << "row data of " << rowIterator.owner->rowData.memusage()
     //     << " bytes and " << numRows << " rows" << endl;
     
+    OpenCLMemoryManager mm(context, devices[0]);
+
+    std::array<int, 2> minMax = { INT_MAX, INT_MIN };
+    
+    auto clRowData = mm.mapArray(rowIterator.owner->rowData);
+    auto clBucketData = mm.mapArray(buckets.storage);
+    auto clWeightData = mm.mapArray(rowIterator.owner->weightEncoder.weightFormatTable);
+    auto clWOut = mm.createArray<W>(buckets.numBuckets);
+    auto clMinMaxOut = mm.createInitializedArray(minMax);
+
+#if 0
     OpenCLMemObject clRowData
         = context.createBuffer(0,
                                (const void *)rowIterator.owner->rowData.data(),
@@ -207,12 +371,11 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                                sizeof(W) * buckets.numBuckets);
 
 
-    int minMax[2] = { INT_MAX, INT_MIN };
-    
     OpenCLMemObject clMinMaxOut
         = context.createBuffer(CL_MEM_READ_WRITE,
                                minMax,
                                sizeof(minMax[0]) * 2);
+#endif
 
     size_t workGroupSize = 65536;
         
@@ -244,10 +407,8 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                 clWOut,
                 clMinMaxOut);
     
-    auto devices = context.getDevices();
-    
     auto queue = context.createCommandQueue
-        (devices[0],
+        (device,
          OpenCLCommandQueueProperties::PROFILING_ENABLE);
 
     Date before = Date::now();
@@ -259,6 +420,11 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
 
     queue.flush();
     
+    mm.toCpuSync(clWOut, std::span<W>(w, buckets.numBuckets));
+    std::span<int> minMaxOut = mm.toCpuSync(clMinMaxOut);
+
+#if 0    
+
     OpenCLEvent transfer
         = queue.enqueueReadBuffer(clWOut, 0 /* offset */,
                                   sizeof(W) * buckets.numBuckets /* length */,
@@ -277,6 +443,8 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     transfer.assertSuccess();
     minMaxTransfer.assertSuccess();
 
+#endif
+
     Date after = Date::now();
 
     cerr << "gpu took " << after.secondsSince(before) * 1000 << "ms" << endl;
@@ -288,8 +456,8 @@ testFeatureKernelOpencl(Rows::RowIterator rowIterator,
     }
 #endif
 
-    bool active = (minMax[0] != minMax[1]);
-    int maxBucket = minMax[1];
+    bool active = (minMaxOut[0] != minMaxOut[1]);
+    int maxBucket = minMaxOut[1];
     
     if (true) {
 
@@ -372,21 +540,23 @@ struct OpenCLKernelContext {
 
 OpenCLKernelContext getKernelContext()
 {
-    static const OpenCLProgram program = getTestFeatureProgramOpenCL();
+    static auto devices = getOpenCLDevices();
+    if (devices.empty())
+        throw AnnotatedException(500, "No OpenCL capable devices found");
+    static auto device = devices[0];
+    static const OpenCLProgram program = getTestFeatureProgramOpenCL(device);
 
     OpenCLContext context = program.getContext();
 
-    auto devices = context.getDevices();
-
     auto queue = context.createCommandQueue
-        (devices[0],
+        (device,
          OpenCLCommandQueueProperties::PROFILING_ENABLE);
 
     
     OpenCLKernelContext result;
     result.program = program;
     result.context = program.getContext();
-    result.devices = context.getDevices();
+    result.devices = { device };
     result.queue = queue;
     return result;
 }
@@ -865,7 +1035,6 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     
     size_t rowCount = rows.rowCount();
     
-
     // How many buckets do we keep in shared memory?  Features with
     // less than this number of buckets will be accumulated in shared
     // memory which is faster.  Features with more will be accumulated
@@ -888,12 +1057,14 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     uint32_t numActiveBuckets = 0;
     
     uint32_t lastBucketDataOffset = 0;
-    std::vector<uint32_t> bucketMemoryOffsets;
-    std::vector<uint32_t> bucketEntryBits;
-    std::vector<uint32_t> bucketNumbers(1, 0);
-    std::vector<uint32_t> featuresActive;
-    std::vector<uint32_t> featureIsOrdinal;
+    std::vector<uint32_t> bucketMemoryOffsets;   ///< Offset in the buckets memory blob per feature [nf + 1]
+    std::vector<uint32_t> bucketEntryBits;       ///< How many bits per bucket [nf]
+    std::vector<uint32_t> bucketNumbers(1, 0);   ///< Range of bucket numbers for feature [nf + 1]
+    std::vector<uint32_t> featuresActive;        ///< For each feature: which are active? [nf]
+    std::vector<uint32_t> featureIsOrdinal;      ///< For each feature: is it ordinal (1) vs categorical(0) [nf]
     
+    // For each feature, we set up a table of offsets which will allow our OpenCL kernel
+    // to know where in a flat buffer of memory the data for that feature resides.
     for (int i = 0;  i < nf;  ++i) {
         const BucketList & buckets = features[i].buckets;
 
@@ -903,7 +1074,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         featureIsOrdinal.push_back(features[i].ordinal);
         
         if (features[i].active) {
-            cerr << "feature " << i << " buckets " << features[i].buckets.numBuckets << endl;
+            //cerr << "feature " << i << " buckets " << features[i].buckets.numBuckets << endl;
             ExcAssertGreaterEqual((void *)buckets.storage.data(),
                                   (void *)bucketMemory.data());
         
@@ -913,7 +1084,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 = buckets.storage.data()
                 - bucketMemory.data();
 
-            cerr << "feature = " << i << " offset = " << offset << " numActiveBuckets = " << numActiveBuckets << endl;
+            //cerr << "feature = " << i << " offset = " << offset << " numActiveBuckets = " << numActiveBuckets << endl;
             bucketMemoryOffsets.push_back(offset);
             lastBucketDataOffset = offset + bucketMemory.length();
             
@@ -973,31 +1144,51 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     auto memQueue2 = kernelContext.context.createCommandQueue
         (kernelContext.devices[0], queueProperties);
     
-    size_t rowMemorySizePageAligned = roundUpToPageSize(rows.rowData.memusage());
-    
+    OpenCLMemoryManager mm(context, kernelContext.devices[0]);
+
     Date before = Date::now();
 
     std::vector<std::pair<std::string, OpenCLEvent> > allEvents;
 
+    auto transferToGpu = [&] (const auto & obj, const char * what)
+        -> std::tuple<OpenCLMemObject, OpenCLEvent, size_t>
+    {
+        auto toAllocate = roundUpToPageSize(obj.memusage());
+
+        OpenCLMemObject memObject
+            = context.createBuffer(CL_MEM_READ_ONLY, toAllocate);
+
+        totalGpuAllocation += toAllocate;
+
+        // ... and send it over
+        OpenCLEvent copyData
+            = memQueue.enqueueWriteBuffer
+                (memObject, 0 /* offset */, obj.memusage(),
+                (const void *)obj.data());
+
+        allEvents.emplace_back(what, copyData);
+
+        return { memObject, copyData, toAllocate };
+    };
+
+    auto allocGpu = [&] (size_t bytesToAlloc)
+    {
+        OpenCLMemObject memObject
+            = context.createBuffer(CL_MEM_READ_WRITE, bytesToAlloc);
+        totalGpuAllocation += bytesToAlloc;
+        return memObject;
+    };
+
     // First, we need to send over the rows, as the very first thing to
     // be done is to expand them.
-    //
-    // Create the buffer...
-    OpenCLMemObject clRowData
-        = context.createBuffer(CL_MEM_READ_ONLY,
-                               rowMemorySizePageAligned);
-
-    totalGpuAllocation += rowMemorySizePageAligned;
-
-    // ... and send it over
-    OpenCLEvent copyRowData
-        = memQueue.enqueueWriteBuffer
-            (clRowData, 0 /* offset */, rowMemorySizePageAligned,
-             (const void *)rows.rowData.data());
-
-    allEvents.emplace_back("copyRowData", copyRowData);
+    auto [clRowData, copyRowData, rowMemorySizePageAligned]
+        = transferToGpu(rows.rowData, "copyRowData");
 
     // Same for our weight data
+    auto [clWeightData, copyWeightData, unused1]
+        = transferToGpu(rows.weightEncoder.weightFormatTable, "copyWeightData");
+
+#if 0
     OpenCLMemObject clWeightData
         = context.createBuffer(CL_MEM_READ_ONLY, 4);
     
@@ -1010,32 +1201,18 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
              rows.weightEncoder.weightFormatTable.memusage());
         totalGpuAllocation += rows.weightEncoder.weightFormatTable.memusage();
     }
+#endif
 
     // We transfer the bucket data as early as possible, as it's one of the
     // longest things to transfer
+    auto [clBucketData, transferBucketData, bucketMemorySizePageAligned]
+        = transferToGpu(bucketMemory, "transferBucketData");
     
-    size_t bucketMemorySizePageAligned = roundUpToPageSize(bucketMemory.memusage());
-    
-    OpenCLMemObject clBucketData
-        = context.createBuffer(CL_MEM_READ_ONLY,
-                               bucketMemorySizePageAligned);
-
-    OpenCLEvent transferBucketData
-        = memQueue2.enqueueWriteBuffer
-            (clBucketData, 0 /* offset */, bucketMemory.memusage(),
-             (const void *)bucketMemory.data());
-    
-    allEvents.emplace_back("transferBucketData", transferBucketData);
-
     // This one contains an expanded version of the row data, with one float
     // per row rather than bit-compressed.  It's expanded on the GPU so that
     // the compressed version can be passed over the PCIe bus and not the
     // expanded version.
-    OpenCLMemObject clExpandedRowData
-        = context.createBuffer(CL_MEM_READ_WRITE,
-                               sizeof(float) * rowCount);
-
-    totalGpuAllocation += sizeof(float) * rowCount;
+    OpenCLMemObject clExpandedRowData = allocGpu(sizeof(float) * rowCount);
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
@@ -1062,21 +1239,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     std::vector<float> debugExpandedRowsCpu;
     
     if (debugKernelOutput) {
-        OpenCLEvent mapExpandedRows;
-        std::shared_ptr<const void> mappedExpandedRows;
-
-        std::tie(mappedExpandedRows, mapExpandedRows)
-            = memQueue.enqueueMapBuffer(clExpandedRowData, CL_MAP_READ,
-                                     0 /* offset */, sizeof(float) * rowCount,
-                                     { runExpandRows });
-        
-        mapExpandedRows.waitUntilFinished();
-
+        auto expandedRowsGpu = mm.mapSpan<const float>(clExpandedRowData, rowCount);
         debugExpandedRowsCpu = decodeRows(rows);
-
-        const float * expandedRowsGpu
-            = reinterpret_cast<const float *>(mappedExpandedRows.get());
-
         bool different = false;
         
         for (size_t i = 0;  i < rowCount;  ++i) {
@@ -1096,14 +1260,9 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // Before that, we need to set up some memory objects to be used
     // by the kernel.
 
-    OpenCLMemObject clBucketNumbers
-        = context.createBuffer(bucketNumbers);
-    
-    OpenCLMemObject clBucketEntryBits
-        = context.createBuffer(bucketEntryBits);
-
-    OpenCLMemObject clFeaturesActive
-        = context.createBuffer(featuresActive);
+    OpenCLMemObject clBucketNumbers = mm.manageMemoryRegion(bucketNumbers);
+    OpenCLMemObject clBucketEntryBits = mm.manageMemoryRegion(bucketEntryBits);
+    OpenCLMemObject clFeaturesActive = mm.manageMemoryRegion(featuresActive);
 
     totalGpuAllocation
         += bucketMemorySizePageAligned
@@ -2241,11 +2400,10 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // par partition to create our leaves.
     Date beforeMapping = Date::now();
 
-    MapBack mapper(memQueue);
-    auto bucketsUnrolled = mapper.mapVector<W>(clPartitionBuckets);
-    auto partitions = mapper.mapVector<uint32_t>(clPartitions);
-    auto wAll = mapper.mapVector<W>(clWAll);
-    auto decodedRows = mapper.mapVector<float>(clExpandedRowData);
+    auto bucketsUnrolled = mm.mapVector<W>(clPartitionBuckets);
+    auto partitions = mm.mapVector<uint32_t>(clPartitions);
+    auto wAll = mm.mapVector<W>(clWAll);
+    auto decodedRows = mm.mapVector<float>(clExpandedRowData);
 
     std::vector<std::vector<W>> buckets;
     for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {

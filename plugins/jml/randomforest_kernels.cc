@@ -117,6 +117,58 @@ testFeatureKernel(Rows::RowIterator rowIterator,
     //return testFeatureKernelOpencl(rowIterator, numRows, buckets, w);
 }
 
+void
+testFeatureKernel(ComputeContext & context,
+                  uint32_t f, uint32_t nf,
+                  MemoryArrayHandleT<const float> expandedRows,
+                  uint32_t numRows,
+
+                  std::span<const uint32_t> allBucketData,
+                  MemoryArrayHandleT<const uint32_t> bucketDataOffsets,
+                  MemoryArrayHandleT<const uint32_t> bucketNumbers,
+                  MemoryArrayHandleT<const uint32_t> bucketEntryBits,
+
+                  MemoryArrayHandleT<const uint32_t> featureActive,
+
+                  MemoryArrayHandleT<W> allWOut)
+{
+    throw MLDB::Exception("kernel not done yet");
+#if 0
+    FrozenMemoryRegionT<uint32_t> cpufeaturesActive = context.transferToCpuSync(featureActive);
+    FrozenMemoryRegionT<uin32_t> cpuAllBucketData = context.transferToCpuSync(allBucketData);
+
+
+    if (!featuresActive.data()[f])
+        return;
+
+    BucketList bucketList;
+    bucketList.entryBits = ...;
+    bucketList.storage = 
+    Rows rows;
+    rows.rowData = context.transferToCpuSync(rowData);
+    rows.numRowEntries = numRows;
+    rows.exampleNumBits = exampleNumBits;
+    rows.exampleNumMask = (1ULL << exampleNumBits) - 1;
+    rows.weightMask = (1ULL << weightBits) - 1;
+    rows.totalBits = weightBits + exampleNumBits + 1;
+    rows.weightEncoder.weightBits = weightBits;
+    rows.weightEncoder.weightFormat = weightFormat;
+    rows.weightEncoder.weightMultiplier = weightMultiplier;
+    rows.weightEncoder.weightFormatTable = context.transferToCpuSync(weightData);
+
+    MutableMemoryRegionT<float> decodedRows = context.transferToCpuUninitialized(decodedRowsOut);
+
+    auto it = rows.getRowIterator();
+    ExcAssertEqual(decodedRows.length(), numRows);
+
+    for (size_t i = 0;  i < rows.rowCount();  ++i) {
+        DecodedRow row = it.getDecodedRow();
+        ExcAssertEqual(i, row.exampleNum);
+        decodedRows.data()[i] = row.weight * (1-2*row.label);
+    }
+#endif
+}
+
 // Chooses which is the best split for a given feature.
 std::tuple<double /* bestScore */,
            int /* bestSplit */,
@@ -2207,6 +2259,41 @@ std::vector<float> decodeRows(const Rows & rows)
     return decodedRows;
 }
 
+void decodeRowsKernelCpu(ComputeContext & context,
+                         MemoryArrayHandleT<const uint64_t> rowData,
+                         uint32_t rowDataLength,
+                         uint16_t weightBits,
+                         uint16_t exampleNumBits,
+                         uint32_t numRows,
+                         WeightFormat weightFormat,
+                         float weightMultiplier,
+                         MemoryArrayHandleT<const float> weightData,
+                         MemoryArrayHandleT<float> decodedRowsOut)
+{
+    Rows rows;
+    rows.rowData = context.transferToCpuSync(rowData);
+    rows.numRowEntries = numRows;
+    rows.exampleNumBits = exampleNumBits;
+    rows.exampleNumMask = (1ULL << exampleNumBits) - 1;
+    rows.weightMask = (1ULL << weightBits) - 1;
+    rows.totalBits = weightBits + exampleNumBits + 1;
+    rows.weightEncoder.weightBits = weightBits;
+    rows.weightEncoder.weightFormat = weightFormat;
+    rows.weightEncoder.weightMultiplier = weightMultiplier;
+    rows.weightEncoder.weightFormatTable = context.transferToCpuSync(weightData);
+
+    MutableMemoryRegionT<float> decodedRows = context.transferToCpuUninitialized(decodedRowsOut);
+
+    auto it = rows.getRowIterator();
+    ExcAssertEqual(decodedRows.length(), numRows);
+
+    for (size_t i = 0;  i < rows.rowCount();  ++i) {
+        DecodedRow row = it.getDecodedRow();
+        ExcAssertEqual(i, row.exampleNum);
+        decodedRows.data()[i] = row.weight * (1-2*row.label);
+    }
+}
+
 ML::Tree::Ptr
 trainPartitionedEndToEndCpu(int depth, int maxDepth,
                             ML::Tree & tree,
@@ -2319,29 +2406,6 @@ trainPartitionedRecursive(int depth, int maxDepth,
          std::move(bucketsIn), decodedRows, wAllInput, root, fs, features,
          std::move(bucketMemory));
                                            
-}
-
-EnvOption<bool> RF_USE_OPENCL("RF_USE_OPENCL", 1);
-
-ML::Tree::Ptr
-trainPartitionedEndToEnd(int depth, int maxDepth,
-                         ML::Tree & tree,
-                         MappedSerializer & serializer,
-                         const Rows & rows,
-                         const std::span<const Feature> & features,
-                         FrozenMemoryRegionT<uint32_t> bucketMemory,
-                         const DatasetFeatureSpace & fs)
-{
-#if OPENCL_ENABLED
-    if (RF_USE_OPENCL) {
-        return trainPartitionedEndToEndOpenCL(depth, maxDepth, tree, serializer,
-                                              rows, features, bucketMemory, fs);
-    }
-#endif
-
-    return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
-                                       rows, features, bucketMemory, fs);
-
 }
 
 } // namespace RF

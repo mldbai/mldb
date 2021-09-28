@@ -15,6 +15,7 @@
 #include <string>
 #include "mldb/types/annotated_exception.h"
 #include <iostream>
+#include <span>
 #define CL_TARGET_OPENCL_VERSION 220
 #include "mldb/ext/CL/cl.h"
 
@@ -1434,14 +1435,26 @@ struct OpenCLMemObject {
         return buffer.referenceCount();
     }
 
-    size_t size() const
+    size_t size() const;
+    OpenCLContext context() const;
+    std::vector<OpenCLDevice> devices() const;
+};
+
+
+/*****************************************************************************/
+/* OPENCL ARRAY                                                              */
+/*****************************************************************************/
+
+template<typename T>
+struct OpenCLArrayT: public OpenCLMemObject {
+    OpenCLArrayT(OpenCLMemObject obj)
+        : OpenCLMemObject(std::move(obj))
     {
-        size_t res;
-        auto ret = clGetMemObjectInfo(buffer, CL_MEM_SIZE, sizeof(res), &res, nullptr);
-        checkOpenCLError(ret, "clGetMemObjectInfo CL_MEM_SIZE");
-        return res;
     }
 
+    OpenCLEvent enqueueMapToCpu();
+    OpenCLEvent enqueueMapToDevice(OpenCLDevice device);
+    std::map<OpenCLDevice, std::shared_ptr<void>> handles;
 };
 
 

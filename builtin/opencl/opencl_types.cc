@@ -1166,6 +1166,36 @@ DEFINE_ENUM_DESCRIPTION_INLINE(OpenCLCommandQueueProperties)
              OpenCLCommandQueueProperties::PROFILING_ENABLE);
 }
 
+/*****************************************************************************/
+/* OPENCL MEM OBJECT                                                         */
+/*****************************************************************************/
+
+size_t
+OpenCLMemObject::
+size() const
+{
+    size_t res;
+    auto ret = clGetMemObjectInfo(buffer, CL_MEM_SIZE, sizeof(res), &res, nullptr);
+    checkOpenCLError(ret, "clGetMemObjectInfo CL_MEM_SIZE");
+    return res;
+}
+
+OpenCLContext
+OpenCLMemObject::
+context() const
+{
+    cl_context res;
+    auto ret = clGetMemObjectInfo(buffer, CL_MEM_CONTEXT, sizeof(res), &res, nullptr);
+    checkOpenCLError(ret, "clGetMemObjectInfo CL_MEM_CONTEXT");
+    return res;
+}
+
+std::vector<OpenCLDevice>
+OpenCLMemObject::
+devices() const
+{
+    return context().getDevices();
+}
 
 
 } // namespace MLDB

@@ -277,6 +277,19 @@ mapFile(const Url & filename, size_t startOffset, ssize_t length)
     return FrozenMemoryRegion(std::move(addr), start, length);
 }
 
+/*****************************************************************************/
+/* MAPPED SERIALIZER                                                         */
+/*****************************************************************************/
+
+MutableMemoryRegion
+MappedSerializer::
+allocateZeroFilledWritable(uint64_t bytesRequired, size_t alignment)
+{
+    MutableMemoryRegion result = allocateWritable(bytesRequired, alignment);
+    std::memset(result.data(), 0, bytesRequired);
+    return result;
+}
+
 
 /*****************************************************************************/
 /* MEMORY SERIALIZER                                                         */

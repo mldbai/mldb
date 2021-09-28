@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <functional>
+#include <span>
 #include "mldb/types/string.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/value_description_fwd.h"
@@ -86,8 +87,24 @@ enum MemoryRegionState : uint8_t {
 */
 
 struct MemoryRegionHandle {
+    std::shared_ptr<const void> handle;  // opaque; interpreted by context
 };
 
+template<> struct ValueDescriptionT<MemoryRegionHandle>;
+DECLARE_VALUE_DESCRIPTION(MemoryRegionHandle);
+
+template<typename T>
+struct MemoryArrayHandleT: public MemoryRegionHandle {
+
+};
+
+template<typename T>
+ValueDescriptionT<MemoryRegionHandle> *
+getDefaultDescription(MemoryArrayHandleT<T> * p);
+
+template<typename T>
+std::shared_ptr<const ValueDescriptionT<MemoryRegionHandle>>
+getDefaultDescriptionShared(MemoryArrayHandleT<T> * p);
 
 /*****************************************************************************/
 /* BLOCK CONTEXT                                                             */
@@ -179,6 +196,8 @@ struct FrozenMemoryRegion {
     void reserialize(StructuredSerializer & serializer) const;
 #endif
 
+    std::shared_ptr<const void> handle() const { return handle_; }
+
 private:
     const char * data_ = nullptr;
     size_t length_ = 0;
@@ -226,6 +245,10 @@ struct FrozenMemoryRegionT {
         return raw();
     }
 
+    operator std::span<const T> () const
+    {
+        return { data(), length() };
+    }
 #if 0
     /** Re-serialize the block to the other serializer. */
     void reserialize(MappedSerializer & serializer) const
@@ -312,9 +335,9 @@ struct MutableMemoryRegionT {
     }
 
     MutableMemoryRegionT(MutableMemoryRegion raw)
-        : raw(std::move(raw)),
-          data_(reinterpret_cast<T *>(this->raw.data())),
-          length_(this->raw.length() / sizeof(T))
+        : raw_(std::move(raw)),
+          data_(reinterpret_cast<T *>(this->raw_.data())),
+          length_(this->raw_.length() / sizeof(T))
     {
     }
 
@@ -330,17 +353,19 @@ struct MutableMemoryRegionT {
 
     MutableMemoryRegionT<T> rangeBytes(size_t start, size_t end) const
     {
-        MutableMemoryRegionT result(raw.range(start, end));
+        MutableMemoryRegionT result(raw_.range(start, end));
         return result;
     }
     
     FrozenMemoryRegionT<T> freeze()
     {
-        return FrozenMemoryRegionT<T>(raw.freeze());
+        return FrozenMemoryRegionT<T>(raw_.freeze());
     }
 
+    const MutableMemoryRegion & raw() const { return raw_; }
+
 private:
-    MutableMemoryRegion raw;
+    MutableMemoryRegion raw_;
     T * data_ = nullptr;
     size_t length_ = 0;
 };
@@ -364,7 +389,7 @@ struct MappedSerializer {
 
     /** Allocate a writable block of memory with the given size and
         alignment.  The memory in the block can be written until the
-        freeze() method is called.
+        freeze() method is called.  The memory is uninitialized.
     */
     virtual MutableMemoryRegion
     allocateWritable(uint64_t bytesRequired, size_t alignment) = 0;
@@ -375,6 +400,21 @@ struct MappedSerializer {
                       size_t alignment = alignof(T))
     {
         return allocateWritable(numItems * sizeof(T), alignment);
+    }
+
+    /** Allocate a writable block of memory with the given size and
+        alignment.  The memory in the block can be written until the
+        freeze() method is called.  It is guaranteed filled with zeros.
+    */
+    virtual MutableMemoryRegion
+    allocateZeroFilledWritable(uint64_t bytesRequired, size_t alignment);
+
+    template<typename T>
+    MutableMemoryRegionT<T>
+    allocateZeroFilledWritableT(size_t numItems,
+                                size_t alignment = alignof(T))
+    {
+        return allocateZeroFilledWritable(numItems * sizeof(T), alignment);
     }
 
     /** Freeze the given block of writable memory into a fixed, frozen
