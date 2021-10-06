@@ -91,7 +91,9 @@ struct WT {
 
 
 //typedef WT<FixedPointAccum32> W;
-typedef WT<FixedPointAccum64> W;
+using W64 = WT<FixedPointAccum64>;
+using W32 = WT<FixedPointAccum32>;
+using W = W64;
 //typedef WT<float> W;
 //typedef WT<double> W;
 

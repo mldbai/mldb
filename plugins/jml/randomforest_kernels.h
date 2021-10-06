@@ -30,11 +30,12 @@ void decodeRowsKernelCpu(ComputeContext & context,
                          WeightFormat weightFormat,
                          float weightMultiplier,
                          MemoryArrayHandleT<const float> weightData,
-                         MemoryArrayHandleT<float> decodedRowsOut);
+                         std::span<float> decodedRowsOut);
 
 // Core kernel of the decision tree search algorithm.  Transfer the
 // example weight into the appropriate (bucket,label) accumulator.
-// Returns whether
+// Returns whether the feature is still active (the boolean) and the
+// maximum bucket number for this feature (the int).
 std::pair<bool, int>
 testFeatureKernelCpu(Rows::RowIterator rowIterator,
                   size_t numRows,
@@ -74,17 +75,17 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 void
 testFeatureKernel(ComputeContext & context,
                   uint32_t f, uint32_t nf,
-                  MemoryArrayHandleT<const float> expandedRows,
+                  std::span<const float> expandedRows,
                   uint32_t numRows,
 
                   std::span<const uint32_t> allBucketData,
-                  MemoryArrayHandleT<const uint32_t> bucketDataOffsets,
-                  MemoryArrayHandleT<const uint32_t> bucketNumbers,
-                  MemoryArrayHandleT<const uint32_t> bucketEntryBits,
+                  std::span<const uint32_t> bucketDataOffsets,
+                  std::span<const uint32_t> bucketNumbers,
+                  std::span<const uint32_t> bucketEntryBits,
 
-                  MemoryArrayHandleT<const uint32_t> featureActive,
+                  std::span<const uint32_t> featureActive,
 
-                  MemoryArrayHandleT<W> allWOut);
+                  std::span<W> allWOut);
 
 // Calculates the score of a split, which is a measure of the
 // amount of mutual entropy between the label and the given

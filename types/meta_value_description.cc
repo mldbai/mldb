@@ -23,12 +23,12 @@ ValueKindDescription()
 {
     addValue("ATOM",     ValueKind::ATOM,     "Atomic structured type; normally JSON");
     addValue("INTEGER",  ValueKind::INTEGER,  "Integral type");
-    addValue("FLOAT",    ValueKind::INTEGER,  "Floating point type");
+    addValue("FLOAT",    ValueKind::FLOAT,    "Floating point type");
     addValue("BOOLEAN",  ValueKind::BOOLEAN,  "Boolean type");
     addValue("STRING",   ValueKind::STRING,   "String type");
     addValue("ENUM",     ValueKind::ENUM,     "Enumerated type");
-    addValue("OPTIONAL", ValueKind::ENUM,     "Optional type");
-    addValue("LINK",     ValueKind::ENUM,     "Link (reference to other object)");
+    addValue("OPTIONAL", ValueKind::OPTIONAL, "Optional type");
+    addValue("LINK",     ValueKind::LINK,     "Link (reference to other object)");
     addValue("ARRAY",    ValueKind::ARRAY,    "Array type");
     addValue("STRUCTURE",ValueKind::STRUCTURE,"Structure type");
     addValue("TUPLE",    ValueKind::TUPLE,    "Tuple type");

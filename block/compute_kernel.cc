@@ -1,6 +1,9 @@
 #include "compute_kernel.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/types/vector_description.h"
+#include "mldb/types/meta_value_description.h"
 #include "mldb/utils/command_expression.h"
 
 using namespace std;
@@ -8,6 +11,19 @@ using namespace std;
 namespace MLDB {
 
 using namespace PluginCommand;
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelDimension)
+{
+    addField("bound", &ComputeKernelDimension::bound, "");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelType)
+{
+    addField("str", &ComputeKernelType::str, "");
+    addField("access", &ComputeKernelType::access, "");
+    addField("baseType", &ComputeKernelType::baseType, "");
+    addField("dims", &ComputeKernelType::dims, "");
+}
 
 namespace {
 
@@ -22,21 +38,28 @@ std::map<std::string, KernelRegistryEntry> kernelRegistry;
 
 namespace {
 
+std::mutex basicTypeRegistryMutex;
+std::map<std::string, std::shared_ptr<const ValueDescription>> basicTypeRegistry;
 
 template<typename T>
-struct RegisterIntegralType {
-    RegisterIntegralType(const std::string & name)
+struct RegisterBasicType {
+    RegisterBasicType(const std::string & name)
     {
+        std::unique_lock guard(basicTypeRegistryMutex);
+        if (!basicTypeRegistry.emplace(name, getDefaultDescriptionSharedT<T>()).second)
+            throw MLDB::Exception("Double registering basic type " + name);
     }
 };
 
-#define REGISTER_INTEGRAL_TYPE(type, name) \
-static const RegisterIntegralType<type> doRegister##type(name);
+#define REGISTER_BASIC_TYPE(type, name) \
+static const RegisterBasicType<type> doRegister##type(name);
 
-REGISTER_INTEGRAL_TYPE(uint64_t, "u64");
-REGISTER_INTEGRAL_TYPE(uint32_t, "u32");
-REGISTER_INTEGRAL_TYPE(uint16_t, "u16");
-REGISTER_INTEGRAL_TYPE(uint8_t,  "u8");
+REGISTER_BASIC_TYPE(uint64_t, "u64");
+REGISTER_BASIC_TYPE(uint32_t, "u32");
+REGISTER_BASIC_TYPE(uint16_t, "u16");
+REGISTER_BASIC_TYPE(uint8_t,  "u8");
+REGISTER_BASIC_TYPE(float, "f32");
+REGISTER_BASIC_TYPE(double, "f64");
 
 } // file scope
 
@@ -58,10 +81,10 @@ std::string expectTypeName(ParseContext & context)
     ParseContext::Hold_Token token(context);
 
     while (context) {
-        char c = *context++;
-        if (isalnum(c) || c == '_' || c == ':')
-            continue;
-        break;
+        char c = *context;
+        if (!isalnum(c) && c != '_' && c != ':' && c != '<' && c != '>')
+            break;
+        ++context;
     }
 
     result = token.captured();
@@ -71,32 +94,47 @@ std::string expectTypeName(ParseContext & context)
 }
 
 // Expect an actual type from the context
-std::shared_ptr<ComputeKernelType>
+ComputeKernelType
 expectType(ParseContext & context)
 {
     std::string typeName = expectTypeName(context);
-    context.expect_eof();
-    return std::make_shared<ComputeKernelType>();
+
+    {
+        std::unique_lock guard(basicTypeRegistryMutex);
+        auto it = basicTypeRegistry.find(typeName);
+        if (it != basicTypeRegistry.end()) {
+            return ComputeKernelType(typeName, it->second);
+        }
+    }
+
+    ComputeKernelType result(typeName, ValueDescription::get(typeName));
+    if (!result.baseType) {
+        context.exception("Couldn't find type '" + typeName + "' in registry");
+    }
+    return result;
 }
 
 struct BoundsExpression {
 
 };
 
-std::shared_ptr<const ComputeKernelType>
+ComputeKernelType
 parseType(const std::string & type)
 {
     ParseContext context(type, type.data(), type.data() + type.length());
-    if (context.match_literal('[')) {
-        // It's an array
-        auto bounds = CommandExpression::parseExpression(context);
-    }
     auto result = expectType(context);
-    result->str = type;
+    while (context.match_literal('[')) {
+        // It's an array
+        auto bound = CommandExpression::parseArgumentExpression(context);
+        context.expect_literal(']', "expected closing array expression");
+        result.dims.push_back({bound});
+    }
+    context.expect_eof();
     return result;
 }
 
-auto ComputeContext::getKernel(const std::string & kernelName, ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+auto ComputeContext::
+getKernel(const std::string & kernelName, ComputeDevice device) -> std::shared_ptr<ComputeKernel>
 {
     std::unique_lock guard(kernelRegistryMutex);
     auto it = kernelRegistry.find(kernelName);
@@ -104,7 +142,9 @@ auto ComputeContext::getKernel(const std::string & kernelName, ComputeDevice dev
         throw AnnotatedException(400, "Unable to find compute kernel '" + kernelName + "'",
                                     "kernelName", kernelName);
     }
-    return it->second.generate(device);
+    auto result = it->second.generate(device);
+    result->context = this;
+    return result;
 }
 
 

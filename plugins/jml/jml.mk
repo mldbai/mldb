@@ -92,6 +92,7 @@ LIBMLDB_JML_PLUGIN_LINK:= \
 	block \
 	OpenCL \
 	mldb_opencl_plugin \
+	command_expression \
 
 $(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext))
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))

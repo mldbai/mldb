@@ -86,8 +86,18 @@ enum MemoryRegionState : uint8_t {
     queue in order to run; they cannot be run imperatively in general.
 */
 
+struct MemoryRegionHandleInfo {
+};
+
 struct MemoryRegionHandle {
-    std::shared_ptr<const void> handle;  // opaque; interpreted by context
+    MemoryRegionHandle() = default;
+    MemoryRegionHandle(std::shared_ptr<const MemoryRegionHandleInfo> handle)
+        : handle(std::move(handle))
+    {
+        ExcAssert(this->handle);
+    }
+
+    std::shared_ptr<const MemoryRegionHandleInfo> handle;  // opaque; upcast by context
 };
 
 template<> struct ValueDescriptionT<MemoryRegionHandle>;
@@ -95,7 +105,11 @@ DECLARE_VALUE_DESCRIPTION(MemoryRegionHandle);
 
 template<typename T>
 struct MemoryArrayHandleT: public MemoryRegionHandle {
-
+    MemoryArrayHandleT() = default;
+    MemoryArrayHandleT(std::shared_ptr<const MemoryRegionHandleInfo> handle)
+        : MemoryRegionHandle(std::move(handle))
+    {
+    }
 };
 
 template<typename T>
@@ -245,9 +259,14 @@ struct FrozenMemoryRegionT {
         return raw();
     }
 
-    operator std::span<const T> () const
+    std::span<const T> getConstSpan() const
     {
         return { data(), length() };
+    }
+
+    operator std::span<const T> () const
+    {
+        return getConstSpan();
     }
 #if 0
     /** Re-serialize the block to the other serializer. */
@@ -363,6 +382,16 @@ struct MutableMemoryRegionT {
     }
 
     const MutableMemoryRegion & raw() const { return raw_; }
+
+    std::span<T> getSpan() const
+    {
+        return { data(), length() };
+    }
+
+    std::span<const T> getConstSpan() const
+    {
+        return { data(), length() };
+    }
 
 private:
     MutableMemoryRegion raw_;

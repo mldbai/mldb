@@ -50,6 +50,7 @@ struct BridgedValueDescription: public ValueDescription {
     virtual const ValueDescription & contained() const override;
     virtual OwnershipModel getOwnershipModel() const override;
     virtual void* getLink(void* obj) const override;
+    virtual const void* getConstLink(const void* obj) const override;
     virtual void set(void* obj, void* value, const ValueDescription* valueDesc) const override;
     virtual void convertAndCopy(const void * from,
                                 const ValueDescription & fromDesc,

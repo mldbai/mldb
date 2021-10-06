@@ -120,53 +120,30 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 void
 testFeatureKernel(ComputeContext & context,
                   uint32_t f, uint32_t nf,
-                  MemoryArrayHandleT<const float> expandedRows,
+                  std::span<const float> decodedRows,
                   uint32_t numRows,
 
                   std::span<const uint32_t> allBucketData,
-                  MemoryArrayHandleT<const uint32_t> bucketDataOffsets,
-                  MemoryArrayHandleT<const uint32_t> bucketNumbers,
-                  MemoryArrayHandleT<const uint32_t> bucketEntryBits,
+                  std::span<const uint32_t> bucketDataOffsets,
+                  std::span<const uint32_t> bucketNumbers,
+                  std::span<const uint32_t> bucketEntryBits,
 
-                  MemoryArrayHandleT<const uint32_t> featureActive,
+                  std::span<const uint32_t> featureActive,
 
-                  MemoryArrayHandleT<W> allWOut)
+                  std::span<W> allWOut)
 {
-    throw MLDB::Exception("kernel not done yet");
-#if 0
-    FrozenMemoryRegionT<uint32_t> cpufeaturesActive = context.transferToCpuSync(featureActive);
-    FrozenMemoryRegionT<uin32_t> cpuAllBucketData = context.transferToCpuSync(allBucketData);
-
-
-    if (!featuresActive.data()[f])
+    if (!featureActive[f])
         return;
 
-    BucketList bucketList;
-    bucketList.entryBits = ...;
-    bucketList.storage = 
-    Rows rows;
-    rows.rowData = context.transferToCpuSync(rowData);
-    rows.numRowEntries = numRows;
-    rows.exampleNumBits = exampleNumBits;
-    rows.exampleNumMask = (1ULL << exampleNumBits) - 1;
-    rows.weightMask = (1ULL << weightBits) - 1;
-    rows.totalBits = weightBits + exampleNumBits + 1;
-    rows.weightEncoder.weightBits = weightBits;
-    rows.weightEncoder.weightFormat = weightFormat;
-    rows.weightEncoder.weightMultiplier = weightMultiplier;
-    rows.weightEncoder.weightFormatTable = context.transferToCpuSync(weightData);
+    ExcAssertLess(bucketNumbers[f + 1], allWOut.size());
 
-    MutableMemoryRegionT<float> decodedRows = context.transferToCpuUninitialized(decodedRowsOut);
+    BucketList buckets;
+    buckets.entryBits = bucketEntryBits[f];
+    buckets.numBuckets = -1;  // unused but set to an invalid value to be sure
+    buckets.numEntries = bucketNumbers[f + 1] - bucketNumbers[f];
+    buckets.storagePtr = allBucketData.data() + bucketDataOffsets[f];
 
-    auto it = rows.getRowIterator();
-    ExcAssertEqual(decodedRows.length(), numRows);
-
-    for (size_t i = 0;  i < rows.rowCount();  ++i) {
-        DecodedRow row = it.getDecodedRow();
-        ExcAssertEqual(i, row.exampleNum);
-        decodedRows.data()[i] = row.weight * (1-2*row.label);
-    }
-#endif
+    testFeatureKernel(decodedRows.data(), numRows, buckets, allWOut.data() + bucketNumbers[f]);
 }
 
 // Chooses which is the best split for a given feature.
@@ -2268,7 +2245,7 @@ void decodeRowsKernelCpu(ComputeContext & context,
                          WeightFormat weightFormat,
                          float weightMultiplier,
                          MemoryArrayHandleT<const float> weightData,
-                         MemoryArrayHandleT<float> decodedRowsOut)
+                         std::span<float> decodedRowsOut)
 {
     Rows rows;
     rows.rowData = context.transferToCpuSync(rowData);
@@ -2282,15 +2259,16 @@ void decodeRowsKernelCpu(ComputeContext & context,
     rows.weightEncoder.weightMultiplier = weightMultiplier;
     rows.weightEncoder.weightFormatTable = context.transferToCpuSync(weightData);
 
-    MutableMemoryRegionT<float> decodedRows = context.transferToCpuUninitialized(decodedRowsOut);
-
     auto it = rows.getRowIterator();
-    ExcAssertEqual(decodedRows.length(), numRows);
+    ExcAssertEqual(decodedRowsOut.size(), numRows);
+
+    cerr << "decodedRowsOut.size() = " << decodedRowsOut.size() << endl;
+    cerr << "numRows = " << numRows << endl;
 
     for (size_t i = 0;  i < rows.rowCount();  ++i) {
         DecodedRow row = it.getDecodedRow();
         ExcAssertEqual(i, row.exampleNum);
-        decodedRows.data()[i] = row.weight * (1-2*row.label);
+        decodedRowsOut[i] = row.weight * (1-2*row.label);
     }
 }
 

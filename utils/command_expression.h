@@ -710,5 +710,10 @@ struct CommandTemplate {
 DECLARE_STRUCTURE_DESCRIPTION(CommandTemplate);
 
 } // namespace PluginCommand
+
+using PluginCommand::CommandExpression;
+using PluginCommand::CommandExpressionContext;
+using PluginCommand::CommandExpressionVariables;
+
 } // namespace MLDB
 

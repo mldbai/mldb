@@ -774,7 +774,7 @@ struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
-            result->addParameter("partitionBuckets", "r", "MLDB::RF::W64[numBuckets]");
+            result->addParameter("partitionBuckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numBuckets]");
             result->set1DComputeFunction(testFeatureKernel);
             return result;
         };
@@ -783,6 +783,8 @@ struct RegisterKernels {
     }
 
 } registerKernels;
+
+EnvOption<bool> DEBUG_RF_KERNELS("DEBUG_RF_KERNELS", 1);
 
 ML::Tree::Ptr
 trainPartitionedEndToEndKernel(int depth, int maxDepth,
@@ -795,6 +797,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                                const ComputeDevice & device)
 {
     constexpr bool RF_EXPAND_FEATURE_BUCKETS = false;
+    const bool debugKernelOutput = DEBUG_RF_KERNELS;
 
     // First, figure out the memory requirements.  This means sizing all
     // kinds of things so that we can make our allocations statically.
@@ -930,8 +933,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     cerr << "numRows = " << numRows << endl;
 
+    cerr << "deviceExpandedRowData = " << deviceExpandedRowData.handle << endl;
+
     auto boundKernel = decodeRowsKernel
-        ->bind(  "rowData",    deviceRowData,
+        ->bind(  "rowData",          deviceRowData,
                  "rowDataLength",    (uint32_t)rows.rowData.length(),
                  "weightBits",       (uint16_t)rows.weightEncoder.weightBits,
                  "exampleNumBits",   (uint16_t)rows.exampleNumBits,
@@ -946,6 +951,27 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     
     allEvents.emplace_back("runDecodeRows", runDecodeRows);
 
+    std::vector<float> debugExpandedRowsCpu;
+
+    if (debugKernelOutput) {
+        // Verify that the kernel version gives the same results as the non-kernel version
+        debugExpandedRowsCpu = decodeRows(rows);
+        auto frozenExpandedRowsDevice = context.transferToCpuSync(deviceExpandedRowData);
+        auto expandedRowsDevice = frozenExpandedRowsDevice.getConstSpan();
+        ExcAssertEqual(expandedRowsDevice.size(), debugExpandedRowsCpu.size());
+        bool different = false;
+        
+        for (size_t i = 0;  i < rowCount;  ++i) {
+            if (debugExpandedRowsCpu[i] != expandedRowsDevice[i]) {
+                cerr << "row " << i << " CPU " << debugExpandedRowsCpu[i]
+                     << " Device " << expandedRowsDevice[i] << endl;
+                different = true;
+            }
+        }
+
+        ExcAssert(!different && "runExpandRows");
+    }
+
     // Next we need to distribute the weignts into the first set of
     // buckets.  This is done with the testFeature kernel.
 
@@ -957,6 +983,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     auto deviceFeaturesActive = context.manageMemoryRegion(featuresActive);
     auto deviceBucketDataOffsets = context.manageMemoryRegion(bucketMemoryOffsets);
     auto deviceDecompressedBucketData = context.allocArray<uint16_t>(numRows * numActiveFeatures);
+
+    cerr << "bucketNumbers.size() = " << bucketNumbers.size() << endl;
 
     std::vector<uint32_t> decompressedBucketDataOffsets;
 
@@ -1016,7 +1044,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     // Note that we only use the beginning 2 at the start, and we
     // double the amount of what we use until we're using the whole lot
     // on the last iteration
-    MemoryArrayHandleT<W> devicePartitionBuckets = context.allocArray<W>(maxPartitionCount);
+    MemoryArrayHandleT<W> devicePartitionBuckets = context.allocArray<W>(maxPartitionCount * numActiveBuckets);
 
     // Before we use this, it needs to be zero-filled (only the first
     // set for a single partition)
@@ -1027,6 +1055,9 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     auto testFeatureKernel
         = context.getKernel("testFeature", device);
+
+    cerr << "deviceExpandedRowData = " << deviceExpandedRowData.handle << endl;
+    cerr << "maxPartitionCount = " << maxPartitionCount << endl;
 
     auto boundTestFeatureKernel = testFeatureKernel
         ->bind( "decodedRows",                      deviceExpandedRowData,
@@ -1043,11 +1074,52 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     std::shared_ptr<ComputeEvent> runTestFeatureKernel
         = queue.launch(boundTestFeatureKernel,
-                       { 65536, nf },
+                       { nf },
                        { transferBucketData, fillFirstBuckets, runDecodeRows });
 
     allEvents.emplace_back("runTestFeatureKernel", runTestFeatureKernel);
-    
+
+    if (debugKernelOutput) {
+        // Get that data back (by mapping), and verify it against the
+        // CPU-calcualted version.
+        
+        auto frozenPartitionBuckets = context.transferToCpuSync(devicePartitionBuckets);
+        auto allWDevice = frozenPartitionBuckets.getConstSpan();
+
+        std::vector<W> allWCpu(numActiveBuckets);
+        
+        bool different = false;
+            
+        // Print out the buckets that differ from CPU to Device
+        for (int i = 0;  i < nf;  ++i) {
+            int start = bucketNumbers[i];
+            int end = bucketNumbers[i + 1];
+            int n = end - start;
+
+            if (n == 0)
+                continue;
+
+            testFeatureKernelCpu(rows.getRowIterator(),
+                                 rowCount,
+                                 features[i].buckets,
+                                 allWCpu.data() + start);
+
+            const W * pDevice = allWDevice.data() + start;
+            const W * pCpu = allWCpu.data() + start;
+
+            for (int j = 0;  j < n;  ++j) {
+                if (pCpu[j] != pDevice[j]) {
+                    cerr << "feat " << i << " bucket " << j << " w "
+                         << jsonEncodeStr(pDevice[j]) << " != "
+                         << jsonEncodeStr(pCpu[j]) << endl;
+                    different = true;
+                }
+            }
+        }
+
+        ExcAssert(!different && "runTestFeatureKernel");
+    }
+
     // Which partition is each row in?  Initially, everything
     // is in partition zero, but as we start to split, we end up
     // splitting them amongst many partitions.  Each partition has

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 #include "value_description.h"
 
 
@@ -67,9 +68,19 @@ struct PointerDescription
         return *static_cast<T**>(obj);
     }
 
+    static const T*& constCast(const void* obj)
+    {
+        return *static_cast<const T**>(obj);
+    }
+
     virtual void* getLink(void* obj) const override
     {
         return cast(obj);
+    }
+
+    virtual const void* getConstLink(const void* obj) const override
+    {
+        return constCast(obj);
     }
 
     virtual void set(
@@ -165,9 +176,19 @@ struct UniquePtrDescription
         return *static_cast< std::unique_ptr<T>* >(obj);
     }
 
+    static std::unique_ptr<const T>& constCast(const void* obj)
+    {
+        return *static_cast<std::unique_ptr<const T>* >(obj);
+    }
+
     virtual void* getLink(void* obj) const override
     {
         return cast(obj).get();
+    }
+
+    virtual const void* getConstLink(const void* obj) const override
+    {
+        return constCast(obj).get();
     }
 
     virtual void set(
@@ -196,13 +217,13 @@ template<typename T>
 struct SharedPtrDescription
     : public ValueDescriptionI<std::shared_ptr<T>, ValueKind::LINK, SharedPtrDescription<T> > {
 
-    SharedPtrDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
-                       = getDefaultDescriptionShared((T *)0))
+    SharedPtrDescription(std::shared_ptr<const ValueDescriptionT<std::remove_const_t<T>>> inner
+                       = getDefaultDescriptionShared((std::remove_const_t<T> *)0))
         : inner(inner)
     {
     }
 
-    SharedPtrDescription(ValueDescriptionT<T> * inner)
+    SharedPtrDescription(ValueDescriptionT<std::remove_const_t<T>> * inner)
         : inner(inner)
     {
     }
@@ -211,7 +232,7 @@ struct SharedPtrDescription
     {
     }
 
-    std::shared_ptr<const ValueDescriptionT<T> > inner;
+    std::shared_ptr<const ValueDescriptionT<std::remove_const_t<T>> > inner;
 
     virtual void parseJsonTyped(std::shared_ptr<T> * val,
                                 JsonParsingContext & context) const override
@@ -221,8 +242,9 @@ struct SharedPtrDescription
             context.expectNull();
             return;
         }
-        val->reset(new T());
-        inner->parseJsonTyped(val->get(), context);
+        auto newVal = std::make_shared<std::remove_const_t<T>>();
+        inner->parseJsonTyped(newVal.get(), context);
+        *val = std::move(newVal);
     }
 
     virtual void printJsonTyped(const std::shared_ptr<T> * val,
@@ -248,15 +270,24 @@ struct SharedPtrDescription
         return OwnershipModel::SHARED;
     }
 
-
-    static std::shared_ptr<T>& cast(void* obj)
+    static std::shared_ptr<std::remove_const_t<T>>& cast(void* obj)
     {
-        return *static_cast< std::shared_ptr<T>* >(obj);
+        return *static_cast< std::shared_ptr<std::remove_const_t<T>>* >(obj);
+    }
+
+    static const std::shared_ptr<const T>& constCast(const void* obj)
+    {
+        return *static_cast<const std::shared_ptr<const T>* >(obj);
     }
 
     virtual void* getLink(void* obj) const override
     {
         return cast(obj).get();
+    }
+
+    virtual const void* getConstLink(const void* obj) const override
+    {
+        return constCast(obj).get();
     }
 
     virtual void set(
@@ -273,12 +304,12 @@ struct SharedPtrDescription
         // Casting is necessary to make sure the ref count is incremented.
         if (valueDesc->getOwnershipModel() == OwnershipModel::SHARED)
             cast(obj) = cast(value);
-        else cast(obj).reset(static_cast<T*>(valueDesc->getLink(value)));
+        else cast(obj).reset(static_cast<std::remove_const_t<T>*>(valueDesc->getLink(value)));
     }
 
     virtual void initialize() override
     {
-        this->inner = getDefaultDescriptionSharedT<T>();
+        this->inner = getDefaultDescriptionSharedT<std::remove_const_t<T>>();
     }
 };
 

@@ -10,8 +10,10 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/array_description.h"
+#include "mldb/types/enum_description.h"
 
 namespace MLDB {
+
 
 struct FixedPointAccum64Description
     : public ValueDescriptionT<FixedPointAccum64> {
@@ -60,12 +62,22 @@ DEFINE_VALUE_DESCRIPTION_NS(FixedPointAccum32, FixedPointAccum32Description);
 
 namespace RF {
 
-
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(W)
+DEFINE_ENUM_DESCRIPTION_INLINE(WeightFormat)
 {
-    addField("v", &W::v, "Weights for false, true label");
-    addField("c", &W::c, "Count of examples in bucket");
+    addValue("WF_INT_MULTIPLE", WF_INT_MULTIPLE);
+    addValue("WF_TABLE",        WF_TABLE);
+    addValue("WF_FLOAT",        WF_FLOAT);
 }
+
+REGISTER_VALUE_DESCRIPTION(WeightFormat);
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(W64)
+{
+    addField("v", &W64::v, "Weights for false, true label");
+    addField("c", &W64::c, "Count of examples in bucket");
+}
+
+REGISTER_VALUE_DESCRIPTION(W64);
 
 std::ostream & operator << (std::ostream & stream, PartitionIndex idx)
 {
