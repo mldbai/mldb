@@ -24,7 +24,10 @@ BOOST_AUTO_TEST_CASE( test_partition_index )
 
     BOOST_CHECK_EQUAL(none.index, 0);
     BOOST_CHECK_EQUAL(none.path(), "none");
-    BOOST_CHECK_EQUAL(none.parent(), none);
+    {
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(none.parent(), std::exception);
+    }
     BOOST_CHECK_EQUAL(none, PartitionIndex::none());
     BOOST_CHECK_EQUAL(none.depth(), -1);
     
@@ -32,7 +35,10 @@ BOOST_AUTO_TEST_CASE( test_partition_index )
     
     BOOST_CHECK_EQUAL(root.index, 1);
     BOOST_CHECK_EQUAL(root.path(), "root");
-    BOOST_CHECK_EQUAL(root.parent(), none);
+    {
+        MLDB_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(root.parent(), std::exception);
+    }
     BOOST_CHECK_NE(root, none);
     BOOST_CHECK_EQUAL(root.depth(), 0);
 
@@ -47,4 +53,25 @@ BOOST_AUTO_TEST_CASE( test_partition_index )
     BOOST_CHECK_EQUAL(right.depth(), 1);
     BOOST_CHECK_EQUAL(right.parent(), root);
     BOOST_CHECK_EQUAL(right.path(), "r");
+
+    PartitionIndex ll = left.leftChild();
+    PartitionIndex lr = left.rightChild();
+    PartitionIndex rl = right.leftChild();
+    PartitionIndex rr = right.rightChild();
+    BOOST_CHECK_EQUAL(ll.parent(), left);
+    BOOST_CHECK_EQUAL(lr.parent(), left);
+    BOOST_CHECK_EQUAL(rl.parent(), right);
+    BOOST_CHECK_EQUAL(rr.parent(), right);
+    BOOST_CHECK_EQUAL(ll.depth(), 2);
+    BOOST_CHECK_EQUAL(lr.depth(), 2);
+    BOOST_CHECK_EQUAL(rl.depth(), 2);
+    BOOST_CHECK_EQUAL(rr.depth(), 2);
+    BOOST_CHECK_EQUAL(ll.path(), "ll");
+    BOOST_CHECK_EQUAL(lr.path(), "lr");
+    BOOST_CHECK_EQUAL(rl.path(), "rl");
+    BOOST_CHECK_EQUAL(rr.path(), "rr");
+    BOOST_CHECK_EQUAL(ll.index, 4);
+    BOOST_CHECK_EQUAL(rl.index, 5);
+    BOOST_CHECK_EQUAL(lr.index, 6);
+    BOOST_CHECK_EQUAL(rr.index, 7);
 }

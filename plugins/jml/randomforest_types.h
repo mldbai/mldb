@@ -463,25 +463,42 @@ struct PartitionIndex {
         return index == 0 ? -1 : 31 - __builtin_clz(index);
     }
     
+    // Left child is in the same position but bumped up
     PartitionIndex leftChild() const
     {
-        return PartitionIndex(index * 2);
+        ExcAssertNotEqual(index, 0);
+        return PartitionIndex(index + (1 << depth()));
     }
     
     PartitionIndex rightChild() const
     {
-        return PartitionIndex(index * 2 + 1);
+        ExcAssertNotEqual(index, 0);
+        return PartitionIndex(index + (2 << depth()));
     }
     
     PartitionIndex parent() const
     {
-        return PartitionIndex(index >> 1);
+        // depth -1: parent of 0 (none) is undefined
+        // depth 0: parent of 1 1 (root) is undefined
+        // depth 1: parent of 2 10 (l) = 1 1(root)
+        // depth 1: parent of 3 11 (r) = 1 1 (root)
+        // depth 2: parent of 4 100 (ll) = 2 10 (l)
+        // depth 2: parent of 5 101 (rl) = 3 11 (r)
+        // depth 2: parent of 6 110 (lr) = 2 10 (l)
+        // depth 2: parent of 7 111 (rr) = 3 11 (r)
+        ExcAssertGreater(index, 1);
+        uint32_t depthBit = 1 << (depth() - 1);
+        uint32_t mask = depthBit - 1;
+        uint32_t newIndex = index & mask;
+        return PartitionIndex(depthBit + newIndex);
     }
 
-    PartitionIndex parentAtDepth(int32_t depth) const
-    {
-        return PartitionIndex(index >> (this->depth() - depth));
-    }
+    //PartitionIndex parentAtDepth(int32_t depth) const
+    //{
+    //    ExcAssertGreater(index, 1);
+    //    ExcAssertGreater(depth, 1);
+    //    return PartitionIndex(index >> (this->depth() - depth));
+    //}
 
     bool operator == (const PartitionIndex & other) const
     {
@@ -507,7 +524,8 @@ struct PartitionIndex {
         if (index == 1)
             return result = "root";
 
-        for (int d = depth() - 1;  d >= 0;  --d) {
+        result.reserve(depth());
+        for (int d = 0;  d < depth();  ++d) {
             result += (index & (1 << d) ? 'r' : 'l');
         }
 
