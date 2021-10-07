@@ -547,6 +547,14 @@ parseArgumentExpression(ParseContext & context)
             auto rhs = parseArgumentExpression(context);
             result = std::make_shared<PlusExpression>(result, rhs);
         }
+        else if (context.match_literal('-')) {
+            auto rhs = parseArgumentExpression(context);
+            result = std::make_shared<MinusExpression>(result, rhs);
+        }
+        else if (context.match_literal('*')) {
+            auto rhs = parseArgumentExpression(context);
+            result = std::make_shared<TimesExpression>(result, rhs);
+        }
         else if (context.match_literal('/')) {
             auto rhs = parseArgumentExpression(context);
             result = std::make_shared<DivideExpression>(result, rhs);

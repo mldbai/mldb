@@ -576,6 +576,29 @@ struct PlusExpression: public BinaryArithmeticExpression {
     }
 };
 
+struct MinusExpression: public BinaryArithmeticExpression {
+
+    MinusExpression(std::shared_ptr<CommandExpression> lhs,
+                    std::shared_ptr<CommandExpression> rhs)
+        : BinaryArithmeticExpression(lhs, rhs)
+    {
+    }
+
+    virtual Json::Value op(const Json::Value & lhs,
+                           const Json::Value & rhs) const
+    {
+        if (lhs.isNumeric() && rhs.isNumeric()) {
+            if (lhs.isDouble() || rhs.isDouble()) {
+                return lhs.asDouble() + rhs.asDouble();
+            }
+            return lhs.asInt() + rhs.asInt();
+        }
+        else throw MLDB::Exception("don't know how to subtract %s and %s",
+                                 lhs.toString().c_str(),
+                                 rhs.toString().c_str());
+    }
+};
+
 struct DivideExpression: public BinaryArithmeticExpression {
 
     DivideExpression(std::shared_ptr<CommandExpression> lhs,
@@ -589,11 +612,40 @@ struct DivideExpression: public BinaryArithmeticExpression {
     {
         if (lhs.isNumeric() && rhs.isNumeric()) {
             if (lhs.isDouble() || rhs.isDouble()) {
+                if (rhs.asDouble() == 0.0) {
+                    throw MLDB::Exception("divide by zero");
+                }
                 return lhs.asDouble() / rhs.asDouble();
+            }
+            if (rhs.asInt() == 0.0) {
+                throw MLDB::Exception("divide by zero");
             }
             return lhs.asInt() / rhs.asInt();
         }
         else throw MLDB::Exception("don't know how to divide %s by %s",
+                                 lhs.toString().c_str(),
+                                 rhs.toString().c_str());
+    }
+};
+
+struct TimesExpression: public BinaryArithmeticExpression {
+
+    TimesExpression(std::shared_ptr<CommandExpression> lhs,
+                    std::shared_ptr<CommandExpression> rhs)
+        : BinaryArithmeticExpression(lhs, rhs)
+    {
+    }
+
+    virtual Json::Value op(const Json::Value & lhs,
+                           const Json::Value & rhs) const
+    {
+        if (lhs.isNumeric() && rhs.isNumeric()) {
+            if (lhs.isDouble() || rhs.isDouble()) {
+                return lhs.asDouble() * rhs.asDouble();
+            }
+            return lhs.asInt() * rhs.asInt();
+        }
+        else throw MLDB::Exception("don't know how to multiply %s by %s",
                                  lhs.toString().c_str(),
                                  rhs.toString().c_str());
     }
