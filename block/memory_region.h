@@ -259,9 +259,17 @@ struct FrozenMemoryRegionT {
         return raw();
     }
 
-    std::span<const T> getConstSpan() const
+    std::span<const T> getConstSpan(size_t start = 0, ssize_t length = -1) const
     {
-        return { data(), length() };
+        if (start > this->length()) {
+            throw MLDB::Exception("getConstSpan: start is out of range");
+        }
+        if (length == -1)
+            length = this->length() - start;
+        if (length < 0 || start + length > this->length()) {
+            throw MLDB::Exception("getConstSpan: length is out of range");
+        }
+        return { data() + start, (size_t)length };
     }
 
     operator std::span<const T> () const
@@ -383,14 +391,30 @@ struct MutableMemoryRegionT {
 
     const MutableMemoryRegion & raw() const { return raw_; }
 
-    std::span<T> getSpan() const
+    std::span<T> getSpan(size_t start = 0, ssize_t length = -1) const
     {
-        return { data(), length() };
+        if (start > this->length()) {
+            throw MLDB::Exception("getSpan: start is out of range");
+        }
+        if (length == -1)
+            length = this->length() - start;
+        if (length < 0 || start + length > this->length()) {
+            throw MLDB::Exception("getSpan: length is out of range");
+        }
+        return { data() + start, (size_t)length };
     }
 
-    std::span<const T> getConstSpan() const
+    std::span<const T> getConstSpan(size_t start = 0, ssize_t length = -1) const
     {
-        return { data(), length() };
+        if (start > this->length()) {
+            throw MLDB::Exception("getConstSpan: start is out of range");
+        }
+        if (length == -1)
+            length = this->length() - start;
+        if (length < 0 || start + length > this->length()) {
+            throw MLDB::Exception("getConstSpan: length is out of range");
+        }
+        return { data() + start, (size_t)length };
     }
 
 private:
