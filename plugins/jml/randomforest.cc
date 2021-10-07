@@ -156,6 +156,7 @@ reweightAndCompact(const std::vector<uint8_t> & counts,
     
     size_t chunkSize
         = std::min<size_t>(100000, rows.rowCount() / numCpus() / 4);
+    chunkSize += (chunkSize == 0);
 
     // Analyze the weights.  This may allow us to store them in a lot
     // less bits than we would have otherwise.

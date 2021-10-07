@@ -389,6 +389,10 @@ run(const ProcedureRunConfig & run,
             
             MemorySerializer serializer;
 
+            if (totalTrainingWeight == 0.0) {
+                throw MLDB::Exception("No training weight in RandomForest bag; try training with more examples");
+            }
+
             auto data = allData.reweightAndCompact(trainingWeights, numNonZero,
                                                    1.0 / totalTrainingWeight,
                                                    serializer);
