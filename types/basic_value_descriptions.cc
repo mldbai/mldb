@@ -340,7 +340,7 @@ struct BoolDescription
     }
 
     virtual void printJsonTyped(const bool * val,
-                                JsonPrintingContext & context) const
+                                JsonPrintingContext & context) const ATTRIBUTE_NO_SANITIZE_UNDEFINED
     {
         context.writeBool(*val);
     }
