@@ -769,7 +769,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     // How many iterations can we run for?  This may be reduced if the
     // memory is not available to run the full width
-    int numIterations = std::min(16, maxDepth - depth);
+    int numIterations = std::min(10, maxDepth - depth);
 
     // How many partitions will we have at our widest?
     int maxPartitionCount = 1 << numIterations;
@@ -1075,7 +1075,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     // We go down level by level
     for (int myDepth = 0;
-         myDepth < 16 && depth < maxDepth;
+         myDepth < numIterations && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
 
         cerr << "depth = " << depth << " myDepth = " << myDepth << " numPartitions " << numPartitionsAtDepth << endl;
@@ -1225,8 +1225,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     okayDifferentPartitions.insert(p + numPartitionsAtDepth);
 
                     float relativeDifference = fabs(score1 - score2) / max(score1, score2);
+                    if (!partitionSplitsDevice[p].valid() && !debugPartitionSplitsCpu[p].valid())
+                        continue;
 
-                    different = different || relativeDifference >= 0.001;
+                    different = different || isnan(relativeDifference) || relativeDifference >= 0.001;
                     cerr << "partition " << p << "\ndevice "
                          << jsonEncodeStr(partitionSplitsDevice[p])
                          << "\nCPU " << jsonEncodeStr(debugPartitionSplitsCpu[p])
@@ -1525,14 +1527,13 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     std::map<PartitionIndex, PartitionSplit> allSplits;
 
     for (size_t i = 1;  i < numPartitionsAtDepth;  ++i) {
+        break;
         cerr << "PARTITION " << i << " " << PartitionIndex(i) << endl;
         cerr << jsonEncode(mappedAllPartitionSplits[i]) << endl;
     }
 
     std::vector<PartitionIndex> indexes(numPartitionsAtDepth);
     std::map<PartitionIndex, ML::Tree::Ptr> leaves;
-
-    cerr << "numRows = " << rowCount << endl;
 
     std::set<int> donePositions;
 
@@ -1542,45 +1543,47 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         PartitionIndex leftIndex = index.leftChild();
         PartitionIndex rightIndex = index.rightChild();
 
-        cerr << "position = " << position << " numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
+        //cerr << "position = " << position << " numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
 
         indexes[position] = index;
 
         auto & split = mappedAllPartitionSplits[position];
 
-        cerr << "  split " << split.index << " = " << jsonEncodeStr(split) << endl;
+        //cerr << "  split " << split.index << " = " << jsonEncodeStr(split) << endl;
 
         ExcAssertEqual(index, split.index);
 
-        int leftPosition = split.direction ? rightIndex.index : leftIndex.index;
-        int rightPosition = split.direction ? leftIndex.index : rightIndex.index;
-        //int leftPosition = leftIndex.index;
-        //int rightPosition = rightIndex.index;
+        int leftPosition = leftIndex.index;
+        int rightPosition = rightIndex.index;
 
         allSplits[index] = split;
 
         if (split.left.count() > 0 && split.right.count() > 0) {
 
-            cerr << "  testing left " << leftIndex << " with position " << leftPosition << " of " << numPartitionsAtDepth << endl;
+            //cerr << "  testing left " << leftIndex << " with position " << leftPosition << " of " << numPartitionsAtDepth << endl;
             if (leftPosition < numPartitionsAtDepth) {
                 auto & lsplit = mappedAllPartitionSplits[leftPosition];
-                cerr << "  has split " << jsonEncodeStr(lsplit) << endl;
-                ExcAssertEqual(lsplit.left.count() + lsplit.right.count(), split.left.count());
+                if (lsplit.valid()) {
+                    //cerr << "  has split " << jsonEncodeStr(lsplit) << endl;
+                    ExcAssertEqual(lsplit.left.count() + lsplit.right.count(), split.left.count());
+                }
             }
             if (leftPosition >= numPartitionsAtDepth || !mappedAllPartitionSplits[leftPosition].valid()) {
-                cerr << "    not valid; leaf" << endl;
+                //cerr << "    not valid; leaf" << endl;
                 leaves[leftIndex] = getLeaf(tree, split.left);
             }
             else {
-                cerr << "    valid; recurse" << endl;
+                //cerr << "    valid; recurse" << endl;
                 extractSplits(leftIndex, leftPosition);
             }
 
-            cerr << "  testing right " << rightIndex << " with position " << rightPosition << " of " << numPartitionsAtDepth << endl;
+            //cerr << "  testing right " << rightIndex << " with position " << rightPosition << " of " << numPartitionsAtDepth << endl;
             if (rightPosition < numPartitionsAtDepth) {
                 auto & rsplit = mappedAllPartitionSplits[rightPosition];
-                cerr << "  has split " << jsonEncodeStr(rsplit) << endl;
-                ExcAssertEqual(rsplit.left.count() + rsplit.right.count(), split.right.count());
+                if (rsplit.valid()) {
+                    //cerr << "  has split " << jsonEncodeStr(rsplit) << endl;
+                    ExcAssertEqual(rsplit.left.count() + rsplit.right.count(), split.right.count());
+                }
             }
             if (rightPosition >= numPartitionsAtDepth || !mappedAllPartitionSplits[rightPosition].valid()) {
                 leaves[rightIndex] = getLeaf(tree, split.right);

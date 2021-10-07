@@ -49,6 +49,9 @@ struct WT {
 
     bool empty() const { return total() == 0; }
 
+    // Is the label uniform, meaning we can learn nothing more from this region of the tree?
+    bool uniform() const { return v[0] == 0 || v[1] == 0; }
+
     Float total() const { return v[0] + v[1]; }
 
     uint32_t count() const { return c; }

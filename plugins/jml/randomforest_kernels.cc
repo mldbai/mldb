@@ -1078,6 +1078,8 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] fo
         if (wAll[partition].empty())
             continue;
 
+        //cerr << "partition " << partition << " wAll " << jsonEncodeStr(wAll[partition]) << endl;
+
         double bestScore = INFINITY;
         int bestFeature = -1;
         int bestSplit = -1;
@@ -1209,7 +1211,7 @@ getPartitionSplitsKernel(ComputeContext & context,
                          std::span<PartitionSplit> splitsOut) // [np x nf]
 {
     PartitionSplit & result = splitsOut[p * nf + f];
-    if (!featureActive[f] || wAll[p].empty()) {
+    if (!featureActive[f] || wAll[p].empty() || wAll[p].uniform()) {
         result = PartitionSplit();
         return;
     }
@@ -1243,13 +1245,13 @@ bestPartitionSplitKernel(ComputeContext & context,
         const PartitionSplit & fp = featurePartitionSplits[p * nf + f];
         if (fp.score == INFINITY)
             continue;
-        //cerr << "partition " << p << " feature " << f << " score " << fp.score << endl;
+        //cerr << "kernel: partition " << p << " feature " << f << " score " << fp.score << endl;
         if (fp.score < result.score) {
             result = fp;
         }
     }
 
-    //result.direction = result.score != INFINITY && result.left.count() <= result.right.count();
+    result.direction = result.score != INFINITY && result.left.count() <= result.right.count();
     result.index = p + partitionSplitsOffset;
 }
 
@@ -1324,10 +1326,10 @@ updatePartitionNumbersKernel(ComputeContext & context,
     // Set the new partition number
     partitions[r] = partition + side * rightOffset;
 
-    cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
-         << " goes from partition " << partition << " (" << PartitionIndex(rightOffset + partition)
-         << ") to partition " << partition + side * rightOffset << " ("
-         << PartitionIndex(rightOffset + partition + side * rightOffset) << ")" << endl;
+    //cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
+    //     << " goes from partition " << partition << " (" << PartitionIndex(rightOffset + partition)
+    //     << ") to partition " << partition + side * rightOffset << " ("
+    //     << PartitionIndex(rightOffset + partition + side * rightOffset) << ")" << endl;
 }
 
 void
