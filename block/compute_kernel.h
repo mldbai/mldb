@@ -173,8 +173,6 @@ marshalParameterForCpuKernelCall(std::span<const T> *)
     {
         if (in.getConstRange) {
             auto [ptr, size, pin] = in.getConstRange(in.value, context);
-            using namespace std;
-            cerr << "converting span: ptr = " << ptr << " size = " << size << endl;
             out = { reinterpret_cast<const T *>(ptr), size };
             return std::move(pin);
         }
@@ -288,10 +286,10 @@ struct ComputeKernel {
         const std::type_info & requiredType = param.type();
 
         try {
-            using namespace std;
-            cerr << "converting parameter " << n << " with formal type " << params[n].type.print()
-                 << " from type " << demangle(param.type().name()) << " to type " << type_name<T>(arg)
-                 << endl;
+            //using namespace std;
+            //cerr << "converting parameter " << n << " with formal type " << params[n].type.print()
+            //     << " from type " << demangle(param.type().name()) << " to type " << type_name<T>(arg)
+            //     << endl;
             auto pin = marshal(arg, param, context);
             if (pin) {
                 pins.emplace_back(std::move(pin));
@@ -313,6 +311,16 @@ struct ComputeKernel {
             this->extractParam(std::get<N>(args), params.at(N), N, context, pins);
             this->extractParams<N + 1>(args, params, context, pins);
         }
+        else {
+            // validate number of parameters
+            if (N < params.size()) {
+                throw AnnotatedException(500, "Error in calling compute function '" + kernelName + "': not enough parameters");
+            }
+            else if (N > params.size()) {
+                throw AnnotatedException(500, "Error in calling compute function '" + kernelName + "': too many parameters");
+            }
+            // Make sure all formal parameters are set
+        }
     }
 
     template<typename Fn, typename... InitialArgs, typename Tuple, std::size_t... I>
@@ -329,9 +337,20 @@ struct ComputeKernel {
                           std::forward<InitialArgs>(initialArgs)...);
     }
 
+    void checkComputeFunctionArity(size_t numExtraComputeFunctionArgs) const
+    {
+        if (numExtraComputeFunctionArgs != params.size()) {
+            throw AnnotatedException(500, "Error setting compute function for '" + kernelName
+                                     + "': compute function needs " + std::to_string(numExtraComputeFunctionArgs)
+                                     + " but there are " + std::to_string(params.size()) + " parameters listed");
+        }
+    }
+
     template<typename... Args>
     void setComputeFunction(void (*fn) (ComputeContext & context, Args...))
     {
+        checkComputeFunctionArity(sizeof...(Args));
+
         auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
         {
             ExcAssertEqual(params.size(), sizeof...(Args));
@@ -352,6 +371,8 @@ struct ComputeKernel {
     template<typename... Args>
     void set1DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, Args...))
     {
+        checkComputeFunctionArity(sizeof...(Args));
+        
         auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
         {
             ExcAssertEqual(params.size(), sizeof...(Args));
@@ -361,6 +382,24 @@ struct ComputeKernel {
             return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<const uint32_t> idx, std::span<const uint32_t> rng)
             {
                 ComputeKernel::apply(fn, args, context, idx[0], rng[0]);
+            };
+        };
+
+        createCallable = result;
+    }
+
+    template<typename... Args>
+    void set2DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, uint32_t i2, uint32_t r2, Args...))
+    {
+        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
+        {
+            ExcAssertEqual(params.size(), sizeof...(Args));
+            std::tuple<Args...> args;
+            std::vector<details::Pin> pins;
+            this->extractParams<0>(args, params, context, pins);
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<const uint32_t> idx, std::span<const uint32_t> rng)
+            {
+                ComputeKernel::apply(fn, args, context, idx[0], rng[0], idx[1], rng[1]);
             };
         };
 
@@ -378,9 +417,6 @@ struct BoundComputeKernel {
     {
         try {
             this->call(context, idx, rng);
-            using namespace std;
-            cerr << "owner = " << owner << endl;
-            cerr << "completed calling " << owner->kernelName << endl;
         } MLDB_CATCH_ALL {
             rethrowException(500, "Error launching kernel " + owner->kernelName);
         }
@@ -409,8 +445,6 @@ getAbstractType(MemoryArrayHandleT<T> *)
     {
         const auto & handle = std::any_cast<const MemoryArrayHandleT<T> &>(val);
         ExcAssert(handle.handle);
-        using namespace std;
-        cerr << "getConstRange for memoryArrayHandle non-const" << endl;
         FrozenMemoryRegionT<T> region = transferToCpuSync(context, handle);
         return { region.data(), region.length(), region.raw().handle() };
     };
@@ -482,8 +516,8 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
                                 + " is not an argument of kernel " + owner->kernelName);
 
     size_t argIndex = argIndexIt->second;
-    using namespace std;
-    cerr << "binding " << argName << " at index " << argIndex << " to value of type " << type_name<Arg>() << endl;
+    //using namespace std;
+    //cerr << "binding " << argName << " at index " << argIndex << " to value of type " << type_name<Arg>() << endl;
 
     if (arguments.at(argIndex).has_value())
         throw MLDB::Exception("Attempt to double bind argument " + argName
@@ -670,8 +704,6 @@ struct ComputeContext {
     auto transferToCpu(MemoryArrayHandleT<T> array)
         -> std::tuple<FrozenMemoryRegionT<std::remove_const_t<T>>, std::shared_ptr<ComputeEvent>>
     {
-        using namespace std;
-        cerr << "transferToCpu: array.handle = " << array.handle.get() << endl;
         auto handle = std::static_pointer_cast<const MemoryRegionInfo>(std::move(array.handle));
         if (!handle)
             return { {}, {} };
@@ -680,8 +712,6 @@ struct ComputeContext {
             throw MLDB::Exception("Attempt to cast to wrong type: from " + demangle(handle->type->name())
                                   + " to " + type_name<T>());
         }
-
-        cerr << "handle->data = " << handle->data << " handle->lengthInBytes = " << handle->lengthInBytes << endl;
 
         FrozenMemoryRegion raw(handle, (char *)handle->data, handle->lengthInBytes);
         return { raw, std::make_shared<ComputeEvent>() };

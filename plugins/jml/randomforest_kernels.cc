@@ -19,6 +19,7 @@
 #include "mldb/types/span_description.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/vm.h"
+#include "mldb/block/compute_kernel.h"
 #include <condition_variable>
 #include <sstream>
 
@@ -1074,6 +1075,9 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] fo
 
     for (int partition = 0;  partition < numPartitions;  ++partition) {
 
+        if (wAll[partition].empty())
+            continue;
+
         double bestScore = INFINITY;
         int bestFeature = -1;
         int bestSplit = -1;
@@ -1086,8 +1090,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] fo
         // it.  This is done in order to be sure that we
         // deterministically pick the right one.
         auto findBest = [&] (int af,
-                             const std::tuple<int, double, int, W, W>
-                             & val)
+                             const std::tuple<int, double, int, W, W> & val)
             {
                 bool debug = false; //partition == 3 && buckets.size() == 8 && activeFeatures[af] == 4;
 
@@ -1142,6 +1145,8 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] fo
                                             wAll[partition], debug);
                 }
 
+                //cerr << "CPU: partition " << partition << " feature " << f << " score " << bestScore << endl;
+
                 //cerr << " score " << bestScore << " split "
                 //     << bestSplit << endl;
                         
@@ -1185,6 +1190,303 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] fo
     }
 
     return partitionSplits;
+}
+
+void
+getPartitionSplitsKernel(ComputeContext & context,
+                         uint32_t f, uint32_t nf,
+                         uint32_t p, uint32_t np,
+                         
+                         uint32_t totalBuckets,
+                         std::span<const uint32_t> bucketNumbers, // [nf]
+                         
+                         std::span<const uint32_t> featureActive, // [nf]
+                         std::span<const uint32_t> featureIsOrdinal, // [nf]
+                         
+                         std::span<const W> buckets, // [np x totalBuckets]
+
+                         std::span<const W> wAll,  // [np] one per partition
+                         std::span<PartitionSplit> splitsOut) // [np x nf]
+{
+    PartitionSplit & result = splitsOut[p * nf + f];
+    if (!featureActive[f] || wAll[p].empty()) {
+        result = PartitionSplit();
+        return;
+    }
+
+    int startBucket = bucketNumbers[f];
+    int endBucket = bucketNumbers[f + 1];
+    int maxBucket = endBucket - startBucket - 1;
+    const W * wFeature = buckets.data() + (p * totalBuckets) + startBucket;
+    auto [bestScore, bestSplit, bestLeft, bestRight]
+        = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
+
+    result = { 0 /* index */, (float)bestScore, (int)f, bestSplit, bestLeft, bestRight, false /* direction */ };
+}
+
+void
+bestPartitionSplitKernel(ComputeContext & context,
+                         uint32_t p, uint32_t np,
+                         uint32_t nf,
+                         std::span<const uint32_t> featureActive, // [nf]
+                         std::span<const PartitionSplit> featurePartitionSplits, // [np x nf]
+                         std::span<PartitionSplit> partitionSplitsOut,  // np
+                         uint32_t partitionSplitsOffset)
+{
+    ExcAssertLess(partitionSplitsOffset + p, partitionSplitsOut.size());
+    PartitionSplit & result = partitionSplitsOut[partitionSplitsOffset + p];
+    result = PartitionSplit();
+
+    for (size_t f = 0;  f < nf;  ++f) {
+        if (!featureActive[f])
+            continue;
+        const PartitionSplit & fp = featurePartitionSplits[p * nf + f];
+        if (fp.score == INFINITY)
+            continue;
+        //cerr << "partition " << p << " feature " << f << " score " << fp.score << endl;
+        if (fp.score < result.score) {
+            result = fp;
+        }
+    }
+
+    //result.direction = result.score != INFINITY && result.left.count() <= result.right.count();
+    result.index = p + partitionSplitsOffset;
+}
+
+void
+clearBucketsKernel(ComputeContext & context,
+                   uint32_t partition, uint32_t numPartitions,
+                   uint32_t bucket, uint32_t numBuckets,
+                   std::span<W> allPartitionBuckets,
+                   std::span<W> wAll,
+                   std::span<const PartitionSplit> partitionSplits,
+                   uint32_t numActiveBuckets,
+                   uint32_t partitionSplitsOffset)
+{
+    ExcAssertLess(partitionSplitsOffset + partition, partitionSplits.size());
+    ExcAssertEqual(partitionSplitsOffset, numPartitions);
+    ExcAssertLess(bucket, numActiveBuckets);
+    ExcAssertEqual(numBuckets, numActiveBuckets);
+
+    //if (partitionSplits[partition].right.count() == 0) // unused partition
+    //    return;
+    
+    allPartitionBuckets[(partitionSplitsOffset + partition) * numActiveBuckets + bucket] = W();
+    
+    if (bucket == 0) {
+        wAll[partitionSplitsOffset + partition] = W();
+    }
+}
+
+void
+updatePartitionNumbersKernel(ComputeContext & context,
+                             uint32_t r, uint32_t nr,
+          
+                             uint32_t rightOffset,
+                             
+                             std::span<uint32_t> partitions,
+          
+                             std::span<const PartitionSplit> partitionSplits,
+                             
+                             // Feature data
+                             std::span<const uint32_t> allBucketData,
+                             std::span<const uint32_t> bucketDataOffsets,
+                             std::span<const uint32_t> bucketNumbers,
+                             std::span<const uint32_t> bucketEntryBits,
+          
+                             std::span<const uint32_t> featureIsOrdinal)
+{
+    // Skip to where we should be in our partition splits
+    partitionSplits = partitionSplits.subspan(rightOffset);
+
+    uint32_t partition = partitions[r];
+    int splitFeature = partitionSplits[partition].feature;
+            
+    if (splitFeature == -1) {
+        // reached a leaf here, nothing to split
+        return;
+    }
+
+    uint32_t splitValue = partitionSplits[partition].value;
+    bool ordinal = featureIsOrdinal[splitFeature];
+    
+    // Get buckets for the split feature
+    BucketList buckets;
+    buckets.entryBits = bucketEntryBits[splitFeature];
+    buckets.numBuckets = -1;  // unused but set to an invalid value to be sure
+    buckets.numEntries = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
+    buckets.storagePtr = allBucketData.data() + bucketDataOffsets[splitFeature];
+
+    uint32_t bucket = buckets[r];
+
+    uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
+    
+    // Set the new partition number
+    partitions[r] = partition + side * rightOffset;
+
+    cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
+         << " goes from partition " << partition << " (" << PartitionIndex(rightOffset + partition)
+         << ") to partition " << partition + side * rightOffset << " ("
+         << PartitionIndex(rightOffset + partition + side * rightOffset) << ")" << endl;
+}
+
+void
+updateBucketsKernel(ComputeContext & context,
+                    uint32_t fp1, uint32_t nfp1,
+
+                    uint32_t rightOffset,
+                    uint32_t numActiveBuckets,
+                    
+                    std::span<uint32_t> partitions,
+                    std::span<W> partitionBuckets,
+                    std::span<W> wAll,
+
+                    std::span<const PartitionSplit> partitionSplits,
+                    
+                    // Row data
+                    std::span<const float> decodedRows,
+                    uint32_t rowCount,
+                    
+                    // Feature data
+                    std::span<const uint32_t> allBucketData,
+                    std::span<const uint32_t> bucketDataOffsets,
+                    std::span<const uint32_t> bucketNumbers,
+                    std::span<const uint32_t> bucketEntryBits,
+
+                    std::span<const uint32_t> featureActive,
+                    std::span<const uint32_t> featureIsOrdinal)
+{
+    int f = fp1 - 1;  // -1 means wAll, otherwise it's the feature number
+
+    if (f != -1 && !featureActive[f])
+        return;
+
+    // We have to set up to access to buckets for the feature we're updating for the split (f)
+    BucketList buckets;
+    if (f != -1) {
+        buckets.entryBits = bucketEntryBits[f];
+        buckets.numBuckets = -1;  // unused but set to an invalid value to be sure
+        buckets.numEntries = bucketNumbers[f + 1] - bucketNumbers[f];
+        buckets.storagePtr = allBucketData.data() + bucketDataOffsets[f];
+    }
+
+    // Skip to where we should be in our partition splits
+    partitionSplits = partitionSplits.subspan(rightOffset);
+    
+    uint32_t startBucket;
+
+    // Pointer to the global array we eventually want to update
+    std::span<W> wGlobal;
+
+    // We always transfer weights from the left to the right, and then
+    // in a later kernel swap them
+    if (f == -1) {
+        wGlobal = wAll;
+        startBucket = 0;
+    }
+    else {
+        wGlobal = partitionBuckets;
+        startBucket = bucketNumbers[f];
+    }
+
+    for (uint32_t i = 0;  i < rowCount;  ++i) {
+
+        // Partition was updated already, so here we mask out the offset to know where the
+        // partition came from (ensure that this partition number is parent partition number)
+        uint32_t partition = partitions[i] & (rightOffset - 1);
+        uint32_t side = partition != partitions[i];  // it is on the right if the partition number changed
+
+        int splitFeature = partitionSplits[partition].feature;
+                
+        uint32_t rightPartition = partition + rightOffset;
+
+        // 0 = left to right, 1 = right to left
+        uint32_t direction = partitionSplits[partition].direction;
+
+        //if (f == -1)
+        //    cerr << "partition " << partition << " side = " << side << " direction " << direction << endl;
+
+        // We only need to update features on the wrong side, as we
+        // transfer the weight rather than sum it from the
+        // beginning.  This means less work for unbalanced splits
+        // (which are typically most of them, especially for discrete
+        // buckets)
+
+        if (direction == side) {
+            continue;
+        }
+
+        ExcAssertNotEqual(splitFeature, -1);
+
+        uint32_t toBucket;
+        
+        if (f == -1) {
+            // Since we don't touch the buckets on the left side of the
+            // partition, we don't need to have local accumulators for them.
+            // Hence, the partition number for local is the left partition.
+            toBucket = rightPartition;
+        }
+        else {
+            uint32_t bucket = buckets[i];
+            toBucket
+                = rightPartition * numActiveBuckets + startBucket + bucket;
+        }
+
+        float weight = fabs(decodedRows[i]);
+        bool label = decodedRows[i] < 0;
+
+        // TODO: needs to be an atomic add when multi-threaded...
+        wGlobal[toBucket].add(label, weight);
+    }
+}
+
+// For each partition and each bucket, we up to now accumulated just the
+// weight that needs to be transferred in the right hand side of the
+// partition splits.  We need to fix this up by:
+// 1.  Subtracting this weight from the left hand side
+// 2.  Flipping the buckets where the big amount of weight belongs on the
+//     right not on the left.
+//
+// This is a 2 dimensional kernel:
+// Dimension 0 = partition number (from 0 to the old number of partitions)
+// Dimension 1 = bucket number (from 0 to the number of active buckets)
+void
+fixupBucketsKernel(ComputeContext & context,
+                   uint32_t partition, uint32_t numPartitions,
+                   uint32_t bucket, uint32_t numActiveBuckets,
+                   std::span<W> allPartitionBuckets,
+                   std::span<W> wAll,
+                   std::span<const PartitionSplit> partitionSplits)
+{
+    uint32_t partitionSplitsOffset = numPartitions;
+    partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
+
+    //if (partitionSplits[partition].right.count() == 0)
+    //    return;
+            
+    std::span<W> bucketsLeft
+        = allPartitionBuckets.subspan(partition * numActiveBuckets);
+    std::span<W> bucketsRight
+        = allPartitionBuckets.subspan((partition + numPartitions) * numActiveBuckets);
+    
+    // We double the number of partitions.  The left all
+    // go with the lower partition numbers, the right have the higher
+    // partition numbers.
+    bucketsLeft[bucket] -= bucketsRight[bucket];
+    if (bucket == 0) {
+        //cerr << "bucket == 0: left " << jsonEncodeStr(wAll[partition])
+        //     << " right " << jsonEncodeStr(wAll[partition + numPartitions]) << endl;
+        wAll[partition] -= wAll[partition + numPartitions];
+    }
+    
+    if (partitionSplits[partition].direction) {
+        // We need to swap the buckets
+        std::swap(bucketsLeft[bucket], bucketsRight[bucket]);
+
+        if (bucket == 0) {
+            std::swap(wAll[partition], wAll[partition + numPartitions]);
+        }
+    }
 }
 
 
@@ -2385,6 +2687,171 @@ trainPartitionedRecursive(int depth, int maxDepth,
          std::move(bucketMemory));
                                            
 }
+
+struct RegisterKernels {
+
+    RegisterKernels()
+    {
+        auto createDecodeRowsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "decodeRows";
+            result->device = device;
+            result->addParameter("rowData", "r", "u64[rowDataLength]");
+            result->addParameter("rowDataLength", "r", "u32");
+            result->addParameter("weightBits", "r", "u16");
+            result->addParameter("exampleNumBits", "r", "u16");
+            result->addParameter("numRows", "r", "u32");
+            result->addParameter("weightFormat", "r", "MLDB::RF::WeightFormat");
+            result->addParameter("weightMultiplier", "r", "f32");
+            result->addParameter("weightData", "r", "f32[weightDataLength]");
+            result->addParameter("decodedRowsOut", "w", "f32[numRows]");
+            result->setComputeFunction(decodeRowsKernelCpu);
+            return result;
+        };
+
+        registerComputeKernel("decodeRows", createDecodeRowsKernel);
+
+        auto createTestFeatureKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "testFeature";
+            result->device = device;
+            result->addDimension("featureNum", "nf");
+            result->addParameter("decodedRows", "r", "f32[numRows]");
+            result->addParameter("numRows", "r", "u32");
+            result->addParameter("bucketData", "r", "u32[bucketDataLength]");
+            result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketEntryBits", "r", "u32[nf]");
+            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("partitionBuckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numBuckets]");
+            result->set1DComputeFunction(testFeatureKernel);
+            return result;
+        };
+
+        registerComputeKernel("testFeature", createTestFeatureKernel);
+
+        auto createGetPartitionSplitsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "getPartitionSplits";
+            result->device = device;
+            result->addDimension("f", "nf");
+            result->addDimension("p", "np");
+            result->addParameter("totalBuckets", "r", "u32");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->addParameter("buckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[totalBuckets * np]");
+            result->addParameter("wAll", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np]");
+            result->addParameter("featurePartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[np * nf]");
+            result->set2DComputeFunction(getPartitionSplitsKernel);
+            return result;
+        };
+
+        registerComputeKernel("getPartitionSplits", createGetPartitionSplitsKernel);
+
+        auto createBestPartitionSplitKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "bestPartitionSplit";
+            result->device = device;
+            result->addDimension("p", "np");
+            result->addParameter("numFeatures", "r", "u32");
+            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("featurePartitionSplits", "r", "MLDB::RF::PartitionSplit[np * nf]");
+            result->addParameter("allPartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[maxPartitions]");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->set1DComputeFunction(bestPartitionSplitKernel);
+            return result;
+        };
+
+        registerComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
+
+        auto createClearBucketsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "clearBuckets";
+            result->device = device;
+            result->addDimension("p", "partitionSplitsOffset");
+            result->addDimension("b", "numActiveBuckets");
+            result->addParameter("bucketsOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numActiveBuckets * np * 2]");
+            result->addParameter("wAllOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np * 2]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->set2DComputeFunction(clearBucketsKernel);
+            return result;
+        };
+
+        registerComputeKernel("clearBuckets", createClearBucketsKernel);
+
+        auto createUpdatePartitionNumbersKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "updatePartitionNumbers";
+            result->device = device;
+            result->addDimension("r", "numRows");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->addParameter("partitions", "r", "u32[numRows]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("bucketData", "r", "u32[bucketDataLength]");
+            result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketEntryBits", "r", "u32[nf]");
+            result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->set1DComputeFunction(updatePartitionNumbersKernel);
+            return result;
+        };
+
+        registerComputeKernel("updatePartitionNumbers", createUpdatePartitionNumbersKernel);
+
+        auto createUpdateBucketsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "updateBuckets";
+            result->device = device;
+            result->addDimension("f", "nf");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("partitions", "r", "u32[numRows]");
+            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np * 2]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("decodedRows", "r", "f32[nr]");
+            result->addParameter("numRows", "r", "u32");
+            result->addParameter("bucketData", "r", "u32[bucketDataLength]");
+            result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketEntryBits", "r", "u32[nf]");
+            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->set1DComputeFunction(updateBucketsKernel);
+            return result;
+        };
+
+        registerComputeKernel("updateBuckets", createUpdateBucketsKernel);
+
+        auto createFixupBucketsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<ComputeKernel>();
+            result->kernelName = "fixupBuckets";
+            result->device = device;
+            result->addDimension("partition", "np");
+            result->addDimension("bucket", "numActiveBuckets");
+            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np * 2]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->set2DComputeFunction(fixupBucketsKernel);
+            return result;
+        };
+
+        registerComputeKernel("fixupBuckets", createFixupBucketsKernel);
+
+    }
+
+} registerKernels;
 
 } // namespace RF
 } // namespace MLDB

@@ -540,13 +540,15 @@ std::ostream & operator << (std::ostream & stream, PartitionIndex idx);
 /** Holds the split for a partition. */
 
 struct PartitionSplit {
-    PartitionIndex index;
-    float score = INFINITY;
-    int feature = -1;
-    int value = -1;
-    W left;
-    W right;
-    bool direction;  // 0 = left to right, 1 = right to left
+    PartitionIndex index;      // 4 bytes
+    float score = INFINITY;    // 4 bytes
+    int feature = -1;          // 4 bytes; could be 2
+    int value = -1;            // 4 bytesl could be 2
+    W left;                    // 24 bytes; could be 12
+    W right;                   // 24 bytesl could be 12
+    bool direction = 0;  // 0 = left to right, 1 = right to left  // 4 bytes; could be 0
+
+    // Total: 72 bytes; could be 36 (or 12 if we pass in/accumulate left and right separately)
 
     bool valid() const { return feature != -1; }
 

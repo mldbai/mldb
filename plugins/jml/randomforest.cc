@@ -291,8 +291,8 @@ reweightAndCompact(const std::vector<uint8_t> & counts,
     trancheSplits.push_back(start);
 
     // Get a contiguous block of memory for all of the feature blocks;
-    // this enables a single GPU transfer and a single GPU argument
-    // list (for when we do GPUs)
+    // this enables a single device transfer and a single device argument
+    // list (for when we do devices)
     std::vector<size_t> bucketMemoryOffsets(1, 0);
     size_t bucketMemoryRequired = 0;
 
@@ -472,8 +472,8 @@ splitAndReindex(PartitionData * sides,
     }
 
     // Get a contiguous block of memory for all of the feature
-    // blocks on each side; this enables a single GPU transfer
-    // and a single GPU argument list.
+    // blocks on each side; this enables a single device transfer
+    // and a single device argument list.
     std::vector<size_t> bucketMemoryOffsets[2];
     MutableMemoryRegionT<uint32_t> mutableBucketMemory[2];
         
@@ -736,55 +736,6 @@ train(int depth, int maxDepth,
     return result;
 }
 
-//MemorySerializer PartitionData::serializer;
-
-struct RegisterKernels {
-
-    RegisterKernels()
-    {
-        auto createDecodeRowsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
-        {
-            auto result = std::make_shared<ComputeKernel>();
-            result->kernelName = "decodeRows";
-            result->device = device;
-            result->addParameter("rowData", "r", "u64[rowDataLength]");
-            result->addParameter("rowDataLength", "r", "u32");
-            result->addParameter("weightBits", "r", "u16");
-            result->addParameter("exampleNumBits", "r", "u16");
-            result->addParameter("numRows", "r", "u32");
-            result->addParameter("weightFormat", "r", "MLDB::RF::WeightFormat");
-            result->addParameter("weightMultiplier", "r", "f32");
-            result->addParameter("weightData", "r", "f32[weightDataLength]");
-            result->addParameter("decodedRowsOut", "w", "f32[numRows]");
-            result->setComputeFunction(decodeRowsKernelCpu);
-            return result;
-        };
-
-        registerComputeKernel("decodeRows", createDecodeRowsKernel);
-
-        auto createTestFeatureKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
-        {
-            auto result = std::make_shared<ComputeKernel>();
-            result->kernelName = "testFeature";
-            result->device = device;
-            result->addDimension("featureNum", "nf");
-            result->addParameter("decodedRows", "r", "f32[numRows]");
-            result->addParameter("numRows", "r", "u32");
-            result->addParameter("bucketData", "r", "u32[bucketDataLength]");
-            result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
-            result->addParameter("bucketNumbers", "r", "u32[nf]");
-            result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[nf]");
-            result->addParameter("partitionBuckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numBuckets]");
-            result->set1DComputeFunction(testFeatureKernel);
-            return result;
-        };
-
-        registerComputeKernel("testFeature", createTestFeatureKernel);
-    }
-
-} registerKernels;
-
 EnvOption<bool> DEBUG_RF_KERNELS("DEBUG_RF_KERNELS", 1);
 
 ML::Tree::Ptr
@@ -797,7 +748,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                                const DatasetFeatureSpace & fs,
                                const ComputeDevice & device)
 {
-    constexpr bool RF_EXPAND_FEATURE_BUCKETS = false;
     const bool debugKernelOutput = DEBUG_RF_KERNELS;
 
     // First, figure out the memory requirements.  This means sizing all
@@ -923,7 +873,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         = context.transferToDeviceImmutable(bucketMemory, "transferBucketData");
     
     // This one contains an expanded version of the row data, with one float
-    // per row rather than bit-compressed.  It's expanded on the GPU so that
+    // per row rather than bit-compressed.  It's expanded on the device so that
     // the compressed version can be passed over the PCIe bus and not the
     // expanded version.
     MemoryArrayHandleT<float> deviceExpandedRowData = context.allocArray<float>(rowCount);
@@ -983,44 +933,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     auto deviceBucketEntryBits = context.manageMemoryRegion(bucketEntryBits);
     auto deviceFeaturesActive = context.manageMemoryRegion(featuresActive);
     auto deviceBucketDataOffsets = context.manageMemoryRegion(bucketMemoryOffsets);
-    auto deviceDecompressedBucketData = context.allocArray<uint16_t>(numRows * numActiveFeatures);
-
-    cerr << "bucketNumbers.size() = " << bucketNumbers.size() << endl;
-
-    std::vector<uint32_t> decompressedBucketDataOffsets;
-
-    {
-        uint32_t offset = 0;
-        for (int f = 0;  f < nf;  ++f) {
-            decompressedBucketDataOffsets.push_back(offset);
-            if (!featuresActive[f] || !RF_EXPAND_FEATURE_BUCKETS)
-                continue;
-            offset += sizeof(uint16_t) * numRows;
-        }
-        decompressedBucketDataOffsets.push_back(offset);
-    }
-
-    auto deviceDecompressedBucketDataOffsets = context.manageMemoryRegion(decompressedBucketDataOffsets);
-
-    if (RF_EXPAND_FEATURE_BUCKETS) {
-        auto decompressBucketsKernel
-            = context.getKernel("decompressFeatureBucketsKernel", device);
-        
-        auto boundKernel = decompressBucketsKernel
-            ->bind(  "numRows",                  (uint32_t)numRows,
-                    "bucketData",               deviceBucketData,
-                    "bucketDataOffsets",        deviceBucketDataOffsets,
-                    "bucketNumbers",            deviceBucketNumbers,
-                    "bucketEntryBits",          deviceBucketEntryBits,
-                    "featuresActive",           deviceFeaturesActive,
-                    "decompressedData",         deviceDecompressedBucketData,
-                    "decompressedDataOffsets",  deviceDecompressedBucketDataOffsets);
-
-        std::shared_ptr<ComputeEvent> runDecompressBuckets
-            = queue.launch(boundKernel, { 65536, nf },
-                           { transferBucketData });
-        allEvents.emplace_back("runDecompressBuckets", runDecompressBuckets);
-    }
 
     // Our wAll array contains the sum of all of the W buckets across
     // each partition.  We allocate a single array at the start and just
@@ -1142,7 +1054,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     // Which event represents that the previous iteration of partitions
     // are available?
-    std::shared_ptr<ComputeEvent> previousIteration = runTestFeatureKernel;  // CRASH HERE ON DEBUG
+    std::shared_ptr<ComputeEvent> previousIteration = runTestFeatureKernel;
 
     // Event list for all of the buckets
     std::vector<std::shared_ptr<ComputeEvent>> deviceDepthSplitsEvents;
@@ -1168,11 +1080,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         cerr << "depth = " << depth << " myDepth = " << myDepth << " numPartitions " << numPartitionsAtDepth << endl;
 
-        //if (RF_OPENCL_SYNCHRONOUS_LAUNCH) {
-        //    queue.flush();
-        //    queue.finish();
-        //}
-            
         // Run a kernel to find the new split point for each partition,
         // best feature and kernel
 
@@ -1181,16 +1088,16 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         // feature number and partition number (ie, a 3d invocation).
         
         auto getPartitionSplitsKernel
-            = context.getKernel("getPartitionSplitsKernel", device);
+            = context.getKernel("getPartitionSplits", device);
 
         auto boundGetPartitionSplitsKernel = getPartitionSplitsKernel
-            ->bind("numActiveBuckets",               (uint32_t)numActiveBuckets,
-                  "bucketNumbers",                  deviceBucketNumbers,
-                  "featuresActive",                 deviceFeaturesActive,
-                  "featureIsOrdinal",               deviceFeatureIsOrdinal,
-                  "partitionBuckets",               devicePartitionBuckets,
-                  "wAll",                           deviceWAll,
-                  "featurePartitionSplits",         deviceFeaturePartitionSplits);
+            ->bind("totalBuckets",                   (uint32_t)numActiveBuckets,
+                   "bucketNumbers",                  deviceBucketNumbers,
+                   "featuresActive",                 deviceFeaturesActive,
+                   "featureIsOrdinal",               deviceFeatureIsOrdinal,
+                   "buckets",                        devicePartitionBuckets,
+                   "wAll",                           deviceWAll,
+                   "featurePartitionSplitsOut",      deviceFeaturePartitionSplits);
 
         //cerr << endl << endl << " depth " << depth << " numPartitions "
         //     << numPartitionsAtDepth << " buckets "
@@ -1198,7 +1105,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         std::shared_ptr<ComputeEvent> runPartitionSplitsKernel
             = queue.launch(boundGetPartitionSplitsKernel,
-                           { 64, nf, numPartitionsAtDepth },
+                           { nf, numPartitionsAtDepth },
                            { previousIteration, copyWAll, initializeWAll});
 
         allEvents.emplace_back("runPartitionSplitsKernel "
@@ -1208,7 +1115,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         // Now we have the best split for each feature for each partition,
         // find the best one per partition and finally record it.
         auto bestPartitionSplitKernel
-            = context.getKernel("bestPartitionSplitKernel", device);
+            = context.getKernel("bestPartitionSplit", device);
 
         // What is our offset into partitionSplits?  In other words, where do
         // the partitions for this iteration start?  By skipping the first
@@ -1221,7 +1128,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             ->bind("numFeatures",            (uint32_t)nf,
                   "featuresActive",         deviceFeaturesActive,
                   "featurePartitionSplits", deviceFeaturePartitionSplits,
-                  "allPartitionSplits",     deviceAllPartitionSplits,
+                  "allPartitionSplitsOut",  deviceAllPartitionSplits,
                   "partitionSplitsOffset",  partitionSplitsOffset);
 
         std::shared_ptr<ComputeEvent> runBestPartitionSplitKernel
@@ -1232,7 +1139,108 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         allEvents.emplace_back("runBestPartitionSplitKernel "
                                + std::to_string(myDepth),
                                runBestPartitionSplitKernel);
-        
+
+        // These are parallel CPU data structures for the on-device ones,
+        // into which we copy the input data required to re-run the
+        // computation on the CPU so we can verify the output of the device
+        // algorithm.
+        std::vector<PartitionSplit> debugPartitionSplitsCpu;
+        std::vector<std::vector<W> > debugBucketsCpu;
+        std::vector<W> debugWAllCpu;
+        std::vector<uint32_t> debugPartitionsCpu;
+        std::set<int> okayDifferentPartitions;
+
+        if (debugKernelOutput) {
+            // Map back the device partition splits (note that we only use those between
+            // numPartitionsAtDepth and 2 * numPartitionsAtDepth)
+            auto mappedPartitionSplits = context.transferToCpuSync(deviceAllPartitionSplits);
+            auto partitionSplitsDevice
+                 = mappedPartitionSplits.getConstSpan(numPartitionsAtDepth, numPartitionsAtDepth);
+
+            // Map back the device partition numbers
+            auto mappedPartitions = context.transferToCpuSync(devicePartitions);
+            auto partitionsDevice = mappedPartitions.getConstSpan();
+
+            debugPartitionsCpu = { partitionsDevice.begin(), partitionsDevice.end() };
+            
+            // Construct the CPU version of buckets
+            auto mappedBuckets = context.transferToCpuSync(devicePartitionBuckets);
+            auto bucketsDevice = mappedBuckets.getConstSpan();
+
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                const W * partitionBuckets = bucketsDevice.data() + numActiveBuckets * i;
+                debugBucketsCpu.emplace_back(partitionBuckets,
+                                             partitionBuckets + numActiveBuckets);
+            }
+            
+            // Get back the CPU version of wAll
+            auto mappedWAll = context.transferToCpuSync(deviceWAll);
+            auto wAllDevice = mappedWAll.getConstSpan();
+            debugWAllCpu = { wAllDevice.begin(),
+                             wAllDevice.begin() + numPartitionsAtDepth };
+
+            std::vector<PartitionIndex> indexes;
+            
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                indexes.push_back(numPartitionsAtDepth + i);
+            }
+
+            // Run the CPU version... first getting the data in place
+            debugPartitionSplitsCpu
+                = getPartitionSplits(debugBucketsCpu,
+                                     activeFeatures, bucketNumbers,
+                                     features, debugWAllCpu,
+                                     indexes, 
+                                     false /* parallel */);
+
+            // Make sure we got the right thing back out
+            ExcAssertEqual(debugPartitionSplitsCpu.size(),
+                           numPartitionsAtDepth);
+
+            bool different = false;
+            
+            for (int p = 0;  p < numPartitionsAtDepth;  ++p) {
+
+                //cerr << "p = " << p << " of " << numPartitionsAtDepth << endl
+                //     << " CPU " << jsonEncodeStr(debugPartitionSplitsCpu[p]) << endl
+                //     << " device " << jsonEncodeStr(partitionSplitsDevice[p])
+                //     << endl;
+
+                if ((partitionSplitsDevice[p].left
+                     != debugPartitionSplitsCpu[p].left)
+                    || (partitionSplitsDevice[p].right
+                        != debugPartitionSplitsCpu[p].right)
+                    || (partitionSplitsDevice[p].feature
+                        != debugPartitionSplitsCpu[p].feature)
+                    || (partitionSplitsDevice[p].value
+                        != debugPartitionSplitsCpu[p].value)
+                    || (partitionSplitsDevice[p].index
+                        != debugPartitionSplitsCpu[p].index)
+                    || (partitionSplitsDevice[p].score
+                        != debugPartitionSplitsCpu[p].score)) {
+                    float score1 = partitionSplitsDevice[p].score;
+                    float score2 = debugPartitionSplitsCpu[p].score;
+
+                    okayDifferentPartitions.insert(p);
+                    okayDifferentPartitions.insert(p + numPartitionsAtDepth);
+
+                    float relativeDifference = fabs(score1 - score2) / max(score1, score2);
+
+                    different = different || relativeDifference >= 0.001;
+                    cerr << "partition " << p << "\ndevice "
+                         << jsonEncodeStr(partitionSplitsDevice[p])
+                         << "\nCPU " << jsonEncodeStr(debugPartitionSplitsCpu[p])
+                         << " score relative difference " << relativeDifference << endl;
+                    if ((partitionSplitsDevice[p].score != debugPartitionSplitsCpu[p].score))
+                        cerr << "score device: " << *(uint32_t *)(&partitionSplitsDevice[p].score)
+                             << " score CPU: " << *(uint32_t *)(&debugPartitionSplitsCpu[p].score)
+                             << endl;
+                }
+            }
+            
+            ExcAssert(!different);
+        }
+
         // Double the number of partitions, create new W entries for the
         // new partitions, and transfer those examples that are in the
         // wrong partition to the right one
@@ -1248,77 +1256,223 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         // the new buckets there.
 
         auto clearBucketsKernel
-            = context.getKernel("clearBucketsKernel", device);
+            = context.getKernel("clearBuckets", device);
 
         auto boundClearBucketsKernel = clearBucketsKernel
-            ->bind("partitionBuckets",       devicePartitionBuckets,
-                  "wAll",                   deviceWAll,
-                  "allPartitionSplits",     deviceAllPartitionSplits,
-                  "numActiveBuckets",       (uint32_t)numActiveBuckets,
-                  "numPartitionsAtDepth",   (uint32_t)numPartitionsAtDepth);
+            ->bind("bucketsOut",             devicePartitionBuckets,
+                   "wAllOut",                deviceWAll,
+                   "allPartitionSplits",     deviceAllPartitionSplits,
+                   "numActiveBuckets",       (uint32_t)numActiveBuckets,
+                   "partitionSplitsOffset",  (uint32_t)numPartitionsAtDepth);
 
         std::shared_ptr<ComputeEvent> runClearBucketsKernel
             = queue.launch(boundClearBucketsKernel,
-                           { numPartitionsAtDepth, (numActiveBuckets + 63) / 64 * 64 },
+                           { numPartitionsAtDepth, numActiveBuckets },
                            { runPartitionSplitsKernel });
  
         allEvents.emplace_back("runClearBucketsKernel "
                                + std::to_string(myDepth),
                                runClearBucketsKernel);
 
+        // While we're doint that, we can also calculate our new
+        // partition numbers (for each row)
+        auto updatePartitionNumbersKernel
+            = context.getKernel("updatePartitionNumbers", device);
+
+        auto boundUpdatePartitionNumbersKernel = updatePartitionNumbersKernel
+            ->bind("partitionSplitsOffset",          (uint32_t)numPartitionsAtDepth,  // rightOffset
+                   "partitions",                     devicePartitions,
+                   "allPartitionSplits",             deviceAllPartitionSplits,
+                   "bucketData",                     deviceBucketData,
+                   "bucketDataOffsets",              deviceBucketDataOffsets,
+                   "bucketNumbers",                  deviceBucketNumbers,
+                   "bucketEntryBits",                deviceBucketEntryBits,
+                   "featureIsOrdinal",               deviceFeatureIsOrdinal);
+
+        std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel
+            = queue.launch(boundUpdatePartitionNumbersKernel, { (uint32_t)numRows },
+                            { runPartitionSplitsKernel });
+
         // Now the right side buckets are clear, we can transfer the weights
         // for the examples who have changed bucket from the left to the right.
         auto updateBucketsKernel
-            = context.getKernel("updateBucketsKernel", device);
+            = context.getKernel("updateBuckets", device);
 
         auto boundUpdateBucketsKernel = updateBucketsKernel
-            ->bind("rightOffset",                    (uint32_t)numPartitionsAtDepth,  // rightOffset
+            ->bind("partitionSplitsOffset",         (uint32_t)numPartitionsAtDepth,  // rightOffset
                   "numActiveBuckets",               (uint32_t)numActiveBuckets,
                   "partitions",                     devicePartitions,
-                  "partitionBuckets",               devicePartitionBuckets,
+                  "buckets",                        devicePartitionBuckets,
                   "wAll",                           deviceWAll,
                   "allPartitionSplits",             deviceAllPartitionSplits,
-
-                  "expandedRowData",                deviceExpandedRowData,
-                  "numRows",                        (uint32_t)numRows,                  
-
+                  "decodedRows",                    deviceExpandedRowData,
+                  "numRows",                        (uint32_t)numRows,
                   "bucketData",                     deviceBucketData,
                   "bucketDataOffsets",              deviceBucketDataOffsets,
                   "bucketNumbers",                  deviceBucketNumbers,
                   "bucketEntryBits",                deviceBucketEntryBits,
-                  "decompressedBucketData",         deviceDecompressedBucketData,
-                  "decompressedBucketDataOffsets",  deviceDecompressedBucketDataOffsets,
-                  "expandFeatureBuckets",           (uint32_t)RF_EXPAND_FEATURE_BUCKETS,
                   "featuresActive",                 deviceFeaturesActive,
                   "featureIsOrdinal",               deviceFeatureIsOrdinal);
 
-
         std::shared_ptr<ComputeEvent> runUpdateBucketsKernel
-            = queue.launch(boundUpdateBucketsKernel, { 65536, nf + 1 /* +1 is wAll */},
-                            { runClearBucketsKernel });
+            = queue.launch(boundUpdateBucketsKernel, { nf + 1 /* +1 is wAll */},
+                            { runClearBucketsKernel, runUpdatePartitionNumbersKernel });
         
         allEvents.emplace_back("runUpdateBucketsKernel "
                                + std::to_string(myDepth),
                                runUpdateBucketsKernel);
         
         auto fixupBucketsKernel
-            = context.getKernel("fixupBucketsKernel", device);
+            = context.getKernel("fixupBuckets", device);
 
         auto boundFixupBucketsKernel = fixupBucketsKernel
-            ->bind("partitionBuckets",           devicePartitionBuckets,
-                  "wAll",                       deviceWAll,
-                  "allPartitionSplits",         deviceAllPartitionSplits,
-                  "numActiveBuckets",           (uint32_t)numActiveBuckets,
-                  "numPartitionsAtDepth",       (uint32_t)numPartitionsAtDepth);
+            ->bind("buckets",                   devicePartitionBuckets,
+                   "wAll",                       deviceWAll,
+                   "allPartitionSplits",         deviceAllPartitionSplits);
 
         std::shared_ptr<ComputeEvent> runFixupBucketsKernel
             = queue.launch(boundFixupBucketsKernel,
-                           { numPartitionsAtDepth, (numActiveBuckets + 63) / 64 * 64 },
+                           { numPartitionsAtDepth, numActiveBuckets },
                            { runUpdateBucketsKernel });
  
         allEvents.emplace_back("runFixupBucketsKernel "
                                + std::to_string(myDepth),
                                runFixupBucketsKernel);
+
+        if (debugKernelOutput) {
+
+            // These give the partition numbers for the left (.first) and right (.second) of each partition
+            // or -1 if it's not active or < -2 if it's handled as a leaf
+            std::vector<std::pair<int32_t, int32_t> > newPartitionNumbers(numPartitionsAtDepth, {-1,-1});
+ 
+            ExcAssertEqual(numPartitionsAtDepth, debugPartitionSplitsCpu.size());
+
+            for (int i = 0;  i < numPartitionsAtDepth;  ++i) {
+                const PartitionSplit & split = debugPartitionSplitsCpu.at(i);
+                if (!split.valid())
+                    continue;
+                int left = i;
+                int right = i + numPartitionsAtDepth;
+                //if (split.direction)
+                //    std::swap(left, right);
+                newPartitionNumbers[i] = { left, right };
+            }
+            
+            //cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
+
+            // Run the CPU version of the computation
+            updateBuckets(features,
+                          debugPartitionsCpu,
+                          debugBucketsCpu,
+                          debugWAllCpu,
+                          bucketNumbers,
+                          debugPartitionSplitsCpu,
+                          newPartitionNumbers,
+                          numPartitionsAtDepth * 2,
+                          debugExpandedRowsCpu,
+                          activeFeatures);
+
+            // There are three things that we modify (in-place):
+            // 1) The per-partition, per-feature W buckets
+            // 2) The per-partition wAll array
+            // 3) The per-row partition number array
+            //
+            // Each of these three will be mapped back from the device and
+            // its accuracy verified.
+
+            bool different = false;
+
+            // 1.  Map back the W buckets and compare against the CPU
+            // version.
+
+            // Construct the CPU version of buckets
+            auto mappedBuckets = context.transferToCpuSync(devicePartitionBuckets);
+            auto bucketsDevice = mappedBuckets.getConstSpan();
+
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                std::span<const W> partitionBuckets = bucketsDevice.subspan(numActiveBuckets * i);
+                if (newPartitionNumbers[i].first == -1)
+                    continue;  // dead partition, don't verify...
+                if (okayDifferentPartitions.count(i))
+                    continue;  // is different due to a different split caused by numerical errors
+
+                if (!debugBucketsCpu[i].empty()) {
+                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
+                        if (partitionBuckets[j] != debugBucketsCpu[i].at(j)) {
+                            cerr << "part " << i << " bucket " << j
+                                 << " num " << numActiveBuckets * i + j
+                                 << " update error: CPU "
+                                 << jsonEncodeStr(debugBucketsCpu[i][j])
+                                 << " device "
+                                 << jsonEncodeStr(partitionBuckets[j])
+                                 << endl;
+                            different = true;
+                        }
+                    }
+                } else {
+                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
+                        if (partitionBuckets[j].count() != 0) {
+                            cerr << "part " << i << " bucket " << j
+                                 << " update error: CPU empty "
+                                 << " device "
+                                 << jsonEncodeStr(partitionBuckets[j])
+                                 << endl;
+                            different = true;
+                        }
+                    }
+                }
+            }
+
+            // 2.  Map back the wAll values and compare against the CPU version
+            auto mappedWAll = context.transferToCpuSync(deviceWAll);
+            auto wAllDevice = mappedWAll.getConstSpan();
+
+            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+                if (newPartitionNumbers[i].first == -1 || okayDifferentPartitions.count(i))
+                    continue;  // dead partition, don't verify...
+                if (wAllDevice[i] != debugWAllCpu[i]) {
+                    cerr << "part " << i << " wAll update error: CPU "
+                         << jsonEncodeStr(debugWAllCpu[i])
+                         << " device " << jsonEncodeStr(wAllDevice[i])
+                         << endl;
+                    different = true;
+                }
+            }
+
+            // 3.  Map back the device partition numbers and compare against
+            // the CPU version
+            auto mappedPartitions = context.transferToCpuSync(devicePartitions);
+            auto partitionsDevice = mappedPartitions.getConstSpan();
+
+            int numDifferences = 0;
+            std::map<std::pair<int, int>, int> differenceStats;
+            for (size_t i = 0;  i < rowCount;  ++i) {
+                if (partitionsDevice[i] != debugPartitionsCpu[i] && debugPartitionsCpu[i] != -1) {
+                    if (okayDifferentPartitions.count(debugPartitionsCpu[i]))
+                        continue;  // caused by known numerical issues
+                    different = true;
+                    differenceStats[{debugPartitionsCpu[i], partitionsDevice[i]}] += 1;
+                    if (++numDifferences < 10) {
+                        cerr << "row " << i << " partition difference: CPU "
+                            << (int)debugPartitionsCpu[i]
+                            << " device " << (int)partitionsDevice[i]
+                            << endl;
+                    }
+                    else if (numDifferences == 11) {
+                        cerr << "..." << endl;
+                    }
+                }
+            }
+
+            if (numDifferences > 0) {
+                cerr << "partition number error stats (total " << numDifferences << ")" << endl;
+                for (auto & s: differenceStats) {
+                    cerr << "  cpu: " << s.first.first << " device: " << s.first.second << " count: " << s.second << endl;
+                }
+            }
+
+            ExcAssert(!different);
+        }
 
         Date doneDepth = Date::now();
 
@@ -1370,7 +1524,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     std::map<PartitionIndex, PartitionSplit> allSplits;
 
-    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+    for (size_t i = 1;  i < numPartitionsAtDepth;  ++i) {
         cerr << "PARTITION " << i << " " << PartitionIndex(i) << endl;
         cerr << jsonEncode(mappedAllPartitionSplits[i]) << endl;
     }
@@ -1394,10 +1548,12 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         auto & split = mappedAllPartitionSplits[position];
 
-        cerr << "  split = " << jsonEncodeStr(split) << endl;
+        cerr << "  split " << split.index << " = " << jsonEncodeStr(split) << endl;
 
-        int leftPosition = split.direction ? leftIndex.index : rightIndex.index;
-        int rightPosition = split.direction ? rightIndex.index : leftIndex.index;
+        ExcAssertEqual(index, split.index);
+
+        int leftPosition = split.direction ? rightIndex.index : leftIndex.index;
+        int rightPosition = split.direction ? leftIndex.index : rightIndex.index;
         //int leftPosition = leftIndex.index;
         //int rightPosition = rightIndex.index;
 

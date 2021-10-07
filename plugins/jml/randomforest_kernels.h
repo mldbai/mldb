@@ -199,6 +199,51 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,
                    const std::span<const PartitionIndex> & indexes,
                    bool parallel);
 
+// For each feature and partition, find the split that gives the best score and
+// record it with one row per partition and one column per feature in the output
+// matrix.  This involves testing each split point for the given feature and
+// partition.
+void
+getPartitionSplitsKernel(ComputeContext & context,
+                         uint32_t f, uint32_t nf,
+                         uint32_t p, uint32_t np,
+
+                         uint32_t totalBuckets,
+                         std::span<const uint32_t> bucketNumbers, // [nf]
+                         
+                         std::span<const uint32_t> featureActive, // [nf]
+                         std::span<const uint32_t> featureIsOrdinal, // [nf]
+                         
+                         std::span<const W> buckets, // [np x totalBuckets]
+
+                         std::span<const W> wAll,  // [np] one per partition
+                         std::span<PartitionSplit> featurePartitionsplitsOut); // [np x nf]
+
+// Reduction over the feature columns from the getPartitionSplitsKernel, where
+// we find which feature gives the best split for each partition and record that
+// in the output.
+void
+bestPartitionSplitKernel(ComputeContext & context,
+                         uint32_t p, uint32_t np,
+                         uint32_t nf,
+                         std::span<const uint32_t> featureActive, // [nf]
+                         std::span<const PartitionSplit> featurePartitionSplits, // [np x nf]
+                         std::span<PartitionSplit> partitionSplits,  // np
+                         uint32_t partitionSplitsOffset);
+
+// After doubling the number of buckets, this clears the wAll and allPartitionBuckets
+// entries corresponding to active post-split buckets.
+void
+clearBucketsKernel(ComputeContext & context,
+                   uint32_t p, uint32_t np,
+                   uint32_t b, uint32_t nb,
+                   std::span<W> allPartitionBuckets,
+                   std::span<W> wAll,
+                   std::span<const PartitionSplit> partitionSplits,
+                   uint32_t numActiveBuckets,
+                   uint32_t partitionSplitsOffset);
+
+
 // Check that the partition counts match the W counts.
 void verifyPartitionBuckets(const std::span<const uint32_t> & partitions,
                             const std::span<const W> & wAll);
