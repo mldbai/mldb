@@ -749,6 +749,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                                const ComputeDevice & device)
 {
     const bool debugKernelOutput = DEBUG_RF_KERNELS;
+    constexpr uint32_t maxIterations = 16;
 
     // First, figure out the memory requirements.  This means sizing all
     // kinds of things so that we can make our allocations statically.
@@ -769,7 +770,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     // How many iterations can we run for?  This may be reduced if the
     // memory is not available to run the full width
-    int numIterations = std::min(10, maxDepth - depth);
+    int numIterations = std::min(maxIterations, uint32_t(maxDepth - depth));
 
     // How many partitions will we have at our widest?
     int maxPartitionCount = 1 << numIterations;
@@ -1487,19 +1488,146 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     queue.flush();
 
-    std::shared_ptr<ComputeEvent> mapAllPartitionSplits;
-    FrozenMemoryRegionT<PartitionSplit> mappedAllPartitionSplits;
+    // If we're not at the lowest level, partition our data and recurse
+    // par partition to create our leaves.
+    Date beforeMapping = Date::now();
 
-    std::tie(mappedAllPartitionSplits, mapAllPartitionSplits)
-        = context.transferToCpu(deviceAllPartitionSplits);
 
-    allEvents.emplace_back("mapAllPartitionSplits", mapAllPartitionSplits);
+    // Get all the data back...
+    auto allPartitionSplitsRegion = context.transferToCpuSync(deviceAllPartitionSplits);
+    std::span<const PartitionSplit> allPartitionSplits = allPartitionSplitsRegion.getConstSpan();
+    auto bucketsUnrolledRegion = context.transferToCpuSync(devicePartitionBuckets);
+    std::span<const W> bucketsUnrolled = bucketsUnrolledRegion.getConstSpan();
+    auto partitionsRegion = context.transferToCpuSync(devicePartitions);
+    std::span<const uint32_t> partitions = partitionsRegion.getConstSpan();
+    auto wAllRegion = context.transferToCpuSync(deviceWAll);
+    std::span<const W> wAll = wAllRegion.getConstSpan();
+    auto decodedRowsRegion = context.transferToCpuSync(deviceExpandedRowData);
+    std::span<const float> decodedRows = decodedRowsRegion.getConstSpan();
 
-    queue.flush();
-    
     cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
          << "ms with " << totalDeviceAllocation / 1000000.0 << "Mb allocated" << endl;
     cerr << "numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
+
+#if 0
+    // Look what's leftover for partition splits
+    std::vector<std::tuple<PartitionIndex, W64, uint32_t>> activePartitions;
+    size_t examplesInActivePartitions = 0;
+    for (size_t i = numPartitionsAtDepth / 2;  i < numPartitionsAtDepth;  ++i) {
+        auto & part = allPartitionSplits[i];
+        //cerr << "doing part " << part.index << endl;
+        if (part.index == PartitionIndex::none())
+            continue;
+        if (!part.valid())
+            continue;
+        if (part.left.empty() || part.right.empty())
+            continue;
+        if (part.left.uniform() && part.right.uniform())
+            continue;
+        if (!part.left.uniform()) {
+            activePartitions.emplace_back(part.index.leftChild(), part.left);
+            examplesInActivePartitions += part.left.count();
+        }
+        if (!part.right.uniform()) {
+            activePartitions.emplace_back(part.index.rightChild(), part.right);
+            examplesInActivePartitions += part.right.count();
+        }
+    }
+
+    auto sortByCount = [] (auto & l, auto & r) { auto [i1, w1, n1] = l; auto [i2, w2, n2] = r; return w1.count() > w2.count(); };
+    std::sort(activePartitions.begin(), activePartitions.end(), sortByCount);
+
+    cerr << activePartitions.size() << " active partitions; " << examplesInActivePartitions << " active rows of "
+         << rowCount << endl;
+
+    for (auto [i, w, n]: activePartitions) {
+        cerr << i << ": " << w.count() << " " << jsonEncodeStr(w) << endl;
+    }
+
+    uint32_t numToKeep = activePartitions.size();
+
+    uint32_t levelsNeeded = maxDepth - depth;
+    cerr << "need " << levelsNeeded << " more levels" << endl;
+
+    uint32_t maxNumToKeep = 1 << (maxIterations / 2);
+    if (levelsNeeded < maxIterations) {
+        maxNumToKeep = std::max(maxNumToKeep, uint32_t(1 << (maxIterations - levelsNeeded)));
+    }
+
+    // We need to be able to fill at least half of the levels with new splits
+    if (numToKeep > maxNumToKeep) {
+        numToKeep = maxNumToKeep;
+    }
+
+    size_t numRowsToKeep = 0;
+    size_t numRowsToProcess = 0;
+    for (uint32_t i = 0;  i < activePartitions.size();  ++i) {
+        auto & [idx, w, n] = activePartitions[i];
+        if (i < numToKeep) {
+            numRowsToKeep += w.count();
+        }
+        else {
+            numRowsToProcess += w.count();
+        }
+    }
+
+    cerr << "keeping " << numToKeep << " of " << activePartitions.size() << " partitions with "
+         << numRowsToKeep << " rows kept and " << numRowsToProcess << " rows to remove" << endl;
+#endif
+
+#if 0
+    struct ToProcessPartition {
+        uint32_t rowsOffset;      // Where we start in the toProcessRows
+        uint32_t numRows;         // Where we finish in the toProcessRows
+        uint32_t numRowsDone = 0; // How many rows have we filled?
+        uint32_t partitionNumber; // Which partition number we get our buckets from
+        PartitionIndex index;     // Partition index of the root
+    };
+
+    std::vector<ToProcessPartition> partitionsToProcess;
+    std::vector<uint32_t> partitionToToProcessIndex(numPartitionsAtDepth, -1);
+
+    size_t rowsOffset = 0;
+    for (uint32_t i = numToKeep;  i < activePartitions.size();  ++i) {
+        auto & [idx, w, n] = activePartitions[i];
+        ToProcessPartition toProcess;
+        toProcess.rowsOffset = rowsOffset;
+        toProcess.numRows = activePartitions.size();
+        toProcess.partitionNumber = n;
+        toProcess.index = idx;
+
+        partitionToToProcessIndex[n] = partitionsToProcess.size();
+        partitionsToProcess.push_back(toProcess);
+        rowsOffset += activePartitions.size();
+    }
+
+    // Now extract the rows that belong to each of our partitions to process
+    std::vector<uint32_t> toProcessRows(rowsOffset);  // row numbers
+
+    for (uint32_t r = 0;  r < numRows;  ++r) {
+        auto partition = partitions[r];
+        auto toProcessIndex = partitionToToProcessIndex[partition];
+        if (toProcessIndex == (uint32_t)-1)
+            continue;  // not in any partition
+        ToProcessPartition & toProcessEntry = partitionsToProcess[toProcessIndex];
+        uint32_t rowIndex = toProcessEntry.rowsOffset + toProcessEntry.numRowsDone++;
+        toProcessRows[rowIndex] = r;
+    }
+    
+    // Now we can process each of our small partitions
+    auto processSmallPartition = [&] (ToProcessPartition & partition)
+    {
+        // 1.  Calculate buckets
+
+        // 2.  Find split
+
+
+    };
+
+    for (size_t i = 0;  i < partitionsToProcess.size();  ++i) {
+        processSmallPartition(partitionsToProcess[i]);
+    }
+#endif
 
 #if 0
     cerr << "  submit    queue    start      end  elapsed name" << endl;
@@ -1529,10 +1657,9 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     for (size_t i = 1;  i < numPartitionsAtDepth;  ++i) {
         break;
         cerr << "PARTITION " << i << " " << PartitionIndex(i) << endl;
-        cerr << jsonEncode(mappedAllPartitionSplits[i]) << endl;
+        cerr << jsonEncode(allPartitionSplits[i]) << endl;
     }
 
-    std::vector<PartitionIndex> indexes(numPartitionsAtDepth);
     std::map<PartitionIndex, ML::Tree::Ptr> leaves;
 
     std::set<int> donePositions;
@@ -1545,9 +1672,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         //cerr << "position = " << position << " numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
 
-        indexes[position] = index;
-
-        auto & split = mappedAllPartitionSplits[position];
+        auto & split = allPartitionSplits[position];
 
         //cerr << "  split " << split.index << " = " << jsonEncodeStr(split) << endl;
 
@@ -1562,13 +1687,13 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
             //cerr << "  testing left " << leftIndex << " with position " << leftPosition << " of " << numPartitionsAtDepth << endl;
             if (leftPosition < numPartitionsAtDepth) {
-                auto & lsplit = mappedAllPartitionSplits[leftPosition];
+                auto & lsplit = allPartitionSplits[leftPosition];
                 if (lsplit.valid()) {
                     //cerr << "  has split " << jsonEncodeStr(lsplit) << endl;
                     ExcAssertEqual(lsplit.left.count() + lsplit.right.count(), split.left.count());
                 }
             }
-            if (leftPosition >= numPartitionsAtDepth || !mappedAllPartitionSplits[leftPosition].valid()) {
+            if (leftPosition >= numPartitionsAtDepth || !allPartitionSplits[leftPosition].valid()) {
                 //cerr << "    not valid; leaf" << endl;
                 leaves[leftIndex] = getLeaf(tree, split.left);
             }
@@ -1579,13 +1704,13 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
             //cerr << "  testing right " << rightIndex << " with position " << rightPosition << " of " << numPartitionsAtDepth << endl;
             if (rightPosition < numPartitionsAtDepth) {
-                auto & rsplit = mappedAllPartitionSplits[rightPosition];
+                auto & rsplit = allPartitionSplits[rightPosition];
                 if (rsplit.valid()) {
                     //cerr << "  has split " << jsonEncodeStr(rsplit) << endl;
                     ExcAssertEqual(rsplit.left.count() + rsplit.right.count(), split.right.count());
                 }
             }
-            if (rightPosition >= numPartitionsAtDepth || !mappedAllPartitionSplits[rightPosition].valid()) {
+            if (rightPosition >= numPartitionsAtDepth || !allPartitionSplits[rightPosition].valid()) {
                 leaves[rightIndex] = getLeaf(tree, split.right);
             }
             else {
@@ -1599,10 +1724,17 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     extractSplits(PartitionIndex::root(), 1 /* index */);
 
-    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-        if (mappedAllPartitionSplits[i].valid() && !donePositions.count(i)) {
+    for (size_t i = 1;  i < numPartitionsAtDepth;  ++i) {
+        if (allPartitionSplits[i].valid() && !donePositions.count(i)) {
             cerr << "ERROR: valid split " << i << " was not extracted" << endl;
         }
+    }
+
+    
+    std::vector<PartitionIndex> indexes(numPartitionsAtDepth);
+    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
+        indexes[i] = PartitionIndex(i + numPartitionsAtDepth);
+        ExcAssertEqual(indexes[i].depth(), depth);
     }
 
     //throw Exception("TODO allSplits");
@@ -1616,16 +1748,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     cerr << "got " << allSplits.size() << " splits" << endl;
 
 
-    // If we're not at the lowest level, partition our data and recurse
-    // par partition to create our leaves.
-    Date beforeMapping = Date::now();
-
-    auto bucketsUnrolled = context.transferToCpuSync(devicePartitionBuckets);
-    auto partitions = context.transferToCpuSync(devicePartitions);
-    auto wAll = context.transferToCpuSync(deviceWAll);
-    auto decodedRows = context.transferToCpuSync(deviceExpandedRowData);
-
-    std::vector<std::vector<W>> buckets;
+    std::vector<std::vector<W>> buckets;  // TODO: stop double copying...
     for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
         const W * partitionBuckets = bucketsUnrolled.data() + numActiveBuckets * i;
         buckets.emplace_back(partitionBuckets, partitionBuckets + numActiveBuckets);
@@ -1641,7 +1764,27 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                                      partitions, wAll, indexes, fs,
                                      bucketMemory);
 
-    leaves.merge(std::move(newLeaves));
+#if 0
+    auto printTree = [&fs] (const ML::Tree::Ptr & ptr) -> std::string
+    {
+        std::string result;
+        if (ptr.isNode()) {
+            result += "node ";
+            ML::Tree::Node * node = ptr.node();
+            result += node->split.print(fs);
+        }
+        else if (ptr.isLeaf()) {
+            result += "leaf ";
+        }
+        result += " pred " + jsonEncodeStr(ptr.pred());
+        return result;
+    };
+#endif
+
+    for (auto & [index, ptr]: newLeaves) {
+        //cerr << "got new leaf: " << index << " -> " << printTree(ptr) << endl;
+        leaves[index] = ptr;
+    }
 
     Date afterSplitAndRecurse = Date::now();
 

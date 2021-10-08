@@ -1576,7 +1576,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
             if (newData[i].index == PartitionIndex::none())
                 return;
 
-            cerr << "training leaf for index " << newData[i].index << " with " << newData[i].decodedRows.size() << " rows" << endl;
+            //cerr << "training leaf for index " << newData[i].index << " with " << newData[i].decodedRows.size() << " rows" << endl;
 
             leaves[i].first = newData[i].index;
             leaves[i].second = trainPartitionedRecursive
@@ -2461,8 +2461,8 @@ extractTree(int depth, int maxDepth,
 {
     ExcAssertEqual(root.depth(), depth);
     
-    cerr << "extractTree: depth " << depth << " root " << root << endl;
-    if (depth == 0) {
+    //cerr << "extractTree: depth " << depth << " root " << root << endl;
+    if (depth == 0 && false) {
         cerr << " with " << splits.size() << " splits and " << leaves.size() << " leaves" << endl;
         for (auto & s: splits) {
             cerr << "  split " << s.first << " --> " << s.second.feature << " " << s.second.index
@@ -2479,13 +2479,13 @@ extractTree(int depth, int maxDepth,
         if (it != leaves.end()) {
             return it->second;
         }
-        cerr << "  not found in leaves" << endl;
+        //cerr << "  not found in leaves" << endl;
     }
 
     // Secondly look for a split
     auto it = splits.find(root);
     if (it == splits.end()) {
-        cerr << "  split not found" << endl;
+        //cerr << "  split not found" << endl;
         return ML::Tree::Ptr();
     }
     auto & s = it->second;
