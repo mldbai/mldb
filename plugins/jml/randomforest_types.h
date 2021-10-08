@@ -550,8 +550,8 @@ enum PartitionSplitDirection: uint8_t {
 struct PartitionSplit {
     PartitionIndex index;      // 4 bytes
     float score = INFINITY;    // 4 bytes
-    int32_t feature = -1;      // 4 bytes
-    int32_t value = -1;        // 4 bytes
+    int16_t feature = -1;      // 2 bytes
+    int16_t value = -1;        // 2 bytes
     W left;                    // 12 bytes
     W right;                   // 12 bytes
 

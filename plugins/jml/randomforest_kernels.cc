@@ -1167,10 +1167,12 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] fo
             }
         }
 
-        partitionSplits[partition] =
-            { indexes[partition] /* index */,
-              (float)bestScore, bestFeature, bestSplit,
-              bestLeft, bestRight };
+        partitionSplits[partition].index = indexes[partition];
+        partitionSplits[partition].score = bestScore;
+        partitionSplits[partition].feature = bestFeature;
+        partitionSplits[partition].value = bestSplit;
+        partitionSplits[partition].left = bestLeft;
+        partitionSplits[partition].right = bestRight;
 #if 0
         cerr << "partition " << partition << " of " << buckets.size()
              << " with " << wAll[partition].count()
@@ -1217,10 +1219,9 @@ getPartitionSplitsKernel(ComputeContext & context,
     int endBucket = bucketNumbers[f + 1];
     int maxBucket = endBucket - startBucket - 1;
     const W * wFeature = buckets.data() + (p * totalBuckets) + startBucket;
-    auto [bestScore, bestSplit, bestLeft, bestRight]
+    result.feature = f;
+    std::tie(result.score, result.value, result.left, result.right)
         = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
-
-    result = { 0 /* index */, (float)bestScore, (int)f, bestSplit, bestLeft, bestRight };
 }
 
 void
@@ -1884,9 +1885,6 @@ descendSmallPartition(PartitionWorkEntry entry,
                 ExcAssertEqual(bigLen, split.left.count());
             }
 
-            if (bigLen < smallLen) {
-                cerr << "split: " << jsonEncode(split) << endl;
-            }
             ExcAssertGreaterEqual(bigLen, smallLen);
             
             // Finally, update our W for the big one by subtracting all
