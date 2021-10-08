@@ -15,13 +15,23 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/utils/command_expression.h"
+#include "mldb/arch/timers.h"
 #include <any>
 #include <iostream>
+#include <compare>
 
 namespace MLDB {
 
 struct ComputeDevice {
     static const ComputeDevice CPU;
+};
+
+struct ComputeProfilingInfo {
+
+};
+
+struct ComputeEvent {
+    ComputeProfilingInfo getProfilingInfo() const;
 };
 
 struct ComputeKernelDimension {
@@ -212,7 +222,50 @@ marshalParameterForCpuKernelCall()
 
 } // namespace details
 
+struct ComputeKernelGridRange {
+    ComputeKernelGridRange() = default;
+
+    ComputeKernelGridRange(uint32_t range)
+        : first_(0), last_(range), range_(range)
+    {
+    }
+
+    struct Iterator {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = uint32_t;
+        using difference_type = ssize_t;
+        using pointer = const uint32_t*;
+        using reference = const uint32_t&;
+
+        auto operator <=> (const Iterator & other) const = default;
+
+        Iterator operator++()
+        {
+            ++current;
+            return *this;
+        }
+
+        value_type operator * () const
+        {
+            return current;
+        }
+
+        uint32_t current;
+    };
+
+    uint32_t first_ = 0;  // Where this part of the grid starts; first <= last <= range
+    uint32_t last_ = 0;   // Where this part of the grid finishes;
+    uint32_t range_ = 0;  // Overall grid range (goes from 0 to range)
+
+    uint32_t range() const { return range_; };
+
+    Iterator begin() { return { first_ }; }
+    Iterator end() { return { last_ }; }
+};
+
 struct ComputeKernel {
+    using Callable = std::function<void (ComputeContext & context, std::span<ComputeKernelGridRange> idx)>;
+
     std::string kernelName;
     ComputeDevice device;
     ComputeContext * context = nullptr;
@@ -232,8 +285,6 @@ struct ComputeKernel {
     };
 
     std::vector<DimensionInfo> dims;
-
-    using Callable = std::function<void (ComputeContext & context, std::span<const uint32_t> idx, std::span<const uint32_t> rng)>;
 
     void addParameter(const std::string & parameterName, const std::string & access, const std::string & typeStr)
     {
@@ -357,10 +408,9 @@ struct ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<const uint32_t> idx, std::span<const uint32_t> rng)
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
             {
-                ExcAssert(idx.empty());
-                ExcAssert(rng.empty());
+                ExcAssertEqual(grid.size(), 0);
                 ComputeKernel::apply(fn, args, context);
             };
         };
@@ -379,9 +429,33 @@ struct ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<const uint32_t> idx, std::span<const uint32_t> rng)
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
             {
-                ComputeKernel::apply(fn, args, context, idx[0], rng[0]);
+                ExcAssertEqual(grid.size(), 1);
+                for (uint32_t idx: grid[0]) {
+                    ComputeKernel::apply(fn, args, context, idx, grid[0].range());
+                }
+            };
+        };
+
+        createCallable = result;
+    }
+
+    template<typename... Args>
+    void set1DComputeFunction(void (*fn) (ComputeContext & context, ComputeKernelGridRange & r1, Args...))
+    {
+        checkComputeFunctionArity(sizeof...(Args));
+        
+        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
+        {
+            ExcAssertEqual(params.size(), sizeof...(Args));
+            std::tuple<Args...> args;
+            std::vector<details::Pin> pins;
+            this->extractParams<0>(args, params, context, pins);
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            {
+                ExcAssertEqual(grid.size(), 1);
+                ComputeKernel::apply(fn, args, context, grid[0]);
             };
         };
 
@@ -397,9 +471,35 @@ struct ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<const uint32_t> idx, std::span<const uint32_t> rng)
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
             {
-                ComputeKernel::apply(fn, args, context, idx[0], rng[0], idx[1], rng[1]);
+                ExcAssertEqual(grid.size(), 2);
+                for (uint32_t i0: grid[0]) {
+                    for (uint32_t i1: grid[1]) {
+                        ComputeKernel::apply(fn, args, context, i0, grid[0].range(), i1, grid[1].range());
+                    }
+                }
+            };
+        };
+
+        createCallable = result;
+    }
+
+    template<typename... Args>
+    void set2DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, ComputeKernelGridRange & r2, Args...))
+    {
+        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
+        {
+            ExcAssertEqual(params.size(), sizeof...(Args));
+            std::tuple<Args...> args;
+            std::vector<details::Pin> pins;
+            this->extractParams<0>(args, params, context, pins);
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            {
+                ExcAssertEqual(grid.size(), 2);
+                for (uint32_t i0: grid[0]) {
+                    ComputeKernel::apply(fn, args, context, i0, grid[0].range(), grid[1]);
+                }
             };
         };
 
@@ -412,11 +512,10 @@ struct BoundComputeKernel {
     std::vector<ComputeKernelArgument> arguments;
     ComputeKernel::Callable call;
 
-    void operator () (ComputeContext & context,
-                      std::span<const uint32_t> idx, std::span<const uint32_t> rng) const
+    void operator () (ComputeContext & context, std::span<ComputeKernelGridRange> grid) const
     {
         try {
-            this->call(context, idx, rng);
+            this->call(context, grid);
         } MLDB_CATCH_ALL {
             rethrowException(500, "Error launching kernel " + owner->kernelName);
         }
@@ -560,15 +659,6 @@ BoundComputeKernel ComputeKernel::bind(NamesAndArgs&&... namesAndArgs)
     return result;
 }
 
-
-struct ComputeProfilingInfo {
-
-};
-
-struct ComputeEvent {
-    ComputeProfilingInfo getProfilingInfo() const;
-};
-
 struct ComputeQueue {
     ComputeQueue(ComputeContext * owner)
         : owner(owner)
@@ -582,36 +672,12 @@ struct ComputeQueue {
                                          const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {})
     {
         ExcAssertEqual(kernel.owner->dims.size(), grid.size());
-        if (grid.size() == 0) {
-            kernel(*owner, {}, {});
-        }
-        else if (grid.size() == 1) {
-            for (uint32_t i = 0;  i < grid[0];  ++i) {
-                std::array<uint32_t, 2> dims = {i};
-                kernel(*owner, dims, grid);
-            }
-        }
-        else if (grid.size() == 2) {
-            for (uint32_t i = 0;  i < grid[0];  ++i) {
-                for (uint32_t j = 0;  j < grid[1];  ++j) {
-                    std::array<uint32_t, 2> dims = {i,j};
-                    kernel(*owner, dims, grid);
-                }
-            }
-        }
-        else if (grid.size() == 3) {
-            for (uint32_t i = 0;  i < grid[0];  ++i) {
-                for (uint32_t j = 0;  j < grid[1];  ++j) {
-                    for (uint32_t k = 0;  k < grid[2];  ++k) {
-                        std::array<uint32_t, 3> dims = {i,j,k};
-                        kernel(*owner, dims, grid);
-                    }
-                }
-            }
-        }
-        else {
-            throw MLDB::Exception("Kernels can be launched from 0 to 3 dimensions");
-        }
+
+        Timer timer;
+        std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
+        kernel(*owner, ranges);
+        using namespace std;
+        cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
 
         return std::shared_ptr<ComputeEvent>();
     }

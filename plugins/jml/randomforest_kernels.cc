@@ -1255,7 +1255,7 @@ bestPartitionSplitKernel(ComputeContext & context,
 void
 clearBucketsKernel(ComputeContext & context,
                    uint32_t partition, uint32_t numPartitions,
-                   uint32_t bucket, uint32_t numBuckets,
+                   ComputeKernelGridRange & bucketRange,
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
                    std::span<const PartitionSplit> partitionSplits,
@@ -1264,22 +1264,27 @@ clearBucketsKernel(ComputeContext & context,
 {
     ExcAssertLess(partitionSplitsOffset + partition, partitionSplits.size());
     ExcAssertEqual(partitionSplitsOffset, numPartitions);
-    ExcAssertLess(bucket, numActiveBuckets);
+
+    uint32_t numBuckets = bucketRange.range();
     ExcAssertEqual(numBuckets, numActiveBuckets);
 
-    //if (partitionSplits[partition].right.count() == 0) // unused partition
-    //    return;
-    
-    allPartitionBuckets[(partitionSplitsOffset + partition) * numActiveBuckets + bucket] = W();
-    
-    if (bucket == 0) {
-        wAll[partitionSplitsOffset + partition] = W();
+    for (uint32_t bucket: bucketRange) {
+        ExcAssertLess(bucket, numActiveBuckets);
+
+        //if (partitionSplits[partition].right.count() == 0) // unused partition
+        //    return;
+        
+        allPartitionBuckets[(partitionSplitsOffset + partition) * numActiveBuckets + bucket] = W();
+        
+        if (bucket == 0) {
+            wAll[partitionSplitsOffset + partition] = W();
+        }
     }
 }
 
 void
 updatePartitionNumbersKernel(ComputeContext & context,
-                             uint32_t r, uint32_t nr,
+                             ComputeKernelGridRange & rowRange,
           
                              uint32_t rightOffset,
                              
@@ -1298,35 +1303,37 @@ updatePartitionNumbersKernel(ComputeContext & context,
     // Skip to where we should be in our partition splits
     partitionSplits = partitionSplits.subspan(rightOffset);
 
-    uint32_t partition = partitions[r];
-    int splitFeature = partitionSplits[partition].feature;
-            
-    if (splitFeature == -1) {
-        // reached a leaf here, nothing to split
-        return;
+    for (uint32_t r: rowRange) {
+        uint32_t partition = partitions[r];
+        int splitFeature = partitionSplits[partition].feature;
+                
+        if (splitFeature == -1) {
+            // reached a leaf here, nothing to split
+            continue;
+        }
+
+        uint32_t splitValue = partitionSplits[partition].value;
+        bool ordinal = featureIsOrdinal[splitFeature];
+        
+        // Get buckets for the split feature
+        BucketList buckets;
+        buckets.entryBits = bucketEntryBits[splitFeature];
+        buckets.numBuckets = -1;  // unused but set to an invalid value to be sure
+        buckets.numEntries = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
+        buckets.storagePtr = allBucketData.data() + bucketDataOffsets[splitFeature];
+
+        uint32_t bucket = buckets[r];
+
+        uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
+        
+        // Set the new partition number
+        partitions[r] = partition + side * rightOffset;
+
+        //cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
+        //     << " goes from partition " << partition << " (" << PartitionIndex(rightOffset + partition)
+        //     << ") to partition " << partition + side * rightOffset << " ("
+        //     << PartitionIndex(rightOffset + partition + side * rightOffset) << ")" << endl;
     }
-
-    uint32_t splitValue = partitionSplits[partition].value;
-    bool ordinal = featureIsOrdinal[splitFeature];
-    
-    // Get buckets for the split feature
-    BucketList buckets;
-    buckets.entryBits = bucketEntryBits[splitFeature];
-    buckets.numBuckets = -1;  // unused but set to an invalid value to be sure
-    buckets.numEntries = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
-    buckets.storagePtr = allBucketData.data() + bucketDataOffsets[splitFeature];
-
-    uint32_t bucket = buckets[r];
-
-    uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
-    
-    // Set the new partition number
-    partitions[r] = partition + side * rightOffset;
-
-    //cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
-    //     << " goes from partition " << partition << " (" << PartitionIndex(rightOffset + partition)
-    //     << ") to partition " << partition + side * rightOffset << " ("
-    //     << PartitionIndex(rightOffset + partition + side * rightOffset) << ")" << endl;
 }
 
 void
@@ -1452,11 +1459,12 @@ updateBucketsKernel(ComputeContext & context,
 void
 fixupBucketsKernel(ComputeContext & context,
                    uint32_t partition, uint32_t numPartitions,
-                   uint32_t bucket, uint32_t numActiveBuckets,
+                   ComputeKernelGridRange & bucketRange,
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
                    std::span<const PartitionSplit> partitionSplits)
 {
+    uint32_t numActiveBuckets = bucketRange.range();
     uint32_t partitionSplitsOffset = numPartitions;
     partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
 
@@ -1468,22 +1476,24 @@ fixupBucketsKernel(ComputeContext & context,
     std::span<W> bucketsRight
         = allPartitionBuckets.subspan((partition + numPartitions) * numActiveBuckets);
     
-    // We double the number of partitions.  The left all
-    // go with the lower partition numbers, the right have the higher
-    // partition numbers.
-    bucketsLeft[bucket] -= bucketsRight[bucket];
-    if (bucket == 0) {
-        //cerr << "bucket == 0: left " << jsonEncodeStr(wAll[partition])
-        //     << " right " << jsonEncodeStr(wAll[partition + numPartitions]) << endl;
-        wAll[partition] -= wAll[partition + numPartitions];
-    }
-    
-    if (partitionSplits[partition].transferDirection() == RL) {
-        // We need to swap the buckets
-        std::swap(bucketsLeft[bucket], bucketsRight[bucket]);
-
+    for (uint32_t bucket: bucketRange) {
+        // We double the number of partitions.  The left all
+        // go with the lower partition numbers, the right have the higher
+        // partition numbers.
+        bucketsLeft[bucket] -= bucketsRight[bucket];
         if (bucket == 0) {
-            std::swap(wAll[partition], wAll[partition + numPartitions]);
+            //cerr << "bucket == 0: left " << jsonEncodeStr(wAll[partition])
+            //     << " right " << jsonEncodeStr(wAll[partition + numPartitions]) << endl;
+            wAll[partition] -= wAll[partition + numPartitions];
+        }
+        
+        if (partitionSplits[partition].transferDirection() == RL) {
+            // We need to swap the buckets
+            std::swap(bucketsLeft[bucket], bucketsRight[bucket]);
+
+            if (bucket == 0) {
+                std::swap(wAll[partition], wAll[partition + numPartitions]);
+            }
         }
     }
 }

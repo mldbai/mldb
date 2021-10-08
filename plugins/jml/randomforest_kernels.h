@@ -236,7 +236,7 @@ bestPartitionSplitKernel(ComputeContext & context,
 void
 clearBucketsKernel(ComputeContext & context,
                    uint32_t p, uint32_t np,
-                   uint32_t b, uint32_t nb,
+                   ComputeKernelGridRange & buckets,
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
                    std::span<const PartitionSplit> partitionSplits,

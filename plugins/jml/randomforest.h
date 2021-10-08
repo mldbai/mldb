@@ -92,7 +92,7 @@ struct PartitionData {
     ML::Tree::Ptr train(int depth, int maxDepth,
                         ML::Tree & tree,
                         MappedSerializer & serializer,
-                        TrainingScheme trainingScheme = BOTH_AND_COMPARE) const;
+                        TrainingScheme trainingScheme = PARTITIONED) const;
 };
 
 
