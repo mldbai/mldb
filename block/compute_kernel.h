@@ -324,14 +324,14 @@ struct ComputeKernel {
     }
 
     template<typename Fn, typename... InitialArgs, typename Tuple, std::size_t... I>
-    static void apply_impl(Fn && fn, const Tuple & tupleArgs, std::integer_sequence<size_t, I...>,
+    static MLDB_ALWAYS_INLINE void apply_impl(Fn && fn, const Tuple & tupleArgs, std::integer_sequence<size_t, I...>,
                           InitialArgs&&... initialArgs)
     {
         fn(std::forward<InitialArgs>(initialArgs)..., std::get<I>(tupleArgs)...);
     }
 
     template<typename Fn, typename... InitialArgs, typename... TupleArgs>
-    static void apply(Fn && fn, const std::tuple<TupleArgs...> & tupleArgs, InitialArgs&&... initialArgs)
+    static MLDB_ALWAYS_INLINE void apply(Fn && fn, const std::tuple<TupleArgs...> & tupleArgs, InitialArgs&&... initialArgs)
     {
         return apply_impl(std::forward<Fn>(fn), tupleArgs, std::make_index_sequence<sizeof...(TupleArgs)>{},
                           std::forward<InitialArgs>(initialArgs)...);
