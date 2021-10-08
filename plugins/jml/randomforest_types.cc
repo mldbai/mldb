@@ -79,6 +79,13 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(W64)
 
 REGISTER_VALUE_DESCRIPTION(W64);
 
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(W32)
+{
+    addField("v", &W32::v, "Weights for false, true label");
+    addField("c", &W32::c, "Count of examples in bucket");
+}
+
+REGISTER_VALUE_DESCRIPTION(W32);
 std::ostream & operator << (std::ostream & stream, PartitionIndex idx)
 {
     return stream << idx.path();

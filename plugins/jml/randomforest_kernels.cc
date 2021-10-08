@@ -2727,7 +2727,7 @@ struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
-            result->addParameter("partitionBuckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numBuckets]");
+            result->addParameter("partitionBuckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numBuckets]");
             result->set1DComputeFunction(testFeatureKernel);
             return result;
         };
@@ -2745,8 +2745,8 @@ struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addParameter("buckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[totalBuckets * np]");
-            result->addParameter("wAll", "r", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np]");
+            result->addParameter("buckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum32>[totalBuckets * np]");
+            result->addParameter("wAll", "r", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np]");
             result->addParameter("featurePartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[np * nf]");
             result->set2DComputeFunction(getPartitionSplitsKernel);
             return result;
@@ -2778,8 +2778,8 @@ struct RegisterKernels {
             result->device = device;
             result->addDimension("p", "partitionSplitsOffset");
             result->addDimension("b", "numActiveBuckets");
-            result->addParameter("bucketsOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numActiveBuckets * np * 2]");
-            result->addParameter("wAllOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np * 2]");
+            result->addParameter("bucketsOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
+            result->addParameter("wAllOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitionSplitsOffset", "r", "u32");
@@ -2818,8 +2818,8 @@ struct RegisterKernels {
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitions", "r", "u32[numRows]");
-            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numActiveBuckets * np * 2]");
-            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np * 2]");
+            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
@@ -2842,8 +2842,8 @@ struct RegisterKernels {
             result->device = device;
             result->addDimension("partition", "np");
             result->addDimension("bucket", "numActiveBuckets");
-            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[numActiveBuckets * np * 2]");
-            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum64>[np * 2]");
+            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->set2DComputeFunction(fixupBucketsKernel);
             return result;
