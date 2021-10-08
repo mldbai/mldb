@@ -19,6 +19,7 @@ LIBVFS_HANDLERS_LINK := \
 	types \
 	credentials \
 	utils \
+	base \
 
 $(eval $(call library,vfs_handlers,$(LIBVFS_HANDLERS_SOURCES),$(LIBVFS_HANDLERS_LINK)))
 

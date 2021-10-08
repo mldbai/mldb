@@ -7,7 +7,7 @@ LIBAWS_SOURCES := \
 	aws.cc \
 	sqs.cc \
 
-LIBAWS_INDIRECT_LINK := arch value_description types
+LIBAWS_INDIRECT_LINK := arch value_description types base
 LIBAWS_LINK := credentials hash cryptopp tinyxml2 http rest io_base utils $(LIBAWS_INDIRECT_LINK)
 
 $(eval $(call library,aws,$(LIBAWS_SOURCES),$(LIBAWS_LINK)))

@@ -7,6 +7,8 @@ LIBBASE_SOURCES := \
 	parallel.cc \
 	optimized_path.cc \
 	hex_dump.cc \
+    ../utils/string_functions.cc \
+	../utils/csv.cc \
 
 
 LIBBASE_LINK :=	\

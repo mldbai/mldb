@@ -37,7 +37,8 @@ LIBTYPES_SOURCES := \
 	regex.cc \
 	periodic_utils_value_descriptions.cc \
 	path.cc \
-	annotated_exception.cc
+	annotated_exception.cc \
+	../utils/json_utils.cc \
 
 
 LIBTYPES_LINK := \
@@ -56,6 +57,8 @@ endif
 
 $(eval $(call library,types,$(LIBTYPES_SOURCES),$(LIBTYPES_LINK)))
 
+# TODO HACK
+$(eval $(call library,json_diff,../utils/json_diff.cc ../utils/json_utils.cc,arch base value_description types highwayhash))
 
 $(eval $(call include_sub_make,types_testing,testing,types_testing.mk))
 $(eval $(call include_sub_make,db))

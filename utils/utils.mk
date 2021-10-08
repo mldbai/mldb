@@ -6,8 +6,6 @@ $(eval $(call library,log,log.cc, arch config))
 
 LIBUTILS_SOURCES := \
         environment.cc \
-        string_functions.cc \
-	csv.cc \
 	floating_point.cc \
 	buckets.cc \
 	confidence_intervals.cc \
@@ -34,7 +32,6 @@ $(eval $(call set_compile_option,hash.cc,-fpermissive))
 $(eval $(call set_compile_option,confidence_intervals.cc,-O3))
 
 $(eval $(call library,progress,progress.cc,types value_description arch))
-$(eval $(call library,json_diff,json_diff.cc json_utils.cc,arch base value_description types utils highwayhash))
 
 # Runner Common
 
@@ -61,14 +58,11 @@ $(LIB)/librunner$(SO_EXTENSION): $(BIN)/runner_helper
 
 # Command Expression
 
-LIBCOMMAND_EXPRESSION_SOURCES := \
+LIBCOMMAND_SOURCES := \
 	command.cc \
-	command_expression.cc \
 
-LIBCOMMAND_EXPRESSION_LINK := runner value_description arch utils json_diff types base any
+LIBCOMMAND_LINK := runner command_expression value_description arch utils json_diff types base any block
 
-$(eval $(call library,command_expression,$(LIBCOMMAND_EXPRESSION_SOURCES),$(LIBCOMMAND_EXPRESSION_LINK)))
-
-$(eval $(call program,json_format,command_expression boost_program_options value_description base vfs))
+$(eval $(call library,command,$(LIBCOMMAND_SOURCES),$(LIBCOMMAND_LINK)))
 
 $(eval $(call include_sub_make,testing))

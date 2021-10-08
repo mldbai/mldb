@@ -13,7 +13,7 @@ $(eval $(call library,test_utils,$(LIB_TEST_UTILS_SOURCES),$(LIB_TEST_UTILS_LINK
 
 $(eval $(call test,json_diff_test,json_diff vfs value_description arch,boost))
 $(eval $(call test,json_hash_test,json_diff value_description arch,boost))
-$(eval $(call test,command_expression_test,command_expression value_description arch types test_utils,boost))
+$(eval $(call test,command_expression_test,command_expression command value_description arch types test_utils,boost))
 $(eval $(call test,config_test,config boost_program_options,boost))
 $(eval $(call test,logger_test,log,boost))
 $(eval $(call test,compact_vector_test,arch,boost))

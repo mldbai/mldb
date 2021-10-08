@@ -566,58 +566,6 @@ parseArgumentExpression(ParseContext & context)
 }
 
 std::string
-argumentRender(const Json::Value & val)
-{
-    using std::to_string;
-
-    switch (val.type()) {
-    case Json::nullValue:    return "";
-    case Json::intValue:     return to_string(val.asInt());
-    case Json::uintValue:    return to_string(val.asUInt());
-    case Json::realValue:    return to_string(val.asDouble());
-    case Json::booleanValue: return to_string(val.asBool());
-    case Json::stringValue:  return val.asString();
-    case Json::arrayValue: {
-        std::string str;
-        for (auto & v: val) {
-            if (!str.empty())
-                str += " ";
-            str += shellEscape(argumentRender(v));
-        }
-        return str;
-    }
-    default:
-        throw MLDB::Exception("can't render value " + val.toString() + " as string");
-    }
-}
-
-std::vector<std::string>
-commandRender(const Json::Value & val)
-{
-    //cerr << "commandRender " << val << endl;
-
-    using std::to_string;
-
-    switch (val.type()) {
-    case Json::nullValue:    return { "" };
-    case Json::intValue:     return { to_string(val.asInt()) };
-    case Json::uintValue:    return { to_string(val.asUInt()) };
-    case Json::realValue:    return { to_string(val.asDouble()) };
-    case Json::booleanValue: return { to_string(val.asBool()) };
-    case Json::stringValue:  return { val.asString() };
-    case Json::arrayValue: {
-        std::vector<std::string> str;
-        for (auto & v: val) {
-            str.push_back(argumentRender(v));
-        }
-        return str;
-    }
-    default:
-        throw MLDB::Exception("can't render value " + val.toString() + " as command");
-    }
-}
-
-std::string
 stringRender(const Json::Value & val)
 {
     using std::to_string;
@@ -645,7 +593,7 @@ stringRender(const Json::Value & val)
 
 
 /*****************************************************************************/
-/* COMMAND TEMPLATE                                                          */
+/* STRING TEMPLATE                                                           */
 /*****************************************************************************/
 
 void
@@ -676,80 +624,6 @@ operator () (const std::initializer_list<std::pair<std::string, std::string> > &
     return operator () (context);
 }
 
-
-/*****************************************************************************/
-/* COMMAND TEMPLATE                                                          */
-/*****************************************************************************/
-
-void
-CommandTemplate::
-parse(const std::string & command)
-{
-    ParseContext context(command,
-                              command.c_str(), command.c_str() + command.size());
-
-    while (context) {
-        commandLine.push_back
-            (CommandExpression::parseExpression
-             (context, true /* stop on whitespace */));
-        context.skip_whitespace();
-    }
-}
-
-void
-CommandTemplate::
-parse(const std::vector<std::string> & cmdline)
-{
-    for (unsigned i = 0;  i < cmdline.size();  ++i)
-        commandLine.push_back(CommandExpression::parse(cmdline[i]));
-}
-
-Command
-CommandTemplate::
-operator () (CommandExpressionContext & context) const
-{
-    Command result;
-
-    for (auto & c: commandLine) {
-        Json::Value r = c->apply(context);
-        //cerr << "result of " << c->surfaceForm << " is " << r << endl;
-        vector<string> vals = commandRender(r);
-        result.cmdLine.insert(result.cmdLine.end(), vals.begin(), vals.end());
-    }
-
-    return result;
-}
-
-
-Command
-CommandTemplate::
-operator () (const std::initializer_list<std::pair<std::string, std::string> > & vals) const
-{
-    CommandExpressionContext context(vals);
-    return operator () (context);
-}
-
-#if 0
-struct CommandTemplateDescription
-    : public StructureDescriptionImpl<CommandTemplate, CommandTemplateDescription> {
-
-    CommandTemplateDescription();
-};
-
-inline CommandTemplateDescription * getDefaultDescription(CommandTemplate*)
-{
-    return new CommandTemplateDescription();
-}
-#endif
-
-DEFINE_STRUCTURE_DESCRIPTION(CommandTemplate);
-
-CommandTemplateDescription::
-CommandTemplateDescription()
-{
-    //addField("env", &CommandTemplate::env, "expression to generate the environment");
-    addField("commandLine", &CommandTemplate::commandLine, "expression to generate the command line");
-}
 
 DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<CommandExpression>, CommandExpressionDescription);
 DEFINE_VALUE_DESCRIPTION_NS(StringTemplate, StringTemplateDescription);

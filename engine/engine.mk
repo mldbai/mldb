@@ -19,6 +19,7 @@ LIBMLDB_ENGINE_LINK:= \
 	credentials \
 	mldb_core \
 	command_expression \
+	command \
 	hoedown \
 	arch \
 	value_description \
