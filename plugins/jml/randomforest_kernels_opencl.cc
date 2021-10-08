@@ -2335,10 +2335,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
         cerr << "  split = " << jsonEncodeStr(split) << endl;
 
-        int leftPosition = split.direction ? leftIndex.index : rightIndex.index;
-        int rightPosition = split.direction ? rightIndex.index : leftIndex.index;
-        //int leftPosition = leftIndex.index;
-        //int rightPosition = rightIndex.index;
+        int leftPosition = leftIndex.index;
+        int rightPosition = rightIndex.index;
 
         allSplits[index] = split;
 

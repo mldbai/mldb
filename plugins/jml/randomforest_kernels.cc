@@ -583,7 +583,7 @@ void updateBuckets(const std::span<const Feature> & features,
                 || partitionSplits[i].right.count() == 0)
                 continue;
 
-            int to = partitionSplits[i].direction
+            int to = partitionSplits[i].transferDirection() == RL
                 ? newPartitionNumbers[i].second
                 : newPartitionNumbers[i].first;
 
@@ -709,7 +709,7 @@ void updateBuckets(const std::span<const Feature> & features,
             ++numInPartition[partitions[i]];
             
         // 0 = left to right, 1 = right to left
-        int direction = partitionSplits[partition].direction;
+        int direction = partitionSplits[partition].transferDirection() == RL;
 
         // We only need to update features on the wrong side, as we
         // transfer the weight rather than sum it from the
@@ -779,10 +779,10 @@ void updateBuckets(const std::span<const Feature> & features,
         }
 
         int fromPartition
-            = partitionSplits[i].direction
+            = partitionSplits[i].transferDirection() == RL
             ? rightPartition : leftPartition;
         int toPartition
-            = partitionSplits[i].direction
+            = partitionSplits[i].transferDirection() == RL
             ? leftPartition : rightPartition;
 
         wAll[fromPartition] -= wAll[toPartition];
@@ -1170,10 +1170,7 @@ getPartitionSplits(const std::vector<std::vector<W> > & buckets,  // [np][nb] fo
         partitionSplits[partition] =
             { indexes[partition] /* index */,
               (float)bestScore, bestFeature, bestSplit,
-              bestLeft, bestRight,
-              bestFeature != -1 && bestLeft.count() <= bestRight.count()  // direction
-            };
-
+              bestLeft, bestRight };
 #if 0
         cerr << "partition " << partition << " of " << buckets.size()
              << " with " << wAll[partition].count()
@@ -1223,7 +1220,7 @@ getPartitionSplitsKernel(ComputeContext & context,
     auto [bestScore, bestSplit, bestLeft, bestRight]
         = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
 
-    result = { 0 /* index */, (float)bestScore, (int)f, bestSplit, bestLeft, bestRight, false /* direction */ };
+    result = { 0 /* index */, (float)bestScore, (int)f, bestSplit, bestLeft, bestRight };
 }
 
 void
@@ -1251,7 +1248,6 @@ bestPartitionSplitKernel(ComputeContext & context,
         }
     }
 
-    result.direction = result.score != INFINITY && result.left.count() <= result.right.count();
     result.index = p + partitionSplitsOffset;
 }
 
@@ -1403,7 +1399,7 @@ updateBucketsKernel(ComputeContext & context,
         uint32_t rightPartition = partition + rightOffset;
 
         // 0 = left to right, 1 = right to left
-        uint32_t direction = partitionSplits[partition].direction;
+        uint32_t direction = partitionSplits[partition].transferDirection() == RL;
 
         //if (f == -1)
         //    cerr << "partition " << partition << " side = " << side << " direction " << direction << endl;
@@ -1481,7 +1477,7 @@ fixupBucketsKernel(ComputeContext & context,
         wAll[partition] -= wAll[partition + numPartitions];
     }
     
-    if (partitionSplits[partition].direction) {
+    if (partitionSplits[partition].transferDirection() == RL) {
         // We need to swap the buckets
         std::swap(bucketsLeft[bucket], bucketsRight[bucket]);
 
@@ -1806,9 +1802,6 @@ descendSmallPartition(PartitionWorkEntry entry,
                 }
             }
 
-            bool direction = split.direction
-                = split.left.count() >= split.right.count();
-
             split.index = index;
             
             //cerr << "  split = " << jsonEncodeStr(split) << endl;
@@ -1854,7 +1847,7 @@ descendSmallPartition(PartitionWorkEntry entry,
             size_t bigLen, smallLen;
             PartitionIndex bigIndex, smallIndex;
             W bigWAll, smallWAll;
-            if (direction == 0) {
+            if (split.transferDirection() == RL) {
                 // Biggest on right
                 big = ex;
                 bigLen = midpoint - ex;
@@ -1891,6 +1884,9 @@ descendSmallPartition(PartitionWorkEntry entry,
                 ExcAssertEqual(bigLen, split.left.count());
             }
 
+            if (bigLen < smallLen) {
+                cerr << "split: " << jsonEncode(split) << endl;
+            }
             ExcAssertGreaterEqual(bigLen, smallLen);
             
             // Finally, update our W for the big one by subtracting all
@@ -2466,7 +2462,7 @@ extractTree(int depth, int maxDepth,
         cerr << " with " << splits.size() << " splits and " << leaves.size() << " leaves" << endl;
         for (auto & s: splits) {
             cerr << "  split " << s.first << " --> " << s.second.feature << " " << s.second.index
-                 << " " << s.second.left.count() << ":" << s.second.right.count() << " d: " << s.second.direction << endl;
+                 << " " << s.second.left.count() << ":" << s.second.right.count() << " d: " << (s.second.transferDirection() == RL) << endl;
         }
         for (auto & l: leaves) {
             cerr << "  leaf " << l.first << " --> " << l.second.pred() << " " << l.second.examples() << endl;

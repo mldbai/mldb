@@ -123,7 +123,6 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
     addField("value", &PartitionSplit::value, "");
     addField("left", &PartitionSplit::left, "");
     addField("right", &PartitionSplit::right, "");
-    addField("direction", &PartitionSplit::direction, "");
     addField("index", &PartitionSplit::index, "");
 }
 

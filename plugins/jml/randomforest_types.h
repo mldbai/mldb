@@ -542,16 +542,30 @@ std::ostream & operator << (std::ostream & stream, PartitionIndex idx);
 
 /** Holds the split for a partition. */
 
+enum PartitionSplitDirection: uint8_t {
+    LR = 0,
+    RL = 1
+};
+
 struct PartitionSplit {
     PartitionIndex index;      // 4 bytes
     float score = INFINITY;    // 4 bytes
-    int feature = -1;          // 4 bytes; could be 2
-    int value = -1;            // 4 bytesl could be 2
-    W left;                    // 24 bytes; could be 12
-    W right;                   // 24 bytesl could be 12
-    bool direction = 0;  // 0 = left to right, 1 = right to left  // 4 bytes; could be 0
+    int32_t feature = -1;      // 4 bytes
+    int32_t value = -1;        // 4 bytes
+    W left;                    // 12 bytes
+    W right;                   // 12 bytes
 
-    // Total: 72 bytes; could be 36 (or 12 if we pass in/accumulate left and right separately)
+    // Tells us which is the most efficient way to transfer weight:
+    // from left to right, or from right to left.  This doesn't affect
+    // how things are layed out.  For example, if on the right we have
+    // a single row and on the left we have 1,000 rows, then we can
+    // accumulate the single row on the right, and then infer the left
+    // by subtracting the right from wAll, meaning we do no work at all
+    // for the 999 rows on the left.  This is a big optimization and
+    // leads to a major speedup.  But to be very clear, the direction
+    // does not swap the buckets: the left is on the left, and the right
+    // is on the right.  It just affects which one we acumulate.
+    PartitionSplitDirection transferDirection() const { return PartitionSplitDirection(left.count() < right.count()); }
 
     bool valid() const { return feature != -1; }
 
