@@ -1289,6 +1289,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
                              uint32_t rightOffset,
                              
                              std::span<uint32_t> partitions,
+                             std::span<uint8_t> directions,
           
                              std::span<const PartitionSplit> partitionSplits,
                              
@@ -1302,6 +1303,9 @@ updatePartitionNumbersKernel(ComputeContext & context,
 {
     // Skip to where we should be in our partition splits
     partitionSplits = partitionSplits.subspan(rightOffset);
+    uint32_t nf = bucketEntryBits.size();
+
+    BucketList featureBuckets[nf];
 
     for (uint32_t r: rowRange) {
         uint32_t partition = partitions[r];
@@ -1309,6 +1313,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
                 
         if (splitFeature == -1) {
             // reached a leaf here, nothing to split
+            directions[r] = 0;
             continue;
         }
 
@@ -1316,16 +1321,23 @@ updatePartitionNumbersKernel(ComputeContext & context,
         bool ordinal = featureIsOrdinal[splitFeature];
         
         // Get buckets for the split feature
-        BucketList buckets;
-        buckets.entryBits = bucketEntryBits[splitFeature];
-        buckets.numBuckets = -1;  // unused but set to an invalid value to be sure
-        buckets.numEntries = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
-        buckets.storagePtr = allBucketData.data() + bucketDataOffsets[splitFeature];
+        BucketList & buckets = featureBuckets[splitFeature];
+        if (buckets.numBuckets != -1) {
+            // not initialized
+            buckets.entryBits = bucketEntryBits[splitFeature];
+            buckets.numBuckets = -1;  // unused but we use to track initialized or not
+            buckets.numEntries = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
+            buckets.storagePtr = allBucketData.data() + bucketDataOffsets[splitFeature];
+        }
 
         uint32_t bucket = buckets[r];
 
         uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
-        
+
+        // 0 = left to right, 1 = right to left
+        uint32_t direction = partitionSplits[partition].transferDirection() == RL;
+        directions[r] = direction;
+
         // Set the new partition number
         partitions[r] = partition + side * rightOffset;
 
@@ -1343,7 +1355,8 @@ updateBucketsKernel(ComputeContext & context,
                     uint32_t rightOffset,
                     uint32_t numActiveBuckets,
                     
-                    std::span<uint32_t> partitions,
+                    std::span<const uint32_t> partitions,
+                    std::span<const uint8_t> directions,
                     std::span<W> partitionBuckets,
                     std::span<W> wAll,
 
@@ -1395,19 +1408,24 @@ updateBucketsKernel(ComputeContext & context,
         startBucket = bucketNumbers[f];
     }
 
+    //size_t numSkipped = 0;
+
     for (uint32_t i = 0;  i < rowCount;  ++i) {
 
         // Partition was updated already, so here we mask out the offset to know where the
         // partition came from (ensure that this partition number is parent partition number)
         uint32_t partition = partitions[i] & (rightOffset - 1);
         uint32_t side = partition != partitions[i];  // it is on the right if the partition number changed
-
-        int splitFeature = partitionSplits[partition].feature;
-                
-        uint32_t rightPartition = partition + rightOffset;
-
-        // 0 = left to right, 1 = right to left
-        uint32_t direction = partitionSplits[partition].transferDirection() == RL;
+        //uint32_t direction = partitionSplits[partition].transferDirection() == RL;
+        //if (direction != directions[i]) {
+        //    cerr << "direction = " << direction << endl;
+        //    cerr << "directions[i] = " << directions[i] << endl;
+        //    cerr << "rowNumber " << i << endl;
+        //    cerr << "partition " << partition << endl;
+        //    cerr << "split " << jsonEncodeStr(partitionSplits[partition]) << endl;
+        //}
+        //ExcAssertEqual(direction, directions[i]);
+        uint32_t direction = directions[i];
 
         //if (f == -1)
         //    cerr << "partition " << partition << " side = " << side << " direction " << direction << endl;
@@ -1419,11 +1437,11 @@ updateBucketsKernel(ComputeContext & context,
         // buckets)
 
         if (direction == side) {
+            //++numSkipped;
             continue;
         }
 
-        ExcAssertNotEqual(splitFeature, -1);
-
+        uint32_t rightPartition = partition + rightOffset;
         uint32_t toBucket;
         
         if (f == -1) {
@@ -1434,8 +1452,7 @@ updateBucketsKernel(ComputeContext & context,
         }
         else {
             uint32_t bucket = buckets[i];
-            toBucket
-                = rightPartition * numActiveBuckets + startBucket + bucket;
+            toBucket = rightPartition * numActiveBuckets + startBucket + bucket;
         }
 
         float weight = fabs(decodedRows[i]);
@@ -1444,6 +1461,8 @@ updateBucketsKernel(ComputeContext & context,
         // TODO: needs to be an atomic add when multi-threaded...
         wGlobal[toBucket].add(label, weight);
     }
+
+    //cerr << "numSkipped = " << numSkipped << " of " << rowCount << endl;
 }
 
 // For each partition and each bucket, we up to now accumulated just the
@@ -2801,6 +2820,7 @@ struct RegisterKernels {
             result->addDimension("r", "numRows");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "u32[numRows]");
+            result->addParameter("directions", "w", "u8[numRows]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
@@ -2822,6 +2842,7 @@ struct RegisterKernels {
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitions", "r", "u32[numRows]");
+            result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");

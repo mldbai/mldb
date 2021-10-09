@@ -1041,6 +1041,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     MemoryArrayHandleT<uint32_t> devicePartitions
         = context.allocZeroInitializedArray<uint32_t>(rowCount);
 
+    // Array to cache transfer directions to avoid re-calculating
+    MemoryArrayHandleT<uint8_t> deviceDirections
+        = context.allocArray<uint8_t>(rowCount);
+
     // Record the split, per level, per partition
     std::vector<std::vector<PartitionSplit> > depthSplits;
     depthSplits.reserve(16);
@@ -1285,6 +1289,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         auto boundUpdatePartitionNumbersKernel = updatePartitionNumbersKernel
             ->bind("partitionSplitsOffset",          (uint32_t)numPartitionsAtDepth,  // rightOffset
                    "partitions",                     devicePartitions,
+                   "directions",                     deviceDirections,
                    "allPartitionSplits",             deviceAllPartitionSplits,
                    "bucketData",                     deviceBucketData,
                    "bucketDataOffsets",              deviceBucketDataOffsets,
@@ -1305,6 +1310,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             ->bind("partitionSplitsOffset",         (uint32_t)numPartitionsAtDepth,  // rightOffset
                   "numActiveBuckets",               (uint32_t)numActiveBuckets,
                   "partitions",                     devicePartitions,
+                  "directions",                     deviceDirections,
                   "buckets",                        devicePartitionBuckets,
                   "wAll",                           deviceWAll,
                   "allPartitionSplits",             deviceAllPartitionSplits,
@@ -1356,8 +1362,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     continue;
                 int left = i;
                 int right = i + numPartitionsAtDepth;
-                //if (split.direction)
-                //    std::swap(left, right);
                 newPartitionNumbers[i] = { left, right };
             }
             
