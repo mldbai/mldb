@@ -18,6 +18,7 @@ LIBBLOCK_SOURCES:= \
 	content_descriptor.cc \
 	content.cc \
 	compute_kernel.cc \
+	compute_kernel_host.cc \
 
 $(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description any command_expression))
 

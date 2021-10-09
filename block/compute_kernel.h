@@ -22,16 +22,58 @@
 
 namespace MLDB {
 
-struct ComputeDevice {
-    static const ComputeDevice CPU;
+/// Gives a broad characterization of the devices that a compute runtime supports
+enum ComputeRuntimeId : uint8_t {
+    NONE = 0,
+    HOST = 1,    ///< Runs on the local host CPU
+    MULTI = 2,   ///< Runs on multiple devices
+    OPENCL = 3,  ///< Runs on the OpenCL runtime
+    METAL = 4,   ///< Runs on the Apple Metal runtime
+    CUDA = 5,    ///< Runs on the Nvidia CUDA runtime
+    ROCM = 6,    ///< Runs on the AMD ROCm runtime
+    CUSTOM = 128
 };
 
+DECLARE_ENUM_DESCRIPTION(ComputeRuntimeId);
+
+struct ComputeDevice {
+    static constexpr ComputeDevice host() { return { HOST, 0 }; }
+    uint64_t runtime:8;   ///< Which runtime this device belongs to
+    uint64_t device:56;   ///< Which device ID (or number) in the runtime
+};
+
+struct ComputeContext;
+
+// Basic abstract interface to a compute runtime.
+struct ComputeRuntime {
+    virtual ~ComputeRuntime() = default;
+
+    virtual ComputeRuntimeId getId() const = 0;
+
+    // Enumerate the devices available for this runtime
+    virtual std::vector<ComputeDevice> enumerateDevices() const = 0;
+
+    // Get a compute context for this runtime
+    virtual std::shared_ptr<ComputeContext> getContext() const = 0;
+
+    // Register a new compute runtime
+    static void registerRuntime(ComputeRuntimeId id, const std::string & name,
+                                std::function<ComputeRuntime *()> create);
+
+    static std::shared_ptr<ComputeRuntime> getRuntimeForDevice(ComputeDevice device);
+    static std::shared_ptr<ComputeRuntime> getRuntimeForId(ComputeRuntimeId device);
+    static std::shared_ptr<ComputeRuntime> getDefault();
+};
+
+// Profiling information for a compute operation
 struct ComputeProfilingInfo {
 
 };
 
 struct ComputeEvent {
-    ComputeProfilingInfo getProfilingInfo() const;
+    virtual ~ComputeEvent() = default;
+    virtual ComputeProfilingInfo getProfilingInfo() const = 0;
+    virtual void await() const = 0;
 };
 
 struct ComputeKernelDimension {
@@ -86,141 +128,6 @@ struct ComputeKernelArgument {
     const std::type_info & type() const { return value.type(); }
     bool has_value() const { return value.has_value(); }
 };
-
-namespace details {
-
-// Forward definition as ComputeContext is defined later on
-template<typename T>
-FrozenMemoryRegionT<std::remove_const_t<T>>
-transferToCpuSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
-
-template<typename T>
-MutableMemoryRegionT<T>
-transferToCpuMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
-
-using Pin = std::shared_ptr<const void>;
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin(MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall(MemoryArrayHandleT<T> *)
-{
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.access = "rw";
-
-    auto convertParam = [] (MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
-    {
-        if (in.getHandle) {
-            auto handle = in.getHandle(in.value, context);
-            out = {std::move(handle)};
-            return nullptr;
-        }
-        throw MLDB::Exception("attempt to pass non-handle memory region to arg that needs a handle (not implemented)");
-    };
-
-    return { result, convertParam };
-}
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin(MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall(MemoryArrayHandleT<const T> *)
-{
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.access = "r";
-
-    auto convertParam = [] (MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
-    {
-        if (in.getHandle) {
-            auto handle = in.getHandle(in.value, context);
-            out = MemoryArrayHandleT<const T>(std::move(handle.handle));
-            return nullptr;
-        }
-        throw MLDB::Exception("attempt to pass non-handle memory region to arg that needs a handle (not implemented)");
-    };
-
-    return { result, convertParam };
-}
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (T * & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall(T **);
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (const T * & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall(const T **);
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall(std::span<T> *)
-{
-     ComputeKernelType result(type_name<T>(),
-                              getDefaultDescriptionSharedT<T>());
-    result.access = "rw";
-
-    auto convertParam = [] (std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
-    {
-        if (in.getRange) {
-            auto [ptr, size, pin] = in.getRange(in.value, context);
-            out = { reinterpret_cast<T *>(ptr), size };
-            return std::move(pin);
-        }
-        throw MLDB::Exception("attempt to pass non-range memory region to arg that needs a span (not implemented)");
-    };
-
-    return { result, convertParam };   
-}
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall(std::span<const T> *)
-{
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.access = "r";
-
-    auto convertParam = [] (std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
-    {
-        if (in.getConstRange) {
-            auto [ptr, size, pin] = in.getConstRange(in.value, context);
-            out = { reinterpret_cast<const T *>(ptr), size };
-            return std::move(pin);
-        }
-        throw MLDB::Exception("attempt to pass non-range memory region to arg that needs a span (not implemented)");
-    };
-
-    return { result, convertParam };
-}
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin(T & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall(T *)
-{
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<std::remove_const_t<T>>());
-
-    if constexpr (std::is_const_v<T>)
-        result.access = "r";
-    else
-        result.access = "rw";
-
-    auto convertParam = [] (T & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
-    {
-        out = std::forward<T>(std::any_cast<T>(in.value));
-        return nullptr;
-    };
-
-    return { result, convertParam };    
-}
-
-template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (T & out, ComputeKernelArgument & in, ComputeContext & context)>>
-marshalParameterForCpuKernelCall()
-{
-    return marshalParameterForCpuKernelCall((T *)nullptr);
-}
-
-} // namespace details
 
 struct ComputeKernelGridRange {
     ComputeKernelGridRange() = default;
@@ -306,205 +213,6 @@ struct ComputeKernel {
     // be marshaled by the calling infrastructure.  It should be called once for each time
     // that the callable is used (in other words, the callable should be called only once).
     std::function<Callable (ComputeContext & context, std::vector<ComputeKernelArgument> & params)> createCallable;
-
-    // This is called for each passed parameter, with T representing the type of the parameter
-    // which was passed and arg its value.  The formal specification of the parameter is in
-    // params[n].
-    template<typename T>
-    void extractParam(T & arg, ComputeKernelArgument param, size_t n, ComputeContext & context,
-                      std::vector<details::Pin> & pins) const
-    {
-        //const ComputeKernel::ParameterInfo & formalArgument = params[n];
-        //const ComputeKernelType & formalType = formalArgument.type;
-        //const ComputeKernelType & inputType = param.abstractType;
-
-        auto [outputType, marshal] = details::marshalParameterForCpuKernelCall<T>();
-
-#if 0
-        // Verify dimensionality
-        int formalDims = formalType.dims();
-        int inputDims = inputType.dims();
-        int outputDims = outputType.dims();
-
-        if (formalDims != inputDims || formalDims != outputDims) {
-            throw AnnotatedException("attempt to pass parameter with incompatible number of dimensions");
-        }
-
-        bool isConst = params[n].isConst;
-        bool argIsConst
-
-#endif
-        const std::type_info & requiredType = param.type();
-
-        try {
-            //using namespace std;
-            //cerr << "converting parameter " << n << " with formal type " << params[n].type.print()
-            //     << " from type " << demangle(param.type().name()) << " to type " << type_name<T>(arg)
-            //     << endl;
-            auto pin = marshal(arg, param, context);
-            if (pin) {
-                pins.emplace_back(std::move(pin));
-            }
-        } MLDB_CATCH_ALL {
-            rethrowException(500, "Attempting to convert parameter from passed type " + type_name<T>()
-                             + " to required type " + demangle(requiredType.name()) + " passing parameter "
-                             + std::to_string(n) + " ('" + params[n].name + "')  of kernel " + kernelName
-                             + " with abstract type " + params[n].type.print(),
-                             "abstractType", params[n].type);
-        }
-    }
-
-    template<size_t N, typename... Args>
-    void extractParams(std::tuple<Args...> & args, std::vector<ComputeKernelArgument> & params,
-                       ComputeContext & context, std::vector<details::Pin> & pins) const
-    {
-        if constexpr (N < sizeof...(Args)) {
-            this->extractParam(std::get<N>(args), params.at(N), N, context, pins);
-            this->extractParams<N + 1>(args, params, context, pins);
-        }
-        else {
-            // validate number of parameters
-            if (N < params.size()) {
-                throw AnnotatedException(500, "Error in calling compute function '" + kernelName + "': not enough parameters");
-            }
-            else if (N > params.size()) {
-                throw AnnotatedException(500, "Error in calling compute function '" + kernelName + "': too many parameters");
-            }
-            // Make sure all formal parameters are set
-        }
-    }
-
-    template<typename Fn, typename... InitialArgs, typename Tuple, std::size_t... I>
-    static MLDB_ALWAYS_INLINE void apply_impl(Fn && fn, const Tuple & tupleArgs, std::integer_sequence<size_t, I...>,
-                          InitialArgs&&... initialArgs)
-    {
-        fn(std::forward<InitialArgs>(initialArgs)..., std::get<I>(tupleArgs)...);
-    }
-
-    template<typename Fn, typename... InitialArgs, typename... TupleArgs>
-    static MLDB_ALWAYS_INLINE void apply(Fn && fn, const std::tuple<TupleArgs...> & tupleArgs, InitialArgs&&... initialArgs)
-    {
-        return apply_impl(std::forward<Fn>(fn), tupleArgs, std::make_index_sequence<sizeof...(TupleArgs)>{},
-                          std::forward<InitialArgs>(initialArgs)...);
-    }
-
-    void checkComputeFunctionArity(size_t numExtraComputeFunctionArgs) const
-    {
-        if (numExtraComputeFunctionArgs != params.size()) {
-            throw AnnotatedException(500, "Error setting compute function for '" + kernelName
-                                     + "': compute function needs " + std::to_string(numExtraComputeFunctionArgs)
-                                     + " but there are " + std::to_string(params.size()) + " parameters listed");
-        }
-    }
-
-    template<typename... Args>
-    void setComputeFunction(void (*fn) (ComputeContext & context, Args...))
-    {
-        checkComputeFunctionArity(sizeof...(Args));
-
-        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
-        {
-            ExcAssertEqual(params.size(), sizeof...(Args));
-            std::tuple<Args...> args;
-            std::vector<details::Pin> pins;
-            this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
-            {
-                ExcAssertEqual(grid.size(), 0);
-                ComputeKernel::apply(fn, args, context);
-            };
-        };
-
-        createCallable = result;
-    }
-
-    template<typename... Args>
-    void set1DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, Args...))
-    {
-        checkComputeFunctionArity(sizeof...(Args));
-        
-        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
-        {
-            ExcAssertEqual(params.size(), sizeof...(Args));
-            std::tuple<Args...> args;
-            std::vector<details::Pin> pins;
-            this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
-            {
-                ExcAssertEqual(grid.size(), 1);
-                for (uint32_t idx: grid[0]) {
-                    ComputeKernel::apply(fn, args, context, idx, grid[0].range());
-                }
-            };
-        };
-
-        createCallable = result;
-    }
-
-    template<typename... Args>
-    void set1DComputeFunction(void (*fn) (ComputeContext & context, ComputeKernelGridRange & r1, Args...))
-    {
-        checkComputeFunctionArity(sizeof...(Args));
-        
-        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
-        {
-            ExcAssertEqual(params.size(), sizeof...(Args));
-            std::tuple<Args...> args;
-            std::vector<details::Pin> pins;
-            this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
-            {
-                ExcAssertEqual(grid.size(), 1);
-                ComputeKernel::apply(fn, args, context, grid[0]);
-            };
-        };
-
-        createCallable = result;
-    }
-
-    template<typename... Args>
-    void set2DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, uint32_t i2, uint32_t r2, Args...))
-    {
-        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
-        {
-            ExcAssertEqual(params.size(), sizeof...(Args));
-            std::tuple<Args...> args;
-            std::vector<details::Pin> pins;
-            this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
-            {
-                ExcAssertEqual(grid.size(), 2);
-                for (uint32_t i0: grid[0]) {
-                    for (uint32_t i1: grid[1]) {
-                        ComputeKernel::apply(fn, args, context, i0, grid[0].range(), i1, grid[1].range());
-                    }
-                }
-            };
-        };
-
-        createCallable = result;
-    }
-
-    template<typename... Args>
-    void set2DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, ComputeKernelGridRange & r2, Args...))
-    {
-        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
-        {
-            ExcAssertEqual(params.size(), sizeof...(Args));
-            std::tuple<Args...> args;
-            std::vector<details::Pin> pins;
-            this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
-            {
-                ExcAssertEqual(grid.size(), 2);
-                for (uint32_t i0: grid[0]) {
-                    ComputeKernel::apply(fn, args, context, i0, grid[0].range(), grid[1]);
-                }
-            };
-        };
-
-        createCallable = result;
-    }
 };
 
 struct BoundComputeKernel {
@@ -524,6 +232,15 @@ struct BoundComputeKernel {
 
 namespace details {
 
+// Forward definition as ComputeContext is defined later on
+template<typename T>
+FrozenMemoryRegionT<std::remove_const_t<T>>
+transferToHostSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
+
+template<typename T>
+MutableMemoryRegionT<T>
+transferToHostMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
+
 template<typename T>
 std::tuple<ComputeKernelType, GetRange, GetConstRange, GetHandle>
 getAbstractType(MemoryArrayHandleT<T> *)
@@ -536,7 +253,7 @@ getAbstractType(MemoryArrayHandleT<T> *)
     GetRange getRange = [] (const std::any & val, ComputeContext & context) -> std::tuple<void *, size_t, std::shared_ptr<const void>>
     {
         const auto & handle = std::any_cast<const MemoryArrayHandleT<T> &>(val);
-        MutableMemoryRegionT<T> region = transferToCpuMutableSync(context, handle);
+        MutableMemoryRegionT<T> region = transferToHostMutableSync(context, handle);
         return { region.data(), region.length(), region.raw().handle() };
     };
 
@@ -544,7 +261,7 @@ getAbstractType(MemoryArrayHandleT<T> *)
     {
         const auto & handle = std::any_cast<const MemoryArrayHandleT<T> &>(val);
         ExcAssert(handle.handle);
-        FrozenMemoryRegionT<T> region = transferToCpuSync(context, handle);
+        FrozenMemoryRegionT<T> region = transferToHostSync(context, handle);
         return { region.data(), region.length(), region.raw().handle() };
     };
 
@@ -569,7 +286,7 @@ getAbstractType(MemoryArrayHandleT<const T> *)
     GetConstRange getConstRange = [] (const std::any & val, ComputeContext & context) -> std::tuple<const void *, size_t, std::shared_ptr<const void>>
     {
         const auto & handle = std::any_cast<const MemoryArrayHandleT<const T> &>(val);
-        FrozenMemoryRegionT<T> region = transferToCpuSync(context, handle);
+        FrozenMemoryRegionT<T> region = transferToHostSync(context, handle);
         return { region.data(), region.length(), region.raw().handle() };
     };
 
@@ -695,7 +412,7 @@ struct ComputeQueue {
     enqueueFillArray(const MemoryArrayHandleT<T> & region, const T & val,
                      size_t start = 0, ssize_t length = -1)
     {
-        auto mapped = details::transferToCpuMutableSync(*owner, region);
+        auto mapped = details::transferToHostMutableSync(*owner, region);
         if (start > mapped.length()) {
             throw MLDB::Exception("enqueueFillArray: array start index out of bounds");
         }
@@ -715,112 +432,100 @@ struct ComputeQueue {
     }
 };
 
+enum MemoryRegionAccess {
+    ACC_NONE = 0,
+    ACC_READ = 1,
+    ACC_WRITE = 2,
+    ACC_READ_WRITE = 3
+};
+
+enum MemoryRegionInitialization {
+    INIT_NONE,         //< Random contents (but no sensitive data)
+    INIT_ZERO_FILLED,  //< Zero-filled
+    INIT_BLOCK_FILLED, //< Filled with copies of the given block
+    INIT_KERNEL        //< Filled by running the given kernel
+};
+
 struct ComputeContext {
 
-    ComputeContext()
-        : backingStore(new MemorySerializer())
-    {
-    }
+    virtual ~ComputeContext() = default;
 
-    std::shared_ptr<MappedSerializer> backingStore;
+    virtual MemoryRegionHandle
+    allocateImpl(size_t length, size_t align,
+                 MemoryRegionInitialization initialization,
+                 std::any initWith = std::any()) = 0;
 
-    struct MemoryRegionInfo: public MemoryRegionHandleInfo {
-        const void * data = nullptr;
-        size_t lengthInBytes = 0;
-        const std::type_info * type = nullptr;
-        bool isConst = true;
-        std::shared_ptr<const void> handle;  // underlying handle we want to keep around
+    virtual std::tuple<MemoryRegionHandle, std::shared_ptr<ComputeEvent>>
+    transferToDeviceImpl(FrozenMemoryRegion region,
+                         const std::type_info & type, bool isConst) = 0;
 
-        void init(const MutableMemoryRegion & region)
-        {
-            this->data = region.data();
-            this->lengthInBytes = region.length();
-            this->isConst = false;
-            this->handle = region.handle();
-        }
+    virtual std::tuple<FrozenMemoryRegion, std::shared_ptr<ComputeEvent>>
+    transferToHostImpl(MemoryRegionHandle handle) = 0;
 
-        void init(const FrozenMemoryRegion & region)
-        {
-            this->data = region.data();
-            this->lengthInBytes = region.length();
-            this->isConst = false;
-            this->handle = region.handle();
-        }
+    virtual std::tuple<MutableMemoryRegion, std::shared_ptr<ComputeEvent>>
+    transferToHostMutableImpl(MemoryRegionHandle handle) = 0;
 
-        template<typename T>
-        void init(const MutableMemoryRegionT<T> & array)
-        {
-            this->init(array.raw());
-            this->type = &typeid(T);
-        }
+    virtual std::shared_ptr<ComputeKernel>
+    getKernel(const std::string & kernelName) = 0;
 
-        template<typename T>
-        void init(const FrozenMemoryRegionT<T> & array)
-        {
-            this->init(array.raw());
-            this->type = &typeid(T);
-        }
-    };
+    virtual MemoryRegionHandle
+    managePinnedHostRegion(std::span<const std::byte> region, size_t align) = 0;
+
+    virtual std::shared_ptr<ComputeQueue>
+    getQueue() = 0;
+
+    // Return the MappedSerializer that owns the memory allocated on the host for this
+    // device.  It's needed for the generic MemoryRegion functions to know how to manipulate
+    // memory handles.  In practice it probably means that each runtime needs to define a
+    // MappedSerializer derivitive.
+    virtual MappedSerializer * getSerializer() = 0;
 
     template<typename T>
     auto transferToDeviceImmutable(const FrozenMemoryRegionT<T> & obj, const char * what)
         -> std::tuple<MemoryArrayHandleT<const T>, std::shared_ptr<ComputeEvent>, size_t>
     {
-        auto handle = std::make_shared<MemoryRegionInfo>();
-        handle->lengthInBytes = obj.raw().length();
-        handle->data = obj.raw().data();
-        handle->type = &typeid(std::remove_const_t<T>);
-        handle->isConst = true;
-        return { { {handle} }, std::make_shared<ComputeEvent>(), obj.memusage() };
+        auto [handle, event]
+            = transferToDeviceImpl(obj, typeid(std::remove_const_t<T>), true /* isConst */);
+        return { {std::move(handle.handle)}, std::move(event), obj.memusage() };
     }
 
     template<typename T>
-    auto transferToCpu(MemoryArrayHandleT<T> array)
-        -> std::tuple<FrozenMemoryRegionT<std::remove_const_t<T>>, std::shared_ptr<ComputeEvent>>
+    std::tuple<FrozenMemoryRegionT<std::remove_const_t<T>>, std::shared_ptr<ComputeEvent>>
+    transferToHost(MemoryArrayHandleT<T> array)
     {
-        auto handle = std::static_pointer_cast<const MemoryRegionInfo>(std::move(array.handle));
-        if (!handle)
-            return { {}, {} };
-
-        if (*handle->type != typeid(std::remove_const_t<T>)) {
-            throw MLDB::Exception("Attempt to cast to wrong type: from " + demangle(handle->type->name())
-                                  + " to " + type_name<T>());
-        }
-
-        FrozenMemoryRegion raw(handle, (char *)handle->data, handle->lengthInBytes);
-        return { raw, std::make_shared<ComputeEvent>() };
+        array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
+        auto [handle, event] = transferToHostImpl(array);
+        FrozenMemoryRegion raw(handle.handle(), (char *)handle.data(), handle.length());
+        return { std::move(raw), std::move(event) };
     }
 
     template<typename T>
-    auto transferToCpuMutable(MemoryArrayHandleT<T> array)
+    auto transferToHostMutable(MemoryArrayHandleT<T> array)
         -> std::tuple<MutableMemoryRegionT<std::remove_const_t<T>>, std::shared_ptr<ComputeEvent>>
     {
         static_assert(!std::is_const_v<T>, "mutable transfer requires non-const type");
-        auto handle = std::static_pointer_cast<const MemoryRegionInfo>(std::move(array.handle));
-        if (!handle)
-            return { {}, {} };
-
-        if (*handle->type != typeid(T)) {
-            throw MLDB::Exception("Attempt to cast to wrong type: from " + demangle(handle->type->name())
-                                  + " to " + type_name<T>());
-        }
-
-        MutableMemoryRegion raw(handle, (char *)handle->data, handle->lengthInBytes, backingStore.get());
-        return { raw, std::make_shared<ComputeEvent>() };
+        array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
+        auto [handle, event] = transferToHostMutableImpl(array);
+        MutableMemoryRegion raw(handle.handle(), (char *)handle.data(), handle.length(), getSerializer());
+        return { std::move(raw), std::move(event) };
     }
 
     template<typename T>
-    auto transferToCpuSync(MemoryArrayHandleT<T> array) -> FrozenMemoryRegionT<std::remove_const_t<T>>
+    auto transferToHostSync(MemoryArrayHandleT<T> array) -> FrozenMemoryRegionT<std::remove_const_t<T>>
     {
-        auto [result, ignore1] = transferToCpu(std::move(array));
+        auto [result, event] = transferToHost(std::move(array));
+        if (event)
+            event->await();
         return result;
     }
 
     template<typename T>
-    auto transferToCpuMutableSync(MemoryArrayHandleT<T> array) -> MutableMemoryRegionT<T>
+    auto transferToHostMutableSync(MemoryArrayHandleT<T> array) -> MutableMemoryRegionT<T>
     {
         static_assert(!std::is_const_v<T>, "mutable transfer requires non-const type");
-        auto [result, ignore1] = transferToCpuMutable(std::move(array));
+        auto [result, event] = transferToHostMutable(std::move(array));
+        if (event)
+            event->await();
         return result;
     }
 
@@ -828,43 +533,22 @@ struct ComputeContext {
      *  promises that the initial contents will never be read, which enables us to
      *  not copy any data to the CPU. */
     template<typename T>
-    auto transferToCpuUninitialized(MemoryArrayHandleT<T> array) -> MutableMemoryRegionT<T>
+    auto transferToHostUninitialized(MemoryArrayHandleT<T> array) -> MutableMemoryRegionT<T>
     {
-        auto handle = std::static_pointer_cast<const MemoryRegionInfo>(std::move(array.handle));
-        if (!handle)
-            return {};
-
-        if (*handle->type != typeid(std::remove_const_t<T>)) {
-            throw MLDB::Exception("Attempt to cast to wrong type: from " + demangle(handle->type->name())
-                                  + " to " + type_name<T>());
-        }
-        if (handle->isConst) {
-            throw MLDB::Exception("Attempt to map const memory as mutable");
-        }
-
-        MutableMemoryRegion raw(handle, (char *)handle->data, handle->lengthInBytes, backingStore.get());
-        return raw;
+        return transferToHostMutableSync(std::move(array));
     }
 
     template<typename T>
     auto allocArray(size_t size) -> MemoryArrayHandleT<T>
     {
-        auto mem = backingStore->allocateWritableT<T>(size);
-        auto result = std::make_shared<MemoryRegionInfo>();
-        result->init(std::move(mem));
-        return { { std::move(result) } };
+        return {allocateImpl(size * sizeof(T), alignof(T), INIT_NONE).handle};
     }
 
     template<typename T>
     auto allocZeroInitializedArray(size_t size) -> MemoryArrayHandleT<T>
     {
-        auto mem = backingStore->allocateZeroFilledWritableT<T>(size);
-        auto result = std::make_shared<MemoryRegionInfo>();
-        result->init(std::move(mem));
-        return { { std::move(result) } };
+        return {allocateImpl(size * sizeof(T), alignof(T), INIT_ZERO_FILLED).handle};
     }
-
-    auto getKernel(const std::string & kernelName, ComputeDevice device) -> std::shared_ptr<ComputeKernel>;
 
     template<typename T>
     auto manageMemoryRegion(const std::vector<T> & obj) -> MemoryArrayHandleT<T>
@@ -875,39 +559,25 @@ struct ComputeContext {
     template<typename T, size_t N>
     auto manageMemoryRegion(const std::span<const T, N> & obj) -> MemoryArrayHandleT<T>
     {
-        auto mem = backingStore->allocateWritableT<T>(obj.size());
-        std::copy_n(obj.data(), obj.size(), mem.data());
-        auto result = std::make_shared<MemoryRegionInfo>();
-        result->init(std::move(mem));
-        return { { std::move(result) } };
-    }
-
-    template<typename T>
-    auto enqueueFillArray(const MemoryArrayHandleT<T> & t, const T & fillWith, size_t offset = 0,
-                          ssize_t length = -1) -> std::shared_ptr<ComputeEvent>
-    {
-        throw MLDB::Exception("enqueueFillArray");
+        return {managePinnedHostRegion(std::as_bytes(obj), alignof(T)).handle};
     }
 };
 
 namespace details {
 template<typename T>
 FrozenMemoryRegionT<std::remove_const_t<T>>
-transferToCpuSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle)
+transferToHostSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle)
 {
-    return context.transferToCpuSync(handle);
+    return context.transferToHostSync(handle);
 }
 
 template<typename T>
 MutableMemoryRegionT<T>
-transferToCpuMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle)
+transferToHostMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle)
 {
-    return context.transferToCpuMutableSync(handle);
+    return context.transferToHostMutableSync(handle);
 }
 
 } // namespace details
-
-void registerComputeKernel(const std::string & kernelName,
-                           std::function<std::shared_ptr<ComputeKernel>(ComputeDevice device)> generator);
 
 } // namespace MLDB

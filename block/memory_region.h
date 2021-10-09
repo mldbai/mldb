@@ -16,6 +16,7 @@
 #include "mldb/types/string.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/arch/demangle.h"
 #include "mldb/types/path.h"
 #include "mldb/types/url.h"
 #include "memory_region_fwd.h"
@@ -87,6 +88,8 @@ enum MemoryRegionState : uint8_t {
 */
 
 struct MemoryRegionHandleInfo {
+    const std::type_info * type = nullptr;  //< non-CV qualified type in the array
+    bool isConst = true;              //< Is the referred to memory constant or mutable?
 };
 
 struct MemoryRegionHandle {
@@ -95,6 +98,17 @@ struct MemoryRegionHandle {
         : handle(std::move(handle))
     {
         ExcAssert(this->handle);
+    }
+
+    template<typename T>
+    void checkTypeAccessibleAs() const
+    {
+        if (!handle || !handle->type)
+            return;
+        if (*handle->type != typeid(std::remove_const_t<T>)) {
+            throw MLDB::Exception("Attempt to cast to wrong type: from " + demangle(handle->type->name())
+                                  + " to " + type_name<T>());
+        }
     }
 
     std::shared_ptr<const MemoryRegionHandleInfo> handle;  // opaque; upcast by context

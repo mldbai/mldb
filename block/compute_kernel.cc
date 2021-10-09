@@ -3,6 +3,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/enum_description.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/utils/command_expression.h"
 
@@ -25,16 +26,16 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelType)
     addField("dims", &ComputeKernelType::dims, "");
 }
 
-namespace {
-
-std::mutex kernelRegistryMutex;
-struct KernelRegistryEntry {
-    std::function<std::shared_ptr<ComputeKernel>(ComputeDevice)> generate;
-};
-
-std::map<std::string, KernelRegistryEntry> kernelRegistry;
-
-} // file scope
+DEFINE_ENUM_DESCRIPTION_INLINE(ComputeRuntimeId)
+{
+    addValue("NONE", ComputeRuntimeId::NONE, "No runtime selected");
+    addValue("HOST", ComputeRuntimeId::HOST, "Runs on the host CPU");
+    addValue("MULTI", ComputeRuntimeId::MULTI, "Runs across multiple runtimes");
+    addValue("OPENCL", ComputeRuntimeId::OPENCL, "Runs on the OpenCL runtime");
+    addValue("METAL", ComputeRuntimeId::METAL, "Runs on the Apple Metal runtime");
+    addValue("CUDA", ComputeRuntimeId::CUDA, "Runs on the Nvidia CUDA runtime");
+    addValue("ROCM", ComputeRuntimeId::ROCM, "Runs on the AMD ROCM runtime");
+}
 
 namespace {
 
@@ -58,6 +59,10 @@ REGISTER_BASIC_TYPE(uint64_t, "u64");
 REGISTER_BASIC_TYPE(uint32_t, "u32");
 REGISTER_BASIC_TYPE(uint16_t, "u16");
 REGISTER_BASIC_TYPE(uint8_t,  "u8");
+REGISTER_BASIC_TYPE(int64_t, "i64");
+REGISTER_BASIC_TYPE(int32_t, "i32");
+REGISTER_BASIC_TYPE(int16_t, "i16");
+REGISTER_BASIC_TYPE(int8_t,  "i8");
 REGISTER_BASIC_TYPE(float, "f32");
 REGISTER_BASIC_TYPE(double, "f64");
 
@@ -133,25 +138,54 @@ parseType(const std::string & type)
     return result;
 }
 
-auto ComputeContext::
-getKernel(const std::string & kernelName, ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+namespace {
+
+std::mutex computeRuntimeRegistryMutex;
+
+struct ComputeRuntimeEntry {
+    std::string name;
+    std::function<ComputeRuntime *()> create;
+};
+
+std::map<ComputeRuntimeId, ComputeRuntimeEntry> computeRuntimeRegistry;
+
+} // file scope
+
+void
+ComputeRuntime::
+registerRuntime(ComputeRuntimeId id, const std::string & name,
+                std::function<ComputeRuntime *()> create)
 {
-    std::unique_lock guard(kernelRegistryMutex);
-    auto it = kernelRegistry.find(kernelName);
-    if (it == kernelRegistry.end()) {
-        throw AnnotatedException(400, "Unable to find compute kernel '" + kernelName + "'",
-                                    "kernelName", kernelName);
-    }
-    auto result = it->second.generate(device);
-    result->context = this;
-    return result;
+    std::unique_lock guard(computeRuntimeRegistryMutex);
+    auto [it, inserted] = computeRuntimeRegistry.insert({id, { name, create }});
+    if (!inserted)
+        throw MLDB::Exception("Double registration of compute runtime '" + name + "'");
 }
 
-
-void registerComputeKernel(const std::string & kernelName,
-                           std::function<std::shared_ptr<ComputeKernel>(ComputeDevice device)> generator)
+std::shared_ptr<ComputeRuntime>
+ComputeRuntime::
+getRuntimeForDevice(ComputeDevice device)
 {
-    kernelRegistry[kernelName].generate = generator;
+    return getRuntimeForId(ComputeRuntimeId(device.runtime));
+}
+
+std::shared_ptr<ComputeRuntime>
+ComputeRuntime::
+getRuntimeForId(ComputeRuntimeId id)
+{
+    std::unique_lock guard(computeRuntimeRegistryMutex);
+    auto it = computeRuntimeRegistry.find(id);
+    if (it == computeRuntimeRegistry.end()) {
+        throw MLDB::Exception("Couldn't find compute runtime for runtime id " + jsonEncodeStr(id));
+    }
+    return std::shared_ptr<ComputeRuntime>(it->second.create());
+}
+
+std::shared_ptr<ComputeRuntime>
+ComputeRuntime::
+getDefault()
+{
+    return getRuntimeForDevice(ComputeDevice::host());
 }
 
 } // namespace MLDB

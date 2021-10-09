@@ -53,7 +53,7 @@ var benchmark_conf = {
         modelFileUrl: "file://tmp/benchmark-airlines.cls",
         functionName: "classifyme",
         featureVectorSamplings : 5,
-        featureSamplings : 20,
+        featureSamplings : 1, //20,
         maxDepth : 20,
         verbosity : 0,
     }

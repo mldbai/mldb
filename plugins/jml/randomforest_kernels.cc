@@ -19,7 +19,7 @@
 #include "mldb/types/span_description.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/vm.h"
-#include "mldb/block/compute_kernel.h"
+#include "mldb/block/compute_kernel_host.h"
 #include <condition_variable>
 #include <sstream>
 
@@ -2581,7 +2581,7 @@ void decodeRowsKernelCpu(ComputeContext & context,
                          std::span<float> decodedRowsOut)
 {
     Rows rows;
-    rows.rowData = context.transferToCpuSync(rowData);
+    rows.rowData = context.transferToHostSync(rowData);
     rows.numRowEntries = numRows;
     rows.exampleNumBits = exampleNumBits;
     rows.exampleNumMask = (1ULL << exampleNumBits) - 1;
@@ -2590,7 +2590,7 @@ void decodeRowsKernelCpu(ComputeContext & context,
     rows.weightEncoder.weightBits = weightBits;
     rows.weightEncoder.weightFormat = weightFormat;
     rows.weightEncoder.weightMultiplier = weightMultiplier;
-    rows.weightEncoder.weightFormatTable = context.transferToCpuSync(weightData);
+    rows.weightEncoder.weightFormatTable = context.transferToHostSync(weightData);
 
     auto it = rows.getRowIterator();
     ExcAssertEqual(decodedRowsOut.size(), numRows);
@@ -2723,11 +2723,11 @@ struct RegisterKernels {
 
     RegisterKernels()
     {
-        auto createDecodeRowsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createDecodeRowsKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "decodeRows";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addParameter("rowData", "r", "u64[rowDataLength]");
             result->addParameter("rowDataLength", "r", "u32");
             result->addParameter("weightBits", "r", "u16");
@@ -2741,13 +2741,13 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("decodeRows", createDecodeRowsKernel);
+        registerHostComputeKernel("decodeRows", createDecodeRowsKernel);
 
-        auto createTestFeatureKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createTestFeatureKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "testFeature";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addDimension("featureNum", "nf");
             result->addParameter("decodedRows", "r", "f32[numRows]");
             result->addParameter("numRows", "r", "u32");
@@ -2761,13 +2761,13 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("testFeature", createTestFeatureKernel);
+        registerHostComputeKernel("testFeature", createTestFeatureKernel);
 
-        auto createGetPartitionSplitsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createGetPartitionSplitsKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "getPartitionSplits";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addDimension("f", "nf");
             result->addDimension("p", "np");
             result->addParameter("totalBuckets", "r", "u32");
@@ -2781,13 +2781,13 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("getPartitionSplits", createGetPartitionSplitsKernel);
+        registerHostComputeKernel("getPartitionSplits", createGetPartitionSplitsKernel);
 
-        auto createBestPartitionSplitKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createBestPartitionSplitKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "bestPartitionSplit";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addDimension("p", "np");
             result->addParameter("numFeatures", "r", "u32");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
@@ -2798,13 +2798,13 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
+        registerHostComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
 
-        auto createClearBucketsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createClearBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "clearBuckets";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addDimension("p", "partitionSplitsOffset");
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
@@ -2816,13 +2816,13 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("clearBuckets", createClearBucketsKernel);
+        registerHostComputeKernel("clearBuckets", createClearBucketsKernel);
 
-        auto createUpdatePartitionNumbersKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createUpdatePartitionNumbersKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "updatePartitionNumbers";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
@@ -2837,13 +2837,13 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("updatePartitionNumbers", createUpdatePartitionNumbersKernel);
+        registerHostComputeKernel("updatePartitionNumbers", createUpdatePartitionNumbersKernel);
 
-        auto createUpdateBucketsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createUpdateBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "updateBuckets";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addDimension("f", "nf");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActiveBuckets", "r", "u32");
@@ -2864,13 +2864,13 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("updateBuckets", createUpdateBucketsKernel);
+        registerHostComputeKernel("updateBuckets", createUpdateBucketsKernel);
 
-        auto createFixupBucketsKernel = [] (ComputeDevice device) -> std::shared_ptr<ComputeKernel>
+        auto createFixupBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
-            auto result = std::make_shared<ComputeKernel>();
+            auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "fixupBuckets";
-            result->device = device;
+            result->device = ComputeDevice::host();
             result->addDimension("partition", "np");
             result->addDimension("bucket", "numActiveBuckets");
             result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
@@ -2880,7 +2880,7 @@ struct RegisterKernels {
             return result;
         };
 
-        registerComputeKernel("fixupBuckets", createFixupBucketsKernel);
+        registerHostComputeKernel("fixupBuckets", createFixupBucketsKernel);
 
     }
 
