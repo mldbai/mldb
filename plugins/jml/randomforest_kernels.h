@@ -159,7 +159,8 @@ testAll(int depth,
 void
 updateBuckets(const std::span<const Feature> & features,
               std::vector<RowPartitionInfo> & partitions, // per row
-              std::vector<std::vector<W> > & buckets,  // par part
+              std::span<W> buckets,  // [numPartitions * numActiveBuckets]
+              uint32_t numActiveBuckets,
               std::vector<W> & wAll,  // per part
               const std::span<const uint32_t> & bucketOffsets,
               const std::span<const PartitionSplit> & partitionSplits,
@@ -191,7 +192,8 @@ splitPartitions(const std::span<const Feature> features,
     multiple partitions.
 */
 std::vector<PartitionSplit>
-getPartitionSplits(const std::vector<std::vector<W> > & buckets,
+getPartitionSplits(const std::span<const W> & buckets,
+                   uint32_t numActiveBuckets,
                    const std::span<const int> & activeFeatures,
                    const std::span<const uint32_t> & bucketOffsets,
                    const std::span<const Feature> & features,
@@ -256,7 +258,8 @@ std::map<PartitionIndex, ML::Tree::Ptr>
 splitAndRecursePartitioned(int depth, int maxDepth,
                            ML::Tree & tree,
                            MappedSerializer & serializer,
-                           std::vector<std::vector<W>> buckets,
+                           const std::span<const W> & buckets, // 2d array
+                           uint32_t numActiveBuckets,  // stride for buckets
                            const std::span<const uint32_t> & bucketOffsets,
                            const std::span<const Feature> & features,
                            const std::span<const int> & activeFeatures,
@@ -273,7 +276,7 @@ trainPartitionedRecursive(int depth, int maxDepth,
                           MappedSerializer & serializer,
                           const std::span<const uint32_t> & bucketOffsets,
                           const std::span<const int> & activeFeatures,
-                          std::vector<W> bucketsIn,
+                          const std::span<const W> & bucketsIn,  // [numActiveFeatures]
                           const std::span<const float> & decodedRows,
                           const W & wAllInput,
                           PartitionIndex root,

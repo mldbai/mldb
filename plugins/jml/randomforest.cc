@@ -1151,7 +1151,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         // computation on the CPU so we can verify the output of the device
         // algorithm.
         std::vector<PartitionSplit> debugPartitionSplitsCpu;
-        std::vector<std::vector<W> > debugBucketsCpu;
+        MutableMemoryRegionT<W> mappedBuckets;
+        std::span<W> debugBucketsCpu;
         std::vector<W> debugWAllCpu;
         std::vector<RowPartitionInfo> debugPartitionsCpu;
         std::set<int> okayDifferentPartitions;
@@ -1169,16 +1170,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
             debugPartitionsCpu = { partitionsDevice.begin(), partitionsDevice.end() };
             
-            // Construct the CPU version of buckets
-            auto mappedBuckets = context.transferToCpuSync(devicePartitionBuckets);
-            auto bucketsDevice = mappedBuckets.getConstSpan();
+            // Construct the CPU version of buckets (and keep it around)
+            mappedBuckets = context.transferToCpuMutableSync(devicePartitionBuckets);
+            debugBucketsCpu = mappedBuckets.getSpan();
 
-            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-                const W * partitionBuckets = bucketsDevice.data() + numActiveBuckets * i;
-                debugBucketsCpu.emplace_back(partitionBuckets,
-                                             partitionBuckets + numActiveBuckets);
-            }
-            
             // Get back the CPU version of wAll
             auto mappedWAll = context.transferToCpuSync(deviceWAll);
             auto wAllDevice = mappedWAll.getConstSpan();
@@ -1194,6 +1189,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             // Run the CPU version... first getting the data in place
             debugPartitionSplitsCpu
                 = getPartitionSplits(debugBucketsCpu,
+                                     numActiveBuckets,
                                      activeFeatures, bucketNumbers,
                                      features, debugWAllCpu,
                                      indexes, 
@@ -1372,6 +1368,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             updateBuckets(features,
                           debugPartitionsCpu,
                           debugBucketsCpu,
+                          numActiveBuckets,
                           debugWAllCpu,
                           bucketNumbers,
                           debugPartitionSplitsCpu,
@@ -1403,30 +1400,18 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     continue;  // dead partition, don't verify...
                 if (okayDifferentPartitions.count(i))
                     continue;  // is different due to a different split caused by numerical errors
+                std::span<const W> cpuBuckets = debugBucketsCpu.subspan(i * numActiveBuckets, numActiveBuckets);
 
-                if (!debugBucketsCpu[i].empty()) {
-                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
-                        if (partitionBuckets[j] != debugBucketsCpu[i].at(j)) {
-                            cerr << "part " << i << " bucket " << j
-                                 << " num " << numActiveBuckets * i + j
-                                 << " update error: CPU "
-                                 << jsonEncodeStr(debugBucketsCpu[i][j])
-                                 << " device "
-                                 << jsonEncodeStr(partitionBuckets[j])
-                                 << endl;
-                            different = true;
-                        }
-                    }
-                } else {
-                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
-                        if (partitionBuckets[j].count() != 0) {
-                            cerr << "part " << i << " bucket " << j
-                                 << " update error: CPU empty "
-                                 << " device "
-                                 << jsonEncodeStr(partitionBuckets[j])
-                                 << endl;
-                            different = true;
-                        }
+                for (size_t j = 0;  j < numActiveBuckets;  ++j) {
+                    if (partitionBuckets[j] != cpuBuckets[j]) {
+                        cerr << "part " << i << " bucket " << j
+                                << " num " << numActiveBuckets * i + j
+                                << " update error: CPU "
+                                << jsonEncodeStr(cpuBuckets[j])
+                                << " device "
+                                << jsonEncodeStr(partitionBuckets[j])
+                                << endl;
+                        different = true;
                     }
                 }
             }
@@ -1498,6 +1483,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     Date beforeMapping = Date::now();
 
 
+    cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
+         << "ms with " << totalDeviceAllocation / 1000000.0 << "Mb allocated" << endl;
+    cerr << "numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
+
     // Get all the data back...
     auto allPartitionSplitsRegion = context.transferToCpuSync(deviceAllPartitionSplits);
     std::span<const PartitionSplit> allPartitionSplits = allPartitionSplitsRegion.getConstSpan();
@@ -1510,9 +1499,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     auto decodedRowsRegion = context.transferToCpuSync(deviceExpandedRowData);
     std::span<const float> decodedRows = decodedRowsRegion.getConstSpan();
 
-    cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
-         << "ms with " << totalDeviceAllocation / 1000000.0 << "Mb allocated" << endl;
-    cerr << "numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
+    Date beforeSetupRecurse = Date::now();
 
 #if 0
     cerr << "  submit    queue    start      end  elapsed name" << endl;
@@ -1632,18 +1619,12 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     
     cerr << "got " << allSplits.size() << " splits" << endl;
 
-
-    std::vector<std::vector<W>> buckets;  // TODO: stop double copying...
-    for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-        const W * partitionBuckets = bucketsUnrolled.data() + numActiveBuckets * i;
-        buckets.emplace_back(partitionBuckets, partitionBuckets + numActiveBuckets);
-    }
-
     Date beforeSplitAndRecurse = Date::now();
 
     std::map<PartitionIndex, ML::Tree::Ptr> newLeaves
         = splitAndRecursePartitioned(depth, maxDepth, tree, serializer,
-                                     std::move(buckets), bucketNumbers,
+                                     bucketsUnrolled, numActiveBuckets,
+                                     bucketNumbers,
                                      features, activeFeatures,
                                      decodedRows,
                                      partitions, wAll, indexes, fs,
@@ -1683,7 +1664,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     cerr << "finished train: finishing tree took " << afterExtract.secondsSince(beforeMapping) * 1000
          << "ms ("
-          << beforeSplitAndRecurse.secondsSince(beforeMapping) * 1000 << "ms in mapping and "
+          << beforeSetupRecurse.secondsSince(beforeMapping) * 1000 << "ms in mapping and "
+          << beforeSplitAndRecurse.secondsSince(beforeSetupRecurse) * 1000 << "ms in setup and "
           << afterSplitAndRecurse.secondsSince(beforeSplitAndRecurse) * 1000 << "ms in split and recurse)" << endl;
 
     cerr << jsonEncode(queue.kernelWallTimes) << endl;

@@ -1734,7 +1734,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         // computation on the CPU so we can verify the output of the GPU
         // algorithm.
         std::vector<PartitionSplit> debugPartitionSplitsCpu;
-        std::vector<std::vector<W> > debugBucketsCpu;
+        std::span<W> debugBucketsCpu;
         std::vector<W> debugWAllCpu;
         std::vector<RowPartitionInfo> debugPartitionsCpu;
 
@@ -1838,21 +1838,17 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             std::shared_ptr<const void> mappedBuckets;
 
             std::tie(mappedBuckets, mapBuckets)
-                = memQueue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ,
+                = memQueue.enqueueMapBuffer(clPartitionBuckets, CL_MAP_READ | CL_MAP_WRITE,
                                          0 /* offset */,
                                          bytesPerPartition * numPartitionsAtDepth,
                                          { mapPartitionSplits });
         
             mapBuckets.waitUntilFinished();
 
-            const W * bucketsGpu
-                = reinterpret_cast<const W *>(mappedBuckets.get());
+            W * bucketsGpu
+                = const_cast<W *>(reinterpret_cast<const W *>(mappedBuckets.get()));
 
-            for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
-                const W * partitionBuckets = bucketsGpu + numActiveBuckets * i;
-                debugBucketsCpu.emplace_back(partitionBuckets,
-                                             partitionBuckets + numActiveBuckets);
-            }
+            debugBucketsCpu = { bucketsGpu, numActiveFeatures * numPartitionsAtDepth };
             
             // Get back the CPU version of wAll
             OpenCLEvent mapWAll;
@@ -1879,7 +1875,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
             // Run the CPU version... first getting the data in place
             debugPartitionSplitsCpu
-                = getPartitionSplits(debugBucketsCpu,
+                = getPartitionSplits(debugBucketsCpu, numActiveBuckets,
                                      activeFeatures, bucketNumbers,
                                      features, debugWAllCpu,
                                      indexes, 
@@ -2107,6 +2103,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
             updateBuckets(features,
                           debugPartitionsCpu,
                           debugBucketsCpu,
+                          numActiveBuckets,
                           debugWAllCpu,
                           bucketNumbers,
                           debugPartitionSplitsCpu,
@@ -2150,29 +2147,18 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
                 if (okayDifferentPartitions.count(i))
                     continue;  // is different due to a different split caused by numerical errors
 
-                if (!debugBucketsCpu[i].empty()) {
-                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
-                        if (partitionBuckets[j] != debugBucketsCpu[i].at(j)) {
-                            cerr << "part " << i << " bucket " << j
-                                 << " num " << numActiveBuckets * i + j
-                                 << " update error: CPU "
-                                 << jsonEncodeStr(debugBucketsCpu[i][j])
-                                 << " GPU "
-                                 << jsonEncodeStr(partitionBuckets[j])
-                                 << endl;
-                            different = true;
-                        }
-                    }
-                } else {
-                    for (size_t j = 0;  j < numActiveBuckets;  ++j) {
-                        if (partitionBuckets[j].count() != 0) {
-                            cerr << "part " << i << " bucket " << j
-                                 << " update error: CPU empty "
-                                 << " GPU "
-                                 << jsonEncodeStr(partitionBuckets[j])
-                                 << endl;
-                            different = true;
-                        }
+                std::span<W> debugBucketsCpuRow = debugBucketsCpu.subspan(i * numActiveFeatures, numActiveFeatures);
+
+                for (size_t j = 0;  j < numActiveBuckets;  ++j) {
+                    if (partitionBuckets[j] != debugBucketsCpuRow[j]) {
+                        cerr << "part " << i << " bucket " << j
+                                << " num " << numActiveBuckets * i + j
+                                << " update error: CPU "
+                                << jsonEncodeStr(debugBucketsCpuRow[j])
+                                << " GPU "
+                                << jsonEncodeStr(partitionBuckets[j])
+                                << endl;
+                        different = true;
                     }
                 }
             }
@@ -2413,7 +2399,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     std::map<PartitionIndex, ML::Tree::Ptr> newLeaves
         = splitAndRecursePartitioned(depth, maxDepth, tree, serializer,
-                                     std::move(buckets), bucketNumbers,
+                                     bucketsUnrolled, numActiveBuckets,
+                                     bucketNumbers,
                                      features, activeFeatures,
                                      decodedRows,
                                      partitions, wAll, indexes, fs,
