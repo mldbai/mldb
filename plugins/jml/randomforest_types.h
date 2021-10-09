@@ -577,6 +577,17 @@ struct PartitionSplit {
 
 DECLARE_STRUCTURE_DESCRIPTION(PartitionSplit);
 
+// Structure giving information about a given row (which partition it's in).
+struct RowPartitionInfo {
+    uint16_t partition_ = 0;
+    uint16_t partition() const { return partition_; }
+    static constexpr uint16_t max() { return -1; }
+    RowPartitionInfo & operator = (uint16_t p) { this->partition_ = p;  return *this; }
+    operator uint16_t () const { return partition_; }
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(RowPartitionInfo);
+
 struct PartitionEntry {
     std::vector<float> decodedRows;
     std::vector<Feature> features;

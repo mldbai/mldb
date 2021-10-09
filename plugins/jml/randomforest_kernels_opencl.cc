@@ -1501,7 +1501,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     // splitting them amongst many partitions.  Each partition has
     // its own set of buckets that we maintain.
 
-    size_t partitionMemoryUsage = sizeof(uint32_t) * rowCount;
+    size_t partitionMemoryUsage = sizeof(RowPartitionInfo) * rowCount;
     
     OpenCLMemObject clPartitions
         = context.createBuffer(CL_MEM_READ_WRITE, partitionMemoryUsage);
@@ -1736,7 +1736,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         std::vector<PartitionSplit> debugPartitionSplitsCpu;
         std::vector<std::vector<W> > debugBucketsCpu;
         std::vector<W> debugWAllCpu;
-        std::vector<uint32_t> debugPartitionsCpu;
+        std::vector<RowPartitionInfo> debugPartitionsCpu;
 
         if (depth == maxDepth - 1) {
             OpenCLEvent mapPartitionSplits;
@@ -1827,8 +1827,8 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         
             mapPartitions.waitUntilFinished();
 
-            const uint32_t * partitionsGpu
-                = reinterpret_cast<const uint32_t *>
+            const RowPartitionInfo * partitionsGpu
+                = reinterpret_cast<const RowPartitionInfo *>
                     (mappedPartitions.get());
 
             debugPartitionsCpu = { partitionsGpu, partitionsGpu + rowCount };
@@ -2219,14 +2219,14 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
         
             mapPartitions.waitUntilFinished();
 
-            const uint32_t * partitionsGpu
-                = reinterpret_cast<const uint32_t *>
+            const RowPartitionInfo * partitionsGpu
+                = reinterpret_cast<const RowPartitionInfo *>
                     (mappedPartitions.get());
 
             int numDifferences = 0;
             std::map<std::pair<int, int>, int> differenceStats;
             for (size_t i = 0;  i < rowCount;  ++i) {
-                if (partitionsGpu[i] != debugPartitionsCpu[i] && debugPartitionsCpu[i] != -1) {
+                if (partitionsGpu[i] != debugPartitionsCpu[i] && debugPartitionsCpu[i] != RowPartitionInfo::max()) {
                     if (okayDifferentPartitions.count(debugPartitionsCpu[i]))
                         continue;  // caused by known numerical issues
                     different = true;
@@ -2399,7 +2399,7 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
     Date beforeMapping = Date::now();
 
     auto bucketsUnrolled = mm.mapVector<W>(clPartitionBuckets);
-    auto partitions = mm.mapVector<uint32_t>(clPartitions);
+    auto partitions = mm.mapVector<RowPartitionInfo>(clPartitions);
     auto wAll = mm.mapVector<W>(clWAll);
     auto decodedRows = mm.mapVector<float>(clExpandedRowData);
 

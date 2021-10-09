@@ -126,6 +126,12 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
     addField("index", &PartitionSplit::index, "");
 }
 
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(RowPartitionInfo)
+{
+    addField("partition", &RowPartitionInfo::partition_, "");
+}
+
+REGISTER_VALUE_DESCRIPTION(RowPartitionInfo);
 
 } // namespace RF
 } // namespace MLDB

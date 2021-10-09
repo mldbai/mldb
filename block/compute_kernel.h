@@ -250,7 +250,7 @@ struct ComputeKernelGridRange {
             return current;
         }
 
-        uint32_t current;
+        uint32_t current = 0;
     };
 
     uint32_t first_ = 0;  // Where this part of the grid starts; first <= last <= range
@@ -667,6 +667,9 @@ struct ComputeQueue {
 
     ComputeContext * owner = nullptr;
 
+    std::mutex kernelWallTimesMutex;
+    std::map<std::string, double> kernelWallTimes; // in milliseconds
+
     std::shared_ptr<ComputeEvent> launch(const BoundComputeKernel & kernel,
                                          const std::vector<uint32_t> & grid,
                                          const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {})
@@ -676,8 +679,13 @@ struct ComputeQueue {
         Timer timer;
         std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
         kernel(*owner, ranges);
+        auto wallTime = timer.elapsed_wall();
         using namespace std;
         cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
+        {
+            std::unique_lock guard(kernelWallTimesMutex);
+            kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
+        }
 
         return std::shared_ptr<ComputeEvent>();
     }

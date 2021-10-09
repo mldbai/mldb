@@ -537,7 +537,7 @@ testAll(int depth,
 /*****************************************************************************/
 
 void updateBuckets(const std::span<const Feature> & features,
-                   std::vector<uint32_t> & partitions,
+                   std::vector<RowPartitionInfo> & partitions,
                    std::vector<std::vector<W> > & buckets,
                    std::vector<W> & wAll,
                    const std::span<const uint32_t> & bucketOffsets,
@@ -667,17 +667,17 @@ void updateBuckets(const std::span<const Feature> & features,
     std::vector<uint32_t> numInPartition(buckets.size());
         
     for (size_t i = 0;  i < rowCount;  ++i) {
-        int partition = partitions[i];
+        auto partition = partitions[i].partition();
 
         // Example is not in a partition
-        if (partition == -1)
+        if (partition == RowPartitionInfo::max())
             continue;
 
         int splitFeature = partitionSplits[partition].feature;
                 
         if (splitFeature == -1) {
             // reached a leaf here, nothing to split                    
-            partitions[i] = -1;
+            partitions[i] = RowPartitionInfo::max();
             continue;
         }
 
@@ -706,7 +706,7 @@ void updateBuckets(const std::span<const Feature> & features,
         
         // Verify partition counts?
         if (checkPartitionCounts)
-            ++numInPartition[partitions[i]];
+            ++numInPartition[partitions[i].partition()];
             
         // 0 = left to right, 1 = right to left
         int direction = partitionSplits[partition].transferDirection() == RL;
@@ -890,7 +890,7 @@ std::pair<std::vector<PartitionEntry>,
 splitPartitions(const std::span<const Feature> features,
                 const std::span<const int> & activeFeatures,
                 const std::span<const float> & decodedRows,
-                const std::span<const uint32_t> & partitions,
+                const std::span<const RowPartitionInfo> & partitions,
                 const std::span<const W> & w,
                 const std::span<const PartitionIndex> & indexes,
                 MappedSerializer & serializer)
@@ -989,7 +989,7 @@ splitPartitions(const std::span<const Feature> features,
     }
         
     for (size_t i = 0;  i < numRows;  ++i) {
-        int partition = partitions[i];
+        auto partition = partitions[i].partition();
         out[partition].decodedRows.push_back(decodedRows[i]);
         bool label = decodedRows[i] < 0;
         float weight = fabs(decodedRows[i]);
@@ -1018,7 +1018,7 @@ splitPartitions(const std::span<const Feature> features,
         }
 
         for (size_t j = 0;  j < numRows;  ++j) {
-            int partition = partitions[j];
+            auto partition = partitions[j].partition();
             partitionFeatures[partition].write(features[f].buckets[j]);
         }
 
@@ -1288,7 +1288,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
           
                              uint32_t rightOffset,
                              
-                             std::span<uint32_t> partitions,
+                             std::span<RowPartitionInfo> partitions,
                              std::span<uint8_t> directions,
           
                              std::span<const PartitionSplit> partitionSplits,
@@ -1308,7 +1308,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
     BucketList featureBuckets[nf];
 
     for (uint32_t r: rowRange) {
-        uint32_t partition = partitions[r];
+        auto partition = partitions[r].partition();
         int splitFeature = partitionSplits[partition].feature;
                 
         if (splitFeature == -1) {
@@ -1355,7 +1355,7 @@ updateBucketsKernel(ComputeContext & context,
                     uint32_t rightOffset,
                     uint32_t numActiveBuckets,
                     
-                    std::span<const uint32_t> partitions,
+                    std::span<const RowPartitionInfo> partitions,
                     std::span<const uint8_t> directions,
                     std::span<W> partitionBuckets,
                     std::span<W> wAll,
@@ -1414,8 +1414,8 @@ updateBucketsKernel(ComputeContext & context,
 
         // Partition was updated already, so here we mask out the offset to know where the
         // partition came from (ensure that this partition number is parent partition number)
-        uint32_t partition = partitions[i] & (rightOffset - 1);
-        uint32_t side = partition != partitions[i];  // it is on the right if the partition number changed
+        uint16_t partition = partitions[i] & (rightOffset - 1);
+        bool side = partition != partitions[i];  // it is on the right if the partition number changed
         //uint32_t direction = partitionSplits[partition].transferDirection() == RL;
         //if (direction != directions[i]) {
         //    cerr << "direction = " << direction << endl;
@@ -1425,7 +1425,7 @@ updateBucketsKernel(ComputeContext & context,
         //    cerr << "split " << jsonEncodeStr(partitionSplits[partition]) << endl;
         //}
         //ExcAssertEqual(direction, directions[i]);
-        uint32_t direction = directions[i];
+        bool direction = directions[i];
 
         //if (f == -1)
         //    cerr << "partition " << partition << " side = " << side << " direction " << direction << endl;
@@ -1495,24 +1495,28 @@ fixupBucketsKernel(ComputeContext & context,
     std::span<W> bucketsRight
         = allPartitionBuckets.subspan((partition + numPartitions) * numActiveBuckets);
     
+    bool hasZero = false;
     for (uint32_t bucket: bucketRange) {
+        hasZero = hasZero || bucket == 0;
         // We double the number of partitions.  The left all
         // go with the lower partition numbers, the right have the higher
         // partition numbers.
         bucketsLeft[bucket] -= bucketsRight[bucket];
-        if (bucket == 0) {
-            //cerr << "bucket == 0: left " << jsonEncodeStr(wAll[partition])
-            //     << " right " << jsonEncodeStr(wAll[partition + numPartitions]) << endl;
-            wAll[partition] -= wAll[partition + numPartitions];
-        }
         
         if (partitionSplits[partition].transferDirection() == RL) {
             // We need to swap the buckets
             std::swap(bucketsLeft[bucket], bucketsRight[bucket]);
+        }
+    }
 
-            if (bucket == 0) {
-                std::swap(wAll[partition], wAll[partition + numPartitions]);
-            }
+    // Bucket zero also updates wAll
+    if (hasZero) {
+        //cerr << "bucket == 0: left " << jsonEncodeStr(wAll[partition])
+        //     << " right " << jsonEncodeStr(wAll[partition + numPartitions]) << endl;
+        wAll[partition] -= wAll[partition + numPartitions];
+
+        if (partitionSplits[partition].transferDirection() == RL) {
+            std::swap(wAll[partition], wAll[partition + numPartitions]);
         }
     }
 }
@@ -1520,7 +1524,7 @@ fixupBucketsKernel(ComputeContext & context,
 
 // Check that the partition counts match the W counts.
 void
-verifyPartitionBuckets(const std::span<const uint32_t> & partitions,
+verifyPartitionBuckets(const std::span<const RowPartitionInfo> & partitions,
                        const std::span<const W> & wAll)
 {
     using namespace std;
@@ -1531,7 +1535,7 @@ verifyPartitionBuckets(const std::span<const uint32_t> & partitions,
     std::vector<uint32_t> partitionRowCounts(numPartitions);
 
     for (auto & p: partitions) {
-        if (p != -1)
+        if (p != RowPartitionInfo::max())
             ++partitionRowCounts[p];
     }
 
@@ -1564,7 +1568,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const std::span<const Feature> & features,
                            const std::span<const int> & activeFeatures,
                            const std::span<const float> & decodedRows,
-                           const std::span<const uint32_t> & partitions,
+                           const std::span<const RowPartitionInfo> & partitions,
                            const std::span<const W> & wAll,
                            const std::span<const PartitionIndex> & indexes,
                            const DatasetFeatureSpace & fs,
@@ -1952,7 +1956,7 @@ std::map<PartitionIndex, ML::Tree::Ptr>
 trainSmallPartitions(int depth, int maxDepth,
                      ML::Tree & tree,
                      const std::span<const Feature> & features,
-                     std::vector<uint32_t> & partitions,
+                     std::vector<RowPartitionInfo> & partitions,
                      const std::vector<std::vector<W> > & buckets,
                      const std::span<const uint32_t> & bucketOffsets,
                      const std::span<const float> & decodedRows,
@@ -2014,11 +2018,13 @@ trainSmallPartitions(int depth, int maxDepth,
 
     for (int i = 0;  i < rowCount;  ++i) {
 
-        int partition = partitions[i];
+        auto partition = partitions[i].partition();
 
         // Example is not in a partition
-        if (partition == -1)
+        if (partition >= smallPartitionNumbers.size()) {
+            ExcAssertEqual(partition, RowPartitionInfo::max());
             continue;
+        }
 
         int smallNum = smallPartitionNumbers.at(partition);
 
@@ -2181,7 +2187,7 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
     // its own set of buckets that we maintain.
     // Note that these are indexes into the partition list, to
     // enable sparseness in the tree.
-    std::vector<uint32_t> partitions(rowCount, 0);
+    std::vector<RowPartitionInfo> partitions(rowCount);
 
     // What is the index (position in the tree) for each partition?
     std::vector<PartitionIndex> indexes;
@@ -2221,7 +2227,7 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
          ++depth, ++myDepth) {
 
         // Check the preconditions if we're in testing mode
-        if (verifyBuckets) {
+        if (verifyBuckets && myDepth < 16) {
             verifyPartitionBuckets(partitions, wAll);
         }
 
@@ -2819,7 +2825,7 @@ struct RegisterKernels {
             result->device = device;
             result->addDimension("r", "numRows");
             result->addParameter("partitionSplitsOffset", "r", "u32");
-            result->addParameter("partitions", "r", "u32[numRows]");
+            result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u8[numRows]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
@@ -2841,7 +2847,7 @@ struct RegisterKernels {
             result->addDimension("f", "nf");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActiveBuckets", "r", "u32");
-            result->addParameter("partitions", "r", "u32[numRows]");
+            result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");

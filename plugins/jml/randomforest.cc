@@ -8,6 +8,7 @@
 #include "randomforest.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/map_description.h"
 #include "mldb/plugins/jml/dataset_feature_space.h"
 #include "mldb/utils/fixed_point_accum.h"
 #include "mldb/plugins/jml/jml/tree.h"
@@ -1038,8 +1039,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     // is in partition zero, but as we start to split, we end up
     // splitting them amongst many partitions.  Each partition has
     // its own set of buckets that we maintain.
-    MemoryArrayHandleT<uint32_t> devicePartitions
-        = context.allocZeroInitializedArray<uint32_t>(rowCount);
+    MemoryArrayHandleT<RowPartitionInfo> devicePartitions
+        = context.allocZeroInitializedArray<RowPartitionInfo>(rowCount);
 
     // Array to cache transfer directions to avoid re-calculating
     MemoryArrayHandleT<uint8_t> deviceDirections
@@ -1152,7 +1153,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         std::vector<PartitionSplit> debugPartitionSplitsCpu;
         std::vector<std::vector<W> > debugBucketsCpu;
         std::vector<W> debugWAllCpu;
-        std::vector<uint32_t> debugPartitionsCpu;
+        std::vector<RowPartitionInfo> debugPartitionsCpu;
         std::set<int> okayDifferentPartitions;
 
         if (debugKernelOutput) {
@@ -1454,7 +1455,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             int numDifferences = 0;
             std::map<std::pair<int, int>, int> differenceStats;
             for (size_t i = 0;  i < rowCount;  ++i) {
-                if (partitionsDevice[i] != debugPartitionsCpu[i] && debugPartitionsCpu[i] != -1) {
+                if (partitionsDevice[i] != debugPartitionsCpu[i] && debugPartitionsCpu[i] != RowPartitionInfo::max()) {
                     if (okayDifferentPartitions.count(debugPartitionsCpu[i]))
                         continue;  // caused by known numerical issues
                     different = true;
@@ -1503,7 +1504,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     auto bucketsUnrolledRegion = context.transferToCpuSync(devicePartitionBuckets);
     std::span<const W> bucketsUnrolled = bucketsUnrolledRegion.getConstSpan();
     auto partitionsRegion = context.transferToCpuSync(devicePartitions);
-    std::span<const uint32_t> partitions = partitionsRegion.getConstSpan();
+    std::span<const RowPartitionInfo> partitions = partitionsRegion.getConstSpan();
     auto wAllRegion = context.transferToCpuSync(deviceWAll);
     std::span<const W> wAll = wAllRegion.getConstSpan();
     auto decodedRowsRegion = context.transferToCpuSync(deviceExpandedRowData);
@@ -1512,126 +1513,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000
          << "ms with " << totalDeviceAllocation / 1000000.0 << "Mb allocated" << endl;
     cerr << "numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
-
-#if 0
-    // Look what's leftover for partition splits
-    std::vector<std::tuple<PartitionIndex, W64, uint32_t>> activePartitions;
-    size_t examplesInActivePartitions = 0;
-    for (size_t i = numPartitionsAtDepth / 2;  i < numPartitionsAtDepth;  ++i) {
-        auto & part = allPartitionSplits[i];
-        //cerr << "doing part " << part.index << endl;
-        if (part.index == PartitionIndex::none())
-            continue;
-        if (!part.valid())
-            continue;
-        if (part.left.empty() || part.right.empty())
-            continue;
-        if (part.left.uniform() && part.right.uniform())
-            continue;
-        if (!part.left.uniform()) {
-            activePartitions.emplace_back(part.index.leftChild(), part.left);
-            examplesInActivePartitions += part.left.count();
-        }
-        if (!part.right.uniform()) {
-            activePartitions.emplace_back(part.index.rightChild(), part.right);
-            examplesInActivePartitions += part.right.count();
-        }
-    }
-
-    auto sortByCount = [] (auto & l, auto & r) { auto [i1, w1, n1] = l; auto [i2, w2, n2] = r; return w1.count() > w2.count(); };
-    std::sort(activePartitions.begin(), activePartitions.end(), sortByCount);
-
-    cerr << activePartitions.size() << " active partitions; " << examplesInActivePartitions << " active rows of "
-         << rowCount << endl;
-
-    for (auto [i, w, n]: activePartitions) {
-        cerr << i << ": " << w.count() << " " << jsonEncodeStr(w) << endl;
-    }
-
-    uint32_t numToKeep = activePartitions.size();
-
-    uint32_t levelsNeeded = maxDepth - depth;
-    cerr << "need " << levelsNeeded << " more levels" << endl;
-
-    uint32_t maxNumToKeep = 1 << (maxIterations / 2);
-    if (levelsNeeded < maxIterations) {
-        maxNumToKeep = std::max(maxNumToKeep, uint32_t(1 << (maxIterations - levelsNeeded)));
-    }
-
-    // We need to be able to fill at least half of the levels with new splits
-    if (numToKeep > maxNumToKeep) {
-        numToKeep = maxNumToKeep;
-    }
-
-    size_t numRowsToKeep = 0;
-    size_t numRowsToProcess = 0;
-    for (uint32_t i = 0;  i < activePartitions.size();  ++i) {
-        auto & [idx, w, n] = activePartitions[i];
-        if (i < numToKeep) {
-            numRowsToKeep += w.count();
-        }
-        else {
-            numRowsToProcess += w.count();
-        }
-    }
-
-    cerr << "keeping " << numToKeep << " of " << activePartitions.size() << " partitions with "
-         << numRowsToKeep << " rows kept and " << numRowsToProcess << " rows to remove" << endl;
-#endif
-
-#if 0
-    struct ToProcessPartition {
-        uint32_t rowsOffset;      // Where we start in the toProcessRows
-        uint32_t numRows;         // Where we finish in the toProcessRows
-        uint32_t numRowsDone = 0; // How many rows have we filled?
-        uint32_t partitionNumber; // Which partition number we get our buckets from
-        PartitionIndex index;     // Partition index of the root
-    };
-
-    std::vector<ToProcessPartition> partitionsToProcess;
-    std::vector<uint32_t> partitionToToProcessIndex(numPartitionsAtDepth, -1);
-
-    size_t rowsOffset = 0;
-    for (uint32_t i = numToKeep;  i < activePartitions.size();  ++i) {
-        auto & [idx, w, n] = activePartitions[i];
-        ToProcessPartition toProcess;
-        toProcess.rowsOffset = rowsOffset;
-        toProcess.numRows = activePartitions.size();
-        toProcess.partitionNumber = n;
-        toProcess.index = idx;
-
-        partitionToToProcessIndex[n] = partitionsToProcess.size();
-        partitionsToProcess.push_back(toProcess);
-        rowsOffset += activePartitions.size();
-    }
-
-    // Now extract the rows that belong to each of our partitions to process
-    std::vector<uint32_t> toProcessRows(rowsOffset);  // row numbers
-
-    for (uint32_t r = 0;  r < numRows;  ++r) {
-        auto partition = partitions[r];
-        auto toProcessIndex = partitionToToProcessIndex[partition];
-        if (toProcessIndex == (uint32_t)-1)
-            continue;  // not in any partition
-        ToProcessPartition & toProcessEntry = partitionsToProcess[toProcessIndex];
-        uint32_t rowIndex = toProcessEntry.rowsOffset + toProcessEntry.numRowsDone++;
-        toProcessRows[rowIndex] = r;
-    }
-    
-    // Now we can process each of our small partitions
-    auto processSmallPartition = [&] (ToProcessPartition & partition)
-    {
-        // 1.  Calculate buckets
-
-        // 2.  Find split
-
-
-    };
-
-    for (size_t i = 0;  i < partitionsToProcess.size();  ++i) {
-        processSmallPartition(partitionsToProcess[i]);
-    }
-#endif
 
 #if 0
     cerr << "  submit    queue    start      end  elapsed name" << endl;
@@ -1804,6 +1685,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
          << "ms ("
           << beforeSplitAndRecurse.secondsSince(beforeMapping) * 1000 << "ms in mapping and "
           << afterSplitAndRecurse.secondsSince(beforeSplitAndRecurse) * 1000 << "ms in split and recurse)" << endl;
+
+    cerr << jsonEncode(queue.kernelWallTimes) << endl;
 
     return result;
 }

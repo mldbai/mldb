@@ -158,7 +158,7 @@ testAll(int depth,
 */
 void
 updateBuckets(const std::span<const Feature> & features,
-              std::vector<uint32_t> & partitions, // per row
+              std::vector<RowPartitionInfo> & partitions, // per row
               std::vector<std::vector<W> > & buckets,  // par part
               std::vector<W> & wAll,  // per part
               const std::span<const uint32_t> & bucketOffsets,
@@ -178,7 +178,7 @@ std::pair<std::vector<PartitionEntry>,
 splitPartitions(const std::span<const Feature> features,
                 const std::span<const int> & activeFeatures,
                 const std::span<const float> & decodedRows,
-                const std::span<const uint32_t> & partitions,
+                const std::span<const RowPartitionInfo> & partitions,
                 const std::span<const W> & w,
                 const std::span<const PartitionIndex> & indexes,
                 MappedSerializer & serializer);
@@ -245,7 +245,7 @@ clearBucketsKernel(ComputeContext & context,
 
 
 // Check that the partition counts match the W counts.
-void verifyPartitionBuckets(const std::span<const uint32_t> & partitions,
+void verifyPartitionBuckets(const std::span<const RowPartitionInfo> & partitions,
                             const std::span<const W> & wAll);
 
 
@@ -261,7 +261,7 @@ splitAndRecursePartitioned(int depth, int maxDepth,
                            const std::span<const Feature> & features,
                            const std::span<const int> & activeFeatures,
                            const std::span<const float> & decodedRows,
-                           const std::span<const uint32_t> & partitions,
+                           const std::span<const RowPartitionInfo> & partitions,
                            const std::span<const W> & wAll,
                            const std::span<const PartitionIndex> & indexes,
                            const DatasetFeatureSpace & fs,
