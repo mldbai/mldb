@@ -88,6 +88,7 @@ enum MemoryRegionState : uint8_t {
 */
 
 struct MemoryRegionHandleInfo {
+    virtual ~MemoryRegionHandleInfo() = default;  // so we can safely upcast
     const std::type_info * type = nullptr;  //< non-CV qualified type in the array
     bool isConst = true;              //< Is the referred to memory constant or mutable?
 };

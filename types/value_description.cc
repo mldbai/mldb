@@ -414,6 +414,18 @@ registerValueDescriptionFunctions(const std::type_info & type,
 #endif
 }
 
+void registerValueDescriptionAlias(const std::type_info & type, const std::string & alias)
+{
+    auto desc = ValueDescription::get(type);
+    if (!desc) {
+        throw MLDB::Exception("registering value description alias '" + alias + "' of type '"
+                              + demangle(type.name()) + "': type isn't registered");
+    }
+    
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
+    registry()[alias] = desc;
+}
+
 void
 ValueDescription::
 convertAndCopy(const void * from,

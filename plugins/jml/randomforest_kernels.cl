@@ -10,8 +10,16 @@
 
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 
-#ifndef W
+#ifndef WBITS
+#  define WBITS 64
+#endif
+
+#if WBITS == 64
 #  define W W64
+#endif
+
+#if WBITS == 32
+#  define W W32
 #endif
 
 typedef unsigned uint32_t;
@@ -22,13 +30,19 @@ typedef signed char int8_t;
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 
+#if WBITS == 64
 static const __constant float VAL_2_HL = 1.0f * (1UL << 60);
 static const __constant float HL_2_VAL = 1.0f / (1UL << 60);
 static const __constant float VAL_2_H = (1UL << 28);
 static const __constant float H_2_VAL = 1.0f / (1UL << 28);
 static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 60);
+#elif WBITS == 32
+static const __constant float VAL_2_HL = 1.0f * (1UL << 30);
+static const __constant float HL_2_VAL = 1.0f / (1UL << 30);
+static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 30);
+#endif
 
-float decodeWeight(uint32_t bits, uint32_t floatEncoding, float baseMultiplier,
+inline float decodeWeight(uint32_t bits, uint32_t floatEncoding, float baseMultiplier,
                    __global const float * table)
 {
     if (floatEncoding == 0) {
@@ -43,12 +57,12 @@ float decodeWeight(uint32_t bits, uint32_t floatEncoding, float baseMultiplier,
     else return INFINITY;
 }
 
-uint32_t createMask32(uint32_t numBits)
+inline uint32_t createMask32(uint32_t numBits)
 {
     return numBits >= 32 ? -1 : (((uint32_t)1 << numBits) - 1);
 }
 
-uint64_t createMask64(uint32_t numBits)
+inline uint64_t createMask64(uint32_t numBits)
 {
     return numBits >= 64 ? -1 : (((uint64_t)1 << numBits) - 1);
 }
@@ -162,6 +176,28 @@ void getDecodedRow(uint32_t rowNumber,
                    uint64_t mask,
                    uint32_t exampleMask,
                    uint32_t weightMask,
+                   uint32_t labelMask);
+
+void getDecodedRow(uint32_t rowNumber,
+
+                   __global const uint64_t * rowData,
+                   uint32_t rowDataLength,
+                   uint32_t totalBits,
+                   uint32_t weightBits,
+                   uint32_t exampleBits,
+                   uint32_t numRows,
+
+                   uint32_t weightEncoding,
+                   float weightMultiplier,
+                   __global const float * weightTable,
+                   
+                   uint32_t * example,
+                   float * weight,
+                   bool * label,
+
+                   uint64_t mask,
+                   uint32_t exampleMask,
+                   uint32_t weightMask,
                    uint32_t labelMask)
 {
     //*example = rowNumber;
@@ -193,23 +229,21 @@ inline uint32_t getBucket(uint32_t exampleNum,
 typedef struct W64 {
     int64_t vals[2];
     int32_t count;
-    int32_t index;
 } W64;
 
 typedef struct W32 {
     int32_t vals[2];
     int32_t count;
-    int32_t index;
 } W32;
 
-void zeroW(__local W * w)
+inline void zeroW(__local W * w)
 {
     w->vals[0] = 0;
     w->vals[1] = 0;
     w->count = 0;
 }
 
-int64_t encodeW(float f)
+inline int64_t encodeW(float f)
 {
     int64_t result = convert_long((f + ADD_TO_ROUND) * VAL_2_HL);
     //printf("encoding %g (%08x) to %g (%08x) to %ld, ADD_TO_ROUND = %g, VAL_2_HL = %g\n",
@@ -219,12 +253,12 @@ int64_t encodeW(float f)
     return result;
 }
 
-double decodeW(int64_t v)
+inline double decodeW(int64_t v)
 {
     return v * HL_2_VAL;
 }
 
-float decodeWf(int64_t v)
+inline float decodeWf(int64_t v)
 {
     return v * HL_2_VAL;
 }
@@ -246,10 +280,11 @@ float decodeWf(int64_t v)
 #define HIGH_INDEX 0
 #endif
 
+#if WBITS==64
 // Synthesize 64 bit atomic additions/subtractions by two 32 bit atomic
 // additions/subtractions.  This works because we only use the targets to
 // accumulate; we don't read them until all accumulations are done.
-void atom_add_64_local(__local int64_t * val, int64_t arg)
+inline void atom_add_64_local(__local int64_t * val, int64_t arg)
 {
     __local uint32_t * lo = ((__local uint32_t *)val) + LOW_INDEX;
     __local int32_t * hi = ((__local int32_t *)val) + HIGH_INDEX;
@@ -270,12 +305,12 @@ void atom_add_64_local(__local int64_t * val, int64_t arg)
     }
 }
 
-void atom_sub_64_local(__local int64_t * val, int64_t arg)
+inline void atom_sub_64_local(__local int64_t * val, int64_t arg)
 {
     atom_add_64_local(val, -arg);  // TODO: doesn't work properly for all values of arg..
 }
 
-void atom_add_64_global(__global int64_t * val, int64_t arg)
+inline void atom_add_64_global(__global int64_t * val, int64_t arg)
 {
     __global uint32_t * lo = ((__global uint32_t *)val) + LOW_INDEX;
     __global int32_t * hi = ((__global int32_t *)val) + HIGH_INDEX;
@@ -296,36 +331,38 @@ void atom_add_64_global(__global int64_t * val, int64_t arg)
     }
 }
 
-void atom_sub_64_global(__global int64_t * val, int64_t arg)
+inline void atom_sub_64_global(__global int64_t * val, int64_t arg)
 {
     atom_add_64_global(val, -arg);
 }
-
+#endif // WBITS==64
 
 #endif // 64 bit base atomics
 
-void incrementWLocal(__local W * w, bool label, float weight)
+#if WBITS == 64
+
+inline void incrementWLocal(__local W * w, bool label, float weight)
 {
     int64_t inc = encodeW(weight);
     atom_add_64_local(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
 }
 
-void decrementWLocal(__local W * w, bool label, float weight)
+inline void decrementWLocal(__local W * w, bool label, float weight)
 {
     int64_t inc = encodeW(weight);
     atom_sub_64_local(&w->vals[label ? 1 : 0], inc);
     atom_dec(&w->count);
 }
 
-void incrementWGlobal(__global W * w, bool label, float weight)
+inline void incrementWGlobal(__global W * w, bool label, float weight)
 {
     int64_t inc = encodeW(weight);
     atom_add_64_global(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
 }
 
-void incrementWOut(__global W * wOut, __local const W * wIn)
+inline void incrementWOut(__global W * wOut, __local const W * wIn)
 {
     if (wIn->count == 0)
         return;
@@ -336,7 +373,7 @@ void incrementWOut(__global W * wOut, __local const W * wIn)
     atom_add(&wOut->count,   wIn->count);
 }
 
-void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
+inline void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
 {
     if (wIn->count == 0)
         return;
@@ -346,235 +383,49 @@ void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
         atom_sub_64_global(&wOut->vals[1], wIn->vals[1]);
     atom_sub(&wOut->count,   wIn->count);
 }
+#elif WBITS == 32
 
-#if 0
-uint32_t testRow(uint32_t rowId,
-
-                 __global const uint64_t * rowData,
-                 uint32_t rowDataLength,
-                 uint32_t totalBits,
-                 uint32_t weightBits,
-                 uint32_t exampleBits,
-                 uint32_t numRows,
-                   
-                 __global const uint32_t * bucketData,
-                 uint32_t bucketDataLength,
-                 uint32_t bucketBits,
-                 uint32_t numBuckets,
-                   
-                 uint32_t weightEncoding,
-                 float weightMultiplier,
-                 __global const float * weightTable,
-                   
-                 __local W * w,
-                 __global W * wOut,
-                 uint32_t maxLocalBuckets,
-                 
-                 uint64_t mask,
-                 uint32_t exampleMask,
-                 uint32_t weightMask,
-                 uint32_t labelMask)
+inline void incrementWLocal(__local W * w, bool label, float weight)
 {
-    uint32_t exampleNum = 0;
-    float weight = 1.0;
-    bool label = false;
-
-    uint32_t bucket;// = rowId % numBuckets;
-
-#if 1
-    getDecodedRow(rowId, rowData, rowDataLength,
-                  totalBits, weightBits, exampleBits, numRows,
-                  weightEncoding, weightMultiplier, weightTable,
-                  &exampleNum, &weight, &label,
-                  mask, exampleMask, weightMask, labelMask);
-
-    //if (exampleNum >= numRows) {
-    //    printf("ERROR EXAMPLE NUM: got %d numRows %d row %d feature %d\n",
-    //           exampleNum, numRows, rowId, get_global_id(0));
-    //    return 0;
-    //}
-    
-    bucket = getBucket(exampleNum, bucketData, bucketDataLength,
-                       bucketBits, numBuckets);
-    if (bucket >= numBuckets) {
-        printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
-               bucket, numBuckets, rowId, (int)get_global_id(0));
-        return 0;
-    }
-    //bucket = min(bucket, numBuckets - 1);
-#else
-    bucket = rowId % numBuckets;
-#endif
-    
-    //if (rowId < 10)
-    //    printf("rowId %d exampleNum %d bucket %d of %d weight %g label %d\n",
-    //           rowId, exampleNum, bucket, numBuckets, weight, label);
-
-    if (bucket < maxLocalBuckets) {
-        incrementWLocal(w + bucket, label, weight);
-    }
-    else {
-        incrementWGlobal(wOut + bucket, label, weight);
-    }
-
-    return bucket;
+    int32_t inc = encodeW(weight);
+    atom_add(&w->vals[label ? 1 : 0], inc);
+    atom_inc(&w->count);
 }
 
-__kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
-
-                                __global const uint64_t * rowData,
-                                uint32_t rowDataLength,
-                                uint32_t totalBits,
-                                uint32_t weightBits,
-                                uint32_t exampleBits,
-                                uint32_t numRows,
-
-                                __global const uint32_t * allBucketData,
-                                __global const uint32_t * bucketDataOffsets,
-                                __global const uint32_t * bucketNumbers,
-                                __global const uint32_t * bucketEntryBits,
-
-                                uint32_t weightEncoding,
-                                float weightMultiplier,
-                                __global const float * weightTable,
-
-                                __global const uint32_t * featureActive,
-                                
-                                __local W * w,
-                                uint32_t maxLocalBuckets,
-                                __global W * allWOut,
-                                __global int * allMinMaxOut)
+inline void decrementWLocal(__local W * w, bool label, float weight)
 {
-    const uint32_t workGroupId = get_global_id (0);
-    const uint32_t workerId = get_local_id(0);
-    const uint32_t f = get_global_id(1);
-    
-    uint32_t bucketDataOffset = bucketDataOffsets[f];
-    uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
-    uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
-    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
-    uint32_t bucketBits = bucketEntryBits[f];
+    int32_t inc = encodeW(weight);
+    atom_sub(&w->vals[label ? 1 : 0], inc);
+    atom_dec(&w->count);
+}
 
-    __global W * wOut = allWOut + bucketNumbers[f];
-    __global int * minMaxOut = allMinMaxOut + 2 * f;
+inline void incrementWGlobal(__global W * w, bool label, float weight)
+{
+    int32_t inc = encodeW(weight);
+    atom_add(&w->vals[label ? 1 : 0], inc);
+    atom_inc(&w->count);
+}
 
-    if (!featureActive[f])
+inline void incrementWOut(__global W * wOut, __local const W * wIn)
+{
+    if (wIn->count == 0)
         return;
-    
-    __local int minWorkgroupBucket, maxWorkgroupBucket;
+    if (wIn->vals[0] != 0)
+        atom_add(&wOut->vals[0], wIn->vals[0]);
+    if (wIn->vals[1] != 0)
+        atom_add(&wOut->vals[1], wIn->vals[1]);
+    atom_add(&wOut->count,   wIn->count);
+}
 
-    if (workGroupId == 0 && false) {
-        printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, buckets %d-%d, offset %d\n",
-               (int)get_global_id(1),
-               get_global_size(0),
-               get_num_groups(0),
-               get_local_size(0),
-               numRows,
-               numRowsPerWorkgroup,
-               numBuckets,
-               bucketNumbers[f],
-               bucketNumbers[f + 1],
-               bucketDataOffset);
-    }
-    
-    if (workerId == 0) {
-        minWorkgroupBucket = INT_MAX;
-        maxWorkgroupBucket = INT_MIN;
-    }
-
-    //printf("workGroupId = %d workerId = %d\n",
-    //       workGroupId, workerId);
-    
-    //if (workGroupId == 0) {
-    //    printf("Num work groups = %d size = %d\n",
-    //           get_num_groups(0), get_local_size(0));
-    //}
-
-    //printf("workerId = %d, localsize[0] = %d\n",
-    //       workerId, get_local_size(0));
-    
-    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
-         i += get_local_size(0)) {
-        //printf("zeroing %d of %d for feature %d\n", i, numBuckets, f);
-        zeroW(w + i);
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-    //if (rowId % 10000 == 0)
-    //    printf("afer barrier %d\n", rowId);
-
-    //if (rowId > 4)
-    //    return;
-    
-    int minBucket = INT_MAX;
-    int maxBucket = INT_MIN;
-
-    uint64_t mask = createMask64(totalBits);
-    uint32_t exampleMask = createMask32(exampleBits);
-    uint32_t weightMask = createMask32(weightBits);
-    uint32_t labelMask = (1 << (weightBits + exampleBits));
-
-    // global id 0 does 0, 1024, 2048, ...
-    
-    for (uint32_t rowId = get_global_id(0);  rowId < numRows;  rowId += get_global_size(0)) {
-        //int rowId = workGroupId * numRowsPerWorkgroup + i;
-        //int rowId = workGroupId + i * get_local_size(0);
-        //if (workGroupId == 0)
-        //    printf("i = %d getting row %d in worker %d with %ld groups\n",
-        //           i, rowId, workGroupId, get_local_size(0));
-        //printf("rowId = %d, numRows = %d\n", rowId, numRows);
-        if (rowId < numRows) {
-            int bucket
-                = testRow(rowId, rowData, rowDataLength,
-                          totalBits, weightBits, exampleBits,
-                          numRows,
-                          bucketData, bucketDataLength, bucketBits, numBuckets,
-                          weightEncoding, weightMultiplier, weightTable, w,
-                          wOut, maxLocalBuckets,
-                          mask, exampleMask, weightMask, labelMask);
-            minBucket = min(minBucket, bucket);
-            maxBucket = max(maxBucket, bucket);
-        }
-    }
-
-    atomic_min(&minWorkgroupBucket, minBucket);
-    atomic_max(&maxWorkgroupBucket, maxBucket);
-    
-    //minBucket = work_group_reduce_min(minBucket);
-    //maxBucket = work_group_reduce_max(maxBucket);
-    
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-
-    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
-         i += get_local_size(0)) {
-        //printf("copying %d group %ld\n", i, get_group_id(0));
-        //wOut[i].vals[0] = w[i].vals[0];
-        //wOut[i].vals[1] = w[i].vals[1];
-        incrementWOut(wOut + i, w + i);
-    }
-
-    if (workerId == 0) {
-        //printf("feat %d index %d minBucket %d maxBucket %d\n",
-        //       f, workGroupId, minWorkgroupBucket, maxWorkgroupBucket);
-        atomic_min(minMaxOut + 0, minWorkgroupBucket);
-        atomic_max(minMaxOut + 1, maxWorkgroupBucket);
-    }
-    
-    barrier(CLK_GLOBAL_MEM_FENCE);
-
-    if (workGroupId == 0 && false) {
-        printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, per wg %d, numBuckets %d, min %d, max %d\n",
-               (int)get_global_id(1),
-               get_global_size(0),
-               get_num_groups(0),
-               get_local_size(0),
-               numRows,
-               numRowsPerWorkgroup,
-               numBuckets,
-               minMaxOut[0],
-               minMaxOut[1]);
-    }
+inline void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
+{
+    if (wIn->count == 0)
+        return;
+    if (wIn->vals[0] != 0)
+        atom_sub(&wOut->vals[0], wIn->vals[0]);
+    if (wIn->vals[1] != 0)
+        atom_sub(&wOut->vals[1], wIn->vals[1]);
+    atom_sub(&wOut->count,   wIn->count);
 }
 
 #endif
@@ -588,20 +439,22 @@ __kernel void testFeatureKernel(uint32_t numRowsPerWorkgroup,
 __kernel void
 decompressRowsKernel(__global const uint64_t * rowData,
                      uint32_t rowDataLength,
-                     uint32_t totalBits,
                      uint32_t weightBits,
-                     uint32_t exampleBits,
+                     uint32_t exampleNumBits,
                      uint32_t numRows,
                      
-                     uint32_t weightEncoding,
+                     uint32_t weightFormat,
                      float weightMultiplier,
-                     __global const float * weightTable,
+                     __global const float * weightData,
                      
-                     __global float * decompressedWeightsOut)
+                     __global float * decodedRowsOut)
 {
-    //if (get_global_id(0) == 0) {
-    //    printf("sizeof(W) = %d\n", sizeof(W));
-    //}
+    uint32_t totalBits = weightBits + exampleNumBits + 1;  // 1 is for the label
+    if (get_global_id(0) == 0) {
+        printf("weightBits = %d exampleNumBits = %d totalBits = %d\n",
+               weightBits, exampleNumBits, totalBits);
+    }
+
 
     uint32_t exampleNum = 0;
     float weight = 1.0;
@@ -610,55 +463,56 @@ decompressRowsKernel(__global const uint64_t * rowData,
     //uint32_t bucket;// = rowId % numBuckets;
 
     uint64_t mask = createMask64(totalBits);
-    uint32_t exampleMask = createMask32(exampleBits);
+    uint32_t exampleMask = createMask32(exampleNumBits);
     uint32_t weightMask = createMask32(weightBits);
-    uint32_t labelMask = (1 << (weightBits + exampleBits));
+    uint32_t labelMask = (1 << (weightBits + exampleNumBits));
 
     for (uint32_t rowId = get_global_id(0);  rowId < numRows;
          rowId += get_global_size(0)) {
         getDecodedRow(rowId, rowData, rowDataLength,
-                      totalBits, weightBits, exampleBits, numRows,
-                      weightEncoding, weightMultiplier, weightTable,
+                      totalBits, weightBits, exampleNumBits, numRows,
+                      weightFormat, weightMultiplier, weightData,
                       &exampleNum, &weight, &label,
                       mask, exampleMask, weightMask, labelMask);
         
         if (exampleNum != rowId) {
-            printf("non-consecutive example numbers");
+            printf("non-consecutive example numbers: %d vs %d\n", exampleNum, rowId);
         }
 
         float encoded = label ? -weight : weight;
         
-        //if (rowId < 128 && false) {
-            //printf("row %d ex %d wt %f lb %d encoded %f\n",
-            //       rowId, exampleNum, weight, label, encoded);
-        //}
+        if (rowId < 128) {
+            printf("row %d ex %d wt %f lb %d encoded %f\n",
+                   rowId, exampleNum, weight, label, encoded);
+        }
         
-        decompressedWeightsOut[rowId] = encoded;
+        decodedRowsOut[rowId] = encoded;
     }
 }
 
+#if 0
 // Decompress the data for the features, to save on access time
 __kernel void
 decompressFeatureBucketsKernel(uint32_t numRows,
-                               __global const uint32_t * allBucketData,
+                               __global const uint32_t * bucketData,
                                __global const uint32_t * bucketDataOffsets,
                                __global const uint32_t * bucketNumbers,
                                __global const uint32_t * bucketEntryBits,
                                
-                               __global const uint32_t * featureActive,
+                               __global const uint32_t * featuresActive,
                                
                                __global uint16_t * featuresOut,
                                __global const uint32_t * featureDataOffsets)
 {
     uint32_t f = get_global_id(1);
 
-    if (!featureActive[f])
+    if (!featuresActive[f])
         return;
 
     uint32_t bucketDataOffset = bucketDataOffsets[f];
     uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
     uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
-    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
+    __global const uint32_t * bucketData = bucketData + bucketDataOffset;
     uint32_t bucketBits = bucketEntryBits[f];
     
     __global uint16_t * out = featuresOut + featureDataOffsets[f] / sizeof(*out);
@@ -668,41 +522,57 @@ decompressFeatureBucketsKernel(uint32_t numRows,
         out[rowId] = bucket;
     }
 }
+#endif
 
+uint32_t testRow(uint32_t rowId,
+                 __global const float * rowData,
+                 uint32_t numRows,
+                 
+                 __global const uint32_t * bucketData,
+                 uint32_t bucketDataLength,
+                 uint32_t bucketBits,
+                 uint32_t numBuckets,
 
-uint32_t testRowExpanded(uint32_t rowId,
+                 __local W * w,
+                 __global W * wOut,
+                 uint32_t maxLocalBuckets);
 
-                         __global const float * rowData,
-                         uint32_t numRows,
-                   
-                         __global const uint32_t * bucketData,
-                         uint32_t bucketDataLength,
-                         uint32_t bucketBits,
-                         uint32_t numBuckets,
+inline void printW(__global W * w)
+{
+    printf("{\"v\":[%f,%f],\"c\":%d}", decodeWf(w->vals[0]), decodeWf(w->vals[1]), w->count);
+}
 
-                         __global const uint16_t * expandedBuckets,
-                         bool useExpandedBuckets,
-                         
-                         __local W * w,
-                         __global W * wOut,
-                         uint32_t maxLocalBuckets)
+uint32_t testRow(uint32_t rowId,
+                 __global const float * rowData,
+                 uint32_t numRows,
+                 
+                 __global const uint32_t * bucketData,
+                 uint32_t bucketDataLength,
+                 uint32_t bucketBits,
+                 uint32_t numBuckets,
+
+                 __local W * w,
+                 __global W * wOut,
+                 uint32_t maxLocalBuckets)
 {
     uint32_t exampleNum = rowId;
     float val = rowData[rowId];
     float weight = fabs(val);
     bool label = val < 0;
-    uint32_t bucket;
-    if (!useExpandedBuckets) {
-        bucket = getBucket(exampleNum, bucketData, bucketDataLength,
-                           bucketBits, numBuckets);
-    }
-    else {
-        bucket = expandedBuckets[exampleNum];
-    }
+    int f = get_global_id(0);
+    uint32_t bucket
+        = getBucket(exampleNum, bucketData, bucketDataLength,
+                    bucketBits, numBuckets);
+
     if (bucket >= numBuckets) {
         printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
                bucket, numBuckets, rowId, (int)get_global_id(0));
         return 0;
+    }
+
+    if (f == 0 && bucket == 1) {
+        printf("feat %d row %d bucket %d of %d weight %f label %d\n",
+                f, rowId, bucket, numBuckets, weight, label);
     }
 
     if (bucket < maxLocalBuckets) {
@@ -716,46 +586,38 @@ uint32_t testRowExpanded(uint32_t rowId,
 }
 
 __kernel void
-testFeatureKernelExpanded(__global const float * expandedRows,
-                          uint32_t numRows,
+testFeatureKernel(__global const float * decodedRows,
+                 uint32_t numRows,
 
-                          __global const uint32_t * allBucketData,
-                          __global const uint32_t * bucketDataOffsets,
-                          __global const uint32_t * bucketNumbers,
-                          __global const uint32_t * bucketEntryBits,
+                 __global const uint32_t * bucketData,
+                 __global const uint32_t * bucketDataOffsets,
+                 __global const uint32_t * bucketNumbers,
+                 __global const uint32_t * bucketEntryBits,
 
-                          __global const uint16_t * expandedBuckets,
-                          __global const uint32_t * expandedBucketOffsets,
-                          uint32_t useExpandedBuckets,
-                          
-                          __global const uint32_t * featureActive,
-                                
-                          __local W * w,
-                          uint32_t maxLocalBuckets,
-                          __global W * allWOut)
+                 __global const uint32_t * featuresActive,
+                      
+                 __local W * w,
+                 uint32_t maxLocalBuckets,
+                 __global W * partitionBuckets)
 {
-    const uint32_t workGroupId = get_global_id (0);
-    const uint32_t workerId = get_local_id(0);
-    const uint32_t f = get_global_id(1);
+    const uint32_t workGroupId = get_global_id (1);
+    const uint32_t workerId = get_local_id(1);
+    const uint32_t f = get_global_id(0);
     
     uint32_t bucketDataOffset = bucketDataOffsets[f];
     uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
     uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
-    __global const uint32_t * bucketData = allBucketData + bucketDataOffset;
+    bucketData += bucketDataOffset;
     uint32_t bucketBits = bucketEntryBits[f];
 
-    if (useExpandedBuckets) {
-        expandedBuckets += expandedBucketOffsets[f] / sizeof(expandedBuckets[0]);
-    }
-    
-    __global W * wOut = allWOut + bucketNumbers[f];
+    __global W * wOut = partitionBuckets + bucketNumbers[f];
 
-    if (!featureActive[f])
+    if (!featuresActive[f])
         return;
     
-    if (workGroupId == 0 && false) {
+    if (workGroupId == 0) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, numBuckets %d, buckets %d-%d, offset %d\n",
-               (int)get_global_id(1),
+               (int)f,
                get_global_size(0),
                get_num_groups(0),
                get_local_size(0),
@@ -766,30 +628,34 @@ testFeatureKernelExpanded(__global const float * expandedRows,
                bucketDataOffset);
     }
     
+    maxLocalBuckets = 0;  // TODO DEBUG ONLY
+
     for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
-         i += get_local_size(0)) {
+         i += get_local_size(1)) {
         zeroW(w + i);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
     
-    for (uint32_t rowId = get_global_id(0);  rowId < numRows;  rowId += get_global_size(0)) {
-        testRowExpanded(rowId,
-                        expandedRows, numRows,
-                        bucketData, bucketDataLength, bucketBits, numBuckets,
-                        expandedBuckets, useExpandedBuckets,
-                        w, wOut, maxLocalBuckets);
+    for (uint32_t rowId = get_global_id(1);  rowId < numRows;  rowId += get_global_size(1)) {
+        if (f == 0 && workGroupId == 0) {
+            printf("testing row %d\n", rowId);
+        }
+        testRow(rowId,
+                decodedRows, numRows,
+                bucketData, bucketDataLength, bucketBits, numBuckets,
+                w, wOut, maxLocalBuckets);
     }
     
     barrier(CLK_LOCAL_MEM_FENCE);
     
     for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
-         i += get_local_size(0)) {
+         i += get_local_size(1)) {
         incrementWOut(wOut + i, w + i);
     }
 }
 
-
+#if 0
 typedef struct {
     uint32_t index;
     float score;
@@ -1387,7 +1253,7 @@ __kernel void
 getPartitionSplitsKernel(uint32_t totalBuckets,
                          __global const uint32_t * bucketNumbers, // [nf]
                          
-                         __global const uint32_t * featureActive, // [nf]
+                         __global const uint32_t * featuresActive, // [nf]
                          __global const uint32_t * featureIsOrdinal, // [nf]
                          
                          __global const W * allW, // [np x totalBuckets]
@@ -1412,7 +1278,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     uint32_t bucket = get_global_id(0);
 
     // Don't do inactive features
-    if (!featureActive[f]) {
+    if (!featuresActive[f]) {
         if (bucket == 0) {
             splitsOut[partition * nf + f] = best;            
         }
@@ -1547,7 +1413,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
 // id 0: partition number
 __kernel void
 bestPartitionSplitKernel(uint32_t nf,
-                         __global const uint32_t * featureActive, // [nf]
+                         __global const uint32_t * featuresActive, // [nf]
                          __global const PartitionSplit * featurePartitionSplits,
                          __global PartitionSplit * partitionSplits,
                          uint32_t partitionSplitsOffset)
@@ -1564,7 +1430,7 @@ bestPartitionSplitKernel(uint32_t nf,
     partitionSplits += p;
     
     for (uint32_t f = 0;  f < nf;  ++f) {
-        if (!featureActive[f])
+        if (!featuresActive[f])
             continue;
         if (featurePartitionSplits[f].value < 0)
             continue;
@@ -1677,7 +1543,7 @@ updateBucketsKernel(uint32_t rightOffset,
                     uint32_t rowCount,
                     
                     // Feature data
-                    __global const uint32_t * allBucketData,
+                    __global const uint32_t * bucketData,
                     __global const uint32_t * bucketDataOffsets,
                     __global const uint32_t * bucketNumbers,
                     __global const uint32_t * bucketEntryBits,
@@ -1686,7 +1552,7 @@ updateBucketsKernel(uint32_t rightOffset,
                     __global const uint32_t * expandedBucketOffsets,
                     uint32_t useExpandedBuckets,
 
-                    __global const uint32_t * featureActive,
+                    __global const uint32_t * featuresActive,
                     __global const uint32_t * featureIsOrdinal,
 
                     __local W * wLocal,
@@ -1694,7 +1560,7 @@ updateBucketsKernel(uint32_t rightOffset,
 {
     int f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
 
-    if (f != -1 && !featureActive[f])
+    if (f != -1 && !featuresActive[f])
         return;
 
     partitionSplits += rightOffset;
@@ -1730,7 +1596,7 @@ updateBucketsKernel(uint32_t rightOffset,
         bucketDataOffset = bucketDataOffsets[f];
         bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
         numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
-        bucketData = allBucketData + bucketDataOffset;
+        bucketData = bucketData + bucketDataOffset;
         bucketBits = bucketEntryBits[f];
         numLocalBuckets = min(numBuckets * rightOffset, maxLocalBuckets);
         //printf("f %d nlb = %d nb = %d ro = %d mlb = %d\n",
@@ -1797,7 +1663,7 @@ updateBucketsKernel(uint32_t rightOffset,
             uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1]
                 - bucketNumbers[splitFeature];
             __global const uint32_t * splitBucketData
-                = allBucketData + splitBucketDataOffset;
+                = bucketData + splitBucketDataOffset;
             uint32_t splitBucketBits = bucketEntryBits[splitFeature];
 
             bucket = getBucket(exampleNum,
@@ -2283,4 +2149,6 @@ trainSplitSingleWarp(uint32_t numRows,
     
     return bestSplit;
 }
+#endif
+
 #endif

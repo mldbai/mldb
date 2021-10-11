@@ -6,6 +6,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/utils/command_expression.h"
+#include <memory>
 
 using namespace std;
 
@@ -35,6 +36,70 @@ DEFINE_ENUM_DESCRIPTION_INLINE(ComputeRuntimeId)
     addValue("METAL", ComputeRuntimeId::METAL, "Runs on the Apple Metal runtime");
     addValue("CUDA", ComputeRuntimeId::CUDA, "Runs on the Nvidia CUDA runtime");
     addValue("ROCM", ComputeRuntimeId::ROCM, "Runs on the AMD ROCM runtime");
+}
+
+ComputeDevice ComputeDevice::defaultFor(ComputeRuntimeId id)
+{
+    auto runtime = ComputeRuntime::tryGetRuntimeForId(id);
+    if (!runtime)
+        throw MLDB::Exception("Unregistered runtime has no default device");
+    return runtime->getDefaultDevice();
+}
+
+std::string ComputeDevice::info() const
+{
+    auto runtime = ComputeRuntime::tryGetRuntimeForId(this->runtime);
+    if (!runtime)
+        return "<<RUNTIME IS NOT REGISTERED>>";
+    return runtime->printHumanReadableDeviceInfo(*this);
+}
+
+struct ComputeDeviceDescription 
+    : public ValueDescriptionI<ComputeDevice, ValueKind::ATOM, ComputeDeviceDescription> {
+
+    virtual void parseJsonTyped(ComputeDevice * val,
+                                JsonParsingContext & context) const override
+    {
+        std::string s = context.expectStringAscii();
+        throw MLDB::Exception("Unimplemented: ComputeDevice parseJsonTyped");
+    }
+
+    virtual void printJsonTyped(const ComputeDevice * val,
+                                JsonPrintingContext & context) const override
+    {
+        std::string result;
+        result += jsonEncode(val->runtime).asString();
+
+        auto runtime = ComputeRuntime::tryGetRuntimeForId(val->runtime);
+        if (!runtime) {
+            if (val->runtimeInstance != 0 || val->deviceInstance != 0 || val->opaque1 != 0 || val->opaque2 != 0) {
+                result += format(":%x", val->runtimeInstance);
+            }
+            if (val->deviceInstance != 0 || val->opaque1 != 0 || val->opaque2 != 0) {
+                result += format(":%x", val->deviceInstance);
+            }
+            if (val->opaque1 != 0 || val->opaque2 != 0) {
+                result += format(":%x", val->opaque1);
+            }
+            if (val->opaque2 != 0) {
+                result += format(":%llx", (unsigned long long)val->opaque2);
+            }
+        }
+        else {
+            std::string rest = runtime->printRestOfDevice(*val);
+            if (rest != "")
+                result += ":" + rest;
+        }
+
+        context.writeString(result);
+    }
+};
+
+DEFINE_VALUE_DESCRIPTION_NS(ComputeDevice, ComputeDeviceDescription);
+
+std::ostream & operator << (std::ostream & stream, const ComputeDevice & device)
+{
+    return stream << jsonEncode(device).asString() << " (" << device.info() << ")";
 }
 
 namespace {
@@ -171,14 +236,30 @@ getRuntimeForDevice(ComputeDevice device)
 
 std::shared_ptr<ComputeRuntime>
 ComputeRuntime::
-getRuntimeForId(ComputeRuntimeId id)
+tryGetRuntimeForId(ComputeRuntimeId id)
 {
+    static std::shared_ptr<ComputeRuntime> runtimes[256];
+    std::shared_ptr<ComputeRuntime> runtime = std::atomic_load(runtimes + (uint8_t)id);
+    if (runtime)
+        return runtime;
     std::unique_lock guard(computeRuntimeRegistryMutex);
     auto it = computeRuntimeRegistry.find(id);
     if (it == computeRuntimeRegistry.end()) {
-        throw MLDB::Exception("Couldn't find compute runtime for runtime id " + jsonEncodeStr(id));
+        return nullptr;
     }
-    return std::shared_ptr<ComputeRuntime>(it->second.create());
+    auto result = std::shared_ptr<ComputeRuntime>(it->second.create());
+    std::atomic_store(runtimes + (uint8_t)id, result);
+    return result;
+}
+
+std::shared_ptr<ComputeRuntime>
+ComputeRuntime::
+getRuntimeForId(ComputeRuntimeId id)
+{
+    auto result = tryGetRuntimeForId(id);
+    if (!result)
+        throw MLDB::Exception("Couldn't find compute runtime for runtime id " + jsonEncodeStr(id));
+    return result;
 }
 
 std::shared_ptr<ComputeRuntime>

@@ -75,6 +75,7 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 void
 testFeatureKernel(ComputeContext & context,
                   uint32_t f, uint32_t nf,
+                  ComputeKernelGridRange & rows,
                   std::span<const float> expandedRows,
                   uint32_t numRows,
 

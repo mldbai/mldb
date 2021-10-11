@@ -303,7 +303,13 @@ struct Rows {
             extractor.advance(totalBits);
             ++rowNumber;
         }
-        
+
+        void skipTo(size_t newRowNumber)
+        {
+            ExcAssertGreaterEqual(newRowNumber, rowNumber);
+            extractor.advance(totalBits * uint64_t(newRowNumber - rowNumber));
+        }
+
         const Rows * owner;
         ML::Bit_Extractor<uint64_t> extractor;
         int totalBits;

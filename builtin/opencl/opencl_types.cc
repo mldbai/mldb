@@ -286,7 +286,7 @@ cl_int extractArgType(Fn&&fn, std::string & val)
     if (res != CL_SUCCESS)
         return res;
 
-    val = string(buf, buf + len);
+    val = string(buf, buf + len - 1);  // remove null terminator
     return CL_SUCCESS;
 }
 

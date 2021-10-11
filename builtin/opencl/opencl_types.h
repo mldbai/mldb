@@ -1492,6 +1492,19 @@ struct OpenCLKernel {
         return OpenCLKernelInfo(kernel);
     }
     
+    // Return the argument index for the given argument name, used to allow
+    // binding of arguments by name not position.
+    size_t getArgIndex(const std::string & argName) const
+    {
+        // TODO: no linear scan...
+        for (auto & arg: getInfo().args) {
+            if (arg.name == argName)
+                return arg.argNum;
+        }
+        throw MLDB::Exception("Couldn't find argument named '" + argName + "' in OpenCL kernel '"
+                              + getInfo().functionName + "'");
+    }
+
     operator cl_kernel () const
     {
         return kernel;
@@ -1506,6 +1519,13 @@ struct OpenCLKernel {
         cl_int error = clSetKernelArg(kernel, argNum, sizeof(data), &data);
         checkOpenCLError(error, "clSetKernelArg: arg " + std::to_string(argNum)
                          + " of type " + type_name<T>());
+    }
+
+    void bindArg(int argNum, const void * data, size_t len)
+    {
+        cl_int error = clSetKernelArg(kernel, argNum, len, data);
+        checkOpenCLError(error, "clSetKernelArg: arg " + std::to_string(argNum)
+                         + " as memory range of length " + std::to_string(len));
     }
 
 #if 0    
@@ -1547,6 +1567,12 @@ struct OpenCLKernel {
 
     template<typename T>
     void bindArg(int argNum, const std::vector<T> & data);
+
+    template<typename Arg>
+    void bindArg(const std::string & argName, Arg && arg)
+    {
+        bindArg(getArgIndex(argName), std::forward<Arg>(arg));
+    }
 
     void bindArgs(int argNum)
     {
@@ -1914,8 +1940,8 @@ struct OpenCLContext {
     OpenCLProgram
     createProgram(const Utf8String & programSource)
     {
-	size_t lengths [1] = { programSource.rawLength() };
-	const char* sources [1] = { programSource.rawData() };
+        size_t lengths [1] = { programSource.rawLength() };
+        const char* sources [1] = { programSource.rawData() };
 
         cl_int error;
         cl_program result = clCreateProgramWithSource(context, 1, sources, lengths, &error);

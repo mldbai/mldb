@@ -23,7 +23,7 @@
 namespace MLDB {
 
 /// Gives a broad characterization of the devices that a compute runtime supports
-enum ComputeRuntimeId : uint8_t {
+enum class ComputeRuntimeId : uint8_t {
     NONE = 0,
     HOST = 1,    ///< Runs on the local host CPU
     MULTI = 2,   ///< Runs on multiple devices
@@ -37,10 +37,27 @@ enum ComputeRuntimeId : uint8_t {
 DECLARE_ENUM_DESCRIPTION(ComputeRuntimeId);
 
 struct ComputeDevice {
-    static constexpr ComputeDevice host() { return { HOST, 0 }; }
-    uint64_t runtime:8;   ///< Which runtime this device belongs to
-    uint64_t device:56;   ///< Which device ID (or number) in the runtime
+    static constexpr ComputeDevice none() { return { ComputeRuntimeId::NONE, 0, 0, 0, 0 }; }
+    static constexpr ComputeDevice host() { return { ComputeRuntimeId::HOST, 0, 0, 0, 0 }; }
+
+    // Return the default device for the given runtime (as chosen by the runtime
+    // itself).
+    static ComputeDevice defaultFor(ComputeRuntimeId runtime);
+    ComputeRuntimeId runtime = ComputeRuntimeId::NONE;   ///< Which runtime this device belongs to
+    uint8_t  runtimeInstance = 0;                        ///< Which runtime instance we belong to
+    uint16_t deviceInstance = 0;                         ///< Which device instance we belong to
+    uint32_t opaque1 = 0;                                ///< Runtime controls
+    uint64_t opaque2 = 0;                                ///< Runtime controls
+
+    // Return human-readable information about the device
+    std::string info() const;
+
+    // Allow comparisons
+    auto operator <=> (const ComputeDevice & other) const = default;
 };
+
+PREDECLARE_VALUE_DESCRIPTION(ComputeDevice);
+std::ostream & operator << (std::ostream & stream, const ComputeDevice & device);
 
 struct ComputeContext;
 
@@ -53,15 +70,33 @@ struct ComputeRuntime {
     // Enumerate the devices available for this runtime
     virtual std::vector<ComputeDevice> enumerateDevices() const = 0;
 
-    // Get a compute context for this runtime
-    virtual std::shared_ptr<ComputeContext> getContext() const = 0;
+    // Get a compute context for this runtime targeting the given device(s)
+    virtual std::shared_ptr<ComputeContext>
+    getContext(std::span<const ComputeDevice> devices) const = 0;
+
+    // Print the rest of a device ID, in a machine readable (parseable) format
+    virtual std::string printRestOfDevice(ComputeDevice device) const = 0;
+
+    // Provide human-readable info about a device
+    virtual std::string printHumanReadableDeviceInfo(ComputeDevice device) const = 0;
+
+    // Return the default compute device for the given runtime
+    virtual ComputeDevice getDefaultDevice() const = 0;
 
     // Register a new compute runtime
     static void registerRuntime(ComputeRuntimeId id, const std::string & name,
                                 std::function<ComputeRuntime *()> create);
 
+    // Try to get the runtime for the given device, throwing an exception if it fails
     static std::shared_ptr<ComputeRuntime> getRuntimeForDevice(ComputeDevice device);
-    static std::shared_ptr<ComputeRuntime> getRuntimeForId(ComputeRuntimeId device);
+
+    // Try to get the runtime for the given ID, throwing an exception if it fails
+    static std::shared_ptr<ComputeRuntime> getRuntimeForId(ComputeRuntimeId id);
+
+    // Try to get the runtime for the given ID, returning a null pointer if it fails
+    static std::shared_ptr<ComputeRuntime> tryGetRuntimeForId(ComputeRuntimeId id);
+
+    // Get the default compute runtime
     static std::shared_ptr<ComputeRuntime> getDefault();
 };
 
@@ -114,6 +149,7 @@ ComputeKernelType parseType(const std::string & type);
 struct ComputeContext;
 struct BoundComputeKernel;
 
+using GetPrimitive = std::function<std::span<const std::byte>(const std::any & val, ComputeContext & context)>;
 using GetRange = std::function<std::tuple<void *, size_t, std::shared_ptr<const void>>(const std::any & val, ComputeContext & context)>;
 using GetConstRange = std::function<std::tuple<const void *, size_t, std::shared_ptr<const void>>(const std::any & val, ComputeContext & context)>;
 using GetHandle = std::function<MemoryRegionHandle (const std::any & val, ComputeContext & context)>;
@@ -121,6 +157,7 @@ using GetHandle = std::function<MemoryRegionHandle (const std::any & val, Comput
 struct ComputeKernelArgument {
     std::any value;
     ComputeKernelType abstractType;
+    GetPrimitive getPrimitive;
     GetRange getRange;
     GetConstRange getConstRange;
     GetHandle getHandle;
@@ -189,6 +226,7 @@ struct ComputeKernel {
     struct DimensionInfo {
         std::string name;
         std::string range;
+        uint32_t defaultDimension = 0;
     };
 
     std::vector<DimensionInfo> dims;
@@ -201,9 +239,18 @@ struct ComputeKernel {
         params.push_back({parameterName, access, parseType(typeStr)});
     }
 
-    void addDimension(const std::string & dimensionName, const std::string & range)
+    void addParameter(const std::string & parameterName, const std::string & access, ComputeKernelType type)
     {
-        dims.push_back({dimensionName, range});
+        if (!paramIndex.emplace(parameterName, params.size()).second) {
+            throw AnnotatedException(500, "Duplicate kernel parameter name: '" + parameterName + "'");
+        }
+        params.push_back({parameterName, access, std::move(type)});
+    }
+
+    void addDimension(const std::string & dimensionName, const std::string & range,
+                      uint32_t defaultDimension = 0)
+    {
+        dims.push_back({dimensionName, range, defaultDimension});
     }
 
     template<typename... NamesAndArgs>
@@ -242,7 +289,7 @@ MutableMemoryRegionT<T>
 transferToHostMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
 
 template<typename T>
-std::tuple<ComputeKernelType, GetRange, GetConstRange, GetHandle>
+std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
 getAbstractType(MemoryArrayHandleT<T> *)
 {
     ComputeKernelType result(type_name<MemoryArrayHandleT<T>>(),
@@ -271,11 +318,11 @@ getAbstractType(MemoryArrayHandleT<T> *)
         return handle;
     };
 
-    return { result, getRange, getConstRange, getHandle };
+    return { result, nullptr, getRange, getConstRange, getHandle };
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, GetRange, GetConstRange, GetHandle>
+std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
 getAbstractType(MemoryArrayHandleT<const T> *)
 {
     ComputeKernelType result(type_name<MemoryArrayHandleT<T>>(),
@@ -296,11 +343,11 @@ getAbstractType(MemoryArrayHandleT<const T> *)
         return handle;
     };
 
-    return { result, nullptr /* getRange */, getConstRange, getHandle };
+    return { result, nullptr /* getPrimitive */, nullptr /* getRange */, getConstRange, getHandle };
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, GetRange, GetConstRange, GetHandle>
+std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
 getAbstractType(T *)
 {
     ComputeKernelType result(type_name<T>(),
@@ -311,11 +358,17 @@ getAbstractType(T *)
     else
         result.access = "rw";
 
-    return { result, nullptr, nullptr, nullptr };
+    auto getPrimitive = [] (const std::any & val, ComputeContext & context) -> std::span<const std::byte>
+    {
+        const auto & obj = std::any_cast<const T &>(val);
+        return { (const std::byte *)&obj, sizeof(T) };
+    };
+
+    return { result, getPrimitive, nullptr, nullptr, nullptr };
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, GetRange, GetConstRange, GetHandle>
+std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
 getAbstractType()
 {
     return getAbstractType((T *)nullptr);
@@ -339,8 +392,9 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
         throw MLDB::Exception("Attempt to double bind argument " + argName
                                 + " of kernel " + owner->kernelName);
 
-    auto [type, getRange, getConstRange, getHandle] = getAbstractType<std::remove_reference_t<Arg>>();
-    arguments[argIndex] = { std::forward<Arg>(arg), type, getRange, getConstRange, getHandle };
+    auto [type, getPrimitive, getRange, getConstRange, getHandle]
+         = getAbstractType<std::remove_reference_t<Arg>>();
+    arguments[argIndex] = { std::forward<Arg>(arg), type, getPrimitive, getRange, getConstRange, getHandle };
 }
 
 inline void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & arguments) // end of recursion
@@ -452,6 +506,7 @@ struct ComputeContext {
 
     virtual MemoryRegionHandle
     allocateImpl(size_t length, size_t align,
+                 const std::type_info & type, bool isConst,
                  MemoryRegionInitialization initialization,
                  std::any initWith = std::any()) = 0;
 
@@ -469,7 +524,8 @@ struct ComputeContext {
     getKernel(const std::string & kernelName) = 0;
 
     virtual MemoryRegionHandle
-    managePinnedHostRegion(std::span<const std::byte> region, size_t align) = 0;
+    managePinnedHostRegion(std::span<const std::byte> region, size_t align,
+                           const std::type_info & type, bool isConst) = 0;
 
     virtual std::shared_ptr<ComputeQueue>
     getQueue() = 0;
@@ -541,13 +597,13 @@ struct ComputeContext {
     template<typename T>
     auto allocArray(size_t size) -> MemoryArrayHandleT<T>
     {
-        return {allocateImpl(size * sizeof(T), alignof(T), INIT_NONE).handle};
+        return {allocateImpl(size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE).handle};
     }
 
     template<typename T>
     auto allocZeroInitializedArray(size_t size) -> MemoryArrayHandleT<T>
     {
-        return {allocateImpl(size * sizeof(T), alignof(T), INIT_ZERO_FILLED).handle};
+        return {allocateImpl(size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_ZERO_FILLED).handle};
     }
 
     template<typename T>
@@ -559,7 +615,8 @@ struct ComputeContext {
     template<typename T, size_t N>
     auto manageMemoryRegion(const std::span<const T, N> & obj) -> MemoryArrayHandleT<T>
     {
-        return {managePinnedHostRegion(std::as_bytes(obj), alignof(T)).handle};
+        return { managePinnedHostRegion(std::as_bytes(obj), alignof(T),
+                 typeid(std::remove_const_t<T>), std::is_const_v<T>).handle };
     }
 };
 

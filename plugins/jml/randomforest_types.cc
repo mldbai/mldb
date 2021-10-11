@@ -86,6 +86,11 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(W32)
 }
 
 REGISTER_VALUE_DESCRIPTION(W32);
+
+REGISTER_VALUE_DESCRIPTION_ALIAS(W32);
+REGISTER_VALUE_DESCRIPTION_ALIAS(W64);
+REGISTER_VALUE_DESCRIPTION_ALIAS(W);
+
 std::ostream & operator << (std::ostream & stream, PartitionIndex idx)
 {
     return stream << idx.path();

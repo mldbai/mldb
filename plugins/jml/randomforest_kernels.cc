@@ -121,6 +121,8 @@ testFeatureKernel(Rows::RowIterator rowIterator,
 void
 testFeatureKernel(ComputeContext & context,
                   uint32_t f, uint32_t nf,
+                  ComputeKernelGridRange & rows,
+
                   std::span<const float> decodedRows,
                   uint32_t numRows,
 
@@ -137,6 +139,8 @@ testFeatureKernel(ComputeContext & context,
         return;
 
     ExcAssertLess(bucketNumbers[f + 1], allWOut.size());
+
+    ExcAssertEqual(rows.range(), numRows);  // We fake having this argument...
 
     BucketList buckets;
     buckets.entryBits = bucketEntryBits[f];
@@ -343,7 +347,7 @@ testAllCpu(int depth,
         {
             double score = std::get<0>(val);
 
-#if 0
+#if 1
             cerr << "CPU: rows "
                  << rows.rowCount() << " wAll " << jsonEncodeStr(rows.wAll)
                  << " feature " << feature << " score "
@@ -1132,20 +1136,22 @@ getPartitionSplits(const std::span<const W> & buckets,  // [np][nb] for each par
 
                 bool debug = false; // partition == 3 && buckets.size() == 8 && activeFeatures[af] == 4;
 
-                if (isActive && !buckets[partition].empty()
+                if (isActive // && !buckets[partition].empty() // TODO: how to check for active partition?
                     && wAll[partition].v[0] != 0.0 && wAll[partition].v[1] != 0.0) {
                     int startBucket = bucketOffsets[f];
                     int endBucket MLDB_UNUSED = bucketOffsets[f + 1];
                     int maxBucket = endBucket - startBucket - 1;
                     const W * wFeature
                         = buckets.data() + (partition * numActiveBuckets) + startBucket;
+
                     std::tie(bestScore, bestSplit, bestLeft, bestRight)
                         = chooseSplitKernel(wFeature, maxBucket,
                                             features[f].ordinal,
                                             wAll[partition], debug);
                 }
 
-                //cerr << "CPU: partition " << partition << " feature " << f << " score " << bestScore << endl;
+                //cerr << "CPU: partition " << partition << " feature " << f << " score " << bestScore
+                //     << " wAll " << jsonEncodeStr(wAll[partition]) << endl;
 
                 //cerr << " score " << bestScore << " split "
                 //     << bestSplit << endl;
@@ -2570,6 +2576,7 @@ std::vector<float> decodeRows(const Rows & rows)
 }
 
 void decodeRowsKernelCpu(ComputeContext & context,
+                         ComputeKernelGridRange & rowRange,
                          MemoryArrayHandleT<const uint64_t> rowData,
                          uint32_t rowDataLength,
                          uint16_t weightBits,
@@ -2595,10 +2602,8 @@ void decodeRowsKernelCpu(ComputeContext & context,
     auto it = rows.getRowIterator();
     ExcAssertEqual(decodedRowsOut.size(), numRows);
 
-    cerr << "decodedRowsOut.size() = " << decodedRowsOut.size() << endl;
-    cerr << "numRows = " << numRows << endl;
-
-    for (size_t i = 0;  i < rows.rowCount();  ++i) {
+    for (uint32_t i: rowRange) {
+        it.skipTo(i);
         DecodedRow row = it.getDecodedRow();
         ExcAssertEqual(i, row.exampleNum);
         decodedRowsOut[i] = row.weight * (1-2*row.label);
@@ -2719,7 +2724,7 @@ trainPartitionedRecursive(int depth, int maxDepth,
                                            
 }
 
-struct RegisterKernels {
+static struct RegisterKernels {
 
     RegisterKernels()
     {
@@ -2728,6 +2733,7 @@ struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "decodeRows";
             result->device = ComputeDevice::host();
+            result->addDimension("r", "numRows");
             result->addParameter("rowData", "r", "u64[rowDataLength]");
             result->addParameter("rowDataLength", "r", "u32");
             result->addParameter("weightBits", "r", "u16");
@@ -2737,7 +2743,7 @@ struct RegisterKernels {
             result->addParameter("weightMultiplier", "r", "f32");
             result->addParameter("weightData", "r", "f32[weightDataLength]");
             result->addParameter("decodedRowsOut", "w", "f32[numRows]");
-            result->setComputeFunction(decodeRowsKernelCpu);
+            result->set1DComputeFunction(decodeRowsKernelCpu);
             return result;
         };
 
@@ -2749,6 +2755,7 @@ struct RegisterKernels {
             result->kernelName = "testFeature";
             result->device = ComputeDevice::host();
             result->addDimension("featureNum", "nf");
+            result->addDimension("rowNum", "nr");
             result->addParameter("decodedRows", "r", "f32[numRows]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
@@ -2756,8 +2763,8 @@ struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
-            result->addParameter("partitionBuckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numBuckets]");
-            result->set1DComputeFunction(testFeatureKernel);
+            result->addParameter("partitionBuckets", "r", "W32[numBuckets]");
+            result->set2DComputeFunction(testFeatureKernel);
             return result;
         };
 
@@ -2774,8 +2781,8 @@ struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addParameter("buckets", "r", "MLDB::RF::WT<MLDB::FixedPointAccum32>[totalBuckets * np]");
-            result->addParameter("wAll", "r", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np]");
+            result->addParameter("buckets", "r", "W32[totalBuckets * np]");
+            result->addParameter("wAll", "r", "W32[np]");
             result->addParameter("featurePartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[np * nf]");
             result->set2DComputeFunction(getPartitionSplitsKernel);
             return result;
@@ -2807,8 +2814,8 @@ struct RegisterKernels {
             result->device = ComputeDevice::host();
             result->addDimension("p", "partitionSplitsOffset");
             result->addDimension("b", "numActiveBuckets");
-            result->addParameter("bucketsOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
-            result->addParameter("wAllOut", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");
+            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
+            result->addParameter("wAllOut", "w", "W32[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitionSplitsOffset", "r", "u32");
@@ -2849,8 +2856,8 @@ struct RegisterKernels {
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
-            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
-            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
@@ -2873,8 +2880,8 @@ struct RegisterKernels {
             result->device = ComputeDevice::host();
             result->addDimension("partition", "np");
             result->addDimension("bucket", "numActiveBuckets");
-            result->addParameter("buckets", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[numActiveBuckets * np * 2]");
-            result->addParameter("wAll", "w", "MLDB::RF::WT<MLDB::FixedPointAccum32>[np * 2]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->set2DComputeFunction(fixupBucketsKernel);
             return result;

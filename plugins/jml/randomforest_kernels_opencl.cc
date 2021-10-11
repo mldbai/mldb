@@ -16,6 +16,7 @@
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/pair_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/builtin/opencl/compute_kernel_opencl.h"
 #include <future>
 #include <array>
 
@@ -254,13 +255,16 @@ OpenCLProgram getTestFeatureProgramOpenCL(const OpenCLDevice & device)
     
     auto queue = context.createCommandQueue(device, queueProperties);
 
-    filter_istream stream("mldb/plugins/jml/randomforest_kernels.cl");
-    Utf8String source(stream.readAll());
+    std::string fileName = "mldb/plugins/jml/randomforest_kernels.cl";
+    filter_istream stream(fileName);
+    Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
+    cerr << source << endl;
+
     
     OpenCLProgram program = context.createProgram(source);
 
     //string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
-    string options = "-cl-kernel-arg-info -DW=W64";
+    string options = "-cl-kernel-arg-info -DWBITS=32 -DW=W32";
 
     // Build for all devices
     auto buildInfo = program.build({device}, options);
@@ -996,6 +1000,8 @@ testAllOpenCL(int depth,
     return std::make_tuple(bestScore, bestFeature, bestSplit,
                            bestLeft, bestRight, newActive);
 }
+
+#if 0
 
 ML::Tree::Ptr
 trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
@@ -2425,6 +2431,222 @@ trainPartitionedEndToEndOpenCL(int depth, int maxDepth,
 
     return result;
 }
+
+#endif
+
+namespace {
+
+static struct RegisterKernels {
+
+    RegisterKernels()
+    {
+        std::string fileName = "mldb/plugins/jml/randomforest_kernels.cl";
+        filter_istream stream(fileName);
+        Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
+
+        auto getProgram = [source] (OpenCLComputeContext & context) -> OpenCLProgram
+        {
+            auto compileProgram = [&] () -> OpenCLProgram
+            {
+                OpenCLProgram program = context.clContext.createProgram(source);
+                string options = "-cl-kernel-arg-info -DWBITS=32";
+
+                // Build for all devices
+                auto buildInfo = program.build(context.clDevices, options);
+                
+                cerr << jsonEncode(buildInfo[0]) << endl;
+                return program;
+            };
+
+            static const std::string cacheKey = "randomforest_kernels";
+            OpenCLProgram program = context.getCacheEntry(cacheKey, compileProgram);
+            return program;
+        };
+    
+        //string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
+
+        auto createDecodeRowsKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
+        {
+            auto program = getProgram(context);
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "decodeRows";
+            result->addDimension("r", "nr", 256);
+            result->allowGridPadding();
+            //result->device = context.devices[0]; // TODO deviceS
+            result->addParameter("rowData", "r", "u64[rowDataLength]");
+            result->addParameter("rowDataLength", "r", "u32");
+            result->addParameter("weightBits", "r", "u16");
+            result->addParameter("exampleNumBits", "r", "u16");
+            result->addParameter("numRows", "r", "u32");
+            result->addParameter("weightFormat", "r", "MLDB::RF::WeightFormat");
+            result->addParameter("weightMultiplier", "r", "f32");
+            result->addParameter("weightData", "r", "f32[weightDataLength]");
+            result->addParameter("decodedRowsOut", "w", "f32[numRows]");
+
+            result->setComputeFunction(program, "decompressRowsKernel", { 256 });
+
+            return result;
+        };
+
+        registerOpenCLComputeKernel("decodeRows", createDecodeRowsKernel);
+
+        auto createTestFeatureKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
+        {
+            auto program = getProgram(context);
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "testFeature";
+            //result->device = ComputeDevice::host();
+            result->addDimension("featureNum", "nf");
+            result->addDimension("rowNum", "numRows");
+            result->addParameter("decodedRows", "r", "f32[numRows]");
+            result->addParameter("numRows", "r", "u32");
+            result->addParameter("bucketData", "r", "u32[bucketDataLength]");
+            result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketEntryBits", "r", "u32[nf]");
+            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("partitionBuckets", "r", "W32[numBuckets]");
+            result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+                auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(W);
+                cerr << "maxLocalBuckets = " << maxLocalBuckets << endl;
+                //auto maxLocalBuckets = context.getCacheEntry<uint32_t>("maxLocalBuckets");
+                kernel.bindArg("w", LocalArray<W>(maxLocalBuckets));
+                kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "testFeatureKernel", { 1, 256 } );
+            return result;
+        };
+
+        registerOpenCLComputeKernel("testFeature", createTestFeatureKernel);
+
+#if 0
+
+        auto createGetPartitionSplitsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "getPartitionSplits";
+            result->device = ComputeDevice::host();
+            result->addDimension("f", "nf");
+            result->addDimension("p", "np");
+            result->addParameter("totalBuckets", "r", "u32");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->addParameter("buckets", "r", "W32[totalBuckets * np]");
+            result->addParameter("wAll", "r", "W32[np]");
+            result->addParameter("featurePartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[np * nf]");
+            result->set2DComputeFunction(getPartitionSplitsKernel);
+            return result;
+        };
+
+        registerOpenCLComputeKernel("getPartitionSplits", createGetPartitionSplitsKernel);
+
+        auto createBestPartitionSplitKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "bestPartitionSplit";
+            result->device = ComputeDevice::host();
+            result->addDimension("p", "np");
+            result->addParameter("numFeatures", "r", "u32");
+            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("featurePartitionSplits", "r", "MLDB::RF::PartitionSplit[np * nf]");
+            result->addParameter("allPartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[maxPartitions]");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->set1DComputeFunction(bestPartitionSplitKernel);
+            return result;
+        };
+
+        registerOpenCLComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
+
+        auto createClearBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "clearBuckets";
+            result->device = ComputeDevice::host();
+            result->addDimension("p", "partitionSplitsOffset");
+            result->addDimension("b", "numActiveBuckets");
+            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
+            result->addParameter("wAllOut", "w", "W32[np * 2]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->set2DComputeFunction(clearBucketsKernel);
+            return result;
+        };
+
+        registerOpenCLComputeKernel("clearBuckets", createClearBucketsKernel);
+
+        auto createUpdatePartitionNumbersKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "updatePartitionNumbers";
+            result->device = ComputeDevice::host();
+            result->addDimension("r", "numRows");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
+            result->addParameter("directions", "w", "u8[numRows]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("bucketData", "r", "u32[bucketDataLength]");
+            result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketEntryBits", "r", "u32[nf]");
+            result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->set1DComputeFunction(updatePartitionNumbersKernel);
+            return result;
+        };
+
+        registerOpenCLComputeKernel("updatePartitionNumbers", createUpdatePartitionNumbersKernel);
+
+        auto createUpdateBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "updateBuckets";
+            result->device = ComputeDevice::host();
+            result->addDimension("f", "nf");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
+            result->addParameter("directions", "r", "u8[numRows]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "W32[np * 2]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("decodedRows", "r", "f32[nr]");
+            result->addParameter("numRows", "r", "u32");
+            result->addParameter("bucketData", "r", "u32[bucketDataLength]");
+            result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
+            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketEntryBits", "r", "u32[nf]");
+            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->set1DComputeFunction(updateBucketsKernel);
+            return result;
+        };
+
+        registerOpenCLComputeKernel("updateBuckets", createUpdateBucketsKernel);
+
+        auto createFixupBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "fixupBuckets";
+            result->device = ComputeDevice::host();
+            result->addDimension("partition", "np");
+            result->addDimension("bucket", "numActiveBuckets");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
+            result->addParameter("wAll", "w", "W32[np * 2]");
+            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->set2DComputeFunction(fixupBucketsKernel);
+            return result;
+        };
+
+        registerOpenCLComputeKernel("fixupBuckets", createFixupBucketsKernel);
+#endif
+    }
+
+} registerKernels;
+} // file scope
 
 } // namespace RF
 } // namespace MLDB

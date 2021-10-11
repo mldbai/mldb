@@ -5,7 +5,7 @@
 ifneq ($(PREMAKE),1)
 
 OPENCL_PLUGIN_SOURCE := \
-	opencl.cc opencl_types.cc
+	opencl.cc opencl_types.cc compute_kernel_opencl.cc
 
 OPENCL_PLUGIN_LINK := \
 	value_description \
@@ -30,6 +30,7 @@ OPENCL_PLUGIN_LINK := \
 	http \
 	sql_expression \
 	OpenCL \
+	block \
 
 
 ifeq ($(OSNAME),Linux)
