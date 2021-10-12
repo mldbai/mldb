@@ -777,10 +777,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     int maxPartitionCount = 1 << numIterations;
     
     // Maximum number of buckets
-    size_t maxBuckets = 0;
+    uint32_t maxBuckets = 0;
 
     // Number of active features
-    size_t numActiveFeatures = 0;
+    uint32_t numActiveFeatures = 0;
     
     // Now we figure out how to onboard a variable number of variable
     // lengthed data segments for the feature bucket information.
@@ -1104,7 +1104,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         std::shared_ptr<ComputeEvent> runPartitionSplitsKernel
             = queue->launch(boundGetPartitionSplitsKernel,
-                           { nf, numPartitionsAtDepth },
+                           { maxBuckets, nf, numPartitionsAtDepth },
                            { previousIteration, copyWAll, initializeWAll});
 
         allEvents.emplace_back("runPartitionSplitsKernel "
@@ -1339,6 +1339,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             ->bind("partitionSplitsOffset",          (uint32_t)numPartitionsAtDepth,  // rightOffset
                    "partitions",                     devicePartitions,
                    "directions",                     deviceDirections,
+                   "numRows",                        numRows,
                    "allPartitionSplits",             deviceAllPartitionSplits,
                    "bucketData",                     deviceBucketData,
                    "bucketDataOffsets",              deviceBucketDataOffsets,
@@ -1347,7 +1348,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                    "featureIsOrdinal",               deviceFeatureIsOrdinal);
 
         std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel
-            = queue->launch(boundUpdatePartitionNumbersKernel, { (uint32_t)numRows },
+            = queue->launch(boundUpdatePartitionNumbersKernel, { numRows },
                             { runPartitionSplitsKernel });
 
         // Now the right side buckets are clear, we can transfer the weights
@@ -1362,7 +1363,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                   "directions",                     deviceDirections,
                   "buckets",                        devicePartitionBuckets,
                   "wAll",                           deviceWAll,
-                  "allPartitionSplits",             deviceAllPartitionSplits,
                   "decodedRows",                    deviceExpandedRowData,
                   "numRows",                        (uint32_t)numRows,
                   "bucketData",                     deviceBucketData,
@@ -1386,7 +1386,9 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         auto boundFixupBucketsKernel = fixupBucketsKernel
             ->bind("buckets",                   devicePartitionBuckets,
                    "wAll",                       deviceWAll,
-                   "allPartitionSplits",         deviceAllPartitionSplits);
+                   "allPartitionSplits",         deviceAllPartitionSplits,
+                   "partitionSplitsOffset",      (uint32_t)numPartitionsAtDepth,
+                   "numActiveBuckets",           (uint32_t)numActiveBuckets);
 
         std::shared_ptr<ComputeEvent> runFixupBucketsKernel
             = queue->launch(boundFixupBucketsKernel,

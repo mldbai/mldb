@@ -87,9 +87,32 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(W32)
 
 REGISTER_VALUE_DESCRIPTION(W32);
 
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(WIndexed)
+{
+    addParent<W>();
+    addField("index", &WIndexed::index, "Extra working metadata used on GPU kernels");
+}
+
 REGISTER_VALUE_DESCRIPTION_ALIAS(W32);
 REGISTER_VALUE_DESCRIPTION_ALIAS(W64);
 REGISTER_VALUE_DESCRIPTION_ALIAS(W);
+REGISTER_VALUE_DESCRIPTION_ALIAS(WIndexed);
+
+// Verify that sizes of structures are matched by GPU versions
+static_assert(sizeof(W32) == 12, "GPU kernels expect that W32 should be a 12 byte structure");
+static_assert(alignof(W32) == 4, "GPU kernels expect that W32 should be 4 byte aligned");
+static_assert(sizeof(W64) == 24, "GPU kernels expect that W64 should be a 24 byte structure");
+static_assert(alignof(W64) == 8, "GPU kernels expect that W64 should be 8 byte aligned");
+static_assert(sizeof(PartitionIndex) == 4, "GPU kernels expect that PartitionIndex should be a 4 byte structure");
+static_assert(alignof(PartitionIndex) == 4, "GPU kernels expect that PartitionIndex should be 4 byte aligned");
+static_assert(sizeof(WIndexed) == 16, "GPU kernels expect that WIndexed is a 16 byte structure");
+static_assert(sizeof(PartitionSplit) == 36, "GPU kernels expect that PartitionSplit is a 32 byte structure");
+static_assert(offsetof(PartitionSplit, index) == 0);
+static_assert(offsetof(PartitionSplit, score) == 4);
+static_assert(offsetof(PartitionSplit, feature) == 8);
+static_assert(offsetof(PartitionSplit, value) == 10);
+static_assert(offsetof(PartitionSplit, left) == 12);
+static_assert(offsetof(PartitionSplit, right) == 24);
 
 std::ostream & operator << (std::ostream & stream, PartitionIndex idx)
 {
@@ -131,12 +154,16 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
     addField("index", &PartitionSplit::index, "");
 }
 
+REGISTER_VALUE_DESCRIPTION_ALIAS(PartitionSplit);
+
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(RowPartitionInfo)
 {
     addField("partition", &RowPartitionInfo::partition_, "");
 }
 
 REGISTER_VALUE_DESCRIPTION(RowPartitionInfo);
+
+REGISTER_VALUE_DESCRIPTION_ALIAS(RowPartitionInfo);
 
 } // namespace RF
 } // namespace MLDB

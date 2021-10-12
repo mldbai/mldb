@@ -2522,50 +2522,66 @@ static struct RegisterKernels {
 
         registerOpenCLComputeKernel("testFeature", createTestFeatureKernel);
 
-#if 0
-
-        auto createGetPartitionSplitsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        auto createGetPartitionSplitsKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
         {
+            auto program = getProgram(context);
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "getPartitionSplits";
-            result->device = ComputeDevice::host();
+            //result->device = ComputeDevice::host();
             result->addDimension("f", "nf");
             result->addDimension("p", "np");
+            result->addDimension("b", "maxNumBuckets");
             result->addParameter("totalBuckets", "r", "u32");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("buckets", "r", "W32[totalBuckets * np]");
             result->addParameter("wAll", "r", "W32[np]");
-            result->addParameter("featurePartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[np * nf]");
-            result->set2DComputeFunction(getPartitionSplitsKernel);
+            result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * nf]");
+            result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+                auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed);
+                cerr << "maxLocalBuckets WIndexed = " << maxLocalBuckets << endl;
+                kernel.bindArg("wLocal", LocalArray<WIndexed>(maxLocalBuckets));
+                kernel.bindArg("wLocalSize", maxLocalBuckets);
+                kernel.bindArg("wStartBest", LocalArray<WIndexed>(2));
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "getPartitionSplitsKernel", { 1, 1, 64 });
             return result;
         };
 
         registerOpenCLComputeKernel("getPartitionSplits", createGetPartitionSplitsKernel);
 
-        auto createBestPartitionSplitKernel = [] () -> std::shared_ptr<ComputeKernel>
+        auto createBestPartitionSplitKernel = [getProgram] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeKernel>
         {
+            auto program = getProgram(context);
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "bestPartitionSplit";
-            result->device = ComputeDevice::host();
+            //result->device = ComputeDevice::host();
             result->addDimension("p", "np");
             result->addParameter("numFeatures", "r", "u32");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featurePartitionSplits", "r", "MLDB::RF::PartitionSplit[np * nf]");
             result->addParameter("allPartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[maxPartitions]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
-            result->set1DComputeFunction(bestPartitionSplitKernel);
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "bestPartitionSplitKernel", { 1 });
             return result;
         };
 
         registerOpenCLComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
 
-        auto createClearBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        auto createClearBucketsKernel = [getProgram] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeKernel>
         {
+            auto program = getProgram(context);
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "clearBuckets";
-            result->device = ComputeDevice::host();
+            //result->device = ComputeDevice::host();
             result->addDimension("p", "partitionSplitsOffset");
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
@@ -2573,35 +2589,48 @@ static struct RegisterKernels {
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitionSplitsOffset", "r", "u32");
-            result->set2DComputeFunction(clearBucketsKernel);
+            result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "clearBucketsKernel", { 1, 64 });
             return result;
         };
 
         registerOpenCLComputeKernel("clearBuckets", createClearBucketsKernel);
 
-        auto createUpdatePartitionNumbersKernel = [] () -> std::shared_ptr<ComputeKernel>
+        auto createUpdatePartitionNumbersKernel = [getProgram] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeKernel>
         {
+            auto program = getProgram(context);
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "updatePartitionNumbers";
-            result->device = ComputeDevice::host();
+            //result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u8[numRows]");
+            result->addParameter("numRows", "r", "u32");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->set1DComputeFunction(updatePartitionNumbersKernel);
+            result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "updatePartitionNumbersKernel", { 256 });
             return result;
         };
 
         registerOpenCLComputeKernel("updatePartitionNumbers", createUpdatePartitionNumbersKernel);
 
-        auto createUpdateBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        auto createUpdateBucketsKernel = [getProgram] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeKernel>
         {
+            auto program = getProgram(context);
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
@@ -2612,7 +2641,6 @@ static struct RegisterKernels {
             result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "W32[np * 2]");
-            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
@@ -2621,14 +2649,24 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->set1DComputeFunction(updateBucketsKernel);
+            result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+                auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(W);
+                cerr << "maxLocalBuckets W = " << maxLocalBuckets << endl;
+                kernel.bindArg("wLocal", LocalArray<W>(maxLocalBuckets));
+                kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "updateBucketsKernel", { 1 });
             return result;
         };
 
         registerOpenCLComputeKernel("updateBuckets", createUpdateBucketsKernel);
 
-        auto createFixupBucketsKernel = [] () -> std::shared_ptr<ComputeKernel>
+        auto createFixupBucketsKernel = [getProgram] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeKernel>
         {
+            auto program = getProgram(context);
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "fixupBuckets";
             result->device = ComputeDevice::host();
@@ -2637,12 +2675,18 @@ static struct RegisterKernels {
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
-            result->set2DComputeFunction(fixupBucketsKernel);
+            result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "fixupBucketsKernel", { 1, 64 });
             return result;
         };
 
         registerOpenCLComputeKernel("fixupBuckets", createFixupBucketsKernel);
-#endif
     }
 
 } registerKernels;

@@ -123,10 +123,6 @@ getKernel(const std::string & kernelName)
 {
     std::unique_lock guard(kernelRegistryMutex);
     auto it = kernelRegistry.find(kernelName);
-    cerr << "looking for " << kernelName << endl;
-    for (auto [k,g]: kernelRegistry) {
-        cerr << "  we have " << k << endl;
-    }
     if (it == kernelRegistry.end()) {
         throw AnnotatedException(400, "Unable to find OpenCL compute kernel '" + kernelName + "'",
                                         "kernelName", kernelName);

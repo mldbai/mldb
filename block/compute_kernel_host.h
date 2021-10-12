@@ -337,6 +337,79 @@ struct HostComputeKernel: public ComputeKernel {
         createCallable = result;
     }
 
+    template<typename... Args>
+    void set2DComputeFunction(void (*fn) (ComputeContext & context, ComputeKernelGridRange & r1, uint32_t i2, uint32_t r2, Args...))
+    {
+        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
+        {
+            ExcAssertEqual(params.size(), sizeof...(Args));
+            std::tuple<Args...> args;
+            std::vector<details::Pin> pins;
+            this->extractParams<0>(args, params, context, pins);
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            {
+                ExcAssertEqual(grid.size(), 2);
+                for (uint32_t i1: grid[1]) {
+                    HostComputeKernel::apply(fn, args, context, grid[0], i1, grid[1].range());
+                }
+            };
+        };
+
+        createCallable = result;
+    }
+
+    template<typename... Args>
+    void set3DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, uint32_t i2, uint32_t r2, ComputeKernelGridRange & r3, Args...))
+    {
+        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
+        {
+            ExcAssertEqual(params.size(), sizeof...(Args));
+            std::tuple<Args...> args;
+            std::vector<details::Pin> pins;
+            this->extractParams<0>(args, params, context, pins);
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            {
+                ExcAssertEqual(grid.size(), 2);
+                for (uint32_t i0: grid[0]) {
+                    for (uint32_t i1: grid[1]) {
+                        HostComputeKernel::apply(fn, args, context,
+                                                 i0, grid[0].range(),
+                                                 i1, grid[1].range(),
+                                                grid[2]);
+                    }
+                }
+            };
+        };
+
+        createCallable = result;
+    }
+
+    template<typename... Args>
+    void set3DComputeFunction(void (*fn) (ComputeContext & context, ComputeKernelGridRange & r1, uint32_t i2, uint32_t r2, uint32_t i3, uint32_t r3, Args...))
+    {
+        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
+        {
+            ExcAssertEqual(params.size(), sizeof...(Args));
+            std::tuple<Args...> args;
+            std::vector<details::Pin> pins;
+            this->extractParams<0>(args, params, context, pins);
+            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            {
+                ExcAssertEqual(grid.size(), 2);
+                for (uint32_t i1: grid[1]) {
+                    for (uint32_t i2: grid[2]) {
+                        HostComputeKernel::apply(fn, args, context,
+                                                 grid[0],
+                                                 i1, grid[1].range(),
+                                                 i2, grid[2].range());
+                    }
+                }
+            };
+        };
+
+        createCallable = result;
+    }
+
 };
 
 void registerHostComputeKernel(const std::string & kernelName,

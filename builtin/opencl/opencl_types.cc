@@ -1001,8 +1001,8 @@ OpenCLKernelWorkgroupInfo::
 OpenCLKernelWorkgroupInfo(cl_kernel kernel, cl_device_id device)
     : kernel(kernel), device(device)
 {
-    doField(CL_KERNEL_GLOBAL_WORK_SIZE, globalWorkSize,
-            OpenCLIgnoreExceptions());
+    //doField(CL_KERNEL_GLOBAL_WORK_SIZE, globalWorkSize,
+    //        OpenCLIgnoreExceptions());
     doField(CL_KERNEL_WORK_GROUP_SIZE, workGroupSize);
     doField(CL_KERNEL_COMPILE_WORK_GROUP_SIZE, compileWorkGroupSize);
     doField(CL_KERNEL_LOCAL_MEM_SIZE, localMemSize);

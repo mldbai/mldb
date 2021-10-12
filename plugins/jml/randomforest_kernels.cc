@@ -1199,6 +1199,8 @@ getPartitionSplits(const std::span<const W> & buckets,  // [np][nb] for each par
 
 void
 getPartitionSplitsKernel(ComputeContext & context,
+
+                         ComputeKernelGridRange & bucketRange,
                          uint32_t f, uint32_t nf,
                          uint32_t p, uint32_t np,
                          
@@ -1213,6 +1215,7 @@ getPartitionSplitsKernel(ComputeContext & context,
                          std::span<const W> wAll,  // [np] one per partition
                          std::span<PartitionSplit> splitsOut) // [np x nf]
 {
+    // BucketRange is just there for show... it is implicitly handled in the kernel
     PartitionSplit & result = splitsOut[p * nf + f];
     if (!featureActive[f] || wAll[p].empty() || wAll[p].uniform()) {
         result = PartitionSplit();
@@ -1290,10 +1293,11 @@ void
 updatePartitionNumbersKernel(ComputeContext & context,
                              ComputeKernelGridRange & rowRange,
           
-                             uint32_t rightOffset,
+                             uint32_t partitionSplitsOffset,
                              
                              std::span<RowPartitionInfo> partitions,
                              std::span<uint8_t> directions,
+                             uint32_t numRows,
           
                              std::span<const PartitionSplit> partitionSplits,
                              
@@ -1306,7 +1310,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
                              std::span<const uint32_t> featureIsOrdinal)
 {
     // Skip to where we should be in our partition splits
-    partitionSplits = partitionSplits.subspan(rightOffset);
+    partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
     uint32_t nf = bucketEntryBits.size();
 
     BucketList featureBuckets[nf];
@@ -1343,20 +1347,21 @@ updatePartitionNumbersKernel(ComputeContext & context,
         directions[r] = direction;
 
         // Set the new partition number
-        partitions[r] = partition + side * rightOffset;
+        partitions[r] = partition + side * partitionSplitsOffset;
 
         //cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
-        //     << " goes from partition " << partition << " (" << PartitionIndex(rightOffset + partition)
-        //     << ") to partition " << partition + side * rightOffset << " ("
-        //     << PartitionIndex(rightOffset + partition + side * rightOffset) << ")" << endl;
+        //     << " goes from partition " << partition << " (" << PartitionIndex(partitionSplitsOffset + partition)
+        //     << ") to partition " << partition + side * partitionSplitsOffset << " ("
+        //     << PartitionIndex(partitionSplitsOffset + partition + side * partitionSplitsOffset) << ")" << endl;
     }
 }
 
 void
 updateBucketsKernel(ComputeContext & context,
+                    ComputeKernelGridRange & rowRange,
                     uint32_t fp1, uint32_t nfp1,
 
-                    uint32_t rightOffset,
+                    uint32_t partitionSplitsOffset,
                     uint32_t numActiveBuckets,
                     
                     std::span<const RowPartitionInfo> partitions,
@@ -1364,8 +1369,6 @@ updateBucketsKernel(ComputeContext & context,
                     std::span<W> partitionBuckets,
                     std::span<W> wAll,
 
-                    std::span<const PartitionSplit> partitionSplits,
-                    
                     // Row data
                     std::span<const float> decodedRows,
                     uint32_t rowCount,
@@ -1392,9 +1395,6 @@ updateBucketsKernel(ComputeContext & context,
         buckets.numEntries = bucketNumbers[f + 1] - bucketNumbers[f];
         buckets.storagePtr = allBucketData.data() + bucketDataOffsets[f];
     }
-
-    // Skip to where we should be in our partition splits
-    partitionSplits = partitionSplits.subspan(rightOffset);
     
     uint32_t startBucket;
 
@@ -1414,11 +1414,13 @@ updateBucketsKernel(ComputeContext & context,
 
     //size_t numSkipped = 0;
 
-    for (uint32_t i = 0;  i < rowCount;  ++i) {
+    // TODO: rowRange needs to be exclusive (we will need to make atomic if we process
+    // the same feature from multiple threads)
+    for (uint32_t i: rowRange) {
 
         // Partition was updated already, so here we mask out the offset to know where the
         // partition came from (ensure that this partition number is parent partition number)
-        uint16_t partition = partitions[i] & (rightOffset - 1);
+        uint16_t partition = partitions[i] & (partitionSplitsOffset - 1);
         bool side = partition != partitions[i];  // it is on the right if the partition number changed
         //uint32_t direction = partitionSplits[partition].transferDirection() == RL;
         //if (direction != directions[i]) {
@@ -1445,7 +1447,7 @@ updateBucketsKernel(ComputeContext & context,
             continue;
         }
 
-        uint32_t rightPartition = partition + rightOffset;
+        uint32_t rightPartition = partition + partitionSplitsOffset;
         uint32_t toBucket;
         
         if (f == -1) {
@@ -2775,6 +2777,7 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "getPartitionSplits";
             result->device = ComputeDevice::host();
+            result->addDimension("b", "totalBuckets");
             result->addDimension("f", "nf");
             result->addDimension("p", "np");
             result->addParameter("totalBuckets", "r", "u32");
@@ -2784,7 +2787,7 @@ static struct RegisterKernels {
             result->addParameter("buckets", "r", "W32[totalBuckets * np]");
             result->addParameter("wAll", "r", "W32[np]");
             result->addParameter("featurePartitionSplitsOut", "w", "MLDB::RF::PartitionSplit[np * nf]");
-            result->set2DComputeFunction(getPartitionSplitsKernel);
+            result->set3DComputeFunction(getPartitionSplitsKernel);
             return result;
         };
 
@@ -2834,6 +2837,7 @@ static struct RegisterKernels {
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u8[numRows]");
+            result->addParameter("numRows", "r", "u32");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
@@ -2851,6 +2855,7 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
+            result->addDimension("r", "numRows");
             result->addDimension("f", "nf");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActiveBuckets", "r", "u32");
@@ -2858,7 +2863,6 @@ static struct RegisterKernels {
             result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "W32[np * 2]");
-            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
@@ -2867,7 +2871,7 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->set1DComputeFunction(updateBucketsKernel);
+            result->set2DComputeFunction(updateBucketsKernel);
             return result;
         };
 
@@ -2883,6 +2887,8 @@ static struct RegisterKernels {
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
             result->set2DComputeFunction(fixupBucketsKernel);
             return result;
         };

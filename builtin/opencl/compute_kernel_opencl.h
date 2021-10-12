@@ -355,7 +355,7 @@ struct OpenCLComputeKernel: public ComputeKernel {
         auto kernelInfo = kernel.getInfo();
 
         using namespace std;
-        cerr << jsonEncode(kernelInfo) << endl;
+        //cerr << jsonEncode(kernelInfo) << endl;
 
         std::vector<int> correspondingParameters(kernelInfo.numArgs, -1);
 
@@ -388,7 +388,7 @@ struct OpenCLComputeKernel: public ComputeKernel {
 
             for (size_t i = 0;  i < kernelInfo.args.size();  ++i) {
                 int paramNum = correspondingParameters.at(i);
-                cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
+                //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
                 if (paramNum == -1) {
                     // local, or will be done via setter...
                 }
@@ -419,7 +419,7 @@ struct OpenCLComputeKernel: public ComputeKernel {
             }
 
             OpenCLKernelWorkgroupInfo info(kernel, upcastContext.clDevices[0]);
-            cerr << jsonEncode(info) << endl;
+            //cerr << jsonEncode(info) << endl;
 
             return [kernel, this] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
             {
@@ -449,8 +449,8 @@ struct OpenCLComputeKernel: public ComputeKernel {
                     }
                     clGrid.push_back(range);
                 }
-                cerr << "clGrid = " << jsonEncodeStr(clGrid) << endl;
-                cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
+                //cerr << "clGrid = " << jsonEncodeStr(clGrid) << endl;
+                //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
                 auto event = upcastContext.clQueue.launch(kernel, clGrid, this->block);
                 event.waitUntilFinished();
             };

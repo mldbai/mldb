@@ -102,6 +102,14 @@ using W = W32;
 
 DECLARE_STRUCTURE_DESCRIPTION(W);
 
+// Version of W with an index field; index is used in local GPU memory for
+// metadata
+struct WIndexed: public W {
+    int32_t index;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(WIndexed);
+
 // Entry for an individual feature
 struct Feature {
     bool active = false;  ///< If true, the feature can be split on
