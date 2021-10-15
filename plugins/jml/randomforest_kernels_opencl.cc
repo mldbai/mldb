@@ -2440,14 +2440,14 @@ static struct RegisterKernels {
 
     RegisterKernels()
     {
-        std::string fileName = "mldb/plugins/jml/randomforest_kernels.cl";
-        filter_istream stream(fileName);
-        Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
-
-        auto getProgram = [source] (OpenCLComputeContext & context) -> OpenCLProgram
+        auto getProgram = [] (OpenCLComputeContext & context) -> OpenCLProgram
         {
             auto compileProgram = [&] () -> OpenCLProgram
             {
+                std::string fileName = "mldb/plugins/jml/randomforest_kernels.cl";
+                filter_istream stream(fileName);
+                Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
+
                 OpenCLProgram program = context.clContext.createProgram(source);
                 string options = "-cl-kernel-arg-info -DWBITS=32";
 
@@ -2505,7 +2505,7 @@ static struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
-            result->addParameter("partitionBuckets", "r", "W32[numBuckets]");
+            result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {
@@ -2529,16 +2529,16 @@ static struct RegisterKernels {
             result->kernelName = "getPartitionSplits";
             //result->device = ComputeDevice::host();
             result->addDimension("f", "nf");
-            result->addDimension("p", "np");
+            result->addDimension("p", "numPartitions");
             result->addDimension("b", "maxNumBuckets");
             result->addParameter("totalBuckets", "r", "u32");
+            result->addParameter("numPartitions", "r", "u32");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("buckets", "r", "W32[totalBuckets * np]");
             result->addParameter("wAll", "r", "W32[np]");
             result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * nf]");
-            result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {
                 auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed);
@@ -2547,8 +2547,12 @@ static struct RegisterKernels {
                 kernel.bindArg("wLocalSize", maxLocalBuckets);
                 kernel.bindArg("wStartBest", LocalArray<WIndexed>(2));
             };
+            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            {
+                ExcAssertEqual(grid.size(), 3);
+            };
             result->setParameters(setTheRest);
-            result->setComputeFunction(program, "getPartitionSplitsKernel", { 1, 1, 64 });
+            result->setComputeFunction(program, "getPartitionSplitsKernel", { 64, 1, 1 });
             return result;
         };
 
@@ -2634,6 +2638,7 @@ static struct RegisterKernels {
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
+            result->addDimension("r", "numRows");
             result->addDimension("f", "nf");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActiveBuckets", "r", "u32");
@@ -2658,7 +2663,7 @@ static struct RegisterKernels {
                 kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
             };
             result->setParameters(setTheRest);
-            result->setComputeFunction(program, "updateBucketsKernel", { 1 });
+            result->setComputeFunction(program, "updateBucketsKernel", { 256,1 });
             return result;
         };
 

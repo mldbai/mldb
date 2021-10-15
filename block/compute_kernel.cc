@@ -21,7 +21,6 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelDimension)
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelType)
 {
-    addField("str", &ComputeKernelType::str, "");
     addField("access", &ComputeKernelType::access, "");
     addField("baseType", &ComputeKernelType::baseType, "");
     addField("dims", &ComputeKernelType::dims, "");
@@ -36,6 +35,14 @@ DEFINE_ENUM_DESCRIPTION_INLINE(ComputeRuntimeId)
     addValue("METAL", ComputeRuntimeId::METAL, "Runs on the Apple Metal runtime");
     addValue("CUDA", ComputeRuntimeId::CUDA, "Runs on the Nvidia CUDA runtime");
     addValue("ROCM", ComputeRuntimeId::ROCM, "Runs on the AMD ROCM runtime");
+}
+
+DEFINE_ENUM_DESCRIPTION_INLINE(MemoryRegionInitialization)
+{
+    addValue("INIT_NONE", INIT_NONE, "No initialization; contents are indeterminate (with no sensitive data visible)");
+    addValue("INIT_ZERO", INIT_ZERO_FILLED, "Fill with zeros");
+    addValue("INIT_BLOCK", INIT_BLOCK_FILLED, "Fill with a memory block");
+    addValue("INIT_KERNEL", INIT_KERNEL, "Fill by running a kernel");
 }
 
 ComputeDevice ComputeDevice::defaultFor(ComputeRuntimeId id)
@@ -106,6 +113,7 @@ namespace {
 
 std::mutex basicTypeRegistryMutex;
 std::map<std::string, std::shared_ptr<const ValueDescription>> basicTypeRegistry;
+std::map<std::string, std::string> reverseTypeRegistry;
 
 template<typename T>
 struct RegisterBasicType {
@@ -114,6 +122,7 @@ struct RegisterBasicType {
         std::unique_lock guard(basicTypeRegistryMutex);
         if (!basicTypeRegistry.emplace(name, getDefaultDescriptionSharedT<T>()).second)
             throw MLDB::Exception("Double registering basic type " + name);
+        reverseTypeRegistry[typeid(T).name()] = name;
     }
 };
 
@@ -173,11 +182,11 @@ expectType(ParseContext & context)
         std::unique_lock guard(basicTypeRegistryMutex);
         auto it = basicTypeRegistry.find(typeName);
         if (it != basicTypeRegistry.end()) {
-            return ComputeKernelType(typeName, it->second);
+            return ComputeKernelType(it->second, "?");
         }
     }
 
-    ComputeKernelType result(typeName, ValueDescription::get(typeName));
+    ComputeKernelType result(ValueDescription::get(typeName), "?");
     if (!result.baseType) {
         context.exception("Couldn't find type '" + typeName + "' in registry");
     }
@@ -203,6 +212,184 @@ parseType(const std::string & type)
     return result;
 }
 
+std::string
+ComputeKernelType::
+print() const
+{
+    ExcAssert(baseType);
+
+    std::string typeName = baseType->typeName;
+
+    {
+        std::unique_lock guard(basicTypeRegistryMutex);
+        auto it = reverseTypeRegistry.find(baseType->type->name());
+        if (it != reverseTypeRegistry.end())
+            typeName = it->second;
+    }
+
+    // Todo: look up aliases
+
+    auto result = access + " " + typeName;
+    for (auto [bound]: dims) {
+        result += "[" + (bound ? bound->surfaceForm : std::string()) + "]";
+    }
+    return result;
+}
+
+// AbstractArgumentHandler
+
+bool
+AbstractArgumentHandler::
+canGetPrimitive() const
+{
+    return false;
+}
+
+std::span<const std::byte>
+AbstractArgumentHandler::
+getPrimitive(ComputeContext & context) const
+{
+    if (canGetPrimitive())
+        throw MLDB::Exception("getPrimitive not overriden when canGetPrimitive is true");
+    else
+        throw MLDB::Exception("calling getPrimitive when canGetPrimitive is false");
+}
+
+bool
+AbstractArgumentHandler::
+canGetRange() const
+{
+    return canGetConstRange() && !isConst;
+}
+
+std::tuple<void *, size_t, std::shared_ptr<const void>>
+AbstractArgumentHandler::
+getRange(ComputeContext & context) const
+{
+    if (canGetRange())
+        throw MLDB::Exception("getRange() not overriden when canGetRange() is true");
+    else
+        throw MLDB::Exception("calling getRange() when canGetRange() is false");
+}
+
+bool
+AbstractArgumentHandler::
+canGetConstRange() const
+{
+    return canGetRange();
+}
+
+std::tuple<const void *, size_t, std::shared_ptr<const void>>
+AbstractArgumentHandler::
+getConstRange(ComputeContext & context) const
+{
+    if (canGetConstRange())
+        throw MLDB::Exception("getConstRange() not overriden when canGetConstRange() is true");
+    else
+        throw MLDB::Exception("calling getConstRange() when canGetConstRange() is false");
+}
+
+bool
+AbstractArgumentHandler::
+canGetHandle() const
+{
+    return false;
+}
+
+MemoryRegionHandle
+AbstractArgumentHandler::
+getHandle(ComputeContext & context) const
+{
+    if (canGetHandle())
+        throw MLDB::Exception("getHandle() not overriden when canGetHandle() is true");
+    else
+        throw MLDB::Exception("calling getHandle() when canGetHandle() is false");
+}
+
+std::string
+AbstractArgumentHandler::
+info() const
+{
+    return type.print();
+}
+
+// ComputeQueue
+
+std::shared_ptr<ComputeEvent>
+ComputeQueue::
+launch(const BoundComputeKernel & kernel,
+       const std::vector<uint32_t> & grid,
+       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+{
+    ExcAssertEqual(kernel.owner->dims.size(), grid.size());
+
+    Timer timer;
+    std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
+    kernel(*owner, ranges);
+    auto wallTime = timer.elapsed_wall();
+    using namespace std;
+    cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
+    {
+        std::unique_lock guard(kernelWallTimesMutex);
+        kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
+        totalKernelTime += wallTime * 1000.0;
+    }
+
+    return std::shared_ptr<ComputeEvent>();
+}
+
+std::shared_ptr<ComputeEvent>
+ComputeQueue::
+enqueueFillArrayImpl(MemoryRegionHandle regionIn, MemoryRegionInitialization init,
+                     size_t startOffsetInBytes, ssize_t lengthInBytes,
+                     const std::any & arg)
+{
+    MemoryArrayHandleT<char> region{std::move(regionIn.handle)};
+
+    if (startOffsetInBytes > region.lengthInBytes()) {
+        throw MLDB::Exception("enqueueFillArrayImpl: array start index out of bounds");
+    }
+    if (lengthInBytes == -1)
+        lengthInBytes = region.lengthInBytes() - startOffsetInBytes;
+    if (startOffsetInBytes + lengthInBytes > region.lengthInBytes()) {
+        throw MLDB::Exception("enqueueFillArrayImpl: array end index out of bounds");
+    }
+
+    // Default implementation: launch a "fill" kernel
+    switch (init) {
+        case MemoryRegionInitialization::INIT_NONE:
+            return nullptr;  // nothing to do 
+        case MemoryRegionInitialization::INIT_ZERO_FILLED: {
+            auto kernel = owner->getKernel("__zeroFillArray");
+            auto bound = kernel->bind("region", region,
+                                      "startOffsetInBytes", (uint64_t)startOffsetInBytes,
+                                      "lengthInBytes", (uint64_t)lengthInBytes);
+            return launch(bound, {} /* grid */, {} /* prereqs */);
+        }
+        case MemoryRegionInitialization::INIT_BLOCK_FILLED: {
+            auto kernel = owner->getKernel("__blockFillArray");
+            auto block = std::any_cast<std::span<const std::byte>>(arg);
+            auto blockRegion = owner->managePinnedHostRegion(block, 1 /* align */,
+                                                        typeid(std::byte), true /* isConst */);
+            MemoryArrayHandleT<const char> blockHandle{std::move(blockRegion.handle)};
+            auto bound = kernel->bind("region", region,
+                                      "startOffsetInBytes", (uint64_t)startOffsetInBytes,
+                                      "lengthInBytes", (uint64_t)lengthInBytes,
+                                      "blockData", blockHandle,
+                                      "blockLengthInBytes", (uint64_t)block.size());
+            return launch(bound, {} /* grid */, {} /* prereqs */);
+        }
+        case MemoryRegionInitialization::INIT_KERNEL: {
+            auto bound = std::any_cast<BoundComputeKernel>(arg);
+            return launch(bound, {} /* grid */, {} /* prereqs */);
+        }
+    }
+    throw MLDB::Exception("Unknown fillArray implementation");
+}
+
+
+// ComputeRuntime
+
 namespace {
 
 std::mutex computeRuntimeRegistryMutex;
@@ -221,6 +408,8 @@ ComputeRuntime::
 registerRuntime(ComputeRuntimeId id, const std::string & name,
                 std::function<ComputeRuntime *()> create)
 {
+    using namespace std;
+    cerr << "Registering runtime " << name << endl;
     std::unique_lock guard(computeRuntimeRegistryMutex);
     auto [it, inserted] = computeRuntimeRegistry.insert({id, { name, create }});
     if (!inserted)
@@ -234,11 +423,14 @@ getRuntimeForDevice(ComputeDevice device)
     return getRuntimeForId(ComputeRuntimeId(device.runtime));
 }
 
+namespace {
+    static std::shared_ptr<ComputeRuntime> runtimes[256];
+} // file scope
+
 std::shared_ptr<ComputeRuntime>
 ComputeRuntime::
 tryGetRuntimeForId(ComputeRuntimeId id)
 {
-    static std::shared_ptr<ComputeRuntime> runtimes[256];
     std::shared_ptr<ComputeRuntime> runtime = std::atomic_load(runtimes + (uint8_t)id);
     if (runtime)
         return runtime;
@@ -249,6 +441,18 @@ tryGetRuntimeForId(ComputeRuntimeId id)
     }
     auto result = std::shared_ptr<ComputeRuntime>(it->second.create());
     std::atomic_store(runtimes + (uint8_t)id, result);
+    return result;
+}
+
+std::vector<ComputeRuntimeId>
+ComputeRuntime::
+enumerateRegisteredRuntimes()
+{
+    std::vector<ComputeRuntimeId> result;
+    std::unique_lock guard(computeRuntimeRegistryMutex);
+    result.reserve(computeRuntimeRegistry.size());
+    for (auto & [id,unused]: computeRuntimeRegistry)
+        result.push_back(id);
     return result;
 }
 
@@ -268,5 +472,117 @@ getDefault()
 {
     return getRuntimeForDevice(ComputeDevice::host());
 }
+
+namespace details {
+
+MemoryArrayAbstractArgumentHandler::
+MemoryArrayAbstractArgumentHandler(MemoryRegionHandle handle,
+                                   std::shared_ptr<const ValueDescription> containedType,
+                                   bool isConst)
+    : handle(std::move(handle))
+{
+    ExcAssert(containedType);
+    ComputeKernelType type;
+    type.baseType = std::move(containedType);
+    type.access = isConst ? "r" : "rw";
+    type.dims.push_back({nullptr});
+    this->type = std::move(type);
+    this->isConst = isConst;
+}
+
+bool
+MemoryArrayAbstractArgumentHandler::
+canGetRange() const
+{
+    return !isConst;
+}
+
+std::tuple<void *, size_t, std::shared_ptr<const void>>
+MemoryArrayAbstractArgumentHandler::
+getRange(ComputeContext & context) const
+{
+    auto [region,event] = context.transferToHostMutableImpl(handle);
+    if (event)
+        event->await();
+    return { region.data(), region.length(), region.handle() };
+}
+
+bool
+MemoryArrayAbstractArgumentHandler::
+canGetConstRange() const
+{
+    return true;
+}
+
+std::tuple<const void *, size_t, std::shared_ptr<const void>>
+MemoryArrayAbstractArgumentHandler::
+getConstRange(ComputeContext & context) const
+{
+    auto [region,event] = context.transferToHostImpl(handle);
+    if (event)
+        event->await();
+    return { region.data(), region.length(), region.handle() };
+}
+
+bool
+MemoryArrayAbstractArgumentHandler::
+canGetHandle() const
+{
+    return true;
+}
+
+MemoryRegionHandle
+MemoryArrayAbstractArgumentHandler::
+getHandle(ComputeContext & context) const
+{
+    return handle;
+}
+
+std::string
+MemoryArrayAbstractArgumentHandler::
+info() const
+{
+    size_t objectLength = type.baseType->size;
+    if (objectLength % type.baseType->align != 0) {
+        objectLength += type.baseType->align - objectLength % type.baseType->align;
+    }
+
+    ExcAssertEqual(objectLength % type.baseType->align, 0);
+
+    size_t numObjects = handle.handle ? handle.handle->lengthInBytes / objectLength : 0;
+
+    auto baseType = type;
+    baseType.dims.clear();
+
+    std::string result = baseType.print() + "[" + std::to_string(numObjects) + "]";
+    if (handle.handle) result += " (as MemoryArrayHandle)";
+    else result += " (NULL)";
+    return result;
+}
+
+// PrimitiveAbstractArgumentHandler
+
+bool
+PrimitiveAbstractArgumentHandler::
+canGetPrimitive() const
+{
+    return true;
+}
+
+std::span<const std::byte>
+PrimitiveAbstractArgumentHandler::
+getPrimitive(ComputeContext & context) const
+{
+    return mem;
+}
+
+std::string
+PrimitiveAbstractArgumentHandler::
+info() const
+{
+    return AbstractArgumentHandler::info() + " = " + this->type.baseType->printJsonString(mem.data()).rawString();
+}
+
+} // namespace details
 
 } // namespace MLDB

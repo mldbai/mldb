@@ -91,6 +91,7 @@ struct MemoryRegionHandleInfo {
     virtual ~MemoryRegionHandleInfo() = default;  // so we can safely upcast
     const std::type_info * type = nullptr;  //< non-CV qualified type in the array
     bool isConst = true;              //< Is the referred to memory constant or mutable?
+    ssize_t lengthInBytes = -1;
 };
 
 struct MemoryRegionHandle {
@@ -99,6 +100,7 @@ struct MemoryRegionHandle {
         : handle(std::move(handle))
     {
         ExcAssert(this->handle);
+        ExcAssertGreaterEqual(this->handle->lengthInBytes, 0);
     }
 
     template<typename T>
@@ -110,6 +112,12 @@ struct MemoryRegionHandle {
             throw MLDB::Exception("Attempt to cast to wrong type: from " + demangle(handle->type->name())
                                   + " to " + type_name<T>());
         }
+    }
+
+    size_t lengthInBytes() const
+    {
+        ExcAssertGreaterEqual(this->handle->lengthInBytes, 0);
+        return this->handle->lengthInBytes;        
     }
 
     std::shared_ptr<const MemoryRegionHandleInfo> handle;  // opaque; upcast by context
@@ -124,6 +132,11 @@ struct MemoryArrayHandleT: public MemoryRegionHandle {
     MemoryArrayHandleT(std::shared_ptr<const MemoryRegionHandleInfo> handle)
         : MemoryRegionHandle(std::move(handle))
     {
+    }
+
+    size_t length() const
+    {
+        return this->lengthInBytes() / sizeof(T);
     }
 };
 

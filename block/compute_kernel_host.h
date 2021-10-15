@@ -19,14 +19,12 @@ template<typename T>
 std::tuple<ComputeKernelType, std::function<Pin(MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(MemoryArrayHandleT<T> *)
 {
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.access = "rw";
+    ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
 
     auto convertParam = [] (MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
-        if (in.getHandle) {
-            auto handle = in.getHandle(in.value, context);
+        if (in.handler->canGetHandle()) {
+            auto handle = in.handler->getHandle(context);
             out = {std::move(handle)};
             return nullptr;
         }
@@ -40,14 +38,12 @@ template<typename T>
 std::tuple<ComputeKernelType, std::function<Pin(MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(MemoryArrayHandleT<const T> *)
 {
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.access = "r";
+    ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
 
     auto convertParam = [] (MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
-        if (in.getHandle) {
-            auto handle = in.getHandle(in.value, context);
+        if (in.handler->canGetHandle()) {
+            auto handle = in.handler->getHandle(context);
             out = MemoryArrayHandleT<const T>(std::move(handle.handle));
             return nullptr;
         }
@@ -69,15 +65,13 @@ template<typename T>
 std::tuple<ComputeKernelType, std::function<Pin (std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(std::span<T> *)
 {
-     ComputeKernelType result(type_name<T>(),
-                              getDefaultDescriptionSharedT<T>());
-    result.access = "rw";
-
+    ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
+ 
     auto convertParam = [] (std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
-        if (in.getRange) {
-            auto [ptr, size, pin] = in.getRange(in.value, context);
-            out = { reinterpret_cast<T *>(ptr), size };
+        if (in.handler->canGetRange()) {
+            auto [ptr, size, pin] = in.handler->getRange(context);
+            out = { reinterpret_cast<T *>(ptr), size / sizeof(T) };
             return std::move(pin);
         }
         throw MLDB::Exception("attempt to pass non-range memory region to arg that needs a span (not implemented)");
@@ -90,15 +84,13 @@ template<typename T>
 std::tuple<ComputeKernelType, std::function<Pin (std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(std::span<const T> *)
 {
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.access = "r";
+    ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
 
     auto convertParam = [] (std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
-        if (in.getConstRange) {
-            auto [ptr, size, pin] = in.getConstRange(in.value, context);
-            out = { reinterpret_cast<const T *>(ptr), size };
+        if (in.handler->canGetConstRange()) {
+            auto [ptr, size, pin] = in.handler->getConstRange(context);
+            out = { reinterpret_cast<const T *>(ptr), size / sizeof(T) };
             return std::move(pin);
         }
         throw MLDB::Exception("attempt to pass non-range memory region to arg that needs a span (not implemented)");
@@ -107,21 +99,30 @@ marshalParameterForCpuKernelCall(std::span<const T> *)
     return { result, convertParam };
 }
 
+// Implemented in .cc file to avoid including value_description.h
+// Copies from to to via the value description
+void copyUsingValueDescription(const ValueDescription * desc,
+                               std::span<const std::byte> from, void * to,
+                               const std::type_info & toType);
+//{
+//    ExcAssertEqual(typeid(T), *in.handler->type.baseType->type());
+//    in.handler->type.baseType->copyValue(mem.data(), &out);
+//}
+
+const std::type_info & getTypeFromValueDescription(const ValueDescription * desc);
+
 template<typename T>
 std::tuple<ComputeKernelType, std::function<Pin(T & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(T *)
 {
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<std::remove_const_t<T>>());
-
-    if constexpr (std::is_const_v<T>)
-        result.access = "r";
-    else
-        result.access = "rw";
+    ComputeKernelType result(getDefaultDescriptionSharedT<std::remove_const_t<T>>(),
+                             std::is_const_v<T> ? "r" : "rw");
 
     auto convertParam = [] (T & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
-        out = std::forward<T>(std::any_cast<T>(in.value));
+        ExcAssert(in.handler->canGetPrimitive());
+        std::span<const std::byte> mem = in.handler->getPrimitive(context);
+        copyUsingValueDescription(in.handler->type.baseType.get(), mem, &out, typeid(T));
         return nullptr;
     };
 
@@ -165,12 +166,15 @@ struct HostComputeKernel: public ComputeKernel {
         bool argIsConst
 
 #endif
-        const std::type_info & requiredType = param.type();
+        const std::type_info & requiredType
+            = details::getTypeFromValueDescription(param.handler->type.baseType.get());
 
         try {
             //using namespace std;
+            //cerr << "setting parameter " << n << " named " << this->params[n].name << " from " << param.handler->info() << endl;
+            //using namespace std;
             //cerr << "converting parameter " << n << " with formal type " << params[n].type.print()
-            //     << " from type " << demangle(param.type().name()) << " to type " << type_name<T>(arg)
+            //     << " from type " << param.handler->type.print() << " to type " << type_name<T>(arg)
             //     << endl;
             auto pin = marshal(arg, param, context);
             if (pin) {
@@ -369,7 +373,7 @@ struct HostComputeKernel: public ComputeKernel {
             this->extractParams<0>(args, params, context, pins);
             return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
             {
-                ExcAssertEqual(grid.size(), 2);
+                ExcAssertEqual(grid.size(), 3);
                 for (uint32_t i0: grid[0]) {
                     for (uint32_t i1: grid[1]) {
                         HostComputeKernel::apply(fn, args, context,
@@ -395,7 +399,7 @@ struct HostComputeKernel: public ComputeKernel {
             this->extractParams<0>(args, params, context, pins);
             return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
             {
-                ExcAssertEqual(grid.size(), 2);
+                ExcAssertEqual(grid.size(), 3);
                 for (uint32_t i1: grid[1]) {
                     for (uint32_t i2: grid[2]) {
                         HostComputeKernel::apply(fn, args, context,

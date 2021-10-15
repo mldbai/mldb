@@ -88,14 +88,23 @@ testFeatureKernel(ComputeContext & context,
 
                   std::span<W> allWOut);
 
+inline float sqrt3(float val)
+{
+    float approx = std::nextafterf(sqrtf(val), INFINITY);
+    while (approx * approx > val) {
+        approx = std::nextafterf(approx, -INFINITY);
+    }
+    return approx;
+}
+
 // Calculates the score of a split, which is a measure of the
 // amount of mutual entropy between the label and the given
 // candidate split point.
 inline float scoreSplit(const W & wFalse, const W & wTrue)
 {
     float score
-        = 2.0f *  (  sqrt(wFalse[0] * wFalse[1])
-                   + sqrt(wTrue[0]  * wTrue[1]));
+        = 2.0f *  (  sqrt3(wFalse[0] * wFalse[1])
+                   + sqrt3(wTrue[0]  * wTrue[1]));
     return score;
 };
 

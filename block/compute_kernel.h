@@ -31,10 +31,28 @@ enum class ComputeRuntimeId : uint8_t {
     METAL = 4,   ///< Runs on the Apple Metal runtime
     CUDA = 5,    ///< Runs on the Nvidia CUDA runtime
     ROCM = 6,    ///< Runs on the AMD ROCm runtime
-    CUSTOM = 128
+    CUSTOM = 32
 };
 
 DECLARE_ENUM_DESCRIPTION(ComputeRuntimeId);
+
+enum MemoryRegionAccess {
+    ACC_NONE = 0,
+    ACC_READ = 1,
+    ACC_WRITE = 2,
+    ACC_READ_WRITE = 3
+};
+
+DECLARE_ENUM_DESCRIPTION(MemoryRegionAccess);
+
+enum MemoryRegionInitialization {
+    INIT_NONE,         //< Random contents (but no sensitive data)
+    INIT_ZERO_FILLED,  //< Zero-filled
+    INIT_BLOCK_FILLED, //< Filled with copies of the given block
+    INIT_KERNEL        //< Filled by running the given kernel
+};
+
+DECLARE_ENUM_DESCRIPTION(MemoryRegionInitialization);
 
 struct ComputeDevice {
     static constexpr ComputeDevice none() { return { ComputeRuntimeId::NONE, 0, 0, 0, 0 }; }
@@ -87,6 +105,9 @@ struct ComputeRuntime {
     static void registerRuntime(ComputeRuntimeId id, const std::string & name,
                                 std::function<ComputeRuntime *()> create);
 
+    // List the registered runtimes.. each of these allows a getRuntimeForId() call
+    static std::vector<ComputeRuntimeId> enumerateRegisteredRuntimes();
+
     // Try to get the runtime for the given device, throwing an exception if it fails
     static std::shared_ptr<ComputeRuntime> getRuntimeForDevice(ComputeDevice device);
 
@@ -102,12 +123,12 @@ struct ComputeRuntime {
 
 // Profiling information for a compute operation
 struct ComputeProfilingInfo {
-
+    virtual ~ComputeProfilingInfo() = default;
 };
 
 struct ComputeEvent {
     virtual ~ComputeEvent() = default;
-    virtual ComputeProfilingInfo getProfilingInfo() const = 0;
+    virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const = 0;
     virtual void await() const = 0;
 };
 
@@ -120,24 +141,16 @@ DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelDimension);
 struct ComputeKernelType {
     ComputeKernelType() = default;
 
-    ComputeKernelType(std::string str,
-                      std::shared_ptr<const ValueDescription> baseType)
-        : str(std::move(str)), baseType(std::move(baseType))
+    ComputeKernelType(std::shared_ptr<const ValueDescription> baseType,
+                      std::string access)
+        : baseType(std::move(baseType)), access(std::move(access))
     {
     }
 
-    std::string str;
     std::shared_ptr<const ValueDescription> baseType;
     std::string access;
 
-    std::string print() const
-    {
-        auto result = str;
-        for (auto [bound]: dims) {
-            result += "[" + bound->surfaceForm + "]";
-        }
-        return result;
-    }
+    std::string print() const;
     
     std::vector<ComputeKernelDimension> dims;  // if empty, scalar, otherwise n-dimensional array
 };
@@ -149,21 +162,38 @@ ComputeKernelType parseType(const std::string & type);
 struct ComputeContext;
 struct BoundComputeKernel;
 
-using GetPrimitive = std::function<std::span<const std::byte>(const std::any & val, ComputeContext & context)>;
-using GetRange = std::function<std::tuple<void *, size_t, std::shared_ptr<const void>>(const std::any & val, ComputeContext & context)>;
-using GetConstRange = std::function<std::tuple<const void *, size_t, std::shared_ptr<const void>>(const std::any & val, ComputeContext & context)>;
-using GetHandle = std::function<MemoryRegionHandle (const std::any & val, ComputeContext & context)>;
+/// Class used to handle arguments
+struct AbstractArgumentHandler {
+    virtual ~AbstractArgumentHandler() = default;
+
+    ComputeKernelType type;
+    bool isConst = false;
+
+    virtual bool canGetPrimitive() const;
+
+    virtual std::span<const std::byte>
+    getPrimitive(ComputeContext & context) const;
+
+    virtual bool canGetRange() const;
+
+    virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
+    getRange(ComputeContext & context) const;
+
+    virtual bool canGetConstRange() const;
+
+    virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
+    getConstRange(ComputeContext & context) const;
+
+    virtual bool canGetHandle() const;
+
+    virtual MemoryRegionHandle getHandle(ComputeContext & context) const;
+
+    virtual std::string info() const;
+};
 
 struct ComputeKernelArgument {
-    std::any value;
-    ComputeKernelType abstractType;
-    GetPrimitive getPrimitive;
-    GetRange getRange;
-    GetConstRange getConstRange;
-    GetHandle getHandle;
-
-    const std::type_info & type() const { return value.type(); }
-    bool has_value() const { return value.has_value(); }
+    std::shared_ptr<const AbstractArgumentHandler> handler;
+    bool has_value() const { return !!handler; }
 };
 
 struct ComputeKernelGridRange {
@@ -288,90 +318,78 @@ template<typename T>
 MutableMemoryRegionT<T>
 transferToHostMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
 
+struct MemoryArrayAbstractArgumentHandler: public AbstractArgumentHandler {
+
+    template<typename T>
+    MemoryArrayAbstractArgumentHandler(MemoryArrayHandleT<T> handle)
+        : MemoryArrayAbstractArgumentHandler(std::move(handle),
+                                         getDefaultDescriptionSharedT<std::remove_const_t<T>>(),
+                                         std::is_const_v<T>)
+    {
+    }
+
+    MemoryArrayAbstractArgumentHandler(MemoryRegionHandle handle,
+                                   std::shared_ptr<const ValueDescription> containedType,
+                                   bool isConst);
+
+    virtual ~MemoryArrayAbstractArgumentHandler() = default;
+
+    MemoryRegionHandle handle;
+
+    virtual bool canGetRange() const override;
+
+    virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
+    getRange(ComputeContext & context) const override;
+
+    virtual bool canGetConstRange() const override;
+
+    virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
+    getConstRange(ComputeContext & context) const override;
+
+    virtual bool canGetHandle() const override;
+
+    virtual MemoryRegionHandle
+    getHandle(ComputeContext & context) const override;
+
+    virtual std::string info() const override;
+};
+
 template<typename T>
-std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
-getAbstractType(MemoryArrayHandleT<T> *)
+MemoryArrayAbstractArgumentHandler *
+getArgumentHandler(MemoryArrayHandleT<T> handle)
 {
-    ComputeKernelType result(type_name<MemoryArrayHandleT<T>>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.dims.push_back({nullptr});
-    result.access = "rw";
-
-    GetRange getRange = [] (const std::any & val, ComputeContext & context) -> std::tuple<void *, size_t, std::shared_ptr<const void>>
-    {
-        const auto & handle = std::any_cast<const MemoryArrayHandleT<T> &>(val);
-        MutableMemoryRegionT<T> region = transferToHostMutableSync(context, handle);
-        return { region.data(), region.length(), region.raw().handle() };
-    };
-
-    GetConstRange getConstRange = [] (const std::any & val, ComputeContext & context) -> std::tuple<const void *, size_t, std::shared_ptr<const void>>
-    {
-        const auto & handle = std::any_cast<const MemoryArrayHandleT<T> &>(val);
-        ExcAssert(handle.handle);
-        FrozenMemoryRegionT<T> region = transferToHostSync(context, handle);
-        return { region.data(), region.length(), region.raw().handle() };
-    };
-
-    GetHandle getHandle = [] (const std::any & val, ComputeContext & context) -> MemoryRegionHandle
-    {
-        const auto & handle = std::any_cast<const MemoryArrayHandleT<T> &>(val);
-        return handle;
-    };
-
-    return { result, nullptr, getRange, getConstRange, getHandle };
+    return new MemoryArrayAbstractArgumentHandler(std::move(handle));
 }
 
-template<typename T>
-std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
-getAbstractType(MemoryArrayHandleT<const T> *)
-{
-    ComputeKernelType result(type_name<MemoryArrayHandleT<T>>(),
-                             getDefaultDescriptionSharedT<T>());
-    result.dims.push_back({nullptr});
-    result.access = "r";
+struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
 
-    GetConstRange getConstRange = [] (const std::any & val, ComputeContext & context) -> std::tuple<const void *, size_t, std::shared_ptr<const void>>
+    template<typename T>
+    PrimitiveAbstractArgumentHandler(T value)
     {
-        const auto & handle = std::any_cast<const MemoryArrayHandleT<const T> &>(val);
-        FrozenMemoryRegionT<T> region = transferToHostSync(context, handle);
-        return { region.data(), region.length(), region.raw().handle() };
-    };
+        val = std::move(value);
+        const T & finalVal = std::any_cast<const T &>(val);
+        mem = { (const std::byte *)&finalVal, sizeof(T) };
+        this->isConst = true;
+        this->type.baseType = getDefaultDescriptionSharedT<T>();
+        this->type.access = "r";
+    }
 
-    GetHandle getHandle = [] (const std::any & val, ComputeContext & context) -> MemoryRegionHandle
-    {
-        const auto & handle = std::any_cast<const MemoryArrayHandleT<const T> &>(val);
-        return handle;
-    };
+    std::any val;
+    std::span<const std::byte> mem;
 
-    return { result, nullptr /* getPrimitive */, nullptr /* getRange */, getConstRange, getHandle };
-}
+    virtual bool canGetPrimitive() const override;
 
-template<typename T>
-std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
-getAbstractType(T *)
-{
-    ComputeKernelType result(type_name<T>(),
-                             getDefaultDescriptionSharedT<std::remove_const_t<T>>());
+    virtual std::span<const std::byte>
+    getPrimitive(ComputeContext & context) const override;
 
-    if constexpr (std::is_const_v<T>)
-        result.access = "r";
-    else
-        result.access = "rw";
-
-    auto getPrimitive = [] (const std::any & val, ComputeContext & context) -> std::span<const std::byte>
-    {
-        const auto & obj = std::any_cast<const T &>(val);
-        return { (const std::byte *)&obj, sizeof(T) };
-    };
-
-    return { result, getPrimitive, nullptr, nullptr, nullptr };
-}
+    virtual std::string info() const override;
+};
 
 template<typename T>
-std::tuple<ComputeKernelType, GetPrimitive, GetRange, GetConstRange, GetHandle>
-getAbstractType()
+PrimitiveAbstractArgumentHandler *
+getArgumentHandler(T value)
 {
-    return getAbstractType((T *)nullptr);
+    return new PrimitiveAbstractArgumentHandler(std::move(value));
 }
 
 template<typename Arg>
@@ -392,9 +410,7 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
         throw MLDB::Exception("Attempt to double bind argument " + argName
                                 + " of kernel " + owner->kernelName);
 
-    auto [type, getPrimitive, getRange, getConstRange, getHandle]
-         = getAbstractType<std::remove_reference_t<Arg>>();
-    arguments[argIndex] = { std::forward<Arg>(arg), type, getPrimitive, getRange, getConstRange, getHandle };
+    arguments[argIndex].handler.reset(getArgumentHandler(std::forward<Arg>(arg)));
 }
 
 inline void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & arguments) // end of recursion
@@ -436,68 +452,51 @@ struct ComputeQueue {
     {
     }
 
+    virtual ~ComputeQueue() = default;
+
     ComputeContext * owner = nullptr;
 
     std::mutex kernelWallTimesMutex;
     std::map<std::string, double> kernelWallTimes; // in milliseconds
+    double totalKernelTime = 0.0;
 
-    std::shared_ptr<ComputeEvent> launch(const BoundComputeKernel & kernel,
-                                         const std::vector<uint32_t> & grid,
-                                         const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {})
-    {
-        ExcAssertEqual(kernel.owner->dims.size(), grid.size());
+    virtual std::shared_ptr<ComputeEvent>
+    launch(const BoundComputeKernel & kernel,
+           const std::vector<uint32_t> & grid,
+           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {});
 
-        Timer timer;
-        std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
-        kernel(*owner, ranges);
-        auto wallTime = timer.elapsed_wall();
-        using namespace std;
-        cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
-        {
-            std::unique_lock guard(kernelWallTimesMutex);
-            kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
-        }
-
-        return std::shared_ptr<ComputeEvent>();
-    }
+    virtual std::shared_ptr<ComputeEvent>
+    enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
+                         size_t startOffsetInBytes, ssize_t lengthInBytes,
+                         const std::any & arg);
 
     template<typename T>
     std::shared_ptr<ComputeEvent>
     enqueueFillArray(const MemoryArrayHandleT<T> & region, const T & val,
                      size_t start = 0, ssize_t length = -1)
     {
-        auto mapped = details::transferToHostMutableSync(*owner, region);
-        if (start > mapped.length()) {
-            throw MLDB::Exception("enqueueFillArray: array start index out of bounds");
+        const char * valBytes = (const char *)&val;
+ 
+        // If all bytes in the initialization are zero, we can do it more efficiently
+        bool allZero = true;
+        for (size_t i = 0;  allZero && i < sizeof(T);  allZero = valBytes[i++] == 0) ;
+ 
+        if (allZero) {
+            return enqueueFillArrayImpl(region, MemoryRegionInitialization::INIT_ZERO_FILLED,
+                                        start * sizeof(T), length == -1 ? length : length * sizeof(T),
+                                        {});
         }
-        if (length == -1)
-            length = mapped.length() - start;
-        if (start + length > mapped.length()) {
-            throw MLDB::Exception("enqueueFillArray: array end index out of bounds");
+        else {
+            std::span<const std::byte> fillWith((const std::byte *)&val, sizeof(val));
+            return enqueueFillArrayImpl(region, MemoryRegionInitialization::INIT_BLOCK_FILLED,
+                                        start * sizeof(T), length == -1 ? length : length * sizeof(T),
+                                        fillWith);
         }
-
-        std::fill_n(mapped.data() + start, length, val);
-
-        return std::shared_ptr<ComputeEvent>();
     }
 
-    void flush()
+    virtual void flush()
     {
     }
-};
-
-enum MemoryRegionAccess {
-    ACC_NONE = 0,
-    ACC_READ = 1,
-    ACC_WRITE = 2,
-    ACC_READ_WRITE = 3
-};
-
-enum MemoryRegionInitialization {
-    INIT_NONE,         //< Random contents (but no sensitive data)
-    INIT_ZERO_FILLED,  //< Zero-filled
-    INIT_BLOCK_FILLED, //< Filled with copies of the given block
-    INIT_KERNEL        //< Filled by running the given kernel
 };
 
 struct ComputeContext {

@@ -85,7 +85,7 @@ struct PartitionData {
     enum TrainingScheme {
         PARTITIONED = 1,      ///< Train by partitioning and doing a single pass through the partitions
         RECURSIVE = 2,        ///< Train by recursively descending each split
-        BOTH_AND_COMPARE = 3, ///< Train both of the above, and compare the two results
+        BOTH_AND_COMPARE = 3 ///< Train both of the above, and compare the two results
     };
 
     // Train a decision tree from this partition.

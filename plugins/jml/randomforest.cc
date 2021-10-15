@@ -594,6 +594,8 @@ trainPartitioned(int depth, int maxDepth,
                                     rows, features, bucketMemory, *fs);
 }
 
+extern EnvOption<bool> DEBUG_RF_KERNELS;
+
 ML::Tree::Ptr
 PartitionData::
 train(int depth, int maxDepth,
@@ -615,10 +617,10 @@ train(int depth, int maxDepth,
 
     ML::Tree::Ptr part;
 
-    if (trainingScheme == PARTITIONED) {
+    if (trainingScheme == PARTITIONED && !DEBUG_RF_KERNELS) {
         return trainPartitioned(depth, maxDepth, tree, serializer);
     }
-    else if (trainingScheme == BOTH_AND_COMPARE) {
+    else if (trainingScheme == BOTH_AND_COMPARE || DEBUG_RF_KERNELS) {
         if (depth == 0) {
             Timer timer;
             Date before = Date::now();
@@ -943,7 +945,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     allEvents.emplace_back("copyWAll", copyWAll);
 
-    
     // The rest are initialized to zero
     std::shared_ptr<ComputeEvent> initializeWAll
         = queue->enqueueFillArray(deviceWAll, W(), 1 /* offset */);
@@ -955,7 +956,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     // Note that we only use the beginning 2 at the start, and we
     // double the amount of what we use until we're using the whole lot
     // on the last iteration
-    MemoryArrayHandleT<W> devicePartitionBuckets = context->allocArray<W>(maxPartitionCount * numActiveBuckets);
+    MemoryArrayHandleT<W> devicePartitionBuckets
+        = context->allocArray<W>(maxPartitionCount * numActiveBuckets);
 
     // Before we use this, it needs to be zero-filled (only the first
     // set for a single partition)
@@ -966,9 +968,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     auto testFeatureKernel
         = context->getKernel("testFeature");
-
-    cerr << "deviceExpandedRowData = " << deviceExpandedRowData.handle << endl;
-    cerr << "maxPartitionCount = " << maxPartitionCount << endl;
 
     auto boundTestFeatureKernel = testFeatureKernel
         ->bind( "decodedRows",                      deviceExpandedRowData,
@@ -1039,10 +1038,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     MemoryArrayHandleT<uint8_t> deviceDirections
         = context->allocArray<uint8_t>(numRows);
 
-    // Record the split, per level, per partition
-    std::vector<std::vector<PartitionSplit> > depthSplits;
-    depthSplits.reserve(16);
-
     MemoryArrayHandleT<uint32_t> deviceFeatureIsOrdinal
         = context->manageMemoryRegion(featureIsOrdinal);
     
@@ -1070,6 +1065,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     MemoryArrayHandleT<PartitionSplit> deviceFeaturePartitionSplits
         = context->allocArray<PartitionSplit>((1 << numIterations) * nf);
 
+    // DEBUG ONLY, stops spurious differences between kernels
+    //queue->enqueueFillArray(deviceFeaturePartitionSplits, PartitionSplit());
+    //queue->enqueueFillArray(deviceAllPartitionSplits, PartitionSplit());
+
     Date startDepth = Date::now();
 
     // We go down level by level
@@ -1091,6 +1090,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         auto boundGetPartitionSplitsKernel = getPartitionSplitsKernel
             ->bind("totalBuckets",                   (uint32_t)numActiveBuckets,
+                   "numPartitions",                  (uint32_t)numPartitionsAtDepth,
                    "bucketNumbers",                  deviceBucketNumbers,
                    "featuresActive",                 deviceFeaturesActive,
                    "featureIsOrdinal",               deviceFeatureIsOrdinal,
@@ -1104,7 +1104,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         std::shared_ptr<ComputeEvent> runPartitionSplitsKernel
             = queue->launch(boundGetPartitionSplitsKernel,
-                           { maxBuckets, nf, numPartitionsAtDepth },
+                           { 64 /* worker ID */, nf, numPartitionsAtDepth },
                            { previousIteration, copyWAll, initializeWAll});
 
         allEvents.emplace_back("runPartitionSplitsKernel "
@@ -1227,6 +1227,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     if (sumBuckets != testW[i]) {
                         cerr << "partition " << i << " feature " << f << ": sumBuckets " << jsonEncodeStr(sumBuckets)
                             << " recalc " << jsonEncodeStr(testW[i]) << endl;
+                        cerr << "bucketStart = " << bucketStart << " bucketEnd = " << bucketEnd << endl;
                         ExcAssert(sumBuckets == testW[i]);
                     }
                 }
@@ -1373,7 +1374,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                   "featureIsOrdinal",               deviceFeatureIsOrdinal);
 
         std::shared_ptr<ComputeEvent> runUpdateBucketsKernel
-            = queue->launch(boundUpdateBucketsKernel, { nf + 1 /* +1 is wAll */},
+            = queue->launch(boundUpdateBucketsKernel, { numRows, nf + 1 /* +1 is wAll */},
                             { runClearBucketsKernel, runUpdatePartitionNumbersKernel });
         
         allEvents.emplace_back("runUpdateBucketsKernel "
@@ -1387,8 +1388,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             ->bind("buckets",                   devicePartitionBuckets,
                    "wAll",                       deviceWAll,
                    "allPartitionSplits",         deviceAllPartitionSplits,
-                   "partitionSplitsOffset",      (uint32_t)numPartitionsAtDepth,
-                   "numActiveBuckets",           (uint32_t)numActiveBuckets);
+                   "numActiveBuckets",           (uint32_t)numActiveBuckets,
+                   "partitionSplitsOffset",      (uint32_t)numPartitionsAtDepth);
 
         std::shared_ptr<ComputeEvent> runFixupBucketsKernel
             = queue->launch(boundFixupBucketsKernel,
@@ -1663,14 +1664,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         ExcAssertEqual(indexes[i].depth(), depth);
     }
 
-    //throw Exception("TODO allSplits");
-    
-    //for (int i = 0;  i < numIterations;  ++i) {
-    //    depthSplits.emplace_back
-    //        (mappedAllPartitionSplitsCast.get() + (1 << i),
-    //         mappedAllPartitionSplitsCast.get() + (2 << i));
-    //}
-    
     cerr << "got " << allSplits.size() << " splits" << endl;
 
     Date beforeSplitAndRecurse = Date::now();
@@ -1722,7 +1715,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
           << beforeSplitAndRecurse.secondsSince(beforeSetupRecurse) * 1000 << "ms in setup and "
           << afterSplitAndRecurse.secondsSince(beforeSplitAndRecurse) * 1000 << "ms in split and recurse)" << endl;
 
-    cerr << jsonEncode(queue->kernelWallTimes) << endl;
+    cerr << jsonEncode(queue->kernelWallTimes) << queue->totalKernelTime << "ms total in kernels" << endl;
 
     return result;
 }
@@ -1738,7 +1731,17 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
-    auto device = ComputeDevice::defaultFor(RF_USE_OPENCL ? ComputeRuntimeId::OPENCL : ComputeRuntimeId::HOST);
+    ComputeDevice device;
+    if (DEBUG_RF_KERNELS && RF_USE_OPENCL) {
+        device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
+    }
+    else if (RF_USE_OPENCL) {
+        device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
+    }
+    else {
+        device = ComputeDevice::host();
+    }
+
     cerr << "training partitioned on " << device << endl;
     return trainPartitionedEndToEndKernel(depth, maxDepth, tree, serializer,
                                           rows, features, bucketMemory, fs,

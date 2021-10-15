@@ -11,6 +11,29 @@
 
 namespace MLDB {
 
+namespace details {
+
+void copyUsingValueDescription(const ValueDescription * desc,
+                               std::span<const std::byte> from, void * to,
+                               const std::type_info & toType)
+{
+    if (toType != *desc->type) {
+        throw MLDB::Exception("Attempt to copy different types using ValueDescription: from = "
+                              + demangle(*desc->type) + " to = " + demangle(toType));
+    }
+
+    desc->copyValue(from.data(), to);
+}
+
+const std::type_info & getTypeFromValueDescription(const ValueDescription * desc)
+{
+    if (!desc)
+        return typeid(void);
+    return *(desc->type);
+}
+
+} // namespace Details
+
 namespace {
 
 std::mutex kernelRegistryMutex;
@@ -24,9 +47,10 @@ std::map<std::string, KernelRegistryEntry> kernelRegistry;
 
 struct HostComputeEvent: public ComputeEvent {
     virtual ~HostComputeEvent() = default;
-    virtual ComputeProfilingInfo getProfilingInfo() const
+
+    virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const
     {
-        return ComputeProfilingInfo();
+        return std::make_shared<ComputeProfilingInfo>();
     }
 
     virtual void await() const
@@ -48,7 +72,6 @@ struct HostComputeContext: public ComputeContext {
 
     struct MemoryRegionInfo: public MemoryRegionHandleInfo {
         const void * data = nullptr;
-        size_t lengthInBytes = 0;
         std::shared_ptr<const void> handle;  // underlying handle we want to keep around
 
         void init(const MutableMemoryRegion & region)
@@ -247,11 +270,66 @@ void registerHostComputeKernel(const std::string & kernelName,
 
 namespace {
 
+void zeroFillArrayKernel(ComputeContext & context,
+                         std::span<char> region,
+                         uint64_t startOffsetInBytes,
+                         uint64_t lengthInBytes)
+{
+    region = region.subspan(startOffsetInBytes, lengthInBytes);
+    std::memset(region.data(), 0, region.size());
+}
+
+void blockFillArrayKernel(ComputeContext & context,
+                          std::span<char> region,
+                          uint64_t startOffsetInBytes,
+                          uint64_t lengthInBytes,
+                          std::span<const char> block,
+                          uint64_t blockLengthInBytes)
+{
+    region = region.subspan(startOffsetInBytes, lengthInBytes);
+    ExcAssertEqual(lengthInBytes % blockLengthInBytes, 0);
+    ExcAssertEqual(block.size(), blockLengthInBytes);
+
+    for (size_t i = 0;  i < lengthInBytes;  i += blockLengthInBytes) {
+        std::memcpy(region.data() + i, block.data(), block.size());
+    }
+}
+
 static struct Init {
     Init()
     {
         ComputeRuntime::registerRuntime(ComputeRuntimeId::HOST, "host",
                                         [] () { return new HostComputeRuntime(); });
+
+        auto createBlockFillArrayKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<HostComputeKernel>();
+            result->kernelName = "__blockFillArray";
+            result->device = ComputeDevice::host();
+            result->addParameter("region", "w", "u8[regionLength]");
+            result->addParameter("startOffsetInBytes", "r", "u64");
+            result->addParameter("lengthInBytes", "r", "u64");
+            result->addParameter("blockData", "r", "u8[blockLengthInBytes]");
+            result->addParameter("blockLengthInBytes", "r", "u64");
+            result->setComputeFunction(blockFillArrayKernel);
+            return result;
+        };
+
+        registerHostComputeKernel("__blockFillArray", createBlockFillArrayKernel);
+
+        auto createZeroFillArrayKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<HostComputeKernel>();
+            result->kernelName = "__zeroFillArray";
+            result->device = ComputeDevice::host();
+            result->addParameter("region", "w", "u8[regionLength]");
+            result->addParameter("startOffsetInBytes", "r", "u64");
+            result->addParameter("lengthInBytes", "r", "u64");
+            result->setComputeFunction(zeroFillArrayKernel);
+            return result;
+        };
+
+        registerHostComputeKernel("__zeroFillArray", createZeroFillArrayKernel);
     }
 
 } init;

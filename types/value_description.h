@@ -40,12 +40,16 @@ namespace MLDB {
 struct ValueDescription {
     ValueDescription(ValueKind kind,
                      const std::type_info * type,
+                     uint32_t size,
+                     uint32_t align,
                      const std::string & typeName = "");
 
     virtual ~ValueDescription();
     
     ValueKind kind;
     const std::type_info * type;
+    uint32_t size;
+    uint32_t align;
     std::string typeName;
     std::string documentationUri;
 
@@ -242,6 +246,9 @@ void registerValueDescriptionFunctions(const std::type_info & type,
 */
 void registerValueDescriptionAlias(const std::type_info & type, const std::string & alias);
 
+// Return the aliases for this type
+std::vector<std::string> getValueDescriptionAliases(const std::type_info & type);
+
 template<typename T>
 struct RegisterValueDescription {
     static ValueDescription * create() { return getDefaultDescription((T*)0); }
@@ -292,7 +299,7 @@ template<typename T>
 struct ValueDescriptionT : public ValueDescription {
 
     ValueDescriptionT(ValueKind kind = ValueKind::ATOM)
-        : ValueDescription(kind, &typeid(T))
+        : ValueDescription(kind, &typeid(T), sizeof(T), alignof(T))
     {
     }
 
@@ -726,6 +733,7 @@ extern template struct ValueDescriptionT<float>;
 extern template struct ValueDescriptionT<double>;
 extern template struct ValueDescriptionT<Json::Value>;
 extern template struct ValueDescriptionT<bool>;
+extern template struct ValueDescriptionT<std::byte>;
 
 template<typename T>
 struct ValueDescriptionInit: public ValueDescriptionInitBase {

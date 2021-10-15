@@ -587,7 +587,7 @@ uint32_t testRow(uint32_t rowId,
     float val = rowData[rowId];
     float weight = fabs(val);
     bool label = val < 0;
-    int f = get_global_id(0);
+    //int f = get_global_id(0);
     uint32_t bucket
         = getBucket(exampleNum, bucketData, bucketDataLength,
                     bucketBits, numBuckets);
@@ -646,17 +646,17 @@ testFeatureKernel(__global const float * decodedRows,
     if (workGroupId == 0) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, numBuckets %d, buckets %d-%d, offset %d\n",
                (int)f,
-               get_global_size(0),
-               get_num_groups(0),
-               get_local_size(0),
+               get_global_size(1),
+               get_num_groups(1),
+               get_local_size(1),
                numRows,
                numBuckets,
                bucketNumbers[f],
                bucketNumbers[f + 1],
                bucketDataOffset);
     }
-    
-    maxLocalBuckets = 0;  // TODO DEBUG ONLY
+
+    //maxLocalBuckets = 0;  // TODO DEBUG ONLY
 
     for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(1)) {
@@ -742,6 +742,16 @@ inline float sqrt2(float val, int * adj)
     return bestApprox;
 }
 
+// Stable SQRT: take the largest value which when squared is less than or equal to the desired value
+inline float sqrt3(float val)
+{
+    float approx = nextFloat(sqrt(val), 1);
+    while (approx * approx > val) {
+        approx = nextFloat(approx, -1);
+    }
+    return approx;
+}
+
 float scoreSplit(W wFalse, W wTrue);
 
 #if 1
@@ -749,8 +759,8 @@ float scoreSplit(W wFalse, W wTrue)
 {
     float arg1 = decodeWf(wFalse.vals[0]) * decodeWf(wFalse.vals[1]);
     float arg2 = decodeWf(wTrue.vals[0])  * decodeWf(wTrue.vals[1]);
-    float sr1 = sqrt(arg1);
-    float sr2 = sqrt(arg2);
+    float sr1 = sqrt3(arg1);
+    float sr2 = sqrt3(arg2);
     float score = 2.0f * (sr1 + sr2);
     return score;
 };
@@ -1318,6 +1328,7 @@ chooseSplit(__global const W * w,
 // this expects [bucket, feature, partition]
 __kernel void
 getPartitionSplitsKernel(uint32_t totalBuckets,
+                         uint32_t numPartitions,
                          __global const uint32_t * bucketNumbers, // [nf]
                          
                          __global const uint32_t * featuresActive, // [nf]
@@ -1335,10 +1346,12 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     uint32_t f = get_global_id(1);
     uint32_t nf = get_global_size(1);
     uint32_t partition = get_global_id(2);
-    uint32_t numPartitions = get_global_size(2);
     
     uint32_t bucket = get_global_id(0);
     uint32_t partitionIndex = partition + numPartitions;
+
+    if (f >= nf || partition >= numPartitions)
+        return;
 
     PartitionSplit best = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
 
@@ -1346,6 +1359,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     // Don't do inactive features
     if (!featuresActive[f] || wAll[partition].count == 0) {
         if (bucket == 0) {
+        //    printf("writing out inactive PartitionSplit part %d f %d idx %x\n", partition, f, partition * nf + f);
             featurePartitionSplitsOut[partition * nf + f] = best;            
         }
         return;
@@ -1360,6 +1374,13 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     if (bucket >= numBuckets)
         return;
 
+    // SPEED DEBUG
+    //if (bucket == 0) {
+    //    printf("getPartitionSplits f=%d p=%d numPartitions=%d\n", f, partition, numPartitions);
+    //}
+    //if (numPartitions == 65536)
+    //    return;
+
     // Find where our bucket data starts
     __global const W * myW
         = buckets
@@ -1368,7 +1389,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     
     bool ordinal = featureIsOrdinal[f];
 
-#if 0
+#if 1
     best = chooseSplit(myW, numBuckets, wAll[partition],
                        wLocal, wLocalSize, wStartBest, ordinal, partitionIndex);
 #elif 1
@@ -1390,9 +1411,13 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
         // We have a simple search which is independent per-bucket.
         best = chooseSplitKernelCategorical(myW, numBuckets, wAll[partition]);
     }
+    if (bucket == 0) {
+        best.index = partitionIndex;
+    }
 #endif
     
     if (bucket == 0) {
+        //printf("writing out active PartitionSplit part %d f %d idx %x\n", partition, f, partition * nf + f);
         featurePartitionSplitsOut[partition * nf + f] = best;
     }
 
@@ -1477,16 +1502,12 @@ bestPartitionSplitKernel(uint32_t numFeatures,
     uint32_t p = get_global_id(0);
     uint32_t partitionIndex = p + get_global_size(0);
 
-    if (p == 0) {
-        printf("sizeof(PartitionSplit) = %d\n", (int)sizeof(PartitionSplit));
-    }
-
     PartitionSplit best = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
 
     featurePartitionSplits += p * numFeatures;
     allPartitionSplitsOut += p;
     
-    printf("bestPartitionSplitKernel for partition %d\n", p);
+    //printf("bestPartitionSplitKernel for partition %d\n", p);
 
     for (uint32_t f = 0;  f < numFeatures;  ++f) {
         if (!featuresActive[f])
@@ -1632,11 +1653,19 @@ updatePartitionNumbersKernel(uint32_t partitionSplitsOffset,
     if (r >= numRows)
         return;
 
+    bool debug = false;//(r == 196 || r == 222 || r == 516);
+
     allPartitionSplits += partitionSplitsOffset;
     uint16_t partition = partitions[r].num;
-    int16_t splitFeature = allPartitionSplits[partition].feature;    
-    if (splitFeature == -1)  // reached a leaf, nothing to split
+    int16_t splitFeature = allPartitionSplits[partition].feature;
+
+    if (debug)
+        printf("r = %d partition = %d splitFeature = %d\n", r, partition, splitFeature);
+
+    if (splitFeature == -1) { // reached a leaf, nothing to split
+        directions[r] = 0;  // for debug, not needed otherwise
         return;
+    }
 
     uint16_t splitValue = allPartitionSplits[partition].value;
     bool ordinal = featureIsOrdinal[splitFeature];

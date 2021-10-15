@@ -51,9 +51,13 @@ std::ostream & operator << (std::ostream & stream, ValueKind kind)
 ValueDescription::
 ValueDescription(ValueKind kind,
                  const std::type_info * type,
+                 uint32_t size,
+                 uint32_t align,
                  const std::string & typeName)
     : kind(kind),
       type(type),
+      size(size),
+      align(align),
       typeName(typeName.empty() ? demangle(type->name()) : typeName),
       jsConverters(nullptr),
       jsConvertersInitialized(false)
@@ -612,7 +616,7 @@ printJson(const void * input, JsonPrintingContext & context) const
 
 BridgedValueDescription::
 BridgedValueDescription(std::shared_ptr<const ValueDescription> impl)
-    : ValueDescription(impl->kind, impl->type, impl->typeName),
+    : ValueDescription(impl->kind, impl->type, impl->size, impl->align, impl->typeName),
       impl(std::move(impl))
 {
     this->documentationUri = this->impl->documentationUri;

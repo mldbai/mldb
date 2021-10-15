@@ -187,7 +187,7 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
 
             if (wFalse.count() > 0 && wTrue.count() > 0) {
             
-                double s = scoreSplit(wFalse, wTrue);
+                float s = scoreSplit(wFalse, wTrue);
 
                 if (debug) {
                     std::cerr << "  ord split " << j << " "
@@ -227,7 +227,7 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
                 continue;
             }
             
-            double s = scoreSplit(wFalse, w[j]);
+            float s = scoreSplit(wFalse, w[j]);
 
             if (debug) {
                 std::cerr << "  non ord split " << j << " "
@@ -1205,6 +1205,7 @@ getPartitionSplitsKernel(ComputeContext & context,
                          uint32_t p, uint32_t np,
                          
                          uint32_t totalBuckets,
+                         uint32_t numPartitions,
                          std::span<const uint32_t> bucketNumbers, // [nf]
                          
                          std::span<const uint32_t> featureActive, // [nf]
@@ -1216,9 +1217,12 @@ getPartitionSplitsKernel(ComputeContext & context,
                          std::span<PartitionSplit> splitsOut) // [np x nf]
 {
     // BucketRange is just there for show... it is implicitly handled in the kernel
+    ExcAssertEqual(numPartitions, np);
+
     PartitionSplit & result = splitsOut[p * nf + f];
     if (!featureActive[f] || wAll[p].empty() || wAll[p].uniform()) {
         result = PartitionSplit();
+        result.index = p + np;
         return;
     }
 
@@ -1229,6 +1233,7 @@ getPartitionSplitsKernel(ComputeContext & context,
     result.feature = f;
     std::tie(result.score, result.value, result.left, result.right)
         = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
+    result.index = p + np;  // implicit
 }
 
 void
@@ -1487,10 +1492,12 @@ fixupBucketsKernel(ComputeContext & context,
                    ComputeKernelGridRange & bucketRange,
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
-                   std::span<const PartitionSplit> partitionSplits)
+                   std::span<const PartitionSplit> partitionSplits,
+                   uint32_t numActiveBuckets,
+                   uint32_t partitionSplitsOffset)
 {
-    uint32_t numActiveBuckets = bucketRange.range();
-    uint32_t partitionSplitsOffset = numPartitions;
+    ExcAssertEqual(numActiveBuckets, bucketRange.range());
+    ExcAssertEqual(partitionSplitsOffset, numPartitions);
     partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
 
     //if (partitionSplits[partition].right.count() == 0)
@@ -2765,7 +2772,7 @@ static struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
-            result->addParameter("partitionBuckets", "r", "W32[numBuckets]");
+            result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
             result->set2DComputeFunction(testFeatureKernel);
             return result;
         };
@@ -2781,6 +2788,7 @@ static struct RegisterKernels {
             result->addDimension("f", "nf");
             result->addDimension("p", "np");
             result->addParameter("totalBuckets", "r", "u32");
+            result->addParameter("numPartitions", "r", "u32");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
