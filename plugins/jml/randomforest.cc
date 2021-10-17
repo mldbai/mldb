@@ -875,7 +875,18 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     // longest things to transfer
     auto [deviceBucketData, transferBucketData, bucketMemorySizePageAligned]
         = context->transferToDeviceImmutable(bucketMemory, "transferBucketData");
+
+    // Our first kernel expands the data.  It's pretty simple, as a warm
+    // up for the rest.
+    auto doNothingKernel = context->getKernel("doNothing");
+
+    auto boundDoNothingKernel = doNothingKernel->bind();
+
+    std::shared_ptr<ComputeEvent> runDoNothing
+        = queue->launch(boundDoNothingKernel, {}, {});
     
+    allEvents.emplace_back("doNothing", runDoNothing);
+
     // This one contains an expanded version of the row data, with one float
     // per row rather than bit-compressed.  It's expanded on the device so that
     // the compressed version can be passed over the PCIe bus and not the
@@ -1529,9 +1540,13 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         // Ready for the next level
         previousIteration = runUpdateBucketsKernel;
+
+        if (true)
+            queue->finish();
     }
 
-    queue->flush();
+    queue->finish();
+
 
     // If we're not at the lowest level, partition our data and recurse
     // par partition to create our leaves.

@@ -2735,8 +2735,23 @@ trainPartitionedRecursive(int depth, int maxDepth,
 
 static struct RegisterKernels {
 
+    static void doNothingKernelCpu(ComputeContext & context)
+    {
+    }
+
     RegisterKernels()
     {
+        auto createDoNothingKernel = [] () -> std::shared_ptr<ComputeKernel>
+        {
+            auto result = std::make_shared<HostComputeKernel>();
+            result->kernelName = "doNothing";
+            result->device = ComputeDevice::host();
+            result->setComputeFunction(doNothingKernelCpu);
+            return result;
+        };
+
+        registerHostComputeKernel("doNothing", createDoNothingKernel);
+        
         auto createDecodeRowsKernel = [] () -> std::shared_ptr<ComputeKernel>
         {
             auto result = std::make_shared<HostComputeKernel>();

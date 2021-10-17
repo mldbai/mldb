@@ -9,6 +9,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "opencl_types.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/utils/environment.h"
 
 using namespace std;
 
@@ -22,6 +23,13 @@ struct KernelRegistryEntry {
 };
 
 std::map<std::string, KernelRegistryEntry> kernelRegistry;
+
+struct OpenCLBindInfo: public ComputeKernelBindInfo {
+    virtual ~OpenCLBindInfo() = default;
+
+    OpenCLKernel clKernel;
+    const OpenCLComputeKernel * owner = nullptr;
+};
 
 } // file scope
 
@@ -76,11 +84,118 @@ OpenCLComputeQueue(OpenCLComputeContext * owner)
 
 std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
-launch(const BoundComputeKernel & kernel,
+launch(const BoundComputeKernel & bound,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
-    return ComputeQueue::launch(kernel, grid, prereqs);
+    ExcAssert(bound.bindInfo);
+    
+    const OpenCLBindInfo * bindInfo
+        = dynamic_cast<const OpenCLBindInfo *>(bound.bindInfo.get());
+    ExcAssert(bindInfo);
+
+    const OpenCLComputeKernel * kernel = bindInfo->owner;
+
+    std::vector<size_t> clGrid;
+    
+    if (kernel->allowGridExpansionFlag)
+        ExcAssertLessEqual(grid.size(), kernel->block.size());
+    else
+        ExcAssertEqual(grid.size(), kernel->block.size());
+
+    for (size_t i = 0;  i < kernel->block.size();  ++i) {
+        // Pad out the grid so we cover the whole lot.  The kernel will need to be
+        // sure to no-op if it's out of bounds.
+        auto b = kernel->block[i];
+        auto range = i < grid.size() ? grid[i] : b;
+        auto rem = range % b;
+        if (rem > 0) {
+            if (kernel->allowGridPaddingFlag) {
+                range += (b - rem);
+                cerr << "padding out dimension " << i << " from " << grid[i]
+                    << " to " << range << " due to block size of " << b << endl;
+            }
+            else {
+                throw MLDB::Exception("OpenCL kernel '" + kernel->kernelName + "' won't launch "
+                                        "due to grid dimension " + std::to_string(i)
+                                        + " (" + std::to_string(range) + ") not being a "
+                                        + "multple of the block size (" + std::to_string(b)
+                                        + ").  Consider using allowGridPadding() or modifying "
+                                        + "grid calculations");
+            }
+        }
+        clGrid.push_back(range);
+    }
+    if (kernel->modifyGrid)
+        kernel->modifyGrid(clGrid);
+    
+    cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
+    //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
+    auto timer = std::make_shared<Timer>();
+
+    auto event = clQueue.launch(bindInfo->clKernel, clGrid, kernel->block);
+
+    // Ensure it's submitted before we start using the event
+    clQueue.flush();
+
+    std::string kernelName = kernel->kernelName;
+
+    auto execTimes = std::make_shared<std::map<OpenCLEventCommandExecutionStatus, double>>();
+
+    auto doCallback = [this, kernelName, execTimes, timer]
+            (const OpenCLEvent & event, OpenCLEventCommandExecutionStatus status)
+    {
+        auto wallTime = timer->elapsed_wall();
+
+        // TODO: lock?
+        execTimes->emplace(status, timer->elapsed_wall());
+
+        std::string msg = format("kernel %s status %s wallTime %.2fms\n",
+                                 kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
+        cerr << msg;
+
+        if (status != OpenCLEventCommandExecutionStatus::COMPLETE)
+            return;
+    
+        if (true) {
+            std::unique_lock guard(kernelWallTimesMutex);
+            kernelWallTimes[kernelName] += wallTime * 1000.0;
+            totalKernelTime += wallTime * 1000.0;
+        }
+
+        std::string toDump = "  submit    queue    start      end  elapsed name\n";
+
+        return;
+
+        auto info = event.getProfilingInfo();
+
+        auto ms = [&] (int64_t ns) -> double
+            {
+                return ns / 1000000.0;
+            };
+        
+        toDump += format("%8.3f %8.3f %8.3f %8.3f %8.3f %s\n",
+                    ms(info.queued), ms(info.submit), ms(info.start),
+                    ms(info.end),
+                    ms(info.end - info.start), kernelName);
+        cerr << toDump;
+    };
+
+    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::QUEUED);
+    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::RUNNING);
+    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::SUBMITTED);
+    event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::COMPLETE);
+    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::ERROR);
+    //clQueue.flush();  // TODO: remove, this is debug!!!
+
+    // DEBUG
+    event.waitUntilFinished();
+
+
+
+    //doCallback(event, 0);
+
+    return std::make_shared<OpenCLComputeEvent>(std::move(event));
 }
 
 std::shared_ptr<ComputeEvent>
@@ -119,8 +234,6 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
                     lengthInBytes = region.lengthInBytes() - startOffsetInBytes;
                 ExcAssertLessEqual(startOffsetInBytes + lengthInBytes, region.lengthInBytes());
                 auto event = clQueue.enqueueFillBuffer(mem, pattern, startOffsetInBytes, lengthInBytes, {});
-                if (event)
-                    event.waitUntilFinished();  // needed for Intel
                 return std::make_shared<OpenCLComputeEvent>(std::move(event));
             };
 
@@ -149,7 +262,7 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
             if (block.size() == 1 || block.size() == 2 || block.size() == 4 || block.size() == 8 || block.size() == 16 || block.size() == 32) {
                 // The OpenCL fill array infrastructure only takes a few possible sizes
                 auto event = clQueue.enqueueFillBuffer(mem, block.data(), block.size(),
-                                                    startOffsetInBytes, lengthInBytes, {});
+                                                       startOffsetInBytes, lengthInBytes, {});
                 return std::make_shared<OpenCLComputeEvent>(std::move(event));
             }
             else {
@@ -174,15 +287,23 @@ flush()
     clQueue.flush();
 }
 
+void
+OpenCLComputeQueue::
+finish()
+{
+    clQueue.finish();
+}
+
+
 // OpenCLComputeContext
 
 OpenCLComputeContext::
 OpenCLComputeContext(std::vector<OpenCLDevice> devices)
     : clContext(devices),
-        clQueue(clContext.createCommandQueue(devices[0], OpenCLCommandQueueProperties::PROFILING_ENABLE)),
         clDevices(std::move(devices)),
         backingStore(new MemorySerializer())
 {
+    clQueue = std::make_shared<OpenCLComputeQueue>(this);
 }
 
 std::any
@@ -227,10 +348,10 @@ getMemoryRegion(const MemoryRegionHandleInfo & handle) const
 MemoryRegionHandle
 OpenCLComputeContext::
 allocateImpl(size_t length, size_t align,
-                const std::type_info & type,
-                bool isConst,
-                MemoryRegionInitialization initialization,
-                std::any initWith)
+             const std::type_info & type,
+             bool isConst,
+             MemoryRegionInitialization initialization,
+             std::any initWith)
 {
     // TODO: align...
     OpenCLMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
@@ -244,7 +365,7 @@ allocateImpl(size_t length, size_t align,
 
             auto zeroFillWith = [&] (const auto pattern)
             {
-                auto event = clQueue.enqueueFillBuffer(mem, &pattern, sizeof(pattern), 0, length, {});
+                auto event = queue->clQueue.enqueueFillBuffer(mem, &pattern, sizeof(pattern), 0, length, {});
                 event.waitUntilFinished();
             };
 
@@ -283,9 +404,9 @@ allocateImpl(size_t length, size_t align,
     MemoryRegionHandle result{std::move(handle)};
 
 #if 1
-    OpenCLComputeQueue queue(this, clQueue);
-    auto event = queue.ComputeQueue::enqueueFillArrayImpl(result, initialization,
+    auto event = clQueue->ComputeQueue::enqueueFillArrayImpl(result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
+    clQueue->flush();
     if (event)
         event->await();
 #endif
@@ -296,7 +417,7 @@ allocateImpl(size_t length, size_t align,
 std::tuple<MemoryRegionHandle, std::shared_ptr<ComputeEvent>>
 OpenCLComputeContext::
 transferToDeviceImpl(FrozenMemoryRegion region,
-                        const std::type_info & type, bool isConst)
+                     const std::type_info & type, bool isConst)
 {
     Timer timer;
 
@@ -307,7 +428,7 @@ transferToDeviceImpl(FrozenMemoryRegion region,
     }
     else {
         mem = clContext.createBuffer(isConst ? CL_MEM_READ_ONLY : CL_MEM_READ_WRITE,
-                                        region.data(), region.memusage());
+                                     region.data(), region.memusage());
     }
 
     auto handle = std::make_shared<MemoryRegionInfo>();
@@ -336,14 +457,12 @@ transferToHostImpl(MemoryRegionHandle handle)
 
     OpenCLMemObject mem = getMemoryRegion(*handle.handle);
     auto [memPtr, event]
-        = clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
+        = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
                                     0 /* offset */, mem.size());
 
     FrozenMemoryRegion result(memPtr, (char *)memPtr.get(), mem.size());
     
-    event.waitUntilFinished();
-
-    return { std::move(result), nullptr };
+    return { std::move(result), std::make_shared<OpenCLComputeEvent>(std::move(event)) };
 }
 
 std::tuple<MutableMemoryRegion, std::shared_ptr<ComputeEvent>>
@@ -356,15 +475,13 @@ transferToHostMutableImpl(MemoryRegionHandle handle)
 
     OpenCLMemObject mem = getMemoryRegion(*handle.handle);
     auto [memPtr, event]
-        = clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
+        = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
                                     0 /* offset */, mem.size());
 
     // TODO: backingStore is WRONG... this is a hack
     MutableMemoryRegion result(memPtr, (char *)memPtr.get(), mem.size(), backingStore.get());
     
-    event.waitUntilFinished();
-
-    return { std::move(result), nullptr };
+    return { std::move(result), std::make_shared<OpenCLComputeEvent>(std::move(event)) };
 }
 
 std::shared_ptr<ComputeKernel>
@@ -516,22 +633,22 @@ allowGridExpansion()
 
 void
 OpenCLComputeKernel::
-setComputeFunction(OpenCLProgram program,
+setComputeFunction(OpenCLProgram programIn,
                    std::string kernelName,
                    std::vector<size_t> block)
 {
     this->block = std::move(block);
+    this->clProgram = std::move(programIn);
+    this->kernelName = kernelName;
+    this->clKernel = clProgram.createKernel(kernelName);
+    this->clKernelInfo = this->clKernel.getInfo();
 
-    OpenCLKernel kernel = program.createKernel(kernelName);
-
-    auto kernelInfo = kernel.getInfo();
-
-    using namespace std;
+    //using namespace std;
     //cerr << jsonEncode(kernelInfo) << endl;
 
-    std::vector<int> correspondingParameters(kernelInfo.numArgs, -1);
+    correspondingArgumentNumbers.resize(clKernelInfo.numArgs, -1);
 
-    for (auto & arg: kernelInfo.args) {
+    for (auto & arg: clKernelInfo.args) {
         if (arg.addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
             if (this->setters.empty()) {
                 throw MLDB::Exception("Local parameter in kernel with no setters defined; "
@@ -549,113 +666,67 @@ setComputeFunction(OpenCLProgram program,
                                         + " (" + argName + ") to OpenCL kernel " + kernelName
                                         + " has no counterpart in formal parameter list");
             }
-            correspondingParameters.at(arg.argNum) = it->second;
+            correspondingArgumentNumbers.at(arg.argNum) = it->second;
+        }
+    }
+}
+
+BoundComputeKernel
+OpenCLComputeKernel::
+bindImpl(std::vector<ComputeKernelArgument> arguments) const
+{
+    ExcAssert(this->context);
+    auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(*this->context);
+    auto kernel = this->clProgram.createKernel(this->kernelName);
+
+    for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
+        int argNum = correspondingArgumentNumbers.at(i);
+        //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
+        if (argNum == -1) {
+            // local, or will be done via setter...
+        }
+        else {
+            const ComputeKernelArgument & arg = arguments.at(argNum);
+            if (arg.handler->canGetPrimitive()) {
+                auto bytes = arg.handler->getPrimitive(upcastContext);
+                kernel.bindArg(i, bytes.data(), bytes.size());
+            }
+            else if (arg.handler->canGetHandle()) {
+                auto handle = arg.handler->getHandle(upcastContext);
+                OpenCLMemObject mem = upcastContext.getMemoryRegion(*handle.handle);
+                kernel.bindArg(i, std::move(mem));
+            }
+            else if (arg.handler->canGetConstRange()) {
+                throw MLDB::Exception("param.getConstRange");
+            }
+            else {
+                throw MLDB::Exception("don't know how to handle passing parameter to OpenCL");
+            }
         }
     }
 
-    auto result = [program, kernelInfo, kernelName, correspondingParameters, this] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) mutable -> Callable
-    {
-        auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(context);
-        OpenCLKernel kernel = program.createKernel(kernelName);
+    // Run the setters to set the other parameters
+    for (auto & s: this->setters) {
+        s(kernel, upcastContext);
+    }
 
-        for (size_t i = 0;  i < kernelInfo.args.size();  ++i) {
-            int paramNum = correspondingParameters.at(i);
-            //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
-            if (paramNum == -1) {
-                // local, or will be done via setter...
-            }
-            else {
-                const ComputeKernelArgument & param = params.at(paramNum);
-                if (param.handler->canGetPrimitive()) {
-                    // TODO: bind it
-                    auto bytes = param.handler->getPrimitive(context);
-                    kernel.bindArg(i, bytes.data(), bytes.size());
-                }
-                else if (param.handler->canGetHandle()) {
-                    auto handle = param.handler->getHandle(context);
-                    OpenCLMemObject mem = upcastContext.getMemoryRegion(*handle.handle);
-                    kernel.bindArg(i, std::move(mem));
-                }
-                else if (param.handler->canGetConstRange()) {
-                    throw MLDB::Exception("param.getConstRange");
-                }
-                else {
-                    throw MLDB::Exception("don't know how to handle passing parameter to OpenCL");
-                }
-            }
-        }
+    auto bindInfo = std::make_shared<OpenCLBindInfo>();
+    bindInfo->clKernel = std::move(kernel);
+    bindInfo->owner = this;
 
-        // Run the setters to set the other parameters
-        for (auto & s: this->setters) {
-            s(kernel, upcastContext);
-        }
+    BoundComputeKernel result;
+    result.arguments = std::move(arguments);
+    result.owner = this;
+    result.bindInfo = std::move(bindInfo);
 
-        OpenCLKernelWorkgroupInfo info(kernel, upcastContext.clDevices[0]);
-        //cerr << jsonEncode(info) << endl;
-
-        return [kernel, this] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
-        {
-            auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(context);
-            std::vector<size_t> clGrid;
-            
-            if (allowGridExpansionFlag)
-                ExcAssertLessEqual(grid.size(), this->block.size());
-            else
-                ExcAssertEqual(grid.size(), this->block.size());
-
-            for (size_t i = 0;  i < this->block.size();  ++i) {
-                // Pad out the grid so we cover the whole lot.  The kernel will need to be
-                // sure to no-op if it's out of bounds.
-                auto b = this->block[i];
-                auto range = i < grid.size() ? grid[i].range() : b;
-                auto rem = range % b;
-                if (rem > 0) {
-                    if (this->allowGridPaddingFlag) {
-                        range += (b - rem);
-                        cerr << "padding out dimension " << i << " from " << grid[i].range()
-                            << " to " << range << " due to block size of " << b << endl;
-                    }
-                    else {
-                        throw MLDB::Exception("OpenCL kernel '" + this->kernelName + "' won't launch "
-                                                "due to grid dimension " + std::to_string(i)
-                                                + " (" + std::to_string(range) + ") not being a "
-                                                + "multple of the block size (" + std::to_string(b)
-                                                + ").  Consider using allowGridPadding() or modifying "
-                                                + "grid calculations");
-                    }
-                }
-                clGrid.push_back(range);
-            }
-            if (modifyGrid)
-                modifyGrid(clGrid);
-            
-            cerr << "launching kernel " << this->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
-            //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
-            auto event = upcastContext.clQueue.launch(kernel, clGrid, this->block);
-            event.waitUntilFinished();
-
-            cerr << "  submit    queue    start      end  elapsed name" << endl;
-    
-            auto info = event.getProfilingInfo();
-
-            auto ms = [&] (int64_t ns) -> double
-                {
-                    return ns / 1000000.0;
-                };
-            
-            cerr << format("%8.3f %8.3f %8.3f %8.3f %8.3f ",
-                        ms(info.queued), ms(info.submit), ms(info.start),
-                        ms(info.end),
-                        ms(info.end - info.start))
-                 << this->kernelName << endl;
-        };
-    };
-
-    createCallable = result;
+    return result;
 }
 
 
 // OpenCLComputeRuntime
+
+EnvOption<int> OPENCL_DEFAULT_PLATFORM("OPENCL_DEFAULT_PLATFORM", 0);
+EnvOption<int> OPENCL_DEFAULT_DEVICE("OPENCL_DEFAULT_DEVICE", -1);
 
 struct OpenCLComputeRuntime: public ComputeRuntime {
 
@@ -713,6 +784,12 @@ struct OpenCLComputeRuntime: public ComputeRuntime {
     {
         if (clPlatforms.empty()) {
             return ComputeDevice::none();
+        }
+
+        if (OPENCL_DEFAULT_PLATFORM.specified() || OPENCL_DEFAULT_DEVICE.specified()) {
+            return {ComputeRuntimeId::OPENCL,
+                    (uint8_t)OPENCL_DEFAULT_PLATFORM.get(),
+                    (uint16_t)OPENCL_DEFAULT_DEVICE.get(), 0, 0};
         }
 
         // Look for a device that's a GPU with non-unified memory
@@ -839,7 +916,6 @@ static struct Init {
         };
 
         registerOpenCLComputeKernel("__zeroFillArray", createZeroFillArrayKernel);
-
     }
 
 } init;

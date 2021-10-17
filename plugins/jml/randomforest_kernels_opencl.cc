@@ -278,41 +278,6 @@ OpenCLProgram getTestFeatureProgramOpenCL(const OpenCLDevice & device)
     return program;
 }
 
-#if 0
-struct Kernel {
-
-    std::shared_ptr<void> registerKernel(const Utf8String & name);
-
-    struct Register {
-
-    };
-};
-
-struct TestFeatureKernel: public Kernel {
-    TestFeatureKernel()
-    {
-        addParameter<Array<uint32_t>>("rowData");
-        addLength("rowData", "rowDataLength");
-        addParameter<uint16_t>("totalBits");
-        addParameter<uint16_t>("weightBits");
-        addParameter<uint16_t>("exampleNumBits");
-        addParameter<uint32_t>("numRows");
-        addParameter<Array<uint32_t>>("bucketData");
-        addParameter<Array<uint32_t>>("bucketDataOffsets");
-        addParameter<Array<uint32_t>>("bucketNumbers");
-        addParameter<Array<uint16_t>>("bucketEntryBits");
-        addParameter<Array<uint32_t>>("bucketEntryBits");
-        addParameter<WeightFormat>("weightFormat");
-        addParameter<float>("weightMultiplier");
-        addParameter<Array<uint32_t>>("weightData");
-        addParameter<Array<uint32_t>>("featuresActive");
-        addParameter<uint32_t>("numBuckets");
-        addOutput<Array<W>>("wOut");
-        addOutput<Array<uint32_t>>("minMaxOut");
-    }
-};
-#endif
-
 std::pair<bool, int>
 testFeatureKernelOpencl(Rows::RowIterator rowIterator,
                         size_t numRows,
@@ -2465,6 +2430,28 @@ static struct RegisterKernels {
     
         //string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
 
+        auto createDoNothingKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
+        {
+            auto program = getProgram(context);
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "doNothing";
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+                kernel.bindArg("dummy", (uint32_t)42);
+            };
+            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            {
+                ExcAssertEqual(grid.size(), 0);
+                grid.push_back(1);
+            };
+
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "doNothingKernel", {});
+            return result;
+        };
+
+        registerOpenCLComputeKernel("doNothing", createDoNothingKernel);
+
         auto createDecodeRowsKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
         {
             auto program = getProgram(context);
@@ -2482,6 +2469,11 @@ static struct RegisterKernels {
             result->addParameter("weightMultiplier", "r", "f32");
             result->addParameter("weightData", "r", "f32[weightDataLength]");
             result->addParameter("decodedRowsOut", "w", "f32[numRows]");
+            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            {
+                ExcAssertEqual(grid.size(), 1);
+                grid[1] = 4096;  // don't do one launch per row, the kernel will iterate
+            };
 
             result->setComputeFunction(program, "decompressRowsKernel", { 256 });
 
@@ -2514,6 +2506,11 @@ static struct RegisterKernels {
                 //auto maxLocalBuckets = context.getCacheEntry<uint32_t>("maxLocalBuckets");
                 kernel.bindArg("w", LocalArray<W>(maxLocalBuckets));
                 kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
+            };
+            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            {
+                ExcAssertEqual(grid.size(), 2);
+                grid[1] = 4096;  // don't do one launch per row, the kernel will iterate
             };
             result->setParameters(setTheRest);
             result->setComputeFunction(program, "testFeatureKernel", { 1, 256 } );

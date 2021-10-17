@@ -42,10 +42,17 @@ static const __constant float HL_2_VAL = 1.0f / (1UL << 30);
 static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 30);
 #endif
 
+// Used to measure the startup latency
+__kernel void doNothingKernel(uint32_t dummy)
+{
+    printf("did nothing ");
+    printf("%d\n", dummy);
+}
+
 inline float decodeWeight(uint32_t bits, uint32_t floatEncoding, float baseMultiplier,
                    __global const float * table)
 {
-    if (floatEncoding == 0) {
+    if (floatEncoding == 0 || true) {
         return bits * baseMultiplier;
     }
     else if (floatEncoding == 1) {
@@ -156,7 +163,13 @@ inline uint32_t extractBitRange32(__global const uint32_t * data,
     return val;
 }
 
-void getDecodedRow(uint32_t rowNumber,
+typedef struct DecodedRow {
+    uint32_t example;
+    float weight;
+    bool label;
+} DecodedRow;
+
+DecodedRow getDecodedRow(uint32_t rowNumber,
 
                    __global const uint64_t * rowData,
                    uint32_t rowDataLength,
@@ -169,16 +182,12 @@ void getDecodedRow(uint32_t rowNumber,
                    float weightMultiplier,
                    __global const float * weightTable,
                    
-                   uint32_t * example,
-                   float * weight,
-                   bool * label,
-
                    uint64_t mask,
                    uint32_t exampleMask,
                    uint32_t weightMask,
                    uint32_t labelMask);
 
-void getDecodedRow(uint32_t rowNumber,
+DecodedRow getDecodedRow(uint32_t rowNumber,
 
                    __global const uint64_t * rowData,
                    uint32_t rowDataLength,
@@ -191,10 +200,6 @@ void getDecodedRow(uint32_t rowNumber,
                    float weightMultiplier,
                    __global const float * weightTable,
                    
-                   uint32_t * example,
-                   float * weight,
-                   bool * label,
-
                    uint64_t mask,
                    uint32_t exampleMask,
                    uint32_t weightMask,
@@ -211,10 +216,12 @@ void getDecodedRow(uint32_t rowNumber,
     //printf("exampleMask = %016lx example = %016lx\n",
     //       createMask64(exampleBits),
     //       bits & createMask64(exampleBits));
-    *example = exampleBits == 0 ? rowNumber : bits & exampleMask;
-    *weight = decodeWeight((bits >> exampleBits) & weightMask,
-                           weightEncoding, weightMultiplier, weightTable);
-    *label = (bits & labelMask) != 0;
+    DecodedRow result;
+    result.example = exampleBits == 0 ? rowNumber : bits & exampleMask;
+    result.weight = decodeWeight((bits >> exampleBits) & weightMask,
+                                 weightEncoding, weightMultiplier, weightTable);
+    result.label = (bits & labelMask) != 0;
+    return result;
 }
 
 inline uint32_t getBucket(uint32_t exampleNum,
@@ -483,13 +490,6 @@ decompressRowsKernel(__global const uint64_t * rowData,
     //           weightBits, exampleNumBits, totalBits);
     //}
 
-
-    uint32_t exampleNum = 0;
-    float weight = 1.0;
-    bool label = false;
-
-    //uint32_t bucket;// = rowId % numBuckets;
-
     uint64_t mask = createMask64(totalBits);
     uint32_t exampleMask = createMask32(exampleNumBits);
     uint32_t weightMask = createMask32(weightBits);
@@ -497,17 +497,17 @@ decompressRowsKernel(__global const uint64_t * rowData,
 
     for (uint32_t rowId = get_global_id(0);  rowId < numRows;
          rowId += get_global_size(0)) {
-        getDecodedRow(rowId, rowData, rowDataLength,
+
+        DecodedRow row = getDecodedRow(rowId, rowData, rowDataLength,
                       totalBits, weightBits, exampleNumBits, numRows,
                       weightFormat, weightMultiplier, weightData,
-                      &exampleNum, &weight, &label,
                       mask, exampleMask, weightMask, labelMask);
         
-        if (exampleNum != rowId) {
-            printf("non-consecutive example numbers: %d vs %d\n", exampleNum, rowId);
+        if (row.example != rowId) {
+            printf("non-consecutive example numbers: %d vs %d\n", row.example, rowId);
         }
 
-        float encoded = label ? -weight : weight;
+        float encoded = row.label ? -row.weight : row.weight;
         
         //if (rowId < 128) {
         //    printf("row %d ex %d wt %f lb %d encoded %f\n",
@@ -666,9 +666,9 @@ testFeatureKernel(__global const float * decodedRows,
     barrier(CLK_LOCAL_MEM_FENCE);
     
     for (uint32_t rowId = get_global_id(1);  rowId < numRows;  rowId += get_global_size(1)) {
-        if (f == 0 && workGroupId == 0) {
-            printf("testing row %d\n", rowId);
-        }
+        //if (f == 0 && workGroupId == 0) {
+        //    printf("testing row %d\n", rowId);
+        //}
         testRow(rowId,
                 decodedRows, numRows,
                 bucketData, bucketDataLength, bucketBits, numBuckets,

@@ -45,19 +45,99 @@ std::map<std::string, KernelRegistryEntry> kernelRegistry;
 
 } // file scope
 
-struct HostComputeEvent: public ComputeEvent {
-    virtual ~HostComputeEvent() = default;
+// HostComputeKernel
 
-    virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const
-    {
-        return std::make_shared<ComputeProfilingInfo>();
-    }
+namespace {
 
-    virtual void await() const
-    {
-    }
+struct HostComputeKernelBindInfo: public ComputeKernelBindInfo {
+    HostComputeKernel::Callable call;
 };
 
+} // file scope
+
+BoundComputeKernel
+HostComputeKernel::
+bindImpl(std::vector<ComputeKernelArgument> arguments) const
+{
+    auto bindInfo = std::make_shared<HostComputeKernelBindInfo>();
+    bindInfo->call = createCallable(*this->context, arguments);
+
+    BoundComputeKernel result;
+    result.arguments = std::move(arguments);
+    result.owner = this;
+    result.bindInfo = std::move(bindInfo);
+
+    return result;
+}
+
+void
+HostComputeKernel::
+call(const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) const
+{
+    const HostComputeKernelBindInfo * hostInfo
+        = dynamic_cast<const HostComputeKernelBindInfo *>(bound.bindInfo.get());
+    ExcAssert(hostInfo);
+
+    hostInfo->call(*context, grid);
+}
+
+
+// HostComputeQueue
+
+std::shared_ptr<ComputeEvent>
+HostComputeQueue::
+launch(const BoundComputeKernel & kernel,
+       const std::vector<uint32_t> & grid,
+       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+{
+    ExcAssertEqual(kernel.owner->dims.size(), grid.size());
+
+    // For now... async
+    if (!prereqs.empty()) {
+        for (auto & e: prereqs) {
+            ExcAssert(e);
+            e->await();
+        }
+    }
+
+    auto hostOwner = dynamic_cast<const HostComputeKernel *>(kernel.owner);
+    if (!hostOwner)
+        throw MLDB::Exception("Attempt to enqueue kernel of type " + demangle(typeid(*kernel.owner))
+                              + " on HostComputeQueu (expected type HostComputeKernel)");
+
+    Timer timer;
+    std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
+    hostOwner->call(kernel, ranges);
+    auto wallTime = timer.elapsed_wall();
+    using namespace std;
+    cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
+    {
+        std::unique_lock guard(kernelWallTimesMutex);
+        kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
+        totalKernelTime += wallTime * 1000.0;
+    }
+
+    return std::make_shared<HostComputeEvent>();
+}
+
+std::shared_ptr<ComputeEvent>
+HostComputeQueue::
+enqueueFillArrayImpl(MemoryRegionHandle regionIn, MemoryRegionInitialization init,
+                     size_t startOffsetInBytes, ssize_t lengthInBytes,
+                     const std::any & arg)
+{
+    return ComputeQueue::enqueueFillArrayImpl(std::move(regionIn), init,
+                                              startOffsetInBytes, lengthInBytes, arg);
+}
+
+void
+HostComputeQueue::
+flush()
+{
+    // no-op
+}
+
+// HostComputeContext
 
 struct HostComputeContext: public ComputeContext {
 
@@ -208,7 +288,7 @@ struct HostComputeContext: public ComputeContext {
     virtual std::shared_ptr<ComputeQueue>
     getQueue()
     {
-        return std::make_shared<ComputeQueue>(this);
+        return std::make_shared<HostComputeQueue>(this);
     }
 
     // Return the MappedSerializer that owns the memory allocated on the host for this

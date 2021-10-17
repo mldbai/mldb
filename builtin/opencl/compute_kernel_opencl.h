@@ -54,6 +54,7 @@ struct OpenCLComputeQueue: public ComputeQueue {
                          const std::any & arg) override;
                          
     virtual void flush() override;
+    virtual void finish() override;
 };
 
 // OpenCLComputeContext
@@ -65,7 +66,7 @@ struct OpenCLComputeContext: public ComputeContext {
     virtual ~OpenCLComputeContext() = default;
 
     OpenCLContext clContext;
-    OpenCLCommandQueue clQueue;  // for internal operations
+    std::shared_ptr<OpenCLComputeQueue> clQueue;  // for internal operations
     std::vector<OpenCLDevice> clDevices;
 
     std::shared_ptr<MappedSerializer> backingStore;
@@ -162,6 +163,14 @@ struct OpenCLComputeKernel: public ComputeKernel {
     // Function to modify the grid dimensions
     std::function<void (std::vector<size_t> & grid)> modifyGrid;
 
+    mutable OpenCLProgram clProgram;  // Mutable as createKernel is non-const
+    std::string kernelName;
+    OpenCLKernel clKernel;
+    OpenCLKernelInfo clKernelInfo;
+
+    // For each OpenCL argument, which is the corresponding argument number in arguments passed in?
+    std::vector<int> correspondingArgumentNumbers;
+
     // Parses an OpenCL kernel argument info structure, and turns it into a ComputeKernel type
     std::pair<ComputeKernelType, std::string>
     getKernelType(const OpenCLKernelArgInfo & info);
@@ -183,6 +192,9 @@ struct OpenCLComputeKernel: public ComputeKernel {
     void setComputeFunction(OpenCLProgram program,
                             std::string kernelName,
                             std::vector<size_t> block);
+
+    // Perform the abstract bind() operation, returning a BoundComputeKernel
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
 };
 
 void registerOpenCLComputeKernel(const std::string & kernelName,

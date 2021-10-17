@@ -78,6 +78,11 @@ PREDECLARE_VALUE_DESCRIPTION(ComputeDevice);
 std::ostream & operator << (std::ostream & stream, const ComputeDevice & device);
 
 struct ComputeContext;
+struct ComputeQueue;
+struct ComputeEvent;
+struct ComputeRuntime;
+struct ComputeKernel;
+struct BoundComputeKernel;
 
 // Basic abstract interface to a compute runtime.
 struct ComputeRuntime {
@@ -237,8 +242,19 @@ struct ComputeKernelGridRange {
     Iterator end() { return { last_ }; }
 };
 
+
+/// Opaque structure subclassed by each ComputeKernel implementation to store
+/// information on how it's bound.  This is used rather than an anonymous shared
+/// ptr so that it can be checked with dynamic_cast to catch programming errors
+/// in mixing kernels across contexts.
+struct ComputeKernelBindInfo {
+    virtual ~ComputeKernelBindInfo() = default;
+};
+
+// ComptuteKernel
+
 struct ComputeKernel {
-    using Callable = std::function<void (ComputeContext & context, std::span<ComputeKernelGridRange> idx)>;
+    virtual ~ComputeKernel() = default;
 
     std::string kernelName;
     ComputeDevice device;
@@ -283,28 +299,20 @@ struct ComputeKernel {
         dims.push_back({dimensionName, range, defaultDimension});
     }
 
+    // bind() is called with (name, value) pairs to set the value of particular parameters
     template<typename... NamesAndArgs>
     BoundComputeKernel bind(NamesAndArgs&&... namesAndArgs);
 
-    // This function extracts the latest values of the bound parameters and sets them to
-    // be marshaled by the calling infrastructure.  It should be called once for each time
-    // that the callable is used (in other words, the callable should be called only once).
-    std::function<Callable (ComputeContext & context, std::vector<ComputeKernelArgument> & params)> createCallable;
+    // Perform the abstract bind() operation, returning a BoundComputeKernel
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const = 0;
 };
+
+// BoundComputeKernel
 
 struct BoundComputeKernel {
     const ComputeKernel * owner = nullptr;
     std::vector<ComputeKernelArgument> arguments;
-    ComputeKernel::Callable call;
-
-    void operator () (ComputeContext & context, std::span<ComputeKernelGridRange> grid) const
-    {
-        try {
-            this->call(context, grid);
-        } MLDB_CATCH_ALL {
-            rethrowException(500, "Error launching kernel " + owner->kernelName);
-        }
-    }
+    std::shared_ptr<ComputeKernelBindInfo> bindInfo;
 };
 
 namespace details {
@@ -439,11 +447,7 @@ BoundComputeKernel ComputeKernel::bind(NamesAndArgs&&... namesAndArgs)
     std::vector<ComputeKernelArgument> arguments(this->params.size());
     details::bind(this, arguments, std::forward<NamesAndArgs>(namesAndArgs)...);
 
-    BoundComputeKernel result;
-    result.owner = this;
-    result.call = this->createCallable(*context, arguments);
-
-    return result;
+    return this->bindImpl(std::move(arguments));
 }
 
 struct ComputeQueue {
@@ -463,7 +467,7 @@ struct ComputeQueue {
     virtual std::shared_ptr<ComputeEvent>
     launch(const BoundComputeKernel & kernel,
            const std::vector<uint32_t> & grid,
-           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {});
+           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) = 0;
 
     virtual std::shared_ptr<ComputeEvent>
     enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
@@ -495,6 +499,10 @@ struct ComputeQueue {
     }
 
     virtual void flush()
+    {
+    }
+
+    virtual void finish()
     {
     }
 };

@@ -24,7 +24,8 @@ struct MultiComputeContext;
 struct MultiComputeKernel: public ComputeKernel {
     MultiComputeKernel(MultiComputeContext * context, std::vector<std::shared_ptr<ComputeKernel>> kernelsIn);
 
-    Callable createCallableImpl(ComputeContext & context, std::vector<ComputeKernelArgument> & params);
+    // Perform the abstract bind() operation, returning a BoundComputeKernel
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
 
     MultiComputeContext * multiContext = nullptr;
     std::vector<std::shared_ptr<ComputeKernel>> kernels;
@@ -64,6 +65,8 @@ struct MultiComputeQueue: public ComputeQueue {
     enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
                          const std::any & arg) override;
+
+    virtual void flush() override;
 };
 
 // MultiComputeContext

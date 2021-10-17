@@ -945,8 +945,8 @@ struct OpenCLEvent {
     {
     }
 
-    OpenCLEvent(cl_event event)
-        : event(event, true /* already retained */)
+    OpenCLEvent(cl_event event, bool alreadyRetained = true)
+        : event(event, alreadyRetained)
     {
     }
 
@@ -1031,13 +1031,10 @@ struct OpenCLEvent {
         return OpenCLEventInfo(event);
     }
 
-    typedef std::function<void (const OpenCLEvent & event, cl_int status)> Callback;
+    typedef std::function<void (const OpenCLEvent & event, OpenCLEventCommandExecutionStatus status)> Callback;
     
     struct CallbackInfo {
         Callback callback;
-
-        // If we set a callback, keep
-        OpenCLRefCounted<cl_event> event;
     };
     
     static void doCallback(cl_event event, cl_int status, void * userData)
@@ -1048,13 +1045,15 @@ struct OpenCLEvent {
         std::unique_ptr<CallbackInfo> infoPtr(info);
         
         try {
-            info->callback(OpenCLEvent(event), status);
+            info->callback(OpenCLEvent(event, false /* not already retained */),
+                           OpenCLEventCommandExecutionStatus(status));
         } MLDB_CATCH_ALL {
             using namespace std;
             cerr << "An exception thrown by an OpenCL callback of type "
                  << demangle(info->callback.target_type().name())
                  << " threw an exception.  This leads to immediate termination "
                  << "of the program, which is happening now." << endl;
+            cerr << "exception is " << MLDB::getExceptionString() << endl;
             abort();
         }
     }
@@ -1064,7 +1063,7 @@ struct OpenCLEvent {
                          = OpenCLEventCommandExecutionStatus::COMPLETE)
     {
         std::unique_ptr<CallbackInfo> info
-            (new CallbackInfo({std::move(callback), event}));
+            (new CallbackInfo({std::move(callback) /*, event*/}));
 
         cl_int error
             = clSetEventCallback(event, status,

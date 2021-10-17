@@ -11,6 +11,22 @@
 
 namespace MLDB {
 
+// HostComputeEvent
+// We do everything synchronously (for now), so nothing much really going on here
+
+struct HostComputeEvent: public ComputeEvent {
+    virtual ~HostComputeEvent() = default;
+
+    virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const
+    {
+        return std::make_shared<ComputeProfilingInfo>();
+    }
+
+    virtual void await() const
+    {
+    }
+};
+
 namespace details {
 
 using Pin = std::shared_ptr<const void>;
@@ -232,6 +248,64 @@ struct HostComputeKernel: public ComputeKernel {
         }
     }
 
+    // Perform the abstract bind() operation, returning a BoundComputeKernel
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
+
+#if 0
+    // Enqueue the given kernel on the queue, returning the event
+    virtual std::shared_ptr<ComputeEvent>
+    enqueue(const BoundComputeKernel & bound,
+            ComputeQueue & queue,
+            std::span<ComputeKernelGridRange> grid,
+            std::span<const std::shared_ptr<ComputeEvent>> prereqs) const override;
+#endif
+
+    virtual void call(const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) const;
+
+#if 0
+    template<typename N, typename Fn, typename... Args>
+    void doSetComputeFunction(void (*fn) (ComputeContext & context, Args...))
+    {
+
+    }
+
+    template<typename... Args>
+    void setComputeFunction(void (*fn) (ComputeContext & context, Args...))
+    {
+        doSetComputeFunction<0>(fn);
+    }
+
+    template<typename... Args>
+    void set1DComputeFunction(void (*fn) (ComputeContext & context, Args...))
+    {
+        doSetComputeFunction<1>(fn);
+    }
+
+    template<typename... Args>
+    void set2DComputeFunction(void (*fn) (ComputeContext & context, Args...))
+    {
+        doSetComputeFunction<2>(fn);
+    }
+
+    template<typename... Args>
+    void set3DComputeFunction(void (*fn) (ComputeContext & context, Args...))
+    {
+        doSetComputeFunction<3>(fn);
+    }
+#endif
+
+    using Callable
+        = std::function<std::shared_ptr<ComputeEvent> (ComputeContext & context, std::span<ComputeKernelGridRange> idx)>;
+
+    using CreateCallable = std::function<Callable (ComputeContext & context, std::vector<ComputeKernelArgument> & params)>;
+    CreateCallable createCallable;
+
+    template<typename Fn>
+    void setCreateCallable(Fn && createCallable)
+    {
+        this->createCallable = createCallable;
+    }
+
     template<typename... Args>
     void setComputeFunction(void (*fn) (ComputeContext & context, Args...))
     {
@@ -243,14 +317,17 @@ struct HostComputeKernel: public ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)]
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
                 ExcAssertEqual(grid.size(), 0);
                 HostComputeKernel::apply(fn, args, context);
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
     template<typename... Args>
@@ -264,16 +341,19 @@ struct HostComputeKernel: public ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)]
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
                 ExcAssertEqual(grid.size(), 1);
                 for (uint32_t idx: grid[0]) {
                     HostComputeKernel::apply(fn, args, context, idx, grid[0].range());
                 }
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
     template<typename... Args>
@@ -287,14 +367,18 @@ struct HostComputeKernel: public ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)]
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
                 ExcAssertEqual(grid.size(), 1);
                 HostComputeKernel::apply(fn, args, context, grid[0]);
+
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
     template<typename... Args>
@@ -306,7 +390,9 @@ struct HostComputeKernel: public ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)]
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
                 ExcAssertEqual(grid.size(), 2);
                 for (uint32_t i0: grid[0]) {
@@ -314,10 +400,12 @@ struct HostComputeKernel: public ComputeKernel {
                         HostComputeKernel::apply(fn, args, context, i0, grid[0].range(), i1, grid[1].range());
                     }
                 }
+
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
     template<typename... Args>
@@ -329,16 +417,20 @@ struct HostComputeKernel: public ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)] 
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
                 ExcAssertEqual(grid.size(), 2);
                 for (uint32_t i0: grid[0]) {
                     HostComputeKernel::apply(fn, args, context, i0, grid[0].range(), grid[1]);
                 }
+
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
     template<typename... Args>
@@ -350,28 +442,34 @@ struct HostComputeKernel: public ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)]
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
                 ExcAssertEqual(grid.size(), 2);
                 for (uint32_t i1: grid[1]) {
                     HostComputeKernel::apply(fn, args, context, grid[0], i1, grid[1].range());
                 }
+
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
     template<typename... Args>
     void set3DComputeFunction(void (*fn) (ComputeContext & context, uint32_t i1, uint32_t r1, uint32_t i2, uint32_t r2, ComputeKernelGridRange & r3, Args...))
     {
-        auto result = [this, fn] (ComputeContext & context, std::vector<ComputeKernelArgument> & params) -> Callable
+        auto result = [this, fn] (ComputeContext & context,std::vector<ComputeKernelArgument> & params) -> Callable
         {
             ExcAssertEqual(params.size(), sizeof...(Args));
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)]
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
                 ExcAssertEqual(grid.size(), 3);
                 for (uint32_t i0: grid[0]) {
@@ -382,10 +480,12 @@ struct HostComputeKernel: public ComputeKernel {
                                                 grid[2]);
                     }
                 }
+
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
     template<typename... Args>
@@ -397,9 +497,11 @@ struct HostComputeKernel: public ComputeKernel {
             std::tuple<Args...> args;
             std::vector<details::Pin> pins;
             this->extractParams<0>(args, params, context, pins);
-            return [fn, args, pins = std::move(pins)] (ComputeContext & context, std::span<ComputeKernelGridRange> grid)
+            return [fn, args, pins = std::move(pins)]
+                (ComputeContext & context,
+                 std::span<ComputeKernelGridRange> grid)
             {
-                ExcAssertEqual(grid.size(), 3);
+               ExcAssertEqual(grid.size(), 3);
                 for (uint32_t i1: grid[1]) {
                     for (uint32_t i2: grid[2]) {
                         HostComputeKernel::apply(fn, args, context,
@@ -408,12 +510,37 @@ struct HostComputeKernel: public ComputeKernel {
                                                  i2, grid[2].range());
                     }
                 }
+                return std::make_shared<HostComputeEvent>();
             };
         };
 
-        createCallable = result;
+        setCreateCallable(result);
     }
 
+};
+
+
+// HostComputeQueue
+
+struct HostComputeQueue: public ComputeQueue {
+    HostComputeQueue(ComputeContext * owner)
+        : ComputeQueue(owner)
+    {
+    }
+
+    virtual ~HostComputeQueue() = default;
+
+    virtual std::shared_ptr<ComputeEvent>
+    launch(const BoundComputeKernel & kernel,
+           const std::vector<uint32_t> & grid,
+           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) override;
+
+    virtual std::shared_ptr<ComputeEvent>
+    enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
+                         size_t startOffsetInBytes, ssize_t lengthInBytes,
+                         const std::any & arg) override;
+
+    virtual void flush() override;
 };
 
 void registerHostComputeKernel(const std::string & kernelName,

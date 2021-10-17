@@ -132,51 +132,60 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
 
 namespace {
 
-
+struct MultiBindInfo: public ComputeKernelBindInfo {
+    virtual ~MultiBindInfo() = default;
+    std::vector<BoundComputeKernel> boundKernels;
+};
 
 } // file scope
 
-ComputeKernel::Callable
+BoundComputeKernel
 MultiComputeKernel::
-createCallableImpl(ComputeContext & context, std::vector<ComputeKernelArgument> & params)
+bindImpl(std::vector<ComputeKernelArgument> arguments) const
 {
-    // We take a callable from each of the underlying contexts, and then simply call them
-    // in sequence.
-    std::vector<ComputeKernel::Callable> callables;
-    std::vector<std::vector<ComputeKernelArgument>> callableParams;
-
-    callables.resize(this->kernels.size());
-    callableParams.resize(this->kernels.size());
-
-    MultiComputeContext & multiContext = dynamic_cast<MultiComputeContext &>(context);
+    std::vector<BoundComputeKernel> boundKernels;
 
     for (size_t i = 0;  i < this->kernels.size();  ++i) {
 
         // We need to modify the params to match this callable...
-        std::vector<ComputeKernelArgument> & ourParams = callableParams[i];
-        ourParams.reserve(params.size());
+        std::vector<ComputeKernelArgument> ourArguments;
+        ourArguments.reserve(arguments.size());
 
         // Convert a bound parameter to one which will work for this particular sub-context
-        auto convertParam = [&] (ComputeKernelArgument p) -> ComputeKernelArgument
+        auto convertArgument = [&] (ComputeKernelArgument p) -> ComputeKernelArgument
         {
             auto oldHandler = std::move(p.handler);
-            p.handler = std::make_shared<MultiAbstractArgumentHandler>(std::move(oldHandler), multiContext, i);
+            p.handler = std::make_shared<MultiAbstractArgumentHandler>(std::move(oldHandler), *multiContext, i);
             return p;
         };
 
         // Create our parameter list
         for (size_t j = 0;  j < params.size();  ++j) {
-            auto & p = params[j];
-            ourParams.emplace_back(convertParam(p));
-            //using namespace std;
-            //cerr << "converting " << this->params[j].name << ": " << p.handler->info() << " for kernel "
-            //     << i << " --> " << ourParams.back().handler->info() << endl;
+            auto & a = arguments[j];
+            ourArguments.emplace_back(convertArgument(a));
         }
 
-        callables[i] = this->kernels[i]->createCallable(*this->multiContext->contexts[i], ourParams);
+        boundKernels.emplace_back(this->kernels[i]->bindImpl(arguments));
     }
 
-    auto call = [this, multiContext = this->multiContext, callables = std::move(callables), callableParams = std::move(callableParams)] (ComputeContext & context, std::span<ComputeKernelGridRange> idx)
+    // Create our info structure to carry around the bound arguments
+    auto bindInfo = std::make_shared<MultiBindInfo>();
+    bindInfo->boundKernels = std::move(boundKernels);
+
+    // And finally assemble the result
+    BoundComputeKernel result;
+    result.owner = this;
+    result.arguments = std::move(arguments);
+    result.bindInfo = std::move(bindInfo);
+    return result;
+
+#if 0
+    auto call = [this,
+                 multiContext = this->multiContext,
+                 callables = std::move(callables),
+                 callableParams = std::move(callableParams)]
+                (ComputeContext & context, std::span<ComputeKernelGridRange> idx,
+                 std::span<const std::shared_ptr<ComputeEvent>> prereqs)
     {
         using namespace std;
         ExcAssertEqual(&context, multiContext);
@@ -276,17 +285,30 @@ createCallableImpl(ComputeContext & context, std::vector<ComputeKernelArgument> 
 
         cerr << endl << "--------------- running kernel " << this->kernelName << endl;
 
+        std::vector<std::shared_ptr<ComputeEvent>> events;
+
         for (size_t i = 0;  i < callables.size();  ++i) {
-            callables[i](*multiContext->contexts[i], idx);
+            // Map the prerequisites back to their underlying type for the call
+            std::vector<std::shared_ptr<ComputeEvent>> prereqsi;
+            for (auto & evPtr: prereqs) {
+                ExcAssert(evPtr);
+                auto & cast = dynamic_cast<const MultiComputeEvent &>(*evPtr);
+                prereqsi.push_back(cast.events.at(i));
+            }
+
+            auto ev = callables[i](*multiContext->contexts[i], idx, prereqsi);
+            events.emplace_back(std::move(ev));
         }
 
         cerr << endl << "--------------- finished kernel " << this->kernelName << endl;
         compareParameters(false /* post */);
         cerr << "--------------- finished kernel " << this->kernelName << " validation" << endl;
 
+        return std::make_shared<MultiComputeEvent>(std::move(events));
     };
 
     return call;
+#endif
 }
 
 
@@ -321,19 +343,47 @@ MultiComputeQueue::
 MultiComputeQueue(MultiComputeContext * owner,
                   std::vector<std::shared_ptr<ComputeQueue>> queues)
     : ComputeQueue(owner),
-        multiOwner(owner),
-        queues(std::move(queues))
+      multiOwner(owner),
+      queues(std::move(queues))
 {
 }
 
 std::shared_ptr<ComputeEvent>
 MultiComputeQueue::
 launch(const BoundComputeKernel & kernel,
-        const std::vector<uint32_t> & grid,
-        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+       const std::vector<uint32_t> & grid,
+       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
-    // TODO: untangle the queues...
-    return ComputeQueue::launch(kernel, grid, prereqs);
+    const MultiBindInfo * multiInfo = dynamic_cast<const MultiBindInfo *>(kernel.bindInfo.get());
+    ExcAssert(multiInfo);
+
+    std::vector<std::shared_ptr<ComputeEvent>> events;
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        // Unpack the prerequisites to get the event for this device
+        std::vector<std::shared_ptr<ComputeEvent>> ourPrereqs;
+        for (auto & e: prereqs) {
+            ExcAssert(e);
+            const MultiComputeEvent * multiEvent = dynamic_cast<const MultiComputeEvent *>(e.get());
+            ExcAssert(multiEvent);
+            ourPrereqs.emplace_back(multiEvent->events.at(i));
+        }
+
+        // Launch on the child queue
+        auto ev = queues[i]->launch(multiInfo->boundKernels[i], grid, ourPrereqs);
+        events.emplace_back(std::move(ev));
+    }
+
+    return std::make_shared<MultiComputeEvent>(std::move(events));
+}
+
+void
+MultiComputeQueue::
+flush()
+{
+    for (auto & q: queues) {
+        q->flush();
+    }
 }
 
 std::shared_ptr<ComputeEvent>
@@ -363,7 +413,6 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
     for (size_t i = 0;  i < queues.size();  ++i) {
         auto event = queues[i]->enqueueFillArrayImpl(info->handles[i], init, startOffsetInBytes, lengthInBytes, arg);
         if (event) {
-            event->await();  // TODO: remove...
             events.emplace_back(std::move(event));
         }
     }
@@ -576,12 +625,6 @@ MultiComputeKernel(MultiComputeContext * context, std::vector<std::shared_ptr<Co
     this->dims = kernels[0]->dims;
     this->params = kernels[0]->params;
     this->paramIndex = kernels[0]->paramIndex;
-    // TODO: context
-
-    this->createCallable = [this] (ComputeContext & context, std::vector<ComputeKernelArgument> & params)
-    {
-        return this->createCallableImpl(context, params);
-    };
 }
 
 namespace {

@@ -317,29 +317,6 @@ info() const
 
 std::shared_ptr<ComputeEvent>
 ComputeQueue::
-launch(const BoundComputeKernel & kernel,
-       const std::vector<uint32_t> & grid,
-       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
-{
-    ExcAssertEqual(kernel.owner->dims.size(), grid.size());
-
-    Timer timer;
-    std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
-    kernel(*owner, ranges);
-    auto wallTime = timer.elapsed_wall();
-    using namespace std;
-    cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
-    {
-        std::unique_lock guard(kernelWallTimesMutex);
-        kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
-        totalKernelTime += wallTime * 1000.0;
-    }
-
-    return std::shared_ptr<ComputeEvent>();
-}
-
-std::shared_ptr<ComputeEvent>
-ComputeQueue::
 enqueueFillArrayImpl(MemoryRegionHandle regionIn, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
                      const std::any & arg)
