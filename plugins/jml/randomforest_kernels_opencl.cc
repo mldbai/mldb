@@ -2659,8 +2659,13 @@ static struct RegisterKernels {
                 kernel.bindArg("wLocal", LocalArray<W>(maxLocalBuckets));
                 kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
             };
+            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            {
+                ExcAssertEqual(grid.size(), 2);
+                grid[0] = 2048;
+            };
             result->setParameters(setTheRest);
-            result->setComputeFunction(program, "updateBucketsKernel", { 256,1 });
+            result->setComputeFunction(program, "updateBucketsKernel", { 256, 1 });
             return result;
         };
 

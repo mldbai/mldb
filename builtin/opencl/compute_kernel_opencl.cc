@@ -222,7 +222,7 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
 
         case INIT_ZERO_FILLED: {
             // Intel driver has a bug, so we need to fall back...
-            cerr << "OpenCL fill: fallback to kernel" << endl;
+            //cerr << "OpenCL fill: fallback to kernel" << endl;
             // Invoke the underlying method, which will launch a kernel
             return ComputeQueue::enqueueFillArrayImpl(region, init, startOffsetInBytes, lengthInBytes, arg);
 
@@ -570,28 +570,28 @@ getKernelType(const OpenCLKernelArgInfo & info)
 
     ComputeKernelType type;
 
-    if (clTypeName == "ulong") {
+    if (clTypeName == "ulong" || clTypeName == "uint64_t") {
         type = parseType("u64");
     }
-    else if (clTypeName == "uint") {
+    else if (clTypeName == "uint" || clTypeName == "uint32_t") {
         type = parseType("u32");
     }
-    else if (clTypeName == "ushort") {
+    else if (clTypeName == "ushort" || clTypeName == "uint16_t") {
         type = parseType("u16");
     }
-    else if (clTypeName == "uchar") {
+    else if (clTypeName == "uchar" || clTypeName == "uint8_t") {
         type = parseType("u8");
     }
-    else if (clTypeName == "long") {
+    else if (clTypeName == "long" || clTypeName == "int64_t") {
         type = parseType("i64");
     }
-    else if (clTypeName == "int") {
+    else if (clTypeName == "int" || clTypeName == "int32_t") {
         type = parseType("i32");
     }
-    else if (clTypeName == "short") {
+    else if (clTypeName == "short" || clTypeName == "int16_t") {
         type = parseType("i16");
     }
-    else if (clTypeName == "char") {
+    else if (clTypeName == "char" || clTypeName == "int8_t") {
         type = parseType("i8");
     }
     else if (clTypeName == "float") {

@@ -45,8 +45,8 @@ static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 30);
 // Used to measure the startup latency
 __kernel void doNothingKernel(uint32_t dummy)
 {
-    printf("did nothing ");
-    printf("%d\n", dummy);
+    //printf("did nothing ");
+    //printf("%d\n", dummy);
 }
 
 inline float decodeWeight(uint32_t bits, uint32_t floatEncoding, float baseMultiplier,
@@ -567,7 +567,7 @@ uint32_t testRow(uint32_t rowId,
 
 inline void printW(__global W * w)
 {
-    printf("{\"v\":[%f,%f],\"c\":%d}", decodeWf(w->vals[0]), decodeWf(w->vals[1]), w->count);
+    //printf("{\"v\":[%f,%f],\"c\":%d}", decodeWf(w->vals[0]), decodeWf(w->vals[1]), w->count);
 }
 
 uint32_t testRow(uint32_t rowId,
@@ -643,7 +643,7 @@ testFeatureKernel(__global const float * decodedRows,
     if (!featuresActive[f])
         return;
     
-    if (workGroupId == 0) {
+    if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, numBuckets %d, buckets %d-%d, offset %d\n",
                (int)f,
                get_global_size(1),
@@ -1019,12 +1019,12 @@ chooseSplitKernelOrdinal(__global const W * w,
     // Now test split points one by one
     for (unsigned j = 0;  j < numBuckets;  ++j) {
 
-        if (wFalse.count < 0 || wTrue.count < 0)
-            printf("p %d f %d split %d false = (%.4f,%.4f,%d) true = (%.4f,%.4f,%d) cur = (%.4f,%.4f,%d) all=(%.4f,%.4f,%d)\n", p, f, j,
-                   decodeW(wFalse.vals[0]), decodeW(wFalse.vals[1]), wFalse.count,
-                   decodeW(wTrue.vals[0]), decodeW(wTrue.vals[1]), wTrue.count,
-                   decodeW(w[j].vals[0]), decodeW(w[j].vals[1]), w[j].count,
-                   decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count);
+        //if (wFalse.count < 0 || wTrue.count < 0)
+        //    printf("p %d f %d split %d false = (%.4f,%.4f,%d) true = (%.4f,%.4f,%d) cur = (%.4f,%.4f,%d) all=(%.4f,%.4f,%d)\n", p, f, j,
+        //           decodeW(wFalse.vals[0]), decodeW(wFalse.vals[1]), wFalse.count,
+        //           decodeW(wTrue.vals[0]), decodeW(wTrue.vals[1]), wTrue.count,
+        //           decodeW(w[j].vals[0]), decodeW(w[j].vals[1]), w[j].count,
+        //           decodeW(wAll.vals[0]), decodeW(wAll.vals[1]), wAll.count);
         //printf("split %d false = (%d) true = (%d)\n", j,
         //       wFalse.count,
         //       wTrue.count);
