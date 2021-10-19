@@ -64,6 +64,21 @@ await() const
     return ev.waitUntilFinished();
 }
 
+std::shared_ptr<ComputeEvent>
+OpenCLComputeEvent::
+thenImpl(std::function<void ()> fn)
+{
+    auto cb = [fn=std::move(fn)] (auto ev, auto status)
+    {
+        fn();
+    };
+
+    ev.addCallback(cb);
+
+    throw MLDB::Exception("not implementedL: OpenCLComputeEvent::thenImpl");
+}
+
+
 
 // OpenCLComputeQueue
 
@@ -84,7 +99,8 @@ OpenCLComputeQueue(OpenCLComputeContext * owner)
 
 std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
-launch(const BoundComputeKernel & bound,
+launch(const std::string & opName,
+       const BoundComputeKernel & bound,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
@@ -198,11 +214,13 @@ launch(const BoundComputeKernel & bound,
     return std::make_shared<OpenCLComputeEvent>(std::move(event));
 }
 
-std::shared_ptr<ComputeEvent>
+ComputePromiseT<MemoryRegionHandle>
 OpenCLComputeQueue::
-enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
+enqueueFillArrayImpl(const std::string & opName,
+                     MemoryRegionHandle region, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg)
+                     const std::any & arg,
+                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
 {
     OpenCLMemObject mem = clOwner->getMemoryRegion(*region.handle);
     
@@ -216,6 +234,9 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
         throw MLDB::Exception("overflowing memory region");
     }
 
+    return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, prereqs);
+
+#if 0
     switch (init) {
         case INIT_NONE:
             throw MLDB::Exception("attempting to enqueue no-op OpenCL fill array operation");
@@ -224,7 +245,6 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
             // Intel driver has a bug, so we need to fall back...
             //cerr << "OpenCL fill: fallback to kernel" << endl;
             // Invoke the underlying method, which will launch a kernel
-            return ComputeQueue::enqueueFillArrayImpl(region, init, startOffsetInBytes, lengthInBytes, arg);
 
             auto zeroFillWith = [&] (const auto pattern)
             {
@@ -234,7 +254,7 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
                     lengthInBytes = region.lengthInBytes() - startOffsetInBytes;
                 ExcAssertLessEqual(startOffsetInBytes + lengthInBytes, region.lengthInBytes());
                 auto event = clQueue.enqueueFillBuffer(mem, pattern, startOffsetInBytes, lengthInBytes, {});
-                return std::make_shared<OpenCLComputeEvent>(std::move(event));
+                return ComputePromiseT<MemoryRegionHandle>(std::move(region), std::make_shared<OpenCLEvent>(std::move(event)));
             };
 
             if (lengthInBytes % 16 == 0)
@@ -256,19 +276,19 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
             bool allZero = true;
             for (size_t i = 0;  allZero && i < block.size();  allZero = valBytes[i++] == 0) ;
             if (allZero)
-                return enqueueFillArrayImpl(region, INIT_ZERO_FILLED, startOffsetInBytes, lengthInBytes, {});
+                return enqueueFillArrayImpl(opName, region, INIT_ZERO_FILLED, startOffsetInBytes, lengthInBytes, {}, std::move(prereqs));
 
             cerr << "block.size() = " << block.size() << endl;
             if (block.size() == 1 || block.size() == 2 || block.size() == 4 || block.size() == 8 || block.size() == 16 || block.size() == 32) {
                 // The OpenCL fill array infrastructure only takes a few possible sizes
-                auto event = clQueue.enqueueFillBuffer(mem, block.data(), block.size(),
+                auto promise = clQueue.enqueueFillBuffer(mem, block.data(), block.size(),
                                                        startOffsetInBytes, lengthInBytes, {});
-                return std::make_shared<OpenCLComputeEvent>(std::move(event));
+                return std::make_shared<OpenCLComputeEvent>(std::move(promise.event()));
             }
             else {
                 cerr << "OpenCL fill: fallback to kernel" << endl;
                 // Invoke the underlying method, which will launch a kernel
-                return ComputeQueue::enqueueFillArrayImpl(region, init, startOffsetInBytes, lengthInBytes, arg);
+                return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, std::move(prereqs));
             }
         }
 
@@ -278,6 +298,7 @@ enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
         default:
             throw MLDB::Exception("Unknown initialization in allocateImpl");
     }
+#endif
 }
                         
 void
@@ -294,14 +315,20 @@ finish()
     clQueue.finish();
 }
 
+std::shared_ptr<ComputeEvent>
+OpenCLComputeQueue::
+makeAlreadyResolvedEvent() const
+{
+    return std::make_shared<OpenCLComputeEvent>();
+}
+
 
 // OpenCLComputeContext
 
 OpenCLComputeContext::
 OpenCLComputeContext(std::vector<OpenCLDevice> devices)
     : clContext(devices),
-        clDevices(std::move(devices)),
-        backingStore(new MemorySerializer())
+        clDevices(std::move(devices))
 {
     clQueue = std::make_shared<OpenCLComputeQueue>(this);
 }
@@ -345,9 +372,10 @@ getMemoryRegion(const MemoryRegionHandleInfo & handle) const
     return upcastHandle->mem;
 }
 
-MemoryRegionHandle
+ComputePromiseT<MemoryRegionHandle>
 OpenCLComputeContext::
-allocateImpl(size_t length, size_t align,
+allocateImpl(const std::string & regionName,
+             size_t length, size_t align,
              const std::type_info & type,
              bool isConst,
              MemoryRegionInitialization initialization,
@@ -356,67 +384,21 @@ allocateImpl(size_t length, size_t align,
     // TODO: align...
     OpenCLMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
 
-#if 0 // buggy on Intel
-    switch (initialization) {
-        case INIT_NONE:
-            break;
-        case INIT_ZERO_FILLED: {
-
-
-            auto zeroFillWith = [&] (const auto pattern)
-            {
-                auto event = queue->clQueue.enqueueFillBuffer(mem, &pattern, sizeof(pattern), 0, length, {});
-                event.waitUntilFinished();
-            };
-
-            if (length % 16 == 0)
-                zeroFillWith((std::array<uint64_t, 2>{0,0}));
-            else if (length % 12 == 0)
-                zeroFillWith((std::array<uint32_t, 3>{0,0,0}));
-            else if (length % 8 == 0)
-                zeroFillWith((uint64_t)0);
-            else if (length % 4 == 0)
-                zeroFillWith((uint32_t)0);
-            else if (length % 2 == 0)
-                zeroFillWith((uint16_t)0);
-            else zeroFillWith((uint8_t)0);
-            break;
-        }
-        case INIT_BLOCK_FILLED: {
-            auto [init, len] = std::any_cast<std::pair<const void *, size_t>>(initWith);
-            auto event = clQueue.enqueueFillBuffer(mem, init, len, 0, length, {});
-            event.waitUntilFinished();
-            break;
-        }
-        case INIT_KERNEL: {
-            throw MLDB::Exception("Kernel initialization not implemented yet");
-        }
-        default:
-            throw MLDB::Exception("Unknown initialization in allocateImpl");
-    }
-#endif
-
     auto handle = std::make_shared<MemoryRegionInfo>();
     handle->mem = std::move(mem);
     handle->type = &type;
     handle->isConst = isConst;
     handle->lengthInBytes = length;
+    handle->name = regionName;
+
     MemoryRegionHandle result{std::move(handle)};
-
-#if 1
-    auto event = clQueue->ComputeQueue::enqueueFillArrayImpl(result, initialization,
+    return clQueue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
-    clQueue->flush();
-    if (event)
-        event->await();
-#endif
-
-    return {result};
 }
 
-std::tuple<MemoryRegionHandle, std::shared_ptr<ComputeEvent>>
+ComputePromiseT<MemoryRegionHandle>
 OpenCLComputeContext::
-transferToDeviceImpl(FrozenMemoryRegion region,
+transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
                      const std::type_info & type, bool isConst)
 {
     Timer timer;
@@ -447,41 +429,64 @@ transferToDeviceImpl(FrozenMemoryRegion region,
     return {std::move(result), nullptr};
 }
 
-std::tuple<FrozenMemoryRegion, std::shared_ptr<ComputeEvent>>
+ComputePromiseT<FrozenMemoryRegion>
 OpenCLComputeContext::
-transferToHostImpl(MemoryRegionHandle handle)
+transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    if (!handle.handle) {
-        return { {}, nullptr };
-    }
+    ExcAssert(handle.handle);
 
     OpenCLMemObject mem = getMemoryRegion(*handle.handle);
-    auto [memPtr, event]
+    OpenCLEvent clEvent;
+    std::shared_ptr<void> memPtr;
+    std::tie(memPtr, clEvent)
         = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
                                     0 /* offset */, mem.size());
 
-    FrozenMemoryRegion result(memPtr, (char *)memPtr.get(), mem.size());
-    
-    return { std::move(result), std::make_shared<OpenCLComputeEvent>(std::move(event)) };
+    auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
+    auto promise = std::shared_ptr<std::promise<FrozenMemoryRegion>>();
+
+    auto cb = [handle, promise, mem, memPtr] (const OpenCLEvent & event, auto status)
+    {
+        if (status == OpenCLEventCommandExecutionStatus::ERROR)
+            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
+        else {
+            promise->set_value(FrozenMemoryRegion(handle.handle, (char *)memPtr.get(), mem.size()));
+        }
+    };
+
+    clEvent.addCallback(cb);
+
+    return { std::move(promise), std::move(event) };
 }
 
-std::tuple<MutableMemoryRegion, std::shared_ptr<ComputeEvent>>
+ComputePromiseT<MutableMemoryRegion>
 OpenCLComputeContext::
-transferToHostMutableImpl(MemoryRegionHandle handle)
+transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    if (!handle.handle) {
-        return { {}, nullptr };
-    }
+    ExcAssert(handle.handle);
 
     OpenCLMemObject mem = getMemoryRegion(*handle.handle);
-    auto [memPtr, event]
+    OpenCLEvent clEvent;
+    std::shared_ptr<void> memPtr;
+    std::tie(memPtr, clEvent)
         = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
                                     0 /* offset */, mem.size());
 
-    // TODO: backingStore is WRONG... this is a hack
-    MutableMemoryRegion result(memPtr, (char *)memPtr.get(), mem.size(), backingStore.get());
-    
-    return { std::move(result), std::make_shared<OpenCLComputeEvent>(std::move(event)) };
+    auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
+    auto promise = std::shared_ptr<std::promise<MutableMemoryRegion>>();
+
+    auto cb = [handle, promise, memPtr, mem] (const OpenCLEvent & event, auto status)
+    {
+        if (status == OpenCLEventCommandExecutionStatus::ERROR)
+            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
+        else {
+            promise->set_value(MutableMemoryRegion(handle.handle, (char *)memPtr.get(), mem.size() ));
+        }
+    };
+
+    clEvent.addCallback(cb);
+
+    return { std::move(promise), std::move(event) };
 }
 
 std::shared_ptr<ComputeKernel>
@@ -499,9 +504,9 @@ getKernel(const std::string & kernelName)
     return result;
 }
 
-MemoryRegionHandle
+ComputePromiseT<MemoryRegionHandle>
 OpenCLComputeContext::
-managePinnedHostRegion(std::span<const std::byte> region, size_t align,
+managePinnedHostRegion(const std::string & opName, std::span<const std::byte> region, size_t align,
                         const std::type_info & type, bool isConst)
 {
     Timer timer;
@@ -520,11 +525,13 @@ managePinnedHostRegion(std::span<const std::byte> region, size_t align,
         }
     }
 
-    using namespace std;
-    cerr << "transferring " << region.size() / 1000000.0 << " Mbytes of pinned type "
-            << demangle(type.name()) << " isConst " << isConst << " to device in "
-            << timer.elapsed_wall() << " at "
-            << region.size() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
+    //using namespace std;
+    //cerr << "transferring " << region.size() / 1000000.0 << " Mbytes of pinned type "
+    //        << demangle(type.name()) << " isConst " << isConst << " to device in "
+    //        << timer.elapsed_wall() << " at "
+    //        << region.size() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
+
+    // TODO: this is synchronous; it should become asynchronous
 
     auto handle = std::make_shared<MemoryRegionInfo>();
     handle->mem = std::move(mem);
@@ -532,7 +539,8 @@ managePinnedHostRegion(std::span<const std::byte> region, size_t align,
     handle->isConst = isConst;
     handle->lengthInBytes = region.size();
     MemoryRegionHandle result{std::move(handle)};
-    return result;
+
+    return ComputePromiseT<MemoryRegionHandle>(std::move(result), clQueue->makeAlreadyResolvedEvent());
 }
 
 std::shared_ptr<ComputeQueue>
@@ -542,16 +550,7 @@ getQueue()
     return std::make_shared<OpenCLComputeQueue>(this);
 }
 
-// Return the MappedSerializer that owns the memory allocated on the host for this
-// device.  It's needed for the generic MemoryRegion functions to know how to manipulate
-// memory handles.  In practice it probably means that each runtime needs to define a
-// MappedSerializer derivitive.
-MappedSerializer *
-OpenCLComputeContext::
-getSerializer()
-{
-    return backingStore.get();
-}
+
 
 // OpenCLComputeKernel
 
@@ -687,12 +686,13 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
         }
         else {
             const ComputeKernelArgument & arg = arguments.at(argNum);
+            std::string opName = "bind " + this->clKernelInfo.args[i].name;
             if (arg.handler->canGetPrimitive()) {
-                auto bytes = arg.handler->getPrimitive(upcastContext);
+                auto bytes = arg.handler->getPrimitive(opName, upcastContext);
                 kernel.bindArg(i, bytes.data(), bytes.size());
             }
             else if (arg.handler->canGetHandle()) {
-                auto handle = arg.handler->getHandle(upcastContext);
+                auto handle = arg.handler->getHandle(opName, upcastContext);
                 OpenCLMemObject mem = upcastContext.getMemoryRegion(*handle.handle);
                 kernel.bindArg(i, std::move(mem));
             }

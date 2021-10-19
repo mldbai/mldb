@@ -19,6 +19,7 @@
 #include <any>
 #include <iostream>
 #include <compare>
+#include <future>
 
 namespace MLDB {
 
@@ -83,6 +84,11 @@ struct ComputeEvent;
 struct ComputeRuntime;
 struct ComputeKernel;
 struct BoundComputeKernel;
+struct ComputePromise;
+template<typename T> struct ComputePromiseT;
+
+
+// ComputeRuntime
 
 // Basic abstract interface to a compute runtime.
 struct ComputeRuntime {
@@ -131,11 +137,184 @@ struct ComputeProfilingInfo {
     virtual ~ComputeProfilingInfo() = default;
 };
 
+struct ComputePromise {
+    ComputePromise() = default;  // Cannot be used; methods will throw
+    ComputePromise(std::shared_ptr<ComputeEvent> event)
+        : event_(std::move(event))
+    {
+    }
+
+    std::shared_ptr<ComputeEvent> event_;
+
+    std::shared_ptr<ComputeEvent> event() const { return event_; }
+    operator std::shared_ptr<ComputeEvent>() const { return event(); }
+
+    template<typename T>
+    ComputePromiseT<T> moveToType()
+    {
+        throw MLDB::Exception("ComputePromise::moveToType()");
+    }
+
+    template<typename T>
+    ComputePromiseT<T> asType() const
+    {
+        throw MLDB::Exception("ComputePromise::asType()");
+    }
+};
+
+template<typename T>
+struct ComputePromiseT: public ComputePromise {
+    ComputePromiseT() = default;  // Cannot be used; methods will throw
+
+    // Constructor for an already resolved promise
+    ComputePromiseT(T value, std::shared_ptr<ComputeEvent> event)
+        : ComputePromise(std::move(event)), promise(std::make_shared<std::promise<T>>())
+    {
+        ExcAssert(this->promise);
+        this->promise->set_value(std::move(value));
+    }
+
+    // Constructor for when we're awaiting an event
+    ComputePromiseT(std::shared_ptr<std::promise<T>> promise,
+                    std::shared_ptr<ComputeEvent> event)
+        : ComputePromise(std::move(event)), promise(std::move(promise))
+    {
+        ExcAssert(this->promise);
+    }
+
+    T move()
+    {
+        ExcAssert(promise);
+        return promise->get_future().get();
+    }
+
+    T get() const
+    {
+        ExcAssert(promise);
+        return promise->get_future().get();
+    }
+
+    std::shared_ptr<std::promise<T>> promise;
+
+    template<typename Fn, typename Return = std::invoke_result_t<Fn, T>, typename Enable = std::enable_if_t<!std::is_same_v<Return, void>>>
+    ComputePromiseT<Return> then(Fn && fn)
+    {
+        throw MLDB::Exception("TODO: ComputePromise then");
+    }
+
+    template<typename Fn, typename Return = std::invoke_result_t<Fn, T>, typename Enable = std::enable_if_t<std::is_same_v<Return, void>>>
+    ComputePromise then(Fn && fn)
+    {
+        throw MLDB::Exception("TODO: ComputePromise then");
+    }
+};
+
 struct ComputeEvent {
     virtual ~ComputeEvent() = default;
     virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const = 0;
     virtual void await() const = 0;
+
+    // Once the event is resolved, run the function, and return another event that will
+    // fire once the chained function has returned
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn) = 0;
+
+    template<typename Fn, typename Return = std::invoke_result_t<Fn>, typename Enable = std::enable_if_t<!std::is_same_v<Return, void>>>
+    ComputePromiseT<Return> then(Fn && fn)
+    {
+        auto promise = std::make_shared<std::promise<Return>>();
+
+        auto doPromise = [fn = std::move(fn), promise] ()
+        {
+            try {
+                auto result = fn();
+                promise->set_value(result);
+            } MLDB_CATCH_ALL {
+                promise->set_exception(std::current_exception());
+            }
+        };
+
+        auto event = thenImpl(std::move(doPromise));
+        return { std::move(promise), std::move(event) };
+    }
+
+    template<typename Fn, typename Return = std::invoke_result_t<Fn>, typename Enable = std::enable_if_t<std::is_same_v<Return, void>>>
+    ComputePromise then(Fn && fn)
+    {
+        return { thenImpl(std::move(fn)) };
+    }
 };
+
+// Create a promise that returns the value of the function applied to the vector of
+// returned values from the promises
+template<typename T, typename Fn, typename Return = std::invoke_result_t<Fn, std::vector<T>>>
+ComputePromiseT<T>
+thenReduce(std::vector<ComputePromiseT<T>> promises, Fn && fn)
+{
+    struct Accum {
+        Accum(size_t n, Fn fn)
+            : vals(n), fn(std::forward<Fn>(fn))
+        {
+        }
+
+        std::mutex mutex;
+        std::vector<T> vals;
+        size_t count = 0;
+        Fn fn;
+        std::promise<T> promise;
+        std::exception_ptr exc;
+
+        void except(std::exception_ptr exc)
+        {
+            std::unique_lock guard(mutex);
+            if (!this->exc)
+                this->exc = std::move(exc);
+            if (++count == vals.size())
+                fire();
+        }
+
+        void set(size_t i, T val)
+        {
+            std::unique_lock guard(mutex);
+            vals[i] = std::move(val);
+            if (++count == vals.size()) {
+                fire();
+            }
+        }
+
+        void fire()
+        {
+            if (exc)
+                promise.set_exception(std::move(exc));
+
+            try {
+                auto result = fn(std::move(vals));
+                promise.set_value(std::move(result));
+            } MLDB_CATCH_ALL {
+                promise.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    auto accum = std::make_shared<Accum>(promises.size(), std::forward<Fn>(fn));
+
+    std::vector<ComputePromise> promisesOut;
+
+    for (size_t i = 0;  i < promises.size();  ++i) {
+        auto setValue = [accum, i] (T val)
+        {
+            accum->set(i, std::move(val));
+        };
+
+        // TODO: exceptions
+
+        promisesOut.emplace_back(promises[i].then(std::move(setValue)));
+    }
+
+    // TODO: how to make these promises owned by something that is returned?
+
+    throw MLDB::Exception("to think through: thenReduce");
+}
+
 
 struct ComputeKernelDimension {
     std::shared_ptr<CommandExpression> bound; // or nullptr if no bounds
@@ -177,21 +356,21 @@ struct AbstractArgumentHandler {
     virtual bool canGetPrimitive() const;
 
     virtual std::span<const std::byte>
-    getPrimitive(ComputeContext & context) const;
+    getPrimitive(const std::string & opName, ComputeContext & context) const;
 
     virtual bool canGetRange() const;
 
     virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
-    getRange(ComputeContext & context) const;
+    getRange(const std::string & opName, ComputeContext & context) const;
 
     virtual bool canGetConstRange() const;
 
     virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
-    getConstRange(ComputeContext & context) const;
+    getConstRange(const std::string & opName, ComputeContext & context) const;
 
     virtual bool canGetHandle() const;
 
-    virtual MemoryRegionHandle getHandle(ComputeContext & context) const;
+    virtual MemoryRegionHandle getHandle(const std::string & opName, ComputeContext & context) const;
 
     virtual std::string info() const;
 };
@@ -347,17 +526,17 @@ struct MemoryArrayAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual bool canGetRange() const override;
 
     virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
-    getRange(ComputeContext & context) const override;
+    getRange(const std::string & opName, ComputeContext & context) const override;
 
     virtual bool canGetConstRange() const override;
 
     virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
-    getConstRange(ComputeContext & context) const override;
+    getConstRange(const std::string & opName, ComputeContext & context) const override;
 
     virtual bool canGetHandle() const override;
 
     virtual MemoryRegionHandle
-    getHandle(ComputeContext & context) const override;
+    getHandle(const std::string & opName, ComputeContext & context) const override;
 
     virtual std::string info() const override;
 };
@@ -367,6 +546,47 @@ MemoryArrayAbstractArgumentHandler *
 getArgumentHandler(MemoryArrayHandleT<T> handle)
 {
     return new MemoryArrayAbstractArgumentHandler(std::move(handle));
+}
+
+struct PromiseAbstractArgumentHandler: public AbstractArgumentHandler {
+
+    template<typename T>
+    PromiseAbstractArgumentHandler(ComputePromiseT<T> value)
+        : subImpl(getArgumentHandler(value.get()))
+    {
+        // TODO: bind this later so we don't wait on it until we actually need it
+    }
+
+    std::unique_ptr<AbstractArgumentHandler> subImpl;
+
+    virtual bool canGetPrimitive() const override;
+
+    virtual std::span<const std::byte>
+    getPrimitive(const std::string & opName, ComputeContext & context) const override;
+
+    virtual bool canGetRange() const override;
+
+    virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
+    getRange(const std::string & opName, ComputeContext & context) const override;
+
+    virtual bool canGetConstRange() const override;
+
+    virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
+    getConstRange(const std::string & opName, ComputeContext & context) const override;
+
+    virtual bool canGetHandle() const override;
+
+    virtual MemoryRegionHandle
+    getHandle(const std::string & opName, ComputeContext & context) const override;
+
+    virtual std::string info() const override;
+};
+
+template<typename T>
+PromiseAbstractArgumentHandler *
+getArgumentHandler(ComputePromiseT<T> promise)
+{
+    return new PromiseAbstractArgumentHandler(std::move(promise));
 }
 
 struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
@@ -388,7 +608,7 @@ struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual bool canGetPrimitive() const override;
 
     virtual std::span<const std::byte>
-    getPrimitive(ComputeContext & context) const override;
+    getPrimitive(const std::string & opName, ComputeContext & context) const override;
 
     virtual std::string info() const override;
 };
@@ -465,18 +685,27 @@ struct ComputeQueue {
     double totalKernelTime = 0.0;
 
     virtual std::shared_ptr<ComputeEvent>
-    launch(const BoundComputeKernel & kernel,
+    launch(const std::string & opName,
+           const BoundComputeKernel & kernel,
            const std::vector<uint32_t> & grid,
            const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) = 0;
 
-    virtual std::shared_ptr<ComputeEvent>
-    enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueFillArrayImpl(const std::string & opName,
+                         MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg);
+                         const std::any & arg,
+                         std::vector<std::shared_ptr<ComputeEvent>> prereqs);
+
+    // Create an already resolved event (this is abstract so that the subclass may create an)
+    // event of the correct type).
+    virtual std::shared_ptr<ComputeEvent>
+    makeAlreadyResolvedEvent() const = 0;
 
     template<typename T>
-    std::shared_ptr<ComputeEvent>
-    enqueueFillArray(const MemoryArrayHandleT<T> & region, const T & val,
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    enqueueFillArray(const std::string & opName,
+                     const MemoryArrayHandleT<T> & region, const T & val,
                      size_t start = 0, ssize_t length = -1)
     {
         const char * valBytes = (const char *)&val;
@@ -485,16 +714,23 @@ struct ComputeQueue {
         bool allZero = true;
         for (size_t i = 0;  allZero && i < sizeof(T);  allZero = valBytes[i++] == 0) ;
  
+        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
+        {
+            return { std::move(handle.handle) };
+        };
+
         if (allZero) {
-            return enqueueFillArrayImpl(region, MemoryRegionInitialization::INIT_ZERO_FILLED,
+            return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_ZERO_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
-                                        {});
+                                        {}, {} /* prereqs */)
+                .then(std::move(convert));
         }
         else {
             std::span<const std::byte> fillWith((const std::byte *)&val, sizeof(val));
-            return enqueueFillArrayImpl(region, MemoryRegionInitialization::INIT_BLOCK_FILLED,
+            return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
-                                        fillWith);
+                                        fillWith, {} /* prereqs */)
+                .then(std::move(convert));
         }
     }
 
@@ -511,119 +747,140 @@ struct ComputeContext {
 
     virtual ~ComputeContext() = default;
 
-    virtual MemoryRegionHandle
-    allocateImpl(size_t length, size_t align,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    allocateImpl(const std::string & regionName,
+                 size_t length, size_t align,
                  const std::type_info & type, bool isConst,
                  MemoryRegionInitialization initialization,
                  std::any initWith = std::any()) = 0;
 
-    virtual std::tuple<MemoryRegionHandle, std::shared_ptr<ComputeEvent>>
-    transferToDeviceImpl(FrozenMemoryRegion region,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    transferToDeviceImpl(const std::string & opName,
+                         FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) = 0;
 
-    virtual std::tuple<FrozenMemoryRegion, std::shared_ptr<ComputeEvent>>
-    transferToHostImpl(MemoryRegionHandle handle) = 0;
+    virtual ComputePromiseT<FrozenMemoryRegion>
+    transferToHostImpl(const std::string & opName,
+                       MemoryRegionHandle handle) = 0;
 
-    virtual std::tuple<MutableMemoryRegion, std::shared_ptr<ComputeEvent>>
-    transferToHostMutableImpl(MemoryRegionHandle handle) = 0;
+    virtual ComputePromiseT<MutableMemoryRegion>
+    transferToHostMutableImpl(const std::string & opName,
+                              MemoryRegionHandle handle) = 0;
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) = 0;
 
-    virtual MemoryRegionHandle
-    managePinnedHostRegion(std::span<const std::byte> region, size_t align,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    managePinnedHostRegion(const std::string & opName,
+                           std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst) = 0;
 
     virtual std::shared_ptr<ComputeQueue>
     getQueue() = 0;
 
-    // Return the MappedSerializer that owns the memory allocated on the host for this
-    // device.  It's needed for the generic MemoryRegion functions to know how to manipulate
-    // memory handles.  In practice it probably means that each runtime needs to define a
-    // MappedSerializer derivitive.
-    virtual MappedSerializer * getSerializer() = 0;
-
     template<typename T>
-    auto transferToDeviceImmutable(const FrozenMemoryRegionT<T> & obj, const char * what)
-        -> std::tuple<MemoryArrayHandleT<const T>, std::shared_ptr<ComputeEvent>, size_t>
+    ComputePromiseT<MemoryArrayHandleT<const T>>
+    transferToDeviceImmutable(const std::string & opName, const FrozenMemoryRegionT<T> & obj)
     {
-        auto [handle, event]
-            = transferToDeviceImpl(obj, typeid(std::remove_const_t<T>), true /* isConst */);
-        return { {std::move(handle.handle)}, std::move(event), obj.memusage() };
+        auto genericPromise
+            = transferToDeviceImpl(opName, obj, typeid(std::remove_const_t<T>), true /* isConst */);
+        return genericPromise.template moveToType<MemoryArrayHandleT<const T>>();
     }
 
     template<typename T>
-    std::tuple<FrozenMemoryRegionT<std::remove_const_t<T>>, std::shared_ptr<ComputeEvent>>
-    transferToHost(MemoryArrayHandleT<T> array)
+    ComputePromiseT<FrozenMemoryRegionT<std::remove_const_t<T>>>
+    transferToHost(const std::string & opName, MemoryArrayHandleT<T> array)
     {
         array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
-        auto [handle, event] = transferToHostImpl(array);
-        FrozenMemoryRegion raw(handle.handle(), (char *)handle.data(), handle.length());
-        return { std::move(raw), std::move(event) };
+        auto genericPromise = transferToHostImpl(opName, array);
+
+        auto convert = [] (FrozenMemoryRegion region) -> FrozenMemoryRegionT<std::remove_const_t<T>>
+        {
+            return { std::move(region) };
+        };
+
+        return genericPromise.then(std::move(convert));
     }
 
     template<typename T>
-    auto transferToHostMutable(MemoryArrayHandleT<T> array)
-        -> std::tuple<MutableMemoryRegionT<std::remove_const_t<T>>, std::shared_ptr<ComputeEvent>>
+    ComputePromiseT<MutableMemoryRegionT<std::remove_const_t<T>>>
+    transferToHostMutable(const std::string & opName, MemoryArrayHandleT<T> array)
     {
         static_assert(!std::is_const_v<T>, "mutable transfer requires non-const type");
         array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
         auto [handle, event] = transferToHostMutableImpl(array);
-        MutableMemoryRegion raw(handle.handle(), (char *)handle.data(), handle.length(), getSerializer());
+        MutableMemoryRegion raw(handle.handle(), (char *)handle.data(), handle.length() );
         return { std::move(raw), std::move(event) };
     }
 
     template<typename T>
-    auto transferToHostSync(MemoryArrayHandleT<T> array) -> FrozenMemoryRegionT<std::remove_const_t<T>>
+    auto transferToHostSync(const std::string & opName, MemoryArrayHandleT<T> array)
     {
-        auto [result, event] = transferToHost(std::move(array));
-        if (event)
-            event->await();
-        return result;
+        return transferToHost(opName, array).move();
     }
 
     template<typename T>
-    auto transferToHostMutableSync(MemoryArrayHandleT<T> array) -> MutableMemoryRegionT<T>
+    auto transferToHostMutableSync(const std::string & opName, MemoryArrayHandleT<T> array)
     {
         static_assert(!std::is_const_v<T>, "mutable transfer requires non-const type");
-        auto [result, event] = transferToHostMutable(std::move(array));
-        if (event)
-            event->await();
-        return result;
+        return transferToHost(opName, array).move();
     }
 
     /** Transfers the array to the CPU so that it can be written from the CPU... but
      *  promises that the initial contents will never be read, which enables us to
      *  not copy any data to the CPU. */
     template<typename T>
-    auto transferToHostUninitialized(MemoryArrayHandleT<T> array) -> MutableMemoryRegionT<T>
+    ComputePromiseT<MutableMemoryRegionT<T>>
+    transferToHostUninitializedSync(const std::string & opName, MemoryArrayHandleT<T> array)
     {
-        return transferToHostMutableSync(std::move(array));
+        return transferToHostMutableSync(opName, std::move(array)).move();
     }
 
     template<typename T>
-    auto allocArray(size_t size) -> MemoryArrayHandleT<T>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    allocUninitializedArray(const std::string & regionName, size_t size)
     {
-        return {allocateImpl(size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE).handle};
+        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
+        {
+            return { std::move(handle.handle) };
+        };
+
+        return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE)
+            .then(std::move(convert));
     }
 
     template<typename T>
-    auto allocZeroInitializedArray(size_t size) -> MemoryArrayHandleT<T>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    allocZeroInitializedArray(const std::string & regionName, size_t size)
     {
-        return {allocateImpl(size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_ZERO_FILLED).handle};
+        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
+        {
+            return { std::move(handle.handle) };
+        };
+
+        return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_ZERO_FILLED)
+            .then(std::move(convert));
     }
 
     template<typename T>
-    auto manageMemoryRegion(const std::vector<T> & obj) -> MemoryArrayHandleT<T>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    manageMemoryRegion(const std::string & regionName, const std::vector<T> & obj)
     {
-        return manageMemoryRegion(static_cast<std::span<const T>>(obj));
+        return manageMemoryRegion(regionName, static_cast<std::span<const T>>(obj));
     }
 
     template<typename T, size_t N>
-    auto manageMemoryRegion(const std::span<const T, N> & obj) -> MemoryArrayHandleT<T>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    manageMemoryRegion(const std::string & regionName, const std::span<const T, N> & obj)
     {
-        return { managePinnedHostRegion(std::as_bytes(obj), alignof(T),
-                 typeid(std::remove_const_t<T>), std::is_const_v<T>).handle };
+        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
+        {
+            return { std::move(handle.handle) };
+        };
+
+        return managePinnedHostRegion(regionName, std::as_bytes(obj), alignof(T),
+                                      typeid(std::remove_const_t<T>), std::is_const_v<T>)
+            .then(std::move(convert));
     }
 };
 

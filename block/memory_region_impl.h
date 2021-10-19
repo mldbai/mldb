@@ -36,7 +36,7 @@ struct SerializerStreamHandler {
         auto mem = owner->allocateWritable(stream.str().size(),
                                            1 /* alignment */);
         std::memcpy(mem.data(), stream.str().data(), stream.str().size());
-        mem.freeze();
+        owner->freeze(mem);
     }
 };
 

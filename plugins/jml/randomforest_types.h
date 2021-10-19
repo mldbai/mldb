@@ -427,7 +427,7 @@ freeze(MappedSerializer & serializer)
     // to work
     writer.write(0, 64);
     writer.zeroExtraBits();
-    result.rowData = data.freeze();
+    result.rowData = serializer.freeze(data);
 
     result.exampleNumBits = exampleNumBits;
     result.exampleNumMask = (1ULL << exampleNumBits) - 1;

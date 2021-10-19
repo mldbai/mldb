@@ -39,7 +39,7 @@ copy(const FrozenMemoryRegion & region)
 {
     auto serializeTo = allocateWritable(region.length(), 1 /* alignment */);
     std::memcpy(serializeTo.data(), region.data(), region.length());
-    return serializeTo.freeze();
+    return this->freeze(serializeTo);
 }
 
 filter_ostream
@@ -137,7 +137,7 @@ combined(const std::vector<FrozenMemoryRegion> & regions)
         offset += r.length();
     }
 
-    return mem.freeze();
+    return serializer.freeze(mem);
 }
 
 
@@ -148,25 +148,21 @@ combined(const std::vector<FrozenMemoryRegion> & regions)
 struct MutableMemoryRegion::Itl {
     Itl(std::shared_ptr<const void> handle,
         char * data,
-        size_t length,
-        MappedSerializer * owner)
-        : handle(std::move(handle)), data(data), length(length), owner(owner)
+        size_t length)
+        : handle(std::move(handle)), data(data), length(length)
     {
-        ExcAssert(owner);
     }
     
     std::shared_ptr<const void> handle;
     char * data;
     size_t length;
-    MappedSerializer * owner;
 };
 
 MutableMemoryRegion::
 MutableMemoryRegion(std::shared_ptr<const void> handle,
                     char * data,
-                    size_t length,
-                    MappedSerializer * owner)
-    : itl(new Itl(std::move(handle), data, length, owner)),
+                    size_t length)
+    : itl(new Itl(std::move(handle), data, length)),
       data_(data),
       length_(length)
 {
@@ -180,15 +176,6 @@ handle() const
     return itl->handle;
 }
 
-FrozenMemoryRegion
-MutableMemoryRegion::
-freeze()
-{
-    ExcAssert(itl);
-    ExcAssert(itl->owner);
-    return itl->owner->freeze(*this);
-}
-
 MutableMemoryRegion
 MutableMemoryRegion::
 range(size_t startByte, size_t endByte) const
@@ -197,14 +184,11 @@ range(size_t startByte, size_t endByte) const
     ExcAssertLessEqual(endByte, length_);
 
     ExcAssert(itl);
-    ExcAssert(itl->owner);
     
     MutableMemoryRegion result;
     result.itl = this->itl;
     result.data_ = this->data_ + startByte;
     result.length_ = (endByte - startByte);
-
-    ExcAssert(result.itl->owner);
 
     return result;
 }
@@ -346,7 +330,7 @@ allocateWritable(uint64_t bytesRequired,
     }
 
     std::shared_ptr<void> handle(mem, [] (void * mem) { ::free(mem); });
-    return {std::move(handle), (char *)mem, (size_t)bytesRequired, this };
+    return {std::move(handle), (char *)mem, (size_t)bytesRequired };
 }
 
 FrozenMemoryRegion
@@ -429,7 +413,7 @@ newObject(const PathElement & name,
                                                1 /* alignment */);
     
     std::memcpy(serializeTo.data(), printed.rawData(), printed.rawLength());
-    serializeTo.freeze();
+    entry->freeze(serializeTo);
 }
 
 

@@ -279,7 +279,7 @@ struct PathIndexShard: public PathIndexMetadata {
         //cerr << "max offset = " << maxOffset << endl;
         //cerr << "avg offset = " << 1.0 * totalOffset / input.size() << endl;
 
-        this->storage = storage.freeze();
+        this->storage = serializer.freeze(storage);
 
         return possibleCollisions;
     }

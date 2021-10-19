@@ -92,6 +92,9 @@ struct MemoryRegionHandleInfo {
     const std::type_info * type = nullptr;  //< non-CV qualified type in the array
     bool isConst = true;              //< Is the referred to memory constant or mutable?
     ssize_t lengthInBytes = -1;
+    MemoryRegionHandleInfo * parent = nullptr;  // Parent region (if we're part of a subrange)
+    ssize_t ownerOffset = -1;                   // Offset in our parent range
+    std::string name;                           // Mnenomic name
 };
 
 struct MemoryRegionHandle {
@@ -348,8 +351,7 @@ struct MutableMemoryRegion {
 
     MutableMemoryRegion(std::shared_ptr<const void> handle,
                         char * data,
-                        size_t length,
-                        MappedSerializer * owner);
+                        size_t length);
 
     char * data() const
     {
@@ -363,8 +365,6 @@ struct MutableMemoryRegion {
 
     MutableMemoryRegion range(size_t startByte, size_t endByte) const;
     
-    FrozenMemoryRegion freeze();
-
     std::shared_ptr<const void> handle() const;
 
     // Reset the region (stealing the handle) to be null.  This is mostly
@@ -412,12 +412,9 @@ struct MutableMemoryRegionT {
         return result;
     }
     
-    FrozenMemoryRegionT<T> freeze()
-    {
-        return FrozenMemoryRegionT<T>(raw_.freeze());
-    }
-
     const MutableMemoryRegion & raw() const { return raw_; }
+
+    MutableMemoryRegion & raw() { return raw_; }
 
     std::span<T> getSpan(size_t start = 0, ssize_t length = -1) const
     {
@@ -508,6 +505,14 @@ struct MappedSerializer {
     */
     virtual FrozenMemoryRegion
     freeze(MutableMemoryRegion & region) = 0;
+
+    template<typename T>
+    FrozenMemoryRegionT<T>
+    freeze(MutableMemoryRegionT<T> & region)
+    {
+        auto generic = this->freeze(region.raw());
+        return FrozenMemoryRegionT<T>(std::move(generic));
+    }
 
     /** Copy the given memory region into the current serializer.  In certain
         circumstances (between two files or two memory buffers aligned on

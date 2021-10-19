@@ -74,9 +74,9 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     }
 
     virtual std::span<const std::byte>
-    getPrimitive(ComputeContext & context) const override
+    getPrimitive(const std::string & opName, ComputeContext & context) const override
     {
-        return underlying->getPrimitive(fixupContext(context));
+        return underlying->getPrimitive(opName, fixupContext(context));
     }
 
     virtual bool canGetRange() const override
@@ -85,9 +85,9 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     }
 
     virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
-    getRange(ComputeContext & context) const override
+    getRange(const std::string & opName, ComputeContext & context) const override
     {
-        return underlying->getRange(fixupContext(context));
+        return underlying->getRange(opName, fixupContext(context));
     }
 
     virtual bool canGetConstRange() const override
@@ -96,11 +96,11 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     }
 
     virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
-    getConstRange(ComputeContext & context) const override
+    getConstRange(const std::string & opName, ComputeContext & context) const override
     {
-        MemoryRegionHandle handle = getHandle(context);
-        auto [region, pin] = multiContext.contexts[index]->transferToHostImpl(handle);
-        return { region.data(), region.length(), pin };
+        MemoryRegionHandle handle = getHandle(opName, context);
+        auto region = multiContext.contexts[index]->transferToHostImpl(opName + "transferTohost", handle).get();
+        return { region.data(), region.length(), region.handle() };
     }
 
     virtual bool canGetHandle() const override
@@ -109,9 +109,9 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     }
 
     virtual MemoryRegionHandle
-    getHandle(ComputeContext & context) const override
+    getHandle(const std::string & opName, ComputeContext & context) const override
     {
-        MemoryRegionHandle handle = underlying->getHandle(context);
+        MemoryRegionHandle handle = underlying->getHandle(opName, context);
         if (!handle.handle)
             return MemoryRegionHandle();
         auto info = std::dynamic_pointer_cast<const MultiMemoryRegionInfo>(std::move(handle.handle));
@@ -336,6 +336,14 @@ await() const
     }
 }
 
+std::shared_ptr<ComputeEvent>
+MultiComputeEvent::
+thenImpl(std::function<void ()> fn)
+{
+    throw MLDB::Exception("MultiComputeEvent::thenImpl");
+}
+
+
 
 // MultiComputeQueue
 
@@ -348,9 +356,68 @@ MultiComputeQueue(MultiComputeContext * owner,
 {
 }
 
+namespace {
+
+// Unpack multiple prerequisites into a list for each underlying runtime
+std::vector<std::vector<std::shared_ptr<ComputeEvent>>>
+unpackPrereqs(size_t n, const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+{
+    std::vector<std::vector<std::shared_ptr<ComputeEvent>>> result(n);
+
+    for (auto & e: prereqs) {
+        const MultiComputeEvent * multiEvent = dynamic_cast<const MultiComputeEvent *>(e.get());
+        ExcAssert(multiEvent);
+        for (size_t i = 0;  i < n;  ++i) {
+            result[i].emplace_back(multiEvent->events.at(i));
+            // Unpack the prerequisites to get the event for this device
+        }        
+    }
+
+    return result;
+}
+
+std::shared_ptr<const MultiMemoryRegionInfo> getMultiInfo(const MemoryRegionHandle & handle)
+{
+    if (!handle.handle) {
+        throw MLDB::Exception("Null handle passed to Multi region function");
+    }
+
+    auto info = std::dynamic_pointer_cast<const MultiMemoryRegionInfo>(std::move(handle.handle));
+
+    if (!info) {
+        auto & got = *handle.handle;
+        throw MLDB::Exception("Wrong info type: got " + demangle(typeid(got))
+                                + " expected " + type_name<MultiMemoryRegionInfo>());
+    }
+
+    return info;
+}
+
+ComputePromiseT<MemoryRegionHandle>
+reduceHandles(const std::string & regionName,
+              std::vector<ComputePromiseT<MemoryRegionHandle>> promises,
+              size_t length, const std::type_info & type, bool isConst)
+{
+    auto getResult = [type=&type, isConst, length, regionName] (const std::vector<MemoryRegionHandle> & handles) -> MemoryRegionHandle
+    {
+        auto result = std::make_shared<MultiMemoryRegionInfo>();
+        result->handles = std::move(handles);
+        result->type = type;
+        result->isConst = isConst;
+        result->lengthInBytes = length;
+        result->name = regionName;
+        return { std::move(result) };
+    };
+
+    return thenReduce(std::move(promises), getResult);
+}
+
+} // file scope
+
 std::shared_ptr<ComputeEvent>
 MultiComputeQueue::
-launch(const BoundComputeKernel & kernel,
+launch(const std::string & opName,
+       const BoundComputeKernel & kernel,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
@@ -358,19 +425,11 @@ launch(const BoundComputeKernel & kernel,
     ExcAssert(multiInfo);
 
     std::vector<std::shared_ptr<ComputeEvent>> events;
+    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
 
     for (size_t i = 0;  i < queues.size();  ++i) {
-        // Unpack the prerequisites to get the event for this device
-        std::vector<std::shared_ptr<ComputeEvent>> ourPrereqs;
-        for (auto & e: prereqs) {
-            ExcAssert(e);
-            const MultiComputeEvent * multiEvent = dynamic_cast<const MultiComputeEvent *>(e.get());
-            ExcAssert(multiEvent);
-            ourPrereqs.emplace_back(multiEvent->events.at(i));
-        }
-
         // Launch on the child queue
-        auto ev = queues[i]->launch(multiInfo->boundKernels[i], grid, ourPrereqs);
+        auto ev = queues[i]->launch(opName, multiInfo->boundKernels[i], grid, unpackedPrereqs[i]);
         events.emplace_back(std::move(ev));
     }
 
@@ -386,40 +445,49 @@ flush()
     }
 }
 
-std::shared_ptr<ComputeEvent>
+void
 MultiComputeQueue::
-enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
-                     size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg)
+finish()
 {
-    // We need to do this on each of the contexts
-    // We only need to transfer the first...
-    if (!region.handle) {
-        ExcAssertEqual(lengthInBytes, 0);
-        return nullptr;
+    for (auto & q: queues) {
+        q->finish();
     }
-
-    auto info = std::dynamic_pointer_cast<const MultiMemoryRegionInfo>(std::move(region.handle));
-    if (!info) {
-        auto & got = *region.handle;
-        throw MLDB::Exception("Multi transferToHostImpl: wrong info type: got " + demangle(typeid(got))
-                                + " expected " + type_name<MultiMemoryRegionInfo>());
-    }
-
-    std::vector<std::shared_ptr<ComputeEvent>> events;
-    ExcAssertEqual(info->handles.size(), queues.size());
-    events.reserve(queues.size());
-
-    for (size_t i = 0;  i < queues.size();  ++i) {
-        auto event = queues[i]->enqueueFillArrayImpl(info->handles[i], init, startOffsetInBytes, lengthInBytes, arg);
-        if (event) {
-            events.emplace_back(std::move(event));
-        }
-    }
-
-    return std::make_shared<MultiComputeEvent>(std::move(events));
 }
 
+ComputePromiseT<MemoryRegionHandle>
+MultiComputeQueue::
+enqueueFillArrayImpl(const std::string & opName,
+                     MemoryRegionHandle region, MemoryRegionInitialization init,
+                     size_t startOffsetInBytes, ssize_t lengthInBytes,
+                     const std::any & arg,
+                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+{
+    auto info = getMultiInfo(region);
+
+    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
+    ExcAssertEqual(info->handles.size(), queues.size());
+    promises.reserve(queues.size());
+
+    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        promises.emplace_back(queues[i]->enqueueFillArrayImpl(opName, info->handles[i], init, startOffsetInBytes, lengthInBytes, arg, unpackedPrereqs[i]));
+    }
+
+    auto returnResult = [region=std::move(region)] (auto unused) { return region; };
+    return thenReduce(std::move(promises), std::move(returnResult));
+}
+
+std::shared_ptr<ComputeEvent>
+MultiComputeQueue::
+makeAlreadyResolvedEvent() const
+{
+    std::vector<std::shared_ptr<ComputeEvent>> events;
+    for (auto & q: queues) {
+        events.emplace_back(q->makeAlreadyResolvedEvent());
+    }
+    return std::make_shared<MultiComputeEvent>(std::move(events));
+}
 
 // MultiComputeContext
 
@@ -436,80 +504,51 @@ MultiComputeContext()
     ExcAssertGreaterEqual(contexts.size(), 1);
 }
 
-MemoryRegionHandle
+ComputePromiseT<MemoryRegionHandle>
 MultiComputeContext::
-allocateImpl(size_t length, size_t align,
-                const std::type_info & type, bool isConst,
-                MemoryRegionInitialization initialization,
-                std::any initWith)
+allocateImpl(const std::string & regionName,
+             size_t length, size_t align,
+             const std::type_info & type, bool isConst,
+             MemoryRegionInitialization initialization,
+             std::any initWith)
 {
     // Allocate with all of the runtimes.
-    std::vector<MemoryRegionHandle> handles;
+    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
     for (auto & c: contexts) {
-        handles.emplace_back(c->allocateImpl(length, align, type, isConst, initialization, initWith));
-        using namespace std;
-        cerr << "allocating " << length << " bytes of " << demangle(type) << " for context " << c << endl;
+        promises.emplace_back(c->allocateImpl(regionName, length, align, type, isConst, initialization, initWith));
     }
-
-    auto result = std::make_shared<MultiMemoryRegionInfo>();
-    result->handles = std::move(handles);
-    result->type = &type;
-    result->isConst = isConst;
-    result->lengthInBytes = length;
-    return { std::move(result) };
+    return reduceHandles(regionName, std::move(promises), length, type, isConst);
 }
 
-std::tuple<MemoryRegionHandle, std::shared_ptr<ComputeEvent>>
+ComputePromiseT<MemoryRegionHandle>
 MultiComputeContext::
-transferToDeviceImpl(FrozenMemoryRegion region,
-                        const std::type_info & type, bool isConst)
+transferToDeviceImpl(const std::string & opName,
+                     FrozenMemoryRegion region,
+                     const std::type_info & type, bool isConst)
 {
-    std::vector<MemoryRegionHandle> handles;
-    std::vector<std::shared_ptr<ComputeEvent>> events;
+    // Allocate with all of the runtimes.
+    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
 
     for (auto & c: contexts) {
-        auto [handle, event] = c->transferToDeviceImpl(region, type, isConst);
-        handles.emplace_back(std::move(handle));
-        events.emplace_back(std::move(event));
+        promises.emplace_back(c->transferToDeviceImpl(opName, region, type, isConst));
     }
-
-    auto handle = std::make_shared<MultiMemoryRegionInfo>();
-    handle->handles = std::move(handles);
-    handle->type = &type;
-    handle->isConst = isConst;
-    handle->lengthInBytes = region.length();
-    return { { {handle} }, std::make_shared<MultiComputeEvent>(std::move(events)) };
+    return reduceHandles(opName, std::move(promises), region.length(), type, isConst);
 }
 
-std::tuple<FrozenMemoryRegion, std::shared_ptr<ComputeEvent>>
+ComputePromiseT<FrozenMemoryRegion>
 MultiComputeContext::
-transferToHostImpl(MemoryRegionHandle handle)
+transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    // We only need to transfer the first...
-    if (!handle.handle)
-        return { {}, {} };
-    auto info = std::dynamic_pointer_cast<const MultiMemoryRegionInfo>(std::move(handle.handle));
-    if (!info) {
-        auto & got = *handle.handle;
-        throw MLDB::Exception("Multi transferToHostImpl: wrong info type: got " + demangle(typeid(got))
-                                + " expected " + type_name<MultiMemoryRegionInfo>());
-    }
-
-    return contexts.at(0)->transferToHostImpl(info->handles.at(0));
+    auto info = getMultiInfo(handle);
+    return contexts.at(0)->transferToHostImpl(opName, info->handles.at(0));
 }
 
-std::tuple<MutableMemoryRegion, std::shared_ptr<ComputeEvent>>
+ComputePromiseT<MutableMemoryRegion>
 MultiComputeContext::
-transferToHostMutableImpl(MemoryRegionHandle handle)
+transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    // We only need to transfer the first...
-    if (!handle.handle)
-        return { {}, {} };
-    auto info = std::dynamic_pointer_cast<const MultiMemoryRegionInfo>(std::move(handle.handle));
-    if (!info)
-        throw MLDB::Exception("Multi transferToHostMutableImpl: wrong info type");
-
-    return contexts.at(0)->transferToHostMutableImpl(info->handles.at(0));
+    auto info = getMultiInfo(handle);
+    return contexts.at(0)->transferToHostMutableImpl(opName, info->handles.at(0));
 }
 
 std::shared_ptr<ComputeKernel>
@@ -525,22 +564,17 @@ getKernel(const std::string & kernelName)
     return result;
 }
 
-MemoryRegionHandle
+ComputePromiseT<MemoryRegionHandle>
 MultiComputeContext::
-managePinnedHostRegion(std::span<const std::byte> region, size_t align,
-                        const std::type_info & type, bool isConst)
+managePinnedHostRegion(const std::string & regionName,
+                       std::span<const std::byte> region, size_t align,
+                       const std::type_info & type, bool isConst)
 {
-    std::vector<MemoryRegionHandle> handles;
+    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
     for (auto & c: contexts) {
-        handles.emplace_back(c->managePinnedHostRegion(region, align, type, isConst));
+        promises.emplace_back(c->managePinnedHostRegion(regionName, region, align, type, isConst));
     }
-
-    auto result = std::make_shared<MultiMemoryRegionInfo>();
-    result->handles = std::move(handles);
-    result->type = &type;
-    result->isConst = isConst;
-    result->lengthInBytes = region.size();
-    return { { std::move(result) } };
+    return reduceHandles(regionName, std::move(promises), region.size(), type, isConst);
 }
 
 std::shared_ptr<ComputeQueue>
@@ -554,17 +588,6 @@ getQueue()
     return std::make_shared<MultiComputeQueue>(this, std::move(queues));
 }
 
-// Return the MappedSerializer that owns the memory allocated on the host for this
-// device.  It's needed for the generic MemoryRegion functions to know how to manipulate
-// memory handles.  In practice it probably means that each runtime needs to define a
-// MappedSerializer derivitive.
-MappedSerializer *
-MultiComputeContext::
-getSerializer()
-{
-    // TODO: all messed up...
-    return contexts.at(0)->getSerializer();
-}
 
 
 // MultiComputeRuntime

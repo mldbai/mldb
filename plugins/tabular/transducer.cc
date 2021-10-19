@@ -392,7 +392,7 @@ train(const std::vector<std::string> & blobs,
     auto dictRegion
         = serializer.allocateWritable(dictionary.length(), 1);
     std::memcpy(dictRegion.data(), dictionary.data(), dictionary.length());
-    itl->formatData = dictRegion.freeze();
+    itl->formatData = serializer.freeze(dictRegion);
 
     return { std::make_shared<ZstdStringCompressor>(itl), std::make_shared<ZstdStringDecompressor>(itl) };
 }

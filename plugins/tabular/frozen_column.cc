@@ -1253,7 +1253,7 @@ struct DoubleFrozenColumn
             }
         }
 
-        this->storage = mutableData.freeze();
+        this->storage = serializer.freeze(mutableData);
     }
 
     bool forEachImpl(const ForEachRowFn & onRow, bool keepNulls) const
@@ -1803,7 +1803,8 @@ serializeMetadata(StructuredSerializer & serializer,
                                                1 /* alignment */);
     
     std::memcpy(serializeTo.data(), printed.rawData(), printed.rawLength());
-    serializeTo.freeze();
+
+    entry->freeze(serializeTo);
 }
 
 FrozenColumn *

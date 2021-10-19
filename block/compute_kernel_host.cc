@@ -86,7 +86,8 @@ call(const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) c
 
 std::shared_ptr<ComputeEvent>
 HostComputeQueue::
-launch(const BoundComputeKernel & kernel,
+launch(const std::string & opName,
+       const BoundComputeKernel & kernel,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
@@ -120,14 +121,16 @@ launch(const BoundComputeKernel & kernel,
     return std::make_shared<HostComputeEvent>();
 }
 
-std::shared_ptr<ComputeEvent>
+ComputePromiseT<MemoryRegionHandle>
 HostComputeQueue::
-enqueueFillArrayImpl(MemoryRegionHandle regionIn, MemoryRegionInitialization init,
+enqueueFillArrayImpl(const std::string & opName,
+                     MemoryRegionHandle regionIn, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg)
+                     const std::any & arg,
+                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
 {
-    return ComputeQueue::enqueueFillArrayImpl(std::move(regionIn), init,
-                                              startOffsetInBytes, lengthInBytes, arg);
+    return ComputeQueue::enqueueFillArrayImpl(opName, std::move(regionIn), init,
+                                              startOffsetInBytes, lengthInBytes, arg, std::move(prereqs));
 }
 
 void
@@ -135,6 +138,20 @@ HostComputeQueue::
 flush()
 {
     // no-op
+}
+
+void
+HostComputeQueue::
+finish()
+{
+    // no-op
+}
+
+std::shared_ptr<ComputeEvent>
+HostComputeQueue::
+makeAlreadyResolvedEvent() const
+{
+    return std::make_shared<HostComputeEvent>();
 }
 
 // HostComputeContext
@@ -185,13 +202,15 @@ struct HostComputeContext: public ComputeContext {
         }
     };
 
-    virtual MemoryRegionHandle
-    allocateImpl(size_t length, size_t align,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    allocateImpl(const std::string & regionName,
+                 size_t length, size_t align,
                  const std::type_info & type, bool isConst,
                  MemoryRegionInitialization initialization,
                  std::any initWith = std::any())
     {
         MutableMemoryRegion mem;
+
         switch (initialization) {
             case INIT_NONE:
                 mem = backingStore->allocateWritable(length, align);
@@ -220,11 +239,13 @@ struct HostComputeContext: public ComputeContext {
         result->init(std::move(mem));
         result->type = &type;
         result->isConst = isConst;
-        return { std::move(result) };
+        result->name = regionName;
+        return { {std::move(result)}, std::make_shared<HostComputeEvent>() };
     }
 
-    virtual std::tuple<MemoryRegionHandle, std::shared_ptr<ComputeEvent>>
-    transferToDeviceImpl(FrozenMemoryRegion region,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    transferToDeviceImpl(const std::string & opName,
+                         FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst)
     {
         auto handle = std::make_shared<MemoryRegionInfo>();
@@ -235,25 +256,24 @@ struct HostComputeContext: public ComputeContext {
         return { { {handle} }, std::make_shared<HostComputeEvent>() };
     }
 
-    virtual std::tuple<FrozenMemoryRegion, std::shared_ptr<ComputeEvent>>
-    transferToHostImpl(MemoryRegionHandle handle)
+    virtual ComputePromiseT<FrozenMemoryRegion>
+    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
     {
+        ExcAssert(handle.handle);
         auto info = std::static_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
-        if (!info)
-            return { {}, {} };
+        ExcAssert(info);
 
         FrozenMemoryRegion raw(info, (char *)info->data, info->lengthInBytes);
-        return { raw, std::make_shared<HostComputeEvent>() };
+        return { std::move(raw), std::make_shared<HostComputeEvent>() };
     }
 
-    virtual std::tuple<MutableMemoryRegion, std::shared_ptr<ComputeEvent>>
-    transferToHostMutableImpl(MemoryRegionHandle handle)
+    virtual ComputePromiseT<MutableMemoryRegion>
+    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
     {
         auto info = std::static_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
-        if (!info)
-            return { {}, {} };
+        ExcAssert(info);
 
-        MutableMemoryRegion raw(info, (char *)info->data, info->lengthInBytes, backingStore.get());
+        MutableMemoryRegion raw(info, (char *)info->data, info->lengthInBytes );
 
         return { raw, std::make_shared<HostComputeEvent>() };
     }
@@ -272,8 +292,9 @@ struct HostComputeContext: public ComputeContext {
         return result;
     }
 
-    virtual MemoryRegionHandle
-    managePinnedHostRegion(std::span<const std::byte> region, size_t align,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    managePinnedHostRegion(const std::string & regionName,
+                           std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst)
     {
         auto mem = backingStore->allocateWritable(region.size(), align);
@@ -282,7 +303,8 @@ struct HostComputeContext: public ComputeContext {
         result->init(std::move(mem));
         result->type = &type;
         result->isConst = isConst;
-        return { { std::move(result) } };
+        result->name = regionName;
+        return { { std::move(result) }, std::shared_ptr<HostComputeEvent>() };
     }
 
     virtual std::shared_ptr<ComputeQueue>
@@ -290,16 +312,6 @@ struct HostComputeContext: public ComputeContext {
     {
         return std::make_shared<HostComputeQueue>(this);
     }
-
-    // Return the MappedSerializer that owns the memory allocated on the host for this
-    // device.  It's needed for the generic MemoryRegion functions to know how to manipulate
-    // memory handles.  In practice it probably means that each runtime needs to define a
-    // MappedSerializer derivitive.
-    virtual MappedSerializer * getSerializer()
-    {
-        return backingStore.get();
-    }
-
 };
 
 struct HostComputeRuntime: public ComputeRuntime {

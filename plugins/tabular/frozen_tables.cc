@@ -232,7 +232,7 @@ freeze(MappedSerializer & serializer)
     values.clear();
     values.shrink_to_fit();
 
-    result.storage = mutableStorage.freeze();
+    result.storage = serializer.freeze(mutableStorage);
 
     return result;
 }
@@ -648,7 +648,7 @@ freezeUncompressed(MappedSerializer & serializer)
     }
 
     FrozenBlobTable result;
-    result.itl->blobData = buf.freeze();
+    result.itl->blobData = serializer.freeze(buf);
     result.itl->offset = offsets.freeze(serializer);
     result.itl->transducer.reset(new IdentityStringTransducer());
     return result;
@@ -813,7 +813,7 @@ freeze(MappedSerializer & serializer)
 
     FrozenCellValueSet result;
     result.offsets = std::move(frozenOffsets);
-    result.cells = region.freeze();
+    result.cells = serializer.freeze(region);
     return std::make_pair(std::move(result), std::move(remapping));
 }
 

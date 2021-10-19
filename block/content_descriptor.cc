@@ -520,7 +520,7 @@ getStream(const std::map<Utf8String, Any> & options) const
             decompressor->decompress(vals->mem.data(), vals->mem.length(),
                                      onData);
 
-            vals->mem = output.freeze();
+            vals->mem = serializer.freeze(output);
             vals->info.size = outputSize;
         }
         
@@ -1043,7 +1043,7 @@ struct ContentDecompressor
                         = serializer.allocateWritable(length, 1 /* align */);
                     std::memcpy(region.data(), data, length);
 
-                    regions[doneOutputOffset] = region.freeze();
+                    regions[doneOutputOffset] = serializer.freeze(region);
 
                     doneOutputOffset += length;
                     

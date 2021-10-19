@@ -17,13 +17,19 @@ namespace MLDB {
 struct HostComputeEvent: public ComputeEvent {
     virtual ~HostComputeEvent() = default;
 
-    virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const
+    virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const override
     {
         return std::make_shared<ComputeProfilingInfo>();
     }
 
-    virtual void await() const
+    virtual void await() const override
     {
+    }
+
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn) override
+    {
+        fn();
+        return std::make_shared<HostComputeEvent>();
     }
 };
 
@@ -32,15 +38,15 @@ namespace details {
 using Pin = std::shared_ptr<const void>;
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin(MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(MemoryArrayHandleT<T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
 
-    auto convertParam = [] (MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
+    auto convertParam = [] (const std::string & opName, MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
         if (in.handler->canGetHandle()) {
-            auto handle = in.handler->getHandle(context);
+            auto handle = in.handler->getHandle(opName + " marshal", context);
             out = {std::move(handle)};
             return nullptr;
         }
@@ -51,15 +57,15 @@ marshalParameterForCpuKernelCall(MemoryArrayHandleT<T> *)
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin(MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(MemoryArrayHandleT<const T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
 
-    auto convertParam = [] (MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
+    auto convertParam = [] (const std::string & opName, MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
         if (in.handler->canGetHandle()) {
-            auto handle = in.handler->getHandle(context);
+            auto handle = in.handler->getHandle(opName + " marshal", context);
             out = MemoryArrayHandleT<const T>(std::move(handle.handle));
             return nullptr;
         }
@@ -70,23 +76,63 @@ marshalParameterForCpuKernelCall(MemoryArrayHandleT<const T> *)
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (T * & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, MutableMemoryRegionT<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
+marshalParameterForCpuKernelCall(MutableMemoryRegionT<T> *)
+{
+    ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
+
+    auto convertParam = [] (const std::string & opName, MutableMemoryRegionT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
+    {
+        if (in.handler->canGetRange()) {
+            auto [data, length, handle] = in.handler->getRange(opName + " marshal", context);
+            MutableMemoryRegion raw{ handle, (char *)data, length };
+            out = std::move(raw);
+            return nullptr;
+        }
+        throw MLDB::Exception("attempt to pass non-mutable range memory region to arg that needs a mutable range");
+    };
+
+    return { result, convertParam };
+}
+
+template<typename T>
+std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, FrozenMemoryRegionT<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
+marshalParameterForCpuKernelCall(FrozenMemoryRegionT<T> *)
+{
+    ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
+
+    auto convertParam = [] (const std::string & opName, FrozenMemoryRegionT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
+    {
+        if (in.handler->canGetConstRange()) {
+            auto [data, length, handle] = in.handler->getConstRange(opName + " marshal", context);
+            FrozenMemoryRegion raw{ handle, (const char *)data, length };
+            out = std::move(raw);
+            return nullptr;
+        }
+        throw MLDB::Exception("attempt to pass non-handle memory region to arg that needs a handle (not implemented)");
+    };
+
+    return { result, convertParam };
+}
+
+template<typename T>
+std::tuple<ComputeKernelType, std::function<Pin (const std::string & opName, T * & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(T **);
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (const T * & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin (const std::string & opName, const T * & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(const T **);
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin (const std::string & opName, std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(std::span<T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
  
-    auto convertParam = [] (std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
+    auto convertParam = [] (const std::string & opName, std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
         if (in.handler->canGetRange()) {
-            auto [ptr, size, pin] = in.handler->getRange(context);
+            auto [ptr, size, pin] = in.handler->getRange(opName + " marshal", context);
             out = { reinterpret_cast<T *>(ptr), size / sizeof(T) };
             return std::move(pin);
         }
@@ -97,15 +143,15 @@ marshalParameterForCpuKernelCall(std::span<T> *)
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin (const std::string & opName, std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(std::span<const T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
 
-    auto convertParam = [] (std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
+    auto convertParam = [] (const std::string & opName, std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
         if (in.handler->canGetConstRange()) {
-            auto [ptr, size, pin] = in.handler->getConstRange(context);
+            auto [ptr, size, pin] = in.handler->getConstRange(opName, context);
             out = { reinterpret_cast<const T *>(ptr), size / sizeof(T) };
             return std::move(pin);
         }
@@ -120,24 +166,20 @@ marshalParameterForCpuKernelCall(std::span<const T> *)
 void copyUsingValueDescription(const ValueDescription * desc,
                                std::span<const std::byte> from, void * to,
                                const std::type_info & toType);
-//{
-//    ExcAssertEqual(typeid(T), *in.handler->type.baseType->type());
-//    in.handler->type.baseType->copyValue(mem.data(), &out);
-//}
 
 const std::type_info & getTypeFromValueDescription(const ValueDescription * desc);
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin(T & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, T & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall(T *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<std::remove_const_t<T>>(),
                              std::is_const_v<T> ? "r" : "rw");
 
-    auto convertParam = [] (T & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
+    auto convertParam = [] (const std::string & opName, T & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
         ExcAssert(in.handler->canGetPrimitive());
-        std::span<const std::byte> mem = in.handler->getPrimitive(context);
+        std::span<const std::byte> mem = in.handler->getPrimitive(opName, context);
         copyUsingValueDescription(in.handler->type.baseType.get(), mem, &out, typeid(T));
         return nullptr;
     };
@@ -146,7 +188,7 @@ marshalParameterForCpuKernelCall(T *)
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, std::function<Pin (T & out, ComputeKernelArgument & in, ComputeContext & context)>>
+std::tuple<ComputeKernelType, std::function<Pin (const std::string & opName, T & out, ComputeKernelArgument & in, ComputeContext & context)>>
 marshalParameterForCpuKernelCall()
 {
     return marshalParameterForCpuKernelCall((T *)nullptr);
@@ -192,7 +234,8 @@ struct HostComputeKernel: public ComputeKernel {
             //cerr << "converting parameter " << n << " with formal type " << params[n].type.print()
             //     << " from type " << param.handler->type.print() << " to type " << type_name<T>(arg)
             //     << endl;
-            auto pin = marshal(arg, param, context);
+            auto pin = marshal("kernel " + this->kernelName + " bind param " + std::to_string(n) + " " + this->params[n].name,
+                               arg, param, context);
             if (pin) {
                 pins.emplace_back(std::move(pin));
             }
@@ -531,16 +574,24 @@ struct HostComputeQueue: public ComputeQueue {
     virtual ~HostComputeQueue() = default;
 
     virtual std::shared_ptr<ComputeEvent>
-    launch(const BoundComputeKernel & kernel,
+    launch(const std::string & opName,
+           const BoundComputeKernel & kernel,
            const std::vector<uint32_t> & grid,
            const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) override;
 
-    virtual std::shared_ptr<ComputeEvent>
-    enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueFillArrayImpl(const std::string & opName,
+                         MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg) override;
+                         const std::any & arg,
+                         std::vector<std::shared_ptr<ComputeEvent>> prereqs) override;
 
     virtual void flush() override;
+
+    virtual void finish() override;
+
+    virtual std::shared_ptr<ComputeEvent>
+    makeAlreadyResolvedEvent() const;
 };
 
 void registerHostComputeKernel(const std::string & kernelName,

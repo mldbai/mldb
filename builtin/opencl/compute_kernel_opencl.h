@@ -22,6 +22,7 @@ struct OpenCLComputeProfilingInfo: public ComputeProfilingInfo {
 };
 
 struct OpenCLComputeEvent: public ComputeEvent {
+    OpenCLComputeEvent() = default;  // already resolved
     OpenCLComputeEvent(OpenCLEvent ev);
 
     virtual ~OpenCLComputeEvent() = default;
@@ -29,6 +30,8 @@ struct OpenCLComputeEvent: public ComputeEvent {
     virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const override;
 
     virtual void await() const override;
+
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn);
 
     OpenCLEvent ev;
 };
@@ -44,15 +47,21 @@ struct OpenCLComputeQueue: public ComputeQueue {
     OpenCLCommandQueue clQueue;
 
     virtual std::shared_ptr<ComputeEvent>
-    launch(const BoundComputeKernel & kernel,
+    launch(const std::string & opName,
+           const BoundComputeKernel & kernel,
            const std::vector<uint32_t> & grid,
            const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) override;
 
-    virtual std::shared_ptr<ComputeEvent>
-    enqueueFillArrayImpl(MemoryRegionHandle region, MemoryRegionInitialization init,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueFillArrayImpl(const std::string & opName,
+                         MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg) override;
+                         const std::any & arg,
+                         std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
                          
+    virtual std::shared_ptr<ComputeEvent>
+    makeAlreadyResolvedEvent() const;
+
     virtual void flush() override;
     virtual void finish() override;
 };
@@ -68,8 +77,6 @@ struct OpenCLComputeContext: public ComputeContext {
     OpenCLContext clContext;
     std::shared_ptr<OpenCLComputeQueue> clQueue;  // for internal operations
     std::vector<OpenCLDevice> clDevices;
-
-    std::shared_ptr<MappedSerializer> backingStore;
 
     mutable std::mutex cacheMutex;
     std::map<std::string, std::any> cache;
@@ -108,37 +115,35 @@ struct OpenCLComputeContext: public ComputeContext {
 
     OpenCLMemObject getMemoryRegion(const MemoryRegionHandleInfo & handle) const;
 
-    virtual MemoryRegionHandle
-    allocateImpl(size_t length, size_t align,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    allocateImpl(const std::string & opName,
+                 size_t length, size_t align,
                  const std::type_info & type,
                  bool isConst,
                  MemoryRegionInitialization initialization,
                  std::any initWith = std::any()) override;
 
-    virtual std::tuple<MemoryRegionHandle, std::shared_ptr<ComputeEvent>>
-    transferToDeviceImpl(FrozenMemoryRegion region,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    transferToDeviceImpl(const std::string & opName,
+                         FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) override;
 
-    virtual std::tuple<FrozenMemoryRegion, std::shared_ptr<ComputeEvent>>
-    transferToHostImpl(MemoryRegionHandle handle) override;
+    virtual ComputePromiseT<FrozenMemoryRegion>
+    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override;
 
-    virtual std::tuple<MutableMemoryRegion, std::shared_ptr<ComputeEvent>>
-    transferToHostMutableImpl(MemoryRegionHandle handle) override;
+    virtual ComputePromiseT<MutableMemoryRegion>
+    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override;
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;
 
-    virtual MemoryRegionHandle
-    managePinnedHostRegion(std::span<const std::byte> region, size_t align,
+    virtual ComputePromiseT<MemoryRegionHandle>
+    managePinnedHostRegion(const std::string & opName,
+                           std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst) override;
+
     virtual std::shared_ptr<ComputeQueue>
     getQueue() override;
-
-    // Return the MappedSerializer that owns the memory allocated on the host for this
-    // device.  It's needed for the generic MemoryRegion functions to know how to manipulate
-    // memory handles.  In practice it probably means that each runtime needs to define a
-    // MappedSerializer derivitive.
-    virtual MappedSerializer * getSerializer();
 };
 
 // OpenCLComputeKernel

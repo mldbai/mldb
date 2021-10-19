@@ -318,7 +318,7 @@ allocateWritable(uint64_t bytesRequired,
 {
     auto handle = itl->allocateWritable(bytesRequired, alignment);
     char * mem = (char *)handle.get();
-    return {std::move(handle), mem, (size_t)bytesRequired, this };
+    return {std::move(handle), mem, (size_t)bytesRequired };
 }
 
 FrozenMemoryRegion
@@ -566,7 +566,7 @@ allocateWritable(uint64_t bytesRequired,
 {
     auto handle = itl->allocateWritable(bytesRequired, alignment);
     char * mem = (char *)handle.get();
-    return {std::move(handle), mem, (size_t)bytesRequired, this };
+    return {std::move(handle), mem, (size_t)bytesRequired, };
 }
 
 FrozenMemoryRegion

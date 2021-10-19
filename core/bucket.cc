@@ -72,7 +72,7 @@ freeze(MappedSerializer & serializer)
     result.entryBits = entryBits;
     result.numBuckets = numBuckets;
     result.numEntries = numEntries;
-    result.storage = this->storage.freeze();
+    result.storage = serializer.freeze(this->storage);
     result.storagePtr = result.storage.data();
     return result;
 }

@@ -1039,11 +1039,10 @@ splitPartitions(const std::span<const Feature> features,
 
         ExcAssertEqual(jsonEncodeStr(w[i]), jsonEncodeStr(out[i].wAll));
 
-        out[i].bucketMemory
-            = out[i].mutableBucketMemory.freeze();
+        out[i].bucketMemory = serializer.freeze(out[i].mutableBucketMemory);
     }
 
-    partitionMemory = mutablePartitionMemory.freeze();
+    partitionMemory = serializer.freeze(mutablePartitionMemory);
 
     return std::make_pair(std::move(out), std::move(partitionMemory));
 }
@@ -2586,18 +2585,18 @@ std::vector<float> decodeRows(const Rows & rows)
 
 void decodeRowsKernelCpu(ComputeContext & context,
                          ComputeKernelGridRange & rowRange,
-                         MemoryArrayHandleT<const uint64_t> rowData,
+                         FrozenMemoryRegionT<uint64_t> rowData,
                          uint32_t rowDataLength,
                          uint16_t weightBits,
                          uint16_t exampleNumBits,
                          uint32_t numRows,
                          WeightFormat weightFormat,
                          float weightMultiplier,
-                         MemoryArrayHandleT<const float> weightData,
+                         FrozenMemoryRegionT<float> weightData,
                          std::span<float> decodedRowsOut)
 {
     Rows rows;
-    rows.rowData = context.transferToHostSync(rowData);
+    rows.rowData = rowData;
     rows.numRowEntries = numRows;
     rows.exampleNumBits = exampleNumBits;
     rows.exampleNumMask = (1ULL << exampleNumBits) - 1;
@@ -2606,7 +2605,7 @@ void decodeRowsKernelCpu(ComputeContext & context,
     rows.weightEncoder.weightBits = weightBits;
     rows.weightEncoder.weightFormat = weightFormat;
     rows.weightEncoder.weightMultiplier = weightMultiplier;
-    rows.weightEncoder.weightFormatTable = context.transferToHostSync(weightData);
+    rows.weightEncoder.weightFormatTable = weightData;
 
     auto it = rows.getRowIterator();
     ExcAssertEqual(decodedRowsOut.size(), numRows);
