@@ -382,8 +382,11 @@ cl_int clInfoCall(cl_int (*fn) (Entity obj, cl_uint what, size_t, void *, size_t
                 T & where, Base * base,
                 Args&&... args)
 {
+    ExcAssert(obj);
+
     auto bound = [&] (size_t szin, void * arg, size_t * szout) -> cl_int
         {
+            ExcAssert(obj);
             return fn(obj, what, szin, arg, szout);
         };
 
@@ -398,8 +401,11 @@ cl_int clInfoCall(cl_int (*fn) (Entity obj, Param param, cl_uint what, size_t, v
                 T & where, Base * base,
                 Args&&... args)
 {
+    ExcAssert(obj);
+
     auto bound = [&] (size_t szin, void * arg, size_t * szout) -> cl_int
         {
+            ExcAssert(obj);
             return fn(obj, param, what, szin, arg, szout);
         };
 
@@ -1095,6 +1101,7 @@ void
 OpenCLEventInfo::
 doField(cl_uint what, T & where, Args&&... args)
 {
+    ExcAssert(event);
     clInfoCall(clGetEventInfo, event, what, where, this,
                std::forward<Args>(args)...);
 }
@@ -1102,8 +1109,13 @@ doField(cl_uint what, T & where, Args&&... args)
 OpenCLEventInfo::
 OpenCLEventInfo(cl_event event)
 {
-    doField(CL_EVENT_COMMAND_TYPE, commandType);
-    doField(CL_EVENT_COMMAND_EXECUTION_STATUS, executionStatus);
+    // TODO: somehow event gets nulled so we can't use doField... miscompile or other?
+    ExcAssert(event);
+    int res = clGetEventInfo(event, CL_EVENT_COMMAND_TYPE, sizeof(commandType), &commandType, nullptr);
+    checkOpenCLError(res, "clGetEventInfo CL_EVENT_COMMAND_TYPE");
+    res = clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(executionStatus), &executionStatus, nullptr);
+    checkOpenCLError(res, "clGetEventInfo CL_EVENT_COMMAND_TYPE");
+
     if ((int)executionStatus < 0) {
         error = (OpenCLStatus)executionStatus;
         executionStatus = OpenCLEventCommandExecutionStatus::ERROR;

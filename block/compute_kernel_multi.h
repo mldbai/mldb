@@ -29,6 +29,8 @@ struct MultiComputeKernel: public ComputeKernel {
 
     MultiComputeContext * multiContext = nullptr;
     std::vector<std::shared_ptr<ComputeKernel>> kernels;
+
+    void compareParameters(bool pre, const BoundComputeKernel & boundKernel) const;
 };
 
 // MultiComputeEvent

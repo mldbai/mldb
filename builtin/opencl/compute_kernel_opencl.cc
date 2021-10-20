@@ -61,6 +61,8 @@ void
 OpenCLComputeEvent::
 await() const
 {
+    if (!ev)
+        return;  // null event; already satisfied
     return ev.waitUntilFinished();
 }
 
@@ -68,14 +70,26 @@ std::shared_ptr<ComputeEvent>
 OpenCLComputeEvent::
 thenImpl(std::function<void ()> fn)
 {
-    auto cb = [fn=std::move(fn)] (auto ev, auto status)
+    // No event means it's an already satisfied event; we simply run the callback
+    if (!ev) {
+        fn();
+        return std::make_shared<OpenCLComputeEvent>();
+    }
+
+    // Otherwise, create a user event for the post-then part
+    auto context = ev.getContext();
+    OpenCLUserEvent userEvent(context);
+    auto nextEvent = std::make_shared<OpenCLComputeEvent>(std::move(userEvent));
+
+    auto cb = [fn=std::move(fn), nextEvent] (auto ev, auto status)
     {
         fn();
+        nextEvent->ev.setUserEventStatus(OpenCLEventCommandExecutionStatus::COMPLETE);
     };
 
     ev.addCallback(cb);
 
-    throw MLDB::Exception("not implementedL: OpenCLComputeEvent::thenImpl");
+    return nextEvent;
 }
 
 
@@ -235,70 +249,6 @@ enqueueFillArrayImpl(const std::string & opName,
     }
 
     return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, prereqs);
-
-#if 0
-    switch (init) {
-        case INIT_NONE:
-            throw MLDB::Exception("attempting to enqueue no-op OpenCL fill array operation");
-
-        case INIT_ZERO_FILLED: {
-            // Intel driver has a bug, so we need to fall back...
-            //cerr << "OpenCL fill: fallback to kernel" << endl;
-            // Invoke the underlying method, which will launch a kernel
-
-            auto zeroFillWith = [&] (const auto pattern)
-            {
-                cerr << "zeroing " << lengthInBytes << " bytes with " << sizeof(pattern) << " bytes" << endl;
-                ExcAssertLessEqual(startOffsetInBytes, region.lengthInBytes());
-                if (lengthInBytes == -1)
-                    lengthInBytes = region.lengthInBytes() - startOffsetInBytes;
-                ExcAssertLessEqual(startOffsetInBytes + lengthInBytes, region.lengthInBytes());
-                auto event = clQueue.enqueueFillBuffer(mem, pattern, startOffsetInBytes, lengthInBytes, {});
-                return ComputePromiseT<MemoryRegionHandle>(std::move(region), std::make_shared<OpenCLEvent>(std::move(event)));
-            };
-
-            if (lengthInBytes % 16 == 0)
-                return zeroFillWith((std::array<uint64_t, 2>{0,0}));
-            else if (lengthInBytes % 8 == 0)
-                return zeroFillWith((uint64_t)0);
-            else if (lengthInBytes % 4 == 0)
-                return zeroFillWith((uint32_t)0);
-            else if (lengthInBytes % 2 == 0)
-                return zeroFillWith((uint16_t)0);
-            else return zeroFillWith((uint8_t)0);
-        }
-
-        case INIT_BLOCK_FILLED: {
-            auto block = std::any_cast<std::span<const std::byte>>(arg);
-            const char * valBytes = (const char *)block.data();
- 
-            // If all bytes in the initialization are zero, we can do it more efficiently
-            bool allZero = true;
-            for (size_t i = 0;  allZero && i < block.size();  allZero = valBytes[i++] == 0) ;
-            if (allZero)
-                return enqueueFillArrayImpl(opName, region, INIT_ZERO_FILLED, startOffsetInBytes, lengthInBytes, {}, std::move(prereqs));
-
-            cerr << "block.size() = " << block.size() << endl;
-            if (block.size() == 1 || block.size() == 2 || block.size() == 4 || block.size() == 8 || block.size() == 16 || block.size() == 32) {
-                // The OpenCL fill array infrastructure only takes a few possible sizes
-                auto promise = clQueue.enqueueFillBuffer(mem, block.data(), block.size(),
-                                                       startOffsetInBytes, lengthInBytes, {});
-                return std::make_shared<OpenCLComputeEvent>(std::move(promise.event()));
-            }
-            else {
-                cerr << "OpenCL fill: fallback to kernel" << endl;
-                // Invoke the underlying method, which will launch a kernel
-                return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, std::move(prereqs));
-            }
-        }
-
-        case INIT_KERNEL: {
-            throw MLDB::Exception("Kernel initialization not implemented yet for OpenCL");
-        }
-        default:
-            throw MLDB::Exception("Unknown initialization in allocateImpl");
-    }
-#endif
 }
                         
 void
@@ -367,7 +317,7 @@ getMemoryRegion(const MemoryRegionHandleInfo & handle) const
 {
     const MemoryRegionInfo * upcastHandle = dynamic_cast<const MemoryRegionInfo *>(&handle);
     if (!upcastHandle) {
-        throw MLDB::Exception("TODO: get memory region from block handled from elsewhere");
+        throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
     }
     return upcastHandle->mem;
 }
@@ -426,7 +376,7 @@ transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
             << timer.elapsed_wall() << " at "
             << region.memusage() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
 
-    return {std::move(result), nullptr};
+    return {std::move(result), std::make_shared<OpenCLComputeEvent>()};
 }
 
 ComputePromiseT<FrozenMemoryRegion>
@@ -436,27 +386,46 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
     ExcAssert(handle.handle);
 
     OpenCLMemObject mem = getMemoryRegion(*handle.handle);
-    OpenCLEvent clEvent;
-    std::shared_ptr<void> memPtr;
-    std::tie(memPtr, clEvent)
-        = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
+    //OpenCLEvent clEvent;
+    //std::shared_ptr<void> memPtr;
+    auto res = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
                                     0 /* offset */, mem.size());
 
-    auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
-    auto promise = std::shared_ptr<std::promise<FrozenMemoryRegion>>();
+    //cerr << "transferToHostImpl: opName " << opName << " bytes " << handle.lengthInBytes() << endl;
 
-    auto cb = [handle, promise, mem, memPtr] (const OpenCLEvent & event, auto status)
+    auto & memPtr = std::get<0>(res);
+    auto & clEvent = std::get<1>(res);
+
+    //cerr << "clEvent is " << clEvent.event.operator cl_event() << endl;
+
+    //cerr << jsonEncode(clEvent.getInfo()) << endl;
+
+    auto event = std::make_shared<OpenCLComputeEvent>(clEvent);
+    auto promise = std::make_shared<std::promise<std::any>>();
+    auto data = (char *)memPtr.get();
+
+    auto cb = [handle, promise, mem, data, memPtr] (const OpenCLEvent & event, auto status)
     {
+        //cerr << "transferToHostImpl callback" << endl;
         if (status == OpenCLEventCommandExecutionStatus::ERROR)
             promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
         else {
-            promise->set_value(FrozenMemoryRegion(handle.handle, (char *)memPtr.get(), mem.size()));
+            promise->set_value(FrozenMemoryRegion(handle.handle, data, mem.size()));
         }
     };
 
     clEvent.addCallback(cb);
 
-    return { std::move(promise), std::move(event) };
+    static const bool bugAsyncMapBufferDoesntComplete = true;
+
+    if (bugAsyncMapBufferDoesntComplete) {
+        // TODO: hack, somehow callback isn't being called if we leave this async...
+        clEvent.waitUntilFinished();
+    }
+
+    //cerr << jsonEncode(clEvent.getInfo()) << endl;
+
+    return { promise, event };
 }
 
 ComputePromiseT<MutableMemoryRegion>
@@ -473,7 +442,7 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
                                     0 /* offset */, mem.size());
 
     auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
-    auto promise = std::shared_ptr<std::promise<MutableMemoryRegion>>();
+    auto promise = std::shared_ptr<std::promise<std::any>>();
 
     auto cb = [handle, promise, memPtr, mem] (const OpenCLEvent & event, auto status)
     {

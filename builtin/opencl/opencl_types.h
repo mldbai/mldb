@@ -920,6 +920,8 @@ struct OpenCLRefCounted {
         std::swap(handle, other.handle);
     }
 
+    explicit operator bool() const { return !!handle; }
+
     operator Handle() const
     {
         ExcCheck(handle, "Use of uninitialized OpenCL handle "
@@ -950,15 +952,20 @@ struct OpenCLEvent {
     {
     }
 
+    OpenCLContext getContext() const;
+
+    explicit operator bool () const { return !!event; }
+
     // Used to pass to functions that need a place to put their event.
     // This will return a pointer to its own handle, first clearing the
     // current event.
-    operator cl_event * ()
+    cl_event * storeMeHere()
     {
         OpenCLRefCounted<cl_event> oldEvent;
         event.swap(oldEvent);
         return &event.handle;
     }
+
 
     void waitUntilFinished() const
     {
@@ -1074,9 +1081,36 @@ struct OpenCLEvent {
         info.release();
     }
 
+    void setUserEventStatus(OpenCLEventCommandExecutionStatus status)
+    {
+        cl_int error = clSetUserEventStatus(event, status);
+
+        checkOpenCLError(error, "clSetUserEventStatus");
+    }
+
     int referenceCount() const
     {
         return event.referenceCount();
+    }
+};
+
+
+/*****************************************************************************/
+/* OPENCL USER EVENT                                                         */
+/*****************************************************************************/
+
+struct OpenCLUserEvent: public OpenCLEvent {
+    static cl_event getCheckedUserEvent(cl_context context)
+    {
+        int result = CL_NONE;
+        cl_event event = clCreateUserEvent(context, &result);
+        checkOpenCLError(result, "clCreateUserEvent");
+        return event;
+    }
+
+    OpenCLUserEvent(cl_context context)
+        : OpenCLEvent(getCheckedUserEvent(context))
+    {
     }
 };
 
@@ -1192,7 +1226,7 @@ struct OpenCLCommandQueue {
              range.data(),
              work.empty() ? nullptr : work.data(),
              before.size(), before,
-             result);
+             result.storeMeHere());
         
         checkOpenCLError(error, "clEnqueueNDRangeKernel");
 
@@ -1211,7 +1245,7 @@ struct OpenCLCommandQueue {
             = clEnqueueReadBuffer(queue, buffer, CL_FALSE /* blocking */,
                                   offset, length, target,
                                   before.size(), before,
-                                  result);
+                                  result.storeMeHere());
 
         checkOpenCLError(error, "clEnqueueReadBuffer");
 
@@ -1230,7 +1264,7 @@ struct OpenCLCommandQueue {
             = clEnqueueWriteBuffer(queue, buffer, CL_FALSE /* blocking */,
                                    offset, length, source,
                                    before.size(), before,
-                                   result);
+                                   result.storeMeHere());
 
         checkOpenCLError(error, "clEnqueueWriteBuffer");
 
@@ -1251,7 +1285,7 @@ struct OpenCLCommandQueue {
                                   pattern, patternLength,
                                   offset, length,
                                   before.size(), before,
-                                  result);
+                                  result.storeMeHere());
 
         checkOpenCLError(error, "clEnqueueFillBuffer");
 
@@ -1274,8 +1308,7 @@ struct OpenCLCommandQueue {
         to refer to the memory.  When the shared pointer is destroyed,
         the mapping will be undone.
     */
-    std::pair<std::shared_ptr<void>,
-              OpenCLEvent>
+    std::tuple<std::shared_ptr<void>, OpenCLEvent>
     enqueueMapBuffer(cl_mem buffer,
                      int flags,
                      size_t offset,
@@ -1288,7 +1321,12 @@ struct OpenCLCommandQueue {
         void * addr = clEnqueueMapBuffer
             (queue, buffer, CL_FALSE /* blocking */, flags,
              offset, length,
-             before.size(), before, result, &error);
+             before.size(), before, result.storeMeHere(), &error);
+
+        ExcAssert(!!result);
+
+        using namespace std;
+        cerr << "clEnqueueMapBuffer result = " << result.event.operator cl_event() << endl;
 
         checkOpenCLError(error, "clEnqueueMapBuffer");
 
@@ -1306,8 +1344,7 @@ struct OpenCLCommandQueue {
                 }
             };
 
-        return std::make_pair(std::shared_ptr<void>(addr, unmap),
-                              std::move(result));
+        return { std::shared_ptr<void>(addr, unmap), result };
     }
 
     OpenCLEvent enqueueMigrateBuffer(int flags,
@@ -1326,7 +1363,7 @@ struct OpenCLCommandQueue {
         cl_int error
             = clEnqueueMigrateMemObjects(queue, buffers.size(), buffers.data(), flags,
                                          before.size(), before,
-                                         result);
+                                         result.storeMeHere());
 
         checkOpenCLError(error, "clEnqueueMigrateBuffers");
         
@@ -1339,7 +1376,7 @@ struct OpenCLCommandQueue {
         
         cl_int error
             = clEnqueueMarkerWithWaitList
-                (queue, waitFor.size(), waitFor, result);
+                (queue, waitFor.size(), waitFor, result.storeMeHere());
 
         checkOpenCLError(error, "clEnqueueMarkerWithWaitList");
 
@@ -1352,7 +1389,7 @@ struct OpenCLCommandQueue {
         
         cl_int error
             = clEnqueueBarrierWithWaitList
-                (queue, waitFor.size(), waitFor, result);
+                (queue, waitFor.size(), waitFor, result.storeMeHere());
 
         checkOpenCLError(error, "clEnqueueBarrierWithWaitList");
 
@@ -1974,6 +2011,17 @@ getContext() const
     cl_int error = clGetKernelInfo(kernel, CL_KERNEL_CONTEXT,
                                    sizeof(context), &context, 0);
     checkOpenCLError(error, "clGetKernelInfo CL_KERNEL_CONTEXT");
+    return context;
+}
+
+inline OpenCLContext
+OpenCLEvent::
+getContext() const
+{
+    cl_context context;
+    cl_int error = clGetEventInfo(event, CL_EVENT_CONTEXT,
+                                   sizeof(context), &context, 0);
+    checkOpenCLError(error, "clGetEventInfo CL_EVENT_CONTEXT");
     return context;
 }
 

@@ -176,7 +176,7 @@ OpenCLPlugin(MldbEngine * engine,
                                                 globalWorkSize,
                                                 nullptr,
                                                 0, nullptr,
-                                                event);
+                                                event.storeMeHere());
                 checkOpenCLError(error, "clEnqueueNDRangeKernel");
 
                 event.waitUntilFinished();

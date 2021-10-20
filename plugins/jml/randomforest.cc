@@ -958,7 +958,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     // Before we use this, it needs to be zero-filled (only the first
     // set for a single partition)
-    std::shared_ptr<ComputeEvent> fillFirstBuckets
+    auto fillFirstBuckets
         = queue->enqueueFillArray("fill partitionBuckets", devicePartitionBuckets, W());
 
     auto testFeatureKernel
@@ -978,7 +978,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         = queue->launch("testFeature",
                         boundTestFeatureKernel,
                        { nf, numRows },
-                       { bucketDataPromise.event(), fillFirstBuckets, runDecodeRows });
+                       { bucketDataPromise.event(), fillFirstBuckets.event(), runDecodeRows });
 
     if (debugKernelOutput) {
         // Get that data back (by mapping), and verify it against the

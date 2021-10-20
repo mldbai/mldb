@@ -139,75 +139,119 @@ struct ComputeProfilingInfo {
 
 struct ComputePromise {
     ComputePromise() = default;  // Cannot be used; methods will throw
-    ComputePromise(std::shared_ptr<ComputeEvent> event)
-        : event_(std::move(event))
+    ComputePromise(std::shared_ptr<ComputeEvent> event,
+                   const std::type_info & type,
+                   std::shared_ptr<std::promise<std::any>> promise = std::make_shared<std::promise<std::any>>())
+        : event_(std::move(event)),
+          promise_(std::move(promise)),
+          future_(std::make_shared<std::shared_future<std::any>>(promise_->get_future().share())),
+          type_(&type)
     {
+        ExcAssert(this->event_);
+        ExcAssert(this->promise_);
+        ExcAssert(this->future_);
+        ExcAssert(this->type_);
     }
+
+    ComputePromise(std::shared_ptr<ComputeEvent> event, std::any val)
+        : ComputePromise(std::move(event), val.type())
+    {
+        ExcAssert(val.has_value());
+        ExcAssert(*type_ != typeid(void));
+        promise_->set_value(std::move(val));
+    }
+
+    bool valid() const { return !!event_; }
 
     std::shared_ptr<ComputeEvent> event_;
+    std::shared_ptr<std::promise<std::any>> promise_;
+    std::shared_ptr<std::shared_future<std::any>> future_;
+    const std::type_info * type_ = &typeid(void);
 
     std::shared_ptr<ComputeEvent> event() const { return event_; }
-    operator std::shared_ptr<ComputeEvent>() const { return event(); }
+
+    // Wait for the event to complete
+    void await() const;
 
     template<typename T>
-    ComputePromiseT<T> moveToType()
-    {
-        throw MLDB::Exception("ComputePromise::moveToType()");
-    }
+    ComputePromiseT<T> moveToType();
 
     template<typename T>
-    ComputePromiseT<T> asType() const
-    {
-        throw MLDB::Exception("ComputePromise::asType()");
-    }
+    ComputePromiseT<T> asType() const;
 };
 
 template<typename T>
 struct ComputePromiseT: public ComputePromise {
     ComputePromiseT() = default;  // Cannot be used; methods will throw
 
+    void verifyType() const
+    {
+        if (typeid(T) != *type_) {
+            throw MLDB::Exception("Attempt to convert ComputePromiseT<" + demangle(*type_)
+                                  + "> into ComputePromiseT<" + type_name<T>() + ">");
+        }
+    }
+
+    // Cast the type up
+    ComputePromiseT(ComputePromise&& untyped)
+        : ComputePromise(std::move(untyped))
+    {
+        verifyType();
+    }
+
+    ComputePromiseT(const ComputePromise & untyped)
+        : ComputePromise(untyped)
+    {
+        verifyType();
+    }
+
     // Constructor for an already resolved promise
     ComputePromiseT(T value, std::shared_ptr<ComputeEvent> event)
-        : ComputePromise(std::move(event)), promise(std::make_shared<std::promise<T>>())
+        : ComputePromise(std::move(event), std::move(value))
     {
-        ExcAssert(this->promise);
-        this->promise->set_value(std::move(value));
     }
 
     // Constructor for when we're awaiting an event
-    ComputePromiseT(std::shared_ptr<std::promise<T>> promise,
+    ComputePromiseT(std::shared_ptr<std::promise<std::any>> promise,
                     std::shared_ptr<ComputeEvent> event)
-        : ComputePromise(std::move(event)), promise(std::move(promise))
+        : ComputePromise(std::move(event), typeid(T), std::move(promise))
     {
-        ExcAssert(this->promise);
     }
 
     T move()
     {
-        ExcAssert(promise);
-        return promise->get_future().get();
+        await();
+        return std::any_cast<T>(future_->get());
     }
 
     T get() const
     {
-        ExcAssert(promise);
-        return promise->get_future().get();
+        await();
+        return std::any_cast<T>(future_->get());
     }
-
-    std::shared_ptr<std::promise<T>> promise;
 
     template<typename Fn, typename Return = std::invoke_result_t<Fn, T>, typename Enable = std::enable_if_t<!std::is_same_v<Return, void>>>
-    ComputePromiseT<Return> then(Fn && fn)
-    {
-        throw MLDB::Exception("TODO: ComputePromise then");
-    }
+    ComputePromiseT<Return> then(Fn && fn);
 
     template<typename Fn, typename Return = std::invoke_result_t<Fn, T>, typename Enable = std::enable_if_t<std::is_same_v<Return, void>>>
-    ComputePromise then(Fn && fn)
-    {
-        throw MLDB::Exception("TODO: ComputePromise then");
-    }
+    ComputePromise then(Fn && fn);
 };
+
+template<typename T>
+ComputePromiseT<T>
+ComputePromise::
+moveToType()
+{
+    return ComputePromiseT<T>(std::move(*this));
+}
+
+template<typename T>
+ComputePromiseT<T>
+ComputePromise::
+asType() const
+{
+    return ComputePromiseT<T>(*this);
+}
 
 struct ComputeEvent {
     virtual ~ComputeEvent() = default;
@@ -221,13 +265,13 @@ struct ComputeEvent {
     template<typename Fn, typename Return = std::invoke_result_t<Fn>, typename Enable = std::enable_if_t<!std::is_same_v<Return, void>>>
     ComputePromiseT<Return> then(Fn && fn)
     {
-        auto promise = std::make_shared<std::promise<Return>>();
+        auto promise = std::make_shared<std::promise<std::any>>();
 
         auto doPromise = [fn = std::move(fn), promise] ()
         {
             try {
                 auto result = fn();
-                promise->set_value(result);
+                promise->set_value(std::move(result));
             } MLDB_CATCH_ALL {
                 promise->set_exception(std::current_exception());
             }
@@ -240,79 +284,65 @@ struct ComputeEvent {
     template<typename Fn, typename Return = std::invoke_result_t<Fn>, typename Enable = std::enable_if_t<std::is_same_v<Return, void>>>
     ComputePromise then(Fn && fn)
     {
-        return { thenImpl(std::move(fn)) };
+        return { thenImpl(std::move(fn)), typeid(void) };
     }
 };
 
-// Create a promise that returns the value of the function applied to the vector of
-// returned values from the promises
-template<typename T, typename Fn, typename Return = std::invoke_result_t<Fn, std::vector<T>>>
-ComputePromiseT<T>
-thenReduce(std::vector<ComputePromiseT<T>> promises, Fn && fn)
+template<typename T>
+template<typename Fn, typename Return, typename Enable>
+ComputePromise
+ComputePromiseT<T>::
+then(Fn && fn)
 {
-    struct Accum {
-        Accum(size_t n, Fn fn)
-            : vals(n), fn(std::forward<Fn>(fn))
-        {
-        }
+    // New promise to trigger on
+    auto newPromise = std::make_shared<std::promise<std::any>>();
 
-        std::mutex mutex;
-        std::vector<T> vals;
-        size_t count = 0;
-        Fn fn;
-        std::promise<T> promise;
-        std::exception_ptr exc;
-
-        void except(std::exception_ptr exc)
-        {
-            std::unique_lock guard(mutex);
-            if (!this->exc)
-                this->exc = std::move(exc);
-            if (++count == vals.size())
-                fire();
-        }
-
-        void set(size_t i, T val)
-        {
-            std::unique_lock guard(mutex);
-            vals[i] = std::move(val);
-            if (++count == vals.size()) {
-                fire();
-            }
-        }
-
-        void fire()
-        {
-            if (exc)
-                promise.set_exception(std::move(exc));
-
-            try {
-                auto result = fn(std::move(vals));
-                promise.set_value(std::move(result));
-            } MLDB_CATCH_ALL {
-                promise.set_exception(std::current_exception());
-            }
+    auto newFn = [oldFuture = this->future_, newPromise, fn = std::move(fn)] () -> void
+    {
+        try {
+            T input = std::any_cast<T>(oldFuture->get());
+            fn(std::move(input));
+            newPromise->set_value(std::any());
+        } MLDB_CATCH_ALL {
+            newPromise->set_exception(std::current_exception());
         }
     };
 
-    auto accum = std::make_shared<Accum>(promises.size(), std::forward<Fn>(fn));
+    event_->then(std::move(newFn));
 
-    std::vector<ComputePromise> promisesOut;
+    return { event_, typeid(void), std::move(newPromise) };
+}
 
-    for (size_t i = 0;  i < promises.size();  ++i) {
-        auto setValue = [accum, i] (T val)
-        {
-            accum->set(i, std::move(val));
-        };
+template<typename T>
+template<typename Fn, typename Return, typename Enable>
+ComputePromiseT<Return>
+ComputePromiseT<T>::
+then(Fn && fn)
+{
+    // New promise to hold the value
+    auto newPromise = std::make_shared<std::promise<std::any>>();
 
-        // TODO: exceptions
+    auto newFn = [oldFuture = this->future_, newPromise, fn = std::move(fn)] () -> void
+    {
+        try {
+            T input = std::any_cast<T>(oldFuture->get());
+            newPromise->set_value(fn(std::move(input)));
+        } MLDB_CATCH_ALL {
+            newPromise->set_exception(std::current_exception());
+        }
+    };
 
-        promisesOut.emplace_back(promises[i].then(std::move(setValue)));
-    }
+    event_->then(std::move(newFn));
 
-    // TODO: how to make these promises owned by something that is returned?
+    return { std::move(newPromise), event_ };
+}
 
-    throw MLDB::Exception("to think through: thenReduce");
+inline void
+ComputePromise::
+await() const
+{
+    ExcAssert(event_);
+    event_->await();
 }
 
 
@@ -782,9 +812,13 @@ struct ComputeContext {
     ComputePromiseT<MemoryArrayHandleT<const T>>
     transferToDeviceImmutable(const std::string & opName, const FrozenMemoryRegionT<T> & obj)
     {
-        auto genericPromise
-            = transferToDeviceImpl(opName, obj, typeid(std::remove_const_t<T>), true /* isConst */);
-        return genericPromise.template moveToType<MemoryArrayHandleT<const T>>();
+        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<const T>
+        {
+            return { std::move(handle.handle) };
+        };
+
+        return transferToDeviceImpl(opName, obj, typeid(std::remove_const_t<T>), true /* isConst */)
+            .then(std::move(convert));
     }
 
     template<typename T>

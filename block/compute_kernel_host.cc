@@ -304,7 +304,7 @@ struct HostComputeContext: public ComputeContext {
         result->type = &type;
         result->isConst = isConst;
         result->name = regionName;
-        return { { std::move(result) }, std::shared_ptr<HostComputeEvent>() };
+        return { { std::move(result) }, std::make_shared<HostComputeEvent>() };
     }
 
     virtual std::shared_ptr<ComputeQueue>

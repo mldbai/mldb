@@ -9,6 +9,9 @@
 #include "mldb/types/basic_value_descriptions.h"
 
 
+using namespace std;
+
+
 namespace MLDB {
 
 struct MultiComputeContext;
@@ -165,7 +168,7 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
             ourArguments.emplace_back(convertArgument(a));
         }
 
-        boundKernels.emplace_back(this->kernels[i]->bindImpl(arguments));
+        boundKernels.emplace_back(this->kernels[i]->bindImpl(ourArguments));
     }
 
     // Create our info structure to carry around the bound arguments
@@ -190,95 +193,6 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
         using namespace std;
         ExcAssertEqual(&context, multiContext);
 
-        auto compareParameters = [&] (bool pre)
-        {
-            // Now, for each writable parameter, compare the results...
-            for (size_t i = 0;  i < this->params.size();  ++i) {
-                if (this->params[i].type.dims.size() == 0 || (pre && this->params[i].access == "w"))
-                    continue;
-
-                bool printedBanner = false;
-                auto printBanner = [&] ()
-                {
-                    if (printedBanner)
-                        return;
-                    using namespace std;
-                    cerr << "comparing contents of parameter " << this->params[i].name << " access "
-                        << this->params[i].access << endl;
-                    printedBanner = true;
-                };
-
-                auto reference = callableParams[0][i];
-                //auto & h = *reference.handler; 
-                //cerr << "  reference.handler = " << reference.handler << " " << demangle(typeid(h)) << endl;
-                auto [referenceData, referenceLength, referencePin]
-                    = reference.handler->getConstRange(*this->multiContext->contexts[0]);
-
-                for (size_t j = 1;  j < this->kernels.size();  ++j) {
-                    auto kernelGenerated = callableParams[j][i];
-                    //auto & h = *kernelGenerated.handler; 
-                    //cerr << "  kernelGenerated.handler = " << kernelGenerated.handler << demangle(typeid(h)) << endl;
-                    auto [kernelGeneratedData, kernelGeneratedLength, kernelGeneratedPin]
-                        = kernelGenerated.handler->getConstRange(*this->multiContext->contexts[j]);
-                    
-
-                    if (referenceLength == 0) {
-                        if (printedBanner)
-                            cerr << "  null data; continuing" << endl;
-                        continue;
-                    }
-
-                    ExcAssertEqual(referenceLength, kernelGeneratedLength);
-
-                    if (referenceData == kernelGeneratedData) {
-                        if (printedBanner)
-                            cerr << "  kernel " << j << " has same data as kernel 0; continuing" << endl;
-                        continue;
-                    }
-
-                    ExcAssertNotEqual(referenceData, kernelGeneratedData);
-
-                    if (memcmp(referenceData, kernelGeneratedData, referenceLength) == 0) {
-                        if (printedBanner)
-                            cerr << "  kernel " << j << " is bit-identical; continuing" << endl;
-                        continue;
-                    }
-
-                    const ValueDescription * desc = this->params[i].type.baseType.get();
-
-                    size_t n = referenceLength / desc->size;
-                    const char * p1 = (const char *)referenceData;
-                    const char * p2 = (const char *)kernelGeneratedData;
-
-                    size_t numDifferences = 0;
-
-                    for (size_t k = 0;  k < n;  ++k, p1 += desc->size, p2 += desc->size) {
-                        if (memcmp(p1, p2, desc->size) == 0)
-                            continue;
-                        std::string v1, v2;
-                        StringJsonPrintingContext c1(v1), c2(v2);
-                        desc->printJson(p1, c1);
-                        desc->printJson(p2, c2);
-
-                        if (v1 != v2) {
-                            printBanner();
-                            ++numDifferences;
-                            if (numDifferences == 6) {
-                                cerr << "..." << endl;
-                            }
-                            else if (numDifferences <= 5) {
-                                cerr << "difference on element " << k << endl;
-                                cerr << "  v1 = " << v1 << endl;
-                                cerr << "  v2 = " << v2 << endl;
-                            }
-                        }
-                    }
-                    if (numDifferences > 0) {
-                        cerr << "  " << numDifferences << " of " << n << " were different" << endl;
-                    }
-                }
-            }
-        };
 
         cerr << "--------------- beginning kernel " << this->kernelName << " pre-validation" << endl;
         compareParameters(true /* pre */);
@@ -311,6 +225,101 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
 #endif
 }
 
+void
+MultiComputeKernel::
+compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
+{
+    const MultiBindInfo & bindInfo = dynamic_cast<const MultiBindInfo &>(*boundKernel.bindInfo);
+
+    // Now, for each writable parameter, compare the results...
+    for (size_t i = 0;  i < this->params.size();  ++i) {
+        if (this->params[i].type.dims.size() == 0 || (pre && this->params[i].access == "w"))
+            continue;
+
+        bool printedBanner = false;
+        auto printBanner = [&] ()
+        {
+            if (printedBanner)
+                return;
+            using namespace std;
+            cerr << "comparing contents of parameter " << this->params[i].name << " access "
+                << this->params[i].access << endl;
+            printedBanner = true;
+        };
+
+        auto reference = bindInfo.boundKernels.at(0).arguments.at(i);
+        //auto & h = *reference.handler; 
+        //cerr << "  reference.handler = " << reference.handler << " " << demangle(typeid(h)) << endl;
+        auto [referenceData, referenceLength, referencePin]
+            = reference.handler->getConstRange("compareParameters", *this->multiContext->contexts[0]);
+
+        for (size_t j = 1;  j < this->kernels.size();  ++j) {
+            auto kernelGenerated = bindInfo.boundKernels.at(j).arguments.at(i);
+            //auto & h = *kernelGenerated.handler; 
+            //cerr << "  kernelGenerated.handler = " << kernelGenerated.handler << demangle(typeid(h)) << endl;
+            auto [kernelGeneratedData, kernelGeneratedLength, kernelGeneratedPin]
+                = kernelGenerated.handler->getConstRange("compareParameters", *this->multiContext->contexts[j]);
+            
+
+            if (referenceLength == 0) {
+                if (printedBanner)
+                    cerr << "  null data; continuing" << endl;
+                continue;
+            }
+
+            ExcAssertEqual(referenceLength, kernelGeneratedLength);
+
+            if (referenceData == kernelGeneratedData) {
+                if (printedBanner)
+                    cerr << "  kernel " << j << " has same data as kernel 0; continuing" << endl;
+                continue;
+            }
+
+            ExcAssertNotEqual(referenceData, kernelGeneratedData);
+
+            if (memcmp(referenceData, kernelGeneratedData, referenceLength) == 0) {
+                if (printedBanner)
+                    cerr << "  kernel " << j << " is bit-identical; continuing" << endl;
+                continue;
+            }
+
+            const ValueDescription * desc = this->params[i].type.baseType.get();
+
+            size_t n = referenceLength / desc->size;
+            const char * p1 = (const char *)referenceData;
+            const char * p2 = (const char *)kernelGeneratedData;
+
+            size_t numDifferences = 0;
+
+            for (size_t k = 0;  k < n;  ++k, p1 += desc->size, p2 += desc->size) {
+                if (memcmp(p1, p2, desc->size) == 0)
+                    continue;
+                std::string v1, v2;
+                StringJsonPrintingContext c1(v1), c2(v2);
+                desc->printJson(p1, c1);
+                desc->printJson(p2, c2);
+
+                if (v1 != v2) {
+                    printBanner();
+                    ++numDifferences;
+                    if (numDifferences == 6) {
+                        cerr << "..." << endl;
+                    }
+                    else if (numDifferences <= 5) {
+                        cerr << "difference on element " << k << endl;
+                        cerr << "  v1 = " << v1 << endl;
+                        cerr << "  v2 = " << v2 << endl;
+                    }
+                }
+            }
+            if (numDifferences > 0) {
+                cerr << "  " << numDifferences << " of " << n << " were different" << endl;
+            }
+        }
+    }
+}
+
+
 
 // MultiComputeEvent
 
@@ -340,7 +349,23 @@ std::shared_ptr<ComputeEvent>
 MultiComputeEvent::
 thenImpl(std::function<void ()> fn)
 {
-    throw MLDB::Exception("MultiComputeEvent::thenImpl");
+    std::vector<std::shared_ptr<ComputeEvent>> newEvents;
+
+    // Count how many of the underlying ones have triggered
+    auto counter = std::make_shared<std::atomic<size_t>>(0);
+
+    for (size_t i = 0;  i < events.size();  ++i) {
+        auto newThen = [n=events.size(), counter, fn] ()
+        {
+            if (counter->fetch_add(1) == n - 1) {
+                // last one has triggered, call fn
+                fn();
+            }
+        };
+        newEvents.emplace_back(events[i]->thenImpl(newThen));
+    }
+
+    return std::make_shared<MultiComputeEvent>(std::move(newEvents));
 }
 
 
@@ -393,6 +418,83 @@ std::shared_ptr<const MultiMemoryRegionInfo> getMultiInfo(const MemoryRegionHand
     return info;
 }
 
+// Create a promise that returns the value of the function applied to the vector of
+// returned values from the promises
+template<typename T, typename Fn, typename Return = std::invoke_result_t<Fn, std::vector<T>>>
+ComputePromiseT<Return>
+thenReduce(std::vector<ComputePromiseT<T>> promises, Fn && fn)
+{
+    struct Accum {
+        Accum(size_t n, Fn fn)
+            : vals(n), fn(std::forward<Fn>(fn))
+        {
+        }
+
+        std::mutex mutex;
+        std::vector<T> vals;
+        size_t count = 0;
+        Fn fn;
+        std::promise<std::any> promise;
+        std::vector<ComputePromise> promisesOut;
+        std::exception_ptr exc;
+
+        void except(std::exception_ptr exc)
+        {
+            std::unique_lock guard(mutex);
+            if (!this->exc)
+                this->exc = std::move(exc);
+            fire();
+        }
+
+        void set(size_t i, T val)
+        {
+            std::unique_lock guard(mutex);
+            vals[i] = std::move(val);
+            fire();
+        }
+
+        void fire()
+        {
+            if (++count != vals.size())
+                return;
+
+            if (exc)
+                promise.set_exception(std::move(exc));
+
+            try {
+                auto result = fn(std::move(vals));
+                promise.set_value(std::move(result));
+            } MLDB_CATCH_ALL {
+                promise.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    auto accum = std::make_shared<Accum>(promises.size(), std::forward<Fn>(fn));
+
+    std::vector<std::shared_ptr<ComputeEvent>> eventsOut;
+
+    for (size_t i = 0;  i < promises.size();  ++i) {
+        auto setValue = [accum, i] (T val)
+        {
+            accum->set(i, std::move(val));
+        };
+
+        // TODO: exceptions
+        auto newPromise = promises[i].then(std::move(setValue));
+
+        eventsOut.emplace_back(newPromise.event());
+        accum->promisesOut.emplace_back(std::move(newPromise));
+    }
+
+    std::shared_ptr<std::promise<std::any>> promise(accum, &accum->promise);
+    auto event = std::make_shared<MultiComputeEvent>(std::move(eventsOut));
+
+    ComputePromiseT<Return> result(std::move(promise), std::move(event));
+
+    return result;
+}
+
 ComputePromiseT<MemoryRegionHandle>
 reduceHandles(const std::string & regionName,
               std::vector<ComputePromiseT<MemoryRegionHandle>> promises,
@@ -414,6 +516,7 @@ reduceHandles(const std::string & regionName,
 
 } // file scope
 
+#if 0
 std::shared_ptr<ComputeEvent>
 MultiComputeQueue::
 launch(const std::string & opName,
@@ -432,6 +535,40 @@ launch(const std::string & opName,
         auto ev = queues[i]->launch(opName, multiInfo->boundKernels[i], grid, unpackedPrereqs[i]);
         events.emplace_back(std::move(ev));
     }
+
+    return std::make_shared<MultiComputeEvent>(std::move(events));
+}
+#endif
+
+std::shared_ptr<ComputeEvent>
+MultiComputeQueue::
+launch(const std::string & opName,
+       const BoundComputeKernel & kernel,
+       const std::vector<uint32_t> & grid,
+       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+{
+    const MultiBindInfo * multiInfo = dynamic_cast<const MultiBindInfo *>(kernel.bindInfo.get());
+    ExcAssert(multiInfo);
+
+    const MultiComputeKernel * multiKernel = dynamic_cast<const MultiComputeKernel *>(kernel.owner);
+    ExcAssert(multiKernel);
+
+    std::vector<std::shared_ptr<ComputeEvent>> events;
+    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
+
+    constexpr bool compareMode = true;
+
+    if (compareMode)
+        multiKernel->compareParameters(true /* pre */, kernel);
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        // Launch on the child queue
+        auto ev = queues[i]->launch(opName, multiInfo->boundKernels[i], grid, unpackedPrereqs[i]);
+        events.emplace_back(std::move(ev));
+    }
+
+    if (compareMode)
+        multiKernel->compareParameters(false /* pre */, kernel);
 
     return std::make_shared<MultiComputeEvent>(std::move(events));
 }
