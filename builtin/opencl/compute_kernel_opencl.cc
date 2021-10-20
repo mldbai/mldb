@@ -519,6 +519,58 @@ getQueue()
     return std::make_shared<OpenCLComputeQueue>(this);
 }
 
+MemoryRegionHandle
+OpenCLComputeContext::
+getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
+             size_t startOffsetInBytes, size_t lengthInBytes,
+             size_t align, const std::type_info & type, bool isConst)
+{
+    auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
+    ExcAssert(info);
+
+    if (info->isConst && !isConst) {
+        throw MLDB::Exception("getSliceImpl: attempt to take a non-const slice of a const region");
+    }
+
+    if (*info->type != type) {
+        throw MLDB::Exception("getSliceImpl: attempt to cast a slice");
+    }
+
+    if (startOffsetInBytes % align != 0) {
+        throw MLDB::Exception("getSliceImpl: unaligned start offset");
+    }
+
+    if (lengthInBytes % align != 0) {
+        throw MLDB::Exception("getSliceImpl: unaligned length");
+    }
+
+    if (startOffsetInBytes > info->lengthInBytes) {
+        throw MLDB::Exception("getSliceImpl: start offset past the end");
+    }
+
+    if (startOffsetInBytes + lengthInBytes > info->lengthInBytes) {
+        throw MLDB::Exception("getSliceImpl: end offset past the end");
+    }
+
+    auto newInfo = std::make_shared<MemoryRegionInfo>();
+
+    cl_buffer_region region = { startOffsetInBytes, lengthInBytes };
+    cl_int error = CL_NONE;
+    OpenCLMemObject mem(clCreateSubBuffer(info->mem, isConst ? CL_MEM_READ_ONLY : CL_MEM_READ_WRITE,
+                        CL_BUFFER_CREATE_TYPE_REGION, &region, &error),
+                        true /* already retained */);
+    checkOpenCLError(error, "clCreateSubBuffer");
+
+    newInfo->mem = std::move(mem);
+    newInfo->isConst = isConst;
+    newInfo->type = &type;
+    newInfo->name = regionName;
+    newInfo->lengthInBytes = lengthInBytes;
+    newInfo->parent = info;
+    newInfo->ownerOffset = startOffsetInBytes;
+
+    return { newInfo };
+}
 
 
 // OpenCLComputeKernel

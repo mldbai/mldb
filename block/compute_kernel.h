@@ -808,6 +808,12 @@ struct ComputeContext {
     virtual std::shared_ptr<ComputeQueue>
     getQueue() = 0;
 
+    // Implement a slice operation (to get a subrange of a range)
+    virtual MemoryRegionHandle
+    getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
+                 size_t startOffsetInBytes, size_t lengthInBytes,
+                 size_t align, const std::type_info & type, bool isConst) = 0;
+
     template<typename T>
     ComputePromiseT<MemoryArrayHandleT<const T>>
     transferToDeviceImmutable(const std::string & opName, const FrozenMemoryRegionT<T> & obj)
@@ -915,6 +921,17 @@ struct ComputeContext {
         return managePinnedHostRegion(regionName, std::as_bytes(obj), alignof(T),
                                       typeid(std::remove_const_t<T>), std::is_const_v<T>)
             .then(std::move(convert));
+    }
+
+    template<typename T>
+    MemoryArrayHandleT<T>
+    getArraySlice(const MemoryArrayHandleT<T> & array, const std::string & regionName, 
+                  size_t startOffset, size_t length)
+    {
+        auto genericSlice = getSliceImpl(array, regionName,
+                                         startOffset * sizeof(T), length * sizeof(T), alignof(T),
+                                         typeid(std::remove_const_t<T>), std::is_const_v<T>);
+        return { genericSlice.handle };
     }
 };
 

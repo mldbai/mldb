@@ -312,6 +312,57 @@ struct HostComputeContext: public ComputeContext {
     {
         return std::make_shared<HostComputeQueue>(this);
     }
+
+    virtual MemoryRegionHandle
+    getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
+                 size_t startOffsetInBytes, size_t lengthInBytes,
+                 size_t align, const std::type_info & type, bool isConst) override
+    {
+        ExcAssert(handle.handle);
+        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(handle.handle);
+        if (!info) {
+            auto & target = *handle.handle;
+            throw MLDB::Exception("HostComputeContext: our info was " + demangle(typeid(target)));
+        }
+        ExcAssert(info);
+
+        if (info->isConst && !isConst) {
+            throw MLDB::Exception("getSliceImpl: attempt to take a non-const slice of a const region");
+        }
+
+        if (*info->type != type) {
+            throw MLDB::Exception("getSliceImpl: attempt to cast a slice");
+        }
+
+        if (startOffsetInBytes % align != 0) {
+            throw MLDB::Exception("getSliceImpl: unaligned start offset");
+        }
+
+        if (lengthInBytes % align != 0) {
+            throw MLDB::Exception("getSliceImpl: unaligned length");
+        }
+
+        if (startOffsetInBytes > info->lengthInBytes) {
+            throw MLDB::Exception("getSliceImpl: start offset past the end");
+        }
+
+        if (startOffsetInBytes + lengthInBytes > info->lengthInBytes) {
+            throw MLDB::Exception("getSliceImpl: end offset past the end");
+        }
+
+        auto newInfo = std::make_shared<MemoryRegionInfo>();
+        newInfo->data = (const char *)info->data + startOffsetInBytes;
+        newInfo->handle = info->handle;
+        newInfo->isConst = isConst;
+        newInfo->type = &type;
+        newInfo->name = regionName;
+        newInfo->lengthInBytes = lengthInBytes;
+        newInfo->parent = info;
+        newInfo->ownerOffset = startOffsetInBytes;
+
+        return { newInfo };
+    }
+
 };
 
 struct HostComputeRuntime: public ComputeRuntime {

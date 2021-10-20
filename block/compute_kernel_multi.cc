@@ -24,6 +24,11 @@ DEFINE_ENUM_DESCRIPTION_INLINE(ComputeMultiMode)
 namespace {
 
 struct MultiMemoryRegionInfo: public MemoryRegionHandleInfo {
+    MultiMemoryRegionInfo(std::vector<MemoryRegionHandle> handles)
+        : handles(std::move(handles))
+    {
+    }
+
     virtual ~MultiMemoryRegionInfo() = default;
 
     // Handles from each of the contexts
@@ -502,8 +507,7 @@ reduceHandles(const std::string & regionName,
 {
     auto getResult = [type=&type, isConst, length, regionName] (const std::vector<MemoryRegionHandle> & handles) -> MemoryRegionHandle
     {
-        auto result = std::make_shared<MultiMemoryRegionInfo>();
-        result->handles = std::move(handles);
+        auto result = std::make_shared<MultiMemoryRegionInfo>(std::move(handles));
         result->type = type;
         result->isConst = isConst;
         result->lengthInBytes = length;
@@ -723,6 +727,33 @@ getQueue()
         queues.emplace_back(c->getQueue());
 
     return std::make_shared<MultiComputeQueue>(this, std::move(queues));
+}
+
+MemoryRegionHandle
+MultiComputeContext::
+getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
+             size_t startOffsetInBytes, size_t lengthInBytes,
+             size_t align, const std::type_info & type, bool isConst)
+{
+    auto info = std::dynamic_pointer_cast<const MultiMemoryRegionInfo>(std::move(handle.handle));
+    ExcAssert(info);
+
+    std::vector<MemoryRegionHandle> newHandles;
+    for (size_t i = 0;  i < contexts.size();  ++i) {
+        newHandles.emplace_back(contexts[i]->getSliceImpl(info->handles[i], regionName,
+                                                           startOffsetInBytes, lengthInBytes,
+                                                           align, type, isConst));
+    }
+
+    auto newInfo = std::make_shared<MultiMemoryRegionInfo>(std::move(newHandles));
+    newInfo->isConst = isConst;
+    newInfo->type = &type;
+    newInfo->name = regionName;
+    newInfo->lengthInBytes = lengthInBytes;
+    newInfo->parent = info;
+    newInfo->ownerOffset = startOffsetInBytes;
+
+    return { newInfo };
 }
 
 

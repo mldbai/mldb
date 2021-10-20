@@ -117,6 +117,11 @@ struct MultiComputeContext: public ComputeContext {
                            std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst) override;
 
+    virtual MemoryRegionHandle
+    getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
+                 size_t startOffsetInBytes, size_t lengthInBytes,
+                 size_t align, const std::type_info & type, bool isConst) override;
+
     virtual std::shared_ptr<ComputeQueue>
     getQueue() override;
 };

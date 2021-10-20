@@ -92,7 +92,7 @@ struct MemoryRegionHandleInfo {
     const std::type_info * type = nullptr;  //< non-CV qualified type in the array
     bool isConst = true;              //< Is the referred to memory constant or mutable?
     ssize_t lengthInBytes = -1;
-    MemoryRegionHandleInfo * parent = nullptr;  // Parent region (if we're part of a subrange)
+    std::weak_ptr<const MemoryRegionHandleInfo> parent;  // Parent region (if we're part of a subrange)
     ssize_t ownerOffset = -1;                   // Offset in our parent range
     std::string name;                           // Mnenomic name
 };
