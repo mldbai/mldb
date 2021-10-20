@@ -347,7 +347,7 @@ testAllCpu(int depth,
         {
             double score = std::get<0>(val);
 
-#if 1
+#if 0
             cerr << "CPU: rows "
                  << rows.rowCount() << " wAll " << jsonEncodeStr(rows.wAll)
                  << " feature " << feature << " score "
@@ -1275,6 +1275,7 @@ clearBucketsKernel(ComputeContext & context,
 {
     ExcAssertLess(partitionSplitsOffset + partition, partitionSplits.size());
     ExcAssertEqual(partitionSplitsOffset, numPartitions);
+    ExcAssertEqual(partitionSplitsOffset + numPartitions, partitionSplits.size());
 
     uint32_t numBuckets = bucketRange.range();
     ExcAssertEqual(numBuckets, numActiveBuckets);
