@@ -138,7 +138,7 @@ testFeatureKernel(ComputeContext & context,
     if (!featureActive[f])
         return;
 
-    ExcAssertLess(bucketNumbers[f + 1], allWOut.size());
+    ExcAssertLessEqual(bucketNumbers[f + 1], allWOut.size());
 
     ExcAssertEqual(rows.range(), numRows);  // We fake having this argument...
 
@@ -182,8 +182,8 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
         // Now test split points one by one
         for (unsigned j = 0;  j <= maxBucket;  ++j) {
 
-            //if (w[j].empty())
-            //    continue;                   
+            if (w[j].empty() && j != 0)
+                continue;                   
 
             if (wFalse.count() > 0 && wTrue.count() > 0) {
             
