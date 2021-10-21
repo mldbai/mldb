@@ -784,26 +784,51 @@ struct ComputeContext {
                  MemoryRegionInitialization initialization,
                  std::any initWith = std::any()) = 0;
 
+    virtual MemoryRegionHandle
+    allocateSyncImpl(const std::string & regionName,
+                     size_t length, size_t align,
+                     const std::type_info & type, bool isConst,
+                     MemoryRegionInitialization initialization,
+                     std::any initWith = std::any());
+
     virtual ComputePromiseT<MemoryRegionHandle>
     transferToDeviceImpl(const std::string & opName,
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) = 0;
 
+    virtual MemoryRegionHandle
+    transferToDeviceSyncImpl(const std::string & opName,
+                             FrozenMemoryRegion region,
+                             const std::type_info & type, bool isConst);
+
     virtual ComputePromiseT<FrozenMemoryRegion>
     transferToHostImpl(const std::string & opName,
                        MemoryRegionHandle handle) = 0;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncImpl(const std::string & opName,
+                           MemoryRegionHandle handle);
 
     virtual ComputePromiseT<MutableMemoryRegion>
     transferToHostMutableImpl(const std::string & opName,
                               MemoryRegionHandle handle) = 0;
 
+    virtual MutableMemoryRegion
+    transferToHostMutableSyncImpl(const std::string & opName,
+                                  MemoryRegionHandle handle);
+
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) = 0;
 
     virtual ComputePromiseT<MemoryRegionHandle>
-    managePinnedHostRegion(const std::string & opName,
-                           std::span<const std::byte> region, size_t align,
-                           const std::type_info & type, bool isConst) = 0;
+    managePinnedHostRegionImpl(const std::string & opName,
+                               std::span<const std::byte> region, size_t align,
+                               const std::type_info & type, bool isConst) = 0;
+
+    virtual MemoryRegionHandle
+    managePinnedHostRegionSyncImpl(const std::string & opName,
+                                   std::span<const std::byte> region, size_t align,
+                                   const std::type_info & type, bool isConst);
 
     virtual std::shared_ptr<ComputeQueue>
     getQueue() = 0;
@@ -854,16 +879,19 @@ struct ComputeContext {
     }
 
     template<typename T>
-    auto transferToHostSync(const std::string & opName, MemoryArrayHandleT<T> array)
+    FrozenMemoryRegionT<std::remove_const_t<T>>
+    transferToHostSync(const std::string & opName, MemoryArrayHandleT<T> array)
     {
-        return transferToHost(opName, array).move();
+        array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
+        return { transferToHostSyncImpl(opName, std::move(array)) };
     }
 
     template<typename T>
-    auto transferToHostMutableSync(const std::string & opName, MemoryArrayHandleT<T> array)
+    MutableMemoryRegionT<T>
+    transferToHostMutableSync(const std::string & opName, MemoryArrayHandleT<T> array)
     {
         static_assert(!std::is_const_v<T>, "mutable transfer requires non-const type");
-        return transferToHost(opName, array).move();
+        return transferToHostMutableSync(opName, std::move(array));
     }
 
     /** Transfers the array to the CPU so that it can be written from the CPU... but
@@ -873,7 +901,7 @@ struct ComputeContext {
     ComputePromiseT<MutableMemoryRegionT<T>>
     transferToHostUninitializedSync(const std::string & opName, MemoryArrayHandleT<T> array)
     {
-        return transferToHostMutableSync(opName, std::move(array)).move();
+        return transferToHostMutableSync(opName, std::move(array));
     }
 
     template<typename T>
@@ -887,6 +915,18 @@ struct ComputeContext {
 
         return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE)
             .then(std::move(convert));
+    }
+
+    template<typename T>
+    MemoryArrayHandleT<T>
+    allocUninitializedArraySync(const std::string & regionName, size_t size)
+    {
+        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
+        {
+            return { std::move(handle.handle) };
+        };
+
+        return allocateSyncImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE);
     }
 
     template<typename T>
@@ -909,6 +949,13 @@ struct ComputeContext {
         return manageMemoryRegion(regionName, static_cast<std::span<const T>>(obj));
     }
 
+    template<typename T>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    manageMemoryRegionSync(const std::string & regionName, const std::vector<T> & obj)
+    {
+        return manageMemoryRegionSync(regionName, static_cast<std::span<const T>>(obj));
+    }
+
     template<typename T, size_t N>
     ComputePromiseT<MemoryArrayHandleT<T>>
     manageMemoryRegion(const std::string & regionName, const std::span<const T, N> & obj)
@@ -918,9 +965,17 @@ struct ComputeContext {
             return { std::move(handle.handle) };
         };
 
-        return managePinnedHostRegion(regionName, std::as_bytes(obj), alignof(T),
+        return managePinnedHostRegionImpl(regionName, std::as_bytes(obj), alignof(T),
                                       typeid(std::remove_const_t<T>), std::is_const_v<T>)
             .then(std::move(convert));
+    }
+
+    template<typename T, size_t N>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    manageMemoryRegionSync(const std::string & regionName, const std::span<const T, N> & obj)
+    {
+        return { managePinnedHostRegionSyncImpl(regionName, std::as_bytes(obj), alignof(T),
+                                      typeid(std::remove_const_t<T>), std::is_const_v<T>) };
     }
 
     template<typename T>

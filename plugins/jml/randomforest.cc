@@ -874,11 +874,20 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
     auto doNothingKernel = context->getKernel("doNothing");
+    auto decodeRowsKernel = context->getKernel("decodeRows");
+    auto testFeatureKernel = context->getKernel("testFeature");
+    auto getPartitionSplitsKernel = context->getKernel("getPartitionSplits");
+    auto bestPartitionSplitKernel = context->getKernel("bestPartitionSplit");
+    auto clearBucketsKernel = context->getKernel("clearBuckets");
+    auto updatePartitionNumbersKernel = context->getKernel("updatePartitionNumbers");
+    auto updateBucketsKernel = context->getKernel("updateBuckets");
+    auto fixupBucketsKernel = context->getKernel("fixupBuckets");
 
-    auto boundDoNothingKernel = doNothingKernel->bind();
-
-    std::shared_ptr<ComputeEvent> runDoNothing
-        = queue->launch("loadKernels", boundDoNothingKernel, {}, {});
+    std::shared_ptr<ComputeEvent> runDoNothing;
+    {
+        auto boundDoNothingKernel = doNothingKernel->bind();
+        runDoNothing = queue->launch("loadKernels", boundDoNothingKernel, {}, {});
+    }
     
     // This one contains an expanded version of the row data, with one float
     // per row rather than bit-compressed.  It's expanded on the device so that
@@ -888,23 +897,24 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
-    auto decodeRowsKernel = context->getKernel("decodeRows");
 
-    auto boundKernel = decodeRowsKernel
-        ->bind(  "rowData",          rowDataPromise,
-                 "rowDataLength",    (uint32_t)rows.rowData.length(),
-                 "weightBits",       (uint16_t)rows.weightEncoder.weightBits,
-                 "exampleNumBits",   (uint16_t)rows.exampleNumBits,
-                 "numRows",          (uint32_t)numRows,
-                 "weightFormat",     rows.weightEncoder.weightFormat,
-                 "weightMultiplier", rows.weightEncoder.weightMultiplier,
-                 "weightData",       weightDataPromise,
-                 "decodedRowsOut",   expandedRowData);
+    std::shared_ptr<ComputeEvent> runDecodeRows;
+    {
+        auto boundKernel = decodeRowsKernel
+            ->bind(  "rowData",          rowDataPromise,
+                    "rowDataLength",    (uint32_t)rows.rowData.length(),
+                    "weightBits",       (uint16_t)rows.weightEncoder.weightBits,
+                    "exampleNumBits",   (uint16_t)rows.exampleNumBits,
+                    "numRows",          (uint32_t)numRows,
+                    "weightFormat",     rows.weightEncoder.weightFormat,
+                    "weightMultiplier", rows.weightEncoder.weightMultiplier,
+                    "weightData",       weightDataPromise,
+                    "decodedRowsOut",   expandedRowData);
 
-    std::shared_ptr<ComputeEvent> runDecodeRows
-        = queue->launch("decode rows", boundKernel, { (uint32_t)numRows },
-                        { rowDataPromise.event(), weightDataPromise.event() });
-    
+        runDecodeRows = queue->launch("decode rows", boundKernel, { (uint32_t)numRows },
+                            { rowDataPromise.event(), weightDataPromise.event() });
+    }
+
     std::vector<float> debugExpandedRowsCpu;
 
     if (debugKernelOutput) {
@@ -966,24 +976,23 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     //auto fillFirstBuckets
     //    = queue->enqueueFillArray("fill firstPartitionBuckets", devicePartitionBucketPool, W());
 
-    auto testFeatureKernel
-        = context->getKernel("testFeature");
+    std::shared_ptr<ComputeEvent> runTestFeatureKernel;
+    {
+        auto boundTestFeatureKernel = testFeatureKernel
+            ->bind( "decodedRows",                      expandedRowData,
+                    "numRows",                          (uint32_t)numRows,
+                    "bucketData",                       bucketDataPromise,
+                    "bucketDataOffsets",                deviceBucketDataOffsets,
+                    "bucketNumbers",                    deviceBucketNumbers,
+                    "bucketEntryBits",                  deviceBucketEntryBits,
+                    "featuresActive",                   deviceFeaturesActive,
+                    "partitionBuckets",                 firstPartitionBuckets);
 
-    auto boundTestFeatureKernel = testFeatureKernel
-        ->bind( "decodedRows",                      expandedRowData,
-                "numRows",                          (uint32_t)numRows,
-                "bucketData",                       bucketDataPromise,
-                "bucketDataOffsets",                deviceBucketDataOffsets,
-                "bucketNumbers",                    deviceBucketNumbers,
-                "bucketEntryBits",                  deviceBucketEntryBits,
-                "featuresActive",                   deviceFeaturesActive,
-                "partitionBuckets",                 firstPartitionBuckets);
-
-    std::shared_ptr<ComputeEvent> runTestFeatureKernel
-        = queue->launch("testFeature",
-                        boundTestFeatureKernel,
-                       { nf, numRows },
-                       { bucketDataPromise.event(), fillFirstBuckets.event(), runDecodeRows });
+        runTestFeatureKernel = queue->launch("testFeature",
+                            boundTestFeatureKernel,
+                        { nf, numRows },
+                        { bucketDataPromise.event(), fillFirstBuckets.event(), runDecodeRows });
+    }
 
     if (debugKernelOutput) {
         // Get that data back (by mapping), and verify it against the
@@ -1064,8 +1073,10 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         = context->allocUninitializedArray<PartitionSplit>("featurePartitionSplits", (1 << numIterations) * nf).get();
 
     // DEBUG ONLY, stops spurious differences between kernels
-    //queue->enqueueFillArray(deviceFeaturePartitionSplits, PartitionSplit());
-    //queue->enqueueFillArray(deviceAllPartitionSplits, PartitionSplit());
+    if (debugKernelOutput) {
+        queue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
+        queue->enqueueFillArray("debug clear allPartitionSplits", deviceAllPartitionSplitsPool, PartitionSplit());
+    }
 
     Date startDepth = Date::now();
 
@@ -1106,33 +1117,31 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                                      0, 2 * numPartitionsAtDepth);
 
 
-        auto getPartitionSplitsKernel
-            = context->getKernel("getPartitionSplits");
+        std::shared_ptr<ComputeEvent> runPartitionSplitsKernel;
+        {
+            auto boundGetPartitionSplitsKernel = getPartitionSplitsKernel
+                ->bind("totalBuckets",                   (uint32_t)numActiveBuckets,
+                    "numPartitions",                  (uint32_t)numPartitionsAtDepth,
+                    "bucketNumbers",                  deviceBucketNumbers,
+                    "featuresActive",                 deviceFeaturesActive,
+                    "featureIsOrdinal",               featureIsOrdinalPromise,
+                    "buckets",                        depthPartitionBuckets,
+                    "wAll",                           depthWAll,
+                    "featurePartitionSplitsOut",      depthFeaturePartitionSplits);
 
-        auto boundGetPartitionSplitsKernel = getPartitionSplitsKernel
-            ->bind("totalBuckets",                   (uint32_t)numActiveBuckets,
-                   "numPartitions",                  (uint32_t)numPartitionsAtDepth,
-                   "bucketNumbers",                  deviceBucketNumbers,
-                   "featuresActive",                 deviceFeaturesActive,
-                   "featureIsOrdinal",               featureIsOrdinalPromise,
-                   "buckets",                        depthPartitionBuckets,
-                   "wAll",                           depthWAll,
-                   "featurePartitionSplitsOut",      depthFeaturePartitionSplits);
+            //cerr << endl << endl << " depth " << depth << " numPartitions "
+            //     << numPartitionsAtDepth << " buckets "
+            //     << numPartitionsAtDepth * numActiveBuckets << endl;
 
-        //cerr << endl << endl << " depth " << depth << " numPartitions "
-        //     << numPartitionsAtDepth << " buckets "
-        //     << numPartitionsAtDepth * numActiveBuckets << endl;
-
-        std::shared_ptr<ComputeEvent> runPartitionSplitsKernel
-            = queue->launch("getPartitionSplits",
-                            boundGetPartitionSplitsKernel,
-                           { 64 /* worker ID */, nf, numPartitionsAtDepth },
-                           { previousIteration, copyWAllPromise.event(), initializeWAllPromise.event()});
+            runPartitionSplitsKernel
+                = queue->launch("getPartitionSplits",
+                                boundGetPartitionSplitsKernel,
+                            { 64 /* worker ID */, nf, numPartitionsAtDepth },
+                            { previousIteration, copyWAllPromise.event(), initializeWAllPromise.event()});
+        }
 
         // Now we have the best split for each feature for each partition,
         // find the best one per partition and finally record it.
-        auto bestPartitionSplitKernel
-            = context->getKernel("bestPartitionSplit");
 
         // What is our offset into partitionSplits?  In other words, where do
         // the partitions for this iteration start?  By skipping the first
@@ -1141,18 +1150,21 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         // launch parameters, but this way is more clear.
         uint32_t partitionSplitsOffset = numPartitionsAtDepth;
         
-        auto boundBestPartitionSplitKernel = bestPartitionSplitKernel
-            ->bind("numFeatures",            (uint32_t)nf,
-                  "featuresActive",         deviceFeaturesActive,
-                  "featurePartitionSplits", depthFeaturePartitionSplits,
-                  "allPartitionSplitsOut",  depthAllPartitionSplits,
-                  "partitionSplitsOffset",  partitionSplitsOffset);
+        std::shared_ptr<ComputeEvent> runBestPartitionSplitKernel;
+        {
+            auto boundBestPartitionSplitKernel = bestPartitionSplitKernel
+                ->bind("numFeatures",            (uint32_t)nf,
+                    "featuresActive",         deviceFeaturesActive,
+                    "featurePartitionSplits", depthFeaturePartitionSplits,
+                    "allPartitionSplitsOut",  depthAllPartitionSplits,
+                    "partitionSplitsOffset",  partitionSplitsOffset);
 
-        std::shared_ptr<ComputeEvent> runBestPartitionSplitKernel
-            = queue->launch("bestPartitionSplit",
-                            boundBestPartitionSplitKernel,
-                            { numPartitionsAtDepth },
-                            { runPartitionSplitsKernel });
+            runBestPartitionSplitKernel
+                = queue->launch("bestPartitionSplit",
+                                boundBestPartitionSplitKernel,
+                                { numPartitionsAtDepth },
+                                { runPartitionSplitsKernel });
+        }
 
         // These are parallel CPU data structures for the on-device ones,
         // into which we copy the input data required to re-run the
@@ -1338,88 +1350,87 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         // First we clear everything on the right side, ready to accumulate
         // the new buckets there.
 
-        auto clearBucketsKernel
-            = context->getKernel("clearBuckets");
+        std::shared_ptr<ComputeEvent> runClearBucketsKernel;
+        {
+            auto boundClearBucketsKernel = clearBucketsKernel
+                ->bind("bucketsOut",             nextDepthPartitionBuckets,
+                    "wAllOut",                nextDepthWAll,
+                    "allPartitionSplits",     depthAllPartitionSplits,
+                    "numActiveBuckets",       (uint32_t)numActiveBuckets,
+                    "partitionSplitsOffset",  (uint32_t)numPartitionsAtDepth);
 
-        auto boundClearBucketsKernel = clearBucketsKernel
-            ->bind("bucketsOut",             nextDepthPartitionBuckets,
-                   "wAllOut",                nextDepthWAll,
-                   "allPartitionSplits",     depthAllPartitionSplits,
-                   "numActiveBuckets",       (uint32_t)numActiveBuckets,
-                   "partitionSplitsOffset",  (uint32_t)numPartitionsAtDepth);
+            std::shared_ptr<ComputeEvent> runClearBucketsKernel
+                = queue->launch("clear buckets",
+                                boundClearBucketsKernel,
+                                { numPartitionsAtDepth, numActiveBuckets },
+                                { runPartitionSplitsKernel });
+        }
 
-        std::shared_ptr<ComputeEvent> runClearBucketsKernel
-            = queue->launch("clear buckets",
-                            boundClearBucketsKernel,
-                            { numPartitionsAtDepth, numActiveBuckets },
-                            { runPartitionSplitsKernel });
- 
-        // While we're doint that, we can also calculate our new
-        // partition numbers (for each row)
-        auto updatePartitionNumbersKernel
-            = context->getKernel("updatePartitionNumbers");
+        std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel;
+        {
+            // While we're doint that, we can also calculate our new
+            // partition numbers (for each row)
+            auto boundUpdatePartitionNumbersKernel = updatePartitionNumbersKernel
+                ->bind("partitionSplitsOffset",          (uint32_t)numPartitionsAtDepth,  // rightOffset
+                    "partitions",                     partitionsPromise,
+                    "directions",                     directionsPromise,
+                    "numRows",                        numRows,
+                    "allPartitionSplits",             depthAllPartitionSplits,
+                    "bucketData",                     bucketDataPromise,
+                    "bucketDataOffsets",              deviceBucketDataOffsets,
+                    "bucketNumbers",                  deviceBucketNumbers,
+                    "bucketEntryBits",                deviceBucketEntryBits,
+                    "featureIsOrdinal",               featureIsOrdinalPromise);
 
-        auto boundUpdatePartitionNumbersKernel = updatePartitionNumbersKernel
-            ->bind("partitionSplitsOffset",          (uint32_t)numPartitionsAtDepth,  // rightOffset
-                   "partitions",                     partitionsPromise,
-                   "directions",                     directionsPromise,
-                   "numRows",                        numRows,
-                   "allPartitionSplits",             depthAllPartitionSplits,
-                   "bucketData",                     bucketDataPromise,
-                   "bucketDataOffsets",              deviceBucketDataOffsets,
-                   "bucketNumbers",                  deviceBucketNumbers,
-                   "bucketEntryBits",                deviceBucketEntryBits,
-                   "featureIsOrdinal",               featureIsOrdinalPromise);
-
-        std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel
-            = queue->launch("update partition numbers",
-                            boundUpdatePartitionNumbersKernel, { numRows },
-                            { runPartitionSplitsKernel });
-
+            std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel
+                = queue->launch("update partition numbers",
+                                boundUpdatePartitionNumbersKernel, { numRows },
+                                { runPartitionSplitsKernel });
+        }
         
-
         // Now the right side buckets are clear, we can transfer the weights
         // for the examples who have changed bucket from the left to the right.
-        auto updateBucketsKernel
-            = context->getKernel("updateBuckets");
 
-        auto boundUpdateBucketsKernel = updateBucketsKernel
-            ->bind("partitionSplitsOffset",         (uint32_t)numPartitionsAtDepth,  // rightOffset
-                  "numActiveBuckets",               (uint32_t)numActiveBuckets,
-                  "partitions",                     partitionsPromise,
-                  "directions",                     directionsPromise,
-                  "buckets",                        nextDepthPartitionBuckets,
-                  "wAll",                           nextDepthWAll,
-                  "decodedRows",                    expandedRowData,
-                  "numRows",                        (uint32_t)numRows,
-                  "bucketData",                     bucketDataPromise,
-                  "bucketDataOffsets",              deviceBucketDataOffsets,
-                  "bucketNumbers",                  deviceBucketNumbers,
-                  "bucketEntryBits",                deviceBucketEntryBits,
-                  "featuresActive",                 deviceFeaturesActive,
-                  "featureIsOrdinal",               featureIsOrdinalPromise);
+        std::shared_ptr<ComputeEvent> runUpdateBucketsKernel;
+        {
+            auto boundUpdateBucketsKernel = updateBucketsKernel
+                ->bind("partitionSplitsOffset",         (uint32_t)numPartitionsAtDepth,  // rightOffset
+                    "numActiveBuckets",               (uint32_t)numActiveBuckets,
+                    "partitions",                     partitionsPromise,
+                    "directions",                     directionsPromise,
+                    "buckets",                        nextDepthPartitionBuckets,
+                    "wAll",                           nextDepthWAll,
+                    "decodedRows",                    expandedRowData,
+                    "numRows",                        (uint32_t)numRows,
+                    "bucketData",                     bucketDataPromise,
+                    "bucketDataOffsets",              deviceBucketDataOffsets,
+                    "bucketNumbers",                  deviceBucketNumbers,
+                    "bucketEntryBits",                deviceBucketEntryBits,
+                    "featuresActive",                 deviceFeaturesActive,
+                    "featureIsOrdinal",               featureIsOrdinalPromise);
 
-        std::shared_ptr<ComputeEvent> runUpdateBucketsKernel
-            = queue->launch("update buckets",
-                            boundUpdateBucketsKernel, { numRows, nf + 1 /* +1 is wAll */},
-                            { runClearBucketsKernel, runUpdatePartitionNumbersKernel });
-        
-        auto fixupBucketsKernel
-            = context->getKernel("fixupBuckets");
+            std::shared_ptr<ComputeEvent> runUpdateBucketsKernel
+                = queue->launch("update buckets",
+                                boundUpdateBucketsKernel, { numRows, nf + 1 /* +1 is wAll */},
+                                { runClearBucketsKernel, runUpdatePartitionNumbersKernel });
+        }
 
-        auto boundFixupBucketsKernel = fixupBucketsKernel
-            ->bind("buckets",                    nextDepthPartitionBuckets,
-                   "wAll",                       nextDepthWAll,
-                   "allPartitionSplits",         depthAllPartitionSplits,
-                   "numActiveBuckets",           (uint32_t)numActiveBuckets,
-                   "partitionSplitsOffset",      (uint32_t)numPartitionsAtDepth);
+        std::shared_ptr<ComputeEvent> runFixupBucketsKernel;
+        {
+            auto boundFixupBucketsKernel = fixupBucketsKernel
+                ->bind("buckets",                    nextDepthPartitionBuckets,
+                    "wAll",                       nextDepthWAll,
+                    "allPartitionSplits",         depthAllPartitionSplits,
+                    "numActiveBuckets",           (uint32_t)numActiveBuckets,
+                    "partitionSplitsOffset",      (uint32_t)numPartitionsAtDepth);
 
-        std::shared_ptr<ComputeEvent> runFixupBucketsKernel
-            = queue->launch("fixup buckets",
-                            boundFixupBucketsKernel,
-                            { numPartitionsAtDepth, numActiveBuckets },
-                            { runUpdateBucketsKernel });
- 
+            std::shared_ptr<ComputeEvent> runFixupBucketsKernel
+                = queue->launch("fixup buckets",
+                                boundFixupBucketsKernel,
+                                { numPartitionsAtDepth, numActiveBuckets },
+                                { runUpdateBucketsKernel });
+        }
+
         if (debugKernelOutput) {
 
             // These give the partition numbers for the left (.first) and right (.second) of each partition
@@ -1466,7 +1477,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             // version.
 
             // Construct the CPU version of buckets
-            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", depthPartitionBuckets);
+            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", nextDepthPartitionBuckets);
             auto bucketsDevice = mappedBuckets.getConstSpan();
 
             for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
@@ -1492,7 +1503,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
             }
 
             // 2.  Map back the wAll values and compare against the CPU version
-            auto mappedWAll = context->transferToHostSync("debug wAll", depthWAll);
+            auto mappedWAll = context->transferToHostSync("debug wAll", nextDepthWAll);
             auto wAllDevice = mappedWAll.getConstSpan();
 
             for (size_t i = 0;  i < numPartitionsAtDepth;  ++i) {
@@ -1566,8 +1577,11 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     cerr << "numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
 
     // Get all the data back...
+    cerr << "begin mapping all partition splits" << endl;
     auto allPartitionSplitsRegion = context->transferToHostSync("partitionSplits to CPU", deviceAllPartitionSplitsPool);
     std::span<const PartitionSplit> allPartitionSplits = allPartitionSplitsRegion.getConstSpan();
+    cerr << "end mapping partition splits; data is at " << allPartitionSplits.data() << endl;
+
     auto bucketsUnrolledRegion = context->transferToHostSync("partitionBuckets to CPU", devicePartitionBucketPool);
     std::span<const W> bucketsUnrolled = bucketsUnrolledRegion.getConstSpan();
     auto partitionsRegion = context->transferToHostSync("partitions to CPU", partitionsPromise.get());
@@ -1581,8 +1595,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     std::map<PartitionIndex, PartitionSplit> allSplits;
 
-    for (size_t i = 1;  i < numPartitionsAtDepth;  ++i) {
-        break;
+    for (size_t i = 1;  i < numPartitionsAtDepth & i < 128;  ++i) {
         cerr << "PARTITION " << i << " " << PartitionIndex(i) << endl;
         cerr << jsonEncode(allPartitionSplits[i]) << endl;
     }
@@ -1601,6 +1614,9 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         auto & split = allPartitionSplits[position];
 
+        if (index != split.index) {
+            cerr << "index " << index << " split.index " << split.index << " split " << jsonEncodeStr(split) << endl;
+        }
         //cerr << "  split " << split.index << " = " << jsonEncodeStr(split) << endl;
 
         ExcAssertEqual(index, split.index);

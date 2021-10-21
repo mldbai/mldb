@@ -14,6 +14,32 @@ namespace MLDB {
 
 struct OpenCLComputeContext;
 
+#if 0
+struct ComputeTraceEvent {
+};
+
+struct ComputeTracer {
+    virtual ~ComputeTracer() = default;
+
+    struct StackOperation {
+        StackOperation(const std::string & name, std::unique_ptr<ComputeTraceEvent> event)
+            : name(name), event(event)
+        {
+            event->begin(name);
+        }
+
+        std::string name;
+        std::unique_ptr<ComputeTraceEvent> event;
+    };
+
+    struct Operation {
+        std::string context;
+        std::shared_ptr<ComputeTraceEvent>
+    };
+
+};
+#endif
+
 struct OpenCLComputeProfilingInfo: public ComputeProfilingInfo {
     OpenCLComputeProfilingInfo(OpenCLProfilingInfo info);
     virtual ~OpenCLComputeProfilingInfo() = default;
@@ -113,7 +139,7 @@ struct OpenCLComputeContext: public ComputeContext {
         }
     };
 
-    OpenCLMemObject getMemoryRegion(const MemoryRegionHandleInfo & handle) const;
+    const OpenCLMemObject & getMemoryRegion(const MemoryRegionHandleInfo & handle) const;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     allocateImpl(const std::string & opName,
@@ -123,24 +149,49 @@ struct OpenCLComputeContext: public ComputeContext {
                  MemoryRegionInitialization initialization,
                  std::any initWith = std::any()) override;
 
+    virtual MemoryRegionHandle
+    allocateSyncImpl(const std::string & regionName,
+                     size_t length, size_t align,
+                     const std::type_info & type, bool isConst,
+                     MemoryRegionInitialization initialization,
+                     std::any initWith = std::any()) override;
+
     virtual ComputePromiseT<MemoryRegionHandle>
     transferToDeviceImpl(const std::string & opName,
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) override;
 
+    virtual MemoryRegionHandle
+    transferToDeviceSyncImpl(const std::string & opName,
+                             FrozenMemoryRegion region,
+                             const std::type_info & type, bool isConst) override;
+
     virtual ComputePromiseT<FrozenMemoryRegion>
     transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override;
 
+    virtual FrozenMemoryRegion
+    transferToHostSyncImpl(const std::string & opName,
+                           MemoryRegionHandle handle) override;
+
     virtual ComputePromiseT<MutableMemoryRegion>
     transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override;
+
+    virtual MutableMemoryRegion
+    transferToHostMutableSyncImpl(const std::string & opName,
+                                  MemoryRegionHandle handle) override;
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
-    managePinnedHostRegion(const std::string & opName,
-                           std::span<const std::byte> region, size_t align,
-                           const std::type_info & type, bool isConst) override;
+    managePinnedHostRegionImpl(const std::string & opName,
+                               std::span<const std::byte> region, size_t align,
+                               const std::type_info & type, bool isConst) override;
+
+    virtual MemoryRegionHandle
+    managePinnedHostRegionSyncImpl(const std::string & opName,
+                                   std::span<const std::byte> region, size_t align,
+                                   const std::type_info & type, bool isConst) override;
 
     virtual std::shared_ptr<ComputeQueue>
     getQueue() override;

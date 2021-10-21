@@ -14,6 +14,8 @@
 #include "mldb/types/annotated_exception.h"
 #include <regex>
 #include <iostream>
+#include "mldb/utils/ansi.h"
+#include "mldb/utils/environment.h"
 
 using namespace std;
 
@@ -133,9 +135,19 @@ printCode(cl_int returnCode)
     return clGetErrorString(returnCode);
 }
 
+EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_TRACE_API_CALLS", 1);
+
 void checkOpenCLError(cl_int returnCode,
                       const char * operation)
 {
+    if (OPENCL_TRACE_API_CALLS.get()) {
+        using namespace MLDB::ansi;
+        std::string toDump = (string)ansi_str_yellow() + "OPENCL: " + ansi_str_bold() + operation
+                           + ansi_str_reset() + ansi_str_yellow() + " returned "
+                           + OpenCLException::printCode(returnCode) + ansi_str_reset() + "\n";
+        cerr << toDump << flush;
+    }
+
     if (returnCode == CL_SUCCESS)
         return;
     throw OpenCLException(returnCode, operation);

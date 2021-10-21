@@ -349,8 +349,8 @@ enqueueFillArrayImpl(const std::string & opName,
         case MemoryRegionInitialization::INIT_BLOCK_FILLED: {
             auto kernel = owner->getKernel("__blockFillArray");
             auto block = std::any_cast<std::span<const std::byte>>(arg);
-            auto blockRegion = owner->managePinnedHostRegion(opName + " pin block", block, 1 /* align */,
-                                                             typeid(std::byte), true /* isConst */);
+            auto blockRegion = owner->managePinnedHostRegionImpl(opName + " pin block", block, 1 /* align */,
+                                                                 typeid(std::byte), true /* isConst */);
             MemoryArrayHandleT<const char> blockHandle{std::move(blockRegion.move().handle)};
             auto bound = kernel->bind("region", region,
                                       "startOffsetInBytes", (uint64_t)startOffsetInBytes,
@@ -367,6 +367,55 @@ enqueueFillArrayImpl(const std::string & opName,
         }
     }
     throw MLDB::Exception("Unknown fillArray implementation");
+}
+
+
+// ComputeContext
+
+MemoryRegionHandle
+ComputeContext::
+allocateSyncImpl(const std::string & regionName,
+                    size_t length, size_t align,
+                    const std::type_info & type, bool isConst,
+                    MemoryRegionInitialization initialization,
+                    std::any initWith)
+{
+    return allocateImpl(regionName, length, align, type, isConst, initialization,
+                        std::move(initWith)).move();
+}
+
+MemoryRegionHandle
+ComputeContext::
+transferToDeviceSyncImpl(const std::string & opName,
+                            FrozenMemoryRegion region,
+                            const std::type_info & type, bool isConst)
+{
+    return transferToDeviceImpl(opName, std::move(region), type, isConst).move();
+}
+
+FrozenMemoryRegion
+ComputeContext::
+transferToHostSyncImpl(const std::string & opName,
+                        MemoryRegionHandle handle)
+{
+    return transferToHostImpl(opName, std::move(handle)).move();
+}
+
+MutableMemoryRegion
+ComputeContext::
+transferToHostMutableSyncImpl(const std::string & opName,
+                                MemoryRegionHandle handle)
+{
+    return transferToHostMutableImpl(opName, std::move(handle)).move();   
+}
+
+MemoryRegionHandle
+ComputeContext::
+managePinnedHostRegionSyncImpl(const std::string & opName,
+                                std::span<const std::byte> region, size_t align,
+                                const std::type_info & type, bool isConst)
+{
+    return managePinnedHostRegionImpl(opName, region, align, type, isConst).move();
 }
 
 

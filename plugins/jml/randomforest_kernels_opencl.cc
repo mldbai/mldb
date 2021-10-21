@@ -2472,7 +2472,7 @@ static struct RegisterKernels {
             result->modifyGrid = [=] (std::vector<size_t> & grid)
             {
                 ExcAssertEqual(grid.size(), 1);
-                grid[1] = 4096;  // don't do one launch per row, the kernel will iterate
+                grid[0] = 4096;  // don't do one launch per row, the kernel will iterate
             };
 
             result->setComputeFunction(program, "decompressRowsKernel", { 256 });

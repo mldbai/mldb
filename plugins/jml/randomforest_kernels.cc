@@ -182,8 +182,8 @@ chooseSplitKernel(const W * w /* at least maxBucket + 1 entries */,
         // Now test split points one by one
         for (unsigned j = 0;  j <= maxBucket;  ++j) {
 
-            if (w[j].empty() && j != 0)
-                continue;                   
+            //if (w[j].empty() && j != 0)
+            //    continue;                   
 
             if (wFalse.count() > 0 && wTrue.count() > 0) {
             
@@ -1229,9 +1229,9 @@ getPartitionSplitsKernel(ComputeContext & context,
     int endBucket = bucketNumbers[f + 1];
     int maxBucket = endBucket - startBucket - 1;
     const W * wFeature = buckets.data() + (p * totalBuckets) + startBucket;
-    result.feature = f;
     std::tie(result.score, result.value, result.left, result.right)
         = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
+    result.feature = result.score == INFINITY ? -1 : f;
     result.index = p + np;  // implicit
 }
 
@@ -1321,9 +1321,15 @@ updatePartitionNumbersKernel(ComputeContext & context,
     BucketList featureBuckets[nf];
 
     for (uint32_t r: rowRange) {
+        bool debug = (r == 845 || r == 3006 || r == 3758);
+
         auto partition = partitions[r].partition();
         int splitFeature = partitionSplits[partition].feature;
                 
+        if (debug) {
+            cerr << "r = " << r << " partition = " << partition << " splitFeature = " << splitFeature << endl;
+        }
+
         if (splitFeature == -1) {
             // reached a leaf here, nothing to split
             directions[r] = 0;
@@ -1350,6 +1356,13 @@ updatePartitionNumbersKernel(ComputeContext & context,
         // 0 = left to right, 1 = right to left
         uint32_t direction = partitionSplits[partition].transferDirection() == RL;
         directions[r] = direction;
+
+        if (debug) {
+            cerr << "splitValue = " << splitValue << " bucket = " << bucket << " ordinal = " << ordinal
+                 << " side = " << side << " direction = " << direction << endl;
+            cerr << "left.count = " << partitionSplits[partition].left.count() << " right.count = "
+                 << partitionSplits[partition].right.count() << endl;
+        }
 
         // Set the new partition number
         partitions[r] = partition + side * partitionSplitsOffset;

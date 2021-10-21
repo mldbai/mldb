@@ -207,7 +207,7 @@ struct HostComputeContext: public ComputeContext {
                  size_t length, size_t align,
                  const std::type_info & type, bool isConst,
                  MemoryRegionInitialization initialization,
-                 std::any initWith = std::any())
+                 std::any initWith = std::any()) override
     {
         MutableMemoryRegion mem;
 
@@ -246,7 +246,7 @@ struct HostComputeContext: public ComputeContext {
     virtual ComputePromiseT<MemoryRegionHandle>
     transferToDeviceImpl(const std::string & opName,
                          FrozenMemoryRegion region,
-                         const std::type_info & type, bool isConst)
+                         const std::type_info & type, bool isConst) override
     {
         auto handle = std::make_shared<MemoryRegionInfo>();
         handle->lengthInBytes = region.length();
@@ -257,10 +257,10 @@ struct HostComputeContext: public ComputeContext {
     }
 
     virtual ComputePromiseT<FrozenMemoryRegion>
-    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
+    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override
     {
         ExcAssert(handle.handle);
-        auto info = std::static_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
+        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
         ExcAssert(info);
 
         FrozenMemoryRegion raw(info, (char *)info->data, info->lengthInBytes);
@@ -268,9 +268,10 @@ struct HostComputeContext: public ComputeContext {
     }
 
     virtual ComputePromiseT<MutableMemoryRegion>
-    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
+    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override
     {
-        auto info = std::static_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
+        ExcAssert(handle.handle);
+        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
         ExcAssert(info);
 
         MutableMemoryRegion raw(info, (char *)info->data, info->lengthInBytes );
@@ -279,7 +280,7 @@ struct HostComputeContext: public ComputeContext {
     }
 
     virtual std::shared_ptr<ComputeKernel>
-    getKernel(const std::string & kernelName)
+    getKernel(const std::string & kernelName) override
     {
         std::unique_lock guard(kernelRegistryMutex);
         auto it = kernelRegistry.find(kernelName);
@@ -293,9 +294,9 @@ struct HostComputeContext: public ComputeContext {
     }
 
     virtual ComputePromiseT<MemoryRegionHandle>
-    managePinnedHostRegion(const std::string & regionName,
-                           std::span<const std::byte> region, size_t align,
-                           const std::type_info & type, bool isConst)
+    managePinnedHostRegionImpl(const std::string & regionName,
+                               std::span<const std::byte> region, size_t align,
+                               const std::type_info & type, bool isConst) override
     {
         auto mem = backingStore->allocateWritable(region.size(), align);
         std::copy_n(region.data(), region.size(), (std::byte *)mem.data());
@@ -308,7 +309,7 @@ struct HostComputeContext: public ComputeContext {
     }
 
     virtual std::shared_ptr<ComputeQueue>
-    getQueue()
+    getQueue() override
     {
         return std::make_shared<HostComputeQueue>(this);
     }

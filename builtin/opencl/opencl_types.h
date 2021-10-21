@@ -1303,6 +1303,61 @@ struct OpenCLCommandQueue {
                                  offset, length, std::move(before));
     }
 
+    std::tuple<std::shared_ptr<void>, OpenCLEvent>
+    enqueueMapBufferImpl(cl_mem buffer,
+                         int flags,
+                         size_t offset,
+                         size_t length,
+                         bool blocking,
+                         OpenCLEventList before = OpenCLEventList())
+    {
+        cl_int error = 0;
+        OpenCLEvent result;
+        
+        void * addr = clEnqueueMapBuffer
+            (queue, buffer, blocking, flags,
+             offset, length,
+             before.size(), before, result.storeMeHere(), &error);
+
+        ExcAssert(!!result);
+
+        checkOpenCLError(error, "clEnqueueMapBuffer length " + std::to_string(length));
+
+        ExcAssert(addr);
+
+        auto unmap = [=] (void * addr) throw()
+            {
+                int res = clEnqueueUnmapMemObject(queue, buffer, addr, 0, nullptr, nullptr);
+                try {
+                    checkOpenCLError(res, "clEnququeUnmapMemObject (mapBuffer out of scope)");
+                } MLDB_CATCH_ALL {
+                    using namespace std;
+                    cerr << getExceptionString() << endl;
+                    cerr << "Error in unmapping OpenCL object aborts program"
+                         << endl;
+                    abort();
+                }
+            };
+
+        return { std::shared_ptr<void>(addr, std::move(unmap)), std::move(result) };
+        
+    }
+
+    /** Enqueue an operation to map the buffer.  Once the operation is done
+        (the returned event tells us when), the shared pointer can be used
+        to refer to the memory.  When the shared pointer is destroyed,
+        the mapping will be undone.
+    */
+    std::shared_ptr<void>
+    enqueueMapBufferBlocking(cl_mem buffer,
+                             int flags,
+                             size_t offset,
+                             size_t length,
+                             OpenCLEventList before = OpenCLEventList())
+    {
+        return std::get<0>(enqueueMapBufferImpl(buffer, flags, offset, length, CL_TRUE /* blocking */, std::move(before)));
+    }
+
     /** Enqueue an operation to map the buffer.  Once the operation is done
         (the returned event tells us when), the shared pointer can be used
         to refer to the memory.  When the shared pointer is destroyed,
@@ -1315,36 +1370,7 @@ struct OpenCLCommandQueue {
                      size_t length,
                      OpenCLEventList before = OpenCLEventList())
     {
-        cl_int error = 0;
-        OpenCLEvent result;
-        
-        void * addr = clEnqueueMapBuffer
-            (queue, buffer, CL_FALSE /* blocking */, flags,
-             offset, length,
-             before.size(), before, result.storeMeHere(), &error);
-
-        ExcAssert(!!result);
-
-        using namespace std;
-        cerr << "clEnqueueMapBuffer result = " << result.event.operator cl_event() << endl;
-
-        checkOpenCLError(error, "clEnqueueMapBuffer");
-
-        auto unmap = [=] (void * addr) throw()
-            {
-                int res = clEnqueueUnmapMemObject(queue, buffer, addr, 0, nullptr, nullptr);
-                try {
-                    checkOpenCLError(res, "clEnququeUnmapMemObject");
-                } MLDB_CATCH_ALL {
-                    using namespace std;
-                    cerr << getExceptionString() << endl;
-                    cerr << "Error in unmapping OpenCL object aborts program"
-                         << endl;
-                    abort();
-                }
-            };
-
-        return { std::shared_ptr<void>(addr, unmap), result };
+        return enqueueMapBufferImpl(buffer, flags, offset, length, CL_FALSE /* blocking */, std::move(before));
     }
 
     OpenCLEvent enqueueMigrateBuffer(int flags,

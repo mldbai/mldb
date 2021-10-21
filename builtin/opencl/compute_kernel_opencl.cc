@@ -10,6 +10,7 @@
 #include "opencl_types.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
+#include "mldb/utils/ansi.h"
 
 using namespace std;
 
@@ -30,6 +31,72 @@ struct OpenCLBindInfo: public ComputeKernelBindInfo {
     OpenCLKernel clKernel;
     const OpenCLComputeKernel * owner = nullptr;
 };
+
+EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 1);
+
+__thread int opCount = 0;
+Timer startTimer;
+
+template<typename... Args>
+void traceOperation(const std::string & opName, Args&&... args)
+{
+    if (OPENCL_TRACE_API_CALLS.get()) {
+        using namespace MLDB::ansi;
+        int tid = std::hash<std::thread::id>()(std::this_thread::get_id());
+        double elapsed = startTimer.elapsed_wall();
+
+        std::string header = format("%10.6f t%8x %2d  OPENCL COMPUTE: ", elapsed, tid, opCount);
+        std::string indent(4 * opCount, ' ');
+        std::string toDump = (string)ansi_str_cyan() + header + indent + ansi_str_bold() + opName
+                           + ansi_str_reset() + "\n";
+        cerr << toDump << flush;
+    }
+}
+
+struct ScopedOperation {
+    ScopedOperation(const ScopedOperation &) = delete;
+    auto operator = (const ScopedOperation &) = delete;
+
+    template<typename... Args>
+    ScopedOperation(const std::string & opName, Args&&... args)
+        : opName(opName)
+    {
+        traceOperation("BEGIN " + opName, std::forward<Args>(args)...);
+        ++opCount;
+    }
+
+    ~ScopedOperation()
+    {
+        if (!opName.empty()) {
+            --opCount;
+
+            double elapsed = timer.elapsed_wall();
+            std::string timerStr;
+            if (elapsed < 0.000001) {
+                timerStr = format("%.1fns", elapsed * 1000000000.0);
+            }
+            else if (elapsed < 0.001) {
+                timerStr = format("%.1fus", elapsed * 1000000.0);
+            }
+            else if (elapsed < 1) {
+                timerStr = format("%.1fms", elapsed * 1000.0);
+            }
+            else {
+                timerStr = format("%.1fs", elapsed);
+            }
+            traceOperation("END " + opName + " [" + ansi::ansi_str_underline() + timerStr + "]");
+        }
+    }
+
+    std::string opName;
+    Timer timer;
+};
+
+template<typename... Args>
+ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(const std::string & opName, Args&&... args) 
+{
+    return ScopedOperation(opName, std::forward<Args>(args)...);
+}
 
 } // file scope
 
@@ -61,8 +128,12 @@ void
 OpenCLComputeEvent::
 await() const
 {
-    if (!ev)
+    if (!ev) {
+        traceOperation("await(): already satisfied");
         return;  // null event; already satisfied
+    }
+
+    auto tr = scopedOperation("await()");
     return ev.waitUntilFinished();
 }
 
@@ -87,7 +158,7 @@ thenImpl(std::function<void ()> fn)
         nextEvent->ev.setUserEventStatus(OpenCLEventCommandExecutionStatus::COMPLETE);
     };
 
-    ev.addCallback(cb);
+    ev.addCallback(std::move(cb));
 
     return nextEvent;
 }
@@ -118,6 +189,8 @@ launch(const std::string & opName,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
+    auto tr = scopedOperation("launch kernel " + bound.owner->kernelName + " as " + opName);
+
     ExcAssert(bound.bindInfo);
     
     const OpenCLBindInfo * bindInfo
@@ -172,17 +245,18 @@ launch(const std::string & opName,
 
     auto execTimes = std::make_shared<std::map<OpenCLEventCommandExecutionStatus, double>>();
 
-    auto doCallback = [this, kernelName, execTimes, timer]
+    auto doCallback = [this, kernelName, opName, execTimes, timer]
             (const OpenCLEvent & event, OpenCLEventCommandExecutionStatus status)
     {
+        traceOperation("completion callback " + opName + " with status " + jsonEncodeStr(status));
         auto wallTime = timer->elapsed_wall();
 
         // TODO: lock?
         execTimes->emplace(status, timer->elapsed_wall());
 
-        std::string msg = format("kernel %s status %s wallTime %.2fms\n",
-                                 kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
-        cerr << msg;
+        //std::string msg = format("kernel %s status %s wallTime %.2fms\n",
+        //                         kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
+        //cerr << msg;
 
         if (status != OpenCLEventCommandExecutionStatus::COMPLETE)
             return;
@@ -236,8 +310,8 @@ enqueueFillArrayImpl(const std::string & opName,
                      const std::any & arg,
                      std::vector<std::shared_ptr<ComputeEvent>> prereqs)
 {
-    OpenCLMemObject mem = clOwner->getMemoryRegion(*region.handle);
-    
+    auto op = scopedOperation("enqueueFillArrayImpl " + opName);
+
     if (startOffsetInBytes > region.lengthInBytes()) {
         throw MLDB::Exception("region is too long");
     }
@@ -255,6 +329,7 @@ void
 OpenCLComputeQueue::
 flush()
 {
+    auto op = scopedOperation("OpenCLComputeQueue flush");
     clQueue.flush();
 }
 
@@ -262,6 +337,7 @@ void
 OpenCLComputeQueue::
 finish()
 {
+    auto op = scopedOperation("OpenCLComputeQueue finish");
     clQueue.finish();
 }
 
@@ -311,7 +387,7 @@ setCacheEntry(const std::string & key, std::any value)
     return oldValue;
 }
 
-OpenCLMemObject
+const OpenCLMemObject &
 OpenCLComputeContext::
 getMemoryRegion(const MemoryRegionHandleInfo & handle) const
 {
@@ -320,6 +396,27 @@ getMemoryRegion(const MemoryRegionHandleInfo & handle) const
         throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
     }
     return upcastHandle->mem;
+}
+
+static MemoryRegionHandle
+doOpenCLAllocate(OpenCLContext & clContext,
+                 const std::string & regionName,
+                 size_t length, size_t align,
+                 const std::type_info & type,
+                 bool isConst)
+{
+    // TODO: align...
+    OpenCLMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
+
+    auto handle = std::make_shared<OpenCLComputeContext::MemoryRegionInfo>();
+    handle->mem = std::move(mem);
+    handle->type = &type;
+    handle->isConst = isConst;
+    handle->lengthInBytes = length;
+    handle->name = regionName;
+
+    MemoryRegionHandle result{std::move(handle)};
+    return result;
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -331,25 +428,35 @@ allocateImpl(const std::string & regionName,
              MemoryRegionInitialization initialization,
              std::any initWith)
 {
-    // TODO: align...
-    OpenCLMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
-
-    auto handle = std::make_shared<MemoryRegionInfo>();
-    handle->mem = std::move(mem);
-    handle->type = &type;
-    handle->isConst = isConst;
-    handle->lengthInBytes = length;
-    handle->name = regionName;
-
-    MemoryRegionHandle result{std::move(handle)};
+    auto op = scopedOperation("OpenCLComputeContext allocateImpl " + regionName);
+    auto result = doOpenCLAllocate(clContext, regionName, length, align, type, isConst);
     return clQueue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
 }
 
-ComputePromiseT<MemoryRegionHandle>
+MemoryRegionHandle
 OpenCLComputeContext::
-transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
-                     const std::type_info & type, bool isConst)
+allocateSyncImpl(const std::string & regionName,
+                 size_t length, size_t align,
+                 const std::type_info & type, bool isConst,
+                 MemoryRegionInitialization initialization,
+                 std::any initWith)
+{
+    auto op = scopedOperation("OpenCLComputeContext allocateSyncImpl " + regionName);
+    auto result = doOpenCLAllocate(clContext, regionName, length, align, type, isConst);
+    if (initialization != MemoryRegionInitialization::INIT_NONE) {
+        return result = clQueue->enqueueFillArrayImpl(regionName + " initialize", std::move(result), initialization,
+                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith).move();
+
+    }
+
+    return result;
+}
+
+static MemoryRegionHandle
+doOpenCLTransferToDevice(OpenCLContext & clContext,
+                         const std::string & opName, FrozenMemoryRegion region,
+                         const std::type_info & type, bool isConst)
 {
     Timer timer;
 
@@ -363,7 +470,7 @@ transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
                                      region.data(), region.memusage());
     }
 
-    auto handle = std::make_shared<MemoryRegionInfo>();
+    auto handle = std::make_shared<OpenCLComputeContext::MemoryRegionInfo>();
     handle->mem = std::move(mem);
     handle->type = &type;
     handle->isConst = isConst;
@@ -376,20 +483,44 @@ transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
             << timer.elapsed_wall() << " at "
             << region.memusage() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
 
+    return result;
+}
+
+ComputePromiseT<MemoryRegionHandle>
+OpenCLComputeContext::
+transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
+                     const std::type_info & type, bool isConst)
+{
+    auto op = scopedOperation("OpenCLComputeContext transferToDeviceImpl " + opName);
+    auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
     return {std::move(result), std::make_shared<OpenCLComputeEvent>()};
 }
+
+MemoryRegionHandle
+OpenCLComputeContext::
+transferToDeviceSyncImpl(const std::string & opName,
+                         FrozenMemoryRegion region,
+                         const std::type_info & type, bool isConst)
+{
+    auto op = scopedOperation("OpenCLComputeContext transferToDeviceSyncImpl " + opName);
+    auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
+    return result;
+}
+
 
 ComputePromiseT<FrozenMemoryRegion>
 OpenCLComputeContext::
 transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
+    auto op = scopedOperation("OpenCLComputeContext transferToHostImpl " + opName);
+
     ExcAssert(handle.handle);
 
-    OpenCLMemObject mem = getMemoryRegion(*handle.handle);
+    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
     //OpenCLEvent clEvent;
     //std::shared_ptr<void> memPtr;
     auto res = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
-                                    0 /* offset */, mem.size());
+                                    0 /* offset */, handle.lengthInBytes());
 
     //cerr << "transferToHostImpl: opName " << opName << " bytes " << handle.lengthInBytes() << endl;
 
@@ -410,7 +541,7 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
         if (status == OpenCLEventCommandExecutionStatus::ERROR)
             promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
         else {
-            promise->set_value(FrozenMemoryRegion(handle.handle, data, mem.size()));
+            promise->set_value(FrozenMemoryRegion(memPtr, data, handle.lengthInBytes()));
         }
     };
 
@@ -428,18 +559,36 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
     return { promise, event };
 }
 
+FrozenMemoryRegion
+OpenCLComputeContext::
+transferToHostSyncImpl(const std::string & opName,
+                       MemoryRegionHandle handle)
+{
+    auto op = scopedOperation("OpenCLComputeContext transferToHostSyncImpl " + opName);
+
+    ExcAssert(handle.handle);
+
+    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
+    auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ,
+                                                            0 /* offset */, handle.lengthInBytes());
+    const char * data = (const char *)memPtr.get();
+    FrozenMemoryRegion result(std::move(memPtr), data, handle.lengthInBytes());
+    return result;
+}
+
 ComputePromiseT<MutableMemoryRegion>
 OpenCLComputeContext::
 transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
 {
+    auto op = scopedOperation("OpenCLComputeContext transferToHostMutableImpl " + opName);
     ExcAssert(handle.handle);
 
-    OpenCLMemObject mem = getMemoryRegion(*handle.handle);
+    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
     OpenCLEvent clEvent;
     std::shared_ptr<void> memPtr;
     std::tie(memPtr, clEvent)
         = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
-                                    0 /* offset */, mem.size());
+                                    0 /* offset */, handle.lengthInBytes());
 
     auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
     auto promise = std::shared_ptr<std::promise<std::any>>();
@@ -449,7 +598,7 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
         if (status == OpenCLEventCommandExecutionStatus::ERROR)
             promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
         else {
-            promise->set_value(MutableMemoryRegion(handle.handle, (char *)memPtr.get(), mem.size() ));
+            promise->set_value(MutableMemoryRegion(memPtr, (char *)memPtr.get(), handle.lengthInBytes()));
         }
     };
 
@@ -458,10 +607,28 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
     return { std::move(promise), std::move(event) };
 }
 
+MutableMemoryRegion
+OpenCLComputeContext::
+transferToHostMutableSyncImpl(const std::string & opName,
+                              MemoryRegionHandle handle)
+{
+    auto op = scopedOperation("OpenCLComputeContext transferToHostMutableSyncImpl " + opName);
+
+    ExcAssert(handle.handle);
+
+    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
+    auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ | CL_MAP_WRITE,
+                                                            0 /* offset */, handle.lengthInBytes());
+    MutableMemoryRegion result(std::move(memPtr), (char *)memPtr.get(), handle.lengthInBytes());
+    return result;
+}
+
 std::shared_ptr<ComputeKernel>
 OpenCLComputeContext::
 getKernel(const std::string & kernelName)
 {
+    auto op = scopedOperation("OpenCLComputeContext getKernel " + kernelName);
+
     std::unique_lock guard(kernelRegistryMutex);
     auto it = kernelRegistry.find(kernelName);
     if (it == kernelRegistry.end()) {
@@ -475,9 +642,22 @@ getKernel(const std::string & kernelName)
 
 ComputePromiseT<MemoryRegionHandle>
 OpenCLComputeContext::
-managePinnedHostRegion(const std::string & opName, std::span<const std::byte> region, size_t align,
-                        const std::type_info & type, bool isConst)
+managePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
+                           const std::type_info & type, bool isConst)
 {
+    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionImpl " + opName);
+
+    auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
+    return ComputePromiseT<MemoryRegionHandle>(std::move(result), clQueue->makeAlreadyResolvedEvent());
+}
+
+MemoryRegionHandle
+OpenCLComputeContext::
+managePinnedHostRegionSyncImpl(const std::string & opName,
+                               std::span<const std::byte> region, size_t align,
+                               const std::type_info & type, bool isConst)
+{
+    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionSyncImpl " + opName);
     Timer timer;
     OpenCLMemObject mem;
     if (region.size() == 0) {
@@ -487,10 +667,10 @@ managePinnedHostRegion(const std::string & opName, std::span<const std::byte> re
     else {
         if (isConst) {
             mem = clContext.createBuffer(CL_MEM_READ_ONLY,
-                                            region.data(), region.size());
+                                         region.data(), region.size());
         } else {
             mem = clContext.createBuffer(CL_MEM_READ_WRITE,
-                                            (void *)region.data(), region.size());
+                                         (void *)region.data(), region.size());
         }
     }
 
@@ -508,8 +688,7 @@ managePinnedHostRegion(const std::string & opName, std::span<const std::byte> re
     handle->isConst = isConst;
     handle->lengthInBytes = region.size();
     MemoryRegionHandle result{std::move(handle)};
-
-    return ComputePromiseT<MemoryRegionHandle>(std::move(result), clQueue->makeAlreadyResolvedEvent());
+    return result;
 }
 
 std::shared_ptr<ComputeQueue>
@@ -525,6 +704,8 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
              size_t startOffsetInBytes, size_t lengthInBytes,
              size_t align, const std::type_info & type, bool isConst)
 {
+    auto op = scopedOperation("OpenCLComputeContext getSliceImpl " + regionName);
+
     auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
     ExcAssert(info);
 
@@ -553,6 +734,18 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
     }
 
     auto newInfo = std::make_shared<MemoryRegionInfo>();
+
+#if 0
+    newInfo->mem = std::move(mem);
+    newInfo->isConst = isConst;
+    newInfo->type = &type;
+    newInfo->name = regionName;
+    newInfo->lengthInBytes = lengthInBytes;
+    newInfo->parent = info;
+    newInfo->ownerOffset = startOffsetInBytes;
+
+    return { newInfo };
+#endif
 
     cl_buffer_region region = { startOffsetInBytes, lengthInBytes };
     cl_int error = CL_NONE;
@@ -695,6 +888,8 @@ BoundComputeKernel
 OpenCLComputeKernel::
 bindImpl(std::vector<ComputeKernelArgument> arguments) const
 {
+    auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
+
     ExcAssert(this->context);
     auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(*this->context);
     auto kernel = this->clProgram.createKernel(this->kernelName);
@@ -714,8 +909,8 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
             }
             else if (arg.handler->canGetHandle()) {
                 auto handle = arg.handler->getHandle(opName, upcastContext);
-                OpenCLMemObject mem = upcastContext.getMemoryRegion(*handle.handle);
-                kernel.bindArg(i, std::move(mem));
+                const OpenCLMemObject & mem = upcastContext.getMemoryRegion(*handle.handle);
+                kernel.bindArg(i, mem.operator cl_mem());
             }
             else if (arg.handler->canGetConstRange()) {
                 throw MLDB::Exception("param.getConstRange");
