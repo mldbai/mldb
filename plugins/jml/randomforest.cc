@@ -21,6 +21,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/utils/environment.h"
 #include "mldb/types/span_description.h"
+#include "mldb/utils/ansi.h"
 #include <any>
 
 using namespace std;
@@ -1085,7 +1086,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
          myDepth < numIterations && depth < maxDepth;
          ++depth, ++myDepth, numPartitionsAtDepth *= 2) {
 
-        cerr << "depth = " << depth << " myDepth = " << myDepth << " numPartitions " << numPartitionsAtDepth << endl;
+        cerr << endl << endl << endl << ansi::bright_blue << "depth = " << depth << " myDepth = " << myDepth << " numPartitions " << numPartitionsAtDepth << ansi::reset << endl;
 
         // Run a kernel to find the new split point for each partition,
         // best feature and kernel
@@ -1359,7 +1360,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     "numActiveBuckets",       (uint32_t)numActiveBuckets,
                     "partitionSplitsOffset",  (uint32_t)numPartitionsAtDepth);
 
-            std::shared_ptr<ComputeEvent> runClearBucketsKernel
+            runClearBucketsKernel
                 = queue->launch("clear buckets",
                                 boundClearBucketsKernel,
                                 { numPartitionsAtDepth, numActiveBuckets },
@@ -1382,7 +1383,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     "bucketEntryBits",                deviceBucketEntryBits,
                     "featureIsOrdinal",               featureIsOrdinalPromise);
 
-            std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel
+            runUpdatePartitionNumbersKernel
                 = queue->launch("update partition numbers",
                                 boundUpdatePartitionNumbersKernel, { numRows },
                                 { runPartitionSplitsKernel });
@@ -1409,7 +1410,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     "featuresActive",                 deviceFeaturesActive,
                     "featureIsOrdinal",               featureIsOrdinalPromise);
 
-            std::shared_ptr<ComputeEvent> runUpdateBucketsKernel
+            runUpdateBucketsKernel
                 = queue->launch("update buckets",
                                 boundUpdateBucketsKernel, { numRows, nf + 1 /* +1 is wAll */},
                                 { runClearBucketsKernel, runUpdatePartitionNumbersKernel });
@@ -1424,7 +1425,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                     "numActiveBuckets",           (uint32_t)numActiveBuckets,
                     "partitionSplitsOffset",      (uint32_t)numPartitionsAtDepth);
 
-            std::shared_ptr<ComputeEvent> runFixupBucketsKernel
+            runFixupBucketsKernel
                 = queue->launch("fixup buckets",
                                 boundFixupBucketsKernel,
                                 { numPartitionsAtDepth, numActiveBuckets },
@@ -1561,8 +1562,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         // Ready for the next level
         previousIteration = runUpdateBucketsKernel;
 
-        if (true)
-            queue->finish();
+        //if (true)
+        //    queue->finish();
     }
 
     queue->finish();
@@ -1595,7 +1596,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     std::map<PartitionIndex, PartitionSplit> allSplits;
 
-    for (size_t i = 1;  i < numPartitionsAtDepth & i < 128;  ++i) {
+    for (size_t i = 1;  i < numPartitionsAtDepth & i < 16;  ++i) {
         cerr << "PARTITION " << i << " " << PartitionIndex(i) << endl;
         cerr << jsonEncode(allPartitionSplits[i]) << endl;
     }
@@ -1668,7 +1669,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     extractSplits(PartitionIndex::root(), 1 /* index */);
 
     for (size_t i = 1;  i < numPartitionsAtDepth;  ++i) {
-        if (allPartitionSplits[i].valid() && !donePositions.count(i)) {
+        if (debugKernelOutput && allPartitionSplits[i].valid() && !donePositions.count(i)) {
             cerr << "ERROR: valid split " << i << " was not extracted" << endl;
         }
     }

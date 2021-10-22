@@ -131,15 +131,17 @@ struct OpenCLComputeContext: public ComputeContext {
     std::any setCacheEntry(const std::string & key, std::any value);
 
     struct MemoryRegionInfo: public MemoryRegionHandleInfo {
-        OpenCLMemObject mem;
+        OpenCLMemObject memBase;
+        size_t offset = 0;
 
-        void init(OpenCLMemObject mem)
+        void init(OpenCLMemObject mem, size_t offset)
         {
-            this->mem = std::move(mem);
+            this->memBase = std::move(mem);
+            this->offset = offset;
         }
     };
 
-    const OpenCLMemObject & getMemoryRegion(const MemoryRegionHandleInfo & handle) const;
+    std::tuple<cl_mem, size_t> getMemoryRegion(const MemoryRegionHandleInfo & handle) const;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     allocateImpl(const std::string & opName,

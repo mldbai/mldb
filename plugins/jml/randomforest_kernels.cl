@@ -1547,8 +1547,8 @@ clearBucketsKernel(__global W * bucketsOut,
     // Commented out because it causes spurious differences in the debugging code between
     // the two sides.  It doesn' thave any effect on the output, though, and saves some
     // work.
-    if (allPartitionSplits[i].right.count == 0)
-        return;
+    //if (allPartitionSplits[i].right.count == 0)
+    //    return;
             
     uint32_t j = get_global_id(1);
 

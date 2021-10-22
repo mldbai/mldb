@@ -7,6 +7,7 @@
 
 #include "compute_kernel_multi.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/utils/ansi.h"
 
 
 using namespace std;
@@ -234,8 +235,8 @@ void
 MultiComputeKernel::
 compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
 {
-    cerr << "--------------- beginning kernel " << this->kernelName << (pre ? " pre" : " post")
-         << "-validation" << endl;
+    cerr << ansi::magenta << "--------------- beginning kernel " << this->kernelName << (pre ? " pre" : " post")
+         << "-validation" << ansi::reset << endl;
 
     const MultiBindInfo & bindInfo = dynamic_cast<const MultiBindInfo &>(*boundKernel.bindInfo);
 
@@ -250,8 +251,8 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
             if (printedBanner)
                 return;
             using namespace std;
-            cerr << "comparing contents of parameter " << this->params[i].name << " access "
-                << this->params[i].access << endl;
+            cerr << ansi::magenta << "comparing contents of parameter " << this->params[i].name << " access "
+                << this->params[i].access << ansi::reset << endl;
             printedBanner = true;
         };
 
@@ -271,7 +272,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
 
             if (referenceLength == 0) {
                 if (printedBanner)
-                    cerr << "  null data; continuing" << endl;
+                    cerr << ansi::magenta << "  null data; continuing" << ansi::reset << endl;
                 continue;
             }
 
@@ -279,7 +280,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
 
             if (referenceData == kernelGeneratedData) {
                 if (printedBanner)
-                    cerr << "  kernel " << j << " has same data as kernel 0; continuing" << endl;
+                    cerr << ansi::magenta << "  kernel " << j << " has same data as kernel 0; continuing" << ansi::reset << endl;
                 continue;
             }
 
@@ -287,7 +288,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
 
             if (memcmp(referenceData, kernelGeneratedData, referenceLength) == 0) {
                 if (printedBanner)
-                    cerr << "  kernel " << j << " is bit-identical; continuing" << endl;
+                    cerr << ansi::magenta << "  kernel " << j << " is bit-identical; continuing" << ansi::reset << endl;
                 continue;
             }
 
@@ -308,20 +309,24 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
                 desc->printJson(p2, c2);
 
                 if (v1 != v2) {
+                    cerr << ansi::magenta;
                     printBanner();
                     ++numDifferences;
                     if (numDifferences == 6) {
-                        cerr << "..." << endl;
+                        cerr << ansi::magenta << "..." << ansi::reset << endl;
                     }
                     else if (numDifferences <= 5) {
+                        cerr << ansi::magenta;
                         cerr << "difference on element " << k << endl;
                         cerr << "  v1 = " << v1 << endl;
                         cerr << "  v2 = " << v2 << endl;
+                        cerr << ansi::reset;
                     }
+                    cerr << ansi::reset;
                 }
             }
             if (numDifferences > 0) {
-                cerr << "  " << numDifferences << " of " << n << " were different" << endl;
+                cerr << ansi::magenta << "  " << numDifferences << " of " << n << " were different" << ansi::reset << endl;
             }
         }
     }
@@ -398,7 +403,12 @@ unpackPrereqs(size_t n, const std::vector<std::shared_ptr<ComputeEvent>> & prere
     std::vector<std::vector<std::shared_ptr<ComputeEvent>>> result(n);
 
     for (auto & e: prereqs) {
+        ExcAssert(e);
         const MultiComputeEvent * multiEvent = dynamic_cast<const MultiComputeEvent *>(e.get());
+        if (!multiEvent) {
+            auto & deref = *e;
+            throw MLDB::Exception("prerequisite for multi kernel was of type " + demangle(typeid(deref)) + " not MultiComputeEvent");
+        }
         ExcAssert(multiEvent);
         for (size_t i = 0;  i < n;  ++i) {
             result[i].emplace_back(multiEvent->events.at(i));

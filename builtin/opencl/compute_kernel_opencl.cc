@@ -293,7 +293,7 @@ launch(const std::string & opName,
     //clQueue.flush();  // TODO: remove, this is debug!!!
 
     // DEBUG
-    event.waitUntilFinished();
+    //event.waitUntilFinished();
 
 
 
@@ -387,7 +387,7 @@ setCacheEntry(const std::string & key, std::any value)
     return oldValue;
 }
 
-const OpenCLMemObject &
+std::tuple<cl_mem, size_t>
 OpenCLComputeContext::
 getMemoryRegion(const MemoryRegionHandleInfo & handle) const
 {
@@ -395,7 +395,7 @@ getMemoryRegion(const MemoryRegionHandleInfo & handle) const
     if (!upcastHandle) {
         throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
     }
-    return upcastHandle->mem;
+    return { upcastHandle->memBase, upcastHandle->offset };
 }
 
 static MemoryRegionHandle
@@ -409,7 +409,8 @@ doOpenCLAllocate(OpenCLContext & clContext,
     OpenCLMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
 
     auto handle = std::make_shared<OpenCLComputeContext::MemoryRegionInfo>();
-    handle->mem = std::move(mem);
+    handle->memBase = std::move(mem);
+    handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
     handle->lengthInBytes = length;
@@ -471,7 +472,8 @@ doOpenCLTransferToDevice(OpenCLContext & clContext,
     }
 
     auto handle = std::make_shared<OpenCLComputeContext::MemoryRegionInfo>();
-    handle->mem = std::move(mem);
+    handle->memBase = std::move(mem);
+    handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
     handle->lengthInBytes = region.length();
@@ -516,11 +518,11 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 
     ExcAssert(handle.handle);
 
-    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
+    auto [mem, offset] = getMemoryRegion(*handle.handle);
     //OpenCLEvent clEvent;
     //std::shared_ptr<void> memPtr;
     auto res = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
-                                    0 /* offset */, handle.lengthInBytes());
+                                    offset /* offset */, handle.lengthInBytes());
 
     //cerr << "transferToHostImpl: opName " << opName << " bytes " << handle.lengthInBytes() << endl;
 
@@ -535,7 +537,7 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
     auto promise = std::make_shared<std::promise<std::any>>();
     auto data = (char *)memPtr.get();
 
-    auto cb = [handle, promise, mem, data, memPtr] (const OpenCLEvent & event, auto status)
+    auto cb = [handle, promise, data, memPtr] (const OpenCLEvent & event, auto status)
     {
         //cerr << "transferToHostImpl callback" << endl;
         if (status == OpenCLEventCommandExecutionStatus::ERROR)
@@ -568,9 +570,9 @@ transferToHostSyncImpl(const std::string & opName,
 
     ExcAssert(handle.handle);
 
-    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
+    auto [mem, offset] = getMemoryRegion(*handle.handle);
     auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ,
-                                                            0 /* offset */, handle.lengthInBytes());
+                                                            offset, handle.lengthInBytes());
     const char * data = (const char *)memPtr.get();
     FrozenMemoryRegion result(std::move(memPtr), data, handle.lengthInBytes());
     return result;
@@ -583,17 +585,17 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
     auto op = scopedOperation("OpenCLComputeContext transferToHostMutableImpl " + opName);
     ExcAssert(handle.handle);
 
-    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
+    auto [mem, offset] = getMemoryRegion(*handle.handle);
     OpenCLEvent clEvent;
     std::shared_ptr<void> memPtr;
     std::tie(memPtr, clEvent)
         = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
-                                    0 /* offset */, handle.lengthInBytes());
+                                    offset, handle.lengthInBytes());
 
     auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
     auto promise = std::shared_ptr<std::promise<std::any>>();
 
-    auto cb = [handle, promise, memPtr, mem] (const OpenCLEvent & event, auto status)
+    auto cb = [handle, promise, memPtr] (const OpenCLEvent & event, auto status)
     {
         if (status == OpenCLEventCommandExecutionStatus::ERROR)
             promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
@@ -616,9 +618,9 @@ transferToHostMutableSyncImpl(const std::string & opName,
 
     ExcAssert(handle.handle);
 
-    const OpenCLMemObject & mem = getMemoryRegion(*handle.handle);
+    auto [mem, offset] = getMemoryRegion(*handle.handle);
     auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ | CL_MAP_WRITE,
-                                                            0 /* offset */, handle.lengthInBytes());
+                                                            offset, handle.lengthInBytes());
     MutableMemoryRegion result(std::move(memPtr), (char *)memPtr.get(), handle.lengthInBytes());
     return result;
 }
@@ -683,7 +685,8 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     // TODO: this is synchronous; it should become asynchronous
 
     auto handle = std::make_shared<MemoryRegionInfo>();
-    handle->mem = std::move(mem);
+    handle->memBase = std::move(mem);
+    handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
     handle->lengthInBytes = region.size();
@@ -735,8 +738,8 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
 
     auto newInfo = std::make_shared<MemoryRegionInfo>();
 
-#if 0
-    newInfo->mem = std::move(mem);
+    newInfo->memBase = OpenCLMemObject(info->memBase, false /* already retained */);
+    newInfo->offset = info->offset + startOffsetInBytes;
     newInfo->isConst = isConst;
     newInfo->type = &type;
     newInfo->name = regionName;
@@ -745,8 +748,8 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
     newInfo->ownerOffset = startOffsetInBytes;
 
     return { newInfo };
-#endif
 
+#if 0
     cl_buffer_region region = { startOffsetInBytes, lengthInBytes };
     cl_int error = CL_NONE;
     OpenCLMemObject mem(clCreateSubBuffer(info->mem, isConst ? CL_MEM_READ_ONLY : CL_MEM_READ_WRITE,
@@ -763,6 +766,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
     newInfo->ownerOffset = startOffsetInBytes;
 
     return { newInfo };
+#endif
 }
 
 
@@ -895,6 +899,7 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
     auto kernel = this->clProgram.createKernel(this->kernelName);
 
     for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
+        auto tr = scopedOperation("bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name);
         int argNum = correspondingArgumentNumbers.at(i);
         //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
         if (argNum == -1) {
@@ -905,12 +910,15 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
             std::string opName = "bind " + this->clKernelInfo.args[i].name;
             if (arg.handler->canGetPrimitive()) {
                 auto bytes = arg.handler->getPrimitive(opName, upcastContext);
+                traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
                 kernel.bindArg(i, bytes.data(), bytes.size());
             }
             else if (arg.handler->canGetHandle()) {
                 auto handle = arg.handler->getHandle(opName, upcastContext);
-                const OpenCLMemObject & mem = upcastContext.getMemoryRegion(*handle.handle);
-                kernel.bindArg(i, mem.operator cl_mem());
+                traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
+                auto [mem, offset] = upcastContext.getMemoryRegion(*handle.handle);
+                ExcAssertEqual(offset, 0);  // need to get sub buffer for non-zero offset to work
+                kernel.bindArg(i, mem);
             }
             else if (arg.handler->canGetConstRange()) {
                 throw MLDB::Exception("param.getConstRange");

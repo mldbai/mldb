@@ -135,7 +135,7 @@ printCode(cl_int returnCode)
     return clGetErrorString(returnCode);
 }
 
-EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_TRACE_API_CALLS", 1);
+EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_TRACE_API_CALLS", 0);
 
 void checkOpenCLError(cl_int returnCode,
                       const char * operation)
