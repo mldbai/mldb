@@ -137,6 +137,36 @@ struct MemoryArrayHandleT: public MemoryRegionHandle {
     {
     }
 
+    // Allow construction of const T from non-const T
+    template<typename T2, typename Enable = std::enable_if_t<std::is_same_v<T, std::remove_const_t<T2>>>>
+    MemoryArrayHandleT(const MemoryArrayHandleT<T2> & other)
+        : MemoryRegionHandle(other.handle)
+    {
+    }
+
+    // Allow construction of const T from non-const T
+    template<typename T2, typename Enable = std::enable_if_t<std::is_same_v<T, std::remove_const_t<T2>>>>
+    MemoryArrayHandleT(MemoryArrayHandleT<T2> && other)
+        : MemoryRegionHandle(std::move(other.handle))
+    {
+    }
+    
+    // Allow assignment of const T from non-const T
+    template<typename T2, typename Enable = std::enable_if_t<std::is_same_v<std::remove_const_t<T>, T2>>>
+    MemoryArrayHandleT & operator = (const MemoryArrayHandleT<T2> & other)
+    {
+        this->handle = other.handle;
+        return *this;
+    }
+
+    // Allow assignment of const T from non-const T
+    template<typename T2, typename Enable = std::enable_if_t<std::is_same_v<std::remove_const_t<T>, T2>>>
+    MemoryArrayHandleT & operator = (MemoryArrayHandleT<T2> && other)
+    {
+        this->handle = std::move(other.handle);
+        return *this;
+    }
+
     size_t length() const
     {
         return this->lengthInBytes() / sizeof(T);

@@ -731,48 +731,118 @@ train(int depth, int maxDepth,
     return result;
 }
 
-// Train a small forest, with the same rows but a different feature sampling
-// Will eventually reuse much of the work in the partitioned case
-std::vector<ML::Tree>
-PartitionData::
-trainMultipleSamplings(int maxDepth, const std::vector<std::vector<int>> & featuresActive,
-                        MappedSerializer & serializer,
-                        TrainingScheme trainingScheme) const
-{
-    std::vector<ML::Tree> result(featuresActive.size());
-
-    auto buildTree = [&] (int i)
-    {
-        PartitionData myData = *this;
-        for (auto & f: myData.features)
-            f.active = false;
-        for (auto & f: featuresActive[i])
-            myData.features.at(f).active = true;
-        
-        result[i].root = myData.train(0, maxDepth, result[i], serializer, trainingScheme);
-        ExcAssert(result[i].root);
-    };
-
-    MLDB::parallelMap(0, featuresActive.size(), buildTree);
-
-    for (auto & r: result)
-        ExcAssert(r.root);
-
-    return result;
-}
-
 EnvOption<bool> DEBUG_RF_KERNELS("DEBUG_RF_KERNELS", 1);
 
-ML::Tree::Ptr
-trainPartitionedEndToEndKernel(int depth, int maxDepth,
-                               ML::Tree & tree,
-                               MappedSerializer & serializer,
-                               const Rows & rows,
-                               const std::span<const Feature> & features,
-                               FrozenMemoryRegionT<uint32_t> bucketMemory,
-                               const DatasetFeatureSpace & fs,
-                               const ComputeDevice & device)
+struct FeatureSamplingTrainerKernel {
+
+    void init(int maxDepth,
+              MappedSerializer & serializer,
+              const Rows & rows,
+              const std::span<const Feature> & features,
+              FrozenMemoryRegionT<uint32_t> bucketMemory,
+              const DatasetFeatureSpace & fs,
+              const ComputeDevice & device);
+
+    ML::Tree trainPartitioned(const std::vector<int> & featuresActive);
+
+    // Packed feature buckets (used for recursive calls)
+    FrozenMemoryRegionT<uint32_t> bucketMemory;
+
+    // Feature space (used for recursive calls)
+    const DatasetFeatureSpace * fs = nullptr;
+
+    // Serializer (used for recursive calls)
+    MappedSerializer * serializer = nullptr;
+
+    // Shared OpenCL runtime
+    std::shared_ptr<ComputeRuntime> runtime;
+
+    // Shared OpenCL context
+    std::shared_ptr<ComputeContext> context;
+
+    // Queue for initialization
+    std::shared_ptr<ComputeQueue> queue;
+
+    // How many partitions will we have at our widest?
+    uint32_t maxPartitionCount;
+
+    // Do we debug things?
+    bool debugKernelOutput = DEBUG_RF_KERNELS;
+
+    // Max iterations we do before recursing
+    static constexpr uint32_t maxIterations = 16;
+
+    // Rows (common) which we train on
+    Rows rows;
+
+    // Full set of features we're training on
+    std::span<const Feature> features;
+
+    // How many rows in this partition?
+    uint32_t numRows;
+
+    // How many features?
+    uint32_t nf;
+
+    // Maximum depth we want to recurse to?
+    uint32_t maxDepth;
+
+    // How many iterations can we run for?  This may be reduced if the
+    // memory is not available to run the full width
+    uint32_t numIterations;
+
+    // Kernels we use to do our work
+    std::shared_ptr<ComputeKernel> testFeatureKernel;
+    std::shared_ptr<ComputeKernel> getPartitionSplitsKernel;
+    std::shared_ptr<ComputeKernel> bestPartitionSplitKernel;
+    std::shared_ptr<ComputeKernel> clearBucketsKernel;
+    std::shared_ptr<ComputeKernel> updatePartitionNumbersKernel;
+    std::shared_ptr<ComputeKernel> updateBucketsKernel;
+    std::shared_ptr<ComputeKernel> fixupBucketsKernel;
+
+    // This one contains an expanded version of the row data, with one float
+    // per row rather than bit-compressed.  It's expanded on the device so that
+    // the compressed version can be passed over the PCIe bus and not the
+    // expanded version.
+    MemoryArrayHandleT<const float> expandedRowData;
+
+    // Event to wait on for expandedRowData to be ready
+    std::shared_ptr<ComputeEvent> runDecodeRows;
+
+    // Data we map in-place so we have to ensure it sticks around
+    std::vector<uint32_t> bucketMemoryOffsets;   ///< Offset in the buckets memory blob per feature [nf + 1]
+    std::vector<uint32_t> bucketEntryBits;       ///< How many bits per bucket [nf]
+    std::vector<uint32_t> featureIsOrdinal;      ///< For each feature: is it ordinal (1) vs categorical(0) [nf]
+
+    // Some memory objects to be used by the kernel.
+    ComputePromiseT<MemoryArrayHandleT<const uint32_t>> bucketDataPromise;
+    ComputePromiseT<MemoryArrayHandleT<const uint64_t>> rowDataPromise;
+    ComputePromiseT<MemoryArrayHandleT<const float>>    weightDataPromise;
+    ComputePromiseT<MemoryArrayHandleT<uint32_t>> deviceBucketEntryBits;
+    ComputePromiseT<MemoryArrayHandleT<uint32_t>> deviceBucketDataOffsets;
+    ComputePromiseT<MemoryArrayHandleT<uint32_t>> deviceFeatureIsOrdinal;
+
+    // If we're debugging our kernels, this is where we keep the expanded rows
+    std::vector<float> debugExpandedRowsCpu;
+};
+
+void
+FeatureSamplingTrainerKernel::
+init(int maxDepth,
+    MappedSerializer & serializer,
+    const Rows & rows,
+    const std::span<const Feature> & features,
+    FrozenMemoryRegionT<uint32_t> bucketMemory,
+    const DatasetFeatureSpace & fs,
+    const ComputeDevice & device)
 {
+    this->rows = rows;
+    this->features = features;
+    this->maxDepth = maxDepth;
+    this->bucketMemory = bucketMemory;
+    this->fs = &fs;
+    this->serializer = &serializer;
+
     const bool debugKernelOutput = DEBUG_RF_KERNELS;
     constexpr uint32_t maxIterations = 16;
 
@@ -780,40 +850,26 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     // kinds of things so that we can make our allocations statically.
 
     // How many rows in this partition?
-    uint32_t numRows = rows.rowCount();
+    numRows = rows.rowCount();
 
     // How many features?
-    uint32_t nf = features.size();
+    nf = features.size();
     
-    // Which of our features do we need to consider?  This allows us to
-    // avoid sizing things too large for the number of features that are
-    // actually active.
-    std::vector<int> activeFeatures;
-
     // How many iterations can we run for?  This may be reduced if the
     // memory is not available to run the full width
-    int numIterations = std::min(maxIterations, uint32_t(maxDepth - depth));
+    numIterations = std::min<uint32_t>(maxIterations, maxDepth);
 
     // How many partitions will we have at our widest?
-    int maxPartitionCount = 1 << numIterations;
+    maxPartitionCount = 1 << numIterations;
     
     // Maximum number of buckets
     uint32_t maxBuckets = 0;
-
-    // Number of active features
-    uint32_t numActiveFeatures = 0;
-    
-    // Now we figure out how to onboard a variable number of variable
-    // lengthed data segments for the feature bucket information.
-    uint32_t numActiveBuckets = 0;
     
     uint32_t lastBucketDataOffset = 0;
-    std::vector<uint32_t> bucketMemoryOffsets;   ///< Offset in the buckets memory blob per feature [nf + 1]
-    std::vector<uint32_t> bucketEntryBits;       ///< How many bits per bucket [nf]
-    std::vector<uint32_t> bucketNumbers(1, 0);   ///< Range of bucket numbers for feature [nf + 1]
-    std::vector<uint32_t> featuresActive;        ///< For each feature: which are active? [nf]
-    std::vector<uint32_t> featureIsOrdinal;      ///< For each feature: is it ordinal (1) vs categorical(0) [nf]
     
+    // Total number of buckets (active plus inactive)
+    size_t numBuckets = 0;
+
     // For each feature, we set up a table of offsets which will allow our OpenCL kernel
     // to know where in a flat buffer of memory the data for that feature resides.
     for (int i = 0;  i < nf;  ++i) {
@@ -821,91 +877,64 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
         bucketEntryBits.push_back(buckets.entryBits);
 
-        featuresActive.push_back(features[i].active);
         featureIsOrdinal.push_back(features[i].ordinal);
         
-        if (features[i].active) {
-            //cerr << "feature " << i << " buckets " << features[i].buckets.numBuckets << endl;
-            ExcAssertGreaterEqual((void *)buckets.storage.data(),
-                                  (void *)bucketMemory.data());
+        //cerr << "feature " << i << " buckets " << features[i].buckets.numBuckets << endl;
+        ExcAssertGreaterEqual((void *)buckets.storage.data(),
+                                (void *)bucketMemory.data());
+    
+        uint32_t offset = buckets.storage.data() - bucketMemory.data();
+
+        bucketMemoryOffsets.push_back(offset);
+        lastBucketDataOffset = offset + bucketMemory.length();
         
-            activeFeatures.push_back(i);
-
-            uint32_t offset
-                = buckets.storage.data()
-                - bucketMemory.data();
-
-            //cerr << "feature = " << i << " offset = " << offset << " numActiveBuckets = " << numActiveBuckets << endl;
-            bucketMemoryOffsets.push_back(offset);
-            lastBucketDataOffset = offset + bucketMemory.length();
-            
-            ++numActiveFeatures;
-            numActiveBuckets += features[i].buckets.numBuckets;
-            maxBuckets = std::max<size_t>(maxBuckets,
-                                          features[i].buckets.numBuckets);
-        }
-        else {
-            bucketMemoryOffsets.push_back(lastBucketDataOffset);
-        }
-
-        bucketNumbers.push_back(numActiveBuckets);
+        numBuckets += features[i].buckets.numBuckets;
+        maxBuckets = std::max<size_t>(maxBuckets,
+                                        features[i].buckets.numBuckets);
     }
 
     bucketMemoryOffsets.push_back(lastBucketDataOffset);
 
     ExcAssertEqual(bucketMemoryOffsets.size(), nf + 1);
     ExcAssertEqual(bucketEntryBits.size(), nf);
-    ExcAssertEqual(bucketNumbers.size(), nf + 1);
-    ExcAssertEqual(featuresActive.size(), nf);
 
-    ExcAssertGreater(numActiveFeatures, 0);
+    //Date before = Date::now();
 
-    // How much memory to accumulate W over all features per partition?
-    size_t bytesPerPartition = sizeof(W) * numActiveBuckets;
+    runtime = ComputeRuntime::getRuntimeForDevice(device);
 
-    // How much memory to accumulate W over all features over the maximum
-    // number of partitions?
-    size_t bytesForAllPartitions = bytesPerPartition * maxPartitionCount;
+    context = runtime->getContext(array{device});
 
-    cerr << "numActiveBuckets = " << numActiveBuckets << endl;
-    cerr << "sizeof(W) = " << sizeof(W) << endl;
-    cerr << "bytesForAllPartitions = " << bytesForAllPartitions * 0.000001
-         << "mb" << endl;
-    cerr << "numIterations = " << numIterations << endl;
-    
-    Date before = Date::now();
-
-    std::shared_ptr<ComputeRuntime> runtime = ComputeRuntime::getRuntimeForDevice(device);
-
-    std::shared_ptr<ComputeContext> context = runtime->getContext(array{device});
-
-    std::shared_ptr<ComputeQueue> queue = context->getQueue();
+    queue = context->getQueue();
 
     // First, we need to send over the rows, as the very first thing to
     // be done is to expand them.
-    auto rowDataPromise
+    rowDataPromise
         = context->transferToDeviceImmutable("copyRowData", rows.rowData);
 
     // Same for our weight data
-    auto weightDataPromise
+    weightDataPromise
         = context->transferToDeviceImmutable("copyWeightData", rows.weightEncoder.weightFormatTable);
 
     // We transfer the bucket data as early as possible, as it's one of the
     // longest things to transfer
-    auto bucketDataPromise
+    bucketDataPromise
         = context->transferToDeviceImmutable("copyBucketData", bucketMemory);
+
+    deviceFeatureIsOrdinal
+        = context->manageMemoryRegion("featuresIsOrdinal", featureIsOrdinal);
+    
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
     auto doNothingKernel = context->getKernel("doNothing");
     auto decodeRowsKernel = context->getKernel("decodeRows");
-    auto testFeatureKernel = context->getKernel("testFeature");
-    auto getPartitionSplitsKernel = context->getKernel("getPartitionSplits");
-    auto bestPartitionSplitKernel = context->getKernel("bestPartitionSplit");
-    auto clearBucketsKernel = context->getKernel("clearBuckets");
-    auto updatePartitionNumbersKernel = context->getKernel("updatePartitionNumbers");
-    auto updateBucketsKernel = context->getKernel("updateBuckets");
-    auto fixupBucketsKernel = context->getKernel("fixupBuckets");
+    testFeatureKernel = context->getKernel("testFeature");
+    getPartitionSplitsKernel = context->getKernel("getPartitionSplits");
+    bestPartitionSplitKernel = context->getKernel("bestPartitionSplit");
+    clearBucketsKernel = context->getKernel("clearBuckets");
+    updatePartitionNumbersKernel = context->getKernel("updatePartitionNumbers");
+    updateBucketsKernel = context->getKernel("updateBuckets");
+    fixupBucketsKernel = context->getKernel("fixupBuckets");
 
     std::shared_ptr<ComputeEvent> runDoNothing;
     {
@@ -913,16 +942,11 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
         runDoNothing = queue->launch("loadKernels", boundDoNothingKernel, {}, {});
     }
     
-    // This one contains an expanded version of the row data, with one float
-    // per row rather than bit-compressed.  It's expanded on the device so that
-    // the compressed version can be passed over the PCIe bus and not the
-    // expanded version.
+    // We take a non-const version here for this call
     auto expandedRowData = context->allocUninitializedArray<float>("expandedRowData", numRows).get();
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
-
-    std::shared_ptr<ComputeEvent> runDecodeRows;
     {
         auto boundKernel = decodeRowsKernel
             ->bind(  "rowData",          rowDataPromise,
@@ -939,7 +963,8 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
                             { rowDataPromise.event(), weightDataPromise.event() });
     }
 
-    std::vector<float> debugExpandedRowsCpu;
+    // Assign to the const version here
+    this->expandedRowData = expandedRowData;
 
     if (debugKernelOutput) {
         // Verify that the kernel version gives the same results as the non-kernel version
@@ -965,11 +990,70 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     // Before that, we need to set up some memory objects to be used
     // by the kernel.
+    deviceBucketEntryBits = context->manageMemoryRegion("bucketEntryBits", bucketEntryBits);
+    deviceBucketDataOffsets = context->manageMemoryRegion("bucketMemoryOffsets", bucketMemoryOffsets);
+}
+
+ML::Tree
+FeatureSamplingTrainerKernel::
+trainPartitioned(const std::vector<int> & activeFeatures)
+{
+    ML::Tree tree;
+
+    uint32_t depth = 0;
+
+    // Maximum number of buckets
+    uint32_t maxBuckets = 0;
+    
+    std::vector<uint32_t> bucketNumbers(1, 0);   ///< Range of bucket numbers for feature [nf + 1]
+    std::vector<uint32_t> featuresActive(nf, false); ///< For each feature: which are active? [nf]
+    
+    std::set<int> activeFeatureSet{activeFeatures.begin(), activeFeatures.end()};
+
+    uint32_t numActiveFeatures = activeFeatures.size();
+    uint32_t numActiveBuckets = 0;
+
+    // For each feature, we set up a table of offsets which will allow our OpenCL kernel
+    // to know where in a flat buffer of memory the data for that feature resides.
+    for (int i = 0;  i < nf;  ++i) {
+        if (activeFeatureSet.count(i)) {
+            featuresActive[i] = true;
+            numActiveBuckets += features[i].buckets.numBuckets;
+            maxBuckets = std::max<size_t>(maxBuckets,
+                                          features[i].buckets.numBuckets);
+        }
+
+        bucketNumbers.push_back(numActiveBuckets);
+    }
+
+    ExcAssertEqual(bucketNumbers.size(), nf + 1);
+    ExcAssertEqual(featuresActive.size(), nf);
+
+    ExcAssertGreater(numActiveFeatures, 0);
 
     auto deviceBucketNumbers = context->manageMemoryRegion("bucketNumbers", bucketNumbers);
-    auto deviceBucketEntryBits = context->manageMemoryRegion("bucketEntryBits", bucketEntryBits);
+
+    // How much memory to accumulate W over all features per partition?
+    size_t bytesPerPartition = sizeof(W) * numActiveBuckets;
+
+    // How much memory to accumulate W over all features over the maximum
+    // number of partitions?
+    size_t bytesForAllPartitions = bytesPerPartition * maxPartitionCount;
+
+    cerr << "numActiveBuckets = " << numActiveBuckets << endl;
+    cerr << "sizeof(W) = " << sizeof(W) << endl;
+    cerr << "bytesForAllPartitions = " << bytesForAllPartitions * 0.000001
+         << "mb" << endl;
+    
+    Date before = Date::now();
+
+    // Each partition has its own queue
+    auto queue = context->getQueue();
+
+    // Which of our features do we need to consider?  This allows us to
+    // avoid sizing things too large for the number of features that are
+    // actually active.
     auto deviceFeaturesActive = context->manageMemoryRegion("featuresActive", featuresActive);
-    auto deviceBucketDataOffsets = context->manageMemoryRegion("bucketMemoryOffsets", bucketMemoryOffsets);
 
     // Our wAll array contains the sum of all of the W buckets across
     // each partition.  We allocate a single array at the start and just
@@ -1071,9 +1155,6 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     auto directions
         = context->allocUninitializedArray<uint8_t>("directions", numRows).get();
 
-    auto deviceFeatureIsOrdinal
-        = context->manageMemoryRegionSync("featuresIsOrdinal", featureIsOrdinal);
-    
     // How many partitions at the current depth?
     unsigned numPartitionsAtDepth = 1;
 
@@ -1712,12 +1793,12 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     Date beforeSplitAndRecurse = Date::now();
 
     std::map<PartitionIndex, ML::Tree::Ptr> newLeaves
-        = splitAndRecursePartitioned(depth, maxDepth, tree, serializer,
+        = splitAndRecursePartitioned(depth, maxDepth, tree, *serializer,
                                      bucketsUnrolled, numActiveBuckets,
                                      bucketNumbers,
                                      features, activeFeatures,
                                      decodedRows,
-                                     partitions, wAll, indexes, fs,
+                                     partitions, wAll, indexes, *fs,
                                      bucketMemory);
 
 #if 0
@@ -1748,7 +1829,7 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
     // and our leaves.
     auto result = extractTree(0, maxDepth,
                               tree, PartitionIndex::root(),
-                              allSplits, leaves, features, fs);
+                              allSplits, leaves, features, *fs);
 
     Date afterExtract = Date::now();
 
@@ -1764,7 +1845,9 @@ trainPartitionedEndToEndKernel(int depth, int maxDepth,
 
     cerr << jsonEncode(queue->kernelWallTimes) << queue->totalKernelTime << "ms total in kernels" << endl;
 
-    return result;
+    tree.root = result;
+
+    return tree;
 }
 
 EnvOption<bool> RF_USE_OPENCL("RF_USE_OPENCL", 1);
@@ -1778,6 +1861,11 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          FrozenMemoryRegionT<uint32_t> bucketMemory,
                          const DatasetFeatureSpace & fs)
 {
+    if (depth != 0) {
+        return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
+                                        rows, features, bucketMemory, fs);
+    }
+
     ComputeDevice device;
     if (DEBUG_RF_KERNELS && RF_USE_OPENCL) {
         device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
@@ -1790,13 +1878,17 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
     }
 
     cerr << "training partitioned on " << device << endl;
-    return trainPartitionedEndToEndKernel(depth, maxDepth, tree, serializer,
-                                          rows, features, bucketMemory, fs,
-                                          device);
 
-    return trainPartitionedEndToEndCpu(depth, maxDepth, tree, serializer,
-                                       rows, features, bucketMemory, fs);
+    std::vector<int> featuresActive;
+    for (size_t i = 0;  i < features.size();  ++i) {
+        if (features[i].active)
+            featuresActive.push_back(i);
+    }
 
+    FeatureSamplingTrainerKernel trainer;
+    trainer.init(maxDepth, serializer, rows, features, bucketMemory, fs, device);
+    tree = trainer.trainPartitioned(featuresActive);
+    return tree.root;
 }
 
 ML::Tree::Ptr
@@ -1808,6 +1900,65 @@ trainPartitioned(int depth, int maxDepth,
     return trainPartitionedEndToEnd(depth, maxDepth, tree, serializer,
                                     rows, features, bucketMemory, *fs);
 }
+
+// Train a small forest, with the same rows but a different feature sampling
+// Will eventually reuse much of the work in the partitioned case
+std::vector<ML::Tree>
+PartitionData::
+trainMultipleSamplings(int maxDepth, const std::vector<std::vector<int>> & featuresActive,
+                        MappedSerializer & serializer,
+                        TrainingScheme trainingScheme) const
+{
+    std::vector<ML::Tree> result(featuresActive.size());
+
+    if (trainingScheme == PARTITIONED) {
+        ComputeDevice device;
+        if (DEBUG_RF_KERNELS && RF_USE_OPENCL) {
+            device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
+        }
+        else if (RF_USE_OPENCL) {
+            device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
+        }
+        else {
+            device = ComputeDevice::host();
+        }
+
+        cerr << "training multiple samplings on " << device << endl;
+
+        FeatureSamplingTrainerKernel trainer;
+        trainer.init(maxDepth, serializer, rows, features, bucketMemory, *fs, device);
+
+        auto buildTree = [&] (int i)
+        {
+            result[i] = trainer.trainPartitioned(featuresActive[i]);
+            ExcAssert(result[i].root);
+        };
+
+        MLDB::parallelMap(0, featuresActive.size(), buildTree);
+
+        return result;
+    }
+    else {
+        auto buildTree = [&] (int i)
+        {
+            PartitionData myData = *this;
+            for (auto & f: myData.features)
+                f.active = false;
+            for (auto & f: featuresActive[i])
+                myData.features.at(f).active = true;
+            
+            result[i].root = myData.train(0, maxDepth, result[i], serializer, trainingScheme);
+            ExcAssert(result[i].root);
+        };
+
+        MLDB::parallelMap(0, featuresActive.size(), buildTree);
+
+        for (auto & r: result)
+            ExcAssert(r.root);
+    }
+    return result;
+}
+
 
 
 } // namespace RF

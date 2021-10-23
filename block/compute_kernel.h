@@ -186,7 +186,8 @@ struct ComputePromiseT: public ComputePromise {
 
     void verifyType() const
     {
-        if (typeid(T) != *type_) {
+        // We can convert from T to T, const T to const T or T to const T
+        if (typeid(T) != *type_ && typeid(std::remove_const_t<T>) != *type_) {
             throw MLDB::Exception("Attempt to convert ComputePromiseT<" + demangle(*type_)
                                   + "> into ComputePromiseT<" + type_name<T>() + ">");
         }

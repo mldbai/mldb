@@ -51,6 +51,7 @@ static struct RegisterKernels {
                 Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
 
                 OpenCLProgram program = context.clContext.createProgram(source);
+                //string options = "-cl-kernel-arg-info -cl-fp32-correctly-rounded-divide-sqrt -DWBITS=32";
                 string options = "-cl-kernel-arg-info -DWBITS=32";
 
                 // Build for all devices
