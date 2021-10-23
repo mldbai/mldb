@@ -193,10 +193,6 @@ expectType(ParseContext & context)
     return result;
 }
 
-struct BoundsExpression {
-
-};
-
 ComputeKernelType
 parseType(const std::string & type)
 {
@@ -212,22 +208,38 @@ parseType(const std::string & type)
     return result;
 }
 
+namespace {
+std::string
+printBaseType(const ValueDescription & desc)
+{
+    std::string typeName = desc.typeName;
+
+    {
+        std::unique_lock guard(basicTypeRegistryMutex);
+        auto it = reverseTypeRegistry.find(desc.type->name());
+        if (it != reverseTypeRegistry.end())
+            return typeName = it->second;
+    }
+
+    auto aliases = getValueDescriptionAliases(*desc.type);
+    for (auto & a: aliases) {
+        if (a.size() < typeName.size()) {
+            typeName = std::move(a);
+        }
+    }
+
+    return typeName;
+}
+} // file scope
+
 std::string
 ComputeKernelType::
 print() const
 {
-    ExcAssert(baseType);
+    if (!baseType)
+        return "<<NULL>>";
 
-    std::string typeName = baseType->typeName;
-
-    {
-        std::unique_lock guard(basicTypeRegistryMutex);
-        auto it = reverseTypeRegistry.find(baseType->type->name());
-        if (it != reverseTypeRegistry.end())
-            typeName = it->second;
-    }
-
-    // Todo: look up aliases
+    auto typeName = printBaseType(*baseType);
 
     auto result = access + " " + typeName;
     for (auto [bound]: dims) {
@@ -235,6 +247,36 @@ print() const
     }
     return result;
 }
+
+bool
+ComputeKernelType::
+isCompatibleWith(const ComputeKernelType & otherType, std::string * reason) const
+{
+    auto fail = [&] (std::string why) -> bool { if (reason) *reason = std::move(why);  return false; };
+
+    if (!baseType || !otherType.baseType)
+        return fail("base types are not completely specified: return " + print() + " vs passed " + otherType.print());
+
+    if (*baseType->type != *otherType.baseType->type) {
+        return fail("return type " + printBaseType(*baseType)
+                    + " not same as passed type " + printBaseType(*otherType.baseType));
+    }
+
+    if (dims.size() != otherType.dims.size()) {
+        return fail("different array dimensionality");
+    }
+
+    if (access != "?" && otherType.access != "?") {
+        if (access.find('w') != string::npos) {
+            if (otherType.access.find('w') == string::npos) {
+                return fail("compatibility error: passing read-only to writable parameter");
+            }
+        }
+    }
+
+    return true;
+}
+
 
 // AbstractArgumentHandler
 
@@ -323,7 +365,7 @@ enqueueFillArrayImpl(const std::string & opName,
                      const std::any & arg,
                      std::vector<std::shared_ptr<ComputeEvent>> prereqs)
 {
-    MemoryArrayHandleT<char> region{regionIn.handle};
+    MemoryArrayHandleT<uint8_t> region{regionIn.handle};
 
     if (startOffsetInBytes > region.lengthInBytes()) {
         throw MLDB::Exception("enqueueFillArrayImpl: array start index out of bounds");
@@ -351,7 +393,7 @@ enqueueFillArrayImpl(const std::string & opName,
             auto block = std::any_cast<std::span<const std::byte>>(arg);
             auto blockRegion = owner->managePinnedHostRegionImpl(opName + " pin block", block, 1 /* align */,
                                                                  typeid(std::byte), true /* isConst */);
-            MemoryArrayHandleT<const char> blockHandle{std::move(blockRegion.move().handle)};
+            MemoryArrayHandleT<uint8_t> blockHandle{std::move(blockRegion.move().handle)};
             auto bound = kernel->bind("region", region,
                                       "startOffsetInBytes", (uint64_t)startOffsetInBytes,
                                       "lengthInBytes", (uint64_t)lengthInBytes,

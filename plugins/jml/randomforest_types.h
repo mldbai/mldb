@@ -119,7 +119,7 @@ struct Feature {
 };
 
 /// Defines how weights are stored in rows
-enum WeightFormat {
+enum WeightFormat : int16_t {
     WF_INT_MULTIPLE,  ///< Stored as an int multiplied by a constant
     WF_TABLE,         ///< Stored as an index into a fixed table
     WF_FLOAT          ///< Stored directly as a 32 bit float

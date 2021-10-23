@@ -24,7 +24,8 @@ LIBARCH_SOURCES := \
         file_functions.cc \
 		wait_on_address.cc \
 		wakeup_fd.cc \
-		thread_specific.cc
+		thread_specific.cc \
+	ansi.cc \
 
 
 ifeq ($(ARCH),x86_64)

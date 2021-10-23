@@ -994,7 +994,17 @@ splitPartitions(const std::span<const Feature> features,
         out[partition].decodedRows.push_back(decodedRows[i]);
         bool label = decodedRows[i] < 0;
         float weight = fabs(decodedRows[i]);
-        out[partition].wAll.add(label, weight);
+        try {
+            ExcAssertLessEqual(weight, 1);
+            out[partition].wAll.add(label, weight);
+        } MLDB_CATCH_ALL {
+            cerr << "error on row " << i << " of " << numRows
+                 << " for partition " << partition << " of " << out.size()
+                 << " label " << label << " weight " << weight << endl;
+            cerr << "wAll is " << jsonEncodeStr(out[partition].wAll) << endl;
+            cerr << "decoded rows has " << out[partition].decodedRows.size() << " rows" << endl;
+            throw;
+        }
     }
     
     for (int f: activeFeatures) {
@@ -1321,7 +1331,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
     BucketList featureBuckets[nf];
 
     for (uint32_t r: rowRange) {
-        bool debug = (r == 845 || r == 3006 || r == 3758);
+        bool debug = false;//(r == 845 || r == 3006 || r == 3758);
 
         auto partition = partitions[r].partition();
         int splitFeature = partitionSplits[partition].feature;

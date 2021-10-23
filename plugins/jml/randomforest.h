@@ -93,6 +93,12 @@ struct PartitionData {
                         ML::Tree & tree,
                         MappedSerializer & serializer,
                         TrainingScheme trainingScheme = PARTITIONED) const;
+    
+    // Train a small forest, with the same rows but a different feature sampling
+    std::vector<ML::Tree>
+    trainMultipleSamplings(int maxDepth, const std::vector<std::vector<int>> & featuresActive,
+                           MappedSerializer & serializer,
+                           TrainingScheme trainingScheme = PARTITIONED) const;
 };
 
 

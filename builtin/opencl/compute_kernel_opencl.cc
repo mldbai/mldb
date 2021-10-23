@@ -10,7 +10,7 @@
 #include "opencl_types.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
-#include "mldb/utils/ansi.h"
+#include "mldb/arch/ansi.h"
 
 using namespace std;
 
@@ -32,7 +32,7 @@ struct OpenCLBindInfo: public ComputeKernelBindInfo {
     const OpenCLComputeKernel * owner = nullptr;
 };
 
-EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 1);
+EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 0);
 
 __thread int opCount = 0;
 Timer startTimer;
@@ -215,8 +215,8 @@ launch(const std::string & opName,
         if (rem > 0) {
             if (kernel->allowGridPaddingFlag) {
                 range += (b - rem);
-                cerr << "padding out dimension " << i << " from " << grid[i]
-                    << " to " << range << " due to block size of " << b << endl;
+                //cerr << "padding out dimension " << i << " from " << grid[i]
+                //    << " to " << range << " due to block size of " << b << endl;
             }
             else {
                 throw MLDB::Exception("OpenCL kernel '" + kernel->kernelName + "' won't launch "
@@ -232,7 +232,7 @@ launch(const std::string & opName,
     if (kernel->modifyGrid)
         kernel->modifyGrid(clGrid);
     
-    cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
+    //cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
     //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
     auto timer = std::make_shared<Timer>();
 
@@ -861,7 +861,7 @@ setComputeFunction(OpenCLProgram programIn,
     this->clKernelInfo = this->clKernel.getInfo();
 
     //using namespace std;
-    //cerr << jsonEncode(kernelInfo) << endl;
+    //cerr << jsonEncode(clKernelInfo) << endl;
 
     correspondingArgumentNumbers.resize(clKernelInfo.numArgs, -1);
 
@@ -873,7 +873,9 @@ setComputeFunction(OpenCLProgram programIn,
             }
         }
         else {
+            //cerr << "doing arg " << jsonEncodeStr(arg) << endl;
             auto [type, access] = getKernelType(arg);
+            //cerr << "type = " << type.print() << endl;
             std::string argName = arg.name;
             auto it = paramIndex.find(argName);
             if (it == paramIndex.end()) {
@@ -884,6 +886,15 @@ setComputeFunction(OpenCLProgram programIn,
                                         + " has no counterpart in formal parameter list");
             }
             correspondingArgumentNumbers.at(arg.argNum) = it->second;
+            auto & param = params.at(it->second);
+            std::string reason;
+            if (!type.isCompatibleWith(param.type)) {
+                throw MLDB::Exception("Kernel parameter " + std::to_string(arg.argNum)
+                                        + " (" + argName + ") to OpenCL kernel " + kernelName
+                                        + ": declared parameter type " + type.print()
+                                        + " is not compatible with kernel type " + param.type.print()
+                                        + ": " + reason);
+            }
         }
     }
 }

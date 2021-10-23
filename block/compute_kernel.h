@@ -367,6 +367,8 @@ struct ComputeKernelType {
     std::string print() const;
     
     std::vector<ComputeKernelDimension> dims;  // if empty, scalar, otherwise n-dimensional array
+
+    bool isCompatibleWith(const ComputeKernelType & otherType, std::string * reason = nullptr) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelType);
@@ -584,7 +586,10 @@ struct PromiseAbstractArgumentHandler: public AbstractArgumentHandler {
     PromiseAbstractArgumentHandler(ComputePromiseT<T> value)
         : subImpl(getArgumentHandler(value.get()))
     {
+        this->isConst = subImpl->isConst;
+        this->type = subImpl->type;
         // TODO: bind this later so we don't wait on it until we actually need it
+        // TODO: add the promise to the list of events we need to await
     }
 
     std::unique_ptr<AbstractArgumentHandler> subImpl;
@@ -669,6 +674,17 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
                                 + " of kernel " + owner->kernelName);
 
     arguments[argIndex].handler.reset(getArgumentHandler(std::forward<Arg>(arg)));
+    ExcAssert(arguments[argIndex].handler->type.baseType);
+
+    auto & expectedType = owner->params.at(argIndex).type;
+    auto & passedType = arguments[argIndex].handler->type;
+
+    std::string reason;
+    if (!expectedType.isCompatibleWith(passedType, &reason)) {
+        throw MLDB::Exception("Couldn't bind arg: argument " + argName
+                              + " of kernel " + owner->kernelName
+                              + ": " + reason + "( Arg is " + type_name<Arg>() + ")");
+    }
 }
 
 inline void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & arguments) // end of recursion
@@ -950,7 +966,7 @@ struct ComputeContext {
     }
 
     template<typename T>
-    ComputePromiseT<MemoryArrayHandleT<T>>
+    MemoryArrayHandleT<T>
     manageMemoryRegionSync(const std::string & regionName, const std::vector<T> & obj)
     {
         return manageMemoryRegionSync(regionName, static_cast<std::span<const T>>(obj));
@@ -971,11 +987,11 @@ struct ComputeContext {
     }
 
     template<typename T, size_t N>
-    ComputePromiseT<MemoryArrayHandleT<T>>
+    MemoryArrayHandleT<T>
     manageMemoryRegionSync(const std::string & regionName, const std::span<const T, N> & obj)
     {
         return { managePinnedHostRegionSyncImpl(regionName, std::as_bytes(obj), alignof(T),
-                                      typeid(std::remove_const_t<T>), std::is_const_v<T>) };
+                                      typeid(std::remove_const_t<T>), std::is_const_v<T>).handle };
     }
 
     template<typename T>

@@ -49,16 +49,20 @@ __kernel void doNothingKernel(uint32_t dummy)
     //printf("%d\n", dummy);
 }
 
-inline float decodeWeight(uint32_t bits, uint32_t floatEncoding, float baseMultiplier,
+typedef struct WeightFormat {
+    uint16_t f;
+} WeightFormat;
+
+inline float decodeWeight(uint32_t bits, WeightFormat floatEncoding, float baseMultiplier,
                    __global const float * table)
 {
-    if (floatEncoding == 0 || true) {
+    if (floatEncoding.f == 0 || true) {
         return bits * baseMultiplier;
     }
-    else if (floatEncoding == 1) {
+    else if (floatEncoding.f == 1) {
         return as_float(bits);
     }
-    else if (floatEncoding == 2) {
+    else if (floatEncoding.f == 2) {
         return table[bits];
     }
     else return INFINITY;
@@ -178,7 +182,7 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
                    uint32_t exampleBits,
                    uint32_t numRows,
 
-                   uint32_t weightEncoding,
+                   WeightFormat weightEncoding,
                    float weightMultiplier,
                    __global const float * weightTable,
                    
@@ -196,7 +200,7 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
                    uint32_t exampleBits,
                    uint32_t numRows,
 
-                   uint32_t weightEncoding,
+                   WeightFormat weightEncoding,
                    float weightMultiplier,
                    __global const float * weightTable,
                    
@@ -474,11 +478,11 @@ inline void decrementWOutGlobal(__global W * wOut, __global const W * wIn)
 __kernel void
 decompressRowsKernel(__global const uint64_t * rowData,
                      uint32_t rowDataLength,
-                     uint32_t weightBits,
-                     uint32_t exampleNumBits,
+                     uint16_t weightBits,
+                     uint16_t exampleNumBits,
                      uint32_t numRows,
                      
-                     uint32_t weightFormat,
+                     WeightFormat weightFormat,
                      float weightMultiplier,
                      __global const float * weightData,
                      
@@ -504,7 +508,7 @@ decompressRowsKernel(__global const uint64_t * rowData,
                       mask, exampleMask, weightMask, labelMask);
         
         if (row.example != rowId) {
-            printf("non-consecutive example numbers: %d vs %d\n", row.example, rowId);
+            printf("non-consecutive example numbers: %d vs %d, exampleNumBits=%d\n", row.example, rowId, exampleNumBits);
         }
 
         float encoded = row.label ? -row.weight : row.weight;

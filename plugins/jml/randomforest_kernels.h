@@ -318,6 +318,15 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          const DatasetFeatureSpace & fs);
 
 ML::Tree::Ptr
+trainPartitionedEndToEndCpu(int depth, int maxDepth,
+                            ML::Tree & tree,
+                            MappedSerializer & serializer,
+                            const Rows & rows,
+                            const std::span<const Feature> & features,
+                            FrozenMemoryRegionT<uint32_t> bucketMemory,
+                            const DatasetFeatureSpace & fs);
+
+ML::Tree::Ptr
 trainPartitionedRecursiveCpu(int depth, int maxDepth,
                              ML::Tree & tree,
                              MappedSerializer & serializer,

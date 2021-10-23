@@ -13,7 +13,6 @@ LIBUTILS_SOURCES := \
 	for_each_line.cc \
 	tmpdir.cc \
 	fixed_point_accum.cc \
-	ansi.cc \
 
 LIBUTILS_LINK := \
 	arch \

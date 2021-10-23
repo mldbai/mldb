@@ -137,7 +137,7 @@ run(const ProcedureRunConfig & run,
 {
     //Todo: we will need heuristics for those. (MLDB-1449)
     int maxBagsAtOnce = 5;
-    int maxTreesAtOnce = 20;
+    //int maxTreesAtOnce = 20;
 
     RandomForestProcedureConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
@@ -404,25 +404,25 @@ run(const ProcedureRunConfig & run,
                 allData.clear();
             }
 
-            auto trainFeaturePartition = [&] (int partitionNum)
-            {
-                mt19937 rng(bag + 371 + partitionNum);
+            std::vector<std::vector<int>> samplingActiveFeatures;
+            samplingActiveFeatures.reserve(runProcConf.featureSamplings);
+
+            for (size_t i = 0;  i < runProcConf.featureSamplings;  ++i) {
+                mt19937 rng(bag + 371 + i);
                 uniform_real_distribution<> uniform01(0, 1);
 
-                PartitionData mydata(data);
+                std::vector<int> activeFeatures;
 
                 // Cull the features according to the sampling proportion
                 for (int attempt = 0;  true /* break in loop */; ++attempt) {
+                    activeFeatures.clear();
                     int numActiveFeatures = 0;
 
                     // Cull the features according to the sampling proportion
                     for (unsigned i = 0;  i < data.features.size();  ++i) {
                         if (data.features[i].active
-                            && uniform01(rng) > procedureConfig.featureSamplingProp) {
-                            mydata.features[i].active = false;
-                        }
-                        else {
-                            mydata.features[i].active = true;
+                            && uniform01(rng) <= procedureConfig.featureSamplingProp) {
+                            activeFeatures.push_back(i);
                             ++numActiveFeatures;
                         }
                     }
@@ -435,17 +435,21 @@ run(const ProcedureRunConfig & run,
                         }
                     }
                     else {
+                        samplingActiveFeatures.emplace_back(std::move(activeFeatures));
                         break;
-                      }
+                    }
                 }
+            }
 
-                Timer timer;
-                ML::Tree tree;
-                tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree, serializer);
-                INFO_MSG(logger) << "bag " << bag << " partition " << partitionNum << " took "
-                     << timer.elapsed();
+            Timer timer;
+            std::vector<ML::Tree> trees
+                = data.trainMultipleSamplings(runProcConf.maxDepth, samplingActiveFeatures, serializer);
 
-                int resultIndex = bag*runProcConf.featureSamplings + partitionNum;
+            ExcAssertEqual(trees.size(), samplingActiveFeatures.size());
+
+            for (size_t i = 0;  i < trees.size();  ++i) {
+                auto & tree = trees[i];
+                int resultIndex = bag*runProcConf.featureSamplings + i;
 
                 results[resultIndex] = make_shared<Decision_Tree>(contFeatureSpace, labelFeature);
 
@@ -454,9 +458,6 @@ run(const ProcedureRunConfig & run,
                 if (runProcConf.verbosity)
                     INFO_MSG(logger) << results[resultIndex]->print();
             };
-
-            parallelMap(0, runProcConf.featureSamplings, trainFeaturePartition,
-                        maxTreesAtOnce);
 
             INFO_MSG(logger) << "bag " << bag << " took " << bagTimer.elapsed();
         };

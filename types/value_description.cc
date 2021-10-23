@@ -325,9 +325,13 @@ initialize()
 namespace {
 
 std::recursive_mutex registryMutex;
-std::unordered_map<std::string, std::shared_ptr<const ValueDescription> > & registry()
+struct RegistryEntry {
+    std::shared_ptr<const ValueDescription> desc;
+    std::vector<std::string> aliases;
+};
+std::unordered_map<std::string, RegistryEntry> & registry()
 {
-    static std::unordered_map<std::string, std::shared_ptr<const ValueDescription> > result;
+    static std::unordered_map<std::string, RegistryEntry> result;
     return result;
 }
 
@@ -339,7 +343,7 @@ get(std::string const & name)
 {
     std::unique_lock<std::recursive_mutex> guard(registryMutex);
     auto i = registry().find(name);
-    return registry().end() != i ? i->second : nullptr;
+    return registry().end() != i ? i->second.desc : nullptr;
 }
 
 std::shared_ptr<const ValueDescription>
@@ -378,9 +382,9 @@ registerValueDescription(const std::type_info & type,
 
     std::shared_ptr<ValueDescription> desc(createFn());
     ExcAssert(desc);
-    registry()[desc->typeName] = desc;
-    registry()[type.name()] = desc;
-    registry()[demangle(type.name())] = desc;
+    registry()[desc->typeName].desc = desc;
+    registry()[type.name()].desc = desc;
+    registry()[demangle(type.name())].desc = desc;
     initFn(*desc);
 #if 0
     cerr << "type " << demangle(type.name())
@@ -403,9 +407,9 @@ registerValueDescriptionFunctions(const std::type_info & type,
 
     std::shared_ptr<ValueDescription> desc(create());
     ExcAssert(desc);
-    registry()[desc->typeName] = desc;
-    registry()[type.name()] = desc;
-    registry()[demangle(type.name())] = desc;
+    registry()[desc->typeName].desc = desc;
+    registry()[type.name()].desc = desc;
+    registry()[demangle(type.name())].desc = desc;
     initialize(*desc);
 #if 0
     cerr << "type " << demangle(type.name())
@@ -427,7 +431,19 @@ void registerValueDescriptionAlias(const std::type_info & type, const std::strin
     }
     
     std::unique_lock<std::recursive_mutex> guard(registryMutex);
-    registry()[alias] = desc;
+    registry()[alias].desc = desc;
+    registry()[typeid(type).name()].aliases.push_back(alias);
+}
+
+std::vector<std::string>
+getValueDescriptionAliases(const std::type_info & type)
+{
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
+    auto it = registry().find(type.name());
+    if (it == registry().end()) {
+        return {};
+    }
+    return it->second.aliases;
 }
 
 void

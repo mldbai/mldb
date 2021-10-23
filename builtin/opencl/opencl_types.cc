@@ -14,7 +14,7 @@
 #include "mldb/types/annotated_exception.h"
 #include <regex>
 #include <iostream>
-#include "mldb/utils/ansi.h"
+#include "mldb/arch/ansi.h"
 #include "mldb/utils/environment.h"
 
 using namespace std;

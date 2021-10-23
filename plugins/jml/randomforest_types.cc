@@ -97,6 +97,7 @@ REGISTER_VALUE_DESCRIPTION_ALIAS(W32);
 REGISTER_VALUE_DESCRIPTION_ALIAS(W64);
 REGISTER_VALUE_DESCRIPTION_ALIAS(W);
 REGISTER_VALUE_DESCRIPTION_ALIAS(WIndexed);
+REGISTER_VALUE_DESCRIPTION_ALIAS(WeightFormat);
 
 // Verify that sizes of structures are matched by GPU versions
 static_assert(sizeof(W32) == 12, "GPU kernels expect that W32 should be a 12 byte structure");
