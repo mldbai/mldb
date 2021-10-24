@@ -107,13 +107,14 @@ static_assert(alignof(W64) == 8, "GPU kernels expect that W64 should be 8 byte a
 static_assert(sizeof(PartitionIndex) == 4, "GPU kernels expect that PartitionIndex should be a 4 byte structure");
 static_assert(alignof(PartitionIndex) == 4, "GPU kernels expect that PartitionIndex should be 4 byte aligned");
 static_assert(sizeof(WIndexed) == 16, "GPU kernels expect that WIndexed is a 16 byte structure");
-static_assert(sizeof(PartitionSplit) == 36, "GPU kernels expect that PartitionSplit is a 32 byte structure");
-static_assert(offsetof(PartitionSplit, index) == 0);
-static_assert(offsetof(PartitionSplit, score) == 4);
-static_assert(offsetof(PartitionSplit, feature) == 8);
-static_assert(offsetof(PartitionSplit, value) == 10);
-static_assert(offsetof(PartitionSplit, left) == 12);
-static_assert(offsetof(PartitionSplit, right) == 24);
+static_assert(sizeof(PartitionSplit) == 32, "GPU kernels expect that PartitionSplit is a 32 byte structure");
+static_assert(sizeof(IndexedPartitionSplit) == 36, "GPU kernels expect that PartitionSplitIndexed is a 36 byte structure");
+static_assert(offsetof(PartitionSplit, score) == 0);
+static_assert(offsetof(PartitionSplit, feature) == 4);
+static_assert(offsetof(PartitionSplit, value) == 6);
+static_assert(offsetof(PartitionSplit, left) == 8);
+static_assert(offsetof(PartitionSplit, right) == 20);
+static_assert(offsetof(IndexedPartitionSplit, index) == 32);
 
 std::ostream & operator << (std::ostream & stream, PartitionIndex idx)
 {
@@ -152,10 +153,19 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
     addField("value", &PartitionSplit::value, "");
     addField("left", &PartitionSplit::left, "");
     addField("right", &PartitionSplit::right, "");
-    addField("index", &PartitionSplit::index, "");
 }
 
+REGISTER_VALUE_DESCRIPTION(PartitionSplit);
 REGISTER_VALUE_DESCRIPTION_ALIAS(PartitionSplit);
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(IndexedPartitionSplit)
+{
+    addParent<PartitionSplit>();
+    addField("index", &IndexedPartitionSplit::index, "");
+}
+
+REGISTER_VALUE_DESCRIPTION(IndexedPartitionSplit);
+REGISTER_VALUE_DESCRIPTION_ALIAS(IndexedPartitionSplit);
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(RowPartitionInfo)
 {

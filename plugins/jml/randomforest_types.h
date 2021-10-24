@@ -562,12 +562,11 @@ enum PartitionSplitDirection: uint8_t {
 };
 
 struct PartitionSplit {
-    PartitionIndex index;      // 4 bytes
     float score = INFINITY;    // 4 bytes
     int16_t feature = -1;      // 2 bytes
     int16_t value = -1;        // 2 bytes
-    W left;                    // 12 bytes
-    W right;                   // 12 bytes
+    W left;                    // 12 bytes: true, false, count
+    W right;                   // 12 bytes: true, false, count
 
     // Tells us which is the most efficient way to transfer weight:
     // from left to right, or from right to left.  This doesn't affect
@@ -583,13 +582,15 @@ struct PartitionSplit {
 
     bool valid() const { return feature != -1; }
 
-    operator std::pair<PartitionIndex, PartitionSplit> const ()
-    {
-        return { index, *this };
-    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(PartitionSplit);
+
+struct IndexedPartitionSplit: public PartitionSplit {
+    PartitionIndex index;      // 4 bytes
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(IndexedPartitionSplit);
 
 // Structure giving information about a given row (which partition it's in).
 struct RowPartitionInfo {

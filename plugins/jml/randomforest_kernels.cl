@@ -253,6 +253,9 @@ typedef struct WIndexed {
     int32_t index;
 } WIndexed;
 
+#define W_INIT { { 0, 0}, 0 }
+#define W_INDEXED_INIT { W_INIT, 0 }
+
 inline void zeroW(__local W * w)
 {
     w->vals[0] = 0;
@@ -688,13 +691,23 @@ testFeatureKernel(__global const float * decodedRows,
 }
 
 typedef struct {
-    uint32_t index;
     float score;
     int16_t feature;
     int16_t value;
     W left;
     W right;
 } PartitionSplit;
+
+#define PARTITION_SPLIT_INIT { INFINITY, -1, -1, W_INIT, W_INIT }
+
+typedef struct {
+    float score;
+    int16_t feature;
+    int16_t value;
+    W left;
+    W right;
+    uint32_t index;
+} IndexedPartitionSplit;
 
 
 inline bool partitionSplitDirectionGlobal(__global const PartitionSplit * split)
@@ -706,10 +719,9 @@ __kernel void
 fillPartitionSplitsKernel(__global PartitionSplit * splits)
 {
     uint32_t n = get_global_id(0);
-    uint32_t partitionIndex = n + get_global_size(0);
     //printf("filling partition %d at %ld\n",
     //       n, (long)(((__global char *)(splits + n)) - (__global char *)splits));
-    PartitionSplit spl = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
+    PartitionSplit spl = PARTITION_SPLIT_INIT;
     splits[n] = spl;
 }
 
@@ -996,7 +1008,7 @@ chooseSplitKernelOrdinal(__global const W * w,
                          __local WIndexed * wLocal,
                          uint32_t wLocalSize)
 {
-    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
+    PartitionSplit result = PARTITION_SPLIT_INIT;
 
     uint32_t bucket = get_global_id(0);
 
@@ -1087,7 +1099,7 @@ chooseSplitKernelCategorical(__global const W * w,
                              uint32_t numBuckets,
                              W wAll)
 {
-    PartitionSplit result = { 0, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
+    PartitionSplit result = PARTITION_SPLIT_INIT;
 
     uint32_t bucket = get_global_id(0);
 
@@ -1170,7 +1182,7 @@ chooseSplit(__global const W * w,
             bool ordinal,
             uint32_t partitionIndex)  // 
 {
-    PartitionSplit result = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
+    PartitionSplit result = PARTITION_SPLIT_INIT;
 
     uint32_t f = get_global_id(1);
     //uint32_t p = get_global_id(2);
@@ -1322,7 +1334,6 @@ chooseSplit(__global const W * w,
     result.right.vals[0] -= wBest->w.vals[0];
     result.right.vals[1] -= wBest->w.vals[1];
     result.right.count   -= wBest->w.count;
-    result.index = partitionIndex;
 
     return result;
 }
@@ -1357,7 +1368,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     if (f >= nf || partition >= numPartitions)
         return;
 
-    const PartitionSplit NONE = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
+    const PartitionSplit NONE = PARTITION_SPLIT_INIT;
     PartitionSplit best = NONE;
 
     // Don't do inactive features
@@ -1427,7 +1438,6 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
     if (bucket == 0) {
         if (best.score == INFINITY) {
             best = NONE;
-            best.index = partitionIndex;
         }
         //printf("writing out active PartitionSplit part %d f %d idx %x score %f\n", partition, f, partition * nf + f, best.score);
         featurePartitionSplitsOut[partition * nf + f] = best;
@@ -1514,7 +1524,7 @@ bestPartitionSplitKernel(uint32_t numFeatures,
     uint32_t p = get_global_id(0);
     uint32_t partitionIndex = p + get_global_size(0);
 
-    PartitionSplit best = { partitionIndex, INFINITY, -1, -1, { { 0, 0 }, 0 }, { { 0, 0}, 0} };
+    PartitionSplit best = PARTITION_SPLIT_INIT;
 
     featurePartitionSplits += p * numFeatures;
     allPartitionSplitsOut += p;

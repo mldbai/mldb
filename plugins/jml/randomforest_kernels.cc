@@ -546,7 +546,7 @@ void updateBuckets(const std::span<const Feature> & features,
                    uint32_t numActiveBuckets,
                    std::vector<W> & wAll,
                    const std::span<const uint32_t> & bucketOffsets,
-                   const std::span<const PartitionSplit> & partitionSplits,
+                   const std::span<const IndexedPartitionSplit> & partitionSplits,
                    const std::span<const std::pair<int32_t, int32_t> > & newPartitionNumbers,
                    int newNumPartitions,
                    const std::span<const float> & decodedRows,
@@ -1063,7 +1063,7 @@ splitPartitions(const std::span<const Feature> features,
     decision tree algorithm, but across a full set of rows split into
     multiple partitions.
 */
-std::vector<PartitionSplit>
+std::vector<IndexedPartitionSplit>
 getPartitionSplits(const std::span<const W> & buckets,  // [np][nb] for each partition, feature buckets
                    uint32_t numActiveBuckets,
                    const std::span<const int> & activeFeatures,       // [naf] list of feature numbers of active features only (< nf)
@@ -1082,7 +1082,7 @@ getPartitionSplits(const std::span<const W> & buckets,  // [np][nb] for each par
     ExcAssertEqual(wAll.size(), numPartitions);
     ExcAssertGreaterEqual(buckets.size(), numPartitions * numActiveBuckets);
 
-    std::vector<PartitionSplit> partitionSplits(numPartitions);
+    std::vector<IndexedPartitionSplit> partitionSplits(numPartitions);
 
     for (int partition = 0;  partition < numPartitions;  ++partition) {
 
@@ -1226,12 +1226,11 @@ getPartitionSplitsKernel(ComputeContext & context,
                          std::span<PartitionSplit> splitsOut) // [np x nf]
 {
     // BucketRange is just there for show... it is implicitly handled in the kernel
-    ExcAssertEqual(numPartitions, np);
+    ExcAssertLessEqual(np, numPartitions);
 
     PartitionSplit & result = splitsOut[p * nf + f];
     if (!featureActive[f] || wAll[p].empty() || wAll[p].uniform()) {
         result = PartitionSplit();
-        result.index = p + np;
         return;
     }
 
@@ -1242,7 +1241,6 @@ getPartitionSplitsKernel(ComputeContext & context,
     std::tie(result.score, result.value, result.left, result.right)
         = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
     result.feature = result.score == INFINITY ? -1 : f;
-    result.index = p + np;  // implicit
 }
 
 void
@@ -1269,8 +1267,6 @@ bestPartitionSplitKernel(ComputeContext & context,
             result = fp;
         }
     }
-
-    result.index = p + partitionSplitsOffset;
 }
 
 void
@@ -1874,14 +1870,12 @@ descendSmallPartition(PartitionWorkEntry entry,
                 }
             }
 
-            split.index = index;
-            
             //cerr << "  split = " << jsonEncodeStr(split) << endl;
             
             if (split.feature == -1)
                 break;
 
-            //cerr << "produced split " << jsonEncodeStr(split) << endl;
+            //cer©r << "produced split " << jsonEncodeStr(split) << endl;
             
             splits.emplace(index, std::move(split));
 
@@ -2000,7 +1994,7 @@ trainSmallPartitions(int depth, int maxDepth,
                      const std::span<const uint32_t> & bucketOffsets,
                      const std::span<const float> & decodedRows,
                      const std::span<const int> & activeFeatures,
-                     const std::span<const std::pair<int, PartitionSplit> > & smallPartitions,
+                     const std::span<const std::pair<int, IndexedPartitionSplit> > & smallPartitions,
                      const DatasetFeatureSpace & fs)
 {
     std::map<PartitionIndex, ML::Tree::Ptr> result;
@@ -2027,7 +2021,8 @@ trainSmallPartitions(int depth, int maxDepth,
     // one for the right of each
     int numPartitions = smallPartitions.size() * 2;
 
-    // Structure containing the
+    // Structure containing the example number, weight, label and partition for
+    // each one
     struct AugmentedPartitionExample: public PartitionExample {
         AugmentedPartitionExample() = default;
         AugmentedPartitionExample(int ex, float row, int part)
@@ -2108,7 +2103,7 @@ trainSmallPartitions(int depth, int maxDepth,
     std::sort(allExamples.begin(), allExamples.end());
 
     // Index the example number for the beginning of each partition.  This
-    // enables us to know where to to for each one.
+    // enables us to know where to go to for each one to get to its examples.
     std::vector<int> partitionStarts;
     int currentPartition = -1;
 
@@ -2137,7 +2132,7 @@ trainSmallPartitions(int depth, int maxDepth,
         int smallPartitionNum = i / 2;
         int lr = i % 2;
 
-        const PartitionSplit & split
+        const IndexedPartitionSplit & split
             = smallPartitions[smallPartitionNum].second;
         
         PartitionIndex index
@@ -2269,7 +2264,7 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
 
         // Run a kernel to find the new split point for each partition,
         // best feature and kernel.
-        std::vector<PartitionSplit> splits
+        std::vector<IndexedPartitionSplit> splits
             = getPartitionSplits(buckets, numActiveBuckets, activeFeatures, bucketOffsets,
                                  features, wAll, indexes,
                                  depth < 4 /* parallel */); 
@@ -2313,12 +2308,12 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
         // configured maximum width.  They are handled in a separate algorithm
         // in parallel with running the main algorithm.
         // first = partition number, second = split
-        std::vector<std::pair<int, PartitionSplit> > smallPartitions;
+        std::vector<std::pair<int, IndexedPartitionSplit> > smallPartitions;
 
         int smallPartitionRows = 0;
         
         for (size_t i = 0;  i < splits.size();  ++i) {
-            const PartitionSplit & p = splits[i];
+            const IndexedPartitionSplit & p = splits[i];
 
             //cerr << "split " << i << " feat " << p.feature
             //     << " all " << wAll[i].count() << " left "
@@ -2532,7 +2527,7 @@ extractTree(int depth, int maxDepth,
     if (depth == 0 && false) {
         cerr << " with " << splits.size() << " splits and " << leaves.size() << " leaves" << endl;
         for (auto & s: splits) {
-            cerr << "  split " << s.first << " --> " << s.second.feature << " " << s.second.index
+            cerr << "  split " << s.first << " --> " << s.second.feature
                  << " " << s.second.left.count() << ":" << s.second.right.count() << " d: " << (s.second.transferDirection() == RL) << endl;
         }
         for (auto & l: leaves) {

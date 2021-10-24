@@ -994,6 +994,26 @@ init(int maxDepth,
     deviceBucketDataOffsets = context->manageMemoryRegion("bucketMemoryOffsets", bucketMemoryOffsets);
 }
 
+#if 0
+struct PartitionInfo {
+    PartitionIndex index;
+    uint16_t left = -1;
+    uint16_t right = -1;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(PartitionInfo);
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionInfo)
+{
+    addField("index", &PartitionInfo::index, "Index of partition");
+    addField("left", &PartitionIndex::left, "Position of left buckets");
+    addField("right", &PartitionIndex::right, "Position of right buckets");
+}
+
+REGISTER_VALUE_DESCRIPTION(PartitionInfo);
+REGISTER_VALUE_DESCRIPTION_ALIAS(PartitionInfo);
+#endif
+
 ML::Tree
 FeatureSamplingTrainerKernel::
 trainPartitioned(const std::vector<int> & activeFeatures)
@@ -1083,6 +1103,14 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         = queue->enqueueFillArray("fill firstPartitionBuckets", firstPartitionBuckets, W());
     //auto fillFirstBuckets
     //    = queue->enqueueFillArray("fill firstPartitionBuckets", devicePartitionBucketPool, W());
+
+    // We have only one partition, which is the root bucket.  We allocate a pool of them, but only
+    // initialize the first one.
+    //MemoryArrayHandleT<PartitionInfo> devicePartitionInfoPool
+    //    = context->allocUninitializedArray<PartitionInfo>("partitionInfo", maxPartitionCount).get();
+
+    //auto fillFirstPartitionInfo
+    //    = queue->enqueueFillArray("fill firstPartitionInfo", devicePartitionInfoPool, PartitionInfo{PartitionIndex::root(), 0, 0}, -, 1);
 
     std::shared_ptr<ComputeEvent> runTestFeatureKernel;
     {
@@ -1275,7 +1303,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         // into which we copy the input data required to re-run the
         // computation on the CPU so we can verify the output of the device
         // algorithm.
-        std::vector<PartitionSplit> debugPartitionSplitsCpu;
+        std::vector<IndexedPartitionSplit> debugPartitionSplitsCpu;
         MutableMemoryRegionT<W> mappedBuckets;
         std::vector<W> debugBucketsCpu;
         std::vector<W> debugWAllCpu;
@@ -1402,8 +1430,6 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                         != debugPartitionSplitsCpu[p].feature)
                     || (partitionSplitsDevice[p].value
                         != debugPartitionSplitsCpu[p].value)
-                    || (partitionSplitsDevice[p].index
-                        != debugPartitionSplitsCpu[p].index)
                     || (partitionSplitsDevice[p].score
                         != debugPartitionSplitsCpu[p].score)) {
                     float score1 = partitionSplitsDevice[p].score;
@@ -1721,13 +1747,6 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         //cerr << "position = " << position << " numPartitionsAtDepth = " << numPartitionsAtDepth << endl;
 
         auto & split = allPartitionSplits[position];
-
-        if (index != split.index) {
-            cerr << "index " << index << " split.index " << split.index << " split " << jsonEncodeStr(split) << endl;
-        }
-        //cerr << "  split " << split.index << " = " << jsonEncodeStr(split) << endl;
-
-        ExcAssertEqual(index, split.index);
 
         int leftPosition = leftIndex.index;
         int rightPosition = rightIndex.index;

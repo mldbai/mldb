@@ -173,7 +173,7 @@ updateBuckets(const std::span<const Feature> & features,
               uint32_t numActiveBuckets,
               std::vector<W> & wAll,  // per part
               const std::span<const uint32_t> & bucketOffsets,
-              const std::span<const PartitionSplit> & partitionSplits,
+              const std::span<const IndexedPartitionSplit> & partitionSplits,
               const std::span<const std::pair<int32_t, int32_t> > & newPartitionNumbers,
               int newNumPartitions,
               const std::span<const float> & decodedRows,
@@ -201,7 +201,7 @@ splitPartitions(const std::span<const Feature> features,
     decision tree algorithm, but across a full set of rows split into
     multiple partitions.
 */
-std::vector<PartitionSplit>
+std::vector<IndexedPartitionSplit>
 getPartitionSplits(const std::span<const W> & buckets,
                    uint32_t numActiveBuckets,
                    const std::span<const int> & activeFeatures,
