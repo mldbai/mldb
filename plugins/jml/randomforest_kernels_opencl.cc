@@ -132,7 +132,7 @@ static struct RegisterKernels {
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
-            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
@@ -168,7 +168,7 @@ static struct RegisterKernels {
             result->addDimension("b", "maxNumBuckets");
             result->addParameter("totalBuckets", "r", "u32");
             result->addParameter("numPartitions", "r", "u32");
-            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("buckets", "r", "W32[totalBuckets * np]");
@@ -223,8 +223,8 @@ static struct RegisterKernels {
             //result->device = ComputeDevice::host();
             result->addDimension("p", "partitionSplitsOffset");
             result->addDimension("b", "numActiveBuckets");
-            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
-            result->addParameter("wAllOut", "w", "W32[np * 2]");
+            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np]");
+            result->addParameter("wAllOut", "w", "W32[np]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitionSplitsOffset", "r", "u32");
@@ -253,7 +253,7 @@ static struct RegisterKernels {
             result->addParameter("allPartitionSplits", "r", "PartitionSplit[np]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
-            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->allowGridPadding();
@@ -279,13 +279,13 @@ static struct RegisterKernels {
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
-            result->addParameter("bucketNumbers", "r", "u32[nf]");
+            result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
@@ -317,8 +317,8 @@ static struct RegisterKernels {
             result->device = ComputeDevice::host();
             result->addDimension("partition", "np");
             result->addDimension("bucket", "numActiveBuckets");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
-            result->addParameter("wAll", "w", "W32[np * 2]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
+            result->addParameter("wAll", "w", "W32[np]");
             result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("partitionSplitsOffset", "r", "u32");

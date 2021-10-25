@@ -20,6 +20,7 @@
 #include <iostream>
 #include <compare>
 #include <future>
+#include <set>
 
 namespace MLDB {
 
@@ -406,9 +407,12 @@ struct AbstractArgumentHandler {
     virtual MemoryRegionHandle getHandle(const std::string & opName, ComputeContext & context) const;
 
     virtual std::string info() const;
+
+    virtual Json::Value toJson() const = 0;
 };
 
 struct ComputeKernelArgument {
+    std::string name;
     std::shared_ptr<const AbstractArgumentHandler> handler;
     bool has_value() const { return !!handler; }
 };
@@ -519,12 +523,54 @@ struct ComputeKernel {
     virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const = 0;
 };
 
+// ComputeKernelConstraint
+
+struct ComputeKernelConstraint {
+    std::shared_ptr<const CommandExpression> lhs;
+    std::string op;
+    std::shared_ptr<const CommandExpression> rhs;
+    std::string description;
+
+    std::string print() const;
+
+    // Attempt to satisfy the constraint.  Returns true if a change was,
+    // made, false if no progress was made, and throws an
+    // exception if it's not satisfiable.  Unsatisfied contains the list
+    // variables with unknown values that will need to be determined
+    // before the constraint can be found.
+    bool attemptToSatisfy(CommandExpressionContext & context,
+                          std::set<std::string> & unsatisfied) const;
+
+    // Is it satisfied?  Unsatisfiable will throw an exception.
+    bool satisfied(CommandExpressionContext & context) const;
+};
+
+
 // BoundComputeKernel
 
 struct BoundComputeKernel {
     const ComputeKernel * owner = nullptr;
     std::vector<ComputeKernelArgument> arguments;
     std::shared_ptr<ComputeKernelBindInfo> bindInfo;
+
+    // Known quantities about the kernel
+    CommandExpressionContext knowns;
+
+    // Variables with unknown values
+    std::set<std::string> unknowns;
+
+    // Constraints that need to be met
+    std::vector<ComputeKernelConstraint> constraints;
+
+    void addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
+                       const std::string & description);
+    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
+                       const std::string & op, const std::string & rhs,
+                       const std::string & description);
+    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
+                       const std::string & op,
+                       std::shared_ptr<const CommandExpression> rhs,
+                       const std::string & description);
 };
 
 namespace details {
@@ -572,6 +618,8 @@ struct MemoryArrayAbstractArgumentHandler: public AbstractArgumentHandler {
     getHandle(const std::string & opName, ComputeContext & context) const override;
 
     virtual std::string info() const override;
+
+    virtual Json::Value toJson() const override;
 };
 
 template<typename T>
@@ -616,6 +664,8 @@ struct PromiseAbstractArgumentHandler: public AbstractArgumentHandler {
     getHandle(const std::string & opName, ComputeContext & context) const override;
 
     virtual std::string info() const override;
+
+    virtual Json::Value toJson() const override;
 };
 
 template<typename T>
@@ -647,6 +697,8 @@ struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
     getPrimitive(const std::string & opName, ComputeContext & context) const override;
 
     virtual std::string info() const override;
+
+    virtual Json::Value toJson() const override;
 };
 
 template<typename T>
@@ -674,6 +726,7 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
         throw MLDB::Exception("Attempt to double bind argument " + argName
                                 + " of kernel " + owner->kernelName);
 
+    arguments[argIndex].name = argName;
     arguments[argIndex].handler.reset(getArgumentHandler(std::forward<Arg>(arg)));
     ExcAssert(arguments[argIndex].handler->type.baseType);
 

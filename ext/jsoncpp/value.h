@@ -215,8 +215,14 @@ using MLDB::Utf8String;
       template<typename T>
       void setIntegral(T t, typename std::enable_if<std::is_signed<T>::value>::type * = 0)
       {
-          type_ = intValue;
-          value_.int_ = t;
+          if (t >= 0) {
+             type_ = uintValue;
+             value_.uint_ = t;
+          }
+          else {
+            type_ = intValue;
+            value_.int_ = t;
+          }
       }
 
       Value( double value );

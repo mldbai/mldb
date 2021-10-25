@@ -31,6 +31,7 @@ OPENCL_PLUGIN_LINK := \
 	sql_expression \
 	OpenCL \
 	block \
+	command_expression \
 
 
 ifeq ($(OSNAME),Linux)

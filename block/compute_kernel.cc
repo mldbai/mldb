@@ -5,6 +5,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/meta_value_description.h"
+#include "mldb/types/map_description.h"
 #include "mldb/utils/command_expression.h"
 #include <memory>
 
@@ -546,6 +547,163 @@ getDefault()
     return getRuntimeForDevice(ComputeDevice::host());
 }
 
+
+// ComputeKernelConstraint
+
+std::string
+ComputeKernelConstraint::
+print() const
+{
+    return lhs->surfaceForm + op + rhs->surfaceForm + " (" + description + ")";
+}
+
+namespace {
+
+std::set<std::string> getVariables(const CommandExpression & expression)
+{
+    std::set<std::string> result;
+    auto * var = dynamic_cast<const VariableExpression *>(&expression);
+    if (var) {
+        result = { var->variableName };
+    }
+    else {
+        for (auto & clause: expression.childClauses()) {
+            ExcAssert(clause);
+            auto vars = getVariables(*clause);
+            result.insert(vars.begin(), vars.end());
+        }
+    }
+    return result;
+}
+
+} // file scope
+
+bool
+ComputeKernelConstraint::
+attemptToSatisfy(CommandExpressionContext & context,
+                 std::set<std::string> & unsatisfied) const
+{
+    if (op != "==")
+        return false;  // equality constraints only for now
+
+    bool canEvaluateLhs = true;
+    for (auto var: getVariables(*lhs)) {
+        if (!context.hasValue(var)) {
+            canEvaluateLhs = false;
+            unsatisfied.insert(var);
+        }
+    }
+
+    Json::Value lhsVal;
+    if (canEvaluateLhs) {
+        lhsVal = lhs->apply(context);
+    }
+
+    bool canEvaluateRhs = true;
+    for (auto var: getVariables(*rhs)) {
+        if (!context.hasValue(var)) {
+            canEvaluateRhs = false;
+            unsatisfied.insert(var);
+        }
+    }
+
+    Json::Value rhsVal;
+    if (canEvaluateRhs) {
+        rhsVal = rhs->apply(context);
+    }
+    
+    if (!canEvaluateLhs && !canEvaluateRhs) {
+        return false;
+    }
+    else if (canEvaluateLhs && canEvaluateRhs) {
+        if (lhsVal != rhsVal) {
+            cerr << "lhsVal.type() = " << lhsVal.type() << endl;
+            cerr << "rhsVal.type() = " << rhsVal.type() << endl;
+            cerr << "lhsVal = " << lhsVal << endl;
+            cerr << "rhsVal = " << rhsVal << endl;
+            cerr << "lhs = " << lhs->surfaceForm << endl;
+            cerr << "rhs = " << rhs->surfaceForm << endl;
+            cerr << "context = " << jsonEncode(context.values) << endl;
+            throw MLDB::Exception("Couldn't meet constraint " + print()
+                                  + ": (" + lhsVal.toStringNoNewLine()
+                                  + " != " + rhsVal.toStringNoNewLine() + ")");
+        }
+    }
+
+    const VariableExpression * lhsVar = dynamic_cast<const VariableExpression *>(lhs.get());
+    const VariableExpression * rhsVar = dynamic_cast<const VariableExpression *>(rhs.get());
+
+    if (lhsVar && canEvaluateRhs) {
+        unsatisfied.erase(lhsVar->variableName);
+        if (!context.hasValue(lhsVar->variableName)) {
+            context.setValue(lhsVar->variableName, rhsVal);
+            return true;
+        }
+    }
+    else if (rhsVar && canEvaluateLhs) {
+        unsatisfied.erase(rhsVar->variableName);
+        if (!context.hasValue(rhsVar->variableName)) {
+            context.setValue(rhsVar->variableName, lhsVal);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool
+ComputeKernelConstraint::
+satisfied(CommandExpressionContext & context) const
+{
+    if (op != "==")
+        return false;  // equality constraints only for now
+
+    // TODO: no exceptions
+    try {
+        auto lhsVal = lhs->apply(context);
+        auto rhsVal = rhs->apply(context);
+        if (lhsVal != rhsVal)
+            throw MLDB::Exception("constraint is unsatisfiable");
+        return true;
+    }
+    catch (const std::exception & exc) {
+        return false;
+    }
+}
+
+
+// BoundComputeKernel
+
+void
+BoundComputeKernel::
+addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
+              const std::string & description)
+{
+    auto lhsParsed = CommandExpression::parseArgumentExpression(lhs);
+    auto rhsParsed = CommandExpression::parseArgumentExpression(rhs);
+    addConstraint(lhsParsed, op, rhsParsed, description);
+}
+
+void
+BoundComputeKernel::
+addConstraint(std::shared_ptr<const CommandExpression> lhs,
+              const std::string & op, const std::string & rhs,
+              const std::string & description)
+{
+    auto rhsParsed = CommandExpression::parseArgumentExpression(rhs);
+    addConstraint(lhs, op, rhsParsed, description);
+}
+
+void
+BoundComputeKernel::
+addConstraint(std::shared_ptr<const CommandExpression> lhs,
+              const std::string & op,
+              std::shared_ptr<const CommandExpression> rhs,
+              const std::string & description)
+{
+    constraints.push_back({lhs, op, rhs, description});
+}
+
 namespace details {
 
 MemoryArrayAbstractArgumentHandler::
@@ -629,6 +787,25 @@ info() const
     return result;
 }
 
+Json::Value
+MemoryArrayAbstractArgumentHandler::
+toJson() const
+{
+    size_t objectLength = type.baseType->size;
+    ExcAssertEqual(objectLength % type.baseType->align, 0);
+    size_t numObjects = handle.handle ? handle.handle->lengthInBytes / objectLength : 0;
+
+    Json::Value result;
+    result["elType"] = type.baseType->typeName;
+    result["elSize"] = type.baseType->size;
+    result["elAlign"] = type.baseType->align;
+    result["length"] = numObjects;
+
+    return result;
+}
+
+
+
 // PromiseAbstractArgumentHandler
 
 bool
@@ -694,6 +871,13 @@ info() const
     return subImpl->info();
 }
 
+Json::Value
+PromiseAbstractArgumentHandler::
+toJson() const
+{
+    return subImpl->toJson();
+}
+
 
 // PrimitiveAbstractArgumentHandler
 
@@ -716,6 +900,12 @@ PrimitiveAbstractArgumentHandler::
 info() const
 {
     return AbstractArgumentHandler::info() + " = " + this->type.baseType->printJsonString(mem.data()).rawString();
+}
+Json::Value
+PrimitiveAbstractArgumentHandler::
+toJson() const
+{
+    return this->type.baseType->printJsonStructured(mem.data());
 }
 
 } // namespace details

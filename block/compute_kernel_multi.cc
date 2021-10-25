@@ -133,6 +133,11 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     {
         return AbstractArgumentHandler::info() + " (multiple contexts)";
     }
+
+    virtual Json::Value toJson() const override
+    {
+        return underlying->toJson();
+    }
 };
 
 } // file scope

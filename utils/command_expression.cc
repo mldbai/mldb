@@ -388,6 +388,10 @@ parseArgumentExpression(ParseContext & context)
 
     context.skip_whitespace();
 
+    if (context.eof()) {
+        context.exception("expected expression");
+    }
+
     std::shared_ptr<CommandExpression> result;
 
     if (context.match_literal('\'')) {
@@ -483,17 +487,17 @@ parseArgumentExpression(ParseContext & context)
 
         result = std::make_shared<MapExpression>(expressions, applyExpr);
     }
-    else if (isalpha(*context) || *context == '_') {
+    else if (context && (isalpha(*context) || *context == '_')) {
         // Must be a variable or argument name
 
         string entityName;
         bool isFunction = false;
         vector<shared_ptr<CommandExpression> > args;
 
-        while (isalnum(*context) || *context == '_')
+        while (context && (isalnum(*context) || *context == '_'))
             entityName += *context++;
 
-        if (*context == ' ' && false) {
+        if (context && *context == ' ' && false) {
             context.skip_whitespace();
             // Expression with space separated args
             isFunction = true;
@@ -527,14 +531,17 @@ parseArgumentExpression(ParseContext & context)
     else result = addContext(std::make_shared<JsonLiteralExpression>(expectJson(context)));
     
     // Now look for operators that modify the output of the previous
-    while (true) {
+    while (context) {
         context.skip_whitespace();
 
         if (context.match_literal('.')) {
             string fieldName;
-            while (isalnum(*context) || *context == '_')
+            while (context && (isalnum(*context) || *context == '_'))
                 fieldName += *context++;
         
+            if (fieldName == "")
+                context.exception("expected field name after '.'");
+
             result = std::make_shared<ExtractFieldExpression>(fieldName, result);
         }
         else if (context.match_literal('[')) {

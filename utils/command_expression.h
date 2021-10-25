@@ -257,6 +257,12 @@ struct CommandExpression {
         }
     }
 
+    // Return all child clauses that make up this one.  Default returns no clauses.
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const
+    {
+        return {};
+    }
+
     // Original form that was parsed to get it... used for printing
     std::string surfaceForm;
 
@@ -273,8 +279,6 @@ struct CommandExpression {
     parseArgumentExpression(const std::string & expr);
     
     static std::shared_ptr<CommandExpression> parse(const std::vector<std::string> & vals);
-
-
 };
 
 // Convert to strings and concatenate
@@ -290,6 +294,11 @@ struct ConcatExpression : public CommandExpression {
         return result;
     }
 
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return clauses;
+    }
+
     std::vector<std::shared_ptr<CommandExpression> > clauses;
 };
 
@@ -303,6 +312,11 @@ struct ArrayExpression: public CommandExpression {
             result.append(c->apply(vars));
         
         return result;
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return clauses;
     }
 
     std::vector<std::shared_ptr<CommandExpression> > clauses;
@@ -324,6 +338,16 @@ struct ObjectExpression: public CommandExpression {
             result[c.first->applyString(vars)] = c.second->apply(vars);
         
         return result;
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        std::vector<std::shared_ptr<CommandExpression>> result;
+        for (auto & [c1, c2]: clauses) {
+            result.push_back(c1);
+            result.push_back(c2);
+        }
+        return result;;
     }
 
     std::vector<std::pair<std::shared_ptr<CommandExpression>,
@@ -372,6 +396,11 @@ struct InlineArrayExpression: public CommandExpression {
         for (auto & e: elements)
             result.append(e->apply(vars));
         return result;
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return elements;
     }
 
     std::vector<std::shared_ptr<CommandExpression> > elements;
@@ -432,6 +461,15 @@ struct MapExpression: public CommandExpression {
         }
     }
 
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        std::vector<std::shared_ptr<CommandExpression>> result;
+        result.push_back(outputExpression);
+        for (auto & [name, expr]: iterExpressions)
+            result.push_back(expr);
+        return result;
+    }
+
     std::vector<IterExpression> iterExpressions;
     std::shared_ptr<CommandExpression> outputExpression;
 };
@@ -460,6 +498,12 @@ struct FunctionExpression : public CommandExpression {
 
         return context.applyFunction(functionNameValue, argValues);
     }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return args;
+    }
+
 };
 
 struct VariableExpression : public CommandExpression {
@@ -494,6 +538,11 @@ struct ExtractFieldExpression: public CommandExpression {
 
     std::string fieldName;
     std::shared_ptr<CommandExpression> expr;
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return { expr };
+    }
 };
 
 struct ExtractElementExpression: public CommandExpression {
@@ -515,6 +564,11 @@ struct ExtractElementExpression: public CommandExpression {
 
     std::shared_ptr<CommandExpression> element;
     std::shared_ptr<CommandExpression> expr;
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return { element, expr };
+    }
 };
 
 struct ArithmeticExpression: public CommandExpression {
@@ -540,6 +594,11 @@ struct BinaryArithmeticExpression: public CommandExpression {
         Json::Value r = rhs->apply(vars);
 
         return op(l, r);
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return { lhs, rhs };
     }
 };
 

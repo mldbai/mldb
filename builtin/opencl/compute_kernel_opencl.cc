@@ -901,13 +901,26 @@ setComputeFunction(OpenCLProgram programIn,
 
 BoundComputeKernel
 OpenCLComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> arguments) const
+bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
 {
     auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
 
     ExcAssert(this->context);
     auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(*this->context);
     auto kernel = this->clProgram.createKernel(this->kernelName);
+
+    auto bindInfo = std::make_shared<OpenCLBindInfo>();
+    bindInfo->clKernel = kernel;
+    bindInfo->owner = this;
+
+    BoundComputeKernel result;
+    result.arguments = std::move(argumentsIn);
+    result.owner = this;
+    result.bindInfo = bindInfo;
+
+    for (auto & arg: result.arguments) {
+        result.knowns.setValue(arg.name, arg.handler->toJson());
+    }
 
     for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
         auto tr = scopedOperation("bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name);
@@ -917,7 +930,7 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
             // local, or will be done via setter...
         }
         else {
-            const ComputeKernelArgument & arg = arguments.at(argNum);
+            const ComputeKernelArgument & arg = result.arguments.at(argNum);
             std::string opName = "bind " + this->clKernelInfo.args[i].name;
             if (arg.handler->canGetPrimitive()) {
                 auto bytes = arg.handler->getPrimitive(opName, upcastContext);
@@ -945,14 +958,35 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
         s(kernel, upcastContext);
     }
 
-    auto bindInfo = std::make_shared<OpenCLBindInfo>();
-    bindInfo->clKernel = std::move(kernel);
-    bindInfo->owner = this;
+    // Look through for constraints from dimensions
+    for (size_t i = 0;  i < this->dims.size();  ++i) {
+        result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "].range",
+                             "Constraint implied by variables named in dimension " + std::to_string(0));
+    }
 
-    BoundComputeKernel result;
-    result.arguments = std::move(arguments);
-    result.owner = this;
-    result.bindInfo = std::move(bindInfo);
+    // Look through for constraints from parameters
+    for (auto & p: this->params) {
+        if (!p.type.dims.empty() && p.type.dims[0].bound) {
+            result.addConstraint(p.type.dims[0].bound, "==", p.name + ".length",
+                                 "Constraint implied by array bounds of parameter " + p.name + ": "
+                                 + p.type.print());
+        }
+    }
+
+    bool progress = true;
+
+    while (progress) {
+        progress = false;
+        for (auto & c: result.constraints) {
+            progress = progress || c.attemptToSatisfy(result.knowns, result.unknowns);
+        }
+    }
+
+    cerr << "got " << result.constraints.size() << " constraints" << endl;
+    for (auto & c: result.constraints) {
+        cerr << "  " << c.print()
+             << (c.satisfied(result.knowns) ? " [SATSIFIED]" : " [UNSATISFIED]") << endl;
+    }
 
     return result;
 }
