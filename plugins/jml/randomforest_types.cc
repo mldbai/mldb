@@ -144,7 +144,8 @@ struct PartitionIndexDescription
 
 DEFINE_VALUE_DESCRIPTION_NS(PartitionIndex,
                             PartitionIndexDescription);
-
+REGISTER_VALUE_DESCRIPTION(PartitionIndex);
+REGISTER_VALUE_DESCRIPTION_ALIAS(PartitionIndex);
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionSplit)
 {
@@ -173,8 +174,16 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(RowPartitionInfo)
 }
 
 REGISTER_VALUE_DESCRIPTION(RowPartitionInfo);
-
 REGISTER_VALUE_DESCRIPTION_ALIAS(RowPartitionInfo);
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionInfo)
+{
+    addField("left", &PartitionInfo::left, "Position of left buckets");
+    addField("right", &PartitionInfo::right, "Position of right buckets");
+}
+
+REGISTER_VALUE_DESCRIPTION(PartitionInfo);
+REGISTER_VALUE_DESCRIPTION_ALIAS(PartitionInfo);
 
 } // namespace RF
 } // namespace MLDB

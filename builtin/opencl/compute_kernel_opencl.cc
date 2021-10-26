@@ -252,7 +252,7 @@ launch(const std::string & opName,
         auto wallTime = timer->elapsed_wall();
 
         // TODO: lock?
-        execTimes->emplace(status, timer->elapsed_wall());
+        //execTimes->emplace(status, timer->elapsed_wall());
 
         //std::string msg = format("kernel %s status %s wallTime %.2fms\n",
         //                         kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
@@ -261,15 +261,16 @@ launch(const std::string & opName,
         if (status != OpenCLEventCommandExecutionStatus::COMPLETE)
             return;
     
-        if (true) {
+        if (false) {
+            // If there is an exception, this can happen after we've been destroyed
             std::unique_lock guard(kernelWallTimesMutex);
             kernelWallTimes[kernelName] += wallTime * 1000.0;
             totalKernelTime += wallTime * 1000.0;
         }
 
-        std::string toDump = "  submit    queue    start      end  elapsed name\n";
-
         return;
+
+        std::string toDump = "  submit    queue    start      end  elapsed name\n";
 
         auto info = event.getProfilingInfo();
 

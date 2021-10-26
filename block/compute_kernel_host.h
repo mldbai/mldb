@@ -285,6 +285,7 @@ struct HostComputeKernel: public ComputeKernel {
     void checkComputeFunctionArity(size_t numExtraComputeFunctionArgs) const
     {
         if (numExtraComputeFunctionArgs != params.size()) {
+
             throw AnnotatedException(500, "Error setting compute function for '" + kernelName
                                      + "': compute function needs " + std::to_string(numExtraComputeFunctionArgs)
                                      + " but there are " + std::to_string(params.size()) + " parameters listed");
@@ -304,38 +305,6 @@ struct HostComputeKernel: public ComputeKernel {
 #endif
 
     virtual void call(const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) const;
-
-#if 0
-    template<typename N, typename Fn, typename... Args>
-    void doSetComputeFunction(void (*fn) (ComputeContext & context, Args...))
-    {
-
-    }
-
-    template<typename... Args>
-    void setComputeFunction(void (*fn) (ComputeContext & context, Args...))
-    {
-        doSetComputeFunction<0>(fn);
-    }
-
-    template<typename... Args>
-    void set1DComputeFunction(void (*fn) (ComputeContext & context, Args...))
-    {
-        doSetComputeFunction<1>(fn);
-    }
-
-    template<typename... Args>
-    void set2DComputeFunction(void (*fn) (ComputeContext & context, Args...))
-    {
-        doSetComputeFunction<2>(fn);
-    }
-
-    template<typename... Args>
-    void set3DComputeFunction(void (*fn) (ComputeContext & context, Args...))
-    {
-        doSetComputeFunction<3>(fn);
-    }
-#endif
 
     using Callable
         = std::function<std::shared_ptr<ComputeEvent> (ComputeContext & context, std::span<ComputeKernelGridRange> idx)>;

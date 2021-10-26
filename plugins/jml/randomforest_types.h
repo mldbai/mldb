@@ -619,6 +619,32 @@ struct PartitionEntry {
     FrozenMemoryRegionT<uint32_t> bucketMemory;
 };
 
+// Structure giving information about a partition (its index in the tree and
+// where its left and right children are found)
+
+struct PartitionInfo {
+    // For each of these:
+    // - 0 to 65535 means "goes in partition x"
+    // - 65536 to 131071 means "goes in no partition, but subtracted from x - 65536"
+    // - -1 means "goes nowhere"
+
+    int32_t left = -1;
+    int32_t right = -1;
+
+    // Ignore as neither one affects any buckets
+    bool ignore() const { return left == -1 && right == -1; }
+
+    // If we accumulate, we
+    int accumulateInto() const;
+
+    // Exactly one of the following must be true:
+    // 1.  The partition is ignored
+    // 2.  We subtract the weight in right from the weight in left but don't accumulate
+    // 3.  We subtract the weight in left from the weight in right but don't accumulate
+    // 4.  We accumulate
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(PartitionInfo);
 
 
 /*****************************************************************************/
@@ -654,8 +680,7 @@ getNode(ML::Tree & tree, float bestScore,
     ML::Feature feature = fs.getFeature(features[bestFeature].info->columnName);
     float splitVal = 0;
     if (features[bestFeature].ordinal) {
-        auto splitCell = features[bestFeature].info->bucketDescriptions
-            .getSplit(bestSplit);
+        auto splitCell = features[bestFeature].i         .getSplit(bestSplit);
         if (splitCell.isNumeric())
             splitVal = splitCell.toDouble();
         else splitVal = bestSplit;

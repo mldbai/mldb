@@ -1531,6 +1531,7 @@ bestPartitionSplitKernel(uint32_t numFeatures,
     
     //printf("bestPartitionSplitKernel for partition %d\n", p);
 
+    // TODO: with lots of features this will become slow; we can have a workgroup cooperate
     for (uint32_t f = 0;  f < numFeatures;  ++f) {
         if (!featuresActive[f])
             continue;

@@ -49,6 +49,7 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest_kernels_opencl.cc \
 	randomforest_types.cc \
 	randomforest_procedure.cc \
+	randomforest_recursive.cc \
 	classifier.cc \
 	probabilizer.cc \
 	svm.cc \

@@ -111,7 +111,7 @@ launch(const std::string & opName,
     hostOwner->call(kernel, ranges);
     auto wallTime = timer.elapsed_wall();
     using namespace std;
-    cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
+    //cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
     {
         std::unique_lock guard(kernelWallTimesMutex);
         kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;

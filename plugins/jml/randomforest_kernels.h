@@ -10,7 +10,6 @@
 
 #include "mldb/compiler/compiler.h"
 #include "randomforest_types.h"
-#include "mldb/block/compute_kernel.h"
 #include <span>
 
 namespace MLDB {
@@ -20,17 +19,6 @@ namespace RF {
 // being the label and the magnitude being the example weight for the
 // row.
 std::vector<float> decodeRows(const Rows & rows);
-
-void decodeRowsKernelCpu(ComputeContext & context,
-                         MemoryArrayHandleT<const uint64_t> rowData,
-                         uint32_t rowDataLength,
-                         uint16_t weightBits,
-                         uint16_t exampleNumBits,
-                         uint32_t numRows,
-                         WeightFormat weightFormat,
-                         float weightMultiplier,
-                         MemoryArrayHandleT<const float> weightData,
-                         std::span<float> decodedRowsOut);
 
 // Core kernel of the decision tree search algorithm.  Transfer the
 // example weight into the appropriate (bucket,label) accumulator.
@@ -72,21 +60,6 @@ testFeatureKernel(Rows::RowIterator rowIterator,
                   const uint32_t * buckets,
                   W * w /* buckets.numBuckets entries */);
 
-void
-testFeatureKernel(ComputeContext & context,
-                  uint32_t f, uint32_t nf,
-                  ComputeKernelGridRange & rows,
-                  std::span<const float> expandedRows,
-                  uint32_t numRows,
-
-                  std::span<const uint32_t> allBucketData,
-                  std::span<const uint32_t> bucketDataOffsets,
-                  std::span<const uint32_t> bucketNumbers,
-                  std::span<const uint32_t> bucketEntryBits,
-
-                  std::span<const uint32_t> featureActive,
-
-                  std::span<W> allWOut);
 
 inline float sqrt3(float val)
 {
@@ -210,51 +183,6 @@ getPartitionSplits(const std::span<const W> & buckets,
                    const std::span<const W> & wAll,
                    const std::span<const PartitionIndex> & indexes,
                    bool parallel);
-
-// For each feature and partition, find the split that gives the best score and
-// record it with one row per partition and one column per feature in the output
-// matrix.  This involves testing each split point for the given feature and
-// partition.
-void
-getPartitionSplitsKernel(ComputeContext & context,
-                         uint32_t f, uint32_t nf,
-                         uint32_t p, uint32_t np,
-
-                         uint32_t totalBuckets,
-                         std::span<const uint32_t> bucketNumbers, // [nf]
-                         
-                         std::span<const uint32_t> featureActive, // [nf]
-                         std::span<const uint32_t> featureIsOrdinal, // [nf]
-                         
-                         std::span<const W> buckets, // [np x totalBuckets]
-
-                         std::span<const W> wAll,  // [np] one per partition
-                         std::span<PartitionSplit> featurePartitionsplitsOut); // [np x nf]
-
-// Reduction over the feature columns from the getPartitionSplitsKernel, where
-// we find which feature gives the best split for each partition and record that
-// in the output.
-void
-bestPartitionSplitKernel(ComputeContext & context,
-                         uint32_t p, uint32_t np,
-                         uint32_t nf,
-                         std::span<const uint32_t> featureActive, // [nf]
-                         std::span<const PartitionSplit> featurePartitionSplits, // [np x nf]
-                         std::span<PartitionSplit> partitionSplits,  // np
-                         uint32_t partitionSplitsOffset);
-
-// After doubling the number of buckets, this clears the wAll and allPartitionBuckets
-// entries corresponding to active post-split buckets.
-void
-clearBucketsKernel(ComputeContext & context,
-                   uint32_t p, uint32_t np,
-                   ComputeKernelGridRange & buckets,
-                   std::span<W> allPartitionBuckets,
-                   std::span<W> wAll,
-                   std::span<const PartitionSplit> partitionSplits,
-                   uint32_t numActiveBuckets,
-                   uint32_t partitionSplitsOffset);
-
 
 // Check that the partition counts match the W counts.
 void verifyPartitionBuckets(const std::span<const RowPartitionInfo> & partitions,
