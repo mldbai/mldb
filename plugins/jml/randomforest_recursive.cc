@@ -578,17 +578,12 @@ void updateBuckets(const std::span<const Feature> & features,
         int leftPartition = newPartitionNumbers[partition].first;
         int rightPartition = newPartitionNumbers[partition].second;
 
-        if (leftPartition == -1) {
-            ExcAssertEqual(rightPartition, partition);
+        if (leftPartition == -1 && rightPartition == -1) {
             partitions[i] = RowPartitionInfo::max();
             continue;
         }
-        
-        if (rightPartition == -1) {
-            ExcAssertEqual(leftPartition, partition);
-            partitions[i] = RowPartitionInfo::max();
-            continue;
-        }
+        ExcAssertNotEqual(leftPartition, -1);
+        ExcAssertNotEqual(rightPartition, -1);
 
         int splitValue = partitionSplits[partition].value;
         bool ordinal = features[splitFeature].ordinal;

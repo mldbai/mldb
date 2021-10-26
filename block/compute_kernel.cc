@@ -264,7 +264,7 @@ isCompatibleWith(const ComputeKernelType & otherType, std::string * reason) cons
     }
 
     if (dims.size() != otherType.dims.size()) {
-        return fail("different array dimensionality");
+        return fail("different array dimensionality: return " + std::to_string(dims.size()) + " vs passed " + std::to_string(otherType.dims.size()));
     }
 
     if (access != "?" && otherType.access != "?") {

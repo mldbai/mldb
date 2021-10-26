@@ -166,6 +166,8 @@ bestPartitionSplitKernel(ComputeContext & context,
             result.PartitionSplit::operator = (fp);
         }
     }
+
+    //cerr << "partition " << p << " best split " << jsonEncodeStr(result) << endl;
 }
 
 void
@@ -178,29 +180,31 @@ assignPartitionNumbersKernel(ComputeContext & context,
                              std::span<PartitionIndex> partitionIndexesOut,
                              std::span<PartitionInfo> partitionInfoOut,
                              std::span<uint8_t> clearPartitionOut,
-                             std::span<uint32_t> numPartitionsOut,
-                             std::span<uint16_t> otherSideOut)
+                             std::span<uint32_t> numPartitionsOut)
 {
     ExcAssertEqual(partitionRange.range(), numActivePartitions);
     ExcAssertEqual(numPartitionsOut.size(), 1);
     ExcAssertEqual(partitionIndexesOut.size(), numActivePartitions);
 
-    cerr << "numPartitionsIn = " << numActivePartitions << endl;
+    partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
+
+    //cerr << "numPartitionsIn = " << numActivePartitions << endl;
 
     // First, accumulate a list of inactive partitions
     std::vector<uint32_t> inactivePartitions;
 
     for (uint32_t p: partitionRange) {
-        const PartitionSplit & split = partitionSplits[p + partitionSplitsOffset];
+        const PartitionSplit & split = partitionSplits[p];
         if (!split.valid() || (split.left.uniform() && split.right.uniform())) {
             inactivePartitions.push_back(p);
             clearPartitionOut[p] = true;
             continue;
         }
         clearPartitionOut[p] = false;
+        //cerr << "partition " << p << " split: " << jsonEncodeStr(split) << endl;
     }
 
-    cerr << inactivePartitions.size() << " of " << numActivePartitions << " are inactive" << endl;
+    //cerr << inactivePartitions << " of " << numActivePartitions << " are inactive" << endl;
 
     uint32_t numActive = 0;
     uint32_t countActive = 0;
@@ -219,12 +223,12 @@ assignPartitionNumbersKernel(ComputeContext & context,
     //uint32_t outIndex = 0;
 
     for (uint32_t p: partitionRange) {
-        const IndexedPartitionSplit & split = partitionSplits[p + partitionSplitsOffset];
+        const IndexedPartitionSplit & split = partitionSplits[p];
         PartitionInfo & info = partitionInfoOut[p];
         if (!split.valid() || (split.left.uniform() && split.right.uniform())) {
             info = PartitionInfo();
         }
-        else if (!split.left.uniform() && !split.right.uniform()) {
+        else {
             auto direction = split.transferDirection();
             // both still valid
             if (direction == PartitionSplitDirection::LR) {
@@ -235,27 +239,11 @@ assignPartitionNumbersKernel(ComputeContext & context,
                 info.left = getNewPartitionNumber();
                 info.right = p;
             }
-        }
-        else if (!split.left.uniform()) {
-            // only left is valid
-            info.left = p;
-            info.right = -1;
-        }
-        else if (!split.right.uniform()) {
-            // only right is valid
-            info.right = p;
-            info.left = -1;
-        }
-        else {
-            ExcAssert(false);  // logic error
-        }
 
-        if (info.left != -1) {
             partitionIndexesOut[info.left] = split.index.leftChild();
             ++numActive;
             countActive += split.left.count();
-        }
-        if (info.right != -1) {
+
             partitionIndexesOut[info.right] = split.index.rightChild();
             ++numActive;
             countActive += split.right.count();
@@ -264,18 +252,27 @@ assignPartitionNumbersKernel(ComputeContext & context,
 
     numPartitionsOut[0] = n2;
 
+    std::vector<uint32_t> newCounts(n2, 0);
     for (uint32_t i = 0;  i < numActivePartitions;  ++i) {
-        cerr << "old part " << i << ": left goes to " << partitionInfoOut[i].left
-             << " right goes to " << partitionInfoOut[i].right << endl;
+        //cerr << "old part " << i << " with count "
+        //     << partitionSplits[i].left.count() + partitionSplits[i].right.count()
+        //     << ": left goes to " << partitionInfoOut[i].left
+        //     << " right goes to " << partitionInfoOut[i].right << endl;
+        if (partitionInfoOut[i].left != -1) {
+            newCounts[partitionInfoOut[i].left] = partitionSplits[i].left.count();
+        }
+        if (partitionInfoOut[i].right != -1) {
+            newCounts[partitionInfoOut[i].right] = partitionSplits[i].right.count();
+        }
     }
 
     for (uint32_t i = 0;  i < n2;  ++i) {
         cerr << "new part " << i << " index " << partitionIndexesOut[i] << " clear " 
-             << (int)clearPartitionOut[i] << endl;
+             << (int)clearPartitionOut[i] << " count " << newCounts[i] << endl;
     }
 
     cerr << numActive << " active partitions (including " << (inactivePartitions.size() - n)
-         << " gaps with " << countActive << " rows" << endl;
+         << " gaps with " << countActive << " rows)" << endl;
 }
 
 // After doubling the number of buckets, this clears the wAll and allPartitionBuckets
@@ -290,8 +287,11 @@ clearBucketsKernel(ComputeContext & context,
                    std::span<W> wAll,
                    std::span<const uint8_t> clearPartitions)
 {
-    if (!clearPartitions[partition])
+    if (!clearPartitions[partition]) {
+        //cerr << "not clearing partition " << partition << ": Wall " << jsonEncodeStr(wAll[partition]) << endl;
         return;
+    }
+    //cerr << "clearing partition " << partition << endl;
 
     auto numActiveBuckets = bucketRange.range();
 
@@ -314,7 +314,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
                              std::span<uint8_t> directions,
                              uint32_t numRows,
           
-                             std::span<const PartitionSplit> partitionSplits,
+                             std::span<const IndexedPartitionSplit> partitionSplits,
                              std::span<const PartitionInfo> partitionInfo,
                              
                              // Feature data
@@ -325,16 +325,16 @@ updatePartitionNumbersKernel(ComputeContext & context,
           
                              std::span<const uint32_t> featureIsOrdinal)
 {
-    cerr << endl << endl << "updatePartitionNumbersKernel" << endl;
+    partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
 
     // Skip to where we should be in our partition splits
-    partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
+    //partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
     uint32_t nf = bucketEntryBits.size();
 
     BucketList featureBuckets[nf];
 
     for (uint32_t r: rowRange) {
-        bool debug = false;//false;//(r == 845 || r == 3006 || r == 3758);
+        bool debug = false;//(r == 845 || r == 3006 || r == 3758);
 
         auto partition = partitions[r].partition();
 
@@ -346,11 +346,24 @@ updatePartitionNumbersKernel(ComputeContext & context,
 
         const PartitionInfo & info = partitionInfo[partition];
 
+        if (info.ignore()) {
+            directions[r] = 0;
+            partitions[r] = -1;
+            continue;
+        }
+
+        if (debug) {
+            cerr << "r = " << r << " partition = " << partition << " split = "
+                 << jsonEncodeStr(partitionSplits[partition])
+                 << " info = " << jsonEncodeStr(partitionInfo[partition]) << endl;
+        }
+
         int splitFeature = partitionSplits[partition].feature;
 
         if (splitFeature == -1) {
             // reached a leaf here, nothing to split
             directions[r] = 0;  // skip
+            partitions[r] = -1;
             continue;
         }
 
@@ -370,18 +383,22 @@ updatePartitionNumbersKernel(ComputeContext & context,
         uint32_t bucket = buckets[r];
         uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;  // 0 = left, 1 = right
 
-        if (debug) {
-            cerr << "splitValue = " << splitValue << " bucket = " << bucket << " ordinal = " << ordinal
+        if (debug && side == 1) {
+            cerr << "row " << r << " splitValue = " << splitValue << " bucket = " << bucket << " ordinal = " << ordinal
                  << " side = " << side << endl;
-            cerr << "left.count = " << partitionSplits[partition].left.count() << " right.count = "
-                 << partitionSplits[partition].right.count() << endl;
+            //cerr << "left.count = " << partitionSplits[partition].left.count() << " right.count = "
+            //     << partitionSplits[partition].right.count() << endl;
         }
 
         // Set the new partition number
         auto newPartitionNumber = side ? info.right : info.left;
         if (newPartitionNumber != partition) {
+            //cerr << "updatePartitionNumber: row " << r << " former partition "
+            //     << partition << " has new partition number "
+            //     << newPartitionNumber << " splitFeature " << splitFeature << " splitValue " << splitValue
+            //     << " bucket " << bucket << endl;
             partitions[r] = newPartitionNumber;
-            directions[r] = newPartitionNumber != (uint16_t)-1;
+            directions[r] = newPartitionNumber != -1;
         }
         else directions[r] = 0;
 
@@ -398,7 +415,6 @@ updateBucketsKernel(ComputeContext & context,
                     uint32_t fp1, uint32_t nfp1,
 
                     uint32_t numActiveBuckets,
-                    std::span<uint16_t> otherSide,
 
                     std::span<const RowPartitionInfo> partitions,
                     std::span<const uint8_t> directions,
@@ -459,10 +475,13 @@ updateBucketsKernel(ComputeContext & context,
         // Direction can be:
         // 0, meaning we do nothing
         // 1, meaning we accumulate in partition
-        // 2, meaning we subtract from otherSide[partition]
         uint8_t direction = directions[i];
         if (direction == 0)
             continue;
+
+        //if (f == -1)
+        //    cerr << "row " << i << " has direction " << (int)direction
+        //         << " partition " << partition << endl;
 
         // We only need to update features on the wrong side, as we
         // transfer the weight rather than sum it from the
@@ -470,21 +489,17 @@ updateBucketsKernel(ComputeContext & context,
         // (which are typically most of them, especially for discrete
         // buckets)
 
-        uint32_t toPartition = (direction == 2 ? otherSide[partition] : partition);
-
         uint32_t toBucket;
         
         if (f == -1) {
-            toBucket = toPartition;
+            toBucket = partition;
         }
         else {
             uint32_t bucket = buckets[i];
-            toBucket = toPartition * numActiveBuckets + startBucket + bucket;
+            toBucket = partition * numActiveBuckets + startBucket + bucket;
         }
 
         float weight = fabs(decodedRows[i]);
-        if (direction == 2)
-            weight = -weight;
         bool label = decodedRows[i] < 0;
 
         // TODO: needs to be an atomic add when multi-threaded...
@@ -538,7 +553,8 @@ fixupBucketsKernel(ComputeContext & context,
 
     // Bucket zero also updates wAll
     if (hasZero) {
-        cerr << "adjusting wAll " << lowest << " by subtracting " << highest << " = " << jsonEncodeStr(wAll[highest]) << endl;
+        //cerr << "adjusting wAll " << lowest << " = " << jsonEncodeStr(wAll[lowest])
+        //     << " by subtracting " << highest << " = " << jsonEncodeStr(wAll[highest]) << endl;
         wAll[lowest] -= wAll[highest];
     }
 }

@@ -1364,7 +1364,6 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             }
 
             for (size_t i = 0;  i < numActivePartitions;  ++i) {
-
                 if (partitionCounts[i] != wAllDevice[i].count()) {
                     cerr << "partition " << i << ": partition count " << partitionCounts[i]
                          << " wAll count " << wAllDevice[i].count() << endl;
@@ -1724,6 +1723,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
 
         // Ready for the next level
         previousIteration = runUpdateBucketsKernel;
+        numActivePartitions = newNumActivePartitions;
 
         //if (true)
         //    queue->finish();
@@ -1771,67 +1771,29 @@ trainPartitioned(const std::vector<int> & activeFeatures)
 
     std::map<PartitionIndex, ML::Tree::Ptr> leaves;
 
-    std::set<int> donePositions;
+    for (size_t i = 0;  i < numFinishedPartitions;  ++i) {
+        const IndexedPartitionSplit & split = allPartitionSplits[i];
+        if (!split.valid())
+            continue;
+        PartitionIndex index = split.index;
+        allSplits[index] = split;
+        leaves.erase(index);
 
-    std::function<void (PartitionIndex, int)> extractSplits = [&] (PartitionIndex index, int position)
-    {
-        donePositions.insert(position);
+        if (split.left.count() == 0 && split.right.count() == 0) {
+            //leaves[index] = getLeaf(tree, split.left + split.right);
+            continue;
+        }
+
         PartitionIndex leftIndex = index.leftChild();
         PartitionIndex rightIndex = index.rightChild();
 
-        //cerr << "position = " << position << " numActivePartitions = " << numActivePartitions << endl;
-
-        auto & split = allPartitionSplits[position];
-
-        int leftPosition = leftIndex.index;
-        int rightPosition = rightIndex.index;
-
-        allSplits[index] = split;
-
-        if (split.left.count() > 0 && split.right.count() > 0) {
-
-            //cerr << "  testing left " << leftIndex << " with position " << leftPosition << " of " << numActivePartitions << endl;
-            if (leftPosition < numActivePartitions) {
-                auto & lsplit = allPartitionSplits[leftPosition];
-                if (lsplit.valid()) {
-                    //cerr << "  has split " << jsonEncodeStr(lsplit) << endl;
-                    ExcAssertEqual(lsplit.left.count() + lsplit.right.count(), split.left.count());
-                }
-            }
-            if (leftPosition >= numActivePartitions || !allPartitionSplits[leftPosition].valid()) {
-                //cerr << "    not valid; leaf" << endl;
-                leaves[leftIndex] = getLeaf(tree, split.left);
-            }
-            else {
-                //cerr << "    valid; recurse" << endl;
-                extractSplits(leftIndex, leftPosition);
-            }
-
-            //cerr << "  testing right " << rightIndex << " with position " << rightPosition << " of " << numActivePartitions << endl;
-            if (rightPosition < numActivePartitions) {
-                auto & rsplit = allPartitionSplits[rightPosition];
-                if (rsplit.valid()) {
-                    //cerr << "  has split " << jsonEncodeStr(rsplit) << endl;
-                    ExcAssertEqual(rsplit.left.count() + rsplit.right.count(), split.right.count());
-                }
-            }
-            if (rightPosition >= numActivePartitions || !allPartitionSplits[rightPosition].valid()) {
-                leaves[rightIndex] = getLeaf(tree, split.right);
-            }
-            else {
-                extractSplits(rightIndex, rightPosition);
-            }
-        }
-        else {
-            leaves[index] = getLeaf(tree, split.left + split.right);
-        }
-    };
-
-    extractSplits(PartitionIndex::root(), 1 /* index */);
+        leaves[leftIndex] = getLeaf(tree, split.left);
+        leaves[rightIndex] = getLeaf(tree, split.right);
+    }
 
     cerr << "partitions: finished " << numFinishedPartitions << " active " << numActivePartitions << endl;
     
-    cerr << "got " << allSplits.size() << " splits" << endl;
+    cerr << "got " << allSplits.size() << " splits and " << leaves.size() << " leaves" << endl;
 
     Date beforeSplitAndRecurse = Date::now();
 

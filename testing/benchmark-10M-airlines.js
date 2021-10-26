@@ -11,7 +11,7 @@ var import_data_conf = {
         runOnCreation: true,
         encoding: 'ascii',
         ignoreBadLines: true,
-        limit: 1000,//10000000,
+        limit: 1000000,//10000000,
     }
 };
 
@@ -54,7 +54,7 @@ var benchmark_conf = {
         functionName: "classifyme",
         featureVectorSamplings : 1, //5,
         featureSamplings : 1, //20,
-        maxDepth : 2,
+        maxDepth : 10,
         verbosity : 1,
     }
 };

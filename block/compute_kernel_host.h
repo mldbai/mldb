@@ -42,6 +42,7 @@ std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, Memo
 marshalParameterForCpuKernelCall(MemoryArrayHandleT<T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
+    result.dims.emplace_back();
 
     auto convertParam = [] (const std::string & opName, MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
@@ -61,6 +62,7 @@ std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, Memo
 marshalParameterForCpuKernelCall(MemoryArrayHandleT<const T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
+    result.dims.emplace_back();
 
     auto convertParam = [] (const std::string & opName, MemoryArrayHandleT<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
@@ -80,6 +82,7 @@ std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, Muta
 marshalParameterForCpuKernelCall(MutableMemoryRegionT<T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
+    result.dims.emplace_back();
 
     auto convertParam = [] (const std::string & opName, MutableMemoryRegionT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
@@ -100,6 +103,7 @@ std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, Froz
 marshalParameterForCpuKernelCall(FrozenMemoryRegionT<T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
+    result.dims.emplace_back();
 
     auto convertParam = [] (const std::string & opName, FrozenMemoryRegionT<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
@@ -128,7 +132,8 @@ std::tuple<ComputeKernelType, std::function<Pin (const std::string & opName, std
 marshalParameterForCpuKernelCall(std::span<T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "rw");
- 
+    result.dims.emplace_back();
+
     auto convertParam = [] (const std::string & opName, std::span<T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
         if (in.handler->canGetRange()) {
@@ -147,6 +152,7 @@ std::tuple<ComputeKernelType, std::function<Pin (const std::string & opName, std
 marshalParameterForCpuKernelCall(std::span<const T> *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<T>(), "r");
+    result.dims.emplace_back();
 
     auto convertParam = [] (const std::string & opName, std::span<const T> & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
@@ -174,7 +180,7 @@ std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, T & 
 marshalParameterForCpuKernelCall(T *)
 {
     ComputeKernelType result(getDefaultDescriptionSharedT<std::remove_const_t<T>>(),
-                             std::is_const_v<T> ? "r" : "rw");
+                             "r");
 
     auto convertParam = [] (const std::string & opName, T & out, ComputeKernelArgument & in, ComputeContext & context) -> Pin
     {
@@ -226,6 +232,14 @@ struct HostComputeKernel: public ComputeKernel {
 #endif
         const std::type_info & requiredType
             = details::getTypeFromValueDescription(param.handler->type.baseType.get());
+
+        std::string reason;
+        if (!outputType.isCompatibleWith(param.handler->type, &reason)) {
+            throw MLDB::Exception("Attempting to convert parameter from passed type " + type_name<T>()
+                             + " to required type " + param.handler->type.print() + " passing parameter "
+                             + std::to_string(n) + " ('" + params[n].name + "')  of kernel " + kernelName
+                             + ": " + reason);
+        }
 
         try {
             //using namespace std;
