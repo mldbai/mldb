@@ -182,6 +182,18 @@ struct OpenCLComputeContext: public ComputeContext {
     transferToHostMutableSyncImpl(const std::string & opName,
                                   MemoryRegionHandle handle) override;
 
+    virtual std::shared_ptr<ComputeEvent>
+    fillDeviceRegionFromHostImpl(const std::string & opName,
+                                 MemoryRegionHandle deviceHandle,
+                                 std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
+                                 size_t deviceOffset = 0) override;
+
+    virtual void
+    fillDeviceRegionFromHostSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle deviceHandle,
+                                     std::span<const std::byte> hostRegion,
+                                     size_t deviceOffset = 0) override;
+
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;
 
@@ -224,10 +236,9 @@ struct OpenCLComputeKernel: public ComputeKernel {
     std::vector<SetParameters> setters;
 
     // Function to modify the grid dimensions
-    std::function<void (std::vector<size_t> & grid)> modifyGrid;
+    std::function<void (std::vector<size_t> & grid, std::vector<size_t> & block)> modifyGrid;
 
     mutable OpenCLProgram clProgram;  // Mutable as createKernel is non-const
-    std::string kernelName;
     OpenCLKernel clKernel;
     OpenCLKernelInfo clKernelInfo;
 

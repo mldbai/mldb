@@ -409,11 +409,16 @@ struct AbstractArgumentHandler {
     virtual std::string info() const;
 
     virtual Json::Value toJson() const = 0;
+
+    // Set the argument to a new value from a reference source.  This is for debugging only,
+    // for ensuring that two kernels get exactly the same input so that we can compare their
+    // outputs.
+    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference) = 0;
 };
 
 struct ComputeKernelArgument {
     std::string name;
-    std::shared_ptr<const AbstractArgumentHandler> handler;
+    std::shared_ptr<AbstractArgumentHandler> handler;
     bool has_value() const { return !!handler; }
 };
 
@@ -620,6 +625,8 @@ struct MemoryArrayAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual std::string info() const override;
 
     virtual Json::Value toJson() const override;
+
+    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
 };
 
 template<typename T>
@@ -666,6 +673,8 @@ struct PromiseAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual std::string info() const override;
 
     virtual Json::Value toJson() const override;
+
+    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
 };
 
 template<typename T>
@@ -699,6 +708,8 @@ struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual std::string info() const override;
 
     virtual Json::Value toJson() const override;
+
+    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
 };
 
 template<typename T>
@@ -886,6 +897,18 @@ struct ComputeContext {
     virtual MutableMemoryRegion
     transferToHostMutableSyncImpl(const std::string & opName,
                                   MemoryRegionHandle handle);
+
+    virtual std::shared_ptr<ComputeEvent>
+    fillDeviceRegionFromHostImpl(const std::string & opName,
+                                 MemoryRegionHandle deviceHandle,
+                                 std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
+                                 size_t deviceOffset = 0) = 0;
+
+    virtual void
+    fillDeviceRegionFromHostSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle deviceHandle,
+                                     std::span<const std::byte> hostRegion,
+                                     size_t deviceOffset = 0);
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) = 0;

@@ -148,12 +148,15 @@ bestPartitionSplitKernel(ComputeContext & context,
                          std::span<const PartitionSplit> featurePartitionSplits, // [np x nf]
                          std::span<const PartitionIndex> partitionIndexes, // [np]
                          std::span<IndexedPartitionSplit> partitionSplitsOut,  // np
-                         uint32_t partitionSplitsOffset)
+                         uint32_t partitionSplitsOffset,
+                         uint32_t depth)
 {
     ExcAssertLess(partitionSplitsOffset + p, partitionSplitsOut.size());
     IndexedPartitionSplit & result = partitionSplitsOut[partitionSplitsOffset + p];
     result = IndexedPartitionSplit();
-    result.index = partitionIndexes[p];
+    result.index = (depth == 0 ? PartitionIndex::root() : partitionIndexes[p]);
+    if (result.index == PartitionIndex::none())
+        return;
 
     for (size_t f = 0;  f < nf;  ++f) {
         if (!featureActive[f])
@@ -172,7 +175,6 @@ bestPartitionSplitKernel(ComputeContext & context,
 
 void
 assignPartitionNumbersKernel(ComputeContext & context,
-                             ComputeKernelGridRange & partitionRange,
 
                              std::span<const IndexedPartitionSplit> partitionSplits,
                              uint32_t partitionSplitsOffset,
@@ -182,9 +184,9 @@ assignPartitionNumbersKernel(ComputeContext & context,
                              std::span<uint8_t> clearPartitionOut,
                              std::span<uint32_t> numPartitionsOut)
 {
-    ExcAssertEqual(partitionRange.range(), numActivePartitions);
     ExcAssertEqual(numPartitionsOut.size(), 1);
-    ExcAssertEqual(partitionIndexesOut.size(), numActivePartitions);
+    ExcAssertGreaterEqual(partitionIndexesOut.size(), numActivePartitions);
+    ExcAssertEqual(partitionInfoOut.size(), numActivePartitions);
 
     partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
 
@@ -193,7 +195,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
     // First, accumulate a list of inactive partitions
     std::vector<uint32_t> inactivePartitions;
 
-    for (uint32_t p: partitionRange) {
+    for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
         const PartitionSplit & split = partitionSplits[p];
         if (!split.valid() || (split.left.uniform() && split.right.uniform())) {
             inactivePartitions.push_back(p);
@@ -222,7 +224,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
 
     //uint32_t outIndex = 0;
 
-    for (uint32_t p: partitionRange) {
+    for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
         const IndexedPartitionSplit & split = partitionSplits[p];
         PartitionInfo & info = partitionInfoOut[p];
         if (!split.valid() || (split.left.uniform() && split.right.uniform())) {
@@ -266,13 +268,19 @@ assignPartitionNumbersKernel(ComputeContext & context,
         }
     }
 
-    for (uint32_t i = 0;  i < n2;  ++i) {
-        cerr << "new part " << i << " index " << partitionIndexesOut[i] << " clear " 
-             << (int)clearPartitionOut[i] << " count " << newCounts[i] << endl;
-    }
+    //for (uint32_t i = 0;  i < n2;  ++i) {
+    //    cerr << "new part " << i << " index " << partitionIndexesOut[i] << " clear " 
+    //         << (int)clearPartitionOut[i] << " count " << newCounts[i] << endl;
+    //}
 
     cerr << numActive << " active partitions (including " << (inactivePartitions.size() - n)
          << " gaps with " << countActive << " rows)" << endl;
+
+    while (n < inactivePartitions.size()) {
+        auto p = inactivePartitions[n++];
+        partitionIndexesOut[p] = PartitionIndex::none();
+        clearPartitionOut[p] = false;
+    }
 }
 
 // After doubling the number of buckets, this clears the wAll and allPartitionBuckets
@@ -285,7 +293,8 @@ clearBucketsKernel(ComputeContext & context,
 
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
-                   std::span<const uint8_t> clearPartitions)
+                   std::span<const uint8_t> clearPartitions,
+                   uint32_t numActiveBuckets)
 {
     if (!clearPartitions[partition]) {
         //cerr << "not clearing partition " << partition << ": Wall " << jsonEncodeStr(wAll[partition]) << endl;
@@ -293,7 +302,7 @@ clearBucketsKernel(ComputeContext & context,
     }
     //cerr << "clearing partition " << partition << endl;
 
-    auto numActiveBuckets = bucketRange.range();
+    ExcAssertEqual(numActiveBuckets, bucketRange.range());
 
     for (uint32_t bucket: bucketRange) {
         allPartitionBuckets[partition * numActiveBuckets + bucket] = W();
@@ -653,6 +662,7 @@ static struct RegisterKernels {
             result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[np]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->addParameter("depth", "r", "u32");
             result->set1DComputeFunction(bestPartitionSplitKernel);
             return result;
         };
@@ -664,7 +674,6 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "assignPartitionNumbers";
             result->device = ComputeDevice::host();
-            result->addDimension("p", "partitionSplitsOffset");
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
@@ -672,7 +681,7 @@ static struct RegisterKernels {
             result->addParameter("partitionInfoOut", "w", "PartitionInfo[np]");
             result->addParameter("clearPartitionsOut", "w", "u8[numActivePartitions * 2]");
             result->addParameter("numActivePartitionsOut", "w", "u32[1]");
-            result->set1DComputeFunction(assignPartitionNumbersKernel);
+            result->setComputeFunction(assignPartitionNumbersKernel);
             return result;
         };
 
@@ -688,6 +697,7 @@ static struct RegisterKernels {
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAllOut", "w", "W32[np * 2]");
             result->addParameter("clearPartitions", "r", "u8[numPartitions]");
+            result->addParameter("numActiveBuckets", "r", "u32");
             result->set2DComputeFunction(clearBucketsKernel);
             return result;
         };

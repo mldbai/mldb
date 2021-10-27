@@ -40,7 +40,7 @@ struct MultiMemoryRegionInfo: public MemoryRegionHandleInfo {
 /// the particular runtime.
 struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
 
-    MultiAbstractArgumentHandler(std::shared_ptr<const AbstractArgumentHandler> underlyingIn,
+    MultiAbstractArgumentHandler(std::shared_ptr<AbstractArgumentHandler> underlyingIn,
                                  MultiComputeContext & multiContext,
                                  uint32_t index)
         : underlying(std::move(underlyingIn)), index(index), multiContext(multiContext)
@@ -51,7 +51,7 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     }
 
     // Pass through to this for most methods
-    std::shared_ptr<const AbstractArgumentHandler> underlying;
+    std::shared_ptr<AbstractArgumentHandler> underlying;
 
     // Which index are we in the list of contexts?  Used to know which underlying
     // contexts and handles to pass through.
@@ -138,6 +138,12 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     {
         return underlying->toJson();
     }
+
+
+    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference)
+    {
+        underlying->setFromReference(context, reference);
+    }
 };
 
 } // file scope
@@ -192,56 +198,16 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
     result.arguments = std::move(arguments);
     result.bindInfo = std::move(bindInfo);
     return result;
-
-#if 0
-    auto call = [this,
-                 multiContext = this->multiContext,
-                 callables = std::move(callables),
-                 callableParams = std::move(callableParams)]
-                (ComputeContext & context, std::span<ComputeKernelGridRange> idx,
-                 std::span<const std::shared_ptr<ComputeEvent>> prereqs)
-    {
-        using namespace std;
-        ExcAssertEqual(&context, multiContext);
-
-
-        cerr << "--------------- beginning kernel " << this->kernelName << " pre-validation" << endl;
-        compareParameters(true /* pre */);
-
-        cerr << endl << "--------------- running kernel " << this->kernelName << endl;
-
-        std::vector<std::shared_ptr<ComputeEvent>> events;
-
-        for (size_t i = 0;  i < callables.size();  ++i) {
-            // Map the prerequisites back to their underlying type for the call
-            std::vector<std::shared_ptr<ComputeEvent>> prereqsi;
-            for (auto & evPtr: prereqs) {
-                ExcAssert(evPtr);
-                auto & cast = dynamic_cast<const MultiComputeEvent &>(*evPtr);
-                prereqsi.push_back(cast.events.at(i));
-            }
-
-            auto ev = callables[i](*multiContext->contexts[i], idx, prereqsi);
-            events.emplace_back(std::move(ev));
-        }
-
-        cerr << endl << "--------------- finished kernel " << this->kernelName << endl;
-        compareParameters(false /* post */);
-        cerr << "--------------- finished kernel " << this->kernelName << " validation" << endl;
-
-        return std::make_shared<MultiComputeEvent>(std::move(events));
-    };
-
-    return call;
-#endif
 }
 
 void
 MultiComputeKernel::
-compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
+compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeContext & context) const
 {
     cerr << ansi::magenta << "--------------- beginning kernel " << this->kernelName << (pre ? " pre" : " post")
          << "-validation" << ansi::reset << endl;
+
+    bool hasDifferences = false;
 
     const MultiBindInfo & bindInfo = dynamic_cast<const MultiBindInfo &>(*boundKernel.bindInfo);
 
@@ -332,6 +298,10 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel) const
             }
             if (numDifferences > 0) {
                 cerr << ansi::magenta << "  " << numDifferences << " of " << n << " were different" << ansi::reset << endl;
+                hasDifferences = true;
+
+                std::span<const byte> reference((const byte *)referenceData, referenceLength);
+                kernelGenerated.handler->setFromReference(context, reference);
             }
         }
     }
@@ -549,31 +519,8 @@ reduceHandles(const std::string & regionName,
               std::vector<ComputePromiseT<MemoryRegionHandle>> promises,
               size_t length, const std::type_info & type, bool isConst)
 {
-    struct Test {
-        int val = 0x384903;
-
-        Test()
-        {
-            cerr << "creating test " << this << " for getResult" << endl;
-        }
-
-        ~Test()
-        {
-            cerr << "destroying test " << this << " for getResult; val = " << val << endl;
-            val = 0;
-        }
-    };
-
-    auto test = std::make_shared<Test>();
-
-    auto getResult = [type=&type, isConst, length, regionName, test] (const std::vector<MemoryRegionHandle> & handles) -> MemoryRegionHandle
+    auto getResult = [type=&type, isConst, length, regionName] (const std::vector<MemoryRegionHandle> & handles) -> MemoryRegionHandle
     {
-        if (test->val != 0x384903) {
-            cerr << "calling getResult with already destroyed value; addr = " << test.get() << " val = " << test->val << endl;
-            //(&test->val)[1] = 123;
-            //(&test->val)[1] = 456;
-        }
-        ExcAssertEqual(test->val, 0x384903);
         auto result = std::make_shared<MultiMemoryRegionInfo>(handles);
         result->type = type;
         result->isConst = isConst;  // UB HERE
@@ -630,7 +577,7 @@ launch(const std::string & opName,
     constexpr bool compareMode = true;
 
     if (compareMode)
-        multiKernel->compareParameters(true /* pre */, kernel);
+        multiKernel->compareParameters(true /* pre */, kernel, *multiKernel->multiContext);
 
     cerr << endl << "--------------- running kernel " << multiKernel->kernelName << endl;
 
@@ -643,7 +590,7 @@ launch(const std::string & opName,
     cerr << endl << "--------------- finished kernel " << multiKernel->kernelName << endl;
 
     if (compareMode)
-        multiKernel->compareParameters(false /* pre */, kernel);
+        multiKernel->compareParameters(false /* pre */, kernel, *multiKernel->multiContext);
 
     return std::make_shared<MultiComputeEvent>(std::move(events));
 }
@@ -834,6 +781,38 @@ transferToHostMutableSyncImpl(const std::string & opName,
 {
     auto info = getMultiInfo(handle);
     return contexts.at(0)->transferToHostMutableSyncImpl(opName, info->handles.at(0));
+}
+
+std::shared_ptr<ComputeEvent>
+MultiComputeContext::
+fillDeviceRegionFromHostImpl(const std::string & opName,
+                             MemoryRegionHandle deviceHandle,
+                             std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
+                             size_t deviceOffset)
+{
+    auto info = getMultiInfo(deviceHandle);
+    std::vector<std::shared_ptr<ComputeEvent>> events;
+
+    for (size_t i = 0;  i < contexts.size();  ++i) {
+        events.push_back(contexts[i]->fillDeviceRegionFromHostImpl(opName, info->handles.at(i), pinnedHostRegion, deviceOffset));
+    }
+
+    return std::make_shared<MultiComputeEvent>(std::move(events));
+}                                     
+
+void
+MultiComputeContext::
+fillDeviceRegionFromHostSyncImpl(const std::string & opName,
+                                    MemoryRegionHandle deviceHandle,
+                                    std::span<const std::byte> hostRegion,
+                                    size_t deviceOffset)
+{
+    auto info = getMultiInfo(deviceHandle);
+    std::vector<std::shared_ptr<ComputeEvent>> events;
+
+    for (size_t i = 0;  i < contexts.size();  ++i) {
+        contexts[i]->fillDeviceRegionFromHostSyncImpl(opName, info->handles.at(i), hostRegion, deviceOffset);
+    }
 }
 
 std::shared_ptr<ComputeKernel>

@@ -199,17 +199,17 @@ launch(const std::string & opName,
 
     const OpenCLComputeKernel * kernel = bindInfo->owner;
 
-    std::vector<size_t> clGrid;
+    std::vector<size_t> clGrid, clBlock = kernel->block;
     
     if (kernel->allowGridExpansionFlag)
-        ExcAssertLessEqual(grid.size(), kernel->block.size());
+        ExcAssertLessEqual(grid.size(), clBlock.size());
     else
-        ExcAssertEqual(grid.size(), kernel->block.size());
+        ExcAssertEqual(grid.size(), clBlock.size());
 
-    for (size_t i = 0;  i < kernel->block.size();  ++i) {
+    for (size_t i = 0;  i < clBlock.size();  ++i) {
         // Pad out the grid so we cover the whole lot.  The kernel will need to be
         // sure to no-op if it's out of bounds.
-        auto b = kernel->block[i];
+        auto b = clBlock[i];
         auto range = i < grid.size() ? grid[i] : b;
         auto rem = range % b;
         if (rem > 0) {
@@ -229,14 +229,22 @@ launch(const std::string & opName,
         }
         clGrid.push_back(range);
     }
+
+    if (clGrid.empty()) {
+        clGrid.push_back(1);
+    }
+    if (clBlock.empty()) {
+        clBlock.push_back(1);
+    }
+
     if (kernel->modifyGrid)
-        kernel->modifyGrid(clGrid);
+        kernel->modifyGrid(clGrid, clBlock);
     
     //cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
     //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
     auto timer = std::make_shared<Timer>();
 
-    auto event = clQueue.launch(bindInfo->clKernel, clGrid, kernel->block);
+    auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
 
     // Ensure it's submitted before we start using the event
     clQueue.flush();
@@ -695,6 +703,34 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     return result;
 }
 
+std::shared_ptr<ComputeEvent>
+OpenCLComputeContext::
+fillDeviceRegionFromHostImpl(const std::string & opName,
+                             MemoryRegionHandle deviceHandle,
+                             std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
+                             size_t deviceOffset)
+{
+    return clQueue
+        ->enqueueFillArrayImpl(opName, deviceHandle,
+                               MemoryRegionInitialization::INIT_BLOCK_FILLED, deviceOffset,
+                               pinnedHostRegion->size(),
+                               *pinnedHostRegion).event();
+}                                     
+
+void
+OpenCLComputeContext::
+fillDeviceRegionFromHostSyncImpl(const std::string & opName,
+                                    MemoryRegionHandle deviceHandle,
+                                    std::span<const std::byte> hostRegion,
+                                    size_t deviceOffset)
+{
+    clQueue
+        ->enqueueFillArrayImpl(opName, deviceHandle,
+                               MemoryRegionInitialization::INIT_BLOCK_FILLED, deviceOffset,
+                               hostRegion.size(),
+                               hostRegion).await();
+}
+
 std::shared_ptr<ComputeQueue>
 OpenCLComputeContext::
 getQueue()
@@ -983,11 +1019,13 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         }
     }
 
+#if 0
     cerr << "got " << result.constraints.size() << " constraints" << endl;
     for (auto & c: result.constraints) {
         cerr << "  " << c.print()
              << (c.satisfied(result.knowns) ? " [SATSIFIED]" : " [UNSATISFIED]") << endl;
     }
+#endif
 
     return result;
 }

@@ -30,7 +30,7 @@ struct MultiComputeKernel: public ComputeKernel {
     MultiComputeContext * multiContext = nullptr;
     std::vector<std::shared_ptr<ComputeKernel>> kernels;
 
-    void compareParameters(bool pre, const BoundComputeKernel & boundKernel) const;
+    void compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeContext & context) const;
 };
 
 // MultiComputeEvent
@@ -128,6 +128,18 @@ struct MultiComputeContext: public ComputeContext {
     virtual MutableMemoryRegion
     transferToHostMutableSyncImpl(const std::string & opName,
                                   MemoryRegionHandle handle) override;
+
+    virtual std::shared_ptr<ComputeEvent>
+    fillDeviceRegionFromHostImpl(const std::string & opName,
+                                 MemoryRegionHandle deviceHandle,
+                                 std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
+                                 size_t deviceOffset = 0) override;
+
+    virtual void
+    fillDeviceRegionFromHostSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle deviceHandle,
+                                     std::span<const std::byte> hostRegion,
+                                     size_t deviceOffset = 0) override;
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;

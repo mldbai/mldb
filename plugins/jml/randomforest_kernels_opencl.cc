@@ -77,11 +77,6 @@ static struct RegisterKernels {
             {
                 kernel.bindArg("dummy", (uint32_t)42);
             };
-            result->modifyGrid = [=] (std::vector<size_t> & grid)
-            {
-                ExcAssertEqual(grid.size(), 0);
-                grid.push_back(1);
-            };
 
             result->setParameters(setTheRest);
             result->setComputeFunction(program, "doNothingKernel", {});
@@ -107,7 +102,7 @@ static struct RegisterKernels {
             result->addParameter("weightMultiplier", "r", "f32");
             result->addParameter("weightData", "r", "f32[weightDataLength]");
             result->addParameter("decodedRowsOut", "w", "f32[numRows]");
-            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
             {
                 ExcAssertEqual(grid.size(), 1);
                 grid[0] = 4096;  // don't do one launch per row, the kernel will iterate
@@ -145,7 +140,7 @@ static struct RegisterKernels {
                 kernel.bindArg("w", LocalArray<W>(maxLocalBuckets));
                 kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
             };
-            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
             {
                 ExcAssertEqual(grid.size(), 2);
                 grid[1] = 4096;  // don't do one launch per row, the kernel will iterate
@@ -167,7 +162,7 @@ static struct RegisterKernels {
             result->addDimension("p", "numPartitions");
             result->addDimension("b", "maxNumBuckets");
             result->addParameter("totalBuckets", "r", "u32");
-            result->addParameter("numPartitions", "r", "u32");
+            result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
@@ -182,12 +177,15 @@ static struct RegisterKernels {
                 kernel.bindArg("wLocalSize", maxLocalBuckets);
                 kernel.bindArg("wStartBest", LocalArray<WIndexed>(2));
             };
-            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            result->modifyGrid = [=] (std::vector<size_t> & grid, std::vector<size_t> & block)
             {
-                ExcAssertEqual(grid.size(), 3);
+                ExcAssertEqual(grid.size(), 2);
+                ExcAssertEqual(block.size(), 2);
+                grid = { 64, grid[0], grid[1] };
+                block = { 64, block[0], block[1] };
             };
             result->setParameters(setTheRest);
-            result->setComputeFunction(program, "getPartitionSplitsKernel", { 64, 1, 1 });
+            result->setComputeFunction(program, "getPartitionSplitsKernel", { 1, 1 });
             return result;
         };
 
@@ -203,8 +201,10 @@ static struct RegisterKernels {
             result->addParameter("numFeatures", "r", "u32");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * nf]");
-            result->addParameter("allPartitionSplitsOut", "w", "PartitionSplit[maxPartitions]");
+            result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
+            result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[maxPartitions]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->addParameter("depth", "r", "u32");
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {
             };
@@ -214,6 +214,33 @@ static struct RegisterKernels {
         };
 
         registerOpenCLComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
+
+        auto createAssignPartitionNumbersKernel = [getProgram] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeKernel>
+        {
+            auto program = getProgram(context);
+            auto result = std::make_shared<OpenCLComputeKernel>();
+            result->kernelName = "assignPartitionNumbers";
+            //result->device = ComputeDevice::host();
+            result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
+            result->addParameter("partitionSplitsOffset", "r", "u32");
+            result->addParameter("numActivePartitions", "r", "u32");
+            result->addParameter("partitionIndexesOut", "w", "PartitionIndex[65536]");
+            result->addParameter("partitionInfoOut", "w", "PartitionInfo[numActivePartitions]");
+            result->addParameter("clearPartitionsOut", "w", "u8[65536]");
+            result->addParameter("numActivePartitionsOut", "w", "u32[1]");
+            result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+                uint32_t inactivePartitionsLength = 16384;
+                kernel.bindArg("inactivePartitions", LocalArray<uint16_t>(inactivePartitionsLength));
+                kernel.bindArg("inactivePartitionsLength", inactivePartitionsLength);
+            };
+            result->setParameters(setTheRest);
+            result->setComputeFunction(program, "assignPartitionNumbersKernel", {});
+            return result;
+        };
+
+        registerOpenCLComputeKernel("assignPartitionNumbers", createAssignPartitionNumbersKernel);
 
         auto createClearBucketsKernel = [getProgram] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeKernel>
         {
@@ -225,9 +252,8 @@ static struct RegisterKernels {
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAllOut", "w", "W32[np]");
-            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("clearPartitions", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
-            result->addParameter("partitionSplitsOffset", "r", "u32");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {
@@ -246,11 +272,13 @@ static struct RegisterKernels {
             result->kernelName = "updatePartitionNumbers";
             //result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
+
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u8[numRows]");
             result->addParameter("numRows", "r", "u32");
-            result->addParameter("allPartitionSplits", "r", "PartitionSplit[np]");
+            result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np + partitionSplitsOffset]");
+            result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
@@ -275,9 +303,8 @@ static struct RegisterKernels {
             result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
             result->addDimension("f", "nf");
-            result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActiveBuckets", "r", "u32");
-            result->addParameter("partitions", "r", "MLDB::RF::RowPartitionInfo[numRows]");
+            result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAll", "w", "W32[np * 2]");
@@ -297,7 +324,7 @@ static struct RegisterKernels {
                 kernel.bindArg("wLocal", LocalArray<W>(maxLocalBuckets));
                 kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
             };
-            result->modifyGrid = [=] (std::vector<size_t> & grid)
+            result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
             {
                 ExcAssertEqual(grid.size(), 2);
                 grid[0] = 2048;
@@ -319,9 +346,8 @@ static struct RegisterKernels {
             result->addDimension("bucket", "numActiveBuckets");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAll", "w", "W32[np]");
-            result->addParameter("allPartitionSplits", "r", "MLDB::RF::PartitionSplit[np]");
+            result->addParameter("partitionInfo", "r", "PartitionInfo[newNumPartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
-            result->addParameter("partitionSplitsOffset", "r", "u32");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {

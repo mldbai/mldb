@@ -461,6 +461,17 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     return managePinnedHostRegionImpl(opName, region, align, type, isConst).move();
 }
 
+void
+ComputeContext::
+fillDeviceRegionFromHostSyncImpl(const std::string & opName,
+                                 MemoryRegionHandle deviceHandle,
+                                 std::span<const std::byte> hostRegion,
+                                 size_t deviceOffset)
+{
+    auto pinnedHostRegion = std::make_shared<std::span<const std::byte>>(hostRegion);
+    fillDeviceRegionFromHostImpl(opName, deviceHandle, pinnedHostRegion, deviceOffset)->await();
+}
+
 
 // ComputeRuntime
 
@@ -732,7 +743,7 @@ std::tuple<void *, size_t, std::shared_ptr<const void>>
 MemoryArrayAbstractArgumentHandler::
 getRange(const std::string & opName, ComputeContext & context) const
 {
-    auto region = context.transferToHostMutableImpl(opName, handle).get();
+    auto region = context.transferToHostMutableSyncImpl(opName, handle);
     return { region.data(), region.length(), region.handle() };
 }
 
@@ -747,7 +758,7 @@ std::tuple<const void *, size_t, std::shared_ptr<const void>>
 MemoryArrayAbstractArgumentHandler::
 getConstRange(const std::string & opName, ComputeContext & context) const
 {
-    auto region = context.transferToHostImpl(opName, handle).get();
+    auto region = context.transferToHostSyncImpl(opName, handle);
     return { region.data(), region.length(), region.handle() };
 }
 
@@ -804,6 +815,13 @@ toJson() const
     return result;
 }
 
+void
+MemoryArrayAbstractArgumentHandler::
+setFromReference(ComputeContext & context, std::span<const byte> referenceData)
+{
+    std::string opName = "setFromReference " + handle.handle->name;
+    context.fillDeviceRegionFromHostSyncImpl(opName, handle, referenceData);
+}
 
 
 // PromiseAbstractArgumentHandler
@@ -878,6 +896,13 @@ toJson() const
     return subImpl->toJson();
 }
 
+void
+PromiseAbstractArgumentHandler::
+setFromReference(ComputeContext & context, std::span<const byte> referenceData)
+{
+    subImpl->setFromReference(context, referenceData);
+}
+
 
 // PrimitiveAbstractArgumentHandler
 
@@ -906,6 +931,14 @@ PrimitiveAbstractArgumentHandler::
 toJson() const
 {
     return this->type.baseType->printJsonStructured(mem.data());
+}
+
+void
+PrimitiveAbstractArgumentHandler::
+setFromReference(ComputeContext & context, std::span<const byte> referenceData)
+{
+    // TODO: how do we ensure it's pinned?
+    this->mem = referenceData;
 }
 
 } // namespace details

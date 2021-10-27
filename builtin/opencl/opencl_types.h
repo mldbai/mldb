@@ -1606,7 +1606,7 @@ struct OpenCLKernel {
     template<typename T>
     void bindArg(int argNum, const LocalArray<T> & data)
     {
-        if (data.bytes() > 32767) {
+        if (data.bytes() > 32768) {
             using namespace std;
             cerr << "warning: asking for " << data.bytes() / 1024.0
                  << "kb of local memory; many devices will fail to launch"

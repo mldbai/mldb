@@ -1078,11 +1078,11 @@ trainPartitioned(const std::vector<int> & activeFeatures)
 
     std::shared_ptr<ComputeEvent> runTestFeatureKernel;
     {
-        cerr << "nf = " << nf << endl;
-        cerr << "bucketData.length() = " << bucketDataPromise.get().length() << endl;
-        cerr << "bucketDataOffsets.length() = " << deviceBucketDataOffsets.get().length() << endl;
-        cerr << "bucketNumbers.length() = " << deviceBucketNumbers.get().length() << endl;
-        cerr << "bucketEntryBits.length() = " << deviceBucketEntryBits.get().length() << endl;
+        //cerr << "nf = " << nf << endl;
+        //cerr << "bucketData.length() = " << bucketDataPromise.get().length() << endl;
+        //cerr << "bucketDataOffsets.length() = " << deviceBucketDataOffsets.get().length() << endl;
+        //cerr << "bucketNumbers.length() = " << deviceBucketNumbers.get().length() << endl;
+        //cerr << "bucketEntryBits.length() = " << deviceBucketEntryBits.get().length() << endl;
 
         auto boundTestFeatureKernel = testFeatureKernel
             ->bind( "decodedRows",                      expandedRowData,
@@ -1142,21 +1142,10 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         ExcAssert(!different && "runTestFeatureKernel");
     }
 
-    // We have only one partition, which is the root bucket.  We allocate a pool of them, but only
-    // initialize the first one.
+    // We have only one partition, which is the root bucket.  We allocate a pool of them.  The
+    // array is filled out in the kernels.
     MemoryArrayHandleT<PartitionIndex> devicePartitionIndexPool
         = context->allocUninitializedArray<PartitionIndex>("partitionIndex", maxPartitionCount).get();
-
-    // The first one gets filled with the root
-    auto fillFirstPartitionIndex
-        = queue->enqueueFillArray("fill firstPartitionIndex", devicePartitionIndexPool,
-                                  PartitionIndex::root(),
-                                  0 /* offset */, 1 /* num entries */);
-
-    // We switch between two pools each iteration
-    MemoryArrayHandleT<PartitionIndex> nextDevicePartitionIndexPool
-        = context->allocUninitializedArray<PartitionIndex>("partitionIndex", maxPartitionCount).get();
-
 
     // At each level, we need to calculate the positions of the left and right buckets
     MemoryArrayHandleT<PartitionInfo> devicePartitionInfoPool
@@ -1214,17 +1203,28 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         = context->allocUninitializedArray<PartitionSplit>("featurePartitionSplits", maxPartitionCount  * nf).get();
 
     // DEBUG ONLY, stops spurious differences between kernels
-    if (debugKernelOutput) {
+    if (debugKernelOutput || true /* TODO: why do we need this? */) {
         queue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
         queue->enqueueFillArray("debug clear allPartitionSplits", deviceAllPartitionSplitsPool, IndexedPartitionSplit());
+        queue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 1);
+        queue->enqueueFillArray("debug clear clearPartitions", clearPartitions, (uint8_t)0);
     }
 
     Date startDepth = Date::now();
 
     // We go down level by level
-    for (int myDepth = 0;
-         myDepth < numIterations && depth < maxDepth;
-         ++depth, ++myDepth, numFinishedPartitions += numActivePartitions) {
+    for (int myDepth = 0;  depth < maxDepth;  ++depth, ++myDepth) {
+
+        // How big does our output partition splits array need to be to hold the maximum
+        // number of splits for this iteration?
+        uint32_t numPartitionSplitsRequired = numFinishedPartitions + 2 * numActivePartitions;
+
+        // Check that there is enough space for another iteration
+        // If not, we need to stop and finish with a CPU-based recursive method
+        if (numPartitionSplitsRequired > deviceAllPartitionSplitsPool.length()) {
+            cerr << "  Too wide; breaking out of loop" << endl;
+            break;
+        }
 
         // Run a kernel to find the new split point for each partition,
         // best feature and kernel
@@ -1255,6 +1255,11 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                                      "partitionIndexes depth " + std::to_string(myDepth),
                                      0, numActivePartitions);
 
+        auto depthPartitionInfo
+            = context->getArraySlice(devicePartitionInfoPool, 
+                                     "partitionInfo depth " + std::to_string(myDepth),
+                                     0, numActivePartitions);
+
         // Technically, we want from numFinishedPartitions to numFinishedPartitions + numActivePartitions,
         // not 0 to numFinishedPartitions + numActivePartitions.  Since OpenCL seems to have trouble with
         // sub-buffers on some devices and we can only work around this with zero offsets, instead we pass
@@ -1281,7 +1286,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                 = queue->launch("getPartitionSplits",
                                 boundGetPartitionSplitsKernel,
                             { nf, numActivePartitions },
-                            { previousIteration, copyWAllPromise.event(), initializeWAllPromise.event()});
+                            { previousIteration, copyWAllPromise.event(), initializeWAllPromise.event() });
         }
 
         // Now we have the best split for each feature for each partition,
@@ -1295,7 +1300,8 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                     "featurePartitionSplits", depthFeaturePartitionSplits,
                     "allPartitionSplitsOut",  depthAllPartitionSplits,
                     "partitionIndexes",       depthPartitionIndexes,
-                    "partitionSplitsOffset",  numFinishedPartitions);
+                    "partitionSplitsOffset",  numFinishedPartitions,
+                    "depth",                  depth);
 
             runBestPartitionSplitKernel
                 = queue->launch("bestPartitionSplit",
@@ -1314,6 +1320,11 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         std::vector<W> debugWAllCpu;
         std::vector<RowPartitionInfo> debugPartitionsCpu;
         std::set<int> okayDifferentPartitions;
+
+        if (false) {
+            auto mappedPartitionSplits = context->transferToHostSync("debug partitionSplits", depthAllPartitionSplits);
+            cerr << "first split is " << jsonEncodeStr(mappedPartitionSplits[0]) << endl;
+        }
 
         if (debugKernelOutput) {
             // Map back the device partition splits (note that we only use those between
@@ -1344,9 +1355,9 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             debugWAllCpu = { wAllDevice.begin(),
                              wAllDevice.begin() + numActivePartitions };
 
-            for (size_t i = 0;  i < numActivePartitions;  ++i) {
-                cerr << "wAll[" << i << "] = " << jsonEncodeStr(wAllDevice[i]) << endl;
-            }
+            //for (size_t i = 0;  i < numActivePartitions;  ++i) {
+            //    cerr << "wAll[" << i << "] = " << jsonEncodeStr(wAllDevice[i]) << endl;
+            //}
 
             // Verify preconditions
             std::vector<size_t> partitionCounts(numActivePartitions, 0);
@@ -1473,23 +1484,27 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                ("allPartitionSplits",     depthAllPartitionSplits,
                 "partitionSplitsOffset",  numFinishedPartitions,
                 "numActivePartitions",    numActivePartitions,
-                "partitionIndexesOut",    depthPartitionIndexes,
-                "partitionInfoOut",       devicePartitionInfoPool,
+                "partitionIndexesOut",    devicePartitionIndexPool,
+                "partitionInfoOut",       depthPartitionInfo,
                 "numActivePartitionsOut", deviceNumActivePartitions,
                 "clearPartitionsOut",     clearPartitions);
 
             runAssignPartitionNumbers
                 = queue->launch("assign partition numbers",
                                 boundAssignPartitionNumbersKernel,
-                                { numActivePartitions },
-                                { runPartitionSplitsKernel });
+                                {  },
+                                { runBestPartitionSplitKernel });
         }
 
         // Get the new number of active partitions
         uint32_t newNumActivePartitions
             = context->transferToHostSync("get deviceNumActivePartitions", deviceNumActivePartitions)[0];
 
-        cerr << "numActivePartitions was " << numActivePartitions << " now " << newNumActivePartitions << endl;
+        //cerr << "numActivePartitions was " << numActivePartitions << " now " << newNumActivePartitions << endl;
+
+        if (newNumActivePartitions >= std::min<uint32_t>(65536, maxPartitionCount)) {
+            cerr << "num active partitions is too wide; breaking out to do recursively" << endl;
+        }
 
         // Double the number of partitions, create new W entries for the
         // new partitions, and transfer those examples that are in the
@@ -1512,6 +1527,16 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                                      "wAll depth " + std::to_string(myDepth + 1),
                                      0, numActivePartitions * 2);
 
+        auto nextPartitionIndexes
+            = context->getArraySlice(devicePartitionIndexPool, 
+                                     "partitionIndexes (next) depth " + std::to_string(myDepth),
+                                     0, newNumActivePartitions);
+
+        auto nextClearPartitions
+            = context->getArraySlice(clearPartitions, 
+                                     "clearPartitions (next) depth " + std::to_string(myDepth),
+                                     0, newNumActivePartitions);
+
         // First we clear everything on the right side, ready to accumulate
         // the new buckets there.
 
@@ -1520,7 +1545,8 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             auto boundClearBucketsKernel = clearBucketsKernel->bind
                ("bucketsOut",             nextDepthPartitionBuckets,
                 "wAllOut",                nextDepthWAll,
-                "clearPartitions",        clearPartitions);
+                "clearPartitions",        nextClearPartitions,
+                "numActiveBuckets",       numActiveBuckets);
 
             runClearBucketsKernel
                 = queue->launch("clear buckets",
@@ -1539,7 +1565,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                     "directions",                     directions,
                     "numRows",                        numRows,
                     "allPartitionSplits",             depthAllPartitionSplits,
-                    "partitionInfo",                  devicePartitionInfoPool,
+                    "partitionInfo",                  depthPartitionInfo,
                     "bucketData",                     bucketDataPromise,
                     "bucketDataOffsets",              deviceBucketDataOffsets,
                     "bucketNumbers",                  deviceBucketNumbers,
@@ -1549,7 +1575,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             runUpdatePartitionNumbersKernel
                 = queue->launch("update partition numbers",
                                 boundUpdatePartitionNumbersKernel, { numRows },
-                                { runPartitionSplitsKernel });
+                                { runAssignPartitionNumbers });
         }
         
         // Now the right side buckets are clear, we can transfer the weights
@@ -1581,9 +1607,9 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         std::shared_ptr<ComputeEvent> runFixupBucketsKernel;
         {
             auto boundFixupBucketsKernel = fixupBucketsKernel
-                ->bind("buckets",                    nextDepthPartitionBuckets,
+                ->bind("buckets",                 nextDepthPartitionBuckets,
                     "wAll",                       nextDepthWAll,
-                    "partitionInfo",                  devicePartitionInfoPool,
+                    "partitionInfo",              depthPartitionInfo,
                     "numActiveBuckets",           (uint32_t)numActiveBuckets);
 
             runFixupBucketsKernel
@@ -1609,7 +1635,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                 newPartitionNumbers[i] = { left, right };
             }
             
-            cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
+            //cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
 
             // Run the CPU version of the computation
             updateBuckets(features,
@@ -1717,14 +1743,15 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         Date doneDepth = Date::now();
 
         cerr << ansi::bright_blue << "depth = " << depth << " myDepth = " << myDepth
-             << " numPartitions " << numActivePartitions
+             << " partitions: finished " << numFinishedPartitions << " active: " << numActivePartitions
              << " wall time " << doneDepth.secondsSince(startDepth) * 1000 << "ms" << ansi::reset << endl;
         startDepth = doneDepth;
 
         // Ready for the next level
         previousIteration = runUpdateBucketsKernel;
+        numFinishedPartitions += numActivePartitions;
         numActivePartitions = newNumActivePartitions;
-
+        
         //if (true)
         //    queue->finish();
     }
@@ -1732,50 +1759,31 @@ trainPartitioned(const std::vector<int> & activeFeatures)
     queue->flush();
     queue->finish();
 
-
-    // If we're not at the lowest level, partition our data and recurse
-    // par partition to create our leaves.
     Date beforeMapping = Date::now();
 
-
-    //cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000 << endl;
-    //cerr << "numActivePartitions = " << numActivePartitions << endl;
-
-    // Get all the data back...
+    // Get our split data back...
     auto allPartitionSplitsRegion = context->transferToHostSync("partitionSplits to CPU", deviceAllPartitionSplitsPool);
     std::span<const IndexedPartitionSplit> allPartitionSplits = allPartitionSplitsRegion.getConstSpan();
-
-    auto bucketsUnrolledRegion = context->transferToHostSync("partitionBuckets to CPU", devicePartitionBucketPool);
-    std::span<const W> bucketsUnrolled = bucketsUnrolledRegion.getConstSpan();
-    auto partitionsRegion = context->transferToHostSync("partitions to CPU", devicePartitions);
-    std::span<const RowPartitionInfo> partitions = partitionsRegion.getConstSpan();
-    auto wAllRegion = context->transferToHostSync("wAll to CPU", deviceWAllPool);
-    std::span<const W> wAll = wAllRegion.getConstSpan();
-    auto decodedRowsRegion = context->transferToHostSync("expandedRowData to CPU", expandedRowData);
-    std::span<const float> decodedRows = decodedRowsRegion.getConstSpan();
-    auto indexesRegion = context->transferToHostSync("indexes to CPU", devicePartitionIndexPool);
-    std::span<const PartitionIndex> indexes = indexesRegion.getConstSpan();
-
-    //for (auto & row: decodedRows) {
-    //    ExcAssertLessEqual(fabs(row), 1);
-    //}
 
     Date beforeSetupRecurse = Date::now();
 
     std::map<PartitionIndex, PartitionSplit> allSplits;
 
-    for (size_t i = 0;  i < numFinishedPartitions & i < 16;  ++i) {
-        cerr << "PARTITION " << i << endl;
-        cerr << jsonEncode(allPartitionSplits[i]) << endl;
-    }
+    //for (size_t i = 0;  i < numFinishedPartitions & i < 16;  ++i) {
+    //    cerr << "PARTITION " << i << endl;
+    //    cerr << jsonEncode(allPartitionSplits[i]) << endl;
+    //}
 
     std::map<PartitionIndex, ML::Tree::Ptr> leaves;
 
     for (size_t i = 0;  i < numFinishedPartitions;  ++i) {
         const IndexedPartitionSplit & split = allPartitionSplits[i];
-        if (!split.valid())
+        if (split.index == PartitionIndex::none() || !split.valid()) {
+            //cerr << "index " << i << " is not valid" << endl;
             continue;
+        }
         PartitionIndex index = split.index;
+
         allSplits[index] = split;
         leaves.erase(index);
 
@@ -1797,35 +1805,63 @@ trainPartitioned(const std::vector<int> & activeFeatures)
 
     Date beforeSplitAndRecurse = Date::now();
 
-    std::map<PartitionIndex, ML::Tree::Ptr> newLeaves
-        = splitAndRecursePartitioned(depth, maxDepth, tree, *serializer,
-                                     bucketsUnrolled, numActiveBuckets,
-                                     bucketNumbers,
-                                     features, activeFeatures,
-                                     decodedRows,
-                                     partitions, wAll, indexes, *fs,
-                                     bucketMemory);
+    if (depth < maxDepth) {
+        cerr << "mapping back to split and recurse for " << maxDepth - depth << " levels" << endl;
+        // If we're not at the lowest level, partition our data and recurse
+        // par partition to create our leaves.
 
-#if 0
-    auto printTree = [&fs] (const ML::Tree::Ptr & ptr) -> std::string
-    {
-        std::string result;
-        if (ptr.isNode()) {
-            result += "node ";
-            ML::Tree::Node * node = ptr.node();
-            result += node->split.print(fs);
-        }
-        else if (ptr.isLeaf()) {
-            result += "leaf ";
-        }
-        result += " pred " + jsonEncodeStr(ptr.pred());
-        return result;
-    };
-#endif
 
-    for (auto & [index, ptr]: newLeaves) {
-        //cerr << "got new leaf: " << index << " -> " << printTree(ptr) << endl;
-        leaves[index] = ptr;
+        //cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000 << endl;
+        //cerr << "numActivePartitions = " << numActivePartitions << endl;
+
+        auto bucketsUnrolledRegion = context->transferToHostSync("partitionBuckets to CPU", devicePartitionBucketPool);
+        std::span<const W> bucketsUnrolled = bucketsUnrolledRegion.getConstSpan();
+        auto partitionsRegion = context->transferToHostSync("partitions to CPU", devicePartitions);
+        std::span<const RowPartitionInfo> partitions = partitionsRegion.getConstSpan();
+        auto wAllRegion = context->transferToHostSync("wAll to CPU", deviceWAllPool);
+        std::span<const W> wAll = wAllRegion.getConstSpan();
+        auto decodedRowsRegion = context->transferToHostSync("expandedRowData to CPU", expandedRowData);
+        std::span<const float> decodedRows = decodedRowsRegion.getConstSpan();
+        auto indexesRegion = context->transferToHostSync("indexes to CPU", devicePartitionIndexPool);
+        std::span<const PartitionIndex> indexes = indexesRegion.getConstSpan();
+
+        //for (auto & row: decodedRows) {
+        //    ExcAssertLessEqual(fabs(row), 1);
+        //}
+
+
+        beforeSplitAndRecurse = Date::now();
+
+        std::map<PartitionIndex, ML::Tree::Ptr> newLeaves
+            = splitAndRecursePartitioned(depth, maxDepth, tree, *serializer,
+                                        bucketsUnrolled, numActiveBuckets,
+                                        bucketNumbers,
+                                        features, activeFeatures,
+                                        decodedRows,
+                                        partitions, wAll, indexes, *fs,
+                                        bucketMemory);
+
+    #if 0
+        auto printTree = [&fs] (const ML::Tree::Ptr & ptr) -> std::string
+        {
+            std::string result;
+            if (ptr.isNode()) {
+                result += "node ";
+                ML::Tree::Node * node = ptr.node();
+                result += node->split.print(fs);
+            }
+            else if (ptr.isLeaf()) {
+                result += "leaf ";
+            }
+            result += " pred " + jsonEncodeStr(ptr.pred());
+            return result;
+        };
+    #endif
+
+        for (auto & [index, ptr]: newLeaves) {
+            //cerr << "got new leaf: " << index << " -> " << printTree(ptr) << endl;
+            leaves[index] = ptr;
+        }
     }
 
     Date afterSplitAndRecurse = Date::now();

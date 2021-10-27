@@ -279,6 +279,32 @@ struct HostComputeContext: public ComputeContext {
         return { raw, std::make_shared<HostComputeEvent>() };
     }
 
+    virtual std::shared_ptr<ComputeEvent>
+    fillDeviceRegionFromHostImpl(const std::string & opName,
+                                 MemoryRegionHandle deviceHandle,
+                                 std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
+                                 size_t deviceOffset = 0) override
+    {
+        fillDeviceRegionFromHostSyncImpl(opName, deviceHandle, *pinnedHostRegion, deviceOffset);
+        return std::make_shared<HostComputeEvent>();
+    }                                     
+
+    virtual void
+    fillDeviceRegionFromHostSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle deviceHandle,
+                                     std::span<const std::byte> hostRegion,
+                                     size_t deviceOffset = 0) override
+    {
+        ExcAssert(deviceHandle.handle);
+        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(deviceHandle.handle));
+        ExcAssert(info);
+        ExcAssert(!info->isConst);
+        ExcAssertLessEqual(deviceOffset, info->lengthInBytes);
+        ExcAssertLessEqual(deviceOffset + hostRegion.size(), info->lengthInBytes);
+
+        std::memcpy(((std::byte *)info->data) + deviceOffset, hostRegion.data(), hostRegion.size());
+    }
+
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override
     {
