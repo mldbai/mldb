@@ -1601,6 +1601,7 @@ __kernel void
 assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartitionSplits,
                              uint32_t partitionSplitsOffset,
                              uint32_t numActivePartitions,
+                             uint32_t maxNumActivePartitions,
                              __global PartitionIndex * partitionIndexesOut,
                              __global PartitionInfo * partitionInfoOut,
                              __global uint8_t * clearPartitionsOut,
@@ -1633,6 +1634,7 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
     //printf("numActivePartitions=%d, numInactivePartitions=%d\n", numActivePartitions, numInactivePartitions);
 
     uint32_t n = 0, n2 = numActivePartitions;
+    uint32_t skippedRows = 0, skippedPartitions = 0;
 
     for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
         IndexedPartitionSplit split = allPartitionSplits[p];
@@ -1651,9 +1653,17 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
         if (n < numInactivePartitions) {
             minorPartitionNumber = inactivePartitions[n++];
         }
-        else {
+        else if (n2 < maxNumActivePartitions) {
             minorPartitionNumber = n2++;
             clearPartitionsOut[minorPartitionNumber] = true;
+        }
+        else {
+            // Max width reached
+            skippedRows += split.left.count + split.right.count;
+            skippedPartitions += 1;
+            info->left = -1;
+            info->right = -1;
+            continue;
         }
 
         if (direction == 0) {
@@ -1674,8 +1684,9 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
     numActivePartitionsOut[0] = n2;
 
     // Clear partition indexes for gap partitions
-    if (n < numInactivePartitions) {
-        printf("%d of %d inactive partitions\n", numInactivePartitions - n, n2);
+    if (n < numInactivePartitions || skippedRows > 0) {
+        printf("%d of %d inactive partitions; skipped %d rows in %d partitions\n",
+               numInactivePartitions - n, n2, skippedRows, skippedPartitions);
     }
     for (; n < numInactivePartitions;  ++n) {
         uint32_t part = inactivePartitions[n];

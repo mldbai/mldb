@@ -846,7 +846,7 @@ init(int maxDepth,
     this->serializer = &serializer;
 
     const bool debugKernelOutput = DEBUG_RF_KERNELS;
-    constexpr uint32_t maxIterations = 16;
+    constexpr uint32_t maxIterations = 14;
 
     // First, figure out the memory requirements.  This means sizing all
     // kinds of things so that we can make our allocations statically.
@@ -1193,7 +1193,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
     // algorithm that assigns new indexes is designed to minimize memory shuffling, not to
     // ensure a dense output array.
     MemoryArrayHandleT<IndexedPartitionSplit> deviceAllPartitionSplitsPool
-        = context->allocUninitializedArray<IndexedPartitionSplit>("allPartitionSplits", maxPartitionCount).get();
+        = context->allocUninitializedArray<IndexedPartitionSplit>("allPartitionSplits", 131072).get();
     
     // Pre-allocate partition buckets for the widest bucket
     // We need to store partition splits for each partition and each
@@ -1475,6 +1475,10 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             ExcAssert(!different);
         }
 
+        if (depth == maxDepth - 1) {
+            continue;  // no need to update things, we have finished
+        }
+
         // Now we assign new partition numbers to the active partitions
         // after the split.
         std::shared_ptr<ComputeEvent> runAssignPartitionNumbers;
@@ -1484,6 +1488,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                ("allPartitionSplits",     depthAllPartitionSplits,
                 "partitionSplitsOffset",  numFinishedPartitions,
                 "numActivePartitions",    numActivePartitions,
+                "maxNumActivePartitions", maxPartitionCount,
                 "partitionIndexesOut",    devicePartitionIndexPool,
                 "partitionInfoOut",       depthPartitionInfo,
                 "numActivePartitionsOut", deviceNumActivePartitions,
@@ -1503,6 +1508,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         //cerr << "numActivePartitions was " << numActivePartitions << " now " << newNumActivePartitions << endl;
 
         if (newNumActivePartitions >= std::min<uint32_t>(65536, maxPartitionCount)) {
+            cerr << "depth = " << depth << " newNumActivePartitions = " << newNumActivePartitions << endl;
             cerr << "num active partitions is too wide; breaking out to do recursively" << endl;
         }
 
@@ -1520,12 +1526,12 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         auto nextDepthPartitionBuckets
             = context->getArraySlice(devicePartitionBucketPool,
                                      "partitionBuckets depth " + std::to_string(myDepth + 1),
-                                     0, numActiveBuckets * numActivePartitions * 2);
+                                     0, numActiveBuckets * newNumActivePartitions);
 
         auto nextDepthWAll
             = context->getArraySlice(deviceWAllPool,
                                      "wAll depth " + std::to_string(myDepth + 1),
-                                     0, numActivePartitions * 2);
+                                     0, newNumActivePartitions);
 
         auto nextPartitionIndexes
             = context->getArraySlice(devicePartitionIndexPool, 

@@ -224,9 +224,10 @@ static struct RegisterKernels {
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
-            result->addParameter("partitionIndexesOut", "w", "PartitionIndex[65536]");
+            result->addParameter("maxNumActivePartitions", "r", "u32");
+            result->addParameter("partitionIndexesOut", "w", "PartitionIndex[maxActivePartitions]");
             result->addParameter("partitionInfoOut", "w", "PartitionInfo[numActivePartitions]");
-            result->addParameter("clearPartitionsOut", "w", "u8[65536]");
+            result->addParameter("clearPartitionsOut", "w", "u8[maxActivePartitions]");
             result->addParameter("numActivePartitionsOut", "w", "u32[1]");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
