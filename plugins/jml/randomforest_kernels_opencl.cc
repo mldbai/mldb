@@ -204,7 +204,7 @@ static struct RegisterKernels {
             result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[maxPartitions]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
-            result->addParameter("depth", "r", "u32");
+            result->addParameter("depth", "r", "u16");
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {
             };
@@ -284,10 +284,19 @@ static struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->addParameter("depth", "r", "u16");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {
             };
+            result->modifyGrid = [=] (std::vector<size_t> & grid, std::vector<size_t> & block)
+            {
+                ExcAssertEqual(grid.size(), 1);
+                ExcAssertEqual(block.size(), 1);
+                //grid = { 4096 };
+                //block = { 256 };
+            };
+
             result->setParameters(setTheRest);
             result->setComputeFunction(program, "updatePartitionNumbersKernel", { 256 });
             return result;

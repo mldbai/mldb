@@ -1056,7 +1056,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
     auto copyWAllPromise = queue->enqueueFillArray("initialize wAll[0]", deviceWAllPool, rows.wAll, 0 /* offset */, 1 /* size */);
 
     // The rest are initialized to zero
-    auto initializeWAllPromise = queue->enqueueFillArray("zero rest of wAll", deviceWAllPool, W(), 1 /* offset */);
+    //auto initializeWAllPromise = queue->enqueueFillArray("zero rest of wAll", deviceWAllPool, W(), 1 /* offset */);
 
     // Our W buckets live here, per partition.  We never need to see it on
     // the host, so we allow it to be initialized and live on the device.
@@ -1169,7 +1169,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
     // PARTITION NUMBER IN THE ARRAY, not the actual index (to find the index, its
     // necessary to consult the PartitionInfo structure)
     auto devicePartitions
-        = context->allocZeroInitializedArray<RowPartitionInfo>("partitions", numRows).get();
+        = context->allocUninitializedArray<RowPartitionInfo>("partitions", numRows).get();
 
     // Array to cache transfer directions to avoid re-calculating
     auto directions
@@ -1203,7 +1203,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         = context->allocUninitializedArray<PartitionSplit>("featurePartitionSplits", maxPartitionCount  * nf).get();
 
     // DEBUG ONLY, stops spurious differences between kernels
-    if (debugKernelOutput || true /* TODO: why do we need this? */) {
+    if (debugKernelOutput /* TODO: why do we need this? */) {
         queue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
         queue->enqueueFillArray("debug clear allPartitionSplits", deviceAllPartitionSplitsPool, IndexedPartitionSplit());
         queue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 1);
@@ -1286,7 +1286,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                 = queue->launch("getPartitionSplits",
                                 boundGetPartitionSplitsKernel,
                             { nf, numActivePartitions },
-                            { previousIteration, copyWAllPromise.event(), initializeWAllPromise.event() });
+                            { previousIteration, copyWAllPromise.event() /*, initializeWAllPromise.event() */});
         }
 
         // Now we have the best split for each feature for each partition,
@@ -1301,7 +1301,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                     "allPartitionSplitsOut",  depthAllPartitionSplits,
                     "partitionIndexes",       depthPartitionIndexes,
                     "partitionSplitsOffset",  numFinishedPartitions,
-                    "depth",                  depth);
+                    "depth",                  (uint16_t)depth);
 
             runBestPartitionSplitKernel
                 = queue->launch("bestPartitionSplit",
@@ -1570,7 +1570,8 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                     "bucketDataOffsets",              deviceBucketDataOffsets,
                     "bucketNumbers",                  deviceBucketNumbers,
                     "bucketEntryBits",                deviceBucketEntryBits,
-                    "featureIsOrdinal",               deviceFeatureIsOrdinal);
+                    "featureIsOrdinal",               deviceFeatureIsOrdinal,
+                    "depth",                          (uint16_t)depth);
 
             runUpdatePartitionNumbersKernel
                 = queue->launch("update partition numbers",

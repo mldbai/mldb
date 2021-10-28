@@ -249,6 +249,7 @@ launch(const std::string & opName,
     // Ensure it's submitted before we start using the event
     clQueue.flush();
 
+#if 0
     std::string kernelName = kernel->kernelName;
 
     auto execTimes = std::make_shared<std::map<OpenCLEventCommandExecutionStatus, double>>();
@@ -300,12 +301,19 @@ launch(const std::string & opName,
     event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::COMPLETE);
     //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::ERROR);
     //clQueue.flush();  // TODO: remove, this is debug!!!
+#endif
 
     // DEBUG
-    //event.waitUntilFinished();
+#if 1
+    event.waitUntilFinished();
+    auto wallTime = timer->elapsed_wall();
 
-
-
+    {
+        std::unique_lock guard(kernelWallTimesMutex);
+        kernelWallTimes[bound.owner->kernelName] += wallTime * 1000.0;
+        totalKernelTime += wallTime * 1000.0;
+    }
+#endif
     //doCallback(event, 0);
 
     return std::make_shared<OpenCLComputeEvent>(std::move(event));

@@ -48,6 +48,10 @@ __zeroFillArrayKernel(__global uint8_t * region,
 {
     size_t r = (size_t)region;
 
+    //if (get_global_id(0) == 0) {
+    //    printf("zeroFillArray: r %d o %d l %d\n", (uint32_t)r % 16, (uint32_t)startOffsetInBytes % 16, (uint32_t)lengthInBytes % 16);
+    //}
+
     if (r % 16 == 0 && startOffsetInBytes % 16 == 0 && lengthInBytes % 16 == 0) {
         __global ulong2 * qwordRegion = (__global ulong2 *)region;
         uint64_t startOffsetInQWords = startOffsetInBytes / 16;
@@ -82,6 +86,7 @@ __zeroFillArrayKernel(__global uint8_t * region,
         }
         return;
     }
+
     // TODO: could be improved massively...
     for (uint64_t i = get_global_id(0);  i < lengthInBytes;  i += get_global_size(0)) {
         region[i + startOffsetInBytes] = 0;

@@ -149,7 +149,7 @@ bestPartitionSplitKernel(ComputeContext & context,
                          std::span<const PartitionIndex> partitionIndexes, // [np]
                          std::span<IndexedPartitionSplit> partitionSplitsOut,  // np
                          uint32_t partitionSplitsOffset,
-                         uint32_t depth)
+                         uint16_t depth)
 {
     ExcAssertLess(partitionSplitsOffset + p, partitionSplitsOut.size());
     IndexedPartitionSplit & result = partitionSplitsOut[partitionSplitsOffset + p];
@@ -332,7 +332,8 @@ updatePartitionNumbersKernel(ComputeContext & context,
                              std::span<const uint32_t> bucketNumbers,
                              std::span<const uint32_t> bucketEntryBits,
           
-                             std::span<const uint32_t> featureIsOrdinal)
+                             std::span<const uint32_t> featureIsOrdinal,
+                             uint16_t depth)
 {
     partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
 
@@ -345,7 +346,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
     for (uint32_t r: rowRange) {
         bool debug = false;//(r == 845 || r == 3006 || r == 3758);
 
-        auto partition = partitions[r].partition();
+        auto partition = depth == 0 ? 0 : partitions[r].partition();
 
         // Row is not in any partition
         if (partition == (uint16_t)-1) {
@@ -662,7 +663,7 @@ static struct RegisterKernels {
             result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[np]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
-            result->addParameter("depth", "r", "u32");
+            result->addParameter("depth", "r", "u16");
             result->set1DComputeFunction(bestPartitionSplitKernel);
             return result;
         };
@@ -721,6 +722,7 @@ static struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->addParameter("depth", "r", "u16");
             result->set1DComputeFunction(updatePartitionNumbersKernel);
             return result;
         };
