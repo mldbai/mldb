@@ -189,134 +189,138 @@ launch(const std::string & opName,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
-    auto tr = scopedOperation("launch kernel " + bound.owner->kernelName + " as " + opName);
+    try {
+        auto tr = scopedOperation("launch kernel " + bound.owner->kernelName + " as " + opName);
 
-    ExcAssert(bound.bindInfo);
-    
-    const OpenCLBindInfo * bindInfo
-        = dynamic_cast<const OpenCLBindInfo *>(bound.bindInfo.get());
-    ExcAssert(bindInfo);
+        ExcAssert(bound.bindInfo);
+        
+        const OpenCLBindInfo * bindInfo
+            = dynamic_cast<const OpenCLBindInfo *>(bound.bindInfo.get());
+        ExcAssert(bindInfo);
 
-    const OpenCLComputeKernel * kernel = bindInfo->owner;
+        const OpenCLComputeKernel * kernel = bindInfo->owner;
 
-    std::vector<size_t> clGrid, clBlock = kernel->block;
-    
-    if (kernel->allowGridExpansionFlag)
-        ExcAssertLessEqual(grid.size(), clBlock.size());
-    else
-        ExcAssertEqual(grid.size(), clBlock.size());
+        std::vector<size_t> clGrid, clBlock = kernel->block;
+        
+        if (kernel->allowGridExpansionFlag)
+            ExcAssertLessEqual(grid.size(), clBlock.size());
+        else
+            ExcAssertEqual(grid.size(), clBlock.size());
 
-    for (size_t i = 0;  i < clBlock.size();  ++i) {
-        // Pad out the grid so we cover the whole lot.  The kernel will need to be
-        // sure to no-op if it's out of bounds.
-        auto b = clBlock[i];
-        auto range = i < grid.size() ? grid[i] : b;
-        auto rem = range % b;
-        if (rem > 0) {
-            if (kernel->allowGridPaddingFlag) {
-                range += (b - rem);
-                //cerr << "padding out dimension " << i << " from " << grid[i]
-                //    << " to " << range << " due to block size of " << b << endl;
+        for (size_t i = 0;  i < clBlock.size();  ++i) {
+            // Pad out the grid so we cover the whole lot.  The kernel will need to be
+            // sure to no-op if it's out of bounds.
+            auto b = clBlock[i];
+            auto range = i < grid.size() ? grid[i] : b;
+            auto rem = range % b;
+            if (rem > 0) {
+                if (kernel->allowGridPaddingFlag) {
+                    range += (b - rem);
+                    //cerr << "padding out dimension " << i << " from " << grid[i]
+                    //    << " to " << range << " due to block size of " << b << endl;
+                }
+                else {
+                    throw MLDB::Exception("OpenCL kernel '" + kernel->kernelName + "' won't launch "
+                                            "due to grid dimension " + std::to_string(i)
+                                            + " (" + std::to_string(range) + ") not being a "
+                                            + "multple of the block size (" + std::to_string(b)
+                                            + ").  Consider using allowGridPadding() or modifying "
+                                            + "grid calculations");
+                }
             }
-            else {
-                throw MLDB::Exception("OpenCL kernel '" + kernel->kernelName + "' won't launch "
-                                        "due to grid dimension " + std::to_string(i)
-                                        + " (" + std::to_string(range) + ") not being a "
-                                        + "multple of the block size (" + std::to_string(b)
-                                        + ").  Consider using allowGridPadding() or modifying "
-                                        + "grid calculations");
-            }
+            clGrid.push_back(range);
         }
-        clGrid.push_back(range);
-    }
 
-    if (clGrid.empty()) {
-        clGrid.push_back(1);
-    }
-    if (clBlock.empty()) {
-        clBlock.push_back(1);
-    }
+        if (clGrid.empty()) {
+            clGrid.push_back(1);
+        }
+        if (clBlock.empty()) {
+            clBlock.push_back(1);
+        }
 
-    if (kernel->modifyGrid)
-        kernel->modifyGrid(clGrid, clBlock);
-    
-    //cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
-    //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
-    auto timer = std::make_shared<Timer>();
+        if (kernel->modifyGrid)
+            kernel->modifyGrid(clGrid, clBlock);
+        
+        //cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
+        //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
+        auto timer = std::make_shared<Timer>();
 
-    auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
+        auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
 
-    // Ensure it's submitted before we start using the event
-    clQueue.flush();
+        // Ensure it's submitted before we start using the event
+        clQueue.flush();
 
-#if 0
-    std::string kernelName = kernel->kernelName;
+    #if 0
+        std::string kernelName = kernel->kernelName;
 
-    auto execTimes = std::make_shared<std::map<OpenCLEventCommandExecutionStatus, double>>();
+        auto execTimes = std::make_shared<std::map<OpenCLEventCommandExecutionStatus, double>>();
 
-    auto doCallback = [this, kernelName, opName, execTimes, timer]
-            (const OpenCLEvent & event, OpenCLEventCommandExecutionStatus status)
-    {
-        traceOperation("completion callback " + opName + " with status " + jsonEncodeStr(status));
+        auto doCallback = [this, kernelName, opName, execTimes, timer]
+                (const OpenCLEvent & event, OpenCLEventCommandExecutionStatus status)
+        {
+            traceOperation("completion callback " + opName + " with status " + jsonEncodeStr(status));
+            auto wallTime = timer->elapsed_wall();
+
+            // TODO: lock?
+            //execTimes->emplace(status, timer->elapsed_wall());
+
+            //std::string msg = format("kernel %s status %s wallTime %.2fms\n",
+            //                         kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
+            //cerr << msg;
+
+            if (status != OpenCLEventCommandExecutionStatus::COMPLETE)
+                return;
+        
+            if (false) {
+                // If there is an exception, this can happen after we've been destroyed
+                std::unique_lock guard(kernelWallTimesMutex);
+                kernelWallTimes[kernelName] += wallTime * 1000.0;
+                totalKernelTime += wallTime * 1000.0;
+            }
+
+            return;
+
+            std::string toDump = "  submit    queue    start      end  elapsed name\n";
+
+            auto info = event.getProfilingInfo();
+
+            auto ms = [&] (int64_t ns) -> double
+                {
+                    return ns / 1000000.0;
+                };
+            
+            toDump += format("%8.3f %8.3f %8.3f %8.3f %8.3f %s\n",
+                        ms(info.queued), ms(info.submit), ms(info.start),
+                        ms(info.end),
+                        ms(info.end - info.start), kernelName);
+            cerr << toDump;
+        };
+
+        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::QUEUED);
+        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::RUNNING);
+        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::SUBMITTED);
+        event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::COMPLETE);
+        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::ERROR);
+        //clQueue.flush();  // TODO: remove, this is debug!!!
+    #endif
+
+        // DEBUG
+    #if 0
+        event.waitUntilFinished();
         auto wallTime = timer->elapsed_wall();
 
-        // TODO: lock?
-        //execTimes->emplace(status, timer->elapsed_wall());
-
-        //std::string msg = format("kernel %s status %s wallTime %.2fms\n",
-        //                         kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
-        //cerr << msg;
-
-        if (status != OpenCLEventCommandExecutionStatus::COMPLETE)
-            return;
-    
-        if (false) {
-            // If there is an exception, this can happen after we've been destroyed
+        {
             std::unique_lock guard(kernelWallTimesMutex);
-            kernelWallTimes[kernelName] += wallTime * 1000.0;
+            kernelWallTimes[bound.owner->kernelName] += wallTime * 1000.0;
             totalKernelTime += wallTime * 1000.0;
         }
+    #endif
+        //doCallback(event, 0);
 
-        return;
-
-        std::string toDump = "  submit    queue    start      end  elapsed name\n";
-
-        auto info = event.getProfilingInfo();
-
-        auto ms = [&] (int64_t ns) -> double
-            {
-                return ns / 1000000.0;
-            };
-        
-        toDump += format("%8.3f %8.3f %8.3f %8.3f %8.3f %s\n",
-                    ms(info.queued), ms(info.submit), ms(info.start),
-                    ms(info.end),
-                    ms(info.end - info.start), kernelName);
-        cerr << toDump;
-    };
-
-    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::QUEUED);
-    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::RUNNING);
-    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::SUBMITTED);
-    event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::COMPLETE);
-    //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::ERROR);
-    //clQueue.flush();  // TODO: remove, this is debug!!!
-#endif
-
-    // DEBUG
-#if 1
-    event.waitUntilFinished();
-    auto wallTime = timer->elapsed_wall();
-
-    {
-        std::unique_lock guard(kernelWallTimesMutex);
-        kernelWallTimes[bound.owner->kernelName] += wallTime * 1000.0;
-        totalKernelTime += wallTime * 1000.0;
+        return std::make_shared<OpenCLComputeEvent>(std::move(event));
+    } MLDB_CATCH_ALL {
+        rethrowException(400, "Error launching kernel " + bound.owner->kernelName);
     }
-#endif
-    //doCallback(event, 0);
-
-    return std::make_shared<OpenCLComputeEvent>(std::move(event));
 }
 
 ComputePromiseT<MemoryRegionHandle>

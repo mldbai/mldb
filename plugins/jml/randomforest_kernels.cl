@@ -1597,6 +1597,13 @@ inline uint32_t rightChildIndex(uint32_t parent)
 }
 
 // one instance
+// SmallSideIndex[numPartitionsOut]:
+// Used to a) know when we need to clear partitions (those on the small side are cleared,
+// those on the big side are not) and b) provide a local index for partition buckets for
+// the UpdateBuckets kernel
+// - 0 means it's not on the small side
+// - 1-254 means we're partition number (n-1) on the small side
+// - 255 means we're partition number 254 or greater on the small side
 __kernel void
 assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartitionSplits,
                              uint32_t partitionSplitsOffset,
@@ -1604,7 +1611,8 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
                              uint32_t maxNumActivePartitions,
                              __global PartitionIndex * partitionIndexesOut,
                              __global PartitionInfo * partitionInfoOut,
-                             __global uint8_t * clearPartitionsOut,
+                             __global uint8_t * smallSideIndexesOut,
+                             __global uint16_t * smallSideIndexToPartitionOut,
                              __global uint32_t * numActivePartitionsOut,
                              __local uint16_t * inactivePartitions,
                              uint32_t inactivePartitionsLength)
@@ -1623,11 +1631,11 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
                 numActivePartitionsOut[0] = -1;
                 return;
             }
-            clearPartitionsOut[p] = true;
+            smallSideIndexesOut[p] = 255;
             inactivePartitions[numInactivePartitions++] = p;
         }
         else {
-            clearPartitionsOut[p] = false;
+            smallSideIndexesOut[p] = 0;
         }
     }
 
@@ -1635,6 +1643,7 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
 
     uint32_t n = 0, n2 = numActivePartitions;
     uint32_t skippedRows = 0, skippedPartitions = 0;
+    uint16_t ssi = 0;
 
     for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
         IndexedPartitionSplit split = allPartitionSplits[p];
@@ -1655,7 +1664,6 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
         }
         else if (n2 < maxNumActivePartitions) {
             minorPartitionNumber = n2++;
-            clearPartitionsOut[minorPartitionNumber] = true;
         }
         else {
             // Max width reached
@@ -1664,6 +1672,17 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
             info->left = -1;
             info->right = -1;
             continue;
+        }
+
+        // Attempt to allocate a small side number, and if it's possible record the
+        // mapping.
+        if (ssi < 254) {
+            uint8_t idx = ++ssi;
+            smallSideIndexesOut[minorPartitionNumber] = idx;
+            smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
+        }
+        else {
+            smallSideIndexesOut[minorPartitionNumber] = 255;
         }
 
         if (direction == 0) {
@@ -1690,7 +1709,7 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
     }
     for (; n < numInactivePartitions;  ++n) {
         uint32_t part = inactivePartitions[n];
-        clearPartitionsOut[part] = false;
+        smallSideIndexesOut[part] = 0;
         partitionIndexesOut[part].index = 0;
     }
 }
@@ -1699,13 +1718,13 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
 __kernel void
 clearBucketsKernel(__global W * bucketsOut,
                    __global W * wAllOut,
-                   __global const uint8_t * clearPartitions,
+                   __global const uint8_t * smallSideIndexes,
                    uint32_t numActiveBuckets)
 {
     uint32_t numPartitions = get_global_size(0);
     
     uint32_t partition = get_global_id(0);
-    if (!clearPartitions[partition])
+    if (!smallSideIndexes[partition])
         return;
 
     uint32_t bucket = get_global_id(1);
@@ -1868,8 +1887,12 @@ updatePartitionNumbersKernel(uint32_t partitionSplitsOffset,
 
         // Set the new partition number
         int32_t newPartitionNumber = side ? info.right : info.left;
-        if (newPartitionNumber != partition) {
+        if (depth == 0)
             partitions[r].num = newPartitionNumber;
+
+        if (newPartitionNumber != partition) {
+            if (depth != 0)
+                partitions[r].num = newPartitionNumber;
             directions[r] = newPartitionNumber != -1;
         }
         else directions[r] = 0;
@@ -1884,11 +1907,14 @@ updatePartitionNumbersKernel(uint32_t partitionSplitsOffset,
 __kernel void // [row, feature]
 //__attribute__((reqd_work_group_size(256,1,1)))
 updateBucketsKernel(uint32_t numActiveBuckets,
+                    uint32_t numActivePartitions,
                     
                     __global const RowPartitionInfo * partitions,
                     __global const uint8_t * directions,
                     __global W * buckets,
                     __global W * wAll,
+                    __global const uint8_t * smallSideIndexes,
+                    __global uint16_t * smallSideIndexToPartition,
 
                     // Row data
                     __global const float * decodedRows,
@@ -1919,7 +1945,7 @@ updateBucketsKernel(uint32_t numActiveBuckets,
     
     uint32_t bucketDataOffset;
     uint32_t bucketDataLength;
-    uint32_t numBuckets;
+    uint32_t numBucketsPerPartition;        // How many buckets for this feature?
     uint32_t bucketBits;
     uint32_t numLocalBuckets = 0;
     uint32_t startBucket;
@@ -1927,27 +1953,33 @@ updateBucketsKernel(uint32_t numActiveBuckets,
     // Pointer to the global array we eventually want to update
     __global W * wGlobal;
 
-    // TODO: work this out properly...
-    uint32_t partitionSplitsOffset = 1;
-
     if (f == -1) {
-        numBuckets = partitionSplitsOffset * 2;
+        numBucketsPerPartition = 1;
         wGlobal = wAll;
-        numLocalBuckets = min(partitionSplitsOffset, maxLocalBuckets);
+        numLocalBuckets = min(numActivePartitions / 2, maxLocalBuckets);
+        numLocalBuckets = min(numLocalBuckets, (uint32_t)254);
         startBucket = 0;
     }
     else {
         bucketDataOffset = bucketDataOffsets[f];
         bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
-        numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
+        numBucketsPerPartition = bucketNumbers[f + 1] - bucketNumbers[f];
         bucketData = bucketData + bucketDataOffset;
         bucketBits = bucketEntryBits[f];
-        numLocalBuckets = min(numBuckets * partitionSplitsOffset, maxLocalBuckets);
-        //printf("f %d nlb = %d nb = %d ro = %d mlb = %d\n",
-        //       f, numLocalBuckets, numBuckets, partitionSplitsOffset, maxLocalBuckets);
+        numLocalBuckets = min(numBucketsPerPartition * numActivePartitions / 2, maxLocalBuckets);
+        if (get_global_id(0) == 0 && false) {
+            printf("f %d nlb = %d nb = %d mlb = %d nbp = %d\n",
+                   f, numLocalBuckets, numBucketsPerPartition, maxLocalBuckets, numBucketsPerPartition * numActivePartitions / 2);
+        }
         wGlobal = buckets;
         startBucket = bucketNumbers[f];
     }
+
+    //__local uint32_t numLocalUpdates, numGlobalUpdates, numCopyLocalToGlobal;
+    //numLocalUpdates = 0;
+    //numGlobalUpdates = 0;
+    //numCopyLocalToGlobal = 0;
+
 
     // Clear our local accumulation buckets to get started
     for (uint32_t b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
@@ -1957,8 +1989,8 @@ updateBucketsKernel(uint32_t numActiveBuckets,
     // Wait for all buckets to be clear
     barrier(CLK_LOCAL_MEM_FENCE);
     
-    numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
-    
+    //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
+
     for (uint32_t i = get_global_id(0);  i < numRows;  i += get_global_size(0)) {
 
         uint8_t direction = directions[i];
@@ -1972,32 +2004,41 @@ updateBucketsKernel(uint32_t numActiveBuckets,
         uint32_t exampleNum = i;
 
         uint32_t toBucketLocal, toBucketGlobal;
+        uint8_t smallPartitionIndex = smallSideIndexes[partition];
         
         if (f == -1) {
             // Since we don't touch the buckets on the left side of the
             // partition, we don't need to have local accumulators for them.
             // Hence, the partition number for local is the left partition.
-            toBucketLocal = partition;
+            if (smallPartitionIndex == 255)
+                toBucketLocal = -1;
+            else
+                toBucketLocal = smallPartitionIndex - 1;
             toBucketGlobal = partition;
         }
         else {
             uint32_t bucket = getBucket(exampleNum,
                                         bucketData, bucketDataLength,
-                                        bucketBits, numBuckets);
+                                        bucketBits, numBucketsPerPartition);
             toBucketGlobal = partition * numActiveBuckets + startBucket + bucket;
-            toBucketLocal = toBucketGlobal;  // TODO: the larger buckets are skipped, we can be much more effective than this
+            if (smallPartitionIndex == 255)
+                toBucketLocal = -1;
+            else
+                toBucketLocal = (smallPartitionIndex - 1) * numBucketsPerPartition + bucket;
         }
 
-        if (f == 0 && false)
-            printf("updating row %d partition %d direction %d weight %f label %d toBucket %d\n",
+        if (f == -1 && false)
+            printf("updating row %d partition %d direction %d weight %f label %d toBucket %d local %d localIdx %d\n",
                    i, (uint32_t)partition, direction, weight, label,
-                   toBucketGlobal);
+                   toBucketGlobal, toBucketLocal, smallPartitionIndex);
 
 
         if (toBucketLocal < numLocalBuckets) {
+            //atom_inc(&numLocalUpdates);
             incrementWLocal(wLocal + toBucketLocal, label, weight);
         }
         else {
+            //atom_inc(&numGlobalUpdates);
             incrementWAtomic(wGlobal + toBucketGlobal, label, weight);
         }
     }
@@ -2008,19 +2049,22 @@ updateBucketsKernel(uint32_t numActiveBuckets,
     // Now write our local changes to the global
     for (uint32_t b = get_local_id(0);  b < numLocalBuckets;  b += get_local_size(0)) {
         if (wLocal[b].count != 0) {
+            //++numCopyLocalToGlobal;
             if (f == -1) {
-                incrementWOut(wGlobal + b, wLocal + b);
+                uint32_t bucketNumberGlobal = smallSideIndexToPartition[b + 1];
+                incrementWOut(wGlobal + bucketNumberGlobal, wLocal + b);
                 continue;
             }
 
             // TODO: avoid div/mod if possible in these calculations
-            uint32_t partition = b / numBuckets;
-            uint32_t bucket = b % numBuckets;
-            uint32_t bucketNumberGlobal = partition * numActiveBuckets + startBucket + bucket;
+            uint32_t partition = b / numBucketsPerPartition;
+            uint32_t bucket = b % numBucketsPerPartition;
+
+            uint32_t bucketNumberGlobal = smallSideIndexToPartition[partition + 1] * numActiveBuckets + startBucket + bucket;
 
             if (f == 0 && false) {
                 printf("f %d local bucket %d part %d buck %d nb %d nab %d global bucket %d cnt %d\n",
-                    f, b, partition, bucket, numBuckets, numActiveBuckets, bucketNumberGlobal,
+                    f, b, partition, bucket, numBucketsPerPartition, numActiveBuckets, bucketNumberGlobal,
                     wLocal[b].count);
             }
 
@@ -2028,6 +2072,15 @@ updateBucketsKernel(uint32_t numActiveBuckets,
             //atomic_inc(&numGlobalUpdates);
         }
     }
+
+#if 0
+    if (get_global_id(0) == 0 && false) {
+        printf("f %d nlb=%d nb=%d mlb=%d nbp=%d nlu=%d ngu=%d ncg2l=%d\n",
+                f, numLocalBuckets, numBucketsPerPartition, maxLocalBuckets, numBucketsPerPartition * numActivePartitions / 2,
+                numLocalUpdates, numGlobalUpdates, numCopyLocalToGlobal);
+    }
+#endif
+
 }
 
 // For each partition and each bucket, we up to now accumulated just the

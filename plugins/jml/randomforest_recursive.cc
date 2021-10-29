@@ -555,13 +555,17 @@ void updateBuckets(const std::span<const Feature> & features,
     uint32_t rowCount = decodedRows.size();
         
     std::vector<uint32_t> numInPartition(buckets.size());
-        
+
+    //std::cerr << "newPartitionNumbers = " << jsonEncodeStr(newPartitionNumbers) << endl;
+
     for (size_t i = 0;  i < rowCount;  ++i) {
         auto partition = partitions[i].partition();
 
         // Example is not in a partition
         if (partition == RowPartitionInfo::max())
             continue;
+
+        ExcAssertLess(partition, newPartitionNumbers.size());
 
         int splitFeature = partitionSplits[partition].feature;
                 

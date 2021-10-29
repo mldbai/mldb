@@ -227,7 +227,8 @@ static struct RegisterKernels {
             result->addParameter("maxNumActivePartitions", "r", "u32");
             result->addParameter("partitionIndexesOut", "w", "PartitionIndex[maxActivePartitions]");
             result->addParameter("partitionInfoOut", "w", "PartitionInfo[numActivePartitions]");
-            result->addParameter("clearPartitionsOut", "w", "u8[maxActivePartitions]");
+            result->addParameter("smallSideIndexesOut", "w", "u8[maxActivePartitions]");
+            result->addParameter("smallSideIndexToPartitionOut", "w", "u16[256]");
             result->addParameter("numActivePartitionsOut", "w", "u32[1]");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
@@ -253,7 +254,7 @@ static struct RegisterKernels {
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAllOut", "w", "W32[np]");
-            result->addParameter("clearPartitions", "r", "u8[numActivePartitions]");
+            result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
@@ -314,10 +315,13 @@ static struct RegisterKernels {
             result->addDimension("r", "numRows");
             result->addDimension("f", "nf");
             result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAll", "w", "W32[np * 2]");
+            result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
+            result->addParameter("smallSideIndexToPartition", "w", "u16[256]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
@@ -337,7 +341,7 @@ static struct RegisterKernels {
             result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
             {
                 ExcAssertEqual(grid.size(), 2);
-                grid[0] = 2048;
+                grid[0] = 4096;
             };
             result->setParameters(setTheRest);
             result->setComputeFunction(program, "updateBucketsKernel", { 256, 1 });

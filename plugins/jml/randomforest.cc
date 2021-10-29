@@ -1175,9 +1175,20 @@ trainPartitioned(const std::vector<int> & activeFeatures)
     auto directions
         = context->allocUninitializedArray<uint8_t>("directions", numRows).get();
 
-    // Array to cache whether we clear a partition to avoid recalculating
-    auto clearPartitions
-        = context->allocUninitializedArray<uint8_t>("clearPartitions", maxPartitionCount).get();
+    // SmallSideIndex[numPartitionsOut]:
+    // Used to a) know when we need to clear partitions (those on the small side are cleared,
+    // those on the big side are not) and b) provide a local index for partition buckets for
+    // the UpdateBuckets kernel
+    // - 0 means it's not on the small side
+    // - 1-254 means we're partition number (n-1) on the small side
+    // - 255 means we're partition number 254 or greater on the small side
+
+    auto smallSideIndexes
+        = context->allocUninitializedArray<uint8_t>("smallSideIndexes", maxPartitionCount).get();
+
+    // For each value in smallSideIndexes, which partition number does it correspond to?
+    auto smallSideIndexToPartitionNumbers
+        = context->allocUninitializedArray<uint16_t>("smallSideIndexToPartitionNumbers", 256);
 
     // Which event represents that the previous iteration of partitions
     // are available?
@@ -1207,7 +1218,8 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         queue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
         queue->enqueueFillArray("debug clear allPartitionSplits", deviceAllPartitionSplitsPool, IndexedPartitionSplit());
         queue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 1);
-        queue->enqueueFillArray("debug clear clearPartitions", clearPartitions, (uint8_t)0);
+        queue->enqueueFillArray("debug clear smallSideIndexes", smallSideIndexes, (uint8_t)0);
+        queue->enqueueFillArray("debug partition numbers", devicePartitions, RowPartitionInfo{0});
     }
 
     Date startDepth = Date::now();
@@ -1253,7 +1265,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         auto depthPartitionIndexes
             = context->getArraySlice(devicePartitionIndexPool, 
                                      "partitionIndexes depth " + std::to_string(myDepth),
-                                     0, numActivePartitions);
+                                     0, depth == 0 ? 0 : numActivePartitions);
 
         auto depthPartitionInfo
             = context->getArraySlice(devicePartitionInfoPool, 
@@ -1319,6 +1331,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         std::vector<W> debugBucketsCpu;
         std::vector<W> debugWAllCpu;
         std::vector<RowPartitionInfo> debugPartitionsCpu;
+        std::vector<PartitionIndex> debugPartitionIndexesCpu;
         std::set<int> okayDifferentPartitions;
 
         if (false) {
@@ -1338,10 +1351,15 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             auto partitionsDevice = mappedPartitions.getConstSpan();
 
             debugPartitionsCpu = { partitionsDevice.begin(), partitionsDevice.end() };
+            if (depth == 0)
+                std::fill(debugPartitionsCpu.begin(), debugPartitionsCpu.end(), 0);
             
             // Map back the indexes
             auto mappedIndexes = context->transferToHostSync("debug indexes", depthPartitionIndexes);
-            auto indexesDevice = mappedIndexes.getConstSpan();
+            auto indexesDeviceSpan = mappedIndexes.getConstSpan();
+            debugPartitionIndexesCpu = { indexesDeviceSpan.begin(), indexesDeviceSpan.end() };
+            if (depth == 0)
+                debugPartitionIndexesCpu = { PartitionIndex::root() };
 
             // Construct the CPU version of buckets (and keep it around)
             auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", depthPartitionBuckets);
@@ -1364,6 +1382,8 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             std::vector<W> testW(numActivePartitions);
             for (size_t i = 0;  i < numRows;  ++i) {
                 uint16_t p = partitionsDevice[i];
+                if (depth == 0)
+                    p = 0;
                 //cerr << "row " << i << " partition " << p << endl;
                 if (p >= numActivePartitions)
                     continue;
@@ -1375,6 +1395,10 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             }
 
             for (size_t i = 0;  i < numActivePartitions;  ++i) {
+
+                if (debugPartitionIndexesCpu[i] == PartitionIndex::none())
+                    continue;
+
                 if (partitionCounts[i] != wAllDevice[i].count()) {
                     cerr << "partition " << i << ": partition count " << partitionCounts[i]
                          << " wAll count " << wAllDevice[i].count() << endl;
@@ -1424,7 +1448,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                                      numActiveBuckets,
                                      activeFeatures, bucketNumbers,
                                      features, debugWAllCpu,
-                                     indexesDevice, 
+                                     debugPartitionIndexesCpu, 
                                      false /* parallel */);
 
             // Make sure we got the right thing back out
@@ -1492,7 +1516,8 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                 "partitionIndexesOut",    devicePartitionIndexPool,
                 "partitionInfoOut",       depthPartitionInfo,
                 "numActivePartitionsOut", deviceNumActivePartitions,
-                "clearPartitionsOut",     clearPartitions);
+                "smallSideIndexesOut",     smallSideIndexes,
+                "smallSideIndexToPartitionOut", smallSideIndexToPartitionNumbers);
 
             runAssignPartitionNumbers
                 = queue->launch("assign partition numbers",
@@ -1538,9 +1563,9 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                                      "partitionIndexes (next) depth " + std::to_string(myDepth),
                                      0, newNumActivePartitions);
 
-        auto nextClearPartitions
-            = context->getArraySlice(clearPartitions, 
-                                     "clearPartitions (next) depth " + std::to_string(myDepth),
+        auto nextSmallSideIndexes
+            = context->getArraySlice(smallSideIndexes, 
+                                     "smallSideIndexes (next) depth " + std::to_string(myDepth),
                                      0, newNumActivePartitions);
 
         // First we clear everything on the right side, ready to accumulate
@@ -1551,7 +1576,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
             auto boundClearBucketsKernel = clearBucketsKernel->bind
                ("bucketsOut",             nextDepthPartitionBuckets,
                 "wAllOut",                nextDepthWAll,
-                "clearPartitions",        nextClearPartitions,
+                "smallSideIndexes",       nextSmallSideIndexes,
                 "numActiveBuckets",       numActiveBuckets);
 
             runClearBucketsKernel
@@ -1592,10 +1617,13 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         {
             auto boundUpdateBucketsKernel = updateBucketsKernel->bind
                ("numActiveBuckets",               (uint32_t)numActiveBuckets,
+                "numActivePartitions",            (uint32_t)newNumActivePartitions,
                 "partitions",                     devicePartitions,
                 "directions",                     directions,
                 "buckets",                        nextDepthPartitionBuckets,
                 "wAll",                           nextDepthWAll,
+                "smallSideIndexes",               nextSmallSideIndexes,
+                "smallSideIndexToPartition",      smallSideIndexToPartitionNumbers,
                 "decodedRows",                    expandedRowData,
                 "numRows",                        (uint32_t)numRows,
                 "bucketData",                     bucketDataPromise,

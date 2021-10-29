@@ -179,9 +179,11 @@ assignPartitionNumbersKernel(ComputeContext & context,
                              std::span<const IndexedPartitionSplit> partitionSplits,
                              uint32_t partitionSplitsOffset,
                              uint32_t numActivePartitions,
+                             uint32_t maxNumActivePartitions,
                              std::span<PartitionIndex> partitionIndexesOut,
                              std::span<PartitionInfo> partitionInfoOut,
-                             std::span<uint8_t> clearPartitionOut,
+                             std::span<uint8_t> smallSideIndexesOut,
+                             std::span<uint16_t> smallSideIndexToPartitionOut,
                              std::span<uint32_t> numPartitionsOut)
 {
     ExcAssertEqual(numPartitionsOut.size(), 1);
@@ -199,10 +201,10 @@ assignPartitionNumbersKernel(ComputeContext & context,
         const PartitionSplit & split = partitionSplits[p];
         if (!split.valid() || (split.left.uniform() && split.right.uniform())) {
             inactivePartitions.push_back(p);
-            clearPartitionOut[p] = true;
+            smallSideIndexesOut[p] = 255;
             continue;
         }
-        clearPartitionOut[p] = false;
+        smallSideIndexesOut[p] = false;
         //cerr << "partition " << p << " split: " << jsonEncodeStr(split) << endl;
     }
 
@@ -212,15 +214,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
     uint32_t countActive = 0;
 
     uint32_t n = 0, n2 = numActivePartitions;
-    auto getNewPartitionNumber = [&] ()
-    {
-        if (n < inactivePartitions.size()) {
-            return inactivePartitions[n++];
-        }
-        auto result = n2++;
-        clearPartitionOut[result] = true;
-        return result;
-    };
+    uint16_t ssi = 0;
 
     //uint32_t outIndex = 0;
 
@@ -231,24 +225,53 @@ assignPartitionNumbersKernel(ComputeContext & context,
             info = PartitionInfo();
         }
         else {
-            auto direction = split.transferDirection();
-            // both still valid
-            if (direction == PartitionSplitDirection::LR) {
-                info.left = p;
-                info.right = getNewPartitionNumber();
+            auto direction = split.transferDirection() == PartitionSplitDirection::RL;
+
+            // both still valid.  One needs a new partition number
+            uint32_t minorPartitionNumber;
+
+            if (n < inactivePartitions.size()) {
+                // Re-use an unused partition
+                minorPartitionNumber = inactivePartitions[n++];
+            }
+            else if (n2 < maxNumActivePartitions) {
+                // Extend the list of partitions
+                minorPartitionNumber = n2++;
             }
             else {
-                info.left = getNewPartitionNumber();
+                // Max width reached; ignore this partition
+                //skippedRows += split.left.count + split.right.count;
+                //skippedPartitions += 1;
+                info.left = -1;
+                info.right = -1;
+                continue;
+            }
+
+            // Attempt to allocate a small side number, and if it's possible record the
+            // mapping.
+            if (ssi < 254) {
+                uint8_t idx = ++ssi;
+                smallSideIndexesOut[minorPartitionNumber] = idx;
+                smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
+            }
+            else {
+                smallSideIndexesOut[minorPartitionNumber] = 255;
+            }
+
+            if (direction == 0) {
+                info.left = p;
+                info.right = minorPartitionNumber;
+            }
+            else {
+                info.left = minorPartitionNumber;
                 info.right = p;
             }
 
-            partitionIndexesOut[info.left] = split.index.leftChild();
-            ++numActive;
-            countActive += split.left.count();
+            numActive += 2;
+            countActive += split.left.count() + split.right.count();
 
+            partitionIndexesOut[info.left] = split.index.leftChild();
             partitionIndexesOut[info.right] = split.index.rightChild();
-            ++numActive;
-            countActive += split.right.count();
         }
     }
 
@@ -268,10 +291,14 @@ assignPartitionNumbersKernel(ComputeContext & context,
         }
     }
 
-    //for (uint32_t i = 0;  i < n2;  ++i) {
-    //    cerr << "new part " << i << " index " << partitionIndexesOut[i] << " clear " 
-    //         << (int)clearPartitionOut[i] << " count " << newCounts[i] << endl;
-    //}
+    for (uint32_t i = 0;  i < n2;  ++i) {
+        cerr << "new part " << i << " index " << partitionIndexesOut[i] << " ssi " 
+             << (int)smallSideIndexesOut[i] << " count " << newCounts[i] << endl;
+    }
+
+    for (uint32_t i = 1;  i <= ssi;  ++i) {
+        cerr << "small side index " << i << " maps to partition " << smallSideIndexToPartitionOut[i] << endl;
+    }
 
     cerr << numActive << " active partitions (including " << (inactivePartitions.size() - n)
          << " gaps with " << countActive << " rows)" << endl;
@@ -279,7 +306,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
     while (n < inactivePartitions.size()) {
         auto p = inactivePartitions[n++];
         partitionIndexesOut[p] = PartitionIndex::none();
-        clearPartitionOut[p] = false;
+        smallSideIndexesOut[p] = 0;
     }
 }
 
@@ -293,10 +320,10 @@ clearBucketsKernel(ComputeContext & context,
 
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
-                   std::span<const uint8_t> clearPartitions,
+                   std::span<const uint8_t> smallSideIndexes,
                    uint32_t numActiveBuckets)
 {
-    if (!clearPartitions[partition]) {
+    if (!smallSideIndexes[partition]) {
         //cerr << "not clearing partition " << partition << ": Wall " << jsonEncodeStr(wAll[partition]) << endl;
         return;
     }
@@ -350,6 +377,8 @@ updatePartitionNumbersKernel(ComputeContext & context,
 
         // Row is not in any partition
         if (partition == (uint16_t)-1) {
+            if (depth == 0)
+                partitions[r] = -1;
             directions[r] = 0;  // skip
             continue;
         }
@@ -402,12 +431,15 @@ updatePartitionNumbersKernel(ComputeContext & context,
 
         // Set the new partition number
         auto newPartitionNumber = side ? info.right : info.left;
+        if (depth == 0)
+            partitions[r] = newPartitionNumber;
         if (newPartitionNumber != partition) {
             //cerr << "updatePartitionNumber: row " << r << " former partition "
             //     << partition << " has new partition number "
             //     << newPartitionNumber << " splitFeature " << splitFeature << " splitValue " << splitValue
             //     << " bucket " << bucket << endl;
-            partitions[r] = newPartitionNumber;
+            if (depth != 0)
+                partitions[r] = newPartitionNumber;
             directions[r] = newPartitionNumber != -1;
         }
         else directions[r] = 0;
@@ -425,12 +457,15 @@ updateBucketsKernel(ComputeContext & context,
                     uint32_t fp1, uint32_t nfp1,
 
                     uint32_t numActiveBuckets,
+                    uint32_t numActivePartitions,
 
                     std::span<const RowPartitionInfo> partitions,
                     std::span<const uint8_t> directions,
 
                     std::span<W> partitionBuckets,
                     std::span<W> wAll,
+                    std::span<uint8_t> smallSideIndexes,
+                    std::span<uint16_t> smallSideIndexToPartition,
 
                     // Row data
                     std::span<const float> decodedRows,
@@ -678,9 +713,11 @@ static struct RegisterKernels {
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
+            result->addParameter("maxNumActivePartitions", "r", "u32");
             result->addParameter("partitionIndexesOut", "w", "PartitionIndex[maxPartitionIndex]");
             result->addParameter("partitionInfoOut", "w", "PartitionInfo[np]");
-            result->addParameter("clearPartitionsOut", "w", "u8[numActivePartitions * 2]");
+            result->addParameter("smallSideIndexesOut", "w", "u8[numActivePartitions * 2]");
+            result->addParameter("smallSideIndexToPartitionOut", "w", "u16[256]");
             result->addParameter("numActivePartitionsOut", "w", "u32[1]");
             result->setComputeFunction(assignPartitionNumbersKernel);
             return result;
@@ -697,7 +734,7 @@ static struct RegisterKernels {
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAllOut", "w", "W32[np * 2]");
-            result->addParameter("clearPartitions", "r", "u8[numPartitions]");
+            result->addParameter("smallSideIndexes", "r", "u8[numPartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->set2DComputeFunction(clearBucketsKernel);
             return result;
@@ -737,10 +774,13 @@ static struct RegisterKernels {
             result->addDimension("r", "numRows");
             result->addDimension("f", "nf");
             result->addParameter("numActiveBuckets", "r", "u32");
+            result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "W32[np * 2]");
+            result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
+            result->addParameter("smallSideIndexToPartition", "w", "u16[256]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
