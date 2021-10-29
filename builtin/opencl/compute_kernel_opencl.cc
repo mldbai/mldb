@@ -11,6 +11,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/ansi.h"
+#include "mldb/block/zip_serializer.h"
 
 using namespace std;
 
@@ -20,7 +21,7 @@ namespace {
 
 std::mutex kernelRegistryMutex;
 struct KernelRegistryEntry {
-    std::function<std::shared_ptr<ComputeKernel>(OpenCLComputeContext & context)> generate;
+    std::function<std::shared_ptr<OpenCLComputeKernel>(OpenCLComputeContext & context)> generate;
 };
 
 std::map<std::string, KernelRegistryEntry> kernelRegistry;
@@ -30,9 +31,30 @@ struct OpenCLBindInfo: public ComputeKernelBindInfo {
 
     OpenCLKernel clKernel;
     const OpenCLComputeKernel * owner = nullptr;
+    std::shared_ptr<StructuredSerializer> traceSerializer;
 };
 
 EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 0);
+EnvOption<std::string> OPENCL_KERNEL_TRACE_FILE("OPENCL_KERNEL_TRACE_FILE", "");
+
+std::shared_ptr<ZipStructuredSerializer> traceSerializer;
+
+namespace {
+struct InitTrace {
+    InitTrace()
+    {
+        if (OPENCL_KERNEL_TRACE_FILE.specified()) {
+            traceSerializer = std::make_shared<ZipStructuredSerializer>(OPENCL_KERNEL_TRACE_FILE.get());
+        }
+    }
+
+    ~InitTrace()
+    {
+        if (traceSerializer)
+            traceSerializer->commit();
+    }
+} initTrace;
+} // file scope
 
 __thread int opCount = 0;
 Timer startTimer;
@@ -244,6 +266,13 @@ launch(const std::string & opName,
         //cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
         //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
         auto timer = std::make_shared<Timer>();
+
+        if (bindInfo->traceSerializer) {
+            bindInfo->traceSerializer->newObject("__grid", clGrid);
+            bindInfo->traceSerializer->newObject("__block", clBlock);
+        }
+
+        bindInfo->traceSerializer->commit();
 
         auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
 
@@ -660,6 +689,9 @@ getKernel(const std::string & kernelName)
     }
     auto result = it->second.generate(*this);
     result->context = this;
+    if (traceSerializer) {
+        result->traceSerializer = traceSerializer->newStructure(kernelName);
+    }
     return result;
 }
 
@@ -961,6 +993,9 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     auto bindInfo = std::make_shared<OpenCLBindInfo>();
     bindInfo->clKernel = kernel;
     bindInfo->owner = this;
+    if (traceSerializer) {
+        bindInfo->traceSerializer = traceSerializer->newStructure(numCalls++);
+    }
 
     BoundComputeKernel result;
     result.arguments = std::move(argumentsIn);
@@ -985,6 +1020,10 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 auto bytes = arg.handler->getPrimitive(opName, upcastContext);
                 traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
                 kernel.bindArg(i, bytes.data(), bytes.size());
+                if (traceSerializer) {
+                    FrozenMemoryRegion region(nullptr, (const char *)bytes.data(), bytes.size());
+                    bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
+                }
             }
             else if (arg.handler->canGetHandle()) {
                 auto handle = arg.handler->getHandle(opName, upcastContext);
@@ -992,6 +1031,10 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 auto [mem, offset] = upcastContext.getMemoryRegion(*handle.handle);
                 ExcAssertEqual(offset, 0);  // need to get sub buffer for non-zero offset to work
                 kernel.bindArg(i, mem);
+                if (traceSerializer) {
+                    FrozenMemoryRegion region = context->transferToHostSyncImpl("trance bind handle", handle);
+                    bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
+                }
             }
             else if (arg.handler->canGetConstRange()) {
                 throw MLDB::Exception("param.getConstRange");

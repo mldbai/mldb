@@ -242,6 +242,10 @@ struct OpenCLComputeKernel: public ComputeKernel {
     OpenCLKernel clKernel;
     OpenCLKernelInfo clKernelInfo;
 
+    // Serializer for tracing this particular kernel
+    std::shared_ptr<StructuredSerializer> traceSerializer;
+    mutable std::atomic<int> numCalls;
+
     // For each OpenCL argument, which is the corresponding argument number in arguments passed in?
     std::vector<int> correspondingArgumentNumbers;
 
