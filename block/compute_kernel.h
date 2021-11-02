@@ -47,6 +47,10 @@ enum MemoryRegionAccess {
 
 DECLARE_ENUM_DESCRIPTION(MemoryRegionAccess);
 
+MemoryRegionAccess parseAccess(const std::string & accessStr);
+std::string printAccess(MemoryRegionAccess access);
+std::ostream & operator << (std::ostream & stream, MemoryRegionAccess access);
+
 enum MemoryRegionInitialization {
     INIT_NONE,         //< Random contents (but no sensitive data)
     INIT_ZERO_FILLED,  //< Zero-filled
@@ -358,13 +362,19 @@ struct ComputeKernelType {
     ComputeKernelType() = default;
 
     ComputeKernelType(std::shared_ptr<const ValueDescription> baseType,
-                      std::string access)
-        : baseType(std::move(baseType)), access(std::move(access))
+                      const std::string & access)
+        : ComputeKernelType(std::move(baseType), parseAccess(access))
+    {
+    }
+
+    ComputeKernelType(std::shared_ptr<const ValueDescription> baseType,
+                      MemoryRegionAccess access)
+        : baseType(std::move(baseType)), access(access)
     {
     }
 
     std::shared_ptr<const ValueDescription> baseType;
-    std::string access;
+    MemoryRegionAccess access;
 
     std::string print() const;
     
@@ -375,10 +385,7 @@ struct ComputeKernelType {
 
 DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelType);
 
-ComputeKernelType parseType(const std::string & type);
-
-struct ComputeContext;
-struct BoundComputeKernel;
+ComputeKernelType parseType(const std::string & access, const std::string & type);
 
 /// Class used to handle arguments
 struct AbstractArgumentHandler {
@@ -483,7 +490,6 @@ struct ComputeKernel {
 
     struct ParameterInfo {
         std::string name;
-        std::string access;
         ComputeKernelType type;
     };
 
@@ -503,15 +509,15 @@ struct ComputeKernel {
         if (!paramIndex.emplace(parameterName, params.size()).second) {
             throw AnnotatedException(500, "Duplicate kernel parameter name: '" + parameterName + "'");
         }
-        params.push_back({parameterName, access, parseType(typeStr)});
+        params.push_back({parameterName, parseType(access, typeStr)});
     }
 
-    void addParameter(const std::string & parameterName, const std::string & access, ComputeKernelType type)
+    void addParameter(const std::string & parameterName, ComputeKernelType type)
     {
         if (!paramIndex.emplace(parameterName, params.size()).second) {
             throw AnnotatedException(500, "Duplicate kernel parameter name: '" + parameterName + "'");
         }
-        params.push_back({parameterName, access, std::move(type)});
+        params.push_back({parameterName, std::move(type)});
     }
 
     void addDimension(const std::string & dimensionName, const std::string & range,
@@ -694,7 +700,7 @@ struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
         mem = { (const std::byte *)&finalVal, sizeof(T) };
         this->isConst = true;
         this->type.baseType = getDefaultDescriptionSharedT<T>();
-        this->type.access = "r";
+        this->type.access = ACC_READ;
     }
 
     std::any val;

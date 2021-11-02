@@ -13,6 +13,8 @@
 #include "mldb/base/exc_assert.h"
 #include "value_description.h"
 #include "structure_description.h"
+#include <iostream>
+#include "utils/vector_utils.h"
 
 
 using namespace std;
@@ -432,7 +434,7 @@ void registerValueDescriptionAlias(const std::type_info & type, const std::strin
     
     std::unique_lock<std::recursive_mutex> guard(registryMutex);
     registry()[alias].desc = desc;
-    registry()[typeid(type).name()].aliases.push_back(alias);
+    registry()[type.name()].aliases.push_back(alias);
 }
 
 std::vector<std::string>
@@ -441,6 +443,8 @@ getValueDescriptionAliases(const std::type_info & type)
     std::unique_lock<std::recursive_mutex> guard(registryMutex);
     auto it = registry().find(type.name());
     if (it == registry().end()) {
+        using namespace std;
+        cerr << "getValueDescriptionAliases: type " << type.name() << " not found in registry" << endl;
         return {};
     }
     return it->second.aliases;

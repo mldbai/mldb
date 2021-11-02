@@ -7,11 +7,13 @@
 
 #include "compute_kernel_opencl.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/set_description.h"
 #include "opencl_types.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/ansi.h"
 #include "mldb/block/zip_serializer.h"
+#include <compare>
 
 using namespace std;
 
@@ -32,29 +34,87 @@ struct OpenCLBindInfo: public ComputeKernelBindInfo {
     OpenCLKernel clKernel;
     const OpenCLComputeKernel * owner = nullptr;
     std::shared_ptr<StructuredSerializer> traceSerializer;
+
+    // Pins that control the lifetime of the arguments and allow the system to know
+    // when an argument is no longer needed
+    std::vector<std::shared_ptr<const void>> argumentPins;
 };
 
 EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 0);
 EnvOption<std::string> OPENCL_KERNEL_TRACE_FILE("OPENCL_KERNEL_TRACE_FILE", "");
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
+std::shared_ptr<StructuredSerializer> regionsSerializer;
+std::shared_ptr<StructuredSerializer> kernelsSerializer;
 
-namespace {
+using TracedRegionKey = std::tuple<std::string, int>;
+//struct TracedRegionKey {
+//    std::string name;
+//    int version = -1;
+//    auto operator < (const TracedRegionKey & other) const = default;
+//};
+
+struct TracedRegionEntry {
+    size_t length = 0;
+};
+
+std::mutex tracedRegionMutex;
+std::map<std::string, std::shared_ptr<StructuredSerializer>> regionSerializers;
+std::map<TracedRegionKey, TracedRegionEntry> tracedRegions;
+
+bool versionIsTraced(const std::string & name, int version)
+{
+    std::unique_lock guard(tracedRegionMutex);
+    return tracedRegions.count({name, version});
+}
+
+void traceVersion(std::string name, int version, const FrozenMemoryRegion & region)
+{
+    if (name == "") {
+        name = format("%016llx", (unsigned long long)region.data());
+    }
+    ExcAssert(name != "");
+    ExcAssertGreaterEqual(version, 0);
+
+    if (!traceSerializer)
+        return;
+
+    std::unique_lock guard(tracedRegionMutex);
+    auto it = tracedRegions.find({name, version});
+    if (it != tracedRegions.end()) {
+        ExcAssertEqual(it->second.length, region.length());
+        return;
+    }
+
+    if (!regionSerializers.count(name)) {
+        regionSerializers[name] = regionsSerializer->newStructure(name);
+    }
+    auto thisRegionSerializer = regionSerializers[name];
+    ExcAssert(thisRegionSerializer);
+    thisRegionSerializer->addRegion(region, version);
+
+    tracedRegions[{name, version}] = {region.length()};
+}
+
 struct InitTrace {
     InitTrace()
     {
         if (OPENCL_KERNEL_TRACE_FILE.specified()) {
             traceSerializer = std::make_shared<ZipStructuredSerializer>(OPENCL_KERNEL_TRACE_FILE.get());
+            regionsSerializer = traceSerializer->newStructure("regions");
+            kernelsSerializer = traceSerializer->newStructure("kernels");
         }
     }
 
     ~InitTrace()
     {
-        if (traceSerializer)
+        if (traceSerializer) {
+            regionsSerializer->commit();
+            kernelsSerializer->commit();
             traceSerializer->commit();
+        }
     }
 } initTrace;
-} // file scope
 
 __thread int opCount = 0;
 Timer startTimer;
@@ -119,6 +179,141 @@ ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(const std::string & opNa
 {
     return ScopedOperation(opName, std::forward<Args>(args)...);
 }
+
+struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
+    OpenCLMemObject memBase;
+    size_t offset = 0;
+
+    std::mutex mutex;
+    int numReaders = 0;
+    int numWriters = 0;
+    std::set<std::string> currentWriters;
+    std::set<std::string> currentReaders;
+
+    void init(OpenCLMemObject mem, size_t offset)
+    {
+        this->memBase = std::move(mem);
+        this->offset = offset;
+        this->version = 0;
+    }
+
+    std::tuple<FrozenMemoryRegion, int /* version */>
+    getReadOnlyHostAccessSync(const OpenCLComputeContext & context,
+                              const std::string & opName,
+                              size_t offset,
+                              ssize_t length,
+                              bool ignoreHazards)
+    {
+        if (!ignoreHazards) {
+            unique_lock guard(mutex);
+
+            if (numWriters != 0) {
+                throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
+                                      + jsonEncodeStr(currentWriters) + " and active reader(s) "
+                                      + jsonEncodeStr(currentReaders));
+            }
+
+            if (!currentReaders.insert(opName).second) {
+                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
+            }
+            ++numReaders;
+        }
+
+        if (length == -1) {
+            length = lengthInBytes - offset;
+        }
+
+        std::shared_ptr<const void> region
+            = context.clQueue->clQueue.enqueueMapBufferBlocking(memBase, CL_MAP_READ,
+                                                                offset /* offset */, length);
+
+        auto done = [this, opName, ignoreHazards, region] (const void * mem)
+        {
+            if (!ignoreHazards) {
+                unique_lock guard(mutex);
+                --numReaders;
+                currentReaders.erase(opName);
+            }
+        };
+
+        auto pin =  std::shared_ptr<void>(nullptr, done);
+        auto data = (const char *)region.get();
+
+        return { { std::move(pin), data, lengthInBytes - offset }, this->version };
+    }
+
+    std::tuple<std::shared_ptr<const void>, cl_mem>
+    getOpenCLAccess(const std::string & opName, MemoryRegionAccess access)
+    {
+        unique_lock guard(mutex);
+
+        if (access == ACC_NONE) {
+            throw MLDB::Exception("Asked for no access to region");
+        }
+
+        if (access == ACC_READ) {
+            if (numWriters != 0) {
+                throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
+                                      + jsonEncodeStr(currentWriters) + " and active reader(s) "
+                                      + jsonEncodeStr(currentReaders));
+            }
+            if (!currentReaders.insert(opName).second) {
+                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
+            }
+            ++numReaders;
+
+            auto done = [this, opName] (const void * mem)
+            {
+                unique_lock guard(mutex);
+                --numReaders;
+                currentReaders.erase(opName);
+            };
+
+            auto pin =  std::shared_ptr<void>(nullptr, done);
+            //cerr << "returning r/o version " << version << " of " << name << " for " << opName << endl;
+            return { std::move(pin), this->memBase };
+        }
+        else {  // read only or read write
+            if (currentReaders.count(opName)) {
+                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
+            }
+            if (currentWriters.count(opName)) {
+                throw MLDB::Exception("Operation '" + opName + " ' is already writing region '" + name + "'");
+            }
+            if (numWriters != 0 || numReaders != 0) {
+                throw MLDB::Exception("Operation '" + opName + "' attempted to write region '"
+                                      + name + "' with active writer(s) "
+                                      + jsonEncodeStr(currentWriters) + " and/or active reader(s) "
+                                      + jsonEncodeStr(currentReaders));
+            }
+            ++version;
+            ++numWriters;
+            currentWriters.insert(opName);
+            if (access == ACC_READ_WRITE) {
+                ++numReaders;
+                currentReaders.insert(opName);
+            }
+
+            auto done = [this, access, opName] (const void * mem)
+            {
+                unique_lock guard(mutex);
+                ++version;
+                --numWriters;
+                currentWriters.erase(opName);
+                if (access == ACC_READ_WRITE) {
+                    --numReaders;
+                    currentReaders.erase(opName);
+                }
+            };
+
+            //cerr << "returning r/w version " << version << " of " << name << " for " << opName << endl;
+
+            auto pin =  std::shared_ptr<void>(nullptr, done);
+            return { std::move(pin), this->memBase };
+        }
+    }
+};
+
 
 } // file scope
 
@@ -270,9 +465,8 @@ launch(const std::string & opName,
         if (bindInfo->traceSerializer) {
             bindInfo->traceSerializer->newObject("__grid", clGrid);
             bindInfo->traceSerializer->newObject("__block", clBlock);
+            bindInfo->traceSerializer->commit();
         }
-
-        bindInfo->traceSerializer->commit();
 
         auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
 
@@ -437,15 +631,30 @@ setCacheEntry(const std::string & key, std::any value)
     return oldValue;
 }
 
-std::tuple<cl_mem, size_t>
+std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
 OpenCLComputeContext::
-getMemoryRegion(const MemoryRegionHandleInfo & handle) const
+getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, MemoryRegionAccess access) const
 {
-    const MemoryRegionInfo * upcastHandle = dynamic_cast<const MemoryRegionInfo *>(&handle);
+    OpenCLMemoryRegionHandleInfo * upcastHandle = dynamic_cast<OpenCLMemoryRegionHandleInfo *>(&handle);
     if (!upcastHandle) {
         throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
     }
-    return { upcastHandle->memBase, upcastHandle->offset };
+    auto [pin, mem] = upcastHandle->getOpenCLAccess(opName, access);
+
+    return { std::move(pin), mem, upcastHandle->offset };
+}
+
+std::tuple<FrozenMemoryRegion, int /* version */>
+OpenCLComputeContext::
+getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
+                          size_t offset, ssize_t length,
+                          bool ignoreHazards) const
+{
+    OpenCLMemoryRegionHandleInfo * upcastHandle = dynamic_cast<OpenCLMemoryRegionHandleInfo *>(&handle);
+    if (!upcastHandle) {
+        throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
+    }
+    return upcastHandle->getReadOnlyHostAccessSync(*this, opName, offset, length, ignoreHazards);
 }
 
 static MemoryRegionHandle
@@ -458,13 +667,14 @@ doOpenCLAllocate(OpenCLContext & clContext,
     // TODO: align...
     OpenCLMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
 
-    auto handle = std::make_shared<OpenCLComputeContext::MemoryRegionInfo>();
+    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
     handle->memBase = std::move(mem);
     handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
     handle->lengthInBytes = length;
     handle->name = regionName;
+    handle->version = 0;
 
     MemoryRegionHandle result{std::move(handle)};
     return result;
@@ -521,12 +731,14 @@ doOpenCLTransferToDevice(OpenCLContext & clContext,
                                      region.data(), region.memusage());
     }
 
-    auto handle = std::make_shared<OpenCLComputeContext::MemoryRegionInfo>();
+    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
     handle->memBase = std::move(mem);
     handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
     handle->lengthInBytes = region.length();
+    handle->name = opName;
+    handle->version = 0;
     MemoryRegionHandle result{std::move(handle)};
 
     using namespace std;
@@ -568,7 +780,7 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 
     ExcAssert(handle.handle);
 
-    auto [mem, offset] = getMemoryRegion(*handle.handle);
+    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
     //OpenCLEvent clEvent;
     //std::shared_ptr<void> memPtr;
     auto res = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
@@ -587,7 +799,7 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
     auto promise = std::make_shared<std::promise<std::any>>();
     auto data = (char *)memPtr.get();
 
-    auto cb = [handle, promise, data, memPtr] (const OpenCLEvent & event, auto status)
+    auto cb = [handle, promise, data, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
     {
         //cerr << "transferToHostImpl callback" << endl;
         if (status == OpenCLEventCommandExecutionStatus::ERROR)
@@ -620,7 +832,7 @@ transferToHostSyncImpl(const std::string & opName,
 
     ExcAssert(handle.handle);
 
-    auto [mem, offset] = getMemoryRegion(*handle.handle);
+    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
     auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ,
                                                             offset, handle.lengthInBytes());
     const char * data = (const char *)memPtr.get();
@@ -635,7 +847,7 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
     auto op = scopedOperation("OpenCLComputeContext transferToHostMutableImpl " + opName);
     ExcAssert(handle.handle);
 
-    auto [mem, offset] = getMemoryRegion(*handle.handle);
+    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
     OpenCLEvent clEvent;
     std::shared_ptr<void> memPtr;
     std::tie(memPtr, clEvent)
@@ -645,7 +857,7 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
     auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
     auto promise = std::shared_ptr<std::promise<std::any>>();
 
-    auto cb = [handle, promise, memPtr] (const OpenCLEvent & event, auto status)
+    auto cb = [handle, promise, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
     {
         if (status == OpenCLEventCommandExecutionStatus::ERROR)
             promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
@@ -668,7 +880,7 @@ transferToHostMutableSyncImpl(const std::string & opName,
 
     ExcAssert(handle.handle);
 
-    auto [mem, offset] = getMemoryRegion(*handle.handle);
+    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
     auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ | CL_MAP_WRITE,
                                                             offset, handle.lengthInBytes());
     MutableMemoryRegion result(std::move(memPtr), (char *)memPtr.get(), handle.lengthInBytes());
@@ -690,7 +902,7 @@ getKernel(const std::string & kernelName)
     auto result = it->second.generate(*this);
     result->context = this;
     if (traceSerializer) {
-        result->traceSerializer = traceSerializer->newStructure(kernelName);
+        result->traceSerializer = kernelsSerializer->newStructure(kernelName);
     }
     return result;
 }
@@ -737,12 +949,14 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
 
     // TODO: this is synchronous; it should become asynchronous
 
-    auto handle = std::make_shared<MemoryRegionInfo>();
+    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
     handle->memBase = std::move(mem);
     handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
     handle->lengthInBytes = region.size();
+    handle->version = 0;
+    handle->name = opName;
     MemoryRegionHandle result{std::move(handle)};
     return result;
 }
@@ -790,7 +1004,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
 {
     auto op = scopedOperation("OpenCLComputeContext getSliceImpl " + regionName);
 
-    auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
+    auto info = std::dynamic_pointer_cast<const OpenCLMemoryRegionHandleInfo>(std::move(handle.handle));
     ExcAssert(info);
 
     if (info->isConst && !isConst) {
@@ -817,7 +1031,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
         throw MLDB::Exception("getSliceImpl: end offset past the end");
     }
 
-    auto newInfo = std::make_shared<MemoryRegionInfo>();
+    auto newInfo = std::make_shared<OpenCLMemoryRegionHandleInfo>();
 
     newInfo->memBase = OpenCLMemObject(info->memBase, false /* already retained */);
     newInfo->offset = info->offset + startOffsetInBytes;
@@ -827,6 +1041,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
     newInfo->lengthInBytes = lengthInBytes;
     newInfo->parent = info;
     newInfo->ownerOffset = startOffsetInBytes;
+    newInfo->version = info->version;
 
     return { newInfo };
 
@@ -867,6 +1082,10 @@ getKernelType(const OpenCLKernelArgInfo & info)
     }
 
     ComputeKernelType type;
+    auto parseType = [] (const char * type)
+    {
+        return MLDB::parseType("", type);
+    };
 
     if (clTypeName == "ulong" || clTypeName == "uint64_t") {
         type = parseType("u64");
@@ -898,7 +1117,7 @@ getKernelType(const OpenCLKernelArgInfo & info)
     else if (clTypeName == "double") {
         type = parseType("f64");
     }
-    else type = parseType(clTypeName);  // Must be a user defined type
+    else type = parseType(clTypeName.c_str());  // Must be a user defined type
 
     // Add back the dimensions
     for (size_t i = 0;  i < arrayDim;  ++i) {
@@ -1006,8 +1225,10 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         result.knowns.setValue(arg.name, arg.handler->toJson());
     }
 
+    Json::Value argInfo;
     for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
-        auto tr = scopedOperation("bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name);
+        std::string opName = "bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name;
+        auto tr = scopedOperation(opName);
         int argNum = correspondingArgumentNumbers.at(i);
         //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
         if (argNum == -1) {
@@ -1015,26 +1236,31 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         }
         else {
             const ComputeKernelArgument & arg = result.arguments.at(argNum);
+            if (traceSerializer)
+                argInfo[this->clKernelInfo.args[i].name] = arg.handler->toJson();
             std::string opName = "bind " + this->clKernelInfo.args[i].name;
             if (arg.handler->canGetPrimitive()) {
                 auto bytes = arg.handler->getPrimitive(opName, upcastContext);
                 traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
                 kernel.bindArg(i, bytes.data(), bytes.size());
-                if (traceSerializer) {
-                    FrozenMemoryRegion region(nullptr, (const char *)bytes.data(), bytes.size());
-                    bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
-                }
             }
             else if (arg.handler->canGetHandle()) {
                 auto handle = arg.handler->getHandle(opName, upcastContext);
                 traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
-                auto [mem, offset] = upcastContext.getMemoryRegion(*handle.handle);
+                MemoryRegionAccess access = this->params.at(argNum).type.access;
+
+                if (traceSerializer && (access & ACC_READ)) {
+                    auto [region, version] = upcastContext
+                        .getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
+                                                   true /* ignore hazards */);
+                    //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
+                    traceVersion(handle.handle->name, version, region);
+                }
+
+                auto [pin, mem, offset] = upcastContext.getMemoryRegion(opName, *handle.handle, access);
+                bindInfo->argumentPins.emplace_back(std::move(pin));
                 ExcAssertEqual(offset, 0);  // need to get sub buffer for non-zero offset to work
                 kernel.bindArg(i, mem);
-                if (traceSerializer) {
-                    FrozenMemoryRegion region = context->transferToHostSyncImpl("trance bind handle", handle);
-                    bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
-                }
             }
             else if (arg.handler->canGetConstRange()) {
                 throw MLDB::Exception("param.getConstRange");
@@ -1043,6 +1269,9 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 throw MLDB::Exception("don't know how to handle passing parameter to OpenCL");
             }
         }
+    }
+    if (traceSerializer) {
+        bindInfo->traceSerializer->newObject("args", argInfo);
     }
 
     // Run the setters to set the other parameters

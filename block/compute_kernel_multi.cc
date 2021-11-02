@@ -213,7 +213,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
 
     // Now, for each writable parameter, compare the results...
     for (size_t i = 0;  i < this->params.size();  ++i) {
-        if (this->params[i].type.dims.size() == 0 || (pre && this->params[i].access == "w"))
+        if (this->params[i].type.dims.size() == 0 || (pre && this->params[i].type.access == ACC_WRITE))
             continue;
 
         bool printedBanner = false;
@@ -223,7 +223,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
                 return;
             using namespace std;
             cerr << ansi::magenta << "comparing contents of parameter " << this->params[i].name << " access "
-                << this->params[i].access << ansi::reset << endl;
+                << this->params[i].type.print() << ansi::reset << endl;
             printedBanner = true;
         };
 

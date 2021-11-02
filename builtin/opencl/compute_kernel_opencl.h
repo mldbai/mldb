@@ -14,32 +14,6 @@ namespace MLDB {
 
 struct OpenCLComputeContext;
 
-#if 0
-struct ComputeTraceEvent {
-};
-
-struct ComputeTracer {
-    virtual ~ComputeTracer() = default;
-
-    struct StackOperation {
-        StackOperation(const std::string & name, std::unique_ptr<ComputeTraceEvent> event)
-            : name(name), event(event)
-        {
-            event->begin(name);
-        }
-
-        std::string name;
-        std::unique_ptr<ComputeTraceEvent> event;
-    };
-
-    struct Operation {
-        std::string context;
-        std::shared_ptr<ComputeTraceEvent>
-    };
-
-};
-#endif
-
 struct OpenCLComputeProfilingInfo: public ComputeProfilingInfo {
     OpenCLComputeProfilingInfo(OpenCLProfilingInfo info);
     virtual ~OpenCLComputeProfilingInfo() = default;
@@ -130,18 +104,16 @@ struct OpenCLComputeContext: public ComputeContext {
  
     std::any setCacheEntry(const std::string & key, std::any value);
 
-    struct MemoryRegionInfo: public MemoryRegionHandleInfo {
-        OpenCLMemObject memBase;
-        size_t offset = 0;
+    // pin, region, length in bytes
+    std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
+    getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
+                    MemoryRegionAccess access) const;
 
-        void init(OpenCLMemObject mem, size_t offset)
-        {
-            this->memBase = std::move(mem);
-            this->offset = offset;
-        }
-    };
-
-    std::tuple<cl_mem, size_t> getMemoryRegion(const MemoryRegionHandleInfo & handle) const;
+    std::tuple<FrozenMemoryRegion, int /* version */>
+    getFrozenHostMemoryRegion(const std::string & opName,
+                              MemoryRegionHandleInfo & handle,
+                              size_t offset, ssize_t length,
+                              bool ignoreHazards) const;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     allocateImpl(const std::string & opName,

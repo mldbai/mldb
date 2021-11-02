@@ -38,6 +38,43 @@ DEFINE_ENUM_DESCRIPTION_INLINE(ComputeRuntimeId)
     addValue("ROCM", ComputeRuntimeId::ROCM, "Runs on the AMD ROCM runtime");
 }
 
+DEFINE_ENUM_DESCRIPTION_INLINE(MemoryRegionAccess)
+{
+    addValue("NONE", ACC_NONE, "No access");
+    addValue("READ", ACC_NONE, "No access");
+    addValue("WRITE", ACC_NONE, "No access");
+    addValue("READ_WRITE", ACC_NONE, "No access");
+}
+
+MemoryRegionAccess parseAccess(const std::string & accessStr)
+{
+    if (accessStr == "")
+        return ACC_NONE;
+    else if (accessStr == "r")
+        return ACC_READ;
+    else if (accessStr == "w")
+        return ACC_WRITE;
+    else if (accessStr == "rw")
+        return ACC_READ_WRITE;
+    else throw MLDB::Exception("Couldn't parse access specifier '" + accessStr + "': expected '', 'r', 'w' or 'rw'");
+}
+std::string printAccess(MemoryRegionAccess access)
+{
+    switch (access) {
+    case ACC_NONE:          return "";
+    case ACC_READ:          return "r";
+    case ACC_WRITE:         return "w";
+    case ACC_READ_WRITE:    return "rw";
+    default:
+        throw MLDB::Exception("unknown access specifier can't be printed");
+    }
+}
+
+std::ostream & operator << (std::ostream & stream, MemoryRegionAccess access)
+{
+    return stream << printAccess(access);
+}
+
 DEFINE_ENUM_DESCRIPTION_INLINE(MemoryRegionInitialization)
 {
     addValue("INIT_NONE", INIT_NONE, "No initialization; contents are indeterminate (with no sensitive data visible)");
@@ -183,11 +220,11 @@ expectType(ParseContext & context)
         std::unique_lock guard(basicTypeRegistryMutex);
         auto it = basicTypeRegistry.find(typeName);
         if (it != basicTypeRegistry.end()) {
-            return ComputeKernelType(it->second, "?");
+            return ComputeKernelType(it->second, "");
         }
     }
 
-    ComputeKernelType result(ValueDescription::get(typeName), "?");
+    ComputeKernelType result(ValueDescription::get(typeName), ACC_NONE);
     if (!result.baseType) {
         context.exception("Couldn't find type '" + typeName + "' in registry");
     }
@@ -195,7 +232,7 @@ expectType(ParseContext & context)
 }
 
 ComputeKernelType
-parseType(const std::string & type)
+parseType(const std::string & access, const std::string & type)
 {
     ParseContext context(type, type.data(), type.data() + type.length());
     auto result = expectType(context);
@@ -206,6 +243,7 @@ parseType(const std::string & type)
         result.dims.push_back({bound});
     }
     context.expect_eof();
+    result.access = parseAccess(access);
     return result;
 }
 
@@ -223,6 +261,7 @@ printBaseType(const ValueDescription & desc)
     }
 
     auto aliases = getValueDescriptionAliases(*desc.type);
+
     for (auto & a: aliases) {
         if (a.size() < typeName.size()) {
             typeName = std::move(a);
@@ -242,7 +281,7 @@ print() const
 
     auto typeName = printBaseType(*baseType);
 
-    auto result = access + " " + typeName;
+    auto result = printAccess(access) + " " + typeName;
     for (auto [bound]: dims) {
         result += "[" + (bound ? bound->surfaceForm : std::string()) + "]";
     }
@@ -267,11 +306,9 @@ isCompatibleWith(const ComputeKernelType & otherType, std::string * reason) cons
         return fail("different array dimensionality: return " + std::to_string(dims.size()) + " vs passed " + std::to_string(otherType.dims.size()));
     }
 
-    if (access != "?" && otherType.access != "?") {
-        if (access.find('w') != string::npos) {
-            if (otherType.access.find('w') == string::npos) {
-                return fail("compatibility error: passing read-only to writable parameter");
-            }
+    if (access & ACC_WRITE) {
+        if (!(otherType.access & ACC_WRITE)) {
+            return fail("compatibility error: passing read-only to writable parameter");
         }
     }
 
@@ -726,7 +763,7 @@ MemoryArrayAbstractArgumentHandler(MemoryRegionHandle handle,
     ExcAssert(containedType);
     ComputeKernelType type;
     type.baseType = std::move(containedType);
-    type.access = isConst ? "r" : "rw";
+    type.access = isConst ? ACC_READ : ACC_READ_WRITE;
     type.dims.push_back({nullptr});
     this->type = std::move(type);
     this->isConst = isConst;
@@ -807,10 +844,15 @@ toJson() const
     size_t numObjects = handle.handle ? handle.handle->lengthInBytes / objectLength : 0;
 
     Json::Value result;
-    result["elType"] = type.baseType->typeName;
+    result["elType"] = printBaseType(*type.baseType);
     result["elSize"] = type.baseType->size;
     result["elAlign"] = type.baseType->align;
     result["length"] = numObjects;
+    result["type"] = type.print();
+    if (handle.handle) {
+        result["name"] = handle.handle->name;
+        result["version"] = handle.handle->version;
+    }
 
     return result;
 }

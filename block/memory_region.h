@@ -84,7 +84,7 @@ enum MemoryRegionState : uint8_t {
     to the memory region and to perform operations on it.
 
     Note that, in general, operations need to be queued on a device's work
-    queue in order to run; they cannot be run imperatively in general.
+    queue in order to run; they cannot be run imperatively.
 */
 
 struct MemoryRegionHandleInfo {
@@ -95,11 +95,12 @@ struct MemoryRegionHandleInfo {
     std::weak_ptr<const MemoryRegionHandleInfo> parent;  // Parent region (if we're part of a subrange)
     ssize_t ownerOffset = -1;                   // Offset in our parent range
     std::string name;                           // Mnenomic name
+    int version = -1;                           // Version we refer to (-1 means latest/unknown)
 };
 
 struct MemoryRegionHandle {
     MemoryRegionHandle() = default;
-    MemoryRegionHandle(std::shared_ptr<const MemoryRegionHandleInfo> handle)
+    MemoryRegionHandle(std::shared_ptr<MemoryRegionHandleInfo> handle)
         : handle(std::move(handle))
     {
         ExcAssert(this->handle);
@@ -123,7 +124,7 @@ struct MemoryRegionHandle {
         return this->handle->lengthInBytes;        
     }
 
-    std::shared_ptr<const MemoryRegionHandleInfo> handle;  // opaque; upcast by context
+    std::shared_ptr<MemoryRegionHandleInfo> handle;  // opaque; upcast by context
 };
 
 template<> struct ValueDescriptionT<MemoryRegionHandle>;
@@ -132,7 +133,7 @@ DECLARE_VALUE_DESCRIPTION(MemoryRegionHandle);
 template<typename T>
 struct MemoryArrayHandleT: public MemoryRegionHandle {
     MemoryArrayHandleT() = default;
-    MemoryArrayHandleT(std::shared_ptr<const MemoryRegionHandleInfo> handle)
+    MemoryArrayHandleT(std::shared_ptr<MemoryRegionHandleInfo> handle)
         : MemoryRegionHandle(std::move(handle))
     {
     }

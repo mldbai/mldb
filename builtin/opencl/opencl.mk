@@ -57,7 +57,8 @@ $(LIB)/libOpenCL.so.%:	$(OPENCL_ICD_LIB_DIR)/libOpenCL.so.%
 
 endif # OSNAME=Linux
 
-$(eval $(call set_compile_option,$(OPENCL_PLUGIN_SOURCE),-Imldb/ext))
-  $(eval $(call library,mldb_opencl_plugin,$(OPENCL_PLUGIN_SOURCE),value_description sql_expression $(OPENCL_PLUGIN_LINK)))
+$(eval $(call set_compile_option,$(OPENCL_PLUGIN_SOURCE) opencl_replay_trace.cc,-Imldb/ext))
+$(eval $(call library,mldb_opencl_plugin,$(OPENCL_PLUGIN_SOURCE),value_description sql_expression $(OPENCL_PLUGIN_LINK)))
 
+$(eval $(call program,opencl_replay_trace,mldb_opencl_plugin $(OPENCL_PLUGIN_LINK)))
 endif
