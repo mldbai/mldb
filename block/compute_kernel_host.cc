@@ -110,8 +110,8 @@ launch(const std::string & opName,
     std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
     hostOwner->call(kernel, ranges);
     auto wallTime = timer.elapsed_wall();
-    using namespace std;
-    cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
+    //using namespace std;
+    //cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
     {
         std::unique_lock guard(kernelWallTimesMutex);
         kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
@@ -303,6 +303,39 @@ struct HostComputeContext: public ComputeContext {
         ExcAssertLessEqual(deviceOffset + hostRegion.size(), info->lengthInBytes);
 
         std::memcpy(((std::byte *)info->data) + deviceOffset, hostRegion.data(), hostRegion.size());
+    }
+
+    virtual std::shared_ptr<ComputeEvent>
+    copyBetweenDeviceRegionsImpl(const std::string & opName,
+                                 MemoryRegionHandle from, MemoryRegionHandle to,
+                                 size_t fromOffset, size_t toOffset,
+                                 size_t length) override
+    {
+        copyBetweenDeviceRegionsSyncImpl(opName, from, to, fromOffset, toOffset, length);
+        return std::make_shared<HostComputeEvent>();
+    }
+
+    virtual void
+    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle from, MemoryRegionHandle to,
+                                     size_t fromOffset, size_t toOffset,
+                                     size_t length) override
+    {
+        ExcAssert(from.handle);
+        auto fromInfo = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(from.handle));
+        ExcAssert(fromInfo);
+        
+        ExcAssert(to.handle);
+        auto toInfo = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(to.handle));
+        ExcAssert(toInfo);
+        ExcAssert(!toInfo->isConst);
+        
+        ExcAssertLessEqual(fromOffset, fromInfo->lengthInBytes);
+        ExcAssertLessEqual(fromOffset + length, fromInfo->lengthInBytes);
+        ExcAssertLessEqual(toOffset, toInfo->lengthInBytes);
+        ExcAssertLessEqual(toOffset + length, toInfo->lengthInBytes);
+        
+        std::memcpy(((std::byte *)toInfo->data) + toOffset, (const std::byte *)fromInfo->data + fromOffset, length);
     }
 
     virtual std::shared_ptr<ComputeKernel>

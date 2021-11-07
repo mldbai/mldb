@@ -46,6 +46,14 @@ DEFINE_ENUM_DESCRIPTION_INLINE(MemoryRegionAccess)
     addValue("READ_WRITE", ACC_NONE, "No access");
 }
 
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelConstraint)
+{
+    addField("lhs", &ComputeKernelConstraint::lhs, "Left side of constraint expression");
+    addField("op", &ComputeKernelConstraint::op, "Comparison operator for constraint");
+    addField("rhs", &ComputeKernelConstraint::rhs, "Right side of constraint expression");
+    addField("description", &ComputeKernelConstraint::description, "Description of where constraint comes from");
+}
+
 MemoryRegionAccess parseAccess(const std::string & accessStr)
 {
     if (accessStr == "")
@@ -234,7 +242,17 @@ expectType(ParseContext & context)
 ComputeKernelType
 parseType(const std::string & access, const std::string & type)
 {
-    ParseContext context(type, type.data(), type.data() + type.length());
+    return parseType(access + " " + type);
+}
+
+ComputeKernelType
+parseType(const std::string & accessAndType)
+{
+    ParseContext context(accessAndType, accessAndType.data(), accessAndType.data() + accessAndType.length());
+
+    std::string access = context.expect_text(" ");
+    context.expect_whitespace();
+
     auto result = expectType(context);
     while (context.match_literal('[')) {
         // It's an array
@@ -253,18 +271,20 @@ printBaseType(const ValueDescription & desc)
 {
     std::string typeName = desc.typeName;
 
-    {
-        std::unique_lock guard(basicTypeRegistryMutex);
-        auto it = reverseTypeRegistry.find(desc.type->name());
-        if (it != reverseTypeRegistry.end())
-            return typeName = it->second;
-    }
+    if (desc.type) {
+        {
+            std::unique_lock guard(basicTypeRegistryMutex);
+            auto it = reverseTypeRegistry.find(desc.type->name());
+            if (it != reverseTypeRegistry.end())
+                return typeName = it->second;
+        }
 
-    auto aliases = getValueDescriptionAliases(*desc.type);
+        auto aliases = getValueDescriptionAliases(*desc.type);
 
-    for (auto & a: aliases) {
-        if (a.size() < typeName.size()) {
-            typeName = std::move(a);
+        for (auto & a: aliases) {
+            if (a.size() < typeName.size()) {
+                typeName = std::move(a);
+            }
         }
     }
 
@@ -509,6 +529,16 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
     fillDeviceRegionFromHostImpl(opName, deviceHandle, pinnedHostRegion, deviceOffset)->await();
 }
 
+void
+ComputeContext::
+copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                 MemoryRegionHandle from, MemoryRegionHandle to,
+                                 size_t fromOffset, size_t toOffset,
+                                 size_t length)
+{
+    copyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length)->await();
+}
+
 
 // ComputeRuntime
 
@@ -706,17 +736,17 @@ satisfied(CommandExpressionContext & context) const
     if (op != "==")
         return false;  // equality constraints only for now
 
-    // TODO: no exceptions
-    try {
-        auto lhsVal = lhs->apply(context);
-        auto rhsVal = rhs->apply(context);
-        if (lhsVal != rhsVal)
-            throw MLDB::Exception("constraint is unsatisfiable");
-        return true;
-    }
-    catch (const std::exception & exc) {
+    auto unknownLhs = lhs->unknowns(context);
+    auto unknownRhs = rhs->unknowns(context);
+
+    if (unknownLhs.empty() || unknownRhs.empty())
         return false;
-    }
+
+    auto lhsVal = lhs->apply(context);
+    auto rhsVal = rhs->apply(context);
+    if (lhsVal != rhsVal)
+        throw MLDB::Exception("constraint is unsatisfiable");
+    return true;
 }
 
 
@@ -817,7 +847,7 @@ std::string
 MemoryArrayAbstractArgumentHandler::
 info() const
 {
-    size_t objectLength = type.baseType->size;
+    size_t objectLength = type.baseType->width;
     if (objectLength % type.baseType->align != 0) {
         objectLength += type.baseType->align - objectLength % type.baseType->align;
     }
@@ -839,13 +869,13 @@ Json::Value
 MemoryArrayAbstractArgumentHandler::
 toJson() const
 {
-    size_t objectLength = type.baseType->size;
+    size_t objectLength = type.baseType->width;
     ExcAssertEqual(objectLength % type.baseType->align, 0);
     size_t numObjects = handle.handle ? handle.handle->lengthInBytes / objectLength : 0;
 
     Json::Value result;
     result["elType"] = printBaseType(*type.baseType);
-    result["elSize"] = type.baseType->size;
+    result["elWidth"] = type.baseType->width;
     result["elAlign"] = type.baseType->align;
     result["length"] = numObjects;
     result["type"] = type.print();

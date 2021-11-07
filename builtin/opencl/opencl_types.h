@@ -361,6 +361,8 @@ struct OpenCLProgramInfo {
     std::vector<std::string> binaries;
 };
 
+DECLARE_STRUCTURE_DESCRIPTION(OpenCLProgramInfo);
+
 
 /*****************************************************************************/
 /* OPENCL KERNEL INFO                                                        */
@@ -1270,6 +1272,24 @@ struct OpenCLCommandQueue {
 
         return result;
     }
+
+    OpenCLEvent enqueueCopyBuffer(cl_mem from, cl_mem to,
+                                  size_t fromOffset, size_t toOffset,
+                                  size_t length,
+                                  OpenCLEventList before = OpenCLEventList())
+    {
+        OpenCLEvent result;
+        
+        cl_int error
+            = clEnqueueCopyBuffer(queue, from, to, fromOffset, toOffset, length,
+                                   before.size(), before,
+                                   result.storeMeHere());
+
+        checkOpenCLError(error, "clEnqueueCopyBuffer");
+
+        return result;
+    }
+
 
     OpenCLEvent enqueueFillBuffer(cl_mem buffer,
                                   const void * pattern,

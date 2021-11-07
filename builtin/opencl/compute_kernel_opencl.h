@@ -166,6 +166,18 @@ struct OpenCLComputeContext: public ComputeContext {
                                      std::span<const std::byte> hostRegion,
                                      size_t deviceOffset = 0) override;
 
+    virtual std::shared_ptr<ComputeEvent>
+    copyBetweenDeviceRegionsImpl(const std::string & opName,
+                                 MemoryRegionHandle from, MemoryRegionHandle to,
+                                 size_t fromOffset, size_t toOffset,
+                                 size_t length) override;
+
+    virtual void
+    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle from, MemoryRegionHandle to,
+                                     size_t fromOffset, size_t toOffset,
+                                     size_t length) override;
+
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;
 
@@ -188,6 +200,15 @@ struct OpenCLComputeContext: public ComputeContext {
                  size_t align, const std::type_info & type, bool isConst) override;
 };
 
+// Represents a tuneable parameter
+struct ComputeTuneable {
+    std::string name;
+    int64_t defaultValue = 0;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ComputeTuneable);
+
+
 // OpenCLComputeKernel
 
 struct OpenCLComputeKernel: public ComputeKernel {
@@ -207,6 +228,13 @@ struct OpenCLComputeKernel: public ComputeKernel {
     /// sizes of local arrays or other bounds)
     std::vector<SetParameters> setters;
 
+    // List of tuneable parameters
+    std::vector<ComputeTuneable> tuneables;
+
+    // Expressions for the grid dimensions, if we override them
+    std::shared_ptr<CommandExpression> gridExpression;
+    std::shared_ptr<CommandExpression> blockExpression;
+
     // Function to modify the grid dimensions
     std::function<void (std::vector<size_t> & grid, std::vector<size_t> & block)> modifyGrid;
 
@@ -216,16 +244,25 @@ struct OpenCLComputeKernel: public ComputeKernel {
 
     // Serializer for tracing this particular kernel
     std::shared_ptr<StructuredSerializer> traceSerializer;
+
+    // Serializer for tracing the runs of this kernel
+    std::shared_ptr<StructuredSerializer> runsSerializer;
+
     mutable std::atomic<int> numCalls;
 
     // For each OpenCL argument, which is the corresponding argument number in arguments passed in?
     std::vector<int> correspondingArgumentNumbers;
 
     // Parses an OpenCL kernel argument info structure, and turns it into a ComputeKernel type
-    std::pair<ComputeKernelType, std::string>
-    getKernelType(const OpenCLKernelArgInfo & info);
+    static ComputeKernelType getKernelType(const OpenCLKernelArgInfo & info);
 
     void setParameters(SetParameters setter);
+
+    // Add a tuneable parameter to the invocation
+    void addTuneable(const std::string & variableName, int64_t defaultValue);
+
+    // Get the expression for the grid.  This will run before modifyGrid.
+    void setGridExpression(const std::string & gridExpr, const std::string & blockExpr);
 
     // This is called as internal documentation.  It says that we allow the runtime to pad
     // out the grid size so that it's a multiple of the block size.  This means however that

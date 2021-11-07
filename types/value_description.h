@@ -23,6 +23,7 @@
 #include "json_printing.h"
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/string.h"
+#include <compare>
 
 namespace MLDB {
 
@@ -40,7 +41,7 @@ namespace MLDB {
 struct ValueDescription {
     ValueDescription(ValueKind kind,
                      const std::type_info * type,
-                     uint32_t size,
+                     uint32_t width,
                      uint32_t align,
                      const std::string & typeName = "");
 
@@ -48,7 +49,7 @@ struct ValueDescription {
     
     ValueKind kind;
     const std::type_info * type;
-    uint32_t size;
+    uint32_t width;
     uint32_t align;
     std::string typeName;
     std::string documentationUri;
@@ -69,11 +70,25 @@ struct ValueDescription {
     virtual void * constructMove(void * other) const = 0;
     virtual void destroy(void *) const = 0;
 
-    
+    // Comparisons
+    virtual bool hasEqualityComparison() const;
+    virtual bool compareEquality(const void * val1, const void * val2) const;
+    virtual bool hasLessThanComparison() const;
+    virtual bool compareLessThan(const void * val1, const void * val2) const;
+    virtual bool hasStrongOrderingComparison() const;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const;
+    virtual bool hasWeakOrderingComparison() const;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const;
+    virtual bool hasPartialOrderingComparison() const;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const;
+
     virtual void * optionalMakeValue(void * val) const;
     virtual const void * optionalGetValue(const void * val) const;
 
+    virtual size_t getArrayFixedLength() const;
     virtual size_t getArrayLength(void * val) const;
+    virtual LengthModel getArrayLengthModel() const;
+    virtual OwnershipModel getArrayIndirectionModel() const;  // NONE = inline, SHARED = external, shared, UNIQUE = external, unique
     virtual void * getArrayElement(void * val, uint32_t element) const;
     virtual const void * getArrayElement(const void * val, uint32_t element) const;
 
@@ -248,6 +263,11 @@ void registerValueDescriptionAlias(const std::type_info & type, const std::strin
 
 // Return the aliases for this type
 std::vector<std::string> getValueDescriptionAliases(const std::type_info & type);
+
+// Register a foreign value description (for a type that doesn't have a C++ equivalent)
+void registerForeignValueDescription(const std::string & typeName,
+                                     std::shared_ptr<const ValueDescription> desc,
+                                     const std::vector<std::string> & aliases = {});
 
 template<typename T>
 struct RegisterValueDescription {

@@ -633,6 +633,7 @@ operator () (const std::initializer_list<std::pair<std::string, std::string> > &
 
 
 DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<CommandExpression>, CommandExpressionDescription);
+DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<const CommandExpression>, ConstCommandExpressionDescription);
 DEFINE_VALUE_DESCRIPTION_NS(StringTemplate, StringTemplateDescription);
 
 } // namespace PluginCommand

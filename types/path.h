@@ -370,6 +370,11 @@ struct Path {
     {
     }
 
+    Path(const std::initializer_list<PathElement> & val)
+        : Path(val.begin(), val.end())
+    {
+    }
+
     Path(const PathElement * start, size_t len);
 
     template<typename It>

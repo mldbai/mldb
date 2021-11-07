@@ -26,8 +26,8 @@ struct StructureDescriptionBase {
 
     StructureDescriptionBase(const std::type_info * type,
                              ValueDescription * owner,
-                             const std::string & structName = "",
-                             bool nullAccepted = false);
+                             const std::string & structName,
+                             bool nullAccepted);
 
     StructureDescriptionBase(const StructureDescriptionBase & other) = delete;
     StructureDescriptionBase(StructureDescriptionBase && other) = delete;
@@ -62,23 +62,7 @@ struct StructureDescriptionBase {
     // in the map and so for comparisons to be done with no memory
     // allocations.
     struct StrCompare {
-        inline bool operator () (const char * s1, const char * s2) const
-        {
-            char c1 = *s1++, c2 = *s2++;
-
-            if (c1 < c2) return true;
-            if (c1 > c2) return false;
-            if (c1 == 0) return false;
-
-            c1 = *s1++; c2 = *s2++;
-            
-            if (c1 < c2) return true;
-            if (c1 > c2) return false;
-            if (c1 == 0) return false;
-
-            return std::strcmp(s1, s2) < 0;
-        }
-
+        bool operator () (const char * s1, const char * s2) const;
     };
 
     typedef std::map<const char *, FieldDescription, StrCompare> Fields;
@@ -108,6 +92,60 @@ struct StructureDescriptionBase {
 
     virtual bool onEntry(void * output, JsonParsingContext & context) const = 0;
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
+
+    void addFieldDesc(std::string name,
+                      size_t offset,
+                      std::string comment,
+                      std::shared_ptr<const ValueDescription> description);
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const;
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const;
+    
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const;
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const;
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const;
+
+    virtual int getVersion() const;
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) = 0;
+};
+
+
+/*****************************************************************************/
+/* GENERIC STRUCTURE DESCRIPTION                                             */
+/*****************************************************************************/
+
+struct GenericStructureDescription:
+    public ValueDescription,
+    public StructureDescriptionBase {
+
+    GenericStructureDescription(bool nullAccepted,
+                                const std::string & structName);
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const override;
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override;
+    virtual bool isDefault(const void * val) const override;
+    virtual void setDefault(void * val) const override;
+    virtual void copyValue(const void * from, void * to) const override;
+    virtual void moveValue(void * from, void * to) const override;
+    virtual void swapValues(void * from, void * to) const override;
+    virtual void * constructDefault() const override;
+    virtual void * constructCopy(const void * other) const override;
+    virtual void * constructMove(void * other) const override;
+    virtual void destroy(void *) const override;
+
+    virtual bool onEntry(void * output, JsonParsingContext & context) const override;
+    virtual void onExit(void * output, JsonParsingContext & context) const override;
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override;
 };
 
 
@@ -124,7 +162,7 @@ struct StructureDescription
     : public ValueDescriptionT<Struct>,
       public StructureDescriptionBase {
     StructureDescription(bool nullAccepted = false,
-                         const std::string & structName = "")
+                         const std::string & structName = type_name<Struct>())
         : ValueDescriptionT<Struct>(ValueKind::STRUCTURE),
           StructureDescriptionBase(&typeid(Struct), this, structName,
                                    nullAccepted)
@@ -192,29 +230,9 @@ struct StructureDescription
                       std::string comment,
                       std::shared_ptr<Desc> description)
     {
-        ExcAssert(description);
-
-        if (fields.count(name.c_str()))
-            throw MLDB::Exception("field '" + name + "' added twice");
-
-        fieldNames.emplace_back(::strdup(name.c_str()));
-        const char * fieldName = fieldNames.back().get();
-        
-        auto it = fields.insert
-            (Fields::value_type(fieldName, FieldDescription()))
-            .first;
-        
-        FieldDescription & fd = it->second;
-        fd.fieldName = fieldName;
-        fd.comment = comment;
-        fd.description = description;
         Struct * p = nullptr;
-        fd.offset = (size_t)&(p->*field);
-        fd.width = sizeof(V);
-        fd.fieldNum = fields.size() - 1;
-        orderedFields.push_back(it);
-        //using namespace std;
-        //cerr << "offset = " << fd.offset << endl;
+        size_t offset = (size_t)&(p->*field);
+        StructureDescriptionBase::addFieldDesc(std::move(name), offset, std::move(comment), std::move(description));
     }
 
     /** Add a description with a default value. */
@@ -227,27 +245,8 @@ struct StructureDescription
                   std::shared_ptr<const ValueDescriptionT<V> > baseDesc
                       = getDefaultDescriptionSharedT<V>())
     {
-        if (fields.count(name.c_str()))
-            throw MLDB::Exception("field '" + name + "' added twice");
-
-        fieldNames.emplace_back(::strdup(name.c_str()));
-        const char * fieldName = fieldNames.back().get();
-        
-        auto it = fields.insert
-            (Fields::value_type(fieldName, FieldDescription()))
-            .first;
-        
         auto desc = std::make_shared<Desc>(defaultValue, baseDesc);
-        
-        FieldDescription & fd = it->second;
-        fd.fieldName = fieldName;
-        fd.comment = comment;
-        fd.description = std::move(desc);
-        Struct * p = nullptr;
-        fd.offset = (size_t)&(p->*field);
-        fd.width = sizeof(V);
-        fd.fieldNum = fields.size() - 1;
-        orderedFields.push_back(it);
+        return addFieldDesc(std::move(name), field, std::move(comment), std::move(desc));
     }
 
     /** Add a description with an automatic default value derived
@@ -271,73 +270,54 @@ struct StructureDescription
     void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0));
 
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
+    {
+        return StructureDescriptionBase::parseJson(val, context);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
+    {
+        return StructureDescriptionBase::printJson(val, context);
+    }
+
     virtual size_t getFieldCount(const void * val) const override
     {
         return fields.size();
     }
 
     virtual const FieldDescription *
-    hasField(const void * val, const std::string & field) const
+    hasField(const void * val, const std::string & field) const override
     {
-        auto it = fields.find(field.c_str());
-        if (it != fields.end())
-            return &it->second;
-        return nullptr;
+        return StructureDescriptionBase::hasField(val, field);
     }
 
     virtual const FieldDescription *
-    getFieldDescription(const void * val, const void * field) const
+    getFieldDescription(const void * val, const void * field) const override
     {
-        ssize_t offset = (const char *)field - (const char *)val;
-        for (auto & f: fields) {
-            if (f.second.offset >= offset
-                && f.second.offset + f.second.width <= offset)
-                return &f.second;
-        }
-        return nullptr;
+        return StructureDescriptionBase::getFieldDescription(val, field);
     }
     
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const
+                              const std::function<void (const FieldDescription &)> & onField) const override
     {
-        for (auto f: orderedFields) {
-            onField(f->second);
-        }
+        return StructureDescriptionBase::forEachField(val, onField);
     }
 
     virtual const FieldDescription & 
-    getField(const std::string & field) const
+    getField(const std::string & field) const override
     {
-        auto it = fields.find(field.c_str());
-        if (it != fields.end())
-            return it->second;
-        throw MLDB::Exception("structure has no field " + field);
+        return StructureDescriptionBase::getField(field);
     }
 
     virtual const FieldDescription & 
-    getFieldByNumber(int fieldNum) const
+    getFieldByNumber(int fieldNum) const override
     {
-        for (auto & f: fields) {
-            if (f.second.fieldNum == fieldNum)
-                return f.second;
-        }
-
-        throw MLDB::Exception("structure has no field with given number");
+        return StructureDescriptionBase::getFieldByNumber(fieldNum);
     }
 
     virtual int getVersion() const override
     {
-        return this->version;
-    }
-
-    virtual void parseJson(void * val, JsonParsingContext & context) const
-    {
-        return StructureDescriptionBase::parseJson(val, context);
-    }
-
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
-    {
-        return StructureDescriptionBase::printJson(val, context);
+        return StructureDescriptionBase::getVersion();
     }
 
     void collectUnparseableJson(Json::Value Struct::* member)
@@ -356,6 +336,12 @@ struct StructureDescription
 
                 getEntry(0, obj->*member) = context.expectJson();
             };
+    }
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override
+    {
+        ExcAssertLessEqual(knownWidth, this->width);
+        ExcAssertLessEqual(knownAlign, this->align);
     }
 };
 

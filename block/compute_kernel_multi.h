@@ -141,6 +141,18 @@ struct MultiComputeContext: public ComputeContext {
                                      std::span<const std::byte> hostRegion,
                                      size_t deviceOffset = 0) override;
 
+    virtual std::shared_ptr<ComputeEvent>
+    copyBetweenDeviceRegionsImpl(const std::string & opName,
+                                 MemoryRegionHandle from, MemoryRegionHandle to,
+                                 size_t fromOffset, size_t toOffset,
+                                 size_t length) override;
+
+    virtual void
+    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle from, MemoryRegionHandle to,
+                                     size_t fromOffset, size_t toOffset,
+                                     size_t length) override;
+
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;
 

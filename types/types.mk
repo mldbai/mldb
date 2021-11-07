@@ -9,6 +9,7 @@
 LIBVALUE_DESCRIPTION_SOURCES := \
 	string.cc \
 	value_description.cc \
+	structure_description.cc \
 	basic_value_descriptions.cc \
 	libc_value_descriptions.cc \
 	json_parsing.cc \

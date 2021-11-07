@@ -35,6 +35,16 @@ struct BridgedValueDescription: public ValueDescription {
     virtual void * constructCopy(const void * from) const override;
     virtual void * constructMove(void * from) const override;
     virtual void destroy(void *) const override;
+    virtual bool hasEqualityComparison() const override;
+    virtual bool compareEquality(const void * val1, const void * val2) const override;
+    virtual bool hasLessThanComparison() const override;
+    virtual bool compareLessThan(const void * val1, const void * val2) const override;
+    virtual bool hasStrongOrderingComparison() const override;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override;
+    virtual bool hasWeakOrderingComparison() const override;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override;
+    virtual bool hasPartialOrderingComparison() const override;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override;
     virtual void * optionalMakeValue(void * val) const override;
     virtual const void * optionalGetValue(const void * val) const override;
     virtual size_t getArrayLength(void * val) const override;

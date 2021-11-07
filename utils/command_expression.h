@@ -8,10 +8,14 @@
 
 #pragma once
 
+#include <set>
+#include <map>
+#include <vector>
+#include <memory>
+
 #include "mldb/ext/jsoncpp/json.h"
 #include <functional>
 #include "mldb/arch/exception.h"
-#include <memory>
 #include "mldb/base/parse_context.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/base/exc_assert.h"
@@ -263,6 +267,21 @@ struct CommandExpression {
         return {};
     }
 
+    // Return variables which are not set and would definitely need to be to evaluate this
+    // expression.
+    virtual std::set<std::string> unknowns(const CommandExpressionVariables & knowns) const
+    {
+        std::set<std::string> result;
+
+        for (auto & clause: childClauses()) {
+            for (auto & var: clause->unknowns(knowns)) {
+                result.insert(var);
+            }
+        }
+
+        return result;
+    }
+
     // Original form that was parsed to get it... used for printing
     std::string surfaceForm;
 
@@ -470,6 +489,17 @@ struct MapExpression: public CommandExpression {
         return result;
     }
 
+    virtual std::set<std::string> unknowns(const CommandExpressionVariables & knowns) const override
+    {
+        auto outputUnknowns = outputExpression->unknowns(knowns);
+        for (auto & e: iterExpressions) {
+            auto iterUnknowns = e.expression->unknowns(knowns);
+            outputUnknowns.insert(iterUnknowns.begin(), iterUnknowns.end());
+            outputUnknowns.erase(e.variableName);
+        }
+        return outputUnknowns;
+    }
+
     std::vector<IterExpression> iterExpressions;
     std::shared_ptr<CommandExpression> outputExpression;
 };
@@ -519,7 +549,12 @@ struct VariableExpression : public CommandExpression {
     {
         return vars.getValue(variableName);
     }
-    
+
+    virtual std::set<std::string> unknowns(const CommandExpressionVariables & knowns) const override
+    {
+        if (knowns.hasValue(variableName)) return {};
+        return { variableName };
+    }
 };
 
 struct ExtractFieldExpression: public CommandExpression {
@@ -711,6 +746,7 @@ struct TimesExpression: public BinaryArithmeticExpression {
 };
 
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<CommandExpression>);
+PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<const CommandExpression>);
 
 /** Renders the given JSON expression as a shell command. */
 std::vector<std::string> commandRender(const Json::Value & val);

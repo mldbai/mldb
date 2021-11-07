@@ -51,6 +51,7 @@ MemoryRegionAccess parseAccess(const std::string & accessStr);
 std::string printAccess(MemoryRegionAccess access);
 std::ostream & operator << (std::ostream & stream, MemoryRegionAccess access);
 
+
 enum MemoryRegionInitialization {
     INIT_NONE,         //< Random contents (but no sensitive data)
     INIT_ZERO_FILLED,  //< Zero-filled
@@ -386,6 +387,7 @@ struct ComputeKernelType {
 DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelType);
 
 ComputeKernelType parseType(const std::string & access, const std::string & type);
+ComputeKernelType parseType(const std::string & accessAndType);
 
 /// Class used to handle arguments
 struct AbstractArgumentHandler {
@@ -555,6 +557,8 @@ struct ComputeKernelConstraint {
     // Is it satisfied?  Unsatisfiable will throw an exception.
     bool satisfied(CommandExpressionContext & context) const;
 };
+
+DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelConstraint);
 
 
 // BoundComputeKernel
@@ -760,12 +764,15 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
 
 inline void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & arguments) // end of recursion
 {
+    // allow for other ways of setting arguments...
+#if 0
     for (size_t i = 0;  i < arguments.size();  ++i) {
         if (!arguments[i].has_value()) {
             throw MLDB::Exception("kernel " + owner->kernelName + " didn't set argument "
                                     + owner->params.at(i).name);
         }
     }
+#endif
 }
 
 template<typename Arg, typename... Rest>
@@ -915,6 +922,18 @@ struct ComputeContext {
                                      MemoryRegionHandle deviceHandle,
                                      std::span<const std::byte> hostRegion,
                                      size_t deviceOffset = 0);
+
+    virtual std::shared_ptr<ComputeEvent>
+    copyBetweenDeviceRegionsImpl(const std::string & opName,
+                                 MemoryRegionHandle from, MemoryRegionHandle to,
+                                 size_t fromOffset, size_t toOffset,
+                                 size_t length) = 0;
+
+    virtual void
+    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle from, MemoryRegionHandle to,
+                                     size_t fromOffset, size_t toOffset,
+                                     size_t length);
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) = 0;

@@ -34,6 +34,12 @@ struct FixedPointAccum64Description
     {
         return *val != 0;
     }
+
+    // Really, this contains a 64 bit integer
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const override
+    {
+        return getDefaultDescriptionSharedT<int64_t>();
+    }
 };
 
 DEFINE_VALUE_DESCRIPTION_NS(FixedPointAccum64, FixedPointAccum64Description);
@@ -55,6 +61,12 @@ struct FixedPointAccum32Description
     virtual bool isDefaultTyped(const FixedPointAccum32 * val) const
     {
         return *val != 0;
+    }
+
+    // Really, this contains a 32 bit integer
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const override
+    {
+        return getDefaultDescriptionSharedT<int32_t>();
     }
 };
 
@@ -139,6 +151,12 @@ struct PartitionIndexDescription
     virtual bool isDefaultTyped(const PartitionIndex * val) const
     {
         return *val == PartitionIndex::none();
+    }
+
+    // Really, this contains a 16 bit integer
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const override
+    {
+        return getDefaultDescriptionSharedT<int16_t>();
     }
 };
 

@@ -229,6 +229,24 @@ struct CommandExpressionDescription
     }
 };
 
+struct ConstCommandExpressionDescription
+    : public ValueDescriptionT<std::shared_ptr<const CommandExpression> > {
+
+    virtual void parseJsonTyped(std::shared_ptr<const CommandExpression> * val,
+                                JsonParsingContext & context) const
+    {
+        std::string str = context.expectStringAscii();
+        ParseContext pcontext(str, str.c_str(), str.c_str() + str.size());
+        *val = CommandExpression::parseExpression(pcontext, false);
+    }
+
+    virtual void printJsonTyped(const std::shared_ptr<const CommandExpression> * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString((*val)->surfaceForm);
+    }
+};
+
 struct StringTemplateDescription
     : public ValueDescriptionT<StringTemplate> {
 

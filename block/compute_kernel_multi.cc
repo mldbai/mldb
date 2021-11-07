@@ -265,14 +265,14 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
 
             const ValueDescription * desc = this->params[i].type.baseType.get();
 
-            size_t n = referenceLength / desc->size;
+            size_t n = referenceLength / desc->width;
             const char * p1 = (const char *)referenceData;
             const char * p2 = (const char *)kernelGeneratedData;
 
             size_t numDifferences = 0;
 
-            for (size_t k = 0;  k < n;  ++k, p1 += desc->size, p2 += desc->size) {
-                if (memcmp(p1, p2, desc->size) == 0)
+            for (size_t k = 0;  k < n;  ++k, p1 += desc->width, p2 += desc->width) {
+                if (memcmp(p1, p2, desc->width) == 0)
                     continue;
                 std::string v1, v2;
                 StringJsonPrintingContext c1(v1), c2(v2);
@@ -813,6 +813,39 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
     for (size_t i = 0;  i < contexts.size();  ++i) {
         contexts[i]->fillDeviceRegionFromHostSyncImpl(opName, info->handles.at(i), hostRegion, deviceOffset);
     }
+}
+
+std::shared_ptr<ComputeEvent>
+MultiComputeContext::
+copyBetweenDeviceRegionsImpl(const std::string & opName,
+                                MemoryRegionHandle from, MemoryRegionHandle to,
+                                size_t fromOffset, size_t toOffset,
+                                size_t length)
+{
+    auto fromInfo = getMultiInfo(from);
+    auto toInfo = getMultiInfo(to);
+    std::vector<std::shared_ptr<ComputeEvent>> events;
+
+    for (size_t i = 0;  i < contexts.size();  ++i) {
+        events.push_back(contexts[i]->copyBetweenDeviceRegionsImpl(opName, fromInfo->handles.at(i), toInfo->handles.at(i), fromOffset, toOffset, length));
+    }   
+
+    return std::make_shared<MultiComputeEvent>(std::move(events));
+}
+
+void
+MultiComputeContext::
+copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                    MemoryRegionHandle from, MemoryRegionHandle to,
+                                    size_t fromOffset, size_t toOffset,
+                                    size_t length)
+{
+    auto fromInfo = getMultiInfo(from);
+    auto toInfo = getMultiInfo(to);
+
+    for (size_t i = 0;  i < contexts.size();  ++i) {
+        contexts[i]->copyBetweenDeviceRegionsSyncImpl(opName, fromInfo->handles.at(i), toInfo->handles.at(i), fromOffset, toOffset, length);
+    }   
 }
 
 std::shared_ptr<ComputeKernel>

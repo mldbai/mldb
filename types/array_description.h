@@ -98,10 +98,24 @@ struct ArrayDescription
         return val->empty();
     }
 
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::FIXED;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::NONE;
+    }
+
+    virtual size_t getArrayFixedLength() const override
+    {
+        return N;
+    }
+
     virtual size_t getArrayLength(void * val) const override
     {
-        const std::array<T, N> * val2 = reinterpret_cast<const std::array<T, N> *>(val);
-        return val2->size();
+        return N;
     }
 
     virtual void *

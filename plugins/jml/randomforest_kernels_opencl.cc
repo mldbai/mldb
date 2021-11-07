@@ -330,20 +330,12 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
+            result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
+            result->addTuneable("gridBlockSize", 4096);
+            result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
+            result->addParameter("maxLocalBuckets", "r", "u32");
+            result->setGridExpression("[gridBlockSize,nf]", "[256,1]");
             result->allowGridPadding();
-            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
-            {
-                auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(W);
-                //cerr << "maxLocalBuckets W = " << maxLocalBuckets << endl;
-                kernel.bindArg("wLocal", LocalArray<W>(maxLocalBuckets));
-                kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
-            };
-            result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
-            {
-                ExcAssertEqual(grid.size(), 2);
-                grid[0] = 4096;
-            };
-            result->setParameters(setTheRest);
             result->setComputeFunction(program, "updateBucketsKernel", { 256, 1 });
             return result;
         };

@@ -88,6 +88,12 @@ enum class OwnershipModel : int32_t {
     SHARED
 };
 
+/// Models the length of an array
+enum class LengthModel : int32_t {
+    FIXED,
+    VARIABLE
+};
+
 template<typename T, ValueKind V, class Desc> struct ValueDescriptionI;
 
 std::ostream & operator << (std::ostream & stream, ValueKind kind);

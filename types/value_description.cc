@@ -53,14 +53,14 @@ std::ostream & operator << (std::ostream & stream, ValueKind kind)
 ValueDescription::
 ValueDescription(ValueKind kind,
                  const std::type_info * type,
-                 uint32_t size,
+                 uint32_t width,
                  uint32_t align,
                  const std::string & typeName)
     : kind(kind),
       type(type),
-      size(size),
+      width(width),
       align(align),
-      typeName(typeName.empty() ? demangle(type->name()) : typeName),
+      typeName(typeName.empty() ? (type ? demangle(type->name()) : "") : typeName),
       jsConverters(nullptr),
       jsConvertersInitialized(false)
 {
@@ -98,6 +98,76 @@ printJsonString(const void * val) const
     return result;
 }
 
+bool
+ValueDescription::
+hasEqualityComparison() const
+{
+    return false;
+}
+
+bool
+ValueDescription::
+compareEquality(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("type does not support equality comparison");
+}
+
+bool
+ValueDescription::
+hasLessThanComparison() const
+{
+    return false;
+}
+
+bool
+ValueDescription::
+compareLessThan(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("type does not support less than comparison");
+}
+
+bool
+ValueDescription::
+hasStrongOrderingComparison() const
+{
+    return false;
+}
+
+std::strong_ordering
+ValueDescription::
+compareStrong(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("type does not support strongly ordered comparison");
+}
+
+bool
+ValueDescription::
+hasWeakOrderingComparison() const
+{
+    return false;
+}
+
+std::weak_ordering
+ValueDescription::
+compareWeak(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("type does not support weakly ordered comparison");
+}
+
+bool
+ValueDescription::
+hasPartialOrderingComparison() const
+{
+    return false;
+}
+
+std::partial_ordering
+ValueDescription::
+comparePartial(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("type does not support partially ordered comparison");
+}
+
 void *
 ValueDescription::
 optionalMakeValue(void * val) const
@@ -114,7 +184,28 @@ optionalGetValue(const void * val) const
 
 size_t
 ValueDescription::
+getArrayFixedLength() const
+{
+    throw MLDB::Exception("type is not an array");
+}
+
+size_t
+ValueDescription::
 getArrayLength(void * val) const
+{
+    throw MLDB::Exception("type is not an array");
+}
+
+LengthModel
+ValueDescription::
+getArrayLengthModel() const
+{
+    throw MLDB::Exception("type is not an array");
+}
+
+OwnershipModel
+ValueDescription::
+getArrayIndirectionModel() const
 {
     throw MLDB::Exception("type is not an array");
 }
@@ -443,11 +534,26 @@ getValueDescriptionAliases(const std::type_info & type)
     std::unique_lock<std::recursive_mutex> guard(registryMutex);
     auto it = registry().find(type.name());
     if (it == registry().end()) {
-        using namespace std;
-        cerr << "getValueDescriptionAliases: type " << type.name() << " not found in registry" << endl;
         return {};
     }
     return it->second.aliases;
+}
+
+void registerForeignValueDescription(const std::string & typeName,
+                                     std::shared_ptr<const ValueDescription> desc,
+                                     const std::vector<std::string> & aliases)
+{
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
+    if (registry().count(typeName))
+        throw MLDB::Exception("Foreign value description overwrites a native one");
+    registry()[typeName].desc = desc;
+    registry()[typeName].aliases = aliases;
+
+    for (auto & alias: aliases) {
+        if (registry().count(alias))
+            throw MLDB::Exception("Foreign value description alias overwrites a native one");
+        registry()[alias].desc = desc;
+    }
 }
 
 void
@@ -464,171 +570,6 @@ convertAndCopy(const void * from,
     parseJson(to, context2);
 }
 
-/*****************************************************************************/
-/* STRUCTURE DESCRIPTION BASE                                                */
-/*****************************************************************************/
-
-
-StructureDescriptionBase::
-StructureDescriptionBase(const std::type_info * type,
-                         ValueDescription * owner,
-                         const std::string & structName,
-                         bool nullAccepted)
-    : type(type),
-      structName(structName.empty() ? demangle(type->name()) : structName),
-      nullAccepted(nullAccepted),
-      owner(owner)
-{
-}
-
-void
-StructureDescriptionBase::
-operator = (const StructureDescriptionBase & other)
-{
-    type = other.type;
-    structName = other.structName;
-    nullAccepted = other.nullAccepted;
-
-    fieldNames.clear();
-    orderedFields.clear();
-    fields.clear();
-    fieldNames.reserve(other.fields.size());
-
-    // Don't set owner
-    for (auto & f: other.orderedFields) {
-        const char * s = f->first;
-        fieldNames.emplace_back(::strdup(s));
-        auto it = fields.insert(make_pair(fieldNames.back().get(), f->second))
-            .first;
-        orderedFields.push_back(it);
-    }
-}
-
-void
-StructureDescriptionBase::
-operator = (StructureDescriptionBase && other)
-{
-    type = std::move(other.type);
-    structName = std::move(other.structName);
-    nullAccepted = std::move(other.nullAccepted);
-    fields = std::move(other.fields);
-    fieldNames = std::move(other.fieldNames);
-    orderedFields = std::move(other.orderedFields);
-    // don't set owner
-}
-
-StructureDescriptionBase::Exception::
-Exception(JsonParsingContext & context,
-          const std::string & message)
-    : MLDB::Exception("at " + context.printPath() + ": " + message)
-{
-}
-
-StructureDescriptionBase::Exception::
-~Exception() throw ()
-{
-}
-
-void
-StructureDescriptionBase::
-parseJson(void * output, JsonParsingContext & context) const
-{
-    try {
-
-        if (!onEntry(output, context)) return;
-
-        if (nullAccepted && context.isNull()) {
-            context.expectNull();
-            return;
-        }
-        
-        if (!context.isObject()) {
-            std::string typeName;
-            if (context.isNumber())
-                typeName = "number";
-            else if (context.isBool())
-                typeName = "boolean";
-            else if (context.isString())
-                typeName = "string";
-            else if (context.isNull())
-                typeName = "null";
-            else if (context.isArray())
-                typeName = "array";
-            else typeName = "<<unknown type>>";
-                    
-            std::string msg
-                = "expected object of type "
-                + structName + ", but instead a "
-                + typeName + " was provided";
-
-            if (context.isString())
-                msg += ".  Did you accidentally JSON encode your object into a string?";
-
-            context.exception(msg);
-        }
-
-        auto onMember = [&] ()
-            {
-                try {
-                    auto n = context.fieldNamePtr();
-
-                    auto it = fields.find(n);
-                    if (it == fields.end()) {
-                        context.onUnknownField(owner);
-                    }
-                    else {
-                        it->second.description
-                        ->parseJson(addOffset(output,
-                                              it->second.offset),
-                                    context);
-                    }
-                }
-                catch (const Exception & exc) {
-                    throw;
-                }
-                catch (const std::exception & exc) {
-                    throw Exception(context, exc.what());
-                }
-                catch (...) {
-                    throw;
-                }
-            };
-
-        
-        context.forEachMember(onMember);
-
-        onExit(output, context);
-    }
-    catch (const Exception & exc) {
-        throw;
-    }
-    catch (const std::exception & exc) {
-        throw Exception(context, exc.what());
-    }
-    catch (...) {
-        throw;
-    }
-}
-
-void
-StructureDescriptionBase::
-printJson(const void * input, JsonPrintingContext & context) const
-{
-    context.startObject();
-
-    for (const auto & it: orderedFields) {
-        auto & fd = it->second;
-
-        const void * mbr = addOffset(input, fd.offset);
-        if (fd.description->isDefault(mbr))
-            continue;
-        context.startMember(it->first);
-        fd.description->printJson(mbr, context);
-    }
-        
-    context.endObject();
-}
-
 
 /*****************************************************************************/
 /* BRIDGED VALUE DESCRIPTION                                                 */
@@ -636,7 +577,7 @@ printJson(const void * input, JsonPrintingContext & context) const
 
 BridgedValueDescription::
 BridgedValueDescription(std::shared_ptr<const ValueDescription> impl)
-    : ValueDescription(impl->kind, impl->type, impl->size, impl->align, impl->typeName),
+    : ValueDescription(impl->kind, impl->type, impl->width, impl->align, impl->typeName),
       impl(std::move(impl))
 {
     this->documentationUri = this->impl->documentationUri;
@@ -733,6 +674,86 @@ destroy(void * val) const
 {
     ExcAssert(impl);
     impl->destroy(val);
+}
+
+bool
+BridgedValueDescription::
+hasEqualityComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasEqualityComparison();
+}
+
+bool
+BridgedValueDescription::
+compareEquality(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareEquality(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasLessThanComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasLessThanComparison();
+}
+
+bool
+BridgedValueDescription::
+compareLessThan(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareLessThan(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasStrongOrderingComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasStrongOrderingComparison();
+}
+
+std::strong_ordering
+BridgedValueDescription::
+compareStrong(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareStrong(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasWeakOrderingComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasWeakOrderingComparison();
+}
+
+std::weak_ordering
+BridgedValueDescription::
+compareWeak(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareWeak(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasPartialOrderingComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasPartialOrderingComparison();
+}
+
+std::partial_ordering
+BridgedValueDescription::
+comparePartial(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->comparePartial(val1, val2);
 }
 
 void *

@@ -7,17 +7,25 @@
 
 #include "compute_kernel_opencl.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/meta_value_description.h"
 #include "mldb/types/set_description.h"
 #include "opencl_types.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/ansi.h"
 #include "mldb/block/zip_serializer.h"
+#include "mldb/utils/command_expression_impl.h"
 #include <compare>
 
 using namespace std;
 
 namespace MLDB {
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeTuneable)
+{
+    addField("name", &ComputeTuneable::name, "Name of tuneable parameter");
+    addField("defaultValue", &ComputeTuneable::defaultValue, "Default value of tuneable parameter");
+}
 
 namespace {
 
@@ -46,6 +54,7 @@ EnvOption<std::string> OPENCL_KERNEL_TRACE_FILE("OPENCL_KERNEL_TRACE_FILE", "");
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
 std::shared_ptr<StructuredSerializer> regionsSerializer;
 std::shared_ptr<StructuredSerializer> kernelsSerializer;
+std::shared_ptr<StructuredSerializer> programsSerializer;
 
 using TracedRegionKey = std::tuple<std::string, int>;
 //struct TracedRegionKey {
@@ -61,6 +70,9 @@ struct TracedRegionEntry {
 std::mutex tracedRegionMutex;
 std::map<std::string, std::shared_ptr<StructuredSerializer>> regionSerializers;
 std::map<TracedRegionKey, TracedRegionEntry> tracedRegions;
+
+std::mutex tracedProgramMutex;
+std::set<std::string> tracedPrograms;
 
 bool versionIsTraced(const std::string & name, int version)
 {
@@ -103,6 +115,7 @@ struct InitTrace {
             traceSerializer = std::make_shared<ZipStructuredSerializer>(OPENCL_KERNEL_TRACE_FILE.get());
             regionsSerializer = traceSerializer->newStructure("regions");
             kernelsSerializer = traceSerializer->newStructure("kernels");
+            programsSerializer = traceSerializer->newStructure("programs");
         }
     }
 
@@ -112,6 +125,7 @@ struct InitTrace {
             regionsSerializer->commit();
             kernelsSerializer->commit();
             traceSerializer->commit();
+            programsSerializer->commit();
         }
     }
 } initTrace;
@@ -381,7 +395,6 @@ thenImpl(std::function<void ()> fn)
 }
 
 
-
 // OpenCLComputeQueue
 
 OpenCLComputeQueue::
@@ -416,6 +429,14 @@ launch(const std::string & opName,
         ExcAssert(bindInfo);
 
         const OpenCLComputeKernel * kernel = bindInfo->owner;
+
+        CommandExpressionContext knowns(bound.knowns);
+        for (size_t i = 0;  i < grid.size();  ++i) {
+            auto & dim = kernel->dims[i];
+            knowns.setValue(dim.range, grid[i]);
+        }
+
+        // TODO: constraints
 
         std::vector<size_t> clGrid, clBlock = kernel->block;
         
@@ -458,15 +479,30 @@ launch(const std::string & opName,
         if (kernel->modifyGrid)
             kernel->modifyGrid(clGrid, clBlock);
         
-        //cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << endl;
+        knowns.setValue("grid", clGrid);
+        knowns.setValue("block", clBlock);
+
+        if (kernel->gridExpression) {
+            clGrid = jsonDecode<decltype(clGrid)>(kernel->gridExpression->apply(knowns));
+            knowns.setValue("grid", clGrid);
+        }
+
+        if (kernel->blockExpression) {
+            clBlock = jsonDecode<decltype(clBlock)>(kernel->blockExpression->apply(knowns));
+            knowns.setValue("block", clBlock);
+        }
+
+        cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << " and block " << clBlock << endl;
         //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
-        auto timer = std::make_shared<Timer>();
 
         if (bindInfo->traceSerializer) {
-            bindInfo->traceSerializer->newObject("__grid", clGrid);
-            bindInfo->traceSerializer->newObject("__block", clBlock);
+            bindInfo->traceSerializer->newObject("grid", clGrid);
+            bindInfo->traceSerializer->newObject("block", clBlock);
+            bindInfo->traceSerializer->newObject("knowns", knowns.values);
             bindInfo->traceSerializer->commit();
         }
+
+        auto timer = std::make_shared<Timer>();
 
         auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
 
@@ -741,11 +777,11 @@ doOpenCLTransferToDevice(OpenCLContext & clContext,
     handle->version = 0;
     MemoryRegionHandle result{std::move(handle)};
 
-    using namespace std;
-    cerr << "transferring " << region.memusage() / 1000000.0 << " Mbytes of type "
-            << demangle(type.name()) << " isConst " << isConst << " to device in "
-            << timer.elapsed_wall() << " at "
-            << region.memusage() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
+    //using namespace std;
+    //cerr << "transferring " << region.memusage() / 1000000.0 << " Mbytes of type "
+    //        << demangle(type.name()) << " isConst " << isConst << " to device in "
+    //        << timer.elapsed_wall() << " at "
+    //        << region.memusage() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
 
     return result;
 }
@@ -903,6 +939,7 @@ getKernel(const std::string & kernelName)
     result->context = this;
     if (traceSerializer) {
         result->traceSerializer = kernelsSerializer->newStructure(kernelName);
+        result->runsSerializer = result->traceSerializer->newStructure("runs");
     }
     return result;
 }
@@ -986,7 +1023,32 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
         ->enqueueFillArrayImpl(opName, deviceHandle,
                                MemoryRegionInitialization::INIT_BLOCK_FILLED, deviceOffset,
                                hostRegion.size(),
-                               hostRegion).await();
+                               hostRegion)
+    .await();
+}
+
+std::shared_ptr<ComputeEvent>
+OpenCLComputeContext::
+copyBetweenDeviceRegionsImpl(const std::string & opName,
+                                MemoryRegionHandle from, MemoryRegionHandle to,
+                                size_t fromOffset, size_t toOffset,
+                                size_t length)
+{
+    auto [fromPin, fromMem, fromBaseOffset] = getMemoryRegion(opName, *from.handle, ACC_READ);
+    auto [toPin, toMem, toBaseOffset] = getMemoryRegion(opName, *to.handle, ACC_WRITE);
+
+    auto event = clQueue->clQueue.enqueueCopyBuffer(fromMem, toMem, fromBaseOffset + fromOffset, toBaseOffset + toOffset, length);
+    return std::make_shared<OpenCLComputeEvent>(std::move(event));
+}
+
+void
+OpenCLComputeContext::
+copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                    MemoryRegionHandle from, MemoryRegionHandle to,
+                                    size_t fromOffset, size_t toOffset,
+                                    size_t length)
+{
+    copyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length)->await();
 }
 
 std::shared_ptr<ComputeQueue>
@@ -1069,7 +1131,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
 // OpenCLComputeKernel
 
 // Parses an OpenCL kernel argument info structure, and turns it into a ComputeKernel type
-std::pair<ComputeKernelType, std::string>
+ComputeKernelType
 OpenCLComputeKernel::
 getKernelType(const OpenCLKernelArgInfo & info)
 {
@@ -1124,7 +1186,9 @@ getKernelType(const OpenCLKernelArgInfo & info)
         type.dims.push_back({nullptr});
     }
 
-    return { std::move(type), isConst ? "r" : "rw" };
+    type.access = isConst ? ACC_READ : ACC_READ_WRITE;
+
+    return type;
 }
 
 void
@@ -1150,6 +1214,23 @@ allowGridExpansion()
 
 void
 OpenCLComputeKernel::
+setGridExpression(const std::string & gridExpr, const std::string & blockExpr)
+{
+    if (!gridExpr.empty())
+        this->gridExpression = CommandExpression::parseArgumentExpression(gridExpr);
+    if (!blockExpr.empty())
+        this->blockExpression = CommandExpression::parseArgumentExpression(blockExpr);
+}
+
+void
+OpenCLComputeKernel::
+addTuneable(const std::string & name, int64_t defaultValue)
+{
+    this->tuneables.push_back({name, defaultValue});
+}
+
+void
+OpenCLComputeKernel::
 setComputeFunction(OpenCLProgram programIn,
                    std::string kernelName,
                    std::vector<size_t> block)
@@ -1166,35 +1247,31 @@ setComputeFunction(OpenCLProgram programIn,
     correspondingArgumentNumbers.resize(clKernelInfo.numArgs, -1);
 
     for (auto & arg: clKernelInfo.args) {
-        if (arg.addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
-            if (this->setters.empty()) {
+        //cerr << "doing arg " << jsonEncodeStr(arg) << endl;
+        auto type = getKernelType(arg);
+        //cerr << "type = " << type.print() << endl;
+        std::string argName = arg.name;
+        auto it = paramIndex.find(argName);
+        if (it == paramIndex.end()) {
+            if (this->setters.size() > 0)
+                continue;  // should be done in the setter...
+            if (arg.addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
                 throw MLDB::Exception("Local parameter in kernel with no setters defined; "
                                         "implement a setter to avoid launch failure");
             }
+            throw MLDB::Exception("Kernel parameter " + std::to_string(arg.argNum)
+                                    + " (" + argName + ") to OpenCL kernel " + kernelName
+                                    + " has no counterpart in formal parameter list");
         }
-        else {
-            //cerr << "doing arg " << jsonEncodeStr(arg) << endl;
-            auto [type, access] = getKernelType(arg);
-            //cerr << "type = " << type.print() << endl;
-            std::string argName = arg.name;
-            auto it = paramIndex.find(argName);
-            if (it == paramIndex.end()) {
-                if (this->setters.size() > 0)
-                    continue;  // should be done in the setter...
-                throw MLDB::Exception("Kernel parameter " + std::to_string(arg.argNum)
-                                        + " (" + argName + ") to OpenCL kernel " + kernelName
-                                        + " has no counterpart in formal parameter list");
-            }
-            correspondingArgumentNumbers.at(arg.argNum) = it->second;
-            auto & param = params.at(it->second);
-            std::string reason;
-            if (!type.isCompatibleWith(param.type)) {
-                throw MLDB::Exception("Kernel parameter " + std::to_string(arg.argNum)
-                                        + " (" + argName + ") to OpenCL kernel " + kernelName
-                                        + ": declared parameter type " + type.print()
-                                        + " is not compatible with kernel type " + param.type.print()
-                                        + ": " + reason);
-            }
+        correspondingArgumentNumbers.at(arg.argNum) = it->second;
+        auto & param = params.at(it->second);
+        std::string reason;
+        if (!param.type.isCompatibleWith(type, &reason)) {
+            throw MLDB::Exception("Kernel parameter " + std::to_string(arg.argNum)
+                                    + " (" + argName + ") to OpenCL kernel " + kernelName
+                                    + ": declared parameter type " + type.print()
+                                    + " is not compatible with kernel type " + param.type.print()
+                                    + ": " + reason);
         }
     }
 }
@@ -1212,8 +1289,27 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     auto bindInfo = std::make_shared<OpenCLBindInfo>();
     bindInfo->clKernel = kernel;
     bindInfo->owner = this;
+
     if (traceSerializer) {
-        bindInfo->traceSerializer = traceSerializer->newStructure(numCalls++);
+        int callNumber = numCalls++;
+        bindInfo->traceSerializer = runsSerializer->newStructure(callNumber);
+
+        if (callNumber == 0) {
+            auto key = format("%016x", (uint64_t)this->clProgram.operator cl_program());
+
+            traceSerializer->newObject("program", key);
+            traceSerializer->newObject("kernel", this->kernelName);
+
+            // Store the program so that we can replay it later
+            std::unique_lock guard(tracedProgramMutex);
+            if (tracedPrograms.insert(key).second) {
+                auto programInfo = this->clProgram.getProgramInfo();
+                auto buildInfo = this->clProgram.getProgramBuildInfo(this->clKernel.getContext().getDevices().at(0));
+                auto entry = programsSerializer->newStructure(key);
+                entry->newStream("source") << programInfo.source;
+                entry->newObject("build", buildInfo);
+            }
+        }
     }
 
     BoundComputeKernel result;
@@ -1222,7 +1318,13 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     result.bindInfo = bindInfo;
 
     for (auto & arg: result.arguments) {
-        result.knowns.setValue(arg.name, arg.handler->toJson());
+        if (arg.handler) {
+            // Was set by the caller
+            result.knowns.setValue(arg.name, arg.handler->toJson());
+        }
+    }
+    for (auto & [name, value]: tuneables) {
+        result.knowns.setValue(name, value);
     }
 
     Json::Value argInfo;
@@ -1232,14 +1334,44 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         int argNum = correspondingArgumentNumbers.at(i);
         //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
         if (argNum == -1) {
-            // local, or will be done via setter...
+            // Will be done via setter...
         }
         else {
             const ComputeKernelArgument & arg = result.arguments.at(argNum);
-            if (traceSerializer)
-                argInfo[this->clKernelInfo.args[i].name] = arg.handler->toJson();
-            std::string opName = "bind " + this->clKernelInfo.args[i].name;
-            if (arg.handler->canGetPrimitive()) {
+            auto & paramType = params[argNum].type;
+            if (traceSerializer) {
+                Json::Value thisArgInfo;
+                if (arg.handler)
+                    thisArgInfo["value"] = arg.handler->toJson();
+                thisArgInfo["spec"] = paramType.print();
+                static auto vdd = getValueDescriptionDescription(true /* detailed */);
+                thisArgInfo["type"] = vdd->printJsonStructured(paramType.baseType);
+                thisArgInfo["aliases"] = jsonEncode(getValueDescriptionAliases(*paramType.baseType->type));
+                argInfo[this->clKernelInfo.args[i].name] = thisArgInfo;
+            }
+
+            static std::atomic<int> disamb = 0;
+            std::string opName = "bind " + this->clKernelInfo.args[i].name + std::to_string(++disamb);
+            if (!arg.handler) {
+                if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
+                    ExcAssertEqual(paramType.dims.size(), 1);
+                    ExcAssert(paramType.dims[0].bound);
+                    auto len = paramType.dims[0].bound->apply(result.knowns).asUInt();
+                    size_t nbytes = len * paramType.baseType->width;
+                    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
+                    kernel.bindArg(i, LocalArray<std::byte>(nbytes));
+                }
+                else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
+                    auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
+                    auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
+                    traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
+                    std::shared_ptr<void> mem(type.baseType->constructDefault(), [=] (void * p) { type.baseType->destroy(p); });
+                    StructuredJsonParsingContext context(val);
+                    type.baseType->parseJson(mem.get(), context);
+                    kernel.bindArg(i, mem.get(), type.baseType->width);
+                }
+            }
+            else if (arg.handler->canGetPrimitive()) {
                 auto bytes = arg.handler->getPrimitive(opName, upcastContext);
                 traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
                 kernel.bindArg(i, bytes.data(), bytes.size());
@@ -1270,9 +1402,6 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
             }
         }
     }
-    if (traceSerializer) {
-        bindInfo->traceSerializer->newObject("args", argInfo);
-    }
 
     // Run the setters to set the other parameters
     for (auto & s: this->setters) {
@@ -1294,6 +1423,8 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         }
     }
 
+    // 
+
     bool progress = true;
 
     while (progress) {
@@ -1301,6 +1432,14 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         for (auto & c: result.constraints) {
             progress = progress || c.attemptToSatisfy(result.knowns, result.unknowns);
         }
+    }
+
+    if (bindInfo->traceSerializer) {
+        bindInfo->traceSerializer->newObject("args", argInfo);
+        bindInfo->traceSerializer->newObject("knowns", result.knowns.values);
+        bindInfo->traceSerializer->newObject("unknowns", result.unknowns);
+        bindInfo->traceSerializer->newObject("constraints", result.constraints);
+        bindInfo->traceSerializer->newObject("tuneables", tuneables);
     }
 
 #if 0

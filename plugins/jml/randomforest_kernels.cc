@@ -291,17 +291,17 @@ assignPartitionNumbersKernel(ComputeContext & context,
         }
     }
 
-    for (uint32_t i = 0;  i < n2;  ++i) {
-        cerr << "new part " << i << " index " << partitionIndexesOut[i] << " ssi " 
-             << (int)smallSideIndexesOut[i] << " count " << newCounts[i] << endl;
-    }
+    //for (uint32_t i = 0;  i < n2;  ++i) {
+    //    cerr << "new part " << i << " index " << partitionIndexesOut[i] << " ssi " 
+    //         << (int)smallSideIndexesOut[i] << " count " << newCounts[i] << endl;
+    //}
 
-    for (uint32_t i = 1;  i <= ssi;  ++i) {
-        cerr << "small side index " << i << " maps to partition " << smallSideIndexToPartitionOut[i] << endl;
-    }
+    //for (uint32_t i = 1;  i <= ssi;  ++i) {
+    //    cerr << "small side index " << i << " maps to partition " << smallSideIndexToPartitionOut[i] << endl;
+    //}
 
-    cerr << numActive << " active partitions (including " << (inactivePartitions.size() - n)
-         << " gaps with " << countActive << " rows)" << endl;
+    //cerr << numActive << " active partitions (including " << (inactivePartitions.size() - n)
+    //     << " gaps with " << countActive << " rows)" << endl;
 
     while (n < inactivePartitions.size()) {
         auto p = inactivePartitions[n++];
