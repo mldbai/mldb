@@ -431,6 +431,7 @@ launch(const std::string & opName,
         const OpenCLComputeKernel * kernel = bindInfo->owner;
 
         CommandExpressionContext knowns(bound.knowns);
+
         for (size_t i = 0;  i < grid.size();  ++i) {
             auto & dim = kernel->dims[i];
             knowns.setValue(dim.range, grid[i]);
@@ -479,25 +480,55 @@ launch(const std::string & opName,
         if (kernel->modifyGrid)
             kernel->modifyGrid(clGrid, clBlock);
         
-        knowns.setValue("grid", clGrid);
-        knowns.setValue("block", clBlock);
+        knowns.setValue("grid", grid);
+        knowns.setValue("clGrid", clGrid);
+        knowns.setValue("clBlock", clBlock);
+
+        // figure out the values of the new constraints
+
+        bool progress = true;
+        std::set<std::string> unknowns;
+
+        while (progress) {
+            progress = false;
+            for (auto & c: bound.constraints) {
+                progress = progress || c.attemptToSatisfy(knowns, unknowns);
+            }
+        }
+
+        bool anyNotSatisfied = false;
+        for (auto & c: bound.constraints) {
+            if (c.satisfied(knowns))
+                continue;
+            cerr << "constraint for kernel " << kernel->kernelName << " op " << opName << " not satisfied: " << c.print() << endl;
+            anyNotSatisfied = true;
+        }
+
+        if (anyNotSatisfied) {
+            //const CommandExpressionVariables * vars = &knowns;
+            //while (vars) {
+            //    cerr << "known: " << jsonEncode(vars->values) << endl;
+            //    vars = vars->outer;
+            //}
+            ExcAssert(!anyNotSatisfied);
+        }
 
         if (kernel->gridExpression) {
             clGrid = jsonDecode<decltype(clGrid)>(kernel->gridExpression->apply(knowns));
-            knowns.setValue("grid", clGrid);
+            knowns.setValue("clGrid", clGrid);
         }
 
         if (kernel->blockExpression) {
             clBlock = jsonDecode<decltype(clBlock)>(kernel->blockExpression->apply(knowns));
-            knowns.setValue("block", clBlock);
+            knowns.setValue("clBlock", clBlock);
         }
 
-        cerr << "launching kernel " << kernel->kernelName << " with grid " << jsonEncodeStr(clGrid) << " and block " << clBlock << endl;
+        cerr << "launching kernel " << kernel->kernelName << " with grid " << clGrid << " and block " << clBlock << endl;
         //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
 
         if (bindInfo->traceSerializer) {
-            bindInfo->traceSerializer->newObject("grid", clGrid);
-            bindInfo->traceSerializer->newObject("block", clBlock);
+            bindInfo->traceSerializer->newObject("clGrid", clGrid);
+            bindInfo->traceSerializer->newObject("clBlock", clBlock);
             bindInfo->traceSerializer->newObject("knowns", knowns.values);
             bindInfo->traceSerializer->commit();
         }
@@ -1317,6 +1348,9 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     result.owner = this;
     result.bindInfo = bindInfo;
 
+    // Copy constraints over
+    result.constraints = this->constraints;
+
     for (auto & arg: result.arguments) {
         if (arg.handler) {
             // Was set by the caller
@@ -1360,6 +1394,14 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                     size_t nbytes = len * paramType.baseType->width;
                     traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
                     kernel.bindArg(i, LocalArray<std::byte>(nbytes));
+                    Json::Value known;
+                    known["elAlign"] = paramType.baseType->align;
+                    known["elWidth"] = paramType.baseType->width;
+                    known["elType"] = paramType.baseType->typeName;
+                    known["length"] = len;
+                    known["type"] = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
+                    known["name"] = "<<<Local array>>>";
+                    result.knowns.setValue(this->clKernelInfo.args[i].name, std::move(known));
                 }
                 else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
                     auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
@@ -1410,7 +1452,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
 
     // Look through for constraints from dimensions
     for (size_t i = 0;  i < this->dims.size();  ++i) {
-        result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "].range",
+        result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "]",
                              "Constraint implied by variables named in dimension " + std::to_string(0));
     }
 
@@ -1423,7 +1465,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         }
     }
 
-    // 
+    // figure out the values of the new constraints
 
     bool progress = true;
 
@@ -1615,11 +1657,6 @@ static struct Init {
             result->addParameter("lengthInBytes", "r", "u64");
             result->addParameter("blockData", "r", "u8[blockLengthInBytes]");
             result->addParameter("blockLengthInBytes", "r", "u64");
-            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
-            {
-            };
-            result->setParameters(setTheRest);
-
             result->setComputeFunction(program, "__blockFillArrayKernel", { 256 });
 
             return result;
@@ -1636,11 +1673,6 @@ static struct Init {
             result->addParameter("region", "w", "u8[regionLength]");
             result->addParameter("startOffsetInBytes", "r", "u64");
             result->addParameter("lengthInBytes", "r", "u64");
-            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
-            {
-            };
-            result->setParameters(setTheRest);
-
             result->setComputeFunction(program, "__zeroFillArrayKernel", { 256 });
 
             return result;
