@@ -84,7 +84,7 @@ struct CommandExpressionVariables {
     }
 
     /// Outer context we look in if we don't find something here
-    const CommandExpressionVariables * outer;
+    const CommandExpressionVariables * outer = nullptr;
 
     /// Value of local variables
     std::map<std::string, Json::Value> values;
@@ -94,7 +94,7 @@ struct CommandExpressionVariables {
     
     bool hasValue(const std::string & name) const
     {
-        return values.count(name);
+        return values.count(name) || (outer && outer->hasValue(name));
     }
 
     void setValue(const std::string & key, const Json::Value & val)
@@ -123,6 +123,7 @@ struct CommandExpressionVariables {
         return it->second;
     }
     
+    // Need to include command_expression_impl.h if you want to use this method
     template<typename T>
     void setValue(const std::string & key, const T & val);
 
@@ -685,7 +686,7 @@ struct MinusExpression: public BinaryArithmeticExpression {
             if (lhs.isDouble() || rhs.isDouble()) {
                 return lhs.asDouble() + rhs.asDouble();
             }
-            return lhs.asInt() + rhs.asInt();
+            return lhs.asInt() - rhs.asInt();
         }
         else throw MLDB::Exception("don't know how to subtract %s and %s",
                                  lhs.toString().c_str(),

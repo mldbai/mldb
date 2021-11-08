@@ -472,6 +472,30 @@ struct ComputeKernelGridRange {
     Iterator end() { return { last_ }; }
 };
 
+// ComputeKernelConstraint
+
+struct ComputeKernelConstraint {
+    std::shared_ptr<const CommandExpression> lhs;
+    std::string op;
+    std::shared_ptr<const CommandExpression> rhs;
+    std::string description;
+
+    std::string print() const;
+
+    // Attempt to satisfy the constraint.  Returns true if a change was,
+    // made, false if no progress was made, and throws an
+    // exception if it's not satisfiable.  Unsatisfied contains the list
+    // variables with unknown values that will need to be determined
+    // before the constraint can be found.
+    bool attemptToSatisfy(CommandExpressionContext & context,
+                          std::set<std::string> & unsatisfied) const;
+
+    // Is it satisfied?  Unsatisfiable will throw an exception.
+    bool satisfied(CommandExpressionContext & context) const;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelConstraint);
+
 
 /// Opaque structure subclassed by each ComputeKernel implementation to store
 /// information on how it's bound.  This is used rather than an anonymous shared
@@ -506,6 +530,19 @@ struct ComputeKernel {
 
     std::vector<DimensionInfo> dims;
 
+    // Constraints that need to be met that are known before binding (copied to bound version)
+    std::vector<ComputeKernelConstraint> constraints;
+
+    void addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
+                       const std::string & description);
+    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
+                       const std::string & op, const std::string & rhs,
+                       const std::string & description);
+    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
+                       const std::string & op,
+                       std::shared_ptr<const CommandExpression> rhs,
+                       const std::string & description);
+
     void addParameter(const std::string & parameterName, const std::string & access, const std::string & typeStr)
     {
         if (!paramIndex.emplace(parameterName, params.size()).second) {
@@ -535,31 +572,6 @@ struct ComputeKernel {
     // Perform the abstract bind() operation, returning a BoundComputeKernel
     virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const = 0;
 };
-
-// ComputeKernelConstraint
-
-struct ComputeKernelConstraint {
-    std::shared_ptr<const CommandExpression> lhs;
-    std::string op;
-    std::shared_ptr<const CommandExpression> rhs;
-    std::string description;
-
-    std::string print() const;
-
-    // Attempt to satisfy the constraint.  Returns true if a change was,
-    // made, false if no progress was made, and throws an
-    // exception if it's not satisfiable.  Unsatisfied contains the list
-    // variables with unknown values that will need to be determined
-    // before the constraint can be found.
-    bool attemptToSatisfy(CommandExpressionContext & context,
-                          std::set<std::string> & unsatisfied) const;
-
-    // Is it satisfied?  Unsatisfiable will throw an exception.
-    bool satisfied(CommandExpressionContext & context) const;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelConstraint);
-
 
 // BoundComputeKernel
 

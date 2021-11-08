@@ -516,8 +516,6 @@ parseJsonTyped(ValueDescription const * * val,
     ValueDescriptionRepr repr;
     reprDescription->parseJsonTyped(&repr, context);
 
-    cerr << "begin parsing " << repr.typeName << endl;
-
     ValueDescription * valOut = nullptr;
 
     switch (repr.kind) {
@@ -572,7 +570,6 @@ parseJsonTyped(ValueDescription const * * val,
     case ValueKind::STRUCTURE: {
         auto result = std::make_unique<GenericStructureDescription>(false /* null accepted */, repr.typeName);
         for (auto & field: repr.structureFields) {
-            cerr << "adding field " << field.fieldName << " with desc " << field.description << endl;
             result->addFieldDesc(field.fieldName, field.offset, field.comment, std::shared_ptr<const ValueDescription>(field.description, [] (auto) {}));
         }
         valOut = result.release();
