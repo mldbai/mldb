@@ -486,6 +486,7 @@ launch(const std::string & opName,
 
         // figure out the values of the new constraints
 
+#if 0
         bool progress = true;
         std::set<std::string> unknowns;
 
@@ -512,6 +513,7 @@ launch(const std::string & opName,
             //}
             ExcAssert(!anyNotSatisfied);
         }
+#endif
 
         if (kernel->gridExpression) {
             clGrid = jsonDecode<decltype(clGrid)>(kernel->gridExpression->apply(knowns));
@@ -527,8 +529,8 @@ launch(const std::string & opName,
         //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
 
         if (bindInfo->traceSerializer) {
-            bindInfo->traceSerializer->newObject("clGrid", clGrid);
-            bindInfo->traceSerializer->newObject("clBlock", clBlock);
+            bindInfo->traceSerializer->newObject("grid", clGrid);
+            bindInfo->traceSerializer->newObject("block", clBlock);
             bindInfo->traceSerializer->newObject("knowns", knowns.values);
             bindInfo->traceSerializer->commit();
         }
