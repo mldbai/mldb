@@ -102,8 +102,12 @@ static struct RegisterKernels {
             result->addParameter("weightMultiplier", "r", "f32");
             result->addParameter("weightData", "r", "f32[weightDataLength]");
             result->addParameter("decodedRowsOut", "w", "f32[numRows]");
-            result->addTuneable("gridBlockSize", 4096);
-            result->setGridExpression("[gridBlockSize]", "[256]");
+            result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
+            {
+                ExcAssertEqual(grid.size(), 1);
+                grid[0] = 4096;  // don't do one launch per row, the kernel will iterate
+            };
+
             result->setComputeFunction(program, "decompressRowsKernel", { 256 });
 
             return result;
@@ -196,11 +200,15 @@ static struct RegisterKernels {
             result->addDimension("p", "np");
             result->addParameter("numFeatures", "r", "u32");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
-            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * numFeatures]");
-            result->addParameter("partitionIndexes", "r", "PartitionIndex[npi]");
+            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * nf]");
+            result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[maxPartitions]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("depth", "r", "u16");
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->setParameters(setTheRest);
             result->setComputeFunction(program, "bestPartitionSplitKernel", { 1 });
             return result;
         };
@@ -249,6 +257,10 @@ static struct RegisterKernels {
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->setParameters(setTheRest);
             result->setComputeFunction(program, "clearBucketsKernel", { 1, 64 });
             return result;
         };
@@ -275,9 +287,19 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("depth", "r", "u16");
-            result->addTuneable("gridBlockSize", 4096);
-            result->setGridExpression("[gridBlockSize]", "[256]");
             result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->modifyGrid = [=] (std::vector<size_t> & grid, std::vector<size_t> & block)
+            {
+                ExcAssertEqual(grid.size(), 1);
+                ExcAssertEqual(block.size(), 1);
+                //grid = { 4096 };
+                //block = { 256 };
+            };
+
+            result->setParameters(setTheRest);
             result->setComputeFunction(program, "updatePartitionNumbersKernel", { 256 });
             return result;
         };
