@@ -91,7 +91,7 @@ int main(int argc, char ** argv)
         auto grid = run.getStructure()->getObject<std::vector<size_t>>("grid");
         auto block = run.getStructure()->getObject<std::vector<size_t>>("block");
         auto knownsJson = run.getStructure()->getObject<std::map<std::string, Json::Value>>("knowns");
-        cerr << "run " << run.name << " grid " << grid << " block " << block << " args " << endl << args << endl;
+        //cerr << "run " << run.name << " grid " << grid << " block " << block << " args " << endl << args << endl;
         //cerr << "knowns" << endl;
         //for (auto & [key,value]: knownsJson) {
         //    cerr << "  " << key << " = " << value.toStringNoNewLine() << endl;
@@ -109,6 +109,7 @@ int main(int argc, char ** argv)
             const auto & argInfo = clKernelInfo.args[i];
             auto argName = argInfo.name;
             auto passedArg = args[argName];
+            cerr << "arg " << i << ": " << argName << " = " << jsonEncodeStr(passedArg) << endl;
             if (passedArg.isNull()) {
                 cerr << "skipping parameter " << argName << ": " << jsonEncodeStr(argInfo) << endl;
                 continue;
@@ -203,7 +204,7 @@ int main(int argc, char ** argv)
         event.waitUntilFinished();
         double elapsed = before.elapsed_wall();
 
-        cerr << "run " << run.name << " ran in " << elapsed * 1000 << "ms" << endl;
+        cerr << "run " << run.name << grid << "," << block << " ran in " << elapsed * 1000 << "ms" << endl;
 
     }
     

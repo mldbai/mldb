@@ -218,7 +218,7 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
                               ssize_t length,
                               bool ignoreHazards)
     {
-        if (!ignoreHazards) {
+        if (!ignoreHazards && false) {
             unique_lock guard(mutex);
 
             if (numWriters != 0) {
@@ -266,7 +266,7 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
         }
 
         if (access == ACC_READ) {
-            if (numWriters != 0) {
+            if (numWriters != 0 && false) {
                 throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
                                       + jsonEncodeStr(currentWriters) + " and active reader(s) "
                                       + jsonEncodeStr(currentReaders));
@@ -294,7 +294,7 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
             if (currentWriters.count(opName)) {
                 throw MLDB::Exception("Operation '" + opName + " ' is already writing region '" + name + "'");
             }
-            if (numWriters != 0 || numReaders != 0) {
+            if ((numWriters != 0 || numReaders != 0) && false) {
                 throw MLDB::Exception("Operation '" + opName + "' attempted to write region '"
                                       + name + "' with active writer(s) "
                                       + jsonEncodeStr(currentWriters) + " and/or active reader(s) "
@@ -1371,10 +1371,48 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
         if (argNum == -1) {
             // Will be done via setter...
+            continue;
+        }
+
+        auto & paramType = params[argNum].type;
+
+        // Handle an argument that wasn't passed (ie, an implicit argument)
+        auto handleImplicit = [&] ()
+        {
+            if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
+                ExcAssertEqual(paramType.dims.size(), 1);
+                ExcAssert(paramType.dims[0].bound);
+                auto len = paramType.dims[0].bound->apply(result.knowns).asUInt();
+                size_t nbytes = len * paramType.baseType->width;
+                traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
+                kernel.bindArg(i, LocalArray<std::byte>(nbytes));
+                Json::Value known;
+                known["elAlign"] = paramType.baseType->align;
+                known["elWidth"] = paramType.baseType->width;
+                known["elType"] = paramType.baseType->typeName;
+                known["length"] = len;
+                known["type"] = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
+                known["name"] = "<<<Local array>>>";
+                result.knowns.setValue(this->clKernelInfo.args[i].name, std::move(known));
+            }
+            else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
+                auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
+                auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
+                traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
+                std::shared_ptr<void> mem(type.baseType->constructDefault(), [=] (void * p) { type.baseType->destroy(p); });
+                StructuredJsonParsingContext context(val);
+                type.baseType->parseJson(mem.get(), context);
+                kernel.bindArg(i, mem.get(), type.baseType->width);
+            }
+        };
+
+        if (argNum >= result.arguments.size()) {
+            handleImplicit();
         }
         else {
+            //cerr << "argNum = " << argNum << endl;
+            //cerr << "result.arguments.size() = " << result.arguments.size() << endl;
             const ComputeKernelArgument & arg = result.arguments.at(argNum);
-            auto & paramType = params[argNum].type;
             if (traceSerializer) {
                 Json::Value thisArgInfo;
                 if (arg.handler)
@@ -1389,31 +1427,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
             static std::atomic<int> disamb = 0;
             std::string opName = "bind " + this->clKernelInfo.args[i].name + std::to_string(++disamb);
             if (!arg.handler) {
-                if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
-                    ExcAssertEqual(paramType.dims.size(), 1);
-                    ExcAssert(paramType.dims[0].bound);
-                    auto len = paramType.dims[0].bound->apply(result.knowns).asUInt();
-                    size_t nbytes = len * paramType.baseType->width;
-                    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
-                    kernel.bindArg(i, LocalArray<std::byte>(nbytes));
-                    Json::Value known;
-                    known["elAlign"] = paramType.baseType->align;
-                    known["elWidth"] = paramType.baseType->width;
-                    known["elType"] = paramType.baseType->typeName;
-                    known["length"] = len;
-                    known["type"] = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
-                    known["name"] = "<<<Local array>>>";
-                    result.knowns.setValue(this->clKernelInfo.args[i].name, std::move(known));
-                }
-                else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
-                    auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
-                    auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
-                    traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
-                    std::shared_ptr<void> mem(type.baseType->constructDefault(), [=] (void * p) { type.baseType->destroy(p); });
-                    StructuredJsonParsingContext context(val);
-                    type.baseType->parseJson(mem.get(), context);
-                    kernel.bindArg(i, mem.get(), type.baseType->width);
-                }
+                handleImplicit();
             }
             else if (arg.handler->canGetPrimitive()) {
                 auto bytes = arg.handler->getPrimitive(opName, upcastContext);

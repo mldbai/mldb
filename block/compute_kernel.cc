@@ -664,13 +664,9 @@ attemptToSatisfy(CommandExpressionContext & context,
     if (op != "==")
         return false;  // equality constraints only for now
 
-    //cerr << "evaluating " << lhs->surfaceForm << " " << op << " " << rhs->surfaceForm << endl;
-
     bool canEvaluateLhs = true;
     for (auto var: getVariables(*lhs)) {
-        //cerr << "looking for lhs variable " << var << endl;
         if (!context.hasValue(var)) {
-            //cerr << "  not found" << endl;
             canEvaluateLhs = false;
             unsatisfied.insert(var);
         }
@@ -683,7 +679,6 @@ attemptToSatisfy(CommandExpressionContext & context,
 
     bool canEvaluateRhs = true;
     for (auto var: getVariables(*rhs)) {
-        //cerr << "looking for rhs variable " << var << endl;
         if (!context.hasValue(var)) {
             canEvaluateRhs = false;
             unsatisfied.insert(var);
@@ -692,7 +687,6 @@ attemptToSatisfy(CommandExpressionContext & context,
 
     Json::Value rhsVal;
     if (canEvaluateRhs) {
-        //cerr << "applying " << rhs->surfaceForm << " to " << jsonEncodeStr(context.values) << endl;
         rhsVal = rhs->apply(context);
     }
     
@@ -718,7 +712,6 @@ attemptToSatisfy(CommandExpressionContext & context,
     const VariableExpression * rhsVar = dynamic_cast<const VariableExpression *>(rhs.get());
 
     if (lhsVar && canEvaluateRhs) {
-        //cerr << "setting " << lhsVar->variableName << " to " << rhsVal << endl;
         unsatisfied.erase(lhsVar->variableName);
         if (!context.hasValue(lhsVar->variableName)) {
             context.setValue(lhsVar->variableName, rhsVal);
@@ -726,7 +719,6 @@ attemptToSatisfy(CommandExpressionContext & context,
         }
     }
     else if (rhsVar && canEvaluateLhs) {
-        //cerr << "setting " << rhsVar->variableName << " to " << lhsVal << endl;
         unsatisfied.erase(rhsVar->variableName);
         if (!context.hasValue(rhsVar->variableName)) {
             context.setValue(rhsVar->variableName, lhsVal);
@@ -747,7 +739,7 @@ satisfied(CommandExpressionContext & context) const
     auto unknownLhs = lhs->unknowns(context);
     auto unknownRhs = rhs->unknowns(context);
 
-    if (!unknownLhs.empty() || !unknownRhs.empty())
+    if (unknownLhs.empty() || unknownRhs.empty())
         return false;
 
     auto lhsVal = lhs->apply(context);

@@ -231,7 +231,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
         //auto & h = *reference.handler; 
         //cerr << "  reference.handler = " << reference.handler << " " << demangle(typeid(h)) << endl;
         auto [referenceData, referenceLength, referencePin]
-            = reference.handler->getConstRange("compareParameters", *this->multiContext->contexts[0]);
+            = reference.handler->getConstRange("compareParameters ", *this->multiContext->contexts[0]);
 
         for (size_t j = 1;  j < this->kernels.size();  ++j) {
             auto kernelGenerated = bindInfo.boundKernels.at(j).arguments.at(i);
@@ -589,8 +589,12 @@ launch(const std::string & opName,
 
     cerr << endl << "--------------- finished kernel " << multiKernel->kernelName << endl;
 
-    if (compareMode)
+    if (compareMode) {
+        for (auto & ev: events) {
+            ev->await();
+        }
         multiKernel->compareParameters(false /* pre */, kernel, *multiKernel->multiContext);
+    }
 
     return std::make_shared<MultiComputeEvent>(std::move(events));
 }
