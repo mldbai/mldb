@@ -351,11 +351,15 @@ static struct RegisterKernels {
             result->device = ComputeDevice::host();
             result->addDimension("partition", "np");
             result->addDimension("bucket", "numActiveBuckets");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * newNumPartitions]");
-            result->addParameter("wAll", "w", "W32[newNumPartitions]");
-            result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
+            result->addParameter("wAll", "w", "W32[np]");
+            result->addParameter("partitionInfo", "r", "PartitionInfo[newNumPartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
+            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
+            {
+            };
+            result->setParameters(setTheRest);
             result->setComputeFunction(program, "fixupBucketsKernel", { 1, 64 });
             return result;
         };
