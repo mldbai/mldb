@@ -5,6 +5,7 @@
 #include "mldb/types/map_description.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/arch/timers.h"
+#include "mldb/arch/ansi.h"
 #include "compute_kernel_opencl.h"
 
 using namespace MLDB;
@@ -49,7 +50,8 @@ int main(int argc, char ** argv)
     auto programId = traceKernel->getObject<std::string>("program");
     auto entryPoint = traceKernel->getObject<std::string>("kernel");
     auto program = programs->getStructure(programId);
-    auto source = program->getStream("source");
+    //auto source = program->getStream("source");
+    filter_istream source("mldb/plugins/jml/randomforest_kernels.cl");
     auto buildInfo = program->getObject<OpenCLProgramBuildInfo>("build");
     auto runs = traceKernel->getDirectory();
 
@@ -83,7 +85,10 @@ int main(int argc, char ** argv)
     auto clBuildInfo = clProgram.build(context->clDevices, buildInfo.buildOptions);
     //cerr << jsonEncode(buildInfo) << endl;
 
-    for (auto & run: traceKernel->getStructure("runs")->getDirectory()) {
+    auto doRun = [&] (const StructuredReconstituter::Entry & run)
+    {
+        Timer start;
+
         auto clKernel = clProgram.createKernel(entryPoint);
         auto clKernelInfo = clKernel.getInfo();
         //cerr << jsonEncode(clKernelInfo) << endl;
@@ -91,6 +96,9 @@ int main(int argc, char ** argv)
         auto grid = run.getStructure()->getObject<std::vector<size_t>>("grid");
         auto block = run.getStructure()->getObject<std::vector<size_t>>("block");
         auto knownsJson = run.getStructure()->getObject<std::map<std::string, Json::Value>>("knowns");
+        auto tuneables = run.getStructure()->getObject<std::vector<ComputeTuneable>>("tuneables");
+
+        //cerr << "tuneables = " << jsonEncode(tuneables) << endl;
         //cerr << "run " << run.name << " grid " << grid << " block " << block << " args " << endl << args << endl;
         //cerr << "knowns" << endl;
         //for (auto & [key,value]: knownsJson) {
@@ -198,14 +206,60 @@ int main(int argc, char ** argv)
             }
         }
 
-        //cerr << "launching" << endl;
+        //cerr << "setup took " << start.elapsed_wall() * 1000 << " ms" << endl; 
+
+        cerr << "launching " << kernelName << " " << grid << " " << block << endl;
         Timer before;
         auto event = queue->clQueue.launch(clKernel, grid, block);
         event.waitUntilFinished();
         double elapsed = before.elapsed_wall();
 
-        cerr << "run " << run.name << grid << "," << block << " ran in " << elapsed * 1000 << "ms" << endl;
+        //cerr << "run " << run.name << " ran in " << elapsed * 1000 << "ms" << endl;
+        return elapsed * 1000.0;
+    };
 
+    cerr << ansi::bold << "run          n      min     mean      std      max" << ansi::reset << endl;
+
+    auto printRun = [&] (PathElement id, const std::vector<double> & runValues)
+    {
+        double total = 0.0;
+        double min = INFINITY;
+        double max = -INFINITY;
+        for (auto & run: runValues) {
+            total += run;
+            min = std::min(min, run);
+            max = std::max(max, run);
+        }
+        double mean = total / runValues.size();
+
+        double stderr = 0.0;
+        for (auto & run: runValues) {
+            stderr += (run - mean) * (run - mean);
+        }
+        double stddev = sqrt(stderr);
+
+        cerr << format("%-8s %5d %8.2f %8.2f %8.2f %8.2f\n",
+                       id.toUtf8String().rawString().c_str(),
+                       runValues.size(),
+                       min, mean, stddev, max);        
+    };
+
+    auto runDirectory = traceKernel->getStructure("runs")->getDirectory();
+    int numIterations = 10;
+    std::vector<double> totalValues(numIterations);
+    std::vector<std::vector<double>> runValues(runDirectory.size());
+    for (size_t i = 0;  i < numIterations;  ++i) {
+        for (size_t j = 0;  j < runDirectory.size();  ++j) {
+            const StructuredReconstituter::Entry & run = runDirectory[j];
+            double ms = doRun(run);
+            runValues[j].push_back(ms);
+            totalValues[i] += ms;
+        }
     }
-    
+
+    for (size_t i = 0;  i < runDirectory.size();  ++i) {
+        printRun(runDirectory[i].name, runValues[i]);
+    }
+
+    printRun("total", totalValues);
 }
