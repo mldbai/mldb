@@ -102,8 +102,12 @@ static struct RegisterKernels {
             result->addParameter("weightMultiplier", "r", "f32");
             result->addParameter("weightData", "r", "f32[weightDataLength]");
             result->addParameter("decodedRowsOut", "w", "f32[numRows]");
-            result->addTuneable("gridBlockSize", 4096);
-            result->setGridExpression("[gridBlockSize]", "[256]");
+            result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
+            {
+                ExcAssertEqual(grid.size(), 1);
+                grid[0] = 4096;  // don't do one launch per row, the kernel will iterate
+            };
+
             result->setComputeFunction(program, "decompressRowsKernel", { 256 });
 
             return result;
