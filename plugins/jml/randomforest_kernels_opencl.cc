@@ -313,14 +313,13 @@ static struct RegisterKernels {
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
-            result->addDimension("fp1", "nfp1");
-            result->addConstraint("nf", "==", "nfp1 - 1", "Num features = itself plus one minus one (help the solver)");
+            result->addDimension("f", "nf");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * numActivePartitions]");
-            result->addParameter("wAll", "w", "W32[numActivePartitions]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
+            result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("smallSideIndexToPartition", "w", "u16[256]");
             result->addParameter("decodedRows", "r", "f32[nr]");
@@ -329,7 +328,7 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("gridBlockSize", 4096);
