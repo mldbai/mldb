@@ -200,15 +200,11 @@ static struct RegisterKernels {
             result->addDimension("p", "np");
             result->addParameter("numFeatures", "r", "u32");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
-            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * nf]");
-            result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
+            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * numFeatures]");
+            result->addParameter("partitionIndexes", "r", "PartitionIndex[npi]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[maxPartitions]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("depth", "r", "u16");
-            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
-            {
-            };
-            result->setParameters(setTheRest);
             result->setComputeFunction(program, "bestPartitionSplitKernel", { 1 });
             return result;
         };
@@ -257,10 +253,6 @@ static struct RegisterKernels {
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
-            auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
-            {
-            };
-            result->setParameters(setTheRest);
             result->setComputeFunction(program, "clearBucketsKernel", { 1, 64 });
             return result;
         };
