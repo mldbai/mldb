@@ -327,12 +327,12 @@ reweightAndCompact(const std::vector<uint8_t> & counts,
         {
             if (f == data.features.size()) {
                 // Do the row index
-                    size_t n = 0;
+                size_t n = 0;
 
                 RowWriter writer
                     = data.rows.getRowWriter(numNonZero, numNonZero,
-                                                serializer,
-                                                false /* sequential example num */);
+                                             serializer,
+                                             false /* sequential example num */);
 
                 Rows::RowIterator rowIterator
                     = rows.getRowIterator();

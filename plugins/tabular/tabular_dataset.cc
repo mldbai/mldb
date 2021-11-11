@@ -1704,10 +1704,41 @@ struct TabularDataset::TabularDataStore
             return oldState;
         }
 
-        cerr << "commiting " << frozenChunks.size() << " frozen chunks"
-             << endl;
+        cerr << "commiting " << frozenChunks.size() << " frozen chunks" << endl;
 
         auto newState = std::make_shared<CurrentState>(*oldState);
+
+        // Sort the chunks by the first rowPath so that we have a deterministic order that will match
+        // natural orderings like row number.  This is a very cheap way to get much more determinism.
+        auto compareChunks = [] (std::shared_ptr<TabularDatasetChunk> p1,
+                                 std::shared_ptr<TabularDatasetChunk> p2) -> bool
+        {
+            auto rc1 = p1->rowCount();
+            auto rc2 = p2->rowCount();
+            if (rc1 == 0 && rc2 == 0)
+                return false;
+            else if (rc1 == 0)
+                return true;
+            else if (rc2 == 0)
+                return false;
+
+            RowPath path1 = p1->getRowPath(0);
+            RowPath path2 = p2->getRowPath(0);
+
+            return path1 < path2;
+        };
+
+        std::sort(inputChunks.begin(), inputChunks.end(), compareChunks);
+
+#if 0
+        for (size_t i = 0;  i < inputChunks.size();  ++i) {
+            auto & c = inputChunks[i];
+            if (c->rowCount() == 0)
+                continue;
+            cerr << "chunk " << i << " rowCount " << c->rowCount()
+                 << " path " << c->getRowPath(0) << "-" << c->getRowPath(c->rowCount() - 1) << endl;
+        }
+#endif
 
         newState->addChunks(inputChunks);
         newState->reIndex();

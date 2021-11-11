@@ -316,7 +316,7 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
     // Fall back to version without a row stream
     std::vector<std::vector<CellValue> > inputs(requiredColumns.size());
 
-    auto rows = rowGen(-1, nullptr);
+    //auto rows = rowGen(-1, nullptr);
 
     //cerr << "got " << rows.first.size() << " rows in " << timer.elapsed()
     //     << " seconds" << endl;
@@ -328,9 +328,6 @@ runIncrementalT(const std::vector<BoundSqlExpression> & exprs,
         };
 
     parallelMap(0, requiredColumns.size(), doColumn);
-
-    using namespace std;
-    cerr << "done columns" << endl;
 
     std::atomic<bool> stop(false);
 

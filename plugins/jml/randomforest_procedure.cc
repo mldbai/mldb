@@ -329,14 +329,15 @@ run(const ProcedureRunConfig & run,
             // generation and we set up each bag independently
             auto doPartition = [&] (size_t i)
             {
-                RandomForestRNG myrng(38341 + i);
+                int seed = 245 + (bag * numPartitions) + i;
+                RandomForestRNG myrng(seed);
 
                 size_t first = (numRows / numPartitions) * i;
                 size_t last = (numRows / numPartitions) * (i + 1);
                 if (last > numRows || i == numPartitions)
                     last = numRows;
 
-                mt19937 rng(245 + (bag * numPartitions) + i);
+                mt19937 rng(seed);
 
                 size_t numRowsInPartition = last - first;
 
