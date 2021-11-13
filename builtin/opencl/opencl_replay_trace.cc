@@ -8,14 +8,51 @@
 #include "mldb/arch/ansi.h"
 #include "compute_kernel_opencl.h"
 
+#include <boost/program_options/cmdline.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <boost/program_options/variables_map.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/exception/diagnostic_information.hpp> 
+
+
 using namespace MLDB;
 using namespace std;
 
 int main(int argc, char ** argv)
 {
+    std::string traceFile = "file://./kernels.zip";
     string kernelName = "updateBuckets";
 
-    ZipStructuredReconstituter traceReader(Url("file://./kernels.zip"));
+    using namespace boost::program_options;
+
+    options_description all_opt;
+    all_opt
+        .add_options()
+        ("trace-file,f", value(&traceFile), "File to read trace from")
+        ("trace-kernel,k", value(&kernelName), "Kernel to trace")
+        ("help", "print this message");
+
+    variables_map vm;
+    // command line has precendence over config
+    try {
+        store(command_line_parser(argc, argv)
+              .options(all_opt)
+              //.positional(p)
+              .run(),
+              vm);
+    }
+    catch (const boost::exception & exc) {
+        cerr << boost::diagnostic_information(exc) << endl;
+        return 1;
+    }
+
+    notify(vm);
+
+    if (traceFile.find("://") == string::npos)
+        traceFile = "file://" + traceFile;
+    ZipStructuredReconstituter traceReader{Url(traceFile)};
 
     //auto entries = traceReader.getDirectory();
 
@@ -65,6 +102,7 @@ int main(int argc, char ** argv)
     ExcAssert(queue);
 
     std::map<Path, MemoryRegionHandle> cachedRegions;
+    std::vector<FrozenMemoryRegion> savedRegions;
 
     auto getCachedRegion = [&] (const std::string & regionName, int version) -> MemoryRegionHandle
     {
@@ -72,9 +110,30 @@ int main(int argc, char ** argv)
         auto it = cachedRegions.find(p);
         if (it == cachedRegions.end()) {
             auto region = regions->getRegionRecursive(p);
-            auto handle = context->transferToDeviceSyncImpl("get cached " + p.toUtf8String().rawString(), region, typeid(void), true /* isConst */);
+            //cerr << "  getting " << region.length() << " bytes for " << p << endl;
+            if (regionName == "expandedRowData" && false) {
+                auto p = (const float *)region.data();
+                for (size_t i = 0;  i < 100;  ++i) {
+                    cerr << "row " << i << " decoded " << p[i] << endl;
+                }
+            }
+            auto handle = context->allocateSyncImpl("get cached " + p.toUtf8String().rawString(), region.length(), 64, typeid(void),
+                                                    true, MemoryRegionInitialization::INIT_NONE);
+            context->fillDeviceRegionFromHostSyncImpl("get cached " + p.toUtf8String().rawString(), handle,
+                                                      {(const std::byte *)region.data(), region.length()});
+            savedRegions.push_back(region);
+
             it = cachedRegions.emplace(p, handle).first;
         }
+
+        if (regionName == "expandedRowData" && false) {
+            auto region = context->transferToHostSyncImpl("debug", it->second);
+            auto p = (const float *)region.data();
+            for (size_t i = 0;  i < 100;  ++i) {
+                cerr << "got back row " << i << " decoded " << p[i] << endl;
+            }
+        }
+
         return it->second;
     };
 
@@ -117,7 +176,7 @@ int main(int argc, char ** argv)
             const auto & argInfo = clKernelInfo.args[i];
             auto argName = argInfo.name;
             auto passedArg = args[argName];
-            cerr << "arg " << i << ": " << argName << " = " << jsonEncodeStr(passedArg) << endl;
+            //cerr << "arg " << i << ": " << argName << " = " << jsonEncodeStr(passedArg) << endl;
             if (passedArg.isNull()) {
                 cerr << "skipping parameter " << argName << ": " << jsonEncodeStr(argInfo) << endl;
                 continue;
@@ -148,17 +207,20 @@ int main(int argc, char ** argv)
                 size_t align = passedArg["value"]["elAlign"].asUInt();
                 size_t size = passedArg["value"]["elWidth"].asUInt();
                 size_t lengthInBytes = length * size;
-                //cerr << "length = " << length << " align = " << align << " size = " << size << " lengthInBytes = " << lengthInBytes << endl;
+                //cerr << "arg " << argInfo.name << " length = " << length << " align = " << align << " size = " << size << " lengthInBytes = " << lengthInBytes << endl;
 
                 MemoryRegionHandle memIn, mem;
 
                 if (formalType.access & MemoryRegionAccess::ACC_READ) {
+                    //cerr << "  getting for read" << endl;
                     memIn = getCachedRegion(regionName, version);
                 }
                 if (formalType.access & MemoryRegionAccess::ACC_WRITE) {
+                    //cerr << "  getting for write" << endl;
                     mem = context->allocateSyncImpl(regionName, lengthInBytes, align, typeid(void), false /* isConst */,
                                                     MemoryRegionInitialization::INIT_NONE);
                     if (formalType.access == MemoryRegionAccess::ACC_READ_WRITE) {
+                        //cerr << "  getting for read/write" << endl;
                         context->copyBetweenDeviceRegionsSyncImpl("copy", memIn, mem, 0, 0, lengthInBytes);
                     }
                 }
@@ -208,7 +270,7 @@ int main(int argc, char ** argv)
 
         //cerr << "setup took " << start.elapsed_wall() * 1000 << " ms" << endl; 
 
-        cerr << "launching " << kernelName << " " << grid << " " << block << endl;
+        //cerr << "launching " << kernelName << " " << grid << " " << block << endl;
         Timer before;
         auto event = queue->clQueue.launch(clKernel, grid, block);
         event.waitUntilFinished();
@@ -243,6 +305,8 @@ int main(int argc, char ** argv)
                        runValues.size(),
                        min, mean, stddev, max);        
     };
+
+    //auto gridBlockSizes = { 256, 512, 768, 1024, 1536, 2048, 3072, 4096, 8192 };
 
     auto runDirectory = traceKernel->getStructure("runs")->getDirectory();
     int numIterations = 10;

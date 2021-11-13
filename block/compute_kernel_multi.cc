@@ -641,6 +641,31 @@ enqueueFillArrayImpl(const std::string & opName,
     return thenReduce(std::move(promises), std::move(returnResult));
 }
 
+ComputePromiseT<MemoryRegionHandle>
+MultiComputeQueue::
+enqueueCopyFromHostImpl(const std::string & opName,
+                        MemoryRegionHandle toRegion,
+                        FrozenMemoryRegion fromRegion,
+                        size_t deviceStartOffsetInBytes,
+                        std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+{
+    auto info = getMultiInfo(toRegion);
+
+    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
+    ExcAssertEqual(info->handles.size(), queues.size());
+    promises.reserve(queues.size());
+
+    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        promises.emplace_back(queues[i]->enqueueCopyFromHostImpl(opName, info->handles[i], fromRegion,
+                              deviceStartOffsetInBytes,unpackedPrereqs[i]));
+    }
+
+    auto returnResult = [region=std::move(toRegion)] (auto unused) { return region; };
+    return thenReduce(std::move(promises), std::move(returnResult));
+}
+
 std::shared_ptr<ComputeEvent>
 MultiComputeQueue::
 makeAlreadyResolvedEvent() const

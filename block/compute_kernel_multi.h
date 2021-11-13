@@ -73,6 +73,13 @@ struct MultiComputeQueue: public ComputeQueue {
                          const std::any & arg,
                          std::vector<std::shared_ptr<ComputeEvent>> prereqs) override;
 
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueCopyFromHostImpl(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes,
+                            std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
+
     virtual std::shared_ptr<ComputeEvent>
     makeAlreadyResolvedEvent() const override;
 

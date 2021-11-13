@@ -833,6 +833,13 @@ struct ComputeQueue {
                          const std::any & arg,
                          std::vector<std::shared_ptr<ComputeEvent>> prereqs);
 
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueCopyFromHostImpl(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes,
+                            std::vector<std::shared_ptr<ComputeEvent>> prereqs) = 0;
+
     // Create an already resolved event (this is abstract so that the subclass may create an)
     // event of the correct type).
     virtual std::shared_ptr<ComputeEvent>
@@ -870,13 +877,9 @@ struct ComputeQueue {
         }
     }
 
-    virtual void flush()
-    {
-    }
+    virtual void flush() = 0;
 
-    virtual void finish()
-    {
-    }
+    virtual void finish() = 0;
 };
 
 struct ComputeContext {

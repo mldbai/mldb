@@ -58,9 +58,15 @@ struct OpenCLComputeQueue: public ComputeQueue {
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
                          const std::any & arg,
                          std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
-                         
-    virtual std::shared_ptr<ComputeEvent>
-    makeAlreadyResolvedEvent() const;
+
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueCopyFromHostImpl(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes,
+                            std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
+
+    virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent() const override;
 
     virtual void flush() override;
     virtual void finish() override;
@@ -105,9 +111,9 @@ struct OpenCLComputeContext: public ComputeContext {
     std::any setCacheEntry(const std::string & key, std::any value);
 
     // pin, region, length in bytes
-    std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
+    static std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
     getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
-                    MemoryRegionAccess access) const;
+                    MemoryRegionAccess access);
 
     std::tuple<FrozenMemoryRegion, int /* version */>
     getFrozenHostMemoryRegion(const std::string & opName,

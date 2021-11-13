@@ -328,6 +328,18 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
     }
 };
 
+OpenCLEventList toOpenCLEventList(const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+{
+    OpenCLEventList clPrereqs;
+    for (auto & ev: prereqs) {
+        auto clPrereq = std::dynamic_pointer_cast<const OpenCLEvent>(ev);
+        ExcAssert(clPrereq);
+        clPrereqs.events.emplace_back(*clPrereq);
+    }
+
+    return clPrereqs;
+}
+
 
 } // file scope
 
@@ -537,7 +549,9 @@ launch(const std::string & opName,
 
         auto timer = std::make_shared<Timer>();
 
-        auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
+        auto clPrereqs = toOpenCLEventList(prereqs);
+
+        auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock, clPrereqs);
 
         // Ensure it's submitted before we start using the event
         clQueue.flush();
@@ -637,7 +651,28 @@ enqueueFillArrayImpl(const std::string & opName,
 
     return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, prereqs);
 }
-                        
+
+ComputePromiseT<MemoryRegionHandle>
+OpenCLComputeQueue::
+enqueueCopyFromHostImpl(const std::string & opName,
+                        MemoryRegionHandle toRegion,
+                        FrozenMemoryRegion fromRegion,
+                        size_t deviceStartOffsetInBytes,
+                        std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+{
+    auto op = scopedOperation("OpenCLComputeQueue enqueueCopyFromHostImpl " + opName);
+
+    ExcAssert(toRegion.handle);
+
+    auto clPrereqs = toOpenCLEventList(prereqs);
+
+    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
+    auto res = clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data(), clPrereqs);
+
+    return { toRegion, std::make_shared<OpenCLComputeEvent>(res) };
+}
+
+
 void
 OpenCLComputeQueue::
 flush()
@@ -702,7 +737,7 @@ setCacheEntry(const std::string & key, std::any value)
 
 std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
 OpenCLComputeContext::
-getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, MemoryRegionAccess access) const
+getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, MemoryRegionAccess access)
 {
     OpenCLMemoryRegionHandleInfo * upcastHandle = dynamic_cast<OpenCLMemoryRegionHandleInfo *>(&handle);
     if (!upcastHandle) {
@@ -1038,25 +1073,23 @@ fillDeviceRegionFromHostImpl(const std::string & opName,
                              std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
                              size_t deviceOffset)
 {
+    FrozenMemoryRegion region(pinnedHostRegion, (const char *)pinnedHostRegion->data(), pinnedHostRegion->size_bytes());
+
     return clQueue
-        ->enqueueFillArrayImpl(opName, deviceHandle,
-                               MemoryRegionInitialization::INIT_BLOCK_FILLED, deviceOffset,
-                               pinnedHostRegion->size(),
-                               *pinnedHostRegion).event();
+        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {}).event();
 }                                     
 
 void
 OpenCLComputeContext::
 fillDeviceRegionFromHostSyncImpl(const std::string & opName,
-                                    MemoryRegionHandle deviceHandle,
-                                    std::span<const std::byte> hostRegion,
-                                    size_t deviceOffset)
+                                 MemoryRegionHandle deviceHandle,
+                                 std::span<const std::byte> hostRegion,
+                                 size_t deviceOffset)
 {
+    FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
+
     clQueue
-        ->enqueueFillArrayImpl(opName, deviceHandle,
-                               MemoryRegionInitialization::INIT_BLOCK_FILLED, deviceOffset,
-                               hostRegion.size(),
-                               hostRegion)
+        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {})
     .await();
 }
 

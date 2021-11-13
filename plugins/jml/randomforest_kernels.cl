@@ -1937,6 +1937,13 @@ updateBucketsKernel(uint32_t numActiveBuckets,
     if (f != -1 && !featuresActive[f])
         return;
 
+    //if (f == -1 && get_global_id(0) == 0) {
+    //    printf("nab %d nap %d g0 %d g1 %d l0 %d l1 %d nr %d mlb %d\n", numActiveBuckets, numActivePartitions,
+    //           get_global_size(0), get_global_size(1),
+    //           get_local_size(0), get_local_size(1),
+    //           numRows, maxLocalBuckets);
+    //}
+
     // We have to set up to access two different features:
     // 1) The feature we're splitting on for this example (splitFeature)
     // 2) The feature we're updating for the split (f)
@@ -1990,6 +1997,12 @@ updateBucketsKernel(uint32_t numActiveBuckets,
     barrier(CLK_LOCAL_MEM_FENCE);
     
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
+
+    //if (f == -1 && get_global_id(0) == 0) {
+    //    for (int i = 0;  i < 200;  ++i) {
+    //        printf("row %d decodedWeight %d %f\n", i, decodedRows[i], decodedRows[i] * 1000000);
+    //    }
+    //}
 
     for (uint32_t i = get_global_id(0);  i < numRows;  i += get_global_size(0)) {
 

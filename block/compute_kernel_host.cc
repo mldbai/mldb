@@ -53,6 +53,41 @@ struct HostComputeKernelBindInfo: public ComputeKernelBindInfo {
     HostComputeKernel::Callable call;
 };
 
+struct HostMemoryRegionInfo: public MemoryRegionHandleInfo {
+    const void * data = nullptr;
+    std::shared_ptr<const void> handle;  // underlying handle we want to keep around
+
+    void init(const MutableMemoryRegion & region)
+    {
+        this->data = region.data();
+        this->lengthInBytes = region.length();
+        this->isConst = false;
+        this->handle = region.handle();
+    }
+
+    void init(const FrozenMemoryRegion & region)
+    {
+        this->data = region.data();
+        this->lengthInBytes = region.length();
+        this->isConst = false;
+        this->handle = region.handle();
+    }
+
+    template<typename T>
+    void init(const MutableMemoryRegionT<T> & array)
+    {
+        this->init(array.raw());
+        this->type = &typeid(T);
+    }
+
+    template<typename T>
+    void init(const FrozenMemoryRegionT<T> & array)
+    {
+        this->init(array.raw());
+        this->type = &typeid(T);
+    }
+};
+
 } // file scope
 
 BoundComputeKernel
@@ -133,6 +168,25 @@ enqueueFillArrayImpl(const std::string & opName,
                                               startOffsetInBytes, lengthInBytes, arg, std::move(prereqs));
 }
 
+ComputePromiseT<MemoryRegionHandle>
+HostComputeQueue::
+enqueueCopyFromHostImpl(const std::string & opName,
+                        MemoryRegionHandle toRegion,
+                        FrozenMemoryRegion fromRegion,
+                        size_t deviceStartOffsetInBytes,
+                        std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+{
+    ExcAssertLess(deviceStartOffsetInBytes + fromRegion.length(), toRegion.lengthInBytes());
+    ExcAssert(toRegion.handle);
+    ExcAssert(!toRegion.handle->isConst);
+    auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(toRegion.handle));
+    ExcAssert(info);
+    std::memcpy((std::byte *)info->data + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
+
+    auto event = std::make_shared<HostComputeEvent>();
+    return { toRegion, event };
+}
+
 void
 HostComputeQueue::
 flush()
@@ -167,41 +221,6 @@ struct HostComputeContext: public ComputeContext {
 
     std::shared_ptr<MappedSerializer> backingStore;
 
-    struct MemoryRegionInfo: public MemoryRegionHandleInfo {
-        const void * data = nullptr;
-        std::shared_ptr<const void> handle;  // underlying handle we want to keep around
-
-        void init(const MutableMemoryRegion & region)
-        {
-            this->data = region.data();
-            this->lengthInBytes = region.length();
-            this->isConst = false;
-            this->handle = region.handle();
-        }
-
-        void init(const FrozenMemoryRegion & region)
-        {
-            this->data = region.data();
-            this->lengthInBytes = region.length();
-            this->isConst = false;
-            this->handle = region.handle();
-        }
-
-        template<typename T>
-        void init(const MutableMemoryRegionT<T> & array)
-        {
-            this->init(array.raw());
-            this->type = &typeid(T);
-        }
-
-        template<typename T>
-        void init(const FrozenMemoryRegionT<T> & array)
-        {
-            this->init(array.raw());
-            this->type = &typeid(T);
-        }
-    };
-
     virtual ComputePromiseT<MemoryRegionHandle>
     allocateImpl(const std::string & regionName,
                  size_t length, size_t align,
@@ -235,7 +254,7 @@ struct HostComputeContext: public ComputeContext {
                 throw MLDB::Exception("Unknown initialization in allocateImpl");
         }
 
-        auto result = std::make_shared<MemoryRegionInfo>();
+        auto result = std::make_shared<HostMemoryRegionInfo>();
         result->init(std::move(mem));
         result->type = &type;
         result->isConst = isConst;
@@ -248,7 +267,7 @@ struct HostComputeContext: public ComputeContext {
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) override
     {
-        auto handle = std::make_shared<MemoryRegionInfo>();
+        auto handle = std::make_shared<HostMemoryRegionInfo>();
         handle->lengthInBytes = region.length();
         handle->data = region.data();
         handle->type = &type;
@@ -260,7 +279,7 @@ struct HostComputeContext: public ComputeContext {
     transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override
     {
         ExcAssert(handle.handle);
-        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
+        auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(handle.handle));
         ExcAssert(info);
 
         FrozenMemoryRegion raw(info, (char *)info->data, info->lengthInBytes);
@@ -271,7 +290,7 @@ struct HostComputeContext: public ComputeContext {
     transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override
     {
         ExcAssert(handle.handle);
-        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(handle.handle));
+        auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(handle.handle));
         ExcAssert(info);
 
         MutableMemoryRegion raw(info, (char *)info->data, info->lengthInBytes );
@@ -296,7 +315,7 @@ struct HostComputeContext: public ComputeContext {
                                      size_t deviceOffset = 0) override
     {
         ExcAssert(deviceHandle.handle);
-        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(deviceHandle.handle));
+        auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(deviceHandle.handle));
         ExcAssert(info);
         ExcAssert(!info->isConst);
         ExcAssertLessEqual(deviceOffset, info->lengthInBytes);
@@ -322,11 +341,11 @@ struct HostComputeContext: public ComputeContext {
                                      size_t length) override
     {
         ExcAssert(from.handle);
-        auto fromInfo = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(from.handle));
+        auto fromInfo = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(from.handle));
         ExcAssert(fromInfo);
         
         ExcAssert(to.handle);
-        auto toInfo = std::dynamic_pointer_cast<const MemoryRegionInfo>(std::move(to.handle));
+        auto toInfo = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(to.handle));
         ExcAssert(toInfo);
         ExcAssert(!toInfo->isConst);
         
@@ -359,7 +378,7 @@ struct HostComputeContext: public ComputeContext {
     {
         auto mem = backingStore->allocateWritable(region.size(), align);
         std::copy_n(region.data(), region.size(), (std::byte *)mem.data());
-        auto result = std::make_shared<MemoryRegionInfo>();
+        auto result = std::make_shared<HostMemoryRegionInfo>();
         result->init(std::move(mem));
         result->type = &type;
         result->isConst = isConst;
@@ -379,7 +398,7 @@ struct HostComputeContext: public ComputeContext {
                  size_t align, const std::type_info & type, bool isConst) override
     {
         ExcAssert(handle.handle);
-        auto info = std::dynamic_pointer_cast<const MemoryRegionInfo>(handle.handle);
+        auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(handle.handle);
         if (!info) {
             auto & target = *handle.handle;
             throw MLDB::Exception("HostComputeContext: our info was " + demangle(typeid(target)));
@@ -410,7 +429,7 @@ struct HostComputeContext: public ComputeContext {
             throw MLDB::Exception("getSliceImpl: end offset past the end");
         }
 
-        auto newInfo = std::make_shared<MemoryRegionInfo>();
+        auto newInfo = std::make_shared<HostMemoryRegionInfo>();
         newInfo->data = (const char *)info->data + startOffsetInBytes;
         newInfo->handle = info->handle;
         newInfo->isConst = isConst;
