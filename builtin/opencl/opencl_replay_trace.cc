@@ -144,7 +144,7 @@ int main(int argc, char ** argv)
     auto clBuildInfo = clProgram.build(context->clDevices, buildInfo.buildOptions);
     //cerr << jsonEncode(buildInfo) << endl;
 
-    auto doRun = [&] (const StructuredReconstituter::Entry & run)
+    auto timeRun = [&] (const StructuredReconstituter::Entry & run, uint32_t & tunedGrid, uint32_t & tunedBlock)
     {
         Timer start;
 
@@ -156,6 +156,16 @@ int main(int argc, char ** argv)
         auto block = run.getStructure()->getObject<std::vector<size_t>>("block");
         auto knownsJson = run.getStructure()->getObject<std::map<std::string, Json::Value>>("knowns");
         auto tuneables = run.getStructure()->getObject<std::vector<ComputeTuneable>>("tuneables");
+
+        if (tunedGrid == 0)
+            tunedGrid = grid.at(0);
+        else
+            grid.at(0) = tunedGrid;
+
+        if (tunedBlock == 0)
+            tunedBlock = block.at(0);
+        else
+            block.at(0) = tunedBlock;
 
         //cerr << "tuneables = " << jsonEncode(tuneables) << endl;
         //cerr << "run " << run.name << " grid " << grid << " block " << block << " args " << endl << args << endl;
@@ -280,9 +290,9 @@ int main(int argc, char ** argv)
         return elapsed * 1000.0;
     };
 
-    cerr << ansi::bold << "run          n      min     mean      std      max" << ansi::reset << endl;
+    double bestMin = INFINITY, bestMean = INFINITY;
 
-    auto printRun = [&] (PathElement id, const std::vector<double> & runValues)
+    auto printRun = [&] (PathElement id, uint32_t grid, uint32_t block, const std::vector<double> & runValues)
     {
         double total = 0.0;
         double min = INFINITY;
@@ -300,30 +310,68 @@ int main(int argc, char ** argv)
         }
         double stddev = sqrt(stderr);
 
-        cerr << format("%-8s %5d %8.2f %8.2f %8.2f %8.2f\n",
+        if (min <= bestMin || mean <= bestMean) {
+            bestMin = std::min(bestMin, min);
+            bestMean = std::min(bestMean, mean);
+            cerr << ansi::green;
+        }
+
+        cerr << format("%-25s %-10s %8d %6d %6d %8.2f %8.2f %8.2f %8.2f\n",
+        //printf("%-25s %-10s %6d %6d %6d %8.2f %8.2f %8.2f %8.2f\n",
+                       kernelName.c_str(),
                        id.toUtf8String().rawString().c_str(),
-                       runValues.size(),
-                       min, mean, stddev, max);        
+                       (int)runValues.size(), (int)grid, (int)block,
+                       min, mean, stddev, max);
+
+        cerr << ansi::reset;    
     };
 
-    //auto gridBlockSizes = { 256, 512, 768, 1024, 1536, 2048, 3072, 4096, 8192 };
+    auto gridSizes = { 0, 256, 512, 768, 1024, 1536, 2048, 3072, 4096, 8192, 16384, 32768, 65536 };
+    auto blockSizes = { 32, 64, 96, 128, 160, 192, 224, 256 };
 
     auto runDirectory = traceKernel->getStructure("runs")->getDirectory();
-    int numIterations = 10;
-    std::vector<double> totalValues(numIterations);
-    std::vector<std::vector<double>> runValues(runDirectory.size());
-    for (size_t i = 0;  i < numIterations;  ++i) {
-        for (size_t j = 0;  j < runDirectory.size();  ++j) {
-            const StructuredReconstituter::Entry & run = runDirectory[j];
-            double ms = doRun(run);
-            runValues[j].push_back(ms);
-            totalValues[i] += ms;
+    int numIterations = 5;
+
+    cerr << ansi::bold << "kernel                    run         iters      grid  block      min     mean      std      max" << ansi::reset << endl;
+
+    auto doRun = [&] (uint32_t testGrid, uint32_t testBlock)
+    {
+        if (testGrid % testBlock != 0)
+            return;
+
+        try {
+            std::vector<double> totalValues(numIterations);
+            std::vector<std::vector<double>> runValues(runDirectory.size());
+            for (size_t i = 0;  i < numIterations;  ++i) {
+                for (size_t j = 0;  j < runDirectory.size();  ++j) {
+                    const StructuredReconstituter::Entry & run = runDirectory[j];
+                    double ms = timeRun(run, testGrid, testBlock);
+                    runValues[j].push_back(ms);
+                    totalValues[i] += ms;
+                }
+            }
+
+            //for (size_t i = 0;  i < runDirectory.size();  ++i) {
+            //    printRun(runDirectory[i].name, runValues[i]);
+            //}
+        
+            printRun("total", testGrid, testBlock, totalValues);
+        } MLDB_CATCH_ALL {
+
+        }
+    };
+
+    // Benchmark the initial version
+    uint32_t defaultGrid = 0, defaultBlock = 0;
+    doRun(defaultGrid, defaultBlock);
+
+    for (auto & testGrid: gridSizes) {
+        for (auto & testBlock: blockSizes) {
+
+            if (testGrid % testBlock != 0)
+                continue;
+
+            doRun(testGrid, testBlock);
         }
     }
-
-    for (size_t i = 0;  i < runDirectory.size();  ++i) {
-        printRun(runDirectory[i].name, runValues[i]);
-    }
-
-    printRun("total", totalValues);
 }

@@ -158,8 +158,7 @@ reweightAndCompact(const std::vector<uint8_t> & counts,
 
     ExcAssertEqual(counts.size(), rows.rowCount());
     
-    size_t chunkSize
-        = std::min<size_t>(100000, rows.rowCount() / numCpus() / 4);
+    size_t chunkSize = std::min<size_t>(100000, rows.rowCount() / numCpus() / 4);
     chunkSize += (chunkSize == 0);
 
     // Analyze the weights.  This may allow us to store them in a lot
@@ -342,8 +341,8 @@ reweightAndCompact(const std::vector<uint8_t> & counts,
                     if (counts[i] == 0 || row.weight == 0)
                         continue;
                     writer.addRow(row.label,
-                                    row.weight * counts[i] * scale,
-                                    n++);
+                                  row.weight * counts[i] * scale,
+                                  n++);
                 }
                 
                 ExcAssertEqual(n, numNonZero);
@@ -755,10 +754,10 @@ struct FeatureSamplingTrainerKernel {
     // Serializer (used for recursive calls)
     MappedSerializer * serializer = nullptr;
 
-    // Shared OpenCL runtime
+    // Shared compute runtime
     std::shared_ptr<ComputeRuntime> runtime;
 
-    // Shared OpenCL context
+    // Shared compute context
     std::shared_ptr<ComputeContext> context;
 
     // Queue for initialization
@@ -872,7 +871,7 @@ init(int maxDepth,
     // Total number of buckets (active plus inactive)
     size_t numBuckets = 0;
 
-    // For each feature, we set up a table of offsets which will allow our OpenCL kernel
+    // For each feature, we set up a table of offsets which will allow our compute kernel
     // to know where in a flat buffer of memory the data for that feature resides.
     for (int i = 0;  i < nf;  ++i) {
         const BucketList & buckets = features[i].buckets;
@@ -1016,7 +1015,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
     uint32_t numActiveFeatures = activeFeatures.size();
     uint32_t numActiveBuckets = 0;
 
-    // For each feature, we set up a table of offsets which will allow our OpenCL kernel
+    // For each feature, we set up a table of offsets which will allow our compute kernel
     // to know where in a flat buffer of memory the data for that feature resides.
     for (int i = 0;  i < nf;  ++i) {
         if (activeFeatureSet.count(i)) {
@@ -1977,13 +1976,22 @@ trainPartitioned(int depth, int maxDepth,
                                     rows, features, bucketMemory, *fs);
 }
 
+namespace {
+
+std::atomic<int> numTrainings = 0;
+//std::atomic<int> numOpenCLTrainings = 0;
+
+};
+
+
 // Train a small forest, with the same rows but a different feature sampling
 // Will eventually reuse much of the work in the partitioned case
 std::vector<ML::Tree>
 PartitionData::
-trainMultipleSamplings(int maxDepth, const std::vector<std::vector<int>> & featuresActive,
-                        MappedSerializer & serializer,
-                        TrainingScheme trainingScheme) const
+trainMultipleSamplings(int maxDepth,
+                       const std::vector<std::vector<int>> & featuresActive,
+                       MappedSerializer & serializer,
+                       TrainingScheme trainingScheme) const
 {
     std::vector<ML::Tree> result(featuresActive.size());
 
@@ -1993,7 +2001,11 @@ trainMultipleSamplings(int maxDepth, const std::vector<std::vector<int>> & featu
             device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
         }
         else if (RF_USE_OPENCL) {
-            device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
+            int trainingNum = numTrainings.fetch_add(1);
+            if (trainingNum % 5 == 4)
+                device = ComputeDevice::host();
+            else
+                device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
         }
         else {
             device = ComputeDevice::host();

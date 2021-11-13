@@ -332,9 +332,13 @@ OpenCLEventList toOpenCLEventList(const std::vector<std::shared_ptr<ComputeEvent
 {
     OpenCLEventList clPrereqs;
     for (auto & ev: prereqs) {
-        auto clPrereq = std::dynamic_pointer_cast<const OpenCLEvent>(ev);
+        if (!ev)
+            continue;
+        auto clPrereq = std::dynamic_pointer_cast<const OpenCLComputeEvent>(ev);
         ExcAssert(clPrereq);
-        clPrereqs.events.emplace_back(*clPrereq);
+        if (!clPrereq->ev)
+            continue;  // already satisfied
+        clPrereqs.events.emplace_back(clPrereq->ev);
     }
 
     return clPrereqs;
@@ -537,7 +541,7 @@ launch(const std::string & opName,
             knowns.setValue("clBlock", clBlock);
         }
 
-        cerr << "launching kernel " << kernel->kernelName << " with grid " << clGrid << " and block " << clBlock << endl;
+        //cerr << "launching kernel " << kernel->kernelName << " with grid " << clGrid << " and block " << clBlock << endl;
         //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
 
         if (bindInfo->traceSerializer) {
