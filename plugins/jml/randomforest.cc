@@ -2002,7 +2002,7 @@ trainMultipleSamplings(int maxDepth,
         }
         else if (RF_USE_OPENCL) {
             int trainingNum = numTrainings.fetch_add(1);
-            if (trainingNum % 5 == 4)
+            if (trainingNum % 5 == 4 && false)
                 device = ComputeDevice::host();
             else
                 device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
