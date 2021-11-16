@@ -1,15 +1,15 @@
-/** compute_kernel_opencl.cc                                                -*- C++ -*-
+/** compute_kernel_metal.cc                                                -*- C++ -*-
     Jeremy Barnes, 27 March 2016
     This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
     Compute kernel runtime for CPU devices.
 */
 
-#include "compute_kernel_opencl.h"
+#include "compute_kernel_metal.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/meta_value_description.h"
+#include "mldb/types/structure_description.h"
 #include "mldb/types/set_description.h"
-#include "opencl_types.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/ansi.h"
@@ -21,26 +21,24 @@ using namespace std;
 
 namespace MLDB {
 
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeTuneable)
-{
-    addField("name", &ComputeTuneable::name, "Name of tuneable parameter");
-    addField("defaultValue", &ComputeTuneable::defaultValue, "Default value of tuneable parameter");
-}
+//#define THROW_UNIMPLEMENTED do { throw MLDB::Exception("Unimplemented"); } while (false)
+
+#define THROW_UNIMPLEMENTED do { throw MLDB::Exception(std::string("Unimplemented: ") + __PRETTY_FUNCTION__ + " at " + __FILE__ + ":" + std::to_string(__LINE__)); } while (false)  // + " at " + __FILE__ + ":" + __LINE__)
 
 namespace {
 
 std::mutex kernelRegistryMutex;
 struct KernelRegistryEntry {
-    std::function<std::shared_ptr<OpenCLComputeKernel>(OpenCLComputeContext & context)> generate;
+    std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext & context)> generate;
 };
 
 std::map<std::string, KernelRegistryEntry> kernelRegistry;
 
-struct OpenCLBindInfo: public ComputeKernelBindInfo {
-    virtual ~OpenCLBindInfo() = default;
+struct MetalBindInfo: public ComputeKernelBindInfo {
+    virtual ~MetalBindInfo() = default;
 
-    OpenCLKernel clKernel;
-    const OpenCLComputeKernel * owner = nullptr;
+    mtlpp::Function mtlFunction;
+    const MetalComputeKernel * owner = nullptr;
     std::shared_ptr<StructuredSerializer> traceSerializer;
 
     // Pins that control the lifetime of the arguments and allow the system to know
@@ -48,8 +46,8 @@ struct OpenCLBindInfo: public ComputeKernelBindInfo {
     std::vector<std::shared_ptr<const void>> argumentPins;
 };
 
-EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 0);
-EnvOption<std::string> OPENCL_KERNEL_TRACE_FILE("OPENCL_KERNEL_TRACE_FILE", "");
+EnvOption<int> METAL_TRACE_API_CALLS("METAL_COMPUTE_TRACE_API_CALLS", 0);
+EnvOption<std::string> METAL_KERNEL_TRACE_FILE("METAL_KERNEL_TRACE_FILE", "");
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
 std::shared_ptr<StructuredSerializer> regionsSerializer;
@@ -57,11 +55,6 @@ std::shared_ptr<StructuredSerializer> kernelsSerializer;
 std::shared_ptr<StructuredSerializer> programsSerializer;
 
 using TracedRegionKey = std::tuple<std::string, int>;
-//struct TracedRegionKey {
-//    std::string name;
-//    int version = -1;
-//    auto operator < (const TracedRegionKey & other) const = default;
-//};
 
 struct TracedRegionEntry {
     size_t length = 0;
@@ -111,8 +104,8 @@ void traceVersion(std::string name, int version, const FrozenMemoryRegion & regi
 struct InitTrace {
     InitTrace()
     {
-        if (OPENCL_KERNEL_TRACE_FILE.specified()) {
-            traceSerializer = std::make_shared<ZipStructuredSerializer>(OPENCL_KERNEL_TRACE_FILE.get());
+        if (METAL_KERNEL_TRACE_FILE.specified()) {
+            traceSerializer = std::make_shared<ZipStructuredSerializer>(METAL_KERNEL_TRACE_FILE.get());
             regionsSerializer = traceSerializer->newStructure("regions");
             kernelsSerializer = traceSerializer->newStructure("kernels");
             programsSerializer = traceSerializer->newStructure("programs");
@@ -136,12 +129,12 @@ Timer startTimer;
 template<typename... Args>
 void traceOperation(const std::string & opName, Args&&... args)
 {
-    if (OPENCL_TRACE_API_CALLS.get()) {
+    if (METAL_TRACE_API_CALLS.get()) {
         using namespace MLDB::ansi;
         int tid = std::hash<std::thread::id>()(std::this_thread::get_id());
         double elapsed = startTimer.elapsed_wall();
 
-        std::string header = format("%10.6f t%8x %2d  OPENCL COMPUTE: ", elapsed, tid, opCount);
+        std::string header = format("%10.6f t%8x %2d  METAL COMPUTE: ", elapsed, tid, opCount);
         std::string indent(4 * opCount, ' ');
         std::string toDump = (string)ansi_str_cyan() + header + indent + ansi_str_bold() + opName
                            + ansi_str_reset() + "\n";
@@ -194,8 +187,8 @@ ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(const std::string & opNa
     return ScopedOperation(opName, std::forward<Args>(args)...);
 }
 
-struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
-    OpenCLMemObject memBase;
+struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
+    mtlpp::Buffer buffer;
     size_t offset = 0;
 
     std::mutex mutex;
@@ -204,15 +197,15 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
     std::set<std::string> currentWriters;
     std::set<std::string> currentReaders;
 
-    void init(OpenCLMemObject mem, size_t offset)
+    void init(mtlpp::Buffer mem, size_t offset)
     {
-        this->memBase = std::move(mem);
+        this->buffer = std::move(mem);
         this->offset = offset;
         this->version = 0;
     }
 
     std::tuple<FrozenMemoryRegion, int /* version */>
-    getReadOnlyHostAccessSync(const OpenCLComputeContext & context,
+    getReadOnlyHostAccessSync(const MetalComputeContext & context,
                               const std::string & opName,
                               size_t offset,
                               ssize_t length,
@@ -237,8 +230,11 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
             length = lengthInBytes - offset;
         }
 
+        THROW_UNIMPLEMENTED;
+
+#if 0
         std::shared_ptr<const void> region
-            = context.clQueue->clQueue.enqueueMapBufferBlocking(memBase, CL_MAP_READ,
+            = context.clQueue->clQueue.enqueueMapBufferBlocking(buffer, CL_MAP_READ,
                                                                 offset /* offset */, length);
 
         auto done = [this, opName, ignoreHazards, region] (const void * mem)
@@ -254,10 +250,11 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
         auto data = (const char *)region.get();
 
         return { { std::move(pin), data, lengthInBytes - offset }, this->version };
+#endif
     }
 
-    std::tuple<std::shared_ptr<const void>, cl_mem>
-    getOpenCLAccess(const std::string & opName, MemoryRegionAccess access)
+    std::tuple<std::shared_ptr<const void>, mtlpp::Buffer>
+    getMetalAccess(const std::string & opName, MemoryRegionAccess access)
     {
         unique_lock guard(mutex);
 
@@ -285,7 +282,7 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
 
             auto pin =  std::shared_ptr<void>(nullptr, done);
             //cerr << "returning r/o version " << version << " of " << name << " for " << opName << endl;
-            return { std::move(pin), this->memBase };
+            return { std::move(pin), this->buffer };
         }
         else {  // read only or read write
             if (currentReaders.count(opName)) {
@@ -323,58 +320,59 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
             //cerr << "returning r/w version " << version << " of " << name << " for " << opName << endl;
 
             auto pin =  std::shared_ptr<void>(nullptr, done);
-            return { std::move(pin), this->memBase };
+            return { std::move(pin), this->buffer };
         }
     }
 };
 
-OpenCLEventList toOpenCLEventList(const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+#if 0
+MetalEventList toMetalEventList(const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
-    OpenCLEventList clPrereqs;
+    MetalEventList clPrereqs;
     for (auto & ev: prereqs) {
         if (!ev)
             continue;
-        auto clPrereq = std::dynamic_pointer_cast<const OpenCLComputeEvent>(ev);
+        auto clPrereq = std::dynamic_pointer_cast<const MetalComputeEvent>(ev);
         ExcAssert(clPrereq);
         if (!clPrereq->ev)
-            continue;  // already satisfied (dummy event)
+            continue;  // already satisfied
         clPrereqs.events.emplace_back(clPrereq->ev);
     }
 
     return clPrereqs;
 }
-
+#endif
 
 } // file scope
 
-// OpenCLComputeProfilingInfo
+// MetalComputeProfilingInfo
 
-OpenCLComputeProfilingInfo::
-OpenCLComputeProfilingInfo(OpenCLProfilingInfo info)
-    : clInfo(std::move(info))
+MetalComputeProfilingInfo::
+MetalComputeProfilingInfo()
 {
 }
 
 
-// OpenCLComputeEvent
+// MetalComputeEvent
 
-OpenCLComputeEvent::
-OpenCLComputeEvent(OpenCLEvent ev)
-    : ev(std::move(ev))
+MetalComputeEvent::
+MetalComputeEvent()
 {
 }
 
 std::shared_ptr<ComputeProfilingInfo>
-OpenCLComputeEvent::
+MetalComputeEvent::
 getProfilingInfo() const
 {
-    return std::make_shared<OpenCLComputeProfilingInfo>(ev.getProfilingInfo());
+    THROW_UNIMPLEMENTED;
 }
 
 void
-OpenCLComputeEvent::
+MetalComputeEvent::
 await() const
 {
+    THROW_UNIMPLEMENTED;
+#if 0    
     if (!ev) {
         traceOperation("await(): already satisfied");
         return;  // null event; already satisfied
@@ -382,69 +380,102 @@ await() const
 
     auto tr = scopedOperation("await()");
     return ev.waitUntilFinished();
+#endif
 }
 
 std::shared_ptr<ComputeEvent>
-OpenCLComputeEvent::
+MetalComputeEvent::
 thenImpl(std::function<void ()> fn)
 {
-    // No event means it's an already satisfied event; we simply run the callback
-    if (!ev) {
+    std::unique_lock guard(mutex);
+    if (isResolved) {
+        // If already satisfied, we simply run the callback
         fn();
-        return std::make_shared<OpenCLComputeEvent>();
+        return makeAlreadyResolvedEvent();
     }
 
     // Otherwise, create a user event for the post-then part
-    auto context = ev.getContext();
-    OpenCLUserEvent userEvent(context);
-    auto nextEvent = std::make_shared<OpenCLComputeEvent>(std::move(userEvent));
+    auto nextEvent = makeUnresolvedEvent();
 
-    auto cb = [fn=std::move(fn), nextEvent] (auto ev, auto status)
+    auto cb = [fn=std::move(fn), nextEvent] ()
     {
         fn();
-        nextEvent->ev.setUserEventStatus(OpenCLEventCommandExecutionStatus::COMPLETE);
+        nextEvent->resolve();
     };
 
-    ev.addCallback(std::move(cb));
+    callbacks.push_back(cb);
 
     return nextEvent;
 }
 
+void
+MetalComputeEvent::
+resolve()
+{
+    THROW_UNIMPLEMENTED;
+}
 
-// OpenCLComputeQueue
+std::shared_ptr<MetalComputeEvent>
+MetalComputeEvent::
+makeAlreadyResolvedEvent()
+{
+    auto result = std::make_shared<MetalComputeEvent>();
+    result->isResolved = true;
+    return result;
+}
 
-OpenCLComputeQueue::
-OpenCLComputeQueue(OpenCLComputeContext * owner, OpenCLCommandQueue queue)
-    : ComputeQueue(owner), clOwner(owner), clQueue(std::move(queue))
+std::shared_ptr<MetalComputeEvent>
+MetalComputeEvent::
+makeUnresolvedEvent()
+{
+    auto result = std::make_shared<MetalComputeEvent>();
+    result->isResolved = false;
+    return result;
+}
+
+std::function<void ()>
+MetalComputeEvent::
+getCompletionHandler() const
+{
+    THROW_UNIMPLEMENTED;
+}
+
+
+// MetalComputeQueue
+
+MetalComputeQueue::
+MetalComputeQueue(MetalComputeContext * owner, mtlpp::CommandQueue queue)
+    : ComputeQueue(owner), mtlOwner(owner), mtlQueue(std::move(queue))
 {
 }
 
-OpenCLComputeQueue::
-OpenCLComputeQueue(OpenCLComputeContext * owner)
-    : ComputeQueue(owner), clOwner(owner)
+MetalComputeQueue::
+MetalComputeQueue(MetalComputeContext * owner)
+    : ComputeQueue(owner), mtlOwner(owner)
 {
-    ExcAssertEqual(clOwner->clDevices.size(), 1);
-    clQueue = clOwner->clContext.createCommandQueue(clOwner->clDevices[0],
-                                                    OpenCLCommandQueueProperties::PROFILING_ENABLE);
+    mtlQueue = owner->mtlDevice.NewCommandQueue();
 }
 
 std::shared_ptr<ComputeEvent>
-OpenCLComputeQueue::
+MetalComputeQueue::
 launch(const std::string & opName,
        const BoundComputeKernel & bound,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
+    THROW_UNIMPLEMENTED;
+
+#if 0
     try {
         auto tr = scopedOperation("launch kernel " + bound.owner->kernelName + " as " + opName);
 
         ExcAssert(bound.bindInfo);
         
-        const OpenCLBindInfo * bindInfo
-            = dynamic_cast<const OpenCLBindInfo *>(bound.bindInfo.get());
+        const MetalBindInfo * bindInfo
+            = dynamic_cast<const MetalBindInfo *>(bound.bindInfo.get());
         ExcAssert(bindInfo);
 
-        const OpenCLComputeKernel * kernel = bindInfo->owner;
+        const MetalComputeKernel * kernel = bindInfo->owner;
 
         CommandExpressionContext knowns(bound.knowns);
 
@@ -475,7 +506,7 @@ launch(const std::string & opName,
                     //    << " to " << range << " due to block size of " << b << endl;
                 }
                 else {
-                    throw MLDB::Exception("OpenCL kernel '" + kernel->kernelName + "' won't launch "
+                    throw MLDB::Exception("Metal kernel '" + kernel->kernelName + "' won't launch "
                                             "due to grid dimension " + std::to_string(i)
                                             + " (" + std::to_string(range) + ") not being a "
                                             + "multple of the block size (" + std::to_string(b)
@@ -553,7 +584,7 @@ launch(const std::string & opName,
 
         auto timer = std::make_shared<Timer>();
 
-        auto clPrereqs = toOpenCLEventList(prereqs);
+        auto clPrereqs = toMetalEventList(prereqs);
 
         auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock, clPrereqs);
 
@@ -563,10 +594,10 @@ launch(const std::string & opName,
     #if 0
         std::string kernelName = kernel->kernelName;
 
-        auto execTimes = std::make_shared<std::map<OpenCLEventCommandExecutionStatus, double>>();
+        auto execTimes = std::make_shared<std::map<MetalEventCommandExecutionStatus, double>>();
 
         auto doCallback = [this, kernelName, opName, execTimes, timer]
-                (const OpenCLEvent & event, OpenCLEventCommandExecutionStatus status)
+                (const MetalEvent & event, MetalEventCommandExecutionStatus status)
         {
             traceOperation("completion callback " + opName + " with status " + jsonEncodeStr(status));
             auto wallTime = timer->elapsed_wall();
@@ -578,7 +609,7 @@ launch(const std::string & opName,
             //                         kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
             //cerr << msg;
 
-            if (status != OpenCLEventCommandExecutionStatus::COMPLETE)
+            if (status != MetalEventCommandExecutionStatus::COMPLETE)
                 return;
         
             if (false) {
@@ -606,11 +637,11 @@ launch(const std::string & opName,
             cerr << toDump;
         };
 
-        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::QUEUED);
-        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::RUNNING);
-        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::SUBMITTED);
-        event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::COMPLETE);
-        //event.addCallback(doCallback, OpenCLEventCommandExecutionStatus::ERROR);
+        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::QUEUED);
+        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::RUNNING);
+        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::SUBMITTED);
+        event.addCallback(doCallback, MetalEventCommandExecutionStatus::COMPLETE);
+        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::ERROR);
         //clQueue.flush();  // TODO: remove, this is debug!!!
     #endif
 
@@ -627,20 +658,24 @@ launch(const std::string & opName,
     #endif
         //doCallback(event, 0);
 
-        return std::make_shared<OpenCLComputeEvent>(std::move(event));
+        return std::make_shared<MetalComputeEvent>(std::move(event));
     } MLDB_CATCH_ALL {
         rethrowException(400, "Error launching kernel " + bound.owner->kernelName);
     }
+#endif
 }
 
 ComputePromiseT<MemoryRegionHandle>
-OpenCLComputeQueue::
+MetalComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
                      const std::any & arg,
                      std::vector<std::shared_ptr<ComputeEvent>> prereqs)
 {
+    THROW_UNIMPLEMENTED;
+
+#if 0
     auto op = scopedOperation("enqueueFillArrayImpl " + opName);
 
     if (startOffsetInBytes > region.lengthInBytes()) {
@@ -654,101 +689,116 @@ enqueueFillArrayImpl(const std::string & opName,
     }
 
     return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, prereqs);
+#endif
 }
 
 ComputePromiseT<MemoryRegionHandle>
-OpenCLComputeQueue::
+MetalComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
                         FrozenMemoryRegion fromRegion,
                         size_t deviceStartOffsetInBytes,
                         std::vector<std::shared_ptr<ComputeEvent>> prereqs)
 {
-    auto op = scopedOperation("OpenCLComputeQueue enqueueCopyFromHostImpl " + opName);
+        THROW_UNIMPLEMENTED;
+#if 0
+    auto op = scopedOperation("MetalComputeQueue enqueueCopyFromHostImpl " + opName);
 
     ExcAssert(toRegion.handle);
 
-    auto clPrereqs = toOpenCLEventList(prereqs);
+    auto clPrereqs = toMetalEventList(prereqs);
 
-    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
+    auto [pin, mem, offset] = MetalComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
     auto res = clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data(), clPrereqs);
 
-    return { toRegion, std::make_shared<OpenCLComputeEvent>(res) };
+    return { toRegion, std::make_shared<MetalComputeEvent>(res) };
+#endif
 }
 
 
 void
-OpenCLComputeQueue::
+MetalComputeQueue::
 flush()
 {
-    auto op = scopedOperation("OpenCLComputeQueue flush");
+        THROW_UNIMPLEMENTED;
+#if 0
+    auto op = scopedOperation("MetalComputeQueue flush");
     clQueue.flush();
+#endif
 }
 
 void
-OpenCLComputeQueue::
+MetalComputeQueue::
 finish()
 {
-    auto op = scopedOperation("OpenCLComputeQueue finish");
+        THROW_UNIMPLEMENTED;
+
+#if 0
+    auto op = scopedOperation("MetalComputeQueue finish");
     clQueue.finish();
+#endif
 }
 
 std::shared_ptr<ComputeEvent>
-OpenCLComputeQueue::
+MetalComputeQueue::
 makeAlreadyResolvedEvent() const
 {
-    return std::make_shared<OpenCLComputeEvent>();
+    return std::make_shared<MetalComputeEvent>();
 }
 
 
-// OpenCLComputeContext
+// MetalComputeContext
 
-OpenCLComputeContext::
-OpenCLComputeContext(std::vector<OpenCLDevice> devices)
-    : clContext(devices),
-        clDevices(std::move(devices))
+MetalComputeContext::
+MetalComputeContext(mtlpp::Device device)
+    : mtlDevice(device)
 {
-    clQueue = std::make_shared<OpenCLComputeQueue>(this);
 }
 
+#if 0
 std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
-OpenCLComputeContext::
+MetalComputeContext::
 getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, MemoryRegionAccess access)
 {
-    OpenCLMemoryRegionHandleInfo * upcastHandle = dynamic_cast<OpenCLMemoryRegionHandleInfo *>(&handle);
+    MetalMemoryRegionHandleInfo * upcastHandle = dynamic_cast<MetalMemoryRegionHandleInfo *>(&handle);
     if (!upcastHandle) {
         throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
     }
-    auto [pin, mem] = upcastHandle->getOpenCLAccess(opName, access);
+    auto [pin, mem] = upcastHandle->getMetalAccess(opName, access);
 
     return { std::move(pin), mem, upcastHandle->offset };
 }
+#endif
 
 std::tuple<FrozenMemoryRegion, int /* version */>
-OpenCLComputeContext::
+MetalComputeContext::
 getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
                           size_t offset, ssize_t length,
                           bool ignoreHazards) const
 {
-    OpenCLMemoryRegionHandleInfo * upcastHandle = dynamic_cast<OpenCLMemoryRegionHandleInfo *>(&handle);
+    MetalMemoryRegionHandleInfo * upcastHandle = dynamic_cast<MetalMemoryRegionHandleInfo *>(&handle);
     if (!upcastHandle) {
         throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
     }
     return upcastHandle->getReadOnlyHostAccessSync(*this, opName, offset, length, ignoreHazards);
 }
 
+#if 0
 static MemoryRegionHandle
-doOpenCLAllocate(OpenCLContext & clContext,
+doMetalAllocate(MetalContext & clContext,
                  const std::string & regionName,
                  size_t length, size_t align,
                  const std::type_info & type,
                  bool isConst)
 {
-    // TODO: align...
-    OpenCLMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
+    THROW_UNIMPLEMENTED;
 
-    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
-    handle->memBase = std::move(mem);
+#if 0
+    // TODO: align...
+    MetalMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
+
+    auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
+    handle->buffer = std::move(mem);
     handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
@@ -758,10 +808,12 @@ doOpenCLAllocate(OpenCLContext & clContext,
 
     MemoryRegionHandle result{std::move(handle)};
     return result;
+#endif
 }
+#endif
 
 ComputePromiseT<MemoryRegionHandle>
-OpenCLComputeContext::
+MetalComputeContext::
 allocateImpl(const std::string & regionName,
              size_t length, size_t align,
              const std::type_info & type,
@@ -769,22 +821,27 @@ allocateImpl(const std::string & regionName,
              MemoryRegionInitialization initialization,
              std::any initWith)
 {
-    auto op = scopedOperation("OpenCLComputeContext allocateImpl " + regionName);
-    auto result = doOpenCLAllocate(clContext, regionName, length, align, type, isConst);
+    auto op = scopedOperation("MetalComputeContext allocateImpl " + regionName);
+    THROW_UNIMPLEMENTED;
+#if 0
+    auto result = doMetalAllocate(clContext, regionName, length, align, type, isConst);
     return clQueue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
+#endif
 }
 
 MemoryRegionHandle
-OpenCLComputeContext::
+MetalComputeContext::
 allocateSyncImpl(const std::string & regionName,
                  size_t length, size_t align,
                  const std::type_info & type, bool isConst,
                  MemoryRegionInitialization initialization,
                  std::any initWith)
 {
-    auto op = scopedOperation("OpenCLComputeContext allocateSyncImpl " + regionName);
-    auto result = doOpenCLAllocate(clContext, regionName, length, align, type, isConst);
+    auto op = scopedOperation("MetalComputeContext allocateSyncImpl " + regionName);
+    THROW_UNIMPLEMENTED;
+#if 0
+    auto result = doMetalAllocate(clContext, regionName, length, align, type, isConst);
     if (initialization != MemoryRegionInitialization::INIT_NONE) {
         return result = clQueue->enqueueFillArrayImpl(regionName + " initialize", std::move(result), initialization,
                                         0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith).move();
@@ -792,27 +849,22 @@ allocateSyncImpl(const std::string & regionName,
     }
 
     return result;
+#endif
 }
 
 static MemoryRegionHandle
-doOpenCLTransferToDevice(OpenCLContext & clContext,
+doMetalTransferToDevice(mtlpp::Device & mtlDevice,
                          const std::string & opName, FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst)
 {
-    Timer timer;
+    //Timer timer;
 
-    OpenCLMemObject mem;
-    if (region.memusage() == 0) {
-        // Create a valid pointer, which means non-zero length
-        mem = clContext.createBuffer(CL_MEM_READ_ONLY, 4 /* size */);
-    }
-    else {
-        mem = clContext.createBuffer(isConst ? CL_MEM_READ_ONLY : CL_MEM_READ_WRITE,
-                                     region.data(), region.memusage());
-    }
+    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
+    
+    mtlpp::Buffer buffer = mtlDevice.NewBuffer(region.data(), region.length(), options);
 
-    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
-    handle->memBase = std::move(mem);
+    auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
+    handle->buffer = std::move(buffer);
     handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
@@ -831,37 +883,42 @@ doOpenCLTransferToDevice(OpenCLContext & clContext,
 }
 
 ComputePromiseT<MemoryRegionHandle>
-OpenCLComputeContext::
+MetalComputeContext::
 transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
                      const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToDeviceImpl " + opName);
-    auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
-    return {std::move(result), std::make_shared<OpenCLComputeEvent>()};
+    auto op = scopedOperation("MetalComputeContext transferToDeviceImpl " + opName);
+    auto result = doMetalTransferToDevice(mtlDevice, opName, region, type, isConst);
+    return {std::move(result), std::make_shared<MetalComputeEvent>()};
 }
 
 MemoryRegionHandle
-OpenCLComputeContext::
+MetalComputeContext::
 transferToDeviceSyncImpl(const std::string & opName,
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToDeviceSyncImpl " + opName);
-    auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
+    THROW_UNIMPLEMENTED;
+#if 0
+    auto op = scopedOperation("MetalComputeContext transferToDeviceSyncImpl " + opName);
+    auto result = doMetalTransferToDevice(clContext, opName, region, type, isConst);
     return result;
+#endif
 }
 
 
 ComputePromiseT<FrozenMemoryRegion>
-OpenCLComputeContext::
+MetalComputeContext::
 transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToHostImpl " + opName);
+    THROW_UNIMPLEMENTED;
+#if 0
+    auto op = scopedOperation("MetalComputeContext transferToHostImpl " + opName);
 
     ExcAssert(handle.handle);
 
     auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
-    //OpenCLEvent clEvent;
+    //MetalEvent clEvent;
     //std::shared_ptr<void> memPtr;
     auto res = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
                                     offset /* offset */, handle.lengthInBytes());
@@ -875,15 +932,15 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 
     //cerr << jsonEncode(clEvent.getInfo()) << endl;
 
-    auto event = std::make_shared<OpenCLComputeEvent>(clEvent);
+    auto event = std::make_shared<MetalComputeEvent>(clEvent);
     auto promise = std::make_shared<std::promise<std::any>>();
     auto data = (char *)memPtr.get();
 
-    auto cb = [handle, promise, data, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
+    auto cb = [handle, promise, data, memPtr, pin=pin] (const MetalEvent & event, auto status)
     {
         //cerr << "transferToHostImpl callback" << endl;
-        if (status == OpenCLEventCommandExecutionStatus::ERROR)
-            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
+        if (status == MetalEventCommandExecutionStatus::ERROR)
+            promise->set_exception(std::make_exception_ptr(MLDB::Exception("Metal error mapping host memory")));
         else {
             promise->set_value(FrozenMemoryRegion(memPtr, data, handle.lengthInBytes()));
         }
@@ -901,14 +958,17 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
     //cerr << jsonEncode(clEvent.getInfo()) << endl;
 
     return { promise, event };
+#endif
 }
 
 FrozenMemoryRegion
-OpenCLComputeContext::
+MetalComputeContext::
 transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToHostSyncImpl " + opName);
+    THROW_UNIMPLEMENTED;
+#if 0
+    auto op = scopedOperation("MetalComputeContext transferToHostSyncImpl " + opName);
 
     ExcAssert(handle.handle);
 
@@ -918,29 +978,33 @@ transferToHostSyncImpl(const std::string & opName,
     const char * data = (const char *)memPtr.get();
     FrozenMemoryRegion result(std::move(memPtr), data, handle.lengthInBytes());
     return result;
+#endif
 }
 
 ComputePromiseT<MutableMemoryRegion>
-OpenCLComputeContext::
+MetalComputeContext::
 transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToHostMutableImpl " + opName);
+    THROW_UNIMPLEMENTED;
+
+#if 0
+    auto op = scopedOperation("MetalComputeContext transferToHostMutableImpl " + opName);
     ExcAssert(handle.handle);
 
     auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
-    OpenCLEvent clEvent;
+    MetalEvent clEvent;
     std::shared_ptr<void> memPtr;
     std::tie(memPtr, clEvent)
         = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
                                     offset, handle.lengthInBytes());
 
-    auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
+    auto event = std::make_shared<MetalComputeEvent>(std::move(clEvent));
     auto promise = std::shared_ptr<std::promise<std::any>>();
 
-    auto cb = [handle, promise, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
+    auto cb = [handle, promise, memPtr, pin=pin] (const MetalEvent & event, auto status)
     {
-        if (status == OpenCLEventCommandExecutionStatus::ERROR)
-            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
+        if (status == MetalEventCommandExecutionStatus::ERROR)
+            promise->set_exception(std::make_exception_ptr(MLDB::Exception("Metal error mapping host memory")));
         else {
             promise->set_value(MutableMemoryRegion(memPtr, (char *)memPtr.get(), handle.lengthInBytes()));
         }
@@ -949,14 +1013,18 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
     clEvent.addCallback(cb);
 
     return { std::move(promise), std::move(event) };
+#endif
 }
 
 MutableMemoryRegion
-OpenCLComputeContext::
+MetalComputeContext::
 transferToHostMutableSyncImpl(const std::string & opName,
                               MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToHostMutableSyncImpl " + opName);
+    THROW_UNIMPLEMENTED;
+
+#if 0
+    auto op = scopedOperation("MetalComputeContext transferToHostMutableSyncImpl " + opName);
 
     ExcAssert(handle.handle);
 
@@ -965,18 +1033,19 @@ transferToHostMutableSyncImpl(const std::string & opName,
                                                             offset, handle.lengthInBytes());
     MutableMemoryRegion result(std::move(memPtr), (char *)memPtr.get(), handle.lengthInBytes());
     return result;
+#endif
 }
 
 std::shared_ptr<ComputeKernel>
-OpenCLComputeContext::
+MetalComputeContext::
 getKernel(const std::string & kernelName)
 {
-    auto op = scopedOperation("OpenCLComputeContext getKernel " + kernelName);
+    auto op = scopedOperation("MetalComputeContext getKernel " + kernelName);
 
     std::unique_lock guard(kernelRegistryMutex);
     auto it = kernelRegistry.find(kernelName);
     if (it == kernelRegistry.end()) {
-        throw AnnotatedException(400, "Unable to find OpenCL compute kernel '" + kernelName + "'",
+        throw AnnotatedException(400, "Unable to find Metal compute kernel '" + kernelName + "'",
                                         "kernelName", kernelName);
     }
     auto result = it->second.generate(*this);
@@ -989,49 +1058,36 @@ getKernel(const std::string & kernelName)
 }
 
 ComputePromiseT<MemoryRegionHandle>
-OpenCLComputeContext::
+MetalComputeContext::
 managePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionImpl " + opName);
+    auto op = scopedOperation("MetalComputeContext managePinnedHostRegionImpl " + opName);
 
     auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
-    return ComputePromiseT<MemoryRegionHandle>(std::move(result), clQueue->makeAlreadyResolvedEvent());
+    return ComputePromiseT<MemoryRegionHandle>(std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent());
 }
 
 MemoryRegionHandle
-OpenCLComputeContext::
+MetalComputeContext::
 managePinnedHostRegionSyncImpl(const std::string & opName,
                                std::span<const std::byte> region, size_t align,
                                const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionSyncImpl " + opName);
-    Timer timer;
-    OpenCLMemObject mem;
-    if (region.size() == 0) {
-        // Create a valid pointer, which means non-zero length
-        mem = clContext.createBuffer(CL_MEM_READ_ONLY, 4 /* size */);
-    }
-    else {
-        if (isConst) {
-            mem = clContext.createBuffer(CL_MEM_READ_ONLY,
-                                         region.data(), region.size());
-        } else {
-            mem = clContext.createBuffer(CL_MEM_READ_WRITE,
-                                         (void *)region.data(), region.size());
-        }
-    }
+    auto op = scopedOperation("MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
 
-    //using namespace std;
-    //cerr << "transferring " << region.size() / 1000000.0 << " Mbytes of pinned type "
-    //        << demangle(type.name()) << " isConst " << isConst << " to device in "
-    //        << timer.elapsed_wall() << " at "
-    //        << region.size() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
+    mtlpp::ResourceOptions options
+         = mtlpp::ResourceOptions::StorageModeManaged;
 
-    // TODO: this is synchronous; it should become asynchronous
+    auto deallocator = [] (auto ptr, auto len)
+    {
+    };
 
-    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
-    handle->memBase = std::move(mem);
+    // This overload calls newBufferWithBytesNoCopy
+    mtlpp::Buffer buffer = mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
+
+    auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
+    handle->buffer = std::move(buffer);
     handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
@@ -1043,48 +1099,59 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
 }
 
 std::shared_ptr<ComputeEvent>
-OpenCLComputeContext::
+MetalComputeContext::
 fillDeviceRegionFromHostImpl(const std::string & opName,
                              MemoryRegionHandle deviceHandle,
                              std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
                              size_t deviceOffset)
 {
+    THROW_UNIMPLEMENTED;
+#if 0
     FrozenMemoryRegion region(pinnedHostRegion, (const char *)pinnedHostRegion->data(), pinnedHostRegion->size_bytes());
 
     return clQueue
         ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {}).event();
+#endif
 }                                     
 
 void
-OpenCLComputeContext::
+MetalComputeContext::
 fillDeviceRegionFromHostSyncImpl(const std::string & opName,
                                  MemoryRegionHandle deviceHandle,
                                  std::span<const std::byte> hostRegion,
                                  size_t deviceOffset)
 {
+    THROW_UNIMPLEMENTED;
+
+#if 0
     FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
 
     clQueue
         ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {})
     .await();
+#endif
 }
 
 std::shared_ptr<ComputeEvent>
-OpenCLComputeContext::
+MetalComputeContext::
 copyBetweenDeviceRegionsImpl(const std::string & opName,
                                 MemoryRegionHandle from, MemoryRegionHandle to,
                                 size_t fromOffset, size_t toOffset,
                                 size_t length)
 {
+    THROW_UNIMPLEMENTED;
+
+#if 0
     auto [fromPin, fromMem, fromBaseOffset] = getMemoryRegion(opName, *from.handle, ACC_READ);
     auto [toPin, toMem, toBaseOffset] = getMemoryRegion(opName, *to.handle, ACC_WRITE);
 
     auto event = clQueue->clQueue.enqueueCopyBuffer(fromMem, toMem, fromBaseOffset + fromOffset, toBaseOffset + toOffset, length);
-    return std::make_shared<OpenCLComputeEvent>(std::move(event));
+    return std::make_shared<MetalComputeEvent>(std::move(event));
+#endif
 }
 
 void
-OpenCLComputeContext::
+MetalComputeContext::
 copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
                                     MemoryRegionHandle from, MemoryRegionHandle to,
                                     size_t fromOffset, size_t toOffset,
@@ -1094,21 +1161,21 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
 }
 
 std::shared_ptr<ComputeQueue>
-OpenCLComputeContext::
+MetalComputeContext::
 getQueue()
 {
-    return std::make_shared<OpenCLComputeQueue>(this);
+    return std::make_shared<MetalComputeQueue>(this);
 }
 
 MemoryRegionHandle
-OpenCLComputeContext::
+MetalComputeContext::
 getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
              size_t startOffsetInBytes, size_t lengthInBytes,
              size_t align, const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext getSliceImpl " + regionName);
+    auto op = scopedOperation("MetalComputeContext getSliceImpl " + regionName);
 
-    auto info = std::dynamic_pointer_cast<const OpenCLMemoryRegionHandleInfo>(std::move(handle.handle));
+    auto info = std::dynamic_pointer_cast<const MetalMemoryRegionHandleInfo>(std::move(handle.handle));
     ExcAssert(info);
 
     if (info->isConst && !isConst) {
@@ -1135,9 +1202,12 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
         throw MLDB::Exception("getSliceImpl: end offset past the end");
     }
 
-    auto newInfo = std::make_shared<OpenCLMemoryRegionHandleInfo>();
+    auto newInfo = std::make_shared<MetalMemoryRegionHandleInfo>();
 
-    newInfo->memBase = OpenCLMemObject(info->memBase, false /* already retained */);
+    THROW_UNIMPLEMENTED;
+
+#if 0
+    newInfo->buffer = MetalMemObject(info->buffer, false /* already retained */);
     newInfo->offset = info->offset + startOffsetInBytes;
     newInfo->isConst = isConst;
     newInfo->type = &type;
@@ -1148,14 +1218,15 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
     newInfo->version = info->version;
 
     return { newInfo };
+#endif
 
 #if 0
     cl_buffer_region region = { startOffsetInBytes, lengthInBytes };
     cl_int error = CL_NONE;
-    OpenCLMemObject mem(clCreateSubBuffer(info->mem, isConst ? CL_MEM_READ_ONLY : CL_MEM_READ_WRITE,
+    MetalMemObject mem(clCreateSubBuffer(info->mem, isConst ? CL_MEM_READ_ONLY : CL_MEM_READ_WRITE,
                         CL_BUFFER_CREATE_TYPE_REGION, &region, &error),
                         true /* already retained */);
-    checkOpenCLError(error, "clCreateSubBuffer");
+    checkMetalError(error, "clCreateSubBuffer");
 
     newInfo->mem = std::move(mem);
     newInfo->isConst = isConst;
@@ -1170,14 +1241,161 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
 }
 
 
-// OpenCLComputeKernel
+// MetalComputeKernel
 
-// Parses an OpenCL kernel argument info structure, and turns it into a ComputeKernel type
+template<typename T>
 ComputeKernelType
-OpenCLComputeKernel::
-getKernelType(const OpenCLKernelArgInfo & info)
+makeBasicType(std::initializer_list<int> vals = {1})
 {
-    bool isConst = info.typeQualifier.test(OpenCLArgTypeQualifier::CONST);
+    ComputeKernelType result;
+    result.simd.insert(result.simd.begin(), vals.begin(), vals.end());
+    result.baseType = getDefaultDescriptionSharedT<T>();
+    return result;
+}
+
+static ComputeKernelType
+getKernelTypeFromDataType(mtlpp::DataType dataType)
+{
+    switch (dataType) {
+        case mtlpp::DataType::None: 
+        case mtlpp::DataType::Struct: 
+        case mtlpp::DataType::Array:
+            throw MLDB::Exception("getKernelTypeFromDataType: not a basic type"); 
+        case mtlpp::DataType::Float:        return makeBasicType<float>();
+        case mtlpp::DataType::Float2:       return makeBasicType<float>({2});
+        case mtlpp::DataType::Float3:       return makeBasicType<float>({3});
+        case mtlpp::DataType::Float4:       return makeBasicType<float>({4});
+        case mtlpp::DataType::Float2x2:     return makeBasicType<float>({2,2});
+        case mtlpp::DataType::Float2x3:     return makeBasicType<float>({2,3});
+        case mtlpp::DataType::Float2x4:     return makeBasicType<float>({2,4});
+        case mtlpp::DataType::Float3x2:     return makeBasicType<float>({3,2});
+        case mtlpp::DataType::Float3x3:     return makeBasicType<float>({3,3});
+        case mtlpp::DataType::Float3x4:     return makeBasicType<float>({3,4});
+        case mtlpp::DataType::Float4x2:     return makeBasicType<float>({4,2});
+        case mtlpp::DataType::Float4x3:     return makeBasicType<float>({4,3});
+        case mtlpp::DataType::Float4x4:     return makeBasicType<float>({4,4});
+        case mtlpp::DataType::Half:         return makeBasicType<half>();
+        case mtlpp::DataType::Half2:        return makeBasicType<half>({2});
+        case mtlpp::DataType::Half3:        return makeBasicType<half>({3});
+        case mtlpp::DataType::Half4:        return makeBasicType<half>({4});
+        case mtlpp::DataType::Half2x2:      return makeBasicType<half>({2,2});
+        case mtlpp::DataType::Half2x3:      return makeBasicType<half>({2,3});
+        case mtlpp::DataType::Half2x4:      return makeBasicType<half>({2,4});
+        case mtlpp::DataType::Half3x2:      return makeBasicType<half>({3,2});
+        case mtlpp::DataType::Half3x3:      return makeBasicType<half>({3,3});
+        case mtlpp::DataType::Half3x4:      return makeBasicType<half>({3,4});
+        case mtlpp::DataType::Half4x2:      return makeBasicType<half>({4,2});
+        case mtlpp::DataType::Half4x3:      return makeBasicType<half>({4,3});
+        case mtlpp::DataType::Half4x4:      return makeBasicType<half>({4,4});
+        case mtlpp::DataType::Int:          return makeBasicType<int32_t>();
+        case mtlpp::DataType::Int2:         return makeBasicType<int32_t>({2});
+        case mtlpp::DataType::Int3:         return makeBasicType<int32_t>({3});
+        case mtlpp::DataType::Int4:         return makeBasicType<int32_t>({4});
+        case mtlpp::DataType::UInt:         return makeBasicType<uint32_t>();
+        case mtlpp::DataType::UInt2:        return makeBasicType<uint32_t>({2});
+        case mtlpp::DataType::UInt3:        return makeBasicType<uint32_t>({3});
+        case mtlpp::DataType::UInt4:        return makeBasicType<uint32_t>({4});
+        case mtlpp::DataType::Short:        return makeBasicType<int16_t>();
+        case mtlpp::DataType::Short2:       return makeBasicType<int16_t>({2});
+        case mtlpp::DataType::Short3:       return makeBasicType<int16_t>({3});
+        case mtlpp::DataType::Short4:       return makeBasicType<int16_t>({4});
+        case mtlpp::DataType::UShort:       return makeBasicType<uint16_t>();
+        case mtlpp::DataType::UShort2:      return makeBasicType<uint16_t>({2});
+        case mtlpp::DataType::UShort3:      return makeBasicType<uint16_t>({3});
+        case mtlpp::DataType::UShort4:      return makeBasicType<uint16_t>({4});
+        case mtlpp::DataType::Char:         return makeBasicType<int8_t>();
+        case mtlpp::DataType::Char2:        return makeBasicType<int8_t>({2});
+        case mtlpp::DataType::Char3:        return makeBasicType<int8_t>({3});
+        case mtlpp::DataType::Char4:        return makeBasicType<int8_t>({4});
+        case mtlpp::DataType::UChar:        return makeBasicType<uint8_t>();
+        case mtlpp::DataType::UChar2:       return makeBasicType<uint8_t>({2});
+        case mtlpp::DataType::UChar3:       return makeBasicType<uint8_t>({3});
+        case mtlpp::DataType::UChar4:       return makeBasicType<uint8_t>({4});
+        case mtlpp::DataType::Bool:         return makeBasicType<bool>();
+        case mtlpp::DataType::Bool2:        return makeBasicType<bool>({2});
+        case mtlpp::DataType::Bool3:        return makeBasicType<bool>({3});
+        case mtlpp::DataType::Bool4:        return makeBasicType<bool>({4});
+        case mtlpp::DataType::Long:         return makeBasicType<int64_t>();
+        case mtlpp::DataType::Long2:        return makeBasicType<int64_t>({2});
+        case mtlpp::DataType::Long3:        return makeBasicType<int64_t>({3});
+        case mtlpp::DataType::Long4:        return makeBasicType<int64_t>({4});
+        case mtlpp::DataType::ULong:        return makeBasicType<uint64_t>();
+        case mtlpp::DataType::ULong2:       return makeBasicType<uint64_t>({2});
+        case mtlpp::DataType::ULong3:       return makeBasicType<uint64_t>({3});
+        case mtlpp::DataType::ULong4:       return makeBasicType<uint64_t>({4});
+        default:
+            throw MLDB::Exception("getKernelTypeFromDataType: unknown type"); 
+    }
+}
+
+// Parses an Metal kernel argument info structure, and turns it into a ComputeKernel type
+ComputeKernelType
+MetalComputeKernel::
+getKernelType(const mtlpp::Argument & arg)
+{
+    ComputeKernelType type;
+
+    mtlpp::ArgumentType argType = arg.GetType();
+    mtlpp::DataType dataType;
+
+    if (argType == mtlpp::ArgumentType::Buffer) {
+        cerr << "buffer argument " << arg.GetName().GetCStr() << endl;
+
+        dataType = arg.GetBufferDataType();
+        auto structType = arg.GetBufferStructType();
+        auto align = arg.GetBufferAlignment();
+        auto width = arg.GetBufferDataSize();
+
+        cerr << "align " << align << " width " << width << endl;
+
+        if (structType) {
+
+            auto desc = std::make_shared<GenericStructureDescription>(false, "__metalKernelArg" + string(arg.GetName().GetCStr()));
+            desc->align = align;
+            desc->width = width;
+
+            cerr << "structure type" << endl;
+            auto members = structType.GetMembers();
+            for (size_t i = 0;  i < members.GetSize();  ++i) {
+                auto member = members[i];
+                cerr << member.GetName().GetCStr() << " at offset " << member.GetOffset() << endl;
+                auto kernelType = getKernelTypeFromDataType(member.GetDataType());
+                cerr << "  data type " << (int)member.GetDataType() << " " << kernelType.print() << endl;
+                //cerr << "  array type " << member.GetArrayType()
+
+                desc->addFieldDesc(member.GetName().GetCStr(), member.GetOffset(), "", kernelType.baseType);
+            }
+            
+            type.baseType = desc;
+        }
+        else {
+            cerr << "dataType = " << (int)dataType << endl;
+            type = getKernelTypeFromDataType(dataType);
+            type.dims.emplace_back();  // if it's a basic type, it must be an array
+        }
+    }
+    else if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
+        throw MLDB::Exception("Not implemented: thread group argument types");
+
+    }
+    else {
+        throw MLDB::Exception("Not implemented: non-buffer and non-thread group argument types");
+    }
+
+    mtlpp::ArgumentAccess access = arg.GetAccess();
+    switch (access) {
+        case mtlpp::ArgumentAccess::ReadOnly: type.access = ACC_READ;  break;
+        case mtlpp::ArgumentAccess::ReadWrite: type.access = ACC_READ_WRITE;  break;
+        case mtlpp::ArgumentAccess::WriteOnly: type.access = ACC_WRITE;  break;
+        default:
+            type.access = ACC_NONE;
+    }
+
+    ExcAssert(type.baseType);
+    return type;
+
+#if 0
+    bool isConst = info.typeQualifier.test(MetalArgTypeQualifier::CONST);
     int arrayDim = 0;
     std::string clTypeName = info.typeName;
     while (!clTypeName.empty() && clTypeName.back() == '*') {
@@ -1185,7 +1403,6 @@ getKernelType(const OpenCLKernelArgInfo & info)
         clTypeName.pop_back();
     }
 
-    ComputeKernelType type;
     auto parseType = [] (const char * type)
     {
         return MLDB::parseType("", type);
@@ -1231,31 +1448,32 @@ getKernelType(const OpenCLKernelArgInfo & info)
     type.access = isConst ? ACC_READ : ACC_READ_WRITE;
 
     return type;
+#endif
 }
 
 void
-OpenCLComputeKernel::
+MetalComputeKernel::
 setParameters(SetParameters setter)
 {
     setters.emplace_back(std::move(setter));
 }
 
 void
-OpenCLComputeKernel::
+MetalComputeKernel::
 allowGridPadding()
 {
     allowGridPaddingFlag = true;
 }
 
 void
-OpenCLComputeKernel::
+MetalComputeKernel::
 allowGridExpansion()
 {
     allowGridExpansionFlag = true;
 }
 
 void
-OpenCLComputeKernel::
+MetalComputeKernel::
 setGridExpression(const std::string & gridExpr, const std::string & blockExpr)
 {
     if (!gridExpr.empty())
@@ -1265,52 +1483,97 @@ setGridExpression(const std::string & gridExpr, const std::string & blockExpr)
 }
 
 void
-OpenCLComputeKernel::
+MetalComputeKernel::
 addTuneable(const std::string & name, int64_t defaultValue)
 {
     this->tuneables.push_back({name, defaultValue});
 }
 
 void
-OpenCLComputeKernel::
-setComputeFunction(OpenCLProgram programIn,
+MetalComputeKernel::
+setComputeFunction(mtlpp::Library libraryIn,
                    std::string kernelName,
                    std::vector<size_t> block)
 {
+    ExcAssert(libraryIn);
+
     this->block = std::move(block);
-    this->clProgram = std::move(programIn);
+    this->mtlLibrary = std::move(libraryIn);
     this->kernelName = kernelName;
-    this->clKernel = clProgram.createKernel(kernelName);
-    this->clKernelInfo = this->clKernel.getInfo();
 
-    //using namespace std;
-    //cerr << jsonEncode(clKernelInfo) << endl;
+    this->mtlFunction = this->mtlLibrary.NewFunction(kernelName.c_str());
+    ExcAssert(this->mtlFunction);
 
-    correspondingArgumentNumbers.resize(clKernelInfo.numArgs, -1);
+    //cerr << this->mtlFunction.GetName().GetCStr() << endl;
 
-    for (auto & arg: clKernelInfo.args) {
-        //cerr << "doing arg " << jsonEncodeStr(arg) << endl;
+    ns::Error error{ns::Handle()};
+    mtlpp::ComputePipelineReflection reflection;
+    mtlpp::PipelineOption options = (mtlpp::PipelineOption((int)mtlpp::PipelineOption::ArgumentInfo | (int)mtlpp::PipelineOption::BufferTypeInfo));
+    mtlpp::ComputePipelineState computePipelineState
+        = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, options, reflection, &error);
+    if (error) {
+        cerr << "Error making pipeline state" << endl;
+        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
+        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
+        if (error.GetLocalizedFailureReason()) {
+            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
+        }
+    }
+    ExcAssert(computePipelineState);
+    ExcAssert(reflection);
+
+    auto arguments = reflection.GetArguments();
+
+    correspondingArgumentNumbers.resize(arguments.GetSize());
+
+    for (size_t i = 0;  i < arguments.GetSize();  ++i) {
+        mtlpp::Argument arg = arguments[i];
+        cerr << "argument " << i << " has name " << arg.GetName().GetCStr() << " and index " << arg.GetIndex() << endl;
+
         auto type = getKernelType(arg);
-        //cerr << "type = " << type.print() << endl;
-        std::string argName = arg.name;
+        cerr << "type = " << type.print() << endl;
+        std::string argName = arg.GetName().GetCStr();
+
         auto it = paramIndex.find(argName);
         if (it == paramIndex.end()) {
+            if (type.baseType->kind == ValueKind::STRUCTURE && type.dims.empty()) {
+                // Check if we know the unpacked types
+                auto numFields = type.baseType->getFixedFieldCount();
+                std::vector<std::string> fieldsNotFound;
+                for (size_t i = 0;  i < numFields;  ++i) {
+                    const auto & field = type.baseType->getFieldByNumber(i);
+                    if (paramIndex.count(field.fieldName))
+                        continue;
+                    fieldsNotFound.push_back(field.fieldName);
+                }
+
+                if (fieldsNotFound.empty()) {
+                    // Can be assembled from known parameters
+                    continue;
+                }
+                else if (fieldsNotFound.size() < numFields) {
+                    throw MLDB::Exception("Kernel parameter " + std::to_string(i)
+                                    + " (" + argName + ") to Metal kernel " + kernelName
+                                    + " cannot be assembled because of missing fields " + jsonEncodeStr(fieldsNotFound));
+                }
+            }
             if (this->setters.size() > 0)
                 continue;  // should be done in the setter...
-            if (arg.addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
-                throw MLDB::Exception("Local parameter in kernel with no setters defined; "
+            mtlpp::ArgumentType type = arg.GetType();
+            if (type == mtlpp::ArgumentType::ThreadgroupMemory) {
+                throw MLDB::Exception("Thread group parameter in kernel with no setters defined; "
                                         "implement a setter to avoid launch failure");
             }
-            throw MLDB::Exception("Kernel parameter " + std::to_string(arg.argNum)
-                                    + " (" + argName + ") to OpenCL kernel " + kernelName
+            throw MLDB::Exception("Kernel parameter " + std::to_string(i)
+                                    + " (" + argName + ") to Metal kernel " + kernelName
                                     + " has no counterpart in formal parameter list");
         }
-        correspondingArgumentNumbers.at(arg.argNum) = it->second;
+        correspondingArgumentNumbers.at(i) = it->second;
         auto & param = params.at(it->second);
         std::string reason;
         if (!param.type.isCompatibleWith(type, &reason)) {
-            throw MLDB::Exception("Kernel parameter " + std::to_string(arg.argNum)
-                                    + " (" + argName + ") to OpenCL kernel " + kernelName
+            throw MLDB::Exception("Kernel parameter " + std::to_string(i)
+                                    + " (" + argName + ") to Metal kernel " + kernelName
                                     + ": declared parameter type " + type.print()
                                     + " is not compatible with kernel type " + param.type.print()
                                     + ": " + reason);
@@ -1319,19 +1582,32 @@ setComputeFunction(OpenCLProgram programIn,
 }
 
 BoundComputeKernel
-OpenCLComputeKernel::
+MetalComputeKernel::
 bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
 {
-    auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
+    auto op = scopedOperation("MetalComputeKernel bindImpl " + kernelName);
 
     ExcAssert(this->context);
-    auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(*this->context);
-    auto kernel = this->clProgram.createKernel(this->kernelName);
+    auto & upcastContext = dynamic_cast<MetalComputeContext &>(*this->context);
 
-    auto bindInfo = std::make_shared<OpenCLBindInfo>();
-    bindInfo->clKernel = kernel;
+    ns::Error error{ns::Handle()};
+    mtlpp::ComputePipelineReflection reflection;
+    mtlpp::ComputePipelineState computePipelineState
+        = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, mtlpp::PipelineOption::None, reflection, &error);
+    if (error) {
+        cerr << "Error making pipeline state" << endl;
+        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
+        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
+        if (error.GetLocalizedFailureReason()) {
+            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
+        }
+    }
+    ExcAssert(computePipelineState);
+
+    auto bindInfo = std::make_shared<MetalBindInfo>();
     bindInfo->owner = this;
 
+#if 0
     if (traceSerializer) {
         int callNumber = numCalls++;
         bindInfo->traceSerializer = runsSerializer->newStructure(callNumber);
@@ -1353,6 +1629,12 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
             }
         }
     }
+#endif
+
+    mtlpp::CommandBuffer commandBuffer = upcastContext.mtlQueue.CommandBuffer();
+    ExcAssert(commandBuffer);
+
+    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
 
     BoundComputeKernel result;
     result.arguments = std::move(argumentsIn);
@@ -1372,12 +1654,15 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         result.knowns.setValue(name, value);
     }
 
+    THROW_UNIMPLEMENTED;
+
+#if 0
     Json::Value argInfo;
     for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
         std::string opName = "bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name;
         auto tr = scopedOperation(opName);
         int argNum = correspondingArgumentNumbers.at(i);
-        //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
+        //cerr << "binding Metal parameter " << i << " from argument " << paramNum << endl;
         if (argNum == -1) {
             // Will be done via setter...
             continue;
@@ -1388,7 +1673,9 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         // Handle an argument that wasn't passed (ie, an implicit argument)
         auto handleImplicit = [&] ()
         {
-            if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
+            THROW_UNIMPLEMENTED;
+#if 0
+            if (this->clKernelInfo.args[i].addressQualifier == MetalArgAddressQualifier::LOCAL) {
                 ExcAssertEqual(paramType.dims.size(), 1);
                 ExcAssert(paramType.dims[0].bound);
                 auto len = paramType.dims[0].bound->apply(result.knowns).asUInt();
@@ -1400,12 +1687,12 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 known["elWidth"] = paramType.baseType->width;
                 known["elType"] = paramType.baseType->typeName;
                 known["length"] = len;
-                known["type"] = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
+                known["type"] = MetalComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
                 known["name"] = "<<<Local array>>>";
                 result.knowns.setValue(this->clKernelInfo.args[i].name, std::move(known));
             }
-            else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
-                auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
+            else if (this->clKernelInfo.args[i].addressQualifier == MetalArgAddressQualifier::PRIVATE) {
+                auto type = MetalComputeKernel::getKernelType(this->clKernelInfo.args[i]);
                 auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
                 traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
                 std::shared_ptr<void> mem(type.baseType->constructDefault(), [=] (void * p) { type.baseType->destroy(p); });
@@ -1413,6 +1700,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 type.baseType->parseJson(mem.get(), context);
                 kernel.bindArg(i, mem.get(), type.baseType->width);
             }
+#endif
         };
 
         if (argNum >= result.arguments.size()) {
@@ -1422,6 +1710,8 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
             //cerr << "argNum = " << argNum << endl;
             //cerr << "result.arguments.size() = " << result.arguments.size() << endl;
             const ComputeKernelArgument & arg = result.arguments.at(argNum);
+
+#if 0
             if (traceSerializer) {
                 Json::Value thisArgInfo;
                 if (arg.handler)
@@ -1432,6 +1722,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 thisArgInfo["aliases"] = jsonEncode(getValueDescriptionAliases(*paramType.baseType->type));
                 argInfo[this->clKernelInfo.args[i].name] = thisArgInfo;
             }
+#endif
 
             static std::atomic<int> disamb = 0;
             std::string opName = "bind " + this->clKernelInfo.args[i].name + std::to_string(++disamb);
@@ -1465,7 +1756,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 throw MLDB::Exception("param.getConstRange");
             }
             else {
-                throw MLDB::Exception("don't know how to handle passing parameter to OpenCL");
+                throw MLDB::Exception("don't know how to handle passing parameter to Metal");
             }
         }
     }
@@ -1474,6 +1765,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     for (auto & s: this->setters) {
         s(kernel, upcastContext);
     }
+#endif
 
     // Look through for constraints from dimensions
     for (size_t i = 0;  i < this->dims.size();  ++i) {
@@ -1501,6 +1793,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         }
     }
 
+#if 0
     if (bindInfo->traceSerializer) {
         bindInfo->traceSerializer->newObject("args", argInfo);
         bindInfo->traceSerializer->newObject("knowns", result.knowns.values);
@@ -1508,6 +1801,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         bindInfo->traceSerializer->newObject("constraints", result.constraints);
         bindInfo->traceSerializer->newObject("tuneables", tuneables);
     }
+#endif
 
 #if 0
     cerr << "got " << result.constraints.size() << " constraints" << endl;
@@ -1517,101 +1811,91 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     }
 #endif
 
+#if 0
+    commandEncoder.SetBuffer(inBuffer, 0, 0);
+    commandEncoder.SetBuffer(outBuffer, 0, 1);
+    commandEncoder.SetComputePipelineState(computePipelineState);
+    commandEncoder.DispatchThreadgroups(
+        mtlpp::Size(1, 1, 1),
+        mtlpp::Size(dataCount, 1, 1));
+    commandEncoder.EndEncoding();
+
+    mtlpp::BlitCommandEncoder blitCommandEncoder = commandBuffer.BlitCommandEncoder();
+    blitCommandEncoder.Synchronize(outBuffer);
+    blitCommandEncoder.EndEncoding();
+
+    commandBuffer.Commit();
+    commandBuffer.WaitUntilCompleted();
+#endif
+
     return result;
 }
 
 
-// OpenCLComputeRuntime
+// MetalComputeRuntime
 
-EnvOption<int> OPENCL_DEFAULT_PLATFORM("OPENCL_DEFAULT_PLATFORM", 0);
-EnvOption<int> OPENCL_DEFAULT_DEVICE("OPENCL_DEFAULT_DEVICE", -1);
+EnvOption<int> METAL_DEFAULT_DEVICE("METAL_DEFAULT_DEVICE", -1);
 
-struct OpenCLComputeRuntime: public ComputeRuntime {
+struct MetalComputeRuntime: public ComputeRuntime {
 
-    std::vector<OpenCLPlatform> clPlatforms;
-    std::vector<std::vector<OpenCLDevice>> clDevices;
+    std::vector<mtlpp::Device> mtlDevices;
     std::vector<ComputeDevice> devices;
 
-    OpenCLComputeRuntime()
+    MetalComputeRuntime()
     {
-        clPlatforms = getOpenCLPlatforms();
-        clDevices.reserve(clPlatforms.size());
-
-        for (size_t i = 0;  i < clPlatforms.size();  ++i) {
-            clDevices.emplace_back(clPlatforms[i].getDevices());
-            for (size_t j = 0;  j < clDevices[i].size();  ++j) {
-                devices.push_back({ComputeRuntimeId::OPENCL, (uint8_t)i, (uint16_t)j, 0, 0});
-            }
+        auto queriedDevices = mtlpp::Device::CopyAllDevices();
+        for (size_t i = 0;  i < queriedDevices.GetSize();  ++i) {
+            auto device = queriedDevices[i];
+            //cerr << "metal device " << i << " is " << device.GetName().GetCStr() << endl;
+            mtlDevices.push_back(queriedDevices[i]);
+            devices.push_back({ComputeRuntimeId::METAL, 0 /* runtime instance */, (uint8_t)i, 0, 0});
         }
     }
 
-    OpenCLDevice convertDevice(ComputeDevice device) const
+    mtlpp::Device convertDevice(ComputeDevice device) const
     {
-        if (device.runtime != ComputeRuntimeId::OPENCL) {
-            throw MLDB::Exception("Attempt to pass non-OpenCL device " + device.info() + " to OpenCL");
+        if (device.runtime != ComputeRuntimeId::METAL) {
+            throw MLDB::Exception("Attempt to pass non-Metal device " + device.info() + " to Metal");
         }
-        return clDevices.at(device.runtimeInstance).at(device.deviceInstance);
+        return mtlDevices.at(device.deviceInstance);
     }
 
-    virtual ~OpenCLComputeRuntime()
+    virtual ~MetalComputeRuntime()
     {
     }
 
     virtual ComputeRuntimeId getId() const
     {
-        return ComputeRuntimeId::OPENCL;
+        return ComputeRuntimeId::METAL;
     }
 
     virtual std::string printRestOfDevice(ComputeDevice device) const
     {
-        return std::to_string(device.runtimeInstance) + ":" + std::to_string(device.deviceInstance);
+        return std::to_string(device.deviceInstance);
     }
 
     virtual std::string printHumanReadableDeviceInfo(ComputeDevice device) const
     {
-        if (device.runtimeInstance >= clDevices.size()
-            || device.deviceInstance >= clDevices[device.runtimeInstance].size()) {
-            return "<<INVALID OPENCL PLATFORM OR DEVICE INDEX>>";
+        if (device.runtimeInstance > 0 || device.deviceInstance >= mtlDevices.size()) {
+            return "<<INVALID METAL PLATFORM OR DEVICE INDEX>>";
         }
-        std::string result = clPlatforms[device.runtimeInstance].getPlatformInfo().name
-             + " " + clDevices[device.runtimeInstance][device.deviceInstance].getDeviceInfo().name;
+        std::string result = mtlDevices[device.deviceInstance].GetName().GetCStr();
         return result;
     }
 
     virtual ComputeDevice getDefaultDevice() const
     {
-        if (clPlatforms.empty()) {
+        if (mtlDevices.empty())
             return ComputeDevice::none();
+
+        if (METAL_DEFAULT_DEVICE.specified()) {
+            ExcAssertLess(METAL_DEFAULT_DEVICE.get(), mtlDevices.size());
+            return {ComputeRuntimeId::METAL, 0 /* platform */,
+                    (uint16_t)METAL_DEFAULT_DEVICE.get(), 0, 0};
         }
 
-        if (OPENCL_DEFAULT_PLATFORM.specified() || OPENCL_DEFAULT_DEVICE.specified()) {
-            return {ComputeRuntimeId::OPENCL,
-                    (uint8_t)OPENCL_DEFAULT_PLATFORM.get(),
-                    (uint16_t)OPENCL_DEFAULT_DEVICE.get(), 0, 0};
-        }
-
-        // Look for a device that's a GPU with non-unified memory
-        for (size_t i = 0;  i < clDevices.size();  ++i) {
-            for (size_t j = 0;  j < clDevices[i].size();  ++j) {
-                auto info = clDevices[i][j].getDeviceInfo();
-                if (info.type.test(OpenCLDeviceType::GPU) && info.unifiedMemory == false ) {
-                    return {ComputeRuntimeId::OPENCL, (uint8_t)i, (uint16_t)j, 0, 0};
-                }
-            }
-        }
-
-        // Look for a device that's a GPU
-        for (size_t i = 0;  i < clDevices.size();  ++i) {
-            for (size_t j = 0;  j < clDevices[i].size();  ++j) {
-                auto info = clDevices[i][j].getDeviceInfo();
-                if (info.type.test(OpenCLDeviceType::GPU)) {
-                    return {ComputeRuntimeId::OPENCL, (uint8_t)i, (uint16_t)j, 0, 0};
-                }
-            }
-        }
-
-        // Fall back on the first device
-        return devices[0];
+        // TODO: deal with the possibility of the default not being at index zero...
+        return {ComputeRuntimeId::METAL, 0 /* platform */, 0 /* device */,0, 0};
     }
 
     // Enumerate the devices available for this runtime
@@ -1624,17 +1908,16 @@ struct OpenCLComputeRuntime: public ComputeRuntime {
     virtual std::shared_ptr<ComputeContext>
     getContext(std::span<const ComputeDevice> devices) const
     {
-        std::vector<OpenCLDevice> clDevices;
-        for (auto & d: devices) {
-            clDevices.emplace_back(convertDevice(d));
+        if (devices.size() != 1) {
+            throw MLDB::Exception("Metal Compute Kernel driver only can accept a single device");
         }
-        return std::make_shared<OpenCLComputeContext>(clDevices);
+        return std::make_shared<MetalComputeContext>(convertDevice(devices[0]));
     }
 
 };
 
-void registerOpenCLComputeKernel(const std::string & kernelName,
-                                 std::function<std::shared_ptr<OpenCLComputeKernel>(OpenCLComputeContext & context)> generator)
+void registerMetalComputeKernel(const std::string & kernelName,
+                                 std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext & context)> generator)
 {
     kernelRegistry[kernelName].generate = generator;
 }
@@ -1644,19 +1927,20 @@ namespace {
 static struct Init {
     Init()
     {
-        ComputeRuntime::registerRuntime(ComputeRuntimeId::OPENCL, "opencl",
-                                        [] () { return new OpenCLComputeRuntime(); });
+        ComputeRuntime::registerRuntime(ComputeRuntimeId::METAL, "metal",
+                                        [] () { return new MetalComputeRuntime(); });
 
-        auto getProgram = [] (OpenCLComputeContext & context) -> OpenCLProgram
+#if 0
+        auto getProgram = [] (MetalComputeContext & context) -> MetalProgram
         {
 
-            auto compileProgram = [&] () -> OpenCLProgram
+            auto compileProgram = [&] () -> MetalProgram
             {
-                std::string fileName = "mldb/builtin/opencl/base_kernels.cl";
+                std::string fileName = "mldb/builtin/metal/base_kernels.cl";
                 filter_istream stream(fileName);
                 Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
 
-                OpenCLProgram program = context.clContext.createProgram(source);
+                MetalProgram program = context.clContext.createProgram(source);
                 string options = "-cl-kernel-arg-info";
 
                 // Build for all devices
@@ -1667,14 +1951,14 @@ static struct Init {
             };
 
             static const std::string cacheKey = "__base_kernels";
-            OpenCLProgram program = context.getCacheEntry(cacheKey, compileProgram);
+            MetalProgram program = context.getCacheEntry(cacheKey, compileProgram);
             return program;
         };
     
-        auto createBlockFillArrayKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
+        auto createBlockFillArrayKernel = [getProgram] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto program = getProgram(context);
-            auto result = std::make_shared<OpenCLComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>();
             result->kernelName = "__blockFillArray";
             result->allowGridExpansion();
             result->addParameter("region", "w", "u8[regionLength]");
@@ -1687,12 +1971,12 @@ static struct Init {
             return result;
         };
 
-        registerOpenCLComputeKernel("__blockFillArray", createBlockFillArrayKernel);
+        registerMetalComputeKernel("__blockFillArray", createBlockFillArrayKernel);
 
-        auto createZeroFillArrayKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
+        auto createZeroFillArrayKernel = [getProgram] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto program = getProgram(context);
-            auto result = std::make_shared<OpenCLComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>();
             result->kernelName = "__zeroFillArray";
             result->allowGridExpansion();
             result->addParameter("region", "w", "u8[regionLength]");
@@ -1703,10 +1987,12 @@ static struct Init {
             return result;
         };
 
-        registerOpenCLComputeKernel("__zeroFillArray", createZeroFillArrayKernel);
+        registerMetalComputeKernel("__zeroFillArray", createZeroFillArrayKernel);
+#endif
     }
 
 } init;
 
 } // file scope
+
 } // namespace MLDB

@@ -47,6 +47,7 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest.cc \
 	randomforest_kernels.cc \
 	randomforest_kernels_opencl.cc \
+	randomforest_kernels_metal.cc \
 	randomforest_types.cc \
 	randomforest_procedure.cc \
 	randomforest_recursive.cc \
@@ -92,7 +93,10 @@ LIBMLDB_JML_PLUGIN_LINK:= \
 	algebra \
 	block \
 	OpenCL \
+	Metal \
+	mtlpp \
 	mldb_opencl_plugin \
+	mldb_metal_plugin \
 	command_expression \
 
 $(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext))

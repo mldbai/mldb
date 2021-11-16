@@ -19,6 +19,8 @@ class Value;
 
 namespace MLDB {
 
+using half = _Float16;
+
 class Utf8String;
 class Utf32String;
 struct JsonParsingContext;
@@ -337,6 +339,7 @@ PREDECLARE_VALUE_DESCRIPTION(signed long);
 PREDECLARE_VALUE_DESCRIPTION(unsigned long);
 PREDECLARE_VALUE_DESCRIPTION(signed long long);
 PREDECLARE_VALUE_DESCRIPTION(unsigned long long);
+PREDECLARE_VALUE_DESCRIPTION(half);
 PREDECLARE_VALUE_DESCRIPTION(float);
 PREDECLARE_VALUE_DESCRIPTION(double);
 PREDECLARE_VALUE_DESCRIPTION(Json::Value);

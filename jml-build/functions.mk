@@ -201,6 +201,45 @@ objs: $$(BUILD_$(CWD)/$(2).lo_OBJ)
 endif
 endef
 
+# add an objective c++ source file
+# $(1): filename of source file
+# $(2): basename of the filename
+# $(3): directory under which the source lives; default $(SRC)
+# $(4): extra compiler options
+
+define add_objc++_source
+ifneq ($(PREMAKE),1)
+
+$$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
+
+$(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)" "$(3)" "$(4)"))
+BUILD_$(CWD)/$(2).lo_COMMAND:=$$(PRECXX) $$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS)) $$(POSTCXXFLAGS) $$(OPTIONS_$(CWD)/$(1))
+$(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
+
+BUILD_$(CWD)/$(2).lo_COUNT_LINES:=$$(CXX) $$(CXXFLAGS) -E $$(tmpDIR)/$(CWD)/$(1) $(4) $$(POSTCXXFLAGS) $$(OPTIONS_$(CWD)/$(1))
+
+BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).lo
+
+BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+
+$(OBJ)/$(CWD)/$(2).d:
+$$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
+	$$(if $(verbose_build),,@$$(BUILD_$(CWD)/$(2).lo_COUNT_LINES) -o $(STDOUT_FILENAME) | grep . | wc > $$@.wc)
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "           $(COLOR_CYAN)[OBJC++	`awk -f mldb/jml-build/print-line-counts.awk $$@.wc`]$(COLOR_RESET)		$(CWD)/$(1)")
+	@$$(call write_timing_to,$$@.timing) $$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+	$$(if $(verbose_build),,@echo "           $(COLOR_GREEN)     $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
+	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
+
+compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).lo_OBJ)
+objs: $$(BUILD_$(CWD)/$(2).lo_OBJ)
+
+ifneq ($(__BASH_MAKE_COMPLETION__),1)
+-include $(OBJ)/$(CWD)/$(2).d
+endif
+endif
+endef
+
 # Add a CUDA source file
 define add_cuda_source
 ifneq ($(PREMAKE),1)
@@ -336,6 +375,7 @@ $(call set,EXT_FUNCTIONS,.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.pb.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.pb_text.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.cpp,add_c++_source)
+$(call set,EXT_FUNCTIONS,.mm,add_objc++_source)
 $(call set,EXT_FUNCTIONS,.c,add_c_source)
 $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
 $(call set,EXT_FUNCTIONS,.cu,add_cuda_source)

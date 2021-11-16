@@ -1,4 +1,4 @@
-/** compute_kernel_opencl.h                                                -*- C++ -*-
+/** compute_kernel_metal.h                                                -*- C++ -*-
     Jeremy Barnes, 27 March 2016
     This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
@@ -8,24 +8,21 @@
 #pragma once
 
 #include "mldb/block/compute_kernel.h"
-#include "opencl_types.h"
+#include "mldb/ext/mtlpp/src/mtlpp.hpp"
 
 namespace MLDB {
 
-struct OpenCLComputeContext;
+struct MetalComputeContext;
 
-struct OpenCLComputeProfilingInfo: public ComputeProfilingInfo {
-    OpenCLComputeProfilingInfo(OpenCLProfilingInfo info);
-    virtual ~OpenCLComputeProfilingInfo() = default;
-
-    OpenCLProfilingInfo clInfo;
+struct MetalComputeProfilingInfo: public ComputeProfilingInfo {
+    MetalComputeProfilingInfo();
+    virtual ~MetalComputeProfilingInfo() = default;
 };
 
-struct OpenCLComputeEvent: public ComputeEvent {
-    OpenCLComputeEvent() = default;  // already resolved
-    OpenCLComputeEvent(OpenCLEvent ev);
+struct MetalComputeEvent: public ComputeEvent {
+    MetalComputeEvent();  // already resolved
 
-    virtual ~OpenCLComputeEvent() = default;
+    virtual ~MetalComputeEvent() = default;
 
     virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const override;
 
@@ -33,18 +30,28 @@ struct OpenCLComputeEvent: public ComputeEvent {
 
     virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn);
 
-    OpenCLEvent ev;
+    void resolve();
+
+    static std::shared_ptr<MetalComputeEvent> makeAlreadyResolvedEvent();
+    static std::shared_ptr<MetalComputeEvent> makeUnresolvedEvent();
+
+    // Return this as a completion handler
+    std::function<void ()> getCompletionHandler() const;
+
+    std::mutex mutex;
+    bool isResolved = false;
+    std::vector<std::function<void ()>> callbacks;
 };
 
-// OpenCLComputeQueue
+// MetalComputeQueue
 
-struct OpenCLComputeQueue: public ComputeQueue {
-    OpenCLComputeQueue(OpenCLComputeContext * owner);
-    OpenCLComputeQueue(OpenCLComputeContext * owner, OpenCLCommandQueue queue);
-    virtual ~OpenCLComputeQueue() = default;
+struct MetalComputeQueue: public ComputeQueue {
+    MetalComputeQueue(MetalComputeContext * owner);
+    MetalComputeQueue(MetalComputeContext * owner, mtlpp::CommandQueue queue);
+    virtual ~MetalComputeQueue() = default;
 
-    OpenCLComputeContext * clOwner = nullptr;
-    OpenCLCommandQueue clQueue;
+    MetalComputeContext * mtlOwner = nullptr;
+    mtlpp::CommandQueue mtlQueue;
 
     virtual std::shared_ptr<ComputeEvent>
     launch(const std::string & opName,
@@ -72,20 +79,19 @@ struct OpenCLComputeQueue: public ComputeQueue {
     virtual void finish() override;
 };
 
-// OpenCLComputeContext
+// MetalComputeContext
 
-struct OpenCLComputeContext: public ComputeContext {
+struct MetalComputeContext: public ComputeContext {
 
-    OpenCLComputeContext(std::vector<OpenCLDevice> devices);
+    MetalComputeContext(mtlpp::Device device);
 
-    virtual ~OpenCLComputeContext() = default;
+    virtual ~MetalComputeContext() = default;
 
-    OpenCLContext clContext;
-    std::shared_ptr<OpenCLComputeQueue> clQueue;  // for internal operations
-    std::vector<OpenCLDevice> clDevices;
+    mtlpp::Device mtlDevice;
+    mtlpp::CommandQueue mtlQueue;  // for internal operations
 
     // pin, region, length in bytes
-    static std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
+    static std::tuple<std::shared_ptr<const void>, int, size_t>
     getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
                     MemoryRegionAccess access);
 
@@ -189,9 +195,14 @@ struct ComputeTuneable {
 DECLARE_STRUCTURE_DESCRIPTION(ComputeTuneable);
 
 
-// OpenCLComputeKernel
+// MetalComputeKernel
 
-struct OpenCLComputeKernel: public ComputeKernel {
+struct MetalComputeKernel: public ComputeKernel {
+
+    MetalComputeKernel(MetalComputeContext * owner)
+        : mtlContext(owner)
+    {
+    }
 
     /// Block dimensions for launching the kernel
     std::vector<size_t> block;
@@ -202,7 +213,7 @@ struct OpenCLComputeKernel: public ComputeKernel {
     /// Do we allow the grid to be expanded?
     bool allowGridExpansionFlag = false;
 
-    using SetParameters = std::function<void (OpenCLKernel & kernel, OpenCLComputeContext & context)>;
+    using SetParameters = std::function<void (mtlpp::Function & kernel, MetalComputeContext & context)>;
 
     /// List of functions used to set arbitrary values on the kernel (especially for calculating
     /// sizes of local arrays or other bounds)
@@ -218,9 +229,9 @@ struct OpenCLComputeKernel: public ComputeKernel {
     // Function to modify the grid dimensions
     std::function<void (std::vector<size_t> & grid, std::vector<size_t> & block)> modifyGrid;
 
-    mutable OpenCLProgram clProgram;  // Mutable as createKernel is non-const
-    OpenCLKernel clKernel;
-    OpenCLKernelInfo clKernelInfo;
+    MetalComputeContext * mtlContext = nullptr;
+    mtlpp::Library mtlLibrary;  // Mutable as createKernel is non-const
+    mtlpp::Function mtlFunction;
 
     // Serializer for tracing this particular kernel
     std::shared_ptr<StructuredSerializer> traceSerializer;
@@ -230,11 +241,11 @@ struct OpenCLComputeKernel: public ComputeKernel {
 
     mutable std::atomic<int> numCalls;
 
-    // For each OpenCL argument, which is the corresponding argument number in arguments passed in?
+    // For each Metal argument, which is the corresponding argument number in arguments passed in?
     std::vector<int> correspondingArgumentNumbers;
 
-    // Parses an OpenCL kernel argument info structure, and turns it into a ComputeKernel type
-    static ComputeKernelType getKernelType(const OpenCLKernelArgInfo & info);
+    // Parses an Metal kernel argument info structure, and turns it into a ComputeKernel type
+    static ComputeKernelType getKernelType(const mtlpp::Argument & arg);
 
     void setParameters(SetParameters setter);
 
@@ -256,7 +267,7 @@ struct OpenCLComputeKernel: public ComputeKernel {
     // parallelism.
     void allowGridExpansion();
 
-    void setComputeFunction(OpenCLProgram program,
+    void setComputeFunction(mtlpp::Library program,
                             std::string kernelName,
                             std::vector<size_t> block);
 
@@ -264,7 +275,7 @@ struct OpenCLComputeKernel: public ComputeKernel {
     virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
 };
 
-void registerOpenCLComputeKernel(const std::string & kernelName,
-                           std::function<std::shared_ptr<OpenCLComputeKernel>(OpenCLComputeContext &)> generator);
+void registerMetalComputeKernel(const std::string & kernelName,
+                           std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext &)> generator);
 
 }  // namespace MLDB

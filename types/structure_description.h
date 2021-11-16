@@ -145,6 +145,56 @@ struct GenericStructureDescription:
     virtual bool onEntry(void * output, JsonParsingContext & context) const override;
     virtual void onExit(void * output, JsonParsingContext & context) const override;
 
+    virtual size_t getFieldCount(const void * val) const override
+    {
+        return fields.size();
+    }
+
+    virtual bool hasFixedFieldCount() const override
+    {
+        return true;
+    }
+
+    virtual size_t getFixedFieldCount() const override
+    {
+        return fields.size();
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const override
+    {
+        return StructureDescriptionBase::hasField(val, field);
+    }
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const override
+    {
+        return StructureDescriptionBase::getFieldDescription(val, field);
+    }
+    
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const override
+    {
+        return StructureDescriptionBase::forEachField(val, onField);
+    }
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const override
+    {
+        return StructureDescriptionBase::getField(field);
+    }
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const override
+    {
+        return StructureDescriptionBase::getFieldByNumber(fieldNum);
+    }
+
+    virtual int getVersion() const override
+    {
+        return StructureDescriptionBase::getVersion();
+    }
+
     virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override;
 };
 
@@ -281,6 +331,16 @@ struct StructureDescription
     }
 
     virtual size_t getFieldCount(const void * val) const override
+    {
+        return fields.size();
+    }
+
+    virtual bool hasFixedFieldCount() const override
+    {
+        return true;
+    }
+
+    virtual size_t getFixedFieldCount() const override
     {
         return fields.size();
     }

@@ -73,10 +73,18 @@ $(eval $(call include_sub_make,mldb_js_plugin,js))
 $(eval $(call include_sub_make,mldb_python_plugin,python))
 $(eval $(call include_sub_make,opencl))
 
+ifeq ($(OSNAME),Darwin)
+$(eval $(call include_mldb_plugin,metal))
+MLDB_METAL_PLUGIN_NAME:=mldb_metal_plugin
+endif
+
+
 LIBMLDB_BUILTIN_LINK := \
 	mldb_builtin_base \
 	mldb_js_plugin \
 	mldb_python_plugin \
 	mldb_opencl_plugin \
+	$(MLDB_METAL_PLUGIN_NAME) \
+
 
 $(eval $(call library,mldb_builtin,,$(LIBMLDB_BUILTIN_LINK)))

@@ -183,6 +183,7 @@ REGISTER_BASIC_TYPE(int64_t, "i64");
 REGISTER_BASIC_TYPE(int32_t, "i32");
 REGISTER_BASIC_TYPE(int16_t, "i16");
 REGISTER_BASIC_TYPE(int8_t,  "i8");
+REGISTER_BASIC_TYPE(half, "f16");
 REGISTER_BASIC_TYPE(float, "f32");
 REGISTER_BASIC_TYPE(double, "f64");
 
@@ -300,6 +301,16 @@ print() const
         return "<<NULL>>";
 
     auto typeName = printBaseType(*baseType);
+
+    if (!simd.empty()) {
+        if (simd.size() != 1 || simd[0] != 1) {
+            std::string simdStr = "v" + std::to_string(simd[0]);
+            for (size_t i = 1;  i < simd.size();  ++i)
+                simdStr += "x";
+
+            typeName = simdStr + " " + typeName;
+        }
+    }
 
     auto result = printAccess(access) + " " + typeName;
     for (auto [bound]: dims) {
@@ -471,6 +482,35 @@ enqueueFillArrayImpl(const std::string & opName,
 
 
 // ComputeContext
+
+std::any
+ComputeContext::
+getCacheEntry(const std::string & key) const
+{
+    std::unique_lock guard(cacheMutex);
+    auto it = cache.find(key);
+    if (it == cache.end()) {
+        return std::any();
+    }
+    return it->second;
+}
+
+std::any
+ComputeContext::
+setCacheEntry(const std::string & key, std::any value)
+{
+    std::unique_lock guard(cacheMutex);
+    std::any oldValue;
+    auto it = cache.find(key);
+    if (it == cache.end()) {
+        cache.emplace(key, std::move(value));
+        return oldValue;
+    }
+    oldValue = std::move(it->second);
+    it->second = std::move(value);
+    return oldValue;
+}
+
 
 MemoryRegionHandle
 ComputeContext::

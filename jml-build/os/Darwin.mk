@@ -64,4 +64,11 @@ LLVM_INCLUDE_PATH:=$(HOMEBREW_OPT)/llvm/include
 LIB_llvm_LINKER_OPTIONS:=-L$(HOMEBREW_OPT)/llvm/lib
 LIB_OpenCL_LINKER_OPTIONS:=-framework OpenCL
 LIB_OpenCL_HAS_NO_SHLIB:=1
-
+LIB_Metal_LINKER_OPTIONS:=-framework Metal
+LIB_Metal_HAS_NO_SHLIB:=1
+LIB_MetalKit_LINKER_OPTIONS:=-framework MetalKit
+LIB_MetalKit_HAS_NO_SHLIB:=1
+LIB_Cocoa_LINKER_OPTIONS:=-framework Cocoa
+LIB_Cocoa_HAS_NO_SHLIB:=1
+LIB_CoreFoundation_LINKER_OPTIONS:=-framework CoreFoundation
+LIB_CoreFoundation_HAS_NO_SHLIB:=1

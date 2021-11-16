@@ -312,6 +312,20 @@ getFieldCount(const void * val) const
     throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
 }
 
+bool
+ValueDescription::
+hasFixedFieldCount() const
+{
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+}
+
+size_t
+ValueDescription::
+getFixedFieldCount() const
+{
+    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+}
+
 const ValueDescription::FieldDescription *
 ValueDescription::
 hasField(const void * val, const std::string & name) const

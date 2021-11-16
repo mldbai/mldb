@@ -26,3 +26,8 @@ $(eval $(call include_sub_make,libgit2,libgit2,../libgit2.mk))
 $(eval $(call include_sub_make,cryptopp,cryptopp,../cryptopp.mk))
 $(eval $(call include_sub_make,libarchive,libarchive,../libarchive.mk))
 
+ifeq ($(OSNAME),Darwin)
+$(eval $(call include_sub_make,mtlpp,mtlpp,../mtlpp.mk))
+endif
+
+

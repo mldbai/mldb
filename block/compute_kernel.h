@@ -374,8 +374,9 @@ struct ComputeKernelType {
     {
     }
 
+    std::vector<uint16_t> simd;
     std::shared_ptr<const ValueDescription> baseType;
-    MemoryRegionAccess access;
+    MemoryRegionAccess access = ACC_NONE;
 
     std::string print() const;
     
@@ -885,6 +886,39 @@ struct ComputeQueue {
 struct ComputeContext {
 
     virtual ~ComputeContext() = default;
+
+    // Allow the context to take ownership of things that need to be cached for the
+    // lifetime of the context.
+    mutable std::mutex cacheMutex;
+    std::map<std::string, std::any> cache;
+
+    // Return the (generic) cache entry for the given key
+    std::any getCacheEntry(const std::string & key) const;
+
+    // Return a typed entry for the given key.  The type T must match that under which the
+    // entry was cached.
+    template<typename T>
+    T getCacheEntry(const std::string & key) const
+    {
+        return std::any_cast<T>(getCacheEntry(key));
+    }
+
+    // Get the entry, using the given function to create it if it doesn't exist
+    template<typename F, typename T = std::invoke_result_t<F>>
+    T getCacheEntry(const std::string & key, F && createEntry)
+    {
+        std::unique_lock guard(cacheMutex);
+        auto it = cache.find(key);
+        if (it == cache.end()) {
+            // TODO: release the cache mutex
+            it = cache.emplace(key, createEntry()).first;
+        }
+        return std::any_cast<T>(it->second);
+    }
+ 
+    // Set an entry generically.  If the entry is already set, nothing happens.
+    // In any case, the current value is returned.
+    std::any setCacheEntry(const std::string & key, std::any value);
 
     virtual ComputePromiseT<MemoryRegionHandle>
     allocateImpl(const std::string & regionName,

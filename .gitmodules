@@ -103,3 +103,6 @@
 [submodule "ext/OpenCL-Headers"]
 	path = ext/OpenCL-Headers
 	url = https://github.com/mldbai/OpenCL-Headers.git
+[submodule "ext/mtlpp"]
+	path = ext/mtlpp
+	url = https://github.com/mldbai/mtlpp.git

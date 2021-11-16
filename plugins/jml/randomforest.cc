@@ -929,6 +929,8 @@ init(int maxDepth,
     // up for the rest.
     auto doNothingKernel = context->getKernel("doNothing");
     auto decodeRowsKernel = context->getKernel("decodeRows");
+
+#if 0
     testFeatureKernel = context->getKernel("testFeature");
     getPartitionSplitsKernel = context->getKernel("getPartitionSplits");
     bestPartitionSplitKernel = context->getKernel("bestPartitionSplit");
@@ -937,6 +939,7 @@ init(int maxDepth,
     updatePartitionNumbersKernel = context->getKernel("updatePartitionNumbers");
     updateBucketsKernel = context->getKernel("updateBuckets");
     fixupBucketsKernel = context->getKernel("fixupBuckets");
+#endif
 
     std::shared_ptr<ComputeEvent> runDoNothing;
     {
@@ -1926,6 +1929,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
 }
 
 EnvOption<bool> RF_USE_OPENCL("RF_USE_OPENCL", 1);
+EnvOption<bool> RF_USE_METAL("RF_USE_METAL", 1);
 
 ML::Tree::Ptr
 trainPartitionedEndToEnd(int depth, int maxDepth,
@@ -1976,13 +1980,6 @@ trainPartitioned(int depth, int maxDepth,
                                     rows, features, bucketMemory, *fs);
 }
 
-namespace {
-
-std::atomic<int> numTrainings = 0;
-//std::atomic<int> numOpenCLTrainings = 0;
-
-};
-
 
 // Train a small forest, with the same rows but a different feature sampling
 // Will eventually reuse much of the work in the partitioned case
@@ -2000,12 +1997,11 @@ trainMultipleSamplings(int maxDepth,
         if (DEBUG_RF_KERNELS && RF_USE_OPENCL) {
             device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
         }
+        else if (RF_USE_METAL) {
+            device = ComputeDevice::defaultFor(ComputeRuntimeId::METAL);
+        }
         else if (RF_USE_OPENCL) {
-            int trainingNum = numTrainings.fetch_add(1);
-            if (trainingNum % 5 == 4 && false)
-                device = ComputeDevice::host();
-            else
-                device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
+            device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
         }
         else {
             device = ComputeDevice::host();
