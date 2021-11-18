@@ -106,3 +106,6 @@
 [submodule "ext/mtlpp"]
 	path = ext/mtlpp
 	url = https://github.com/mldbai/mtlpp.git
+[submodule "ext/fast_float"]
+	path = ext/fast_float
+	url = https://github.com/mldbai/fast_float.git

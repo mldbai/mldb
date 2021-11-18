@@ -25,6 +25,8 @@
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/base/less.h"
 #include "mldb/base/hex_dump.h"
+#include "mldb/ext/fast_float/include/fast_float/fast_float.h"
+#include <charconv>
 
 
 using namespace std;
@@ -368,39 +370,34 @@ parse(const Utf8String & str)
 */
 CellValue
 CellValue::
-parse(const char * s_, size_t len, StringCharacteristics characteristics)
+parse(const char * s, size_t len, StringCharacteristics characteristics)
 {
     if (len == 0)
         return CellValue();
 
-    // this ensures that our buffer is null terminated as required below
-    PossiblyDynamicBuffer<char, 256> sv(len + 1);
-    memcpy(sv.data(), s_, len);
-    auto s = sv.data();
-    s[len] = 0;
+    auto tryIntAs = [&] (auto & val) -> bool
+    {
+        {
+            auto [er, ec] = std::from_chars(s, s + len, val, 10);
+            return (er == s + len);
+        }
+    };
 
-    // First try as an int
-    char * e = s + len;
-    int64_t intVal = strtoll(s, &e, 10);
+    auto tryDoubleAs = [&] (double & val) -> bool
+    {
+        {
+            auto [er, ec] = fast_float::from_chars(s, s + len, val);
+            return (er == s + len);
+        }
+    };
 
-    if (e == s + len) {
-        return CellValue(intVal);
-    }
-    
-    // TODO: only need this one if the length is long enough... optimization
-    e = s + len;
-    uint64_t uintVal = strtoull(s, &e, 10);
+    int64_t intVal;
+    uint64_t uIntVal;
+    double doubleVal;
 
-    if (e == s + len) {
-        return CellValue(uintVal);
-    }
-    
-    e = s + len;
-    double floatVal = strtod(s, &e);
-
-    if (e == s + len) {
-        return CellValue(floatVal);
-    }
+    if (tryIntAs(intVal)) return CellValue(intVal);
+    if (tryIntAs(uIntVal)) return CellValue(uIntVal);
+    if (tryDoubleAs(doubleVal)) return CellValue(doubleVal);
 
     return CellValue(s, len, characteristics);
 }
