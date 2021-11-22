@@ -192,6 +192,8 @@ assignPartitionNumbersKernel(ComputeContext & context,
 
     partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
 
+    std::fill(smallSideIndexToPartitionOut.begin(), smallSideIndexToPartitionOut.end(), 0);
+
     //cerr << "numPartitionsIn = " << numActivePartitions << endl;
 
     // First, accumulate a list of inactive partitions

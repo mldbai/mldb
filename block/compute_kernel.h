@@ -896,6 +896,9 @@ struct ComputeContext {
 
     virtual ~ComputeContext() = default;
 
+    // Get the primary device this context covers
+    virtual ComputeDevice getDevice() const = 0;
+
     // Allow the context to take ownership of things that need to be cached for the
     // lifetime of the context.
     mutable std::mutex cacheMutex;

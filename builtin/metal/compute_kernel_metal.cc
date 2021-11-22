@@ -674,23 +674,16 @@ void
 MetalComputeQueue::
 flush()
 {
-        THROW_UNIMPLEMENTED;
-#if 0
     auto op = scopedOperation("MetalComputeQueue flush");
-    clQueue.flush();
-#endif
+    // TODO: currently we're synchronous, so it's okay for now, but when we're not...
 }
 
 void
 MetalComputeQueue::
 finish()
 {
-        THROW_UNIMPLEMENTED;
-
-#if 0
     auto op = scopedOperation("MetalComputeQueue finish");
-    clQueue.finish();
-#endif
+    // TODO: currently we're synchronous, so it's okay for now, but when we're not...
 }
 
 std::shared_ptr<ComputeEvent>
@@ -704,9 +697,16 @@ makeAlreadyResolvedEvent() const
 // MetalComputeContext
 
 MetalComputeContext::
-MetalComputeContext(mtlpp::Device device)
-    : mtlDevice(device), queue(this)
+MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device)
+    : mtlDevice(mtlDevice), device(device), queue(this)
 {
+}
+
+ComputeDevice
+MetalComputeContext::
+getDevice() const
+{
+    return device;
 }
 
 std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
@@ -899,16 +899,16 @@ transferToHostSyncImpl(const std::string & opName,
         throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
     }
 
-    auto storageMode = buffer.GetStorageMode();
-    cerr << "storage mode is " << (int)storageMode << endl;
+    //auto storageMode = buffer.GetStorageMode();
+    //cerr << "storage mode is " << (int)storageMode << endl;
 
     auto contents = buffer.GetContents();
     auto length = buffer.GetLength();
     ExcAssertLessEqual(handle.handle->lengthInBytes, length);
 
-    cerr << "region length for region " << handle.handle->name
-         << " with lengthInBytes " << handle.handle->lengthInBytes
-         << " is " << length << " and contents " << contents << endl;
+    //cerr << "region length for region " << handle.handle->name
+    //     << " with lengthInBytes " << handle.handle->lengthInBytes
+    //     << " is " << length << " and contents " << contents << endl;
 
     FrozenMemoryRegion result(std::move(pin), (const char *)contents, handle.handle->lengthInBytes);
     return result;
@@ -1012,16 +1012,26 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     mtlpp::ResourceOptions options
          = mtlpp::ResourceOptions::StorageModeShared;
 
-    auto deallocator = [=] (auto ptr, auto len)
-    {
-        cerr << ansi::bright_red << "DEALLOCATING PINNED REGION " << opName << ansi::reset
-             << " of length " << len << endl;
-    };
 
     traceOperation("region size " + std::to_string(region.size()));
 
     // This overload calls newBufferWithBytesNoCopy
-    mtlpp::Buffer buffer = mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
+    // Note that we require a page-aligned address and size, and a single VM region
+    // See https://developer.apple.com/documentation/metal/mtldevice/1433382-makebuffer
+    // Thus, for now we don't try; instead we copy and blit
+    mtlpp::Buffer buffer;
+    if (false) {
+        auto deallocator = [=] (auto ptr, auto len)
+        {
+            cerr << ansi::bright_red << "DEALLOCATING PINNED REGION " << opName << ansi::reset
+                << " of length " << len << endl;
+        };
+
+        buffer = mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
+    }
+    else {
+        buffer = mtlDevice.NewBuffer((const void *)region.data(), region.size(), options);
+    }
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);
@@ -1059,10 +1069,43 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
                                  std::span<const std::byte> hostRegion,
                                  size_t deviceOffset)
 {
-    THROW_UNIMPLEMENTED;
+    FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
+
+    auto [pin, buffer, offset]
+        = MetalComputeContext::getMemoryRegion(opName, *deviceHandle.handle, ACC_WRITE);
+
+    std::byte * contents = (std::byte *)buffer.GetContents();
+    if (contents == nullptr) {
+        THROW_UNIMPLEMENTED;
+    }
+    uint32_t length = buffer.GetLength();
+
+    ExcAssertLessEqual(offset + deviceOffset + hostRegion.size(), length);
+
+    memcpy(contents + offset + deviceOffset, hostRegion.data(), hostRegion.size_bytes());
+
+    buffer.DidModify({(uint32_t)deviceOffset, (uint32_t)hostRegion.size_bytes()});
 
 #if 0
-    FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
+    auto commandQueue = mtlDevice.NewCommandQueue();
+    ExcAssert(commandQueue);
+    auto commandBuffer = commandQueue.CommandBuffer();
+    ExcAssert(commandBuffer);
+    auto blitEncoder = commandBuffer.BlitCommandEncoder();
+    ExcAssert(blitEncoder);
+
+    blitEncoder.
+    blitEncoder.Synchronize(buffer);
+    blitEncoder.EndEncoding();
+    
+    commandBuffer.Commit();
+    commandBuffer.WaitUntilCompleted();
+
+    auto status = commandBuffer.GetStatus();
+    if (status != mtlpp::CommandBufferStatus::Completed) {
+        auto error = commandBuffer.GetError();
+        throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
+    }
 
     clQueue
         ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {})
@@ -1469,7 +1512,7 @@ apply(void * object,
 
     switch (action) {
     case MetalBindFieldActionType::SET_FIELD_FROM_PARAM: {
-        if (argNum == -1 || argNum >= args.size()) {
+        if (argNum == -1 || argNum >= args.size() || !args.at(argNum).handler) {
             // Problem... this parameter wasn't set from an argument.  It must be in known.
             CommandExpressionContext exprContext(&knowns);
             value = expr->apply(exprContext);
@@ -1735,12 +1778,21 @@ setComputeFunction(mtlpp::Library libraryIn,
     this->mtlLibrary = std::move(libraryIn);
     this->kernelName = kernelName;
 
-    this->mtlFunction = this->mtlLibrary.NewFunction(kernelName.c_str());
+    ns::Error error{ns::Handle()};
+    mtlpp::FunctionConstantValues constantValues;
+    this->mtlFunction = this->mtlLibrary.NewFunction(kernelName.c_str(), constantValues, &error);
+    if (error) {
+        cerr << "Error making function" << endl;
+        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
+        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
+        if (error.GetLocalizedFailureReason()) {
+            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
+        }
+    }
     ExcAssert(this->mtlFunction);
 
     //cerr << this->mtlFunction.GetName().GetCStr() << endl;
 
-    ns::Error error{ns::Handle()};
     mtlpp::PipelineOption options = (mtlpp::PipelineOption((int)mtlpp::PipelineOption::ArgumentInfo | (int)mtlpp::PipelineOption::BufferTypeInfo));
     mtlpp::ComputePipelineState computePipelineState
         = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, options, reflection, &error);
@@ -2095,7 +2147,7 @@ struct MetalComputeRuntime: public ComputeRuntime {
         if (devices.size() != 1) {
             throw MLDB::Exception("Metal Compute Kernel driver only can accept a single device");
         }
-        return std::make_shared<MetalComputeContext>(convertDevice(devices[0]));
+        return std::make_shared<MetalComputeContext>(convertDevice(devices[0]), devices[0]);
     }
 
 };

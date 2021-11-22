@@ -221,6 +221,8 @@ struct HostComputeContext: public ComputeContext {
 
     std::shared_ptr<MappedSerializer> backingStore;
 
+    virtual ComputeDevice getDevice() const override { return ComputeDevice::host(); }
+
     virtual ComputePromiseT<MemoryRegionHandle>
     allocateImpl(const std::string & regionName,
                  size_t length, size_t align,

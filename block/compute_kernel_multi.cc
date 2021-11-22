@@ -159,6 +159,17 @@ struct MultiBindInfo: public ComputeKernelBindInfo {
 
 } // file scope
 
+ComputeDevice
+MultiComputeContext::
+getDevice() const
+{
+    // TODO: DRY with runtime
+    ComputeDevice result;
+    result.runtime = ComputeRuntimeId::MULTI;
+    result.runtimeInstance = (uint8_t)ComputeMultiMode::COMPARE;
+    return result;
+}
+
 BoundComputeKernel
 MultiComputeKernel::
 bindImpl(std::vector<ComputeKernelArgument> arguments) const
@@ -224,6 +235,10 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
             using namespace std;
             cerr << ansi::magenta << "comparing contents of parameter " << this->params[i].name << " access "
                 << this->params[i].type.print() << ansi::reset << endl;
+            for (size_t j = 0; j < this->kernels.size();  ++j) {
+                cerr << "  device " << j << " is " << this->multiContext->contexts[j]->getDevice() << endl;
+            }
+
             printedBanner = true;
         };
 
@@ -283,12 +298,12 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
                     cerr << ansi::magenta;
                     printBanner();
                     ++numDifferences;
-                    if (numDifferences == 6) {
+                    if (numDifferences == 11) {
                         cerr << ansi::magenta << "..." << ansi::reset << endl;
                     }
-                    else if (numDifferences <= 5) {
+                    else if (numDifferences <= 10) {
                         cerr << ansi::magenta;
-                        cerr << "difference on element " << k << endl;
+                        cerr << "kernel " << j << " has difference on element " << k << endl;
                         cerr << "  v1 = " << v1 << endl;
                         cerr << "  v2 = " << v2 << endl;
                         cerr << ansi::reset;
@@ -297,7 +312,9 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
                 }
             }
             if (numDifferences > 0) {
-                cerr << ansi::magenta << "  " << numDifferences << " of " << n << " were different" << ansi::reset << endl;
+                cerr << ansi::magenta << "  " << numDifferences << " of " << n << " were different on kernel "
+                     << j  << " device " << this->multiContext->contexts[j]->getDevice()
+                     << ansi::reset << endl;
                 hasDifferences = true;
 
                 std::span<const byte> reference((const byte *)referenceData, referenceLength);

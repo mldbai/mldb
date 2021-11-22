@@ -698,11 +698,18 @@ makeAlreadyResolvedEvent() const
 // OpenCLComputeContext
 
 OpenCLComputeContext::
-OpenCLComputeContext(std::vector<OpenCLDevice> devices)
-    : clContext(devices),
-        clDevices(std::move(devices))
+OpenCLComputeContext(std::vector<OpenCLDevice> clDevices, std::vector<ComputeDevice> devices)
+    : clContext(clDevices),
+        clDevices(std::move(clDevices)), devices(std::move(devices))
 {
     clQueue = std::make_shared<OpenCLComputeQueue>(this);
+}
+
+ComputeDevice
+OpenCLComputeContext::
+getDevice() const
+{
+    return devices.at(0);
 }
 
 std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
@@ -1621,7 +1628,7 @@ struct OpenCLComputeRuntime: public ComputeRuntime {
         for (auto & d: devices) {
             clDevices.emplace_back(convertDevice(d));
         }
-        return std::make_shared<OpenCLComputeContext>(clDevices);
+        return std::make_shared<OpenCLComputeContext>(clDevices, vector<ComputeDevice>{devices.begin(), devices.end()});
     }
 
 };

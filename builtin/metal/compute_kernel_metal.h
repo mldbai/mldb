@@ -83,12 +83,15 @@ struct MetalComputeQueue: public ComputeQueue {
 
 struct MetalComputeContext: public ComputeContext {
 
-    MetalComputeContext(mtlpp::Device device);
+    MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device);
 
     virtual ~MetalComputeContext() = default;
 
     mtlpp::Device mtlDevice;
+    ComputeDevice device;
     MetalComputeQueue queue;
+
+    virtual ComputeDevice getDevice() const override;
 
     // pin, region, length in bytes
     static std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>

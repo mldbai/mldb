@@ -131,47 +131,31 @@ static struct RegisterKernels {
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
 
-            result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get());
-            result->addTuneable("gridBlockSize", 4096);
+            result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
+            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("blocksPerGrid", 16);
 
             result->addParameter("w", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
 
-            result->setGridExpression("[gridBlockSize,nf]", "[256,1]");
+            result->setGridExpression("[nf,blocksPerGrid]", "[1,threadsPerBlock]");
             result->allowGridPadding();
 
-#if 0
-            auto setTheRest = [=] (MetalKernel & kernel, MetalComputeContext & context)
-            {
-                auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(W);
-                //cerr << "maxLocalBuckets = " << maxLocalBuckets << endl;
-                //auto maxLocalBuckets = context.getCacheEntry<uint32_t>("maxLocalBuckets");
-                kernel.bindArg("w", LocalArray<W>(maxLocalBuckets));
-                kernel.bindArg("maxLocalBuckets", maxLocalBuckets);
-            };
-            result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
-            {
-                ExcAssertEqual(grid.size(), 2);
-                grid[1] = 4096;  // don't do one launch per row, the kernel will iterate
-            };
-            result->setParameters(setTheRest);
-#endif
             result->setComputeFunction(library, "testFeatureKernel", { 1, 256 } );
             return result;
         };
 
         registerMetalComputeKernel("testFeature", createTestFeatureKernel);
 
-#if 0
         auto createGetPartitionSplitsKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "getPartitionSplits";
             //result->device = ComputeDevice::host();
             result->addDimension("f", "nf");
             result->addDimension("p", "numPartitions");
-            result->addDimension("b", "maxNumBuckets");
+
             result->addParameter("totalBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
@@ -180,22 +164,14 @@ static struct RegisterKernels {
             result->addParameter("buckets", "r", "W32[totalBuckets * np]");
             result->addParameter("wAll", "r", "W32[np]");
             result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * nf]");
-            auto setTheRest = [=] (MetalKernel & kernel, MetalComputeContext & context)
-            {
-                auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed);
-                //cerr << "maxLocalBuckets WIndexed = " << maxLocalBuckets << endl;
-                kernel.bindArg("wLocal", LocalArray<WIndexed>(maxLocalBuckets));
-                kernel.bindArg("wLocalSize", maxLocalBuckets);
-                kernel.bindArg("wStartBest", LocalArray<WIndexed>(2));
-            };
-            result->modifyGrid = [=] (std::vector<size_t> & grid, std::vector<size_t> & block)
-            {
-                ExcAssertEqual(grid.size(), 2);
-                ExcAssertEqual(block.size(), 2);
-                grid = { 64, grid[0], grid[1] };
-                block = { 64, block[0], block[1] };
-            };
-            result->setParameters(setTheRest);
+
+            result->addTuneable("wLocalSize", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed));
+
+            result->addParameter("wLocal", "w", "WIndexed[wLocalSize]");
+            result->addParameter("wLocalSize", "r", "u32");
+
+            result->setGridExpression("[1,nf,np]", "[64,1,1]");
+            
             result->setComputeFunction(library, "getPartitionSplitsKernel", { 1, 1 });
             return result;
         };
@@ -205,7 +181,7 @@ static struct RegisterKernels {
         auto createBestPartitionSplitKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "bestPartitionSplit";
             //result->device = ComputeDevice::host();
             result->addDimension("p", "np");
@@ -216,6 +192,7 @@ static struct RegisterKernels {
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[maxPartitions]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("depth", "r", "u16");
+            result->setGridExpression("[np]", "[1]");
             result->setComputeFunction(library, "bestPartitionSplitKernel", { 1 });
             return result;
         };
@@ -225,7 +202,7 @@ static struct RegisterKernels {
         auto createAssignPartitionNumbersKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "assignPartitionNumbers";
             //result->device = ComputeDevice::host();
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
@@ -238,13 +215,6 @@ static struct RegisterKernels {
             result->addParameter("smallSideIndexToPartitionOut", "w", "u16[256]");
             result->addParameter("numActivePartitionsOut", "w", "u32[1]");
             result->allowGridPadding();
-            auto setTheRest = [=] (MetalKernel & kernel, MetalComputeContext & context)
-            {
-                uint32_t inactivePartitionsLength = 16384;
-                kernel.bindArg("inactivePartitions", LocalArray<uint16_t>(inactivePartitionsLength));
-                kernel.bindArg("inactivePartitionsLength", inactivePartitionsLength);
-            };
-            result->setParameters(setTheRest);
             result->setComputeFunction(library, "assignPartitionNumbersKernel", {});
             return result;
         };
@@ -254,7 +224,7 @@ static struct RegisterKernels {
         auto createClearBucketsKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "clearBuckets";
             //result->device = ComputeDevice::host();
             result->addDimension("p", "partitionSplitsOffset");
@@ -273,7 +243,7 @@ static struct RegisterKernels {
         auto createUpdatePartitionNumbersKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "updatePartitionNumbers";
             //result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
@@ -291,18 +261,6 @@ static struct RegisterKernels {
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("depth", "r", "u16");
             result->allowGridPadding();
-            auto setTheRest = [=] (MetalKernel & kernel, MetalComputeContext & context)
-            {
-            };
-            result->modifyGrid = [=] (std::vector<size_t> & grid, std::vector<size_t> & block)
-            {
-                ExcAssertEqual(grid.size(), 1);
-                ExcAssertEqual(block.size(), 1);
-                //grid = { 4096 };
-                //block = { 256 };
-            };
-
-            result->setParameters(setTheRest);
             result->setComputeFunction(library, "updatePartitionNumbersKernel", { 256 });
             return result;
         };
@@ -312,17 +270,17 @@ static struct RegisterKernels {
         auto createUpdateBucketsKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
-            result->addDimension("f", "nf");
+            result->addDimension("f_plus_1", "nf_plus_1");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[numRows]");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
-            result->addParameter("wAll", "w", "W32[np * 2]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * numActivePartitions]");
+            result->addParameter("wAll", "w", "W32[numActivePartitions]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("smallSideIndexToPartition", "w", "u16[256]");
             result->addParameter("decodedRows", "r", "f32[nr]");
@@ -333,10 +291,12 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
+            result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("gridBlockSize", 4096);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
+            result->addConstraint("nf_plus_1", "==", "nf + 1", "help the solver");
+            result->addConstraint("nf", "==", "nf_plus_1 - 1", "help the solver");
             result->setGridExpression("[gridBlockSize,nf]", "[256,1]");
             result->allowGridPadding();
             result->setComputeFunction(library, "updateBucketsKernel", { 256, 1 });
@@ -348,26 +308,21 @@ static struct RegisterKernels {
         auto createFixupBucketsKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "fixupBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("partition", "np");
             result->addDimension("bucket", "numActiveBuckets");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
-            result->addParameter("wAll", "w", "W32[np]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * newNumPartitions]");
+            result->addParameter("wAll", "w", "W32[newNumPartitions]");
             result->addParameter("partitionInfo", "r", "PartitionInfo[newNumPartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
-            auto setTheRest = [=] (MetalKernel & kernel, MetalComputeContext & context)
-            {
-            };
-            result->setParameters(setTheRest);
             result->setComputeFunction(library, "fixupBucketsKernel", { 1, 64 });
             return result;
         };
 
         registerMetalComputeKernel("fixupBuckets", createFixupBucketsKernel);
-#endif
     }
 
 } registerKernels;

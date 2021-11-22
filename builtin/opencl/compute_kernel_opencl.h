@@ -76,13 +76,16 @@ struct OpenCLComputeQueue: public ComputeQueue {
 
 struct OpenCLComputeContext: public ComputeContext {
 
-    OpenCLComputeContext(std::vector<OpenCLDevice> devices);
+    OpenCLComputeContext(std::vector<OpenCLDevice> clDevices, std::vector<ComputeDevice> devices);
 
     virtual ~OpenCLComputeContext() = default;
 
     OpenCLContext clContext;
     std::shared_ptr<OpenCLComputeQueue> clQueue;  // for internal operations
     std::vector<OpenCLDevice> clDevices;
+    std::vector<ComputeDevice> devices;
+
+    virtual ComputeDevice getDevice() const override;
 
     // pin, region, length in bytes
     static std::tuple<std::shared_ptr<const void>, cl_mem, size_t>

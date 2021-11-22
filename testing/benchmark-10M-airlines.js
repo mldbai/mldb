@@ -11,7 +11,7 @@ var import_data_conf = {
         runOnCreation: true,
         encoding: 'ascii',
         ignoreBadLines: true,
-        limit: 100000,//10000000,
+        limit: 1000000,//10000000,
     }
 };
 

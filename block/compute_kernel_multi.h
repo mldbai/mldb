@@ -96,6 +96,8 @@ struct MultiComputeContext: public ComputeContext {
 
     virtual ~MultiComputeContext() = default;
 
+    virtual ComputeDevice getDevice() const override;
+
     std::vector<std::shared_ptr<ComputeContext> > contexts;
 
     virtual ComputePromiseT<MemoryRegionHandle>
