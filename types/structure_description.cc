@@ -305,7 +305,7 @@ getVersion() const
 GenericStructureDescription::
 GenericStructureDescription(bool nullAccepted,
                             const std::string & structName)
-    : ValueDescription(ValueKind::STRUCTURE, nullptr, 0 /* width */, 0 /* align */),
+    : ValueDescription(ValueKind::STRUCTURE, nullptr, 0 /* width */, 0 /* align */, structName),
       StructureDescriptionBase(nullptr, this, structName, nullAccepted)
 {
 }
@@ -374,48 +374,44 @@ swapValues(void * from, void * to) const
     }
 }
 
-void *
+void
 GenericStructureDescription::
-constructDefault() const
+initializeDefault(void * mem) const
 {
-    throw MLDB::Exception("not implemented: GenericStructureDescription::constructDefault");
-}
-
-void *
-GenericStructureDescription::
-constructCopy(const void * val) const
-{
-    throw MLDB::Exception("not implemented: GenericStructureDescription::constructCopy");
-
-#if 0
     for (auto & [name, desc]: this->fields) {
-        auto field = desc.getFieldPtr(val);
-        desc.description->constructCopy(field);
+        desc.description->initializeDefault(desc.getFieldPtr(mem));
     }
-#endif
-}
-
-void *
-GenericStructureDescription::
-constructMove(void * val) const
-{
-    throw MLDB::Exception("not implemented: GenericStructureDescription::constructMove");
-
-#if 0
-    for (auto & [name, desc]: this->fields) {
-        auto field = desc.getFieldPtr(val);
-        desc.description->constructMove(field);
-    }
-#endif
 }
 
 void
 GenericStructureDescription::
-destroy(void * val) const
+initializeCopy(void * mem, const void * val) const
+{
+    for (auto & [name, desc]: this->fields) {
+        auto fromField = desc.getFieldPtr(val);
+        auto toField = desc.getFieldPtr(mem);
+        desc.description->initializeCopy(toField, fromField);
+    }
+}
+
+void
+GenericStructureDescription::
+initializeMove(void * mem, void * val) const
+{
+    for (auto & [name, desc]: this->fields) {
+        auto fromField = desc.getFieldPtr(val);
+        auto toField = desc.getFieldPtr(mem);
+        desc.description->initializeMove(toField, fromField);
+    }
+}
+
+void
+GenericStructureDescription::
+destruct(void * val) const
 {
     for (auto & [name, desc]: this->fields) {
         auto field = desc.getFieldPtr(val);
-        desc.description->destroy(field);
+        desc.description->destruct(field);
     }
 }
 

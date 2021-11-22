@@ -16,13 +16,18 @@
 #define __local threadgroup
 #define W W32
 #define barrier threadgroup_barrier
-#define CLK_LOCAL_MEM_FENCE mem_threadgroup
-#define CLK_GLOBAL_MEM_FENCE mem_global
+#define CLK_LOCAL_MEM_FENCE mem_flags::mem_threadgroup
+#define CLK_GLOBAL_MEM_FENCE mem_flags::mem_global
 
 #define atom_add(x,y) atomic_fetch_add_explicit(x, y, memory_order_relaxed)
 #define atom_sub(x,y) atomic_fetch_sub_explicit(x, y, memory_order_relaxed)
 #define atom_inc(x) atomic_fetch_add_explicit(x, 1, memory_order_relaxed)
 #define atom_dec(x) atomic_fetch_sub_explicit(x, 1, memory_order_relaxed)
+
+#define get_global_id(n) global_id[n]
+#define get_global_size(n) global_size[n]
+#define get_local_id(n) local_id[n]
+#define get_local_size(n) local_size[n]
 
 using namespace metal;
 
@@ -285,31 +290,33 @@ inline float decodeWf(int32_t v)
     return v * HL_2_VAL;
 }
 
-#if 0
-
-inline void incrementWLocal(__local WAtomic * w, bool label, float weight)
+inline void incrementWLocal(__local W * wIn, bool label, float weight)
 {
+    auto w = (__local WAtomic *)wIn;
     int32_t inc = encodeW(weight);
     atom_add(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
 }
 
-inline void decrementWLocal(__local WAtomic * w, bool label, float weight)
+inline void decrementWLocal(__local W * wIn, bool label, float weight)
 {
+    auto w = (__local WAtomic *)wIn;
     int32_t inc = encodeW(weight);
     atom_sub(&w->vals[label ? 1 : 0], inc);
     atom_dec(&w->count);
 }
 
-inline void incrementWGlobal(__global WAtomic * w, bool label, float weight)
+inline void incrementWGlobal(__global W * wIn, bool label, float weight)
 {
+    auto w = (__global WAtomic *)wIn;
     int32_t inc = encodeW(weight);
     atom_add(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
 }
 
-inline void incrementWOut(__global WAtomic * wOut, __local const W * wIn)
+inline void incrementWOut(__global W * wOut_, __local const W * wIn)
 {
+    auto wOut = (__global WAtomic *)wOut_;
     if (wIn->count == 0)
         return;
     if (wIn->vals[0] != 0)
@@ -319,8 +326,9 @@ inline void incrementWOut(__global WAtomic * wOut, __local const W * wIn)
     atom_add(&wOut->count,   wIn->count);
 }
 
-inline void decrementWOutGlobal(__global WAtomic * wOut, __global const WAtomic * wIn)
+inline void decrementWOutGlobal(__global W * wOut_, __global const W * wIn)
 {
+    auto wOut = (__global WAtomic *)wOut_;
     if (wIn->count == 0)
         return;
     if (wIn->vals[0] != 0)
@@ -329,8 +337,6 @@ inline void decrementWOutGlobal(__global WAtomic * wOut, __global const WAtomic 
         atom_sub(&wOut->vals[1], wIn->vals[1]);
     atom_sub(&wOut->count,   wIn->count);
 }
-
-#endif
 
 // Take a bit-compressed representation of rows, and turn it into a
 // decompressed version with one float per row (the sign gives the
@@ -394,8 +400,6 @@ decompressRowsKernel(__constant DecompressRowsKernelArgs & args [[buffer(0)]],
         decodedRowsOut[rowId] = encoded;
     }
 }
-
-#if 0
 
 
 #if 0
@@ -501,7 +505,9 @@ struct TestFeatureArgs {
 };
 
 __kernel void
-testFeatureKernel(__global const float * decodedRows [[buffer(0)]],
+testFeatureKernel(
+                 __global TestFeatureArgs & args,
+                 __global const float * decodedRows [[buffer(0)]],
 
                  __global const uint32_t * bucketData [[buffer(1)]],
                  __global const uint32_t * bucketDataOffsets [[buffer(2)]],
@@ -509,16 +515,20 @@ testFeatureKernel(__global const float * decodedRows [[buffer(0)]],
                  __global const uint32_t * bucketEntryBits [[buffer(4)]],
 
                  __global const uint32_t * featuresActive [[buffer(5)]],
-                      
+
                  __local W * w,
                  __global W * partitionBuckets [[buffer(6)]],
-                 uint2 ids [[thread_position_in_grid]],
-                 uint2 sz [[thread_position_in_group]])
+                 uint2 global_id [[thread_position_in_grid]],
+                 uint2 global_size [[threads_per_grid]],
+                 uint2 local_id [[thread_position_in_threadgroup]],
+                 uint2 local_size [[threads_per_threadgroup]])
 {
-    const uint32_t workGroupId = ids.y;
+    const uint32_t numRows = args.numRows;
+    uint16_t maxLocalBuckets = args.maxLocalBuckets;
+    const uint32_t workGroupId = get_global_id (1);
     const uint32_t workerId = get_local_id(1);
-    const uint32_t f = ids.x;
-    
+    const uint32_t f = get_global_id(0);
+
     uint32_t bucketDataOffset = bucketDataOffsets[f];
     uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
     uint32_t numBuckets = bucketNumbers[f + 1] - bucketNumbers[f];
@@ -526,6 +536,10 @@ testFeatureKernel(__global const float * decodedRows [[buffer(0)]],
     uint32_t bucketBits = bucketEntryBits[f];
 
     __global W * wOut = partitionBuckets + bucketNumbers[f];
+
+    //for (int i = 0;  i < 100;  ++i) {
+    //    partitionBuckets[i].count = 123;
+    //}
 
     if (!featuresActive[f])
         return;
@@ -545,13 +559,12 @@ testFeatureKernel(__global const float * decodedRows [[buffer(0)]],
     }
 #endif
 
-    //maxLocalBuckets = 0;  // TODO DEBUG ONLY
+    maxLocalBuckets = 0;  // TODO DEBUG ONLY
 
     for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(1)) {
         zeroW(w + i);
     }
-
 
     barrier(CLK_LOCAL_MEM_FENCE);
     
@@ -572,6 +585,9 @@ testFeatureKernel(__global const float * decodedRows [[buffer(0)]],
         incrementWOut(wOut + i, w + i);
     }
 }
+
+#if 0
+
 
 typedef struct {
     float score;

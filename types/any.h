@@ -10,6 +10,8 @@
 
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/compiler/compiler.h"
+#include <span>
+
 
 namespace MLDB {
 
@@ -163,6 +165,9 @@ struct Any {
         does not exist.
     */
     Any getField(const std::string & fieldName) const;
+
+    // Return the underlying binary representation
+    std::span<const std::byte> asBytes() const;
 
 private:
     friend class TypedAnyDescription;

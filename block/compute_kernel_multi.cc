@@ -108,7 +108,7 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
     getConstRange(const std::string & opName, ComputeContext & context) const override
     {
         MemoryRegionHandle handle = getHandle(opName, context);
-        auto region = multiContext.contexts[index]->transferToHostImpl(opName + "transferTohost", handle).get();
+        auto region = multiContext.contexts[index]->transferToHostImpl(opName + " transferTohost", handle).get();
         return { region.data(), region.length(), region.handle() };
     }
 
@@ -238,7 +238,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
             //auto & h = *kernelGenerated.handler; 
             //cerr << "  kernelGenerated.handler = " << kernelGenerated.handler << demangle(typeid(h)) << endl;
             auto [kernelGeneratedData, kernelGeneratedLength, kernelGeneratedPin]
-                = kernelGenerated.handler->getConstRange("compareParameters", *this->multiContext->contexts[j]);
+                = kernelGenerated.handler->getConstRange("compareParameters " + this->params[i].name, *this->multiContext->contexts[j]);
             
 
             if (referenceLength == 0) {

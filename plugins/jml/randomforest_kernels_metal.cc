@@ -29,7 +29,7 @@ EnvOption<bool> DEBUG_RF_METAL_KERNELS("DEBUG_RF_METAL_KERNELS", 0);
 // On Nvidia, with 32 registers/work item and 256 work items/workgroup
 // (8 warps of 32 threads), we use 32 * 256 * 8 = 64k registers, which
 // means full occupancy.
-//EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_METAL_LOCAL_BUCKET_MEM", 5500);
+EnvOption<int, true> RF_METAL_LOCAL_BUCKET_MEM("RF_METAL_LOCAL_BUCKET_MEM", 5500);
 
 
 namespace {
@@ -54,7 +54,7 @@ static struct RegisterKernels {
                 if (error) {
                     cerr << "Error compiling" << endl;
                     cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-                    cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
+                    cerr << "description: " << error.GetLocalizedDescription().GetCStr() << endl;
                     if (error.GetLocalizedFailureReason()) {
                         cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
                     }
@@ -113,15 +113,15 @@ static struct RegisterKernels {
 
         registerMetalComputeKernel("decodeRows", createDecodeRowsKernel);
 
-#if 0
         auto createTestFeatureKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "testFeature";
             //result->device = ComputeDevice::host();
             result->addDimension("featureNum", "nf");
             result->addDimension("rowNum", "numRows");
+            
             result->addParameter("decodedRows", "r", "f32[numRows]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
@@ -130,7 +130,17 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
+
+            result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get());
+            result->addTuneable("gridBlockSize", 4096);
+
+            result->addParameter("w", "w", "W[maxLocalBuckets]");
+            result->addParameter("maxLocalBuckets", "r", "u32");
+
+            result->setGridExpression("[gridBlockSize,nf]", "[256,1]");
             result->allowGridPadding();
+
+#if 0
             auto setTheRest = [=] (MetalKernel & kernel, MetalComputeContext & context)
             {
                 auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(W);
@@ -145,12 +155,14 @@ static struct RegisterKernels {
                 grid[1] = 4096;  // don't do one launch per row, the kernel will iterate
             };
             result->setParameters(setTheRest);
+#endif
             result->setComputeFunction(library, "testFeatureKernel", { 1, 256 } );
             return result;
         };
 
         registerMetalComputeKernel("testFeature", createTestFeatureKernel);
 
+#if 0
         auto createGetPartitionSplitsKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);

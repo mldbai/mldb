@@ -10,6 +10,8 @@
 #include "mldb/types/meta_value_description.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/set_description.h"
+#include "mldb/types/generic_array_description.h"
+#include "mldb/types/generic_atom_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/ansi.h"
@@ -38,6 +40,7 @@ struct MetalBindInfo: public ComputeKernelBindInfo {
     virtual ~MetalBindInfo() = default;
 
     mtlpp::Function mtlFunction;
+    mtlpp::ComputePipelineState mtlPipelineState;
     const MetalComputeKernel * owner = nullptr;
     std::shared_ptr<StructuredSerializer> traceSerializer;
 
@@ -136,7 +139,7 @@ void traceOperation(const std::string & opName, Args&&... args)
 
         std::string header = format("%10.6f t%8x %2d  METAL COMPUTE: ", elapsed, tid, opCount);
         std::string indent(4 * opCount, ' ');
-        std::string toDump = (string)ansi_str_cyan() + header + indent + ansi_str_bold() + opName
+        std::string toDump = (string)ansi_str_blue() + header + indent + ansi_str_bold() + opName
                            + ansi_str_reset() + "\n";
         cerr << toDump << flush;
     }
@@ -158,6 +161,11 @@ struct ScopedOperation {
     {
         if (!opName.empty()) {
             --opCount;
+
+            if (std::current_exception()) {
+                traceOperation(std::string(ansi::ansi_str_red()) + "EXCEPTION " + opName);
+                return;
+            }
 
             double elapsed = timer.elapsed_wall();
             std::string timerStr;
@@ -190,6 +198,9 @@ ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(const std::string & opNa
 struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
     mtlpp::Buffer buffer;
     size_t offset = 0;
+
+    // If we're managing host memory, this is where it is.
+    const std::byte * backingHostMem = nullptr;
 
     std::mutex mutex;
     int numReaders = 0;
@@ -325,23 +336,6 @@ struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
     }
 };
 
-#if 0
-MetalEventList toMetalEventList(const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
-{
-    MetalEventList clPrereqs;
-    for (auto & ev: prereqs) {
-        if (!ev)
-            continue;
-        auto clPrereq = std::dynamic_pointer_cast<const MetalComputeEvent>(ev);
-        ExcAssert(clPrereq);
-        if (!clPrereq->ev)
-            continue;  // already satisfied
-        clPrereqs.events.emplace_back(clPrereq->ev);
-    }
-
-    return clPrereqs;
-}
-#endif
 
 } // file scope
 
@@ -358,6 +352,7 @@ MetalComputeProfilingInfo()
 MetalComputeEvent::
 MetalComputeEvent()
 {
+    this->isResolved = true;
 }
 
 std::shared_ptr<ComputeProfilingInfo>
@@ -371,16 +366,7 @@ void
 MetalComputeEvent::
 await() const
 {
-    THROW_UNIMPLEMENTED;
-#if 0    
-    if (!ev) {
-        traceOperation("await(): already satisfied");
-        return;  // null event; already satisfied
-    }
-
-    auto tr = scopedOperation("await()");
-    return ev.waitUntilFinished();
-#endif
+    // For now, we only create satisfied events...
 }
 
 std::shared_ptr<ComputeEvent>
@@ -463,9 +449,6 @@ launch(const std::string & opName,
        const std::vector<uint32_t> & grid,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
-    THROW_UNIMPLEMENTED;
-
-#if 0
     try {
         auto tr = scopedOperation("launch kernel " + bound.owner->kernelName + " as " + opName);
 
@@ -484,19 +467,17 @@ launch(const std::string & opName,
             knowns.setValue(dim.range, grid[i]);
         }
 
-        // TODO: constraints
-
-        std::vector<size_t> clGrid, clBlock = kernel->block;
+        std::vector<size_t> mtlGrid, mtlBlock = kernel->block;
         
         if (kernel->allowGridExpansionFlag)
-            ExcAssertLessEqual(grid.size(), clBlock.size());
+            ExcAssertLessEqual(grid.size(), mtlBlock.size());
         else
-            ExcAssertEqual(grid.size(), clBlock.size());
+            ExcAssertEqual(grid.size(), mtlBlock.size());
 
-        for (size_t i = 0;  i < clBlock.size();  ++i) {
+        for (size_t i = 0;  i < mtlBlock.size();  ++i) {
             // Pad out the grid so we cover the whole lot.  The kernel will need to be
             // sure to no-op if it's out of bounds.
-            auto b = clBlock[i];
+            auto b = mtlBlock[i];
             auto range = i < grid.size() ? grid[i] : b;
             auto rem = range % b;
             if (rem > 0) {
@@ -514,26 +495,24 @@ launch(const std::string & opName,
                                             + "grid calculations");
                 }
             }
-            clGrid.push_back(range);
+            mtlGrid.push_back(range);
         }
 
-        if (clGrid.empty()) {
-            clGrid.push_back(1);
+        if (mtlGrid.empty()) {
+            mtlGrid.push_back(1);
         }
-        if (clBlock.empty()) {
-            clBlock.push_back(1);
+        if (mtlBlock.empty()) {
+            mtlBlock.push_back(1);
         }
 
         if (kernel->modifyGrid)
-            kernel->modifyGrid(clGrid, clBlock);
-        
+            kernel->modifyGrid(mtlGrid, mtlBlock);
+
         knowns.setValue("grid", grid);
-        knowns.setValue("clGrid", clGrid);
-        knowns.setValue("clBlock", clBlock);
+        knowns.setValue("mtlGrid", mtlGrid);
+        knowns.setValue("mtlBlock", mtlBlock);
 
         // figure out the values of the new constraints
-
-#if 0
         bool progress = true;
         std::set<std::string> unknowns;
 
@@ -543,6 +522,43 @@ launch(const std::string & opName,
                 progress = progress || c.attemptToSatisfy(knowns, unknowns);
             }
         }
+
+        if (kernel->gridExpression) {
+            mtlGrid = jsonDecode<decltype(mtlGrid)>(kernel->gridExpression->apply(knowns));
+            knowns.setValue("mtlGrid", mtlGrid);
+        }
+
+        if (kernel->blockExpression) {
+            mtlBlock = jsonDecode<decltype(mtlBlock)>(kernel->blockExpression->apply(knowns));
+            knowns.setValue("mtlBlock", mtlBlock);
+        }
+
+        //cerr << "launching kernel " << kernel->kernelName << " with grid " << clGrid << " and block " << clBlock << endl;
+        //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
+
+        if (bindInfo->traceSerializer) {
+            bindInfo->traceSerializer->newObject("grid", mtlGrid);
+            bindInfo->traceSerializer->newObject("block", mtlBlock);
+            bindInfo->traceSerializer->newObject("knowns", knowns.values);
+            bindInfo->traceSerializer->commit();
+        }
+
+        ExcAssert(mtlQueue);
+        mtlpp::CommandBuffer commandBuffer = mtlQueue.CommandBuffer();
+        ExcAssert(commandBuffer);
+
+        // TODO: use events to avoid synchronous execution
+        for (auto & prereq: prereqs) {
+            prereq->await();
+        }
+
+        for (auto & action: kernel->bindActions) {
+            action.apply(*kernel->mtlContext, bound.arguments, knowns, commandBuffer);
+        }
+
+        //for (auto & [name, value]: knowns.values) {
+        //    cerr << "known: " << name << " = " << value.toStringNoNewLine() << endl;
+        //}
 
         bool anyNotSatisfied = false;
         for (auto & c: bound.constraints) {
@@ -560,109 +576,46 @@ launch(const std::string & opName,
             //}
             ExcAssert(!anyNotSatisfied);
         }
-#endif
 
-        if (kernel->gridExpression) {
-            clGrid = jsonDecode<decltype(clGrid)>(kernel->gridExpression->apply(knowns));
-            knowns.setValue("clGrid", clGrid);
-        }
+        mtlGrid.resize(3, 1);
+        mtlBlock.resize(3, 1);
 
-        if (kernel->blockExpression) {
-            clBlock = jsonDecode<decltype(clBlock)>(kernel->blockExpression->apply(knowns));
-            knowns.setValue("clBlock", clBlock);
-        }
+        mtlpp::Size gridSize(mtlGrid[0], mtlGrid[1], mtlGrid[2]);
+        mtlpp::Size blockSize(mtlBlock[0], mtlBlock[1], mtlBlock[2]);
 
-        //cerr << "launching kernel " << kernel->kernelName << " with grid " << clGrid << " and block " << clBlock << endl;
-        //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
-
-        if (bindInfo->traceSerializer) {
-            bindInfo->traceSerializer->newObject("grid", clGrid);
-            bindInfo->traceSerializer->newObject("block", clBlock);
-            bindInfo->traceSerializer->newObject("knowns", knowns.values);
-            bindInfo->traceSerializer->commit();
-        }
+        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
+        commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
+        commandEncoder.DispatchThreadgroups(gridSize, blockSize);
+        commandEncoder.EndEncoding();
 
         auto timer = std::make_shared<Timer>();
+        commandBuffer.Commit();
+        commandBuffer.WaitUntilCompleted();
 
-        auto clPrereqs = toMetalEventList(prereqs);
-
-        auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock, clPrereqs);
+        auto status = commandBuffer.GetStatus();
+        if (status != mtlpp::CommandBufferStatus::Completed) {
+            auto error = commandBuffer.GetError();
+            throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
+        }
 
         // Ensure it's submitted before we start using the event
-        clQueue.flush();
-
-    #if 0
-        std::string kernelName = kernel->kernelName;
-
-        auto execTimes = std::make_shared<std::map<MetalEventCommandExecutionStatus, double>>();
-
-        auto doCallback = [this, kernelName, opName, execTimes, timer]
-                (const MetalEvent & event, MetalEventCommandExecutionStatus status)
-        {
-            traceOperation("completion callback " + opName + " with status " + jsonEncodeStr(status));
-            auto wallTime = timer->elapsed_wall();
-
-            // TODO: lock?
-            //execTimes->emplace(status, timer->elapsed_wall());
-
-            //std::string msg = format("kernel %s status %s wallTime %.2fms\n",
-            //                         kernelName.c_str(), jsonEncodeStr(status).c_str(), wallTime * 1000.0);
-            //cerr << msg;
-
-            if (status != MetalEventCommandExecutionStatus::COMPLETE)
-                return;
-        
-            if (false) {
-                // If there is an exception, this can happen after we've been destroyed
-                std::unique_lock guard(kernelWallTimesMutex);
-                kernelWallTimes[kernelName] += wallTime * 1000.0;
-                totalKernelTime += wallTime * 1000.0;
-            }
-
-            return;
-
-            std::string toDump = "  submit    queue    start      end  elapsed name\n";
-
-            auto info = event.getProfilingInfo();
-
-            auto ms = [&] (int64_t ns) -> double
-                {
-                    return ns / 1000000.0;
-                };
-            
-            toDump += format("%8.3f %8.3f %8.3f %8.3f %8.3f %s\n",
-                        ms(info.queued), ms(info.submit), ms(info.start),
-                        ms(info.end),
-                        ms(info.end - info.start), kernelName);
-            cerr << toDump;
-        };
-
-        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::QUEUED);
-        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::RUNNING);
-        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::SUBMITTED);
-        event.addCallback(doCallback, MetalEventCommandExecutionStatus::COMPLETE);
-        //event.addCallback(doCallback, MetalEventCommandExecutionStatus::ERROR);
-        //clQueue.flush();  // TODO: remove, this is debug!!!
-    #endif
-
-        // DEBUG
-    #if 0
-        event.waitUntilFinished();
+    #if 1
         auto wallTime = timer->elapsed_wall();
 
         {
             std::unique_lock guard(kernelWallTimesMutex);
             kernelWallTimes[bound.owner->kernelName] += wallTime * 1000.0;
             totalKernelTime += wallTime * 1000.0;
+            cerr << "kernel " << bound.owner->kernelName << " executed in " << wallTime * 1000.0 << "ms" << endl;
         }
     #endif
         //doCallback(event, 0);
 
-        return std::make_shared<MetalComputeEvent>(std::move(event));
+        return std::make_shared<MetalComputeEvent>();
     } MLDB_CATCH_ALL {
         rethrowException(400, "Error launching kernel " + bound.owner->kernelName);
     }
-#endif
+    THROW_UNIMPLEMENTED;
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -673,9 +626,11 @@ enqueueFillArrayImpl(const std::string & opName,
                      const std::any & arg,
                      std::vector<std::shared_ptr<ComputeEvent>> prereqs)
 {
-    THROW_UNIMPLEMENTED;
+    // TODO: once we have events, stop doing this...
+    for (auto & prereq: prereqs) {
+        prereq->await();
+    }
 
-#if 0
     auto op = scopedOperation("enqueueFillArrayImpl " + opName);
 
     if (startOffsetInBytes > region.lengthInBytes()) {
@@ -689,7 +644,6 @@ enqueueFillArrayImpl(const std::string & opName,
     }
 
     return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, prereqs);
-#endif
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -751,12 +705,11 @@ makeAlreadyResolvedEvent() const
 
 MetalComputeContext::
 MetalComputeContext(mtlpp::Device device)
-    : mtlDevice(device)
+    : mtlDevice(device), queue(this)
 {
 }
 
-#if 0
-std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
+std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
 MetalComputeContext::
 getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, MemoryRegionAccess access)
 {
@@ -768,7 +721,6 @@ getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, Mem
 
     return { std::move(pin), mem, upcastHandle->offset };
 }
-#endif
 
 std::tuple<FrozenMemoryRegion, int /* version */>
 MetalComputeContext::
@@ -783,22 +735,19 @@ getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & h
     return upcastHandle->getReadOnlyHostAccessSync(*this, opName, offset, length, ignoreHazards);
 }
 
-#if 0
 static MemoryRegionHandle
-doMetalAllocate(MetalContext & clContext,
+doMetalAllocate(mtlpp::Device & mtlDevice,
                  const std::string & regionName,
                  size_t length, size_t align,
                  const std::type_info & type,
                  bool isConst)
 {
-    THROW_UNIMPLEMENTED;
-
-#if 0
     // TODO: align...
-    MetalMemObject mem = clContext.createBuffer(CL_MEM_READ_WRITE, length);
+    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
+    auto buffer = mtlDevice.NewBuffer(length, options);
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
-    handle->buffer = std::move(mem);
+    handle->buffer = std::move(buffer);
     handle->offset = 0;
     handle->type = &type;
     handle->isConst = isConst;
@@ -808,9 +757,7 @@ doMetalAllocate(MetalContext & clContext,
 
     MemoryRegionHandle result{std::move(handle)};
     return result;
-#endif
 }
-#endif
 
 ComputePromiseT<MemoryRegionHandle>
 MetalComputeContext::
@@ -822,12 +769,9 @@ allocateImpl(const std::string & regionName,
              std::any initWith)
 {
     auto op = scopedOperation("MetalComputeContext allocateImpl " + regionName);
-    THROW_UNIMPLEMENTED;
-#if 0
-    auto result = doMetalAllocate(clContext, regionName, length, align, type, isConst);
-    return clQueue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
+    auto result = doMetalAllocate(this->mtlDevice, regionName, length, align, type, isConst);
+    return queue.enqueueFillArrayImpl(regionName + " initialize", result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
-#endif
 }
 
 MemoryRegionHandle
@@ -911,54 +855,11 @@ ComputePromiseT<FrozenMemoryRegion>
 MetalComputeContext::
 transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    THROW_UNIMPLEMENTED;
-#if 0
-    auto op = scopedOperation("MetalComputeContext transferToHostImpl " + opName);
+    // TODO: async
+    auto region = transferToHostSyncImpl(opName, handle);
+    auto event = MetalComputeEvent::makeAlreadyResolvedEvent();
 
-    ExcAssert(handle.handle);
-
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
-    //MetalEvent clEvent;
-    //std::shared_ptr<void> memPtr;
-    auto res = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
-                                    offset /* offset */, handle.lengthInBytes());
-
-    //cerr << "transferToHostImpl: opName " << opName << " bytes " << handle.lengthInBytes() << endl;
-
-    auto & memPtr = std::get<0>(res);
-    auto & clEvent = std::get<1>(res);
-
-    //cerr << "clEvent is " << clEvent.event.operator cl_event() << endl;
-
-    //cerr << jsonEncode(clEvent.getInfo()) << endl;
-
-    auto event = std::make_shared<MetalComputeEvent>(clEvent);
-    auto promise = std::make_shared<std::promise<std::any>>();
-    auto data = (char *)memPtr.get();
-
-    auto cb = [handle, promise, data, memPtr, pin=pin] (const MetalEvent & event, auto status)
-    {
-        //cerr << "transferToHostImpl callback" << endl;
-        if (status == MetalEventCommandExecutionStatus::ERROR)
-            promise->set_exception(std::make_exception_ptr(MLDB::Exception("Metal error mapping host memory")));
-        else {
-            promise->set_value(FrozenMemoryRegion(memPtr, data, handle.lengthInBytes()));
-        }
-    };
-
-    clEvent.addCallback(cb);
-
-    static const bool bugAsyncMapBufferDoesntComplete = true;
-
-    if (bugAsyncMapBufferDoesntComplete) {
-        // TODO: hack, somehow callback isn't being called if we leave this async...
-        clEvent.waitUntilFinished();
-    }
-
-    //cerr << jsonEncode(clEvent.getInfo()) << endl;
-
-    return { promise, event };
-#endif
+    return { region, event };
 }
 
 FrozenMemoryRegion
@@ -966,19 +867,51 @@ MetalComputeContext::
 transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
-    THROW_UNIMPLEMENTED;
-#if 0
     auto op = scopedOperation("MetalComputeContext transferToHostSyncImpl " + opName);
 
-    ExcAssert(handle.handle);
+    MetalMemoryRegionHandleInfo * upcastHandle = dynamic_cast<MetalMemoryRegionHandleInfo *>(handle.handle.get());
+    if (!upcastHandle) {
+        throw MLDB::Exception("Wrong MetalComputeContext handle: got " + demangle(typeid(handle)));
+    }
+    if (upcastHandle->backingHostMem) {
+        // It's a read-only, host-first mapping... so nothing to do
+        return { handle.handle, (const char *)upcastHandle->backingHostMem, (size_t)upcastHandle->lengthInBytes };
+    }
 
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
-    auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ,
-                                                            offset, handle.lengthInBytes());
-    const char * data = (const char *)memPtr.get();
-    FrozenMemoryRegion result(std::move(memPtr), data, handle.lengthInBytes());
+    auto [pin, buffer, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
+
+    auto commandQueue = mtlDevice.NewCommandQueue();
+    ExcAssert(commandQueue);
+    auto commandBuffer = commandQueue.CommandBuffer();
+    ExcAssert(commandBuffer);
+    auto blitEncoder = commandBuffer.BlitCommandEncoder();
+    ExcAssert(blitEncoder);
+
+    blitEncoder.Synchronize(buffer);
+    blitEncoder.EndEncoding();
+    
+    commandBuffer.Commit();
+    commandBuffer.WaitUntilCompleted();
+
+    auto status = commandBuffer.GetStatus();
+    if (status != mtlpp::CommandBufferStatus::Completed) {
+        auto error = commandBuffer.GetError();
+        throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
+    }
+
+    auto storageMode = buffer.GetStorageMode();
+    cerr << "storage mode is " << (int)storageMode << endl;
+
+    auto contents = buffer.GetContents();
+    auto length = buffer.GetLength();
+    ExcAssertLessEqual(handle.handle->lengthInBytes, length);
+
+    cerr << "region length for region " << handle.handle->name
+         << " with lengthInBytes " << handle.handle->lengthInBytes
+         << " is " << length << " and contents " << contents << endl;
+
+    FrozenMemoryRegion result(std::move(pin), (const char *)contents, handle.handle->lengthInBytes);
     return result;
-#endif
 }
 
 ComputePromiseT<MutableMemoryRegion>
@@ -1077,11 +1010,15 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     auto op = scopedOperation("MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
 
     mtlpp::ResourceOptions options
-         = mtlpp::ResourceOptions::StorageModeManaged;
+         = mtlpp::ResourceOptions::StorageModeShared;
 
-    auto deallocator = [] (auto ptr, auto len)
+    auto deallocator = [=] (auto ptr, auto len)
     {
+        cerr << ansi::bright_red << "DEALLOCATING PINNED REGION " << opName << ansi::reset
+             << " of length " << len << endl;
     };
+
+    traceOperation("region size " + std::to_string(region.size()));
 
     // This overload calls newBufferWithBytesNoCopy
     mtlpp::Buffer buffer = mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
@@ -1094,6 +1031,7 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     handle->lengthInBytes = region.size();
     handle->version = 0;
     handle->name = opName;
+    handle->backingHostMem = region.data();
     MemoryRegionHandle result{std::move(handle)};
     return result;
 }
@@ -1204,10 +1142,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
 
     auto newInfo = std::make_shared<MetalMemoryRegionHandleInfo>();
 
-    THROW_UNIMPLEMENTED;
-
-#if 0
-    newInfo->buffer = MetalMemObject(info->buffer, false /* already retained */);
+    newInfo->buffer = info->buffer;
     newInfo->offset = info->offset + startOffsetInBytes;
     newInfo->isConst = isConst;
     newInfo->type = &type;
@@ -1218,26 +1153,6 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
     newInfo->version = info->version;
 
     return { newInfo };
-#endif
-
-#if 0
-    cl_buffer_region region = { startOffsetInBytes, lengthInBytes };
-    cl_int error = CL_NONE;
-    MetalMemObject mem(clCreateSubBuffer(info->mem, isConst ? CL_MEM_READ_ONLY : CL_MEM_READ_WRITE,
-                        CL_BUFFER_CREATE_TYPE_REGION, &region, &error),
-                        true /* already retained */);
-    checkMetalError(error, "clCreateSubBuffer");
-
-    newInfo->mem = std::move(mem);
-    newInfo->isConst = isConst;
-    newInfo->type = &type;
-    newInfo->name = regionName;
-    newInfo->lengthInBytes = lengthInBytes;
-    newInfo->parent = info;
-    newInfo->ownerOffset = startOffsetInBytes;
-
-    return { newInfo };
-#endif
 }
 
 
@@ -1328,6 +1243,108 @@ getKernelTypeFromDataType(mtlpp::DataType dataType)
     }
 }
 
+static MemoryRegionAccess convertAccess(mtlpp::ArgumentAccess access)
+{
+    switch (access) {
+        case mtlpp::ArgumentAccess::ReadOnly: return ACC_READ;
+        case mtlpp::ArgumentAccess::ReadWrite: return ACC_READ_WRITE;
+        case mtlpp::ArgumentAccess::WriteOnly: return ACC_WRITE;
+        default:
+            throw MLDB::Exception("Converting unknown MtlArgumentAccess value");
+    }
+}
+
+ComputeKernelType
+getKernelTypeFromArrayType(const mtlpp::ArrayType & arrayType, const std::string & name, int align = -1, int width = -1);
+
+ComputeKernelType
+getKernelTypeFromStructType(const mtlpp::StructType & structType, const std::string & name,
+                            int align = -1, int width = -1)
+{
+    auto desc = std::make_shared<GenericStructureDescription>(false, name);
+    if (align != -1)
+        desc->align = align;
+    if (width != -1)
+        desc->width = width;
+
+    auto members = structType.GetMembers();
+    for (size_t i = 0;  i < members.GetSize();  ++i) {
+        auto member = members[i];
+        std::string memberName = member.GetName().GetCStr();
+        //cerr << member.GetName().GetCStr() << " at offset " << member.GetOffset() << " with data type "
+        //        << (int)member.GetDataType() << endl;
+
+        ComputeKernelType kernelType;
+
+        switch (member.GetDataType()) {
+        case mtlpp::DataType::None:
+            throw MLDB::Exception("Can't handle void (MtlDataType::None) types");
+        case mtlpp::DataType::Struct:
+            kernelType = getKernelTypeFromStructType(member.GetStructType(), name + "__m__" + memberName);
+            break;
+        case mtlpp::DataType::Array:
+            kernelType = getKernelTypeFromArrayType(member.GetArrayType(), name + "__m__" + memberName);
+            break;
+        default:
+            kernelType = getKernelTypeFromDataType(member.GetDataType());
+        }
+        //cerr << "  data type " << (int)member.GetDataType() << " " << kernelType.print() << endl;
+        //cerr << "  array type " << member.GetArrayType()
+
+        desc->addFieldDesc(memberName, member.GetOffset(), "", kernelType.baseType);
+    }
+    
+    ComputeKernelType type;
+    type.baseType = desc;
+    return type;
+}
+
+ComputeKernelType
+getKernelTypeFromArrayType(const mtlpp::ArrayType & arrayType, const std::string & name, int align, int width)
+{
+    uint32_t length = arrayType.GetArrayLength();
+    uint32_t stride = arrayType.GetStride();
+
+    auto dataType = arrayType.GetElementType();
+    ComputeKernelType elementType;
+
+    switch (dataType) {
+    case mtlpp::DataType::None:
+        throw MLDB::Exception("Can't handle void (MtlDataType::None) types");
+    case mtlpp::DataType::Struct:
+        elementType = getKernelTypeFromStructType(arrayType.GetElementStructType(), name + "__ul__", -1 /* align */, stride /* width */);
+        break;
+    case mtlpp::DataType::Array:
+        elementType = getKernelTypeFromArrayType(arrayType.GetElementArrayType(), name + "__ul__", -1 /* align */, stride /* width */);
+        break;
+    default:
+        elementType = getKernelTypeFromDataType(dataType);
+    }
+
+    if (width == -1) {
+        width = length * stride;
+    }
+    else {
+        ExcAssertGreater(width, 0);
+        ExcAssertEqual(elementType.baseType->width, stride);
+        ExcAssertEqual(elementType.baseType->width * length, width);
+    }
+
+    if (align == -1) {
+        align = elementType.baseType->align;
+    }
+    else {
+        ExcAssertGreater(align, 0);
+        // ... TODO more conditions here...
+    }
+
+    auto desc = std::make_shared<GenericFixedLengthArrayDescription>(width, align, name, elementType.baseType, length);
+
+    ComputeKernelType result;
+    result.baseType = desc;
+    return result;
+}
+
 // Parses an Metal kernel argument info structure, and turns it into a ComputeKernel type
 ComputeKernelType
 MetalComputeKernel::
@@ -1338,6 +1355,9 @@ getKernelType(const mtlpp::Argument & arg)
     mtlpp::ArgumentType argType = arg.GetType();
     mtlpp::DataType dataType;
 
+    static std::atomic<int> idx(0);
+    std::string name = "__metal_arg_" + string(arg.GetName().GetCStr()) + std::to_string(idx++);
+
     if (argType == mtlpp::ArgumentType::Buffer) {
         cerr << "buffer argument " << arg.GetName().GetCStr() << endl;
 
@@ -1345,110 +1365,43 @@ getKernelType(const mtlpp::Argument & arg)
         auto structType = arg.GetBufferStructType();
         auto align = arg.GetBufferAlignment();
         auto width = arg.GetBufferDataSize();
+        auto pointer = arg.GetBufferPointerType();
 
-        cerr << "align " << align << " width " << width << endl;
+        cerr << "align " << align << " width " << width << " pointer " << pointer << endl;
 
-        if (structType) {
-
-            auto desc = std::make_shared<GenericStructureDescription>(false, "__metalKernelArg" + string(arg.GetName().GetCStr()));
-            desc->align = align;
-            desc->width = width;
-
-            cerr << "structure type" << endl;
-            auto members = structType.GetMembers();
-            for (size_t i = 0;  i < members.GetSize();  ++i) {
-                auto member = members[i];
-                cerr << member.GetName().GetCStr() << " at offset " << member.GetOffset() << endl;
-                auto kernelType = getKernelTypeFromDataType(member.GetDataType());
-                cerr << "  data type " << (int)member.GetDataType() << " " << kernelType.print() << endl;
-                //cerr << "  array type " << member.GetArrayType()
-
-                desc->addFieldDesc(member.GetName().GetCStr(), member.GetOffset(), "", kernelType.baseType);
-            }
-            
-            type.baseType = desc;
+        if (pointer) {
+            cerr << "  pointer: acc " << (int)pointer.GetAccess() << " data " << (int)pointer.GetElementType()
+                 << " array " << pointer.GetElementArrayType() << " struct " << pointer.GetElementStructType()
+                 << " datasize " << pointer.GetDataSize() << endl;
         }
-        else {
-            cerr << "dataType = " << (int)dataType << endl;
+
+        switch (dataType) {
+        case mtlpp::DataType::None:
+            throw MLDB::Exception("Can't handle void (MtlDataType::None) types");
+        case mtlpp::DataType::Struct:
+            type = getKernelTypeFromStructType(arg.GetBufferStructType(), name, align, width);
+            break;
+        case mtlpp::DataType::Array:
+            throw MLDB::Exception("Can't handle arrays as Metal arguments");
+            break;
+        default:
             type = getKernelTypeFromDataType(dataType);
             type.dims.emplace_back();  // if it's a basic type, it must be an array
         }
     }
     else if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
-        throw MLDB::Exception("Not implemented: thread group argument types");
-
+        // We know very little about this type, just its alignment and data size
+        auto align = arg.GetThreadgroupMemoryAlignment();
+        auto width = arg.GetThreadgroupMemoryDataSize();
+        type.baseType.reset(new GenericAtomDescription(width, align, name));
     }
     else {
         throw MLDB::Exception("Not implemented: non-buffer and non-thread group argument types");
     }
 
-    mtlpp::ArgumentAccess access = arg.GetAccess();
-    switch (access) {
-        case mtlpp::ArgumentAccess::ReadOnly: type.access = ACC_READ;  break;
-        case mtlpp::ArgumentAccess::ReadWrite: type.access = ACC_READ_WRITE;  break;
-        case mtlpp::ArgumentAccess::WriteOnly: type.access = ACC_WRITE;  break;
-        default:
-            type.access = ACC_NONE;
-    }
-
+    type.access = convertAccess(arg.GetAccess());
     ExcAssert(type.baseType);
     return type;
-
-#if 0
-    bool isConst = info.typeQualifier.test(MetalArgTypeQualifier::CONST);
-    int arrayDim = 0;
-    std::string clTypeName = info.typeName;
-    while (!clTypeName.empty() && clTypeName.back() == '*') {
-        ++arrayDim;
-        clTypeName.pop_back();
-    }
-
-    auto parseType = [] (const char * type)
-    {
-        return MLDB::parseType("", type);
-    };
-
-    if (clTypeName == "ulong" || clTypeName == "uint64_t") {
-        type = parseType("u64");
-    }
-    else if (clTypeName == "uint" || clTypeName == "uint32_t") {
-        type = parseType("u32");
-    }
-    else if (clTypeName == "ushort" || clTypeName == "uint16_t") {
-        type = parseType("u16");
-    }
-    else if (clTypeName == "uchar" || clTypeName == "uint8_t") {
-        type = parseType("u8");
-    }
-    else if (clTypeName == "long" || clTypeName == "int64_t") {
-        type = parseType("i64");
-    }
-    else if (clTypeName == "int" || clTypeName == "int32_t") {
-        type = parseType("i32");
-    }
-    else if (clTypeName == "short" || clTypeName == "int16_t") {
-        type = parseType("i16");
-    }
-    else if (clTypeName == "char" || clTypeName == "int8_t") {
-        type = parseType("i8");
-    }
-    else if (clTypeName == "float") {
-        type = parseType("f32");
-    }
-    else if (clTypeName == "double") {
-        type = parseType("f64");
-    }
-    else type = parseType(clTypeName.c_str());  // Must be a user defined type
-
-    // Add back the dimensions
-    for (size_t i = 0;  i < arrayDim;  ++i) {
-        type.dims.push_back({nullptr});
-    }
-
-    type.access = isConst ? ACC_READ : ACC_READ_WRITE;
-
-    return type;
-#endif
 }
 
 void
@@ -1489,6 +1442,287 @@ addTuneable(const std::string & name, int64_t defaultValue)
     this->tuneables.push_back({name, defaultValue});
 }
 
+DEFINE_ENUM_DESCRIPTION_INLINE(MetalBindFieldActionType)
+{
+    addValue("SET_FIELD_FROM_PARAM", MetalBindFieldActionType::SET_FIELD_FROM_PARAM);
+    addValue("SET_FIELD_FROM_KNOWN", MetalBindFieldActionType::SET_FIELD_FROM_KNOWN);
+}
+
+void
+MetalBindFieldAction::
+apply(void * object,
+      const ValueDescription & desc,
+      MetalComputeContext & context,
+      const std::vector<ComputeKernelArgument> & args,
+      CommandExpressionVariables & knowns) const
+{
+    auto & fieldDesc = desc.getFieldByNumber(fieldNumber);
+    std::string opName = "bind: fill field " + fieldDesc.fieldName;
+    switch (action) {
+    case MetalBindFieldActionType::SET_FIELD_FROM_PARAM: opName += " from arg " + std::to_string(argNum);  break;
+    case MetalBindFieldActionType::SET_FIELD_FROM_KNOWN: opName += " from known " + jsonEncodeStr(expr);  break;
+    }
+
+    auto op = scopedOperation(opName);
+    Json::Value value;
+    bool done = false;
+
+    switch (action) {
+    case MetalBindFieldActionType::SET_FIELD_FROM_PARAM: {
+        if (argNum == -1 || argNum >= args.size()) {
+            // Problem... this parameter wasn't set from an argument.  It must be in known.
+            CommandExpressionContext exprContext(&knowns);
+            value = expr->apply(exprContext);
+            break;
+        }
+        auto & arg = args.at(argNum);
+        ExcAssert(arg.handler);
+        value = arg.handler->toJson();
+        if (arg.handler->type.baseType->kind == ValueKind::ENUM) {
+            // we need to convert to an integer
+            auto bytes = arg.handler->getPrimitive(opName, context);
+            ExcAssertEqual(bytes.size_bytes(), fieldDesc.width);
+            fieldDesc.description->copyValue(bytes.data(), fieldDesc.getFieldPtr(object));
+            done = true;
+        }
+        break;
+    }
+    case MetalBindFieldActionType::SET_FIELD_FROM_KNOWN: {
+        CommandExpressionContext exprContext(&knowns);
+        value = expr->apply(exprContext);
+        break;
+    }
+    default:
+        throw MLDB::Exception("Can't handle unknown MetalBindFieldAction value");
+    }
+
+    traceOperation("value " + jsonEncodeStr(value));
+
+    // We go through the JSON conversion so that we can handle compatible type coversions,
+    // eg uint16_t -> uint32_t.
+    if (!done) {
+        StructuredJsonParsingContext jsonContext(value);
+        fieldDesc.description->parseJson(fieldDesc.getFieldPtr(object), jsonContext);
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MetalBindFieldAction)
+{
+    addField("action", &MetalBindFieldAction::action, "");
+    addField("fieldNumber", &MetalBindFieldAction::fieldNumber, "", -1);
+    addField("argNum", &MetalBindFieldAction::argNum, "", -1);
+    addField("expr", &MetalBindFieldAction::expr, "");
+}
+
+DEFINE_ENUM_DESCRIPTION_INLINE(MetalBindActionType)
+{
+    addValue("SET_BUFFER_FROM_ARG", MetalBindActionType::SET_BUFFER_FROM_ARG, "");
+    addValue("SET_BUFFER_FROM_STRUCT", MetalBindActionType::SET_BUFFER_FROM_STRUCT, "");
+    addValue("SET_BUFFER_THREAD_GROUP", MetalBindActionType::SET_BUFFER_THREAD_GROUP, "");
+}
+
+void
+MetalBindAction::
+applyArg(MetalComputeContext & context,
+         const std::vector<ComputeKernelArgument> & args,
+         CommandExpressionVariables & knowns,
+         mtlpp::CommandBuffer & commandBuffer) const
+{
+    const ComputeKernelArgument & arg = args.at(argNum);
+
+    auto op = scopedOperation("MetalComputeKernel bind arg " + argName + " type " + arg.handler->type.print() + " from " + arg.handler->toJson().toStringNoNewLine());
+
+#if 0
+    if (traceSerializer) {
+        Json::Value thisArgInfo;
+        if (arg.handler)
+            thisArgInfo["value"] = arg.handler->toJson();
+        thisArgInfo["spec"] = paramType.print();
+        static auto vdd = getValueDescriptionDescription(true /* detailed */);
+        thisArgInfo["type"] = vdd->printJsonStructured(paramType.baseType);
+        thisArgInfo["aliases"] = jsonEncode(getValueDescriptionAliases(*paramType.baseType->type));
+        argInfo[this->clKernelInfo.args[i].name] = thisArgInfo;
+    }
+#endif
+
+    static std::atomic<int> disamb = 0;
+    std::string opName = "bind " + argName + " " + std::to_string(++disamb);
+
+    ExcAssert(arg.handler);  // if there is no handler, we should be in applyStruct
+
+    mtlpp::Buffer memBuffer;
+    size_t offset = 0;
+    std::shared_ptr<const void> pin;
+
+    if (arg.handler->canGetPrimitive()) {
+        auto bytes = arg.handler->getPrimitive(opName, context);
+        traceOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
+        memBuffer = context.mtlDevice.NewBuffer(bytes.data(), bytes.size_bytes(), mtlpp::ResourceOptions::StorageModePrivate);
+    }
+    else if (arg.handler->canGetHandle()) {
+        auto handle = arg.handler->getHandle(opName, context);
+        traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
+        MemoryRegionAccess access = type.access;
+
+        Json::Value known;
+        ExcAssert(type.baseType);
+        known["elAlign"] = type.baseType->align;
+        known["elWidth"] = type.baseType->width;
+        known["elType"] = type.baseType->typeName;
+        known["length"] = handle.lengthInBytes() / type.baseType->width;
+        known["type"] = type.print();
+        known["name"] = handle.handle->name;
+        known["version"] = handle.handle->version;
+
+        //cerr << "setting known " << argName << " to " << known << endl;
+
+        knowns.values[argName] = known;
+
+        if (traceSerializer && (access & ACC_READ)) {
+            auto [region, version] = context
+                .getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
+                                            true /* ignore hazards */);
+            //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
+            traceVersion(handle.handle->name, version, region);
+        }
+
+        std::tie(pin, memBuffer, offset)
+            = context.getMemoryRegion(opName, *handle.handle, access);
+    }
+    else if (arg.handler->canGetConstRange()) {
+        throw MLDB::Exception("param.getConstRange");
+    }
+    else {
+        throw MLDB::Exception("don't know how to handle passing parameter to Metal");
+    }
+
+    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
+    commandEncoder.SetBuffer(memBuffer, offset, this->arg.GetIndex());
+    commandEncoder.EndEncoding();
+}
+
+void
+MetalBindAction::
+applyStruct(MetalComputeContext & context,
+            const std::vector<ComputeKernelArgument> & args,
+            CommandExpressionVariables & knowns,
+            mtlpp::CommandBuffer & commandBuffer) const
+{
+    auto op = scopedOperation("MetalComputeKernel bind struct to arg " + argName);
+
+    void * ptr = nullptr;
+    if (type.baseType->align < alignof(void *)) {
+        ptr = malloc(type.baseType->width);
+        if (!ptr)
+            throw MLDB::Exception(errno, "malloc");
+    }
+    else {
+        int res = posix_memalign(&ptr, type.baseType->align, type.baseType->width);
+        if (res != 0)
+            throw MLDB::Exception(res, "posix_memalign");
+    }
+
+    try {
+        type.baseType->initializeDefault(ptr);
+    } MLDB_CATCH_ALL {
+        free(ptr);
+        throw;
+    }
+
+    auto destruct = [desc=type.baseType] (void * ptr)
+    {
+        try {
+            desc->destruct(ptr);
+        } MLDB_CATCH_ALL {
+            free(ptr);
+            throw;
+        }
+        free(ptr);
+    };
+
+    std::shared_ptr<void> result(ptr, std::move(destruct));
+
+    // Fill it in
+    for (auto & field: this->fields) {
+        field.apply(result.get(), *type.baseType, context, args, knowns);
+    }
+
+    auto memBuffer = context.mtlDevice.NewBuffer(result.get(), type.baseType->width,
+                                                 mtlpp::ResourceOptions::StorageModePrivate);
+    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
+    commandEncoder.SetBuffer(memBuffer, 0 /*offset*/, this->arg.GetIndex());
+    commandEncoder.EndEncoding();
+}
+
+void
+MetalBindAction::
+applyThreadGroup(MetalComputeContext & context,
+                 const std::vector<ComputeKernelArgument> & args,
+                 CommandExpressionVariables & knowns,
+                 mtlpp::CommandBuffer & commandBuffer) const
+{
+    // Calculate the array bound
+    CommandExpressionContext exprContext(&knowns);
+    auto len = expr->apply(exprContext).asUInt();
+
+    // Get the number of bytes
+    size_t nbytes = len * type.baseType->width;
+
+    // Must be a multiple of 16 bytes
+    while (nbytes % 16 != 0)
+        ++nbytes;
+
+    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
+
+    // Set the knowns for this binding
+    Json::Value known;
+    known["elAlign"] = type.baseType->align;
+    known["elWidth"] = type.baseType->width;
+    known["elType"] = type.baseType->typeName;
+    known["length"] = len;
+    known["type"] = type.print();
+    known["name"] = "<<<Local array>>>";
+
+    knowns.setValue(this->argName, std::move(known));
+
+    // Set it up in the command encoder
+    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
+    commandEncoder.SetThreadgroupMemory(nbytes, this->arg.GetIndex());
+    commandEncoder.EndEncoding();
+}
+
+void
+MetalBindAction::
+apply(MetalComputeContext & context,
+      const std::vector<ComputeKernelArgument> & args,
+      CommandExpressionVariables & knowns,
+      mtlpp::CommandBuffer & buffer) const
+{
+    switch (action) {
+        case MetalBindActionType::SET_BUFFER_FROM_ARG:
+            applyArg(context, args, knowns, buffer);
+            break;
+        case MetalBindActionType::SET_BUFFER_FROM_STRUCT:
+            applyStruct(context, args, knowns, buffer);
+            break;
+        case MetalBindActionType::SET_BUFFER_THREAD_GROUP:
+            applyThreadGroup(context, args, knowns, buffer);
+            break;
+        default:
+            throw MLDB::Exception("Unknown metal action");
+    }
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MetalBindAction)
+{
+    addField("action", &MetalBindAction::action, "");
+    addField("type", &MetalBindAction::type, "");
+    addField("argNum", &MetalBindAction::argNum, "");
+    addField("argName", &MetalBindAction::argName, "");
+    addField("expr", &MetalBindAction::expr, "");
+    addField("fields", &MetalBindAction::fields, "");
+}
+
 void
 MetalComputeKernel::
 setComputeFunction(mtlpp::Library libraryIn,
@@ -1507,7 +1741,6 @@ setComputeFunction(mtlpp::Library libraryIn,
     //cerr << this->mtlFunction.GetName().GetCStr() << endl;
 
     ns::Error error{ns::Handle()};
-    mtlpp::ComputePipelineReflection reflection;
     mtlpp::PipelineOption options = (mtlpp::PipelineOption((int)mtlpp::PipelineOption::ArgumentInfo | (int)mtlpp::PipelineOption::BufferTypeInfo));
     mtlpp::ComputePipelineState computePipelineState
         = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, options, reflection, &error);
@@ -1526,59 +1759,141 @@ setComputeFunction(mtlpp::Library libraryIn,
 
     correspondingArgumentNumbers.resize(arguments.GetSize());
 
+    std::vector<MetalBindAction> actions;
+
     for (size_t i = 0;  i < arguments.GetSize();  ++i) {
         mtlpp::Argument arg = arguments[i];
-        cerr << "argument " << i << " has name " << arg.GetName().GetCStr() << " and index " << arg.GetIndex() << endl;
-
-        auto type = getKernelType(arg);
-        cerr << "type = " << type.print() << endl;
         std::string argName = arg.GetName().GetCStr();
+        mtlpp::ArgumentType argType = arg.GetType();
 
+        MetalBindAction action;
         auto it = paramIndex.find(argName);
-        if (it == paramIndex.end()) {
-            if (type.baseType->kind == ValueKind::STRUCTURE && type.dims.empty()) {
-                // Check if we know the unpacked types
-                auto numFields = type.baseType->getFixedFieldCount();
-                std::vector<std::string> fieldsNotFound;
-                for (size_t i = 0;  i < numFields;  ++i) {
-                    const auto & field = type.baseType->getFieldByNumber(i);
-                    if (paramIndex.count(field.fieldName))
-                        continue;
-                    fieldsNotFound.push_back(field.fieldName);
-                }
 
-                if (fieldsNotFound.empty()) {
-                    // Can be assembled from known parameters
-                    continue;
+        if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
+            if (it == paramIndex.end()) {
+                throw MLDB::Exception("Metal ThreadGroup kernel parameter " + argName + " to kernel " + this->kernelName
+                                      + " has no corresponding argument to learn its length from");
+            }
+            int argNum = it->second;
+            auto & paramType = params[argNum].type;
+
+            auto width = arg.GetThreadgroupMemoryDataSize();
+            auto align = arg.GetThreadgroupMemoryAlignment();
+
+            ExcAssertEqual(paramType.dims.size(), 1);
+            ExcAssert(paramType.dims[0].bound);
+            ExcAssertEqual(width, paramType.baseType->width);
+            ExcAssertEqual(align, paramType.baseType->align);
+
+            action.action = MetalBindActionType::SET_BUFFER_THREAD_GROUP;
+            action.arg = arg;
+            action.type = paramType;
+            action.argName = argName;
+            action.expr = paramType.dims[0].bound;
+        }
+        else if (argType == mtlpp::ArgumentType::Buffer) {
+            auto type = getKernelType(arg);
+            //cerr << "argument " << i << " has name " << argName
+            //    << " and index " << arg.GetIndex()
+            //    << " and type " << type.print() << endl;
+
+            if (it == paramIndex.end()) {
+                if (type.baseType->kind == ValueKind::STRUCTURE && type.dims.empty()) {
+                    std::vector<MetalBindFieldAction> fieldActions;
+
+                    // Check if we know the unpacked types
+                    auto numFields = type.baseType->getFixedFieldCount();
+                    std::vector<std::string> fieldsNotFound;
+
+                    for (size_t i = 0;  i < numFields;  ++i) {
+                        const auto & field = type.baseType->getFieldByNumber(i);
+                        auto it = paramIndex.find(field.fieldName);
+                        if (it != paramIndex.end()) {
+                            MetalBindFieldAction action;
+                            action.action = MetalBindFieldActionType::SET_FIELD_FROM_PARAM;
+                            action.argNum = it->second;
+                            action.fieldNumber = i;
+                            // Set expr in case the argument isn't passed, in which case it needs to come
+                            // from the known values in the context.
+                            action.expr = CommandExpression::parseArgumentExpression(field.fieldName);
+                            fieldActions.emplace_back(std::move(action));
+                            continue;
+                        }
+                        else {
+                            // We're assuming it comes from somewhere...
+                            MetalBindFieldAction action;
+                            action.action = MetalBindFieldActionType::SET_FIELD_FROM_KNOWN;
+                            action.fieldNumber = i;
+                            action.expr = CommandExpression::parseArgumentExpression(field.fieldName);
+                            fieldActions.emplace_back(std::move(action));
+                            continue;
+                        }
+                        fieldsNotFound.push_back(field.fieldName);
+                    }
+
+                    if (!fieldsNotFound.empty()) {
+                        throw MLDB::Exception("Kernel parameter " + std::to_string(i)
+                                        + " (" + argName + ") to Metal kernel " + kernelName
+                                        + " cannot be assembled because of missing fields " + jsonEncodeStr(fieldsNotFound));
+                    }
+
+                    action.action = MetalBindActionType::SET_BUFFER_FROM_STRUCT;
+                    action.arg = arg;
+                    action.type = type;
+                    action.argName = argName;
+                    action.fields = std::move(fieldActions);
                 }
-                else if (fieldsNotFound.size() < numFields) {
+                else if (this->setters.size() > 0) {
+                    continue;  // should be done in the setter...
+                }
+                else if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
+                    throw MLDB::Exception("Thread group parameter in kernel with no setters defined; "
+                                            "implement a setter to avoid launch failure");
+                }
+                else {
                     throw MLDB::Exception("Kernel parameter " + std::to_string(i)
-                                    + " (" + argName + ") to Metal kernel " + kernelName
-                                    + " cannot be assembled because of missing fields " + jsonEncodeStr(fieldsNotFound));
+                                            + " (" + argName + ") to Metal kernel " + kernelName
+                                            + " has no counterpart in formal parameter list");
                 }
             }
-            if (this->setters.size() > 0)
-                continue;  // should be done in the setter...
-            mtlpp::ArgumentType type = arg.GetType();
-            if (type == mtlpp::ArgumentType::ThreadgroupMemory) {
-                throw MLDB::Exception("Thread group parameter in kernel with no setters defined; "
-                                        "implement a setter to avoid launch failure");
+            else {
+                int argNum = it->second;
+                auto & param = params.at(it->second);
+                correspondingArgumentNumbers.at(i) = argNum;
+
+                type.dims = param.type.dims;
+
+                action.action = MetalBindActionType::SET_BUFFER_FROM_ARG;
+                action.arg = arg;
+                action.type = type;  // TODO: get information from param type
+                action.argNum = it->second;
+                action.argName = arg.GetName().GetCStr();
+
+                cerr << "checking compatibility" << endl;
+                cerr << "param type " << param.type.print() << endl;
+                cerr << "arg type " << type.print() << endl;
+
+                std::string reason;
+
+                if (!param.type.isCompatibleWith(type, &reason)) {
+                    throw MLDB::Exception("Kernel parameter " + std::to_string(i)
+                                            + " (" + argName + ") to Metal kernel " + kernelName
+                                            + ": declared parameter type " + type.print()
+                                            + " is not compatible with kernel type " + param.type.print()
+                                            + ": " + reason);
+                }
             }
-            throw MLDB::Exception("Kernel parameter " + std::to_string(i)
-                                    + " (" + argName + ") to Metal kernel " + kernelName
-                                    + " has no counterpart in formal parameter list");
         }
-        correspondingArgumentNumbers.at(i) = it->second;
-        auto & param = params.at(it->second);
-        std::string reason;
-        if (!param.type.isCompatibleWith(type, &reason)) {
-            throw MLDB::Exception("Kernel parameter " + std::to_string(i)
-                                    + " (" + argName + ") to Metal kernel " + kernelName
-                                    + ": declared parameter type " + type.print()
-                                    + " is not compatible with kernel type " + param.type.print()
-                                    + ": " + reason);
+        else {
+            throw MLDB::Exception("Can't do Metal buffer or texture arguments (yet)");
         }
+        //cerr << "got action\n" << jsonEncode(action) << endl;
+
+        actions.emplace_back(std::move(action));
     }
+
+    //cerr << "got actions\n" << jsonEncode(actions) << endl;
+    this->bindActions = std::move(actions);
 }
 
 BoundComputeKernel
@@ -1588,7 +1903,6 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     auto op = scopedOperation("MetalComputeKernel bindImpl " + kernelName);
 
     ExcAssert(this->context);
-    auto & upcastContext = dynamic_cast<MetalComputeContext &>(*this->context);
 
     ns::Error error{ns::Handle()};
     mtlpp::ComputePipelineReflection reflection;
@@ -1606,18 +1920,19 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
 
     auto bindInfo = std::make_shared<MetalBindInfo>();
     bindInfo->owner = this;
+    bindInfo->mtlPipelineState = computePipelineState;
 
-#if 0
     if (traceSerializer) {
         int callNumber = numCalls++;
         bindInfo->traceSerializer = runsSerializer->newStructure(callNumber);
 
         if (callNumber == 0) {
-            auto key = format("%016x", (uint64_t)this->clProgram.operator cl_program());
+            auto key = format("%016x", (uint64_t)this->mtlLibrary.GetPtr());
 
             traceSerializer->newObject("program", key);
             traceSerializer->newObject("kernel", this->kernelName);
 
+#if 0
             // Store the program so that we can replay it later
             std::unique_lock guard(tracedProgramMutex);
             if (tracedPrograms.insert(key).second) {
@@ -1627,14 +1942,9 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 entry->newStream("source") << programInfo.source;
                 entry->newObject("build", buildInfo);
             }
+#endif
         }
     }
-#endif
-
-    mtlpp::CommandBuffer commandBuffer = upcastContext.mtlQueue.CommandBuffer();
-    ExcAssert(commandBuffer);
-
-    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
 
     BoundComputeKernel result;
     result.arguments = std::move(argumentsIn);
@@ -1654,118 +1964,10 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         result.knowns.setValue(name, value);
     }
 
-    THROW_UNIMPLEMENTED;
-
-#if 0
-    Json::Value argInfo;
-    for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
-        std::string opName = "bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name;
-        auto tr = scopedOperation(opName);
-        int argNum = correspondingArgumentNumbers.at(i);
-        //cerr << "binding Metal parameter " << i << " from argument " << paramNum << endl;
-        if (argNum == -1) {
-            // Will be done via setter...
-            continue;
-        }
-
-        auto & paramType = params[argNum].type;
-
-        // Handle an argument that wasn't passed (ie, an implicit argument)
-        auto handleImplicit = [&] ()
-        {
-            THROW_UNIMPLEMENTED;
-#if 0
-            if (this->clKernelInfo.args[i].addressQualifier == MetalArgAddressQualifier::LOCAL) {
-                ExcAssertEqual(paramType.dims.size(), 1);
-                ExcAssert(paramType.dims[0].bound);
-                auto len = paramType.dims[0].bound->apply(result.knowns).asUInt();
-                size_t nbytes = len * paramType.baseType->width;
-                traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
-                kernel.bindArg(i, LocalArray<std::byte>(nbytes));
-                Json::Value known;
-                known["elAlign"] = paramType.baseType->align;
-                known["elWidth"] = paramType.baseType->width;
-                known["elType"] = paramType.baseType->typeName;
-                known["length"] = len;
-                known["type"] = MetalComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
-                known["name"] = "<<<Local array>>>";
-                result.knowns.setValue(this->clKernelInfo.args[i].name, std::move(known));
-            }
-            else if (this->clKernelInfo.args[i].addressQualifier == MetalArgAddressQualifier::PRIVATE) {
-                auto type = MetalComputeKernel::getKernelType(this->clKernelInfo.args[i]);
-                auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
-                traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
-                std::shared_ptr<void> mem(type.baseType->constructDefault(), [=] (void * p) { type.baseType->destroy(p); });
-                StructuredJsonParsingContext context(val);
-                type.baseType->parseJson(mem.get(), context);
-                kernel.bindArg(i, mem.get(), type.baseType->width);
-            }
-#endif
-        };
-
-        if (argNum >= result.arguments.size()) {
-            handleImplicit();
-        }
-        else {
-            //cerr << "argNum = " << argNum << endl;
-            //cerr << "result.arguments.size() = " << result.arguments.size() << endl;
-            const ComputeKernelArgument & arg = result.arguments.at(argNum);
-
-#if 0
-            if (traceSerializer) {
-                Json::Value thisArgInfo;
-                if (arg.handler)
-                    thisArgInfo["value"] = arg.handler->toJson();
-                thisArgInfo["spec"] = paramType.print();
-                static auto vdd = getValueDescriptionDescription(true /* detailed */);
-                thisArgInfo["type"] = vdd->printJsonStructured(paramType.baseType);
-                thisArgInfo["aliases"] = jsonEncode(getValueDescriptionAliases(*paramType.baseType->type));
-                argInfo[this->clKernelInfo.args[i].name] = thisArgInfo;
-            }
-#endif
-
-            static std::atomic<int> disamb = 0;
-            std::string opName = "bind " + this->clKernelInfo.args[i].name + std::to_string(++disamb);
-            if (!arg.handler) {
-                handleImplicit();
-            }
-            else if (arg.handler->canGetPrimitive()) {
-                auto bytes = arg.handler->getPrimitive(opName, upcastContext);
-                traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
-                kernel.bindArg(i, bytes.data(), bytes.size());
-            }
-            else if (arg.handler->canGetHandle()) {
-                auto handle = arg.handler->getHandle(opName, upcastContext);
-                traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
-                MemoryRegionAccess access = this->params.at(argNum).type.access;
-
-                if (traceSerializer && (access & ACC_READ)) {
-                    auto [region, version] = upcastContext
-                        .getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
-                                                   true /* ignore hazards */);
-                    //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
-                    traceVersion(handle.handle->name, version, region);
-                }
-
-                auto [pin, mem, offset] = upcastContext.getMemoryRegion(opName, *handle.handle, access);
-                bindInfo->argumentPins.emplace_back(std::move(pin));
-                ExcAssertEqual(offset, 0);  // need to get sub buffer for non-zero offset to work
-                kernel.bindArg(i, mem);
-            }
-            else if (arg.handler->canGetConstRange()) {
-                throw MLDB::Exception("param.getConstRange");
-            }
-            else {
-                throw MLDB::Exception("don't know how to handle passing parameter to Metal");
-            }
-        }
-    }
-
     // Run the setters to set the other parameters
-    for (auto & s: this->setters) {
-        s(kernel, upcastContext);
-    }
-#endif
+    //for (auto & s: this->setters) {
+    //    s(kernel, upcastContext);
+    //}
 
     // Look through for constraints from dimensions
     for (size_t i = 0;  i < this->dims.size();  ++i) {
@@ -1793,15 +1995,13 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
         }
     }
 
-#if 0
     if (bindInfo->traceSerializer) {
-        bindInfo->traceSerializer->newObject("args", argInfo);
+        //bindInfo->traceSerializer->newObject("args", argInfo);
         bindInfo->traceSerializer->newObject("knowns", result.knowns.values);
         bindInfo->traceSerializer->newObject("unknowns", result.unknowns);
         bindInfo->traceSerializer->newObject("constraints", result.constraints);
         bindInfo->traceSerializer->newObject("tuneables", tuneables);
     }
-#endif
 
 #if 0
     cerr << "got " << result.constraints.size() << " constraints" << endl;
@@ -1811,22 +2011,6 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     }
 #endif
 
-#if 0
-    commandEncoder.SetBuffer(inBuffer, 0, 0);
-    commandEncoder.SetBuffer(outBuffer, 0, 1);
-    commandEncoder.SetComputePipelineState(computePipelineState);
-    commandEncoder.DispatchThreadgroups(
-        mtlpp::Size(1, 1, 1),
-        mtlpp::Size(dataCount, 1, 1));
-    commandEncoder.EndEncoding();
-
-    mtlpp::BlitCommandEncoder blitCommandEncoder = commandBuffer.BlitCommandEncoder();
-    blitCommandEncoder.Synchronize(outBuffer);
-    blitCommandEncoder.EndEncoding();
-
-    commandBuffer.Commit();
-    commandBuffer.WaitUntilCompleted();
-#endif
 
     return result;
 }
@@ -1930,35 +2114,42 @@ static struct Init {
         ComputeRuntime::registerRuntime(ComputeRuntimeId::METAL, "metal",
                                         [] () { return new MetalComputeRuntime(); });
 
-#if 0
-        auto getProgram = [] (MetalComputeContext & context) -> MetalProgram
+        auto getLibrary = [] (MetalComputeContext & context) -> mtlpp::Library
         {
-
-            auto compileProgram = [&] () -> MetalProgram
+            auto compileLibrary = [&] () -> mtlpp::Library
             {
-                std::string fileName = "mldb/builtin/metal/base_kernels.cl";
+                std::string fileName = "mldb/builtin/metal/base_kernels.metal";
                 filter_istream stream(fileName);
                 Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
 
-                MetalProgram program = context.clContext.createProgram(source);
-                string options = "-cl-kernel-arg-info";
+                ns::Error error{ns::Handle()};
+                mtlpp::CompileOptions compileOptions;
+                //compileOptions.setPreprocessorMacro("WBITS","32");
+                mtlpp::Library library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
 
-                // Build for all devices
-                auto buildInfo = program.build(context.clDevices, options);
-                
-                cerr << jsonEncode(buildInfo[0]) << endl;
-                return program;
+                if (error) {
+                    cerr << "Error compiling" << endl;
+                    cerr << "domain: " << error.GetDomain().GetCStr() << endl;
+                    cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
+                    if (error.GetLocalizedFailureReason()) {
+                        cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
+                    }
+                }
+
+                ExcAssert(library);
+
+                return library;
             };
 
-            static const std::string cacheKey = "__base_kernels";
-            MetalProgram program = context.getCacheEntry(cacheKey, compileProgram);
-            return program;
+            static const std::string cacheKey = "base_kernels";
+            mtlpp::Library library = context.getCacheEntry(cacheKey, compileLibrary);
+            return library;
         };
     
-        auto createBlockFillArrayKernel = [getProgram] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
+        auto createBlockFillArrayKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
-            auto program = getProgram(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto library = getLibrary(context);
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "__blockFillArray";
             result->allowGridExpansion();
             result->addParameter("region", "w", "u8[regionLength]");
@@ -1966,29 +2157,28 @@ static struct Init {
             result->addParameter("lengthInBytes", "r", "u64");
             result->addParameter("blockData", "r", "u8[blockLengthInBytes]");
             result->addParameter("blockLengthInBytes", "r", "u64");
-            result->setComputeFunction(program, "__blockFillArrayKernel", { 256 });
+            result->setComputeFunction(library, "__blockFillArrayKernel", { 256 });
 
             return result;
         };
 
         registerMetalComputeKernel("__blockFillArray", createBlockFillArrayKernel);
 
-        auto createZeroFillArrayKernel = [getProgram] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
+        auto createZeroFillArrayKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
-            auto program = getProgram(context);
-            auto result = std::make_shared<MetalComputeKernel>();
+            auto library = getLibrary(context);
+            auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "__zeroFillArray";
             result->allowGridExpansion();
             result->addParameter("region", "w", "u8[regionLength]");
             result->addParameter("startOffsetInBytes", "r", "u64");
             result->addParameter("lengthInBytes", "r", "u64");
-            result->setComputeFunction(program, "__zeroFillArrayKernel", { 256 });
+            result->setComputeFunction(library, "__zeroFillArrayKernel", { 256 });
 
             return result;
         };
 
         registerMetalComputeKernel("__zeroFillArray", createZeroFillArrayKernel);
-#endif
     }
 
 } init;

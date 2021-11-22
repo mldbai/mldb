@@ -21,12 +21,6 @@ using namespace std;
 
 namespace MLDB {
 
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeTuneable)
-{
-    addField("name", &ComputeTuneable::name, "Name of tuneable parameter");
-    addField("defaultValue", &ComputeTuneable::defaultValue, "Default value of tuneable parameter");
-}
-
 namespace {
 
 std::mutex kernelRegistryMutex;
@@ -1408,10 +1402,9 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
                 auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
                 auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
                 traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
-                std::shared_ptr<void> mem(type.baseType->constructDefault(), [=] (void * p) { type.baseType->destroy(p); });
-                StructuredJsonParsingContext context(val);
-                type.baseType->parseJson(mem.get(), context);
-                kernel.bindArg(i, mem.get(), type.baseType->width);
+                Any any(val, type.baseType.get());
+                auto bytes = any.asBytes();
+                kernel.bindArg(i, bytes.data(), bytes.size_bytes());
             }
         };
 

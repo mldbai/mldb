@@ -123,6 +123,8 @@ struct GenericEnumDescription: public ValueDescription {
     {
 
     }
+
+#if 0
     virtual void * constructDefault() const override
     {
         if (!defaultValue)
@@ -143,6 +145,30 @@ struct GenericEnumDescription: public ValueDescription {
     virtual void destroy(void * obj) const override
     {
         underlying->destroy(obj);
+    }
+#endif
+    virtual void initializeDefault(void * obj) const override
+    {
+        if (!defaultValue) {
+            underlying->initializeDefault(obj);
+            return;
+        }
+        underlying->initializeCopy(obj, defaultValue.get());
+    }
+
+    virtual void initializeCopy(void * obj, const void * other) const override
+    {
+        underlying->initializeCopy(obj, other);
+    }
+
+    virtual void initializeMove(void * obj, void * other) const override
+    {
+        underlying->initializeMove(obj, other);
+    }
+
+    virtual void destruct(void * obj) const override
+    {
+        underlying->destruct(obj);
     }
 
     void setDefaultValue(Enum value)

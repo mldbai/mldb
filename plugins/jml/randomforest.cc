@@ -931,6 +931,7 @@ init(int maxDepth,
     auto decodeRowsKernel = context->getKernel("decodeRows");
 
     testFeatureKernel = context->getKernel("testFeature");
+#if 0
     getPartitionSplitsKernel = context->getKernel("getPartitionSplits");
     bestPartitionSplitKernel = context->getKernel("bestPartitionSplit");
     assignPartitionNumbersKernel = context->getKernel("assignPartitionNumbers");
@@ -938,6 +939,7 @@ init(int maxDepth,
     updatePartitionNumbersKernel = context->getKernel("updatePartitionNumbers");
     updateBucketsKernel = context->getKernel("updateBuckets");
     fixupBucketsKernel = context->getKernel("fixupBuckets");
+#endif
 
     std::shared_ptr<ComputeEvent> runDoNothing;
     {

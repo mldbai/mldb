@@ -41,9 +41,9 @@ DEFINE_ENUM_DESCRIPTION_INLINE(ComputeRuntimeId)
 DEFINE_ENUM_DESCRIPTION_INLINE(MemoryRegionAccess)
 {
     addValue("NONE", ACC_NONE, "No access");
-    addValue("READ", ACC_NONE, "No access");
-    addValue("WRITE", ACC_NONE, "No access");
-    addValue("READ_WRITE", ACC_NONE, "No access");
+    addValue("READ", ACC_READ, "Read-only access");
+    addValue("WRITE", ACC_WRITE, "Write-only access");
+    addValue("READ_WRITE", ACC_READ_WRITE, "Read/write access");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelConstraint)
@@ -52,6 +52,12 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelConstraint)
     addField("op", &ComputeKernelConstraint::op, "Comparison operator for constraint");
     addField("rhs", &ComputeKernelConstraint::rhs, "Right side of constraint expression");
     addField("description", &ComputeKernelConstraint::description, "Description of where constraint comes from");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeTuneable)
+{
+    addField("name", &ComputeTuneable::name, "Name of tuneable parameter");
+    addField("defaultValue", &ComputeTuneable::defaultValue, "Default value of tuneable parameter");
 }
 
 MemoryRegionAccess parseAccess(const std::string & accessStr)
@@ -319,6 +325,106 @@ print() const
     return result;
 }
 
+static bool
+typesAreCompatible(const ValueDescription & passed,
+                   const ValueDescription & expected,
+                   const std::string & context,
+                   bool strict,
+                   std::string * reason = nullptr)
+{
+    auto fail = [&] (std::string why) -> bool { if (reason) *reason = context + ": " + why;  return false; };
+    auto failCompare = [&] (std::string what, const auto & passed, const auto & expected) -> bool
+    {
+        return fail(what + " not equal: passed value '" + jsonEncodeStr(passed) + "' != expected value '" + jsonEncodeStr(expected));
+    };
+
+    if (passed.kind != expected.kind) {
+        auto isAtomic = [] (auto kind)
+        { 
+            return kind == ValueKind::ATOM || kind == ValueKind::BOOLEAN || kind == ValueKind::INTEGER || kind == ValueKind::FLOAT;
+        };
+
+        if (!isAtomic(passed.kind) && !isAtomic(expected.kind))
+            return failCompare("kind", passed.kind, expected.kind);
+    }    
+
+    switch (passed.kind) {
+    case ValueKind::ATOM:
+    case ValueKind::INTEGER:
+    case ValueKind::FLOAT:
+    case ValueKind::BOOLEAN:
+        break;
+
+    case ValueKind::ENUM:
+        if (!typesAreCompatible(passed.contained(), expected.contained(), context + ".(enum underlying)", strict, reason))
+            return false;
+        break;
+
+    case ValueKind::ARRAY: {
+        if (passed.getArrayLengthModel() != LengthModel::FIXED || expected.getArrayLengthModel() != LengthModel::FIXED)
+            return fail("arrays must be fixed length");
+        if (passed.getArrayIndirectionModel() != OwnershipModel::NONE || expected.getArrayIndirectionModel() != OwnershipModel::NONE)
+            return fail("arrays must have inline elements (NONE ownership model)");
+        if (passed.getArrayFixedLength() != passed.getArrayFixedLength())
+            return failCompare("array length", passed.getArrayFixedLength(), passed.getArrayFixedLength());
+        
+        if (!typesAreCompatible(passed.contained(), expected.contained(), context + ".(fixed array element)", true /* strict */, reason))
+            return false;
+        break;
+    }
+
+    case ValueKind::STRUCTURE: {
+        if (!passed.hasFixedFieldCount() || !expected.hasFixedFieldCount())
+            return fail("arrays must have fixed field counts");
+
+        if (passed.getFixedFieldCount() != expected.getFixedFieldCount()) {
+            return failCompare("structure field count", passed.getFixedFieldCount(), expected.getFixedFieldCount());            
+        }
+
+        for (size_t i = 0, n = passed.getFixedFieldCount();  i < n;  ++i) {
+            auto & passedField = passed.getFieldByNumber(i);
+            auto & expectedField = expected.getFieldByNumber(i);
+
+            if (false && passedField.fieldName != expectedField.fieldName) {
+                return failCompare("structure field " + std::to_string(i) + " name",
+                                   passedField.fieldName, expectedField.fieldName);
+            }
+
+            if (passedField.offset != expectedField.offset) {
+                return failCompare("structure field " + passedField.fieldName + " name",
+                                   passedField.offset, expectedField.offset);
+            }
+
+            if (!typesAreCompatible(*passedField.description, *expectedField.description,
+                                    context + "." + passedField.fieldName, true /* strict */, reason))
+                return false;                           
+        }
+        break;
+    }
+
+    case ValueKind::STRING:
+    case ValueKind::OPTIONAL:
+    case ValueKind::LINK:
+    case ValueKind::TUPLE:
+    case ValueKind::VARIANT:
+    case ValueKind::MAP:
+    case ValueKind::ANY:
+        return fail("kind " + jsonEncodeStr(passed.kind) + " not suitable for compute kernels");
+
+    default:
+        throw MLDB::Exception("Unknown value kind checking compatibility");
+    }
+
+    if (strict) {
+        if (passed.width != expected.width)
+            return failCompare("fundamental type width", passed.width, expected.width);
+        if (passed.align != expected.align)
+            return failCompare("fundamental type alignment", passed.width, expected.width);
+    }
+
+    return true;
+}
+
 bool
 ComputeKernelType::
 isCompatibleWith(const ComputeKernelType & otherType, std::string * reason) const
@@ -328,10 +434,13 @@ isCompatibleWith(const ComputeKernelType & otherType, std::string * reason) cons
     if (!baseType || !otherType.baseType)
         return fail("base types are not completely specified: return " + print() + " vs passed " + otherType.print());
 
-    if (*baseType->type != *otherType.baseType->type) {
-        return fail("return type " + printBaseType(*baseType)
-                    + " not same as passed type " + printBaseType(*otherType.baseType));
-    }
+    if (!typesAreCompatible(*baseType, *otherType.baseType, "argument", false /* strict */, reason))
+        return false;
+
+    //if (baseType->typeName != otherType.baseType->typeName) {
+    //    return fail("return type " + printBaseType(*baseType)
+    //                + " not same as passed type " + printBaseType(*otherType.baseType));
+    //}
 
     if (dims.size() != otherType.dims.size()) {
         return fail("different array dimensionality: return " + std::to_string(dims.size()) + " vs passed " + std::to_string(otherType.dims.size()));
@@ -779,7 +888,7 @@ satisfied(CommandExpressionContext & context) const
     auto unknownLhs = lhs->unknowns(context);
     auto unknownRhs = rhs->unknowns(context);
 
-    if (unknownLhs.empty() || unknownRhs.empty())
+    if (!unknownLhs.empty() || !unknownRhs.empty())
         return false;
 
     auto lhsVal = lhs->apply(context);

@@ -31,10 +31,10 @@ struct BridgedValueDescription: public ValueDescription {
     virtual void copyValue(const void * from, void * to) const override;
     virtual void moveValue(void * from, void * to) const override;
     virtual void swapValues(void * from, void * to) const override;
-    virtual void * constructDefault() const override;
-    virtual void * constructCopy(const void * from) const override;
-    virtual void * constructMove(void * from) const override;
-    virtual void destroy(void *) const override;
+    virtual void initializeDefault(void * mem) const override;
+    virtual void initializeCopy(void * mem, const void * from) const override;
+    virtual void initializeMove(void * mem, void * from) const override;
+    virtual void destruct(void * obj) const override;
     virtual bool hasEqualityComparison() const override;
     virtual bool compareEquality(const void * val1, const void * val2) const override;
     virtual bool hasLessThanComparison() const override;
@@ -101,10 +101,10 @@ struct PureValueDescription : public ValueDescriptionT<T> {
     virtual void copyValue(const void * from, void * to) const {}
     virtual void moveValue(void * from, void * to) const {}
     virtual void swapValues(void * from, void * to) const {}
-    virtual void * constructDefault() const {return nullptr;}
-    virtual void * constructCopy(const void *) const {return nullptr;}
-    virtual void * constructMove(void *) const {return nullptr;}
-    virtual void destroy(void *) const {}
+    virtual void initializeDefault(void * mem) const override {}
+    virtual void initializeCopy(void * mem, const void *) const override {}
+    virtual void initializeMove(void * mem, void *) const override {}
+    virtual void destruct(void *) const override {}
 
 };
 
@@ -138,9 +138,9 @@ struct ValueDescriptionWithDefault : public BridgedValueDescription {
         *val = defaultValue;
     }
 
-    virtual void * constructDefault() const override
+    virtual void initializeDefault(void * mem) const override
     {
-        return new T(defaultValue);
+        new (mem) T(defaultValue);
     }
 
     T defaultValue;

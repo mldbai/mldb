@@ -84,6 +84,15 @@ struct ComputeDevice {
 PREDECLARE_VALUE_DESCRIPTION(ComputeDevice);
 std::ostream & operator << (std::ostream & stream, const ComputeDevice & device);
 
+// Represents a tuneable parameter
+struct ComputeTuneable {
+    std::string name;
+    int64_t defaultValue = 0;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ComputeTuneable);
+
+
 struct ComputeContext;
 struct ComputeQueue;
 struct ComputeEvent;

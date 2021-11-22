@@ -65,10 +65,10 @@ struct ValueDescription {
     virtual void copyValue(const void * from, void * to) const = 0;
     virtual void moveValue(void * from, void * to) const = 0;
     virtual void swapValues(void * from, void * to) const = 0;
-    virtual void * constructDefault() const = 0;
-    virtual void * constructCopy(const void * other) const = 0;
-    virtual void * constructMove(void * other) const = 0;
-    virtual void destroy(void *) const = 0;
+    virtual void initializeDefault(void * obj) const = 0;
+    virtual void initializeCopy(void * obj, const void * other) const = 0;
+    virtual void initializeMove(void * obj, void * other) const = 0;
+    virtual void destruct(void *) const = 0;
 
     // Comparisons
     virtual bool hasEqualityComparison() const;
@@ -401,6 +401,7 @@ struct ValueDescriptionT : public ValueDescription {
         doSwap(*from2, *to2);
     }
 
+#if 0
     virtual void * constructDefault() const override
     {
         return constructDefault(typename std::is_default_constructible<T>::type());
@@ -415,10 +416,26 @@ struct ValueDescriptionT : public ValueDescription {
     {
         return constructMove(val, typename std::is_move_constructible<T>::type());
     }
+#endif
 
-    virtual void destroy(void * val) const override
+    virtual void initializeDefault(void * obj) const override
     {
-        delete (T*)val;
+        return initializeDefault(obj, typename std::is_default_constructible<T>::type());
+    }
+
+    virtual void initializeCopy(void * obj, const void * val) const override
+    {
+        return initializeCopy(obj, val, typename std::is_copy_constructible<T>::type());
+    }
+
+    virtual void initializeMove(void * obj, void * val) const override
+    {
+        return initializeMove(obj, val, typename std::is_move_constructible<T>::type());
+    }
+
+    virtual void destruct(void * val) const override
+    {
+        ((T*)val)->~T();
     }
 
     virtual void set(
@@ -475,6 +492,7 @@ private:
         throw MLDB::Exception("type is not move assignable");
     }
 
+#if 0
     // Template parameter so not instantiated for types that are not
     // default constructible
     template<typename X>
@@ -508,6 +526,42 @@ private:
     void * constructMove(void *, std::false_type) const
     {
         throw MLDB::Exception("type is not move constructible");
+    }
+#endif
+
+    // Template parameter so not instantiated for types that are not
+    // default constructible
+    template<typename X>
+    void initializeDefault(void * obj, X) const
+    {
+        new (obj) T();
+    }
+
+    void initializeDefault(void * obj, std::false_type) const
+    {
+        throw MLDB::Exception("type is not default initializable");
+    }
+
+    template<typename X>
+    void initializeCopy(void * obj, const void * from, X) const
+    {
+        new (obj) T(*((T*)from));
+    }
+
+    void initializeCopy(void * obj, const void *, std::false_type) const
+    {
+        throw MLDB::Exception("type is not copy initializable");
+    }
+
+    template<typename X>
+    void initializeMove(void * obj, void * from, X) const
+    {
+        new (obj) T(std::move(*((T*)from)));
+    }
+
+    void initializeMove(void * obj, void *, std::false_type) const
+    {
+        throw MLDB::Exception("type is not move initializable");
     }
 };
 

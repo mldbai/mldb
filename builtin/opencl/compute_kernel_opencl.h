@@ -180,15 +180,6 @@ struct OpenCLComputeContext: public ComputeContext {
                  size_t align, const std::type_info & type, bool isConst) override;
 };
 
-// Represents a tuneable parameter
-struct ComputeTuneable {
-    std::string name;
-    int64_t defaultValue = 0;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(ComputeTuneable);
-
-
 // OpenCLComputeKernel
 
 struct OpenCLComputeKernel: public ComputeKernel {

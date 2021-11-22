@@ -13,177 +13,13 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/pointer_description.h"
 #include "mldb/types/optional_description.h"
+#include "mldb/types/generic_array_description.h"
 
 #include <iostream>
 
 using namespace std;
 
 namespace MLDB {
-
-struct GenericFixedLengthArrayDescription
-    : public ValueDescription {
-
-    GenericFixedLengthArrayDescription(size_t width,
-                                       size_t align,
-                                       const std::string & typeName,
-                                       std::shared_ptr<const ValueDescription> inner,
-                                       size_t fixedLength)
-        : ValueDescription(ValueKind::ARRAY, nullptr, width, align, typeName),
-          inner(inner), fixedLength(fixedLength)
-    {
-        ExcAssert(inner);
-        ExcAssertEqual(width, inner->width * fixedLength);
-    }
-
-    std::shared_ptr<const ValueDescription> inner;
-    size_t fixedLength = 0;
-
-    inline std::byte * getElement(void * valIn, size_t elNum) const
-    {
-        std::byte * val = (std::byte *)valIn;
-        ExcAssertLess(elNum, fixedLength);
-        return val + (inner->width * elNum);
-    }
-
-    inline const std::byte * getElement(const void * valIn, size_t elNum) const
-    {
-        const std::byte * val = (const std::byte *)valIn;
-        ExcAssertLess(elNum, fixedLength);
-        return val + (inner->width * elNum);    
-    }
-
-    virtual void parseJson(void * val,
-                           JsonParsingContext & context) const override
-    {
-        if (!context.isArray())
-            context.exception("expected array of " + inner->typeName);
-        
-        size_t i = 0;
-        auto onElement = [&] ()
-            {
-                if (i >= fixedLength)
-                    context.exception("too many elements in array");
-                inner->parseJson(getElement(val, i++), context);
-            };
-
-        context.forEachElement(onElement);
-
-        if (i != fixedLength) {
-            context.exception("not enough elements in array; expecting "
-                              + std::to_string(fixedLength) + " but got "
-                              + std::to_string(i));
-        }
-    }
-
-    virtual void printJson(const void * val,
-                           JsonPrintingContext & context) const override
-    {
-        context.startArray(fixedLength);
-
-        for (size_t i = 0;  i < fixedLength;  ++i) {
-            context.newArrayElement();
-            inner->printJson(getElement(val, i), context);
-        }
-        
-        context.endArray();
-    }
-
-    virtual bool isDefault(const void * val) const override
-    {
-        return false;  // for now
-    }
-
-    virtual LengthModel getArrayLengthModel() const override
-    {
-        return LengthModel::FIXED;
-    }
-
-    virtual OwnershipModel getArrayIndirectionModel() const override
-    {
-        return OwnershipModel::NONE;
-    }
-
-    virtual size_t getArrayFixedLength() const override
-    {
-        return fixedLength;
-    }
-
-    virtual size_t getArrayLength(void * val) const override
-    {
-        return fixedLength;
-    }
-
-    virtual void *
-    getArrayElement(void * val, uint32_t element) const override
-    {
-        return  getElement(val, element);
-    }
-
-    virtual const void *
-    getArrayElement(const void * val, uint32_t element) const override
-    {
-        return  getElement(val, element);
-    }
-
-    virtual const ValueDescription & contained() const override
-    {
-        return *this->inner;
-    }
-
-    virtual std::shared_ptr<const ValueDescription> containedPtr() const
-    {
-        return this->inner;
-    }
-
-    virtual void setDefault(void * val) const override
-    {
-        for (size_t i = 0;  i < fixedLength;  ++i) {
-            inner->setDefault(getElement(val, i));
-        }
-    }
-
-    virtual void copyValue(const void * from, void * to) const override
-    {
-        for (size_t i = 0;  i < fixedLength;  ++i) {
-            inner->copyValue(getElement(from, i), getElement(to, i));
-        }
-    }
-
-    virtual void moveValue(void * from, void * to) const override
-    {
-        for (size_t i = 0;  i < fixedLength;  ++i) {
-            inner->moveValue(getElement(from, i), getElement(to, i));
-        }
-    }
-
-    virtual void swapValues(void * from, void * to) const override
-    {
-        for (size_t i = 0;  i < fixedLength;  ++i) {
-            inner->swapValues(getElement(from, i), getElement(to, i));
-        }
-    }
-
-    virtual void * constructDefault() const override
-    {
-        throw MLDB::Exception("GenericFixedLengthArrayDescription: need to sort out allocate/construct mess");
-    }
-
-    virtual void * constructCopy(const void * other) const override
-    {
-        throw MLDB::Exception("GenericFixedLengthArrayDescription: need to sort out allocate/construct mess");
-    }
-
-    virtual void * constructMove(void * other) const override
-    {
-        throw MLDB::Exception("GenericFixedLengthArrayDescription: need to sort out allocate/construct mess");
-    }
-
-    virtual void destroy(void *) const override
-    {
-        throw MLDB::Exception("GenericFixedLengthArrayDescription: need to sort out allocate/construct mess");
-    }
-};
-
 
 DEFINE_ENUM_DESCRIPTION_INLINE(ValueKind)
 {
@@ -272,15 +108,36 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ValueDescriptionRepr)
              "alignment in bytes of an ATOM type", (size_t)0);
 }
 
-static Json::Value getDefaultValue(const ValueDescription & description)
+Json::Value getDefaultValue(const ValueDescription & description)
 {
-    void * val = description.constructDefault();
-    if (!val)
-        return Json::Value();
+    void * ptr = nullptr;
+    int res = posix_memalign(&ptr, description.align, description.width);
+    if (res != 0)
+        throw MLDB::Exception(errno, "posix_memalign");
+
+    try {
+        description.initializeDefault(ptr);
+    } MLDB_CATCH_ALL {
+        free(ptr);
+        throw;
+    }
+
+    auto destruct = [desc=&description] (void * ptr)
+    {
+        try {
+            desc->destruct(ptr);
+        } MLDB_CATCH_ALL {
+            free(ptr);
+            throw;
+        }
+        free(ptr);
+    };
+
+    std::shared_ptr<void> result(ptr, std::move(destruct));
+
     Json::Value jval;
     StructuredJsonPrintingContext context(jval);
-    description.printJson(val, context);
-    description.destroy(val);
+    description.printJson(result.get(), context);
 
     return jval;
 }

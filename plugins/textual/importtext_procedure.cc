@@ -1053,7 +1053,7 @@ struct ImportTextProcedureWorkInstance
                         = lineCount.fetch_add(threadAccum.linesDone)
                         + threadAccum.linesDone;
 
-                    if (linesDone % PROGRESS_RATE_LOW < PROGRESS_RATE_LOW) {
+                    if (linesDone % PROGRESS_RATE_LOW == PROGRESS_RATE_LOW) {
                         iterationStep->value = linesDone;
                         onProgress(jsonEncode(iterationStep));
                     }

@@ -88,10 +88,10 @@ struct MetalComputeContext: public ComputeContext {
     virtual ~MetalComputeContext() = default;
 
     mtlpp::Device mtlDevice;
-    mtlpp::CommandQueue mtlQueue;  // for internal operations
+    MetalComputeQueue queue;
 
     // pin, region, length in bytes
-    static std::tuple<std::shared_ptr<const void>, int, size_t>
+    static std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
     getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
                     MemoryRegionAccess access);
 
@@ -186,14 +186,68 @@ struct MetalComputeContext: public ComputeContext {
                  size_t align, const std::type_info & type, bool isConst) override;
 };
 
-// Represents a tuneable parameter
-struct ComputeTuneable {
-    std::string name;
-    int64_t defaultValue = 0;
+// MetalComputeKernel helper types
+
+enum class MetalBindFieldActionType {
+    SET_FIELD_FROM_PARAM,
+    SET_FIELD_FROM_KNOWN
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(ComputeTuneable);
+DECLARE_ENUM_DESCRIPTION(MetalBindFieldActionType);
 
+struct MetalBindFieldAction {
+    MetalBindFieldActionType action;
+    int fieldNumber = -1;
+    int argNum = -1;
+    std::shared_ptr<CommandExpression> expr;  // for setting from known
+
+    void apply(void * object,
+               const ValueDescription & desc,
+               MetalComputeContext & context,
+               const std::vector<ComputeKernelArgument> & args,
+               CommandExpressionVariables & knowns) const;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(MetalBindFieldAction);
+
+enum class MetalBindActionType {
+    SET_BUFFER_FROM_ARG,
+    SET_BUFFER_FROM_STRUCT,
+    SET_BUFFER_THREAD_GROUP
+};
+
+DECLARE_ENUM_DESCRIPTION(MetalBindActionType);
+
+struct MetalBindAction {
+    MetalBindActionType action;
+    ComputeKernelType type;
+    mtlpp::Argument arg;
+    int argNum = -1;
+    std::string argName;
+    std::shared_ptr<CommandExpression> expr;  // for setting from known or size of thread group
+    std::vector<MetalBindFieldAction> fields; // for struct
+
+    void apply(MetalComputeContext & context,
+               const std::vector<ComputeKernelArgument> & args,
+               CommandExpressionVariables & knowns,
+               mtlpp::CommandBuffer & commandBuffer) const;
+
+private:
+    void applyArg(MetalComputeContext & context,
+                  const std::vector<ComputeKernelArgument> & args,
+                  CommandExpressionVariables & knowns,
+                  mtlpp::CommandBuffer & commandBuffer) const;
+    void applyStruct(MetalComputeContext & context,
+                    const std::vector<ComputeKernelArgument> & args,
+                    CommandExpressionVariables & knowns,
+                    mtlpp::CommandBuffer & commandBuffer) const;
+    void applyThreadGroup(MetalComputeContext & context,
+                          const std::vector<ComputeKernelArgument> & args,
+                          CommandExpressionVariables & knowns,
+                          mtlpp::CommandBuffer & commandBuffer) const;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(MetalBindAction);
 
 // MetalComputeKernel
 
@@ -232,6 +286,9 @@ struct MetalComputeKernel: public ComputeKernel {
     MetalComputeContext * mtlContext = nullptr;
     mtlpp::Library mtlLibrary;  // Mutable as createKernel is non-const
     mtlpp::Function mtlFunction;
+    mtlpp::ComputePipelineReflection reflection;
+
+    std::vector<MetalBindAction> bindActions;
 
     // Serializer for tracing this particular kernel
     std::shared_ptr<StructuredSerializer> traceSerializer;
