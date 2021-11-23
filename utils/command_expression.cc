@@ -187,6 +187,29 @@ Json::Value hash(const std::vector<Json::Value> & params)
     return jsonHash(params[0]);
 }
 
+// divideToCover(x, y) = ceil(x/y)
+Json::Value divideToCover(const std::vector<Json::Value> & params)
+{
+    if (params.size() != 2)
+        throw MLDB::Exception("divideToCover() function takes exactly two arguments");
+    auto modulus = params[1].asUInt();
+    if (modulus == 0)
+        throw MLDB::Exception("divideToCover(): divide by zero");
+
+    if (params[1].isUInt()) {
+        auto val = params[0].asUInt();
+        //cerr << "divideToCover(" << params[0].toStringNoNewLine() << "," << params[1].toStringNoNewLine() << ") = "
+        //     << (val + (modulus - 1)) / modulus << endl; 
+        return (val + (modulus - 1)) / modulus;
+    }
+    if (params[1].isInt()) {
+        auto val = params[0].asInt();
+        // hmmm... plus or minus if it's negative?
+        return (val + (modulus - 1)) / modulus;
+    }
+    return ceil(params[0].asDouble() / params[1].asDouble());
+}
+
 } // file scope
 
 
@@ -221,6 +244,7 @@ builtins()
     value->addFunction("max", jsonMaxVector);
     value->addFunction("flatten", flatten);
     value->addFunction("hash", hash);
+    value->addFunction("divideToCover", divideToCover);
 
     return value;
 }

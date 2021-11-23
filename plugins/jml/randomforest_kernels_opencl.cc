@@ -143,7 +143,7 @@ static struct RegisterKernels {
             result->modifyGrid = [=] (std::vector<size_t> & grid, auto &)
             {
                 ExcAssertEqual(grid.size(), 2);
-                grid[1] = 4096;  // don't do one launch per row, the kernel will iterate
+                grid[1] = 16384;  // don't do one launch per row, the kernel will iterate
             };
             result->setParameters(setTheRest);
             result->setComputeFunction(program, "testFeatureKernel", { 1, 256 } );
@@ -323,7 +323,7 @@ static struct RegisterKernels {
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
-            result->addTuneable("gridBlockSize", 4096);
+            result->addTuneable("gridBlockSize", 16384);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
             result->setGridExpression("[gridBlockSize,nf]", "[256,1]");

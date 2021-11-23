@@ -133,7 +133,7 @@ static struct RegisterKernels {
 
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("threadsPerBlock", 256);
-            result->addTuneable("blocksPerGrid", 16);
+            result->addTuneable("blocksPerGrid", 64);
 
             result->addParameter("w", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
@@ -154,7 +154,7 @@ static struct RegisterKernels {
             result->kernelName = "getPartitionSplits";
             //result->device = ComputeDevice::host();
             result->addDimension("f", "nf");
-            result->addDimension("p", "numPartitions");
+            result->addDimension("p", "np");
 
             result->addParameter("totalBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
@@ -214,7 +214,7 @@ static struct RegisterKernels {
             result->addParameter("smallSideIndexesOut", "w", "u8[maxActivePartitions]");
             result->addParameter("smallSideIndexToPartitionOut", "w", "u16[256]");
             result->addParameter("numActivePartitionsOut", "w", "u32[1]");
-            result->allowGridPadding();
+            result->setGridExpression("[1]", "[1]");
             result->setComputeFunction(library, "assignPartitionNumbersKernel", {});
             return result;
         };
@@ -227,13 +227,15 @@ static struct RegisterKernels {
             auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "clearBuckets";
             //result->device = ComputeDevice::host();
-            result->addDimension("p", "partitionSplitsOffset");
+            result->addDimension("p", "np");
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAllOut", "w", "W32[np]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
+            result->addTuneable("gridBlockSize", 64);
+            result->setGridExpression("[np,divideToCover(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "clearBucketsKernel", { 1, 64 });
             return result;
         };
@@ -260,7 +262,10 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("depth", "r", "u16");
+            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("blocksPerGrid", 64);
             result->allowGridPadding();
+            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
             result->setComputeFunction(library, "updatePartitionNumbersKernel", { 256 });
             return result;
         };
@@ -292,12 +297,13 @@ static struct RegisterKernels {
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
-            result->addTuneable("gridBlockSize", 4096);
+            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("blocksPerGrid", 64);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
             result->addConstraint("nf_plus_1", "==", "nf + 1", "help the solver");
             result->addConstraint("nf", "==", "nf_plus_1 - 1", "help the solver");
-            result->setGridExpression("[gridBlockSize,nf]", "[256,1]");
+            result->setGridExpression("[blocksPerGrid,nf]", "[threadsPerBlock,1]");
             result->allowGridPadding();
             result->setComputeFunction(library, "updateBucketsKernel", { 256, 1 });
             return result;
@@ -315,9 +321,11 @@ static struct RegisterKernels {
             result->addDimension("bucket", "numActiveBuckets");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * newNumPartitions]");
             result->addParameter("wAll", "w", "W32[newNumPartitions]");
-            result->addParameter("partitionInfo", "r", "PartitionInfo[newNumPartitions]");
+            result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
             result->addParameter("numActiveBuckets", "r", "u32");
+            result->addTuneable("gridBlockSize", 64);
             result->allowGridPadding();
+            result->setGridExpression("[np,divideToCover(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "fixupBucketsKernel", { 1, 64 });
             return result;
         };

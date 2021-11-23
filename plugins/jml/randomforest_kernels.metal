@@ -568,7 +568,7 @@ testFeatureKernel(
 #endif
 
 #if 1
-    maxLocalBuckets = 0;  // TODO DEBUG ONLY
+    //maxLocalBuckets = 0;  // TODO DEBUG ONLY
 
     for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(1)) {
@@ -1305,10 +1305,10 @@ getPartitionSplitsKernel(__global const GetPartitionSplitsArgs & args,
                          __local WIndexed * wLocal,  // [wLocalSize]
                          //__local WIndexed * wStartBest, //[2]
 
-                         uint2 global_id [[thread_position_in_grid]],
-                         uint2 global_size [[threads_per_grid]],
-                         uint2 local_id [[thread_position_in_threadgroup]],
-                         uint2 local_size [[threads_per_threadgroup]])
+                         uint3 global_id [[thread_position_in_grid]],
+                         uint3 global_size [[threads_per_grid]],
+                         uint3 local_id [[thread_position_in_threadgroup]],
+                         uint3 local_size [[threads_per_threadgroup]])
 {
     const uint32_t totalBuckets = args.totalBuckets;
     const uint32_t numActivePartitions = args.numActivePartitions;
@@ -1382,7 +1382,7 @@ getPartitionSplitsKernel(__global const GetPartitionSplitsArgs & args,
         // We have to perform a prefix sum to have the data over which
         // we can calculate the split points.  This is more complicated.
         best = chooseSplitKernelOrdinal(myW, numBuckets, wAll[partition],
-                                        wLocal, wLocalSize, bucket, f, p);
+                                        wLocal, wLocalSize, bucket, f, partition);
     }
     else {
         // We have a simple search which is independent per-bucket.
@@ -2070,7 +2070,7 @@ fixupBucketsKernel(__global const FixupBucketsArgs & args,
     if (j >= args.numActiveBuckets)
         return;
 
-    uint32_t numPartitions = get_global_size(0);
+    //uint32_t numPartitions = get_global_size(0);
     uint32_t partition = get_global_id(0);  // partition number
 
     PartitionInfo info = partitionInfo[partition];

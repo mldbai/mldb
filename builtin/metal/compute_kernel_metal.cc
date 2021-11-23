@@ -439,7 +439,7 @@ MetalComputeQueue::
 MetalComputeQueue(MetalComputeContext * owner)
     : ComputeQueue(owner), mtlOwner(owner)
 {
-    mtlQueue = owner->mtlDevice.NewCommandQueue();
+    mtlQueue = owner->mtlDevice.NewCommandQueue(1024 /* max command buffer count */);
 }
 
 std::shared_ptr<ComputeEvent>
@@ -583,7 +583,7 @@ launch(const std::string & opName,
         mtlpp::Size gridSize(mtlGrid[0], mtlGrid[1], mtlGrid[2]);
         mtlpp::Size blockSize(mtlBlock[0], mtlBlock[1], mtlBlock[2]);
 
-        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
+        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
         commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
         commandEncoder.DispatchThreadgroups(gridSize, blockSize);
         commandEncoder.EndEncoding();
@@ -606,7 +606,7 @@ launch(const std::string & opName,
             std::unique_lock guard(kernelWallTimesMutex);
             kernelWallTimes[bound.owner->kernelName] += wallTime * 1000.0;
             totalKernelTime += wallTime * 1000.0;
-            cerr << "kernel " << bound.owner->kernelName << " executed in " << wallTime * 1000.0 << "ms" << endl;
+            //cerr << "kernel " << bound.owner->kernelName << " executed in " << wallTime * 1000.0 << "ms" << endl;
         }
     #endif
         //doCallback(event, 0);
@@ -880,9 +880,7 @@ transferToHostSyncImpl(const std::string & opName,
 
     auto [pin, buffer, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
 
-    auto commandQueue = mtlDevice.NewCommandQueue();
-    ExcAssert(commandQueue);
-    auto commandBuffer = commandQueue.CommandBuffer();
+    auto commandBuffer = this->queue.mtlQueue.CommandBuffer();
     ExcAssert(commandBuffer);
     auto blitEncoder = commandBuffer.BlitCommandEncoder();
     ExcAssert(blitEncoder);
@@ -1402,7 +1400,7 @@ getKernelType(const mtlpp::Argument & arg)
     std::string name = "__metal_arg_" + string(arg.GetName().GetCStr()) + std::to_string(idx++);
 
     if (argType == mtlpp::ArgumentType::Buffer) {
-        cerr << "buffer argument " << arg.GetName().GetCStr() << endl;
+        //cerr << "buffer argument " << arg.GetName().GetCStr() << endl;
 
         dataType = arg.GetBufferDataType();
         auto structType = arg.GetBufferStructType();
@@ -1410,9 +1408,9 @@ getKernelType(const mtlpp::Argument & arg)
         auto width = arg.GetBufferDataSize();
         auto pointer = arg.GetBufferPointerType();
 
-        cerr << "align " << align << " width " << width << " pointer " << pointer << endl;
+        //cerr << "align " << align << " width " << width << " pointer " << pointer << endl;
 
-        if (pointer) {
+        if (pointer && false) {
             cerr << "  pointer: acc " << (int)pointer.GetAccess() << " data " << (int)pointer.GetElementType()
                  << " array " << pointer.GetElementArrayType() << " struct " << pointer.GetElementStructType()
                  << " datasize " << pointer.GetDataSize() << endl;
@@ -1639,7 +1637,7 @@ applyArg(MetalComputeContext & context,
         throw MLDB::Exception("don't know how to handle passing parameter to Metal");
     }
 
-    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
+    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
     commandEncoder.SetBuffer(memBuffer, offset, this->arg.GetIndex());
     commandEncoder.EndEncoding();
 }
@@ -1921,9 +1919,9 @@ setComputeFunction(mtlpp::Library libraryIn,
                 action.argNum = it->second;
                 action.argName = arg.GetName().GetCStr();
 
-                cerr << "checking compatibility" << endl;
-                cerr << "param type " << param.type.print() << endl;
-                cerr << "arg type " << type.print() << endl;
+                //cerr << "checking compatibility" << endl;
+                //cerr << "param type " << param.type.print() << endl;
+                //cerr << "arg type " << type.print() << endl;
 
                 std::string reason;
 
@@ -1973,6 +1971,12 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     auto bindInfo = std::make_shared<MetalBindInfo>();
     bindInfo->owner = this;
     bindInfo->mtlPipelineState = computePipelineState;
+
+    //cerr << "kernel " << kernelName << " has "
+    //     << computePipelineState.GetMaxTotalThreadsPerThreadgroup() << " max threads per thread group, "
+    //     << computePipelineState.GetThreadExecutionWidth() << " thread execution width and requires "
+    //     << computePipelineState.GetStaticThreadgroupMemoryLength() << " bytes of threadgroup memory"
+    //     << endl;
 
     if (traceSerializer) {
         int callNumber = numCalls++;
@@ -2209,6 +2213,10 @@ static struct Init {
             result->addParameter("lengthInBytes", "r", "u64");
             result->addParameter("blockData", "r", "u8[blockLengthInBytes]");
             result->addParameter("blockLengthInBytes", "r", "u64");
+            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("blocksPerGrid", 16);
+            result->allowGridPadding();
+            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
             result->setComputeFunction(library, "__blockFillArrayKernel", { 256 });
 
             return result;
@@ -2225,6 +2233,10 @@ static struct Init {
             result->addParameter("region", "w", "u8[regionLength]");
             result->addParameter("startOffsetInBytes", "r", "u64");
             result->addParameter("lengthInBytes", "r", "u64");
+            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("blocksPerGrid", 16);
+            result->allowGridPadding();
+            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
             result->setComputeFunction(library, "__zeroFillArrayKernel", { 256 });
 
             return result;

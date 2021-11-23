@@ -322,6 +322,8 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
             }
         }
     }
+
+    //ExcAssert(!hasDifferences);
 }
 
 
