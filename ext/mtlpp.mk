@@ -26,6 +26,7 @@ MTLPP_SOURCE = \
 	src/stage_input_output_descriptor.mm \
 	src/texture.mm \
 	src/vertex_descriptor.mm \
+	src/capture.mm \
 
 MTLPP_LINK = \
 	Metal \

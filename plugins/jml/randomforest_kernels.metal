@@ -507,7 +507,7 @@ struct TestFeatureArgs {
 
 __kernel void
 testFeatureKernel(
-                 __global TestFeatureArgs & args,
+                 __global const TestFeatureArgs & args,
                  __global const float * decodedRows [[buffer(0)]],
 
                  __global const uint32_t * bucketData [[buffer(1)]],

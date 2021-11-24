@@ -233,21 +233,25 @@ struct MetalBindAction {
     void apply(MetalComputeContext & context,
                const std::vector<ComputeKernelArgument> & args,
                CommandExpressionVariables & knowns,
-               mtlpp::CommandBuffer & commandBuffer) const;
+               mtlpp::CommandBuffer & commandBuffer,
+               mtlpp::ComputeCommandEncoder & commandEncoder) const;
 
 private:
     void applyArg(MetalComputeContext & context,
                   const std::vector<ComputeKernelArgument> & args,
                   CommandExpressionVariables & knowns,
-                  mtlpp::CommandBuffer & commandBuffer) const;
+                  mtlpp::CommandBuffer & commandBuffer,
+                  mtlpp::ComputeCommandEncoder & commandEncoder) const;
     void applyStruct(MetalComputeContext & context,
                     const std::vector<ComputeKernelArgument> & args,
                     CommandExpressionVariables & knowns,
-                    mtlpp::CommandBuffer & commandBuffer) const;
+                    mtlpp::CommandBuffer & commandBuffer,
+                    mtlpp::ComputeCommandEncoder & commandEncoder) const;
     void applyThreadGroup(MetalComputeContext & context,
                           const std::vector<ComputeKernelArgument> & args,
                           CommandExpressionVariables & knowns,
-                          mtlpp::CommandBuffer & commandBuffer) const;
+                          mtlpp::CommandBuffer & commandBuffer,
+                          mtlpp::ComputeCommandEncoder & commandEncoder) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MetalBindAction);

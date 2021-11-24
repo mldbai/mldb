@@ -51,6 +51,7 @@ struct MetalBindInfo: public ComputeKernelBindInfo {
 
 EnvOption<int> METAL_TRACE_API_CALLS("METAL_COMPUTE_TRACE_API_CALLS", 0);
 EnvOption<std::string> METAL_KERNEL_TRACE_FILE("METAL_KERNEL_TRACE_FILE", "");
+EnvOption<std::string> METAL_CAPTURE_FILE("METAL_CAPTURE_FILE", "");
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
 std::shared_ptr<StructuredSerializer> regionsSerializer;
@@ -125,6 +126,47 @@ struct InitTrace {
         }
     }
 } initTrace;
+
+// Use the Metal capture facility to create a file that xcode can open
+struct InitCapture {
+    mtlpp::CaptureManager captureManager;
+
+    InitCapture()
+    {
+        if (METAL_CAPTURE_FILE.specified()) {
+            captureManager = mtlpp::CaptureManager::GetShared();
+            mtlpp::CaptureDescriptor captureDescriptor;
+            captureDescriptor.SetCaptureObject(mtlpp::Device::CreateSystemDefaultDevice());
+            captureDescriptor.SetDestination(mtlpp::CaptureDestination::TraceDocument);
+            //captureDescriptor.SetDestination(mtlpp::CaptureDestination::DeveloperTools);
+            captureDescriptor.SetOutputURL(METAL_CAPTURE_FILE.get().c_str());
+
+            ns::Error error{ns::Handle()};
+            if (!captureManager.StartCapture(captureDescriptor, &error)) {
+                cerr << "Error initializing capture" << endl;
+                cerr << "domain: " << error.GetDomain().GetCStr() << endl;
+                cerr << "description: " << error.GetLocalizedDescription().GetCStr() << endl;
+                cerr << "maybe you need to set METAL_DEVICE_WRAPPER_TYPE=1 in the environment?" << endl;
+                throw MLDB::Exception("Error initializing Metal capture: " + string( error.GetLocalizedDescription().GetCStr()));
+            }
+        }
+    }
+
+    ~InitCapture()
+    {
+        if (captureManager) {
+            captureManager.StopCapture();
+            char buf[PATH_MAX + 1024];
+            std::string fullPath = METAL_CAPTURE_FILE.get();
+            if (!fullPath.empty() && fullPath[0] != '/')
+                fullPath = getcwd(buf, PATH_MAX + 1024) + string("/") + METAL_CAPTURE_FILE.get();
+            cerr << "Metal capture file (should have a .gputrace extension) can be inspected with the following command:" << endl;
+            cerr << "osascript -e '" << endl;
+            cerr << "  tell application \"Xcode\"\n    open \"" << fullPath << "\"\n  end tell" << endl;
+            cerr << "'";
+        }
+    }
+} initCapture;
 
 __thread int opCount = 0;
 Timer startTimer;
@@ -545,6 +587,7 @@ launch(const std::string & opName,
 
         ExcAssert(mtlQueue);
         mtlpp::CommandBuffer commandBuffer = mtlQueue.CommandBuffer();
+        commandBuffer.SetLabel(opName.c_str());
         ExcAssert(commandBuffer);
 
         // TODO: use events to avoid synchronous execution
@@ -552,8 +595,12 @@ launch(const std::string & opName,
             prereq->await();
         }
 
+        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
+        commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
+        commandEncoder.SetLabel((opName + " kernel").c_str());
+
         for (auto & action: kernel->bindActions) {
-            action.apply(*kernel->mtlContext, bound.arguments, knowns, commandBuffer);
+            action.apply(*kernel->mtlContext, bound.arguments, knowns, commandBuffer, commandEncoder);
         }
 
         //for (auto & [name, value]: knowns.values) {
@@ -583,8 +630,6 @@ launch(const std::string & opName,
         mtlpp::Size gridSize(mtlGrid[0], mtlGrid[1], mtlGrid[2]);
         mtlpp::Size blockSize(mtlBlock[0], mtlBlock[1], mtlBlock[2]);
 
-        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
-        commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
         commandEncoder.DispatchThreadgroups(gridSize, blockSize);
         commandEncoder.EndEncoding();
 
@@ -744,7 +789,7 @@ doMetalAllocate(mtlpp::Device & mtlDevice,
 {
     // TODO: align...
     mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-    auto buffer = mtlDevice.NewBuffer(length, options);
+    auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);
@@ -805,7 +850,12 @@ doMetalTransferToDevice(mtlpp::Device & mtlDevice,
 
     mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
     
-    mtlpp::Buffer buffer = mtlDevice.NewBuffer(region.data(), region.length(), options);
+    mtlpp::Buffer buffer;
+    if (region.length() == 0)
+        buffer = mtlDevice.NewBuffer(4, options);
+    else {
+        buffer = mtlDevice.NewBuffer(region.data(), region.length(), options);
+    }
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);
@@ -882,7 +932,9 @@ transferToHostSyncImpl(const std::string & opName,
 
     auto commandBuffer = this->queue.mtlQueue.CommandBuffer();
     ExcAssert(commandBuffer);
+    commandBuffer.SetLabel(opName.c_str());
     auto blitEncoder = commandBuffer.BlitCommandEncoder();
+    blitEncoder.SetLabel((opName + " blit").c_str());
     ExcAssert(blitEncoder);
 
     blitEncoder.Synchronize(buffer);
@@ -1028,7 +1080,12 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
         buffer = mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
     }
     else {
-        buffer = mtlDevice.NewBuffer((const void *)region.data(), region.size(), options);
+        if (region.empty()) {
+            buffer = mtlDevice.NewBuffer(4, options);
+        }
+        else {
+            buffer = mtlDevice.NewBuffer((const void *)region.data(), region.size(), options);
+        }
     }
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
@@ -1567,11 +1624,14 @@ MetalBindAction::
 applyArg(MetalComputeContext & context,
          const std::vector<ComputeKernelArgument> & args,
          CommandExpressionVariables & knowns,
-         mtlpp::CommandBuffer & commandBuffer) const
+         mtlpp::CommandBuffer & commandBuffer,
+         mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
     const ComputeKernelArgument & arg = args.at(argNum);
 
-    auto op = scopedOperation("MetalComputeKernel bind arg " + argName + " type " + arg.handler->type.print() + " from " + arg.handler->toJson().toStringNoNewLine());
+    auto op = scopedOperation("MetalComputeKernel bind arg " + argName + " type " + arg.handler->type.print()
+                              + " from " + arg.handler->toJson().toStringNoNewLine()
+                              + " at index " + std::to_string(this->arg.GetIndex()));
 
 #if 0
     if (traceSerializer) {
@@ -1598,7 +1658,7 @@ applyArg(MetalComputeContext & context,
     if (arg.handler->canGetPrimitive()) {
         auto bytes = arg.handler->getPrimitive(opName, context);
         traceOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
-        memBuffer = context.mtlDevice.NewBuffer(bytes.data(), bytes.size_bytes(), mtlpp::ResourceOptions::StorageModePrivate);
+        commandEncoder.SetBytes(bytes.data(), bytes.size_bytes(), this->arg.GetIndex());
     }
     else if (arg.handler->canGetHandle()) {
         auto handle = arg.handler->getHandle(opName, context);
@@ -1629,6 +1689,8 @@ applyArg(MetalComputeContext & context,
 
         std::tie(pin, memBuffer, offset)
             = context.getMemoryRegion(opName, *handle.handle, access);
+
+        commandEncoder.SetBuffer(memBuffer, offset, this->arg.GetIndex());
     }
     else if (arg.handler->canGetConstRange()) {
         throw MLDB::Exception("param.getConstRange");
@@ -1636,10 +1698,6 @@ applyArg(MetalComputeContext & context,
     else {
         throw MLDB::Exception("don't know how to handle passing parameter to Metal");
     }
-
-    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
-    commandEncoder.SetBuffer(memBuffer, offset, this->arg.GetIndex());
-    commandEncoder.EndEncoding();
 }
 
 void
@@ -1647,9 +1705,10 @@ MetalBindAction::
 applyStruct(MetalComputeContext & context,
             const std::vector<ComputeKernelArgument> & args,
             CommandExpressionVariables & knowns,
-            mtlpp::CommandBuffer & commandBuffer) const
+            mtlpp::CommandBuffer & commandBuffer,
+            mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
-    auto op = scopedOperation("MetalComputeKernel bind struct to arg " + argName);
+    auto op = scopedOperation("MetalComputeKernel bind struct to arg " + argName + " at index " + std::to_string(arg.GetIndex()));
 
     void * ptr = nullptr;
     if (type.baseType->align < alignof(void *)) {
@@ -1688,11 +1747,7 @@ applyStruct(MetalComputeContext & context,
         field.apply(result.get(), *type.baseType, context, args, knowns);
     }
 
-    auto memBuffer = context.mtlDevice.NewBuffer(result.get(), type.baseType->width,
-                                                 mtlpp::ResourceOptions::StorageModePrivate);
-    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
-    commandEncoder.SetBuffer(memBuffer, 0 /*offset*/, this->arg.GetIndex());
-    commandEncoder.EndEncoding();
+    commandEncoder.SetBytes(result.get(), type.baseType->width, this->arg.GetIndex());
 }
 
 void
@@ -1700,7 +1755,8 @@ MetalBindAction::
 applyThreadGroup(MetalComputeContext & context,
                  const std::vector<ComputeKernelArgument> & args,
                  CommandExpressionVariables & knowns,
-                 mtlpp::CommandBuffer & commandBuffer) const
+                 mtlpp::CommandBuffer & commandBuffer,
+                 mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
     // Calculate the array bound
     CommandExpressionContext exprContext(&knowns);
@@ -1713,7 +1769,7 @@ applyThreadGroup(MetalComputeContext & context,
     while (nbytes % 16 != 0)
         ++nbytes;
 
-    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
+    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes " + " at index " + std::to_string(arg.GetIndex()));
 
     // Set the knowns for this binding
     Json::Value known;
@@ -1727,9 +1783,7 @@ applyThreadGroup(MetalComputeContext & context,
     knowns.setValue(this->argName, std::move(known));
 
     // Set it up in the command encoder
-    mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder();
     commandEncoder.SetThreadgroupMemory(nbytes, this->arg.GetIndex());
-    commandEncoder.EndEncoding();
 }
 
 void
@@ -1737,17 +1791,18 @@ MetalBindAction::
 apply(MetalComputeContext & context,
       const std::vector<ComputeKernelArgument> & args,
       CommandExpressionVariables & knowns,
-      mtlpp::CommandBuffer & buffer) const
+      mtlpp::CommandBuffer & buffer,
+      mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
     switch (action) {
         case MetalBindActionType::SET_BUFFER_FROM_ARG:
-            applyArg(context, args, knowns, buffer);
+            applyArg(context, args, knowns, buffer, commandEncoder);
             break;
         case MetalBindActionType::SET_BUFFER_FROM_STRUCT:
-            applyStruct(context, args, knowns, buffer);
+            applyStruct(context, args, knowns, buffer, commandEncoder);
             break;
         case MetalBindActionType::SET_BUFFER_THREAD_GROUP:
-            applyThreadGroup(context, args, knowns, buffer);
+            applyThreadGroup(context, args, knowns, buffer, commandEncoder);
             break;
         default:
             throw MLDB::Exception("Unknown metal action");
