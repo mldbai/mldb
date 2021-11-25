@@ -533,6 +533,15 @@ info() const
     return type.print();
 }
 
+// ComputeEvent
+
+std::string
+ComputeEvent::
+label() const
+{
+    return "";
+}
+
 // ComputeQueue
 
 ComputePromiseT<MemoryRegionHandle>
@@ -557,14 +566,14 @@ enqueueFillArrayImpl(const std::string & opName,
     // Default implementation: launch a "fill" kernel
     switch (init) {
         case MemoryRegionInitialization::INIT_NONE:
-            return { std::move(region), this->makeAlreadyResolvedEvent() };  // nothing to do 
+            return { std::move(region), this->makeAlreadyResolvedEvent(opName + "then enqueueFillArray::INIT_NONE") };  // nothing to do 
         case MemoryRegionInitialization::INIT_ZERO_FILLED: {
             auto kernel = owner->getKernel("__zeroFillArray");
             auto bound = kernel->bind("region", region,
                                       "startOffsetInBytes", (uint64_t)startOffsetInBytes,
                                       "lengthInBytes", (uint64_t)lengthInBytes);
             return launch(opName, bound, {} /* grid */, {} /* prereqs */)
-                ->then([result = std::move(regionIn)] () { return result; });
+                ->then([result = std::move(regionIn)] () { return result; }, opName + " then enqueueFillArray:INIT_NONE");
         }
         case MemoryRegionInitialization::INIT_BLOCK_FILLED: {
             auto kernel = owner->getKernel("__blockFillArray");
@@ -578,12 +587,12 @@ enqueueFillArrayImpl(const std::string & opName,
                                       "blockData", blockHandle,
                                       "blockLengthInBytes", (uint64_t)block.size());
             return launch(opName, bound, {} /* grid */, {} /* prereqs */)
-                ->then([result = std::move(regionIn)] () { return result; });
+                ->then([result = std::move(regionIn)] () { return result; }, opName + " then enqueueFillArray:INIT_BLOCK_FILLED");
         }
         case MemoryRegionInitialization::INIT_KERNEL: {
             auto bound = std::any_cast<BoundComputeKernel>(arg);
             return launch(opName, bound, {} /* grid */, {} /* prereqs */)
-                ->then([result = std::move(regionIn)] () { return result; });
+                ->then([result = std::move(regionIn)] () { return result; }, opName + "then enqueueFillArray::INIT_KERNEL");
         }
     }
     throw MLDB::Exception("Unknown fillArray implementation");

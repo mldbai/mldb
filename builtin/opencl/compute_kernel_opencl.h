@@ -31,7 +31,7 @@ struct OpenCLComputeEvent: public ComputeEvent {
 
     virtual void await() const override;
 
-    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn);
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label);
 
     OpenCLEvent ev;
 };
@@ -66,7 +66,7 @@ struct OpenCLComputeQueue: public ComputeQueue {
                             size_t deviceStartOffsetInBytes,
                             std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
 
-    virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent() const override;
+    virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
     virtual void flush() override;
     virtual void finish() override;

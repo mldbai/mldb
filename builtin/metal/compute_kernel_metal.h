@@ -19,33 +19,46 @@ struct MetalComputeProfilingInfo: public ComputeProfilingInfo {
     virtual ~MetalComputeProfilingInfo() = default;
 };
 
-struct MetalComputeEvent: public ComputeEvent {
-    MetalComputeEvent();  // already resolved
+// enable_shared_from_this is to ensure that we can pin lifetimes of events until the
+// completion handlers have finished.
+struct MetalComputeEvent: public ComputeEvent, public std::enable_shared_from_this<MetalComputeEvent> {
+    MetalComputeEvent(const std::string & label, bool resolved);  // may or may not be already resolved
 
     virtual ~MetalComputeEvent() = default;
+
+    void resolveFromCommandBuffer(const mtlpp::CommandBuffer & commandBuffer);
 
     virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const override;
 
     virtual void await() const override;
 
-    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn);
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label);
 
     void resolve();
 
-    static std::shared_ptr<MetalComputeEvent> makeAlreadyResolvedEvent();
-    static std::shared_ptr<MetalComputeEvent> makeUnresolvedEvent();
+    static std::shared_ptr<MetalComputeEvent> makeAlreadyResolvedEvent(const std::string & label);
+    static std::shared_ptr<MetalComputeEvent> makeUnresolvedEvent(const std::string & label);
 
     // Return this as a completion handler
     std::function<void ()> getCompletionHandler() const;
 
+    // Resolve the event
+    void resolve(const mtlpp::CommandBuffer & buffer);
+
+    virtual std::string label() const override { return label_; }
+    std::string label_;
+
     std::mutex mutex;
-    bool isResolved = false;
+    std::atomic<bool> isResolved = false;  // always starts this way, only resolve() can change
+    mtlpp::CommandBuffer commandBuffer;
+    std::promise<void> promise;
+    std::shared_future<void> future;
     std::vector<std::function<void ()>> callbacks;
 };
 
 // MetalComputeQueue
 
-struct MetalComputeQueue: public ComputeQueue {
+struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<MetalComputeQueue> {
     MetalComputeQueue(MetalComputeContext * owner);
     MetalComputeQueue(MetalComputeContext * owner, mtlpp::CommandQueue queue);
     virtual ~MetalComputeQueue() = default;
@@ -73,7 +86,7 @@ struct MetalComputeQueue: public ComputeQueue {
                             size_t deviceStartOffsetInBytes,
                             std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
 
-    virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent() const override;
+    virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
     virtual void flush() override;
     virtual void finish() override;

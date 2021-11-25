@@ -26,7 +26,7 @@ struct HostComputeEvent: public ComputeEvent {
     {
     }
 
-    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn) override
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label) override
     {
         fn();
         return std::make_shared<HostComputeEvent>();
@@ -581,7 +581,7 @@ struct HostComputeQueue: public ComputeQueue {
     virtual void finish() override;
 
     virtual std::shared_ptr<ComputeEvent>
-    makeAlreadyResolvedEvent() const;
+    makeAlreadyResolvedEvent(const std::string & label) const;
 };
 
 void registerHostComputeKernel(const std::string & kernelName,

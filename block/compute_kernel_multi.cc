@@ -354,7 +354,7 @@ await() const
 
 std::shared_ptr<ComputeEvent>
 MultiComputeEvent::
-thenImpl(std::function<void ()> fn)
+thenImpl(std::function<void ()> fn, const std::string & label)
 {
     std::vector<std::shared_ptr<ComputeEvent>> newEvents;
 
@@ -369,7 +369,7 @@ thenImpl(std::function<void ()> fn)
                 fn();
             }
         };
-        newEvents.emplace_back(events[i]->thenImpl(newThen));
+        newEvents.emplace_back(events[i]->thenImpl(newThen, label));
     }
 
     return std::make_shared<MultiComputeEvent>(std::move(newEvents));
@@ -687,11 +687,11 @@ enqueueCopyFromHostImpl(const std::string & opName,
 
 std::shared_ptr<ComputeEvent>
 MultiComputeQueue::
-makeAlreadyResolvedEvent() const
+makeAlreadyResolvedEvent(const std::string & label) const
 {
     std::vector<std::shared_ptr<ComputeEvent>> events;
     for (auto & q: queues) {
-        events.emplace_back(q->makeAlreadyResolvedEvent());
+        events.emplace_back(q->makeAlreadyResolvedEvent(label));
     }
     return std::make_shared<MultiComputeEvent>(std::move(events));
 }

@@ -380,7 +380,7 @@ await() const
 
 std::shared_ptr<ComputeEvent>
 OpenCLComputeEvent::
-thenImpl(std::function<void ()> fn)
+thenImpl(std::function<void ()> fn, const std::string & label)
 {
     // No event means it's an already satisfied event; we simply run the callback
     if (!ev) {
@@ -689,7 +689,7 @@ finish()
 
 std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
-makeAlreadyResolvedEvent() const
+makeAlreadyResolvedEvent(const std::string & label) const
 {
     return std::make_shared<OpenCLComputeEvent>();
 }
@@ -997,7 +997,7 @@ managePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte
     auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionImpl " + opName);
 
     auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
-    return ComputePromiseT<MemoryRegionHandle>(std::move(result), clQueue->makeAlreadyResolvedEvent());
+    return ComputePromiseT<MemoryRegionHandle>(std::move(result), clQueue->makeAlreadyResolvedEvent(opName));
 }
 
 MemoryRegionHandle

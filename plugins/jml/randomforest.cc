@@ -731,7 +731,7 @@ train(int depth, int maxDepth,
     return result;
 }
 
-EnvOption<bool> DEBUG_RF_KERNELS("DEBUG_RF_KERNELS", 1);
+EnvOption<bool> DEBUG_RF_KERNELS("DEBUG_RF_KERNELS", 0);
 
 struct FeatureSamplingTrainerKernel {
 
@@ -1083,6 +1083,9 @@ trainPartitioned(const std::vector<int> & activeFeatures)
         //cerr << "bucketDataOffsets.length() = " << deviceBucketDataOffsets.get().length() << endl;
         //cerr << "bucketNumbers.length() = " << deviceBucketNumbers.get().length() << endl;
         //cerr << "bucketEntryBits.length() = " << deviceBucketEntryBits.get().length() << endl;
+        ExcAssert(bucketDataPromise.event());
+        ExcAssert(fillFirstBuckets.event());
+        ExcAssert(runDecodeRows);
 
         auto boundTestFeatureKernel = testFeatureKernel
             ->bind( "decodedRows",                      expandedRowData,
@@ -1223,6 +1226,7 @@ trainPartitioned(const std::vector<int> & activeFeatures)
     }
 
     Date startDepth = Date::now();
+    Date startDescent = startDepth;
 
     // We go down level by level
     for (int myDepth = 0;  depth < maxDepth;  ++depth, ++myDepth) {
@@ -1525,6 +1529,9 @@ trainPartitioned(const std::vector<int> & activeFeatures)
                                 {  },
                                 { runBestPartitionSplitKernel });
         }
+
+        // Before we can get the new number of partitions, we need to await it
+        runAssignPartitionNumbers->await();
 
         // Get the new number of active partitions
         uint32_t newNumActivePartitions
@@ -1909,8 +1916,8 @@ trainPartitioned(const std::vector<int> & activeFeatures)
 
     Date afterExtract = Date::now();
 
-    cerr << "finished train: setup took " << startDepth.secondsSince(before) * 1000
-         << "ms, depths took " << beforeMapping.secondsSince(startDepth) * 1000
+    cerr << "finished train: setup took " << startDescent.secondsSince(before) * 1000
+         << "ms, depths took " << beforeMapping.secondsSince(startDescent) * 1000
          << "ms, finishing tree took " << afterExtract.secondsSince(beforeMapping) * 1000
          << "ms ("
          << beforeSetupRecurse.secondsSince(beforeMapping) * 1000 << "ms in mapping and "

@@ -133,19 +133,34 @@ struct InitCapture {
 
     InitCapture()
     {
+    }
+
+    void startCapture(const mtlpp::CommandQueue & commandQueue)
+    {
+        if (captureManager)
+            return;
+        
+        ExcAssert(commandQueue);
+
         if (METAL_CAPTURE_FILE.specified()) {
             captureManager = mtlpp::CaptureManager::GetShared();
             mtlpp::CaptureDescriptor captureDescriptor;
-            captureDescriptor.SetCaptureObject(mtlpp::Device::CreateSystemDefaultDevice());
+            //captureDescriptor.SetCaptureDevice(commandQueue.GetDevice());
             captureDescriptor.SetDestination(mtlpp::CaptureDestination::TraceDocument);
             //captureDescriptor.SetDestination(mtlpp::CaptureDestination::DeveloperTools);
             captureDescriptor.SetOutputURL(METAL_CAPTURE_FILE.get().c_str());
 
             ns::Error error{ns::Handle()};
-            if (!captureManager.StartCapture(captureDescriptor, &error)) {
+            captureManager.StartCapture(commandQueue.GetDevice());
+
+//            if (!captureManager.StartCapture(captureDescriptor, &error)) {
+            if (!captureManager.IsCapturing()) {
                 cerr << "Error initializing capture" << endl;
                 cerr << "domain: " << error.GetDomain().GetCStr() << endl;
                 cerr << "description: " << error.GetLocalizedDescription().GetCStr() << endl;
+                if (error.GetLocalizedFailureReason()) {
+                    cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
+                }
                 cerr << "maybe you need to set METAL_DEVICE_WRAPPER_TYPE=1 in the environment?" << endl;
                 throw MLDB::Exception("Error initializing Metal capture: " + string( error.GetLocalizedDescription().GetCStr()));
             }
@@ -392,9 +407,43 @@ MetalComputeProfilingInfo()
 // MetalComputeEvent
 
 MetalComputeEvent::
-MetalComputeEvent()
+MetalComputeEvent(const std::string & label, bool isResolvedIn)
+    : label_(label), future(promise.get_future().share())
 {
-    this->isResolved = true;
+    if (isResolvedIn)
+        resolve();
+    ExcAssertEqual(this->isResolved, isResolvedIn);
+}
+
+void
+MetalComputeEvent::
+resolveFromCommandBuffer(const mtlpp::CommandBuffer & buffer)
+{
+    ExcAssert(!isResolved);
+    ExcAssert(!this->commandBuffer);
+
+    this->commandBuffer = buffer;
+
+    if (buffer.GetStatus() >= mtlpp::CommandBufferStatus::Committed) {
+        // https://developer.apple.com/documentation/metal/mtlcommandbuffer/1442997-addcompletedhandler?language=objc
+        // You can’t add a completion handler after you commit the command buffer.
+        throw MLDB::Exception("cannot create event for committed command buffer");
+    }
+
+    std::weak_ptr<MetalComputeEvent> weakThis = this->shared_from_this();
+
+    auto onComplete = [weakThis] (const mtlpp::CommandBuffer & buffer)
+    {
+        auto sharedThis = weakThis.lock();
+        if (!sharedThis)
+            return;
+
+        //cerr << ansi::red << "onComplete for event " << sharedThis->label() << ansi::reset << endl;
+        sharedThis->resolve();
+    };
+
+    //cerr << ansi::red << "event from command buffer: status = " << (int)commandBuffer.GetStatus() << ansi::reset << endl;
+    commandBuffer.AddCompletedHandler(onComplete);
 }
 
 std::shared_ptr<ComputeProfilingInfo>
@@ -408,22 +457,64 @@ void
 MetalComputeEvent::
 await() const
 {
-    // For now, we only create satisfied events...
+    if (isResolved)
+        return;
+
+    // If we're actively waiting, we can do so in this thread and avoid having to wait for
+    // the asynchronous mechanisms to eventually notice that it's done.
+    if (commandBuffer) {
+        ((mtlpp::CommandBuffer &)commandBuffer).WaitUntilCompleted();
+        ((MetalComputeEvent *)this)->resolve();
+        return;
+    }
+    else {
+        future.get();
+        ExcAssert(isResolved);
+    }
+}
+
+void
+MetalComputeEvent::
+resolve()
+{
+    if (isResolved)
+        return;
+
+    std::unique_lock guard(mutex);
+
+    isResolved = true;
+    promise.set_value();
+
+    std::exception_ptr exc;
+    for (auto & callback: callbacks) {
+        try {
+            callback();
+        } catch (...) {
+            exc = std::current_exception();
+        }
+    }
+    if (exc)
+        std::rethrow_exception(exc);
 }
 
 std::shared_ptr<ComputeEvent>
 MetalComputeEvent::
-thenImpl(std::function<void ()> fn)
+thenImpl(std::function<void ()> fn, const std::string & label)
 {
     std::unique_lock guard(mutex);
     if (isResolved) {
         // If already satisfied, we simply run the callback
         fn();
-        return makeAlreadyResolvedEvent();
+        return makeAlreadyResolvedEvent(label);
     }
 
+#if 1
+    callbacks.push_back(fn);
+    return this->shared_from_this();
+#else
     // Otherwise, create a user event for the post-then part
-    auto nextEvent = makeUnresolvedEvent();
+    auto nextEvent = makeUnresolvedEvent(label);
+    nextEvent->label_ = label + " (MetalComputeEvent::thenImpl)";
 
     auto cb = [fn=std::move(fn), nextEvent] ()
     {
@@ -434,30 +525,22 @@ thenImpl(std::function<void ()> fn)
     callbacks.push_back(cb);
 
     return nextEvent;
-}
-
-void
-MetalComputeEvent::
-resolve()
-{
-    THROW_UNIMPLEMENTED;
+#endif
 }
 
 std::shared_ptr<MetalComputeEvent>
 MetalComputeEvent::
-makeAlreadyResolvedEvent()
+makeAlreadyResolvedEvent(const std::string & label)
 {
-    auto result = std::make_shared<MetalComputeEvent>();
-    result->isResolved = true;
+    auto result = std::make_shared<MetalComputeEvent>(label, true /* already resolved */);
     return result;
 }
 
 std::shared_ptr<MetalComputeEvent>
 MetalComputeEvent::
-makeUnresolvedEvent()
+makeUnresolvedEvent(const std::string & label)
 {
-    auto result = std::make_shared<MetalComputeEvent>();
-    result->isResolved = false;
+    auto result = std::make_shared<MetalComputeEvent>(label, false /* already resolved */);
     return result;
 }
 
@@ -482,6 +565,8 @@ MetalComputeQueue(MetalComputeContext * owner)
     : ComputeQueue(owner), mtlOwner(owner)
 {
     mtlQueue = owner->mtlDevice.NewCommandQueue(1024 /* max command buffer count */);
+    ExcAssert(mtlQueue);
+    initCapture.startCapture(mtlQueue);
 }
 
 std::shared_ptr<ComputeEvent>
@@ -590,9 +675,22 @@ launch(const std::string & opName,
         commandBuffer.SetLabel(opName.c_str());
         ExcAssert(commandBuffer);
 
-        // TODO: use events to avoid synchronous execution
+        bool needsSynchronous = false;
         for (auto & prereq: prereqs) {
-            prereq->await();
+            ExcAssert(prereq);
+            const MetalComputeEvent * mtlPrereq = dynamic_cast<const MetalComputeEvent *>(prereq.get());
+            ExcAssert(mtlPrereq);
+            if (mtlPrereq->isResolved) {
+                traceOperation("prereq " + prereq->label() + " is already resolved");
+            }
+            else if (mtlPrereq->commandBuffer && mtlPrereq->commandBuffer.GetCommandQueue().GetPtr() == mtlQueue.GetPtr()) {
+                traceOperation("prereq " + prereq->label() + " is executing on the same command queue");
+                needsSynchronous = true;
+            }
+            else {
+                auto tr = scopedOperation("awaiting prereq " + prereq->label());
+                prereq->await();
+            }
         }
 
         mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
@@ -634,33 +732,61 @@ launch(const std::string & opName,
         commandEncoder.EndEncoding();
 
         auto timer = std::make_shared<Timer>();
+        std::string kernelName = bound.owner->kernelName;
+        std::weak_ptr<MetalComputeQueue> weakThis = this->shared_from_this();
+
+        auto onCompleted = [weakThis, timer, kernelName] (const mtlpp::CommandBuffer & commandBuffer)
+        {
+            auto sharedThis = weakThis.lock();
+            if (!sharedThis)
+                return;
+            
+            auto status = commandBuffer.GetStatus();
+            if (status != mtlpp::CommandBufferStatus::Completed) {
+                auto error = commandBuffer.GetError();
+                throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
+            }
+
+            //auto cpuStart = commandBuffer.GetKernelStartTime();
+            //auto cpuEnd = commandBuffer.GetKernelEndTime();
+            //auto gpuStart = commandBuffer.GetGpuStartTime();
+            //auto gpuEnd = commandBuffer.GetGpuEndTime();
+
+            //cerr << "cpuStart = " << cpuStart << endl;
+            //cerr << "gpuStart = " << gpuStart << endl;
+            //cerr << "kernel " << kernelName << " had CPU time "
+            //                  << (cpuEnd - cpuStart) << " and GPU time " << (gpuEnd - gpuStart) << endl;
+
+            // Ensure it's submitted before we start using the event
+        #if 1
+            auto wallTime = timer->elapsed_wall();
+
+            {
+                std::unique_lock guard(sharedThis->kernelWallTimesMutex);
+                sharedThis->kernelWallTimes[kernelName] += wallTime * 1000.0;
+                sharedThis->totalKernelTime += wallTime * 1000.0;
+                //cerr << "kernel " << bound.owner->kernelName << " executed in " << wallTime * 1000.0 << "ms" << endl;
+            }
+        #endif
+        };
+
+#if 1
+        commandBuffer.Enqueue();
+        commandBuffer.AddCompletedHandler(onCompleted);
+        auto result = std::make_shared<MetalComputeEvent>(opName, false /* resolved */);
+        result->resolveFromCommandBuffer(commandBuffer);
+        commandBuffer.Commit();
+        return result;
+#else
         commandBuffer.Commit();
         commandBuffer.WaitUntilCompleted();
+        onCompleted(commandBuffer);
+        return std::make_shared<MetalComputeEvent>(opName, true /* already resolved */);
+#endif
 
-        auto status = commandBuffer.GetStatus();
-        if (status != mtlpp::CommandBufferStatus::Completed) {
-            auto error = commandBuffer.GetError();
-            throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
-        }
-
-        // Ensure it's submitted before we start using the event
-    #if 1
-        auto wallTime = timer->elapsed_wall();
-
-        {
-            std::unique_lock guard(kernelWallTimesMutex);
-            kernelWallTimes[bound.owner->kernelName] += wallTime * 1000.0;
-            totalKernelTime += wallTime * 1000.0;
-            //cerr << "kernel " << bound.owner->kernelName << " executed in " << wallTime * 1000.0 << "ms" << endl;
-        }
-    #endif
-        //doCallback(event, 0);
-
-        return std::make_shared<MetalComputeEvent>();
     } MLDB_CATCH_ALL {
         rethrowException(400, "Error launching kernel " + bound.owner->kernelName);
     }
-    THROW_UNIMPLEMENTED;
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -733,9 +859,9 @@ finish()
 
 std::shared_ptr<ComputeEvent>
 MetalComputeQueue::
-makeAlreadyResolvedEvent() const
+makeAlreadyResolvedEvent(const std::string & label) const
 {
-    return std::make_shared<MetalComputeEvent>();
+    return MetalComputeEvent::makeAlreadyResolvedEvent(label);
 }
 
 
@@ -790,6 +916,7 @@ doMetalAllocate(mtlpp::Device & mtlDevice,
     // TODO: align...
     mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
     auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
+    buffer.SetLabel(regionName.c_str());
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);
@@ -856,6 +983,7 @@ doMetalTransferToDevice(mtlpp::Device & mtlDevice,
     else {
         buffer = mtlDevice.NewBuffer(region.data(), region.length(), options);
     }
+    buffer.SetLabel(opName.c_str());
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);
@@ -883,7 +1011,7 @@ transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
 {
     auto op = scopedOperation("MetalComputeContext transferToDeviceImpl " + opName);
     auto result = doMetalTransferToDevice(mtlDevice, opName, region, type, isConst);
-    return {std::move(result), std::make_shared<MetalComputeEvent>()};
+    return {std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent(opName) };
 }
 
 MemoryRegionHandle
@@ -907,7 +1035,7 @@ transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
     // TODO: async
     auto region = transferToHostSyncImpl(opName, handle);
-    auto event = MetalComputeEvent::makeAlreadyResolvedEvent();
+    auto event = MetalComputeEvent::makeAlreadyResolvedEvent(opName);
 
     return { region, event };
 }
@@ -1048,7 +1176,7 @@ managePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte
     auto op = scopedOperation("MetalComputeContext managePinnedHostRegionImpl " + opName);
 
     auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
-    return ComputePromiseT<MemoryRegionHandle>(std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent());
+    return ComputePromiseT<MemoryRegionHandle>(std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent(opName));
 }
 
 MemoryRegionHandle
@@ -1087,6 +1215,7 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
             buffer = mtlDevice.NewBuffer((const void *)region.data(), region.size(), options);
         }
     }
+    buffer.SetLabel(opName.c_str());
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);

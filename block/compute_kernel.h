@@ -247,10 +247,10 @@ struct ComputePromiseT: public ComputePromise {
     }
 
     template<typename Fn, typename Return = std::invoke_result_t<Fn, T>, typename Enable = std::enable_if_t<!std::is_same_v<Return, void>>>
-    ComputePromiseT<Return> then(Fn && fn);
+    ComputePromiseT<Return> then(Fn && fn, const std::string & label);
 
     template<typename Fn, typename Return = std::invoke_result_t<Fn, T>, typename Enable = std::enable_if_t<std::is_same_v<Return, void>>>
-    ComputePromise then(Fn && fn);
+    ComputePromise then(Fn && fn, const std::string & label);
 };
 
 template<typename T>
@@ -274,12 +274,15 @@ struct ComputeEvent {
     virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const = 0;
     virtual void await() const = 0;
 
+    // Returns a descriptive (debug) name for what's associated with this event
+    virtual std::string label() const;
+
     // Once the event is resolved, run the function, and return another event that will
     // fire once the chained function has returned
-    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn) = 0;
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label) = 0;
 
     template<typename Fn, typename Return = std::invoke_result_t<Fn>, typename Enable = std::enable_if_t<!std::is_same_v<Return, void>>>
-    ComputePromiseT<Return> then(Fn && fn)
+    ComputePromiseT<Return> then(Fn && fn, const std::string & label)
     {
         auto promise = std::make_shared<std::promise<std::any>>();
 
@@ -293,14 +296,14 @@ struct ComputeEvent {
             }
         };
 
-        auto event = thenImpl(std::move(doPromise));
+        auto event = thenImpl(std::move(doPromise), label);
         return { std::move(promise), std::move(event) };
     }
 
     template<typename Fn, typename Return = std::invoke_result_t<Fn>, typename Enable = std::enable_if_t<std::is_same_v<Return, void>>>
-    ComputePromise then(Fn && fn)
+    ComputePromise then(Fn && fn, const std::string & label)
     {
-        return { thenImpl(std::move(fn)), typeid(void) };
+        return { thenImpl(std::move(fn), label), typeid(void) };
     }
 };
 
@@ -308,7 +311,7 @@ template<typename T>
 template<typename Fn, typename Return, typename Enable>
 ComputePromise
 ComputePromiseT<T>::
-then(Fn && fn)
+then(Fn && fn, const std::string & label)
 {
     // New promise to trigger on
     auto newPromise = std::make_shared<std::promise<std::any>>();
@@ -324,7 +327,7 @@ then(Fn && fn)
         }
     };
 
-    event_->then(std::move(newFn));
+    event_->then(std::move(newFn), label);
 
     return { event_, typeid(void), std::move(newPromise) };
 }
@@ -333,7 +336,7 @@ template<typename T>
 template<typename Fn, typename Return, typename Enable>
 ComputePromiseT<Return>
 ComputePromiseT<T>::
-then(Fn && fn)
+then(Fn && fn, const std::string & label)
 {
     // New promise to hold the value
     auto newPromise = std::make_shared<std::promise<std::any>>();
@@ -348,7 +351,7 @@ then(Fn && fn)
         }
     };
 
-    event_->then(std::move(newFn));
+    event_->then(std::move(newFn), label);
 
     return { std::move(newPromise), event_ };
 }
@@ -853,7 +856,7 @@ struct ComputeQueue {
     // Create an already resolved event (this is abstract so that the subclass may create an)
     // event of the correct type).
     virtual std::shared_ptr<ComputeEvent>
-    makeAlreadyResolvedEvent() const = 0;
+    makeAlreadyResolvedEvent(const std::string & label) const = 0;
 
     template<typename T>
     ComputePromiseT<MemoryArrayHandleT<T>>
@@ -876,14 +879,14 @@ struct ComputeQueue {
             return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_ZERO_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
                                         {}, {} /* prereqs */)
-                .then(std::move(convert));
+                .then(std::move(convert), opName + " then enqueueFillArray:convert");
         }
         else {
             std::span<const std::byte> fillWith((const std::byte *)&val, sizeof(val));
             return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
                                         fillWith, {} /* prereqs */)
-                .then(std::move(convert));
+                .then(std::move(convert), opName + " then enqueueFillArray:convert");
         }
     }
 
@@ -1028,7 +1031,7 @@ struct ComputeContext {
         };
 
         return transferToDeviceImpl(opName, obj, typeid(std::remove_const_t<T>), true /* isConst */)
-            .then(std::move(convert));
+            .then(std::move(convert), opName + " then transferToDeviceImmutable:convert");
     }
 
     template<typename T>
@@ -1043,7 +1046,7 @@ struct ComputeContext {
             return { std::move(region) };
         };
 
-        return genericPromise.then(std::move(convert));
+        return genericPromise.then(std::move(convert), opName + " then transferToHost:convert");
     }
 
     template<typename T>
@@ -1093,7 +1096,7 @@ struct ComputeContext {
         };
 
         return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE)
-            .then(std::move(convert));
+            .then(std::move(convert), regionName + " then allocUninitializedArray:convert");
     }
 
     template<typename T>
@@ -1118,7 +1121,7 @@ struct ComputeContext {
         };
 
         return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_ZERO_FILLED)
-            .then(std::move(convert));
+            .then(std::move(convert), regionName + " then allocZeroInitializedArray:convert");
     }
 
     template<typename T>
@@ -1146,7 +1149,7 @@ struct ComputeContext {
 
         return managePinnedHostRegionImpl(regionName, std::as_bytes(obj), alignof(T),
                                       typeid(std::remove_const_t<T>), std::is_const_v<T>)
-            .then(std::move(convert));
+            .then(std::move(convert), regionName + " then manageMemoryRegion:convert");
     }
 
     template<typename T, size_t N>

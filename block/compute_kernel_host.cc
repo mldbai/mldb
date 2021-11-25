@@ -203,7 +203,7 @@ finish()
 
 std::shared_ptr<ComputeEvent>
 HostComputeQueue::
-makeAlreadyResolvedEvent() const
+makeAlreadyResolvedEvent(const std::string & label) const
 {
     return std::make_shared<HostComputeEvent>();
 }

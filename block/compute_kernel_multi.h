@@ -46,7 +46,7 @@ struct MultiComputeEvent: public ComputeEvent {
 
     virtual void await() const override;
 
-    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn) override;
+    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label) override;
 };
 
 // MultiComputeQueue
@@ -81,7 +81,7 @@ struct MultiComputeQueue: public ComputeQueue {
                             std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
 
     virtual std::shared_ptr<ComputeEvent>
-    makeAlreadyResolvedEvent() const override;
+    makeAlreadyResolvedEvent(const std::string & label) const override;
 
     virtual void flush() override;
 
