@@ -313,7 +313,7 @@ static struct RegisterKernels {
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
-            result->addParameter("smallSideIndexToPartition", "w", "u16[256]");
+            result->addParameter("smallSideIndexToPartition", "r", "u16[256]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");

@@ -306,6 +306,7 @@ struct MetalComputeKernel: public ComputeKernel {
     MetalComputeContext * mtlContext = nullptr;
     mtlpp::Library mtlLibrary;  // Mutable as createKernel is non-const
     mtlpp::Function mtlFunction;
+    mtlpp::ComputePipelineState computePipelineState;
     mtlpp::ComputePipelineReflection reflection;
 
     std::vector<MetalBindAction> bindActions;

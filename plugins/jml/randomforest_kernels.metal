@@ -94,8 +94,8 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     //if (bitNumber >= INT_MAX) {
     //    printf("bit number requires > 32 bits: %ld\n", bitNumber); 
     //}
-    uint32_t wordNumber = bitNumber / 64;
-    uint32_t wordOffset = bitNumber % 64;
+    uint32_t wordNumber = bitNumber >> 6;
+    uint32_t wordOffset = bitNumber - (wordNumber << 6);
 
     if (wordNumber >= dataLength) {
         //printf("OUT OF RANGE WORD %d vs %d\n", wordNumber, dataLength);
@@ -139,8 +139,8 @@ inline uint32_t extractBitRange32(__global const uint32_t * data,
                                   uint32_t entryNumber)
 {
     uint32_t bitNumber = numBits * entryNumber;
-    uint32_t wordNumber = bitNumber / 32;
-    uint32_t wordOffset = bitNumber % 32;
+    uint32_t wordNumber = bitNumber >> 5;
+    uint32_t wordOffset = bitNumber - (wordNumber << 5);
 
     //if (wordNumber >= dataLength) {
     //    printf("OUT OF RANGE WORD 32 %d vs %d\n", wordNumber, dataLength);
@@ -507,7 +507,7 @@ struct TestFeatureArgs {
 
 __kernel void
 testFeatureKernel(
-                 __global const TestFeatureArgs & args,
+                 __constant const TestFeatureArgs & args,
                  __global const float * decodedRows [[buffer(0)]],
 
                  __global const uint32_t * bucketData [[buffer(1)]],
@@ -1291,7 +1291,7 @@ struct GetPartitionSplitsArgs {
 #if 1
 // this expects [bucket, feature, partition]
 __kernel void
-getPartitionSplitsKernel(__global const GetPartitionSplitsArgs & args,
+getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
                          __global const uint32_t * bucketNumbers, // [nf]
                          
                          __global const uint32_t * featuresActive, // [nf]
@@ -1478,7 +1478,7 @@ struct BestPartitionSplitArgs {
 
 // id 0: partition number
 __kernel void
-bestPartitionSplitKernel(__global const BestPartitionSplitArgs & args,
+bestPartitionSplitKernel(__constant const BestPartitionSplitArgs & args,
                          __global const uint32_t * featuresActive, // [numFeatures]
                          __global const PartitionSplit * featurePartitionSplits,
                          __global const PartitionIndex * partitionIndexes,
@@ -1572,7 +1572,7 @@ struct AssignPartitionNumbersArgs {
 };
 
 __kernel void
-assignPartitionNumbersKernel(__global const AssignPartitionNumbersArgs & args,
+assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
                              __global const IndexedPartitionSplit * allPartitionSplits,
                              __global PartitionIndex * partitionIndexesOut,
                              __global PartitionInfo * partitionInfoOut,
@@ -1691,10 +1691,10 @@ struct ClearBucketsArgs {
 
 // [partition, bucket]
 __kernel void
-clearBucketsKernel(__global const ClearBucketsArgs & args,
+clearBucketsKernel(__constant const ClearBucketsArgs & args,
                    __global W * bucketsOut,
                    __global W * wAllOut,
-                   __global const uint8_t * smallSideIndexes,
+                   __constant const uint8_t * smallSideIndexes,
                    uint2 global_id [[thread_position_in_grid]],
                    uint2 global_size [[threads_per_grid]],
                    uint2 local_id [[thread_position_in_threadgroup]],
@@ -1746,7 +1746,7 @@ struct UpdatePartitionNumbersArgs {
 //[rowNumber]
 __kernel void
 //__attribute__((reqd_work_group_size(256,1,1)))
-updatePartitionNumbersKernel(__global const UpdatePartitionNumbersArgs & args,
+updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              __global RowPartitionInfo * partitions,
                              __global uint8_t * directions,
 
@@ -1845,13 +1845,13 @@ struct UpdateBucketsArgs {
 
 __kernel void // [row, feature]
 //__attribute__((reqd_work_group_size(256,1,1)))
-updateBucketsKernel(__global const UpdateBucketsArgs & args,
+updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     __global const RowPartitionInfo * partitions,
                     __global const uint8_t * directions,
                     __global W * buckets,
                     __global W * wAll,
-                    __global const uint8_t * smallSideIndexes,
-                    __global uint16_t * smallSideIndexToPartition,
+                    __constant const uint8_t * smallSideIndexes,
+                    __constant const uint16_t * smallSideIndexToPartition,
 
                     // Row data
                     __global const float * decodedRows,
@@ -2056,7 +2056,7 @@ struct FixupBucketsArgs {
 };
 
 __kernel void
-fixupBucketsKernel(__global const FixupBucketsArgs & args,
+fixupBucketsKernel(__constant const FixupBucketsArgs & args,
                    __global W * buckets,
                    __global W * wAll,
                    __global const PartitionInfo * partitionInfo,

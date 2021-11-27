@@ -185,6 +185,25 @@ struct InitCapture {
 
 __thread int opCount = 0;
 Timer startTimer;
+double lastTime = 0;
+
+static std::string printTime(double elapsed)
+{
+    std::string timerStr;
+    if (elapsed < 0.000001) {
+        timerStr = format("%.1fns", elapsed * 1000000000.0);
+    }
+    else if (elapsed < 0.001) {
+        timerStr = format("%.1fus", elapsed * 1000000.0);
+    }
+    else if (elapsed < 1) {
+        timerStr = format("%.1fms", elapsed * 1000.0);
+    }
+    else {
+        timerStr = format("%.1fs", elapsed);
+    }
+    return timerStr;
+}
 
 template<typename... Args>
 void traceOperation(const std::string & opName, Args&&... args)
@@ -194,11 +213,13 @@ void traceOperation(const std::string & opName, Args&&... args)
         int tid = std::hash<std::thread::id>()(std::this_thread::get_id());
         double elapsed = startTimer.elapsed_wall();
 
-        std::string header = format("%10.6f t%8x %2d  METAL COMPUTE: ", elapsed, tid, opCount);
+        std::string header = format("%10.6f%9lld t%8x METAL: ", elapsed, (long long)((elapsed-lastTime)*1000000000), tid);
         std::string indent(4 * opCount, ' ');
         std::string toDump = (string)ansi_str_blue() + header + indent + ansi_str_bold() + opName
                            + ansi_str_reset() + "\n";
         cerr << toDump << flush;
+
+        lastTime = startTimer.elapsed_wall();
     }
 }
 
@@ -225,20 +246,7 @@ struct ScopedOperation {
             }
 
             double elapsed = timer.elapsed_wall();
-            std::string timerStr;
-            if (elapsed < 0.000001) {
-                timerStr = format("%.1fns", elapsed * 1000000000.0);
-            }
-            else if (elapsed < 0.001) {
-                timerStr = format("%.1fus", elapsed * 1000000.0);
-            }
-            else if (elapsed < 1) {
-                timerStr = format("%.1fms", elapsed * 1000.0);
-            }
-            else {
-                timerStr = format("%.1fs", elapsed);
-            }
-            traceOperation("END " + opName + " [" + ansi::ansi_str_underline() + timerStr + "]");
+            traceOperation("END " + opName + " [" + ansi::ansi_str_underline() + printTime(elapsed) + "]");
         }
     }
 
@@ -463,11 +471,12 @@ await() const
     // If we're actively waiting, we can do so in this thread and avoid having to wait for
     // the asynchronous mechanisms to eventually notice that it's done.
     if (commandBuffer) {
+        auto tr = scopedOperation("awaiting " + label() + " on command buffer");        
         ((mtlpp::CommandBuffer &)commandBuffer).WaitUntilCompleted();
         ((MetalComputeEvent *)this)->resolve();
-        return;
     }
     else {
+        auto tr = scopedOperation("awaiting " + label() + " on future");        
         future.get();
         ExcAssert(isResolved);
     }
@@ -675,7 +684,14 @@ launch(const std::string & opName,
         commandBuffer.SetLabel(opName.c_str());
         ExcAssert(commandBuffer);
 
-        bool needsSynchronous = false;
+        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
+        commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
+        commandEncoder.SetLabel((opName + " kernel").c_str());
+
+        for (auto & action: kernel->bindActions) {
+            action.apply(*kernel->mtlContext, bound.arguments, knowns, commandBuffer, commandEncoder);
+        }
+
         for (auto & prereq: prereqs) {
             ExcAssert(prereq);
             const MetalComputeEvent * mtlPrereq = dynamic_cast<const MetalComputeEvent *>(prereq.get());
@@ -685,20 +701,11 @@ launch(const std::string & opName,
             }
             else if (mtlPrereq->commandBuffer && mtlPrereq->commandBuffer.GetCommandQueue().GetPtr() == mtlQueue.GetPtr()) {
                 traceOperation("prereq " + prereq->label() + " is executing on the same command queue");
-                needsSynchronous = true;
             }
             else {
                 auto tr = scopedOperation("awaiting prereq " + prereq->label());
                 prereq->await();
             }
-        }
-
-        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Concurrent);
-        commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
-        commandEncoder.SetLabel((opName + " kernel").c_str());
-
-        for (auto & action: kernel->bindActions) {
-            action.apply(*kernel->mtlContext, bound.arguments, knowns, commandBuffer, commandEncoder);
         }
 
         //for (auto & [name, value]: knowns.values) {
@@ -1758,8 +1765,16 @@ applyArg(MetalComputeContext & context,
 {
     const ComputeKernelArgument & arg = args.at(argNum);
 
+    auto j = arg.handler->toJson();
+    std::string jStr;
+    if (j.isObject()) {
+        jStr = j["name"].asString() + ":" + j["version"].toStringNoNewLine();
+    }
+    else {
+        jStr = j.toStringNoNewLine();
+    }
     auto op = scopedOperation("MetalComputeKernel bind arg " + argName + " type " + arg.handler->type.print()
-                              + " from " + arg.handler->toJson().toStringNoNewLine()
+                              + " from " + jStr 
                               + " at index " + std::to_string(this->arg.GetIndex()));
 
 #if 0
@@ -1976,7 +1991,7 @@ setComputeFunction(mtlpp::Library libraryIn,
     //cerr << this->mtlFunction.GetName().GetCStr() << endl;
 
     mtlpp::PipelineOption options = (mtlpp::PipelineOption((int)mtlpp::PipelineOption::ArgumentInfo | (int)mtlpp::PipelineOption::BufferTypeInfo));
-    mtlpp::ComputePipelineState computePipelineState
+    this->computePipelineState
         = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, options, reflection, &error);
     if (error) {
         cerr << "Error making pipeline state" << endl;
@@ -2137,21 +2152,6 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     auto op = scopedOperation("MetalComputeKernel bindImpl " + kernelName);
 
     ExcAssert(this->context);
-
-    ns::Error error{ns::Handle()};
-    mtlpp::ComputePipelineReflection reflection;
-    mtlpp::ComputePipelineState computePipelineState
-        = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, mtlpp::PipelineOption::None, reflection, &error);
-    if (error) {
-        cerr << "Error making pipeline state" << endl;
-        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
-        if (error.GetLocalizedFailureReason()) {
-            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
-        }
-    }
-    ExcAssert(computePipelineState);
-
     auto bindInfo = std::make_shared<MetalBindInfo>();
     bindInfo->owner = this;
     bindInfo->mtlPipelineState = computePipelineState;

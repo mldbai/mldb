@@ -4,14 +4,14 @@ var unittest = require('mldb/unittest');
 var import_data_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "file://train-10m.csv.zst",
+        dataFileUrl : "file://train-50m.csv.zst",
         outputDataset: {
             id: "airline",
         },
         runOnCreation: true,
         encoding: 'ascii',
         ignoreBadLines: true,
-        limit: 10000000,//10000000,
+        limit: 50000000,//10000000,
     }
 };
 

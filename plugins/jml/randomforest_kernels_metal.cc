@@ -263,7 +263,7 @@ static struct RegisterKernels {
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("depth", "r", "u16");
             result->addTuneable("threadsPerBlock", 256);
-            result->addTuneable("blocksPerGrid", 64);
+            result->addTuneable("blocksPerGrid", 128);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
             result->setComputeFunction(library, "updatePartitionNumbersKernel", { 256 });
@@ -287,7 +287,7 @@ static struct RegisterKernels {
             result->addParameter("buckets", "w", "W32[numActiveBuckets * numActivePartitions]");
             result->addParameter("wAll", "w", "W32[numActivePartitions]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
-            result->addParameter("smallSideIndexToPartition", "w", "u16[256]");
+            result->addParameter("smallSideIndexToPartition", "r", "u16[256]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
