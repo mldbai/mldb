@@ -1931,10 +1931,16 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     //numGlobalUpdates = 0;
     //numCopyLocalToGlobal = 0;
 
+    constexpr uint16_t SSI_CACHE_SIZE=256;
+    __local uint8_t smallSideIndexesCache[SSI_CACHE_SIZE];
 
     // Clear our local accumulation buckets to get started
     for (uint32_t b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
         zeroW(wLocal + b);
+    }
+
+    for (uint32_t b = get_local_id(0);  b < SSI_CACHE_SIZE && b < numActivePartitions; b += get_local_size(0)) {
+        smallSideIndexesCache[b] = smallSideIndexes[b];
     }
 
     // Wait for all buckets to be clear
@@ -1961,7 +1967,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
         uint32_t exampleNum = i;
 
         uint32_t toBucketLocal, toBucketGlobal;
-        uint8_t smallPartitionIndex = smallSideIndexes[partition];
+        uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
         
         if (f == -1) {
             // Since we don't touch the buckets on the left side of the
