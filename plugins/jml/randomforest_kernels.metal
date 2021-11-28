@@ -9,6 +9,7 @@
 */
 
 #include <metal_atomic>
+#include <metal_stdlib>
 
 #define __constant constant
 #define __kernel kernel
@@ -1843,6 +1844,145 @@ struct UpdateBucketsArgs {
     uint32_t maxLocalBuckets;  
 };
 
+
+#if 0
+struct BucketGetter {
+    BucketGetter(const __global uint32_t * bucketData,
+                 uint16_t bucketBits, uint16_t workGroupId, uint16_t workGroupWidth)
+    {
+        uint16_t bitNumber = bucketBits * workGroupId;
+        wordNumber = bitNumber >> 5;
+        wordOffset = bitNumber - (wordNumber << 5);
+        bottomBits = min((uint16_t)bucketBits, (uint16_t)(32 - wordOffset));
+        topBits = bucketBits - bottomBits;    
+        mask = createMask32(bucketBits);  // TODO: could be uint16_t to save a register
+        increment = workGroupWidth * bucketBits / 32; 
+    }
+
+    const __global uint32_t * bucketData;
+    uint32_t wordNumber;
+    uint16_t wordOffset;
+    uint16_t bottomBits;
+    uint16_t topBits;
+    uint16_t mask;
+    uint16_t increment;
+
+    uint16_t getNext()
+    {
+        uint32_t val = bucketData[wordNumber];
+        val >>= wordOffset;
+
+        if (topBits > 0) {
+            uint32_t val2 = bucketData[wordNumber + 1];
+            val = val | val2 << bottomBits;
+        }
+
+        wordNumber += increment;
+
+        val = val & mask;
+        return val;
+    }
+};
+#elif 1
+struct BucketGetter {
+    BucketGetter(const __global uint32_t * bucketData,
+                 uint32_t bucketBits, uint32_t workGroupId, uint32_t workGroupWidth)
+    {
+        this->bucketData = bucketData;
+        //this->bucketBits = bucketBits;
+        //this->exampleNum = workGroupId;
+        //this->increment = workGroupWidth;
+
+        uint32_t bitNumber = bucketBits * workGroupId;
+        wordNumber = bitNumber >> 5;
+        wordOffset = bitNumber - (wordNumber << 5);
+        bottomBits = min((uint32_t)bucketBits, (uint32_t)(32 - wordOffset));
+        topBits = bucketBits - bottomBits;    
+        mask = createMask32(bucketBits);  // TODO: could be uint16_t to save a register
+        increment = workGroupWidth * bucketBits / 32; 
+    }
+
+    const __global uint32_t * bucketData;
+    //uint32_t exampleNum;
+    //uint32_t bucketBits;
+    uint32_t increment;
+
+    uint32_t wordNumber;
+    uint16_t wordOffset;
+    uint16_t bottomBits;
+    uint16_t topBits;
+    uint16_t mask;
+
+    void skip()
+    {
+        wordNumber += increment;
+    }
+
+    uint16_t getNext()
+    {
+        uint32_t val = bucketData[wordNumber];
+        val >>= wordOffset;
+
+        if (topBits > 0) {
+            uint32_t val2 = bucketData[wordNumber + 1];
+            val = val | val2 << bottomBits;
+        }
+        val = val & mask;
+
+        skip();
+
+        return val;
+    }
+};
+#else
+struct BucketGetter {
+    BucketGetter(const __global uint32_t * bucketData,
+                 uint32_t bucketBits, uint32_t workGroupId, uint32_t workGroupWidth)
+    {
+        this->bucketData = bucketData;
+        this->bucketBits = bucketBits;
+        this->exampleNum = workGroupId;
+        this->increment = workGroupWidth;
+    }
+
+    const __global uint32_t * bucketData;
+    uint32_t exampleNum;
+    uint32_t bucketBits;
+    uint32_t increment;
+
+    //uint32_t wordNumber;
+    //uint16_t wordOffset;
+    //uint16_t bottomBits;
+    //uint16_t topBits;
+    //uint16_t mask;
+
+#if 1
+    void skip()
+    {
+        exampleNum += increment;
+    }
+
+    uint16_t getNext()
+    {
+        auto result = getBucket(exampleNum, bucketData, 0 /* bucketDataLength not used */,
+                                bucketBits, 0 /* numBuckets not used */);
+        skip();
+        return result;
+    }
+#else
+    uint16_t getNext(uint32_t exampleNum, const __global uint32_t * bucketData2, uint32_t bucketDataLength2,
+                     uint32_t bucketBits2, uint32_t numBuckets2)
+    {
+        auto result = getBucket(exampleNum, bucketData, 0 /* bucketDataLength not used */,
+                                bucketBits, 0 /* numBuckets not used */);
+        exampleNum += increment;
+        return result;
+    }
+#endif
+};
+#endif
+
+
 __kernel void // [row, feature]
 //__attribute__((reqd_work_group_size(256,1,1)))
 updateBucketsKernel(__constant const UpdateBucketsArgs & args,
@@ -1926,11 +2066,28 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
         startBucket = bucketNumbers[f];
     }
 
+    // We call getBucket, but since our stride is the workgroup width (which is always a multiple of 32),
+    // we always use the same bit number and mask.  This code allows us to avoid most of the logic by
+    // pre-computing the constants.
+
+#if 1
+    BucketGetter bucketGetter(bucketData, bucketBits, get_global_id(0), get_global_size(0));
+//#   define doGetBucket(ex, bd, bdl, bb, nbpp) bucketGetter.getNext()
+#   define doGetBucket(ex, bd, bdl, bb, nbpp) bucketGetter.getNext(/*ex, bd, bdl, bb, nbpp*/)
+#   define skipBucket() bucketGetter.skip()
+#else
+#   define doGetBucket(ex, bd, bdl, bb, nbpp) getBucket(ex, bd, bdl, bb, nbpp)
+#   define skipBucket() while (false) do {}
+#endif
+
+
     //__local uint32_t numLocalUpdates, numGlobalUpdates, numCopyLocalToGlobal;
     //numLocalUpdates = 0;
     //numGlobalUpdates = 0;
     //numCopyLocalToGlobal = 0;
 
+    // Most rows live in partitions with a number < 256; avoid main memory accesses for these
+    // by caching in local memory
     constexpr uint16_t SSI_CACHE_SIZE=256;
     __local uint8_t smallSideIndexesCache[SSI_CACHE_SIZE];
 
@@ -1939,6 +2096,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
         zeroW(wLocal + b);
     }
 
+    // Populate the cache of smallSideIndexes
     for (uint32_t b = get_local_id(0);  b < SSI_CACHE_SIZE && b < numActivePartitions; b += get_local_size(0)) {
         smallSideIndexesCache[b] = smallSideIndexes[b];
     }
@@ -1948,7 +2106,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
 
-    //if (f == -1 && get_global_id(0) == 0) {
+    //if (f == -1 && get_global_id(0) == 0) {x
     //    for (int i = 0;  i < 200;  ++i) {
     //        printf("row %d decodedWeight %d %f\n", i, decodedRows[i], decodedRows[i] * 1000000);
     //    }
@@ -1957,8 +2115,10 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     for (uint32_t i = get_global_id(0);  i < numRows;  i += get_global_size(0)) {
 
         uint8_t direction = directions[i];
-        if (!direction)
+        if (!direction) {
+            skipBucket();
             continue;
+        }
 
         uint16_t partition = partitions[i].num;
 
@@ -1980,7 +2140,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
             toBucketGlobal = partition;
         }
         else {
-            uint32_t bucket = getBucket(exampleNum,
+            uint32_t bucket = doGetBucket(exampleNum,
                                         bucketData, bucketDataLength,
                                         bucketBits, numBucketsPerPartition);
             toBucketGlobal = partition * numActiveBuckets + startBucket + bucket;
