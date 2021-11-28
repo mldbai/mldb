@@ -1947,7 +1947,7 @@ struct BucketGetter {
 
     const __global uint32_t * bucketData;
     uint32_t exampleNum;
-    uint32_t bucketBits;
+    uint32_t bucketBits = 0;
     uint32_t increment;
 
     //uint32_t wordNumber;
@@ -2037,7 +2037,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     uint32_t bucketDataOffset;
     uint32_t bucketDataLength;
     uint32_t numBucketsPerPartition;        // How many buckets for this feature?
-    uint32_t bucketBits;
+    uint32_t bucketBits = 0;
     uint16_t numLocalBuckets = 0;
     uint32_t startBucket;
             
@@ -2124,7 +2124,6 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
 
         float weight = fabs(decodedRows[i]);
         bool label = decodedRows[i] < 0;
-        uint32_t exampleNum = i;
 
         uint32_t toBucketLocal, toBucketGlobal;
         uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
