@@ -2045,15 +2045,15 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     //    }
     //}
 
+    uint16_t simdGroupNumber = get_global_id(0) / 32;
+    uint16_t numSimdGroups = get_global_size(0) / 32;
+    
     __global const uint32_t * directionsPtr = (__global const uint32_t *)directions;
+    directionsPtr += simdGroupNumber;
 
-    for (uint32_t r = get_global_id(0);  r < numRows;  r += get_global_size(0)) {
+    for (uint32_t i = 0;  i < numRows;  i += get_global_size(0), directionsPtr += numSimdGroups) {
 
-        uint32_t simdDirections = 0;
-        if (simd_is_first()) {
-            simdDirections = directionsPtr[r / 32];
-        }
-        simdDirections = simd_broadcast_first(simdDirections);
+        uint32_t simdDirections = directionsPtr[0];
         bool direction = simdDirections & (1 << lane_id);
 
         if (!direction) {
@@ -2061,12 +2061,15 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
             continue;
         }
 
+        uint32_t r = i + get_global_id(0);
+
         uint16_t partition = partitions[r].num;
 
         float weight = fabs(decodedRows[r]);
         bool label = decodedRows[r] < 0;
 
-        uint32_t toBucketLocal, toBucketGlobal;
+        int16_t toBucketLocal;
+        uint32_t toBucketGlobal;
         uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
         
         if (f == -1) {
