@@ -44,7 +44,7 @@ static struct RegisterKernels {
             {
                 std::string fileName = "mldb/plugins/jml/randomforest_kernels.metal";
                 filter_istream stream(fileName);
-                Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
+                Utf8String source = /*"#line 1 \"" + fileName + "\"\n" +*/ stream.readAll();
 
                 ns::Error error{ns::Handle()};
                 CompileOptions compileOptions;

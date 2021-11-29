@@ -1743,8 +1743,22 @@ struct UpdatePartitionNumbersArgs {
     uint16_t depth;
 };
 
-#if 0
-#define BIT_PACKED_DIRECTIONS 0
+#define BIT_PACKED_DIRECTIONS 1
+
+inline void setBitPackedDirection(__global uint8_t * directions, uint32_t r, bool v)
+{
+    __global atomic<uint32_t> * directionsAPtr = (__global atomic_uint *)directions;
+
+    uint32_t word = r / 32;
+    uint16_t bit = r % 32;
+    uint32_t operand = 1 << bit;
+
+    if (v) {
+        atomic_fetch_or_explicit(directionsAPtr + word, operand, memory_order_relaxed);
+    }  else {
+        atomic_fetch_and_explicit(directionsAPtr + word, ~operand, memory_order_relaxed);
+    }
+}
 
 // Second part: per feature plus wAll, transfer examples
 //[rowNumber]
@@ -1775,112 +1789,21 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
     allPartitionSplits += args.partitionSplitsOffset;
 
 #if BIT_PACKED_DIRECTIONS
-    __global atomic<uint32_t> * directionsAPtr = (__global atomic_uint *)directions;
-    #define setDirection(r, v) \
-        do { \
-            uint __r = r;  \
-            uint word = __r / 32, bit = __r % 32, operand = 1 << bit;  \
-            if (v) { \
-                atomic_fetch_or_explicit(directionsAPtr + word, operand, memory_order_relaxed); \
-            }  else { \
-                atomic_fetch_and_explicit(directionsAPtr + word, ~operand, memory_order_relaxed); \
-            } \
-        } while (false)
+    #define setDirection(r, v) setBitPackedDirection(directions, r, v)
+    __global uint32_t * directionsPtr = (__global uint32_t *)directions;
+
 #else
     #define setDirection(__r, __v) do { directions[__r] = __v; } while (false)
 #endif
 
     for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
         uint32_t r = i + get_global_id(0);
-        uint16_t storedPartition = depth == 0 ? 255 : partitions[r].num;
-        uint16_t partition = depth == 0 ? 0 : storedPartition;
-        uint16_t direction = 0;
 
-        // partition = -1: row is not in any partition
-        if (partition != -1 && r < numRows) {
-            PartitionInfo info = partitionInfo[partition];
-
-            int16_t splitFeature;
-            if (info.left == -1 && info.right == -1 || ((splitFeature = allPartitionSplits[partition].feature) == -1)) {
-                partition = (uint16_t)-1;
-            }
-            else {
-                uint16_t splitValue = allPartitionSplits[partition].value;
-                bool ordinal = featureIsOrdinal[splitFeature];
-
-                // Split feature values go here
-                uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
-                uint32_t splitBucketDataLength = bucketDataOffsets[splitFeature + 1] - splitBucketDataOffset;
-                uint16_t splitNumBuckets = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
-                __global const uint32_t * splitBucketData = bucketData + splitBucketDataOffset;
-                uint16_t splitBucketBits = bucketEntryBits[splitFeature];
-
-                uint16_t bucket = getBucket(r,
-                                            splitBucketData, splitBucketDataLength,
-                                            splitBucketBits, splitNumBuckets);
-                
-                uint16_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
-
-                // Set the new partition number
-                uint16_t newPartitionNumber = side ? info.right : info.left;
-                direction = newPartitionNumber != partition && newPartitionNumber != -1;
-                partition = newPartitionNumber;
-            }
-        }
-
-        if (r < numRows) {
-            setDirection(r, direction);
-            if (partition != storedPartition)
-                partitions[r].num = partition;
-        }
-
-        if (debug)
-            printf("splitValue = %d bucket=%d ordinal=%d side=%d direction=%d lcount %d rcount %d\n",
-                splitValue, bucket, ordinal, side, directions[r], allPartitionSplits[partition].left.count, allPartitionSplits[partition].right.count);
-    }
-}
-#endif
-
-
-// Second part: per feature plus wAll, transfer examples
-//[rowNumber]
-__kernel void
-//__attribute__((reqd_work_group_size(256,1,1)))
-updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
-                             __global RowPartitionInfo * partitions,
-                             __global uint8_t * directions,
-
-                             __global const IndexedPartitionSplit * allPartitionSplits,
-                             __global const PartitionInfo * partitionInfo,
-
-                             __global const uint32_t * bucketData,
-                             __global const uint32_t * bucketDataOffsets,
-                             __global const uint32_t * bucketNumbers,
-                             __global const uint32_t * bucketEntryBits,
-                             __global const uint32_t * featureIsOrdinal,
-                             uint2 global_id [[thread_position_in_grid]],
-                             uint2 global_size [[threads_per_grid]],
-                             uint2 local_id [[thread_position_in_threadgroup]],
-                             uint2 local_size [[threads_per_threadgroup]])
-{
-    const uint16_t depth = args.depth;
-    const uint32_t numRows = args.numRows;
-
-    bool debug = false; //(r == 845 || r == 3006 || r == 3758);
-
-    allPartitionSplits += args.partitionSplitsOffset;
-
-    for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
-        uint32_t r = i + get_global_id(0);
-        if (r >= numRows)
-            break;
-
-        uint16_t storedPartition = partitions[r].num;
+        uint16_t storedPartition = r < numRows ? partitions[r].num : 0;
         uint16_t oldPartition = depth == 0 ? 0 : storedPartition;
         uint16_t partition = oldPartition;
-        uint16_t direction = 0;
 
-        if (partition != (uint16_t)-1) {
+        if (r < numRows && partition != (uint16_t)-1) {
             PartitionInfo info = partitionInfo[partition];
             int16_t splitFeature;
 
@@ -1909,11 +1832,16 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                 partition = newPartitionNumber;
             }
         }
-        
-        direction = partition != oldPartition && partition != -1;
-        directions[r] = direction;
-        if (partition != storedPartition)
+
+        uint16_t direction = partition != oldPartition && partition != (uint16_t)-1;
+        if (partition != storedPartition && r < numRows)
             partitions[r].num = partition;
+
+        uint32_t simdDirections = (simd_vote::vote_t)simd_ballot(direction);
+        if (simd_is_first()) {
+            uint32_t index = r / 32;
+            directionsPtr[index] = simdDirections;
+        }
 
         if (debug)
             printf("splitValue = %d bucket=%d ordinal=%d side=%d direction=%d lcount %d rcount %d\n",
@@ -1929,86 +1857,39 @@ struct UpdateBucketsArgs {
 };
 
 
-#if 0
 struct BucketGetter {
     BucketGetter(const __global uint32_t * bucketData,
-                 uint16_t bucketBits, uint16_t workGroupId, uint16_t workGroupWidth)
+                 uint32_t bucketBits, uint32_t workGroupId, uint32_t workGroupWidth)
     {
-        uint16_t bitNumber = bucketBits * workGroupId;
-        wordNumber = bitNumber >> 5;
-        wordOffset = bitNumber - (wordNumber << 5);
+        uint32_t bitNumber = bucketBits * workGroupId;
+        uint16_t wordNumber = bitNumber / 32;
+        this->bucketData = bucketData + wordNumber;
+        wordOffset = bitNumber % 32;
         bottomBits = min((uint16_t)bucketBits, (uint16_t)(32 - wordOffset));
         topBits = bucketBits - bottomBits;    
-        mask = createMask32(bucketBits);  // TODO: could be uint16_t to save a register
+        mask = createMask32(bucketBits);
         increment = workGroupWidth * bucketBits / 32; 
     }
 
     const __global uint32_t * bucketData;
-    uint32_t wordNumber;
-    uint16_t wordOffset;
-    uint16_t bottomBits;
-    uint16_t topBits;
-    uint16_t mask;
     uint16_t increment;
-
-    uint16_t getNext()
-    {
-        uint32_t val = bucketData[wordNumber];
-        val >>= wordOffset;
-
-        if (topBits > 0) {
-            uint32_t val2 = bucketData[wordNumber + 1];
-            val = val | val2 << bottomBits;
-        }
-
-        wordNumber += increment;
-
-        val = val & mask;
-        return val;
-    }
-};
-#elif 1
-struct BucketGetter {
-    BucketGetter(const __global uint32_t * bucketData,
-                 uint32_t bucketBits, uint32_t workGroupId, uint32_t workGroupWidth)
-    {
-        this->bucketData = bucketData;
-        //this->bucketBits = bucketBits;
-        //this->exampleNum = workGroupId;
-        //this->increment = workGroupWidth;
-
-        uint32_t bitNumber = bucketBits * workGroupId;
-        wordNumber = bitNumber >> 5;
-        wordOffset = bitNumber - (wordNumber << 5);
-        bottomBits = min((uint32_t)bucketBits, (uint32_t)(32 - wordOffset));
-        topBits = bucketBits - bottomBits;    
-        mask = createMask32(bucketBits);  // TODO: could be uint16_t to save a register
-        increment = workGroupWidth * bucketBits / 32; 
-    }
-
-    const __global uint32_t * bucketData;
-    //uint32_t exampleNum;
-    //uint32_t bucketBits;
-    uint32_t increment;
-
-    uint32_t wordNumber;
-    uint16_t wordOffset;
-    uint16_t bottomBits;
-    uint16_t topBits;
     uint16_t mask;
+    uint8_t wordOffset;
+    uint8_t bottomBits;
+    uint8_t topBits;
 
     void skip()
     {
-        wordNumber += increment;
+        bucketData += increment;
     }
 
     uint16_t getNext()
     {
-        uint32_t val = bucketData[wordNumber];
+        uint32_t val = bucketData[0];
         val >>= wordOffset;
 
         if (topBits > 0) {
-            uint32_t val2 = bucketData[wordNumber + 1];
+            uint32_t val2 = bucketData[1];
             val = val | val2 << bottomBits;
         }
         val = val & mask;
@@ -2018,54 +1899,14 @@ struct BucketGetter {
         return val;
     }
 };
-#else
-struct BucketGetter {
-    BucketGetter(const __global uint32_t * bucketData,
-                 uint32_t bucketBits, uint32_t workGroupId, uint32_t workGroupWidth)
-    {
-        this->bucketData = bucketData;
-        this->bucketBits = bucketBits;
-        this->exampleNum = workGroupId;
-        this->increment = workGroupWidth;
-    }
 
-    const __global uint32_t * bucketData;
-    uint32_t exampleNum;
-    uint32_t bucketBits = 0;
-    uint32_t increment;
-
-    //uint32_t wordNumber;
-    //uint16_t wordOffset;
-    //uint16_t bottomBits;
-    //uint16_t topBits;
-    //uint16_t mask;
-
-#if 1
-    void skip()
-    {
-        exampleNum += increment;
-    }
-
-    uint16_t getNext()
-    {
-        auto result = getBucket(exampleNum, bucketData, 0 /* bucketDataLength not used */,
-                                bucketBits, 0 /* numBuckets not used */);
-        skip();
-        return result;
-    }
-#else
-    uint16_t getNext(uint32_t exampleNum, const __global uint32_t * bucketData2, uint32_t bucketDataLength2,
-                     uint32_t bucketBits2, uint32_t numBuckets2)
-    {
-        auto result = getBucket(exampleNum, bucketData, 0 /* bucketDataLength not used */,
-                                bucketBits, 0 /* numBuckets not used */);
-        exampleNum += increment;
-        return result;
-    }
-#endif
-};
-#endif
-
+inline bool getBitPackedDirection(__global const uint8_t * directions, uint32_t r)
+{
+    __global const uint32_t * directionsPtr = (__global const uint32_t *)directions;
+    uint32_t word = r / 32;
+    uint16_t bit = r % 32;
+    return extract_bits(directionsPtr[word], bit, 1);
+}
 
 __kernel void // [row, feature]
 //__attribute__((reqd_work_group_size(256,1,1)))
@@ -2094,13 +1935,21 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     uint2 global_id [[thread_position_in_grid]],
                     uint2 global_size [[threads_per_grid]],
                     uint2 local_id [[thread_position_in_threadgroup]],
-                    uint2 local_size [[threads_per_threadgroup]])
+                    uint2 local_size [[threads_per_threadgroup]],
+                    uint lane_id [[thread_index_in_simdgroup]])
 {
     int16_t f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
     const uint16_t numActivePartitions = args.numActivePartitions;
     const uint32_t numRows = args.numRows;
     const uint16_t maxLocalBuckets = args.maxLocalBuckets;
     const uint32_t numActiveBuckets = args.numActiveBuckets;
+
+#if BIT_PACKED_DIRECTIONS
+    #define getDirection(r) \
+        getBitPackedDirection(directions, r);
+#else
+    #define getDirection(r) directions[r]
+#endif
 
     if (f != -1 && !featuresActive[f])
         return;
@@ -2196,18 +2045,26 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     //    }
     //}
 
-    for (uint32_t i = get_global_id(0);  i < numRows;  i += get_global_size(0)) {
+    __global const uint32_t * directionsPtr = (__global const uint32_t *)directions;
 
-        uint8_t direction = directions[i];
+    for (uint32_t r = get_global_id(0);  r < numRows;  r += get_global_size(0)) {
+
+        uint32_t simdDirections = 0;
+        if (simd_is_first()) {
+            simdDirections = directionsPtr[r / 32];
+        }
+        simdDirections = simd_broadcast_first(simdDirections);
+        bool direction = simdDirections & (1 << lane_id);
+
         if (!direction) {
             skipBucket();
             continue;
         }
 
-        uint16_t partition = partitions[i].num;
+        uint16_t partition = partitions[r].num;
 
-        float weight = fabs(decodedRows[i]);
-        bool label = decodedRows[i] < 0;
+        float weight = fabs(decodedRows[r]);
+        bool label = decodedRows[r] < 0;
 
         uint32_t toBucketLocal, toBucketGlobal;
         uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
