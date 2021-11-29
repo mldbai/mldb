@@ -443,8 +443,9 @@ run(const ProcedureRunConfig & run,
             }
 
             Timer timer;
+            std::string debugName = "bag " + std::to_string(bag);
             std::vector<ML::Tree> trees
-                = data.trainMultipleSamplings(runProcConf.maxDepth, samplingActiveFeatures, serializer);
+                = data.trainMultipleSamplings(debugName, runProcConf.maxDepth, samplingActiveFeatures, serializer);
 
             ExcAssertEqual(trees.size(), samplingActiveFeatures.size());
 

@@ -205,17 +205,64 @@ static std::string printTime(double elapsed)
     return timerStr;
 }
 
+enum class OperationType {
+    METAL_COMPUTE = 1,
+    USER = 2
+};
+
+enum class OperationScope {
+    ENTER = 1,
+    EXIT = 2,
+    EXIT_EXC = 3,
+    EVENT = 4
+};
+
 template<typename... Args>
-void traceOperation(const std::string & opName, Args&&... args)
+void traceOperation(OperationScope opScope, OperationType opType, const std::string & opName, Args&&... args)
 {
     if (METAL_TRACE_API_CALLS.get()) {
         using namespace MLDB::ansi;
         int tid = std::hash<std::thread::id>()(std::this_thread::get_id());
         double elapsed = startTimer.elapsed_wall();
 
-        std::string header = format("%10.6f%9lld t%8x METAL: ", elapsed, (long long)((elapsed-lastTime)*1000000000), tid);
+        std::string opTypeName;
+        std::string opColor;
+
+        switch (opType) {
+        case OperationType::METAL_COMPUTE:
+            opTypeName = "METAL:";
+            opColor = ansi::ansi_str_blue();
+            break;
+        case OperationType::USER:
+            opTypeName = "USER:";
+            opColor = ansi::ansi_str_bright_blue();
+            break;
+        }
+
+        std::string opPrefix;
+
+        switch (opScope) {
+        case OperationScope::ENTER:
+            opPrefix = "BEGIN ";
+            break;
+
+        case OperationScope::EVENT:
+            opPrefix = "";
+            break;
+
+        case OperationScope::EXIT:
+            opPrefix = "END ";
+            break;
+
+        case OperationScope::EXIT_EXC:
+            opPrefix = "EXCEPTION ";
+            opColor = ansi::ansi_str_bright_red();
+            break;
+        };
+
+        std::string header = format("%10.6f%9lld t%8x %-8s", elapsed, (long long)((elapsed-lastTime)*1000000000), tid, opTypeName.c_str());
         std::string indent(4 * opCount, ' ');
-        std::string toDump = (string)ansi_str_blue() + header + indent + ansi_str_bold() + opName
+        std::string toDump = opColor + header + indent + opPrefix + opName
                            + ansi_str_reset() + "\n";
         cerr << toDump << flush;
 
@@ -223,15 +270,28 @@ void traceOperation(const std::string & opName, Args&&... args)
     }
 }
 
+template<typename... Args>
+void traceOperation(OperationType opType, const std::string & opName, Args&&... args)
+{
+    traceOperation(OperationScope::EVENT, opType, opName, std::forward<Args>(args)...);
+}
+
+template<typename... Args>
+void traceMetalOperation(const std::string & opName, Args&&... args)
+{
+    traceOperation(OperationScope::EVENT, OperationType::METAL_COMPUTE, opName, std::forward<Args>(args)...);
+}
+
 struct ScopedOperation {
     ScopedOperation(const ScopedOperation &) = delete;
     auto operator = (const ScopedOperation &) = delete;
 
     template<typename... Args>
-    ScopedOperation(const std::string & opName, Args&&... args)
-        : opName(opName)
+    ScopedOperation(OperationType opType,
+                    const std::string & opName, Args&&... args)
+        : opType(opType), opName(opName)
     {
-        traceOperation("BEGIN " + opName, std::forward<Args>(args)...);
+        traceOperation(OperationScope::ENTER, opType, opName, std::forward<Args>(args)...);
         ++opCount;
     }
 
@@ -240,24 +300,25 @@ struct ScopedOperation {
         if (!opName.empty()) {
             --opCount;
 
-            if (std::current_exception()) {
-                traceOperation(std::string(ansi::ansi_str_red()) + "EXCEPTION " + opName);
+            if (std::uncaught_exceptions()) {
+                traceOperation(OperationScope::EXIT_EXC, opType, opName);
                 return;
             }
 
             double elapsed = timer.elapsed_wall();
-            traceOperation("END " + opName + " [" + ansi::ansi_str_underline() + printTime(elapsed) + "]");
+            traceOperation(OperationScope::EXIT, opType, opName + " [" + ansi::ansi_str_underline() + printTime(elapsed) + "]");
         }
     }
 
+    OperationType opType;
     std::string opName;
     Timer timer;
 };
 
 template<typename... Args>
-ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(const std::string & opName, Args&&... args) 
+ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(OperationType opType, const std::string & opName, Args&&... args) 
 {
-    return ScopedOperation(opName, std::forward<Args>(args)...);
+    return ScopedOperation(opType, opName, std::forward<Args>(args)...);
 }
 
 struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
@@ -471,12 +532,12 @@ await() const
     // If we're actively waiting, we can do so in this thread and avoid having to wait for
     // the asynchronous mechanisms to eventually notice that it's done.
     if (commandBuffer) {
-        auto tr = scopedOperation("awaiting " + label() + " on command buffer");        
+        auto tr = scopedOperation(OperationType::METAL_COMPUTE, "awaiting " + label() + " on command buffer");        
         ((mtlpp::CommandBuffer &)commandBuffer).WaitUntilCompleted();
         ((MetalComputeEvent *)this)->resolve();
     }
     else {
-        auto tr = scopedOperation("awaiting " + label() + " on future");        
+        auto tr = scopedOperation(OperationType::METAL_COMPUTE, "awaiting " + label() + " on future");        
         future.get();
         ExcAssert(isResolved);
     }
@@ -586,7 +647,7 @@ launch(const std::string & opName,
        const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
 {
     try {
-        auto tr = scopedOperation("launch kernel " + bound.owner->kernelName + " as " + opName);
+        auto tr = scopedOperation(OperationType::METAL_COMPUTE, "launch kernel " + bound.owner->kernelName + " as " + opName);
 
         ExcAssert(bound.bindInfo);
         
@@ -697,13 +758,13 @@ launch(const std::string & opName,
             const MetalComputeEvent * mtlPrereq = dynamic_cast<const MetalComputeEvent *>(prereq.get());
             ExcAssert(mtlPrereq);
             if (mtlPrereq->isResolved) {
-                traceOperation("prereq " + prereq->label() + " is already resolved");
+                traceMetalOperation("prereq " + prereq->label() + " is already resolved");
             }
             else if (mtlPrereq->commandBuffer && mtlPrereq->commandBuffer.GetCommandQueue().GetPtr() == mtlQueue.GetPtr()) {
-                traceOperation("prereq " + prereq->label() + " is executing on the same command queue");
+                traceMetalOperation("prereq " + prereq->label() + " is executing on the same command queue");
             }
             else {
-                auto tr = scopedOperation("awaiting prereq " + prereq->label());
+                auto tr = scopedOperation(OperationType::METAL_COMPUTE, "awaiting prereq " + prereq->label());
                 prereq->await();
             }
         }
@@ -809,7 +870,7 @@ enqueueFillArrayImpl(const std::string & opName,
         prereq->await();
     }
 
-    auto op = scopedOperation("enqueueFillArrayImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "enqueueFillArrayImpl " + opName);
 
     if (startOffsetInBytes > region.lengthInBytes()) {
         throw MLDB::Exception("region is too long");
@@ -834,7 +895,7 @@ enqueueCopyFromHostImpl(const std::string & opName,
 {
         THROW_UNIMPLEMENTED;
 #if 0
-    auto op = scopedOperation("MetalComputeQueue enqueueCopyFromHostImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue enqueueCopyFromHostImpl " + opName);
 
     ExcAssert(toRegion.handle);
 
@@ -852,7 +913,7 @@ void
 MetalComputeQueue::
 flush()
 {
-    auto op = scopedOperation("MetalComputeQueue flush");
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue flush");
     // TODO: currently we're synchronous, so it's okay for now, but when we're not...
 }
 
@@ -860,7 +921,7 @@ void
 MetalComputeQueue::
 finish()
 {
-    auto op = scopedOperation("MetalComputeQueue finish");
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue finish");
     // TODO: currently we're synchronous, so it's okay for now, but when we're not...
 }
 
@@ -869,6 +930,27 @@ MetalComputeQueue::
 makeAlreadyResolvedEvent(const std::string & label) const
 {
     return MetalComputeEvent::makeAlreadyResolvedEvent(label);
+}
+
+
+// MetalComputeMarker
+
+MetalComputeMarker::
+MetalComputeMarker(const std::string & scopeName)
+{
+    this->scope = std::make_shared<ScopedOperation>(OperationType::USER, scopeName);
+}
+
+MetalComputeMarker::
+~MetalComputeMarker()
+{
+}
+
+std::shared_ptr<ComputeMarker>
+MetalComputeMarker::
+enterScope(const std::string & scopeName)
+{
+    return std::make_shared<MetalComputeMarker>(scopeName);
 }
 
 
@@ -886,6 +968,21 @@ getDevice() const
 {
     return device;
 }
+
+std::shared_ptr<ComputeMarker>
+MetalComputeContext::
+getScopedMarker(const std::string & scopeName)
+{
+    return std::make_shared<MetalComputeMarker>(scopeName);
+}
+
+void
+MetalComputeContext::
+recordMarkerEvent(const std::string & event)
+{
+    traceOperation(OperationType::USER, event);
+}
+
 
 std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
 MetalComputeContext::
@@ -947,7 +1044,7 @@ allocateImpl(const std::string & regionName,
              MemoryRegionInitialization initialization,
              std::any initWith)
 {
-    auto op = scopedOperation("MetalComputeContext allocateImpl " + regionName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext allocateImpl " + regionName);
     auto result = doMetalAllocate(this->mtlDevice, regionName, length, align, type, isConst);
     return queue.enqueueFillArrayImpl(regionName + " initialize", result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
@@ -961,7 +1058,7 @@ allocateSyncImpl(const std::string & regionName,
                  MemoryRegionInitialization initialization,
                  std::any initWith)
 {
-    auto op = scopedOperation("MetalComputeContext allocateSyncImpl " + regionName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext allocateSyncImpl " + regionName);
     THROW_UNIMPLEMENTED;
 #if 0
     auto result = doMetalAllocate(clContext, regionName, length, align, type, isConst);
@@ -1016,7 +1113,7 @@ MetalComputeContext::
 transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
                      const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("MetalComputeContext transferToDeviceImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext transferToDeviceImpl " + opName);
     auto result = doMetalTransferToDevice(mtlDevice, opName, region, type, isConst);
     return {std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent(opName) };
 }
@@ -1029,7 +1126,7 @@ transferToDeviceSyncImpl(const std::string & opName,
 {
     THROW_UNIMPLEMENTED;
 #if 0
-    auto op = scopedOperation("MetalComputeContext transferToDeviceSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext transferToDeviceSyncImpl " + opName);
     auto result = doMetalTransferToDevice(clContext, opName, region, type, isConst);
     return result;
 #endif
@@ -1052,7 +1149,7 @@ MetalComputeContext::
 transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("MetalComputeContext transferToHostSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext transferToHostSyncImpl " + opName);
 
     MetalMemoryRegionHandleInfo * upcastHandle = dynamic_cast<MetalMemoryRegionHandleInfo *>(handle.handle.get());
     if (!upcastHandle) {
@@ -1106,7 +1203,7 @@ transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
     THROW_UNIMPLEMENTED;
 
 #if 0
-    auto op = scopedOperation("MetalComputeContext transferToHostMutableImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext transferToHostMutableImpl " + opName);
     ExcAssert(handle.handle);
 
     auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
@@ -1142,7 +1239,7 @@ transferToHostMutableSyncImpl(const std::string & opName,
     THROW_UNIMPLEMENTED;
 
 #if 0
-    auto op = scopedOperation("MetalComputeContext transferToHostMutableSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext transferToHostMutableSyncImpl " + opName);
 
     ExcAssert(handle.handle);
 
@@ -1158,7 +1255,7 @@ std::shared_ptr<ComputeKernel>
 MetalComputeContext::
 getKernel(const std::string & kernelName)
 {
-    auto op = scopedOperation("MetalComputeContext getKernel " + kernelName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext getKernel " + kernelName);
 
     std::unique_lock guard(kernelRegistryMutex);
     auto it = kernelRegistry.find(kernelName);
@@ -1180,7 +1277,7 @@ MetalComputeContext::
 managePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("MetalComputeContext managePinnedHostRegionImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionImpl " + opName);
 
     auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
     return ComputePromiseT<MemoryRegionHandle>(std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent(opName));
@@ -1192,13 +1289,13 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
                                std::span<const std::byte> region, size_t align,
                                const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
 
     mtlpp::ResourceOptions options
          = mtlpp::ResourceOptions::StorageModeShared;
 
 
-    traceOperation("region size " + std::to_string(region.size()));
+    traceMetalOperation("region size " + std::to_string(region.size()));
 
     // This overload calls newBufferWithBytesNoCopy
     // Note that we require a page-aligned address and size, and a single VM region
@@ -1345,7 +1442,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
              size_t startOffsetInBytes, size_t lengthInBytes,
              size_t align, const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("MetalComputeContext getSliceImpl " + regionName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext getSliceImpl " + regionName);
 
     auto info = std::dynamic_pointer_cast<const MetalMemoryRegionHandleInfo>(std::move(handle.handle));
     ExcAssert(info);
@@ -1697,7 +1794,7 @@ apply(void * object,
     case MetalBindFieldActionType::SET_FIELD_FROM_KNOWN: opName += " from known " + jsonEncodeStr(expr);  break;
     }
 
-    auto op = scopedOperation(opName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, opName);
     Json::Value value;
     bool done = false;
 
@@ -1730,7 +1827,7 @@ apply(void * object,
         throw MLDB::Exception("Can't handle unknown MetalBindFieldAction value");
     }
 
-    traceOperation("value " + jsonEncodeStr(value));
+    traceMetalOperation("value " + jsonEncodeStr(value));
 
     // We go through the JSON conversion so that we can handle compatible type coversions,
     // eg uint16_t -> uint32_t.
@@ -1773,7 +1870,8 @@ applyArg(MetalComputeContext & context,
     else {
         jStr = j.toStringNoNewLine();
     }
-    auto op = scopedOperation("MetalComputeKernel bind arg " + argName + " type " + arg.handler->type.print()
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, 
+                              "MetalComputeKernel bind arg " + argName + " type " + arg.handler->type.print()
                               + " from " + jStr 
                               + " at index " + std::to_string(this->arg.GetIndex()));
 
@@ -1801,12 +1899,12 @@ applyArg(MetalComputeContext & context,
 
     if (arg.handler->canGetPrimitive()) {
         auto bytes = arg.handler->getPrimitive(opName, context);
-        traceOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
+        traceMetalOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
         commandEncoder.SetBytes(bytes.data(), bytes.size_bytes(), this->arg.GetIndex());
     }
     else if (arg.handler->canGetHandle()) {
         auto handle = arg.handler->getHandle(opName, context);
-        traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
+        traceMetalOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
         MemoryRegionAccess access = type.access;
 
         Json::Value known;
@@ -1852,7 +1950,8 @@ applyStruct(MetalComputeContext & context,
             mtlpp::CommandBuffer & commandBuffer,
             mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
-    auto op = scopedOperation("MetalComputeKernel bind struct to arg " + argName + " at index " + std::to_string(arg.GetIndex()));
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, 
+                              "MetalComputeKernel bind struct to arg " + argName + " at index " + std::to_string(arg.GetIndex()));
 
     void * ptr = nullptr;
     if (type.baseType->align < alignof(void *)) {
@@ -1913,7 +2012,7 @@ applyThreadGroup(MetalComputeContext & context,
     while (nbytes % 16 != 0)
         ++nbytes;
 
-    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes " + " at index " + std::to_string(arg.GetIndex()));
+    traceMetalOperation("binding local array handle with " + std::to_string(nbytes) + " bytes " + " at index " + std::to_string(arg.GetIndex()));
 
     // Set the knowns for this binding
     Json::Value known;
@@ -2149,7 +2248,7 @@ BoundComputeKernel
 MetalComputeKernel::
 bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
 {
-    auto op = scopedOperation("MetalComputeKernel bindImpl " + kernelName);
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeKernel bindImpl " + kernelName);
 
     ExcAssert(this->context);
     auto bindInfo = std::make_shared<MetalBindInfo>();

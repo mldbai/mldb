@@ -599,6 +599,16 @@ enqueueFillArrayImpl(const std::string & opName,
 }
 
 
+// ComputeMarker
+
+std::shared_ptr<ComputeMarker>
+ComputeMarker::
+enterScope(const std::string & scopeName)
+{
+    return std::make_shared<ComputeMarker>();
+}
+
+
 // ComputeContext
 
 std::any
@@ -629,6 +639,20 @@ setCacheEntry(const std::string & key, std::any value)
     return oldValue;
 }
 
+std::shared_ptr<ComputeMarker>
+ComputeContext::
+getScopedMarker(const std::string & scopeName)
+{
+    // No-op function
+    return std::make_shared<ComputeMarker>();
+}
+
+void
+ComputeContext::
+recordMarkerEvent(const std::string & event)
+{
+    // no-op
+}
 
 MemoryRegionHandle
 ComputeContext::

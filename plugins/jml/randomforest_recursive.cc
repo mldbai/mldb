@@ -2148,7 +2148,8 @@ std::vector<float> decodeRows(const Rows & rows)
 }
 
 ML::Tree::Ptr
-trainPartitionedEndToEndCpu(int depth, int maxDepth,
+trainPartitionedEndToEndCpu(const std::string & debugName,
+                            int depth, int maxDepth,
                             ML::Tree & tree,
                             MappedSerializer & serializer,
                             const Rows & rows,

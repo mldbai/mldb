@@ -54,7 +54,7 @@ var benchmark_conf = {
         functionName: "classifyme",
         featureVectorSamplings : 1, //5,
         featureSamplings : 1, //20,
-        maxDepth : 1,
+        maxDepth : 20,
         verbosity : 0,
     }
 };

@@ -237,7 +237,8 @@ extractTree(int depth, int maxDepth,
 
 
 ML::Tree::Ptr
-trainPartitionedEndToEnd(int depth, int maxDepth,
+trainPartitionedEndToEnd(const std::string & debugName,
+                         int depth, int maxDepth,
                          ML::Tree & tree,
                          MappedSerializer & serializer,
                          const Rows & rows,
@@ -246,7 +247,8 @@ trainPartitionedEndToEnd(int depth, int maxDepth,
                          const DatasetFeatureSpace & fs);
 
 ML::Tree::Ptr
-trainPartitionedEndToEndCpu(int depth, int maxDepth,
+trainPartitionedEndToEndCpu(const std::string & debugName,
+                            int depth, int maxDepth,
                             ML::Tree & tree,
                             MappedSerializer & serializer,
                             const Rows & rows,
@@ -255,7 +257,8 @@ trainPartitionedEndToEndCpu(int depth, int maxDepth,
                             const DatasetFeatureSpace & fs);
 
 ML::Tree::Ptr
-trainPartitionedRecursiveCpu(int depth, int maxDepth,
+trainPartitionedRecursiveCpu(const std::string & debugName,
+                             int depth, int maxDepth,
                              ML::Tree & tree,
                              MappedSerializer & serializer,
                              const std::span<const uint32_t> & bucketOffsets,
@@ -269,7 +272,8 @@ trainPartitionedRecursiveCpu(int depth, int maxDepth,
                              FrozenMemoryRegionT<uint32_t> bucketMemory);
 
 ML::Tree::Ptr
-trainPartitionedEndToEndCpu(int depth, int maxDepth,
+trainPartitionedEndToEndCpu(const std::string & debugName,
+                            int depth, int maxDepth,
                             ML::Tree & tree,
                             MappedSerializer & serializer,
                             const Rows & rows,

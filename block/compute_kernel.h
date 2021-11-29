@@ -895,6 +895,19 @@ struct ComputeQueue {
     virtual void finish() = 0;
 };
 
+
+// ComputeMarker
+// Marks a set of operations, so that tracing and debugging are able to label and group
+// actions.
+struct ComputeMarker {
+    virtual ~ComputeMarker() = default;
+
+    virtual std::shared_ptr<ComputeMarker> enterScope(const std::string & scopeName);
+};
+
+
+// ComputeContext
+
 struct ComputeContext {
 
     virtual ~ComputeContext() = default;
@@ -934,6 +947,12 @@ struct ComputeContext {
     // Set an entry generically.  If the entry is already set, nothing happens.
     // In any case, the current value is returned.
     std::any setCacheEntry(const std::string & key, std::any value);
+
+    // Return a marker that enters the named scope when created
+    virtual std::shared_ptr<ComputeMarker> getScopedMarker(const std::string & scopeName);
+
+    // Record a marker event, without creating a scope
+    virtual void recordMarkerEvent(const std::string & event);
 
     virtual ComputePromiseT<MemoryRegionHandle>
     allocateImpl(const std::string & regionName,

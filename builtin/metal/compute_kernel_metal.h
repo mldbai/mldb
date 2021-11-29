@@ -92,6 +92,19 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     virtual void finish() override;
 };
 
+
+// MetalComputeMarker
+
+struct MetalComputeMarker: public ComputeMarker {
+    MetalComputeMarker(const std::string & scopeName);
+    virtual ~MetalComputeMarker();
+
+    virtual std::shared_ptr<ComputeMarker> enterScope(const std::string & scopeName);
+
+    std::shared_ptr<void> scope;
+};
+
+
 // MetalComputeContext
 
 struct MetalComputeContext: public ComputeContext {
@@ -105,6 +118,12 @@ struct MetalComputeContext: public ComputeContext {
     MetalComputeQueue queue;
 
     virtual ComputeDevice getDevice() const override;
+
+    // Return a marker that enters the named scope when created
+    virtual std::shared_ptr<ComputeMarker> getScopedMarker(const std::string & scopeName) override;
+
+    // Record a marker event, without creating a scope
+    virtual void recordMarkerEvent(const std::string & event) override;
 
     // pin, region, length in bytes
     static std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
