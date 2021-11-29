@@ -1743,6 +1743,9 @@ struct UpdatePartitionNumbersArgs {
     uint16_t depth;
 };
 
+#if 0
+#define BIT_PACKED_DIRECTIONS 0
+
 // Second part: per feature plus wAll, transfer examples
 //[rowNumber]
 __kernel void
@@ -1771,65 +1774,158 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 
     allPartitionSplits += args.partitionSplitsOffset;
 
-    for (uint32_t r = get_global_id(0);  r < numRows;  r += get_global_size(0)) {
-        uint16_t partition = depth == 0 ? 0 : partitions[r].num;
+#if BIT_PACKED_DIRECTIONS
+    __global atomic<uint32_t> * directionsAPtr = (__global atomic_uint *)directions;
+    #define setDirection(r, v) \
+        do { \
+            uint __r = r;  \
+            uint word = __r / 32, bit = __r % 32, operand = 1 << bit;  \
+            if (v) { \
+                atomic_fetch_or_explicit(directionsAPtr + word, operand, memory_order_relaxed); \
+            }  else { \
+                atomic_fetch_and_explicit(directionsAPtr + word, ~operand, memory_order_relaxed); \
+            } \
+        } while (false)
+#else
+    #define setDirection(__r, __v) do { directions[__r] = __v; } while (false)
+#endif
+
+    for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
+        uint32_t r = i + get_global_id(0);
+        uint16_t storedPartition = depth == 0 ? 255 : partitions[r].num;
+        uint16_t partition = depth == 0 ? 0 : storedPartition;
+        uint16_t direction = 0;
+
+        // partition = -1: row is not in any partition
+        if (partition != -1 && r < numRows) {
+            PartitionInfo info = partitionInfo[partition];
+
+            int16_t splitFeature;
+            if (info.left == -1 && info.right == -1 || ((splitFeature = allPartitionSplits[partition].feature) == -1)) {
+                partition = (uint16_t)-1;
+            }
+            else {
+                uint16_t splitValue = allPartitionSplits[partition].value;
+                bool ordinal = featureIsOrdinal[splitFeature];
+
+                // Split feature values go here
+                uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
+                uint32_t splitBucketDataLength = bucketDataOffsets[splitFeature + 1] - splitBucketDataOffset;
+                uint16_t splitNumBuckets = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
+                __global const uint32_t * splitBucketData = bucketData + splitBucketDataOffset;
+                uint16_t splitBucketBits = bucketEntryBits[splitFeature];
+
+                uint16_t bucket = getBucket(r,
+                                            splitBucketData, splitBucketDataLength,
+                                            splitBucketBits, splitNumBuckets);
+                
+                uint16_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
+
+                // Set the new partition number
+                uint16_t newPartitionNumber = side ? info.right : info.left;
+                direction = newPartitionNumber != partition && newPartitionNumber != -1;
+                partition = newPartitionNumber;
+            }
+        }
+
+        if (r < numRows) {
+            setDirection(r, direction);
+            if (partition != storedPartition)
+                partitions[r].num = partition;
+        }
+
+        if (debug)
+            printf("splitValue = %d bucket=%d ordinal=%d side=%d direction=%d lcount %d rcount %d\n",
+                splitValue, bucket, ordinal, side, directions[r], allPartitionSplits[partition].left.count, allPartitionSplits[partition].right.count);
+    }
+}
+#endif
+
+
+// Second part: per feature plus wAll, transfer examples
+//[rowNumber]
+__kernel void
+//__attribute__((reqd_work_group_size(256,1,1)))
+updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
+                             __global RowPartitionInfo * partitions,
+                             __global uint8_t * directions,
+
+                             __global const IndexedPartitionSplit * allPartitionSplits,
+                             __global const PartitionInfo * partitionInfo,
+
+                             __global const uint32_t * bucketData,
+                             __global const uint32_t * bucketDataOffsets,
+                             __global const uint32_t * bucketNumbers,
+                             __global const uint32_t * bucketEntryBits,
+                             __global const uint32_t * featureIsOrdinal,
+                             uint2 global_id [[thread_position_in_grid]],
+                             uint2 global_size [[threads_per_grid]],
+                             uint2 local_id [[thread_position_in_threadgroup]],
+                             uint2 local_size [[threads_per_threadgroup]])
+{
+    const uint16_t depth = args.depth;
+    const uint32_t numRows = args.numRows;
+
+    bool debug = false; //(r == 845 || r == 3006 || r == 3758);
+
+    allPartitionSplits += args.partitionSplitsOffset;
+
+    for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
+        uint32_t r = i + get_global_id(0);
+        if (r >= numRows)
+            break;
+
+        uint16_t storedPartition = partitions[r].num;
+        uint16_t partition = depth == 0 ? 0 : storedPartition;
+        uint16_t direction = 0;
 
         // Row is not in any partition
         if (partition == (uint16_t)-1) {
             if (depth == 0)
-                partitions[r].num = -1;
-            directions[r] = 0;
-            continue;
+                partition = -1;
         }
+        else {
 
-        PartitionInfo info = partitionInfo[partition];
+            PartitionInfo info = partitionInfo[partition];
+            int16_t splitFeature;
 
-        if (info.left == -1 && info.right == -1) {
-            directions[r] = 0;
-            partitions[r].num = -1;
-            continue;
+            if ((info.left == -1 && info.right == -1) || ((splitFeature = allPartitionSplits[partition].feature) == -1)) {
+                partition = -1;
+            }
+            else {
+                uint16_t splitValue = allPartitionSplits[partition].value;
+                uint16_t ordinal = featureIsOrdinal[splitFeature];
+
+                // Split feature values go here
+                uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
+                //uint32_t splitBucketDataLength = bucketDataOffsets[splitFeature + 1] - splitBucketDataOffset;
+                //uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
+                __global const uint32_t * splitBucketData = bucketData + splitBucketDataOffset;
+                uint16_t splitBucketBits = bucketEntryBits[splitFeature];
+
+                uint16_t bucket = getBucket(r,
+                                            splitBucketData, 0 /*splitBucketDataLength*/,
+                                            splitBucketBits, 0 /*splitNumBuckets*/);
+                
+                uint16_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
+
+                // Set the new partition number
+                int16_t newPartitionNumber = side ? info.right : info.left;
+                if (depth == 0)
+                    partitions[r].num = newPartitionNumber;
+
+                if (newPartitionNumber != partition) {
+                    if (depth != 0)
+                        partitions[r].num = newPartitionNumber;
+                    direction = newPartitionNumber != -1;
+                }
+                directions[r] = direction;
+                continue;
+            }
         }
-
-        int16_t splitFeature = allPartitionSplits[partition].feature;
-
-#if 0
-        if (debug)
-            printf("r = %d partition = %d splitFeature = %d\n", r, partition, splitFeature);
-#endif
-
-        if (splitFeature == -1) { // reached a leaf, nothing to split
-            directions[r] = 0;
-            partitions[r].num = -1;
-            continue;
-        }
-
-        uint16_t splitValue = allPartitionSplits[partition].value;
-        bool ordinal = featureIsOrdinal[splitFeature];
-
-        // Split feature values go here
-        uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
-        uint32_t splitBucketDataLength = bucketDataOffsets[splitFeature + 1] - splitBucketDataOffset;
-        uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
-        __global const uint32_t * splitBucketData = bucketData + splitBucketDataOffset;
-        uint32_t splitBucketBits = bucketEntryBits[splitFeature];
-
-        uint32_t bucket = getBucket(r,
-                                    splitBucketData, splitBucketDataLength,
-                                    splitBucketBits, splitNumBuckets);
-        
-        uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
-
-        // Set the new partition number
-        int32_t newPartitionNumber = side ? info.right : info.left;
-        if (depth == 0)
-            partitions[r].num = newPartitionNumber;
-
-        if (newPartitionNumber != partition) {
-            if (depth != 0)
-                partitions[r].num = newPartitionNumber;
-            directions[r] = newPartitionNumber != -1;
-        }
-        else directions[r] = 0;
+        directions[r] = direction;
+        if (partition != storedPartition)
+            partitions[r].num = partition;
 
         if (debug)
             printf("splitValue = %d bucket=%d ordinal=%d side=%d direction=%d lcount %d rcount %d\n",
