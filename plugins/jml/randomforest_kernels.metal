@@ -1876,16 +1876,11 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
             break;
 
         uint16_t storedPartition = partitions[r].num;
-        uint16_t partition = depth == 0 ? 0 : storedPartition;
+        uint16_t oldPartition = depth == 0 ? 0 : storedPartition;
+        uint16_t partition = oldPartition;
         uint16_t direction = 0;
 
-        // Row is not in any partition
-        if (partition == (uint16_t)-1) {
-            if (depth == 0)
-                partition = -1;
-        }
-        else {
-
+        if (partition != (uint16_t)-1) {
             PartitionInfo info = partitionInfo[partition];
             int16_t splitFeature;
 
@@ -1910,19 +1905,12 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                 uint16_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
 
                 // Set the new partition number
-                int16_t newPartitionNumber = side ? info.right : info.left;
-                if (depth == 0)
-                    partitions[r].num = newPartitionNumber;
-
-                if (newPartitionNumber != partition) {
-                    if (depth != 0)
-                        partitions[r].num = newPartitionNumber;
-                    direction = newPartitionNumber != -1;
-                }
-                directions[r] = direction;
-                continue;
+                uint16_t newPartitionNumber = side ? info.right : info.left;
+                partition = newPartitionNumber;
             }
         }
+        
+        direction = partition != oldPartition && partition != -1;
         directions[r] = direction;
         if (partition != storedPartition)
             partitions[r].num = partition;
