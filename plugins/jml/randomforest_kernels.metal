@@ -1939,10 +1939,10 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     ushort lane_id [[thread_index_in_simdgroup]])
 {
     int16_t f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
-    const uint16_t numActivePartitions = args.numActivePartitions;
-    const uint32_t numRows = args.numRows;
-    const uint16_t maxLocalBuckets = args.maxLocalBuckets;
-    const uint32_t numActiveBuckets = args.numActiveBuckets;
+    __local uint16_t numActivePartitions;  numActivePartitions = args.numActivePartitions;
+    __local uint32_t numRows;  numRows = args.numRows;
+    __local uint16_t maxLocalBuckets;  maxLocalBuckets = args.maxLocalBuckets;
+    __local uint32_t numActiveBuckets;  numActiveBuckets = args.numActiveBuckets;
 
 #if BIT_PACKED_DIRECTIONS
     #define getDirection(r) \
@@ -1993,21 +1993,10 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     // we always use the same bit number and mask.  This code allows us to avoid most of the logic by
     // pre-computing the constants.
 
-#if 1
     BucketGetter bucketGetter(bucketData, bucketBits, get_global_id(0), get_global_size(0));
-//#   define doGetBucket(ex, bd, bdl, bb, nbpp) bucketGetter.getNext()
 #   define doGetBucket(ex, bd, bdl, bb, nbpp) bucketGetter.getNext(/*ex, bd, bdl, bb, nbpp*/)
 #   define skipBucket() bucketGetter.skip()
-#else
-#   define doGetBucket(ex, bd, bdl, bb, nbpp) getBucket(ex, bd, bdl, bb, nbpp)
-#   define skipBucket() while (false) do {}
-#endif
 
-
-    //__local uint32_t numLocalUpdates, numGlobalUpdates, numCopyLocalToGlobal;
-    //numLocalUpdates = 0;
-    //numGlobalUpdates = 0;
-    //numCopyLocalToGlobal = 0;
 
     // Most rows live in partitions with a number < 256; avoid main memory accesses for these
     // by caching in local memory
