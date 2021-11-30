@@ -1781,10 +1781,8 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              ushort2 local_id [[thread_position_in_threadgroup]],
                              ushort2 local_size [[threads_per_threadgroup]])
 {
-    const uint16_t depth = args.depth;
-    const uint32_t numRows = args.numRows;
-
-    bool debug = false; //(r == 845 || r == 3006 || r == 3758);
+    __local uint16_t depth;  depth = args.depth;
+    __local uint32_t numRows;  numRows = args.numRows;
 
     allPartitionSplits += args.partitionSplitsOffset;
 
@@ -1842,10 +1840,6 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
             uint32_t index = r / 32;
             directionsPtr[index] = simdDirections;
         }
-
-        if (debug)
-            printf("splitValue = %d bucket=%d ordinal=%d side=%d direction=%d lcount %d rcount %d\n",
-                splitValue, bucket, ordinal, side, directions[r], allPartitionSplits[partition].left.count, allPartitionSplits[partition].right.count);
     }
 }
 
@@ -1858,7 +1852,7 @@ struct UpdateBucketsArgs {
 
 
 struct BucketGetter {
-    BucketGetter(const __global uint32_t * bucketData,
+    void init(const __global uint32_t * bucketData,
                  uint32_t bucketBits, uint32_t workGroupId, uint32_t workGroupWidth)
     {
         uint32_t bitNumber = bucketBits * workGroupId;
@@ -1993,7 +1987,8 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     // we always use the same bit number and mask.  This code allows us to avoid most of the logic by
     // pre-computing the constants.
 
-    BucketGetter bucketGetter(bucketData, bucketBits, get_global_id(0), get_global_size(0));
+    BucketGetter bucketGetter;
+    bucketGetter.init(bucketData, bucketBits, get_global_id(0), get_global_size(0));
 #   define doGetBucket(ex, bd, bdl, bb, nbpp) bucketGetter.getNext(/*ex, bd, bdl, bb, nbpp*/)
 #   define skipBucket() bucketGetter.skip()
 
