@@ -1776,10 +1776,10 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              __global const uint32_t * bucketNumbers,
                              __global const uint32_t * bucketEntryBits,
                              __global const uint32_t * featureIsOrdinal,
-                             uint2 global_id [[thread_position_in_grid]],
-                             uint2 global_size [[threads_per_grid]],
-                             uint2 local_id [[thread_position_in_threadgroup]],
-                             uint2 local_size [[threads_per_threadgroup]])
+                             ushort2 global_id [[thread_position_in_grid]],
+                             ushort2 global_size [[threads_per_grid]],
+                             ushort2 local_id [[thread_position_in_threadgroup]],
+                             ushort2 local_size [[threads_per_threadgroup]])
 {
     const uint16_t depth = args.depth;
     const uint32_t numRows = args.numRows;
@@ -1932,11 +1932,11 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
 
                     __local W * wLocal,
 
-                    uint2 global_id [[thread_position_in_grid]],
-                    uint2 global_size [[threads_per_grid]],
-                    uint2 local_id [[thread_position_in_threadgroup]],
-                    uint2 local_size [[threads_per_threadgroup]],
-                    uint lane_id [[thread_index_in_simdgroup]])
+                    ushort2 global_id [[thread_position_in_grid]],
+                    ushort2 global_size [[threads_per_grid]],
+                    ushort2 local_id [[thread_position_in_threadgroup]],
+                    ushort2 local_size [[threads_per_threadgroup]],
+                    ushort lane_id [[thread_index_in_simdgroup]])
 {
     int16_t f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
     const uint16_t numActivePartitions = args.numActivePartitions;
@@ -1967,12 +1967,9 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     // Thus, we need to perform the same work twice, once for each of the
     // features.
     
-    uint32_t bucketDataOffset;
-    uint32_t bucketDataLength;
-    uint32_t numBucketsPerPartition;        // How many buckets for this feature?
-    uint32_t bucketBits = 0;
-    uint16_t numLocalBuckets = 0;
-    uint32_t startBucket;
+    __local uint16_t numBucketsPerPartition;        // How many buckets for this feature?
+    __local uint16_t bucketBits;
+    __local uint16_t numLocalBuckets;
             
     // Pointer to the global array we eventually want to update
     __global W * wGlobal;
@@ -1982,21 +1979,14 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
         wGlobal = wAll;
         numLocalBuckets = min(uint16_t(numActivePartitions / 2), maxLocalBuckets);
         numLocalBuckets = min(numLocalBuckets, (uint16_t)254);
-        startBucket = 0;
     }
     else {
-        bucketDataOffset = bucketDataOffsets[f];
-        bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
+        uint32_t bucketDataOffset = bucketDataOffsets[f];
         numBucketsPerPartition = bucketNumbers[f + 1] - bucketNumbers[f];
         bucketData = bucketData + bucketDataOffset;
         bucketBits = bucketEntryBits[f];
-        numLocalBuckets = min(numBucketsPerPartition * numActivePartitions / 2, (uint32_t)maxLocalBuckets);
-        if (get_global_id(0) == 0 && false) {
-            printf("f %d nlb = %d nb = %d mlb = %d nbp = %d\n",
-                   f, numLocalBuckets, numBucketsPerPartition, maxLocalBuckets, numBucketsPerPartition * numActivePartitions / 2);
-        }
-        wGlobal = buckets;
-        startBucket = bucketNumbers[f];
+        numLocalBuckets = min((uint32_t)numBucketsPerPartition * numActivePartitions / 2, (uint32_t)maxLocalBuckets);
+        wGlobal = buckets + bucketNumbers[f];
     }
 
     // We call getBucket, but since our stride is the workgroup width (which is always a multiple of 32),
@@ -2046,14 +2036,15 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     //}
 
     uint16_t simdGroupNumber = get_global_id(0) / 32;
-    uint16_t numSimdGroups = get_global_size(0) / 32;
+    __local uint16_t numSimdGroups;
+    numSimdGroups = get_global_size(0) / 32;
     
     __global const uint32_t * directionsPtr = (__global const uint32_t *)directions;
     directionsPtr += simdGroupNumber;
 
     for (uint32_t i = 0;  i < numRows;  i += get_global_size(0), directionsPtr += numSimdGroups) {
 
-        uint32_t simdDirections = directionsPtr[0];
+        uint32_t simdDirections = *directionsPtr;
         bool direction = simdDirections & (1 << lane_id);
 
         if (!direction) {
@@ -2068,7 +2059,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
         float weight = fabs(decodedRows[r]);
         bool label = decodedRows[r] < 0;
 
-        int16_t toBucketLocal;
+        uint16_t toBucketLocal;
         uint32_t toBucketGlobal;
         uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
         
@@ -2083,10 +2074,10 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
             toBucketGlobal = partition;
         }
         else {
-            uint32_t bucket = doGetBucket(exampleNum,
-                                        bucketData, bucketDataLength,
-                                        bucketBits, numBucketsPerPartition);
-            toBucketGlobal = partition * numActiveBuckets + startBucket + bucket;
+            uint32_t bucket = doGetBucket(r /*exampleNum*/,
+                                          bucketData, 0 /* bucketDataLength */,
+                                          bucketBits, 0 /* numBucketsPerPartition */);
+            toBucketGlobal = partition * numActiveBuckets + bucket;
             if (smallPartitionIndex == 255)
                 toBucketLocal = -1;
             else
@@ -2126,7 +2117,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
             uint32_t partition = b / numBucketsPerPartition;
             uint32_t bucket = b % numBucketsPerPartition;
 
-            uint32_t bucketNumberGlobal = smallSideIndexToPartition[partition + 1] * numActiveBuckets + startBucket + bucket;
+            uint32_t bucketNumberGlobal = smallSideIndexToPartition[partition + 1] * numActiveBuckets + bucket;
 
             if (f == 0 && false) {
                 printf("f %d local bucket %d part %d buck %d nb %d nab %d global bucket %d cnt %d\n",
