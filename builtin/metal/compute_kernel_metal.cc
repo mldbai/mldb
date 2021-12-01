@@ -1059,17 +1059,11 @@ allocateSyncImpl(const std::string & regionName,
                  std::any initWith)
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext allocateSyncImpl " + regionName);
-    THROW_UNIMPLEMENTED;
-#if 0
-    auto result = doMetalAllocate(clContext, regionName, length, align, type, isConst);
-    if (initialization != MemoryRegionInitialization::INIT_NONE) {
-        return result = clQueue->enqueueFillArrayImpl(regionName + " initialize", std::move(result), initialization,
-                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith).move();
-
-    }
-
-    return result;
-#endif
+    auto result = doMetalAllocate(this->mtlDevice, regionName, length, align, type, isConst);
+    if (initialization == INIT_NONE)
+        return result;
+    return queue.enqueueFillArrayImpl(regionName + " initialize", result, initialization,
+                                       0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith).get();
 }
 
 static MemoryRegionHandle
@@ -1861,6 +1855,11 @@ applyArg(MetalComputeContext & context,
          mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
     const ComputeKernelArgument & arg = args.at(argNum);
+
+    if (!arg.handler) {
+        throw MLDB::Exception("argument " + std::to_string(argNum) + " (" + argName
+                              + ") was not passed");
+    }
 
     auto j = arg.handler->toJson();
     std::string jStr;

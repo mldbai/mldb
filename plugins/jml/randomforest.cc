@@ -1165,9 +1165,10 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     MemoryArrayHandleT<PartitionInfo> devicePartitionInfoPool
         = context->allocUninitializedArray<PartitionInfo>("partitionInfo", maxPartitionCount).get();
 
-    // One-element array used to return the number of active partitions
+    // Two-element array used to return the number of active partitions and the
+    // number of rows to be transferred on the small side
     MemoryArrayHandleT<uint32_t> deviceNumActivePartitions
-        = context->allocUninitializedArray<uint32_t>("numActivePartitions", 1).get();
+        = context->allocUninitializedArray<uint32_t>("numActivePartitions", 2).get();
 
     // How many active partitions at this level?
     uint32_t numActivePartitions = 1;
@@ -1182,12 +1183,15 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     // its own set of buckets that we maintain.  Note that this indexes the
     // PARTITION NUMBER IN THE ARRAY, not the actual index (to find the index, its
     // necessary to consult the PartitionInfo structure)
-    auto devicePartitions
-        = context->allocUninitializedArray<RowPartitionInfo>("partitions", numRows).get();
+    auto devicePartitions = context->allocUninitializedArraySync<RowPartitionInfo>("partitions", numRows);
 
     // Array to cache transfer directions to avoid re-calculating
-    auto directions
-        = context->allocUninitializedArray<uint8_t>("directions", numRows).get();
+    auto directions = context->allocUninitializedArraySync<uint32_t>("directions", (numRows + 31) / 32);
+
+    // Array to hold indices of non-zero directions to avoid scanning directions
+    // We only use these when there are less than numRows / 16 used
+    // First entry is the size
+    auto nonZeroDirectionIndices = context->allocUninitializedArraySync<uint32_t>("nonZeroDirectionIndices", numRows + 2);
 
     // SmallSideIndex[numPartitionsOut]:
     // Used to a) know when we need to clear partitions (those on the small side are cleared,
@@ -1547,10 +1551,13 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         runAssignPartitionNumbers->await();
 
         // Get the new number of active partitions
-        uint32_t newNumActivePartitions
-            = context->transferToHostSync("get deviceNumActivePartitions", deviceNumActivePartitions)[0];
+        auto nap = context->transferToHostSync("get deviceNumActivePartitions", deviceNumActivePartitions);
+        uint32_t newNumActivePartitions = nap[0];
+        uint32_t numSmallSideRows = nap[1];
 
-        //cerr << "numActivePartitions was " << numActivePartitions << " now " << newNumActivePartitions << endl;
+        cerr << "numActivePartitions was " << numActivePartitions << " now " << newNumActivePartitions << endl;
+        cerr << "transferring " << numSmallSideRows << " small side rows of "
+             << numRows << " (" << 100.0 * numSmallSideRows / numRows << "%)" << endl;
 
         if (newNumActivePartitions >= std::min<uint32_t>(65536, maxPartitionCount)) {
             cerr << "depth = " << depth << " newNumActivePartitions = " << newNumActivePartitions << endl;
@@ -1596,6 +1603,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             auto boundClearBucketsKernel = clearBucketsKernel->bind
                ("bucketsOut",             nextDepthPartitionBuckets,
                 "wAllOut",                nextDepthWAll,
+                "nonZeroDirectionIndices",nonZeroDirectionIndices, 
                 "smallSideIndexes",       nextSmallSideIndexes,
                 "numActiveBuckets",       numActiveBuckets);
 
@@ -1614,6 +1622,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 ->bind("partitionSplitsOffset",       numFinishedPartitions,  // rightOffset
                     "partitions",                     devicePartitions,
                     "directions",                     directions,
+                    "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
                     "numRows",                        numRows,
                     "allPartitionSplits",             depthAllPartitionSplits,
                     "partitionInfo",                  depthPartitionInfo,
@@ -1630,6 +1639,37 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                                 { runAssignPartitionNumbers });
         }
         
+        if (debugKernelOutput) {
+            runUpdatePartitionNumbersKernel->await();
+            queue->finish();
+
+            auto mappedDirections = context->transferToHostSync("debug directions", directions);
+            auto directions = mappedDirections.getConstSpan();
+
+            size_t numDirectionOne = 0;
+            for (auto & d: directions) {
+                numDirectionOne += std::popcount(d);
+            }
+
+            auto mappedNonZeroDirectionIndices = context->transferToHostSync("debug nonZeroDirectionIndices", nonZeroDirectionIndices);
+            auto nonZeroDirectionIndices = mappedNonZeroDirectionIndices.getConstSpan();
+
+            ExcAssertEqual(nonZeroDirectionIndices[0], numDirectionOne);
+
+            // Verify the equivalence between the directions and the non zero indices
+            std::vector<uint32_t> directions2(directions.size(), 0);
+            for (size_t i = 1;  i <= numDirectionOne;  ++i) {
+                auto row = nonZeroDirectionIndices[i];
+                auto word = row / 32;
+                auto bit = row % 32;
+                uint32_t mask = 1 << bit;
+                ExcAssertLess(word, directions.size());
+                ExcAssertEqual((directions[word] & mask), mask);
+                ExcAssertEqual((directions2[word] & mask), 0);
+                directions2[word] = directions2[word] | mask;
+            }
+        }
+
         // Now the right side buckets are clear, we can transfer the weights
         // for the examples who have changed bucket from the left to the right.
 
@@ -1640,6 +1680,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 "numActivePartitions",            (uint32_t)newNumActivePartitions,
                 "partitions",                     devicePartitions,
                 "directions",                     directions,
+                "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
                 "buckets",                        nextDepthPartitionBuckets,
                 "wAll",                           nextDepthWAll,
                 "smallSideIndexes",               nextSmallSideIndexes,

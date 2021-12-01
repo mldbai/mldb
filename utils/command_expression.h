@@ -290,13 +290,13 @@ struct CommandExpression {
     parseExpression(ParseContext & context, bool stopOnWhitespace = false);
 
     static std::shared_ptr<CommandExpression>
-    parseArgumentExpression(ParseContext & context);
+    parseArgumentExpression(ParseContext & context, int precedence = 0);
 
     static std::shared_ptr<CommandExpression>
     parse(const std::string & val);
     
     static std::shared_ptr<CommandExpression>
-    parseArgumentExpression(const std::string & expr);
+    parseArgumentExpression(const std::string & expr, int precedence = 0);
     
     static std::shared_ptr<CommandExpression> parse(const std::vector<std::string> & vals);
 };
@@ -424,6 +424,25 @@ struct InlineArrayExpression: public CommandExpression {
     }
 
     std::vector<std::shared_ptr<CommandExpression> > elements;
+};
+
+struct ParenthesisExpression: public CommandExpression {
+    ParenthesisExpression(std::shared_ptr<CommandExpression> expr)
+        : expr(expr)
+    {
+    }
+
+    virtual Json::Value apply(const CommandExpressionContext & vars) const
+    {
+        return expr->apply(vars);
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return {expr};
+    }
+
+    std::shared_ptr<CommandExpression> expr;
 };
 
 /** Expression that iterates over one or more lists and calls an inner

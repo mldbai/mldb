@@ -301,11 +301,11 @@ parse(const std::string & val)
 
 std::shared_ptr<CommandExpression>
 CommandExpression::
-parseArgumentExpression(const std::string & val)
+parseArgumentExpression(const std::string & val, int precedence)
 {
     ParseContext context(val, val.c_str(), val.c_str() + val.length());
     
-    auto res = parseArgumentExpression(context);
+    auto res = parseArgumentExpression(context, precedence);
     
     context.expect_eof();
     
@@ -397,7 +397,7 @@ parseExpression(ParseContext & context, bool stopOnWhitespace)
 
 std::shared_ptr<CommandExpression>
 CommandExpression::
-parseArgumentExpression(ParseContext & context)
+parseArgumentExpression(ParseContext & context, int precedence)
 {
     ParseContext::Hold_Token token(context);
 
@@ -469,6 +469,13 @@ parseArgumentExpression(ParseContext & context)
             context.expect_literal('}', "expected object close");
         }
         result = std::make_shared<ObjectExpression>(elements);
+    }
+    else if (context.match_literal('(')) {
+        // Parenthesis
+        auto contained = parseArgumentExpression(context, 0 /* precedence */);
+        context.skip_whitespace();
+        context.expect_literal(')');
+        result = std::make_shared<ParenthesisExpression>(contained);
     }
     else if (context.match_literal('%')) {
         context.exception("nested expression literals not yet supported");
@@ -571,20 +578,20 @@ parseArgumentExpression(ParseContext & context)
             context.skip_whitespace();
             context.expect_literal(']');
         }
-        else if (context.match_literal('+')) {
-            auto rhs = parseArgumentExpression(context);
+        else if (precedence <= 10 && context.match_literal('+')) {
+            auto rhs = parseArgumentExpression(context, 10);
             result = std::make_shared<PlusExpression>(result, rhs);
         }
-        else if (context.match_literal('-')) {
-            auto rhs = parseArgumentExpression(context);
+        else if (precedence <= 10 && context.match_literal('-')) {
+            auto rhs = parseArgumentExpression(context, 10);
             result = std::make_shared<MinusExpression>(result, rhs);
         }
-        else if (context.match_literal('*')) {
-            auto rhs = parseArgumentExpression(context);
+        else if (precedence <= 20 && context.match_literal('*')) {
+            auto rhs = parseArgumentExpression(context, 20);
             result = std::make_shared<TimesExpression>(result, rhs);
         }
-        else if (context.match_literal('/')) {
-            auto rhs = parseArgumentExpression(context);
+        else if (precedence <= 20 && context.match_literal('/')) {
+            auto rhs = parseArgumentExpression(context, 20);
             result = std::make_shared<DivideExpression>(result, rhs);
         }
         else break;

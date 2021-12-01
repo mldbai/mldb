@@ -927,7 +927,8 @@ satisfied(CommandExpressionContext & context) const
     auto lhsVal = lhs->apply(context);
     auto rhsVal = rhs->apply(context);
     if (lhsVal != rhsVal)
-        throw MLDB::Exception("constraint is unsatisfiable");
+        throw MLDB::Exception("constraint is unsatisfiable: " + print() + ": "
+                              + lhsVal.toStringNoNewLine() + " != " + rhsVal.toStringNoNewLine());
     return true;
 }
 

@@ -1127,7 +1127,7 @@ struct ComputeContext {
             return { std::move(handle.handle) };
         };
 
-        return allocateSyncImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE);
+        return convert(allocateSyncImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE));
     }
 
     template<typename T>

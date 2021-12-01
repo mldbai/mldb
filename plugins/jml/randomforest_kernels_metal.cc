@@ -213,7 +213,7 @@ static struct RegisterKernels {
             result->addParameter("partitionInfoOut", "w", "PartitionInfo[numActivePartitions]");
             result->addParameter("smallSideIndexesOut", "w", "u8[maxActivePartitions]");
             result->addParameter("smallSideIndexToPartitionOut", "w", "u16[256]");
-            result->addParameter("numActivePartitionsOut", "w", "u32[1]");
+            result->addParameter("numActivePartitionsOut", "w", "u32[2]");
             result->setGridExpression("[1]", "[1]");
             result->setComputeFunction(library, "assignPartitionNumbersKernel", {});
             return result;
@@ -231,6 +231,7 @@ static struct RegisterKernels {
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAllOut", "w", "W32[np]");
+            result->addParameter("nonZeroDirectionIndices", "w", "u32[numNonZeroDirectionIndices]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
@@ -252,7 +253,8 @@ static struct RegisterKernels {
 
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
-            result->addParameter("directions", "w", "u8[numRows]");
+            result->addParameter("directions", "w", "u32[(numRows+31)/32]");
+            result->addParameter("nonZeroDirectionIndices", "w", "u32[numNonZeroDirectionIndices]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np + partitionSplitsOffset]");
             result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
@@ -283,7 +285,8 @@ static struct RegisterKernels {
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
-            result->addParameter("directions", "r", "u8[numRows]");
+            result->addParameter("directions", "r", "u32[(numRows + 31)/32]");
+            result->addParameter("nonZeroDirectionIndices", "r", "u32[numNonZeroDirectionIndices]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * numActivePartitions]");
             result->addParameter("wAll", "w", "W32[numActivePartitions]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
