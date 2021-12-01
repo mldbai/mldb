@@ -136,41 +136,21 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
 }
 
 inline uint32_t extractBitRange32(__global const uint32_t * data,
-                                  uint32_t numBits,
+                                  uint8_t numBits,
                                   uint32_t entryNumber)
 {
     uint32_t bitNumber = numBits * entryNumber;
-    uint32_t wordNumber = bitNumber >> 5;
-    uint32_t wordOffset = bitNumber - (wordNumber << 5);
+    uint32_t wordNumber = bitNumber / 32;
+    uint8_t wordOffset = bitNumber % 32;
 
-    //if (wordNumber >= dataLength) {
-    //    printf("OUT OF RANGE WORD 32 %d vs %d\n", wordNumber, dataLength);
-    //    return 0;
-    //}
-    //printf("wordNumber = %d, bitNumber = %d\n", wordNumber, wordOffset);
-    
-    uint32_t bottomBits = min(numBits, 32 - wordOffset);
-    uint32_t topBits = numBits - bottomBits;
+    uint8_t bottomBits = min((uint8_t)numBits, uint8_t(32 - wordOffset));
+    uint8_t topBits = numBits - bottomBits;
 
-    //printf("numBits = %d, bottomBits = %d, topBits = %d\n",
-    //       numBits, bottomBits, topBits);
-    
-    uint32_t mask = createMask32(numBits);
-
-    //printf("mask = %08x\n", mask);
-    
-    uint32_t val = data[wordNumber];
-
-    //printf("val = %08x\n", val);
-
-    val >>= wordOffset;
-
+    uint32_t val = extract_bits(data[wordNumber], wordOffset, bottomBits);
     if (topBits > 0) {
-        uint32_t val2 = data[wordNumber + 1];
-        val = val | val2 << bottomBits;
+        val = val | extract_bits(data[wordNumber + 1], 0, topBits) << bottomBits;
     }
-    val = val & mask;
-    //printf("val out = %08lx\n", val);
+
     return val;
 }
 
