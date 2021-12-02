@@ -2006,8 +2006,11 @@ trainPartitionedEndToEnd(const std::string & debugName,
     }
 
     ComputeDevice device;
-    if (DEBUG_RF_KERNELS && RF_USE_OPENCL) {
+    if (DEBUG_RF_KERNELS && (RF_USE_OPENCL || RF_USE_METAL)) {
         device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
+    }
+    else if (RF_USE_METAL) {
+        device = ComputeDevice::defaultFor(ComputeRuntimeId::METAL);
     }
     else if (RF_USE_OPENCL) {
         device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);

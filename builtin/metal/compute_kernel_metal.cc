@@ -853,7 +853,7 @@ launch(const std::string & opName,
 #endif
 
     } MLDB_CATCH_ALL {
-        rethrowException(400, "Error launching kernel " + bound.owner->kernelName);
+        rethrowException(400, "Error launching Metal kernel " + bound.owner->kernelName);
     }
 }
 

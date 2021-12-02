@@ -1330,12 +1330,6 @@ getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
     if (bucket >= numBuckets)
         return;
 
-    // SPEED DEBUG
-    //if (bucket == 0) {
-    //    printf("getPartitionSplits f=%d p=%d numPartitions=%d\n", f, partition, numPartitions);
-    //}
-    //if (numPartitions == 65536)
-    //    return;
 
     // Find where our bucket data starts
     __global const W * myW
@@ -1379,71 +1373,6 @@ getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
         featurePartitionSplitsOut[partition * nf + f] = best;
     }
 
-    //printf("part %d feature %d bucket %d score %f\n",
-    //       partition, f, best.value, best.score);
-
-
-#if 0    
-    // Finally, we have each feature update the lowest split for the
-    // partition.  Spin until we've acquired the lock for the partition.
-    // We won't hold it for long, so the spinlock is not _too_ inefficient.
-    // NOTE: this only works because we make all workgroups apart from one
-    // return above.  In general, you can't do a simple spin lock like this
-    // in a kernel without causing a deadlock.
-    if (bucket == 0) {
-
-        printf("waiting feature %d partition %d\n", f, partition);
-
-        while (atomic_inc(&partitionLocks[partition]) != 0) {
-            atomic_dec(&partitionLocks[partition]);
-        }
-
-        printf("starting feature %d partition %d\n", f, partition);
-    
-        // We can only access the splitOut values via atomic operations, as the
-        // non-atomic global memory operations are only eventually consistent
-        // over workgroups, and on AMD GPUs the writes may not be visible to
-        // other workgroups until the kernel has finished.
-    
-        float currentScore = atomic_xchg(&splitOut->score, best.score);
-        int currentFeature = atomic_xchg(&splitOut->feature, best.feature);
-    
-        // If we have the best score or an equal score and a lower feature number
-        // (for determinism), then we update the output
-        if (best.score < currentScore
-            || (best.score == currentScore
-                && best.feature < currentFeature)) {
-
-            //printf("BEST, %.10f < %.10f\n", best.score, currentScore);
-        
-            // Copy the rest in, atomically
-            atomic_store_int(&splitOut->value, best.value);
-
-            atomic_store_long(&splitOut->left.vals[0], best.left.vals[0]);
-            atomic_store_long(&splitOut->left.vals[1], best.left.vals[1]);
-            atomic_store_int(&splitOut->left.count, best.left.count);
-
-            atomic_store_long(&splitOut->right.vals[0], best.right.vals[0]);
-            atomic_store_long(&splitOut->right.vals[1], best.right.vals[1]);
-            atomic_store_int(&splitOut->right.count, best.right.count);
-
-            atomic_store_int(&splitOut->direction, best.direction);
-        
-            // Shouldn't be needed, but just in case...
-            mem_fence(CLK_GLOBAL_MEM_FENCE);
-        }
-        else {
-            // Not the best, exchange them back
-            atomic_xchg(&splitOut->score, currentScore);
-            atomic_xchg(&splitOut->feature, currentFeature);
-        }
-    
-        // Finally, release the lock to let another feature in
-        atomic_dec(&partitionLocks[partition]);
-
-        printf("finishing feature %d partition %d\n", f, partition);
-    }
-#endif
 }
 #endif
 
@@ -1802,6 +1731,11 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
             partitions[r].num = partition;
 
         uint32_t simdDirections = (simd_vote::vote_t)simd_ballot(direction);
+
+        if (simd_is_first()) {
+            directions[r/32] = simdDirections;
+        }
+
         if (simdDirections == 0)
             continue;
 
