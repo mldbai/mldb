@@ -1020,7 +1020,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     uint32_t maxBuckets = 0;
     
     std::vector<uint32_t> bucketNumbers(1, 0);   ///< Range of bucket numbers for feature [nf + 1]
-    std::vector<uint32_t> featuresActive(nf, false); ///< For each feature: which are active? [nf]
+    std::vector<uint32_t> featuresActive{activeFeatures.begin(), activeFeatures.end()}; ///< For each feature: which are active? [nf]
     
     std::set<int> activeFeatureSet{activeFeatures.begin(), activeFeatures.end()};
 
@@ -1031,7 +1031,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     // to know where in a flat buffer of memory the data for that feature resides.
     for (int i = 0;  i < nf;  ++i) {
         if (activeFeatureSet.count(i)) {
-            featuresActive[i] = true;
             numActiveBuckets += features[i].buckets.numBuckets;
             maxBuckets = std::max<size_t>(maxBuckets,
                                           features[i].buckets.numBuckets);
@@ -1041,7 +1040,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     }
 
     ExcAssertEqual(bucketNumbers.size(), nf + 1);
-    ExcAssertEqual(featuresActive.size(), nf);
 
     ExcAssertGreater(numActiveFeatures, 0);
 
@@ -1110,7 +1108,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         runTestFeatureKernel = queue->launch("testFeature",
                             boundTestFeatureKernel,
-                        { nf, numRows },
+                        { numActiveFeatures, numRows },
                         { bucketDataPromise.event(), fillFirstBuckets.event(), runDecodeRows });
     }
 
@@ -1127,9 +1125,10 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         bool different = false;
             
         // Print out the buckets that differ from CPU to Device
-        for (int i = 0;  i < nf;  ++i) {
-            int start = bucketNumbers[i];
-            int end = bucketNumbers[i + 1];
+        for (int fidx = 0;  fidx < numActiveFeatures;  ++fidx) {
+            int f = activeFeatures[fidx];
+            int start = bucketNumbers[f];
+            int end = bucketNumbers[f + 1];
             int n = end - start;
 
             if (n == 0)
@@ -1137,7 +1136,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
             testFeatureKernelCpu(rows.getRowIterator(),
                                  numRows,
-                                 features[i].buckets,
+                                 features[f].buckets,
                                  allWCpu.data() + start);
 
             const W * pDevice = allWDevice.data() + start;
@@ -1145,7 +1144,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
             for (int j = 0;  j < n;  ++j) {
                 if (pCpu[j] != pDevice[j]) {
-                    cerr << "feat " << i << " bucket " << j << " w "
+                    cerr << "feat " << f << " bucket " << j << " w "
                          << jsonEncodeStr(pDevice[j]) << " != "
                          << jsonEncodeStr(pCpu[j]) << endl;
                     different = true;
@@ -1281,7 +1280,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         auto depthFeaturePartitionSplits
             = context->getArraySlice(deviceFeaturePartitionSplitsPool,
                                      "featurePartitionSplits depth " + std::to_string(myDepth),
-                                     0, nf * numActivePartitions);
+                                     0, numActiveFeatures * numActivePartitions);
 
         auto depthPartitionIndexes
             = context->getArraySlice(devicePartitionIndexPool, 
@@ -1318,7 +1317,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             runPartitionSplitsKernel
                 = queue->launch("getPartitionSplits",
                                 boundGetPartitionSplitsKernel,
-                            { nf, numActivePartitions },
+                            { numActiveFeatures, numActivePartitions },
                             { previousIteration, copyWAllPromise.event() /*, initializeWAllPromise.event() */});
         }
 
@@ -1328,7 +1327,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         std::shared_ptr<ComputeEvent> runBestPartitionSplitKernel;
         {
             auto boundBestPartitionSplitKernel = bestPartitionSplitKernel
-                ->bind("numFeatures",            (uint32_t)nf,
+                ->bind("numActiveFeatures",   (uint32_t)numActiveFeatures,
                     "featuresActive",         deviceFeaturesActive,
                     "featurePartitionSplits", depthFeaturePartitionSplits,
                     "allPartitionSplitsOut",  depthAllPartitionSplits,
@@ -1442,9 +1441,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 }
 
                 // Verify that buckets sum to wAll for each feature
-                for (uint32_t f = 0;  f < nf;  ++f) {
-                    if (!featuresActive[f])
-                        continue;
+                for (uint32_t fidx = 0;  fidx < numActiveFeatures;  ++fidx) {
+                    uint32_t f = featuresActive[fidx];
 
                     uint32_t bucketStart = bucketNumbers[f];
                     uint32_t bucketEnd = bucketNumbers[f + 1];
@@ -1696,7 +1694,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
             runUpdateBucketsKernel
                 = queue->launch("update buckets",
-                                boundUpdateBucketsKernel, { numRows, nf + 1 /* +1 is wAll */},
+                                boundUpdateBucketsKernel, { numRows, numActiveFeatures + 1 /* +1 is wAll */},
                                 { runClearBucketsKernel, runUpdatePartitionNumbersKernel });
         }
 
@@ -2006,8 +2004,11 @@ trainPartitionedEndToEnd(const std::string & debugName,
     }
 
     ComputeDevice device;
-    if (DEBUG_RF_KERNELS && RF_USE_OPENCL) {
+    if (DEBUG_RF_KERNELS && (RF_USE_OPENCL || RF_USE_METAL)) {
         device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
+    }
+    else if (RF_USE_METAL) {
+        device = ComputeDevice::defaultFor(ComputeRuntimeId::METAL);
     }
     else if (RF_USE_OPENCL) {
         device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
