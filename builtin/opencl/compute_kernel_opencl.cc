@@ -623,7 +623,7 @@ launch(const std::string & opName,
 
         return std::make_shared<OpenCLComputeEvent>(std::move(event));
     } MLDB_CATCH_ALL {
-        rethrowException(400, "Error launching OpenCL kernel " + bound.owner->kernelName);
+        rethrowException(400, "Error launching kernel " + bound.owner->kernelName);
     }
 }
 

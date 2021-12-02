@@ -7,6 +7,7 @@
 
     clang-6.0 -Xclang -finclude-default-header -cl-std=CL1.2 -Dcl_clang_storage_class_specifiers -target nvptx64-nvidia-nvcl -xcl plugins/jml/randomforest_kernels.cl -emit-llvm -cl-kernel-arg-info -S -o test.ll
 */
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 
 #ifndef WBITS
 #  define WBITS 64
@@ -636,8 +637,7 @@ testFeatureKernel(__global const float * decodedRows,
 {
     const uint32_t workGroupId = get_global_id (1);
     const uint32_t workerId = get_local_id(1);
-    const uint32_t fidx = get_global_id(0);
-    const uint32_t f = featuresActive[fidx];
+    const uint32_t f = get_global_id(0);
     
     uint32_t bucketDataOffset = bucketDataOffsets[f];
     uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
@@ -647,6 +647,9 @@ testFeatureKernel(__global const float * decodedRows,
 
     __global W * wOut = partitionBuckets + bucketNumbers[f];
 
+    if (!featuresActive[f])
+        return;
+    
     if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, numBuckets %d, buckets %d-%d, offset %d\n",
                (int)f,
@@ -1176,8 +1179,7 @@ chooseSplit(__global const W * w,
             __local WIndexed * wLocal,
             uint32_t wLocalSize,
             __local WIndexed * wStartBest,  // length 2
-            bool ordinal,
-            uint32_t f);
+            bool ordinal);
 
 // Function that uses a single workgroup to scan all of the buckets in a split
 PartitionSplit
@@ -1187,10 +1189,12 @@ chooseSplit(__global const W * w,
             __local WIndexed * wLocal,
             uint32_t wLocalSize,
             __local WIndexed * wStartBest,  // length 2
-            bool ordinal,
-            uint32_t f)
+            bool ordinal)
 {
     PartitionSplit result = PARTITION_SPLIT_INIT;
+
+    uint32_t f = get_global_id(1);
+    //uint32_t p = get_global_id(2);
 
     // We need some weight in both true and false for a split to make sense
     if (wAll.vals[0] == 0 || wAll.vals[1] == 0)
@@ -1351,7 +1355,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
                          uint32_t numActivePartitions,
                          __global const uint32_t * bucketNumbers, // [nf]
                          
-                         __global const uint32_t * featuresActive, // [naf]
+                         __global const uint32_t * featuresActive, // [nf]
                          __global const uint32_t * featureIsOrdinal, // [nf]
                          
                          __global const W * buckets, // [np x totalBuckets]
@@ -1363,25 +1367,23 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
                          uint32_t wLocalSize,
                          __local WIndexed * wStartBest) // [2]
 {
-    uint32_t fidx = get_global_id(1);
-    uint32_t naf = get_global_size(1);
+    uint32_t f = get_global_id(1);
+    uint32_t nf = get_global_size(1);
     uint32_t partition = get_global_id(2);
     
     uint32_t bucket = get_global_id(0);
 
-    if (partition >= numActivePartitions)
+    if (f >= nf || partition >= numActivePartitions)
         return;
-
-    uint32_t f = featuresActive[fidx];
 
     const PartitionSplit NONE = PARTITION_SPLIT_INIT;
     PartitionSplit best = NONE;
 
     // Don't do inactive features
-    if (wAll[partition].count == 0) {
+    if (!featuresActive[f] || wAll[partition].count == 0) {
         if (bucket == 0) {
             //printf("writing out inactive PartitionSplit part %d f %d idx %x\n", partition, f, partition * nf + f);
-            featurePartitionSplitsOut[partition * naf + fidx] = best;            
+            featurePartitionSplitsOut[partition * nf + f] = best;            
         }
         return;
     }
@@ -1416,7 +1418,7 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
 
 #if 1
     best = chooseSplit(myW, numBuckets, wAll[partition],
-                       wLocal, wLocalSize, wStartBest, ordinal, f);
+                       wLocal, wLocalSize, wStartBest, ordinal);
 #elif 1
     // TODO: use prefix sums to enable better parallelization (this will mean
     // multiple kernel launches, though, so not sure) or accumulate locally
@@ -1430,11 +1432,11 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
         // We have to perform a prefix sum to have the data over which
         // we can calculate the split points.  This is more complicated.
         best = chooseSplitKernelOrdinal(myW, numBuckets, wAll[partition],
-                                        wLocal, wLocalSize, f);
+                                        wLocal, wLocalSize);
     }
     else {
         // We have a simple search which is independent per-bucket.
-        best = chooseSplitKernelCategorical(myW, numBuckets, wAll[partition], f);
+        best = chooseSplitKernelCategorical(myW, numBuckets, wAll[partition]);
     }
 #endif
     
@@ -1443,8 +1445,74 @@ getPartitionSplitsKernel(uint32_t totalBuckets,
             best = NONE;
         }
         //printf("writing out active PartitionSplit part %d f %d idx %x score %f\n", partition, f, partition * nf + f, best.score);
-        featurePartitionSplitsOut[partition * naf + fidx] = best;
+        featurePartitionSplitsOut[partition * nf + f] = best;
     }
+
+    //printf("part %d feature %d bucket %d score %f\n",
+    //       partition, f, best.value, best.score);
+
+
+#if 0    
+    // Finally, we have each feature update the lowest split for the
+    // partition.  Spin until we've acquired the lock for the partition.
+    // We won't hold it for long, so the spinlock is not _too_ inefficient.
+    // NOTE: this only works because we make all workgroups apart from one
+    // return above.  In general, you can't do a simple spin lock like this
+    // in a kernel without causing a deadlock.
+    if (bucket == 0) {
+
+        printf("waiting feature %d partition %d\n", f, partition);
+
+        while (atomic_inc(&partitionLocks[partition]) != 0) {
+            atomic_dec(&partitionLocks[partition]);
+        }
+
+        printf("starting feature %d partition %d\n", f, partition);
+    
+        // We can only access the splitOut values via atomic operations, as the
+        // non-atomic global memory operations are only eventually consistent
+        // over workgroups, and on AMD GPUs the writes may not be visible to
+        // other workgroups until the kernel has finished.
+    
+        float currentScore = atomic_xchg(&splitOut->score, best.score);
+        int currentFeature = atomic_xchg(&splitOut->feature, best.feature);
+    
+        // If we have the best score or an equal score and a lower feature number
+        // (for determinism), then we update the output
+        if (best.score < currentScore
+            || (best.score == currentScore
+                && best.feature < currentFeature)) {
+
+            //printf("BEST, %.10f < %.10f\n", best.score, currentScore);
+        
+            // Copy the rest in, atomically
+            atomic_store_int(&splitOut->value, best.value);
+
+            atomic_store_long(&splitOut->left.vals[0], best.left.vals[0]);
+            atomic_store_long(&splitOut->left.vals[1], best.left.vals[1]);
+            atomic_store_int(&splitOut->left.count, best.left.count);
+
+            atomic_store_long(&splitOut->right.vals[0], best.right.vals[0]);
+            atomic_store_long(&splitOut->right.vals[1], best.right.vals[1]);
+            atomic_store_int(&splitOut->right.count, best.right.count);
+
+            atomic_store_int(&splitOut->direction, best.direction);
+        
+            // Shouldn't be needed, but just in case...
+            mem_fence(CLK_GLOBAL_MEM_FENCE);
+        }
+        else {
+            // Not the best, exchange them back
+            atomic_xchg(&splitOut->score, currentScore);
+            atomic_xchg(&splitOut->feature, currentFeature);
+        }
+    
+        // Finally, release the lock to let another feature in
+        atomic_dec(&partitionLocks[partition]);
+
+        printf("finishing feature %d partition %d\n", f, partition);
+    }
+#endif
 }
 #endif
 
@@ -1552,7 +1620,6 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
     allPartitionSplits += partitionSplitsOffset;
 
     uint32_t numInactivePartitions = 0;
-    uint32_t numSmallSideRows = 0;
 
     for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
         IndexedPartitionSplit split = allPartitionSplits[p];
@@ -1568,7 +1635,6 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
             inactivePartitions[numInactivePartitions++] = p;
         }
         else {
-            numSmallSideRows += min(split.left.count, split.right.count);
             smallSideIndexesOut[p] = 0;
         }
     }
@@ -1635,7 +1701,6 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
     }
 
     numActivePartitionsOut[0] = n2;
-    numActivePartitionsOut[1] = numSmallSideRows;
 
     // Clear partition indexes for gap partitions
     if (n < numInactivePartitions || skippedRows > 0) {
@@ -1653,15 +1718,11 @@ assignPartitionNumbersKernel(__global const IndexedPartitionSplit * allPartition
 __kernel void
 clearBucketsKernel(__global W * bucketsOut,
                    __global W * wAllOut,
-                   __global uint32_t * nonZeroDirectionIndices,  // [0] = size, [1]... = contents
                    __global const uint8_t * smallSideIndexes,
                    uint32_t numActiveBuckets)
 {
-    // Clear the number of non zero directions
-    if (get_global_id(0) == 0 && get_global_id(1) == 0) {
-        nonZeroDirectionIndices[0] = 0;
-    }
-
+    uint32_t numPartitions = get_global_size(0);
+    
     uint32_t partition = get_global_id(0);
     if (!smallSideIndexes[partition])
         return;
@@ -1760,9 +1821,7 @@ __kernel void
 updatePartitionNumbersKernel(uint32_t partitionSplitsOffset,
                     
                             __global RowPartitionInfo * partitions,
-                            __global uint32_t * directions,
-                            __global uint32_t * nonZeroDirectionIndices,  // [0] = size, [1]... = contents
-
+                            __global uint8_t * directions,
                             uint32_t numRows,
                     
                             __global const IndexedPartitionSplit * allPartitionSplits,
@@ -1780,92 +1839,67 @@ updatePartitionNumbersKernel(uint32_t partitionSplitsOffset,
 
     allPartitionSplits += partitionSplitsOffset;
 
-    uint16_t numSimdGroups = get_local_size(0) / 32;
-    uint16_t simdGroupNum = get_local_id(0) / 32;
-    uint16_t simdLaneNum = get_local_id(0) % 32;
+    for (uint32_t r = get_global_id(0);  r < numRows;  r += get_global_size(0)) {
+        uint16_t partition = depth == 0 ? 0 : partitions[r].num;
 
-    __local uint32_t work_group_directions[8];  // 8 * 32 = 256 bits at once
-
-    //if (get_local_id(0) == get_global_id(0)) {
-    //    printf("localId %d localSize %d numSimdGroups %d  simdGroupNum %d  simdLaneNum %d\n",
-    //           get_local_id(0), get_local_size(0), numSimdGroups, simdGroupNum, simdLaneNum);
-    //}
-
-    for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
-        uint32_t r = i + get_global_id(0);
-
-        uint16_t storedPartition = r < numRows ? partitions[r].num : 0;
-        uint16_t oldPartition = depth == 0 ? 0 : storedPartition;
-        uint16_t partition = oldPartition;
-
-        if (r < numRows && partition != (uint16_t)-1) {
-            PartitionInfo info = partitionInfo[partition];
-            int16_t splitFeature;
-
-            if ((info.left == -1 && info.right == -1) || ((splitFeature = allPartitionSplits[partition].feature) == -1)) {
-                partition = -1;
-            }
-            else {
-                uint16_t splitValue = allPartitionSplits[partition].value;
-                uint16_t ordinal = featureIsOrdinal[splitFeature];
-
-                // Split feature values go here
-                uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
-                //uint32_t splitBucketDataLength = bucketDataOffsets[splitFeature + 1] - splitBucketDataOffset;
-                //uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
-                __global const uint32_t * splitBucketData = bucketData + splitBucketDataOffset;
-                uint16_t splitBucketBits = bucketEntryBits[splitFeature];
-
-                uint16_t bucket = getBucket(r,
-                                            splitBucketData, 0 /*splitBucketDataLength*/,
-                                            splitBucketBits, 0 /*splitNumBuckets*/);
-                
-                uint16_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
-
-                // Set the new partition number
-                uint16_t newPartitionNumber = side ? info.right : info.left;
-                partition = newPartitionNumber;
-            }
-        }
-
-        uint16_t direction = partition != oldPartition && partition != (uint16_t)-1;
-        if (partition != storedPartition && r < numRows)
-            partitions[r].num = partition;
-
-        if (simdLaneNum == 0) {
-            work_group_directions[simdGroupNum] = 0;
-        }
-
-        if (direction) {
-            atom_or(&work_group_directions[simdGroupNum], 1 << simdLaneNum);
-        }
-
-        uint32_t simdDirections = work_group_directions[simdGroupNum];
-
-        //if (r < 512) {
-        //    printf("r %d group %d lane %d direction %d simdDirections %d\n",
-        //           r, simdGroupNum, simdLaneNum, direction, simdDirections);
-        //}
-
-        if (simdLaneNum == 0) {
-            directions[r / 32] = simdDirections;
-            //if (r < 1024)
-            //    printf("r=%d: setting directions[%d] to %d\n", r, r/32, simdDirections);
-        }
-
-        if (simdDirections == 0)
+        // Row is not in any partition
+        if (partition == (uint16_t)-1) {
+            if (depth == 0)
+                partitions[r].num = -1;
+            directions[r] = 0;
             continue;
-
-        if (simdLaneNum == 0) {
-            uint8_t numDirections = popcount(simdDirections);
-            work_group_directions[simdGroupNum] = 1 + atom_add(nonZeroDirectionIndices, numDirections);
         }
 
-        if (direction) {
-            uint32_t nonZeroDirectionBase = work_group_directions[simdGroupNum];
-            uint8_t n = popcount(simdDirections & ((1 << simdLaneNum)-1));
-            nonZeroDirectionIndices[nonZeroDirectionBase + n] = r;
+        PartitionInfo info = partitionInfo[partition];
+
+        if (info.left == -1 && info.right == -1) {
+            directions[r] = 0;
+            partitions[r].num = -1;
+            continue;
         }
+
+        int16_t splitFeature = allPartitionSplits[partition].feature;
+
+        if (debug)
+            printf("r = %d partition = %d splitFeature = %d\n", r, partition, splitFeature);
+
+        if (splitFeature == -1) { // reached a leaf, nothing to split
+            directions[r] = 0;
+            partitions[r].num = -1;
+            continue;
+        }
+
+        uint16_t splitValue = allPartitionSplits[partition].value;
+        bool ordinal = featureIsOrdinal[splitFeature];
+
+        // Split feature values go here
+        uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
+        uint32_t splitBucketDataLength = bucketDataOffsets[splitFeature + 1] - splitBucketDataOffset;
+        uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
+        __global const uint32_t * splitBucketData = bucketData + splitBucketDataOffset;
+        uint32_t splitBucketBits = bucketEntryBits[splitFeature];
+
+        uint32_t bucket = getBucket(r,
+                                    splitBucketData, splitBucketDataLength,
+                                    splitBucketBits, splitNumBuckets);
+        
+        uint32_t side = ordinal ? bucket >= splitValue : bucket != splitValue;
+
+        // Set the new partition number
+        int32_t newPartitionNumber = side ? info.right : info.left;
+        if (depth == 0)
+            partitions[r].num = newPartitionNumber;
+
+        if (newPartitionNumber != partition) {
+            if (depth != 0)
+                partitions[r].num = newPartitionNumber;
+            directions[r] = newPartitionNumber != -1;
+        }
+        else directions[r] = 0;
+
+        if (debug)
+            printf("splitValue = %d bucket=%d ordinal=%d side=%d direction=%d lcount %d rcount %d\n",
+                splitValue, bucket, ordinal, side, directions[r], allPartitionSplits[partition].left.count, allPartitionSplits[partition].right.count);
     }
 }
 
@@ -1876,8 +1910,7 @@ updateBucketsKernel(uint32_t numActiveBuckets,
                     uint32_t numActivePartitions,
                     
                     __global const RowPartitionInfo * partitions,
-                    __global const uint32_t * directions,
-                    __global uint32_t * nonZeroDirectionIndices,  // [0] = size, [1]... = contents
+                    __global const uint8_t * directions,
                     __global W * buckets,
                     __global W * wAll,
                     __global const uint8_t * smallSideIndexes,
@@ -1899,9 +1932,10 @@ updateBucketsKernel(uint32_t numActiveBuckets,
                     __local W * wLocal,
                     uint32_t maxLocalBuckets)
 {
-    int fidx = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
+    int f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
 
-    int f = fidx == -1 ? -1 : featuresActive[f];
+    if (f != -1 && !featuresActive[f])
+        return;
 
     //if (f == -1 && get_global_id(0) == 0) {
     //    printf("nab %d nap %d g0 %d g1 %d l0 %d l1 %d nr %d mlb %d\n", numActiveBuckets, numActivePartitions,
@@ -1972,7 +2006,7 @@ updateBucketsKernel(uint32_t numActiveBuckets,
 
     for (uint32_t i = get_global_id(0);  i < numRows;  i += get_global_size(0)) {
 
-        uint8_t direction = (directions[i / 32] >> (i % 32)) & 1;
+        uint8_t direction = directions[i];
         if (!direction)
             continue;
 

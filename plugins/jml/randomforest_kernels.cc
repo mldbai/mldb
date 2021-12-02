@@ -65,7 +65,7 @@ void decodeRowsKernelCpu(ComputeContext & context,
 
 void
 testFeatureKernel(ComputeContext & context,
-                  uint32_t fidx, uint32_t naf,
+                  uint32_t f, uint32_t nf,
                   ComputeKernelGridRange & rows,
 
                   std::span<const float> decodedRows,
@@ -76,11 +76,12 @@ testFeatureKernel(ComputeContext & context,
                   std::span<const uint32_t> bucketNumbers,
                   std::span<const uint32_t> bucketEntryBits,
 
-                  std::span<const uint32_t> activeFeatures,
+                  std::span<const uint32_t> featureActive,
 
                   std::span<W> allWOut)
 {
-    uint32_t f = activeFeatures[fidx];
+    if (!featureActive[f])
+        return;
 
     ExcAssertLessEqual(bucketNumbers[f + 1], allWOut.size());
 
@@ -103,14 +104,14 @@ testFeatureKernel(ComputeContext & context,
 void
 getPartitionSplitsKernel(ComputeContext & context,
 
-                         uint32_t fidx, uint32_t naf,
+                         uint32_t f, uint32_t nf,
                          uint32_t p, uint32_t nap,
                          
                          uint32_t totalBuckets,
                          uint32_t numActivePartitions,
                          std::span<const uint32_t> bucketNumbers, // [nf]
                          
-                         std::span<const uint32_t> activeFeatures, // [naf]
+                         std::span<const uint32_t> featureActive, // [nf]
                          std::span<const uint32_t> featureIsOrdinal, // [nf]
                          
                          std::span<const W> buckets, // [np x totalBuckets]
@@ -121,10 +122,8 @@ getPartitionSplitsKernel(ComputeContext & context,
     // BucketRange is just there for show... it is implicitly handled in the kernel
     ExcAssertLessEqual(nap, numActivePartitions);
 
-    uint32_t f = activeFeatures[fidx];
-
-    PartitionSplit & result = splitsOut[p * naf + fidx];
-    if (wAll[p].empty() || wAll[p].uniform()) {
+    PartitionSplit & result = splitsOut[p * nf + f];
+    if (!featureActive[f] || wAll[p].empty() || wAll[p].uniform()) {
         result = PartitionSplit();
         return;
     }
@@ -144,8 +143,8 @@ getPartitionSplitsKernel(ComputeContext & context,
 void
 bestPartitionSplitKernel(ComputeContext & context,
                          uint32_t p, uint32_t np,
-                         uint32_t naf,
-                         std::span<const uint32_t> featureActive, // [naf]
+                         uint32_t nf,
+                         std::span<const uint32_t> featureActive, // [nf]
                          std::span<const PartitionSplit> featurePartitionSplits, // [np x nf]
                          std::span<const PartitionIndex> partitionIndexes, // [np]
                          std::span<IndexedPartitionSplit> partitionSplitsOut,  // np
@@ -159,8 +158,10 @@ bestPartitionSplitKernel(ComputeContext & context,
     if (result.index == PartitionIndex::none())
         return;
 
-    for (size_t fidx = 0;  fidx < naf;  ++fidx) {
-        const PartitionSplit & fp = featurePartitionSplits[p * naf + fidx];
+    for (size_t f = 0;  f < nf;  ++f) {
+        if (!featureActive[f])
+            continue;
+        const PartitionSplit & fp = featurePartitionSplits[p * nf + f];
         if (fp.score == INFINITY)
             continue;
         //cerr << "kernel: partition " << p << " feature " << f << " score " << fp.score << endl;
@@ -168,6 +169,8 @@ bestPartitionSplitKernel(ComputeContext & context,
             result.PartitionSplit::operator = (fp);
         }
     }
+
+    //cerr << "partition " << p << " best split " << jsonEncodeStr(result) << endl;
 }
 
 void
@@ -183,7 +186,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
                              std::span<uint16_t> smallSideIndexToPartitionOut,
                              std::span<uint32_t> numPartitionsOut)
 {
-    ExcAssertEqual(numPartitionsOut.size(), 2);
+    ExcAssertEqual(numPartitionsOut.size(), 1);
     ExcAssertGreaterEqual(partitionIndexesOut.size(), numActivePartitions);
     ExcAssertEqual(partitionInfoOut.size(), numActivePartitions);
 
@@ -195,7 +198,6 @@ assignPartitionNumbersKernel(ComputeContext & context,
 
     // First, accumulate a list of inactive partitions
     std::vector<uint32_t> inactivePartitions;
-    uint32_t numSmallSideRows = 0;
 
     for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
         const PartitionSplit & split = partitionSplits[p];
@@ -204,9 +206,6 @@ assignPartitionNumbersKernel(ComputeContext & context,
             smallSideIndexesOut[p] = 255;
             continue;
         }
-
-        numSmallSideRows += std::min(split.left.count(), split.right.count());
-
         smallSideIndexesOut[p] = false;
         //cerr << "partition " << p << " split: " << jsonEncodeStr(split) << endl;
     }
@@ -279,7 +278,6 @@ assignPartitionNumbersKernel(ComputeContext & context,
     }
 
     numPartitionsOut[0] = n2;
-    numPartitionsOut[1] = numSmallSideRows;
 
     std::vector<uint32_t> newCounts(n2, 0);
     for (uint32_t i = 0;  i < numActivePartitions;  ++i) {
@@ -324,13 +322,9 @@ clearBucketsKernel(ComputeContext & context,
 
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
-                   std::span<uint32_t> nonZeroDirectionIndices,
                    std::span<const uint8_t> smallSideIndexes,
                    uint32_t numActiveBuckets)
 {
-    if (partition == 0)
-        nonZeroDirectionIndices[0] = 0;
-
     if (!smallSideIndexes[partition]) {
         //cerr << "not clearing partition " << partition << ": Wall " << jsonEncodeStr(wAll[partition]) << endl;
         return;
@@ -355,8 +349,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
                              uint32_t partitionSplitsOffset,
                              
                              std::span<RowPartitionInfo> partitions,
-                             std::span<uint32_t> directions,
-                             std::span<uint32_t> nonZeroDirectionIndices,
+                             std::span<uint8_t> directions,
                              uint32_t numRows,
           
                              std::span<const IndexedPartitionSplit> partitionSplits,
@@ -379,33 +372,6 @@ updatePartitionNumbersKernel(ComputeContext & context,
 
     BucketList featureBuckets[nf];
 
-    uint32_t currentBits = 0;
-    uint32_t bitIdx = 0;
-    uint32_t wordIdx = 0;
-    uint32_t numNonZero = 0;
-
-    auto writeDirection = [&] ()
-    {
-        if (wordIdx < directions.size())
-            directions[wordIdx++] = currentBits;
-    };
-
-    auto setDirection = [&] (uint32_t r, bool val)
-    {
-        ExcAssertEqual(bitIdx, r % 32);
-        if (val) {
-            currentBits |= (1 << bitIdx);
-            nonZeroDirectionIndices[++numNonZero] = r;
-        }
-        ++bitIdx;
-
-        if (bitIdx == 32) {
-            writeDirection();
-            currentBits = 0;
-            bitIdx = 0;
-        }
-    };
-
     for (uint32_t r: rowRange) {
         bool debug = false;//(r == 845 || r == 3006 || r == 3758);
 
@@ -415,14 +381,14 @@ updatePartitionNumbersKernel(ComputeContext & context,
         if (partition == (uint16_t)-1) {
             if (depth == 0)
                 partitions[r] = -1;
-            setDirection(r, 0);
+            directions[r] = 0;  // skip
             continue;
         }
 
         const PartitionInfo & info = partitionInfo[partition];
 
         if (info.ignore()) {
-            setDirection(r, 0);
+            directions[r] = 0;
             partitions[r] = -1;
             continue;
         }
@@ -437,7 +403,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
 
         if (splitFeature == -1) {
             // reached a leaf here, nothing to split
-            setDirection(r, 0);
+            directions[r] = 0;  // skip
             partitions[r] = -1;
             continue;
         }
@@ -476,32 +442,27 @@ updatePartitionNumbersKernel(ComputeContext & context,
             //     << " bucket " << bucket << endl;
             if (depth != 0)
                 partitions[r] = newPartitionNumber;
-            setDirection(r, newPartitionNumber != -1);
+            directions[r] = newPartitionNumber != -1;
         }
-        else
-            setDirection(r, 0);
+        else directions[r] = 0;
 
         //cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
         //     << " goes from partition " << partition << " (" << PartitionIndex(partitionSplitsOffset + partition)
         //     << ") to partition " << partition + side * partitionSplitsOffset << " ("
         //     << PartitionIndex(partitionSplitsOffset + partition + side * partitionSplitsOffset) << ")" << endl;
     }
-
-    writeDirection();
-    nonZeroDirectionIndices[0] = numNonZero;
 }
 
 void
 updateBucketsKernel(ComputeContext & context,
                     ComputeKernelGridRange & rowRange,
-                    uint32_t fidxp1, uint32_t nafp1,
+                    uint32_t fp1, uint32_t nfp1,
 
                     uint32_t numActiveBuckets,
                     uint32_t numActivePartitions,
 
                     std::span<const RowPartitionInfo> partitions,
-                    std::span<const uint32_t> directions,
-                    std::span<uint32_t> nonZeroDirectionIndices,
+                    std::span<const uint8_t> directions,
 
                     std::span<W> partitionBuckets,
                     std::span<W> wAll,
@@ -521,8 +482,10 @@ updateBucketsKernel(ComputeContext & context,
                     std::span<const uint32_t> featureActive,
                     std::span<const uint32_t> featureIsOrdinal)
 {
-    int fidx = fidxp1 - 1;  // -1 means wAll, otherwise it's the feature number
-    int f = (fidx == -1 ? -1 : featureActive[fidx]);
+    int f = fp1 - 1;  // -1 means wAll, otherwise it's the feature number
+
+    if (f != -1 && !featureActive[f])
+        return;
 
     // We have to set up to access to buckets for the feature we're updating for the split (f)
     BucketList buckets;
@@ -553,15 +516,15 @@ updateBucketsKernel(ComputeContext & context,
     // the same feature from multiple threads)
     for (uint32_t i: rowRange) {
 
+        // In what partition does this row live?
+        uint16_t partition = partitions[i];
+
         // Direction can be:
         // 0, meaning we do nothing
         // 1, meaning we accumulate in partition
-        uint8_t direction = bool(directions[i / 32] & (1 << (i % 32)));
+        uint8_t direction = directions[i];
         if (direction == 0)
             continue;
-
-        // In what partition does this row live?
-        uint16_t partition = partitions[i];
 
         //if (f == -1)
         //    cerr << "row " << i << " has direction " << (int)direction
@@ -688,7 +651,7 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "testFeature";
             result->device = ComputeDevice::host();
-            result->addDimension("featureIdx", "naf");
+            result->addDimension("featureNum", "nf");
             result->addDimension("rowNum", "nr");
             result->addParameter("decodedRows", "r", "f32[numRows]");
             result->addParameter("numRows", "r", "u32");
@@ -696,7 +659,7 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[naf]");
+            result->addParameter("featuresActive", "r", "u32[nf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
             result->set2DComputeFunction(testFeatureKernel);
             return result;
@@ -731,9 +694,9 @@ static struct RegisterKernels {
             result->kernelName = "bestPartitionSplit";
             result->device = ComputeDevice::host();
             result->addDimension("p", "np");
-            result->addParameter("numActiveFeatures", "r", "u32");
+            result->addParameter("numFeatures", "r", "u32");
             result->addParameter("featuresActive", "r", "u32[numFeatures]");
-            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * numActiveFeatures]");
+            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * nf]");
             result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[np]");
             result->addParameter("partitionSplitsOffset", "r", "u32");
@@ -773,7 +736,6 @@ static struct RegisterKernels {
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAllOut", "w", "W32[np * 2]");
-            result->addParameter("nonZeroDirectionIndices", "w", "u32[numRows + 1]");
             result->addParameter("smallSideIndexes", "r", "u8[numPartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->set2DComputeFunction(clearBucketsKernel);
@@ -790,8 +752,7 @@ static struct RegisterKernels {
             result->addDimension("r", "numRows");
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
-            result->addParameter("directions", "w", "u32[(numRows+31)/32]");
-            result->addParameter("nonZeroDirectionIndices", "w", "u32[numRows + 1]");
+            result->addParameter("directions", "w", "u8[numRows]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
             result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
@@ -817,8 +778,7 @@ static struct RegisterKernels {
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
-            result->addParameter("directions", "r", "u8[(numRows+31)/32]");
-            result->addParameter("nonZeroDirectionIndices", "r", "u32[numRows + 1]");
+            result->addParameter("directions", "r", "u8[numRows]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
