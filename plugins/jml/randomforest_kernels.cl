@@ -1189,11 +1189,11 @@ chooseSplit(__global const W * w,
             __local WIndexed * wLocal,
             uint32_t wLocalSize,
             __local WIndexed * wStartBest,  // length 2
-            bool ordinal)
+            bool ordinal,
+            uint32_t f)
 {
     PartitionSplit result = PARTITION_SPLIT_INIT;
 
-    uint32_t f = get_global_id(1);
     //uint32_t p = get_global_id(2);
 
     // We need some weight in both true and false for a split to make sense
@@ -1778,11 +1778,9 @@ updatePartitionNumbersKernel(uint32_t partitionSplitsOffset,
                             
                             uint16_t depth)
 {
-    bool debug = false; //(r == 845 || r == 3006 || r == 3758);
-
     allPartitionSplits += partitionSplitsOffset;
 
-    uint16_t numSimdGroups = get_local_size(0) / 32;
+    //uint16_t numSimdGroups = get_local_size(0) / 32;
     uint16_t simdGroupNum = get_local_id(0) / 32;
     uint16_t simdLaneNum = get_local_id(0) % 32;
 
@@ -2085,7 +2083,7 @@ fixupBucketsKernel(__global W * buckets,
     if (j >= numActiveBuckets)
         return;
 
-    uint32_t numPartitions = get_global_size(0);
+    //uint32_t numPartitions = get_global_size(0);
     uint32_t partition = get_global_id(0);  // partition number
 
     PartitionInfo info = partitionInfo[partition];

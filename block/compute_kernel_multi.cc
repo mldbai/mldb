@@ -289,6 +289,8 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
             for (size_t k = 0;  k < n;  ++k, p1 += desc->width, p2 += desc->width) {
                 if (memcmp(p1, p2, desc->width) == 0)
                     continue;
+                if (desc->hasEqualityComparison() && desc->compareEquality(p1, p2))
+                    continue;
                 std::string v1, v2;
                 StringJsonPrintingContext c1(v1), c2(v2);
                 desc->printJson(p1, c1);
