@@ -1288,7 +1288,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         auto depthFeaturePartitionSplits
             = context->getArraySlice(deviceFeaturePartitionSplitsPool,
                                      "featurePartitionSplits depth " + std::to_string(myDepth),
-                                     0, nf * numActivePartitions);
+                                     0, numActiveFeatures * numActivePartitions);
 
         auto depthPartitionIndexes
             = context->getArraySlice(devicePartitionIndexPool, 
@@ -1316,7 +1316,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                    ("totalBuckets",                   (uint32_t)numActiveBuckets,
                     "numActivePartitions",            (uint32_t)numActivePartitions,
                     "bucketNumbers",                  deviceBucketNumbers,
-                    "featuresActive",                 deviceFeatureIsActive,
+                    "activeFeatureList",              deviceActiveFeatureList,
                     "featureIsOrdinal",               deviceFeatureIsOrdinal,
                     "buckets",                        depthPartitionBuckets,
                     "wAll",                           depthWAll,
@@ -1325,7 +1325,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             runPartitionSplitsKernel
                 = queue->launch("getPartitionSplits",
                                 boundGetPartitionSplitsKernel,
-                            { nf, numActivePartitions },
+                            { numActiveFeatures, numActivePartitions },
                             { previousIteration, copyWAllPromise.event() /*, initializeWAllPromise.event() */});
         }
 
@@ -1335,8 +1335,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         std::shared_ptr<ComputeEvent> runBestPartitionSplitKernel;
         {
             auto boundBestPartitionSplitKernel = bestPartitionSplitKernel
-                ->bind("numFeatures",            (uint32_t)nf,
-                    "featuresActive",         deviceFeatureIsActive,
+                ->bind("numActiveFeatures",   (uint32_t)numActiveFeatures,
+                    "activeFeatureList",      deviceActiveFeatureList,
                     "featurePartitionSplits", depthFeaturePartitionSplits,
                     "allPartitionSplitsOut",  depthAllPartitionSplits,
                     "partitionIndexes",       depthPartitionIndexes,
@@ -1449,9 +1449,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 }
 
                 // Verify that buckets sum to wAll for each feature
-                for (uint32_t f = 0;  f < nf;  ++f) {
-                    if (!featureIsActive[f])
-                        continue;
+                for (uint32_t fidx = 0;  fidx < numActiveFeatures;  ++fidx) {
+                    uint32_t f = activeFeatureList[fidx];
 
                     uint32_t bucketStart = bucketNumbers[f];
                     uint32_t bucketEnd = bucketNumbers[f + 1];

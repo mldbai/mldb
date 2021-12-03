@@ -393,15 +393,13 @@ decompressFeatureBucketsKernel(uint32_t numRows,
                                __global const uint32_t * bucketNumbers,
                                __global const uint32_t * bucketEntryBits,
                                
-                               __global const uint32_t * featuresActive,
+                               __global const uint32_t * activeFeatureList,
                                
                                __global uint16_t * featuresOut,
                                __global const uint32_t * featureDataOffsets)
 {
-    uint32_t f = get_global_id(1);
-
-    if (!featuresActive[f])
-        return;
+    uint32_t fidx = get_global_id(1);
+    uint32_t f = activeFeatureList[fidx];
 
     uint32_t bucketDataOffset = bucketDataOffsets[f];
     uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
@@ -1273,7 +1271,7 @@ __kernel void
 getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
                          __global const uint32_t * bucketNumbers, // [nf]
                          
-                         __global const uint32_t * featuresActive, // [nf]
+                         __global const uint32_t * activeFeatureList, // [naf]
                          __global const uint32_t * featureIsOrdinal, // [nf]
                          
                          __global const W * buckets, // [np x totalBuckets]
@@ -1294,25 +1292,27 @@ getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
     const uint32_t wLocalSize = args.wLocalSize;
 
     const uint32_t bucket = get_global_id(0);
-    const uint16_t f = get_global_id(1);
-    const uint16_t nf = get_global_size(1);
+    const uint16_t fidx = get_global_id(1);
+    const uint16_t naf = get_global_size(1);
     const uint16_t partition = get_global_id(2);
     
-    if (f >= nf || partition >= numActivePartitions)
+    if (partition >= numActivePartitions)
         return;
 
     const PartitionSplit NONE = PARTITION_SPLIT_INIT;
     PartitionSplit best = NONE;
 
     // Don't do inactive features
-    if (!featuresActive[f] || wAll[partition].count == 0) {
+    if (wAll[partition].count == 0) {
         if (bucket == 0) {
             //printf("writing out inactive PartitionSplit part %d f %d idx %x\n", partition, f, partition * nf + f);
-            featurePartitionSplitsOut[partition * nf + f] = best;            
+            featurePartitionSplitsOut[partition * naf + fidx] = best;            
         }
         return;
     }
     
+    const uint16_t f = activeFeatureList[fidx];
+
     uint32_t bucketStart = bucketNumbers[f];
     uint32_t bucketEnd = bucketNumbers[f + 1];
     uint32_t numBuckets = bucketEnd - bucketStart;
@@ -1368,7 +1368,7 @@ getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
             best = NONE;
         }
         //printf("writing out active PartitionSplit part %d f %d idx %x score %f\n", partition, f, partition * nf + f, best.score);
-        featurePartitionSplitsOut[partition * nf + f] = best;
+        featurePartitionSplitsOut[partition * naf + fidx] = best;
     }
 
 }
@@ -1379,7 +1379,7 @@ typedef struct PartitionIndex {
 } PartitionIndex;
 
 struct BestPartitionSplitArgs {
-    uint32_t numFeatures;
+    uint32_t numActiveFeatures;
     uint32_t partitionSplitsOffset;
     uint16_t depth;
 };
@@ -1387,7 +1387,7 @@ struct BestPartitionSplitArgs {
 // id 0: partition number
 __kernel void
 bestPartitionSplitKernel(__constant const BestPartitionSplitArgs & args,
-                         __global const uint32_t * featuresActive, // [numFeatures]
+                         __global const uint32_t * activeFeatureList, // [numActiveFeatures]
                          __global const PartitionSplit * featurePartitionSplits,
                          __global const PartitionIndex * partitionIndexes,
                          __global IndexedPartitionSplit * allPartitionSplitsOut,
@@ -1396,14 +1396,14 @@ bestPartitionSplitKernel(__constant const BestPartitionSplitArgs & args,
                          uint2 local_id [[thread_position_in_threadgroup]],
                          uint2 local_size [[threads_per_threadgroup]])
 {
-    const uint16_t numFeatures = args.numFeatures;
+    const uint16_t numActiveFeatures = args.numActiveFeatures;
     const uint16_t depth = args.depth;
 
     allPartitionSplitsOut += args.partitionSplitsOffset;
 
     uint32_t p = get_global_id(0);
 
-    featurePartitionSplits += p * numFeatures;
+    featurePartitionSplits += p * numActiveFeatures;
     allPartitionSplitsOut += p;
 
     IndexedPartitionSplit best = INDEXED_PARTITION_SPLIT_INIT;
@@ -1417,19 +1417,17 @@ bestPartitionSplitKernel(__constant const BestPartitionSplitArgs & args,
     //printf("bestPartitionSplitKernel for partition %d\n", p);
 
     // TODO: with lots of features this will become slow; we can have a workgroup cooperate
-    for (uint32_t f = 0;  f < numFeatures;  ++f) {
-        //printf("feature %d active %d split %d score %f\n", f, featuresActive[f], featurePartitionSplits[f].value, featurePartitionSplits[f].score);
-        if (!featuresActive[f])
-            continue;
-        if (featurePartitionSplits[f].value < 0)
+    for (uint32_t fidx = 0;  fidx < numActiveFeatures;  ++fidx) {
+        //printf("feature %d active %d split %d score %f\n", f, activeFeatureList[f], featurePartitionSplits[f].value, featurePartitionSplits[f].score);
+        if (featurePartitionSplits[fidx].value < 0)
             continue;
         //printf("doing feature %d\n", f);
-        if (featurePartitionSplits[f].score < best.score) {
-            best.score = featurePartitionSplits[f].score;
-            best.feature = featurePartitionSplits[f].feature;
-            best.value = featurePartitionSplits[f].value;
-            best.left = featurePartitionSplits[f].left;
-            best.right = featurePartitionSplits[f].right;
+        if (featurePartitionSplits[fidx].score < best.score) {
+            best.score = featurePartitionSplits[fidx].score;
+            best.feature = featurePartitionSplits[fidx].feature;
+            best.value = featurePartitionSplits[fidx].value;
+            best.left = featurePartitionSplits[fidx].left;
+            best.right = featurePartitionSplits[fidx].right;
         }
     }
 

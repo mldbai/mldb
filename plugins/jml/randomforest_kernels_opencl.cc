@@ -158,17 +158,17 @@ static struct RegisterKernels {
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "getPartitionSplits";
             //result->device = ComputeDevice::host();
-            result->addDimension("f", "nf");
+            result->addDimension("fidx", "numActiveFeatures");
             result->addDimension("p", "numPartitions");
             result->addDimension("b", "maxNumBuckets");
             result->addParameter("totalBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
-            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("buckets", "r", "W32[totalBuckets * np]");
             result->addParameter("wAll", "r", "W32[np]");
-            result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * nf]");
+            result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * numActiveFeatures]");
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)
             {
                 auto maxLocalBuckets = RF_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed);
@@ -198,8 +198,8 @@ static struct RegisterKernels {
             result->kernelName = "bestPartitionSplit";
             //result->device = ComputeDevice::host();
             result->addDimension("p", "np");
-            result->addParameter("numFeatures", "r", "u32");
-            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("numActiveFeatures", "r", "u32");
+            result->addParameter("activeFeatureList", "r", "u32[numFeatures]");
             result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * numFeatures]");
             result->addParameter("partitionIndexes", "r", "PartitionIndex[npi]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[maxPartitions]");

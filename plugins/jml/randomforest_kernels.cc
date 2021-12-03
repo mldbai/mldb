@@ -103,14 +103,14 @@ testFeatureKernel(ComputeContext & context,
 void
 getPartitionSplitsKernel(ComputeContext & context,
 
-                         uint32_t f, uint32_t nf,
+                         uint32_t fidx, uint32_t naf,
                          uint32_t p, uint32_t nap,
                          
                          uint32_t totalBuckets,
                          uint32_t numActivePartitions,
                          std::span<const uint32_t> bucketNumbers, // [nf]
                          
-                         std::span<const uint32_t> featureActive, // [nf]
+                         std::span<const uint32_t> activeFeatureList, // [naf]
                          std::span<const uint32_t> featureIsOrdinal, // [nf]
                          
                          std::span<const W> buckets, // [np x totalBuckets]
@@ -121,8 +121,10 @@ getPartitionSplitsKernel(ComputeContext & context,
     // BucketRange is just there for show... it is implicitly handled in the kernel
     ExcAssertLessEqual(nap, numActivePartitions);
 
-    PartitionSplit & result = splitsOut[p * nf + f];
-    if (!featureActive[f] || wAll[p].empty() || wAll[p].uniform()) {
+    uint32_t f = activeFeatureList[fidx];
+
+    PartitionSplit & result = splitsOut[p * naf + fidx];
+    if (wAll[p].empty() || wAll[p].uniform()) {
         result = PartitionSplit();
         return;
     }
@@ -142,8 +144,8 @@ getPartitionSplitsKernel(ComputeContext & context,
 void
 bestPartitionSplitKernel(ComputeContext & context,
                          uint32_t p, uint32_t np,
-                         uint32_t nf,
-                         std::span<const uint32_t> featureActive, // [nf]
+                         uint32_t naf,
+                         std::span<const uint32_t> featureActive, // [naf]
                          std::span<const PartitionSplit> featurePartitionSplits, // [np x nf]
                          std::span<const PartitionIndex> partitionIndexes, // [np]
                          std::span<IndexedPartitionSplit> partitionSplitsOut,  // np
@@ -157,10 +159,8 @@ bestPartitionSplitKernel(ComputeContext & context,
     if (result.index == PartitionIndex::none())
         return;
 
-    for (size_t f = 0;  f < nf;  ++f) {
-        if (!featureActive[f])
-            continue;
-        const PartitionSplit & fp = featurePartitionSplits[p * nf + f];
+    for (size_t fidx = 0;  fidx < naf;  ++fidx) {
+        const PartitionSplit & fp = featurePartitionSplits[p * naf + fidx];
         if (fp.score == INFINITY)
             continue;
         //cerr << "kernel: partition " << p << " feature " << f << " score " << fp.score << endl;
@@ -716,7 +716,7 @@ static struct RegisterKernels {
             result->addParameter("totalBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("activeFeatureList", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("buckets", "r", "W32[totalBuckets * np]");
             result->addParameter("wAll", "r", "W32[np]");
@@ -733,9 +733,9 @@ static struct RegisterKernels {
             result->kernelName = "bestPartitionSplit";
             result->device = ComputeDevice::host();
             result->addDimension("p", "np");
-            result->addParameter("numFeatures", "r", "u32");
-            result->addParameter("featuresActive", "r", "u32[numFeatures]");
-            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * nf]");
+            result->addParameter("numActiveFeatures", "r", "u32");
+            result->addParameter("activeFeatureList", "r", "u32[numFeatures]");
+            result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * numActiveFeatures]");
             result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[np]");
             result->addParameter("partitionSplitsOffset", "r", "u32");

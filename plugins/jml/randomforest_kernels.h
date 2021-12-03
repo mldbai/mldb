@@ -150,7 +150,7 @@ updateBuckets(const std::span<const Feature> & features,
               const std::span<const std::pair<int32_t, int32_t> > & newPartitionNumbers,
               int newNumPartitions,
               const std::span<const float> & decodedRows,
-              const std::span<const int> & activeFeatures);
+              const std::span<const int> & activeFeatureList);
 
 /** Once we've reached the deepest possible level for a breadth first
     split, we need to compact the dataset back down into one per
@@ -177,7 +177,7 @@ splitPartitions(const std::span<const Feature> features,
 std::vector<IndexedPartitionSplit>
 getPartitionSplits(const std::span<const W> & buckets,
                    uint32_t numActiveBuckets,
-                   const std::span<const int> & activeFeatures,
+                   const std::span<const int> & activeFeatureList, // indexes of active features
                    const std::span<const uint32_t> & bucketOffsets,
                    const std::span<const Feature> & features,
                    const std::span<const W> & wAll,
