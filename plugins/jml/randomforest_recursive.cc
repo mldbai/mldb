@@ -959,7 +959,7 @@ splitPartitions(const std::span<const Feature> features,
 std::vector<IndexedPartitionSplit>
 getPartitionSplits(const std::span<const W> & buckets,  // [np][nb] for each partition, feature buckets
                    uint32_t numActiveBuckets,
-                   const std::span<const int> & activeFeatures,       // [naf] list of feature numbers of active features only (< nf)
+                   const std::span<const int> & activeFeatureList,    // [naf] list of feature numbers of active features only (< nf)
                    const std::span<const uint32_t> & bucketOffsets,   // [nf+1] offset in flat bucket list of start of feature
                    const std::span<const Feature> & features,         // [nf] feature info
                    const std::span<const W> & wAll,                   // [np] sum of buckets[0..nb-1] for each partition
@@ -1029,7 +1029,7 @@ getPartitionSplits(const std::span<const W> & buckets,  // [np][nb] for each par
         // Finally, we re-split
         auto doFeature = [&] (int af)
             {
-                int f = activeFeatures[af];
+                int f = activeFeatureList[af];
                 bool isActive = true;
                 double bestScore = INFINITY;
                 int bestSplit = -1;
@@ -1064,11 +1064,11 @@ getPartitionSplits(const std::span<const W> & buckets,  // [np][nb] for each par
             
 
         if (parallel) {
-            parallelMapInOrderReduce(0, activeFeatures.size(),
+            parallelMapInOrderReduce(0, activeFeatureList.size(),
                                      doFeature, findBest);
         }
         else {
-            for (size_t i = 0;  i < activeFeatures.size();  ++i) {
+            for (size_t i = 0;  i < activeFeatureList.size();  ++i) {
                 findBest(i, doFeature(i));
             }
         }

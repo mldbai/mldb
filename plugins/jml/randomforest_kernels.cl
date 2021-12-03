@@ -628,7 +628,7 @@ testFeatureKernel(__global const float * decodedRows,
                  __global const uint32_t * bucketNumbers,
                  __global const uint32_t * bucketEntryBits,
 
-                 __global const uint32_t * featuresActive,
+                 __global const uint32_t * activeFeatureList,
                       
                  __local W * w,
                  uint32_t maxLocalBuckets,
@@ -636,7 +636,8 @@ testFeatureKernel(__global const float * decodedRows,
 {
     const uint32_t workGroupId = get_global_id (1);
     const uint32_t workerId = get_local_id(1);
-    const uint32_t f = get_global_id(0);
+    const uint32_t fidx = get_global_id(0);
+    const uint32_t f = activeFeatureList[fidx];
     
     uint32_t bucketDataOffset = bucketDataOffsets[f];
     uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
@@ -646,9 +647,6 @@ testFeatureKernel(__global const float * decodedRows,
 
     __global W * wOut = partitionBuckets + bucketNumbers[f];
 
-    if (!featuresActive[f])
-        return;
-    
     if (workGroupId == 0 && false) {
         printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, numBuckets %d, buckets %d-%d, offset %d\n",
                (int)f,

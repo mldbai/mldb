@@ -496,7 +496,7 @@ testFeatureKernel(
                  __global const uint32_t * bucketNumbers [[buffer(3)]],
                  __global const uint32_t * bucketEntryBits [[buffer(4)]],
 
-                 __global const uint32_t * featuresActive [[buffer(5)]],
+                 __global const uint32_t * activeFeatureList [[buffer(5)]],
 
                  __local W * w,
                  __global W * partitionBuckets [[buffer(6)]],
@@ -508,7 +508,8 @@ testFeatureKernel(
     const uint32_t numRows = args.numRows;
     uint16_t maxLocalBuckets = args.maxLocalBuckets;
     const uint32_t workerId = get_local_id(1);
-    const uint32_t f = get_global_id(0);
+    const uint32_t fidx = get_global_id(0);
+    const uint32_t f = activeFeatureList[fidx];
 
     uint32_t bucketDataOffset = bucketDataOffsets[f];
     uint32_t bucketDataLength = bucketDataOffsets[f + 1] - bucketDataOffset;
@@ -529,9 +530,6 @@ testFeatureKernel(
     }
 
     //return;
-
-    if (!featuresActive[f])
-        return;
 
 #if 0
     if (workGroupId == 0 && false) {

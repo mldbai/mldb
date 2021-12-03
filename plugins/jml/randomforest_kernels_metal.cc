@@ -119,7 +119,7 @@ static struct RegisterKernels {
             auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "testFeature";
             //result->device = ComputeDevice::host();
-            result->addDimension("featureNum", "nf");
+            result->addDimension("fidx", "naf");
             result->addDimension("rowNum", "numRows");
             
             result->addParameter("decodedRows", "r", "f32[numRows]");
@@ -128,7 +128,7 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("activeFeatureList", "r", "u32[naf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
 
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
@@ -138,7 +138,7 @@ static struct RegisterKernels {
             result->addParameter("w", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
 
-            result->setGridExpression("[nf,blocksPerGrid]", "[1,threadsPerBlock]");
+            result->setGridExpression("[naf,blocksPerGrid]", "[1,threadsPerBlock]");
             result->allowGridPadding();
 
             result->setComputeFunction(library, "testFeatureKernel", { 1, 256 } );

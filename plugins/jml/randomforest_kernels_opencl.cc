@@ -121,7 +121,7 @@ static struct RegisterKernels {
             auto result = std::make_shared<OpenCLComputeKernel>();
             result->kernelName = "testFeature";
             //result->device = ComputeDevice::host();
-            result->addDimension("featureNum", "nf");
+            result->addDimension("featureIdx", "numActiveFeatures");
             result->addDimension("rowNum", "numRows");
             result->addParameter("decodedRows", "r", "f32[numRows]");
             result->addParameter("numRows", "r", "u32");
@@ -129,7 +129,7 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
             result->allowGridPadding();
             auto setTheRest = [=] (OpenCLKernel & kernel, OpenCLComputeContext & context)

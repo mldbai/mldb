@@ -65,7 +65,7 @@ void decodeRowsKernelCpu(ComputeContext & context,
 
 void
 testFeatureKernel(ComputeContext & context,
-                  uint32_t f, uint32_t nf,
+                  uint32_t fidx, uint32_t naf,
                   ComputeKernelGridRange & rows,
 
                   std::span<const float> decodedRows,
@@ -76,12 +76,11 @@ testFeatureKernel(ComputeContext & context,
                   std::span<const uint32_t> bucketNumbers,
                   std::span<const uint32_t> bucketEntryBits,
 
-                  std::span<const uint32_t> featureActive,
+                  std::span<const uint32_t> activeFeatureList,
 
                   std::span<W> allWOut)
 {
-    if (!featureActive[f])
-        return;
+    uint32_t f = activeFeatureList[fidx];
 
     ExcAssertLessEqual(bucketNumbers[f + 1], allWOut.size());
 
@@ -691,7 +690,7 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "testFeature";
             result->device = ComputeDevice::host();
-            result->addDimension("featureNum", "nf");
+            result->addDimension("featureIdx", "naf");
             result->addDimension("rowNum", "nr");
             result->addParameter("decodedRows", "r", "f32[numRows]");
             result->addParameter("numRows", "r", "u32");
@@ -699,7 +698,7 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[nf]");
+            result->addParameter("activeFeatureList", "r", "u32[naf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
             result->set2DComputeFunction(testFeatureKernel);
             return result;
