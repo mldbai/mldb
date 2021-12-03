@@ -846,7 +846,7 @@ init(const std::string & debugName,
     this->debugName = debugName;
     this->rows = rows;
     this->features = features;
-    this->maxDepth = maxDepth;
+    this->maxDepth = maxDepth + 1;
     this->bucketMemory = bucketMemory;
     this->fs = &fs;
     this->serializer = &serializer;

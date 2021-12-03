@@ -708,6 +708,8 @@ MultiComputeContext()
             continue; // Don't call ourselves recursively...
         auto runtime = ComputeRuntime::getRuntimeForId(runtimeId);
         auto device = runtime->getDefaultDevice();
+        if (device == ComputeDevice::none())
+            continue;  // No devices for runtime or not enabled
         contexts.emplace_back(runtime->getContext(std::vector{device}));
     }
     ExcAssertGreaterEqual(contexts.size(), 1);

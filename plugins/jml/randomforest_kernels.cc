@@ -169,8 +169,6 @@ bestPartitionSplitKernel(ComputeContext & context,
             result.PartitionSplit::operator = (fp);
         }
     }
-
-    //cerr << "partition " << p << " best split " << jsonEncodeStr(result) << endl;
 }
 
 void

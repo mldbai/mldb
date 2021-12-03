@@ -43,6 +43,7 @@ struct OpenCLBindInfo: public ComputeKernelBindInfo {
 };
 
 EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 0);
+EnvOption<bool, false> OPENCL_ENABLED("OPENCL_ENABLED", true);
 EnvOption<std::string> OPENCL_KERNEL_TRACE_FILE("OPENCL_KERNEL_TRACE_FILE", "");
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
@@ -1580,7 +1581,7 @@ struct OpenCLComputeRuntime: public ComputeRuntime {
 
     virtual ComputeDevice getDefaultDevice() const
     {
-        if (clPlatforms.empty()) {
+        if (clPlatforms.empty() || !OPENCL_ENABLED) {
             return ComputeDevice::none();
         }
 

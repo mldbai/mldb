@@ -135,9 +135,9 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     return val;
 }
 
-inline uint32_t extractBitRange32(__global const uint32_t * data,
-                                  uint8_t numBits,
-                                  uint32_t entryNumber)
+inline uint16_t extract16BitRange32(__global const uint32_t * data,
+                                    uint8_t numBits,
+                                    uint32_t entryNumber)
 {
     uint32_t bitNumber = numBits * entryNumber;
     uint32_t wordNumber = bitNumber / 32;
@@ -146,7 +146,7 @@ inline uint32_t extractBitRange32(__global const uint32_t * data,
     uint8_t bottomBits = min((uint8_t)numBits, uint8_t(32 - wordOffset));
     uint8_t topBits = numBits - bottomBits;
 
-    uint32_t val = extract_bits(data[wordNumber], wordOffset, bottomBits);
+    uint16_t val = extract_bits(data[wordNumber], wordOffset, bottomBits);
     if (topBits > 0) {
         val = val | extract_bits(data[wordNumber + 1], 0, topBits) << bottomBits;
     }
@@ -215,13 +215,13 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
     return result;
 }
 
-inline uint32_t getBucket(uint32_t exampleNum,
+inline uint16_t getBucket(uint32_t exampleNum,
                           __global const uint32_t * bucketData,
                           uint32_t bucketDataLength,
                           uint32_t bucketBits,
                           uint32_t numBuckets)
 {
-    return extractBitRange32(bucketData, bucketBits, exampleNum);
+    return extract16BitRange32(bucketData, bucketBits, exampleNum);
 }
 
 typedef struct W32 {
@@ -454,7 +454,7 @@ uint32_t testRow(uint32_t rowId,
     float weight = fabs(val);
     bool label = val < 0;
     //int f = get_global_id(0);
-    uint32_t bucket
+    uint16_t bucket
         = getBucket(exampleNum, bucketData, bucketDataLength,
                     bucketBits, numBuckets);
 
@@ -1890,7 +1890,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
             toBucketGlobal = partition;
         }
         else {
-            uint32_t bucket = getBucket(r /*exampleNum*/,
+            uint16_t bucket = getBucket(r /*exampleNum*/,
                                         bucketData, 0 /* bucketDataLength */,
                                         bucketBits, 0 /* numBucketsPerPartition */);
             toBucketGlobal = partition * numActiveBuckets + bucket;

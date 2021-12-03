@@ -1194,8 +1194,6 @@ chooseSplit(__global const W * w,
 {
     PartitionSplit result = PARTITION_SPLIT_INIT;
 
-    //uint32_t p = get_global_id(2);
-
     // We need some weight in both true and false for a split to make sense
     if (wAll.vals[0] == 0 || wAll.vals[1] == 0)
         return result;
@@ -2060,7 +2058,6 @@ updateBucketsKernel(uint32_t numActiveBuckets,
                 numLocalUpdates, numGlobalUpdates, numCopyLocalToGlobal);
     }
 #endif
-
 }
 
 // For each partition and each bucket, we up to now accumulated just the

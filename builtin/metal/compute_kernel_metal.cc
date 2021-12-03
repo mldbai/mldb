@@ -52,6 +52,7 @@ struct MetalBindInfo: public ComputeKernelBindInfo {
 EnvOption<int> METAL_TRACE_API_CALLS("METAL_COMPUTE_TRACE_API_CALLS", 0);
 EnvOption<std::string> METAL_KERNEL_TRACE_FILE("METAL_KERNEL_TRACE_FILE", "");
 EnvOption<std::string> METAL_CAPTURE_FILE("METAL_CAPTURE_FILE", "");
+EnvOption<bool, false> METAL_ENABLED("METAL_ENABLED", true);
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
 std::shared_ptr<StructuredSerializer> regionsSerializer;
@@ -2254,11 +2255,18 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     bindInfo->owner = this;
     bindInfo->mtlPipelineState = computePipelineState;
 
-    //cerr << "kernel " << kernelName << " has "
-    //     << computePipelineState.GetMaxTotalThreadsPerThreadgroup() << " max threads per thread group, "
-    //     << computePipelineState.GetThreadExecutionWidth() << " thread execution width and requires "
-    //     << computePipelineState.GetStaticThreadgroupMemoryLength() << " bytes of threadgroup memory"
-    //     << endl;
+    cerr << "kernel " << kernelName << " has "
+         << computePipelineState.GetMaxTotalThreadsPerThreadgroup() << " max threads per thread group, "
+         << computePipelineState.GetThreadExecutionWidth() << " thread execution width and requires "
+         << computePipelineState.GetStaticThreadgroupMemoryLength() << " bytes of threadgroup memory"
+         << endl;
+
+    if (computePipelineState.GetMaxTotalThreadsPerThreadgroup() < 1024) {
+        cerr << "kernel " << kernelName << " has maximum execution width of "
+             << computePipelineState.GetMaxTotalThreadsPerThreadgroup()
+             << " meaning it may be occupancy limited due to register pressure"
+             << endl;
+    }
 
     if (traceSerializer) {
         int callNumber = numCalls++;
@@ -2407,7 +2415,7 @@ struct MetalComputeRuntime: public ComputeRuntime {
 
     virtual ComputeDevice getDefaultDevice() const
     {
-        if (mtlDevices.empty())
+        if (!METAL_ENABLED || mtlDevices.empty())
             return ComputeDevice::none();
 
         if (METAL_DEFAULT_DEVICE.specified()) {
