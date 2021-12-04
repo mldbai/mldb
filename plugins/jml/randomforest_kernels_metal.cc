@@ -264,7 +264,7 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("depth", "r", "u16");
-            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("threadsPerBlock", 32);
             result->addTuneable("blocksPerGrid", 128);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
@@ -281,7 +281,7 @@ static struct RegisterKernels {
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
-            result->addDimension("f_plus_1", "nf_plus_1");
+            result->addDimension("fidx_plus_1", "naf_plus_1");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
@@ -297,16 +297,16 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("threadsPerBlock", 256);
             result->addTuneable("blocksPerGrid", 64);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
-            result->addConstraint("nf_plus_1", "==", "nf + 1", "help the solver");
-            result->addConstraint("nf", "==", "nf_plus_1 - 1", "help the solver");
-            result->setGridExpression("[blocksPerGrid,nf]", "[threadsPerBlock,1]");
+            result->addConstraint("naf_plus_1", "==", "numActiveFeatures + 1", "help the solver");
+            result->addConstraint("numActiveFeatures", "==", "naf_plus_1 - 1", "help the solver");
+            result->setGridExpression("[blocksPerGrid,numActiveFeatures+1]", "[threadsPerBlock,1]");
             result->allowGridPadding();
             result->setComputeFunction(library, "updateBucketsKernel", { 256, 1 });
             return result;

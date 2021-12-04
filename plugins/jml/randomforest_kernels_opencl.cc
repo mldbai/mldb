@@ -307,7 +307,7 @@ static struct RegisterKernels {
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
-            result->addDimension("f", "nf");
+            result->addDimension("fidx", "numActiveFeatures");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
@@ -323,13 +323,13 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("gridBlockSize", 16384);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
-            result->setGridExpression("[gridBlockSize,nf]", "[256,1]");
+            result->setGridExpression("[gridBlockSize,numActiveFeatures]", "[256,1]");
             result->allowGridPadding();
             result->setComputeFunction(program, "updateBucketsKernel", { 256, 1 });
             return result;

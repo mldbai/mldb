@@ -1887,16 +1887,15 @@ updateBucketsKernel(uint32_t numActiveBuckets,
                     __global const uint32_t * bucketNumbers,
                     __global const uint32_t * bucketEntryBits,
 
-                    __global const uint32_t * featuresActive,
+                    __global const uint32_t * activeFeatureList,
                     __global const uint32_t * featureIsOrdinal,
 
                     __local W * wLocal,
                     uint32_t maxLocalBuckets)
 {
-    int f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
+    int fidx = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
 
-    if (f != -1 && !featuresActive[f])
-        return;
+    int f = fidx == -1 ? -1 : activeFeatureList[fidx];
 
     //if (f == -1 && get_global_id(0) == 0) {
     //    printf("nab %d nap %d g0 %d g1 %d l0 %d l1 %d nr %d mlb %d\n", numActiveBuckets, numActivePartitions,
@@ -1967,7 +1966,7 @@ updateBucketsKernel(uint32_t numActiveBuckets,
 
     for (uint32_t i = get_global_id(0);  i < numRows;  i += get_global_size(0)) {
 
-        uint8_t direction = (directions[i / 32] >> (i % 32)) & 1;
+        bool direction = (directions[i / 32] >> (i % 32)) & 1;
         if (!direction)
             continue;
 

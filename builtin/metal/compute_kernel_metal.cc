@@ -731,7 +731,7 @@ launch(const std::string & opName,
             knowns.setValue("mtlBlock", mtlBlock);
         }
 
-        //cerr << "launching kernel " << kernel->kernelName << " with grid " << clGrid << " and block " << clBlock << endl;
+        cerr << "launching kernel " << kernel->kernelName << " with grid " << mtlGrid << " and block " << mtlBlock << endl;
         //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
 
         if (bindInfo->traceSerializer) {

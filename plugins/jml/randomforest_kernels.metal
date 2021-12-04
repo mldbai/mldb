@@ -18,11 +18,12 @@
 #define W W32
 #define barrier threadgroup_barrier
 #define CLK_LOCAL_MEM_FENCE mem_flags::mem_threadgroup
-#define CLK_GLOBAL_MEM_FENCE mem_flags::mem_global
+#define CLK_GLOBAL_MEM_FENCE mem_flags::mem_device
 #define printf(...) 
 
 #define atom_add(x,y) atomic_fetch_add_explicit(x, y, memory_order_relaxed)
 #define atom_sub(x,y) atomic_fetch_sub_explicit(x, y, memory_order_relaxed)
+#define atom_or(x,y) atomic_fetch_or_explicit(x, y, memory_order_relaxed)
 #define atom_inc(x) atomic_fetch_add_explicit(x, 1, memory_order_relaxed)
 #define atom_dec(x) atomic_fetch_sub_explicit(x, 1, memory_order_relaxed)
 
@@ -1675,15 +1676,21 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              __global const uint32_t * bucketNumbers,
                              __global const uint32_t * bucketEntryBits,
                              __global const uint32_t * featureIsOrdinal,
-                             ushort2 global_id [[thread_position_in_grid]],
-                             ushort2 global_size [[threads_per_grid]],
+                             uint2 global_id [[thread_position_in_grid]],
+                             uint2 global_size [[threads_per_grid]],
                              ushort2 local_id [[thread_position_in_threadgroup]],
                              ushort2 local_size [[threads_per_threadgroup]])
 {
-    __local uint16_t depth;  depth = args.depth;
-    __local uint32_t numRows;  numRows = args.numRows;
+    uint16_t depth = args.depth;
+    uint32_t numRows = args.numRows;
 
     allPartitionSplits += args.partitionSplitsOffset;
+
+    //uint16_t numSimdGroups = get_local_size(0) / 32;
+    uint16_t simdGroupNum = get_local_id(0) / 32;
+    uint16_t simdLaneNum = get_local_id(0) % 32;
+
+    __local uint32_t work_group_directions[32];  // 32 * 32 = 1024 bits at once, which is the SIMD width
 
     for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
         uint32_t r = i + get_global_id(0);
@@ -1722,33 +1729,75 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
             }
         }
 
-        uint16_t direction = partition != oldPartition && partition != (uint16_t)-1;
-        if (partition != storedPartition && r < numRows)
+        bool direction = r < numRows && partition != oldPartition && partition != (uint16_t)-1;
+        if (r < numRows && partition != storedPartition)
             partitions[r].num = partition;
+
+#if 1
+        //if (r + 32 >= numRows)
+        //    break;
 
         uint32_t simdDirections = (simd_vote::vote_t)simd_ballot(direction);
 
-        if (simd_is_first()) {
+        if (simd_is_first() && (r / 32) * 32 < numRows) {
             directions[r/32] = simdDirections;
         }
 
-        if (simdDirections == 0)
+        uint8_t numDirections = popcount(simdDirections);
+        if (numDirections == 0)
             continue;
 
         uint32_t nonZeroDirectionBase = 0;
         if (simd_is_first()) {
-            uint8_t numDirections = popcount(simdDirections);
             nonZeroDirectionBase = 1 + atomic_fetch_add_explicit((__global atomic_uint *)nonZeroDirectionIndices, numDirections, memory_order_relaxed);
         }
 
         nonZeroDirectionBase = simd_broadcast_first(nonZeroDirectionBase);
 
-        uint8_t n = simd_prefix_exclusive_sum((uint8_t)direction);
+        uint8_t n = simd_prefix_exclusive_sum((uint8_t)(direction != 0));
 
         if (direction) {
             nonZeroDirectionIndices[nonZeroDirectionBase + n] = r;
         }
+#else
+        if (simdLaneNum == 0) {
+            work_group_directions[simdGroupNum] = 0;
+        }
+
+        if (direction) {
+            atom_or((__local atomic_uint *)&work_group_directions[simdGroupNum], 1 << simdLaneNum);
+        }
+
+        uint32_t simdDirections = work_group_directions[simdGroupNum];
+
+        //if (r < 512) {
+        //    printf("r %d group %d lane %d direction %d simdDirections %d\n",
+        //           r, simdGroupNum, simdLaneNum, direction, simdDirections);
+        //}
+
+        if (simdLaneNum == && (r & (~31)) < numRows) {
+            directions[r / 32] = simdDirections;
+            //if (r < 1024)
+            //    printf("r=%d: setting directions[%d] to %d\n", r, r/32, simdDirections);
+        }
+
+        if (simdDirections == 0)
+            continue;
+
+        if (simdLaneNum == 0) {
+            uint16_t numDirections = popcount(simdDirections);
+            work_group_directions[simdGroupNum] = 1 + atom_add((__global atomic_uint *)nonZeroDirectionIndices, numDirections);
+        }
+
+        if (direction) {
+            uint32_t nonZeroDirectionBase = work_group_directions[simdGroupNum];
+            uint16_t n = popcount(simdDirections & ((1 << simdLaneNum)-1));
+            nonZeroDirectionIndices[nonZeroDirectionBase + n] = r;
+        }
+#endif
     }
+
+    barrier(CLK_GLOBAL_MEM_FENCE);
 }
 
 struct UpdateBucketsArgs {
@@ -1762,6 +1811,7 @@ __kernel void // [row, feature]
 //__attribute__((reqd_work_group_size(256,1,1)))
 updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     __global const RowPartitionInfo * partitions,
+                    __global uint32_t * directions,
                     __global uint32_t * nonZeroDirectionIndices,  // [0] = capacity, [1] = size, [2] = contents
                     __global W * buckets,
                     __global W * wAll,
@@ -1777,25 +1827,24 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     __global const uint32_t * bucketNumbers,
                     __global const uint32_t * bucketEntryBits,
 
-                    __global const uint32_t * featuresActive,
+                    __global const uint32_t * activeFeatureList,
                     __global const uint32_t * featureIsOrdinal,
 
                     __local W * wLocal,
 
-                    ushort2 global_id [[thread_position_in_grid]],
-                    ushort2 global_size [[threads_per_grid]],
+                    uint2 global_id [[thread_position_in_grid]],
+                    uint2 global_size [[threads_per_grid]],
                     ushort2 local_id [[thread_position_in_threadgroup]],
                     ushort2 local_size [[threads_per_threadgroup]],
                     ushort lane_id [[thread_index_in_simdgroup]])
 {
-    int16_t f = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
+    int16_t fidx = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
     __local uint16_t numActivePartitions;  numActivePartitions = args.numActivePartitions;
     __local uint32_t numRows;  numRows = args.numRows;
     __local uint16_t maxLocalBuckets;  maxLocalBuckets = args.maxLocalBuckets;
     __local uint32_t numActiveBuckets;  numActiveBuckets = args.numActiveBuckets;
 
-    if (f != -1 && !featuresActive[f])
-        return;
+    int16_t f = fidx == -1 ? -1 : activeFeatureList[fidx];
 
     // We have to set up to access two different features:
     // 1) The feature we're splitting on for this example (splitFeature)
@@ -1849,16 +1898,6 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
 
-    //if (f == -1 && get_global_id(0) == 0) {x
-    //    for (int i = 0;  i < 200;  ++i) {
-    //        printf("row %d decodedWeight %d %f\n", i, decodedRows[i], decodedRows[i] * 1000000);
-    //    }
-    //}
-
-    uint16_t simdGroupNumber = get_global_id(0) / 32;
-    __local uint16_t numSimdGroups;
-    numSimdGroups = get_global_size(0) / 32;
-    
     uint32_t numNonZero = nonZeroDirectionIndices[0];
     nonZeroDirectionIndices += 1;
 

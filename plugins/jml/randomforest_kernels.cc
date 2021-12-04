@@ -478,8 +478,10 @@ updatePartitionNumbersKernel(ComputeContext & context,
                 partitions[r] = newPartitionNumber;
             setDirection(r, newPartitionNumber != -1);
         }
-        else
+        else {
             setDirection(r, 0);
+            continue;
+        }
 
         //cerr << "row " << r << " side " << side << " currently in " << partitionSplits[partition].index
         //     << " goes from partition " << partition << " (" << PartitionIndex(partitionSplitsOffset + partition)
@@ -494,7 +496,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
 void
 updateBucketsKernel(ComputeContext & context,
                     ComputeKernelGridRange & rowRange,
-                    uint32_t fp1, uint32_t nfp1,
+                    uint32_t fidxp1, uint32_t nafp1,
 
                     uint32_t numActiveBuckets,
                     uint32_t numActivePartitions,
@@ -521,10 +523,8 @@ updateBucketsKernel(ComputeContext & context,
                     std::span<const uint32_t> featureActive,
                     std::span<const uint32_t> featureIsOrdinal)
 {
-    int f = fp1 - 1;  // -1 means wAll, otherwise it's the feature number
-
-    if (f != -1 && !featureActive[f])
-        return;
+    int fidx = fidxp1 - 1;  // -1 means wAll, otherwise it's the feature number
+    int f = (fidx == -1 ? -1 : featureActive[fidx]);
 
     // We have to set up to access to buckets for the feature we're updating for the split (f)
     BucketList buckets;
@@ -815,7 +815,7 @@ static struct RegisterKernels {
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
-            result->addDimension("f", "nf");
+            result->addDimension("fidx", "naf");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
@@ -831,7 +831,7 @@ static struct RegisterKernels {
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
-            result->addParameter("featuresActive", "r", "u32[numFeatures]");
+            result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->set2DComputeFunction(updateBucketsKernel);
             return result;

@@ -319,8 +319,11 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
                      << ansi::reset << endl;
                 hasDifferences = true;
 
-                std::span<const byte> reference((const byte *)referenceData, referenceLength);
-                kernelGenerated.handler->setFromReference(context, reference);
+                constexpr bool fixDifferences = false;
+                if (fixDifferences) {
+                    std::span<const byte> reference((const byte *)referenceData, referenceLength);
+                    kernelGenerated.handler->setFromReference(context, reference);
+                }
             }
         }
     }

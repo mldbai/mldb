@@ -979,6 +979,9 @@ init(const std::string & debugName,
     this->expandedRowData = expandedRowData;
 
     if (debugKernelOutput) {
+        runDecodeRows->await();
+        queue->finish();
+
         // Verify that the kernel version gives the same results as the non-kernel version
         debugExpandedRowsCpu = decodeRows(rows);
         auto frozenExpandedRowsDevice = context->transferToHostSync("debugExpandedRows", expandedRowData);
@@ -1045,6 +1048,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     ExcAssertEqual(featureIsActive.size(), nf);
 
     ExcAssertGreater(numActiveFeatures, 0);
+
+    cerr << "numActiveBuckets = " << numActiveBuckets << " numActiveFeatures = " << numActiveFeatures << endl;
 
     // For each feature, what is the beginning bucket number? [nf + 1]
     auto deviceBucketNumbers = context->manageMemoryRegion("bucketNumbers", bucketNumbers);
@@ -1121,6 +1126,9 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     }
 
     if (debugKernelOutput) {
+        runTestFeatureKernel->await();
+        queue->finish();
+
         // Get that data back (by mapping), and verify it against the
         // CPU-calcualted version.
         
@@ -1245,6 +1253,9 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         queue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 1);
         queue->enqueueFillArray("debug clear smallSideIndexes", smallSideIndexes, (uint8_t)0);
         queue->enqueueFillArray("debug partition numbers", devicePartitions, RowPartitionInfo{0});
+        queue->enqueueFillArray("debug directions", directions, (uint32_t)0);
+        queue->enqueueFillArray("debug non zero indices", nonZeroDirectionIndices, (uint32_t)0);
+        queue->finish();
     }
 
     Date startDepth = Date::now();
@@ -1368,6 +1379,9 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         }
 
         if (debugKernelOutput) {
+            runBestPartitionSplitKernel->await();
+            queue->finish();
+
             // Map back the device partition splits (note that we only use those between
             // numFinishedPartitions and numActivePartitions)
             auto mappedPartitionSplits = context->transferToHostSync("debug partitionSplits", depthAllPartitionSplits);
@@ -1620,6 +1634,24 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                                 { runAssignPartitionNumbers });
         }
 
+        std::vector<uint16_t> oldPartitions;
+
+        if (debugKernelOutput) {
+            runClearBucketsKernel->await();
+            queue->finish();
+
+            auto mappedPartitions = context->transferToHostSync("debug partitions", devicePartitions);
+            auto partitions = mappedPartitions.getConstSpan();
+            oldPartitions = { partitions.begin(), partitions.end() };
+
+            {
+                std::ofstream partitionsStream("partitions-" + std::to_string(depth) + ".txt");
+                for (auto & p: partitions) {
+                    partitionsStream << p << endl;
+                }
+            }
+        }
+
         std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel;
         {
             // While we're doing that, we can also calculate our new
@@ -1652,13 +1684,68 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             auto mappedDirections = context->transferToHostSync("debug directions", directions);
             auto directions = mappedDirections.getConstSpan();
 
+            auto mappedPartitions = context->transferToHostSync("debug partitions", devicePartitions);
+            auto partitions = mappedPartitions.getConstSpan();
+
+            auto getDirectionBit = [&] (uint32_t row) -> bool
+            {
+                auto word = row / 32;
+                auto bit = row % 32;
+                uint32_t mask = 1 << bit;
+                return directions[word] & mask;
+            };
+
+            size_t numPartitionChanges = 0;
+            for (size_t row = 0;  row < numRows;  ++row) {
+                auto oldPartition = oldPartitions[row];
+                auto newPartition = partitions[row];
+
+                bool dir = getDirectionBit(row);
+
+                if (dir) {
+                    ExcAssertNotEqual(oldPartition, newPartition);
+                    ExcAssertNotEqual(newPartition, (uint16_t)-1);
+                    ++numPartitionChanges;
+                }
+                else {
+                    if (newPartition != (uint16_t)-1)
+                        ExcAssertEqual(oldPartition, newPartition);
+                }
+            }
+
             size_t numDirectionOne = 0;
             for (auto & d: directions) {
                 numDirectionOne += std::popcount(d);
             }
 
+            for (size_t i = numRows;  i < ((numRows + 31) & (~31));  ++i) {
+                ExcAssertEqual(getDirectionBit(i), 0);
+            }
+
+            cerr << "got " << numDirectionOne << " 1-directions" << endl;
+
+            ExcAssertEqual(numPartitionChanges, numDirectionOne);
+
             auto mappedNonZeroDirectionIndices = context->transferToHostSync("debug nonZeroDirectionIndices", nonZeroDirectionIndices);
             auto nonZeroDirectionIndices = mappedNonZeroDirectionIndices.getConstSpan();
+
+            std::vector<uint32_t> indices(nonZeroDirectionIndices.begin() + 1,
+                                          nonZeroDirectionIndices.begin() + 1 + numDirectionOne);
+            {
+                std::ofstream indicesStream("nonZeroDirectionIndices-" + std::to_string(depth) + "-unsorted.txt");
+                for (auto & i: indices) {
+                    indicesStream << i << endl;
+                }
+            }
+
+            std::sort(indices.begin(), indices.end());
+
+            {
+                std::ofstream indicesStream("nonZeroDirectionIndices-" + std::to_string(depth) + ".txt");
+                for (auto & i: indices) {
+                    indicesStream << i << endl;
+                }
+            }
 
             ExcAssertEqual(nonZeroDirectionIndices[0], numDirectionOne);
 
@@ -1666,14 +1753,25 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             std::vector<uint32_t> directions2(directions.size(), 0);
             for (size_t i = 1;  i <= numDirectionOne;  ++i) {
                 auto row = nonZeroDirectionIndices[i];
+                ExcAssertLess(row, numRows);
+                ExcAssertNotEqual(oldPartitions[row], partitions[row]);
                 auto word = row / 32;
                 auto bit = row % 32;
                 uint32_t mask = 1 << bit;
+                //cerr << "i = " << i << endl;
                 ExcAssertLess(word, directions.size());
                 ExcAssertEqual((directions[word] & mask), mask);
                 ExcAssertEqual((directions2[word] & mask), 0);
                 directions2[word] = directions2[word] | mask;
             }
+
+            {
+                std::ofstream partitionsStream("partitions-updated-" + std::to_string(depth) + ".txt");
+                for (auto & p: partitions) {
+                    partitionsStream << p << endl;
+                }
+            }
+
         }
 
         // Now the right side buckets are clear, we can transfer the weights
@@ -1697,12 +1795,12 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 "bucketDataOffsets",              deviceBucketDataOffsets,
                 "bucketNumbers",                  deviceBucketNumbers,
                 "bucketEntryBits",                deviceBucketEntryBits,
-                "featuresActive",                 deviceFeatureIsActive,
+                "activeFeatureList",              deviceActiveFeatureList,
                 "featureIsOrdinal",               deviceFeatureIsOrdinal);
 
             runUpdateBucketsKernel
                 = queue->launch("update buckets",
-                                boundUpdateBucketsKernel, { numRows, nf + 1 /* +1 is wAll */},
+                                boundUpdateBucketsKernel, { numRows, numActiveFeatures + 1 /* +1 is wAll */},
                                 { runClearBucketsKernel, runUpdatePartitionNumbersKernel });
         }
 
@@ -1722,6 +1820,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         }
 
         if (debugKernelOutput) {
+            runFixupBucketsKernel->await();
+            queue->finish();
 
             auto mappedPartitionInfo = context->transferToHostSync("debug partitionInfo", devicePartitionInfoPool);
             auto partitionInfoDevice = mappedPartitionInfo.getConstSpan();
@@ -1995,6 +2095,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
 EnvOption<bool> RF_USE_OPENCL("RF_USE_OPENCL", 1);
 EnvOption<bool> RF_USE_METAL("RF_USE_METAL", 1);
+EnvOption<bool> RF_DEBUG_COMPARE_KERNELS("RF_DEBUG_COMPARE_KERNELS", 1);
 
 ML::Tree::Ptr
 trainPartitionedEndToEnd(const std::string & debugName,
@@ -2012,7 +2113,7 @@ trainPartitionedEndToEnd(const std::string & debugName,
     }
 
     ComputeDevice device;
-    if (DEBUG_RF_KERNELS && (RF_USE_OPENCL || RF_USE_METAL)) {
+    if (DEBUG_RF_KERNELS && (RF_USE_OPENCL || RF_USE_METAL) && RF_DEBUG_COMPARE_KERNELS) {
         device = ComputeDevice::defaultFor(ComputeRuntimeId::MULTI);
     }
     else if (RF_USE_METAL) {
