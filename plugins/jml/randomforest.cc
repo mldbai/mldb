@@ -1634,8 +1634,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                                 { runAssignPartitionNumbers });
         }
 
-        std::vector<uint16_t> oldPartitions;
-
+        std::vector<uint16_t> oldPartitions;  // for debug
         if (debugKernelOutput) {
             runClearBucketsKernel->await();
             queue->finish();
@@ -1643,13 +1642,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             auto mappedPartitions = context->transferToHostSync("debug partitions", devicePartitions);
             auto partitions = mappedPartitions.getConstSpan();
             oldPartitions = { partitions.begin(), partitions.end() };
-
-            {
-                std::ofstream partitionsStream("partitions-" + std::to_string(depth) + ".txt");
-                for (auto & p: partitions) {
-                    partitionsStream << p << endl;
-                }
-            }
         }
 
         std::shared_ptr<ComputeEvent> runUpdatePartitionNumbersKernel;
@@ -1729,24 +1721,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             auto mappedNonZeroDirectionIndices = context->transferToHostSync("debug nonZeroDirectionIndices", nonZeroDirectionIndices);
             auto nonZeroDirectionIndices = mappedNonZeroDirectionIndices.getConstSpan();
 
-            std::vector<uint32_t> indices(nonZeroDirectionIndices.begin() + 1,
-                                          nonZeroDirectionIndices.begin() + 1 + numDirectionOne);
-            {
-                std::ofstream indicesStream("nonZeroDirectionIndices-" + std::to_string(depth) + "-unsorted.txt");
-                for (auto & i: indices) {
-                    indicesStream << i << endl;
-                }
-            }
-
-            std::sort(indices.begin(), indices.end());
-
-            {
-                std::ofstream indicesStream("nonZeroDirectionIndices-" + std::to_string(depth) + ".txt");
-                for (auto & i: indices) {
-                    indicesStream << i << endl;
-                }
-            }
-
             ExcAssertEqual(nonZeroDirectionIndices[0], numDirectionOne);
 
             // Verify the equivalence between the directions and the non zero indices
@@ -1764,14 +1738,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 ExcAssertEqual((directions2[word] & mask), 0);
                 directions2[word] = directions2[word] | mask;
             }
-
-            {
-                std::ofstream partitionsStream("partitions-updated-" + std::to_string(depth) + ".txt");
-                for (auto & p: partitions) {
-                    partitionsStream << p << endl;
-                }
-            }
-
         }
 
         // Now the right side buckets are clear, we can transfer the weights

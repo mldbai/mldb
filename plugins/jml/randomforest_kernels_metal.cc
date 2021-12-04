@@ -264,8 +264,8 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("depth", "r", "u16");
-            result->addTuneable("threadsPerBlock", 32);
-            result->addTuneable("blocksPerGrid", 128);
+            result->addTuneable("threadsPerBlock", 1024);
+            result->addTuneable("blocksPerGrid", 96);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
             result->setComputeFunction(library, "updatePartitionNumbersKernel", { 256 });
@@ -300,8 +300,8 @@ static struct RegisterKernels {
             result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
-            result->addTuneable("threadsPerBlock", 256);
-            result->addTuneable("blocksPerGrid", 64);
+            result->addTuneable("threadsPerBlock", 1024);
+            result->addTuneable("blocksPerGrid", 32);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
             result->addConstraint("naf_plus_1", "==", "numActiveFeatures + 1", "help the solver");
