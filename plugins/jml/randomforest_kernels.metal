@@ -147,12 +147,14 @@ inline uint16_t extract16BitRange32(__global const uint32_t * data,
     uint8_t bottomBits = min((uint8_t)numBits, uint8_t(32 - wordOffset));
     uint8_t topBits = numBits - bottomBits;
 
-    uint16_t val = extract_bits(data[wordNumber], wordOffset, bottomBits);
     if (topBits > 0) {
-        val = val | extract_bits(data[wordNumber + 1], 0, topBits) << bottomBits;
+        return extract_bits(data[wordNumber], wordOffset, bottomBits);
     }
-
-    return val;
+    else {
+        uint2 words = *(const __global uint2 *)(data + wordNumber);
+        uint16_t bottom = extract_bits(words[0], wordOffset, bottomBits);
+        return bottom | extract_bits(words[1], 0, topBits) << bottomBits;
+    }
 }
 
 typedef struct DecodedRow {
@@ -1687,10 +1689,10 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
     allPartitionSplits += args.partitionSplitsOffset;
 
     //uint16_t numSimdGroups = get_local_size(0) / 32;
-    uint16_t simdGroupNum = get_local_id(0) / 32;
-    uint16_t simdLaneNum = get_local_id(0) % 32;
+    //uint16_t simdGroupNum = get_local_id(0) / 32;
+    //uint16_t simdLaneNum = get_local_id(0) % 32;
 
-    __local uint32_t work_group_directions[32];  // 32 * 32 = 1024 bits at once, which is the SIMD width
+    //__local uint32_t work_group_directions[32];  // 32 * 32 = 1024 bits at once, which is the SIMD width
 
     for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
         uint32_t r = i + get_global_id(0);
@@ -1739,9 +1741,9 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 
         uint32_t simdDirections = (simd_vote::vote_t)simd_ballot(direction);
 
-        if (simd_is_first() && (r / 32) * 32 < numRows) {
-            directions[r/32] = simdDirections;
-        }
+        //if (simd_is_first() && (r / 32) * 32 < numRows) {
+        //    directions[r/32] = simdDirections;
+        //}
 
         uint8_t numDirections = popcount(simdDirections);
         if (numDirections == 0)
