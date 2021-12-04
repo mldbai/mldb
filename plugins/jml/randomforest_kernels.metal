@@ -1694,6 +1694,9 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 
     //__local uint32_t work_group_directions[32];  // 32 * 32 = 1024 bits at once, which is the SIMD width
 
+    __global atomic_uint * nonZeroDirectionCount = (__global atomic_uint *)nonZeroDirectionIndices;
+    __global uint2 * nonZeroDirections = (__global uint2 *)nonZeroDirectionIndices + 2;
+
     for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
         uint32_t r = i + get_global_id(0);
 
@@ -1735,7 +1738,6 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
         if (r < numRows && partition != storedPartition)
             partitions[r].num = partition;
 
-#if 1
         //if (r + 32 >= numRows)
         //    break;
 
@@ -1751,7 +1753,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 
         uint32_t nonZeroDirectionBase = 0;
         if (simd_is_first()) {
-            nonZeroDirectionBase = 1 + atomic_fetch_add_explicit((__global atomic_uint *)nonZeroDirectionIndices, numDirections, memory_order_relaxed);
+            nonZeroDirectionBase = atomic_fetch_add_explicit(nonZeroDirectionCount, numDirections, memory_order_relaxed);
         }
 
         nonZeroDirectionBase = simd_broadcast_first(nonZeroDirectionBase);
@@ -1759,44 +1761,8 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
         uint8_t n = simd_prefix_exclusive_sum((uint8_t)(direction != 0));
 
         if (direction) {
-            nonZeroDirectionIndices[nonZeroDirectionBase + n] = r;
+            nonZeroDirections[nonZeroDirectionBase + n] = uint2{ r, partition };
         }
-#else
-        if (simdLaneNum == 0) {
-            work_group_directions[simdGroupNum] = 0;
-        }
-
-        if (direction) {
-            atom_or((__local atomic_uint *)&work_group_directions[simdGroupNum], 1 << simdLaneNum);
-        }
-
-        uint32_t simdDirections = work_group_directions[simdGroupNum];
-
-        //if (r < 512) {
-        //    printf("r %d group %d lane %d direction %d simdDirections %d\n",
-        //           r, simdGroupNum, simdLaneNum, direction, simdDirections);
-        //}
-
-        if (simdLaneNum == && (r & (~31)) < numRows) {
-            directions[r / 32] = simdDirections;
-            //if (r < 1024)
-            //    printf("r=%d: setting directions[%d] to %d\n", r, r/32, simdDirections);
-        }
-
-        if (simdDirections == 0)
-            continue;
-
-        if (simdLaneNum == 0) {
-            uint16_t numDirections = popcount(simdDirections);
-            work_group_directions[simdGroupNum] = 1 + atom_add((__global atomic_uint *)nonZeroDirectionIndices, numDirections);
-        }
-
-        if (direction) {
-            uint32_t nonZeroDirectionBase = work_group_directions[simdGroupNum];
-            uint16_t n = popcount(simdDirections & ((1 << simdLaneNum)-1));
-            nonZeroDirectionIndices[nonZeroDirectionBase + n] = r;
-        }
-#endif
     }
 
     barrier(CLK_GLOBAL_MEM_FENCE);
@@ -1854,9 +1820,9 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     // Thus, we need to perform the same work twice, once for each of the
     // features.
     
-    __local uint16_t numBucketsPerPartition;        // How many buckets for this feature?
-    __local uint16_t bucketBits;
-    __local uint16_t numLocalBuckets;
+    uint16_t numBucketsPerPartition;        // How many buckets for this feature?
+    uint16_t bucketBits;
+    uint16_t numLocalBuckets;
             
     // Pointer to the global array we eventually want to update
     __global W * wGlobal;
@@ -1901,13 +1867,12 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
 
     uint32_t numNonZero = nonZeroDirectionIndices[0];
-    nonZeroDirectionIndices += 1;
+    __global const uint2 * nonZeroDirections = (__global const uint2 *)(nonZeroDirectionIndices + 2);
 
     for (uint32_t i = get_global_id(0);  i < numNonZero;  i += get_global_size(0)) {
 
-        uint32_t r = nonZeroDirectionIndices[i];
-
-        uint16_t partition = partitions[r].num;
+        uint32_t r = nonZeroDirections[i][0];
+        uint16_t partition = nonZeroDirections[i][1];
 
         float weight = fabs(decodedRows[r]);
         bool label = decodedRows[r] < 0;
