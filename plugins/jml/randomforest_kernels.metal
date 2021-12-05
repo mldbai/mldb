@@ -1678,6 +1678,9 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              __global const uint32_t * bucketNumbers,
                              __global const uint32_t * bucketEntryBits,
                              __global const uint32_t * featureIsOrdinal,
+
+                             __global const float * decodedRows,
+
                              uint2 global_id [[thread_position_in_grid]],
                              uint2 global_size [[threads_per_grid]],
                              ushort2 local_id [[thread_position_in_threadgroup]],
@@ -1695,7 +1698,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
     //__local uint32_t work_group_directions[32];  // 32 * 32 = 1024 bits at once, which is the SIMD width
 
     __global atomic_uint * nonZeroDirectionCount = (__global atomic_uint *)nonZeroDirectionIndices;
-    __global uint2 * nonZeroDirections = (__global uint2 *)nonZeroDirectionIndices + 2;
+    __global uint3 * nonZeroDirections = (__global uint3 *)nonZeroDirectionIndices + 4;
 
     for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
         uint32_t r = i + get_global_id(0);
@@ -1761,7 +1764,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
         uint8_t n = simd_prefix_exclusive_sum((uint8_t)(direction != 0));
 
         if (direction) {
-            nonZeroDirections[nonZeroDirectionBase + n] = uint2{ r, partition };
+            nonZeroDirections[nonZeroDirectionBase + n] = uint3{ r, partition, as_type<uint32_t>(decodedRows[r]) };
         }
     }
 
@@ -1867,15 +1870,16 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
 
     uint32_t numNonZero = nonZeroDirectionIndices[0];
-    __global const uint2 * nonZeroDirections = (__global const uint2 *)(nonZeroDirectionIndices + 2);
+    __global const uint3 * nonZeroDirections = (__global const uint3 *)(nonZeroDirectionIndices + 4);
 
     for (uint32_t i = get_global_id(0);  i < numNonZero;  i += get_global_size(0)) {
 
         uint32_t r = nonZeroDirections[i][0];
         uint16_t partition = nonZeroDirections[i][1];
+        float decodedRow = as_type<float>(nonZeroDirections[i][2]);
 
-        float weight = fabs(decodedRows[r]);
-        bool label = decodedRows[r] < 0;
+        float weight = fabs(decodedRow);
+        bool label = decodedRow < 0;
 
         uint16_t toBucketLocal;
         uint32_t toBucketGlobal;

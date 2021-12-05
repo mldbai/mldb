@@ -264,6 +264,7 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("depth", "r", "u16");
+            result->addParameter("decodedRows", "r", "f32[numRows]");
             result->addTuneable("threadsPerBlock", 1024);
             result->addTuneable("blocksPerGrid", 96);
             result->allowGridPadding();

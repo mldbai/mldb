@@ -1661,7 +1661,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                     "bucketNumbers",                  deviceBucketNumbers,
                     "bucketEntryBits",                deviceBucketEntryBits,
                     "featureIsOrdinal",               deviceFeatureIsOrdinal,
-                    "depth",                          (uint16_t)depth);
+                    "depth",                          (uint16_t)depth,
+                    "decodedRows",                    expandedRowData);
 
             runUpdatePartitionNumbersKernel
                 = queue->launch("update partition numbers",

@@ -731,7 +731,7 @@ launch(const std::string & opName,
             knowns.setValue("mtlBlock", mtlBlock);
         }
 
-        cerr << "launching kernel " << kernel->kernelName << " with grid " << mtlGrid << " and block " << mtlBlock << endl;
+        //cerr << "launching kernel " << kernel->kernelName << " with grid " << mtlGrid << " and block " << mtlBlock << endl;
         //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
 
         if (bindInfo->traceSerializer) {
@@ -2255,11 +2255,11 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     bindInfo->owner = this;
     bindInfo->mtlPipelineState = computePipelineState;
 
-    cerr << "kernel " << kernelName << " has "
-         << computePipelineState.GetMaxTotalThreadsPerThreadgroup() << " max threads per thread group, "
-         << computePipelineState.GetThreadExecutionWidth() << " thread execution width and requires "
-         << computePipelineState.GetStaticThreadgroupMemoryLength() << " bytes of threadgroup memory"
-         << endl;
+    //cerr << "kernel " << kernelName << " has "
+    //     << computePipelineState.GetMaxTotalThreadsPerThreadgroup() << " max threads per thread group, "
+    //     << computePipelineState.GetThreadExecutionWidth() << " thread execution width and requires "
+    //     << computePipelineState.GetStaticThreadgroupMemoryLength() << " bytes of threadgroup memory"
+    //     << endl;
 
     if (computePipelineState.GetMaxTotalThreadsPerThreadgroup() < 1024) {
         cerr << "kernel " << kernelName << " has maximum execution width of "
