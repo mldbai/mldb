@@ -255,7 +255,9 @@ static struct RegisterKernels {
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u32[(numRows+31)/32]");
             result->addParameter("nonZeroDirectionIndices", "w", "u32[numNonZeroDirectionIndices]");
+            result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numRows", "r", "u32");
+            result->addParameter("numActivePartitions", "r", "u16");
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np + partitionSplitsOffset]");
             result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");

@@ -1658,6 +1658,7 @@ typedef struct {
 struct UpdatePartitionNumbersArgs {
     uint32_t partitionSplitsOffset;
     uint32_t numRows;
+    uint16_t numActivePartitions;
     uint16_t depth;
 };
 
@@ -1669,6 +1670,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              __global RowPartitionInfo * partitions,
                              __global uint32_t * directions,
                              __global uint32_t * nonZeroDirectionIndices,  // [0] = size, [1]... = contents
+                             __constant const uint8_t * smallSideIndexes,
 
                              __global const IndexedPartitionSplit * allPartitionSplits,
                              __global const PartitionInfo * partitionInfo,
@@ -1688,6 +1690,20 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 {
     uint16_t depth = args.depth;
     uint32_t numRows = args.numRows;
+    uint16_t numActivePartitions = args.numActivePartitions;
+
+    // Most rows live in partitions with a number < 256; avoid main memory accesses for these
+    // by caching in local memory
+    constexpr uint16_t SSI_CACHE_SIZE=1024;
+    __local uint8_t smallSideIndexesCache[SSI_CACHE_SIZE];
+
+    // Populate the cache of smallSideIndexes
+    for (uint32_t b = get_local_id(0);  b < SSI_CACHE_SIZE && b < numActivePartitions; b += get_local_size(0)) {
+        smallSideIndexesCache[b] = smallSideIndexes[b];
+    }
+
+    // Wait for all buckets to be clear
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     allPartitionSplits += args.partitionSplitsOffset;
 
@@ -1764,7 +1780,8 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
         uint8_t n = simd_prefix_exclusive_sum((uint8_t)(direction != 0));
 
         if (direction) {
-            nonZeroDirections[nonZeroDirectionBase + n] = uint3{ r, partition, as_type<uint32_t>(decodedRows[r]) };
+            uint8_t smallPartitionIndex = partition < SSI_CACHE_SIZE ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
+            nonZeroDirections[nonZeroDirectionBase + n] = uint3{ r, partition | (((uint32_t)smallPartitionIndex) << 16), as_type<uint32_t>(decodedRows[r]) };
         }
     }
 
@@ -1874,16 +1891,18 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
 
     for (uint32_t i = get_global_id(0);  i < numNonZero;  i += get_global_size(0)) {
 
-        uint32_t r = nonZeroDirections[i][0];
-        uint16_t partition = nonZeroDirections[i][1];
-        float decodedRow = as_type<float>(nonZeroDirections[i][2]);
+        uint3 d = nonZeroDirections[i];
+        uint32_t r = d[0];
+        uint16_t partition = d[1] & 0xffff;
+        uint8_t smallPartitionIndex = d[1] >> 16;
+        float decodedRow = as_type<float>(d[2]);
 
         float weight = fabs(decodedRow);
         bool label = decodedRow < 0;
 
         uint16_t toBucketLocal;
         uint32_t toBucketGlobal;
-        uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
+        //uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
         
         if (f == -1) {
             // Since we don't touch the buckets on the left side of the
