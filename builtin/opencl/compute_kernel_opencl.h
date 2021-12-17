@@ -202,9 +202,6 @@ struct OpenCLComputeKernel: public ComputeKernel {
     /// sizes of local arrays or other bounds)
     std::vector<SetParameters> setters;
 
-    // List of tuneable parameters
-    std::vector<ComputeTuneable> tuneables;
-
     // Expressions for the grid dimensions, if we override them
     std::shared_ptr<CommandExpression> gridExpression;
     std::shared_ptr<CommandExpression> blockExpression;

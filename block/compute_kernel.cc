@@ -6,6 +6,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/types/set_description.h"
 #include "mldb/utils/command_expression.h"
 #include <memory>
 
@@ -15,9 +16,16 @@ namespace MLDB {
 
 using namespace PluginCommand;
 
+DEFINE_ENUM_DESCRIPTION_INLINE(ComputeKernelOrdering)
+{
+    addValue("ORDERED", ComputeKernelOrdering::ORDERED, "Array is ordered along this dimension");
+    addValue("UNORDERED", ComputeKernelOrdering::UNORDERED, "Array is not ordered along this dimension");
+}
+
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelDimension)
 {
     addField("bound", &ComputeKernelDimension::bound, "");
+    addField("ordering", &ComputeKernelDimension::ordering, "");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelType)
@@ -52,6 +60,17 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelConstraint)
     addField("op", &ComputeKernelConstraint::op, "Comparison operator for constraint");
     addField("rhs", &ComputeKernelConstraint::rhs, "Right side of constraint expression");
     addField("description", &ComputeKernelConstraint::description, "Description of where constraint comes from");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelConstraintSet)
+{
+    addField("constraints", &ComputeKernelConstraintSet::constraints, "List of constraints");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelConstraintSolution)
+{
+    addField("knowns", &ComputeKernelConstraintSolution::knowns, &CommandExpressionVariables::values, "Known values");
+    addField("unknowns", &ComputeKernelConstraintSolution::unknowns, "Set of unknown values");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeTuneable)
@@ -264,8 +283,13 @@ parseType(const std::string & accessAndType)
     while (context.match_literal('[')) {
         // It's an array
         auto bound = CommandExpression::parseArgumentExpression(context);
+        auto ordering = ComputeKernelOrdering::ORDERED;
+        if (context.match_literal(":")) {
+            if (context.match_literal("unordered"))
+                ordering = ComputeKernelOrdering::UNORDERED;
+        }
         context.expect_literal(']', "expected closing array expression");
-        result.dims.push_back({bound});
+        result.dims.push_back({bound, ordering});
     }
     context.expect_eof();
     result.access = parseAccess(access);
@@ -319,8 +343,11 @@ print() const
     }
 
     auto result = printAccess(access) + " " + typeName;
-    for (auto [bound]: dims) {
-        result += "[" + (bound ? bound->surfaceForm : std::string()) + "]";
+    for (auto [bound, ordering]: dims) {
+        result += "[" + (bound ? bound->surfaceForm : std::string());
+        if (ordering == ComputeKernelOrdering::UNORDERED)
+            result += ":unordered";
+        result += "]";
     }
     return result;
 }
@@ -374,6 +401,9 @@ typesAreCompatible(const ValueDescription & passed,
     }
 
     case ValueKind::STRUCTURE: {
+        if (expected.kind != ValueKind::STRUCTURE)
+            return fail("passed kind was structure but expected kind was not");
+        
         if (!passed.hasFixedFieldCount() || !expected.hasFixedFieldCount())
             return fail("arrays must have fixed field counts");
 
@@ -840,36 +870,35 @@ std::set<std::string> getVariables(const CommandExpression & expression)
 
 bool
 ComputeKernelConstraint::
-attemptToSatisfy(CommandExpressionContext & context,
-                 std::set<std::string> & unsatisfied) const
+attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
 {
     if (op != "==")
         return false;  // equality constraints only for now
 
     bool canEvaluateLhs = true;
     for (auto var: getVariables(*lhs)) {
-        if (!context.hasValue(var)) {
+        if (!solution.hasValue(var)) {
             canEvaluateLhs = false;
-            unsatisfied.insert(var);
+            solution.unknowns.insert(var);
         }
     }
 
     Json::Value lhsVal;
     if (canEvaluateLhs) {
-        lhsVal = lhs->apply(context);
+        lhsVal = solution.evaluate(*lhs);
     }
 
     bool canEvaluateRhs = true;
     for (auto var: getVariables(*rhs)) {
-        if (!context.hasValue(var)) {
+        if (!solution.hasValue(var)) {
             canEvaluateRhs = false;
-            unsatisfied.insert(var);
+            solution.unknowns.insert(var);
         }
     }
 
     Json::Value rhsVal;
     if (canEvaluateRhs) {
-        rhsVal = rhs->apply(context);
+        rhsVal = solution.evaluate(*rhs);
     }
     
     if (!canEvaluateLhs && !canEvaluateRhs) {
@@ -883,7 +912,7 @@ attemptToSatisfy(CommandExpressionContext & context,
             cerr << "rhsVal = " << rhsVal << endl;
             cerr << "lhs = " << lhs->surfaceForm << endl;
             cerr << "rhs = " << rhs->surfaceForm << endl;
-            cerr << "context = " << jsonEncode(context.values) << endl;
+            cerr << "solution = " << jsonEncode(solution) << endl;
             throw MLDB::Exception("Couldn't meet constraint " + print()
                                   + ": (" + lhsVal.toStringNoNewLine()
                                   + " != " + rhsVal.toStringNoNewLine() + ")");
@@ -894,16 +923,16 @@ attemptToSatisfy(CommandExpressionContext & context,
     const VariableExpression * rhsVar = dynamic_cast<const VariableExpression *>(rhs.get());
 
     if (lhsVar && canEvaluateRhs) {
-        unsatisfied.erase(lhsVar->variableName);
-        if (!context.hasValue(lhsVar->variableName)) {
-            context.setValue(lhsVar->variableName, rhsVal);
+        solution.unknowns.erase(lhsVar->variableName);
+        if (!solution.hasValue(lhsVar->variableName)) {
+            solution.setValue(lhsVar->variableName, rhsVal);
             return true;
         }
     }
     else if (rhsVar && canEvaluateLhs) {
-        unsatisfied.erase(rhsVar->variableName);
-        if (!context.hasValue(rhsVar->variableName)) {
-            context.setValue(rhsVar->variableName, lhsVal);
+        solution.unknowns.erase(rhsVar->variableName);
+        if (!solution.hasValue(rhsVar->variableName)) {
+            solution.setValue(rhsVar->variableName, lhsVal);
             return true;
         }
     }
@@ -913,10 +942,12 @@ attemptToSatisfy(CommandExpressionContext & context,
 
 bool
 ComputeKernelConstraint::
-satisfied(CommandExpressionContext & context) const
+satisfied(const ComputeKernelConstraintSolution & solution) const
 {
     if (op != "==")
         return false;  // equality constraints only for now
+
+    CommandExpressionContext context(&solution.knowns);
 
     auto unknownLhs = lhs->unknowns(context);
     auto unknownRhs = rhs->unknowns(context);
@@ -933,69 +964,188 @@ satisfied(CommandExpressionContext & context) const
 }
 
 
-// ComputeKernel
+// ComputeKernelConstraintSolution
+
+bool
+ComputeKernelConstraintSolution::
+hasValue(const std::string & variableName) const
+{
+    return knowns.hasValue(variableName);
+}
 
 void
-ComputeKernel::
+ComputeKernelConstraintSolution::
+setValue(const std::string & variableName, const void * val, const ValueDescription & desc)
+{
+    setValue(variableName, desc.printJsonStructured(val));
+}
+
+void
+ComputeKernelConstraintSolution::
+setValue(const std::string & variableName, const Json::Value & val)
+{
+    knowns.setValue(variableName, val);
+    unknowns.erase(variableName);
+}
+
+Json::Value
+ComputeKernelConstraintSolution::
+getValue(const std::string & variableName) const
+{
+    return knowns.getValue(variableName);
+}
+
+Json::Value
+ComputeKernelConstraintSolution::
+evaluate(const CommandExpression & expr) const
+{
+    try {
+        CommandExpressionContext context(&knowns);
+        return expr.apply(context);
+    } MLDB_CATCH_ALL {
+        rethrowException(500, "Error evaluating expression: " + getExceptionString(),
+                         "expression", expr.surfaceForm, "knowns", knowns.values);
+    }
+}
+
+
+// ComputeKernelConstraintSet
+
+void
+ComputeKernelConstraintSet::
+add(ComputeKernelConstraint constraint)
+{
+    constraints.emplace_back(std::move(constraint));
+}
+
+void
+ComputeKernelConstraintSet::
+assertSolvedBy(const ComputeKernelConstraintSolution & solution) const
+{
+    if (!solution.unknowns.empty()) {
+        throw MLDB::Exception("Constraints do not solve for variable(s): " + jsonEncodeStr(solution.unknowns));
+    }
+
+    for (auto & c: constraints) {
+        if (!c.satisfied(solution))
+            throw MLDB::Exception("Constraint not satisfied: " + c.print());
+    }
+}
+
+ComputeKernelConstraintSolution
+solve(const ComputeKernelConstraintSolution & solutionIn,
+      const ComputeKernelConstraintSet & constraints)
+{
+    return solve(solutionIn, constraints, {});
+}
+
+ComputeKernelConstraintSolution
+solve(const ComputeKernelConstraintSolution & solutionIn,
+      const ComputeKernelConstraintSet & constraints1,
+      const ComputeKernelConstraintSet & constraints2)
+{
+    ComputeKernelConstraintSolution result = solutionIn;
+
+    bool progress = true;
+
+    while (progress) {
+        progress = false;
+        for (auto & c: constraints1.constraints) {
+            progress = progress || c.attemptToSatisfy(result);
+        }
+        for (auto & c: constraints2.constraints) {
+            progress = progress || c.attemptToSatisfy(result);
+        }
+    }
+
+    return result;
+}
+
+ComputeKernelConstraintSolution
+fullySolve(const ComputeKernelConstraintSolution & solutionIn,
+           const ComputeKernelConstraintSet & constraints)
+{
+    return fullySolve(solutionIn, constraints, {});
+}
+
+ComputeKernelConstraintSolution
+fullySolve(const ComputeKernelConstraintSolution & solutionIn,
+           const ComputeKernelConstraintSet & constraints1,
+           const ComputeKernelConstraintSet & constraints2)
+{
+    auto result = solve(solutionIn, constraints1, constraints2);
+    constraints1.assertSolvedBy(result);
+    constraints2.assertSolvedBy(result);
+    return result;
+}
+
+// ComputeKernelConstraintManager
+
+void
+ComputeKernelConstraintManager::
 addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
-              const std::string & description)
+              const std::string & description,
+              ComputeKernelConstraintScope scope)
 {
     auto lhsParsed = CommandExpression::parseArgumentExpression(lhs);
     auto rhsParsed = CommandExpression::parseArgumentExpression(rhs);
-    addConstraint(lhsParsed, op, rhsParsed, description);
+    addConstraint(lhsParsed, op, rhsParsed, description, scope);
 }
 
 void
-ComputeKernel::
+ComputeKernelConstraintManager::
 addConstraint(std::shared_ptr<const CommandExpression> lhs,
               const std::string & op, const std::string & rhs,
-              const std::string & description)
+              const std::string & description,
+              ComputeKernelConstraintScope scope)
 {
     auto rhsParsed = CommandExpression::parseArgumentExpression(rhs);
-    addConstraint(lhs, op, rhsParsed, description);
+    addConstraint(lhs, op, rhsParsed, description, scope);
 }
 
 void
-ComputeKernel::
+ComputeKernelConstraintManager::
 addConstraint(std::shared_ptr<const CommandExpression> lhs,
               const std::string & op,
               std::shared_ptr<const CommandExpression> rhs,
-              const std::string & description)
+              const std::string & description,
+              ComputeKernelConstraintScope scope)
 {
-    constraints.push_back({lhs, op, rhs, description});
+    switch (scope) {
+    case ComputeKernelConstraintScope::PRE_RUN:
+        preConstraints.add({lhs, op, rhs, description});
+        break;
+    case ComputeKernelConstraintScope::POST_RUN:
+        postConstraints.add({lhs, op, rhs, description});
+        break;
+    case ComputeKernelConstraintScope::UNIVERSAL:
+        constraints.add({lhs, op, rhs, description});
+        break;
+    }
 }
+
+
+// ComputeKernel
+
 
 
 // BoundComputeKernel
 
-void
-BoundComputeKernel::
-addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
-              const std::string & description)
-{
-    auto lhsParsed = CommandExpression::parseArgumentExpression(lhs);
-    auto rhsParsed = CommandExpression::parseArgumentExpression(rhs);
-    addConstraint(lhsParsed, op, rhsParsed, description);
-}
 
 void
 BoundComputeKernel::
-addConstraint(std::shared_ptr<const CommandExpression> lhs,
-              const std::string & op, const std::string & rhs,
-              const std::string & description)
+setKnownsFromArguments()
 {
-    auto rhsParsed = CommandExpression::parseArgumentExpression(rhs);
-    addConstraint(lhs, op, rhsParsed, description);
-}
+    for (auto & arg: arguments) {
+        if (arg.handler) {
+            // Was set by the caller
+            knowns.setValue(arg.name, arg.handler->toJson());
+        }
+    }
 
-void
-BoundComputeKernel::
-addConstraint(std::shared_ptr<const CommandExpression> lhs,
-              const std::string & op,
-              std::shared_ptr<const CommandExpression> rhs,
-              const std::string & description)
-{
-    constraints.push_back({lhs, op, rhs, description});
+    for (auto & [name, value]: tuneables) {
+        knowns.setValue(name, value);
+    }
 }
 
 namespace details {
@@ -1103,6 +1253,26 @@ toJson() const
     return result;
 }
 
+Json::Value
+MemoryArrayAbstractArgumentHandler::
+getArrayElement(uint32_t index, ComputeContext & context) const
+{
+    if (!handle.handle)
+        throw MLDB::Exception("GetArrayElement: no handler");
+    size_t objectLength = type.baseType->width;
+    ExcAssertEqual(objectLength % type.baseType->align, 0);
+    size_t numObjects = handle.handle ? handle.handle->lengthInBytes / objectLength : 0;
+    ExcAssertLess(index, numObjects);
+
+    auto region = context.transferToHostSyncImpl("getArrayElement", handle);
+    ExcAssert(type.baseType);
+    const ValueDescription & desc = *type.baseType;
+
+    const char * data = region.data() + desc.width * index;
+
+    return desc.printJsonStructured(data);
+}
+
 void
 MemoryArrayAbstractArgumentHandler::
 setFromReference(ComputeContext & context, std::span<const byte> referenceData)
@@ -1184,6 +1354,13 @@ toJson() const
     return subImpl->toJson();
 }
 
+Json::Value
+PromiseAbstractArgumentHandler::
+getArrayElement(uint32_t index, ComputeContext & context) const
+{
+    return subImpl->getArrayElement(index, context);
+}
+
 void
 PromiseAbstractArgumentHandler::
 setFromReference(ComputeContext & context, std::span<const byte> referenceData)
@@ -1219,6 +1396,15 @@ PrimitiveAbstractArgumentHandler::
 toJson() const
 {
     return this->type.baseType->printJsonStructured(mem.data());
+}
+
+Json::Value
+PrimitiveAbstractArgumentHandler::
+getArrayElement(uint32_t index, ComputeContext & context) const
+{
+    cerr << "getting element " << index << " from " << toJson() << endl;
+    const void * el = this->type.baseType->getArrayElement(mem.data(), index);
+    return this->type.baseType->getArrayElementDescription(mem.data(), index).printJsonStructured(el);
 }
 
 void

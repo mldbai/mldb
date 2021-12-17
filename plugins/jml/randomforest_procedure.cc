@@ -136,7 +136,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     //Todo: we will need heuristics for those. (MLDB-1449)
-    int maxBagsAtOnce = 5;
+    int maxBagsAtOnce = 1;
     //int maxTreesAtOnce = 20;
 
     RandomForestProcedureConfig runProcConf =
@@ -444,8 +444,13 @@ run(const ProcedureRunConfig & run,
 
             Timer timer;
             std::string debugName = "bag " + std::to_string(bag);
-            std::vector<ML::Tree> trees
-                = data.trainMultipleSamplings(debugName, runProcConf.maxDepth, samplingActiveFeatures, serializer);
+            std::vector<ML::Tree> trees;
+
+            try {
+                trees = data.trainMultipleSamplings(debugName, runProcConf.maxDepth, samplingActiveFeatures, serializer);
+            } MLDB_CATCH_ALL {
+                rethrowException(400, "error training " + debugName, "bag", bag);
+            }
 
             ExcAssertEqual(trees.size(), samplingActiveFeatures.size());
 

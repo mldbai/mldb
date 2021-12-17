@@ -187,18 +187,18 @@ Json::Value hash(const std::vector<Json::Value> & params)
     return jsonHash(params[0]);
 }
 
-// divideToCover(x, y) = ceil(x/y)
-Json::Value divideToCover(const std::vector<Json::Value> & params)
+// ceilDiv(x, y) = ceil(x/y)
+Json::Value ceilDiv(const std::vector<Json::Value> & params)
 {
     if (params.size() != 2)
-        throw MLDB::Exception("divideToCover() function takes exactly two arguments");
+        throw MLDB::Exception("ceilDiv() function takes exactly two arguments");
     auto modulus = params[1].asUInt();
     if (modulus == 0)
-        throw MLDB::Exception("divideToCover(): divide by zero");
+        throw MLDB::Exception("ceilDiv(): divide by zero");
 
     if (params[1].isUInt()) {
         auto val = params[0].asUInt();
-        //cerr << "divideToCover(" << params[0].toStringNoNewLine() << "," << params[1].toStringNoNewLine() << ") = "
+        //cerr << "ceilDiv(" << params[0].toStringNoNewLine() << "," << params[1].toStringNoNewLine() << ") = "
         //     << (val + (modulus - 1)) / modulus << endl; 
         return (val + (modulus - 1)) / modulus;
     }
@@ -244,7 +244,7 @@ builtins()
     value->addFunction("max", jsonMaxVector);
     value->addFunction("flatten", flatten);
     value->addFunction("hash", hash);
-    value->addFunction("divideToCover", divideToCover);
+    value->addFunction("ceilDiv", ceilDiv);
 
     return value;
 }

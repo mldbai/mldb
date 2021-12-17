@@ -109,7 +109,7 @@ bool
 ValueDescription::
 compareEquality(const void * val1, const void * val2) const
 {
-    throw MLDB::Exception("type does not support equality comparison");
+    throw MLDB::Exception("type " + typeName + " does not support equality comparison");
 }
 
 bool
@@ -123,7 +123,7 @@ bool
 ValueDescription::
 compareLessThan(const void * val1, const void * val2) const
 {
-    throw MLDB::Exception("type does not support less than comparison");
+    throw MLDB::Exception("type " + typeName + " does not support less than comparison");
 }
 
 bool
@@ -137,7 +137,7 @@ std::strong_ordering
 ValueDescription::
 compareStrong(const void * val1, const void * val2) const
 {
-    throw MLDB::Exception("type does not support strongly ordered comparison");
+    throw MLDB::Exception("type " + typeName + " does not support strongly ordered comparison");
 }
 
 bool
@@ -151,7 +151,7 @@ std::weak_ordering
 ValueDescription::
 compareWeak(const void * val1, const void * val2) const
 {
-    throw MLDB::Exception("type does not support weakly ordered comparison");
+    throw MLDB::Exception("type " + typeName + " does not support weakly ordered comparison");
 }
 
 bool
@@ -165,56 +165,56 @@ std::partial_ordering
 ValueDescription::
 comparePartial(const void * val1, const void * val2) const
 {
-    throw MLDB::Exception("type does not support partially ordered comparison");
+    throw MLDB::Exception("type " + typeName + " does not support partially ordered comparison");
 }
 
 void *
 ValueDescription::
 optionalMakeValue(void * val) const
 {
-    throw MLDB::Exception("type is not optional");
+    throw MLDB::Exception("type " + typeName + " is not optional");
 }
 
 const void *
 ValueDescription::
 optionalGetValue(const void * val) const
 {
-    throw MLDB::Exception("type is not optional");
+    throw MLDB::Exception("type " + typeName + " is not optional");
 }
 
 size_t
 ValueDescription::
 getArrayFixedLength() const
 {
-    throw MLDB::Exception("type is not an array");
+    throw MLDB::Exception("type " + typeName + " is not an array");
 }
 
 size_t
 ValueDescription::
 getArrayLength(void * val) const
 {
-    throw MLDB::Exception("type is not an array");
+    throw MLDB::Exception("type " + typeName + " is not an array");
 }
 
 LengthModel
 ValueDescription::
 getArrayLengthModel() const
 {
-    throw MLDB::Exception("type is not an array");
+    throw MLDB::Exception("type " + typeName + " is not an array");
 }
 
 OwnershipModel
 ValueDescription::
 getArrayIndirectionModel() const
 {
-    throw MLDB::Exception("type is not an array");
+    throw MLDB::Exception("type " + typeName + " is not an array");
 }
 
 void *
 ValueDescription::
 getArrayElement(void * val, uint32_t element) const
 {
-    throw MLDB::Exception("type is not an array");
+    throw MLDB::Exception("type " + typeName + " is not an array");
 }
 
 std::vector<std::shared_ptr<const ValueDescription> >
@@ -235,7 +235,7 @@ const void *
 ValueDescription::
 getArrayElement(const void * val, uint32_t element) const
 {
-    throw MLDB::Exception("type is not an array");
+    throw MLDB::Exception("type " + typeName + " is not an array");
 }
 
 /** Return the value description for the nth array element.  This is
@@ -253,7 +253,7 @@ void
 ValueDescription::
 setArrayLength(void * val, size_t newLength) const
 {
-    throw MLDB::Exception("type is not an array");
+    throw MLDB::Exception("type " + typeName + " is not an array");
 }
 
 const ValueDescription &

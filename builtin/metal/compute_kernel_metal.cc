@@ -658,7 +658,7 @@ launch(const std::string & opName,
 
         const MetalComputeKernel * kernel = bindInfo->owner;
 
-        CommandExpressionContext knowns(bound.knowns);
+        auto knowns = bound.knowns;
 
         for (size_t i = 0;  i < grid.size();  ++i) {
             auto & dim = kernel->dims[i];
@@ -711,23 +711,15 @@ launch(const std::string & opName,
         knowns.setValue("mtlBlock", mtlBlock);
 
         // figure out the values of the new constraints
-        bool progress = true;
-        std::set<std::string> unknowns;
-
-        while (progress) {
-            progress = false;
-            for (auto & c: bound.constraints) {
-                progress = progress || c.attemptToSatisfy(knowns, unknowns);
-            }
-        }
+        knowns = solve(knowns, bound.preConstraints, bound.constraints);
 
         if (kernel->gridExpression) {
-            mtlGrid = jsonDecode<decltype(mtlGrid)>(kernel->gridExpression->apply(knowns));
+            mtlGrid = jsonDecode<decltype(mtlGrid)>(knowns.evaluate(*kernel->gridExpression));
             knowns.setValue("mtlGrid", mtlGrid);
         }
 
         if (kernel->blockExpression) {
-            mtlBlock = jsonDecode<decltype(mtlBlock)>(kernel->blockExpression->apply(knowns));
+            mtlBlock = jsonDecode<decltype(mtlBlock)>(knowns.evaluate(*kernel->blockExpression));
             knowns.setValue("mtlBlock", mtlBlock);
         }
 
@@ -737,7 +729,7 @@ launch(const std::string & opName,
         if (bindInfo->traceSerializer) {
             bindInfo->traceSerializer->newObject("grid", mtlGrid);
             bindInfo->traceSerializer->newObject("block", mtlBlock);
-            bindInfo->traceSerializer->newObject("knowns", knowns.values);
+            bindInfo->traceSerializer->newObject("knowns", knowns);
             bindInfo->traceSerializer->commit();
         }
 
@@ -770,26 +762,7 @@ launch(const std::string & opName,
             }
         }
 
-        //for (auto & [name, value]: knowns.values) {
-        //    cerr << "known: " << name << " = " << value.toStringNoNewLine() << endl;
-        //}
-
-        bool anyNotSatisfied = false;
-        for (auto & c: bound.constraints) {
-            if (c.satisfied(knowns))
-                continue;
-            cerr << "constraint for kernel " << kernel->kernelName << " op " << opName << " not satisfied: " << c.print() << endl;
-            anyNotSatisfied = true;
-        }
-
-        if (anyNotSatisfied) {
-            //const CommandExpressionVariables * vars = &knowns;
-            //while (vars) {
-            //    cerr << "known: " << jsonEncode(vars->values) << endl;
-            //    vars = vars->outer;
-            //}
-            ExcAssert(!anyNotSatisfied);
-        }
+        knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
 
         mtlGrid.resize(3, 1);
         mtlBlock.resize(3, 1);
@@ -1780,7 +1753,7 @@ apply(void * object,
       const ValueDescription & desc,
       MetalComputeContext & context,
       const std::vector<ComputeKernelArgument> & args,
-      CommandExpressionVariables & knowns) const
+      ComputeKernelConstraintSolution & knowns) const
 {
     auto & fieldDesc = desc.getFieldByNumber(fieldNumber);
     std::string opName = "bind: fill field " + fieldDesc.fieldName;
@@ -1797,8 +1770,7 @@ apply(void * object,
     case MetalBindFieldActionType::SET_FIELD_FROM_PARAM: {
         if (argNum == -1 || argNum >= args.size() || !args.at(argNum).handler) {
             // Problem... this parameter wasn't set from an argument.  It must be in known.
-            CommandExpressionContext exprContext(&knowns);
-            value = expr->apply(exprContext);
+            value = knowns.evaluate(*expr);
             break;
         }
         auto & arg = args.at(argNum);
@@ -1814,8 +1786,7 @@ apply(void * object,
         break;
     }
     case MetalBindFieldActionType::SET_FIELD_FROM_KNOWN: {
-        CommandExpressionContext exprContext(&knowns);
-        value = expr->apply(exprContext);
+        value = knowns.evaluate(*expr);
         break;
     }
     default:
@@ -1851,7 +1822,7 @@ void
 MetalBindAction::
 applyArg(MetalComputeContext & context,
          const std::vector<ComputeKernelArgument> & args,
-         CommandExpressionVariables & knowns,
+         ComputeKernelConstraintSolution & knowns,
          mtlpp::CommandBuffer & commandBuffer,
          mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
@@ -1919,7 +1890,7 @@ applyArg(MetalComputeContext & context,
 
         //cerr << "setting known " << argName << " to " << known << endl;
 
-        knowns.values[argName] = known;
+        knowns.setValue(argName, known);
 
         if (traceSerializer && (access & ACC_READ)) {
             auto [region, version] = context
@@ -1946,7 +1917,7 @@ void
 MetalBindAction::
 applyStruct(MetalComputeContext & context,
             const std::vector<ComputeKernelArgument> & args,
-            CommandExpressionVariables & knowns,
+            ComputeKernelConstraintSolution & knowns,
             mtlpp::CommandBuffer & commandBuffer,
             mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
@@ -1997,13 +1968,12 @@ void
 MetalBindAction::
 applyThreadGroup(MetalComputeContext & context,
                  const std::vector<ComputeKernelArgument> & args,
-                 CommandExpressionVariables & knowns,
+                 ComputeKernelConstraintSolution & knowns,
                  mtlpp::CommandBuffer & commandBuffer,
                  mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
     // Calculate the array bound
-    CommandExpressionContext exprContext(&knowns);
-    auto len = expr->apply(exprContext).asUInt();
+    auto len = knowns.evaluate(*expr).asUInt();
 
     // Get the number of bytes
     size_t nbytes = len * type.baseType->width;
@@ -2033,7 +2003,7 @@ void
 MetalBindAction::
 apply(MetalComputeContext & context,
       const std::vector<ComputeKernelArgument> & args,
-      CommandExpressionVariables & knowns,
+      ComputeKernelConstraintSolution & knowns,
       mtlpp::CommandBuffer & buffer,
       mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
@@ -2299,16 +2269,11 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
 
     // Copy constraints over
     result.constraints = this->constraints;
+    result.preConstraints = this->preConstraints;
+    result.postConstraints = this->postConstraints;
+    result.tuneables = this->tuneables;
 
-    for (auto & arg: result.arguments) {
-        if (arg.handler) {
-            // Was set by the caller
-            result.knowns.setValue(arg.name, arg.handler->toJson());
-        }
-    }
-    for (auto & [name, value]: tuneables) {
-        result.knowns.setValue(name, value);
-    }
+    result.setKnownsFromArguments();
 
     // Run the setters to set the other parameters
     //for (auto & s: this->setters) {
@@ -2331,20 +2296,11 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     }
 
     // figure out the values of the new constraints
-
-    bool progress = true;
-
-    while (progress) {
-        progress = false;
-        for (auto & c: result.constraints) {
-            progress = progress || c.attemptToSatisfy(result.knowns, result.unknowns);
-        }
-    }
+    result.knowns = solve(result.knowns, result.constraints, result.preConstraints);
 
     if (bindInfo->traceSerializer) {
         //bindInfo->traceSerializer->newObject("args", argInfo);
-        bindInfo->traceSerializer->newObject("knowns", result.knowns.values);
-        bindInfo->traceSerializer->newObject("unknowns", result.unknowns);
+        bindInfo->traceSerializer->newObject("knowns", result.knowns);
         bindInfo->traceSerializer->newObject("constraints", result.constraints);
         bindInfo->traceSerializer->newObject("tuneables", tuneables);
     }

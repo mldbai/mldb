@@ -48,6 +48,7 @@ testFeatureKernelCpuT(RowIterator rowIterator,
     for (size_t j = 0;  j < numRows;  ++j) {
         DecodedRow r = decodeRow(rowIterator, j);//rowIterator.getDecodedRow();
         int bucket = buckets[r.exampleNum];
+        //cerr << "row " << r.exampleNum << " bucket " << bucket << " label " << r.label << " weight " << r.weight << endl;
         //ExcAssertLess(bucket, buckets.numBuckets);
 
         w[bucket].add(r.label, r.weight);
@@ -678,6 +679,9 @@ void updateBuckets(const std::span<const Feature> & features,
         int toPartition
             = partitionSplits[i].transferDirection() == RL
             ? leftPartition : rightPartition;
+
+        //cerr << "fixing up WAll " << fromPartition << " " << jsonEncodeStr(wAll[fromPartition])
+        //     << " by subtracting partition " << toPartition << " " << jsonEncodeStr(wAll[toPartition]) << endl;
 
         wAll[fromPartition] -= wAll[toPartition];
 

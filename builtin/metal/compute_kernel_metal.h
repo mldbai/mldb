@@ -240,7 +240,7 @@ struct MetalBindFieldAction {
                const ValueDescription & desc,
                MetalComputeContext & context,
                const std::vector<ComputeKernelArgument> & args,
-               CommandExpressionVariables & knowns) const;
+               ComputeKernelConstraintSolution & knowns) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MetalBindFieldAction);
@@ -264,24 +264,24 @@ struct MetalBindAction {
 
     void apply(MetalComputeContext & context,
                const std::vector<ComputeKernelArgument> & args,
-               CommandExpressionVariables & knowns,
+               ComputeKernelConstraintSolution & knowns,
                mtlpp::CommandBuffer & commandBuffer,
                mtlpp::ComputeCommandEncoder & commandEncoder) const;
 
 private:
     void applyArg(MetalComputeContext & context,
                   const std::vector<ComputeKernelArgument> & args,
-                  CommandExpressionVariables & knowns,
+                  ComputeKernelConstraintSolution & knowns,
                   mtlpp::CommandBuffer & commandBuffer,
                   mtlpp::ComputeCommandEncoder & commandEncoder) const;
     void applyStruct(MetalComputeContext & context,
                     const std::vector<ComputeKernelArgument> & args,
-                    CommandExpressionVariables & knowns,
+                    ComputeKernelConstraintSolution & knowns,
                     mtlpp::CommandBuffer & commandBuffer,
                     mtlpp::ComputeCommandEncoder & commandEncoder) const;
     void applyThreadGroup(MetalComputeContext & context,
                           const std::vector<ComputeKernelArgument> & args,
-                          CommandExpressionVariables & knowns,
+                          ComputeKernelConstraintSolution & knowns,
                           mtlpp::CommandBuffer & commandBuffer,
                           mtlpp::ComputeCommandEncoder & commandEncoder) const;
 };
@@ -311,9 +311,6 @@ struct MetalComputeKernel: public ComputeKernel {
     /// List of functions used to set arbitrary values on the kernel (especially for calculating
     /// sizes of local arrays or other bounds)
     std::vector<SetParameters> setters;
-
-    // List of tuneable parameters
-    std::vector<ComputeTuneable> tuneables;
 
     // Expressions for the grid dimensions, if we override them
     std::shared_ptr<CommandExpression> gridExpression;

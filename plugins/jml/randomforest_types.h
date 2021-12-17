@@ -637,6 +637,16 @@ struct PartitionInfo {
 
 DECLARE_STRUCTURE_DESCRIPTION(PartitionInfo);
 
+// Work entry for a row for which we need to update buckets
+struct UpdateWorkEntry {
+    uint32_t row;
+    uint16_t partition;
+    uint16_t smallSideIndex;
+    float decodedRow;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(UpdateWorkEntry);
+
 
 /*****************************************************************************/
 /* TREE MANIPULATION                                                         */

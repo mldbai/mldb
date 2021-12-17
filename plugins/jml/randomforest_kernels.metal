@@ -136,18 +136,19 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     return val;
 }
 
+#if 1
 inline uint16_t extract16BitRange32(__global const uint32_t * data,
-                                    uint8_t numBits,
+                                    uint16_t numBits,
                                     uint32_t entryNumber)
 {
     uint32_t bitNumber = numBits * entryNumber;
     uint32_t wordNumber = bitNumber / 32;
-    uint8_t wordOffset = bitNumber % 32;
+    uint16_t wordOffset = bitNumber % 32;
 
-    uint8_t bottomBits = min((uint8_t)numBits, uint8_t(32 - wordOffset));
-    uint8_t topBits = numBits - bottomBits;
+    uint16_t bottomBits = min((uint16_t)numBits, uint16_t(32 - wordOffset));
+    uint16_t topBits = numBits - bottomBits;
 
-    if (topBits > 0) {
+    if (topBits == 0) {
         return extract_bits(data[wordNumber], wordOffset, bottomBits);
     }
     else {
@@ -156,6 +157,61 @@ inline uint16_t extract16BitRange32(__global const uint32_t * data,
         return bottom | extract_bits(words[1], 0, topBits) << bottomBits;
     }
 }
+#elif 0
+inline uint32_t extract16BitRange32(__global const uint32_t * data,
+                                  uint32_t numBits,
+                                  uint32_t entryNumber)
+{
+    uint32_t bitNumber = numBits * entryNumber;
+    uint32_t wordNumber = bitNumber / 32;
+    uint32_t wordOffset = bitNumber % 32;
+
+    uint32_t bottomBits = min(numBits, 32 - wordOffset);
+    uint32_t topBits = numBits - bottomBits;
+
+    uint32_t mask = createMask32(numBits);
+
+    uint32_t val = data[wordNumber];
+
+    val >>= wordOffset;
+
+    if (topBits > 0) {
+        uint32_t val2 = data[wordNumber + 1];
+        val = val | val2 << bottomBits;
+    }
+    val = val & mask;
+    return val;
+}
+#else
+inline uint32_t extract16BitRange32(__global const uint32_t * data,
+                                  uint32_t numBits,
+                                  uint32_t entryNumber)
+{
+    uint32_t bitNumber = numBits * entryNumber;
+    uint32_t wordNumber = bitNumber / 32;
+    uint8_t wordOffset = bitNumber % 32;
+
+    uint8_t bottomBits = min((uint8_t)numBits, uint8_t(32 - wordOffset));
+    uint8_t topBits = numBits - bottomBits;
+
+    if (topBits == 0) {
+        return extract_bits(data[wordNumber], wordOffset, bottomBits);
+    }
+
+    uint32_t mask = createMask32(numBits);
+
+    uint32_t val = data[wordNumber];
+
+    val >>= wordOffset;
+
+    if (topBits > 0) {
+        uint32_t val2 = data[wordNumber + 1];
+        val = val | val2 << bottomBits;
+    }
+    val = val & mask;
+    return val;
+}
+#endif
 
 typedef struct DecodedRow {
     uint32_t example;
@@ -488,23 +544,23 @@ struct TestFeatureArgs {
 };
 
 __kernel void
-testFeatureKernel(
-                 __constant const TestFeatureArgs & args,
-                 __global const float * decodedRows [[buffer(0)]],
-
-                 __global const uint32_t * bucketData [[buffer(1)]],
-                 __global const uint32_t * bucketDataOffsets [[buffer(2)]],
-                 __global const uint32_t * bucketNumbers [[buffer(3)]],
-                 __global const uint32_t * bucketEntryBits [[buffer(4)]],
-
-                 __global const uint32_t * activeFeatureList [[buffer(5)]],
-
-                 __local W * w,
-                 __global W * partitionBuckets [[buffer(6)]],
-                 uint2 global_id [[thread_position_in_grid]],
-                 uint2 global_size [[threads_per_grid]],
-                 uint2 local_id [[thread_position_in_threadgroup]],
-                 uint2 local_size [[threads_per_threadgroup]])
+testFeatureKernel(__constant const TestFeatureArgs & args,
+                  __global const float * decodedRows,
+ 
+                  __global const uint32_t * bucketData,
+                  __global const uint32_t * bucketDataOffsets,
+                  __global const uint32_t * bucketNumbers,
+                  __global const uint32_t * bucketEntryBits,
+ 
+                  __global const uint32_t * activeFeatureList,
+ 
+                  __local W * w,
+                  __global W * partitionBuckets,
+ 
+                  uint2 global_id [[thread_position_in_grid]],
+                  uint2 global_size [[threads_per_grid]],
+                  uint2 local_id [[thread_position_in_threadgroup]],
+                  uint2 local_size [[threads_per_threadgroup]])
 {
     const uint32_t numRows = args.numRows;
     uint16_t maxLocalBuckets = args.maxLocalBuckets;
@@ -520,55 +576,13 @@ testFeatureKernel(
 
     __global W * wOut = partitionBuckets + bucketNumbers[f];
 
-    if (global_id[0] == 0 && global_id[1] == 0) {
-        //partitionBuckets[0].count = numRows;
-        //partitionBuckets[1].count = get_global_size(0);
-        //partitionBuckets[2].count = get_global_size(1);
-        //for (int i = 0;  i < nf;  ++i) {
-        //    partitionBuckets[i].count = decodedRows[i] * 100000000;
-        //    partitionBuckets[i].vals[0] = encodeW(fabs(decodedRows[i]));
-        //}
-    }
-
-    //return;
-
-#if 0
-    if (workGroupId == 0 && false) {
-        printf("feat %d global size %ld, num groups %ld, local size %ld, numRows %d, numBuckets %d, buckets %d-%d, offset %d\n",
-               (int)f,
-               get_global_size(1),
-               get_num_groups(1),
-               get_local_size(1),
-               numRows,
-               numBuckets,
-               bucketNumbers[f],
-               bucketNumbers[f + 1],
-               bucketDataOffset);
-    }
-#endif
-
-#if 1
     //maxLocalBuckets = 0;  // TODO DEBUG ONLY
 
-    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
-         i += get_local_size(1)) {
+    for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;  i += get_local_size(1)) {
         zeroW(w + i);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
-#endif
-
-#if 0
-    for (uint32_t rowId = 0;  rowId < numRows && get_global_id(1) == 0;  ++rowId) {
-        //if (f == 0 && workGroupId == 0) {
-        //    printf("testing row %d\n", rowId);
-        //}
-        testRow(rowId,
-                decodedRows, numRows,
-                bucketData, bucketDataLength, bucketBits, numBuckets,
-                w, wOut, maxLocalBuckets);
-    }
-#else
 
     for (uint32_t rowId = get_global_id(1);  rowId < numRows;  rowId += get_global_size(1)) {
         //if (f == 0 && workGroupId == 0) {
@@ -579,16 +593,13 @@ testFeatureKernel(
                 bucketData, bucketDataLength, bucketBits, numBuckets,
                 w, wOut, maxLocalBuckets);
     }
-#endif
 
-#if 1   
     barrier(CLK_LOCAL_MEM_FENCE);
     
     for (uint32_t i = workerId;  i < numBuckets && i < maxLocalBuckets;
          i += get_local_size(1)) {
         incrementWOut(wOut + i, w + i);
     }
-#endif
 }
 
 typedef struct {
@@ -676,11 +687,15 @@ inline float sqrt2(float val, AdjPtr adj)
 // Stable SQRT: take the largest value which when squared is less than or equal to the desired value
 inline float sqrt3(float val)
 {
+    constexpr float SQRT3_MULT_BEFORE = 65536.0f;
+    constexpr float SQRT3_MULT_AFTER  = 1.0f / 256.0f;
+
+    val *= SQRT3_MULT_BEFORE;
     float approx = nextFloat(sqrt(val), 3);
     while (approx * approx > val) {
         approx = nextFloat(approx, -1);
     }
-    return approx;
+    return approx * SQRT3_MULT_AFTER;
 }
 
 float scoreSplit(W wFalse, W wTrue);
@@ -1487,15 +1502,164 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
                              __global PartitionInfo * partitionInfoOut,
                              __global uint8_t * smallSideIndexesOut,
                              __global uint16_t * smallSideIndexToPartitionOut,
-                             __global uint32_t * numActivePartitionsOut)
+                             __global uint32_t * numActivePartitionsOut,
+                             ushort lane_id [[thread_index_in_simdgroup]],
+                             ushort num_lanes [[threads_per_simdgroup]])
 {
     const uint16_t numActivePartitions = args.numActivePartitions;
     const uint16_t maxNumActivePartitions = args.maxNumActivePartitions;
 
-    constexpr uint16_t inactivePartitionsLength = 16384;
+    constexpr uint16_t inactivePartitionsLength = 16300;
     __local uint16_t inactivePartitions[inactivePartitionsLength];
 
     allPartitionSplits += args.partitionSplitsOffset;
+
+#if 1
+    __local uint32_t numInactivePartitions;
+    __local uint32_t numSmallSideRows;
+
+    if (lane_id == 0) {
+        numInactivePartitions = 0;
+        numSmallSideRows = 0;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (uint16_t i = 0;  i < numActivePartitions;  i += num_lanes) {
+        uint16_t p = i + lane_id;
+
+        bool discard = false;
+
+        if (p < numActivePartitions) {
+            IndexedPartitionSplit split = allPartitionSplits[p];
+            discard = discardSplit(split);
+        }
+
+        uint32_t discardWhich = (simd_vote::vote_t)simd_ballot(discard);
+        uint32_t numDiscarded = popcount(discardWhich);
+
+        if (numDiscarded + numInactivePartitions >= inactivePartitionsLength) {
+            // OVERFLOW
+            numActivePartitionsOut[0] = -1;
+            return;
+        }
+
+        uint32_t base = numInactivePartitions;
+        uint32_t index = base + simd_prefix_exclusive_sum((uint16_t)discard);
+
+        if (p >= numActivePartitions)
+            break;
+
+        if (discard) {
+            smallSideIndexesOut[p] = 255;
+            inactivePartitions[index] = p;
+        }
+        else {
+            smallSideIndexesOut[p] = 0;
+        }
+
+        numInactivePartitions += numDiscarded;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);  // for when we use more than one SIMD group
+
+    __local uint32_t n, n2, skippedRows, skippedPartitions, ssi;
+
+    if (lane_id == 0) {
+        n = skippedRows = skippedPartitions = ssi = 0;
+        n2 = numActivePartitions;
+    }
+
+    for (uint16_t i = 0;  i < numActivePartitions;  i += num_lanes) {
+        uint16_t p = i + lane_id;
+        __global PartitionInfo * info = partitionInfoOut + p;
+
+        bool discard = true;
+        bool direction = false;
+        uint32_t partitionSmallSideRows = 0;
+        IndexedPartitionSplit split;
+
+        if (p < numActivePartitions) {
+            split = allPartitionSplits[p];
+            discard = discardSplit(split);
+            if (discard) {
+                info->left = info->right = -1;
+            }
+            else {
+                partitionSmallSideRows = min(split.left.count, split.right.count);
+                direction = indexedPartitionSplitDirection(split);
+            }
+        }
+
+        uint32_t smallSideRowsIncrement = simd_sum(partitionSmallSideRows);
+
+        if (simd_is_first()) {
+            atom_add((__local atomic_uint *)&numSmallSideRows, smallSideRowsIncrement);
+        }
+
+        if (!discard) {
+            uint32_t minorPartitionIndex = atom_add((__local atomic_uint *)&n, 1);
+            uint32_t minorPartitionNumber;
+            if (minorPartitionIndex < numInactivePartitions) {
+                minorPartitionNumber = inactivePartitions[minorPartitionIndex];
+            }
+            else {
+                minorPartitionNumber = atom_add((__local atomic_uint *)&n2, 1);
+            }
+            if (minorPartitionNumber >= maxNumActivePartitions) {
+                atom_add((__local atomic_uint *)&skippedRows, split.left.count + split.right.count);
+                atom_add((__local atomic_uint *)&skippedPartitions, 1);
+                info->left = -1;
+                info->right = -1;
+            }
+            else {
+                // Attempt to allocate a small side number, and if it's possible record the
+                // mapping.
+
+                uint32_t idx = 1 + atom_add((__local atomic_uint *)&ssi, 1);
+                if (idx < 255) {
+                    smallSideIndexesOut[minorPartitionNumber] = idx;
+                    smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
+                }
+                else {
+                    smallSideIndexesOut[minorPartitionNumber] = 255;
+                }
+            }
+
+            if (direction == 0) {
+                info->left = p;
+                info->right = minorPartitionNumber;
+            }
+            else {
+                info->left = minorPartitionNumber;
+                info->right = p;
+            }
+
+            //printf("partition %d direction %d minor %d n %d n2 %d\n", p, direction, minorPartitionNumber, n, n2);
+
+            partitionIndexesOut[info->left].index = leftChildIndex(split.index);
+            partitionIndexesOut[info->right].index = rightChildIndex(split.index);
+        }
+    }
+
+    if (simd_is_first()) {
+        uint32_t nap = min(n2, (uint32_t)maxNumActivePartitions);
+        numActivePartitionsOut[0] = nap;
+        numActivePartitionsOut[1] = numSmallSideRows;
+
+        // Clear partition indexes for gap partitions
+        for (; n < numInactivePartitions;  ++n) {
+            uint32_t part = inactivePartitions[n];
+            smallSideIndexesOut[part] = 0;
+            partitionIndexesOut[part].index = 0;
+        }
+        for (; ssi < 255 && ssi < nap/2;  ++ssi) {
+            smallSideIndexToPartitionOut[ssi+1] = 0;
+        }
+    }
+#else
+    if (lane_id != 0)
+        return;
 
     uint32_t numInactivePartitions = 0;
     uint32_t numSmallSideRows = 0;
@@ -1558,7 +1722,7 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
         // Attempt to allocate a small side number, and if it's possible record the
         // mapping.
         if (ssi < 254) {
-            uint8_t idx = ++ssi;
+            uint16_t idx = ++ssi;
             smallSideIndexesOut[minorPartitionNumber] = idx;
             smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
         }
@@ -1581,22 +1745,26 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
         partitionIndexesOut[info->right].index = rightChildIndex(split.index);
     }
 
+
     numActivePartitionsOut[0] = n2;
     numActivePartitionsOut[1] = numSmallSideRows;
 
     // Clear partition indexes for gap partitions
-#if 0
-    if (n < numInactivePartitions || skippedRows > 0) {
-        printf("%d of %d inactive partitions; skipped %d rows in %d partitions\n",
-               numInactivePartitions - n, n2, skippedRows, skippedPartitions);
-    }
-#endif
     for (; n < numInactivePartitions;  ++n) {
         uint32_t part = inactivePartitions[n];
         smallSideIndexesOut[part] = 0;
         partitionIndexesOut[part].index = 0;
     }
+#endif
+
 }
+
+struct UpdateWorkEntry {
+    uint32_t row;
+    uint16_t partition;
+    uint16_t smallSideIndex;
+    float decodedRow;
+};
 
 struct ClearBucketsArgs {
     uint32_t numActiveBuckets;
@@ -1607,7 +1775,7 @@ __kernel void
 clearBucketsKernel(__constant const ClearBucketsArgs & args,
                    __global W * bucketsOut,
                    __global W * wAllOut,
-                   __global uint32_t * nonZeroDirectionIndices,  // [0] = size, [1]... = contents
+                   __global uint32_t * numNonZeroDirectionIndices,
                    __constant const uint8_t * smallSideIndexes,
                    uint2 global_id [[thread_position_in_grid]],
                    uint2 global_size [[threads_per_grid]],
@@ -1618,7 +1786,7 @@ clearBucketsKernel(__constant const ClearBucketsArgs & args,
     
     // Clear the number of non zero directions
     if (get_global_id(0) == 0 && get_global_id(1) == 0) {
-        nonZeroDirectionIndices[0] = 0;
+        numNonZeroDirectionIndices[0] = 0;
     }
 
     uint32_t partition = get_global_id(0);
@@ -1669,7 +1837,8 @@ __kernel void
 updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              __global RowPartitionInfo * partitions,
                              __global uint32_t * directions,
-                             __global uint32_t * nonZeroDirectionIndices,  // [0] = size, [1]... = contents
+                             __global uint32_t * numNonZeroDirectionIndices,
+                             __global UpdateWorkEntry * nonZeroDirectionIndices,
                              __constant const uint8_t * smallSideIndexes,
 
                              __global const IndexedPartitionSplit * allPartitionSplits,
@@ -1695,7 +1864,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
     // Most rows live in partitions with a number < 256; avoid main memory accesses for these
     // by caching in local memory
     constexpr uint16_t SSI_CACHE_SIZE=1024;
-    __local uint8_t smallSideIndexesCache[SSI_CACHE_SIZE];
+    __local uint16_t smallSideIndexesCache[SSI_CACHE_SIZE];
 
     // Populate the cache of smallSideIndexes
     for (uint32_t b = get_local_id(0);  b < SSI_CACHE_SIZE && b < numActivePartitions; b += get_local_size(0)) {
@@ -1713,8 +1882,8 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 
     //__local uint32_t work_group_directions[32];  // 32 * 32 = 1024 bits at once, which is the SIMD width
 
-    __global atomic_uint * nonZeroDirectionCount = (__global atomic_uint *)nonZeroDirectionIndices;
-    __global uint3 * nonZeroDirections = (__global uint3 *)nonZeroDirectionIndices + 4;
+    __global atomic_uint * nonZeroDirectionCount = (__global atomic_uint *)numNonZeroDirectionIndices;
+    __global packed_uint3 * nonZeroDirections = (__global packed_uint3 *)nonZeroDirectionIndices;
 
     for (uint32_t i = 0;  i < numRows;  i += get_global_size(0)) {
         uint32_t r = i + get_global_id(0);
@@ -1766,7 +1935,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
         //    directions[r/32] = simdDirections;
         //}
 
-        uint8_t numDirections = popcount(simdDirections);
+        uint16_t numDirections = popcount(simdDirections);
         if (numDirections == 0)
             continue;
 
@@ -1777,11 +1946,11 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 
         nonZeroDirectionBase = simd_broadcast_first(nonZeroDirectionBase);
 
-        uint8_t n = simd_prefix_exclusive_sum((uint8_t)(direction != 0));
+        uint16_t n = simd_prefix_exclusive_sum((uint16_t)(direction != 0));
 
         if (direction) {
-            uint8_t smallPartitionIndex = partition < SSI_CACHE_SIZE ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
-            nonZeroDirections[nonZeroDirectionBase + n] = uint3{ r, partition | (((uint32_t)smallPartitionIndex) << 16), as_type<uint32_t>(decodedRows[r]) };
+            uint16_t smallPartitionIndex = partition < SSI_CACHE_SIZE ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
+            nonZeroDirections[nonZeroDirectionBase + n] = packed_uint3{ r, partition | (((uint32_t)smallPartitionIndex) << 16), as_type<uint32_t>(decodedRows[r]) };
         }
     }
 
@@ -1800,7 +1969,8 @@ __kernel void // [row, feature]
 updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     __global const RowPartitionInfo * partitions,
                     __global uint32_t * directions,
-                    __global uint32_t * nonZeroDirectionIndices,  // [0] = capacity, [1] = size, [2] = contents
+                    __global const uint32_t * numNonZeroDirectionIndices,
+                    __global UpdateWorkEntry * nonZeroDirectionIndices,
                     __global W * buckets,
                     __global W * wAll,
                     __constant const uint8_t * smallSideIndexes,
@@ -1869,7 +2039,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     // Most rows live in partitions with a number < 256; avoid main memory accesses for these
     // by caching in local memory
     constexpr uint16_t SSI_CACHE_SIZE=256;
-    __local uint8_t smallSideIndexesCache[SSI_CACHE_SIZE];
+    __local uint16_t smallSideIndexesCache[SSI_CACHE_SIZE];
 
     // Clear our local accumulation buckets to get started
     for (uint32_t b = get_local_id(0);  b < numLocalBuckets; b += get_local_size(0)) {
@@ -1886,15 +2056,15 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
     
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
 
-    uint32_t numNonZero = nonZeroDirectionIndices[0];
-    __global const uint3 * nonZeroDirections = (__global const uint3 *)(nonZeroDirectionIndices + 4);
+    uint32_t numNonZero = numNonZeroDirectionIndices[0];
+    __global const packed_uint3 * nonZeroDirections = (__global const packed_uint3 *)(nonZeroDirectionIndices);
 
     for (uint32_t i = get_global_id(0);  i < numNonZero;  i += get_global_size(0)) {
 
-        uint3 d = nonZeroDirections[i];
+        packed_uint3 d = nonZeroDirections[i];
         uint32_t r = d[0];
         uint16_t partition = d[1] & 0xffff;
-        uint8_t smallPartitionIndex = d[1] >> 16;
+        uint16_t smallPartitionIndex = d[1] >> 16;
         float decodedRow = as_type<float>(d[2]);
 
         float weight = fabs(decodedRow);
@@ -1995,6 +2165,7 @@ fixupBucketsKernel(__constant const FixupBucketsArgs & args,
                    __global W * buckets,
                    __global W * wAll,
                    __global const PartitionInfo * partitionInfo,
+                   __global const uint8_t * smallSideIndexes,
                    uint2 global_id [[thread_position_in_grid]],
                    uint2 global_size [[threads_per_grid]],
                    uint2 local_id [[thread_position_in_threadgroup]],
@@ -2012,15 +2183,22 @@ fixupBucketsKernel(__constant const FixupBucketsArgs & args,
     if (info.left == -1 || info.right == -1)
         return;
 
-    // The highest partition always gets subtracted from the lowest partition
-    int32_t highest = max(info.left, info.right);
-    int32_t lowest  = min(info.left, info.right);
+    // The small side partition always gets subtracted from the large size partition
+    int32_t to, from;
+    if (smallSideIndexes[info.left]) {
+        to = info.right;
+        from = info.left;
+    }
+    else {
+        to = info.left;
+        from = info.right;
+    }
 
-    __global W * bucketsFrom = buckets + highest * numActiveBuckets;
-    __global W * bucketsTo = buckets + lowest * numActiveBuckets;
+    __global W * bucketsFrom = buckets + from * numActiveBuckets;
+    __global W * bucketsTo = buckets + to * numActiveBuckets;
     
     decrementWOutGlobal(bucketsTo + j, bucketsFrom + j);
     if (j == 0) {
-        decrementWOutGlobal(wAll + lowest, wAll + highest);
+        decrementWOutGlobal(wAll + to, wAll + from);
     }
 }

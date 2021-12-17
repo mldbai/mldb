@@ -203,5 +203,16 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(PartitionInfo)
 REGISTER_VALUE_DESCRIPTION(PartitionInfo);
 REGISTER_VALUE_DESCRIPTION_ALIAS(PartitionInfo);
 
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(UpdateWorkEntry)
+{
+    addField("row", &UpdateWorkEntry::row, "Row number to update");
+    addField("partition", &UpdateWorkEntry::partition, "Partition number of row");
+    addField("smallSideIndex", &UpdateWorkEntry::smallSideIndex, "Linear index of small side bucket to update");
+    addField("decodedRow", &UpdateWorkEntry::decodedRow, "Decoded version of row");
+}
+
+REGISTER_VALUE_DESCRIPTION(UpdateWorkEntry);
+REGISTER_VALUE_DESCRIPTION_ALIAS(UpdateWorkEntry);
+
 } // namespace RF
 } // namespace MLDB

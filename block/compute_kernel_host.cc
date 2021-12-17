@@ -101,6 +101,12 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
     result.arguments = std::move(arguments);
     result.owner = this;
     result.bindInfo = std::move(bindInfo);
+    result.constraints = constraints;
+    result.preConstraints = preConstraints;
+    result.postConstraints = postConstraints;
+    result.tuneables = this->tuneables;
+
+    result.setKnownsFromArguments();
 
     return result;
 }
@@ -139,7 +145,7 @@ launch(const std::string & opName,
     auto hostOwner = dynamic_cast<const HostComputeKernel *>(kernel.owner);
     if (!hostOwner)
         throw MLDB::Exception("Attempt to enqueue kernel of type " + demangle(typeid(*kernel.owner))
-                              + " on HostComputeQueu (expected type HostComputeKernel)");
+                              + " on HostComputeQueue (expected type HostComputeKernel)");
 
     Timer timer;
     std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());

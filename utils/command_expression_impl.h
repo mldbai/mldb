@@ -216,7 +216,7 @@ struct CommandExpressionDescription
 
     virtual bool isDefaultTyped(const std::shared_ptr<CommandExpression> * val) const override
     {
-        return !!(*val);
+        return !(*val);
     }
 
     virtual void parseJsonTyped(std::shared_ptr<CommandExpression> * val,
@@ -247,7 +247,7 @@ struct ConstCommandExpressionDescription
 
     virtual bool isDefaultTyped(const std::shared_ptr<const CommandExpression> * val) const override
     {
-        return !!(*val);
+        return !(*val);
     }
 
     virtual void parseJsonTyped(std::shared_ptr<const CommandExpression> * val,

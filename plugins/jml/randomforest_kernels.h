@@ -60,14 +60,17 @@ testFeatureKernel(Rows::RowIterator rowIterator,
                   const uint32_t * buckets,
                   W * w /* buckets.numBuckets entries */);
 
+constexpr float SQRT3_MULT_BEFORE = 65536.0f;
+constexpr float SQRT3_MULT_AFTER  = 1.0f / 256.0f;
 
 inline float sqrt3(float val)
 {
+    val *= SQRT3_MULT_BEFORE;
     float approx = std::nextafterf(sqrtf(val), INFINITY);
     while (approx * approx > val) {
         approx = std::nextafterf(approx, -INFINITY);
     }
-    return approx;
+    return approx * SQRT3_MULT_AFTER;
 }
 
 // Calculates the score of a split, which is a measure of the

@@ -132,8 +132,8 @@ static struct RegisterKernels {
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
 
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
-            result->addTuneable("threadsPerBlock", 256);
-            result->addTuneable("blocksPerGrid", 64);
+            result->addTuneable("threadsPerBlock", 1024);
+            result->addTuneable("blocksPerGrid", 32);
 
             result->addParameter("w", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
@@ -214,7 +214,7 @@ static struct RegisterKernels {
             result->addParameter("smallSideIndexesOut", "w", "u8[maxActivePartitions]");
             result->addParameter("smallSideIndexToPartitionOut", "w", "u16[256]");
             result->addParameter("numActivePartitionsOut", "w", "u32[2]");
-            result->setGridExpression("[1]", "[1]");
+            result->setGridExpression("[1]", "[32]");
             result->setComputeFunction(library, "assignPartitionNumbersKernel", {});
             return result;
         };
@@ -231,12 +231,12 @@ static struct RegisterKernels {
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np]");
             result->addParameter("wAllOut", "w", "W32[np]");
-            result->addParameter("nonZeroDirectionIndices", "w", "u32[numNonZeroDirectionIndices]");
+            result->addParameter("numNonZeroDirectionIndices", "w", "u32[1]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->allowGridPadding();
             result->addTuneable("gridBlockSize", 64);
-            result->setGridExpression("[np,divideToCover(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
+            result->setGridExpression("[np,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "clearBucketsKernel", { 1, 64 });
             return result;
         };
@@ -254,7 +254,8 @@ static struct RegisterKernels {
             result->addParameter("partitionSplitsOffset", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u32[(numRows+31)/32]");
-            result->addParameter("nonZeroDirectionIndices", "w", "u32[numNonZeroDirectionIndices]");
+            result->addParameter("numNonZeroDirectionIndices", "rw", "u32[1]");
+            result->addParameter("nonZeroDirectionIndices", "w", "UpdateWorkEntry[numRows / 2 + 2]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("numActivePartitions", "r", "u16");
@@ -265,8 +266,8 @@ static struct RegisterKernels {
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("decodedRows", "r", "f32[numRows]");
+            result->addParameter("depth", "r", "u16");
             result->addTuneable("threadsPerBlock", 1024);
             result->addTuneable("blocksPerGrid", 96);
             result->allowGridPadding();
@@ -289,7 +290,8 @@ static struct RegisterKernels {
             result->addParameter("numActivePartitions", "r", "u32");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u32[(numRows + 31)/32]");
-            result->addParameter("nonZeroDirectionIndices", "r", "u32[numNonZeroDirectionIndices]");
+            result->addParameter("numNonZeroDirectionIndices", "r", "u32[1]");
+            result->addParameter("nonZeroDirectionIndices", "r", "UpdateWorkEntry[numRows / 2 + 2]");
             result->addParameter("buckets", "w", "W32[numActiveBuckets * numActivePartitions]");
             result->addParameter("wAll", "w", "W32[numActivePartitions]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
@@ -328,10 +330,11 @@ static struct RegisterKernels {
             result->addParameter("buckets", "w", "W32[numActiveBuckets * newNumPartitions]");
             result->addParameter("wAll", "w", "W32[newNumPartitions]");
             result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
+            result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->addParameter("numActiveBuckets", "r", "u32");
             result->addTuneable("gridBlockSize", 64);
             result->allowGridPadding();
-            result->setGridExpression("[np,divideToCover(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
+            result->setGridExpression("[np,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "fixupBucketsKernel", { 1, 64 });
             return result;
         };

@@ -41,6 +41,8 @@ struct StructureDescriptionBase {
 
     int version = -1;   ///< The version number of this structure
 
+    bool hasLess = true, hasEquality = true, hasWeak = true, hasStrong = true, hasPartial = true;
+
     struct OldVersion {
         int version = -1;
         std::shared_ptr<ValueDescription> desc;
@@ -116,6 +118,18 @@ struct StructureDescriptionBase {
     virtual int getVersion() const;
 
     virtual void fixupAlign(size_t knownWidth, size_t knownAlign) = 0;
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const;
+    virtual bool compareEquality(const void * val1, const void * val2) const;
+    virtual bool hasLessThanComparison() const;
+    virtual bool compareLessThan(const void * val1, const void * val2) const;
+    virtual bool hasStrongOrderingComparison() const;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const;
+    virtual bool hasWeakOrderingComparison() const;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const;
+    virtual bool hasPartialOrderingComparison() const;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const;
 };
 
 
@@ -196,6 +210,57 @@ struct GenericStructureDescription:
     }
 
     virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override;
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const override
+    {
+        return StructureDescriptionBase::hasEqualityComparison();
+    }
+
+    virtual bool compareEquality(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareEquality(val1, val2);
+    }
+
+    virtual bool hasLessThanComparison() const override
+    {
+        return StructureDescriptionBase::hasLessThanComparison();
+    }
+
+    virtual bool compareLessThan(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareLessThan(val1, val2);
+    }
+
+    virtual bool hasStrongOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasStrongOrderingComparison();
+    }
+
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareStrong(val1, val2);
+    }
+
+    virtual bool hasWeakOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasWeakOrderingComparison();
+    }
+
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareWeak(val1, val2);
+    }
+
+    virtual bool hasPartialOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasPartialOrderingComparison();
+    }
+
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::comparePartial(val1, val2);
+    }
 };
 
 
@@ -269,6 +334,15 @@ struct StructureDescription
         addFieldDesc(name, field, comment, getDefaultDescriptionSharedT<V>());
     }
 
+    template<typename V, typename Base1, typename Base2>
+    void addField(std::string name,
+                  Base2 Base1::* field1,
+                  V Base2::* field2,
+                  std::string comment)
+    {
+        addFieldDesc(name, field1, field2, comment, getDefaultDescriptionSharedT<V>());
+    }
+
     /** Add a field, but override the default value description to use.
         Note that description needs to be convertible to
         std::shared_ptr<const ValueDescriptionT<V> >, but GCC 5.1 is confused
@@ -283,6 +357,25 @@ struct StructureDescription
         Struct * p = nullptr;
         size_t offset = (size_t)&(p->*field);
         StructureDescriptionBase::addFieldDesc(std::move(name), offset, std::move(comment), std::move(description));
+    }
+
+    /** Add a field, but override the default value description to use.
+        Note that description needs to be convertible to
+        std::shared_ptr<const ValueDescriptionT<V> >, but GCC 5.1 is confused
+        by it and rejects it.
+    */
+    template<typename V, typename Base1, typename Base2, typename Desc>
+    void addFieldDesc(std::string name,
+                      Base2 Base1::* field1,
+                      V Base2::* field2,
+                      std::string comment,
+                      std::shared_ptr<Desc> description)
+    {
+        Struct * p1 = nullptr;
+        Base2 * p2 = nullptr;
+        size_t offset1 = (size_t)&(p1->*field1);
+        size_t offset2 = (size_t)&(p2->*field2);
+        StructureDescriptionBase::addFieldDesc(std::move(name), offset1 + offset2, std::move(comment), std::move(description));
     }
 
     /** Add a description with a default value. */
@@ -402,6 +495,57 @@ struct StructureDescription
     {
         ExcAssertLessEqual(knownWidth, this->width);
         ExcAssertLessEqual(knownAlign, this->align);
+    }
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const override
+    {
+        return StructureDescriptionBase::hasEqualityComparison();
+    }
+
+    virtual bool compareEquality(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareEquality(val1, val2);
+    }
+
+    virtual bool hasLessThanComparison() const override
+    {
+        return StructureDescriptionBase::hasLessThanComparison();
+    }
+
+    virtual bool compareLessThan(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareLessThan(val1, val2);
+    }
+
+    virtual bool hasStrongOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasStrongOrderingComparison();
+    }
+
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareStrong(val1, val2);
+    }
+
+    virtual bool hasWeakOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasWeakOrderingComparison();
+    }
+
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareWeak(val1, val2);
+    }
+
+    virtual bool hasPartialOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasPartialOrderingComparison();
+    }
+
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::comparePartial(val1, val2);
     }
 };
 

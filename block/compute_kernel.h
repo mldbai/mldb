@@ -364,9 +364,19 @@ await() const
     event_->await();
 }
 
+enum class ComputeKernelOrdering: uint16_t {
+    ORDERED,  //< Data is ordered along this dimension
+    UNORDERED //< Data is unordered along this dimension
+};
 
+DECLARE_ENUM_DESCRIPTION(ComputeKernelOrdering);
+
+// An array dimension
 struct ComputeKernelDimension {
     std::shared_ptr<CommandExpression> bound; // or nullptr if no bounds
+
+    // Do the indexes on this dimension of the array convey information (ordered) or not (unordered)
+    ComputeKernelOrdering ordering = ComputeKernelOrdering::ORDERED;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelDimension);
@@ -432,11 +442,17 @@ struct AbstractArgumentHandler {
 
     virtual Json::Value toJson() const = 0;
 
+    // Return the given array element from the underlying storage, converting to the JSON representation
+    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const = 0;
+
     // Set the argument to a new value from a reference source.  This is for debugging only,
     // for ensuring that two kernels get exactly the same input so that we can compare their
     // outputs.
     virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference) = 0;
 };
+
+
+// ComputeKernelArgument
 
 struct ComputeKernelArgument {
     std::string name;
@@ -444,46 +460,19 @@ struct ComputeKernelArgument {
     bool has_value() const { return !!handler; }
 };
 
-struct ComputeKernelGridRange {
-    ComputeKernelGridRange() = default;
 
-    ComputeKernelGridRange(uint32_t range)
-        : first_(0), last_(range), range_(range)
-    {
-    }
+// ComputeKernelConstraintScope
 
-    struct Iterator {
-        using iterator_category = std::forward_iterator_tag;
-        using value_type = uint32_t;
-        using difference_type = ssize_t;
-        using pointer = const uint32_t*;
-        using reference = const uint32_t&;
-
-        auto operator <=> (const Iterator & other) const = default;
-
-        Iterator operator++()
-        {
-            ++current;
-            return *this;
-        }
-
-        value_type operator * () const
-        {
-            return current;
-        }
-
-        uint32_t current = 0;
-    };
-
-    uint32_t first_ = 0;  // Where this part of the grid starts; first <= last <= range
-    uint32_t last_ = 0;   // Where this part of the grid finishes;
-    uint32_t range_ = 0;  // Overall grid range (goes from 0 to range)
-
-    uint32_t range() const { return range_; };
-
-    Iterator begin() { return { first_ }; }
-    Iterator end() { return { last_ }; }
+// Tells us when the constraint should hold
+enum struct ComputeKernelConstraintScope {
+    UNIVERSAL,
+    PRE_RUN,
+    POST_RUN
 };
+
+DECLARE_ENUM_DESCRIPTION(ComputeKernelConstraintScope);
+
+struct ComputeKernelConstraintSolution;
 
 // ComputeKernelConstraint
 
@@ -500,15 +489,137 @@ struct ComputeKernelConstraint {
     // exception if it's not satisfiable.  Unsatisfied contains the list
     // variables with unknown values that will need to be determined
     // before the constraint can be found.
-    bool attemptToSatisfy(CommandExpressionContext & context,
-                          std::set<std::string> & unsatisfied) const;
+    bool attemptToSatisfy(ComputeKernelConstraintSolution & solution) const;
 
     // Is it satisfied?  Unsatisfiable will throw an exception.
-    bool satisfied(CommandExpressionContext & context) const;
+    bool satisfied(const ComputeKernelConstraintSolution & solution) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelConstraint);
 
+
+// ComputeKernelConstraintSolution
+
+struct ComputeKernelConstraintSolution {
+    CommandExpressionVariables knowns;
+    std::set<std::string> unknowns;
+
+    bool hasValue(const std::string & variableName) const;
+    void setValue(const std::string & variableName, const void * val, const ValueDescription & desc);
+    void setValue(const std::string & variableName, const Json::Value & val);
+    Json::Value getValue(const std::string & variableName) const;
+
+    template<typename T>
+    void setValue(const std::string & variableName, const T & val,
+                  const std::shared_ptr<const ValueDescription> & desc = getDefaultDescriptionSharedT<T>())
+    {
+        setValue(variableName, &val, *desc);
+    }
+
+    Json::Value evaluate(const CommandExpression & expr) const;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelConstraintSolution);
+
+
+// ComputeKernelConstraintSet
+
+struct ComputeKernelConstraintSet {
+    std::vector<ComputeKernelConstraint> constraints;
+
+    void add(ComputeKernelConstraint constraint);
+
+    void assertSolvedBy(const ComputeKernelConstraintSolution & solution) const;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelConstraintSet);
+
+ComputeKernelConstraintSolution solve(const ComputeKernelConstraintSolution & solutionIn,
+                                      const ComputeKernelConstraintSet & constraints);
+
+ComputeKernelConstraintSolution solve(const ComputeKernelConstraintSolution & solutionIn,
+                                      const ComputeKernelConstraintSet & constraints1,
+                                      const ComputeKernelConstraintSet & constraints2);
+ComputeKernelConstraintSolution fullySolve(const ComputeKernelConstraintSolution & solutionIn,
+                                           const ComputeKernelConstraintSet & constraints);
+
+ComputeKernelConstraintSolution fullySolve(const ComputeKernelConstraintSolution & solutionIn,
+                                           const ComputeKernelConstraintSet & constraints1,
+                                           const ComputeKernelConstraintSet & constraints2);
+
+
+// ComputeKernelConstraintManager
+
+struct ComputeKernelConstraintManager {
+    // Constraints that need to be met that are known before binding
+    ComputeKernelConstraintSet constraints;
+
+    // Constraints that need to be met, for the pre-kernel call.  Can only rely on
+    // information known pre-call (kernel arguments, etc) but nothing calculated
+    // by the kernel.  These are no longer active after the kernel call, allowing
+    // things like dynamic lengths.
+    ComputeKernelConstraintSet preConstraints;
+
+    // Constraints that need to be met, post the kernel call.  Can rely on information
+    // calculated by the kernel itself.
+    ComputeKernelConstraintSet postConstraints;
+
+    void addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
+                       const std::string & description = "",
+                       ComputeKernelConstraintScope scope = ComputeKernelConstraintScope::UNIVERSAL);
+    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
+                       const std::string & op, const std::string & rhs,
+                       const std::string & description = "",
+                       ComputeKernelConstraintScope scope = ComputeKernelConstraintScope::UNIVERSAL);
+    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
+                       const std::string & op,
+                       std::shared_ptr<const CommandExpression> rhs,
+                       const std::string & description = "",
+                       ComputeKernelConstraintScope scope = ComputeKernelConstraintScope::UNIVERSAL);
+
+    void addPreConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
+                          const std::string & description = "")
+    {
+        addConstraint(std::move(lhs), std::move(op), std::move(rhs), description, ComputeKernelConstraintScope::PRE_RUN);
+    }
+
+    void addPreConstraint(std::shared_ptr<const CommandExpression> lhs,
+                          const std::string & op, const std::string & rhs,
+                          const std::string & description = "")
+    {
+        addConstraint(std::move(lhs), std::move(op), std::move(rhs), description, ComputeKernelConstraintScope::PRE_RUN);
+    }
+
+    void addPreConstraint(std::shared_ptr<const CommandExpression> lhs,
+                          const std::string & op,
+                          std::shared_ptr<const CommandExpression> rhs,
+                          const std::string & description = "")
+    {
+        addConstraint(std::move(lhs), std::move(op), std::move(rhs), description, ComputeKernelConstraintScope::PRE_RUN);
+    }
+
+    void addPostConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
+                           const std::string & description = "")
+    {
+        addConstraint(std::move(lhs), std::move(op), std::move(rhs), description, ComputeKernelConstraintScope::POST_RUN);
+    }
+
+    void addPostConstraint(std::shared_ptr<const CommandExpression> lhs,
+                           const std::string & op, const std::string & rhs,
+                           const std::string & description = "")
+    {
+        addConstraint(std::move(lhs), std::move(op), std::move(rhs), description, ComputeKernelConstraintScope::POST_RUN);
+    }
+
+    void addPostConstraint(std::shared_ptr<const CommandExpression> lhs,
+                           const std::string & op,
+                           std::shared_ptr<const CommandExpression> rhs,
+                           const std::string & description = "")
+    {
+        addConstraint(std::move(lhs), std::move(op), std::move(rhs), description, ComputeKernelConstraintScope::POST_RUN);
+    }
+
+};
 
 /// Opaque structure subclassed by each ComputeKernel implementation to store
 /// information on how it's bound.  This is used rather than an anonymous shared
@@ -520,7 +631,7 @@ struct ComputeKernelBindInfo {
 
 // ComptuteKernel
 
-struct ComputeKernel {
+struct ComputeKernel: public ComputeKernelConstraintManager {
     virtual ~ComputeKernel() = default;
 
     std::string kernelName;
@@ -543,18 +654,8 @@ struct ComputeKernel {
 
     std::vector<DimensionInfo> dims;
 
-    // Constraints that need to be met that are known before binding (copied to bound version)
-    std::vector<ComputeKernelConstraint> constraints;
-
-    void addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
-                       const std::string & description);
-    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
-                       const std::string & op, const std::string & rhs,
-                       const std::string & description);
-    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
-                       const std::string & op,
-                       std::shared_ptr<const CommandExpression> rhs,
-                       const std::string & description);
+    // List of tuneable parameters
+    std::vector<ComputeTuneable> tuneables;
 
     void addParameter(const std::string & parameterName, const std::string & access, const std::string & typeStr)
     {
@@ -578,6 +679,9 @@ struct ComputeKernel {
         dims.push_back({dimensionName, range, defaultDimension});
     }
 
+    // Add a tuneable parameter to the set of constraints, with a default value
+    void addTuneable(const std::string & variableName, int64_t defaultValue);
+
     // bind() is called with (name, value) pairs to set the value of particular parameters
     template<typename... NamesAndArgs>
     BoundComputeKernel bind(NamesAndArgs&&... namesAndArgs);
@@ -586,31 +690,21 @@ struct ComputeKernel {
     virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const = 0;
 };
 
+
 // BoundComputeKernel
 
-struct BoundComputeKernel {
+struct BoundComputeKernel: public ComputeKernelConstraintManager {
     const ComputeKernel * owner = nullptr;
     std::vector<ComputeKernelArgument> arguments;
     std::shared_ptr<ComputeKernelBindInfo> bindInfo;
 
     // Known quantities about the kernel
-    CommandExpressionContext knowns;
+    ComputeKernelConstraintSolution knowns;
 
-    // Variables with unknown values
-    std::set<std::string> unknowns;
+    // List of tuneable parameters and their parameters
+    std::vector<ComputeTuneable> tuneables;
 
-    // Constraints that need to be met
-    std::vector<ComputeKernelConstraint> constraints;
-
-    void addConstraint(const std::string lhs, const std::string & op, const std::string & rhs,
-                       const std::string & description);
-    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
-                       const std::string & op, const std::string & rhs,
-                       const std::string & description);
-    void addConstraint(std::shared_ptr<const CommandExpression> lhs,
-                       const std::string & op,
-                       std::shared_ptr<const CommandExpression> rhs,
-                       const std::string & description);
+    void setKnownsFromArguments();
 };
 
 namespace details {
@@ -661,6 +755,8 @@ struct MemoryArrayAbstractArgumentHandler: public AbstractArgumentHandler {
 
     virtual Json::Value toJson() const override;
 
+    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const override;
+
     virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
 };
 
@@ -709,6 +805,8 @@ struct PromiseAbstractArgumentHandler: public AbstractArgumentHandler {
 
     virtual Json::Value toJson() const override;
 
+    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const override;
+
     virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
 };
 
@@ -743,6 +841,8 @@ struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual std::string info() const override;
 
     virtual Json::Value toJson() const override;
+
+    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const override;
 
     virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
 };

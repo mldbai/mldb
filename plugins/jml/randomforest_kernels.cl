@@ -596,7 +596,7 @@ uint32_t testRow(uint32_t rowId,
         = getBucket(exampleNum, bucketData, bucketDataLength,
                     bucketBits, numBuckets);
 
-    if (bucket >= numBuckets) {
+    if (bucket >= 0xffff) {
         printf("ERROR BUCKET NUMBER: got %d numBuckets %d row %d feature %d\n",
                bucket, numBuckets, rowId, (int)get_global_id(0));
         return 0;

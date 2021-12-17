@@ -441,7 +441,7 @@ launch(const std::string & opName,
 
         const OpenCLComputeKernel * kernel = bindInfo->owner;
 
-        CommandExpressionContext knowns(bound.knowns);
+        ComputeKernelConstraintSolution knowns(bound.knowns);
 
         for (size_t i = 0;  i < grid.size();  ++i) {
             auto & dim = kernel->dims[i];
@@ -527,12 +527,12 @@ launch(const std::string & opName,
 #endif
 
         if (kernel->gridExpression) {
-            clGrid = jsonDecode<decltype(clGrid)>(kernel->gridExpression->apply(knowns));
+            clGrid = jsonDecode<decltype(clGrid)>(knowns.evaluate(*kernel->gridExpression));
             knowns.setValue("clGrid", clGrid);
         }
 
         if (kernel->blockExpression) {
-            clBlock = jsonDecode<decltype(clBlock)>(kernel->blockExpression->apply(knowns));
+            clBlock = jsonDecode<decltype(clBlock)>(knowns.evaluate(*kernel->blockExpression));
             knowns.setValue("clBlock", clBlock);
         }
 
@@ -542,7 +542,7 @@ launch(const std::string & opName,
         if (bindInfo->traceSerializer) {
             bindInfo->traceSerializer->newObject("grid", clGrid);
             bindInfo->traceSerializer->newObject("block", clBlock);
-            bindInfo->traceSerializer->newObject("knowns", knowns.values);
+            bindInfo->traceSerializer->newObject("knowns", knowns);
             bindInfo->traceSerializer->commit();
         }
 
@@ -1393,7 +1393,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
             if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
                 ExcAssertEqual(paramType.dims.size(), 1);
                 ExcAssert(paramType.dims[0].bound);
-                auto len = paramType.dims[0].bound->apply(result.knowns).asUInt();
+                auto len = result.knowns.evaluate(*paramType.dims[0].bound).asUInt();
                 size_t nbytes = len * paramType.baseType->width;
                 traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
                 kernel.bindArg(i, LocalArray<std::byte>(nbytes));
@@ -1492,20 +1492,11 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     }
 
     // figure out the values of the new constraints
-
-    bool progress = true;
-
-    while (progress) {
-        progress = false;
-        for (auto & c: result.constraints) {
-            progress = progress || c.attemptToSatisfy(result.knowns, result.unknowns);
-        }
-    }
+    result.knowns = solve(result.knowns, result.constraints, result.preConstraints);
 
     if (bindInfo->traceSerializer) {
         bindInfo->traceSerializer->newObject("args", argInfo);
-        bindInfo->traceSerializer->newObject("knowns", result.knowns.values);
-        bindInfo->traceSerializer->newObject("unknowns", result.unknowns);
+        bindInfo->traceSerializer->newObject("knowns", result.knowns);
         bindInfo->traceSerializer->newObject("constraints", result.constraints);
         bindInfo->traceSerializer->newObject("tuneables", tuneables);
     }

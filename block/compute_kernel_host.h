@@ -11,6 +11,48 @@
 
 namespace MLDB {
 
+struct ComputeKernelGridRange {
+    ComputeKernelGridRange() = default;
+
+    ComputeKernelGridRange(uint32_t range)
+        : first_(0), last_(range), range_(range)
+    {
+    }
+
+    struct Iterator {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = uint32_t;
+        using difference_type = ssize_t;
+        using pointer = const uint32_t*;
+        using reference = const uint32_t&;
+
+        auto operator <=> (const Iterator & other) const = default;
+
+        Iterator operator++()
+        {
+            ++current;
+            return *this;
+        }
+
+        value_type operator * () const
+        {
+            return current;
+        }
+
+        uint32_t current = 0;
+    };
+
+    uint32_t first_ = 0;  // Where this part of the grid starts; first <= last <= range
+    uint32_t last_ = 0;   // Where this part of the grid finishes;
+    uint32_t range_ = 0;  // Overall grid range (goes from 0 to range)
+
+    uint32_t range() const { return range_; };
+
+    Iterator begin() { return { first_ }; }
+    Iterator end() { return { last_ }; }
+};
+
+
 // HostComputeEvent
 // We do everything synchronously (for now), so nothing much really going on here
 

@@ -8,6 +8,7 @@
 */
 
 #include "structure_description.h"
+#include <iostream>
 
 using namespace std;
 
@@ -233,6 +234,12 @@ addFieldDesc(std::string name,
     //cerr << "offset = " << fd.offset << endl;
 
     fixupAlign(offset + description->width, description->align);
+
+    hasLess = hasLess && description->hasLessThanComparison();
+    hasEquality = hasEquality && description->hasLessThanComparison();
+    hasPartial = hasPartial && description->hasPartialOrderingComparison();
+    hasWeak = hasWeak && description->hasWeakOrderingComparison();
+    hasStrong = hasStrong && description->hasStrongOrderingComparison();
 }
 
 const StructureDescriptionBase::FieldDescription *
@@ -296,6 +303,95 @@ getVersion() const
 {
     return this->version;
 }
+
+bool
+StructureDescriptionBase::
+hasEqualityComparison() const
+{
+    return hasEquality;
+}
+
+bool
+StructureDescriptionBase::
+compareEquality(const void * val1, const void * val2) const
+{
+    for (auto & [name,f]: fields) {
+        if (!f.description->compareEquality(f.getFieldPtr(val1), f.getFieldPtr(val2)))
+            return false;
+    }
+    return true;
+}
+
+bool
+StructureDescriptionBase::
+hasLessThanComparison() const
+{
+    return hasLess;
+}
+
+bool
+StructureDescriptionBase::
+compareLessThan(const void * val1, const void * val2) const
+{
+    for (auto it: orderedFields) {
+        auto [name,f] = *it;
+        //using namespace std;
+        //cerr << "field " << name << ": "
+        //     << f.description->printJsonString(f.getFieldPtr(val1)) << " vs "
+        //     << f.description->printJsonString(f.getFieldPtr(val2)) << ": "
+        //     << f.description->compareLessThan(f.getFieldPtr(val1), f.getFieldPtr(val2))
+        //     << " vs " << f.description->compareLessThan(f.getFieldPtr(val2), f.getFieldPtr(val1))
+        //     << endl;
+        if (f.description->compareLessThan(f.getFieldPtr(val1), f.getFieldPtr(val2)))
+            return true;
+        if (f.description->compareLessThan(f.getFieldPtr(val2), f.getFieldPtr(val1)))
+            return false;
+    }
+    return false;
+}
+
+bool
+StructureDescriptionBase::
+hasStrongOrderingComparison() const
+{
+    return hasStrong;
+}
+
+std::strong_ordering
+StructureDescriptionBase::
+compareStrong(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("not implemented: StructureDescriptionBase::compareStrong");
+}
+
+bool
+StructureDescriptionBase::
+hasWeakOrderingComparison() const
+{
+    return hasWeak;
+}
+
+std::weak_ordering
+StructureDescriptionBase::
+compareWeak(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("not implemented: StructureDescriptionBase::compareWeak");
+}
+
+bool
+StructureDescriptionBase::
+hasPartialOrderingComparison() const
+{
+    return hasPartial;
+}
+
+std::partial_ordering
+StructureDescriptionBase::
+comparePartial(const void * val1, const void * val2) const
+{
+    throw MLDB::Exception("not implemented: StructureDescriptionBase::comparePartial");
+}
+
 
 
 /*****************************************************************************/

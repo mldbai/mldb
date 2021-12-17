@@ -139,6 +139,10 @@ struct MultiAbstractArgumentHandler: public AbstractArgumentHandler {
         return underlying->toJson();
     }
 
+    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const override
+    {
+        return underlying->getArrayElement(index, context);
+    }
 
     virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference)
     {
@@ -211,6 +215,181 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
     return result;
 }
 
+struct GenericArrayValue {
+    ~GenericArrayValue()
+    {
+        if (initialized)
+            desc->destruct(p);
+        if (owned) {
+            //cerr << "destroying owned value " << p << endl;
+            free(p);
+        }
+    }
+
+    std::byte * p = nullptr;
+    const ValueDescription * desc = nullptr;
+    bool owned = false;
+    bool initialized = false;
+
+    GenericArrayValue(const GenericArrayValue & other)
+    {
+        desc = other.desc;
+        p = (std::byte *)malloc(desc->width);
+        //cerr << "copying constructing value from " << other.p << " to " << p << endl;
+        owned = true;
+        desc->initializeCopy(p, other.p);
+        initialized = true;
+    }
+
+    GenericArrayValue & operator = (const GenericArrayValue & other)
+    {
+        throw MLDB::Exception("should never happen");
+        //cerr << "copying value from " << other.p << " to " << p << endl;
+        // should never happen...
+        desc->copyValue(other.p, p);
+        initialized = true;
+        return *this;
+
+    }
+
+    GenericArrayValue & operator = (GenericArrayValue && other)
+    {
+        //cerr << "moving value from " << other.p << " to " << p << endl;
+        if (initialized) {
+            desc->destruct(p);
+            initialized = false;
+        }
+
+        if (other.initialized) {
+            desc->moveValue(other.p, p);
+            initialized = true;
+            other.initialized = false;
+        }
+
+        return *this;
+    }
+
+    bool operator < (const GenericArrayValue & other) const
+    {
+        bool result = desc->compareLessThan(p, other.p);
+        //cerr << "comparing " << p << " " << desc->printJsonString(p)
+        //     << " to " << other.p << " " << desc->printJsonString(other.p)
+        //     << " returns " << result << endl;
+        return result;
+    }
+
+private:
+    GenericArrayValue() = default;
+    friend class GenericArrayIterator;
+};
+
+inline void swap(const GenericArrayValue & v1, const GenericArrayValue & v2)
+{
+    //cerr << "swapping values " << v1.p << " and " << v2.p << endl;
+    v1.desc->swapValues(v1.p, v2.p);
+}
+
+struct GenericArrayIterator {
+    std::byte * p = nullptr;
+    const ValueDescription * desc = nullptr;
+
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = GenericArrayValue;
+    using difference_type = ssize_t;
+    using pointer = const GenericArrayValue*;
+    using reference = const GenericArrayValue&;
+
+    auto operator <=> (const GenericArrayIterator & other) const = default;
+
+    GenericArrayIterator & operator++()
+    {
+        p += desc->width;
+        return *this;
+    }
+
+    GenericArrayIterator & operator--()
+    {
+        p -= desc->width;
+        return *this;
+    }
+
+    GenericArrayIterator operator++(int)
+    {
+        GenericArrayIterator result = *this;
+        operator ++ ();
+        return result;
+    }
+
+    GenericArrayIterator operator--(int)
+    {
+        GenericArrayIterator result = *this;
+        operator -- ();
+        return result;
+    }
+
+    GenericArrayIterator operator + (ssize_t n) const
+    {
+        return { p + n * desc->width, desc };
+    }
+
+    GenericArrayIterator & operator += (ssize_t n)
+    {
+        p += n * desc->width;
+        return *this;
+    }
+
+    GenericArrayIterator operator - (ssize_t n) const
+    {
+        return { p - n * desc->width, desc };
+    }
+
+    GenericArrayIterator & operator -= (ssize_t n)
+    {
+        p -= n * desc->width;
+        return *this;
+    }
+
+    difference_type operator - (const GenericArrayIterator & other) const
+    {
+        return (p - other.p) / desc->width;
+    }
+
+    value_type operator * () const
+    {
+        GenericArrayValue result;
+        result.p = p;
+        result.desc = desc;
+        result.initialized = true;
+        return result;
+    }
+};
+
+FrozenMemoryRegion genericSorted(FrozenMemoryRegion regionIn, const ValueDescription & desc)
+{
+    std::shared_ptr<std::byte[]> sorted(new std::byte[regionIn.length()]);
+    size_t n = regionIn.length() / desc.width;
+
+    // Make a copy of each with the copy constructor
+    for (size_t i = 0;  i < n;  ++i) {
+        desc.initializeCopy(sorted.get() + i * desc.width, regionIn.data() + i * desc.width);
+    }
+
+    // Sort them
+    GenericArrayIterator begin{sorted.get(), &desc}, end = begin + n;
+    std::sort(begin, end);
+
+    auto deallocate = [regionIn, sorted, descPtr = &desc, n] (const void *)
+    {
+        for (size_t i = 0;  i < n;  ++i) {
+            descPtr->destruct(sorted.get() + i * descPtr->width);
+        }
+    };
+
+    std::shared_ptr<void> pin(nullptr, deallocate);
+
+    return {pin, (const char *)sorted.get(), regionIn.length()};
+}
+
 void
 MultiComputeKernel::
 compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeContext & context) const
@@ -222,10 +401,83 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
 
     const MultiBindInfo & bindInfo = dynamic_cast<const MultiBindInfo &>(*boundKernel.bindInfo);
 
+    const BoundComputeKernel & referenceKernel = bindInfo.boundKernels.at(0);
+
+    std::function<Json::Value (const std::vector<Json::Value> &)>
+    readArrayElement = [&] (const std::vector<Json::Value> & args)
+    {
+        if (args.size() != 2)
+            throw MLDB::Exception("readArrayElement takes two arguments");
+
+        const Json::Value & array = args[0];
+        const Json::Value & index = args[1];
+        const std::string & arrayName = array["name"].asString();
+        auto version = array["version"].asInt();
+        // find the array in our arguments
+        // We have to do a scan, since we don't index by the memory region name (only the parameter name)
+
+        for (auto & arg: boundKernel.arguments) {
+            if (!arg.handler)
+                continue;
+            if (!arg.handler->canGetHandle())
+                continue;
+            auto handle = arg.handler->getHandle("readArrayElement", context);
+            ExcAssert(handle.handle);
+            if (handle.handle->name != arrayName || handle.handle->version != version)
+                continue;
+
+            auto i = index.asUInt();
+            return arg.handler->getArrayElement(i, context);
+        }
+
+        throw MLDB::Exception("Couldn't find array named '" + arrayName + "' in kernel arguments");
+    };
+
+    // What is known about the parameters?
+    auto knowns = referenceKernel.knowns;
+
+    //cerr << "reference knowns " << jsonEncode(knowns) << endl;
+    //cerr << "constraints " << jsonEncode(referenceKernel.constraints) << endl;
+    //cerr << "pre constraints " << jsonEncode(referenceKernel.preConstraints) << endl;
+    //cerr << "post constraints " << jsonEncode(referenceKernel.postConstraints) << endl;
+
+    knowns.knowns.addFunction("readArrayElement", readArrayElement);
+
+    auto stageKnowns = solve(knowns, referenceKernel.constraints,
+                             pre ? referenceKernel.preConstraints: referenceKernel.postConstraints);
+
+    stageKnowns.knowns.addFunction("readArrayElement", readArrayElement);
+
     // Now, for each writable parameter, compare the results...
     for (size_t i = 0;  i < this->params.size();  ++i) {
         if (this->params[i].type.dims.size() == 0 || (pre && this->params[i].type.access == ACC_WRITE))
             continue;
+
+        auto reference = bindInfo.boundKernels.at(0).arguments.at(i);
+        //auto & h = *reference.handler; 
+        //cerr << "  reference.handler = " << reference.handler << " " << demangle(typeid(h)) << endl;
+        auto [referenceDataIn, referenceLength, referencePin]
+            = reference.handler->getConstRange("compareParameters ", *this->multiContext->contexts[0]);
+
+        const ValueDescription * desc = this->params[i].type.baseType.get();
+
+        size_t n = referenceLength / desc->width;
+
+        auto lengthExpr = this->params[i].type.dims.at(0).bound.get();
+
+        if (lengthExpr) {
+            // we have an expression for the length; solve for it
+            //cerr << "solving for length " << jsonEncodeStr(this->params[i].type.dims.at(0)) << endl;
+            if (lengthExpr->unknowns(stageKnowns.knowns).empty()) {
+                auto newN = stageKnowns.evaluate(*lengthExpr).asUInt();
+                cerr << "n changed from " << n << " to " << newN << endl;
+                ExcAssertLessEqual(newN, n);
+                n = newN;
+            }
+            else {
+                // n stays the same
+            }
+        }
 
         bool printedBanner = false;
         auto printBanner = [&] ()
@@ -234,7 +486,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
                 return;
             using namespace std;
             cerr << ansi::magenta << "comparing contents of parameter " << this->params[i].name << " access "
-                << this->params[i].type.print() << ansi::reset << endl;
+                << this->params[i].type.print() << " len " << n << ansi::reset << endl;
             for (size_t j = 0; j < this->kernels.size();  ++j) {
                 cerr << "  device " << j << " is " << this->multiContext->contexts[j]->getDevice() << endl;
             }
@@ -242,19 +494,35 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
             printedBanner = true;
         };
 
-        auto reference = bindInfo.boundKernels.at(0).arguments.at(i);
-        //auto & h = *reference.handler; 
-        //cerr << "  reference.handler = " << reference.handler << " " << demangle(typeid(h)) << endl;
-        auto [referenceData, referenceLength, referencePin]
-            = reference.handler->getConstRange("compareParameters ", *this->multiContext->contexts[0]);
+        const char * p1 = (const char *)referenceDataIn;
+
+        bool compareUnordered = this->params[i].type.dims.size() > 0
+            && this->params[i].type.dims[0].ordering == ComputeKernelOrdering::UNORDERED;
+
+        FrozenMemoryRegion referenceRegion(referencePin, (const char *)referenceDataIn, n * desc->width);
+
+        if (compareUnordered) {
+            // We need to sort things before we compare them
+            referenceRegion = genericSorted(referenceRegion, *desc);
+        }
+
+        auto referenceData = referenceRegion.data();
 
         for (size_t j = 1;  j < this->kernels.size();  ++j) {
             auto kernelGenerated = bindInfo.boundKernels.at(j).arguments.at(i);
             //auto & h = *kernelGenerated.handler; 
             //cerr << "  kernelGenerated.handler = " << kernelGenerated.handler << demangle(typeid(h)) << endl;
-            auto [kernelGeneratedData, kernelGeneratedLength, kernelGeneratedPin]
+            auto [kernelGeneratedDataIn, kernelGeneratedLength, kernelGeneratedPin]
                 = kernelGenerated.handler->getConstRange("compareParameters " + this->params[i].name, *this->multiContext->contexts[j]);
             
+            FrozenMemoryRegion kernelRegion(kernelGeneratedPin, (const char *)kernelGeneratedDataIn, n * desc->width /*kernelGeneratedLength*/);
+
+            if (compareUnordered) {
+                // We need to sort things before we compare them
+                kernelRegion = genericSorted(kernelRegion, *desc);
+            }
+
+            auto kernelGeneratedData = kernelRegion.data();
 
             if (referenceLength == 0) {
                 if (printedBanner)
@@ -278,10 +546,6 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
                 continue;
             }
 
-            const ValueDescription * desc = this->params[i].type.baseType.get();
-
-            size_t n = referenceLength / desc->width;
-            const char * p1 = (const char *)referenceData;
             const char * p2 = (const char *)kernelGeneratedData;
 
             size_t numDifferences = 0;
@@ -328,7 +592,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
         }
     }
 
-    //ExcAssert(!hasDifferences);
+    ExcAssert(!hasDifferences);
 }
 
 
