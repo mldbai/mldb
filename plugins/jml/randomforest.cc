@@ -852,7 +852,7 @@ init(const std::string & debugName,
     this->serializer = &serializer;
 
     const bool debugKernelOutput = DEBUG_RF_KERNELS;
-    constexpr uint32_t maxIterations = 14;
+    constexpr uint32_t maxIterations = 15;
 
     // First, figure out the memory requirements.  This means sizing all
     // kinds of things so that we can make our allocations statically.
@@ -1594,6 +1594,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         if (newNumActivePartitions >= std::min<uint32_t>(65536, maxPartitionCount)) {
             cerr << "depth = " << depth << " newNumActivePartitions = " << newNumActivePartitions << endl;
             cerr << "num active partitions is too wide; breaking out to do recursively" << endl;
+            debugKernelOutput = false;  // won't give the same results anymore...
         }
 
         // Double the number of partitions, create new W entries for the
@@ -2160,7 +2161,7 @@ trainMultipleSamplings(const std::string & debugName,
                        TrainingScheme trainingScheme) const
 {
     std::vector<ML::Tree> result(featuresActive.size());
-    int maxAtOnce = 1;
+    int maxAtOnce = 20;
 
     if (trainingScheme == PARTITIONED && !DEBUG_RF_KERNELS) {
         ComputeDevice device;

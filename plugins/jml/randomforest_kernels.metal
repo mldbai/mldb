@@ -1598,6 +1598,7 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
         }
 
         if (!discard) {
+            bool skipped = false;
             uint32_t minorPartitionIndex = atom_add((__local atomic_uint *)&n, 1);
             uint32_t minorPartitionNumber;
             if (minorPartitionIndex < numInactivePartitions) {
@@ -1607,10 +1608,7 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
                 minorPartitionNumber = atom_add((__local atomic_uint *)&n2, 1);
             }
             if (minorPartitionNumber >= maxNumActivePartitions) {
-                atom_add((__local atomic_uint *)&skippedRows, split.left.count + split.right.count);
-                atom_add((__local atomic_uint *)&skippedPartitions, 1);
-                info->left = -1;
-                info->right = -1;
+                skipped = true;
             }
             else {
                 // Attempt to allocate a small side number, and if it's possible record the
@@ -1626,19 +1624,27 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
                 }
             }
 
-            if (direction == 0) {
-                info->left = p;
-                info->right = minorPartitionNumber;
+            if (skipped) {
+                info->left = -1;
+                info->right = -1;
+                atom_add((__local atomic_uint *)&skippedRows, split.left.count + split.right.count);
+                atom_add((__local atomic_uint *)&skippedPartitions, 1);
             }
             else {
-                info->left = minorPartitionNumber;
-                info->right = p;
+                if (direction == 0) {
+                    info->left = p;
+                    info->right = minorPartitionNumber;
+                }
+                else {
+                    info->left = minorPartitionNumber;
+                    info->right = p;
+                }
+
+                //printf("partition %d direction %d minor %d n %d n2 %d\n", p, direction, minorPartitionNumber, n, n2);
+
+                partitionIndexesOut[info->left].index = leftChildIndex(split.index);
+                partitionIndexesOut[info->right].index = rightChildIndex(split.index);
             }
-
-            //printf("partition %d direction %d minor %d n %d n2 %d\n", p, direction, minorPartitionNumber, n, n2);
-
-            partitionIndexesOut[info->left].index = leftChildIndex(split.index);
-            partitionIndexesOut[info->right].index = rightChildIndex(split.index);
         }
     }
 
@@ -1997,10 +2003,10 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     ushort lane_id [[thread_index_in_simdgroup]])
 {
     int16_t fidx = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
-    __local uint16_t numActivePartitions;  numActivePartitions = args.numActivePartitions;
-    __local uint32_t numRows;  numRows = args.numRows;
-    __local uint16_t maxLocalBuckets;  maxLocalBuckets = args.maxLocalBuckets;
-    __local uint32_t numActiveBuckets;  numActiveBuckets = args.numActiveBuckets;
+    const uint16_t numActivePartitions = args.numActivePartitions;
+    const uint32_t numRows = args.numRows;
+    const uint16_t maxLocalBuckets = args.maxLocalBuckets;
+    const uint32_t numActiveBuckets = args.numActiveBuckets;
 
     int16_t f = fidx == -1 ? -1 : activeFeatureList[fidx];
 
@@ -2070,7 +2076,7 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
         float weight = fabs(decodedRow);
         bool label = decodedRow < 0;
 
-        uint16_t toBucketLocal;
+        uint32_t toBucketLocal;
         uint32_t toBucketGlobal;
         //uint8_t smallPartitionIndex = partition < 256 ? smallSideIndexesCache[partition] : smallSideIndexes[partition];
         

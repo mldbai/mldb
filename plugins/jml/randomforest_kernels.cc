@@ -788,11 +788,14 @@ static struct RegisterKernels {
             result->addParameter("maxNumActivePartitions", "r", "u32");
             result->addParameter("partitionIndexesOut", "w", "PartitionIndex[maxPartitionIndex]");
             result->addParameter("partitionInfoOut", "w", "PartitionInfo[np]");
-            result->addParameter("smallSideIndexesOut", "w", "u8[numActivePartitions * 2]");
+            result->addParameter("smallSideIndexesOut", "w", "u8[nssi]");
             result->addParameter("smallSideIndexToPartitionOut", "w", "u16[nssi2p]");
             result->addParameter("numActivePartitionsOut", "w", "u32[2]");
             result->addPreConstraint("nssi2p", "==", "256");
-            result->addPostConstraint("nssi2p", "==", "readArrayElement(numActivePartitionsOut, 0)/2");
+            result->addPreConstraint("nssi", "==", "numActivePartitions * 2");
+            result->addPostConstraint("newNumActivePartitions", "==", "readArrayElement(numActivePartitionsOut, 0)/2");
+            result->addPostConstraint("nssi2p", "==", "min(256, newNumActivePartitions)");
+            result->addPostConstraint("nssi", "==", "newNumActivePartitions");
             result->setComputeFunction(assignPartitionNumbersKernel);
             return result;
         };
@@ -864,7 +867,7 @@ static struct RegisterKernels {
             result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
             result->addParameter("wAll", "w", "W32[np * 2]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
-            result->addParameter("smallSideIndexToPartition", "w", "u16[numActivePartitions/2]");
+            result->addParameter("smallSideIndexToPartition", "w", "u16[min(256,numActivePartitions/2)]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("numRows", "r", "u32");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");

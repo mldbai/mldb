@@ -136,7 +136,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     //Todo: we will need heuristics for those. (MLDB-1449)
-    int maxBagsAtOnce = 1;
+    int maxBagsAtOnce = 5;
     //int maxTreesAtOnce = 20;
 
     RandomForestProcedureConfig runProcConf =

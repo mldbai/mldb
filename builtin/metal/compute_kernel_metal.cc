@@ -147,9 +147,13 @@ struct InitCapture {
             captureManager = mtlpp::CaptureManager::GetShared();
             mtlpp::CaptureDescriptor captureDescriptor;
             //captureDescriptor.SetCaptureDevice(commandQueue.GetDevice());
-            captureDescriptor.SetDestination(mtlpp::CaptureDestination::TraceDocument);
-            //captureDescriptor.SetDestination(mtlpp::CaptureDestination::DeveloperTools);
-            captureDescriptor.SetOutputURL(METAL_CAPTURE_FILE.get().c_str());
+            if (METAL_CAPTURE_FILE.get() == "xcode") {
+                captureDescriptor.SetDestination(mtlpp::CaptureDestination::DeveloperTools);
+            }
+            else {
+                captureDescriptor.SetDestination(mtlpp::CaptureDestination::TraceDocument);
+                captureDescriptor.SetOutputURL(METAL_CAPTURE_FILE.get().c_str());
+            }
 
             ns::Error error{ns::Handle()};
             captureManager.StartCapture(commandQueue.GetDevice());
