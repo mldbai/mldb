@@ -1851,10 +1851,10 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              __global const PartitionInfo * partitionInfo,
 
                              __global const uint32_t * bucketData,
-                             __global const uint32_t * bucketDataOffsets,
-                             __global const uint32_t * bucketNumbers,
-                             __global const uint32_t * bucketEntryBits,
-                             __global const uint32_t * featureIsOrdinal,
+                             __constant const uint32_t * bucketDataOffsets,
+                             __constant const uint32_t * bucketNumbers,
+                             __constant const uint32_t * bucketEntryBits,
+                             __constant const uint32_t * featureIsOrdinal,
 
                              __global const float * decodedRows,
 
@@ -1900,12 +1900,12 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 
         if (r < numRows && partition != (uint16_t)-1) {
             PartitionInfo info = partitionInfo[partition];
-            int16_t splitFeature;
 
-            if ((info.left == -1 && info.right == -1) || ((splitFeature = allPartitionSplits[partition].feature) == -1)) {
+            if (info.left == -1 || info.right == -1) {
                 partition = -1;
             }
             else {
+                int16_t splitFeature = allPartitionSplits[partition].feature;
                 uint16_t splitValue = allPartitionSplits[partition].value;
                 uint16_t ordinal = featureIsOrdinal[splitFeature];
 

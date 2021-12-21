@@ -148,7 +148,7 @@ struct InitCapture {
             mtlpp::CaptureDescriptor captureDescriptor;
             //captureDescriptor.SetCaptureDevice(commandQueue.GetDevice());
             if (METAL_CAPTURE_FILE.get() == "xcode") {
-                captureDescriptor.SetDestination(mtlpp::CaptureDestination::DeveloperTools);
+                //captureDescriptor.SetDestination(mtlpp::CaptureDestination::DeveloperTools);
             }
             else {
                 captureDescriptor.SetDestination(mtlpp::CaptureDestination::TraceDocument);
@@ -816,14 +816,16 @@ launch(const std::string & opName,
         #endif
         };
 
-#if 1
+#if 0
         commandBuffer.Enqueue();
         commandBuffer.AddCompletedHandler(onCompleted);
         auto result = std::make_shared<MetalComputeEvent>(opName, false /* resolved */);
         result->resolveFromCommandBuffer(commandBuffer);
+        ExcAssert(commandBuffer);
         commandBuffer.Commit();
         return result;
 #else
+        ExcAssert(commandBuffer);
         commandBuffer.Commit();
         commandBuffer.WaitUntilCompleted();
         onCompleted(commandBuffer);
@@ -1144,6 +1146,7 @@ transferToHostSyncImpl(const std::string & opName,
     blitEncoder.Synchronize(buffer);
     blitEncoder.EndEncoding();
     
+    ExcAssert(commandBuffer);
     commandBuffer.Commit();
     commandBuffer.WaitUntilCompleted();
 
