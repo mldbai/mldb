@@ -56,7 +56,6 @@ enum MemoryRegionInitialization {
     INIT_NONE,         //< Random contents (but no sensitive data)
     INIT_ZERO_FILLED,  //< Zero-filled
     INIT_BLOCK_FILLED, //< Filled with copies of the given block
-    INIT_KERNEL        //< Filled by running the given kernel
 };
 
 DECLARE_ENUM_DESCRIPTION(MemoryRegionInitialization);
@@ -920,24 +919,30 @@ BoundComputeKernel ComputeKernel::bind(NamesAndArgs&&... namesAndArgs)
 }
 
 struct ComputeQueue {
-    ComputeQueue(ComputeContext * owner)
-        : owner(owner)
+    ComputeQueue(ComputeContext * owner, ComputeQueue * parent = nullptr)
+        : owner(owner), parent(parent)
     {
     }
 
     virtual ~ComputeQueue() = default;
 
     ComputeContext * owner = nullptr;
+    ComputeQueue * parent = nullptr;
 
     std::mutex kernelWallTimesMutex;
     std::map<std::string, double> kernelWallTimes; // in milliseconds
     double totalKernelTime = 0.0;
 
-    virtual std::shared_ptr<ComputeEvent>
-    launch(const std::string & opName,
-           const BoundComputeKernel & kernel,
-           const std::vector<uint32_t> & grid,
-           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) = 0;
+    // Return a queue that processes its sub-operations in parallel
+    virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) = 0;
+
+    // Return a queue that processes its sub-operations in serial
+    virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) = 0;
+
+    virtual void
+    enqueue(const std::string & opName,
+            const BoundComputeKernel & kernel,
+            const std::vector<uint32_t> & grid) = 0;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueFillArrayImpl(const std::string & opName,
@@ -946,12 +951,44 @@ struct ComputeQueue {
                          const std::any & arg,
                          std::vector<std::shared_ptr<ComputeEvent>> prereqs);
 
+
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueCopyFromHostImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
                             size_t deviceStartOffsetInBytes,
                             std::vector<std::shared_ptr<ComputeEvent>> prereqs) = 0;
+
+    virtual ComputePromiseT<FrozenMemoryRegion>
+    enqueueTransferToHostImpl(const std::string & opName,
+                              MemoryRegionHandle handle) = 0;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncImpl(const std::string & opName,
+                           MemoryRegionHandle handle);
+
+    template<typename T>
+    ComputePromiseT<FrozenMemoryRegionT<std::remove_const_t<T>>>
+    enqueueTransferToHost(const std::string & opName, MemoryArrayHandleT<T> array)
+    {
+        array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
+        auto genericPromise = enqueueTransferToHostImpl(opName, array);
+
+        auto convert = [] (FrozenMemoryRegion region) -> FrozenMemoryRegionT<std::remove_const_t<T>>
+        {
+            return { std::move(region) };
+        };
+
+        return genericPromise.then(std::move(convert), opName + " then transferToHost:convert");
+    }
+
+    template<typename T>
+    FrozenMemoryRegionT<std::remove_const_t<T>>
+    transferToHostSync(const std::string & opName, MemoryArrayHandleT<T> array)
+    {
+        array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
+        return { transferToHostSyncImpl(opName, std::move(array)) };
+    }
 
     // Create an already resolved event (this is abstract so that the subclass may create an)
     // event of the correct type).
@@ -990,7 +1027,7 @@ struct ComputeQueue {
         }
     }
 
-    virtual void flush() = 0;
+    virtual std::shared_ptr<ComputeEvent> flush() = 0;
 
     virtual void finish() = 0;
 };
@@ -1132,7 +1169,7 @@ struct ComputeContext {
                                    const std::type_info & type, bool isConst);
 
     virtual std::shared_ptr<ComputeQueue>
-    getQueue() = 0;
+    getQueue(const std::string & queueName) = 0;
 
     // Implement a slice operation (to get a subrange of a range)
     virtual MemoryRegionHandle

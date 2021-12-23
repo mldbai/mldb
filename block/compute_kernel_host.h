@@ -591,18 +591,20 @@ struct HostComputeKernel: public ComputeKernel {
 // HostComputeQueue
 
 struct HostComputeQueue: public ComputeQueue {
-    HostComputeQueue(ComputeContext * owner)
-        : ComputeQueue(owner)
+    HostComputeQueue(ComputeContext * owner, HostComputeQueue * parent = nullptr)
+        : ComputeQueue(owner, parent)
     {
     }
 
     virtual ~HostComputeQueue() = default;
 
-    virtual std::shared_ptr<ComputeEvent>
-    launch(const std::string & opName,
-           const BoundComputeKernel & kernel,
-           const std::vector<uint32_t> & grid,
-           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) override;
+    virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) override;
+    virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) override;
+
+    virtual void
+    enqueue(const std::string & opName,
+            const BoundComputeKernel & kernel,
+            const std::vector<uint32_t> & GenericEnumDescription) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueFillArrayImpl(const std::string & opName,
@@ -618,7 +620,15 @@ struct HostComputeQueue: public ComputeQueue {
                             size_t deviceStartOffsetInBytes,
                             std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
 
-    virtual void flush() override;
+    virtual ComputePromiseT<FrozenMemoryRegion>
+    enqueueTransferToHostImpl(const std::string & opName,
+                              MemoryRegionHandle handle) override;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncImpl(const std::string & opName,
+                           MemoryRegionHandle handle) override;
+
+    virtual std::shared_ptr<ComputeEvent> flush() override;
 
     virtual void finish() override;
 

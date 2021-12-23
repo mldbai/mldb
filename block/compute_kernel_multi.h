@@ -53,6 +53,7 @@ struct MultiComputeEvent: public ComputeEvent {
 
 struct MultiComputeQueue: public ComputeQueue {
     MultiComputeQueue(MultiComputeContext * owner,
+                      MultiComputeQueue * parent,
                       std::vector<std::shared_ptr<ComputeQueue>> queues);
 
     virtual ~MultiComputeQueue() = default;
@@ -60,11 +61,13 @@ struct MultiComputeQueue: public ComputeQueue {
     MultiComputeContext * multiOwner;
     std::vector<std::shared_ptr<ComputeQueue>> queues;
 
-    virtual std::shared_ptr<ComputeEvent>
-    launch(const std::string & opName,
-           const BoundComputeKernel & kernel,
-           const std::vector<uint32_t> & grid,
-           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) override;
+    virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) override;
+    virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) override;
+
+    virtual void
+    enqueue(const std::string & opName,
+            const BoundComputeKernel & kernel,
+            const std::vector<uint32_t> & grid) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueFillArrayImpl(const std::string & opName,
@@ -80,10 +83,18 @@ struct MultiComputeQueue: public ComputeQueue {
                             size_t deviceStartOffsetInBytes,
                             std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
 
+    virtual ComputePromiseT<FrozenMemoryRegion>
+    enqueueTransferToHostImpl(const std::string & opName,
+                              MemoryRegionHandle handle) override;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncImpl(const std::string & opName,
+                           MemoryRegionHandle handle) override;
+
     virtual std::shared_ptr<ComputeEvent>
     makeAlreadyResolvedEvent(const std::string & label) const override;
 
-    virtual void flush() override;
+    virtual std::shared_ptr<ComputeEvent>  flush() override;
 
     virtual void finish() override;
 };
@@ -182,7 +193,7 @@ struct MultiComputeContext: public ComputeContext {
                  size_t align, const std::type_info & type, bool isConst) override;
 
     virtual std::shared_ptr<ComputeQueue>
-    getQueue() override;
+    getQueue(const std::string & queueName) override;
 };
 
 }  // namespace MLDB

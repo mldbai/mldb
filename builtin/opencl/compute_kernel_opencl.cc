@@ -423,15 +423,30 @@ OpenCLComputeQueue(OpenCLComputeContext * owner)
                                                     OpenCLCommandQueueProperties::PROFILING_ENABLE);
 }
 
-std::shared_ptr<ComputeEvent>
+std::shared_ptr<ComputeQueue>
 OpenCLComputeQueue::
-launch(const std::string & opName,
+parallel(const std::string & opName)
+{
+    // TODO: not really done yet; need to inject prereqs on parent
+    return std::make_shared<OpenCLComputeQueue>(this->clOwner, this->clQueue);
+}
+
+std::shared_ptr<ComputeQueue>
+OpenCLComputeQueue::
+serial(const std::string & opName)
+{
+    // TODO: not really done yet; need to inject prereqs on previous event
+    return std::make_shared<OpenCLComputeQueue>(this->clOwner, this->clQueue);
+}
+
+void
+OpenCLComputeQueue::
+enqueue(const std::string & opName,
        const BoundComputeKernel & bound,
-       const std::vector<uint32_t> & grid,
-       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+       const std::vector<uint32_t> & grid)
 {
     try {
-        auto tr = scopedOperation("launch kernel " + bound.owner->kernelName + " as " + opName);
+        auto tr = scopedOperation("enqueue kernel " + bound.owner->kernelName + " as " + opName);
 
         ExcAssert(bound.bindInfo);
         
@@ -548,9 +563,7 @@ launch(const std::string & opName,
 
         auto timer = std::make_shared<Timer>();
 
-        auto clPrereqs = toOpenCLEventList(prereqs);
-
-        auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock, clPrereqs);
+        auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
 
         // Ensure it's submitted before we start using the event
         clQueue.flush();
@@ -621,8 +634,6 @@ launch(const std::string & opName,
         }
     #endif
         //doCallback(event, 0);
-
-        return std::make_shared<OpenCLComputeEvent>(std::move(event));
     } MLDB_CATCH_ALL {
         rethrowException(400, "Error launching OpenCL kernel " + bound.owner->kernelName);
     }
@@ -671,13 +682,86 @@ enqueueCopyFromHostImpl(const std::string & opName,
     return { toRegion, std::make_shared<OpenCLComputeEvent>(res) };
 }
 
+ComputePromiseT<FrozenMemoryRegion>
+OpenCLComputeQueue::
+enqueueTransferToHostImpl(const std::string & opName,
+                          MemoryRegionHandle handle)
+{
+    auto op = scopedOperation("OpenCLComputeQueue enqueueTransferToHostImpl " + opName);
 
-void
+    ExcAssert(handle.handle);
+
+    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ);
+    //OpenCLEvent clEvent;
+    //std::shared_ptr<void> memPtr;
+    auto res = clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
+                                        offset /* offset */, handle.lengthInBytes());
+
+    //cerr << "transferToHostImpl: opName " << opName << " bytes " << handle.lengthInBytes() << endl;
+
+    auto & memPtr = std::get<0>(res);
+    auto & clEvent = std::get<1>(res);
+
+    //cerr << "clEvent is " << clEvent.event.operator cl_event() << endl;
+
+    //cerr << jsonEncode(clEvent.getInfo()) << endl;
+
+    auto event = std::make_shared<OpenCLComputeEvent>(clEvent);
+    auto promise = std::make_shared<std::promise<std::any>>();
+    auto data = (char *)memPtr.get();
+
+    auto cb = [handle, promise, data, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
+    {
+        //cerr << "transferToHostImpl callback" << endl;
+        if (status == OpenCLEventCommandExecutionStatus::ERROR)
+            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
+        else {
+            promise->set_value(FrozenMemoryRegion(memPtr, data, handle.lengthInBytes()));
+        }
+    };
+
+    clEvent.addCallback(cb);
+
+    static const bool bugAsyncMapBufferDoesntComplete = true;
+
+    if (bugAsyncMapBufferDoesntComplete) {
+        // TODO: hack, somehow callback isn't being called if we leave this async...
+        clEvent.waitUntilFinished();
+    }
+
+    //cerr << jsonEncode(clEvent.getInfo()) << endl;
+
+    return { promise, event };
+}
+
+FrozenMemoryRegion
+OpenCLComputeQueue::
+transferToHostSyncImpl(const std::string & opName,
+                       MemoryRegionHandle handle)
+{
+    auto op = scopedOperation("OpenCLComputeQueue transferToHostSyncImpl " + opName);
+
+    ExcAssert(handle.handle);
+
+    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ);
+    finish();  // TODO: instead of blocking here, put the last submitted command as a prereq
+    auto memPtr = clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ,
+                                                   offset, handle.lengthInBytes());
+    const char * data = (const char *)memPtr.get();
+    FrozenMemoryRegion result(std::move(memPtr), data, handle.lengthInBytes());
+    return result;
+}
+
+
+std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
 flush()
 {
     auto op = scopedOperation("OpenCLComputeQueue flush");
+    // TODO: barrier should wait for the last event...
+    auto ev = clQueue.enqueueBarrier({});
     clQueue.flush();
+    return std::make_shared<OpenCLComputeEvent>(ev);
 }
 
 void
@@ -853,56 +937,12 @@ transferToDeviceSyncImpl(const std::string & opName,
     return result;
 }
 
-
 ComputePromiseT<FrozenMemoryRegion>
 OpenCLComputeContext::
 transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
     auto op = scopedOperation("OpenCLComputeContext transferToHostImpl " + opName);
-
-    ExcAssert(handle.handle);
-
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
-    //OpenCLEvent clEvent;
-    //std::shared_ptr<void> memPtr;
-    auto res = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ,
-                                    offset /* offset */, handle.lengthInBytes());
-
-    //cerr << "transferToHostImpl: opName " << opName << " bytes " << handle.lengthInBytes() << endl;
-
-    auto & memPtr = std::get<0>(res);
-    auto & clEvent = std::get<1>(res);
-
-    //cerr << "clEvent is " << clEvent.event.operator cl_event() << endl;
-
-    //cerr << jsonEncode(clEvent.getInfo()) << endl;
-
-    auto event = std::make_shared<OpenCLComputeEvent>(clEvent);
-    auto promise = std::make_shared<std::promise<std::any>>();
-    auto data = (char *)memPtr.get();
-
-    auto cb = [handle, promise, data, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
-    {
-        //cerr << "transferToHostImpl callback" << endl;
-        if (status == OpenCLEventCommandExecutionStatus::ERROR)
-            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
-        else {
-            promise->set_value(FrozenMemoryRegion(memPtr, data, handle.lengthInBytes()));
-        }
-    };
-
-    clEvent.addCallback(cb);
-
-    static const bool bugAsyncMapBufferDoesntComplete = true;
-
-    if (bugAsyncMapBufferDoesntComplete) {
-        // TODO: hack, somehow callback isn't being called if we leave this async...
-        clEvent.waitUntilFinished();
-    }
-
-    //cerr << jsonEncode(clEvent.getInfo()) << endl;
-
-    return { promise, event };
+    return clQueue->enqueueTransferToHostImpl(opName, std::move(handle));
 }
 
 FrozenMemoryRegion
@@ -911,15 +951,7 @@ transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
     auto op = scopedOperation("OpenCLComputeContext transferToHostSyncImpl " + opName);
-
-    ExcAssert(handle.handle);
-
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ);
-    auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ,
-                                                            offset, handle.lengthInBytes());
-    const char * data = (const char *)memPtr.get();
-    FrozenMemoryRegion result(std::move(memPtr), data, handle.lengthInBytes());
-    return result;
+    return clQueue->transferToHostSyncImpl(opName, std::move(handle));
 }
 
 ComputePromiseT<MutableMemoryRegion>
@@ -1097,7 +1129,7 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
 
 std::shared_ptr<ComputeQueue>
 OpenCLComputeContext::
-getQueue()
+getQueue(const std::string & queueName)
 {
     return std::make_shared<OpenCLComputeQueue>(this);
 }

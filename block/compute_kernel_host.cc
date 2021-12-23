@@ -125,22 +125,27 @@ call(const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) c
 
 // HostComputeQueue
 
-std::shared_ptr<ComputeEvent>
+std::shared_ptr<ComputeQueue>
 HostComputeQueue::
-launch(const std::string & opName,
-       const BoundComputeKernel & kernel,
-       const std::vector<uint32_t> & grid,
-       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+parallel(const std::string & opName)
+{
+    return std::make_shared<HostComputeQueue>(this->owner, this);
+}
+
+std::shared_ptr<ComputeQueue>
+HostComputeQueue::
+serial(const std::string & opName)
+{
+    return std::make_shared<HostComputeQueue>(this->owner, this);
+}
+
+void
+HostComputeQueue::
+enqueue(const std::string & opName,
+        const BoundComputeKernel & kernel,
+        const std::vector<uint32_t> & grid)
 {
     ExcAssertEqual(kernel.owner->dims.size(), grid.size());
-
-    // For now... async
-    if (!prereqs.empty()) {
-        for (auto & e: prereqs) {
-            ExcAssert(e);
-            e->await();
-        }
-    }
 
     auto hostOwner = dynamic_cast<const HostComputeKernel *>(kernel.owner);
     if (!hostOwner)
@@ -158,8 +163,6 @@ launch(const std::string & opName,
         kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
         totalKernelTime += wallTime * 1000.0;
     }
-
-    return std::make_shared<HostComputeEvent>();
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -193,11 +196,27 @@ enqueueCopyFromHostImpl(const std::string & opName,
     return { toRegion, event };
 }
 
-void
+ComputePromiseT<FrozenMemoryRegion>
+HostComputeQueue::
+enqueueTransferToHostImpl(const std::string & opName,
+                          MemoryRegionHandle handle)
+{
+    return owner->transferToHostImpl(opName, std::move(handle));
+}
+
+FrozenMemoryRegion
+HostComputeQueue::
+transferToHostSyncImpl(const std::string & opName,
+                       MemoryRegionHandle handle)
+{
+    return owner->transferToHostSyncImpl(opName, std::move(handle));
+}
+
+std::shared_ptr<ComputeEvent>
 HostComputeQueue::
 flush()
 {
-    // no-op
+    return makeAlreadyResolvedEvent("flush");
 }
 
 void
@@ -254,9 +273,6 @@ struct HostComputeContext: public ComputeContext {
                     std::memcpy(mem.data() + offset, init, len);
                 }
                 break;
-            }
-            case INIT_KERNEL: {
-                throw MLDB::Exception("Kernel initialization not implemented yet");
             }
             default:
                 throw MLDB::Exception("Unknown initialization in allocateImpl");
@@ -395,7 +411,7 @@ struct HostComputeContext: public ComputeContext {
     }
 
     virtual std::shared_ptr<ComputeQueue>
-    getQueue() override
+    getQueue(const std::string & queueName) override
     {
         return std::make_shared<HostComputeQueue>(this);
     }

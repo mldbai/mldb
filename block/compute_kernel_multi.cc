@@ -650,12 +650,38 @@ thenImpl(std::function<void ()> fn, const std::string & label)
 
 MultiComputeQueue::
 MultiComputeQueue(MultiComputeContext * owner,
+                  MultiComputeQueue * parent,
                   std::vector<std::shared_ptr<ComputeQueue>> queues)
-    : ComputeQueue(owner),
+    : ComputeQueue(owner, parent),
       multiOwner(owner),
       queues(std::move(queues))
 {
 }
+
+std::shared_ptr<ComputeQueue>
+MultiComputeQueue::
+parallel(const std::string & opName)
+{
+    std::vector<std::shared_ptr<ComputeQueue>> queues;
+
+    for (auto & q: this->queues)
+        queues.emplace_back(q->parallel(opName));
+
+    return std::make_shared<MultiComputeQueue>(multiOwner, this, std::move(queues));
+}
+
+std::shared_ptr<ComputeQueue>
+MultiComputeQueue::
+serial(const std::string & opName)
+{
+    std::vector<std::shared_ptr<ComputeQueue>> queues;
+
+    for (auto & q: this->queues)
+        queues.emplace_back(q->serial(opName));
+
+    return std::make_shared<MultiComputeQueue>(multiOwner, this, std::move(queues));
+}
+
 
 namespace {
 
@@ -822,45 +848,17 @@ reduceHandles(const std::string & regionName,
 
 } // file scope
 
-#if 0
-std::shared_ptr<ComputeEvent>
+void
 MultiComputeQueue::
-launch(const std::string & opName,
-       const BoundComputeKernel & kernel,
-       const std::vector<uint32_t> & grid,
-       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
-{
-    const MultiBindInfo * multiInfo = dynamic_cast<const MultiBindInfo *>(kernel.bindInfo.get());
-    ExcAssert(multiInfo);
-
-    std::vector<std::shared_ptr<ComputeEvent>> events;
-    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
-
-    for (size_t i = 0;  i < queues.size();  ++i) {
-        // Launch on the child queue
-        auto ev = queues[i]->launch(opName, multiInfo->boundKernels[i], grid, unpackedPrereqs[i]);
-        events.emplace_back(std::move(ev));
-    }
-
-    return std::make_shared<MultiComputeEvent>(std::move(events));
-}
-#endif
-
-std::shared_ptr<ComputeEvent>
-MultiComputeQueue::
-launch(const std::string & opName,
-       const BoundComputeKernel & kernel,
-       const std::vector<uint32_t> & grid,
-       const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
+enqueue(const std::string & opName,
+        const BoundComputeKernel & kernel,
+        const std::vector<uint32_t> & grid)
 {
     const MultiBindInfo * multiInfo = dynamic_cast<const MultiBindInfo *>(kernel.bindInfo.get());
     ExcAssert(multiInfo);
 
     const MultiComputeKernel * multiKernel = dynamic_cast<const MultiComputeKernel *>(kernel.owner);
     ExcAssert(multiKernel);
-
-    std::vector<std::shared_ptr<ComputeEvent>> events;
-    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
 
     constexpr bool compareMode = true;
 
@@ -871,29 +869,28 @@ launch(const std::string & opName,
 
     for (size_t i = 0;  i < queues.size();  ++i) {
         // Launch on the child queue
-        auto ev = queues[i]->launch(opName, multiInfo->boundKernels[i], grid, unpackedPrereqs[i]);
-        events.emplace_back(std::move(ev));
+        queues[i]->enqueue(opName, multiInfo->boundKernels[i], grid);
     }
 
     cerr << endl << "--------------- finished kernel " << multiKernel->kernelName << endl;
 
     if (compareMode) {
-        for (auto & ev: events) {
-            ev->await();
-        }
+        finish();
         multiKernel->compareParameters(false /* pre */, kernel, *multiKernel->multiContext);
     }
-
-    return std::make_shared<MultiComputeEvent>(std::move(events));
 }
 
-void
+std::shared_ptr<ComputeEvent>
 MultiComputeQueue::
 flush()
 {
+    std::vector<std::shared_ptr<ComputeEvent>> events;
+
     for (auto & q: queues) {
-        q->flush();
+        events.emplace_back(q->flush());
     }
+
+    return std::make_shared<MultiComputeEvent>(std::move(events));
 }
 
 void
@@ -952,6 +949,44 @@ enqueueCopyFromHostImpl(const std::string & opName,
 
     auto returnResult = [region=std::move(toRegion)] (auto unused) { return region; };
     return thenReduce(std::move(promises), std::move(returnResult));
+}
+
+ComputePromiseT<FrozenMemoryRegion>
+MultiComputeQueue::
+enqueueTransferToHostImpl(const std::string & opName,
+                          MemoryRegionHandle handle)
+{
+    auto info = getMultiInfo(handle);
+
+    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
+    ExcAssertEqual(info->handles.size(), queues.size());
+    promises.reserve(queues.size());
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        promises.emplace_back(queues[i]->enqueueTransferToHostImpl(opName, info->handles[i]));
+    }
+
+    auto returnResult = [region=std::move(handle)] (auto unused) { return region; };
+    return thenReduce(std::move(promises), std::move(returnResult));
+}
+
+FrozenMemoryRegion
+MultiComputeQueue::
+transferToHostSyncImpl(const std::string & opName,
+                       MemoryRegionHandle handle)
+{
+    auto info = getMultiInfo(handle);
+
+    std::vector<FrozenMemoryRegion> results;
+    ExcAssertEqual(info->handles.size(), queues.size());
+    results.reserve(queues.size());
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        results.emplace_back(queues[i]->transferToHostSyncImpl(opName, info->handles[i]));
+    }
+
+    // TODO pin all the returned results?
+    return results.at(0);
 }
 
 std::shared_ptr<ComputeEvent>
@@ -1213,13 +1248,13 @@ managePinnedHostRegionSyncImpl(const std::string & regionName, std::span<const s
 
 std::shared_ptr<ComputeQueue>
 MultiComputeContext::
-getQueue()
+getQueue(const std::string & queueName)
 {
     std::vector<std::shared_ptr<ComputeQueue>> queues;
     for (auto & c: contexts)
-        queues.emplace_back(c->getQueue());
+        queues.emplace_back(c->getQueue(queueName));
 
-    return std::make_shared<MultiComputeQueue>(this, std::move(queues));
+    return std::make_shared<MultiComputeQueue>(this, nullptr /* parent */, std::move(queues));
 }
 
 MemoryRegionHandle

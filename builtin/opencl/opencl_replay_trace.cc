@@ -97,7 +97,7 @@ int main(int argc, char ** argv)
     auto context = std::dynamic_pointer_cast<OpenCLComputeContext>(genericContext);
     ExcAssert(context);
 
-    auto genericQueue = context->getQueue();
+    auto genericQueue = context->getQueue("trace queue");
     auto queue = std::dynamic_pointer_cast<OpenCLComputeQueue>(genericQueue);
     ExcAssert(queue);
 

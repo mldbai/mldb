@@ -59,18 +59,32 @@ struct MetalComputeEvent: public ComputeEvent, public std::enable_shared_from_th
 // MetalComputeQueue
 
 struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<MetalComputeQueue> {
-    MetalComputeQueue(MetalComputeContext * owner);
-    MetalComputeQueue(MetalComputeContext * owner, mtlpp::CommandQueue queue);
-    virtual ~MetalComputeQueue() = default;
+    MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent,
+                      const std::string & label, mtlpp::DispatchType dispatchType);
+    MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent,
+                      mtlpp::CommandQueue queue, mtlpp::DispatchType dispatchType);
+    virtual ~MetalComputeQueue();
 
     MetalComputeContext * mtlOwner = nullptr;
     mtlpp::CommandQueue mtlQueue;
+    mtlpp::CommandBuffer commandBuffer;
 
-    virtual std::shared_ptr<ComputeEvent>
-    launch(const std::string & opName,
-           const BoundComputeKernel & kernel,
-           const std::vector<uint32_t> & grid,
-           const std::vector<std::shared_ptr<ComputeEvent>> & prereqs = {}) override;
+    // What kind of dispatch (serial or parallel) do we do?
+    mtlpp::DispatchType dispatchType;
+
+    mtlpp::ComputeCommandEncoder activeComputeEncoder;
+    mtlpp::BlitCommandEncoder activeBlitEncoder;
+
+    mtlpp::ComputeCommandEncoder getComputeEncoder(const std::string & opName);
+    mtlpp::BlitCommandEncoder getBlitEncoder(const std::string & opName);
+
+    virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) override;
+    virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) override;
+
+    virtual void
+    enqueue(const std::string & opName,
+            const BoundComputeKernel & kernel,
+            const std::vector<uint32_t> & grid) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueFillArrayImpl(const std::string & opName,
@@ -86,9 +100,17 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
                             size_t deviceStartOffsetInBytes,
                             std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
 
+    virtual ComputePromiseT<FrozenMemoryRegion>
+    enqueueTransferToHostImpl(const std::string & opName,
+                              MemoryRegionHandle handle) override;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncImpl(const std::string & opName,
+                           MemoryRegionHandle handle) override;
+
     virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
-    virtual void flush() override;
+    virtual std::shared_ptr<ComputeEvent> flush() override;
     virtual void finish() override;
 };
 
@@ -213,7 +235,7 @@ struct MetalComputeContext: public ComputeContext {
                                    const std::type_info & type, bool isConst) override;
 
     virtual std::shared_ptr<ComputeQueue>
-    getQueue() override;
+    getQueue(const std::string & queueName) override;
 
     virtual MemoryRegionHandle
     getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
