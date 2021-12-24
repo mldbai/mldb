@@ -970,8 +970,6 @@ init(const std::string & debugName,
         queue->enqueue("decode rows", boundKernel, { (uint32_t)numRows });
     }
 
-    queue->finish();
-
     // Assign to the const version here
     this->expandedRowData = expandedRowData;
 
@@ -1003,6 +1001,8 @@ init(const std::string & debugName,
     // by the kernel.
     deviceBucketEntryBits = context->manageMemoryRegion("bucketEntryBits", bucketEntryBits);
     deviceBucketDataOffsets = context->manageMemoryRegion("bucketMemoryOffsets", bucketMemoryOffsets);
+
+    queue->finish();
 }
 
 ML::Tree
@@ -1561,6 +1561,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         uint32_t newNumActivePartitions = nap[0];
         uint32_t numSmallSideRows = nap[1];
 
+        //depthQueue = queue->serial(debugName + " depth " + std::to_string(depth));
+
         cerr << "numActivePartitions was " << numActivePartitions << " now " << newNumActivePartitions << endl;
         cerr << "transferring " << numSmallSideRows << " small side rows of "
              << numRows << " (" << 100.0 * numSmallSideRows / numRows << "%)" << endl;
@@ -1919,7 +1921,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     Date beforeMapping = Date::now();
 
     // Get our split data back...
-    auto allPartitionSplitsRegion = context->transferToHostSync("partitionSplits to CPU", deviceAllPartitionSplitsPool);
+    auto allPartitionSplitsRegion = depthQueue->transferToHostSync("partitionSplits to CPU", deviceAllPartitionSplitsPool);
     std::span<const IndexedPartitionSplit> allPartitionSplits = allPartitionSplitsRegion.getConstSpan();
 
     Date beforeSetupRecurse = Date::now();

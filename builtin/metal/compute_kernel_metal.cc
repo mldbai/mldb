@@ -265,11 +265,13 @@ void traceOperation(OperationScope opScope, OperationType opType, const std::str
             break;
         };
 
-        std::string header = format("%10.6f%9lld t%8x %-8s", elapsed, (long long)((elapsed-lastTime)*1000000000), tid, opTypeName.c_str());
-        std::string indent(4 * opCount, ' ');
-        std::string toDump = opColor + header + indent + opPrefix + opName
-                           + ansi_str_reset() + "\n";
-        cerr << toDump << flush;
+        if (opScope == OperationScope::EXIT && (elapsed - lastTime) > 0.001) {
+            std::string header = format("%10.6f%9lld t%8x %-8s", elapsed, (long long)((elapsed-lastTime)*1000000000), tid, opTypeName.c_str());
+            std::string indent(4 * opCount, ' ');
+            std::string toDump = opColor + header + indent + opPrefix + opName
+                               + ansi_str_reset() + "\n";
+            cerr << toDump << flush;
+        }
 
         lastTime = startTimer.elapsed_wall();
     }
@@ -537,8 +539,17 @@ await() const
     // If we're actively waiting, we can do so in this thread and avoid having to wait for
     // the asynchronous mechanisms to eventually notice that it's done.
     if (commandBuffer) {
-        auto tr = scopedOperation(OperationType::METAL_COMPUTE, "awaiting " + label() + " on command buffer");        
-        ((mtlpp::CommandBuffer &)commandBuffer).WaitUntilCompleted();
+        auto tr = scopedOperation(OperationType::METAL_COMPUTE, "awaiting " + label() + " on command buffer");
+        auto & mutableCommandBuffer = const_cast<mtlpp::CommandBuffer &>(commandBuffer);
+
+        // Try a busy-ish wait
+        while (mutableCommandBuffer.GetStatus() < mtlpp::CommandBufferStatus::Completed) {
+            std::this_thread::sleep_for(std::chrono::microseconds(50));
+            std::this_thread::yield();
+        }
+
+        mutableCommandBuffer.WaitUntilCompleted();
+
         ((MetalComputeEvent *)this)->resolve();
     }
     else {
@@ -680,7 +691,7 @@ MetalComputeQueue::~MetalComputeQueue()
     }
 }
 
-constexpr bool METAL_SINGLE_COMMAND = false;
+constexpr bool METAL_SINGLE_COMMAND = true;
 
 mtlpp::ComputeCommandEncoder
 MetalComputeQueue::
@@ -695,10 +706,12 @@ getComputeEncoder(const std::string & opName)
             activeComputeEncoder.EndEncoding();
         }
         activeComputeEncoder = commandBuffer.ComputeCommandEncoder(dispatchType);
+        activeComputeEncoder.SetLabel(opName.c_str());
     }
     else {
         if (!activeComputeEncoder) {
             activeComputeEncoder = commandBuffer.ComputeCommandEncoder(dispatchType);
+            activeComputeEncoder.SetLabel(opName.c_str());
         }
     }
     return activeComputeEncoder;
@@ -714,6 +727,7 @@ getBlitEncoder(const std::string & opName)
     }
     if (!activeBlitEncoder) {
         activeBlitEncoder = commandBuffer.BlitCommandEncoder();
+        activeBlitEncoder.SetLabel(opName.c_str());
     }
     return activeBlitEncoder;
 }
@@ -756,12 +770,12 @@ enqueue(const std::string & opName,
             knowns.setValue(dim.range, grid[i]);
         }
 
-        std::vector<size_t> mtlGrid, mtlBlock = kernel->block;
+        std::vector<size_t> mtlGrid, mtlBlock;
         
-        if (kernel->allowGridExpansionFlag)
-            ExcAssertLessEqual(grid.size(), mtlBlock.size());
-        else
-            ExcAssertEqual(grid.size(), mtlBlock.size());
+        //if (kernel->allowGridExpansionFlag)
+        //    ExcAssertLessEqual(grid.size(), mtlBlock.size());
+        //else
+        //    ExcAssertEqual(grid.size(), mtlBlock.size());
 
         for (size_t i = 0;  i < mtlBlock.size();  ++i) {
             // Pad out the grid so we cover the whole lot.  The kernel will need to be
@@ -1024,12 +1038,16 @@ flush()
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue flush");
 
+    ns::String label;
+
     if (activeComputeEncoder) {
         activeComputeEncoder.EndEncoding();
+        label = activeComputeEncoder.GetLabel();
         activeComputeEncoder = mtlpp::ComputeCommandEncoder();
     }
     if (activeBlitEncoder) {
         activeBlitEncoder.EndEncoding();
+        label = activeBlitEncoder.GetLabel();
         activeBlitEncoder = mtlpp::BlitCommandEncoder();
     }
 
@@ -1039,6 +1057,7 @@ flush()
     commandBuffer.Commit();
 
     commandBuffer = mtlQueue.CommandBuffer();
+    commandBuffer.SetLabel(label);
     return result;
 }
 
@@ -1143,8 +1162,10 @@ doMetalAllocate(mtlpp::Device & mtlDevice,
                  const std::type_info & type,
                  bool isConst)
 {
+    cerr << "allocating " << length << " bytes for " << regionName << endl;
     // TODO: align...
     mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
+    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
     auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
     buffer.SetLabel(regionName.c_str());
 
@@ -1197,7 +1218,7 @@ doMetalTransferToDevice(mtlpp::Device & mtlDevice,
                          const std::string & opName, FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst)
 {
-    //Timer timer;
+    Timer timer;
 
     mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
     
@@ -1219,11 +1240,11 @@ doMetalTransferToDevice(mtlpp::Device & mtlDevice,
     handle->version = 0;
     MemoryRegionHandle result{std::move(handle)};
 
-    //using namespace std;
-    //cerr << "transferring " << region.memusage() / 1000000.0 << " Mbytes of type "
-    //        << demangle(type.name()) << " isConst " << isConst << " to device in "
-    //        << timer.elapsed_wall() << " at "
-    //        << region.memusage() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
+    using namespace std;
+    cerr << "transferring " << opName << " " << region.memusage() / 1000000.0 << " Mbytes of type "
+        << demangle(type.name()) << " isConst " << isConst << " to device in "
+            << timer.elapsed_wall() << " at "
+            << region.memusage() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
 
     return result;
 }
@@ -1367,6 +1388,8 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
                                const std::type_info & type, bool isConst)
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
+
+    cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
 
     mtlpp::ResourceOptions options
          = mtlpp::ResourceOptions::StorageModeShared;
@@ -2144,12 +2167,10 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(MetalBindAction)
 void
 MetalComputeKernel::
 setComputeFunction(mtlpp::Library libraryIn,
-                   std::string kernelName,
-                   std::vector<size_t> block)
+                   std::string kernelName)
 {
     ExcAssert(libraryIn);
 
-    this->block = std::move(block);
     this->mtlLibrary = std::move(libraryIn);
     this->kernelName = kernelName;
 
@@ -2572,7 +2593,7 @@ static struct Init {
             result->addTuneable("blocksPerGrid", 16);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
-            result->setComputeFunction(library, "__blockFillArrayKernel", { 256 });
+            result->setComputeFunction(library, "__blockFillArrayKernel");
 
             return result;
         };
@@ -2592,7 +2613,7 @@ static struct Init {
             result->addTuneable("blocksPerGrid", 16);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
-            result->setComputeFunction(library, "__zeroFillArrayKernel", { 256 });
+            result->setComputeFunction(library, "__zeroFillArrayKernel");
 
             return result;
         };

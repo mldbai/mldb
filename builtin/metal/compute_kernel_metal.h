@@ -384,8 +384,7 @@ struct MetalComputeKernel: public ComputeKernel {
     void allowGridExpansion();
 
     void setComputeFunction(mtlpp::Library program,
-                            std::string kernelName,
-                            std::vector<size_t> block);
+                            std::string kernelName);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
     virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
