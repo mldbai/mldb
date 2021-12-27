@@ -214,5 +214,31 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(UpdateWorkEntry)
 REGISTER_VALUE_DESCRIPTION(UpdateWorkEntry);
 REGISTER_VALUE_DESCRIPTION_ALIAS(UpdateWorkEntry);
 
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(TreeTrainingInfo)
+{
+    addField("numRows", &TreeTrainingInfo::numRows, "Number of rows in our training set");
+    addField("maxDepth", &TreeTrainingInfo::maxDepth, "Maximum depth of our tree");
+    addField("numActiveFeatures", &TreeTrainingInfo::numActiveFeatures, "Number of active features in this bag");
+    addField("numFeatures", &TreeTrainingInfo::numFeatures, "Number of features in tree");
+    addField("maxNumActivePartitions", &TreeTrainingInfo::maxNumActivePartitions, "Maximum width of active partition tree");
+    addField("numActiveBuckets", &TreeTrainingInfo::numActiveBuckets, "Number of buckets active across all partitions");
+}
+
+REGISTER_VALUE_DESCRIPTION(TreeTrainingInfo);
+REGISTER_VALUE_DESCRIPTION_ALIAS(TreeTrainingInfo);
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(TreeDepthInfo)
+{
+    addField("prevNumFinishedPartitions", &TreeDepthInfo::prevNumFinishedPartitions, "Number of partition splits finished at previous depth");
+    addField("numFinishedPartitions", &TreeDepthInfo::numFinishedPartitions, "Number of partition splits finished at this depth");
+    addField("numActivePartitions", &TreeDepthInfo::numActivePartitions, "Number of active partitions at depth");
+    addField("numSmallSideRows", &TreeDepthInfo::numSmallSideRows, "Number of rows on the small sides at depth");
+    addField("status", &TreeDepthInfo::status, "Non-zero status means we have an error and kernels should not run");
+}
+
+REGISTER_VALUE_DESCRIPTION(TreeDepthInfo);
+REGISTER_VALUE_DESCRIPTION_ALIAS(TreeDepthInfo);
+
+
 } // namespace RF
 } // namespace MLDB

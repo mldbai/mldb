@@ -92,7 +92,7 @@ struct HostMemoryRegionInfo: public MemoryRegionHandleInfo {
 
 BoundComputeKernel
 HostComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> arguments) const
+bindImpl(std::vector<ComputeKernelArgument> arguments, ComputeKernelConstraintSolution knowns) const
 {
     auto bindInfo = std::make_shared<HostComputeKernelBindInfo>();
     bindInfo->call = createCallable(*this->context, arguments);
@@ -105,6 +105,7 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
     result.preConstraints = preConstraints;
     result.postConstraints = postConstraints;
     result.tuneables = this->tuneables;
+    result.knowns = std::move(knowns);
 
     result.setKnownsFromArguments();
 

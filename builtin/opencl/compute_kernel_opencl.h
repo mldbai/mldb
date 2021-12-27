@@ -262,7 +262,8 @@ struct OpenCLComputeKernel: public ComputeKernel {
                             std::vector<size_t> block);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
+                                        ComputeKernelConstraintSolution knowns) const override;
 };
 
 void registerOpenCLComputeKernel(const std::string & kernelName,

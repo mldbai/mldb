@@ -25,7 +25,8 @@ struct MultiComputeKernel: public ComputeKernel {
     MultiComputeKernel(MultiComputeContext * context, std::vector<std::shared_ptr<ComputeKernel>> kernelsIn);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
+                                        ComputeKernelConstraintSolution knowns) const override;
 
     MultiComputeContext * multiContext = nullptr;
     std::vector<std::shared_ptr<ComputeKernel>> kernels;

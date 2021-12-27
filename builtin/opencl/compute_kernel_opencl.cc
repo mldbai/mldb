@@ -1354,7 +1354,7 @@ setComputeFunction(OpenCLProgram programIn,
 
 BoundComputeKernel
 OpenCLComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
+bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
 {
     auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
 

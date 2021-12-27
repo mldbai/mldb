@@ -1047,6 +1047,18 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
     cerr << "numActiveBuckets = " << numActiveBuckets << " numActiveFeatures = " << numActiveFeatures << endl;
 
+    TreeTrainingInfo treeTrainingInfo;
+    treeTrainingInfo.maxDepth = maxDepth;
+    treeTrainingInfo.numActiveFeatures = numActiveFeatures;
+    treeTrainingInfo.numActiveBuckets = numActiveBuckets;
+    treeTrainingInfo.numFeatures = nf;
+    treeTrainingInfo.maxNumActivePartitions = this->maxPartitionCount;
+    treeTrainingInfo.numRows = numRows;
+
+    span<const TreeTrainingInfo> treeTrainingInfoSpan(&treeTrainingInfo, 1);
+
+    auto deviceTreeTrainingInfo = context->manageMemoryRegionSync("treeTrainingInfo", treeTrainingInfoSpan);
+
     // For each feature, what is the beginning bucket number? [nf + 1]
     auto deviceBucketNumbers = context->manageMemoryRegion("bucketNumbers", bucketNumbers);
 
@@ -1092,8 +1104,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
     // Before we use this, it needs to be zero-filled (only the first
     // set for a single partition)
-    auto fillFirstBuckets
-        = depthQueue->enqueueFillArray("fill firstPartitionBuckets", firstPartitionBuckets, W());
+    auto fillFirstBuckets = depthQueue->enqueueFillArray("fill firstPartitionBuckets", firstPartitionBuckets, W());
     //auto fillFirstBuckets
     //    = depthQueue->enqueueFillArray("fill firstPartitionBuckets", devicePartitionBucketPool, W());
 
@@ -1182,8 +1193,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
     // Two-element array used to return the number of active partitions and the
     // number of rows to be transferred on the small side
-    MemoryArrayHandleT<uint32_t> deviceNumActivePartitions
-        = context->allocUninitializedArray<uint32_t>("numActivePartitions", 2).get();
+    MemoryArrayHandleT<TreeDepthInfo> deviceTreeDepthInfo
+        = context->allocUninitializedArray<TreeDepthInfo>("treeDepthInfo", 1).get();
 
     // How many active partitions at this level?
     uint32_t numActivePartitions = 1;
@@ -1252,6 +1263,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         depthQueue->enqueueFillArray("debug partition numbers", devicePartitions, RowPartitionInfo{0});
         depthQueue->enqueueFillArray("debug directions", directions, (uint32_t)0);
         depthQueue->enqueueFillArray("debug non zero indices", nonZeroDirectionIndices, UpdateWorkEntry{0, 0, 0, 0});
+        depthQueue->enqueueFillArray("debug treeDepthInfo", deviceTreeDepthInfo, TreeDepthInfo());
         depthQueue->finish();
     }
 
@@ -1273,13 +1285,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             cerr << "  Too wide; breaking out of loop" << endl;
             break;
         }
-
-        // Run a kernel to find the new split point for each partition,
-        // best feature and kernel
-
-        // Now we have initialized our data, we can get to running the
-        // kernel.  This kernel is dimensioned on bucket number,
-        // feature number and partition number (ie, a 3d invocation).
 
         // Take slices of the larger data structures we allocated for use at the current depth
 
@@ -1320,14 +1325,15 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         {
             auto boundGetPartitionSplitsKernel = getPartitionSplitsKernel->bind
-                   ("totalBuckets",                   (uint32_t)numActiveBuckets,
-                    "numActivePartitions",            (uint32_t)numActivePartitions,
+                   ("treeTrainingInfo",               deviceTreeTrainingInfo,
                     "bucketNumbers",                  deviceBucketNumbers,
                     "activeFeatureList",              deviceActiveFeatureList,
                     "featureIsOrdinal",               deviceFeatureIsOrdinal,
                     "buckets",                        depthPartitionBuckets,
                     "wAll",                           depthWAll,
-                    "featurePartitionSplitsOut",      depthFeaturePartitionSplits);
+                    "featurePartitionSplitsOut",      depthFeaturePartitionSplits,
+                    "depth",                          (uint16_t)depth,
+                    "treeDepthInfo",                  deviceTreeDepthInfo);
 
             depthQueue->enqueue("getPartitionSplits",
                                 boundGetPartitionSplitsKernel,
@@ -1339,13 +1345,13 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         {
             auto boundBestPartitionSplitKernel = bestPartitionSplitKernel
-                ->bind("numActiveFeatures",   (uint32_t)numActiveFeatures,
-                    "activeFeatureList",      deviceActiveFeatureList,
-                    "featurePartitionSplits", depthFeaturePartitionSplits,
-                    "allPartitionSplitsOut",  depthAllPartitionSplits,
-                    "partitionIndexes",       depthPartitionIndexes,
-                    "partitionSplitsOffset",  numFinishedPartitions,
-                    "depth",                  (uint16_t)depth);
+                ->bind("treeTrainingInfo",               deviceTreeTrainingInfo,
+                       "treeDepthInfo",                  deviceTreeDepthInfo,
+                       "depth",                          (uint16_t)depth,
+                       "activeFeatureList",              deviceActiveFeatureList,
+                       "featurePartitionSplits",         depthFeaturePartitionSplits,
+                       "allPartitionSplitsOut",          depthAllPartitionSplits,
+                       "partitionIndexes",               depthPartitionIndexes);
 
             depthQueue->enqueue("bestPartitionSplit",
                                 boundBestPartitionSplitKernel,
@@ -1537,14 +1543,13 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         {
             auto boundAssignPartitionNumbersKernel
                = assignPartitionNumbersKernel->bind
-               ("allPartitionSplits",     depthAllPartitionSplits,
-                "partitionSplitsOffset",  numFinishedPartitions,
-                "numActivePartitions",    numActivePartitions,
-                "maxNumActivePartitions", maxPartitionCount,
+               ("treeTrainingInfo",       deviceTreeTrainingInfo,
+                "treeDepthInfo",          deviceTreeDepthInfo,
+                "depth",                  (uint16_t)depth,
+                "allPartitionSplits",     depthAllPartitionSplits,
                 "partitionIndexesOut",    devicePartitionIndexPool,
                 "partitionInfoOut",       depthPartitionInfo,
-                "numActivePartitionsOut", deviceNumActivePartitions,
-                "smallSideIndexesOut",     smallSideIndexes,
+                "smallSideIndexesOut",    smallSideIndexes,
                 "smallSideIndexToPartitionOut", smallSideIndexToPartitionNumbers);
 
             depthQueue->enqueue("assign partition numbers",
@@ -1556,10 +1561,10 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         // Get the new number of active partitions; since it's a serial queue it will have the side
         // effect of awaiting everything that's queued.
-        auto nap = depthQueue->transferToHostSync("get deviceNumActivePartitions", deviceNumActivePartitions);
+        auto tdi = depthQueue->transferToHostSync("get deviceTreeDepthInfo", deviceTreeDepthInfo);
 
-        uint32_t newNumActivePartitions = nap[0];
-        uint32_t numSmallSideRows = nap[1];
+        uint32_t newNumActivePartitions = tdi[0].numActivePartitions;
+        uint32_t numSmallSideRows = tdi[0].numSmallSideRows;
 
         //depthQueue = queue->serial(debugName + " depth " + std::to_string(depth));
 
@@ -1609,11 +1614,13 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         {
             auto boundClearBucketsKernel = clearBucketsKernel->bind
-               ("bucketsOut",                 nextDepthPartitionBuckets,
+               ("treeTrainingInfo",           deviceTreeTrainingInfo,
+                "treeDepthInfo",              deviceTreeDepthInfo,
+                "depth",                      (uint16_t)depth,
+                "bucketsOut",                 nextDepthPartitionBuckets,
                 "wAllOut",                    nextDepthWAll,
                 "numNonZeroDirectionIndices", numNonZeroDirectionIndices, 
-                "smallSideIndexes",           nextSmallSideIndexes,
-                "numActiveBuckets",           numActiveBuckets);
+                "smallSideIndexes",           nextSmallSideIndexes);
 
             depthQueue->enqueue("clear buckets",
                                 boundClearBucketsKernel,
@@ -1633,14 +1640,15 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             // While we're doing that, we can also calculate our new
             // partition numbers (for each row)
             auto boundUpdatePartitionNumbersKernel = updatePartitionNumbersKernel
-                ->bind("partitionSplitsOffset",       numFinishedPartitions,  // rightOffset
+                ->bind(
+                    "treeTrainingInfo",               deviceTreeTrainingInfo,
+                    "treeDepthInfo",                  deviceTreeDepthInfo,
+                    "depth",                          (uint16_t)depth,
                     "partitions",                     devicePartitions,
                     "directions",                     directions,
                     "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
                     "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
                     "smallSideIndexes",               nextSmallSideIndexes,
-                    "numRows",                        numRows,
-                    "numActivePartitions",            (uint16_t)newNumActivePartitions,
                     "allPartitionSplits",             depthAllPartitionSplits,
                     "partitionInfo",                  depthPartitionInfo,
                     "bucketData",                     bucketDataPromise,
@@ -1648,8 +1656,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                     "bucketNumbers",                  deviceBucketNumbers,
                     "bucketEntryBits",                deviceBucketEntryBits,
                     "featureIsOrdinal",               deviceFeatureIsOrdinal,
-                    "decodedRows",                    expandedRowData,
-                    "depth",                          (uint16_t)depth);
+                    "decodedRows",                    expandedRowData);
 
             depthQueue->enqueue("update partition numbers",
                                 boundUpdatePartitionNumbersKernel, { numRows });
@@ -1743,24 +1750,25 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         {
             auto boundUpdateBucketsKernel = updateBucketsKernel->bind
-               ("numActiveBuckets",               (uint32_t)numActiveBuckets,
-                "numActivePartitions",            (uint32_t)newNumActivePartitions,
+               ("treeTrainingInfo",               deviceTreeTrainingInfo,
+                "treeDepthInfo",                  deviceTreeDepthInfo,
+                "depth",                          (uint16_t)depth,
                 "partitions",                     devicePartitions,
                 "directions",                     directions,
                 "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
-                "numNonZeroDirectionIndices",  numNonZeroDirectionIndices, 
+                "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
                 "buckets",                        nextDepthPartitionBuckets,
                 "wAll",                           nextDepthWAll,
                 "smallSideIndexes",               nextSmallSideIndexes,
                 "smallSideIndexToPartition",      smallSideIndexToPartitionNumbers,
                 "decodedRows",                    expandedRowData,
-                "numRows",                        (uint32_t)numRows,
                 "bucketData",                     bucketDataPromise,
                 "bucketDataOffsets",              deviceBucketDataOffsets,
                 "bucketNumbers",                  deviceBucketNumbers,
                 "bucketEntryBits",                deviceBucketEntryBits,
                 "activeFeatureList",              deviceActiveFeatureList,
-                "featureIsOrdinal",               deviceFeatureIsOrdinal);
+                "featureIsOrdinal",               deviceFeatureIsOrdinal,
+                "numActiveBuckets",               numActiveBuckets /* for sizing only */);
 
             depthQueue->enqueue("update buckets",
                                 boundUpdateBucketsKernel, { numRows, numActiveFeatures + 1 /* +1 is wAll */});
@@ -1768,11 +1776,14 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         {
             auto boundFixupBucketsKernel = fixupBucketsKernel
-                ->bind("buckets",                 nextDepthPartitionBuckets,
-                    "wAll",                       nextDepthWAll,
-                    "partitionInfo",              depthPartitionInfo,
-                    "smallSideIndexes",           nextSmallSideIndexes,
-                    "numActiveBuckets",           (uint32_t)numActiveBuckets);
+                ->bind(
+                    "treeTrainingInfo",               deviceTreeTrainingInfo,
+                    "treeDepthInfo",                  deviceTreeDepthInfo,
+                    "depth",                          (uint16_t)depth,
+                    "buckets",                        nextDepthPartitionBuckets,
+                    "wAll",                           nextDepthWAll,
+                    "partitionInfo",                  depthPartitionInfo,
+                    "smallSideIndexes",               nextSmallSideIndexes);
 
             depthQueue->enqueue("fixup buckets",
                                 boundFixupBucketsKernel,

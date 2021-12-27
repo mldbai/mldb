@@ -1277,16 +1277,33 @@ chooseSplit(__global const W * w,
 }
 #endif
 
-struct GetPartitionSplitsArgs {
-    uint32_t totalBuckets;
+struct TreeDepthInfo {
+    uint32_t prevNumFinishedPartitions;
+    uint32_t numFinishedPartitions;
     uint32_t numActivePartitions;
+    uint32_t numSmallSideRows;
+    uint32_t status;
+};
+
+struct GetPartitionSplitsArgs {
     uint32_t wLocalSize;
+    uint16_t depth;
+};
+
+struct TreeTrainingInfo {
+    uint32_t numRows;             ///< Number of rows in our training set
+    uint16_t maxDepth;            ///< Maximum depth we're willing to get to
+    uint16_t numActiveFeatures;   ///< Number of active features
+    uint16_t numFeatures;         ///< Number of total features
+    uint16_t maxNumActivePartitions; ///< Maximum width of active partition tree
+    uint32_t numActiveBuckets;    ///< Number of buckets across all active features
 };
 
 #if 1
 // this expects [bucket, feature, partition]
 __kernel void
-getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
+getPartitionSplitsKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
+                         __constant const GetPartitionSplitsArgs & args,
                          __global const uint32_t * bucketNumbers, // [nf]
                          
                          __global const uint32_t * activeFeatureList, // [naf]
@@ -1297,6 +1314,8 @@ getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
                          __global const W * wAll,  // one per partition
                          __global PartitionSplit * featurePartitionSplitsOut, // [np x nf]
 
+                         __global const TreeDepthInfo & treeDepthInfo,
+
                          __local WIndexed * wLocal,  // [wLocalSize]
                          //__local WIndexed * wStartBest, //[2]
 
@@ -1305,90 +1324,82 @@ getPartitionSplitsKernel(__constant const GetPartitionSplitsArgs & args,
                          uint3 local_id [[thread_position_in_threadgroup]],
                          uint3 local_size [[threads_per_threadgroup]])
 {
-    const uint32_t totalBuckets = args.totalBuckets;
-    const uint32_t numActivePartitions = args.numActivePartitions;
+    const uint32_t totalBuckets = treeTrainingInfo.numActiveBuckets;
+    const uint32_t numActivePartitions = treeDepthInfo.numActivePartitions;
     const uint32_t wLocalSize = args.wLocalSize;
 
     const uint32_t bucket = get_global_id(0);
     const uint16_t fidx = get_global_id(1);
     const uint16_t naf = get_global_size(1);
-    const uint16_t partition = get_global_id(2);
     
-    if (partition >= numActivePartitions)
-        return;
+    for (uint16_t partition = get_global_id(2);  partition <= numActivePartitions;  partition += get_global_size(2)) {
 
-    const PartitionSplit NONE = PARTITION_SPLIT_INIT;
-    PartitionSplit best = NONE;
+        const PartitionSplit NONE = PARTITION_SPLIT_INIT;
+        PartitionSplit best = NONE;
 
-    // Don't do inactive features
-    if (wAll[partition].count == 0) {
+        // Don't do inactive features
+        if (wAll[partition].count == 0) {
+            if (bucket == 0) {
+                //printf("writing out inactive PartitionSplit part %d f %d idx %x\n", partition, f, partition * nf + f);
+                featurePartitionSplitsOut[partition * naf + fidx] = best;            
+            }
+            continue;
+        }
+        
+        const uint16_t f = activeFeatureList[fidx];
+
+        uint32_t bucketStart = bucketNumbers[f];
+        uint32_t bucketEnd = bucketNumbers[f + 1];
+        uint32_t numBuckets = bucketEnd - bucketStart;
+
+        // We dimension as the feature with the highest number of buckets, so
+        // for most of them we have to many and can stop
+        if (bucket >= numBuckets)
+            return;
+
+
+        // Find where our bucket data starts
+        __global const W * myW
+            = buckets
+            + (totalBuckets * partition)
+            + bucketStart;
+        
+        bool ordinal = featureIsOrdinal[f];
+
+    #if 1
+        __local WIndexed wStartBest[2];
+        best = chooseSplit(myW, numBuckets, wAll[partition],
+                        wLocal, wLocalSize, wStartBest, ordinal,
+                        get_local_id(0), get_local_size(0), f, partition);
+    #elif 1
+        // TODO: use prefix sums to enable better parallelization (this will mean
+        // multiple kernel launches, though, so not sure) or accumulate locally
+        // per set of buckets and then accumulate globally in a second operation.
+
+        if (wAll[partition].vals[0] == 0 || wAll[partition].vals[1] == 0) {
+            // Nothing to do; we have either a uniformly true or a uniformly false
+            // label across the partition
+        }
+        else if (ordinal) {
+            // We have to perform a prefix sum to have the data over which
+            // we can calculate the split points.  This is more complicated.
+            best = chooseSplitKernelOrdinal(myW, numBuckets, wAll[partition],
+                                            wLocal, wLocalSize, bucket, f, partition);
+        }
+        else {
+            // We have a simple search which is independent per-bucket.
+            best = chooseSplitKernelCategorical(myW, numBuckets, wAll[partition], bucket, f);
+        }
+    #endif
+        
         if (bucket == 0) {
-            //printf("writing out inactive PartitionSplit part %d f %d idx %x\n", partition, f, partition * nf + f);
-            featurePartitionSplitsOut[partition * naf + fidx] = best;            
+            if (best.score == INFINITY) {
+                best = NONE;
+            }
+            //printf("writing out active PartitionSplit part %d f %d idx %x score %f\n", partition, f, partition * nf + f, best.score);
+            featurePartitionSplitsOut[partition * naf + fidx] = best;
         }
-        return;
     }
-    
-    const uint16_t f = activeFeatureList[fidx];
-
-    uint32_t bucketStart = bucketNumbers[f];
-    uint32_t bucketEnd = bucketNumbers[f + 1];
-    uint32_t numBuckets = bucketEnd - bucketStart;
-
-#if 0
-    if (numBuckets == 0) {
-        printf("ERROR: zero buckets for part %d feat %d\n", partition, f);
-    }
-#endif
-
-    // We dimension as the feature with the highest number of buckets, so
-    // for most of them we have to many and can stop
-    if (bucket >= numBuckets)
-        return;
-
-
-    // Find where our bucket data starts
-    __global const W * myW
-        = buckets
-        + (totalBuckets * partition)
-        + bucketStart;
-    
-    bool ordinal = featureIsOrdinal[f];
-
-#if 1
-    __local WIndexed wStartBest[2];
-    best = chooseSplit(myW, numBuckets, wAll[partition],
-                       wLocal, wLocalSize, wStartBest, ordinal,
-                       get_local_id(0), get_local_size(0), f, partition);
-#elif 1
-    // TODO: use prefix sums to enable better parallelization (this will mean
-    // multiple kernel launches, though, so not sure) or accumulate locally
-    // per set of buckets and then accumulate globally in a second operation.
-
-    if (wAll[partition].vals[0] == 0 || wAll[partition].vals[1] == 0) {
-        // Nothing to do; we have either a uniformly true or a uniformly false
-        // label across the partition
-    }
-    else if (ordinal) {
-        // We have to perform a prefix sum to have the data over which
-        // we can calculate the split points.  This is more complicated.
-        best = chooseSplitKernelOrdinal(myW, numBuckets, wAll[partition],
-                                        wLocal, wLocalSize, bucket, f, partition);
-    }
-    else {
-        // We have a simple search which is independent per-bucket.
-        best = chooseSplitKernelCategorical(myW, numBuckets, wAll[partition], bucket, f);
-    }
-#endif
-    
-    if (bucket == 0) {
-        if (best.score == INFINITY) {
-            best = NONE;
-        }
-        //printf("writing out active PartitionSplit part %d f %d idx %x score %f\n", partition, f, partition * nf + f, best.score);
-        featurePartitionSplitsOut[partition * naf + fidx] = best;
-    }
-
 }
 #endif
 
@@ -1397,14 +1408,14 @@ typedef struct PartitionIndex {
 } PartitionIndex;
 
 struct BestPartitionSplitArgs {
-    uint32_t numActiveFeatures;
-    uint32_t partitionSplitsOffset;
     uint16_t depth;
 };
 
 // id 0: partition number
 __kernel void
-bestPartitionSplitKernel(__constant const BestPartitionSplitArgs & args,
+bestPartitionSplitKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
+                         __constant const BestPartitionSplitArgs & args,
+                         __global const TreeDepthInfo & treeDepthInfo,
                          __global const uint32_t * activeFeatureList, // [numActiveFeatures]
                          __global const PartitionSplit * featurePartitionSplits,
                          __global const PartitionIndex * partitionIndexes,
@@ -1414,10 +1425,10 @@ bestPartitionSplitKernel(__constant const BestPartitionSplitArgs & args,
                          uint2 local_id [[thread_position_in_threadgroup]],
                          uint2 local_size [[threads_per_threadgroup]])
 {
-    const uint16_t numActiveFeatures = args.numActiveFeatures;
+    const uint16_t numActiveFeatures = treeTrainingInfo.numActiveFeatures;
     const uint16_t depth = args.depth;
 
-    allPartitionSplitsOut += args.partitionSplitsOffset;
+    allPartitionSplitsOut += treeDepthInfo.numFinishedPartitions;
 
     uint32_t p = get_global_id(0);
 
@@ -1490,29 +1501,29 @@ inline uint32_t rightChildIndex(uint32_t parent)
 // - 1-254 means we're partition number (n-1) on the small side
 // - 255 means we're partition number 254 or greater on the small side
 struct AssignPartitionNumbersArgs {
-    uint32_t partitionSplitsOffset;
-    uint32_t numActivePartitions;
-    uint32_t maxNumActivePartitions;
+    uint16_t depth;
 };
 
 __kernel void
-assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
+assignPartitionNumbersKernel(__constant const BestPartitionSplitArgs & args,
+                             __constant const TreeTrainingInfo & treeTrainingInfo,
+                             __global TreeDepthInfo & treeDepthInfo,
                              __global const IndexedPartitionSplit * allPartitionSplits,
                              __global PartitionIndex * partitionIndexesOut,
                              __global PartitionInfo * partitionInfoOut,
                              __global uint8_t * smallSideIndexesOut,
                              __global uint16_t * smallSideIndexToPartitionOut,
-                             __global uint32_t * numActivePartitionsOut,
                              ushort lane_id [[thread_index_in_simdgroup]],
                              ushort num_lanes [[threads_per_simdgroup]])
 {
-    const uint16_t numActivePartitions = args.numActivePartitions;
-    const uint16_t maxNumActivePartitions = args.maxNumActivePartitions;
+    const uint16_t depth = args.depth;
+    const uint16_t numActivePartitions = depth == 0 ? 1 : treeDepthInfo.numActivePartitions;
+    const uint16_t maxNumActivePartitions = treeTrainingInfo.maxNumActivePartitions;
 
     constexpr uint16_t inactivePartitionsLength = 16300;
     __local uint16_t inactivePartitions[inactivePartitionsLength];
 
-    allPartitionSplits += args.partitionSplitsOffset;
+    allPartitionSplits += depth == 0 ? 0 : treeDepthInfo.numFinishedPartitions;
 
 #if 1
     __local uint32_t numInactivePartitions;
@@ -1540,7 +1551,8 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
 
         if (numDiscarded + numInactivePartitions >= inactivePartitionsLength) {
             // OVERFLOW
-            numActivePartitionsOut[0] = -1;
+            treeDepthInfo.numActivePartitions = -1;
+            treeDepthInfo.status = -1;
             return;
         }
 
@@ -1650,8 +1662,11 @@ assignPartitionNumbersKernel(__constant const AssignPartitionNumbersArgs & args,
 
     if (simd_is_first()) {
         uint32_t nap = min(n2, (uint32_t)maxNumActivePartitions);
-        numActivePartitionsOut[0] = nap;
-        numActivePartitionsOut[1] = numSmallSideRows;
+        treeDepthInfo.numActivePartitions = nap;
+        treeDepthInfo.numSmallSideRows = numSmallSideRows;
+        treeDepthInfo.prevNumFinishedPartitions = depth == 0 ? 0 : treeDepthInfo.numFinishedPartitions;
+        treeDepthInfo.numFinishedPartitions = treeDepthInfo.prevNumFinishedPartitions + numActivePartitions;
+        treeDepthInfo.status = 0;  // for now
 
         // Clear partition indexes for gap partitions
         for (; n < numInactivePartitions;  ++n) {
@@ -1773,12 +1788,14 @@ struct UpdateWorkEntry {
 };
 
 struct ClearBucketsArgs {
-    uint32_t numActiveBuckets;
+    uint16_t depth;
 };
 
 // [partition, bucket]
 __kernel void
 clearBucketsKernel(__constant const ClearBucketsArgs & args,
+                   __constant const TreeTrainingInfo & treeTrainingInfo,
+                   __global const TreeDepthInfo & treeDepthInfo,
                    __global W * bucketsOut,
                    __global W * wAllOut,
                    __global uint32_t * numNonZeroDirectionIndices,
@@ -1788,6 +1805,7 @@ clearBucketsKernel(__constant const ClearBucketsArgs & args,
                    uint2 local_id [[thread_position_in_threadgroup]],
                    uint2 local_size [[threads_per_threadgroup]])
 {
+    auto numActiveBuckets = treeTrainingInfo.numActiveBuckets;
     //uint32_t numPartitions = get_global_size(0);
     
     // Clear the number of non zero directions
@@ -1801,11 +1819,11 @@ clearBucketsKernel(__constant const ClearBucketsArgs & args,
 
     uint32_t bucket = get_global_id(1);
 
-    if (bucket >= args.numActiveBuckets)
+    if (bucket >= numActiveBuckets)
         return;
     
     __global W * buckets
-        = bucketsOut + partition * args.numActiveBuckets;
+        = bucketsOut + partition * numActiveBuckets;
     
     const W empty = W_INIT;
     
@@ -1830,9 +1848,6 @@ typedef struct {
 
 
 struct UpdatePartitionNumbersArgs {
-    uint32_t partitionSplitsOffset;
-    uint32_t numRows;
-    uint16_t numActivePartitions;
     uint16_t depth;
 };
 
@@ -1841,6 +1856,9 @@ struct UpdatePartitionNumbersArgs {
 __kernel void
 //__attribute__((reqd_work_group_size(256,1,1)))
 updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
+                             __constant const TreeTrainingInfo & treeTrainingInfo,
+                             __global const TreeDepthInfo & treeDepthInfo,
+
                              __global RowPartitionInfo * partitions,
                              __global uint32_t * directions,
                              __global uint32_t * numNonZeroDirectionIndices,
@@ -1864,8 +1882,8 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              ushort2 local_size [[threads_per_threadgroup]])
 {
     uint16_t depth = args.depth;
-    uint32_t numRows = args.numRows;
-    uint16_t numActivePartitions = args.numActivePartitions;
+    uint32_t numRows = treeTrainingInfo.numRows;
+    uint16_t numActivePartitions = treeDepthInfo.numActivePartitions;
 
     // Most rows live in partitions with a number < 256; avoid main memory accesses for these
     // by caching in local memory
@@ -1880,7 +1898,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
     // Wait for all buckets to be clear
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    allPartitionSplits += args.partitionSplitsOffset;
+    allPartitionSplits += treeDepthInfo.prevNumFinishedPartitions;
 
     //uint16_t numSimdGroups = get_local_size(0) / 32;
     //uint16_t simdGroupNum = get_local_id(0) / 32;
@@ -1964,15 +1982,14 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
 }
 
 struct UpdateBucketsArgs {
-    uint32_t numActiveBuckets;
-    uint32_t numActivePartitions;
-    uint32_t numRows;
     uint32_t maxLocalBuckets;  
 };
 
 __kernel void // [row, feature]
 //__attribute__((reqd_work_group_size(256,1,1)))
 updateBucketsKernel(__constant const UpdateBucketsArgs & args,
+                    __constant const TreeTrainingInfo & treeTrainingInfo,
+                    __global const TreeDepthInfo & treeDepthInfo,
                     __global const RowPartitionInfo * partitions,
                     __global uint32_t * directions,
                     __global const uint32_t * numNonZeroDirectionIndices,
@@ -2003,10 +2020,9 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
                     ushort lane_id [[thread_index_in_simdgroup]])
 {
     int16_t fidx = get_global_id(1) - 1;  // -1 means wAll, otherwise it's the feature number
-    const uint16_t numActivePartitions = args.numActivePartitions;
-    const uint32_t numRows = args.numRows;
+    const uint16_t numActivePartitions = treeDepthInfo.numActivePartitions;
     const uint16_t maxLocalBuckets = args.maxLocalBuckets;
-    const uint32_t numActiveBuckets = args.numActiveBuckets;
+    const uint32_t numActiveBuckets = treeTrainingInfo.numActiveBuckets;
 
     int16_t f = fidx == -1 ? -1 : activeFeatureList[fidx];
 

@@ -265,7 +265,7 @@ void traceOperation(OperationScope opScope, OperationType opType, const std::str
             break;
         };
 
-        if (opScope == OperationScope::EXIT && (elapsed - lastTime) > 0.001) {
+        if (true || (opScope == OperationScope::EXIT && (elapsed - lastTime) > 0.001)) {
             std::string header = format("%10.6f%9lld t%8x %-8s", elapsed, (long long)((elapsed-lastTime)*1000000000), tid, opTypeName.c_str());
             std::string indent(4 * opCount, ' ');
             std::string toDump = opColor + header + indent + opPrefix + opName
@@ -2346,7 +2346,7 @@ setComputeFunction(mtlpp::Library libraryIn,
 
 BoundComputeKernel
 MetalComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
+bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeKernel bindImpl " + kernelName);
 
@@ -2402,6 +2402,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn) const
     result.preConstraints = this->preConstraints;
     result.postConstraints = this->postConstraints;
     result.tuneables = this->tuneables;
+    result.knowns = std::move(knowns);
 
     result.setKnownsFromArguments();
 

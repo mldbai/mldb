@@ -387,7 +387,8 @@ struct MetalComputeKernel: public ComputeKernel {
                             std::string kernelName);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
+                                        ComputeKernelConstraintSolution knowns) const override;
 };
 
 void registerMetalComputeKernel(const std::string & kernelName,

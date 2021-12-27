@@ -686,7 +686,8 @@ struct ComputeKernel: public ComputeKernelConstraintManager {
     BoundComputeKernel bind(NamesAndArgs&&... namesAndArgs);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const = 0;
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
+                                        ComputeKernelConstraintSolution knowns) const = 0;
 };
 
 
@@ -854,14 +855,25 @@ getArgumentHandler(T value)
 }
 
 template<typename Arg>
-void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & arguments, const std::string & argName, Arg&& arg)
+void bindOne(const ComputeKernel * owner,
+             std::vector<ComputeKernelArgument> & arguments,
+             ComputeKernelConstraintSolution & knowns,
+             const std::string & argName,
+             Arg&& arg)
 {
     ExcAssert(owner);
 
+    auto handler = getArgumentHandler(std::forward<Arg>(arg));
+
+    knowns.setValue(argName, handler->toJson());
+
     auto argIndexIt = owner->paramIndex.find(argName);
-    if (argIndexIt == owner->paramIndex.end())
+    if (argIndexIt == owner->paramIndex.end()) {
+        return;  // we don't require all passed arguments to be used; some arguments are not
+        // needed by some kernels
         throw MLDB::Exception("Couldn't bind arg: argument " + argName
                                 + " is not an argument of kernel " + owner->kernelName);
+    }
 
     size_t argIndex = argIndexIt->second;
     //using namespace std;
@@ -872,7 +884,7 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
                                 + " of kernel " + owner->kernelName);
 
     arguments[argIndex].name = argName;
-    arguments[argIndex].handler.reset(getArgumentHandler(std::forward<Arg>(arg)));
+    arguments[argIndex].handler.reset(handler);
     ExcAssert(arguments[argIndex].handler->type.baseType);
 
     auto & expectedType = owner->params.at(argIndex).type;
@@ -886,7 +898,9 @@ void bindOne(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & a
     }
 }
 
-inline void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & arguments) // end of recursion
+inline void bind(const ComputeKernel * owner,
+                 std::vector<ComputeKernelArgument> & arguments,
+                 ComputeKernelConstraintSolution & knowns) // end of recursion
 {
     // allow for other ways of setting arguments...
 #if 0
@@ -900,10 +914,13 @@ inline void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument>
 }
 
 template<typename Arg, typename... Rest>
-void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & arguments, const std::string & argName, Arg&& arg, Rest&&... rest)
+void bind(const ComputeKernel * owner,
+          std::vector<ComputeKernelArgument> & arguments,
+          ComputeKernelConstraintSolution & knowns,
+          const std::string & argName, Arg&& arg, Rest&&... rest)
 {
-    details::bindOne(owner, arguments, argName, std::forward<Arg>(arg));
-    details::bind(owner, arguments, std::forward<Rest>(rest)...);
+    details::bindOne(owner, arguments, knowns, argName, std::forward<Arg>(arg));
+    details::bind(owner, arguments, knowns, std::forward<Rest>(rest)...);
 }
 
 } // namespace details
@@ -911,11 +928,20 @@ void bind(const ComputeKernel * owner, std::vector<ComputeKernelArgument> & argu
 template<typename... NamesAndArgs>
 BoundComputeKernel ComputeKernel::bind(NamesAndArgs&&... namesAndArgs)
 {
-    // These are bound to the values in NamesAndArgs
+    // These are bound to the values in NamesAndArgs.  Note that we accumulate arguments in the
+    // order of the parameters for the kernel, not in the calling order.  That's why arguments
+    // has the same length as this->params; there is a 1-1 correspondence.
     std::vector<ComputeKernelArgument> arguments(this->params.size());
-    details::bind(this, arguments, std::forward<NamesAndArgs>(namesAndArgs)...);
 
-    return this->bindImpl(std::move(arguments));
+    ComputeKernelConstraintSolution knowns;
+
+    // Set the names for debugging
+    for (size_t i = 0;  i < this->params.size();  ++i)
+        arguments[i].name = this->params[i].name;
+
+    details::bind(this, arguments, knowns, std::forward<NamesAndArgs>(namesAndArgs)...);
+
+    return this->bindImpl(std::move(arguments), std::move(knowns));
 }
 
 struct ComputeQueue {

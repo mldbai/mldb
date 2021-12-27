@@ -176,7 +176,7 @@ getDevice() const
 
 BoundComputeKernel
 MultiComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> arguments) const
+bindImpl(std::vector<ComputeKernelArgument> arguments, ComputeKernelConstraintSolution knowns) const
 {
     std::vector<BoundComputeKernel> boundKernels;
 
@@ -190,17 +190,26 @@ bindImpl(std::vector<ComputeKernelArgument> arguments) const
         auto convertArgument = [&] (ComputeKernelArgument p) -> ComputeKernelArgument
         {
             auto oldHandler = std::move(p.handler);
-            p.handler = std::make_shared<MultiAbstractArgumentHandler>(std::move(oldHandler), *multiContext, i);
+            if (oldHandler) {
+                p.handler = std::make_shared<MultiAbstractArgumentHandler>(std::move(oldHandler), *multiContext, i);
+            }
             return p;
         };
 
-        // Create our parameter list
-        for (size_t j = 0;  j < params.size();  ++j) {
-            auto & a = arguments[j];
-            ourArguments.emplace_back(convertArgument(a));
+        // Create our argument list
+        for (size_t j = 0;  j < arguments.size();  ++j) {
+            try {
+                auto & a = arguments.at(j);
+                cerr << "arg " << j << " named " << a.name << endl;
+                ourArguments.emplace_back(convertArgument(a));
+            } MLDB_CATCH_ALL {
+                rethrowException(400, "error handling argument number " + std::to_string(j)
+                                 + " (named '" + arguments[j].name + "') to kernel "
+                                 + this->kernelName);
+            }
         }
 
-        boundKernels.emplace_back(this->kernels[i]->bindImpl(ourArguments));
+        boundKernels.emplace_back(this->kernels[i]->bindImpl(ourArguments, knowns));
     }
 
     // Create our info structure to carry around the bound arguments

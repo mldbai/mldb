@@ -349,7 +349,8 @@ struct HostComputeKernel: public ComputeKernel {
     }
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments) const override;
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
+                                        ComputeKernelConstraintSolution knowns) const override;
 
 #if 0
     // Enqueue the given kernel on the queue, returning the event

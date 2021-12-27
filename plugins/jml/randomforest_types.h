@@ -647,6 +647,30 @@ struct UpdateWorkEntry {
 
 DECLARE_STRUCTURE_DESCRIPTION(UpdateWorkEntry);
 
+// Sizing information for a whole tree
+
+struct TreeTrainingInfo {
+    uint32_t numRows = 0;             ///< Number of rows in our training set
+    uint16_t maxDepth = 0;            ///< Maximum depth we're willing to get to
+    uint16_t numActiveFeatures = 0;   ///< Number of active features
+    uint16_t numFeatures = 0;         ///< Number of total features
+    uint16_t maxNumActivePartitions = 0; ///< Maximum width of active partition tree
+    uint32_t numActiveBuckets = 0;    ///< Number of buckets across all active features
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TreeTrainingInfo);
+
+// Sizing information for a depth iteration
+
+struct TreeDepthInfo {
+    uint32_t prevNumFinishedPartitions = 0;  ///< numFinishedPartitions for previous depth
+    uint32_t numFinishedPartitions = 0;
+    uint32_t numActivePartitions = 0;
+    uint32_t numSmallSideRows = 0;
+    uint32_t status = 0;                  ///< Non-zero means to stop running
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TreeDepthInfo);
 
 /*****************************************************************************/
 /* TREE MANIPULATION                                                         */
