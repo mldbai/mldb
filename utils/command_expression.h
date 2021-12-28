@@ -127,6 +127,11 @@ struct CommandExpressionVariables {
     template<typename T>
     void setValue(const std::string & key, const T & val);
 
+    bool hasFunction(const std::string & name) const
+    {
+        return functions.count(name) || (outer && outer->hasFunction(name));
+    }
+
     Json::Value applyFunction(const std::string & functionName,
                               const std::vector<Json::Value> & functionArgs) const;
 
@@ -611,9 +616,16 @@ struct ExtractElementExpression: public CommandExpression {
 
     virtual Json::Value apply(const CommandExpressionContext & vars) const
     {
+        Json::Value val = expr->apply(vars);
         Json::Value index = element->apply(vars);
-        if (index.isString())
+        if (index.isString()) {
+            if (!val.isMember(index.asString()))
+                throw MLDB::Exception("couldn't find field " + index.asString());
             return expr->apply(vars)[index.asString()];
+        }
+        if (!val.isValidIndex(index.asInt())) {
+            throw MLDB::Exception("couldn't find field " + std::to_string(index.asInt()));
+        }
         return expr->apply(vars)[index.asInt()];
     }
 

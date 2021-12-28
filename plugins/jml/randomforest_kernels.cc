@@ -105,7 +105,6 @@ void
 getPartitionSplitsKernel(ComputeContext & context,
 
                          uint32_t fidx, uint32_t naf,
-                         uint32_t p, uint32_t nap,
                          
                          std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                          std::span<const uint32_t> bucketNumbers, // [nf]
@@ -120,27 +119,26 @@ getPartitionSplitsKernel(ComputeContext & context,
                          uint16_t depth,
                          std::span<const TreeDepthInfo> treeDepthInfo) //[1]
 {
-    // BucketRange is just there for show... it is implicitly handled in the kernel
-    auto numActivePartitions = depth == 0 ? 1 : treeDepthInfo[0].numActivePartitions;
+    auto numActivePartitions = treeDepthInfo[0].numActivePartitions;
     auto totalBuckets = treeTrainingInfo[0].numActiveBuckets;
 
-    ExcAssertLessEqual(nap, numActivePartitions);
+    for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
+        uint32_t f = activeFeatureList[fidx];
 
-    uint32_t f = activeFeatureList[fidx];
+        PartitionSplit & result = splitsOut[p * naf + fidx];
+        if (wAll[p].empty() || wAll[p].uniform()) {
+            result = PartitionSplit();
+            continue;
+        }
 
-    PartitionSplit & result = splitsOut[p * naf + fidx];
-    if (wAll[p].empty() || wAll[p].uniform()) {
-        result = PartitionSplit();
-        return;
+        int startBucket = bucketNumbers[f];
+        int endBucket = bucketNumbers[f + 1];
+        int maxBucket = endBucket - startBucket - 1;
+        const W * wFeature = buckets.data() + (p * totalBuckets) + startBucket;
+        std::tie(result.score, result.value, result.left, result.right)
+            = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
+        result.feature = result.score == INFINITY ? -1 : f;
     }
-
-    int startBucket = bucketNumbers[f];
-    int endBucket = bucketNumbers[f + 1];
-    int maxBucket = endBucket - startBucket - 1;
-    const W * wFeature = buckets.data() + (p * totalBuckets) + startBucket;
-    std::tie(result.score, result.value, result.left, result.right)
-        = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
-    result.feature = result.score == INFINITY ? -1 : f;
 }
 
 // Reduction over the feature columns from the getPartitionSplitsKernel, where
@@ -148,7 +146,6 @@ getPartitionSplitsKernel(ComputeContext & context,
 // in the output.
 void
 bestPartitionSplitKernel(ComputeContext & context,
-                         uint32_t p, uint32_t np,
                          std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                          std::span<const TreeDepthInfo> treeDepthInfo, //[1]
                          uint16_t depth,
@@ -157,22 +154,27 @@ bestPartitionSplitKernel(ComputeContext & context,
                          std::span<const PartitionIndex> partitionIndexes, // [np]
                          std::span<IndexedPartitionSplit> partitionSplitsOut)  // np
 {
-    auto partitionSplitsOffset = depth == 0 ? 0 : treeDepthInfo[0].numFinishedPartitions;
+    auto partitionSplitsOffset = treeDepthInfo[0].numFinishedPartitions;
     auto naf = treeTrainingInfo[0].numActiveFeatures;
-    ExcAssertLess(partitionSplitsOffset + p, partitionSplitsOut.size());
-    IndexedPartitionSplit & result = partitionSplitsOut[partitionSplitsOffset + p];
-    result = IndexedPartitionSplit();
-    result.index = (depth == 0 ? PartitionIndex::root() : partitionIndexes[p]);
-    if (result.index == PartitionIndex::none())
-        return;
+    auto nap = treeDepthInfo[0].numActivePartitions;
 
-    for (size_t fidx = 0;  fidx < naf;  ++fidx) {
-        const PartitionSplit & fp = featurePartitionSplits[p * naf + fidx];
-        if (fp.score == INFINITY)
+    for (uint32_t p = 0;  p < nap;  ++p) {
+        //cerr << "partition " << p << " of " << nap << endl;
+        ExcAssertLess(partitionSplitsOffset + p, partitionSplitsOut.size());
+        IndexedPartitionSplit & result = partitionSplitsOut[partitionSplitsOffset + p];
+        result = IndexedPartitionSplit();
+        result.index = (depth == 0 ? PartitionIndex::root() : partitionIndexes[p]);
+        if (result.index == PartitionIndex::none())
             continue;
-        //cerr << "kernel: partition " << p << " feature " << f << " score " << fp.score << endl;
-        if (fp.score < result.score) {
-            result.PartitionSplit::operator = (fp);
+
+        for (size_t fidx = 0;  fidx < naf;  ++fidx) {
+            const PartitionSplit & fp = featurePartitionSplits[p * naf + fidx];
+            if (fp.score == INFINITY)
+                continue;
+            //cerr << "kernel: partition " << p << " feature " << f << " score " << fp.score << endl;
+            if (fp.score < result.score) {
+                result.PartitionSplit::operator = (fp);
+            }
         }
     }
 }
@@ -190,12 +192,14 @@ assignPartitionNumbersKernel(ComputeContext & context,
                              std::span<uint8_t> smallSideIndexesOut,
                              std::span<uint16_t> smallSideIndexToPartitionOut)
 {
-    uint32_t partitionSplitsOffset = depth == 0 ? 0 : treeDepthInfo[0].numFinishedPartitions;
-    uint32_t numActivePartitions = depth == 0 ? 1 : treeDepthInfo[0].numActivePartitions;
+    cerr << "on input: treeDepthInfo = " << jsonEncodeStr(treeDepthInfo[0]) << endl;
+
+    uint32_t partitionSplitsOffset = treeDepthInfo[0].numFinishedPartitions;
+    uint32_t numActivePartitions = treeDepthInfo[0].numActivePartitions;
     uint32_t maxNumActivePartitions = treeTrainingInfo[0].maxNumActivePartitions;
 
     ExcAssertGreaterEqual(partitionIndexesOut.size(), numActivePartitions);
-    ExcAssertEqual(partitionInfoOut.size(), numActivePartitions);
+    ExcAssertGreaterEqual(partitionInfoOut.size(), numActivePartitions);
 
     partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
 
@@ -288,9 +292,10 @@ assignPartitionNumbersKernel(ComputeContext & context,
         }
     }
 
+    treeDepthInfo[0].prevNumActivePartitions = treeDepthInfo[0].numActivePartitions;
     treeDepthInfo[0].numActivePartitions = n2;
     treeDepthInfo[0].numSmallSideRows = numSmallSideRows;
-    treeDepthInfo[0].prevNumFinishedPartitions = (depth == 0 ? 0 : treeDepthInfo[0].numFinishedPartitions);
+    treeDepthInfo[0].prevNumFinishedPartitions = treeDepthInfo[0].numFinishedPartitions;
     treeDepthInfo[0].numFinishedPartitions = treeDepthInfo[0].prevNumFinishedPartitions + numActivePartitions;
     treeDepthInfo[0].status = 0;  // for now
 
@@ -308,7 +313,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
         }
     }
 
-#if 0
+#if 1
     for (uint32_t i = 0;  i < numActivePartitions;  ++i) {
         const PartitionInfo & info = partitionInfoOut[i];
         cerr << "old partition " << i << " left " << info.left << " right " << info.right << endl;
@@ -332,6 +337,8 @@ assignPartitionNumbersKernel(ComputeContext & context,
         partitionIndexesOut[p] = PartitionIndex::none();
         smallSideIndexesOut[p] = 0;
     }
+
+    cerr << "on exit: treeDepthInfo = " << jsonEncodeStr(treeDepthInfo[0]) << endl;
 }
 
 // After doubling the number of buckets, this clears the wAll and allPartitionBuckets
@@ -339,7 +346,6 @@ assignPartitionNumbersKernel(ComputeContext & context,
 void
 clearBucketsKernel(ComputeContext & context,
 
-                   uint32_t partition, uint32_t numPartitions,
                    ComputeKernelGridRange & bucketRange,
 
                    std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
@@ -351,26 +357,26 @@ clearBucketsKernel(ComputeContext & context,
                    std::span<uint32_t> numNonZeroDirectionIndices,
                    std::span<const uint8_t> smallSideIndexes)
 {
+    auto numActivePartitions = treeDepthInfo[0].numActivePartitions;
     auto numActiveBuckets = treeTrainingInfo[0].numActiveBuckets;
 
-    if (partition == 0) {
-        ExcAssertEqual(numNonZeroDirectionIndices.size(), 1);
-        numNonZeroDirectionIndices[0] = 0;
-    }
+    ExcAssertEqual(numNonZeroDirectionIndices.size(), 1);
+    numNonZeroDirectionIndices[0] = 0;
 
-    if (!smallSideIndexes[partition]) {
-        //cerr << "not clearing partition " << partition << ": Wall " << jsonEncodeStr(wAll[partition]) << endl;
-        return;
-    }
-    //cerr << "clearing partition " << partition << endl;
+    for (uint32_t partition = 0;  partition < numActivePartitions;  ++partition) {
 
-    ExcAssertEqual(numActiveBuckets, bucketRange.range());
+        if (!smallSideIndexes[partition]) {
+            //cerr << "not clearing partition " << partition << ": Wall " << jsonEncodeStr(wAll[partition]) << endl;
+            continue;
+        }
 
-    for (uint32_t bucket: bucketRange) {
-        allPartitionBuckets[partition * numActiveBuckets + bucket] = W();
-        
-        if (bucket == 0) {
-            wAll[partition] = W();
+        wAll[partition] = W();
+
+        ExcAssertEqual(numActiveBuckets, bucketRange.range());
+
+        auto partitionBucketRange = bucketRange;
+        for (uint32_t bucket: partitionBucketRange) {
+            allPartitionBuckets[partition * numActiveBuckets + bucket] = W();
         }
     }
 }
@@ -643,7 +649,6 @@ updateBucketsKernel(ComputeContext & context,
 // Dimension 1 = bucket number (from 0 to the number of active buckets)
 void
 fixupBucketsKernel(ComputeContext & context,
-                   uint32_t partition, uint32_t numPartitions,
                    ComputeKernelGridRange & bucketRange,
 
                    std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
@@ -656,46 +661,50 @@ fixupBucketsKernel(ComputeContext & context,
                    std::span<const uint8_t> smallSideIndexes)
 {
     auto numActiveBuckets = treeTrainingInfo[0].numActiveBuckets;
+    auto numActivePartitions = treeDepthInfo[0].prevNumActivePartitions;
     
     ExcAssertEqual(numActiveBuckets, bucketRange.range());
 
-    const PartitionInfo & info = partitionInfo[partition];
-    if (info.ignore())
-        return;
+    for (uint32_t partition = 0;  partition < numActivePartitions;  ++partition) {
 
-    ExcAssertNotEqual(info.left, info.right);
+        const PartitionInfo & info = partitionInfo[partition];
+        if (info.ignore())
+            continue;
 
-    // The small side always gets subtracted from the big side
-    int to, from;
-    if (smallSideIndexes[info.left]) {
-        ExcAssert(!smallSideIndexes[info.right]);
-        to = info.right;
-        from = info.left;
-    }
-    else {
-        ExcAssert(!smallSideIndexes[info.left]);
-        to = info.left;
-        from = info.right;
-    }
+        ExcAssertNotEqual(info.left, info.right);
 
-    ExcAssertGreaterEqual(wAll[to].count(), wAll[from].count());
+        // The small side always gets subtracted from the big side
+        int to, from;
+        if (smallSideIndexes[info.left]) {
+            ExcAssert(!smallSideIndexes[info.right]);
+            to = info.right;
+            from = info.left;
+        }
+        else {
+            ExcAssert(!smallSideIndexes[info.left]);
+            to = info.left;
+            from = info.right;
+        }
 
-    std::span<W> bucketsFrom
-        = allPartitionBuckets.subspan(from * numActiveBuckets, numActiveBuckets);
-    std::span<W> bucketsTo
-        = allPartitionBuckets.subspan(to * numActiveBuckets, numActiveBuckets);
-    
-    bool hasZero = false;
-    for (uint32_t bucket: bucketRange) {
-        hasZero = hasZero || bucket == 0;
-        bucketsTo[bucket] -= bucketsFrom[bucket];
-    }
+        ExcAssertGreaterEqual(wAll[to].count(), wAll[from].count());
 
-    // Bucket zero also updates wAll
-    if (hasZero) {
-        // wAll: partitions " << from << " = " << jsonEncodeStr(wAll[from])
-        //     << " by subtracting " << to << " = " << jsonEncodeStr(wAll[to]) << endl;
-        wAll[to] -= wAll[from];
+        std::span<W> bucketsFrom
+            = allPartitionBuckets.subspan(from * numActiveBuckets, numActiveBuckets);
+        std::span<W> bucketsTo
+            = allPartitionBuckets.subspan(to * numActiveBuckets, numActiveBuckets);
+        
+        bool hasZero = false;
+        for (uint32_t bucket: bucketRange) {
+            hasZero = hasZero || bucket == 0;
+            bucketsTo[bucket] -= bucketsFrom[bucket];
+        }
+
+        // Bucket zero also updates wAll
+        if (hasZero) {
+            // wAll: partitions " << from << " = " << jsonEncodeStr(wAll[from])
+            //     << " by subtracting " << to << " = " << jsonEncodeStr(wAll[to]) << endl;
+            wAll[to] -= wAll[from];
+        }
     }
 }
 
@@ -766,17 +775,18 @@ static struct RegisterKernels {
             result->kernelName = "getPartitionSplits";
             result->device = ComputeDevice::host();
             result->addDimension("f", "nf");
-            result->addDimension("p", "np");
-            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
+            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[=1]");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("activeFeatureList", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addParameter("buckets", "r", "W32[totalBuckets * np]");
-            result->addParameter("wAll", "r", "W32[np]");
+            result->addParameter("buckets", "r", "W32[numActiveBuckets * nap]");
+            result->addParameter("wAll", "r", "W32[nap]");
             result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * nf]");
             result->addParameter("depth", "r", "u16");
-            result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
-            result->set2DComputeFunction(getPartitionSplitsKernel);
+            result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[=1]");
+            result->addPreConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
+            result->addPostConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
+            result->set1DComputeFunction(getPartitionSplitsKernel);
             return result;
         };
 
@@ -787,15 +797,16 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "bestPartitionSplit";
             result->device = ComputeDevice::host();
-            result->addDimension("p", "np");
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
             result->addParameter("depth", "r", "u16");
             result->addParameter("activeFeatureList", "r", "u32[numFeatures]");
             result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * numActiveFeatures]");
-            result->addParameter("partitionIndexes", "r", "PartitionIndex[np]");
-            result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[np]");
-            result->set1DComputeFunction(bestPartitionSplitKernel);
+            result->addParameter("partitionIndexes", "r", "PartitionIndex[nap]");
+            result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[nap]");
+            result->addPreConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
+            result->addPostConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
+            result->setComputeFunction(bestPartitionSplitKernel);
             return result;
         };
 
@@ -809,16 +820,16 @@ static struct RegisterKernels {
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[1]");
             result->addParameter("depth", "r", "u16");
-            result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
-            result->addParameter("partitionIndexesOut", "w", "PartitionIndex[maxPartitionIndex]");
-            result->addParameter("partitionInfoOut", "w", "PartitionInfo[np]");
-            result->addParameter("smallSideIndexesOut", "w", "u8[nssi]");
+            result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[numActivePartitions]");
+            result->addParameter("partitionIndexesOut", "w", "PartitionIndex[newNumActivePartitions]");
+            result->addParameter("partitionInfoOut", "w", "PartitionInfo[numActivePartitions]");
+            result->addParameter("smallSideIndexesOut", "w", "u8[newNumActivePartitions]");
             result->addParameter("smallSideIndexToPartitionOut", "w", "u16[nssi2p]");
+            result->addPreConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
+            result->addPostConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).prevNumActivePartitions");
+            result->addPostConstraint("newNumActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
             result->addPreConstraint("nssi2p", "==", "256");
-            result->addPreConstraint("nssi", "==", "numActivePartitions * 2");
-            result->addPostConstraint("newNumActivePartitions", "==", "readArrayElement(numActivePartitionsOut, 0)/2");
-            result->addPostConstraint("nssi2p", "==", "min(256, newNumActivePartitions)");
-            result->addPostConstraint("nssi", "==", "newNumActivePartitions");
+            result->addPostConstraint("nssi2p", "==", "min(256, newNumActivePartitions/2)");
             result->setComputeFunction(assignPartitionNumbersKernel);
             return result;
         };
@@ -830,16 +841,18 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "clearBuckets";
             result->device = ComputeDevice::host();
-            result->addDimension("p", "numPartitions");
             result->addDimension("b", "numActiveBuckets");
-            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
-            result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[1]");
+            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[=1]");
+            result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[=1]");
             result->addParameter("depth", "r", "u16");
-            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np * 2]");
-            result->addParameter("wAllOut", "w", "W32[np * 2]");
-            result->addParameter("numNonZeroDirectionIndices", "w", "u32[1]");
-            result->addParameter("smallSideIndexes", "r", "u8[numPartitions]");
-            result->set2DComputeFunction(clearBucketsKernel);
+            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * numActivePartitions]");
+            result->addParameter("wAllOut", "rw", "W32[numActivePartitions]");
+            result->addParameter("numNonZeroDirectionIndices", "w", "u32[=1]");
+            result->addParameter("smallSideIndexes", "r", "u8[newNumActivePartitions]");
+            result->addPreConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).prevNumActivePartitions");
+            result->addPostConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).prevNumActivePartitions");
+
+            result->set1DComputeFunction(clearBucketsKernel);
             return result;
         };
 
@@ -859,14 +872,16 @@ static struct RegisterKernels {
             result->addParameter("numNonZeroDirectionIndices", "rw", "u32[1]");
             result->addParameter("nonZeroDirectionIndices", "w", "UpdateWorkEntry[nndi:unordered]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
-            result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
-            result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
+            result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[numActivePartitions]");
+            result->addParameter("partitionInfo", "r", "PartitionInfo[numActivePartitions]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
             result->addParameter("bucketNumbers", "r", "u32[nf]");
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("decodedRows", "r", "f32[nr]");
+            result->addPreConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).prevNumActivePartitions");
+            result->addPostConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).prevNumActivePartitions");
             result->addPreConstraint("nndi", "==", "numRows/2 + 2", "Loose sizing pre-call");
             result->addPostConstraint("nndi", "==", "readArrayElement(numNonZeroDirectionIndices, 0)", "Tight sizing post-call");
             result->set1DComputeFunction(updatePartitionNumbersKernel);
@@ -889,10 +904,10 @@ static struct RegisterKernels {
             result->addParameter("directions", "r", "u8[(numRows+31)/32]");
             result->addParameter("numNonZeroDirectionIndices", "rw", "u32[1]");
             result->addParameter("nonZeroDirectionIndices", "r", "UpdateWorkEntry[nndi:unordered]");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
-            result->addParameter("wAll", "w", "W32[np * 2]");
+            result->addParameter("buckets", "w", "W32[numActiveBuckets * newNumActivePartitions]");
+            result->addParameter("wAll", "rw", "W32[newNumActivePartitions]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
-            result->addParameter("smallSideIndexToPartition", "w", "u16[min(256,numActivePartitions/2)]");
+            result->addParameter("smallSideIndexToPartition", "w", "u16[min(256,numActivePartitions)]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");
@@ -900,7 +915,9 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addConstraint("nndi", "==", "readArrayElement(numNonZeroDirectionIndices, 0)", "Tight sizing post-call");
+            result->addConstraint("nndi", "==", "readArrayElement(numNonZeroDirectionIndices, 0)");
+            result->addConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).prevNumActivePartitions");
+            result->addConstraint("newNumActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
             result->set2DComputeFunction(updateBucketsKernel);
             return result;
         };
@@ -912,16 +929,19 @@ static struct RegisterKernels {
             auto result = std::make_shared<HostComputeKernel>();
             result->kernelName = "fixupBuckets";
             result->device = ComputeDevice::host();
-            result->addDimension("partition", "np");
             result->addDimension("bucket", "numActiveBuckets");
-            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
-            result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[1]");
+            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[=1]");
+            result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[=1]");
             result->addParameter("depth", "r", "u16");
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * np * 2]");
-            result->addParameter("wAll", "w", "W32[np * 2]");
-            result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
-            result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
-            result->set2DComputeFunction(fixupBucketsKernel);
+            result->addParameter("buckets", "rw", "W32[numActiveBuckets * numActivePartitions]");
+            result->addParameter("wAll", "rw", "W32[newNumActivePartitions]");
+            result->addParameter("partitionInfo", "r", "PartitionInfo[oldNumActivePartitions]");
+            result->addParameter("smallSideIndexes", "r", "u8[oldNumActivePartitions]");
+            result->addConstraint("oldNumActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).prevNumActivePartitions");
+            result->addConstraint("newNumActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
+            result->addPreConstraint("numActivePartitions", "==", "oldNumActivePartitions");
+            result->addPostConstraint("numActivePartitions", "==", "newNumActivePartitions");
+            result->set1DComputeFunction(fixupBucketsKernel);
             return result;
         };
 

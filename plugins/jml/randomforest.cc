@@ -1196,12 +1196,17 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     MemoryArrayHandleT<TreeDepthInfo> deviceTreeDepthInfo
         = context->allocUninitializedArray<TreeDepthInfo>("treeDepthInfo", 1).get();
 
+    TreeDepthInfo treeDepthInfo0;
+    treeDepthInfo0.numActivePartitions = 1;
+
+    auto fillTreeDepthInfo = depthQueue->enqueueFillArray("initialize TreeDepthInfo", deviceTreeDepthInfo, treeDepthInfo0, 0 /* offset */, 1 /* size */);
+
     // How many active partitions at this level?
-    uint32_t numActivePartitions = 1;
+    //uint32_t numActivePartitions = 1;
 
     // How many partition splits have already been generated
     // (= sum of numActivePartitions from previous iterations)
-    uint32_t numFinishedPartitions = 0;
+    //uint32_t numFinishedPartitions = 0;
 
     // Which partition is each row in?  Initially, everything
     // is in partition zero, but as we start to split, we end up
@@ -1258,12 +1263,11 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     if (debugKernelOutput /* TODO: why do we need this? */) {
         depthQueue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
         depthQueue->enqueueFillArray("debug clear allPartitionSplits", deviceAllPartitionSplitsPool, IndexedPartitionSplit());
-        depthQueue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 1);
+        depthQueue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 0);
         depthQueue->enqueueFillArray("debug clear smallSideIndexes", smallSideIndexes, (uint8_t)0);
         depthQueue->enqueueFillArray("debug partition numbers", devicePartitions, RowPartitionInfo{0});
         depthQueue->enqueueFillArray("debug directions", directions, (uint32_t)0);
         depthQueue->enqueueFillArray("debug non zero indices", nonZeroDirectionIndices, UpdateWorkEntry{0, 0, 0, 0});
-        depthQueue->enqueueFillArray("debug treeDepthInfo", deviceTreeDepthInfo, TreeDepthInfo());
         depthQueue->finish();
     }
 
@@ -1275,6 +1279,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         auto depthScope = trainMarker->enterScope("depth " + std::to_string(myDepth));
 
+#if 0 // TODO
         // How big does our output partition splits array need to be to hold the maximum
         // number of splits for this iteration?
         uint32_t numPartitionSplitsRequired = numFinishedPartitions + 2 * numActivePartitions;
@@ -1285,9 +1290,11 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             cerr << "  Too wide; breaking out of loop" << endl;
             break;
         }
+#endif
 
         // Take slices of the larger data structures we allocated for use at the current depth
 
+#if 0
         auto depthPartitionBuckets
             = context->getArraySlice(devicePartitionBucketPool,
                                      "partitionBuckets depth " + std::to_string(myDepth),
@@ -1322,6 +1329,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             = context->getArraySlice(deviceAllPartitionSplitsPool,
                                      "allPartitionSplits depth " + std::to_string(myDepth),
                                      0, numFinishedPartitions + numActivePartitions);
+#endif
 
         {
             auto boundGetPartitionSplitsKernel = getPartitionSplitsKernel->bind
@@ -1329,15 +1337,16 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                     "bucketNumbers",                  deviceBucketNumbers,
                     "activeFeatureList",              deviceActiveFeatureList,
                     "featureIsOrdinal",               deviceFeatureIsOrdinal,
-                    "buckets",                        depthPartitionBuckets,
-                    "wAll",                           depthWAll,
-                    "featurePartitionSplitsOut",      depthFeaturePartitionSplits,
+                    "buckets",                        devicePartitionBucketPool,
+                    "wAll",                           deviceWAllPool,
+                    "featurePartitionSplitsOut",      deviceFeaturePartitionSplitsPool,
                     "depth",                          (uint16_t)depth,
-                    "treeDepthInfo",                  deviceTreeDepthInfo);
+                    "treeDepthInfo",                  deviceTreeDepthInfo,
+                    "numActiveBuckets",               numActiveBuckets);
 
             depthQueue->enqueue("getPartitionSplits",
                                 boundGetPartitionSplitsKernel,
-                            { numActiveFeatures, numActivePartitions });
+                                { numActiveFeatures });
         }
 
         // Now we have the best split for each feature for each partition,
@@ -1349,13 +1358,13 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                        "treeDepthInfo",                  deviceTreeDepthInfo,
                        "depth",                          (uint16_t)depth,
                        "activeFeatureList",              deviceActiveFeatureList,
-                       "featurePartitionSplits",         depthFeaturePartitionSplits,
-                       "allPartitionSplitsOut",          depthAllPartitionSplits,
-                       "partitionIndexes",               depthPartitionIndexes);
+                       "featurePartitionSplits",         deviceFeaturePartitionSplitsPool,
+                       "allPartitionSplitsOut",          deviceAllPartitionSplitsPool,
+                       "partitionIndexes",               devicePartitionIndexPool);
 
             depthQueue->enqueue("bestPartitionSplit",
                                 boundBestPartitionSplitKernel,
-                                { numActivePartitions });
+                                { });
         }
 
         // These are parallel CPU data structures for the on-device ones,
@@ -1373,9 +1382,13 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         if (debugKernelOutput) {
             depthQueue->finish();
 
+            TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
+            auto numActivePartitions = depthInfo.numActivePartitions;
+            auto numFinishedPartitions = depthInfo.numFinishedPartitions;
+
             // Map back the device partition splits (note that we only use those between
             // numFinishedPartitions and numActivePartitions)
-            auto mappedPartitionSplits = context->transferToHostSync("debug partitionSplits", depthAllPartitionSplits);
+            auto mappedPartitionSplits = context->transferToHostSync("debug partitionSplits", deviceAllPartitionSplitsPool);
             auto partitionSplitsDevice
                  = mappedPartitionSplits.getConstSpan(numFinishedPartitions, numActivePartitions);
 
@@ -1388,20 +1401,20 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 std::fill(debugPartitionsCpu.begin(), debugPartitionsCpu.end(), 0);
             
             // Map back the indexes
-            auto mappedIndexes = context->transferToHostSync("debug indexes", depthPartitionIndexes);
+            auto mappedIndexes = context->transferToHostSync("debug indexes", devicePartitionIndexPool);
             auto indexesDeviceSpan = mappedIndexes.getConstSpan();
-            debugPartitionIndexesCpu = { indexesDeviceSpan.begin(), indexesDeviceSpan.end() };
+            debugPartitionIndexesCpu = { indexesDeviceSpan.begin(), indexesDeviceSpan.begin() + numActivePartitions };
             if (depth == 0)
                 debugPartitionIndexesCpu = { PartitionIndex::root() };
 
             // Construct the CPU version of buckets (and keep it around)
-            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", depthPartitionBuckets);
+            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", devicePartitionBucketPool);
             auto mappedBucketsSpan = mappedBuckets.getConstSpan();
             debugBucketsCpu = { mappedBucketsSpan.begin(), mappedBucketsSpan.end() };
             debugBucketsCpu.resize(debugBucketsCpu.size() * 2);
 
             // Get back the CPU version of wAll
-            auto mappedWAll = context->transferToHostSync("debug wAll", depthWAll);
+            auto mappedWAll = context->transferToHostSync("debug wAll", deviceWAllPool);
             auto wAllDevice = mappedWAll.getConstSpan();
             debugWAllCpu = { wAllDevice.begin(),
                              wAllDevice.begin() + numActivePartitions };
@@ -1546,9 +1559,9 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                ("treeTrainingInfo",       deviceTreeTrainingInfo,
                 "treeDepthInfo",          deviceTreeDepthInfo,
                 "depth",                  (uint16_t)depth,
-                "allPartitionSplits",     depthAllPartitionSplits,
+                "allPartitionSplits",     deviceAllPartitionSplitsPool,
                 "partitionIndexesOut",    devicePartitionIndexPool,
-                "partitionInfoOut",       depthPartitionInfo,
+                "partitionInfoOut",       devicePartitionInfoPool,
                 "smallSideIndexesOut",    smallSideIndexes,
                 "smallSideIndexToPartitionOut", smallSideIndexToPartitionNumbers);
 
@@ -1559,6 +1572,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         //depthQueue->finish();
 
+#if 0
         // Get the new number of active partitions; since it's a serial queue it will have the side
         // effect of awaiting everything that's queued.
         auto tdi = depthQueue->transferToHostSync("get deviceTreeDepthInfo", deviceTreeDepthInfo);
@@ -1577,7 +1591,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             cerr << "num active partitions is too wide; breaking out to do recursively" << endl;
             debugKernelOutput = false;  // won't give the same results anymore...
         }
-
+#endif
         // Double the number of partitions, create new W entries for the
         // new partitions, and transfer those examples that are in the
         // wrong partition to the right one
@@ -1589,6 +1603,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         // only need to keep one set of partition buckets in shared memory
         // and saves lots of atomic operations.
 
+#if 0
         auto nextDepthPartitionBuckets
             = context->getArraySlice(devicePartitionBucketPool,
                                      "partitionBuckets depth " + std::to_string(myDepth + 1),
@@ -1608,6 +1623,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             = context->getArraySlice(smallSideIndexes, 
                                      "smallSideIndexes (next) depth " + std::to_string(myDepth),
                                      0, newNumActivePartitions);
+#endif
 
         // First we clear everything on the right side, ready to accumulate
         // the new buckets there.
@@ -1617,14 +1633,14 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                ("treeTrainingInfo",           deviceTreeTrainingInfo,
                 "treeDepthInfo",              deviceTreeDepthInfo,
                 "depth",                      (uint16_t)depth,
-                "bucketsOut",                 nextDepthPartitionBuckets,
-                "wAllOut",                    nextDepthWAll,
+                "bucketsOut",                 devicePartitionBucketPool,
+                "wAllOut",                    deviceWAllPool,
                 "numNonZeroDirectionIndices", numNonZeroDirectionIndices, 
-                "smallSideIndexes",           nextSmallSideIndexes);
+                "smallSideIndexes",           smallSideIndexes);
 
             depthQueue->enqueue("clear buckets",
                                 boundClearBucketsKernel,
-                                { newNumActivePartitions, numActiveBuckets });
+                                { numActiveBuckets });
         }
 
         std::vector<uint16_t> oldPartitions;  // for debug
@@ -1648,9 +1664,9 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                     "directions",                     directions,
                     "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
                     "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
-                    "smallSideIndexes",               nextSmallSideIndexes,
-                    "allPartitionSplits",             depthAllPartitionSplits,
-                    "partitionInfo",                  depthPartitionInfo,
+                    "smallSideIndexes",               smallSideIndexes,
+                    "allPartitionSplits",             deviceAllPartitionSplitsPool,
+                    "partitionInfo",                  devicePartitionInfoPool,
                     "bucketData",                     bucketDataPromise,
                     "bucketDataOffsets",              deviceBucketDataOffsets,
                     "bucketNumbers",                  deviceBucketNumbers,
@@ -1757,9 +1773,9 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 "directions",                     directions,
                 "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
                 "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
-                "buckets",                        nextDepthPartitionBuckets,
-                "wAll",                           nextDepthWAll,
-                "smallSideIndexes",               nextSmallSideIndexes,
+                "buckets",                        devicePartitionBucketPool,
+                "wAll",                           deviceWAllPool,
+                "smallSideIndexes",               smallSideIndexes,
                 "smallSideIndexToPartition",      smallSideIndexToPartitionNumbers,
                 "decodedRows",                    expandedRowData,
                 "bucketData",                     bucketDataPromise,
@@ -1780,18 +1796,22 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                     "treeTrainingInfo",               deviceTreeTrainingInfo,
                     "treeDepthInfo",                  deviceTreeDepthInfo,
                     "depth",                          (uint16_t)depth,
-                    "buckets",                        nextDepthPartitionBuckets,
-                    "wAll",                           nextDepthWAll,
-                    "partitionInfo",                  depthPartitionInfo,
-                    "smallSideIndexes",               nextSmallSideIndexes);
+                    "buckets",                        devicePartitionBucketPool,
+                    "wAll",                           deviceWAllPool,
+                    "partitionInfo",                  devicePartitionInfoPool,
+                    "smallSideIndexes",               smallSideIndexes);
 
             depthQueue->enqueue("fixup buckets",
                                 boundFixupBucketsKernel,
-                                { numActivePartitions, numActiveBuckets });
+                                { numActiveBuckets });
         }
 
         if (debugKernelOutput) {
             depthQueue->finish();
+
+            TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
+            auto newNumActivePartitions = depthInfo.numActivePartitions;
+            auto numActivePartitions = depthInfo.numFinishedPartitions - depthInfo.prevNumFinishedPartitions;
 
             auto mappedPartitionInfo = context->transferToHostSync("debug partitionInfo", devicePartitionInfoPool);
             auto partitionInfoDevice = mappedPartitionInfo.getConstSpan();
@@ -1836,7 +1856,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             // version.
 
             // Construct the CPU version of buckets
-            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", nextDepthPartitionBuckets);
+            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", devicePartitionBucketPool);
             auto bucketsDevice = mappedBuckets.getConstSpan();
 
             for (size_t i = 0;  i < numActivePartitions;  ++i) {
@@ -1862,7 +1882,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             }
 
             // 2.  Map back the wAll values and compare against the CPU version
-            auto mappedWAll = context->transferToHostSync("debug wAll", nextDepthWAll);
+            auto mappedWAll = context->transferToHostSync("debug wAll", deviceWAllPool);
             auto wAllDevice = mappedWAll.getConstSpan();
 
             for (size_t i = 0;  i < numActivePartitions;  ++i) {
@@ -1914,22 +1934,29 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         Date doneDepth = Date::now();
 
+        int numActivePartitions = -1, numFinishedPartitions = -1;
+
+        if (debugKernelOutput) {
+            TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
+            numActivePartitions = depthInfo.numActivePartitions;
+            numFinishedPartitions = depthInfo.numFinishedPartitions;
+        }
         cerr << ansi::bright_blue << "depth = " << depth << " myDepth = " << myDepth
-             << " partitions: finished " << numFinishedPartitions << " active: " << numActivePartitions
-             << " wall time " << doneDepth.secondsSince(startDepth) * 1000 << "ms" << ansi::reset << endl;
+            << " partitions: finished " << numFinishedPartitions << " active: " << numActivePartitions
+            << " wall time " << doneDepth.secondsSince(startDepth) * 1000 << "ms" << ansi::reset << endl;
         startDepth = doneDepth;
 
         // Ready for the next level
-        numFinishedPartitions += numActivePartitions;
-        numActivePartitions = newNumActivePartitions;
-        
-        //if (true)
-        //    depthQueue->finish();
     }
 
     depthQueue->finish();
 
     Date beforeMapping = Date::now();
+
+    // Get our depth information object back
+    TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
+    auto numActivePartitions = depthInfo.numActivePartitions;
+    auto numFinishedPartitions = depthInfo.numFinishedPartitions;
 
     // Get our split data back...
     auto allPartitionSplitsRegion = depthQueue->transferToHostSync("partitionSplits to CPU", deviceAllPartitionSplitsPool);

@@ -664,8 +664,9 @@ DECLARE_STRUCTURE_DESCRIPTION(TreeTrainingInfo);
 
 struct TreeDepthInfo {
     uint32_t prevNumFinishedPartitions = 0;  ///< numFinishedPartitions for previous depth
+    uint32_t prevNumActivePartitions = -1;
     uint32_t numFinishedPartitions = 0;
-    uint32_t numActivePartitions = 0;
+    uint32_t numActivePartitions = 1;
     uint32_t numSmallSideRows = 0;
     uint32_t status = 0;                  ///< Non-zero means to stop running
 };

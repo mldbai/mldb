@@ -1259,7 +1259,7 @@ getKernelType(const OpenCLKernelArgInfo & info)
 
     // Add back the dimensions
     for (size_t i = 0;  i < arrayDim;  ++i) {
-        type.dims.push_back({nullptr});
+        type.dims.push_back({false, nullptr});
     }
 
     type.access = isConst ? ACC_READ : ACC_READ_WRITE;

@@ -543,10 +543,10 @@ await() const
         auto & mutableCommandBuffer = const_cast<mtlpp::CommandBuffer &>(commandBuffer);
 
         // Try a busy-ish wait
-        while (mutableCommandBuffer.GetStatus() < mtlpp::CommandBufferStatus::Completed) {
-            std::this_thread::sleep_for(std::chrono::microseconds(50));
-            std::this_thread::yield();
-        }
+        //while (mutableCommandBuffer.GetStatus() < mtlpp::CommandBufferStatus::Completed) {
+        //    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        //    std::this_thread::yield();
+        //}
 
         mutableCommandBuffer.WaitUntilCompleted();
 
@@ -815,6 +815,42 @@ enqueue(const std::string & opName,
         knowns.setValue("mtlGrid", mtlGrid);
         knowns.setValue("mtlBlock", mtlBlock);
 
+        std::function<Json::Value (const std::vector<Json::Value> &)>
+        readArrayElement = [&] (const std::vector<Json::Value> & args)
+        {
+            if (args.size() != 2)
+                throw MLDB::Exception("readArrayElement takes two arguments");
+
+            const Json::Value & array = args[0];
+            const Json::Value & index = args[1];
+            const std::string & arrayName = array["name"].asString();
+            auto version = array["version"].asInt();
+            // find the array in our arguments
+            // We have to do a scan, since we don't index by the memory region name (only the parameter name)
+
+            cerr << "needle: " << arrayName << " v " << version << endl;
+            for (auto & arg: bound.arguments) {
+                if (!arg.handler)
+                    continue;
+                if (!arg.handler->canGetHandle())
+                    continue;
+                auto handle = arg.handler->getHandle("readArrayElement", *bindInfo->owner->mtlContext);
+                ExcAssert(handle.handle);
+                
+                cerr << "  haystack: " << handle.handle->name << " v " << handle.handle->version << endl;
+
+                if (handle.handle->name != arrayName || handle.handle->version != version)
+                    continue;
+
+                auto i = index.asUInt();
+                return arg.handler->getArrayElement(i, *bindInfo->owner->mtlContext);
+            }
+
+            throw MLDB::Exception("Couldn't find array named '" + arrayName + "' in kernel arguments");
+        };
+
+        knowns.knowns.addFunction("readArrayElement", readArrayElement);
+
         // figure out the values of the new constraints
         knowns = solve(knowns, bound.preConstraints, bound.constraints);
 
@@ -849,7 +885,8 @@ enqueue(const std::string & opName,
             action.apply(*kernel->mtlContext, bound.arguments, knowns, commandBuffer, commandEncoder);
         }
 
-        knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
+        knowns = solve(knowns, bound.constraints, bound.preConstraints);
+        //knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
 
         mtlGrid.resize(3, 1);
         mtlBlock.resize(3, 1);
@@ -2420,7 +2457,7 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraint
     // Look through for constraints from parameters
     for (auto & p: this->params) {
         if (!p.type.dims.empty() && p.type.dims[0].bound) {
-            result.addConstraint(p.type.dims[0].bound, "==", p.name + ".length",
+            result.addConstraint(p.type.dims[0].bound, p.type.dims[0].tight ? "==" : "<=", p.name + ".length",
                                  "Constraint implied by array bounds of parameter " + p.name + ": "
                                  + p.type.print());
         }

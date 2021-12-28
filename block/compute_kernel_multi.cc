@@ -200,7 +200,7 @@ bindImpl(std::vector<ComputeKernelArgument> arguments, ComputeKernelConstraintSo
         for (size_t j = 0;  j < arguments.size();  ++j) {
             try {
                 auto & a = arguments.at(j);
-                cerr << "arg " << j << " named " << a.name << endl;
+                //cerr << "arg " << j << " named " << a.name << endl;
                 ourArguments.emplace_back(convertArgument(a));
             } MLDB_CATCH_ALL {
                 rethrowException(400, "error handling argument number " + std::to_string(j)
@@ -459,7 +459,9 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
 
     // Now, for each writable parameter, compare the results...
     for (size_t i = 0;  i < this->params.size();  ++i) {
-        if (this->params[i].type.dims.size() == 0 || (pre && this->params[i].type.access == ACC_WRITE))
+        if (this->params[i].type.dims.size() == 0
+            || (pre && this->params[i].type.access == ACC_WRITE)
+            || (!pre && this->params[i].type.access == ACC_READ))
             continue;
 
         auto reference = bindInfo.boundKernels.at(0).arguments.at(i);

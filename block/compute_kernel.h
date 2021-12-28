@@ -372,6 +372,8 @@ DECLARE_ENUM_DESCRIPTION(ComputeKernelOrdering);
 
 // An array dimension
 struct ComputeKernelDimension {
+    bool tight = false;  ///< Is this a tight bound (we check equality not <= on the passed in array)
+
     std::shared_ptr<CommandExpression> bound; // or nullptr if no bounds
 
     // Do the indexes on this dimension of the array convey information (ordered) or not (unordered)
@@ -502,6 +504,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelConstraint);
 struct ComputeKernelConstraintSolution {
     CommandExpressionVariables knowns;
     std::set<std::string> unknowns;
+    std::set<std::string> unknownFunctions;
 
     bool hasValue(const std::string & variableName) const;
     void setValue(const std::string & variableName, const void * val, const ValueDescription & desc);
@@ -514,6 +517,8 @@ struct ComputeKernelConstraintSolution {
     {
         setValue(variableName, &val, *desc);
     }
+
+    bool hasFunction(const std::string & functionName) const;
 
     Json::Value evaluate(const CommandExpression & expr) const;
 };

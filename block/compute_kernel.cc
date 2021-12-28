@@ -24,6 +24,7 @@ DEFINE_ENUM_DESCRIPTION_INLINE(ComputeKernelOrdering)
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelDimension)
 {
+    addField("tight", &ComputeKernelDimension::tight, "");
     addField("bound", &ComputeKernelDimension::bound, "");
     addField("ordering", &ComputeKernelDimension::ordering, "");
 }
@@ -71,6 +72,7 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelConstraintSolution)
 {
     addField("knowns", &ComputeKernelConstraintSolution::knowns, &CommandExpressionVariables::values, "Known values");
     addField("unknowns", &ComputeKernelConstraintSolution::unknowns, "Set of unknown values");
+    addField("unknownFunctions", &ComputeKernelConstraintSolution::unknownFunctions, "Set of unknown functions");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeTuneable)
@@ -281,6 +283,9 @@ parseType(const std::string & accessAndType)
     auto result = expectType(context);
     while (context.match_literal('[')) {
         // It's an array
+        context.skip_whitespace();
+        bool tight = context.match_literal('=');
+        context.skip_whitespace();
         auto bound = CommandExpression::parseArgumentExpression(context);
         auto ordering = ComputeKernelOrdering::ORDERED;
         if (context.match_literal(":")) {
@@ -288,7 +293,7 @@ parseType(const std::string & accessAndType)
                 ordering = ComputeKernelOrdering::UNORDERED;
         }
         context.expect_literal(']', "expected closing array expression");
-        result.dims.push_back({bound, ordering});
+        result.dims.push_back({tight, bound, ordering});
     }
     context.expect_eof();
     result.access = parseAccess(access);
@@ -342,8 +347,8 @@ print() const
     }
 
     auto result = printAccess(access) + " " + typeName;
-    for (auto [bound, ordering]: dims) {
-        result += "[" + (bound ? bound->surfaceForm : std::string());
+    for (auto [tight, bound, ordering]: dims) {
+        result += string("[") + (tight ? "=" : "") + (bound ? bound->surfaceForm : std::string());
         if (ordering == ComputeKernelOrdering::UNORDERED)
             result += ":unordered";
         result += "]";
@@ -870,20 +875,65 @@ std::set<std::string> getVariables(const CommandExpression & expression)
     return result;
 }
 
+std::set<std::string> getFunctions(const CommandExpression & expression)
+{
+    std::set<std::string> result;
+    auto * var = dynamic_cast<const FunctionExpression *>(&expression);
+    if (var) {
+        result = { var->functionNameValue };
+    }
+    else {
+        for (auto & clause: expression.childClauses()) {
+            ExcAssert(clause);
+            auto fns = getFunctions(*clause);
+            result.insert(fns.begin(), fns.end());
+        }
+    }
+    return result;
+}
+
+bool constraintSatisfied(const std::string & op, const Json::Value & lhsVal, const Json::Value & rhsVal)
+{
+    bool satisfied;
+    if (op == "==") {
+        satisfied = lhsVal == rhsVal;
+    }
+    else if (op == "!=") {
+        satisfied = lhsVal != rhsVal;
+    }
+    else if (op == "<=") {
+        satisfied = lhsVal <= rhsVal;
+    }
+    else if (op == "<") {
+        satisfied = lhsVal < rhsVal;
+    }
+    else if (op == ">=") {
+        satisfied = lhsVal >= rhsVal;
+    }
+    else if (op == ">") {
+        satisfied = lhsVal > rhsVal;
+    }
+    else throw MLDB::Exception("Unknown constraint operation: " + op);
+    return satisfied;
+}
+
 } // file scope
 
 bool
 ComputeKernelConstraint::
 attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
 {
-    if (op != "==")
-        return false;  // equality constraints only for now
-
     bool canEvaluateLhs = true;
     for (auto var: getVariables(*lhs)) {
         if (!solution.hasValue(var)) {
             canEvaluateLhs = false;
             solution.unknowns.insert(var);
+        }
+    }
+    for (auto fn: getFunctions(*lhs)) {
+        if (!solution.hasFunction(fn)) {
+            canEvaluateLhs = false;
+            solution.unknownFunctions.insert(fn);
         }
     }
 
@@ -899,6 +949,12 @@ attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
             solution.unknowns.insert(var);
         }
     }
+    for (auto fn: getFunctions(*rhs)) {
+        if (!solution.hasFunction(fn)) {
+            canEvaluateRhs = false;
+            solution.unknownFunctions.insert(fn);
+        }
+    }
 
     Json::Value rhsVal;
     if (canEvaluateRhs) {
@@ -909,7 +965,10 @@ attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
         return false;
     }
     else if (canEvaluateLhs && canEvaluateRhs) {
-        if (lhsVal != rhsVal) {
+        // An inequality... verify it
+        bool satisfied = constraintSatisfied(op, lhsVal, rhsVal);
+        if (!satisfied) {
+            cerr << "op = " << op << endl;
             cerr << "lhsVal.type() = " << lhsVal.type() << endl;
             cerr << "rhsVal.type() = " << rhsVal.type() << endl;
             cerr << "lhsVal = " << lhsVal << endl;
@@ -918,9 +977,12 @@ attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
             cerr << "rhs = " << rhs->surfaceForm << endl;
             cerr << "solution = " << jsonEncode(solution) << endl;
             throw MLDB::Exception("Couldn't meet constraint " + print()
-                                  + ": (" + lhsVal.toStringNoNewLine()
-                                  + " != " + rhsVal.toStringNoNewLine() + ")");
+                                  + ": !(" + lhsVal.toStringNoNewLine()
+                                  + op + rhsVal.toStringNoNewLine() + ")");
         }
+
+        if (op != "==")
+            return false;
     }
 
     const VariableExpression * lhsVar = dynamic_cast<const VariableExpression *>(lhs.get());
@@ -948,9 +1010,6 @@ bool
 ComputeKernelConstraint::
 satisfied(const ComputeKernelConstraintSolution & solution) const
 {
-    if (op != "==")
-        return false;  // equality constraints only for now
-
     CommandExpressionContext context(&solution.knowns);
 
     auto unknownLhs = lhs->unknowns(context);
@@ -961,9 +1020,12 @@ satisfied(const ComputeKernelConstraintSolution & solution) const
 
     auto lhsVal = lhs->apply(context);
     auto rhsVal = rhs->apply(context);
-    if (lhsVal != rhsVal)
+
+    if (!constraintSatisfied(op, lhsVal, rhsVal)) {
         throw MLDB::Exception("constraint is unsatisfiable: " + print() + ": "
                               + lhsVal.toStringNoNewLine() + " != " + rhsVal.toStringNoNewLine());
+    }
+
     return true;
 }
 
@@ -1012,6 +1074,12 @@ evaluate(const CommandExpression & expr) const
     }
 }
 
+bool
+ComputeKernelConstraintSolution::
+hasFunction(const std::string & functionName) const
+{
+    return knowns.hasFunction(functionName);
+}
 
 // ComputeKernelConstraintSet
 
@@ -1164,7 +1232,7 @@ MemoryArrayAbstractArgumentHandler(MemoryRegionHandle handle,
     ComputeKernelType type;
     type.baseType = std::move(containedType);
     type.access = isConst ? ACC_READ : ACC_READ_WRITE;
-    type.dims.push_back({nullptr});
+    type.dims.push_back({false, nullptr});
     this->type = std::move(type);
     this->isConst = isConst;
 }

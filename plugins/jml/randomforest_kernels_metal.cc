@@ -151,15 +151,14 @@ static struct RegisterKernels {
             result->kernelName = "getPartitionSplits";
             //result->device = ComputeDevice::host();
             result->addDimension("fidx", "naf");
-            result->addDimension("partition", "numActivePartitions");
 
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("bucketNumbers", "r", "u32[nf + 1]");
             result->addParameter("activeFeatureList", "r", "u32[naf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addParameter("buckets", "r", "W32[totalBuckets * np]");
-            result->addParameter("wAll", "r", "W32[np]");
-            result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * naf]");
+            result->addParameter("buckets", "r", "W32[numActiveBuckets * nap]");
+            result->addParameter("wAll", "r", "W32[nap]");
+            result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[nap * naf]");
             result->addParameter("depth", "r", "u16");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
 
@@ -168,8 +167,9 @@ static struct RegisterKernels {
 
             result->addParameter("wLocal", "w", "WIndexed[wLocalSize]");
             result->addParameter("wLocalSize", "r", "u32");
-            result->addPreConstraint("totalBuckets", "==", "buckets.length / np");
-            result->addPostConstraint("totalBuckets", "==", "readArrayElement(numActivePartitionsOut, 0)");
+            //result->addPostConstraint("totalBuckets", "==", "readArrayElement(numActivePartitionsOut, 0)");
+            //result->addPreConstraint("nap", "==", "maxNumActivePartitions");
+            //result->addPostConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
 
             result->setGridExpression("[1,naf,numPartitionsInParallel]", "[64,1,1]");
             
@@ -185,7 +185,6 @@ static struct RegisterKernels {
             auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "bestPartitionSplit";
             //result->device = ComputeDevice::host();
-            result->addDimension("partition", "numActivePartitions");
 
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
@@ -195,6 +194,9 @@ static struct RegisterKernels {
             result->addParameter("featurePartitionSplits", "r", "PartitionSplit[numActivePartitions * numActiveFeatures]");
             result->addParameter("partitionIndexes", "r", "PartitionIndex[npi]");
             result->addParameter("allPartitionSplitsOut", "w", "IndexedPartitionSplit[maxPartitions]");
+
+            //result->addPreConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
+            //result->addPostConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
 
             result->addTuneable("numPartitionsAtOnce", 1024);
             result->setGridExpression("[numPartitionsAtOnce]", "[1]");
@@ -232,18 +234,18 @@ static struct RegisterKernels {
             auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "clearBuckets";
             //result->device = ComputeDevice::host();
-            result->addDimension("partition", "numActivePartitions");
-            result->addDimension("b", "numActiveBuckets");
+            result->addDimension("bucket", "numActiveBuckets");
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
             result->addParameter("depth", "r", "u16");
-            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * np]");
-            result->addParameter("wAllOut", "w", "W32[np]");
+            result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * numActivePartitions]");
+            result->addParameter("wAllOut", "w", "W32[numActivePartitions]");
             result->addParameter("numNonZeroDirectionIndices", "w", "u32[1]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->allowGridPadding();
             result->addTuneable("gridBlockSize", 64);
-            result->setGridExpression("[numActivePartitions,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
+            result->addTuneable("numPartitionsAtOnce", 1024);
+            result->setGridExpression("[numPartitionsAtOnce,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "clearBucketsKernel");
             return result;
         };
@@ -334,20 +336,20 @@ static struct RegisterKernels {
             auto result = std::make_shared<MetalComputeKernel>(&context);
             result->kernelName = "fixupBuckets";
             result->device = ComputeDevice::host();
-            result->addDimension("partition", "numActivePartitions");
             result->addDimension("bucket", "numActiveBuckets");
 
-            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
-            result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
+            result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[=1]");
+            result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[=1]");
             result->addParameter("depth", "r", "u16");
 
-            result->addParameter("buckets", "w", "W32[numActiveBuckets * newNumPartitions]");
-            result->addParameter("wAll", "w", "W32[newNumPartitions]");
+            result->addParameter("buckets", "rw", "W32[numActiveBuckets * newNumPartitions]");
+            result->addParameter("wAll", "rw", "W32[newNumPartitions]");
             result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
             result->addParameter("smallSideIndexes", "r", "u8[newNumPartitions]");
             result->addTuneable("gridBlockSize", 64);
+            result->addTuneable("numPartitionsAtOnce", 1024);
             result->allowGridPadding();
-            result->setGridExpression("[numActivePartitions,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
+            result->setGridExpression("[numPartitionsAtOnce,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "fixupBucketsKernel");
             return result;
         };

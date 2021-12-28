@@ -230,6 +230,7 @@ REGISTER_VALUE_DESCRIPTION_ALIAS(TreeTrainingInfo);
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(TreeDepthInfo)
 {
     addField("prevNumFinishedPartitions", &TreeDepthInfo::prevNumFinishedPartitions, "Number of partition splits finished at previous depth");
+    addField("prevNumActivePartitions", &TreeDepthInfo::prevNumActivePartitions, "Number of active partitions at previous depth");
     addField("numFinishedPartitions", &TreeDepthInfo::numFinishedPartitions, "Number of partition splits finished at this depth");
     addField("numActivePartitions", &TreeDepthInfo::numActivePartitions, "Number of active partitions at depth");
     addField("numSmallSideRows", &TreeDepthInfo::numSmallSideRows, "Number of rows on the small sides at depth");

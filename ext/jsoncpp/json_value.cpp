@@ -666,7 +666,7 @@ Value::operator <( const Value &other ) const
 bool
 Value::operator <=( const Value &other ) const
 {
-   return !(other > *this);
+   return *this < other || *this == other;
 }
 
 bool

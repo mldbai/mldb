@@ -1279,6 +1279,7 @@ chooseSplit(__global const W * w,
 
 struct TreeDepthInfo {
     uint32_t prevNumFinishedPartitions;
+    uint32_t prevNumActivePartitions;
     uint32_t numFinishedPartitions;
     uint32_t numActivePartitions;
     uint32_t numSmallSideRows;
@@ -1662,6 +1663,7 @@ assignPartitionNumbersKernel(__constant const BestPartitionSplitArgs & args,
 
     if (simd_is_first()) {
         uint32_t nap = min(n2, (uint32_t)maxNumActivePartitions);
+        treeDepthInfo.prevNumActivePartitions = treeDepthInfo.numActivePartitions;
         treeDepthInfo.numActivePartitions = nap;
         treeDepthInfo.numSmallSideRows = numSmallSideRows;
         treeDepthInfo.prevNumFinishedPartitions = depth == 0 ? 0 : treeDepthInfo.numFinishedPartitions;
@@ -2179,11 +2181,13 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
 // Dimension 1 = bucket number (from 0 to the number of active buckets); may be padded
 
 struct FixupBucketsArgs {
-    uint32_t numActiveBuckets;
+    uint16_t depth;
 };
 
 __kernel void
 fixupBucketsKernel(__constant const FixupBucketsArgs & args,
+                   __constant const TreeTrainingInfo & treeTrainingInfo,
+                   __global const TreeDepthInfo & treeDepthInfo,
                    __global W * buckets,
                    __global W * wAll,
                    __global const PartitionInfo * partitionInfo,
@@ -2193,34 +2197,35 @@ fixupBucketsKernel(__constant const FixupBucketsArgs & args,
                    uint2 local_id [[thread_position_in_threadgroup]],
                    uint2 local_size [[threads_per_threadgroup]])
 {
-    uint32_t numActiveBuckets = args.numActiveBuckets;
+    uint32_t numActiveBuckets = treeTrainingInfo.numActiveBuckets;
+    uint16_t numActivePartitions = treeDepthInfo.prevNumActivePartitions;
     uint32_t j = get_global_id(1);  // bucket number in partition
-    if (j >= args.numActiveBuckets)
+    if (j >= numActiveBuckets)
         return;
 
-    //uint32_t numPartitions = get_global_size(0);
-    uint32_t partition = get_global_id(0);  // partition number
+    for (uint32_t partition = get_global_id(0);  partition < numActivePartitions;  partition += get_global_size(0)) {
 
-    PartitionInfo info = partitionInfo[partition];
-    if (info.left == -1 || info.right == -1)
-        return;
+        PartitionInfo info = partitionInfo[partition];
+        if (info.left == -1 || info.right == -1)
+            continue;
 
-    // The small side partition always gets subtracted from the large size partition
-    int32_t to, from;
-    if (smallSideIndexes[info.left]) {
-        to = info.right;
-        from = info.left;
-    }
-    else {
-        to = info.left;
-        from = info.right;
-    }
+        // The small side partition always gets subtracted from the large size partition
+        int32_t to, from;
+        if (smallSideIndexes[info.left]) {
+            to = info.right;
+            from = info.left;
+        }
+        else {
+            to = info.left;
+            from = info.right;
+        }
 
-    __global W * bucketsFrom = buckets + from * numActiveBuckets;
-    __global W * bucketsTo = buckets + to * numActiveBuckets;
-    
-    decrementWOutGlobal(bucketsTo + j, bucketsFrom + j);
-    if (j == 0) {
-        decrementWOutGlobal(wAll + to, wAll + from);
+        __global W * bucketsFrom = buckets + from * numActiveBuckets;
+        __global W * bucketsTo = buckets + to * numActiveBuckets;
+        
+        decrementWOutGlobal(bucketsTo + j, bucketsFrom + j);
+        if (j == 0) {
+            decrementWOutGlobal(wAll + to, wAll + from);
+        }
     }
 }
