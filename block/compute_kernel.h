@@ -478,10 +478,24 @@ struct ComputeKernelConstraintSolution;
 // ComputeKernelConstraint
 
 struct ComputeKernelConstraint {
+
+    ComputeKernelConstraint() = default;
+
+    ComputeKernelConstraint(std::shared_ptr<const CommandExpression> lhs,
+                            std::string op,
+                            std::shared_ptr<const CommandExpression> rhs,
+                            std::string description);
+
     std::shared_ptr<const CommandExpression> lhs;
     std::string op;
     std::shared_ptr<const CommandExpression> rhs;
     std::string description;
+    uint64_t hash;
+
+    std::set<std::string> lhsVariables;
+    std::set<std::string> lhsFunctions;
+    std::set<std::string> rhsVariables;
+    std::set<std::string> rhsFunctions;
 
     std::string print() const;
 
@@ -505,6 +519,9 @@ struct ComputeKernelConstraintSolution {
     CommandExpressionVariables knowns;
     std::set<std::string> unknowns;
     std::set<std::string> unknownFunctions;
+
+    // Set of hashes of constraints we know to be satisfied
+    std::set<uint64_t> satisfied;
 
     bool hasValue(const std::string & variableName) const;
     void setValue(const std::string & variableName, const void * val, const ValueDescription & desc);

@@ -17,6 +17,7 @@
 #include "mldb/arch/ansi.h"
 #include "mldb/block/zip_serializer.h"
 #include "mldb/utils/command_expression_impl.h"
+#include "mldb/arch/spinlock.h"
 #include <compare>
 
 using namespace std;
@@ -335,7 +336,7 @@ struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
     // If we're managing host memory, this is where it is.
     const std::byte * backingHostMem = nullptr;
 
-    std::mutex mutex;
+    Spinlock mutex;
     int numReaders = 0;
     int numWriters = 0;
     std::set<std::string> currentWriters;
@@ -881,11 +882,15 @@ enqueue(const std::string & opName,
         commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
         commandEncoder.SetLabel((opName + " kernel").c_str());
 
+        constexpr bool solveAfter = false;
+
         for (auto & action: kernel->bindActions) {
-            action.apply(*kernel->mtlContext, bound.arguments, knowns, commandBuffer, commandEncoder);
+            action.apply(*kernel->mtlContext, bound.arguments, knowns, solveAfter, commandBuffer, commandEncoder);
         }
 
-        knowns = solve(knowns, bound.constraints, bound.preConstraints);
+        if (solveAfter) {
+            knowns = solve(knowns, bound.constraints, bound.preConstraints);
+        }
         //knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
 
         mtlGrid.resize(3, 1);
@@ -896,6 +901,7 @@ enqueue(const std::string & opName,
 
         commandEncoder.DispatchThreadgroups(gridSize, blockSize);
 
+#if 0
         auto timer = std::make_shared<Timer>();
         std::string kernelName = bound.owner->kernelName;
         std::weak_ptr<MetalComputeQueue> weakThis = this->shared_from_this();
@@ -934,6 +940,7 @@ enqueue(const std::string & opName,
             }
         #endif
         };
+#endif
 
 #if 1
         //commandBuffer.Enqueue();
@@ -1992,6 +1999,7 @@ MetalBindAction::
 applyArg(MetalComputeContext & context,
          const std::vector<ComputeKernelArgument> & args,
          ComputeKernelConstraintSolution & knowns,
+         bool setKnowns,
          mtlpp::CommandBuffer & commandBuffer,
          mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
@@ -2047,19 +2055,21 @@ applyArg(MetalComputeContext & context,
         traceMetalOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
         MemoryRegionAccess access = type.access;
 
-        Json::Value known;
-        ExcAssert(type.baseType);
-        known["elAlign"] = type.baseType->align;
-        known["elWidth"] = type.baseType->width;
-        known["elType"] = type.baseType->typeName;
-        known["length"] = handle.lengthInBytes() / type.baseType->width;
-        known["type"] = type.print();
-        known["name"] = handle.handle->name;
-        known["version"] = handle.handle->version;
+        if (setKnowns) {
+            Json::Value known;
+            ExcAssert(type.baseType);
+            known["elAlign"] = type.baseType->align;
+            known["elWidth"] = type.baseType->width;
+            known["elType"] = type.baseType->typeName;
+            known["length"] = handle.lengthInBytes() / type.baseType->width;
+            known["type"] = type.print();
+            known["name"] = handle.handle->name;
+            known["version"] = handle.handle->version;
 
-        //cerr << "setting known " << argName << " to " << known << endl;
+            //cerr << "setting known " << argName << " to " << known << endl;
 
-        knowns.setValue(argName, known);
+            knowns.setValue(argName, known);
+        }
 
         if (traceSerializer && (access & ACC_READ)) {
             auto [region, version] = context
@@ -2087,6 +2097,7 @@ MetalBindAction::
 applyStruct(MetalComputeContext & context,
             const std::vector<ComputeKernelArgument> & args,
             ComputeKernelConstraintSolution & knowns,
+            bool setKnowns,
             mtlpp::CommandBuffer & commandBuffer,
             mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
@@ -2138,6 +2149,7 @@ MetalBindAction::
 applyThreadGroup(MetalComputeContext & context,
                  const std::vector<ComputeKernelArgument> & args,
                  ComputeKernelConstraintSolution & knowns,
+                 bool setKnowns,
                  mtlpp::CommandBuffer & commandBuffer,
                  mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
@@ -2154,15 +2166,17 @@ applyThreadGroup(MetalComputeContext & context,
     traceMetalOperation("binding local array handle with " + std::to_string(nbytes) + " bytes " + " at index " + std::to_string(arg.GetIndex()));
 
     // Set the knowns for this binding
-    Json::Value known;
-    known["elAlign"] = type.baseType->align;
-    known["elWidth"] = type.baseType->width;
-    known["elType"] = type.baseType->typeName;
-    known["length"] = len;
-    known["type"] = type.print();
-    known["name"] = "<<<Local array>>>";
+    if (setKnowns) {
+        Json::Value known;
+        known["elAlign"] = type.baseType->align;
+        known["elWidth"] = type.baseType->width;
+        known["elType"] = type.baseType->typeName;
+        known["length"] = len;
+        known["type"] = type.print();
+        known["name"] = "<<<Local array>>>";
 
-    knowns.setValue(this->argName, std::move(known));
+        knowns.setValue(this->argName, std::move(known));
+    }
 
     // Set it up in the command encoder
     commandEncoder.SetThreadgroupMemory(nbytes, this->arg.GetIndex());
@@ -2173,18 +2187,19 @@ MetalBindAction::
 apply(MetalComputeContext & context,
       const std::vector<ComputeKernelArgument> & args,
       ComputeKernelConstraintSolution & knowns,
+      bool setKnowns,
       mtlpp::CommandBuffer & buffer,
       mtlpp::ComputeCommandEncoder & commandEncoder) const
 {
     switch (action) {
         case MetalBindActionType::SET_BUFFER_FROM_ARG:
-            applyArg(context, args, knowns, buffer, commandEncoder);
+            applyArg(context, args, knowns, setKnowns, buffer, commandEncoder);
             break;
         case MetalBindActionType::SET_BUFFER_FROM_STRUCT:
-            applyStruct(context, args, knowns, buffer, commandEncoder);
+            applyStruct(context, args, knowns, setKnowns, buffer, commandEncoder);
             break;
         case MetalBindActionType::SET_BUFFER_THREAD_GROUP:
-            applyThreadGroup(context, args, knowns, buffer, commandEncoder);
+            applyThreadGroup(context, args, knowns, setKnowns, buffer, commandEncoder);
             break;
         default:
             throw MLDB::Exception("Unknown metal action");
@@ -2389,8 +2404,11 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraint
 
     ExcAssert(this->context);
     auto bindInfo = std::make_shared<MetalBindInfo>();
-    bindInfo->owner = this;
-    bindInfo->mtlPipelineState = computePipelineState;
+    {
+        auto op = scopedOperation(OperationType::METAL_COMPUTE, "setup bindInfo");
+        bindInfo->owner = this;
+        bindInfo->mtlPipelineState = computePipelineState;
+    }
 
     //cerr << "kernel " << kernelName << " has "
     //     << computePipelineState.GetMaxTotalThreadsPerThreadgroup() << " max threads per thread group, "
@@ -2430,41 +2448,50 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraint
     }
 
     BoundComputeKernel result;
-    result.arguments = std::move(argumentsIn);
-    result.owner = this;
-    result.bindInfo = bindInfo;
+    {
+        auto op = scopedOperation(OperationType::METAL_COMPUTE, "construct result");
+        result.arguments = std::move(argumentsIn);
+        result.owner = this;
+        result.bindInfo = bindInfo;
 
-    // Copy constraints over
-    result.constraints = this->constraints;
-    result.preConstraints = this->preConstraints;
-    result.postConstraints = this->postConstraints;
-    result.tuneables = this->tuneables;
-    result.knowns = std::move(knowns);
+        // Copy constraints over
+        result.constraints = this->constraints;
+        result.preConstraints = this->preConstraints;
+        result.postConstraints = this->postConstraints;
+        result.tuneables = this->tuneables;
+        result.knowns = std::move(knowns);
 
-    result.setKnownsFromArguments();
-
-    // Run the setters to set the other parameters
-    //for (auto & s: this->setters) {
-    //    s(kernel, upcastContext);
-    //}
-
-    // Look through for constraints from dimensions
-    for (size_t i = 0;  i < this->dims.size();  ++i) {
-        result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "]",
-                             "Constraint implied by variables named in dimension " + std::to_string(0));
+        result.setKnownsFromArguments();
     }
 
-    // Look through for constraints from parameters
-    for (auto & p: this->params) {
-        if (!p.type.dims.empty() && p.type.dims[0].bound) {
-            result.addConstraint(p.type.dims[0].bound, p.type.dims[0].tight ? "==" : "<=", p.name + ".length",
-                                 "Constraint implied by array bounds of parameter " + p.name + ": "
-                                 + p.type.print());
+    {
+        auto op = scopedOperation(OperationType::METAL_COMPUTE, "add constraints");
+        // Run the setters to set the other parameters
+        //for (auto & s: this->setters) {
+        //    s(kernel, upcastContext);
+        //}
+
+        // Look through for constraints from dimensions
+        for (size_t i = 0;  i < this->dims.size();  ++i) {
+            result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "]",
+                                "Constraint implied by variables named in dimension " + std::to_string(0));
+        }
+
+        // Look through for constraints from parameters
+        for (auto & p: this->params) {
+            if (!p.type.dims.empty() && p.type.dims[0].bound) {
+                result.addConstraint(p.type.dims[0].bound, p.type.dims[0].tight ? "==" : "<=", p.name + ".length",
+                                    "Constraint implied by array bounds of parameter " + p.name + ": "
+                                    + p.type.print());
+            }
         }
     }
 
     // figure out the values of the new constraints
-    result.knowns = solve(result.knowns, result.constraints, result.preConstraints);
+    {
+        auto op = scopedOperation(OperationType::METAL_COMPUTE, "solve preConstraints");
+        result.knowns = solve(result.knowns, result.constraints, result.preConstraints);
+    }
 
     if (bindInfo->traceSerializer) {
         //bindInfo->traceSerializer->newObject("args", argInfo);

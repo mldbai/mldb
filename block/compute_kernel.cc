@@ -849,13 +849,6 @@ getDefault()
 
 // ComputeKernelConstraint
 
-std::string
-ComputeKernelConstraint::
-print() const
-{
-    return lhs->surfaceForm + op + rhs->surfaceForm + " (" + description + ")";
-}
-
 namespace {
 
 std::set<std::string> getVariables(const CommandExpression & expression)
@@ -919,18 +912,45 @@ bool constraintSatisfied(const std::string & op, const Json::Value & lhsVal, con
 
 } // file scope
 
+ComputeKernelConstraint::
+ComputeKernelConstraint(std::shared_ptr<const CommandExpression> lhsIn,
+                        std::string opIn,
+                        std::shared_ptr<const CommandExpression> rhsIn,
+                        std::string descriptionIn)
+    : lhs(std::move(lhsIn)),
+      op(std::move(opIn)),
+      rhs(std::move(rhsIn)),
+      description(std::move(descriptionIn))
+{
+    lhsVariables = getVariables(*lhs);
+    lhsFunctions = getFunctions(*lhs);
+    rhsVariables = getVariables(*rhs);
+    rhsFunctions = getFunctions(*rhs);
+    hash = std::hash<std::string>()(print());
+}
+
+std::string
+ComputeKernelConstraint::
+print() const
+{
+    return lhs->surfaceForm + op + rhs->surfaceForm + " (" + description + ")";
+}
+
 bool
 ComputeKernelConstraint::
 attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
 {
+    if (solution.satisfied.count(hash))
+        return false;
+
     bool canEvaluateLhs = true;
-    for (auto var: getVariables(*lhs)) {
+    for (auto var: lhsVariables) {
         if (!solution.hasValue(var)) {
             canEvaluateLhs = false;
             solution.unknowns.insert(var);
         }
     }
-    for (auto fn: getFunctions(*lhs)) {
+    for (auto fn: lhsFunctions) {
         if (!solution.hasFunction(fn)) {
             canEvaluateLhs = false;
             solution.unknownFunctions.insert(fn);
@@ -943,13 +963,13 @@ attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
     }
 
     bool canEvaluateRhs = true;
-    for (auto var: getVariables(*rhs)) {
+    for (auto var: rhsVariables) {
         if (!solution.hasValue(var)) {
             canEvaluateRhs = false;
             solution.unknowns.insert(var);
         }
     }
-    for (auto fn: getFunctions(*rhs)) {
+    for (auto fn: rhsFunctions) {
         if (!solution.hasFunction(fn)) {
             canEvaluateRhs = false;
             solution.unknownFunctions.insert(fn);
@@ -981,6 +1001,8 @@ attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
                                   + op + rhsVal.toStringNoNewLine() + ")");
         }
 
+        solution.satisfied.insert(hash);
+
         if (op != "==")
             return false;
     }
@@ -992,6 +1014,7 @@ attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
         solution.unknowns.erase(lhsVar->variableName);
         if (!solution.hasValue(lhsVar->variableName)) {
             solution.setValue(lhsVar->variableName, rhsVal);
+            solution.satisfied.insert(hash);
             return true;
         }
     }
@@ -999,6 +1022,7 @@ attemptToSatisfy(ComputeKernelConstraintSolution & solution) const
         solution.unknowns.erase(rhsVar->variableName);
         if (!solution.hasValue(rhsVar->variableName)) {
             solution.setValue(rhsVar->variableName, lhsVal);
+            solution.satisfied.insert(hash);
             return true;
         }
     }
@@ -1010,6 +1034,9 @@ bool
 ComputeKernelConstraint::
 satisfied(const ComputeKernelConstraintSolution & solution) const
 {
+    if (solution.satisfied.count(hash))
+        return true;
+
     CommandExpressionContext context(&solution.knowns);
 
     auto unknownLhs = lhs->unknowns(context);
@@ -1116,6 +1143,8 @@ solve(const ComputeKernelConstraintSolution & solutionIn,
       const ComputeKernelConstraintSet & constraints1,
       const ComputeKernelConstraintSet & constraints2)
 {
+    Timer timer;
+
     ComputeKernelConstraintSolution result = solutionIn;
 
     bool progress = true;
@@ -1129,6 +1158,9 @@ solve(const ComputeKernelConstraintSolution & solutionIn,
             progress = progress || c.attemptToSatisfy(result);
         }
     }
+
+    cerr << "solving with " << constraints1.constraints.size() + constraints2.constraints.size()
+         << " constraints took " << timer.elapsed_wall() * 1000.0 << "ms" << endl;
 
     return result;
 }
@@ -1209,7 +1241,7 @@ BoundComputeKernel::
 setKnownsFromArguments()
 {
     for (auto & arg: arguments) {
-        if (arg.handler) {
+        if (arg.handler && !knowns.hasValue(arg.name)) {
             // Was set by the caller
             knowns.setValue(arg.name, arg.handler->toJson());
         }
