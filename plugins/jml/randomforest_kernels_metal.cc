@@ -159,7 +159,6 @@ static struct RegisterKernels {
             result->addParameter("buckets", "r", "W32[numActiveBuckets * nap]");
             result->addParameter("wAll", "r", "W32[nap]");
             result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[nap * naf]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
 
             result->addTuneable("numPartitionsInParallel", 1024);
@@ -188,7 +187,6 @@ static struct RegisterKernels {
 
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
 
             result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featurePartitionSplits", "r", "PartitionSplit[numActivePartitions * numActiveFeatures]");
@@ -214,7 +212,6 @@ static struct RegisterKernels {
             //result->device = ComputeDevice::host();
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
 
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[np]");
             result->addParameter("partitionIndexesOut", "w", "PartitionIndex[maxActivePartitions]");
@@ -237,7 +234,6 @@ static struct RegisterKernels {
             result->addDimension("bucket", "numActiveBuckets");
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * numActivePartitions]");
             result->addParameter("wAllOut", "w", "W32[numActivePartitions]");
             result->addParameter("numNonZeroDirectionIndices", "w", "u32[1]");
@@ -262,7 +258,6 @@ static struct RegisterKernels {
 
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
 
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u32[(numRows+31)/32]");
@@ -298,7 +293,6 @@ static struct RegisterKernels {
 
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
 
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u32[(numRows + 31)/32]");
@@ -340,7 +334,6 @@ static struct RegisterKernels {
 
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[=1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[=1]");
-            result->addParameter("depth", "r", "u16");
 
             result->addParameter("buckets", "rw", "W32[numActiveBuckets * newNumPartitions]");
             result->addParameter("wAll", "rw", "W32[newNumPartitions]");

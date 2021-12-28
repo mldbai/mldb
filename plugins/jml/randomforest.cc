@@ -1340,7 +1340,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                     "buckets",                        devicePartitionBucketPool,
                     "wAll",                           deviceWAllPool,
                     "featurePartitionSplitsOut",      deviceFeaturePartitionSplitsPool,
-                    "depth",                          (uint16_t)depth,
                     "treeDepthInfo",                  deviceTreeDepthInfo,
                     "numActiveBuckets",               numActiveBuckets);
 
@@ -1356,7 +1355,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             auto boundBestPartitionSplitKernel = bestPartitionSplitKernel
                 ->bind("treeTrainingInfo",               deviceTreeTrainingInfo,
                        "treeDepthInfo",                  deviceTreeDepthInfo,
-                       "depth",                          (uint16_t)depth,
                        "activeFeatureList",              deviceActiveFeatureList,
                        "featurePartitionSplits",         deviceFeaturePartitionSplitsPool,
                        "allPartitionSplitsOut",          deviceAllPartitionSplitsPool,
@@ -1558,7 +1556,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                = assignPartitionNumbersKernel->bind
                ("treeTrainingInfo",       deviceTreeTrainingInfo,
                 "treeDepthInfo",          deviceTreeDepthInfo,
-                "depth",                  (uint16_t)depth,
                 "allPartitionSplits",     deviceAllPartitionSplitsPool,
                 "partitionIndexesOut",    devicePartitionIndexPool,
                 "partitionInfoOut",       devicePartitionInfoPool,
@@ -1632,7 +1629,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             auto boundClearBucketsKernel = clearBucketsKernel->bind
                ("treeTrainingInfo",           deviceTreeTrainingInfo,
                 "treeDepthInfo",              deviceTreeDepthInfo,
-                "depth",                      (uint16_t)depth,
                 "bucketsOut",                 devicePartitionBucketPool,
                 "wAllOut",                    deviceWAllPool,
                 "numNonZeroDirectionIndices", numNonZeroDirectionIndices, 
@@ -1659,7 +1655,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 ->bind(
                     "treeTrainingInfo",               deviceTreeTrainingInfo,
                     "treeDepthInfo",                  deviceTreeDepthInfo,
-                    "depth",                          (uint16_t)depth,
                     "partitions",                     devicePartitions,
                     "directions",                     directions,
                     "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
@@ -1768,7 +1763,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             auto boundUpdateBucketsKernel = updateBucketsKernel->bind
                ("treeTrainingInfo",               deviceTreeTrainingInfo,
                 "treeDepthInfo",                  deviceTreeDepthInfo,
-                "depth",                          (uint16_t)depth,
                 "partitions",                     devicePartitions,
                 "directions",                     directions,
                 "nonZeroDirectionIndices",        nonZeroDirectionIndices, 

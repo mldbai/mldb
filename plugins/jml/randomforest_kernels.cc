@@ -116,7 +116,6 @@ getPartitionSplitsKernel(ComputeContext & context,
 
                          std::span<const W> wAll,  // [np] one per partition
                          std::span<PartitionSplit> splitsOut, // [np x nf]
-                         uint16_t depth,
                          std::span<const TreeDepthInfo> treeDepthInfo) //[1]
 {
     auto numActivePartitions = treeDepthInfo[0].numActivePartitions;
@@ -148,7 +147,6 @@ void
 bestPartitionSplitKernel(ComputeContext & context,
                          std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                          std::span<const TreeDepthInfo> treeDepthInfo, //[1]
-                         uint16_t depth,
                          std::span<const uint32_t> featureActive, // [naf]
                          std::span<const PartitionSplit> featurePartitionSplits, // [np x nf]
                          std::span<const PartitionIndex> partitionIndexes, // [np]
@@ -157,6 +155,7 @@ bestPartitionSplitKernel(ComputeContext & context,
     auto partitionSplitsOffset = treeDepthInfo[0].numFinishedPartitions;
     auto naf = treeTrainingInfo[0].numActiveFeatures;
     auto nap = treeDepthInfo[0].numActivePartitions;
+    uint16_t depth = treeDepthInfo[0].depth;
 
     for (uint32_t p = 0;  p < nap;  ++p) {
         //cerr << "partition " << p << " of " << nap << endl;
@@ -184,7 +183,6 @@ assignPartitionNumbersKernel(ComputeContext & context,
 
                              std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                              std::span<TreeDepthInfo> treeDepthInfo, //[1]
-                             uint16_t depth,
 
                              std::span<const IndexedPartitionSplit> partitionSplits,
                              std::span<PartitionIndex> partitionIndexesOut,
@@ -192,7 +190,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
                              std::span<uint8_t> smallSideIndexesOut,
                              std::span<uint16_t> smallSideIndexToPartitionOut)
 {
-    cerr << "on input: treeDepthInfo = " << jsonEncodeStr(treeDepthInfo[0]) << endl;
+    uint16_t depth = treeDepthInfo[0].depth;
 
     uint32_t partitionSplitsOffset = treeDepthInfo[0].numFinishedPartitions;
     uint32_t numActivePartitions = treeDepthInfo[0].numActivePartitions;
@@ -292,6 +290,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
         }
     }
 
+    treeDepthInfo[0].depth = depth + 1;
     treeDepthInfo[0].prevNumActivePartitions = treeDepthInfo[0].numActivePartitions;
     treeDepthInfo[0].numActivePartitions = n2;
     treeDepthInfo[0].numSmallSideRows = numSmallSideRows;
@@ -350,7 +349,6 @@ clearBucketsKernel(ComputeContext & context,
 
                    std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                    std::span<TreeDepthInfo> treeDepthInfo, //[1]
-                   uint16_t depth,
 
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
@@ -387,7 +385,6 @@ updatePartitionNumbersKernel(ComputeContext & context,
           
                              std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                              std::span<TreeDepthInfo> treeDepthInfo, //[1]
-                             uint16_t depth,
                              
                              std::span<RowPartitionInfo> partitions,
                              std::span<uint32_t> /* directions */,
@@ -409,6 +406,7 @@ updatePartitionNumbersKernel(ComputeContext & context,
 {
     auto partitionSplitsOffset = treeDepthInfo[0].prevNumFinishedPartitions;
     partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
+    uint16_t depth = treeDepthInfo[0].depth - 1;
 
     // Skip to where we should be in our partition splits
     //partitionSplits = partitionSplits.subspan(partitionSplitsOffset);
@@ -540,7 +538,6 @@ updateBucketsKernel(ComputeContext & context,
 
                     std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                     std::span<TreeDepthInfo> treeDepthInfo, //[1]
-                    uint16_t depth,
 
                     std::span<const RowPartitionInfo> partitions,
                     std::span<const uint32_t> /* directions */,
@@ -653,7 +650,6 @@ fixupBucketsKernel(ComputeContext & context,
 
                    std::span<const TreeTrainingInfo> treeTrainingInfo, // [1]
                    std::span<TreeDepthInfo> treeDepthInfo, //[1]
-                   uint16_t depth,
 
                    std::span<W> allPartitionBuckets,
                    std::span<W> wAll,
@@ -782,7 +778,6 @@ static struct RegisterKernels {
             result->addParameter("buckets", "r", "W32[numActiveBuckets * nap]");
             result->addParameter("wAll", "r", "W32[nap]");
             result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[np * nf]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[=1]");
             result->addPreConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
             result->addPostConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
@@ -799,7 +794,6 @@ static struct RegisterKernels {
             result->device = ComputeDevice::host();
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("activeFeatureList", "r", "u32[numFeatures]");
             result->addParameter("featurePartitionSplits", "r", "PartitionSplit[np * numActiveFeatures]");
             result->addParameter("partitionIndexes", "r", "PartitionIndex[nap]");
@@ -819,7 +813,6 @@ static struct RegisterKernels {
             result->device = ComputeDevice::host();
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("allPartitionSplits", "r", "IndexedPartitionSplit[numActivePartitions]");
             result->addParameter("partitionIndexesOut", "w", "PartitionIndex[newNumActivePartitions]");
             result->addParameter("partitionInfoOut", "w", "PartitionInfo[numActivePartitions]");
@@ -844,7 +837,6 @@ static struct RegisterKernels {
             result->addDimension("b", "numActiveBuckets");
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[=1]");
             result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[=1]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("bucketsOut", "w", "W32[numActiveBuckets * numActivePartitions]");
             result->addParameter("wAllOut", "rw", "W32[numActivePartitions]");
             result->addParameter("numNonZeroDirectionIndices", "w", "u32[=1]");
@@ -866,7 +858,6 @@ static struct RegisterKernels {
             result->addDimension("r", "numRows");
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "w", "u32[(numRows+31)/32]");
             result->addParameter("numNonZeroDirectionIndices", "rw", "u32[1]");
@@ -899,7 +890,6 @@ static struct RegisterKernels {
             result->addDimension("fidx", "naf");
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
             result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[1]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("partitions", "r", "RowPartitionInfo[numRows]");
             result->addParameter("directions", "r", "u8[(numRows+31)/32]");
             result->addParameter("numNonZeroDirectionIndices", "rw", "u32[1]");
@@ -932,7 +922,6 @@ static struct RegisterKernels {
             result->addDimension("bucket", "numActiveBuckets");
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[=1]");
             result->addParameter("treeDepthInfo", "rw", "TreeDepthInfo[=1]");
-            result->addParameter("depth", "r", "u16");
             result->addParameter("buckets", "rw", "W32[numActiveBuckets * numActivePartitions]");
             result->addParameter("wAll", "rw", "W32[newNumActivePartitions]");
             result->addParameter("partitionInfo", "r", "PartitionInfo[oldNumActivePartitions]");

@@ -1278,17 +1278,13 @@ chooseSplit(__global const W * w,
 #endif
 
 struct TreeDepthInfo {
+    uint32_t depth;
     uint32_t prevNumFinishedPartitions;
     uint32_t prevNumActivePartitions;
     uint32_t numFinishedPartitions;
     uint32_t numActivePartitions;
     uint32_t numSmallSideRows;
     uint32_t status;
-};
-
-struct GetPartitionSplitsArgs {
-    uint32_t wLocalSize;
-    uint16_t depth;
 };
 
 struct TreeTrainingInfo {
@@ -1298,6 +1294,10 @@ struct TreeTrainingInfo {
     uint16_t numFeatures;         ///< Number of total features
     uint16_t maxNumActivePartitions; ///< Maximum width of active partition tree
     uint32_t numActiveBuckets;    ///< Number of buckets across all active features
+};
+
+struct GetPartitionSplitsArgs {
+    uint32_t wLocalSize;
 };
 
 #if 1
@@ -1408,14 +1408,9 @@ typedef struct PartitionIndex {
     uint32_t index;
 } PartitionIndex;
 
-struct BestPartitionSplitArgs {
-    uint16_t depth;
-};
-
 // id 0: partition number
 __kernel void
 bestPartitionSplitKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
-                         __constant const BestPartitionSplitArgs & args,
                          __global const TreeDepthInfo & treeDepthInfo,
                          __global const uint32_t * activeFeatureList, // [numActiveFeatures]
                          __global const PartitionSplit * featurePartitionSplits,
@@ -1427,7 +1422,7 @@ bestPartitionSplitKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
                          uint2 local_size [[threads_per_threadgroup]])
 {
     const uint16_t numActiveFeatures = treeTrainingInfo.numActiveFeatures;
-    const uint16_t depth = args.depth;
+    const uint16_t depth = treeDepthInfo.depth;
 
     allPartitionSplitsOut += treeDepthInfo.numFinishedPartitions;
 
@@ -1501,13 +1496,8 @@ inline uint32_t rightChildIndex(uint32_t parent)
 // - 0 means it's not on the small side
 // - 1-254 means we're partition number (n-1) on the small side
 // - 255 means we're partition number 254 or greater on the small side
-struct AssignPartitionNumbersArgs {
-    uint16_t depth;
-};
-
 __kernel void
-assignPartitionNumbersKernel(__constant const BestPartitionSplitArgs & args,
-                             __constant const TreeTrainingInfo & treeTrainingInfo,
+assignPartitionNumbersKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
                              __global TreeDepthInfo & treeDepthInfo,
                              __global const IndexedPartitionSplit * allPartitionSplits,
                              __global PartitionIndex * partitionIndexesOut,
@@ -1517,7 +1507,7 @@ assignPartitionNumbersKernel(__constant const BestPartitionSplitArgs & args,
                              ushort lane_id [[thread_index_in_simdgroup]],
                              ushort num_lanes [[threads_per_simdgroup]])
 {
-    const uint16_t depth = args.depth;
+    const uint16_t depth = treeDepthInfo.depth;
     const uint16_t numActivePartitions = depth == 0 ? 1 : treeDepthInfo.numActivePartitions;
     const uint16_t maxNumActivePartitions = treeTrainingInfo.maxNumActivePartitions;
 
@@ -1669,6 +1659,7 @@ assignPartitionNumbersKernel(__constant const BestPartitionSplitArgs & args,
         treeDepthInfo.prevNumFinishedPartitions = depth == 0 ? 0 : treeDepthInfo.numFinishedPartitions;
         treeDepthInfo.numFinishedPartitions = treeDepthInfo.prevNumFinishedPartitions + numActivePartitions;
         treeDepthInfo.status = 0;  // for now
+        treeDepthInfo.depth += 1;
 
         // Clear partition indexes for gap partitions
         for (; n < numInactivePartitions;  ++n) {
@@ -1789,14 +1780,9 @@ struct UpdateWorkEntry {
     float decodedRow;
 };
 
-struct ClearBucketsArgs {
-    uint16_t depth;
-};
-
 // [partition, bucket]
 __kernel void
-clearBucketsKernel(__constant const ClearBucketsArgs & args,
-                   __constant const TreeTrainingInfo & treeTrainingInfo,
+clearBucketsKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
                    __global const TreeDepthInfo & treeDepthInfo,
                    __global W * bucketsOut,
                    __global W * wAllOut,
@@ -1848,17 +1834,11 @@ typedef struct {
 } RowPartitionInfo;
 
 
-
-struct UpdatePartitionNumbersArgs {
-    uint16_t depth;
-};
-
 // Second part: per feature plus wAll, transfer examples
 //[rowNumber]
 __kernel void
 //__attribute__((reqd_work_group_size(256,1,1)))
-updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
-                             __constant const TreeTrainingInfo & treeTrainingInfo,
+updatePartitionNumbersKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
                              __global const TreeDepthInfo & treeDepthInfo,
 
                              __global RowPartitionInfo * partitions,
@@ -1883,7 +1863,7 @@ updatePartitionNumbersKernel(__constant const UpdatePartitionNumbersArgs & args,
                              ushort2 local_id [[thread_position_in_threadgroup]],
                              ushort2 local_size [[threads_per_threadgroup]])
 {
-    uint16_t depth = args.depth;
+    uint16_t depth = treeDepthInfo.depth - 1;
     uint32_t numRows = treeTrainingInfo.numRows;
     uint16_t numActivePartitions = treeDepthInfo.numActivePartitions;
 
@@ -2180,13 +2160,8 @@ updateBucketsKernel(__constant const UpdateBucketsArgs & args,
 // Dimension 0 = partition number (from 0 to the old number of partitions)
 // Dimension 1 = bucket number (from 0 to the number of active buckets); may be padded
 
-struct FixupBucketsArgs {
-    uint16_t depth;
-};
-
 __kernel void
-fixupBucketsKernel(__constant const FixupBucketsArgs & args,
-                   __constant const TreeTrainingInfo & treeTrainingInfo,
+fixupBucketsKernel(__constant const TreeTrainingInfo & treeTrainingInfo,
                    __global const TreeDepthInfo & treeDepthInfo,
                    __global W * buckets,
                    __global W * wAll,

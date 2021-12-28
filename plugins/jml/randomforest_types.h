@@ -663,6 +663,7 @@ DECLARE_STRUCTURE_DESCRIPTION(TreeTrainingInfo);
 // Sizing information for a depth iteration
 
 struct TreeDepthInfo {
+    uint32_t depth = 0;
     uint32_t prevNumFinishedPartitions = 0;  ///< numFinishedPartitions for previous depth
     uint32_t prevNumActivePartitions = -1;
     uint32_t numFinishedPartitions = 0;

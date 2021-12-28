@@ -1160,7 +1160,7 @@ solve(const ComputeKernelConstraintSolution & solutionIn,
     }
 
     cerr << "solving with " << constraints1.constraints.size() + constraints2.constraints.size()
-         << " constraints took " << timer.elapsed_wall() * 1000.0 << "ms" << endl;
+         << " constraints took " << timer.elapsed_wall() * 1000000.0 << "us" << endl;
 
     return result;
 }

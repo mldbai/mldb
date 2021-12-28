@@ -229,6 +229,7 @@ REGISTER_VALUE_DESCRIPTION_ALIAS(TreeTrainingInfo);
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(TreeDepthInfo)
 {
+    addField("depth", &TreeDepthInfo::depth, "Tree depth");
     addField("prevNumFinishedPartitions", &TreeDepthInfo::prevNumFinishedPartitions, "Number of partition splits finished at previous depth");
     addField("prevNumActivePartitions", &TreeDepthInfo::prevNumActivePartitions, "Number of active partitions at previous depth");
     addField("numFinishedPartitions", &TreeDepthInfo::numFinishedPartitions, "Number of partition splits finished at this depth");
