@@ -42,6 +42,9 @@ LIBML_LINK := \
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 
+# Metal library for random forests
+$(eval $(call metal_library,randomforest_metal,randomforest_kernels.metal))
+
 # Jml plugins
 LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest.cc \
@@ -98,6 +101,7 @@ LIBMLDB_JML_PLUGIN_LINK:= \
 	mldb_opencl_plugin \
 	mldb_metal_plugin \
 	command_expression \
+	randomforest_metal \
 
 $(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext))
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))

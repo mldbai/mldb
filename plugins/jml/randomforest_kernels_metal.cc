@@ -42,17 +42,24 @@ static struct RegisterKernels {
         {
             auto compileLibrary = [&] () -> mtlpp::Library
             {
-                std::string fileName = "mldb/plugins/jml/randomforest_kernels.metal";
-                filter_istream stream(fileName);
-                Utf8String source = /*"#line 1 \"" + fileName + "\"\n" +*/ stream.readAll();
-
+                Library library;
                 ns::Error error{ns::Handle()};
-                CompileOptions compileOptions;
-                //compileOptions.setPreprocessorMacro("WBITS","32");
-                Library library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
+
+                if (false) {
+                    std::string fileName = "mldb/plugins/jml/randomforest_kernels.metal";
+                    filter_istream stream(fileName);
+                    Utf8String source = /*"#line 1 \"" + fileName + "\"\n" +*/ stream.readAll();
+
+                    CompileOptions compileOptions;
+                    library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
+                }
+                else {
+                    std::string fileName = "build/arm64/lib/randomforest_metal.metallib";
+                    library = context.mtlDevice.NewLibrary(fileName.c_str(), &error);
+                }
 
                 if (error) {
-                    cerr << "Error compiling" << endl;
+                    cerr << "Error getting library" << endl;
                     cerr << "domain: " << error.GetDomain().GetCStr() << endl;
                     cerr << "description: " << error.GetLocalizedDescription().GetCStr() << endl;
                     if (error.GetLocalizedFailureReason()) {
@@ -70,19 +77,6 @@ static struct RegisterKernels {
             return library;
         };
     
-        //string options = "-cl-kernel-arg-info -cl-nv-maxrregcount=32 -cl-nv-verbose";// -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations -DFloat=" + type_name<Float>();
-
-        auto createDoNothingKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
-        {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
-            result->kernelName = "doNothing";
-            result->setComputeFunction(library, "doNothingKernel");
-            return result;
-        };
-
-        registerMetalComputeKernel("doNothing", createDoNothingKernel);
-
         auto createDecodeRowsKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
         {
             auto library = getLibrary(context);

@@ -4,6 +4,9 @@
 
 ifneq ($(PREMAKE),1)
 
+# Metal library for random forests
+$(eval $(call metal_library,base_kernels_metal,base_kernels.metal))
+
 METAL_PLUGIN_SOURCE := \
 	metal.cc compute_kernel_metal.cc
 
@@ -32,6 +35,7 @@ METAL_PLUGIN_LINK := \
 	block \
 	command_expression \
 	mtlpp \
+	base_kernels_metal \
 
 
 $(eval $(call set_compile_option,$(METAL_PLUGIN_SOURCE),-Imldb/ext))

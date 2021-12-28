@@ -51,8 +51,8 @@ struct MetalBindInfo: public ComputeKernelBindInfo {
 };
 
 EnvOption<int> METAL_TRACE_API_CALLS("METAL_COMPUTE_TRACE_API_CALLS", 0);
-EnvOption<std::string> METAL_KERNEL_TRACE_FILE("METAL_KERNEL_TRACE_FILE", "");
-EnvOption<std::string> METAL_CAPTURE_FILE("METAL_CAPTURE_FILE", "");
+EnvOption<std::string, true> METAL_KERNEL_TRACE_FILE("METAL_KERNEL_TRACE_FILE", "");
+EnvOption<std::string, true> METAL_CAPTURE_FILE("METAL_CAPTURE_FILE", "");
 EnvOption<bool, false> METAL_ENABLED("METAL_ENABLED", true);
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
@@ -135,6 +135,7 @@ struct InitCapture {
 
     InitCapture()
     {
+        mtlpp::CaptureManager::GetShared().StopCapture();
     }
 
     void startCapture(const mtlpp::CommandQueue & commandQueue)
@@ -501,9 +502,21 @@ resolveFromCommandBuffer(const mtlpp::CommandBuffer & buffer)
 
     this->commandBuffer = buffer;
 
+    if (buffer.GetStatus() == mtlpp::CommandBufferStatus::Completed) {
+        this->resolve();
+        return;
+    }
+
+    if (buffer.GetStatus() == mtlpp::CommandBufferStatus::Error) {
+        throw MLDB::Exception("Can't resolve command buffer with an error (TODO)");
+        this->resolve();
+        return;
+    }
+
     if (buffer.GetStatus() >= mtlpp::CommandBufferStatus::Committed) {
         // https://developer.apple.com/documentation/metal/mtlcommandbuffer/1442997-addcompletedhandler?language=objc
         // You can’t add a completion handler after you commit the command buffer.
+        cerr << "buffer.GetStatus() = " << (int)buffer.GetStatus() << endl;
         throw MLDB::Exception("cannot create event for committed command buffer");
     }
 
@@ -658,7 +671,7 @@ MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent, const
                   mtlpp::DispatchType dispatchType)
     : ComputeQueue(owner, parent), mtlOwner(owner), dispatchType(dispatchType)
 {
-    mtlQueue = owner->mtlDevice.NewCommandQueue(128 /* max command buffer count */);
+    mtlQueue = owner->mtlDevice.NewCommandQueue(32 /* max command buffer count */);
     ExcAssert(mtlQueue);
     mtlQueue.SetLabel(ns::String(label.c_str()));
     initCapture.startCapture(mtlQueue);
@@ -1044,8 +1057,34 @@ transferToHostSyncImpl(const std::string & opName,
     blitEncoder.SetLabel((opName + " blit").c_str());
     ExcAssert(blitEncoder);
 
-    blitEncoder.Synchronize(buffer);
-    
+    const void * contents;
+    auto length = buffer.GetLength();
+    ExcAssertLessEqual(handle.handle->lengthInBytes, length);
+
+    switch (buffer.GetStorageMode()) {
+    case mtlpp::StorageMode::Managed:
+        blitEncoder.Synchronize(buffer);
+        // fall through
+    case mtlpp::StorageMode::Shared:
+        contents = buffer.GetContents();
+        break;
+    case mtlpp::StorageMode::Private: {
+        // It's a private region; we need to create a new region to hold the result, and then
+        // synchronize
+        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeShared;
+        auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
+        tmpBuffer.SetLabel((opName + " private copy").c_str());
+        blitEncoder.Copy(buffer, offset, tmpBuffer, 0 /* offset */, length - offset);
+        contents = tmpBuffer.GetContents();
+
+        // We pin the temp buffer instead
+        auto freeTmpBuffer = [tmpBuffer] (auto arg) {};
+        pin = std::shared_ptr<const void>(nullptr, freeTmpBuffer);
+        break;
+    }
+    default:
+        throw MLDB::Exception("Cannot manage MemoryLess storage mode");
+    }
     auto myCommandBuffer = commandBuffer;
 
     finish();
@@ -1063,15 +1102,15 @@ transferToHostSyncImpl(const std::string & opName,
     //auto storageMode = buffer.GetStorageMode();
     //cerr << "storage mode is " << (int)storageMode << endl;
 
-    auto contents = buffer.GetContents();
-    auto length = buffer.GetLength();
-    ExcAssertLessEqual(handle.handle->lengthInBytes, length);
+
+    cerr << "contents " << contents << endl;
+    cerr << "length " << length << endl;
 
     //cerr << "region length for region " << handle.handle->name
     //     << " with lengthInBytes " << handle.handle->lengthInBytes
     //     << " is " << length << " and contents " << contents << endl;
 
-    FrozenMemoryRegion result(std::move(pin), (const char *)contents, handle.handle->lengthInBytes);
+    FrozenMemoryRegion result(std::move(pin), ((const char *)contents) + offset, handle.handle->lengthInBytes);
     return result;
 }
 
@@ -1097,8 +1136,15 @@ flush()
 
     auto result = std::make_shared<MetalComputeEvent>("flush", false /* resolved */);
     ExcAssert(commandBuffer);
-    result->resolveFromCommandBuffer(commandBuffer);
-    commandBuffer.Commit();
+    if (commandBuffer.GetStatus() < mtlpp::CommandBufferStatus::Completed) {
+        result->resolveFromCommandBuffer(commandBuffer);
+        if (commandBuffer.GetStatus() < mtlpp::CommandBufferStatus::Committed)
+            commandBuffer.Commit();
+    }
+    else {
+        // TODO: error
+        result->resolve();
+    }
 
     commandBuffer = mtlQueue.CommandBuffer();
     commandBuffer.SetLabel(label);
@@ -1208,8 +1254,8 @@ doMetalAllocate(mtlpp::Device & mtlDevice,
 {
     cerr << "allocating " << length << " bytes for " << regionName << endl;
     // TODO: align...
-    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
+    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
+    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
     auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
     buffer.SetLabel(regionName.c_str());
 
@@ -2615,14 +2661,21 @@ static struct Init {
         {
             auto compileLibrary = [&] () -> mtlpp::Library
             {
-                std::string fileName = "mldb/builtin/metal/base_kernels.metal";
-                filter_istream stream(fileName);
-                Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
-
                 ns::Error error{ns::Handle()};
-                mtlpp::CompileOptions compileOptions;
-                //compileOptions.setPreprocessorMacro("WBITS","32");
-                mtlpp::Library library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
+                mtlpp::Library library;
+
+                if (false) {
+                    std::string fileName = "mldb/builtin/metal/base_kernels.metal";
+                    filter_istream stream(fileName);
+                    Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
+
+                    mtlpp::CompileOptions compileOptions;
+                    library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
+                }
+                else {
+                    std::string fileName = "build/arm64/lib/base_kernels_metal.metallib";
+                    library = context.mtlDevice.NewLibrary(fileName.c_str(), &error);
+                }
 
                 if (error) {
                     cerr << "Error compiling" << endl;

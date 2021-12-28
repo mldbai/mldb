@@ -382,6 +382,7 @@ $(call set,EXT_FUNCTIONS,.cu,add_cuda_source)
 $(call set,EXT_FUNCTIONS,.i,add_swig_source)
 $(call set,EXT_FUNCTIONS,.proto,add_pbuf_source)
 $(call set,EXT_FUNCTIONS,.py.embed,embed_file)
+$(call set,EXT_FUNCTIONS,.metal,add_metal_source)
 
 # add a single source file
 # $(1): filename
@@ -434,7 +435,7 @@ endef
 # $(4): output name; default lib$(1)
 # $(5): output extension; default $(SO_EXTENSION)
 # $(6): build name; default SO
-# $(7): output dir; default $(LIB), must NOT end /
+# $(7): output dir; default $(LIB), must NOT end with /
 # $(8): extra linker options
 
 define library
@@ -611,6 +612,102 @@ $(1):	$(TESTS)/$(1)
 
 $(if $(findstring manual,$(3)),manual,test $(if $(findstring noauto,$(3)),,autotest) ) $(CURRENT_TEST_TARGETS) $$(CURRENT)_test_all $(4):	$(TESTS)/$(1).passed
 endif
+endef
+
+# Metal source file, compiled into an AIR intermediate file
+# $(1): filename of source file
+# $(2): basename of the filename
+# $(3): directory under which the source lives; default $(SRC)
+# $(4): extra compiler options
+
+define add_metal_source
+ifneq ($(PREMAKE),1)
+$$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
+
+BUILD_$(CWD)/$(2).air_COMMAND:=xcrun -sdk macosx metal -frecord-sources -o $(OBJ)/$(CWD)/$(2).air -c $$(tmpDIR)/$(CWD)/$(1) $(4)
+
+BUILD_$(CWD)/$(2).air_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).air_COMMAND))
+BUILD_$(CWD)/$(2).air_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).air_HASH).air
+
+BUILD_$(CWD)/$(2).air_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).air,$$(BUILD_$(CWD)/$(2).air_OBJ),$$(BUILD_$(CWD)/$(2).air_COMMAND))
+
+$(OBJ)/$(CWD)/$(2).d:
+$$(BUILD_$(CWD)/$(2).air_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).air_COMMAND2),@echo "           $(COLOR_GREEN)[METAL]$(COLOR_RESET)		$(CWD)/$(1)")
+	@$$(call write_timing_to,$$@.timing) $$(BUILD_$(CWD)/$(2).air_COMMAND2)
+	$$(if $(verbose_build),,@echo "           $(COLOR_GREEN)     $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
+	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
+
+compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).air_OBJ)
+objs metal_objs: $$(BUILD_$(CWD)/$(2).air_OBJ)
+
+endif
+endef
+
+# add a library
+# $(1): name of the library
+# $(2): source files to include in the library
+# $(3): libraries to link with
+# $(4): output name; default lib$(1)
+# $(5): output extension; default $(SO_EXTENSION)
+# $(6): build name; default MTLLIB
+# $(7): output dir; default $(LIB), must NOT end with /
+# $(8): extra linker options
+
+define metal_library
+ifneq ($(PREMAKE),1)
+$$(if $(trace),$$(warning called metal_library "$(1)" "$(2)" "$(3)"))
+$$(eval $$(call add_sources,$(2)))
+
+$$(eval tmpLIBNAME := $(if $(4),$(4),$(1)))
+$$(eval so := $(strip $(if $(5),$(5),.metallib)))
+$$(eval sodir := $(if $(7),$(7),$(LIB)))
+
+LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_GREEN)[MTLLIB]$(COLOR_RESET)")
+
+OBJFILES_$(1):=$$(foreach file,$(2:%=$(CWD)/%.air),$$(BUILD_$$(file)_OBJ)$$(warning looking for BUILD_$$(file)_OBJ))
+
+LINK_$(1)_COMMAND:= xcrun -sdk macosx metallib -o $$(sodir)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), $$(LIB_$$(lib)_LINKER_OPTIONS) $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(8)
+
+LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
+LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
+LIB_$(1)_HAS_NO_SHLIB := 1
+
+# For this library, this is the set of command line options needed to link it in
+# to the executable.
+LIB_$(1)_LINKER_OPTIONS += 
+
+ifneq ($(__BASH_MAKE_COMPLETION__),1)
+-include $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
+endif
+
+$$(sodir)/$$(tmpLIBNAME)$$(so).version.mk:	$$(sodir)/.dir_exists 
+	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $$@
+
+
+# We need the library so names to stay the same, so we copy the correct one
+# into our version
+$$(sodir)/$$(tmpLIBNAME)$$(so): $$(LIB_$(1)_SO) $$(dir $$(sodir)/$$(tmpLIBNAME))/.dir_exists
+	@$(RM) $$@
+	@ln $$< $$@
+	@echo LIB_$(1)_CURRENT_VERSION:=$$(LINK_$(1)_HASH) > $(TMPBIN)/$$(tmpLIBNAME)$$(so).version.mk
+
+LINK_$(1)_COMMAND2 := $$(subst $$(sodir)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$(LINK_$(1)_COMMAND))
+
+LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
+
+$$(LIB_$(1)_SO):	$$(dir $$(LIB_$(1)_SO))/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "            $(COLOR_GREEN)[MTLLIB]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
+	@$(call write_timing_to,$$@.timing) $$(LINK_$(1)_COMMAND2)
+	$$(if $(verbose_build),,@echo "            $(COLOR_GREEN)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$$(LIB_$(1)_FILENAME)")
+
+$$(tmpLIBNAME): $$(sodir)/$$(tmpLIBNAME)$$(so)
+.PHONY:	$$(tmpLIBNAME)
+
+LIB_$(1)_DEPS := $$(sodir)/$$(tmpLIBNAME)$$(so)
+
+libraries metal_libraries: $$(sodir)/$$(tmpLIBNAME)$$(so)
+endif # premake
 endef
 
 
