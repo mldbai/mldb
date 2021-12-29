@@ -465,6 +465,8 @@ struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
 
             //cerr << "returning r/w version " << version << " of " << name << " for " << opName << endl;
 
+            //this->buffer.SetPurgeableState(mtlpp::PurgeableState::NonVolatile);
+
             auto pin =  std::shared_ptr<void>(nullptr, done);
             return { std::move(pin), this->buffer };
         }
@@ -691,6 +693,7 @@ MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent, const
 
 MetalComputeQueue::~MetalComputeQueue()
 {
+#if 0
     if (activeComputeEncoder)
         activeComputeEncoder.EndEncoding();
     return;
@@ -703,8 +706,10 @@ MetalComputeQueue::~MetalComputeQueue()
         cerr << "destroyed MetalComputeQueue with active compute encoder" << endl;
         abort();
     }
+#endif
 }
 
+#if 0
 constexpr bool METAL_SINGLE_COMMAND = true;
 
 mtlpp::ComputeCommandEncoder
@@ -745,6 +750,7 @@ getBlitEncoder(const std::string & opName)
     }
     return activeBlitEncoder;
 }
+#endif
 
 std::shared_ptr<ComputeQueue>
 MetalComputeQueue::
@@ -891,7 +897,7 @@ enqueue(const std::string & opName,
         ExcAssert(mtlQueue);
         ExcAssert(commandBuffer);
 
-        mtlpp::ComputeCommandEncoder commandEncoder = getComputeEncoder(opName);
+        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(this->dispatchType);
         commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
         commandEncoder.SetLabel((opName + " kernel").c_str());
 
@@ -913,6 +919,7 @@ enqueue(const std::string & opName,
         mtlpp::Size blockSize(mtlBlock[0], mtlBlock[1], mtlBlock[2]);
 
         commandEncoder.DispatchThreadgroups(gridSize, blockSize);
+        commandEncoder.EndEncoding();
 
 #if 0
         auto timer = std::make_shared<Timer>();
@@ -969,6 +976,7 @@ enqueue(const std::string & opName,
         onCompleted(commandBuffer);
         return std::make_shared<MetalComputeEvent>(opName, true /* already resolved */);
 #endif
+        //finish();
 
     } MLDB_CATCH_ALL {
         rethrowException(400, "Error launching Metal kernel " + bound.owner->kernelName);
@@ -1053,7 +1061,7 @@ transferToHostSyncImpl(const std::string & opName,
 
     auto [pin, buffer, offset] = MetalComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ);
 
-    auto blitEncoder = getBlitEncoder(opName + " blit");
+    auto blitEncoder = commandBuffer.BlitCommandEncoder();
     blitEncoder.SetLabel((opName + " blit").c_str());
     ExcAssert(blitEncoder);
 
@@ -1085,6 +1093,8 @@ transferToHostSyncImpl(const std::string & opName,
     default:
         throw MLDB::Exception("Cannot manage MemoryLess storage mode");
     }
+    blitEncoder.EndEncoding();
+
     auto myCommandBuffer = commandBuffer;
 
     finish();
@@ -1121,6 +1131,7 @@ flush()
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue flush");
 
+#if 0
     ns::String label;
 
     if (activeComputeEncoder) {
@@ -1133,6 +1144,7 @@ flush()
         label = activeBlitEncoder.GetLabel();
         activeBlitEncoder = mtlpp::BlitCommandEncoder();
     }
+#endif
 
     auto result = std::make_shared<MetalComputeEvent>("flush", false /* resolved */);
     ExcAssert(commandBuffer);
@@ -1145,6 +1157,8 @@ flush()
         // TODO: error
         result->resolve();
     }
+
+    auto label = commandBuffer.GetLabel();
 
     commandBuffer = mtlQueue.CommandBuffer();
     commandBuffer.SetLabel(label);

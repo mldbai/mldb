@@ -818,12 +818,12 @@ struct FeatureSamplingTrainerKernel {
     std::vector<uint32_t> featureIsOrdinal;      ///< For each feature: is it ordinal (1) vs categorical(0) [nf]
 
     // Some memory objects to be used by the kernel.
-    ComputePromiseT<MemoryArrayHandleT<const uint32_t>> bucketDataPromise;
-    ComputePromiseT<MemoryArrayHandleT<const uint64_t>> rowDataPromise;
-    ComputePromiseT<MemoryArrayHandleT<const float>>    weightDataPromise;
-    ComputePromiseT<MemoryArrayHandleT<uint32_t>> deviceBucketEntryBits;
-    ComputePromiseT<MemoryArrayHandleT<uint32_t>> deviceBucketDataOffsets;
-    ComputePromiseT<MemoryArrayHandleT<uint32_t>> deviceFeatureIsOrdinal;
+    MemoryArrayHandleT<const uint32_t> bucketData;
+    MemoryArrayHandleT<const uint64_t> rowData;
+    MemoryArrayHandleT<const float>    weightData;
+    MemoryArrayHandleT<uint32_t> deviceBucketEntryBits;
+    MemoryArrayHandleT<uint32_t> deviceBucketDataOffsets;
+    MemoryArrayHandleT<uint32_t> deviceFeatureIsOrdinal;
 
     // If we're debugging our kernels, this is where we keep the expanded rows
     std::vector<float> debugExpandedRowsCpu;
@@ -915,20 +915,18 @@ init(const std::string & debugName,
 
     // First, we need to send over the rows, as the very first thing to
     // be done is to expand them.
-    rowDataPromise
-        = context->transferToDeviceImmutable("copyRowData", rows.rowData);
+    rowData = context->transferToDeviceImmutable("copyRowData", rows.rowData).get();
 
     // Same for our weight data
-    weightDataPromise
-        = context->transferToDeviceImmutable("copyWeightData", rows.weightEncoder.weightFormatTable);
+    weightData = context->transferToDeviceImmutable("copyWeightData", rows.weightEncoder.weightFormatTable).get();
 
     // We transfer the bucket data as early as possible, as it's one of the
     // longest things to transfer
-    bucketDataPromise
-        = context->transferToDeviceImmutable("copyBucketData", bucketMemory);
+    bucketData
+        = context->transferToDeviceImmutable("copyBucketData", bucketMemory).get();
 
     deviceFeatureIsOrdinal
-        = context->manageMemoryRegion("featuresIsOrdinal", featureIsOrdinal);
+        = context->manageMemoryRegion("featuresIsOrdinal", featureIsOrdinal).get();
     
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
@@ -950,14 +948,14 @@ init(const std::string & debugName,
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
     auto boundKernel = decodeRowsKernel
-        ->bind(  "rowData",          rowDataPromise,
+        ->bind(  "rowData",          rowData,
                 "rowDataLength",    (uint32_t)rows.rowData.length(),
                 "weightBits",       (uint16_t)rows.weightEncoder.weightBits,
                 "exampleNumBits",   (uint16_t)rows.exampleNumBits,
                 "numRows",          (uint32_t)numRows,
                 "weightFormat",     rows.weightEncoder.weightFormat,
                 "weightMultiplier", rows.weightEncoder.weightMultiplier,
-                "weightData",       weightDataPromise,
+                "weightData",       weightData,
                 "decodedRowsOut",   expandedRowData);
 
     queue->enqueue("decode rows", boundKernel, { (uint32_t)numRows });
@@ -991,16 +989,57 @@ init(const std::string & debugName,
 
     // Before that, we need to set up some memory objects to be used
     // by the kernel.
-    deviceBucketEntryBits = context->manageMemoryRegion("bucketEntryBits", bucketEntryBits);
-    deviceBucketDataOffsets = context->manageMemoryRegion("bucketMemoryOffsets", bucketMemoryOffsets);
+    deviceBucketEntryBits = context->manageMemoryRegion("bucketEntryBits", bucketEntryBits).get();
+    deviceBucketDataOffsets = context->manageMemoryRegion("bucketMemoryOffsets", bucketMemoryOffsets).get();
 
     queue->finish();
 }
+
+struct FeatureSamplingTrainerPartition {
+    const FeatureSamplingTrainerKernel & owner;
+    std::string debugName;
+    std::vector<int> activeFeaturesIn;
+
+    FeatureSamplingTrainerPartition(const FeatureSamplingTrainerKernel & owner,
+                                    const std::string & debugName,
+                                    const std::vector<int> & activeFeaturesIn)
+        : owner(owner), debugName(debugName), activeFeaturesIn(activeFeaturesIn)
+    {
+    }
+
+    ML::Tree train();
+};
 
 ML::Tree
 FeatureSamplingTrainerKernel::
 trainPartitioned(const std::string & debugName, const std::vector<int> & activeFeaturesIn)
 {
+    FeatureSamplingTrainerPartition partition(*this, debugName, activeFeaturesIn);
+    return partition.train();
+}
+
+ML::Tree
+FeatureSamplingTrainerPartition::
+train()
+{
+    const auto & context = owner.context;
+    const auto & nf = owner.nf;
+    const auto & features = owner.features;
+    const auto & maxDepth = owner.maxDepth;
+    const auto & numRows = owner.numRows;
+    const auto & maxPartitionCount = owner.maxPartitionCount;
+    const auto & rows = owner.rows;
+    const auto & bucketData = owner.bucketData;
+    const auto & expandedRowData = owner.expandedRowData;
+    const auto & deviceBucketDataOffsets = owner.deviceBucketDataOffsets;
+    const auto & deviceBucketEntryBits = owner.deviceBucketEntryBits;
+    const auto & debugKernelOutput = owner.debugKernelOutput;
+    const auto & deviceFeatureIsOrdinal = owner.deviceFeatureIsOrdinal;
+    const auto & debugExpandedRowsCpu = owner.debugExpandedRowsCpu;
+    const auto & serializer = owner.serializer;
+    const auto & fs = owner.fs;
+    const auto & bucketMemory = owner.bucketMemory;
+
     auto trainMarker = context->getScopedMarker(debugName);
 
     ML::Tree tree;
@@ -1044,7 +1083,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     treeTrainingInfo.numActiveFeatures = numActiveFeatures;
     treeTrainingInfo.numActiveBuckets = numActiveBuckets;
     treeTrainingInfo.numFeatures = nf;
-    treeTrainingInfo.maxNumActivePartitions = this->maxPartitionCount;
+    treeTrainingInfo.maxNumActivePartitions = owner.maxPartitionCount;
     treeTrainingInfo.numRows = numRows;
 
     span<const TreeTrainingInfo> treeTrainingInfoSpan(&treeTrainingInfo, 1);
@@ -1052,7 +1091,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     auto deviceTreeTrainingInfo = context->manageMemoryRegionSync("treeTrainingInfo", treeTrainingInfoSpan);
 
     // For each feature, what is the beginning bucket number? [nf + 1]
-    auto deviceBucketNumbers = context->manageMemoryRegion("bucketNumbers", bucketNumbers);
+    auto deviceBucketNumbers = context->manageMemoryRegion("bucketNumbers", bucketNumbers).get();
 
     Date before = Date::now();
 
@@ -1069,12 +1108,12 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     // Which of our features do we need to consider?  This allows us to
     // avoid sizing things too large for the number of features that are
     // actually active.
-    auto deviceFeatureIsActive = context->manageMemoryRegion("featureIsActive", featureIsActive);
+    auto deviceFeatureIsActive = context->manageMemoryRegion("featureIsActive", featureIsActive).get();
 
     // Which of our features do we need to consider?  This allows us to
     // avoid sizing things too large for the number of features that are
     // actually active.
-    auto deviceActiveFeatureList = context->manageMemoryRegion("activeFeatureList", activeFeatureList);
+    auto deviceActiveFeatureList = context->manageMemoryRegion("activeFeatureList", activeFeatureList).get();
 
     // Our wAll array contains the sum of all of the W buckets across
     // each partition.  We allocate a single array at the start and just
@@ -1082,10 +1121,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     auto deviceWAllPool = context->allocUninitializedArray<W>("wAll", maxPartitionCount).get();
 
     // The first one is initialized by the input wAll
-    auto copyWAllPromise = depthQueue->enqueueFillArray("initialize wAll[0]", deviceWAllPool, rows.wAll, 0 /* offset */, 1 /* size */);
-
-    // The rest are initialized to zero
-    //auto initializeWAllPromise = depthQueue->enqueueFillArray("zero rest of wAll", deviceWAllPool, W(), 1 /* offset */);
+    depthQueue->enqueueFillArray("initialize wAll[0]", deviceWAllPool, rows.wAll, 0 /* offset */, 1 /* size */);
 
     // Our W buckets live here, per partition.  We never need to see it on
     // the host, so we allow it to be initialized and live on the device.
@@ -1095,45 +1131,45 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     MemoryArrayHandleT<W> devicePartitionBucketPool
         = context->allocUninitializedArray<W>("partitionBucketPool", maxPartitionCount * numActiveBuckets).get();
 
-    auto firstPartitionBuckets
-        = context->getArraySlice(devicePartitionBucketPool, "firstPartitionBuckets", 0, numActiveBuckets);
-
     // Before we use this, it needs to be zero-filled (only the first
     // set for a single partition)
-    auto fillFirstBuckets = depthQueue->enqueueFillArray("fill firstPartitionBuckets", firstPartitionBuckets, W());
+    auto fillFirstBuckets = depthQueue->enqueueFillArray("fill firstPartitionBuckets", devicePartitionBucketPool, W(), 0, numActiveBuckets);
     //auto fillFirstBuckets
     //    = depthQueue->enqueueFillArray("fill firstPartitionBuckets", devicePartitionBucketPool, W());
 
-    //cerr << "nf = " << nf << endl;
-    //cerr << "bucketData.length() = " << bucketDataPromise.get().length() << endl;
-    //cerr << "bucketDataOffsets.length() = " << deviceBucketDataOffsets.get().length() << endl;
-    //cerr << "bucketNumbers.length() = " << deviceBucketNumbers.get().length() << endl;
-    //cerr << "bucketEntryBits.length() = " << deviceBucketEntryBits.get().length() << endl;
-    ExcAssert(bucketDataPromise.event());
-    ExcAssert(fillFirstBuckets.event());
+    // Two-element array used to return the number of active partitions and the
+    // number of rows to be transferred on the small side
+    MemoryArrayHandleT<TreeDepthInfo> deviceTreeDepthInfo
+        = context->allocUninitializedArray<TreeDepthInfo>("treeDepthInfo", 1).get();
 
-    auto boundTestFeatureKernel = testFeatureKernel
+    TreeDepthInfo treeDepthInfo0;
+    treeDepthInfo0.numActivePartitions = 1;
+
+    depthQueue->enqueueFillArray("initialize TreeDepthInfo", deviceTreeDepthInfo, treeDepthInfo0, 0 /* offset */, 1 /* size */);
+
+    auto boundTestFeatureKernel = owner.testFeatureKernel
         ->bind( "decodedRows",                      expandedRowData,
                 "numRows",                          (uint32_t)numRows,
-                "bucketData",                       bucketDataPromise,
+                "bucketData",                       bucketData,
                 "bucketDataOffsets",                deviceBucketDataOffsets,
                 "bucketNumbers",                    deviceBucketNumbers,
                 "bucketEntryBits",                  deviceBucketEntryBits,
                 "activeFeatureList",                deviceActiveFeatureList,
-                "partitionBuckets",                 firstPartitionBuckets);
+                "partitionBuckets",                 devicePartitionBucketPool);
 
     depthQueue->enqueue("testFeature",
                         boundTestFeatureKernel,
                         { numActiveFeatures, numRows });
 
     if (debugKernelOutput) {
+        depthQueue->finish();
 
         // Get that data back (by mapping), and verify it against the
         // CPU-calcualted version.
         
         auto frozenPartitionBuckets
-             = context->transferToHostSync("debug transfer partitionBuckets", firstPartitionBuckets);
-        auto allWDevice = frozenPartitionBuckets.getConstSpan();
+             = context->transferToHostSync("debug transfer partitionBuckets", devicePartitionBucketPool);
+        auto allWDevice = frozenPartitionBuckets.getConstSpan(0, numActiveBuckets);
 
         std::vector<W> allWCpu(numActiveBuckets);
         
@@ -1176,6 +1212,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         ExcAssert(!different && "runTestFeatureKernel");
     }
 
+    depthQueue->finish();
+
     // We have only one partition, which is the root bucket.  We allocate a pool of them.  The
     // array is filled out in the kernels.
     MemoryArrayHandleT<PartitionIndex> devicePartitionIndexPool
@@ -1184,16 +1222,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
     // At each level, we need to calculate the positions of the left and right buckets
     MemoryArrayHandleT<PartitionInfo> devicePartitionInfoPool
         = context->allocUninitializedArray<PartitionInfo>("partitionInfo", maxPartitionCount).get();
-
-    // Two-element array used to return the number of active partitions and the
-    // number of rows to be transferred on the small side
-    MemoryArrayHandleT<TreeDepthInfo> deviceTreeDepthInfo
-        = context->allocUninitializedArray<TreeDepthInfo>("treeDepthInfo", 1).get();
-
-    TreeDepthInfo treeDepthInfo0;
-    treeDepthInfo0.numActivePartitions = 1;
-
-    auto fillTreeDepthInfo = depthQueue->enqueueFillArray("initialize TreeDepthInfo", deviceTreeDepthInfo, treeDepthInfo0, 0 /* offset */, 1 /* size */);
 
     // How many active partitions at this level?
     //uint32_t numActivePartitions = 1;
@@ -1232,7 +1260,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
     // For each value in smallSideIndexes, which partition number does it correspond to?
     auto smallSideIndexToPartitionNumbers
-        = context->allocUninitializedArray<uint16_t>("smallSideIndexToPartitionNumbers", 256);
+        = context->allocUninitializedArray<uint16_t>("smallSideIndexToPartitionNumbers", 256).get();
 
     // Event list for all of the buckets
     std::vector<std::shared_ptr<ComputeEvent>> deviceDepthSplitsEvents;
@@ -1265,7 +1293,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         depthQueue->finish();
     }
 
-    auto boundGetPartitionSplitsKernel = getPartitionSplitsKernel->bind
+    auto boundGetPartitionSplitsKernel = owner.getPartitionSplitsKernel->bind
             ("treeTrainingInfo",               deviceTreeTrainingInfo,
             "bucketNumbers",                  deviceBucketNumbers,
             "activeFeatureList",              deviceActiveFeatureList,
@@ -1276,7 +1304,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             "treeDepthInfo",                  deviceTreeDepthInfo,
             "numActiveBuckets",               numActiveBuckets);
 
-    auto boundBestPartitionSplitKernel = bestPartitionSplitKernel
+    auto boundBestPartitionSplitKernel = owner.bestPartitionSplitKernel
         ->bind("treeTrainingInfo",               deviceTreeTrainingInfo,
                 "treeDepthInfo",                  deviceTreeDepthInfo,
                 "activeFeatureList",              deviceActiveFeatureList,
@@ -1285,7 +1313,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                 "partitionIndexes",               devicePartitionIndexPool);
 
     auto boundAssignPartitionNumbersKernel
-        = assignPartitionNumbersKernel->bind
+        = owner.assignPartitionNumbersKernel->bind
         ("treeTrainingInfo",       deviceTreeTrainingInfo,
         "treeDepthInfo",          deviceTreeDepthInfo,
         "allPartitionSplits",     deviceAllPartitionSplitsPool,
@@ -1294,7 +1322,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         "smallSideIndexesOut",    smallSideIndexes,
         "smallSideIndexToPartitionOut", smallSideIndexToPartitionNumbers);
 
-    auto boundClearBucketsKernel = clearBucketsKernel->bind
+    auto boundClearBucketsKernel = owner.clearBucketsKernel->bind
         ("treeTrainingInfo",           deviceTreeTrainingInfo,
         "treeDepthInfo",              deviceTreeDepthInfo,
         "bucketsOut",                 devicePartitionBucketPool,
@@ -1302,7 +1330,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         "numNonZeroDirectionIndices", numNonZeroDirectionIndices, 
         "smallSideIndexes",           smallSideIndexes);
 
-    auto boundUpdatePartitionNumbersKernel = updatePartitionNumbersKernel
+    auto boundUpdatePartitionNumbersKernel = owner.updatePartitionNumbersKernel
         ->bind(
             "treeTrainingInfo",               deviceTreeTrainingInfo,
             "treeDepthInfo",                  deviceTreeDepthInfo,
@@ -1313,14 +1341,14 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
             "smallSideIndexes",               smallSideIndexes,
             "allPartitionSplits",             deviceAllPartitionSplitsPool,
             "partitionInfo",                  devicePartitionInfoPool,
-            "bucketData",                     bucketDataPromise,
+            "bucketData",                     bucketData,
             "bucketDataOffsets",              deviceBucketDataOffsets,
             "bucketNumbers",                  deviceBucketNumbers,
             "bucketEntryBits",                deviceBucketEntryBits,
             "featureIsOrdinal",               deviceFeatureIsOrdinal,
             "decodedRows",                    expandedRowData);
 
-    auto boundUpdateBucketsKernel = updateBucketsKernel->bind
+    auto boundUpdateBucketsKernel = owner.updateBucketsKernel->bind
         ("treeTrainingInfo",               deviceTreeTrainingInfo,
         "treeDepthInfo",                  deviceTreeDepthInfo,
         "partitions",                     devicePartitions,
@@ -1332,7 +1360,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         "smallSideIndexes",               smallSideIndexes,
         "smallSideIndexToPartition",      smallSideIndexToPartitionNumbers,
         "decodedRows",                    expandedRowData,
-        "bucketData",                     bucketDataPromise,
+        "bucketData",                     bucketData,
         "bucketDataOffsets",              deviceBucketDataOffsets,
         "bucketNumbers",                  deviceBucketNumbers,
         "bucketEntryBits",                deviceBucketEntryBits,
@@ -1340,7 +1368,7 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         "featureIsOrdinal",               deviceFeatureIsOrdinal,
         "numActiveBuckets",               numActiveBuckets /* for sizing only */);
 
-    auto boundFixupBucketsKernel = fixupBucketsKernel
+    auto boundFixupBucketsKernel = owner.fixupBucketsKernel
         ->bind(
             "treeTrainingInfo",               deviceTreeTrainingInfo,
             "treeDepthInfo",                  deviceTreeDepthInfo,
@@ -1358,6 +1386,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         auto depthScope = trainMarker->enterScope("depth " + std::to_string(myDepth));
 
+        bool flushDepth = depth == 0;
+
 #if 0 // TODO
         // How big does our output partition splits array need to be to hold the maximum
         // number of splits for this iteration?
@@ -1373,47 +1403,12 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 
         // Take slices of the larger data structures we allocated for use at the current depth
 
-#if 0
-        auto depthPartitionBuckets
-            = context->getArraySlice(devicePartitionBucketPool,
-                                     "partitionBuckets depth " + std::to_string(myDepth),
-                                     0, numActiveBuckets * numActivePartitions);
-
-        auto depthWAll
-            = context->getArraySlice(deviceWAllPool,
-                                     "wAll depth " + std::to_string(myDepth),
-                                     0, numActivePartitions);
-
-        auto depthFeaturePartitionSplits
-            = context->getArraySlice(deviceFeaturePartitionSplitsPool,
-                                     "featurePartitionSplits depth " + std::to_string(myDepth),
-                                     0, numActiveFeatures * numActivePartitions);
-
-        auto depthPartitionIndexes
-            = context->getArraySlice(devicePartitionIndexPool, 
-                                     "partitionIndexes depth " + std::to_string(myDepth),
-                                     0, depth == 0 ? 0 : numActivePartitions);
-
-        auto depthPartitionInfo
-            = context->getArraySlice(devicePartitionInfoPool, 
-                                     "partitionInfo depth " + std::to_string(myDepth),
-                                     0, numActivePartitions);
-
-        // Technically, we want from numFinishedPartitions to numFinishedPartitions + numActivePartitions,
-        // not 0 to numFinishedPartitions + numActivePartitions.  Since OpenCL seems to have trouble with
-        // sub-buffers on some devices and we can only work around this with zero offsets, instead we pass
-        // numFinishedPartitions to all the kernels so that it can know how to offset it.  TOOD, we should
-        // stop doing that...
-        auto depthAllPartitionSplits
-            = context->getArraySlice(deviceAllPartitionSplitsPool,
-                                     "allPartitionSplits depth " + std::to_string(myDepth),
-                                     0, numFinishedPartitions + numActivePartitions);
-#endif
-
-
         depthQueue->enqueue("getPartitionSplits",
                             boundGetPartitionSplitsKernel,
                             { numActiveFeatures });
+
+        if (flushDepth)
+            depthQueue->flush();
 
         // Now we have the best split for each feature for each partition,
         // find the best one per partition and finally record it.
@@ -1421,6 +1416,9 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         depthQueue->enqueue("bestPartitionSplit",
                             boundBestPartitionSplitKernel,
                             { });
+
+        if (flushDepth)
+            depthQueue->flush();
 
         // These are parallel CPU data structures for the on-device ones,
         // into which we copy the input data required to re-run the
@@ -1612,7 +1610,8 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
                             boundAssignPartitionNumbersKernel,
                             {  });
 
-        //depthQueue->finish();
+        if (flushDepth)
+            depthQueue->flush();
 
 #if 0
         // Get the new number of active partitions; since it's a serial queue it will have the side
@@ -1645,28 +1644,6 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         // only need to keep one set of partition buckets in shared memory
         // and saves lots of atomic operations.
 
-#if 0
-        auto nextDepthPartitionBuckets
-            = context->getArraySlice(devicePartitionBucketPool,
-                                     "partitionBuckets depth " + std::to_string(myDepth + 1),
-                                     0, numActiveBuckets * newNumActivePartitions);
-
-        auto nextDepthWAll
-            = context->getArraySlice(deviceWAllPool,
-                                     "wAll depth " + std::to_string(myDepth + 1),
-                                     0, newNumActivePartitions);
-
-        auto nextPartitionIndexes
-            = context->getArraySlice(devicePartitionIndexPool, 
-                                     "partitionIndexes (next) depth " + std::to_string(myDepth),
-                                     0, newNumActivePartitions);
-
-        auto nextSmallSideIndexes
-            = context->getArraySlice(smallSideIndexes, 
-                                     "smallSideIndexes (next) depth " + std::to_string(myDepth),
-                                     0, newNumActivePartitions);
-#endif
-
         // First we clear everything on the right side, ready to accumulate
         // the new buckets there.
 
@@ -1686,8 +1663,14 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         // While we're doing that, we can also calculate our new
         // partition numbers (for each row)
 
+        if (flushDepth)
+            depthQueue->flush();
+
         depthQueue->enqueue("update partition numbers",
                             boundUpdatePartitionNumbersKernel, { numRows });
+
+        if (flushDepth)
+            depthQueue->flush();
 
         if (debugKernelOutput) {
             depthQueue->finish();
@@ -1777,13 +1760,17 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         depthQueue->enqueue("update buckets",
                             boundUpdateBucketsKernel, { numRows, numActiveFeatures + 1 /* +1 is wAll */});
 
+        if (flushDepth)
+            depthQueue->flush();
+
+
         // And then subtract the small sides from the big sides
         depthQueue->enqueue("fixup buckets",
                             boundFixupBucketsKernel,
                             { numActiveBuckets });
 
         if (debugKernelOutput) {
-            depthQueue->finish();
+            depthQueue->flush();
 
             TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
             auto newNumActivePartitions = depthInfo.numActivePartitions;
@@ -1923,10 +1910,12 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
         startDepth = doneDepth;
 
         // Ready for the next level
+        depthQueue->flush();
     }
 
     Date beforeFinish = Date::now();
 
+    //throw MLDB::Exception("about to finish");
     depthQueue->finish();
 
     Date beforeMapping = Date::now();

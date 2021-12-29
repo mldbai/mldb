@@ -1385,6 +1385,7 @@ setFromReference(ComputeContext & context, std::span<const byte> referenceData)
     context.fillDeviceRegionFromHostSyncImpl(opName, handle, referenceData);
 }
 
+#if 0
 
 // PromiseAbstractArgumentHandler
 
@@ -1472,6 +1473,7 @@ setFromReference(ComputeContext & context, std::span<const byte> referenceData)
     subImpl->setFromReference(context, referenceData);
 }
 
+#endif
 
 // PrimitiveAbstractArgumentHandler
 

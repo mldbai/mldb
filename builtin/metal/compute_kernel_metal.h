@@ -72,12 +72,6 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     // What kind of dispatch (serial or parallel) do we do?
     mtlpp::DispatchType dispatchType;
 
-    mtlpp::ComputeCommandEncoder activeComputeEncoder;
-    mtlpp::BlitCommandEncoder activeBlitEncoder;
-
-    mtlpp::ComputeCommandEncoder getComputeEncoder(const std::string & opName);
-    mtlpp::BlitCommandEncoder getBlitEncoder(const std::string & opName);
-
     virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) override;
     virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) override;
 

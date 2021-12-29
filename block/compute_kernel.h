@@ -789,6 +789,7 @@ getArgumentHandler(MemoryArrayHandleT<T> handle)
     return new MemoryArrayAbstractArgumentHandler(std::move(handle));
 }
 
+#if 0
 struct PromiseAbstractArgumentHandler: public AbstractArgumentHandler {
 
     template<typename T>
@@ -838,6 +839,7 @@ getArgumentHandler(ComputePromiseT<T> promise)
 {
     return new PromiseAbstractArgumentHandler(std::move(promise));
 }
+#endif
 
 struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
 
