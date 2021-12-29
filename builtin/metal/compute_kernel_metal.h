@@ -131,7 +131,7 @@ struct MetalComputeContext: public ComputeContext {
 
     mtlpp::Device mtlDevice;
     ComputeDevice device;
-    MetalComputeQueue queue;
+    std::shared_ptr<MetalComputeQueue> queue;
 
     virtual ComputeDevice getDevice() const override;
 

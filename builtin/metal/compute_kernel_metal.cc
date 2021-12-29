@@ -898,6 +898,9 @@ enqueue(const std::string & opName,
         ExcAssert(commandBuffer);
 
         mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(this->dispatchType);
+
+        ExcAssert(commandEncoder);
+
         commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
         commandEncoder.SetLabel((opName + " kernel").c_str());
 
@@ -1207,7 +1210,7 @@ enterScope(const std::string & scopeName)
 MetalComputeContext::
 MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device)
     : mtlDevice(mtlDevice), device(device),
-      queue(this, nullptr /* parent */, "(queue for context)", mtlpp::DispatchType::Serial)
+      queue(std::make_shared<MetalComputeQueue>(this, nullptr /* parent */, "(queue for context)", mtlpp::DispatchType::Serial))
 {
 }
 
@@ -1297,7 +1300,7 @@ allocateImpl(const std::string & regionName,
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext allocateImpl " + regionName);
     auto result = doMetalAllocate(this->mtlDevice, regionName, length, align, type, isConst);
-    return queue.enqueueFillArrayImpl(regionName + " initialize", result, initialization,
+    return queue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
 }
 
@@ -1313,7 +1316,7 @@ allocateSyncImpl(const std::string & regionName,
     auto result = doMetalAllocate(this->mtlDevice, regionName, length, align, type, isConst);
     if (initialization == INIT_NONE)
         return result;
-    return queue.enqueueFillArrayImpl(regionName + " initialize", result, initialization,
+    return queue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith).get();
 }
 
@@ -1395,7 +1398,7 @@ transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext transferToHostSyncImpl " + opName);
-    return queue.transferToHostSyncImpl(opName, std::move(handle));
+    return queue->transferToHostSyncImpl(opName, std::move(handle));
 }
 
 ComputePromiseT<MutableMemoryRegion>
@@ -1637,6 +1640,8 @@ std::shared_ptr<ComputeQueue>
 MetalComputeContext::
 getQueue(const std::string & queueName)
 {
+    if (queueName == "")
+        return this->queue;
     return std::make_shared<MetalComputeQueue>(this, nullptr /* parent */, queueName, mtlpp::DispatchType::Serial);
 }
 
