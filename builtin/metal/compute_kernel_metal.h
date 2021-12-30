@@ -56,6 +56,7 @@ struct MetalComputeEvent: public ComputeEvent, public std::enable_shared_from_th
     std::vector<std::function<void ()>> callbacks;
 };
 
+
 // MetalComputeQueue
 
 struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<MetalComputeQueue> {
@@ -84,15 +85,13 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg,
-                         std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
+                         const std::any & arg) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueCopyFromHostImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
-                            size_t deviceStartOffsetInBytes,
-                            std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
+                            size_t deviceStartOffsetInBytes) override;
 
     virtual ComputePromiseT<FrozenMemoryRegion>
     enqueueTransferToHostImpl(const std::string & opName,
@@ -101,6 +100,16 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     virtual FrozenMemoryRegion
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle) override;
+
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueManagePinnedHostRegionImpl(const std::string & opName,
+                                      std::span<const std::byte> region, size_t align,
+                                      const std::type_info & type, bool isConst) override;
+
+    virtual MemoryRegionHandle
+    managePinnedHostRegionSyncImpl(const std::string & opName,
+                                   std::span<const std::byte> region, size_t align,
+                                   const std::type_info & type, bool isConst) override;
 
     virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
@@ -217,16 +226,6 @@ struct MetalComputeContext: public ComputeContext {
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;
-
-    virtual ComputePromiseT<MemoryRegionHandle>
-    managePinnedHostRegionImpl(const std::string & opName,
-                               std::span<const std::byte> region, size_t align,
-                               const std::type_info & type, bool isConst) override;
-
-    virtual MemoryRegionHandle
-    managePinnedHostRegionSyncImpl(const std::string & opName,
-                                   std::span<const std::byte> region, size_t align,
-                                   const std::type_info & type, bool isConst) override;
 
     virtual std::shared_ptr<ComputeQueue>
     getQueue(const std::string & queueName) override;

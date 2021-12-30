@@ -918,8 +918,7 @@ MultiComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg,
-                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+                     const std::any & arg)
 {
     auto info = getMultiInfo(region);
 
@@ -927,10 +926,8 @@ enqueueFillArrayImpl(const std::string & opName,
     ExcAssertEqual(info->handles.size(), queues.size());
     promises.reserve(queues.size());
 
-    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
-
     for (size_t i = 0;  i < queues.size();  ++i) {
-        promises.emplace_back(queues[i]->enqueueFillArrayImpl(opName, info->handles[i], init, startOffsetInBytes, lengthInBytes, arg, unpackedPrereqs[i]));
+        promises.emplace_back(queues[i]->enqueueFillArrayImpl(opName, info->handles[i], init, startOffsetInBytes, lengthInBytes, arg));
     }
 
     auto returnResult = [region=std::move(region)] (auto unused) { return region; };
@@ -942,8 +939,7 @@ MultiComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
                         FrozenMemoryRegion fromRegion,
-                        size_t deviceStartOffsetInBytes,
-                        std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+                        size_t deviceStartOffsetInBytes)
 {
     auto info = getMultiInfo(toRegion);
 
@@ -951,11 +947,9 @@ enqueueCopyFromHostImpl(const std::string & opName,
     ExcAssertEqual(info->handles.size(), queues.size());
     promises.reserve(queues.size());
 
-    auto unpackedPrereqs = unpackPrereqs(queues.size(), prereqs);
-
     for (size_t i = 0;  i < queues.size();  ++i) {
         promises.emplace_back(queues[i]->enqueueCopyFromHostImpl(opName, info->handles[i], fromRegion,
-                              deviceStartOffsetInBytes,unpackedPrereqs[i]));
+                              deviceStartOffsetInBytes));
     }
 
     auto returnResult = [region=std::move(toRegion)] (auto unused) { return region; };
@@ -998,6 +992,38 @@ transferToHostSyncImpl(const std::string & opName,
 
     // TODO pin all the returned results?
     return results.at(0);
+}
+
+ComputePromiseT<MemoryRegionHandle>
+MultiComputeQueue::
+enqueueManagePinnedHostRegionImpl(const std::string & opName,
+                                  std::span<const std::byte> region, size_t align,
+                                  const std::type_info & type, bool isConst)
+{
+    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
+    for (auto & q: queues) {
+        promises.emplace_back(q->enqueueManagePinnedHostRegionImpl(opName, region, align, type, isConst));
+    }
+    return reduceHandles(opName, std::move(promises), region.size(), type, isConst);
+}
+
+MemoryRegionHandle
+MultiComputeQueue::
+managePinnedHostRegionSyncImpl(const std::string & opName,
+                                std::span<const std::byte> region, size_t align,
+                                const std::type_info & type, bool isConst)
+{
+    std::vector<MemoryRegionHandle> handles;
+    for (auto & q: queues) {
+        handles.emplace_back(q->managePinnedHostRegionSyncImpl(opName, region, align, type, isConst));
+    }
+
+    auto result = std::make_shared<MultiMemoryRegionInfo>(std::move(handles));
+    result->type = &type;
+    result->isConst = isConst;
+    result->lengthInBytes = region.size();
+    result->name = opName;
+    return { std::move(result) };
 }
 
 std::shared_ptr<ComputeEvent>
@@ -1224,37 +1250,6 @@ getKernel(const std::string & kernelName)
 
     auto result = std::make_shared<MultiComputeKernel>(this, kernels);
     return result;
-}
-
-ComputePromiseT<MemoryRegionHandle>
-MultiComputeContext::
-managePinnedHostRegionImpl(const std::string & regionName,
-                           std::span<const std::byte> region, size_t align,
-                           const std::type_info & type, bool isConst)
-{
-    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
-    for (auto & c: contexts) {
-        promises.emplace_back(c->managePinnedHostRegionImpl(regionName, region, align, type, isConst));
-    }
-    return reduceHandles(regionName, std::move(promises), region.size(), type, isConst);
-}
-
-MemoryRegionHandle
-MultiComputeContext::
-managePinnedHostRegionSyncImpl(const std::string & regionName, std::span<const std::byte> region, size_t align,
-                               const std::type_info & type, bool isConst)
-{
-    std::vector<MemoryRegionHandle> handles;
-    for (auto & c: contexts) {
-        handles.emplace_back(c->managePinnedHostRegionSyncImpl(regionName, region, align, type, isConst));
-    }
-
-    auto result = std::make_shared<MultiMemoryRegionInfo>(std::move(handles));
-    result->type = &type;
-    result->isConst = isConst;
-    result->lengthInBytes = region.size();
-    result->name = regionName;
-    return { std::move(result) };
 }
 
 std::shared_ptr<ComputeQueue>

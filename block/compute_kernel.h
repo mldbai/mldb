@@ -998,16 +998,14 @@ struct ComputeQueue {
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg,
-                         std::vector<std::shared_ptr<ComputeEvent>> prereqs);
+                         const std::any & arg);
 
 
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueCopyFromHostImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
-                            size_t deviceStartOffsetInBytes,
-                            std::vector<std::shared_ptr<ComputeEvent>> prereqs) = 0;
+                            size_t deviceStartOffsetInBytes) = 0;
 
     virtual ComputePromiseT<FrozenMemoryRegion>
     enqueueTransferToHostImpl(const std::string & opName,
@@ -1016,6 +1014,17 @@ struct ComputeQueue {
     virtual FrozenMemoryRegion
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle);
+
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueManagePinnedHostRegionImpl(const std::string & opName,
+                               std::span<const std::byte> region, size_t align,
+                               const std::type_info & type, bool isConst) = 0;
+
+    virtual MemoryRegionHandle
+    managePinnedHostRegionSyncImpl(const std::string & opName,
+                                   std::span<const std::byte> region, size_t align,
+                                   const std::type_info & type, bool isConst) = 0;
+
 
     template<typename T>
     ComputePromiseT<FrozenMemoryRegionT<std::remove_const_t<T>>>
@@ -1038,6 +1047,42 @@ struct ComputeQueue {
     {
         array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
         return { transferToHostSyncImpl(opName, std::move(array)) };
+    }
+
+    template<typename T>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    enqueueManageMemoryRegion(const std::string & regionName, const std::vector<T> & obj)
+    {
+        return enqueueManageMemoryRegion(regionName, static_cast<std::span<const T>>(obj));
+    }
+
+    template<typename T>
+    MemoryArrayHandleT<T>
+    manageMemoryRegionSync(const std::string & regionName, const std::vector<T> & obj)
+    {
+        return manageMemoryRegionSync(regionName, static_cast<std::span<const T>>(obj));
+    }
+
+    template<typename T, size_t N>
+    ComputePromiseT<MemoryArrayHandleT<T>>
+    enqueueManageMemoryRegion(const std::string & regionName, const std::span<const T, N> & obj)
+    {
+        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
+        {
+            return { std::move(handle.handle) };
+        };
+
+        return enqueueManagePinnedHostRegionImpl(regionName, std::as_bytes(obj), alignof(T),
+                                      typeid(std::remove_const_t<T>), std::is_const_v<T>)
+            .then(std::move(convert), regionName + " then manageMemoryRegion:convert");
+    }
+
+    template<typename T, size_t N>
+    MemoryArrayHandleT<T>
+    manageMemoryRegionSync(const std::string & regionName, const std::span<const T, N> & obj)
+    {
+        return { managePinnedHostRegionSyncImpl(regionName, std::as_bytes(obj), alignof(T),
+                                      typeid(std::remove_const_t<T>), std::is_const_v<T>).handle };
     }
 
     // Create an already resolved event (this is abstract so that the subclass may create an)
@@ -1065,14 +1110,14 @@ struct ComputeQueue {
         if (allZero) {
             return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_ZERO_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
-                                        {}, {} /* prereqs */)
+                                        {})
                 .then(std::move(convert), opName + " then enqueueFillArray:convert");
         }
         else {
             std::span<const std::byte> fillWith((const std::byte *)&val, sizeof(val));
             return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
-                                        fillWith, {} /* prereqs */)
+                                        fillWith)
                 .then(std::move(convert), opName + " then enqueueFillArray:convert");
         }
     }
@@ -1208,16 +1253,6 @@ struct ComputeContext {
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) = 0;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
-    managePinnedHostRegionImpl(const std::string & opName,
-                               std::span<const std::byte> region, size_t align,
-                               const std::type_info & type, bool isConst) = 0;
-
-    virtual MemoryRegionHandle
-    managePinnedHostRegionSyncImpl(const std::string & opName,
-                                   std::span<const std::byte> region, size_t align,
-                                   const std::type_info & type, bool isConst);
-
     virtual std::shared_ptr<ComputeQueue>
     getQueue(const std::string & queueName) = 0;
 
@@ -1328,42 +1363,6 @@ struct ComputeContext {
 
         return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_ZERO_FILLED)
             .then(std::move(convert), regionName + " then allocZeroInitializedArray:convert");
-    }
-
-    template<typename T>
-    ComputePromiseT<MemoryArrayHandleT<T>>
-    manageMemoryRegion(const std::string & regionName, const std::vector<T> & obj)
-    {
-        return manageMemoryRegion(regionName, static_cast<std::span<const T>>(obj));
-    }
-
-    template<typename T>
-    MemoryArrayHandleT<T>
-    manageMemoryRegionSync(const std::string & regionName, const std::vector<T> & obj)
-    {
-        return manageMemoryRegionSync(regionName, static_cast<std::span<const T>>(obj));
-    }
-
-    template<typename T, size_t N>
-    ComputePromiseT<MemoryArrayHandleT<T>>
-    manageMemoryRegion(const std::string & regionName, const std::span<const T, N> & obj)
-    {
-        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
-        {
-            return { std::move(handle.handle) };
-        };
-
-        return managePinnedHostRegionImpl(regionName, std::as_bytes(obj), alignof(T),
-                                      typeid(std::remove_const_t<T>), std::is_const_v<T>)
-            .then(std::move(convert), regionName + " then manageMemoryRegion:convert");
-    }
-
-    template<typename T, size_t N>
-    MemoryArrayHandleT<T>
-    manageMemoryRegionSync(const std::string & regionName, const std::span<const T, N> & obj)
-    {
-        return { managePinnedHostRegionSyncImpl(regionName, std::as_bytes(obj), alignof(T),
-                                      typeid(std::remove_const_t<T>), std::is_const_v<T>).handle };
     }
 
     template<typename T>

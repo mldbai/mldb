@@ -926,7 +926,7 @@ init(const std::string & debugName,
         = context->transferToDeviceImmutable("copyBucketData", bucketMemory).get();
 
     deviceFeatureIsOrdinal
-        = context->manageMemoryRegion("featuresIsOrdinal", featureIsOrdinal).get();
+        = queue->manageMemoryRegionSync("featuresIsOrdinal", featureIsOrdinal);
     
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
@@ -989,8 +989,8 @@ init(const std::string & debugName,
 
     // Before that, we need to set up some memory objects to be used
     // by the kernel.
-    deviceBucketEntryBits = context->manageMemoryRegion("bucketEntryBits", bucketEntryBits).get();
-    deviceBucketDataOffsets = context->manageMemoryRegion("bucketMemoryOffsets", bucketMemoryOffsets).get();
+    deviceBucketEntryBits = queue->manageMemoryRegionSync("bucketEntryBits", bucketEntryBits);
+    deviceBucketDataOffsets = queue->manageMemoryRegionSync("bucketMemoryOffsets", bucketMemoryOffsets);
 
     queue->finish();
 }
@@ -1007,6 +1007,9 @@ struct FeatureSamplingTrainerPartition {
     {
         init();
     }
+
+    // Allocate data structures big enough to contain maxNumActiveFeatures active features
+    void allocate(const FeatureSamplingTrainerKernel & maxNumActiveFeatures);
 
     void init();
 
@@ -1053,6 +1056,13 @@ trainPartitioned(const std::string & debugName, const std::vector<int> & activeF
 {
     FeatureSamplingTrainerPartition partition(*this, debugName, activeFeaturesIn);
     return partition.train();
+}
+
+void
+FeatureSamplingTrainerPartition::
+allocate(const FeatureSamplingTrainerKernel & maxNumActiveFeatures)
+{
+
 }
 
 void
@@ -1117,32 +1127,32 @@ init()
 
     span<const TreeTrainingInfo> treeTrainingInfoSpan(&treeTrainingInfo, 1);
 
-    deviceTreeTrainingInfo = context->manageMemoryRegionSync("treeTrainingInfo", treeTrainingInfoSpan);
-
-    // For each feature, what is the beginning bucket number? [nf + 1]
-    auto deviceBucketNumbers = context->manageMemoryRegion("bucketNumbers", bucketNumbers).get();
-
-    before = Date::now();
-
     // Each partition has its own queue
     queue = context->getQueue(debugName);
+
+    // This queue processes operations for this depth in serial
+    depthQueue = queue->serial(debugName + " initialization");
+
+    deviceTreeTrainingInfo = depthQueue->manageMemoryRegionSync("treeTrainingInfo", treeTrainingInfoSpan);
+
+    // For each feature, what is the beginning bucket number? [nf + 1]
+    auto deviceBucketNumbers = depthQueue->manageMemoryRegionSync("bucketNumbers", bucketNumbers);
+
+    before = Date::now();
 
     //static std::mutex mutex;
     //std::unique_lock guard{mutex};
     //queue->finish();
 
-    // This queue processes operations for this depth in serial
-    depthQueue = queue->serial(debugName + " initialization");
+    // Which of our features do we need to consider?  This allows us to
+    // avoid sizing things too large for the number of features that are
+    // actually active.
+    deviceFeatureIsActive = depthQueue->manageMemoryRegionSync("featureIsActive", featureIsActive);
 
     // Which of our features do we need to consider?  This allows us to
     // avoid sizing things too large for the number of features that are
     // actually active.
-    deviceFeatureIsActive = context->manageMemoryRegion("featureIsActive", featureIsActive).get();
-
-    // Which of our features do we need to consider?  This allows us to
-    // avoid sizing things too large for the number of features that are
-    // actually active.
-    deviceActiveFeatureList = context->manageMemoryRegion("activeFeatureList", activeFeatureList).get();
+    deviceActiveFeatureList = depthQueue->manageMemoryRegionSync("activeFeatureList", activeFeatureList);
 
     // Our wAll array contains the sum of all of the W buckets across
     // each partition.  We allocate a single array at the start and just

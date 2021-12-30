@@ -991,14 +991,8 @@ MetalComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg,
-                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+                     const std::any & arg)
 {
-    // TODO: once we have events, stop doing this...
-    for (auto & prereq: prereqs) {
-        prereq->await();
-    }
-
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "enqueueFillArrayImpl " + opName);
 
     if (startOffsetInBytes > region.lengthInBytes()) {
@@ -1011,7 +1005,7 @@ enqueueFillArrayImpl(const std::string & opName,
         throw MLDB::Exception("overflowing memory region");
     }
 
-    return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, prereqs);
+    return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -1019,8 +1013,7 @@ MetalComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
                         FrozenMemoryRegion fromRegion,
-                        size_t deviceStartOffsetInBytes,
-                        std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+                        size_t deviceStartOffsetInBytes)
 {
     THROW_UNIMPLEMENTED;
 #if 0
@@ -1127,6 +1120,69 @@ transferToHostSyncImpl(const std::string & opName,
     return result;
 }
 
+ComputePromiseT<MemoryRegionHandle>
+MetalComputeQueue::
+enqueueManagePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
+                                  const std::type_info & type, bool isConst)
+{
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionImpl " + opName);
+
+    auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
+    return ComputePromiseT<MemoryRegionHandle>(std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent(opName));
+}
+
+MemoryRegionHandle
+MetalComputeQueue::
+managePinnedHostRegionSyncImpl(const std::string & opName,
+                               std::span<const std::byte> region, size_t align,
+                               const std::type_info & type, bool isConst)
+{
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
+
+    cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
+
+    mtlpp::ResourceOptions options
+         = mtlpp::ResourceOptions::StorageModeShared;
+
+
+    traceMetalOperation("region size " + std::to_string(region.size()));
+
+    // This overload calls newBufferWithBytesNoCopy
+    // Note that we require a page-aligned address and size, and a single VM region
+    // See https://developer.apple.com/documentation/metal/mtldevice/1433382-makebuffer
+    // Thus, for now we don't try; instead we copy and blit
+    mtlpp::Buffer buffer;
+    if (false) {
+        auto deallocator = [=] (auto ptr, auto len)
+        {
+            cerr << ansi::bright_red << "DEALLOCATING PINNED REGION " << opName << ansi::reset
+                << " of length " << len << endl;
+        };
+
+        buffer = mtlOwner->mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
+    }
+    else {
+        if (region.empty()) {
+            buffer = mtlOwner->mtlDevice.NewBuffer(4, options);
+        }
+        else {
+            buffer = mtlOwner->mtlDevice.NewBuffer((const void *)region.data(), region.size(), options);
+        }
+    }
+    buffer.SetLabel(opName.c_str());
+
+    auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
+    handle->buffer = std::move(buffer);
+    handle->offset = 0;
+    handle->type = &type;
+    handle->isConst = isConst;
+    handle->lengthInBytes = region.size();
+    handle->version = 0;
+    handle->name = opName;
+    handle->backingHostMem = region.data();
+    MemoryRegionHandle result{std::move(handle)};
+    return result;
+}
 
 std::shared_ptr<ComputeEvent>
 MetalComputeQueue::
@@ -1474,70 +1530,6 @@ getKernel(const std::string & kernelName)
         result->traceSerializer = kernelsSerializer->newStructure(kernelName);
         result->runsSerializer = result->traceSerializer->newStructure("runs");
     }
-    return result;
-}
-
-ComputePromiseT<MemoryRegionHandle>
-MetalComputeContext::
-managePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
-                           const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionImpl " + opName);
-
-    auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
-    return ComputePromiseT<MemoryRegionHandle>(std::move(result), MetalComputeEvent::makeAlreadyResolvedEvent(opName));
-}
-
-MemoryRegionHandle
-MetalComputeContext::
-managePinnedHostRegionSyncImpl(const std::string & opName,
-                               std::span<const std::byte> region, size_t align,
-                               const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
-
-    cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
-
-    mtlpp::ResourceOptions options
-         = mtlpp::ResourceOptions::StorageModeShared;
-
-
-    traceMetalOperation("region size " + std::to_string(region.size()));
-
-    // This overload calls newBufferWithBytesNoCopy
-    // Note that we require a page-aligned address and size, and a single VM region
-    // See https://developer.apple.com/documentation/metal/mtldevice/1433382-makebuffer
-    // Thus, for now we don't try; instead we copy and blit
-    mtlpp::Buffer buffer;
-    if (false) {
-        auto deallocator = [=] (auto ptr, auto len)
-        {
-            cerr << ansi::bright_red << "DEALLOCATING PINNED REGION " << opName << ansi::reset
-                << " of length " << len << endl;
-        };
-
-        buffer = mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
-    }
-    else {
-        if (region.empty()) {
-            buffer = mtlDevice.NewBuffer(4, options);
-        }
-        else {
-            buffer = mtlDevice.NewBuffer((const void *)region.data(), region.size(), options);
-        }
-    }
-    buffer.SetLabel(opName.c_str());
-
-    auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
-    handle->buffer = std::move(buffer);
-    handle->offset = 0;
-    handle->type = &type;
-    handle->isConst = isConst;
-    handle->lengthInBytes = region.size();
-    handle->version = 0;
-    handle->name = opName;
-    handle->backingHostMem = region.data();
-    MemoryRegionHandle result{std::move(handle)};
     return result;
 }
 

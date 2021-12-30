@@ -644,8 +644,7 @@ OpenCLComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg,
-                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+                     const std::any & arg)
 {
     auto op = scopedOperation("enqueueFillArrayImpl " + opName);
 
@@ -659,7 +658,7 @@ enqueueFillArrayImpl(const std::string & opName,
         throw MLDB::Exception("overflowing memory region");
     }
 
-    return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg, prereqs);
+    return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -667,17 +666,14 @@ OpenCLComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
                         FrozenMemoryRegion fromRegion,
-                        size_t deviceStartOffsetInBytes,
-                        std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+                        size_t deviceStartOffsetInBytes)
 {
     auto op = scopedOperation("OpenCLComputeQueue enqueueCopyFromHostImpl " + opName);
 
     ExcAssert(toRegion.handle);
 
-    auto clPrereqs = toOpenCLEventList(prereqs);
-
     auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
-    auto res = clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data(), clPrereqs);
+    auto res = clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data());
 
     return { toRegion, std::make_shared<OpenCLComputeEvent>(res) };
 }
@@ -752,6 +748,59 @@ transferToHostSyncImpl(const std::string & opName,
     return result;
 }
 
+ComputePromiseT<MemoryRegionHandle>
+OpenCLComputeQueue::
+enqueueManagePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
+                           const std::type_info & type, bool isConst)
+{
+    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionImpl " + opName);
+
+    auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
+    return ComputePromiseT<MemoryRegionHandle>(std::move(result), makeAlreadyResolvedEvent(opName));
+}
+
+MemoryRegionHandle
+OpenCLComputeQueue::
+managePinnedHostRegionSyncImpl(const std::string & opName,
+                               std::span<const std::byte> region, size_t align,
+                               const std::type_info & type, bool isConst)
+{
+    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionSyncImpl " + opName);
+    Timer timer;
+    OpenCLMemObject mem;
+    if (region.size() == 0) {
+        // Create a valid pointer, which means non-zero length
+        mem = clOwner->clContext.createBuffer(CL_MEM_READ_ONLY, 4 /* size */);
+    }
+    else {
+        if (isConst) {
+            mem = clOwner->clContext.createBuffer(CL_MEM_READ_ONLY,
+                                         region.data(), region.size());
+        } else {
+            mem = clOwner->clContext.createBuffer(CL_MEM_READ_WRITE,
+                                         (void *)region.data(), region.size());
+        }
+    }
+
+    //using namespace std;
+    //cerr << "transferring " << region.size() / 1000000.0 << " Mbytes of pinned type "
+    //        << demangle(type.name()) << " isConst " << isConst << " to device in "
+    //        << timer.elapsed_wall() << " at "
+    //        << region.size() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
+
+    // TODO: this is synchronous; it should become asynchronous
+
+    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
+    handle->memBase = std::move(mem);
+    handle->offset = 0;
+    handle->type = &type;
+    handle->isConst = isConst;
+    handle->lengthInBytes = region.size();
+    handle->version = 0;
+    handle->name = opName;
+    MemoryRegionHandle result{std::move(handle)};
+    return result;
+}
 
 std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
@@ -1022,60 +1071,6 @@ getKernel(const std::string & kernelName)
     return result;
 }
 
-ComputePromiseT<MemoryRegionHandle>
-OpenCLComputeContext::
-managePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
-                           const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionImpl " + opName);
-
-    auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
-    return ComputePromiseT<MemoryRegionHandle>(std::move(result), clQueue->makeAlreadyResolvedEvent(opName));
-}
-
-MemoryRegionHandle
-OpenCLComputeContext::
-managePinnedHostRegionSyncImpl(const std::string & opName,
-                               std::span<const std::byte> region, size_t align,
-                               const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionSyncImpl " + opName);
-    Timer timer;
-    OpenCLMemObject mem;
-    if (region.size() == 0) {
-        // Create a valid pointer, which means non-zero length
-        mem = clContext.createBuffer(CL_MEM_READ_ONLY, 4 /* size */);
-    }
-    else {
-        if (isConst) {
-            mem = clContext.createBuffer(CL_MEM_READ_ONLY,
-                                         region.data(), region.size());
-        } else {
-            mem = clContext.createBuffer(CL_MEM_READ_WRITE,
-                                         (void *)region.data(), region.size());
-        }
-    }
-
-    //using namespace std;
-    //cerr << "transferring " << region.size() / 1000000.0 << " Mbytes of pinned type "
-    //        << demangle(type.name()) << " isConst " << isConst << " to device in "
-    //        << timer.elapsed_wall() << " at "
-    //        << region.size() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
-
-    // TODO: this is synchronous; it should become asynchronous
-
-    auto handle = std::make_shared<OpenCLMemoryRegionHandleInfo>();
-    handle->memBase = std::move(mem);
-    handle->offset = 0;
-    handle->type = &type;
-    handle->isConst = isConst;
-    handle->lengthInBytes = region.size();
-    handle->version = 0;
-    handle->name = opName;
-    MemoryRegionHandle result{std::move(handle)};
-    return result;
-}
-
 std::shared_ptr<ComputeEvent>
 OpenCLComputeContext::
 fillDeviceRegionFromHostImpl(const std::string & opName,
@@ -1086,7 +1081,7 @@ fillDeviceRegionFromHostImpl(const std::string & opName,
     FrozenMemoryRegion region(pinnedHostRegion, (const char *)pinnedHostRegion->data(), pinnedHostRegion->size_bytes());
 
     return clQueue
-        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {}).event();
+        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset).event();
 }                                     
 
 void
@@ -1099,7 +1094,7 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
     FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
 
     clQueue
-        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {})
+        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset)
     .await();
 }
 

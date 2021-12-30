@@ -583,8 +583,7 @@ ComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle regionIn, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg,
-                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
+                     const std::any & arg)
 {
     MemoryArrayHandleT<uint8_t> region{regionIn.handle};
 
@@ -613,9 +612,9 @@ enqueueFillArrayImpl(const std::string & opName,
         case MemoryRegionInitialization::INIT_BLOCK_FILLED: {
             auto kernel = owner->getKernel("__blockFillArray");
             auto block = std::any_cast<std::span<const std::byte>>(arg);
-            auto blockRegion = owner->managePinnedHostRegionImpl(opName + " pin block", block, 1 /* align */,
+            auto blockRegion = managePinnedHostRegionSyncImpl(opName + " pin block", block, 1 /* align */,
                                                                  typeid(std::byte), true /* isConst */);
-            MemoryArrayHandleT<uint8_t> blockHandle{std::move(blockRegion.move().handle)};
+            MemoryArrayHandleT<uint8_t> blockHandle{std::move(blockRegion.handle)};
             auto bound = kernel->bind("region", region,
                                       "startOffsetInBytes", (uint64_t)startOffsetInBytes,
                                       "lengthInBytes", (uint64_t)lengthInBytes,
@@ -728,15 +727,6 @@ transferToHostMutableSyncImpl(const std::string & opName,
                                 MemoryRegionHandle handle)
 {
     return transferToHostMutableImpl(opName, std::move(handle)).move();   
-}
-
-MemoryRegionHandle
-ComputeContext::
-managePinnedHostRegionSyncImpl(const std::string & opName,
-                                std::span<const std::byte> region, size_t align,
-                                const std::type_info & type, bool isConst)
-{
-    return managePinnedHostRegionImpl(opName, region, align, type, isConst).move();
 }
 
 void

@@ -11,6 +11,8 @@
 
 namespace MLDB {
 
+struct HostComputeContext;
+
 struct ComputeKernelGridRange {
     ComputeKernelGridRange() = default;
 
@@ -592,10 +594,9 @@ struct HostComputeKernel: public ComputeKernel {
 // HostComputeQueue
 
 struct HostComputeQueue: public ComputeQueue {
-    HostComputeQueue(ComputeContext * owner, HostComputeQueue * parent = nullptr)
-        : ComputeQueue(owner, parent)
-    {
-    }
+    HostComputeQueue(HostComputeContext * owner, HostComputeQueue * parent = nullptr);
+
+    HostComputeContext * hostOwner = nullptr;
 
     virtual ~HostComputeQueue() = default;
 
@@ -611,15 +612,13 @@ struct HostComputeQueue: public ComputeQueue {
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg,
-                         std::vector<std::shared_ptr<ComputeEvent>> prereqs) override;
+                         const std::any & arg) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     enqueueCopyFromHostImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
-                            size_t deviceStartOffsetInBytes,
-                            std::vector<std::shared_ptr<ComputeEvent>> prereqs = {}) override;
+                            size_t deviceStartOffsetInBytes) override;
 
     virtual ComputePromiseT<FrozenMemoryRegion>
     enqueueTransferToHostImpl(const std::string & opName,
@@ -628,6 +627,16 @@ struct HostComputeQueue: public ComputeQueue {
     virtual FrozenMemoryRegion
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle) override;
+
+    virtual ComputePromiseT<MemoryRegionHandle>
+    enqueueManagePinnedHostRegionImpl(const std::string & opName,
+                                      std::span<const std::byte> region, size_t align,
+                                      const std::type_info & type, bool isConst) override;
+
+    virtual MemoryRegionHandle
+    managePinnedHostRegionSyncImpl(const std::string & opName,
+                                   std::span<const std::byte> region, size_t align,
+                                   const std::type_info & type, bool isConst) override;
 
     virtual std::shared_ptr<ComputeEvent> flush() override;
 

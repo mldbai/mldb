@@ -124,116 +124,6 @@ call(const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) c
 }
 
 
-// HostComputeQueue
-
-std::shared_ptr<ComputeQueue>
-HostComputeQueue::
-parallel(const std::string & opName)
-{
-    return std::make_shared<HostComputeQueue>(this->owner, this);
-}
-
-std::shared_ptr<ComputeQueue>
-HostComputeQueue::
-serial(const std::string & opName)
-{
-    return std::make_shared<HostComputeQueue>(this->owner, this);
-}
-
-void
-HostComputeQueue::
-enqueue(const std::string & opName,
-        const BoundComputeKernel & kernel,
-        const std::vector<uint32_t> & grid)
-{
-    ExcAssertEqual(kernel.owner->dims.size(), grid.size());
-
-    auto hostOwner = dynamic_cast<const HostComputeKernel *>(kernel.owner);
-    if (!hostOwner)
-        throw MLDB::Exception("Attempt to enqueue kernel of type " + demangle(typeid(*kernel.owner))
-                              + " on HostComputeQueue (expected type HostComputeKernel)");
-
-    Timer timer;
-    std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
-    hostOwner->call(kernel, ranges);
-    auto wallTime = timer.elapsed_wall();
-    //using namespace std;
-    //cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
-    {
-        std::unique_lock guard(kernelWallTimesMutex);
-        kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
-        totalKernelTime += wallTime * 1000.0;
-    }
-}
-
-ComputePromiseT<MemoryRegionHandle>
-HostComputeQueue::
-enqueueFillArrayImpl(const std::string & opName,
-                     MemoryRegionHandle regionIn, MemoryRegionInitialization init,
-                     size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg,
-                     std::vector<std::shared_ptr<ComputeEvent>> prereqs)
-{
-    return ComputeQueue::enqueueFillArrayImpl(opName, std::move(regionIn), init,
-                                              startOffsetInBytes, lengthInBytes, arg, std::move(prereqs));
-}
-
-ComputePromiseT<MemoryRegionHandle>
-HostComputeQueue::
-enqueueCopyFromHostImpl(const std::string & opName,
-                        MemoryRegionHandle toRegion,
-                        FrozenMemoryRegion fromRegion,
-                        size_t deviceStartOffsetInBytes,
-                        std::vector<std::shared_ptr<ComputeEvent>> prereqs)
-{
-    ExcAssertLess(deviceStartOffsetInBytes + fromRegion.length(), toRegion.lengthInBytes());
-    ExcAssert(toRegion.handle);
-    ExcAssert(!toRegion.handle->isConst);
-    auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(toRegion.handle));
-    ExcAssert(info);
-    std::memcpy((std::byte *)info->data + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
-
-    auto event = std::make_shared<HostComputeEvent>();
-    return { toRegion, event };
-}
-
-ComputePromiseT<FrozenMemoryRegion>
-HostComputeQueue::
-enqueueTransferToHostImpl(const std::string & opName,
-                          MemoryRegionHandle handle)
-{
-    return owner->transferToHostImpl(opName, std::move(handle));
-}
-
-FrozenMemoryRegion
-HostComputeQueue::
-transferToHostSyncImpl(const std::string & opName,
-                       MemoryRegionHandle handle)
-{
-    return owner->transferToHostSyncImpl(opName, std::move(handle));
-}
-
-std::shared_ptr<ComputeEvent>
-HostComputeQueue::
-flush()
-{
-    return makeAlreadyResolvedEvent("flush");
-}
-
-void
-HostComputeQueue::
-finish()
-{
-    // no-op
-}
-
-std::shared_ptr<ComputeEvent>
-HostComputeQueue::
-makeAlreadyResolvedEvent(const std::string & label) const
-{
-    return std::make_shared<HostComputeEvent>();
-}
-
 // HostComputeContext
 
 struct HostComputeContext: public ComputeContext {
@@ -396,21 +286,6 @@ struct HostComputeContext: public ComputeContext {
         return result;
     }
 
-    virtual ComputePromiseT<MemoryRegionHandle>
-    managePinnedHostRegionImpl(const std::string & regionName,
-                               std::span<const std::byte> region, size_t align,
-                               const std::type_info & type, bool isConst) override
-    {
-        auto mem = backingStore->allocateWritable(region.size(), align);
-        std::copy_n(region.data(), region.size(), (std::byte *)mem.data());
-        auto result = std::make_shared<HostMemoryRegionInfo>();
-        result->init(std::move(mem));
-        result->type = &type;
-        result->isConst = isConst;
-        result->name = regionName;
-        return { { std::move(result) }, std::make_shared<HostComputeEvent>() };
-    }
-
     virtual std::shared_ptr<ComputeQueue>
     getQueue(const std::string & queueName) override
     {
@@ -468,6 +343,147 @@ struct HostComputeContext: public ComputeContext {
     }
 
 };
+
+
+// HostComputeQueue
+
+HostComputeQueue::
+HostComputeQueue(HostComputeContext * owner, HostComputeQueue * parent)
+    : ComputeQueue(owner, parent), hostOwner(owner)
+{
+}
+
+std::shared_ptr<ComputeQueue>
+HostComputeQueue::
+parallel(const std::string & opName)
+{
+    return std::make_shared<HostComputeQueue>(this->hostOwner, this);
+}
+
+std::shared_ptr<ComputeQueue>
+HostComputeQueue::
+serial(const std::string & opName)
+{
+    return std::make_shared<HostComputeQueue>(this->hostOwner, this);
+}
+
+void
+HostComputeQueue::
+enqueue(const std::string & opName,
+        const BoundComputeKernel & kernel,
+        const std::vector<uint32_t> & grid)
+{
+    ExcAssertEqual(kernel.owner->dims.size(), grid.size());
+
+    auto hostOwner = dynamic_cast<const HostComputeKernel *>(kernel.owner);
+    if (!hostOwner)
+        throw MLDB::Exception("Attempt to enqueue kernel of type " + demangle(typeid(*kernel.owner))
+                              + " on HostComputeQueue (expected type HostComputeKernel)");
+
+    Timer timer;
+    std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
+    hostOwner->call(kernel, ranges);
+    auto wallTime = timer.elapsed_wall();
+    //using namespace std;
+    //cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
+    {
+        std::unique_lock guard(kernelWallTimesMutex);
+        kernelWallTimes[kernel.owner->kernelName] += wallTime * 1000.0;
+        totalKernelTime += wallTime * 1000.0;
+    }
+}
+
+ComputePromiseT<MemoryRegionHandle>
+HostComputeQueue::
+enqueueFillArrayImpl(const std::string & opName,
+                     MemoryRegionHandle regionIn, MemoryRegionInitialization init,
+                     size_t startOffsetInBytes, ssize_t lengthInBytes,
+                     const std::any & arg)
+{
+    return ComputeQueue::enqueueFillArrayImpl(opName, std::move(regionIn), init,
+                                              startOffsetInBytes, lengthInBytes, arg);
+}
+
+ComputePromiseT<MemoryRegionHandle>
+HostComputeQueue::
+enqueueCopyFromHostImpl(const std::string & opName,
+                        MemoryRegionHandle toRegion,
+                        FrozenMemoryRegion fromRegion,
+                        size_t deviceStartOffsetInBytes)
+{
+    ExcAssertLess(deviceStartOffsetInBytes + fromRegion.length(), toRegion.lengthInBytes());
+    ExcAssert(toRegion.handle);
+    ExcAssert(!toRegion.handle->isConst);
+    auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(toRegion.handle));
+    ExcAssert(info);
+    std::memcpy((std::byte *)info->data + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
+
+    auto event = std::make_shared<HostComputeEvent>();
+    return { toRegion, event };
+}
+
+ComputePromiseT<FrozenMemoryRegion>
+HostComputeQueue::
+enqueueTransferToHostImpl(const std::string & opName,
+                          MemoryRegionHandle handle)
+{
+    return owner->transferToHostImpl(opName, std::move(handle));
+}
+
+FrozenMemoryRegion
+HostComputeQueue::
+transferToHostSyncImpl(const std::string & opName,
+                       MemoryRegionHandle handle)
+{
+    return owner->transferToHostSyncImpl(opName, std::move(handle));
+}
+
+ComputePromiseT<MemoryRegionHandle>
+HostComputeQueue::
+enqueueManagePinnedHostRegionImpl(const std::string & opName,
+                                  std::span<const std::byte> region, size_t align,
+                                  const std::type_info & type, bool isConst)
+{
+    return { managePinnedHostRegionSyncImpl(opName, region, align, type, isConst), std::make_shared<HostComputeEvent>() };
+}
+
+MemoryRegionHandle
+HostComputeQueue::
+managePinnedHostRegionSyncImpl(const std::string & opName,
+                                std::span<const std::byte> region, size_t align,
+                                const std::type_info & type, bool isConst)
+{
+    auto mem = this->hostOwner->backingStore->allocateWritable(region.size(), align);
+    std::copy_n(region.data(), region.size(), (std::byte *)mem.data());
+    auto result = std::make_shared<HostMemoryRegionInfo>();
+    result->init(std::move(mem));
+    result->type = &type;
+    result->isConst = isConst;
+    result->name = opName;
+    return { std::move(result) };
+}
+
+std::shared_ptr<ComputeEvent>
+HostComputeQueue::
+flush()
+{
+    return makeAlreadyResolvedEvent("flush");
+}
+
+void
+HostComputeQueue::
+finish()
+{
+    // no-op
+}
+
+std::shared_ptr<ComputeEvent>
+HostComputeQueue::
+makeAlreadyResolvedEvent(const std::string & label) const
+{
+    return std::make_shared<HostComputeEvent>();
+}
+
 
 struct HostComputeRuntime: public ComputeRuntime {
     virtual ~HostComputeRuntime()
