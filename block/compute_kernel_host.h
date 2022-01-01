@@ -614,11 +614,17 @@ struct HostComputeQueue: public ComputeQueue {
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
                          const std::any & arg) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueCopyFromHostImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
                             size_t deviceStartOffsetInBytes) override;
+
+    virtual void
+    enqueueCopyFromHostSyncImpl(const std::string & opName,
+                                MemoryRegionHandle toRegion,
+                                FrozenMemoryRegion fromRegion,
+                                size_t deviceStartOffsetInBytes) override;
 
     virtual ComputePromiseT<FrozenMemoryRegion>
     enqueueTransferToHostImpl(const std::string & opName,
@@ -637,6 +643,18 @@ struct HostComputeQueue: public ComputeQueue {
     managePinnedHostRegionSyncImpl(const std::string & opName,
                                    std::span<const std::byte> region, size_t align,
                                    const std::type_info & type, bool isConst) override;
+
+    virtual void
+    enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                        MemoryRegionHandle from, MemoryRegionHandle to,
+                                        size_t fromOffset, size_t toOffset,
+                                        size_t length) override;
+
+    virtual void
+    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle from, MemoryRegionHandle to,
+                                     size_t fromOffset, size_t toOffset,
+                                     size_t length) override;
 
     virtual std::shared_ptr<ComputeEvent> flush() override;
 

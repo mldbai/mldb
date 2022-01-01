@@ -661,7 +661,7 @@ enqueueFillArrayImpl(const std::string & opName,
     return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 OpenCLComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
@@ -673,11 +673,23 @@ enqueueCopyFromHostImpl(const std::string & opName,
     ExcAssert(toRegion.handle);
 
     auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
-    auto res = clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data());
-
-    return { toRegion, std::make_shared<OpenCLComputeEvent>(res) };
+    clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data());
 }
 
+void
+OpenCLComputeQueue::
+enqueueCopyFromHostSyncImpl(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes)
+{
+    auto op = scopedOperation("OpenCLComputeQueue enqueueCopyFromHostSyncImpl " + opName);
+
+    ExcAssert(toRegion.handle);
+
+    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
+    clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data()).waitUntilFinished();
+}
 ComputePromiseT<FrozenMemoryRegion>
 OpenCLComputeQueue::
 enqueueTransferToHostImpl(const std::string & opName,
@@ -800,6 +812,40 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     handle->name = opName;
     MemoryRegionHandle result{std::move(handle)};
     return result;
+}
+
+std::shared_ptr<ComputeEvent>
+OpenCLComputeQueue::
+doEnqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                      MemoryRegionHandle from, MemoryRegionHandle to,
+                                      size_t fromOffset, size_t toOffset,
+                                      size_t length)
+{
+    auto [fromPin, fromMem, fromBaseOffset] = OpenCLComputeContext::getMemoryRegion(opName, *from.handle, ACC_READ);
+    auto [toPin, toMem, toBaseOffset] = OpenCLComputeContext::getMemoryRegion(opName, *to.handle, ACC_WRITE);
+
+    auto event = this->clQueue.enqueueCopyBuffer(fromMem, toMem, fromBaseOffset + fromOffset, toBaseOffset + toOffset, length);
+    return std::make_shared<OpenCLComputeEvent>(std::move(event));
+}
+
+void
+OpenCLComputeQueue::
+enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                MemoryRegionHandle from, MemoryRegionHandle to,
+                                size_t fromOffset, size_t toOffset,
+                                size_t length)
+{
+    doEnqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length);
+}
+
+void
+OpenCLComputeQueue::
+copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                    MemoryRegionHandle from, MemoryRegionHandle to,
+                                    size_t fromOffset, size_t toOffset,
+                                    size_t length)
+{
+    doEnqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length)->await();
 }
 
 std::shared_ptr<ComputeEvent>
@@ -1071,7 +1117,7 @@ getKernel(const std::string & kernelName)
     return result;
 }
 
-std::shared_ptr<ComputeEvent>
+void
 OpenCLComputeContext::
 fillDeviceRegionFromHostImpl(const std::string & opName,
                              MemoryRegionHandle deviceHandle,
@@ -1080,8 +1126,7 @@ fillDeviceRegionFromHostImpl(const std::string & opName,
 {
     FrozenMemoryRegion region(pinnedHostRegion, (const char *)pinnedHostRegion->data(), pinnedHostRegion->size_bytes());
 
-    return clQueue
-        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset).event();
+    clQueue->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset);
 }                                     
 
 void
@@ -1093,33 +1138,7 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
 {
     FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
 
-    clQueue
-        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset)
-    .await();
-}
-
-std::shared_ptr<ComputeEvent>
-OpenCLComputeContext::
-copyBetweenDeviceRegionsImpl(const std::string & opName,
-                                MemoryRegionHandle from, MemoryRegionHandle to,
-                                size_t fromOffset, size_t toOffset,
-                                size_t length)
-{
-    auto [fromPin, fromMem, fromBaseOffset] = getMemoryRegion(opName, *from.handle, ACC_READ);
-    auto [toPin, toMem, toBaseOffset] = getMemoryRegion(opName, *to.handle, ACC_WRITE);
-
-    auto event = clQueue->clQueue.enqueueCopyBuffer(fromMem, toMem, fromBaseOffset + fromOffset, toBaseOffset + toOffset, length);
-    return std::make_shared<OpenCLComputeEvent>(std::move(event));
-}
-
-void
-OpenCLComputeContext::
-copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
-                                    MemoryRegionHandle from, MemoryRegionHandle to,
-                                    size_t fromOffset, size_t toOffset,
-                                    size_t length)
-{
-    copyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length)->await();
+    clQueue->enqueueCopyFromHostSyncImpl(opName, deviceHandle, region, deviceOffset);
 }
 
 std::shared_ptr<ComputeQueue>

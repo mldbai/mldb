@@ -745,7 +745,7 @@ struct FeatureSamplingTrainerKernel {
               const DatasetFeatureSpace & fs,
               const ComputeDevice & device);
 
-    ML::Tree trainPartitioned(const std::string & debugName, const std::vector<int> & featuresActive);
+    std::vector<ML::Tree> trainPartitioned(const std::string & debugName, const std::vector<std::vector<int>> & featuresActive);
 
     // Debugging name we use to identify this bucket
     std::string debugName;
@@ -984,7 +984,7 @@ init(const std::string & debugName,
         ExcAssert(!different && "runExpandRows");
     }
 
-    // Next we need to distribute the weignts into the first set of
+    // Next we need to distribute the weights into the first set of
     // buckets.  This is done with the testFeature kernel.
 
     // Before that, we need to set up some memory objects to be used
@@ -1001,21 +1001,26 @@ struct FeatureSamplingTrainerPartition {
     std::vector<int> activeFeaturesIn;
 
     FeatureSamplingTrainerPartition(const FeatureSamplingTrainerKernel & owner,
-                                    const std::string & debugName,
-                                    const std::vector<int> & activeFeaturesIn)
-        : owner(owner), debugName(debugName), activeFeaturesIn(activeFeaturesIn)
+                                    const std::string & debugName)
+        : owner(owner), debugName(debugName)
     {
-        init();
     }
 
-    // Allocate data structures big enough to contain maxNumActiveFeatures active features
-    void allocate(const FeatureSamplingTrainerKernel & maxNumActiveFeatures);
+    // Allocate data structures big enough to contain all trainings in the activeFeaturesIn list
+    void allocate(const std::vector<std::vector<int>> & allActiveFeaturesIn);
 
-    void init();
+    // Initialize for a given activeFeatures
+    void init(const std::string & debugName,
+              const std::vector<int> & activeFeaturesIn);
 
-    ML::Tree train();
+    // Train the currently initialized version
+    std::tuple<std::shared_ptr<ComputeEvent>, MemoryArrayHandleT<IndexedPartitionSplit>, MemoryArrayHandleT<TreeDepthInfo>>
+    scheduleTraining();
 
-    Date before;
+    ML::Tree finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
+                    MemoryArrayHandleT<TreeDepthInfo> resultTreeDepthInfo);
+
+    Date before, startDepth, startDescent, beforeMapping;
     std::shared_ptr<MLDB::ComputeMarker> trainMarker;
 
     std::vector<uint32_t> bucketNumbers;
@@ -1031,57 +1036,251 @@ struct FeatureSamplingTrainerPartition {
 
     std::shared_ptr<ComputeQueue> queue, depthQueue;
 
+    // Immutable information about the tree we're currently training
     MemoryArrayHandleT<TreeTrainingInfo> deviceTreeTrainingInfo;
+
+    // For each feature, what is the beginning bucket number? [nf + 1]
     MemoryArrayHandleT<uint32_t> deviceBucketNumbers;
+
+    // Which of our features do we need to consider?  This allows us to
+    // avoid sizing things too large for the number of features that are
+    // actually active.
     MemoryArrayHandleT<uint32_t> deviceFeatureIsActive;
+
+    // Which of our features do we need to consider?  This allows us to
+    // avoid sizing things too large for the number of features that are
+    // actually active.
     MemoryArrayHandleT<uint32_t> deviceActiveFeatureList;
+
+    // Our wAll array contains the sum of all of the W buckets across
+    // each partition.  We allocate a single array at the start and just
+    // use more and more each iteration.
     MemoryArrayHandleT<W> deviceWAllPool;
+
+    // Our W buckets live here, per partition.  We never need to see it on
+    // the host, so we allow it to be initialized and live on the device.
+    // Note that we only use the beginning 2 at the start, and we
+    // double the amount of what we use until we're using the whole lot
+    // on the last iteration
     MemoryArrayHandleT<W> devicePartitionBucketPool;
+
+    // Control structure that contains the variables that vary by depth, so that we can
+    // schedule the computation statically
     MemoryArrayHandleT<TreeDepthInfo> deviceTreeDepthInfo;
+
+    // We have only one partition, which is the root bucket.  We allocate a pool of them.  The
+    // array is filled out in the kernels.
     MemoryArrayHandleT<PartitionIndex> devicePartitionIndexPool;
+
+    // At each level, we need to calculate the positions of the left and right buckets
     MemoryArrayHandleT<PartitionInfo> devicePartitionInfoPool;
-    MemoryArrayHandleT<MLDB::RF::RowPartitionInfo> devicePartitions;
+
+    // Which partition is each row in?  Initially, everything
+    // is in partition zero, but as we start to split, we end up
+    // splitting them amongst many partitions.  Each partition has
+    // its own set of buckets that we maintain.  Note that this indexes the
+    // PARTITION NUMBER IN THE ARRAY, not the actual index (to find the index, its
+    // necessary to consult the PartitionInfo structure)
+    MemoryArrayHandleT<RowPartitionInfo> devicePartitions;
+
+    // Array to cache transfer directions to avoid re-calculating
     MemoryArrayHandleT<uint32_t> directions;
+
+    // The length of the nonZeroDirectionIndices array
     MemoryArrayHandleT<UpdateWorkEntry> nonZeroDirectionIndices;
+
+    // Array to hold indices of non-zero directions to avoid scanning directions
     MemoryArrayHandleT<uint32_t> numNonZeroDirectionIndices;
+
+    // SmallSideIndex[numPartitionsOut]:
+    // Used to a) know when we need to clear partitions (those on the small side are cleared,
+    // those on the big side are not) and b) provide a local index for partition buckets for
+    // the UpdateBuckets kernel
+    // - 0 means it's not on the small side
+    // - 1-254 means we're partition number (n-1) on the small side
+    // - 255 means we're partition number 254 or greater on the small side
     MemoryArrayHandleT<uint8_t> smallSideIndexes;
+
+    // For each value in smallSideIndexes, which partition number does it correspond to?
     MemoryArrayHandleT<uint16_t> smallSideIndexToPartitionNumbers;
+
+    // Contains the partition splits that we generate per iteration (this is a flattened
+    // version of the tree).  At any iteration, 0 to numFinishedPartitions are finished, and
+    // numFinishedPartitions to numFinishedPartitions + numActivePartitions are being worked
+    // on in the current iteration.  Note that there may be some holes there, as the
+    // algorithm that assigns new indexes is designed to minimize memory shuffling, not to
+    // ensure a dense output array.
     MemoryArrayHandleT<IndexedPartitionSplit> deviceAllPartitionSplitsPool;
+
+    // Pre-allocate partition buckets for the widest bucket
+    // We need to store partition splits for each partition and each
+    // feature.  Get the memory.  It doesn't need to be initialized.
+    // Layout is partition-major.
     MemoryArrayHandleT<PartitionSplit> deviceFeaturePartitionSplitsPool;
 };
 
-ML::Tree
-FeatureSamplingTrainerKernel::
-trainPartitioned(const std::string & debugName, const std::vector<int> & activeFeaturesIn)
+void
+FeatureSamplingTrainerPartition::
+allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
 {
-    FeatureSamplingTrainerPartition partition(*this, debugName, activeFeaturesIn);
-    return partition.train();
+    const auto & context = owner.context;
+    const auto & nf = owner.nf;
+    const auto & maxPartitionCount = owner.maxPartitionCount;
+    const auto & numRows = owner.numRows;
+    const auto & features = owner.features;
+    const auto & bucketData = owner.bucketData;
+    const auto & expandedRowData = owner.expandedRowData;
+    const auto & deviceBucketDataOffsets = owner.deviceBucketDataOffsets;
+    const auto & deviceBucketEntryBits = owner.deviceBucketEntryBits;
+    const auto & deviceFeatureIsOrdinal = owner.deviceFeatureIsOrdinal;
+
+    uint32_t maxNumActiveBuckets = 0;
+
+    size_t maxNumActiveFeatures = 0;
+    for (const auto & af: activeFeaturesIn) {
+        maxNumActiveFeatures = std::max(maxNumActiveFeatures, af.size());
+        uint32_t numActiveBuckets = 0;
+        for (uint32_t f: af) {
+            uint32_t featureNumBuckets = features[f].buckets.numBuckets;
+            numActiveBuckets += featureNumBuckets;
+        }
+        maxNumActiveBuckets = std::max(maxNumActiveBuckets, numActiveBuckets);
+    }
+
+    deviceTreeTrainingInfo = context->allocUninitializedArraySync<TreeTrainingInfo>("treeTrainingInfo", 1);
+    deviceBucketNumbers = context->allocUninitializedArraySync<uint32_t>("bucketNumbers", nf + 1);
+    deviceFeatureIsActive = context->allocUninitializedArraySync<uint32_t>("featureIsActive", nf);
+    deviceActiveFeatureList = context->allocUninitializedArraySync<uint32_t>("activeFeatureList", maxNumActiveFeatures);
+    deviceWAllPool = context->allocUninitializedArraySync<W>("wAll", maxPartitionCount);
+    devicePartitionBucketPool = context->allocUninitializedArraySync<W>("partitionBucketPool", maxPartitionCount * maxNumActiveBuckets);
+    deviceTreeDepthInfo = context->allocUninitializedArraySync<TreeDepthInfo>("treeDepthInfo", 1);
+    devicePartitionIndexPool = context->allocUninitializedArraySync<PartitionIndex>("partitionIndex", maxPartitionCount);
+    devicePartitionInfoPool = context->allocUninitializedArraySync<PartitionInfo>("partitionInfo", maxPartitionCount);
+    devicePartitions = context->allocUninitializedArraySync<RowPartitionInfo>("partitions", numRows);
+    directions = context->allocUninitializedArraySync<uint32_t>("directions", (numRows + 31) / 32);
+    nonZeroDirectionIndices = context->allocUninitializedArraySync<UpdateWorkEntry>("nonZeroDirectionIndices", numRows/2 + 2);
+    numNonZeroDirectionIndices = context->allocUninitializedArraySync<uint32_t>("numNonZeroDirectionIndices", 1);
+    smallSideIndexes = context->allocUninitializedArraySync<uint8_t>("smallSideIndexes", maxPartitionCount);
+    smallSideIndexToPartitionNumbers = context->allocUninitializedArraySync<uint16_t>("smallSideIndexToPartitionNumbers", 256);
+    deviceAllPartitionSplitsPool = context->allocUninitializedArraySync<IndexedPartitionSplit>("allPartitionSplits", 131072);
+    deviceFeaturePartitionSplitsPool = context->allocUninitializedArraySync<PartitionSplit>("featurePartitionSplits", maxPartitionCount  * nf);
+
+    boundTestFeatureKernel = owner.testFeatureKernel
+        ->bind( "decodedRows",                      expandedRowData,
+                "numRows",                          (uint32_t)numRows,
+                "bucketData",                       bucketData,
+                "bucketDataOffsets",                deviceBucketDataOffsets,
+                "bucketNumbers",                    deviceBucketNumbers,
+                "bucketEntryBits",                  deviceBucketEntryBits,
+                "activeFeatureList",                deviceActiveFeatureList,
+                "partitionBuckets",                 devicePartitionBucketPool);
+
+    boundGetPartitionSplitsKernel = owner.getPartitionSplitsKernel->bind
+            ("treeTrainingInfo",              deviceTreeTrainingInfo,
+            "bucketNumbers",                  deviceBucketNumbers,
+            "activeFeatureList",              deviceActiveFeatureList,
+            "featureIsOrdinal",               deviceFeatureIsOrdinal,
+            "buckets",                        devicePartitionBucketPool,
+            "wAll",                           deviceWAllPool,
+            "featurePartitionSplitsOut",      deviceFeaturePartitionSplitsPool,
+            "treeDepthInfo",                  deviceTreeDepthInfo,
+            "numActiveBuckets",               numActiveBuckets);
+
+    boundBestPartitionSplitKernel = owner.bestPartitionSplitKernel
+        ->bind("treeTrainingInfo",                deviceTreeTrainingInfo,
+                "treeDepthInfo",                  deviceTreeDepthInfo,
+                "activeFeatureList",              deviceActiveFeatureList,
+                "featurePartitionSplits",         deviceFeaturePartitionSplitsPool,
+                "allPartitionSplitsOut",          deviceAllPartitionSplitsPool,
+                "partitionIndexes",               devicePartitionIndexPool);
+
+    boundAssignPartitionNumbersKernel
+        = owner.assignPartitionNumbersKernel->bind
+        ("treeTrainingInfo",      deviceTreeTrainingInfo,
+        "treeDepthInfo",          deviceTreeDepthInfo,
+        "allPartitionSplits",     deviceAllPartitionSplitsPool,
+        "partitionIndexesOut",    devicePartitionIndexPool,
+        "partitionInfoOut",       devicePartitionInfoPool,
+        "smallSideIndexesOut",    smallSideIndexes,
+        "smallSideIndexToPartitionOut", smallSideIndexToPartitionNumbers);
+
+    boundClearBucketsKernel = owner.clearBucketsKernel->bind
+        ("treeTrainingInfo",          deviceTreeTrainingInfo,
+        "treeDepthInfo",              deviceTreeDepthInfo,
+        "bucketsOut",                 devicePartitionBucketPool,
+        "wAllOut",                    deviceWAllPool,
+        "numNonZeroDirectionIndices", numNonZeroDirectionIndices, 
+        "smallSideIndexes",           smallSideIndexes);
+
+    boundUpdatePartitionNumbersKernel = owner.updatePartitionNumbersKernel
+        ->bind(
+            "treeTrainingInfo",               deviceTreeTrainingInfo,
+            "treeDepthInfo",                  deviceTreeDepthInfo,
+            "partitions",                     devicePartitions,
+            "directions",                     directions,
+            "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
+            "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
+            "smallSideIndexes",               smallSideIndexes,
+            "allPartitionSplits",             deviceAllPartitionSplitsPool,
+            "partitionInfo",                  devicePartitionInfoPool,
+            "bucketData",                     bucketData,
+            "bucketDataOffsets",              deviceBucketDataOffsets,
+            "bucketNumbers",                  deviceBucketNumbers,
+            "bucketEntryBits",                deviceBucketEntryBits,
+            "featureIsOrdinal",               deviceFeatureIsOrdinal,
+            "decodedRows",                    expandedRowData);
+
+    boundUpdateBucketsKernel = owner.updateBucketsKernel->bind
+        ("treeTrainingInfo",              deviceTreeTrainingInfo,
+        "treeDepthInfo",                  deviceTreeDepthInfo,
+        "partitions",                     devicePartitions,
+        "directions",                     directions,
+        "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
+        "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
+        "buckets",                        devicePartitionBucketPool,
+        "wAll",                           deviceWAllPool,
+        "smallSideIndexes",               smallSideIndexes,
+        "smallSideIndexToPartition",      smallSideIndexToPartitionNumbers,
+        "decodedRows",                    expandedRowData,
+        "bucketData",                     bucketData,
+        "bucketDataOffsets",              deviceBucketDataOffsets,
+        "bucketNumbers",                  deviceBucketNumbers,
+        "bucketEntryBits",                deviceBucketEntryBits,
+        "activeFeatureList",              deviceActiveFeatureList,
+        "featureIsOrdinal",               deviceFeatureIsOrdinal,
+        "numActiveBuckets",               numActiveBuckets /* for sizing only */);
+
+    boundFixupBucketsKernel = owner.fixupBucketsKernel
+        ->bind(
+            "treeTrainingInfo",               deviceTreeTrainingInfo,
+            "treeDepthInfo",                  deviceTreeDepthInfo,
+            "buckets",                        devicePartitionBucketPool,
+            "wAll",                           deviceWAllPool,
+            "partitionInfo",                  devicePartitionInfoPool,
+            "smallSideIndexes",               smallSideIndexes);
+
+    // Each partition has its own queue
+    queue = context->getQueue(debugName);
+
+    // This queue processes operations for this depth in serial
+    depthQueue = queue->serial(debugName);
 }
 
 void
 FeatureSamplingTrainerPartition::
-allocate(const FeatureSamplingTrainerKernel & maxNumActiveFeatures)
-{
-
-}
-
-void
-FeatureSamplingTrainerPartition::
-init()
+init(const std::string & debugName,
+     const std::vector<int> & activeFeaturesIn)
 {
     const auto & context = owner.context;
     const auto & nf = owner.nf;
     const auto & features = owner.features;
     const auto & maxDepth = owner.maxDepth;
     const auto & numRows = owner.numRows;
-    const auto & maxPartitionCount = owner.maxPartitionCount;
     const auto & rows = owner.rows;
-    const auto & bucketData = owner.bucketData;
-    const auto & expandedRowData = owner.expandedRowData;
-    const auto & deviceBucketDataOffsets = owner.deviceBucketDataOffsets;
-    const auto & deviceBucketEntryBits = owner.deviceBucketEntryBits;
     const auto & debugKernelOutput = owner.debugKernelOutput;
-    const auto & deviceFeatureIsOrdinal = owner.deviceFeatureIsOrdinal;
+
+    this->activeFeaturesIn = activeFeaturesIn;
+    this->debugName = debugName;
 
     trainMarker = context->getScopedMarker(debugName);
 
@@ -1115,6 +1314,8 @@ init()
 
     ExcAssertGreater(numActiveFeatures, 0);
 
+    before = Date::now();
+
     cerr << "numActiveBuckets = " << numActiveBuckets << " numActiveFeatures = " << numActiveFeatures << endl;
 
     TreeTrainingInfo treeTrainingInfo;
@@ -1126,72 +1327,22 @@ init()
     treeTrainingInfo.numRows = numRows;
 
     span<const TreeTrainingInfo> treeTrainingInfoSpan(&treeTrainingInfo, 1);
-
-    // Each partition has its own queue
-    queue = context->getQueue(debugName);
-
-    // This queue processes operations for this depth in serial
-    depthQueue = queue->serial(debugName + " initialization");
-
-    deviceTreeTrainingInfo = depthQueue->manageMemoryRegionSync("treeTrainingInfo", treeTrainingInfoSpan);
-
-    // For each feature, what is the beginning bucket number? [nf + 1]
-    auto deviceBucketNumbers = depthQueue->manageMemoryRegionSync("bucketNumbers", bucketNumbers);
-
-    before = Date::now();
-
-    //static std::mutex mutex;
-    //std::unique_lock guard{mutex};
-    //queue->finish();
-
-    // Which of our features do we need to consider?  This allows us to
-    // avoid sizing things too large for the number of features that are
-    // actually active.
-    deviceFeatureIsActive = depthQueue->manageMemoryRegionSync("featureIsActive", featureIsActive);
-
-    // Which of our features do we need to consider?  This allows us to
-    // avoid sizing things too large for the number of features that are
-    // actually active.
-    deviceActiveFeatureList = depthQueue->manageMemoryRegionSync("activeFeatureList", activeFeatureList);
-
-    // Our wAll array contains the sum of all of the W buckets across
-    // each partition.  We allocate a single array at the start and just
-    // use more and more each iteration.
-    deviceWAllPool = context->allocUninitializedArray<W>("wAll", maxPartitionCount).get();
-
+    depthQueue->enqueueCopyFromHost("fill treeTrainingInfo", deviceTreeTrainingInfo, treeTrainingInfo);
+    depthQueue->enqueueCopyFromHost("fill bucketNumbers", deviceBucketNumbers, bucketNumbers);
+    cerr << "filling bucket numbers with " << bucketNumbers << endl;
+    depthQueue->enqueueCopyFromHost("fill featureIsActive", deviceFeatureIsActive, featureIsActive);
+    depthQueue->enqueueCopyFromHost("fill activeFeatureList", deviceActiveFeatureList, activeFeatureList);
     // The first one is initialized by the input wAll
     depthQueue->enqueueFillArray("initialize wAll[0]", deviceWAllPool, rows.wAll, 0 /* offset */, 1 /* size */);
-
-    // Our W buckets live here, per partition.  We never need to see it on
-    // the host, so we allow it to be initialized and live on the device.
-    // Note that we only use the beginning 2 at the start, and we
-    // double the amount of what we use until we're using the whole lot
-    // on the last iteration
-    devicePartitionBucketPool
-        = context->allocUninitializedArray<W>("partitionBucketPool", maxPartitionCount * numActiveBuckets).get();
 
     // Before we use this, it needs to be zero-filled (only the first
     // set for a single partition)
     depthQueue->enqueueFillArray("fill firstPartitionBuckets", devicePartitionBucketPool, W(), 0, numActiveBuckets);
 
-    // Two-element array used to return the number of active partitions and the
-    // number of rows to be transferred on the small side
-    deviceTreeDepthInfo = context->allocUninitializedArray<TreeDepthInfo>("treeDepthInfo", 1).get();
-
     TreeDepthInfo treeDepthInfo0;
     treeDepthInfo0.numActivePartitions = 1;
 
     depthQueue->enqueueFillArray("initialize TreeDepthInfo", deviceTreeDepthInfo, treeDepthInfo0, 0 /* offset */, 1 /* size */);
-
-    boundTestFeatureKernel = owner.testFeatureKernel
-        ->bind( "decodedRows",                      expandedRowData,
-                "numRows",                          (uint32_t)numRows,
-                "bucketData",                       bucketData,
-                "bucketDataOffsets",                deviceBucketDataOffsets,
-                "bucketNumbers",                    deviceBucketNumbers,
-                "bucketEntryBits",                  deviceBucketEntryBits,
-                "activeFeatureList",                deviceActiveFeatureList,
-                "partitionBuckets",                 devicePartitionBucketPool);
 
     depthQueue->enqueue("testFeature",
                         boundTestFeatureKernel,
@@ -1248,68 +1399,6 @@ init()
         ExcAssert(!different && "runTestFeatureKernel");
     }
 
-    // We have only one partition, which is the root bucket.  We allocate a pool of them.  The
-    // array is filled out in the kernels.
-    devicePartitionIndexPool = context->allocUninitializedArray<PartitionIndex>("partitionIndex", maxPartitionCount).get();
-
-    // At each level, we need to calculate the positions of the left and right buckets
-    devicePartitionInfoPool = context->allocUninitializedArray<PartitionInfo>("partitionInfo", maxPartitionCount).get();
-
-    // How many active partitions at this level?
-    //uint32_t numActivePartitions = 1;
-
-    // How many partition splits have already been generated
-    // (= sum of numActivePartitions from previous iterations)
-    //uint32_t numFinishedPartitions = 0;
-
-    // Which partition is each row in?  Initially, everything
-    // is in partition zero, but as we start to split, we end up
-    // splitting them amongst many partitions.  Each partition has
-    // its own set of buckets that we maintain.  Note that this indexes the
-    // PARTITION NUMBER IN THE ARRAY, not the actual index (to find the index, its
-    // necessary to consult the PartitionInfo structure)
-    devicePartitions = context->allocUninitializedArraySync<RowPartitionInfo>("partitions", numRows);
-
-    // Array to cache transfer directions to avoid re-calculating
-    directions = context->allocUninitializedArraySync<uint32_t>("directions", (numRows + 31) / 32);
-
-    // Array to hold indices of non-zero directions to avoid scanning directions
-    nonZeroDirectionIndices = context->allocUninitializedArraySync<UpdateWorkEntry>("nonZeroDirectionIndices", numRows/2 + 2);
-
-    // The length of the nonZeroDirectionIndices array
-    numNonZeroDirectionIndices = context->allocUninitializedArraySync<uint32_t>("numNonZeroDirectionIndices", 1);
-
-    // SmallSideIndex[numPartitionsOut]:
-    // Used to a) know when we need to clear partitions (those on the small side are cleared,
-    // those on the big side are not) and b) provide a local index for partition buckets for
-    // the UpdateBuckets kernel
-    // - 0 means it's not on the small side
-    // - 1-254 means we're partition number (n-1) on the small side
-    // - 255 means we're partition number 254 or greater on the small side
-
-    smallSideIndexes
-        = context->allocUninitializedArray<uint8_t>("smallSideIndexes", maxPartitionCount).get();
-
-    // For each value in smallSideIndexes, which partition number does it correspond to?
-    smallSideIndexToPartitionNumbers
-        = context->allocUninitializedArray<uint16_t>("smallSideIndexToPartitionNumbers", 256).get();
-
-    // Contains the partition splits that we generate per iteration (this is a flattened
-    // version of the tree).  At any iteration, 0 to numFinishedPartitions are finished, and
-    // numFinishedPartitions to numFinishedPartitions + numActivePartitions are being worked
-    // on in the current iteration.  Note that there may be some holes there, as the
-    // algorithm that assigns new indexes is designed to minimize memory shuffling, not to
-    // ensure a dense output array.
-    deviceAllPartitionSplitsPool
-        = context->allocUninitializedArray<IndexedPartitionSplit>("allPartitionSplits", 131072).get();
-    
-    // Pre-allocate partition buckets for the widest bucket
-    // We need to store partition splits for each partition and each
-    // feature.  Get the memory.  It doesn't need to be initialized.
-    // Layout is partition-major.
-    deviceFeaturePartitionSplitsPool
-        = context->allocUninitializedArray<PartitionSplit>("featurePartitionSplits", maxPartitionCount  * nf).get();
-
     // DEBUG ONLY, stops spurious differences between kernels
     if (debugKernelOutput /* TODO: why do we need this? */) {
         depthQueue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
@@ -1322,110 +1411,29 @@ init()
         depthQueue->finish();
     }
 
-    boundGetPartitionSplitsKernel = owner.getPartitionSplitsKernel->bind
-            ("treeTrainingInfo",               deviceTreeTrainingInfo,
-            "bucketNumbers",                  deviceBucketNumbers,
-            "activeFeatureList",              deviceActiveFeatureList,
-            "featureIsOrdinal",               deviceFeatureIsOrdinal,
-            "buckets",                        devicePartitionBucketPool,
-            "wAll",                           deviceWAllPool,
-            "featurePartitionSplitsOut",      deviceFeaturePartitionSplitsPool,
-            "treeDepthInfo",                  deviceTreeDepthInfo,
-            "numActiveBuckets",               numActiveBuckets);
-
-    boundBestPartitionSplitKernel = owner.bestPartitionSplitKernel
-        ->bind("treeTrainingInfo",               deviceTreeTrainingInfo,
-                "treeDepthInfo",                  deviceTreeDepthInfo,
-                "activeFeatureList",              deviceActiveFeatureList,
-                "featurePartitionSplits",         deviceFeaturePartitionSplitsPool,
-                "allPartitionSplitsOut",          deviceAllPartitionSplitsPool,
-                "partitionIndexes",               devicePartitionIndexPool);
-
-    boundAssignPartitionNumbersKernel
-        = owner.assignPartitionNumbersKernel->bind
-        ("treeTrainingInfo",       deviceTreeTrainingInfo,
-        "treeDepthInfo",          deviceTreeDepthInfo,
-        "allPartitionSplits",     deviceAllPartitionSplitsPool,
-        "partitionIndexesOut",    devicePartitionIndexPool,
-        "partitionInfoOut",       devicePartitionInfoPool,
-        "smallSideIndexesOut",    smallSideIndexes,
-        "smallSideIndexToPartitionOut", smallSideIndexToPartitionNumbers);
-
-    boundClearBucketsKernel = owner.clearBucketsKernel->bind
-        ("treeTrainingInfo",           deviceTreeTrainingInfo,
-        "treeDepthInfo",              deviceTreeDepthInfo,
-        "bucketsOut",                 devicePartitionBucketPool,
-        "wAllOut",                    deviceWAllPool,
-        "numNonZeroDirectionIndices", numNonZeroDirectionIndices, 
-        "smallSideIndexes",           smallSideIndexes);
-
-    boundUpdatePartitionNumbersKernel = owner.updatePartitionNumbersKernel
-        ->bind(
-            "treeTrainingInfo",               deviceTreeTrainingInfo,
-            "treeDepthInfo",                  deviceTreeDepthInfo,
-            "partitions",                     devicePartitions,
-            "directions",                     directions,
-            "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
-            "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
-            "smallSideIndexes",               smallSideIndexes,
-            "allPartitionSplits",             deviceAllPartitionSplitsPool,
-            "partitionInfo",                  devicePartitionInfoPool,
-            "bucketData",                     bucketData,
-            "bucketDataOffsets",              deviceBucketDataOffsets,
-            "bucketNumbers",                  deviceBucketNumbers,
-            "bucketEntryBits",                deviceBucketEntryBits,
-            "featureIsOrdinal",               deviceFeatureIsOrdinal,
-            "decodedRows",                    expandedRowData);
-
-    boundUpdateBucketsKernel = owner.updateBucketsKernel->bind
-        ("treeTrainingInfo",               deviceTreeTrainingInfo,
-        "treeDepthInfo",                  deviceTreeDepthInfo,
-        "partitions",                     devicePartitions,
-        "directions",                     directions,
-        "nonZeroDirectionIndices",        nonZeroDirectionIndices, 
-        "numNonZeroDirectionIndices",     numNonZeroDirectionIndices, 
-        "buckets",                        devicePartitionBucketPool,
-        "wAll",                           deviceWAllPool,
-        "smallSideIndexes",               smallSideIndexes,
-        "smallSideIndexToPartition",      smallSideIndexToPartitionNumbers,
-        "decodedRows",                    expandedRowData,
-        "bucketData",                     bucketData,
-        "bucketDataOffsets",              deviceBucketDataOffsets,
-        "bucketNumbers",                  deviceBucketNumbers,
-        "bucketEntryBits",                deviceBucketEntryBits,
-        "activeFeatureList",              deviceActiveFeatureList,
-        "featureIsOrdinal",               deviceFeatureIsOrdinal,
-        "numActiveBuckets",               numActiveBuckets /* for sizing only */);
-
-    boundFixupBucketsKernel = owner.fixupBucketsKernel
-        ->bind(
-            "treeTrainingInfo",               deviceTreeTrainingInfo,
-            "treeDepthInfo",                  deviceTreeDepthInfo,
-            "buckets",                        devicePartitionBucketPool,
-            "wAll",                           deviceWAllPool,
-            "partitionInfo",                  devicePartitionInfoPool,
-            "smallSideIndexes",               smallSideIndexes);
-
-    depthQueue->finish();
+    //depthQueue->flush();
 }
 
-ML::Tree
+std::tuple<std::shared_ptr<ComputeEvent>, MemoryArrayHandleT<IndexedPartitionSplit>, MemoryArrayHandleT<TreeDepthInfo>>
 FeatureSamplingTrainerPartition::
-train()
+scheduleTraining()
 {
     const auto & context = owner.context;
     const auto & features = owner.features;
     const auto & maxDepth = owner.maxDepth;
     const auto & numRows = owner.numRows;
-    const auto & expandedRowData = owner.expandedRowData;
     const auto & debugKernelOutput = owner.debugKernelOutput;
     const auto & debugExpandedRowsCpu = owner.debugExpandedRowsCpu;
-    const auto & serializer = owner.serializer;
-    const auto & fs = owner.fs;
-    const auto & bucketMemory = owner.bucketMemory;
 
-    Date startDepth = Date::now();
-    Date startDescent = startDepth;
+    beforeMapping = Date::now();
+
+    // Our results live in these two structures, which are specific to this partition.  By copying
+    // them at the end, we are able to reuse all of the allocated memory for the next partition.
+    auto resultPartitionSplits = context->allocUninitializedArraySync<IndexedPartitionSplit>(debugName + " result allPartitionSplits", 131072);
+    auto resultTreeDepthInfo = context->allocUninitializedArraySync<TreeDepthInfo>("debugName + " result treeDepthInfo", 1);
+
+    startDepth = Date::now();
+    startDescent = startDepth;
 
     // We go down level by level
     int depth = 0;
@@ -1817,7 +1825,7 @@ train()
                             { numActiveBuckets });
 
         if (debugKernelOutput) {
-            depthQueue->flush();
+            depthQueue->finish();
 
             TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
             auto newNumActivePartitions = depthInfo.numActivePartitions;
@@ -1957,24 +1965,48 @@ train()
         startDepth = doneDepth;
 
         // Ready for the next level
-        depthQueue->flush();
+        //depthQueue->flush();
     }
+
+    depthQueue->enqueueCopyBetweenDeviceRegionsImpl("final depthInfo", deviceTreeDepthInfo, resultTreeDepthInfo, 0, 0, sizeof(TreeDepthInfo));
+    depthQueue->enqueueCopyBetweenDeviceRegionsImpl("final partitionSplits", deviceAllPartitionSplitsPool, resultPartitionSplits, 0, 0, deviceAllPartitionSplitsPool.lengthInBytes());
+
+    return { depthQueue->flush(), resultPartitionSplits, resultTreeDepthInfo };
+}
+
+ML::Tree
+FeatureSamplingTrainerPartition::
+finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
+       MemoryArrayHandleT<TreeDepthInfo> resultTreeDepthInfo)
+{
+    const auto & context = owner.context;
+    const auto & features = owner.features;
+    const auto & maxDepth = owner.maxDepth;
+    const auto & expandedRowData = owner.expandedRowData;
+    const auto & serializer = owner.serializer;
+    const auto & fs = owner.fs;
+    const auto & bucketMemory = owner.bucketMemory;
 
     Date beforeFinish = Date::now();
 
-    //throw MLDB::Exception("about to finish");
-    depthQueue->finish();
-
-    Date beforeMapping = Date::now();
+    auto finishQueue = context->getQueue("finish bag");
 
     // Get our depth information object back
-    TreeDepthInfo depthInfo = depthQueue->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
-    auto numActivePartitions = depthInfo.numActivePartitions;
-    auto numFinishedPartitions = depthInfo.numFinishedPartitions;
+    TreeDepthInfo treeDepthInfo = finishQueue->transferToHostSync("treeDepthInfo to CPU", resultTreeDepthInfo)[0];
 
     // Get our split data back...
-    auto allPartitionSplitsRegion = depthQueue->transferToHostSync("partitionSplits to CPU", deviceAllPartitionSplitsPool);
+    auto allPartitionSplitsRegion = finishQueue->transferToHostSync("partitionSplits to CPU", resultPartitionSplits);
     std::span<const IndexedPartitionSplit> allPartitionSplits = allPartitionSplitsRegion.getConstSpan();
+
+    finishQueue->finish();
+    finishQueue.reset();
+
+    auto numActivePartitions = treeDepthInfo.numActivePartitions;
+    auto numFinishedPartitions = treeDepthInfo.numFinishedPartitions;
+    auto depth = treeDepthInfo.depth + 1;
+
+    cerr << "numActivePartitions = " << numActivePartitions << " numFinishedPartitions = " << numFinishedPartitions
+         << " depth = " << depth << " maxDepth = " << maxDepth << endl;
 
     Date beforeSetupRecurse = Date::now();
 
@@ -2105,6 +2137,38 @@ train()
     return tree;
 }
 
+std::vector<ML::Tree>
+FeatureSamplingTrainerKernel::
+trainPartitioned(const std::string & debugName, const std::vector<std::vector<int>> & allActiveFeaturesIn)
+{
+    FeatureSamplingTrainerPartition partition(*this, debugName);
+    partition.allocate(allActiveFeaturesIn);
+
+    std::vector<ML::Tree> result;
+    std::vector<std::tuple<std::shared_ptr<MLDB::ComputeEvent>,
+                           MemoryArrayHandleT<IndexedPartitionSplit>,
+                           MemoryArrayHandleT<TreeDepthInfo>>> outputs;
+
+    // First, schedule all of the activity
+    for (size_t i = 0;  i < allActiveFeaturesIn.size();  ++i) {
+        try {
+            partition.init(debugName + " partition " + std::to_string(i), allActiveFeaturesIn[i]);
+            auto output = partition.scheduleTraining();
+            outputs.emplace_back(std::move(output));
+        } MLDB_CATCH_ALL {
+            rethrowException(500, "Error training " + debugName + " partition " + std::to_string(i));
+        }
+    }
+
+    // Now, wait for it to happen and turn the result into trees
+    for (auto [event, splits, info]: outputs) {
+        event->await();
+        result.push_back(partition.finish(splits, info));
+    }
+
+    return result;
+}
+
 EnvOption<bool> RF_USE_OPENCL("RF_USE_OPENCL", 1);
 EnvOption<bool> RF_USE_METAL("RF_USE_METAL", 1);
 EnvOption<bool> RF_DEBUG_COMPARE_KERNELS("RF_DEBUG_COMPARE_KERNELS", 1);
@@ -2148,7 +2212,7 @@ trainPartitionedEndToEnd(const std::string & debugName,
 
     FeatureSamplingTrainerKernel trainer;
     trainer.init(debugName, maxDepth, serializer, rows, features, bucketMemory, fs, device);
-    tree = trainer.trainPartitioned(debugName, featuresActive);
+    tree = trainer.trainPartitioned(debugName, {featuresActive})[0];
     return tree.root;
 }
 
@@ -2194,21 +2258,13 @@ trainMultipleSamplings(const std::string & debugName,
 
         cerr << "training multiple samplings on " << device << endl;
 
-        FeatureSamplingTrainerKernel trainer;
-        trainer.init(debugName, maxDepth, serializer, rows, features, bucketMemory, *fs, device);
-
-        auto buildTree = [&] (int i)
-        {
-            try {
-                std::string samplingDebugName = debugName + " sample " + std::to_string(i);
-                result[i] = trainer.trainPartitioned(samplingDebugName, featuresActive[i]);
-                ExcAssert(result[i].root);
-            } MLDB_CATCH_ALL {
-                rethrowException(400, "Error training tree " + std::to_string(i), "tree", i);
-            }
-        };
-
-        MLDB::parallelMap(0, featuresActive.size(), buildTree, maxAtOnce);
+        try {
+            FeatureSamplingTrainerKernel trainer;
+            trainer.init(debugName, maxDepth, serializer, rows, features, bucketMemory, *fs, device);
+            result = trainer.trainPartitioned(debugName, featuresActive);
+        } MLDB_CATCH_ALL {
+            rethrowException(400, "Error training partition " + debugName);
+        }
 
         return result;
     }

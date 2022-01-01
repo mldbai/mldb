@@ -567,6 +567,7 @@ info() const
     return type.print();
 }
 
+
 // ComputeEvent
 
 std::string
@@ -575,6 +576,7 @@ label() const
 {
     return "";
 }
+
 
 // ComputeQueue
 
@@ -727,27 +729,6 @@ transferToHostMutableSyncImpl(const std::string & opName,
                                 MemoryRegionHandle handle)
 {
     return transferToHostMutableImpl(opName, std::move(handle)).move();   
-}
-
-void
-ComputeContext::
-fillDeviceRegionFromHostSyncImpl(const std::string & opName,
-                                 MemoryRegionHandle deviceHandle,
-                                 std::span<const std::byte> hostRegion,
-                                 size_t deviceOffset)
-{
-    auto pinnedHostRegion = std::make_shared<std::span<const std::byte>>(hostRegion);
-    fillDeviceRegionFromHostImpl(opName, deviceHandle, pinnedHostRegion, deviceOffset)->await();
-}
-
-void
-ComputeContext::
-copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
-                                 MemoryRegionHandle from, MemoryRegionHandle to,
-                                 size_t fromOffset, size_t toOffset,
-                                 size_t length)
-{
-    copyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length)->await();
 }
 
 

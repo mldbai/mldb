@@ -101,8 +101,14 @@ serialize(DB::Store_Writer & store, const Feature_Space & fs) const
 {
     store << compact_size_t(1);  // version
     store << compact_size_t(is_node_);
-    if (is_node_) node()->serialize(store, fs);
-    else leaf()->serialize(store);
+    if (is_node_) {
+        ExcAssert(node());
+        node()->serialize(store, fs);
+    }
+    else {
+        ExcAssert(leaf());
+        leaf()->serialize(store);
+    }
 }
 
 void Tree::Ptr::

@@ -87,11 +87,17 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
                          const std::any & arg) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueCopyFromHostImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
                             size_t deviceStartOffsetInBytes) override;
+
+    virtual void
+    enqueueCopyFromHostSyncImpl(const std::string & opName,
+                                MemoryRegionHandle toRegion,
+                                FrozenMemoryRegion fromRegion,
+                                size_t deviceStartOffsetInBytes) override;
 
     virtual ComputePromiseT<FrozenMemoryRegion>
     enqueueTransferToHostImpl(const std::string & opName,
@@ -110,6 +116,18 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     managePinnedHostRegionSyncImpl(const std::string & opName,
                                    std::span<const std::byte> region, size_t align,
                                    const std::type_info & type, bool isConst) override;
+
+    virtual void
+    enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                        MemoryRegionHandle from, MemoryRegionHandle to,
+                                        size_t fromOffset, size_t toOffset,
+                                        size_t length) override;
+
+    virtual void
+    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle from, MemoryRegionHandle to,
+                                     size_t fromOffset, size_t toOffset,
+                                     size_t length) override;
 
     virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
@@ -200,7 +218,7 @@ struct MetalComputeContext: public ComputeContext {
     transferToHostMutableSyncImpl(const std::string & opName,
                                   MemoryRegionHandle handle) override;
 
-    virtual std::shared_ptr<ComputeEvent>
+    virtual void
     fillDeviceRegionFromHostImpl(const std::string & opName,
                                  MemoryRegionHandle deviceHandle,
                                  std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
@@ -211,18 +229,6 @@ struct MetalComputeContext: public ComputeContext {
                                      MemoryRegionHandle deviceHandle,
                                      std::span<const std::byte> hostRegion,
                                      size_t deviceOffset = 0) override;
-
-    virtual std::shared_ptr<ComputeEvent>
-    copyBetweenDeviceRegionsImpl(const std::string & opName,
-                                 MemoryRegionHandle from, MemoryRegionHandle to,
-                                 size_t fromOffset, size_t toOffset,
-                                 size_t length) override;
-
-    virtual void
-    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
-                                     MemoryRegionHandle from, MemoryRegionHandle to,
-                                     size_t fromOffset, size_t toOffset,
-                                     size_t length) override;
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;

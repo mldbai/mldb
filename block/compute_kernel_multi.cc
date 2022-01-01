@@ -934,7 +934,7 @@ enqueueFillArrayImpl(const std::string & opName,
     return thenReduce(std::move(promises), std::move(returnResult));
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 MultiComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
@@ -942,18 +942,28 @@ enqueueCopyFromHostImpl(const std::string & opName,
                         size_t deviceStartOffsetInBytes)
 {
     auto info = getMultiInfo(toRegion);
-
-    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
     ExcAssertEqual(info->handles.size(), queues.size());
-    promises.reserve(queues.size());
 
     for (size_t i = 0;  i < queues.size();  ++i) {
-        promises.emplace_back(queues[i]->enqueueCopyFromHostImpl(opName, info->handles[i], fromRegion,
-                              deviceStartOffsetInBytes));
+        queues[i]->enqueueCopyFromHostImpl(opName, info->handles[i], fromRegion,
+                                           deviceStartOffsetInBytes);
     }
+}
 
-    auto returnResult = [region=std::move(toRegion)] (auto unused) { return region; };
-    return thenReduce(std::move(promises), std::move(returnResult));
+void
+MultiComputeQueue::
+enqueueCopyFromHostSyncImpl(const std::string & opName,
+                        MemoryRegionHandle toRegion,
+                        FrozenMemoryRegion fromRegion,
+                        size_t deviceStartOffsetInBytes)
+{
+    auto info = getMultiInfo(toRegion);
+    ExcAssertEqual(info->handles.size(), queues.size());
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        queues[i]->enqueueCopyFromHostSyncImpl(opName, info->handles[i], fromRegion,
+                                               deviceStartOffsetInBytes);
+    }
 }
 
 ComputePromiseT<FrozenMemoryRegion>
@@ -1024,6 +1034,36 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     result->lengthInBytes = region.size();
     result->name = opName;
     return { std::move(result) };
+}
+
+void
+MultiComputeQueue::
+enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                MemoryRegionHandle from, MemoryRegionHandle to,
+                                size_t fromOffset, size_t toOffset,
+                                size_t length)
+{
+    auto fromInfo = getMultiInfo(from);
+    auto toInfo = getMultiInfo(to);
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        queues[i]->enqueueCopyBetweenDeviceRegionsImpl(opName, fromInfo->handles.at(i), toInfo->handles.at(i), fromOffset, toOffset, length);
+    }   
+}
+
+void
+MultiComputeQueue::
+copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                    MemoryRegionHandle from, MemoryRegionHandle to,
+                                    size_t fromOffset, size_t toOffset,
+                                    size_t length)
+{
+    auto fromInfo = getMultiInfo(from);
+    auto toInfo = getMultiInfo(to);
+
+    for (size_t i = 0;  i < queues.size();  ++i) {
+        queues[i]->copyBetweenDeviceRegionsSyncImpl(opName, fromInfo->handles.at(i), toInfo->handles.at(i), fromOffset, toOffset, length);
+    }   
 }
 
 std::shared_ptr<ComputeEvent>
@@ -1174,7 +1214,7 @@ transferToHostMutableSyncImpl(const std::string & opName,
     return contexts.at(0)->transferToHostMutableSyncImpl(opName, info->handles.at(0));
 }
 
-std::shared_ptr<ComputeEvent>
+void
 MultiComputeContext::
 fillDeviceRegionFromHostImpl(const std::string & opName,
                              MemoryRegionHandle deviceHandle,
@@ -1182,13 +1222,10 @@ fillDeviceRegionFromHostImpl(const std::string & opName,
                              size_t deviceOffset)
 {
     auto info = getMultiInfo(deviceHandle);
-    std::vector<std::shared_ptr<ComputeEvent>> events;
 
     for (size_t i = 0;  i < contexts.size();  ++i) {
-        events.push_back(contexts[i]->fillDeviceRegionFromHostImpl(opName, info->handles.at(i), pinnedHostRegion, deviceOffset));
+        contexts[i]->fillDeviceRegionFromHostImpl(opName, info->handles.at(i), pinnedHostRegion, deviceOffset);
     }
-
-    return std::make_shared<MultiComputeEvent>(std::move(events));
 }                                     
 
 void
@@ -1199,44 +1236,10 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
                                     size_t deviceOffset)
 {
     auto info = getMultiInfo(deviceHandle);
-    std::vector<std::shared_ptr<ComputeEvent>> events;
 
     for (size_t i = 0;  i < contexts.size();  ++i) {
         contexts[i]->fillDeviceRegionFromHostSyncImpl(opName, info->handles.at(i), hostRegion, deviceOffset);
     }
-}
-
-std::shared_ptr<ComputeEvent>
-MultiComputeContext::
-copyBetweenDeviceRegionsImpl(const std::string & opName,
-                                MemoryRegionHandle from, MemoryRegionHandle to,
-                                size_t fromOffset, size_t toOffset,
-                                size_t length)
-{
-    auto fromInfo = getMultiInfo(from);
-    auto toInfo = getMultiInfo(to);
-    std::vector<std::shared_ptr<ComputeEvent>> events;
-
-    for (size_t i = 0;  i < contexts.size();  ++i) {
-        events.push_back(contexts[i]->copyBetweenDeviceRegionsImpl(opName, fromInfo->handles.at(i), toInfo->handles.at(i), fromOffset, toOffset, length));
-    }   
-
-    return std::make_shared<MultiComputeEvent>(std::move(events));
-}
-
-void
-MultiComputeContext::
-copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
-                                    MemoryRegionHandle from, MemoryRegionHandle to,
-                                    size_t fromOffset, size_t toOffset,
-                                    size_t length)
-{
-    auto fromInfo = getMultiInfo(from);
-    auto toInfo = getMultiInfo(to);
-
-    for (size_t i = 0;  i < contexts.size();  ++i) {
-        contexts[i]->copyBetweenDeviceRegionsSyncImpl(opName, fromInfo->handles.at(i), toInfo->handles.at(i), fromOffset, toOffset, length);
-    }   
 }
 
 std::shared_ptr<ComputeKernel>

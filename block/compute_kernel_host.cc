@@ -213,14 +213,13 @@ struct HostComputeContext: public ComputeContext {
         return { raw, std::make_shared<HostComputeEvent>() };
     }
 
-    virtual std::shared_ptr<ComputeEvent>
+    virtual void
     fillDeviceRegionFromHostImpl(const std::string & opName,
                                  MemoryRegionHandle deviceHandle,
                                  std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
                                  size_t deviceOffset = 0) override
     {
         fillDeviceRegionFromHostSyncImpl(opName, deviceHandle, *pinnedHostRegion, deviceOffset);
-        return std::make_shared<HostComputeEvent>();
     }                                     
 
     virtual void
@@ -237,39 +236,6 @@ struct HostComputeContext: public ComputeContext {
         ExcAssertLessEqual(deviceOffset + hostRegion.size(), info->lengthInBytes);
 
         std::memcpy(((std::byte *)info->data) + deviceOffset, hostRegion.data(), hostRegion.size());
-    }
-
-    virtual std::shared_ptr<ComputeEvent>
-    copyBetweenDeviceRegionsImpl(const std::string & opName,
-                                 MemoryRegionHandle from, MemoryRegionHandle to,
-                                 size_t fromOffset, size_t toOffset,
-                                 size_t length) override
-    {
-        copyBetweenDeviceRegionsSyncImpl(opName, from, to, fromOffset, toOffset, length);
-        return std::make_shared<HostComputeEvent>();
-    }
-
-    virtual void
-    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
-                                     MemoryRegionHandle from, MemoryRegionHandle to,
-                                     size_t fromOffset, size_t toOffset,
-                                     size_t length) override
-    {
-        ExcAssert(from.handle);
-        auto fromInfo = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(from.handle));
-        ExcAssert(fromInfo);
-        
-        ExcAssert(to.handle);
-        auto toInfo = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(to.handle));
-        ExcAssert(toInfo);
-        ExcAssert(!toInfo->isConst);
-        
-        ExcAssertLessEqual(fromOffset, fromInfo->lengthInBytes);
-        ExcAssertLessEqual(fromOffset + length, fromInfo->lengthInBytes);
-        ExcAssertLessEqual(toOffset, toInfo->lengthInBytes);
-        ExcAssertLessEqual(toOffset + length, toInfo->lengthInBytes);
-        
-        std::memcpy(((std::byte *)toInfo->data) + toOffset, (const std::byte *)fromInfo->data + fromOffset, length);
     }
 
     virtual std::shared_ptr<ComputeKernel>
@@ -404,22 +370,29 @@ enqueueFillArrayImpl(const std::string & opName,
                                               startOffsetInBytes, lengthInBytes, arg);
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 HostComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
                         FrozenMemoryRegion fromRegion,
                         size_t deviceStartOffsetInBytes)
 {
-    ExcAssertLess(deviceStartOffsetInBytes + fromRegion.length(), toRegion.lengthInBytes());
+    enqueueCopyFromHostSyncImpl(opName, toRegion, fromRegion, deviceStartOffsetInBytes);
+}
+
+void
+HostComputeQueue::
+enqueueCopyFromHostSyncImpl(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes)
+{
+    ExcAssertLessEqual(deviceStartOffsetInBytes + fromRegion.length(), toRegion.lengthInBytes());
     ExcAssert(toRegion.handle);
     ExcAssert(!toRegion.handle->isConst);
     auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(toRegion.handle));
     ExcAssert(info);
     std::memcpy((std::byte *)info->data + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
-
-    auto event = std::make_shared<HostComputeEvent>();
-    return { toRegion, event };
 }
 
 ComputePromiseT<FrozenMemoryRegion>
@@ -461,6 +434,40 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     result->isConst = isConst;
     result->name = opName;
     return { std::move(result) };
+}
+
+void
+HostComputeQueue::
+enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                    MemoryRegionHandle from, MemoryRegionHandle to,
+                                    size_t fromOffset, size_t toOffset,
+                                    size_t length)
+{
+    copyBetweenDeviceRegionsSyncImpl(opName, from, to, fromOffset, toOffset, length);
+}
+
+void
+HostComputeQueue::
+copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                    MemoryRegionHandle from, MemoryRegionHandle to,
+                                    size_t fromOffset, size_t toOffset,
+                                    size_t length)
+{
+    ExcAssert(from.handle);
+    auto fromInfo = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(from.handle));
+    ExcAssert(fromInfo);
+    
+    ExcAssert(to.handle);
+    auto toInfo = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(to.handle));
+    ExcAssert(toInfo);
+    ExcAssert(!toInfo->isConst);
+    
+    ExcAssertLessEqual(fromOffset, fromInfo->lengthInBytes);
+    ExcAssertLessEqual(fromOffset + length, fromInfo->lengthInBytes);
+    ExcAssertLessEqual(toOffset, toInfo->lengthInBytes);
+    ExcAssertLessEqual(toOffset + length, toInfo->lengthInBytes);
+    
+    std::memcpy(((std::byte *)toInfo->data) + toOffset, (const std::byte *)fromInfo->data + fromOffset, length);
 }
 
 std::shared_ptr<ComputeEvent>

@@ -1008,26 +1008,68 @@ enqueueFillArrayImpl(const std::string & opName,
     return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 MetalComputeQueue::
 enqueueCopyFromHostImpl(const std::string & opName,
                         MemoryRegionHandle toRegion,
                         FrozenMemoryRegion fromRegion,
                         size_t deviceStartOffsetInBytes)
 {
-    THROW_UNIMPLEMENTED;
-#if 0
-    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue enqueueCopyFromHostImpl " + opName);
+    MetalMemoryRegionHandleInfo * upcastHandle = dynamic_cast<MetalMemoryRegionHandleInfo *>(toRegion.handle.get());
+    if (!upcastHandle) {
+        throw MLDB::Exception("Wrong MetalComputeContext handle: got " + demangle(typeid(toRegion.handle)));
+    }
+    if (upcastHandle->backingHostMem) {
+        throw MLDB::Exception("cannot copy from host into a read-only host backed array");
+    }
 
-    ExcAssert(toRegion.handle);
+    auto [pin, buffer, offset] = MetalComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
+    auto length = buffer.GetLength();
+    ExcAssertLessEqual(offset + deviceStartOffsetInBytes + fromRegion.length(), length);
 
-    auto clPrereqs = toMetalEventList(prereqs);
+    switch (buffer.GetStorageMode()) {
+    case mtlpp::StorageMode::Managed:
+    case mtlpp::StorageMode::Shared: {
+        cerr << opName << " is managed/shared" << endl;
+        std::byte * contents = (std::byte *)buffer.GetContents();
+        ExcAssert(contents);
+        memcpy(contents + offset + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
+        buffer.DidModify({(uint32_t)(deviceStartOffsetInBytes + offset), (uint32_t)fromRegion.length()});
+        break;
+    }
+    case mtlpp::StorageMode::Private: {
+        cerr << opName << " is private" << endl;
+        auto blitEncoder = commandBuffer.BlitCommandEncoder();
+        blitEncoder.SetLabel((opName + " blit").c_str());
+        ExcAssert(blitEncoder);
 
-    auto [pin, mem, offset] = MetalComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
-    auto res = clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data(), clPrereqs);
+        // It's a private region; we need to create a new region to hold the result, and then
+        // synchronize
+        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeShared;
+        auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer((const void *)fromRegion.data(), fromRegion.length(), options);
+        tmpBuffer.SetLabel((opName + " private copy").c_str());
+        blitEncoder.Copy(buffer, offset + deviceStartOffsetInBytes, tmpBuffer, 0 /* offset */, fromRegion.length());
+        blitEncoder.EndEncoding();
 
-    return { toRegion, std::make_shared<MetalComputeEvent>(res) };
-#endif
+        // We pin the temp buffer instead
+        auto freeTmpBuffer = [tmpBuffer, pin=pin] (auto arg) {};
+        pin = std::shared_ptr<const void>(nullptr, freeTmpBuffer);
+        break;
+    }
+    default:
+        throw MLDB::Exception("Cannot manage MemoryLess storage mode");
+    }
+}
+
+void
+MetalComputeQueue::
+enqueueCopyFromHostSyncImpl(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes)
+{
+    enqueueCopyFromHostImpl(opName, toRegion, fromRegion, deviceStartOffsetInBytes);
+    finish();
 }
 
 ComputePromiseT<FrozenMemoryRegion>
@@ -1079,6 +1121,7 @@ transferToHostSyncImpl(const std::string & opName,
         auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
         tmpBuffer.SetLabel((opName + " private copy").c_str());
         blitEncoder.Copy(buffer, offset, tmpBuffer, 0 /* offset */, length - offset);
+        blitEncoder.Synchronize(tmpBuffer);
         contents = tmpBuffer.GetContents();
 
         // We pin the temp buffer instead
@@ -1182,6 +1225,51 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     handle->backingHostMem = region.data();
     MemoryRegionHandle result{std::move(handle)};
     return result;
+}
+
+void
+MetalComputeQueue::
+enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                    MemoryRegionHandle from, MemoryRegionHandle to,
+                                    size_t fromOffset, size_t toOffset,
+                                    size_t length)
+{
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue enqueueCopyBetweenDeviceRegionsImpl " + opName);
+
+    MetalMemoryRegionHandleInfo * upcastFromHandle = dynamic_cast<MetalMemoryRegionHandleInfo *>(from.handle.get());
+    if (!upcastFromHandle) {
+        throw MLDB::Exception("Wrong MetalComputeContext from handle: got " + demangle(typeid(from.handle)));
+    }
+
+    auto [fromPin, fromBuffer, fromBaseOffset] = MetalComputeContext::getMemoryRegion(opName, *from.handle, ACC_READ);
+
+    ExcAssertLessEqual(fromBaseOffset + fromOffset + length, from.lengthInBytes());
+
+    MetalMemoryRegionHandleInfo * upcastToHandle = dynamic_cast<MetalMemoryRegionHandleInfo *>(to.handle.get());
+    if (!upcastToHandle) {
+        throw MLDB::Exception("Wrong MetalComputeContext to handle: got " + demangle(typeid(to.handle)));
+    }
+
+    auto [toPin, toBuffer, toBaseOffset] = MetalComputeContext::getMemoryRegion(opName, *to.handle, ACC_WRITE);
+
+    ExcAssertLessEqual(toBaseOffset + toOffset + length, to.lengthInBytes());
+
+    auto blitEncoder = commandBuffer.BlitCommandEncoder();
+    blitEncoder.SetLabel((opName + " blit").c_str());
+    ExcAssert(blitEncoder);
+    blitEncoder.Copy(fromBuffer, fromBaseOffset + fromOffset, toBuffer, toBaseOffset + toOffset, length);
+    blitEncoder.EndEncoding();
+}
+
+void
+MetalComputeQueue::
+copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                 MemoryRegionHandle from, MemoryRegionHandle to,
+                                 size_t fromOffset, size_t toOffset,
+                                 size_t length)
+{
+    enqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length);
+    finish();
 }
 
 std::shared_ptr<ComputeEvent>
@@ -1327,8 +1415,8 @@ doMetalAllocate(mtlpp::Device & mtlDevice,
 {
     cerr << "allocating " << length << " bytes for " << regionName << endl;
     // TODO: align...
-    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
+    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
+    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
     auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
     buffer.SetLabel(regionName.c_str());
 
@@ -1533,7 +1621,7 @@ getKernel(const std::string & kernelName)
     return result;
 }
 
-std::shared_ptr<ComputeEvent>
+void
 MetalComputeContext::
 fillDeviceRegionFromHostImpl(const std::string & opName,
                              MemoryRegionHandle deviceHandle,
@@ -1598,34 +1686,6 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
         ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {})
     .await();
 #endif
-}
-
-std::shared_ptr<ComputeEvent>
-MetalComputeContext::
-copyBetweenDeviceRegionsImpl(const std::string & opName,
-                                MemoryRegionHandle from, MemoryRegionHandle to,
-                                size_t fromOffset, size_t toOffset,
-                                size_t length)
-{
-    THROW_UNIMPLEMENTED;
-
-#if 0
-    auto [fromPin, fromMem, fromBaseOffset] = getMemoryRegion(opName, *from.handle, ACC_READ);
-    auto [toPin, toMem, toBaseOffset] = getMemoryRegion(opName, *to.handle, ACC_WRITE);
-
-    auto event = clQueue->clQueue.enqueueCopyBuffer(fromMem, toMem, fromBaseOffset + fromOffset, toBaseOffset + toOffset, length);
-    return std::make_shared<MetalComputeEvent>(std::move(event));
-#endif
-}
-
-void
-MetalComputeContext::
-copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
-                                    MemoryRegionHandle from, MemoryRegionHandle to,
-                                    size_t fromOffset, size_t toOffset,
-                                    size_t length)
-{
-    copyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length)->await();
 }
 
 std::shared_ptr<ComputeQueue>

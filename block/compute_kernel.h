@@ -1001,11 +1001,17 @@ struct ComputeQueue {
                          const std::any & arg);
 
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueCopyFromHostImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
                             size_t deviceStartOffsetInBytes) = 0;
+
+    virtual void
+    enqueueCopyFromHostSyncImpl(const std::string & opName,
+                                MemoryRegionHandle toRegion,
+                                FrozenMemoryRegion fromRegion,
+                                size_t deviceStartOffsetInBytes) = 0;
 
     virtual ComputePromiseT<FrozenMemoryRegion>
     enqueueTransferToHostImpl(const std::string & opName,
@@ -1025,6 +1031,17 @@ struct ComputeQueue {
                                    std::span<const std::byte> region, size_t align,
                                    const std::type_info & type, bool isConst) = 0;
 
+    virtual void
+    enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
+                                        MemoryRegionHandle from, MemoryRegionHandle to,
+                                        size_t fromOffset, size_t toOffset,
+                                        size_t length) = 0;
+
+    virtual void
+    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
+                                     MemoryRegionHandle from, MemoryRegionHandle to,
+                                     size_t fromOffset, size_t toOffset,
+                                     size_t length) = 0;
 
     template<typename T>
     ComputePromiseT<FrozenMemoryRegionT<std::remove_const_t<T>>>
@@ -1083,6 +1100,25 @@ struct ComputeQueue {
     {
         return { managePinnedHostRegionSyncImpl(regionName, std::as_bytes(obj), alignof(T),
                                       typeid(std::remove_const_t<T>), std::is_const_v<T>).handle };
+    }
+
+    template<typename T>
+    void enqueueCopyFromHost(const std::string & opName, const MemoryArrayHandleT<T> & handle, const std::span<const T> & vals)
+    {
+        FrozenMemoryRegion region(nullptr, (const char *)vals.data(), vals.size_bytes());
+        enqueueCopyFromHostImpl(opName, handle, region, 0 /* start offset in bytes */);
+    }
+
+    template<typename T>
+    void enqueueCopyFromHost(const std::string & opName, const MemoryArrayHandleT<T> & handle, const T & val)
+    {
+        enqueueCopyFromHost(opName, handle, std::span{ &val, 1});
+    }
+
+    template<typename T>
+    void enqueueCopyFromHost(const std::string & opName, const MemoryArrayHandleT<T> & handle, const std::vector<T> & vals)
+    {
+        enqueueCopyFromHost(opName, handle, std::span{vals});
     }
 
     // Create an already resolved event (this is abstract so that the subclass may create an)
@@ -1226,7 +1262,7 @@ struct ComputeContext {
     transferToHostMutableSyncImpl(const std::string & opName,
                                   MemoryRegionHandle handle);
 
-    virtual std::shared_ptr<ComputeEvent>
+    virtual void
     fillDeviceRegionFromHostImpl(const std::string & opName,
                                  MemoryRegionHandle deviceHandle,
                                  std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
@@ -1236,19 +1272,7 @@ struct ComputeContext {
     fillDeviceRegionFromHostSyncImpl(const std::string & opName,
                                      MemoryRegionHandle deviceHandle,
                                      std::span<const std::byte> hostRegion,
-                                     size_t deviceOffset = 0);
-
-    virtual std::shared_ptr<ComputeEvent>
-    copyBetweenDeviceRegionsImpl(const std::string & opName,
-                                 MemoryRegionHandle from, MemoryRegionHandle to,
-                                 size_t fromOffset, size_t toOffset,
-                                 size_t length) = 0;
-
-    virtual void
-    copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
-                                     MemoryRegionHandle from, MemoryRegionHandle to,
-                                     size_t fromOffset, size_t toOffset,
-                                     size_t length);
+                                     size_t deviceOffset = 0) = 0;
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) = 0;
