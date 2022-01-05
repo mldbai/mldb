@@ -743,12 +743,35 @@ struct DivideExpression: public BinaryArithmeticExpression {
                 }
                 return lhs.asDouble() / rhs.asDouble();
             }
-            if (rhs.asInt() == 0.0) {
+            if (rhs.asInt() == 0) {
                 throw MLDB::Exception("divide by zero");
             }
             return lhs.asInt() / rhs.asInt();
         }
         else throw MLDB::Exception("don't know how to divide %s by %s",
+                                 lhs.toString().c_str(),
+                                 rhs.toString().c_str());
+    }
+};
+
+struct ModulusExpression: public BinaryArithmeticExpression {
+
+    ModulusExpression(std::shared_ptr<CommandExpression> lhs,
+                      std::shared_ptr<CommandExpression> rhs)
+        : BinaryArithmeticExpression(lhs, rhs)
+    {
+    }
+
+    virtual Json::Value op(const Json::Value & lhs,
+                           const Json::Value & rhs) const
+    {
+        if (lhs.isNumeric() && rhs.isNumeric()) {
+            if (rhs.asInt() == 0) {
+                throw MLDB::Exception("divide by zero in modulus");
+            }
+            return lhs.asInt() % rhs.asInt();
+        }
+        else throw MLDB::Exception("don't know how to take %s modulo %s",
                                  lhs.toString().c_str(),
                                  rhs.toString().c_str());
     }

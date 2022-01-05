@@ -943,7 +943,7 @@ init(const std::string & debugName,
     fixupBucketsKernel = context->getKernel("fixupBuckets");
 
     // We take a non-const version here for this call
-    auto expandedRowData = context->allocUninitializedArray<float>("expandedRowData", numRows).get();
+    auto expandedRowData = context->allocUninitializedArraySync<float>("expandedRowData", numRows);
 
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
@@ -1147,23 +1147,27 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
         maxNumActiveBuckets = std::max(maxNumActiveBuckets, numActiveBuckets);
     }
 
-    deviceTreeTrainingInfo = context->allocUninitializedArraySync<TreeTrainingInfo>("treeTrainingInfo", 1);
-    deviceBucketNumbers = context->allocUninitializedArraySync<uint32_t>("bucketNumbers", nf + 1);
-    deviceFeatureIsActive = context->allocUninitializedArraySync<uint32_t>("featureIsActive", nf);
-    deviceActiveFeatureList = context->allocUninitializedArraySync<uint32_t>("activeFeatureList", maxNumActiveFeatures);
-    deviceWAllPool = context->allocUninitializedArraySync<W>("wAll", maxPartitionCount);
-    devicePartitionBucketPool = context->allocUninitializedArraySync<W>("partitionBucketPool", maxPartitionCount * maxNumActiveBuckets);
-    deviceTreeDepthInfo = context->allocUninitializedArraySync<TreeDepthInfo>("treeDepthInfo", 1);
-    devicePartitionIndexPool = context->allocUninitializedArraySync<PartitionIndex>("partitionIndex", maxPartitionCount);
-    devicePartitionInfoPool = context->allocUninitializedArraySync<PartitionInfo>("partitionInfo", maxPartitionCount);
-    devicePartitions = context->allocUninitializedArraySync<RowPartitionInfo>("partitions", numRows);
-    directions = context->allocUninitializedArraySync<uint32_t>("directions", (numRows + 31) / 32);
-    nonZeroDirectionIndices = context->allocUninitializedArraySync<UpdateWorkEntry>("nonZeroDirectionIndices", numRows/2 + 2);
-    numNonZeroDirectionIndices = context->allocUninitializedArraySync<uint32_t>("numNonZeroDirectionIndices", 1);
-    smallSideIndexes = context->allocUninitializedArraySync<uint8_t>("smallSideIndexes", maxPartitionCount);
-    smallSideIndexToPartitionNumbers = context->allocUninitializedArraySync<uint16_t>("smallSideIndexToPartitionNumbers", 256);
-    deviceAllPartitionSplitsPool = context->allocUninitializedArraySync<IndexedPartitionSplit>("allPartitionSplits", 131072);
-    deviceFeaturePartitionSplitsPool = context->allocUninitializedArraySync<PartitionSplit>("featurePartitionSplits", maxPartitionCount  * nf);
+#   define RF_ALLOC(name, type, length) name = context->allocUninitializedArraySync<type>(#name, length)
+
+    RF_ALLOC(deviceTreeTrainingInfo,               TreeTrainingInfo,        1);
+    RF_ALLOC(deviceBucketNumbers,                  uint32_t,                nf + 1);
+    RF_ALLOC(deviceFeatureIsActive,                uint32_t,                nf);
+    RF_ALLOC(deviceActiveFeatureList,              uint32_t,                maxNumActiveFeatures);
+    RF_ALLOC(deviceWAllPool,                       W,                       maxPartitionCount);
+    RF_ALLOC(devicePartitionBucketPool,            W,                       maxPartitionCount * maxNumActiveBuckets);
+    RF_ALLOC(deviceTreeDepthInfo,                  TreeDepthInfo,           1);
+    RF_ALLOC(devicePartitionIndexPool,             PartitionIndex,          maxPartitionCount);
+    RF_ALLOC(devicePartitionInfoPool,              PartitionInfo,           maxPartitionCount);
+    RF_ALLOC(devicePartitions,                     RowPartitionInfo,        numRows);
+    RF_ALLOC(directions,                           uint32_t,                (numRows + 31) / 32);
+    RF_ALLOC(nonZeroDirectionIndices,              UpdateWorkEntry,         numRows/2 + 2);
+    RF_ALLOC(numNonZeroDirectionIndices,           uint32_t,                1);
+    RF_ALLOC(smallSideIndexes,                     uint8_t,                 maxPartitionCount);
+    RF_ALLOC(smallSideIndexToPartitionNumbers,     uint16_t,                256);
+    RF_ALLOC(deviceAllPartitionSplitsPool,         IndexedPartitionSplit,   131072);
+    RF_ALLOC(deviceFeaturePartitionSplitsPool,     PartitionSplit,          maxPartitionCount  * nf);
+
+#   undef RF_ALLOC
 
     boundTestFeatureKernel = owner.testFeatureKernel
         ->bind( "decodedRows",                      expandedRowData,
@@ -1344,6 +1348,21 @@ init(const std::string & debugName,
 
     depthQueue->enqueueFillArray("initialize TreeDepthInfo", deviceTreeDepthInfo, treeDepthInfo0, 0 /* offset */, 1 /* size */);
 
+    // DEBUG ONLY, stops spurious differences between kernels
+    if (debugKernelOutput /* TODO: why do we need this? */) {
+        depthQueue->enqueueFillArray("debug clear partitionBuckets", devicePartitionBucketPool, W());
+        depthQueue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
+        depthQueue->enqueueFillArray("debug clear allPartitionSplits", deviceAllPartitionSplitsPool, IndexedPartitionSplit());
+        depthQueue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 0);
+        depthQueue->enqueueFillArray("debug clear smallSideIndexes", smallSideIndexes, (uint8_t)0);
+        depthQueue->enqueueFillArray("debug partition numbers", devicePartitions, RowPartitionInfo{0});
+        depthQueue->enqueueFillArray("debug directions", directions, (uint32_t)0);
+        depthQueue->enqueueFillArray("debug non zero indices", nonZeroDirectionIndices, UpdateWorkEntry{0, 0, 0, 0});
+        depthQueue->finish();
+    }
+
+    depthQueue->enqueueBarrier("awaiting initialization");
+
     depthQueue->enqueue("testFeature",
                         boundTestFeatureKernel,
                         { numActiveFeatures, numRows });
@@ -1399,18 +1418,6 @@ init(const std::string & debugName,
         ExcAssert(!different && "runTestFeatureKernel");
     }
 
-    // DEBUG ONLY, stops spurious differences between kernels
-    if (debugKernelOutput /* TODO: why do we need this? */) {
-        depthQueue->enqueueFillArray("debug clear partition splits", deviceFeaturePartitionSplitsPool, PartitionSplit());
-        depthQueue->enqueueFillArray("debug clear allPartitionSplits", deviceAllPartitionSplitsPool, IndexedPartitionSplit());
-        depthQueue->enqueueFillArray("debug clear partitionIndexes", devicePartitionIndexPool, PartitionIndex(), 0);
-        depthQueue->enqueueFillArray("debug clear smallSideIndexes", smallSideIndexes, (uint8_t)0);
-        depthQueue->enqueueFillArray("debug partition numbers", devicePartitions, RowPartitionInfo{0});
-        depthQueue->enqueueFillArray("debug directions", directions, (uint32_t)0);
-        depthQueue->enqueueFillArray("debug non zero indices", nonZeroDirectionIndices, UpdateWorkEntry{0, 0, 0, 0});
-        depthQueue->finish();
-    }
-
     //depthQueue->flush();
 }
 
@@ -1430,10 +1437,13 @@ scheduleTraining()
     // Our results live in these two structures, which are specific to this partition.  By copying
     // them at the end, we are able to reuse all of the allocated memory for the next partition.
     auto resultPartitionSplits = context->allocUninitializedArraySync<IndexedPartitionSplit>(debugName + " result allPartitionSplits", 131072);
-    auto resultTreeDepthInfo = context->allocUninitializedArraySync<TreeDepthInfo>("debugName + " result treeDepthInfo", 1);
+    auto resultTreeDepthInfo = context->allocUninitializedArraySync<TreeDepthInfo>(debugName + " result treeDepthInfo", 1);
 
     startDepth = Date::now();
     startDescent = startDepth;
+
+    // TODO: shouldn't be necessary...
+    depthQueue->flush();
 
     // We go down level by level
     int depth = 0;
@@ -1441,7 +1451,9 @@ scheduleTraining()
 
         auto depthScope = trainMarker->enterScope("depth " + std::to_string(depth));
 
-        bool flushDepth = false;//depth == 0;
+        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " start");
+
+        bool flushDepth = false; //false;  //true;  //false;//depth == 0;
 
 #if 0 // TODO
         // How big does our output partition splits array need to be to hold the maximum
@@ -1465,12 +1477,16 @@ scheduleTraining()
         if (flushDepth)
             depthQueue->flush();
 
+        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " getPartitionSplits");
+
         // Now we have the best split for each feature for each partition,
         // find the best one per partition and finally record it.
 
         depthQueue->enqueue("bestPartitionSplit",
                             boundBestPartitionSplitKernel,
                             { });
+
+        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " bestPartitionSplit");
 
         if (flushDepth)
             depthQueue->flush();
@@ -1665,6 +1681,8 @@ scheduleTraining()
                             boundAssignPartitionNumbersKernel,
                             {  });
 
+        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " assignPartitionNumbers");
+
         if (flushDepth)
             depthQueue->flush();
 
@@ -1726,6 +1744,8 @@ scheduleTraining()
 
         if (flushDepth)
             depthQueue->flush();
+
+        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " clearBuckets and updatePartitionNumbers");
 
         if (debugKernelOutput) {
             depthQueue->finish();
@@ -1818,11 +1838,14 @@ scheduleTraining()
         if (flushDepth)
             depthQueue->flush();
 
+        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " updateBuckets");
 
         // And then subtract the small sides from the big sides
         depthQueue->enqueue("fixup buckets",
                             boundFixupBucketsKernel,
                             { numActiveBuckets });
+
+        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " fixupBuckets");
 
         if (debugKernelOutput) {
             depthQueue->finish();
@@ -1955,9 +1978,11 @@ scheduleTraining()
         int numActivePartitions = -1, numFinishedPartitions = -1;
 
         if (debugKernelOutput) {
-            TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
+            //depthQueue->finish();
+            TreeDepthInfo depthInfo = depthQueue->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
             numActivePartitions = depthInfo.numActivePartitions;
             numFinishedPartitions = depthInfo.numFinishedPartitions;
+            cerr << "depthInfo = " << jsonEncodeStr(depthInfo) << endl;
         }
         cerr << ansi::bright_blue << "depth = " << depth
             << " partitions: finished " << numFinishedPartitions << " active: " << numActivePartitions
@@ -2052,6 +2077,7 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
 
     if (depth < maxDepth) {
         cerr << "mapping back to split and recurse for " << maxDepth - depth << " levels" << endl;
+        return tree;
         // If we're not at the lowest level, partition our data and recurse
         // par partition to create our leaves.
 
@@ -2151,6 +2177,7 @@ trainPartitioned(const std::string & debugName, const std::vector<std::vector<in
 
     // First, schedule all of the activity
     for (size_t i = 0;  i < allActiveFeaturesIn.size();  ++i) {
+        cerr << endl << ">>> scheduling bag " << i << " of " << allActiveFeaturesIn.size() << endl;
         try {
             partition.init(debugName + " partition " + std::to_string(i), allActiveFeaturesIn[i]);
             auto output = partition.scheduleTraining();
@@ -2285,7 +2312,7 @@ trainMultipleSamplings(const std::string & debugName,
             }
         };
 
-        MLDB::parallelMap(0, featuresActive.size(), buildTree, maxAtOnce);
+        MLDB::parallelMap(0, featuresActive.size(), buildTree, DEBUG_RF_KERNELS ? 1 : maxAtOnce);
         //buildTree(6);
 
         for (auto & r: result)

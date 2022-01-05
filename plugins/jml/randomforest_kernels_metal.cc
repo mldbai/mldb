@@ -34,6 +34,8 @@ EnvOption<int, true> RF_METAL_LOCAL_BUCKET_MEM("RF_METAL_LOCAL_BUCKET_MEM", 5500
 
 namespace {
 
+constexpr uint32_t maxWorkGroupSize = 1024;  // TODO: device query
+
 static struct RegisterKernels {
 
     RegisterKernels()
@@ -94,7 +96,7 @@ static struct RegisterKernels {
             result->addParameter("weightMultiplier", "r", "f32");
             result->addParameter("weightData", "r", "f32[weightDataLength]");
             result->addParameter("decodedRowsOut", "w", "f32[numRows]");
-            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 16);
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
             result->setComputeFunction(library, "decompressRowsKernel");
@@ -123,7 +125,7 @@ static struct RegisterKernels {
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
 
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
-            result->addTuneable("threadsPerBlock", 1024);
+            result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 32);
 
             result->addParameter("w", "w", "W[maxLocalBuckets]");
@@ -155,7 +157,7 @@ static struct RegisterKernels {
             result->addParameter("featurePartitionSplitsOut", "w", "PartitionSplit[nap * naf]");
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
 
-            result->addTuneable("numPartitionsInParallel", 1024);
+            result->addTuneable("numPartitionsInParallel", maxWorkGroupSize);
             result->addTuneable("wLocalSize", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed));
 
             result->addParameter("wLocal", "w", "WIndexed[wLocalSize]");
@@ -190,7 +192,7 @@ static struct RegisterKernels {
             //result->addPreConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
             //result->addPostConstraint("numActivePartitions", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");
 
-            result->addTuneable("numPartitionsAtOnce", 1024);
+            result->addTuneable("numPartitionsAtOnce", maxWorkGroupSize);
             result->setGridExpression("[numPartitionsAtOnce]", "[1]");
             result->setComputeFunction(library, "bestPartitionSplitKernel");
             return result;
@@ -234,7 +236,7 @@ static struct RegisterKernels {
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
             result->allowGridPadding();
             result->addTuneable("gridBlockSize", 64);
-            result->addTuneable("numPartitionsAtOnce", 1024);
+            result->addTuneable("numPartitionsAtOnce", maxWorkGroupSize);
             result->setGridExpression("[numPartitionsAtOnce,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "clearBucketsKernel");
             return result;
@@ -266,7 +268,7 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addParameter("decodedRows", "r", "f32[numRows]");
-            result->addTuneable("threadsPerBlock", 1024);
+            result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 96);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
@@ -304,7 +306,7 @@ static struct RegisterKernels {
             result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
             result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
-            result->addTuneable("threadsPerBlock", 1024);
+            result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 32);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
             result->addParameter("maxLocalBuckets", "r", "u32");
@@ -334,7 +336,7 @@ static struct RegisterKernels {
             result->addParameter("partitionInfo", "r", "PartitionInfo[np]");
             result->addParameter("smallSideIndexes", "r", "u8[newNumPartitions]");
             result->addTuneable("gridBlockSize", 64);
-            result->addTuneable("numPartitionsAtOnce", 1024);
+            result->addTuneable("numPartitionsAtOnce", maxWorkGroupSize);
             result->allowGridPadding();
             result->setGridExpression("[numPartitionsAtOnce,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
             result->setComputeFunction(library, "fixupBucketsKernel");

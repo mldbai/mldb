@@ -81,7 +81,7 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
             const BoundComputeKernel & kernel,
             const std::vector<uint32_t> & grid) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
@@ -131,6 +131,7 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
 
     virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
+    virtual void enqueueBarrier(const std::string & label) override;
     virtual std::shared_ptr<ComputeEvent> flush() override;
     virtual void finish() override;
 };
@@ -159,6 +160,7 @@ struct MetalComputeContext: public ComputeContext {
     mtlpp::Device mtlDevice;
     ComputeDevice device;
     std::shared_ptr<MetalComputeQueue> queue;
+    mtlpp::Heap heap;
 
     virtual ComputeDevice getDevice() const override;
 
@@ -179,20 +181,10 @@ struct MetalComputeContext: public ComputeContext {
                               size_t offset, ssize_t length,
                               bool ignoreHazards) const;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
-    allocateImpl(const std::string & opName,
-                 size_t length, size_t align,
-                 const std::type_info & type,
-                 bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith = std::any()) override;
-
     virtual MemoryRegionHandle
     allocateSyncImpl(const std::string & regionName,
                      size_t length, size_t align,
-                     const std::type_info & type, bool isConst,
-                     MemoryRegionInitialization initialization,
-                     std::any initWith = std::any()) override;
+                     const std::type_info & type, bool isConst) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     transferToDeviceImpl(const std::string & opName,

@@ -312,7 +312,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
         }
     }
 
-#if 1
+#if 0
     for (uint32_t i = 0;  i < numActivePartitions;  ++i) {
         const PartitionInfo & info = partitionInfoOut[i];
         cerr << "old partition " << i << " left " << info.left << " right " << info.right << endl;
@@ -759,6 +759,7 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("activeFeatureList", "r", "u32[naf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
+            result->addConstraint("numBuckets", "==", "readArrayElement(treeDepthInfo, 0).numFuckingBuckets");
             result->set2DComputeFunction(testFeatureKernel);
             return result;
         };

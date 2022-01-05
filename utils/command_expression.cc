@@ -594,6 +594,10 @@ parseArgumentExpression(ParseContext & context, int precedence)
             auto rhs = parseArgumentExpression(context, 20);
             result = std::make_shared<DivideExpression>(result, rhs);
         }
+        else if (precedence <= 20 && context.match_literal('%')) {
+            auto rhs = parseArgumentExpression(context, 20);
+            result = std::make_shared<ModulusExpression>(result, rhs);
+        }
         else break;
     }
 

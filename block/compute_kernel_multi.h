@@ -70,7 +70,7 @@ struct MultiComputeQueue: public ComputeQueue {
             const BoundComputeKernel & kernel,
             const std::vector<uint32_t> & grid) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
@@ -121,8 +121,8 @@ struct MultiComputeQueue: public ComputeQueue {
     virtual std::shared_ptr<ComputeEvent>
     makeAlreadyResolvedEvent(const std::string & label) const override;
 
+    virtual void enqueueBarrier(const std::string & label) override;
     virtual std::shared_ptr<ComputeEvent>  flush() override;
-
     virtual void finish() override;
 };
 
@@ -138,19 +138,10 @@ struct MultiComputeContext: public ComputeContext {
 
     std::vector<std::shared_ptr<ComputeContext> > contexts;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
-    allocateImpl(const std::string & regionName,
-                 size_t length, size_t align,
-                 const std::type_info & type, bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith) override;
-
     virtual MemoryRegionHandle
     allocateSyncImpl(const std::string & regionName,
                      size_t length, size_t align,
-                     const std::type_info & type, bool isConst,
-                     MemoryRegionInitialization initialization,
-                     std::any initWith = std::any()) override;
+                     const std::type_info & type, bool isConst) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     transferToDeviceImpl(const std::string & opName,

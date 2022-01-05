@@ -580,7 +580,7 @@ label() const
 
 // ComputeQueue
 
-ComputePromiseT<MemoryRegionHandle>
+void
 ComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle regionIn, MemoryRegionInitialization init,
@@ -599,33 +599,31 @@ enqueueFillArrayImpl(const std::string & opName,
     }
 
     // Default implementation: launch a "fill" kernel
-    switch (init) {
-        case MemoryRegionInitialization::INIT_NONE:
-            return { std::move(region), this->makeAlreadyResolvedEvent(opName + "then enqueueFillArray::INIT_NONE") };  // nothing to do 
-        case MemoryRegionInitialization::INIT_ZERO_FILLED: {
-            auto kernel = owner->getKernel("__zeroFillArray");
-            auto bound = kernel->bind("region", region,
-                                      "startOffsetInBytes", (uint64_t)startOffsetInBytes,
-                                      "lengthInBytes", (uint64_t)lengthInBytes);
-            enqueue(opName, bound, {} /* grid */);
-            finish();
-            return { std::move(region), this->makeAlreadyResolvedEvent(opName + "then enqueueFillArray::INIT_ZERO_FILLED") };
-        }
-        case MemoryRegionInitialization::INIT_BLOCK_FILLED: {
-            auto kernel = owner->getKernel("__blockFillArray");
-            auto block = std::any_cast<std::span<const std::byte>>(arg);
-            auto blockRegion = managePinnedHostRegionSyncImpl(opName + " pin block", block, 1 /* align */,
-                                                                 typeid(std::byte), true /* isConst */);
-            MemoryArrayHandleT<uint8_t> blockHandle{std::move(blockRegion.handle)};
-            auto bound = kernel->bind("region", region,
-                                      "startOffsetInBytes", (uint64_t)startOffsetInBytes,
-                                      "lengthInBytes", (uint64_t)lengthInBytes,
-                                      "blockData", blockHandle,
-                                      "blockLengthInBytes", (uint64_t)block.size());
-            enqueue(opName, bound, {} /* grid */);
-            auto ev = flush();
-            return { std::move(region), ev };
-        }
+switch (init) {
+    case MemoryRegionInitialization::INIT_NONE:
+        return;
+    case MemoryRegionInitialization::INIT_ZERO_FILLED: {
+        auto kernel = owner->getKernel("__zeroFillArray");
+        auto bound = kernel->bind("region", region,
+                                    "startOffsetInBytes", (uint64_t)startOffsetInBytes,
+                                    "lengthInBytes", (uint64_t)lengthInBytes);
+        enqueue(opName, bound, {} /* grid */);
+        return;
+    }
+    case MemoryRegionInitialization::INIT_BLOCK_FILLED: {
+        auto kernel = owner->getKernel("__blockFillArray");
+        auto block = std::any_cast<std::span<const std::byte>>(arg);
+        auto blockRegion = managePinnedHostRegionSyncImpl(opName + " pin block", block, 1 /* align */,
+                                                                typeid(std::byte), true /* isConst */);
+        MemoryArrayHandleT<uint8_t> blockHandle{std::move(blockRegion.handle)};
+        auto bound = kernel->bind("region", region,
+                                    "startOffsetInBytes", (uint64_t)startOffsetInBytes,
+                                    "lengthInBytes", (uint64_t)lengthInBytes,
+                                    "blockData", blockHandle,
+                                    "blockLengthInBytes", (uint64_t)block.size());
+        enqueue(opName, bound, {} /* grid */);
+        return;
+    }
     }
     throw MLDB::Exception("Unknown fillArray implementation");
 }
@@ -692,18 +690,6 @@ ComputeContext::
 recordMarkerEvent(const std::string & event)
 {
     // no-op
-}
-
-MemoryRegionHandle
-ComputeContext::
-allocateSyncImpl(const std::string & regionName,
-                    size_t length, size_t align,
-                    const std::type_info & type, bool isConst,
-                    MemoryRegionInitialization initialization,
-                    std::any initWith)
-{
-    return allocateImpl(regionName, length, align, type, isConst, initialization,
-                        std::move(initWith)).move();
 }
 
 MemoryRegionHandle
@@ -1114,7 +1100,7 @@ solve(const ComputeKernelConstraintSolution & solutionIn,
       const ComputeKernelConstraintSet & constraints1,
       const ComputeKernelConstraintSet & constraints2)
 {
-    Timer timer;
+    //Timer timer;
 
     ComputeKernelConstraintSolution result = solutionIn;
 
@@ -1130,8 +1116,8 @@ solve(const ComputeKernelConstraintSolution & solutionIn,
         }
     }
 
-    cerr << "solving with " << constraints1.constraints.size() + constraints2.constraints.size()
-         << " constraints took " << timer.elapsed_wall() * 1000000.0 << "us" << endl;
+    //cerr << "solving with " << constraints1.constraints.size() + constraints2.constraints.size()
+    //     << " constraints took " << timer.elapsed_wall() * 1000000.0 << "us" << endl;
 
     return result;
 }

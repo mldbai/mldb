@@ -693,64 +693,7 @@ MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent, const
 
 MetalComputeQueue::~MetalComputeQueue()
 {
-#if 0
-    if (activeComputeEncoder)
-        activeComputeEncoder.EndEncoding();
-    return;
-
-    if (!std::uncaught_exceptions() && activeBlitEncoder) {
-        cerr << "destroyed MetalComputeQueue with active blit encoder" << endl;
-        abort();
-    }
-    if (!std::uncaught_exceptions() && activeComputeEncoder) {
-        cerr << "destroyed MetalComputeQueue with active compute encoder" << endl;
-        abort();
-    }
-#endif
 }
-
-#if 0
-constexpr bool METAL_SINGLE_COMMAND = true;
-
-mtlpp::ComputeCommandEncoder
-MetalComputeQueue::
-getComputeEncoder(const std::string & opName)
-{
-    if (activeBlitEncoder) {
-        activeBlitEncoder.EndEncoding();
-        activeBlitEncoder = mtlpp::BlitCommandEncoder();
-    }
-    if (METAL_SINGLE_COMMAND) {
-        if (activeComputeEncoder) {
-            activeComputeEncoder.EndEncoding();
-        }
-        activeComputeEncoder = commandBuffer.ComputeCommandEncoder(dispatchType);
-        activeComputeEncoder.SetLabel(opName.c_str());
-    }
-    else {
-        if (!activeComputeEncoder) {
-            activeComputeEncoder = commandBuffer.ComputeCommandEncoder(dispatchType);
-            activeComputeEncoder.SetLabel(opName.c_str());
-        }
-    }
-    return activeComputeEncoder;
-}
-
-mtlpp::BlitCommandEncoder
-MetalComputeQueue::
-getBlitEncoder(const std::string & opName)
-{
-    if (activeComputeEncoder) {
-        activeComputeEncoder.EndEncoding();
-        activeComputeEncoder = mtlpp::ComputeCommandEncoder();
-    }
-    if (!activeBlitEncoder) {
-        activeBlitEncoder = commandBuffer.BlitCommandEncoder();
-        activeBlitEncoder.SetLabel(opName.c_str());
-    }
-    return activeBlitEncoder;
-}
-#endif
 
 std::shared_ptr<ComputeQueue>
 MetalComputeQueue::
@@ -921,6 +864,10 @@ enqueue(const std::string & opName,
         mtlpp::Size gridSize(mtlGrid[0], mtlGrid[1], mtlGrid[2]);
         mtlpp::Size blockSize(mtlBlock[0], mtlBlock[1], mtlBlock[2]);
 
+        auto invocations = mtlGrid[0] * mtlGrid[1] * mtlGrid[2] * mtlBlock[0] * mtlBlock[1] * mtlBlock[2];
+        cerr << "kernel " << kernel->kernelName << " requires " << invocations << " invocations and "
+             << invocations * 2048 / 1024.0 / 1024.0 << "MB of wired scratchpad memory" << endl;
+
         commandEncoder.DispatchThreadgroups(gridSize, blockSize);
         commandEncoder.EndEncoding();
 
@@ -986,7 +933,7 @@ enqueue(const std::string & opName,
     }
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 MetalComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
@@ -1005,7 +952,27 @@ enqueueFillArrayImpl(const std::string & opName,
         throw MLDB::Exception("overflowing memory region");
     }
 
-    return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
+    switch (init) {
+    case MemoryRegionInitialization::INIT_NONE:
+        return;
+    case MemoryRegionInitialization::INIT_ZERO_FILLED: {
+        auto [pin, buffer, offset] = MetalComputeContext::getMemoryRegion(opName, *region.handle, ACC_WRITE);
+        auto length = buffer.GetLength();
+        ExcAssertLessEqual(offset + startOffsetInBytes + lengthInBytes, length);
+
+        auto blitEncoder = commandBuffer.BlitCommandEncoder();
+        ExcAssert(blitEncoder);
+        blitEncoder.SetLabel((opName + " zero fill blit").c_str());
+        blitEncoder.Fill(buffer, { uint32_t(offset + startOffsetInBytes), uint32_t(lengthInBytes) }, 0);
+        blitEncoder.EndEncoding();
+
+        return;
+    }
+    default:
+        ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
+        return;
+    }
+
 }
 
 void
@@ -1038,22 +1005,23 @@ enqueueCopyFromHostImpl(const std::string & opName,
         break;
     }
     case mtlpp::StorageMode::Private: {
-        cerr << opName << " is private" << endl;
+        //cerr << opName << " is private" << endl;
         auto blitEncoder = commandBuffer.BlitCommandEncoder();
         blitEncoder.SetLabel((opName + " blit").c_str());
         ExcAssert(blitEncoder);
 
         // It's a private region; we need to create a new region to hold the result, and then
         // synchronize
-        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeShared;
+        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
         auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer((const void *)fromRegion.data(), fromRegion.length(), options);
-        tmpBuffer.SetLabel((opName + " private copy").c_str());
-        blitEncoder.Copy(buffer, offset + deviceStartOffsetInBytes, tmpBuffer, 0 /* offset */, fromRegion.length());
+        tmpBuffer.SetLabel((opName + " copyFromHostSync private copy").c_str());
+        blitEncoder.Copy(tmpBuffer, 0 /* sourceOffset */, buffer, offset + deviceStartOffsetInBytes /* dstOffset */, fromRegion.length());
         blitEncoder.EndEncoding();
 
         // We pin the temp buffer instead
         auto freeTmpBuffer = [tmpBuffer, pin=pin] (auto arg) {};
         pin = std::shared_ptr<const void>(nullptr, freeTmpBuffer);
+
         break;
     }
     default:
@@ -1117,9 +1085,9 @@ transferToHostSyncImpl(const std::string & opName,
     case mtlpp::StorageMode::Private: {
         // It's a private region; we need to create a new region to hold the result, and then
         // synchronize
-        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeShared;
+        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
         auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
-        tmpBuffer.SetLabel((opName + " private copy").c_str());
+        tmpBuffer.SetLabel((opName + " transferToHostSync private copy").c_str());
         blitEncoder.Copy(buffer, offset, tmpBuffer, 0 /* offset */, length - offset);
         blitEncoder.Synchronize(tmpBuffer);
         contents = tmpBuffer.GetContents();
@@ -1152,8 +1120,8 @@ transferToHostSyncImpl(const std::string & opName,
     //cerr << "storage mode is " << (int)storageMode << endl;
 
 
-    cerr << "contents " << contents << endl;
-    cerr << "length " << length << endl;
+    //cerr << "contents " << contents << endl;
+    //cerr << "length " << length << endl;
 
     //cerr << "region length for region " << handle.handle->name
     //     << " with lengthInBytes " << handle.handle->lengthInBytes
@@ -1278,21 +1246,6 @@ flush()
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue flush");
 
-#if 0
-    ns::String label;
-
-    if (activeComputeEncoder) {
-        activeComputeEncoder.EndEncoding();
-        label = activeComputeEncoder.GetLabel();
-        activeComputeEncoder = mtlpp::ComputeCommandEncoder();
-    }
-    if (activeBlitEncoder) {
-        activeBlitEncoder.EndEncoding();
-        label = activeBlitEncoder.GetLabel();
-        activeBlitEncoder = mtlpp::BlitCommandEncoder();
-    }
-#endif
-
     auto result = std::make_shared<MetalComputeEvent>("flush", false /* resolved */);
     ExcAssert(commandBuffer);
     if (commandBuffer.GetStatus() < mtlpp::CommandBufferStatus::Completed) {
@@ -1310,6 +1263,22 @@ flush()
     commandBuffer = mtlQueue.CommandBuffer();
     commandBuffer.SetLabel(label);
     return result;
+}
+
+void
+MetalComputeQueue::
+enqueueBarrier(const std::string & label)
+{
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue enqueueBarrier " + label);
+    auto fence = mtlOwner->mtlDevice.NewFence();
+    ExcAssert(fence);
+    fence.SetLabel(label.c_str());
+    auto encoder = commandBuffer.ComputeCommandEncoder(mtlpp::DispatchType::Serial);
+    encoder.SetLabel(("enqueueBarrier " + label).c_str());
+    ExcAssert(encoder);
+    encoder.UpdateFence(fence);
+    encoder.WaitForFence(fence);
+    encoder.EndEncoding();
 }
 
 void
@@ -1356,6 +1325,12 @@ MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device)
     : mtlDevice(mtlDevice), device(device),
       queue(std::make_shared<MetalComputeQueue>(this, nullptr /* parent */, "(queue for context)", mtlpp::DispatchType::Serial))
 {
+    mtlpp::HeapDescriptor heapDescriptor;
+    heapDescriptor.SetStorageMode(mtlpp::StorageMode::Private);
+    heapDescriptor.SetSize(1 << 30);  // 1GB
+
+    this->heap = mtlDevice.NewHeap(heapDescriptor);
+    ExcAssert(this->heap);
 }
 
 ComputeDevice
@@ -1407,7 +1382,7 @@ getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & h
 }
 
 static MemoryRegionHandle
-doMetalAllocate(mtlpp::Device & mtlDevice,
+doMetalAllocate(mtlpp::Heap & mtlHeap,
                  const std::string & regionName,
                  size_t length, size_t align,
                  const std::type_info & type,
@@ -1415,9 +1390,13 @@ doMetalAllocate(mtlpp::Device & mtlDevice,
 {
     cerr << "allocating " << length << " bytes for " << regionName << endl;
     // TODO: align...
-    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
-    auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
+    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
+    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
+    //auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
+    auto buffer = mtlHeap.NewBuffer(length == 0 ? 4 : length, options);
+    if (!buffer) {
+        throw MLDB::Exception("Error allocating buffer from heap");
+    }
     buffer.SetLabel(regionName.c_str());
 
     auto handle = std::make_shared<MetalMemoryRegionHandleInfo>();
@@ -1433,35 +1412,15 @@ doMetalAllocate(mtlpp::Device & mtlDevice,
     return result;
 }
 
-ComputePromiseT<MemoryRegionHandle>
-MetalComputeContext::
-allocateImpl(const std::string & regionName,
-             size_t length, size_t align,
-             const std::type_info & type,
-             bool isConst,
-             MemoryRegionInitialization initialization,
-             std::any initWith)
-{
-    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext allocateImpl " + regionName);
-    auto result = doMetalAllocate(this->mtlDevice, regionName, length, align, type, isConst);
-    return queue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
-                                       0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
-}
-
 MemoryRegionHandle
 MetalComputeContext::
 allocateSyncImpl(const std::string & regionName,
                  size_t length, size_t align,
-                 const std::type_info & type, bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith)
+                 const std::type_info & type, bool isConst)
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext allocateSyncImpl " + regionName);
-    auto result = doMetalAllocate(this->mtlDevice, regionName, length, align, type, isConst);
-    if (initialization == INIT_NONE)
-        return result;
-    return queue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
-                                       0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith).get();
+    auto result = doMetalAllocate(this->heap, regionName, length, align, type, isConst);
+    return result;
 }
 
 static MemoryRegionHandle
@@ -2778,10 +2737,13 @@ static struct Init {
             result->addParameter("lengthInBytes", "r", "u64");
             result->addParameter("blockData", "r", "u8[blockLengthInBytes]");
             result->addParameter("blockLengthInBytes", "r", "u64");
+            result->addConstraint("blockLengthInBytes", ">", "0", "Avoid divide by zero");
+            result->addConstraint("(lengthInBytes-startOffsetInBytes) % blockLengthInBytes", "==", "0", "Block must divide evenly in region");
+            result->addConstraint("numBlocks", "==", "(lengthInBytes-startOffsetInBytes)/blockLengthInBytes");
             result->addTuneable("threadsPerBlock", 256);
             result->addTuneable("blocksPerGrid", 16);
             result->allowGridPadding();
-            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
+            result->setGridExpression("[min(blocksPerGrid,ceilDiv(numBlocks, threadsPerBlock))]", "[threadsPerBlock]");
             result->setComputeFunction(library, "__blockFillArrayKernel");
 
             return result;

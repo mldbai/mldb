@@ -505,7 +505,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
             printedBanner = true;
         };
 
-        const char * p1 = (const char *)referenceDataIn;
+        const char * const referenceBytes = (const char *)referenceDataIn;
 
         bool compareUnordered = this->params[i].type.dims.size() > 0
             && this->params[i].type.dims[0].ordering == ComputeKernelOrdering::UNORDERED;
@@ -517,7 +517,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
             referenceRegion = genericSorted(referenceRegion, *desc);
         }
 
-        auto referenceData = referenceRegion.data();
+        const auto referenceData = referenceRegion.data();
 
         for (size_t j = 1;  j < this->kernels.size();  ++j) {
             auto kernelGenerated = bindInfo.boundKernels.at(j).arguments.at(i);
@@ -557,6 +557,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeConte
                 continue;
             }
 
+            const char * p1 = referenceBytes;
             const char * p2 = (const char *)kernelGeneratedData;
 
             size_t numDifferences = 0;
@@ -839,19 +840,28 @@ thenReduce(std::vector<ComputePromiseT<T>> promises, Fn && fn)
 #endif
 }
 
+MemoryRegionHandle
+reduceHandles(const std::string & regionName,
+              std::vector<MemoryRegionHandle> handles,
+              size_t length, const std::type_info & type, bool isConst)
+{
+    auto result = std::make_shared<MultiMemoryRegionInfo>(std::move(handles));
+    result->type = &type;
+    result->isConst = isConst;
+    result->lengthInBytes = length;
+    result->name = regionName;
+    return { std::move(result) };
+};
+
+
 ComputePromiseT<MemoryRegionHandle>
 reduceHandles(const std::string & regionName,
               std::vector<ComputePromiseT<MemoryRegionHandle>> promises,
               size_t length, const std::type_info & type, bool isConst)
 {
-    auto getResult = [type=&type, isConst, length, regionName] (const std::vector<MemoryRegionHandle> & handles) -> MemoryRegionHandle
+    auto getResult = [type=&type, isConst, length, regionName] (std::vector<MemoryRegionHandle> handles) -> MemoryRegionHandle
     {
-        auto result = std::make_shared<MultiMemoryRegionInfo>(handles);
-        result->type = type;
-        result->isConst = isConst;  // UB HERE
-        result->lengthInBytes = length;
-        result->name = regionName;
-        return { std::move(result) };
+        return reduceHandles(regionName, std::move(handles), length, *type, isConst);
     };
 
     return thenReduce(std::move(promises), getResult);
@@ -906,6 +916,15 @@ flush()
 
 void
 MultiComputeQueue::
+enqueueBarrier(const std::string & label)
+{
+    for (auto & q: queues) {
+        q->enqueueBarrier(label);
+    }
+}
+
+void
+MultiComputeQueue::
 finish()
 {
     for (auto & q: queues) {
@@ -913,7 +932,7 @@ finish()
     }
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 MultiComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
@@ -922,16 +941,11 @@ enqueueFillArrayImpl(const std::string & opName,
 {
     auto info = getMultiInfo(region);
 
-    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
     ExcAssertEqual(info->handles.size(), queues.size());
-    promises.reserve(queues.size());
 
     for (size_t i = 0;  i < queues.size();  ++i) {
-        promises.emplace_back(queues[i]->enqueueFillArrayImpl(opName, info->handles[i], init, startOffsetInBytes, lengthInBytes, arg));
+        queues[i]->enqueueFillArrayImpl(opName, info->handles[i], init, startOffsetInBytes, lengthInBytes, arg);
     }
-
-    auto returnResult = [region=std::move(region)] (auto unused) { return region; };
-    return thenReduce(std::move(promises), std::move(returnResult));
 }
 
 void
@@ -1094,56 +1108,18 @@ MultiComputeContext()
     ExcAssertGreaterEqual(contexts.size(), 1);
 }
 
-ComputePromiseT<MemoryRegionHandle>
-MultiComputeContext::
-allocateImpl(const std::string & regionName,
-             size_t length, size_t align,
-             const std::type_info & type, bool isConst,
-             MemoryRegionInitialization initialization,
-             std::any initWith)
-{
-#if 1 // causes memory corruption on OSX; TODO make it async again
-    // Allocate with all of the runtimes.
-    std::vector<ComputePromiseT<MemoryRegionHandle>> promises;
-    for (auto & c: contexts) {
-        promises.emplace_back(c->allocateImpl(regionName, length, align, type, isConst, initialization, initWith));
-    }
-    return reduceHandles(regionName, std::move(promises), length, type, isConst);
-#else
-    // Allocate with all of the runtimes.
-    std::vector<MemoryRegionHandle> handles;
-    for (auto & c: contexts) {
-        handles.emplace_back(c->allocateImpl(regionName, length, align, type, isConst, initialization, initWith).get());
-    }
-
-    auto result = std::make_shared<MultiMemoryRegionInfo>(std::move(handles));
-    result->type = &type;
-    result->isConst = isConst;
-    result->lengthInBytes = length;
-    result->name = regionName;
-    return { std::move(result) };
-#endif
-}
-
 MemoryRegionHandle
 MultiComputeContext::
 allocateSyncImpl(const std::string & regionName,
                  size_t length, size_t align,
-                 const std::type_info & type, bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith)
+                 const std::type_info & type, bool isConst)
 {
+    // Allocate with all of the runtimes.
     std::vector<MemoryRegionHandle> handles;
     for (auto & c: contexts) {
-        handles.emplace_back(c->allocateSyncImpl(regionName, length, align, type, isConst, initialization, initWith));
+        handles.emplace_back(c->allocateSyncImpl(regionName, length, align, type, isConst));
     }
-
-    auto result = std::make_shared<MultiMemoryRegionInfo>(std::move(handles));
-    result->type = &type;
-    result->isConst = isConst;
-    result->lengthInBytes = length;
-    result->name = regionName;
-    return { std::move(result) };
+    return reduceHandles(regionName, std::move(handles), length, type, isConst);
 }
 
 ComputePromiseT<MemoryRegionHandle>
@@ -1172,12 +1148,7 @@ transferToDeviceSyncImpl(const std::string & opName,
         handles.emplace_back(c->transferToDeviceSyncImpl(opName, region, type, isConst));
     }
 
-    auto result = std::make_shared<MultiMemoryRegionInfo>(std::move(handles));
-    result->type = &type;
-    result->isConst = isConst;
-    result->lengthInBytes = region.length();
-    result->name = opName;
-    return { std::move(result) };
+    return reduceHandles(opName, std::move(handles), region.length(), type, isConst);
 }
 
 ComputePromiseT<FrozenMemoryRegion>

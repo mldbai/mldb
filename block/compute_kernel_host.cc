@@ -139,42 +139,20 @@ struct HostComputeContext: public ComputeContext {
 
     virtual ComputeDevice getDevice() const override { return ComputeDevice::host(); }
 
-    virtual ComputePromiseT<MemoryRegionHandle>
-    allocateImpl(const std::string & regionName,
+    virtual MemoryRegionHandle
+    allocateSyncImpl(const std::string & regionName,
                  size_t length, size_t align,
-                 const std::type_info & type, bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith = std::any()) override
+                 const std::type_info & type, bool isConst) override
     {
-        MutableMemoryRegion mem;
-
-        switch (initialization) {
-            case INIT_NONE:
-                mem = backingStore->allocateWritable(length, align);
-                break;
-            case INIT_ZERO_FILLED:
-                mem = backingStore->allocateZeroFilledWritable(length, align);
-                break;
-            case INIT_BLOCK_FILLED: {
-                mem = backingStore->allocateWritable(length, align);
-                auto [init, len] = std::any_cast<std::pair<const void *, size_t>>(initWith);
-                ExcAssertGreater(len, 0);
-                ExcAssertEqual(length % len, 0);
-                for (size_t offset = 0;  offset < length;  offset += len) {
-                    std::memcpy(mem.data() + offset, init, len);
-                }
-                break;
-            }
-            default:
-                throw MLDB::Exception("Unknown initialization in allocateImpl");
-        }
+        // TODO: zero-filled hint?
+        MutableMemoryRegion mem = backingStore->allocateWritable(length, align);
 
         auto result = std::make_shared<HostMemoryRegionInfo>();
         result->init(std::move(mem));
         result->type = &type;
         result->isConst = isConst;
         result->name = regionName;
-        return { {std::move(result)}, std::make_shared<HostComputeEvent>() };
+        return { std::move(result) };
     }
 
     virtual ComputePromiseT<MemoryRegionHandle>
@@ -359,15 +337,15 @@ enqueue(const std::string & opName,
     }
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 HostComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle regionIn, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
                      const std::any & arg)
 {
-    return ComputeQueue::enqueueFillArrayImpl(opName, std::move(regionIn), init,
-                                              startOffsetInBytes, lengthInBytes, arg);
+    ComputeQueue::enqueueFillArrayImpl(opName, std::move(regionIn), init,
+                                       startOffsetInBytes, lengthInBytes, arg);
 }
 
 void
@@ -468,6 +446,13 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
     ExcAssertLessEqual(toOffset + length, toInfo->lengthInBytes);
     
     std::memcpy(((std::byte *)toInfo->data) + toOffset, (const std::byte *)fromInfo->data + fromOffset, length);
+}
+
+void
+HostComputeQueue::
+enqueueBarrier(const std::string & label)
+{
+    // no-op as it's in order
 }
 
 std::shared_ptr<ComputeEvent>

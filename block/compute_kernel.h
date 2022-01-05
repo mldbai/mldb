@@ -994,7 +994,7 @@ struct ComputeQueue {
             const BoundComputeKernel & kernel,
             const std::vector<uint32_t> & grid) = 0;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
@@ -1127,7 +1127,7 @@ struct ComputeQueue {
     makeAlreadyResolvedEvent(const std::string & label) const = 0;
 
     template<typename T>
-    ComputePromiseT<MemoryArrayHandleT<T>>
+    void
     enqueueFillArray(const std::string & opName,
                      const MemoryArrayHandleT<T> & region, const T & val,
                      size_t start = 0, ssize_t length = -1)
@@ -1138,25 +1138,20 @@ struct ComputeQueue {
         bool allZero = true;
         for (size_t i = 0;  allZero && i < sizeof(T);  allZero = valBytes[i++] == 0) ;
  
-        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
-        {
-            return { std::move(handle.handle) };
-        };
-
         if (allZero) {
-            return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_ZERO_FILLED,
+            enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_ZERO_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
-                                        {})
-                .then(std::move(convert), opName + " then enqueueFillArray:convert");
+                                        {});
         }
         else {
             std::span<const std::byte> fillWith((const std::byte *)&val, sizeof(val));
-            return enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED,
+            enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED,
                                         start * sizeof(T), length == -1 ? length : length * sizeof(T),
-                                        fillWith)
-                .then(std::move(convert), opName + " then enqueueFillArray:convert");
+                                        fillWith);
         }
     }
+
+    virtual void enqueueBarrier(const std::string & label) = 0;
 
     virtual std::shared_ptr<ComputeEvent> flush() = 0;
 
@@ -1222,19 +1217,10 @@ struct ComputeContext {
     // Record a marker event, without creating a scope
     virtual void recordMarkerEvent(const std::string & event);
 
-    virtual ComputePromiseT<MemoryRegionHandle>
-    allocateImpl(const std::string & regionName,
-                 size_t length, size_t align,
-                 const std::type_info & type, bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith = std::any()) = 0;
-
     virtual MemoryRegionHandle
     allocateSyncImpl(const std::string & regionName,
                      size_t length, size_t align,
-                     const std::type_info & type, bool isConst,
-                     MemoryRegionInitialization initialization,
-                     std::any initWith = std::any());
+                     const std::type_info & type, bool isConst) = 0;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     transferToDeviceImpl(const std::string & opName,
@@ -1352,19 +1338,6 @@ struct ComputeContext {
     }
 
     template<typename T>
-    ComputePromiseT<MemoryArrayHandleT<T>>
-    allocUninitializedArray(const std::string & regionName, size_t size)
-    {
-        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
-        {
-            return { std::move(handle.handle) };
-        };
-
-        return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE)
-            .then(std::move(convert), regionName + " then allocUninitializedArray:convert");
-    }
-
-    template<typename T>
     MemoryArrayHandleT<T>
     allocUninitializedArraySync(const std::string & regionName, size_t size)
     {
@@ -1373,20 +1346,7 @@ struct ComputeContext {
             return { std::move(handle.handle) };
         };
 
-        return convert(allocateSyncImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_NONE));
-    }
-
-    template<typename T>
-    ComputePromiseT<MemoryArrayHandleT<T>>
-    allocZeroInitializedArray(const std::string & regionName, size_t size)
-    {
-        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
-        {
-            return { std::move(handle.handle) };
-        };
-
-        return allocateImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>, INIT_ZERO_FILLED)
-            .then(std::move(convert), regionName + " then allocZeroInitializedArray:convert");
+        return convert(allocateSyncImpl(regionName, size * sizeof(T), alignof(T), typeid(T), std::is_const_v<T>));
     }
 
     template<typename T>

@@ -35,6 +35,7 @@ struct OpenCLBindInfo: public ComputeKernelBindInfo {
 
     OpenCLKernel clKernel;
     const OpenCLComputeKernel * owner = nullptr;
+    OpenCLComputeContext * clContext = nullptr;
     std::shared_ptr<StructuredSerializer> traceSerializer;
 
     // Pins that control the lifetime of the arguments and allow the system to know
@@ -456,45 +457,19 @@ enqueue(const std::string & opName,
 
         const OpenCLComputeKernel * kernel = bindInfo->owner;
 
-        ComputeKernelConstraintSolution knowns(bound.knowns);
+        auto knowns = bound.knowns;
 
         for (size_t i = 0;  i < grid.size();  ++i) {
             auto & dim = kernel->dims[i];
             knowns.setValue(dim.range, grid[i]);
         }
 
-        // TODO: constraints
-
-        std::vector<size_t> clGrid, clBlock = kernel->block;
+        std::vector<size_t> clGrid, clBlock;
         
-        if (kernel->allowGridExpansionFlag)
-            ExcAssertLessEqual(grid.size(), clBlock.size());
-        else
-            ExcAssertEqual(grid.size(), clBlock.size());
-
-        for (size_t i = 0;  i < clBlock.size();  ++i) {
-            // Pad out the grid so we cover the whole lot.  The kernel will need to be
-            // sure to no-op if it's out of bounds.
-            auto b = clBlock[i];
-            auto range = i < grid.size() ? grid[i] : b;
-            auto rem = range % b;
-            if (rem > 0) {
-                if (kernel->allowGridPaddingFlag) {
-                    range += (b - rem);
-                    //cerr << "padding out dimension " << i << " from " << grid[i]
-                    //    << " to " << range << " due to block size of " << b << endl;
-                }
-                else {
-                    throw MLDB::Exception("OpenCL kernel '" + kernel->kernelName + "' won't launch "
-                                            "due to grid dimension " + std::to_string(i)
-                                            + " (" + std::to_string(range) + ") not being a "
-                                            + "multple of the block size (" + std::to_string(b)
-                                            + ").  Consider using allowGridPadding() or modifying "
-                                            + "grid calculations");
-                }
-            }
-            clGrid.push_back(range);
-        }
+        //if (kernel->allowGridExpansionFlag)
+        //    ExcAssertLessEqual(grid.size(), clBlock.size());
+        //else
+        //    ExcAssertEqual(grid.size(), clBlock.size());
 
         if (clGrid.empty()) {
             clGrid.push_back(1);
@@ -510,36 +485,44 @@ enqueue(const std::string & opName,
         knowns.setValue("clGrid", clGrid);
         knowns.setValue("clBlock", clBlock);
 
-        // figure out the values of the new constraints
+        std::function<Json::Value (const std::vector<Json::Value> &)>
+        readArrayElement = [&] (const std::vector<Json::Value> & args)
+        {
+            if (args.size() != 2)
+                throw MLDB::Exception("readArrayElement takes two arguments");
 
-#if 0
-        bool progress = true;
-        std::set<std::string> unknowns;
+            const Json::Value & array = args[0];
+            const Json::Value & index = args[1];
+            const std::string & arrayName = array["name"].asString();
+            auto version = array["version"].asInt();
+            // find the array in our arguments
+            // We have to do a scan, since we don't index by the memory region name (only the parameter name)
 
-        while (progress) {
-            progress = false;
-            for (auto & c: bound.constraints) {
-                progress = progress || c.attemptToSatisfy(knowns, unknowns);
+            cerr << "needle: " << arrayName << " v " << version << endl;
+            for (auto & arg: bound.arguments) {
+                if (!arg.handler)
+                    continue;
+                if (!arg.handler->canGetHandle())
+                    continue;
+                auto handle = arg.handler->getHandle("readArrayElement", *bindInfo->clContext);
+                ExcAssert(handle.handle);
+                
+                cerr << "  haystack: " << handle.handle->name << " v " << handle.handle->version << endl;
+
+                if (handle.handle->name != arrayName || handle.handle->version != version)
+                    continue;
+
+                auto i = index.asUInt();
+                return arg.handler->getArrayElement(i, *bindInfo->clContext);
             }
-        }
 
-        bool anyNotSatisfied = false;
-        for (auto & c: bound.constraints) {
-            if (c.satisfied(knowns))
-                continue;
-            cerr << "constraint for kernel " << kernel->kernelName << " op " << opName << " not satisfied: " << c.print() << endl;
-            anyNotSatisfied = true;
-        }
+            throw MLDB::Exception("Couldn't find array named '" + arrayName + "' in kernel arguments");
+        };
 
-        if (anyNotSatisfied) {
-            //const CommandExpressionVariables * vars = &knowns;
-            //while (vars) {
-            //    cerr << "known: " << jsonEncode(vars->values) << endl;
-            //    vars = vars->outer;
-            //}
-            ExcAssert(!anyNotSatisfied);
-        }
-#endif
+        knowns.knowns.addFunction("readArrayElement", readArrayElement);
+
+        // figure out the values of the new constraints
+        knowns = solve(knowns, bound.preConstraints, bound.constraints);
 
         if (kernel->gridExpression) {
             clGrid = jsonDecode<decltype(clGrid)>(knowns.evaluate(*kernel->gridExpression));
@@ -551,9 +534,6 @@ enqueue(const std::string & opName,
             knowns.setValue("clBlock", clBlock);
         }
 
-        //cerr << "launching kernel " << kernel->kernelName << " with grid " << clGrid << " and block " << clBlock << endl;
-        //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
-
         if (bindInfo->traceSerializer) {
             bindInfo->traceSerializer->newObject("grid", clGrid);
             bindInfo->traceSerializer->newObject("block", clBlock);
@@ -561,12 +541,20 @@ enqueue(const std::string & opName,
             bindInfo->traceSerializer->commit();
         }
 
-        auto timer = std::make_shared<Timer>();
+        // OpenCL needs us to pass the full extent of the grid, not just the number of blocks,
+        // so we multiply it out here
+        for (size_t i = 0;  i < clGrid.size();  ++i) {
+            clGrid[i] *= clBlock.at(i);
+        }
 
         auto event = clQueue.launch(bindInfo->clKernel, clGrid, clBlock);
 
-        // Ensure it's submitted before we start using the event
-        clQueue.flush();
+        constexpr bool solveAfter = false;
+
+        if (solveAfter) {
+            knowns = solve(knowns, bound.constraints, bound.preConstraints);
+        }
+        //knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
 
     #if 0
         std::string kernelName = kernel->kernelName;
@@ -639,7 +627,7 @@ enqueue(const std::string & opName,
     }
 }
 
-ComputePromiseT<MemoryRegionHandle>
+void
 OpenCLComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
@@ -658,7 +646,7 @@ enqueueFillArrayImpl(const std::string & opName,
         throw MLDB::Exception("overflowing memory region");
     }
 
-    return ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
+    ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
 }
 
 void
@@ -848,6 +836,15 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
     doEnqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length)->await();
 }
 
+void
+OpenCLComputeQueue::
+enqueueBarrier(const std::string & label)
+{
+    auto op = scopedOperation("OpenCLComputeQueue enqueueBarrier");
+    // TODO: barrier should wait for the last event...
+    clQueue.enqueueBarrier({});
+}
+
 std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
 flush()
@@ -941,37 +938,14 @@ doOpenCLAllocate(OpenCLContext & clContext,
     return result;
 }
 
-ComputePromiseT<MemoryRegionHandle>
-OpenCLComputeContext::
-allocateImpl(const std::string & regionName,
-             size_t length, size_t align,
-             const std::type_info & type,
-             bool isConst,
-             MemoryRegionInitialization initialization,
-             std::any initWith)
-{
-    auto op = scopedOperation("OpenCLComputeContext allocateImpl " + regionName);
-    auto result = doOpenCLAllocate(clContext, regionName, length, align, type, isConst);
-    return clQueue->enqueueFillArrayImpl(regionName + " initialize", result, initialization,
-                                       0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith);
-}
-
 MemoryRegionHandle
 OpenCLComputeContext::
 allocateSyncImpl(const std::string & regionName,
                  size_t length, size_t align,
-                 const std::type_info & type, bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith)
+                 const std::type_info & type, bool isConst)
 {
     auto op = scopedOperation("OpenCLComputeContext allocateSyncImpl " + regionName);
     auto result = doOpenCLAllocate(clContext, regionName, length, align, type, isConst);
-    if (initialization != MemoryRegionInitialization::INIT_NONE) {
-        return result = clQueue->enqueueFillArrayImpl(regionName + " initialize", std::move(result), initialization,
-                                        0 /* startOffsetInBytes */, -1 /*lengthinBytes*/, initWith).move();
-
-    }
-
     return result;
 }
 
@@ -1322,10 +1296,8 @@ addTuneable(const std::string & name, int64_t defaultValue)
 void
 OpenCLComputeKernel::
 setComputeFunction(OpenCLProgram programIn,
-                   std::string kernelName,
-                   std::vector<size_t> block)
+                   std::string kernelName)
 {
-    this->block = std::move(block);
     this->clProgram = std::move(programIn);
     this->kernelName = kernelName;
     this->clKernel = clProgram.createKernel(kernelName);
@@ -1343,6 +1315,7 @@ setComputeFunction(OpenCLProgram programIn,
         std::string argName = arg.name;
         auto it = paramIndex.find(argName);
         if (it == paramIndex.end()) {
+            continue;  // Parameter is probably referenced in constraints...
             if (this->setters.size() > 0)
                 continue;  // should be done in the setter...
             if (arg.addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
@@ -1370,192 +1343,197 @@ BoundComputeKernel
 OpenCLComputeKernel::
 bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
 {
-    auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
+    try {
+        auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
 
-    ExcAssert(this->context);
-    auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(*this->context);
-    auto kernel = this->clProgram.createKernel(this->kernelName);
+        ExcAssert(this->context);
+        auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(*this->context);
+        auto kernel = this->clProgram.createKernel(this->kernelName);
 
-    auto bindInfo = std::make_shared<OpenCLBindInfo>();
-    bindInfo->clKernel = kernel;
-    bindInfo->owner = this;
+        auto bindInfo = std::make_shared<OpenCLBindInfo>();
+        bindInfo->clKernel = kernel;
+        bindInfo->owner = this;
+        bindInfo->clContext = &upcastContext;
 
-    if (traceSerializer) {
-        int callNumber = numCalls++;
-        bindInfo->traceSerializer = runsSerializer->newStructure(callNumber);
+        if (traceSerializer) {
+            int callNumber = numCalls++;
+            bindInfo->traceSerializer = runsSerializer->newStructure(callNumber);
 
-        if (callNumber == 0) {
-            auto key = format("%016x", (uint64_t)this->clProgram.operator cl_program());
+            if (callNumber == 0) {
+                auto key = format("%016x", (uint64_t)this->clProgram.operator cl_program());
 
-            traceSerializer->newObject("program", key);
-            traceSerializer->newObject("kernel", this->kernelName);
+                traceSerializer->newObject("program", key);
+                traceSerializer->newObject("kernel", this->kernelName);
 
-            // Store the program so that we can replay it later
-            std::unique_lock guard(tracedProgramMutex);
-            if (tracedPrograms.insert(key).second) {
-                auto programInfo = this->clProgram.getProgramInfo();
-                auto buildInfo = this->clProgram.getProgramBuildInfo(this->clKernel.getContext().getDevices().at(0));
-                auto entry = programsSerializer->newStructure(key);
-                entry->newStream("source") << programInfo.source;
-                entry->newObject("build", buildInfo);
+                // Store the program so that we can replay it later
+                std::unique_lock guard(tracedProgramMutex);
+                if (tracedPrograms.insert(key).second) {
+                    auto programInfo = this->clProgram.getProgramInfo();
+                    auto buildInfo = this->clProgram.getProgramBuildInfo(this->clKernel.getContext().getDevices().at(0));
+                    auto entry = programsSerializer->newStructure(key);
+                    entry->newStream("source") << programInfo.source;
+                    entry->newObject("build", buildInfo);
+                }
             }
         }
-    }
 
-    BoundComputeKernel result;
-    result.arguments = std::move(argumentsIn);
-    result.owner = this;
-    result.bindInfo = bindInfo;
+        BoundComputeKernel result;
+        result.arguments = std::move(argumentsIn);
+        result.owner = this;
+        result.bindInfo = bindInfo;
 
-    // Copy constraints over
-    result.constraints = this->constraints;
+        // Copy constraints over
+        result.constraints = this->constraints;
 
-    for (auto & arg: result.arguments) {
-        if (arg.handler) {
-            // Was set by the caller
-            result.knowns.setValue(arg.name, arg.handler->toJson());
+        for (auto & arg: result.arguments) {
+            if (arg.handler) {
+                // Was set by the caller
+                result.knowns.setValue(arg.name, arg.handler->toJson());
+            }
         }
-    }
-    for (auto & [name, value]: tuneables) {
-        result.knowns.setValue(name, value);
-    }
-
-    Json::Value argInfo;
-    for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
-        std::string opName = "bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name;
-        auto tr = scopedOperation(opName);
-        int argNum = correspondingArgumentNumbers.at(i);
-        //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
-        if (argNum == -1) {
-            // Will be done via setter...
-            continue;
+        for (auto & [name, value]: tuneables) {
+            result.knowns.setValue(name, value);
         }
 
-        auto & paramType = params[argNum].type;
-
-        // Handle an argument that wasn't passed (ie, an implicit argument)
-        auto handleImplicit = [&] ()
-        {
-            if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
-                ExcAssertEqual(paramType.dims.size(), 1);
-                ExcAssert(paramType.dims[0].bound);
-                auto len = result.knowns.evaluate(*paramType.dims[0].bound).asUInt();
-                size_t nbytes = len * paramType.baseType->width;
-                traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
-                kernel.bindArg(i, LocalArray<std::byte>(nbytes));
-                Json::Value known;
-                known["elAlign"] = paramType.baseType->align;
-                known["elWidth"] = paramType.baseType->width;
-                known["elType"] = paramType.baseType->typeName;
-                known["length"] = len;
-                known["type"] = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
-                known["name"] = "<<<Local array>>>";
-                result.knowns.setValue(this->clKernelInfo.args[i].name, std::move(known));
-            }
-            else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
-                auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
-                auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
-                traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
-                Any any(val, type.baseType.get());
-                auto bytes = any.asBytes();
-                kernel.bindArg(i, bytes.data(), bytes.size_bytes());
-            }
-        };
-
-        if (argNum >= result.arguments.size()) {
-            handleImplicit();
-        }
-        else {
-            //cerr << "argNum = " << argNum << endl;
-            //cerr << "result.arguments.size() = " << result.arguments.size() << endl;
-            const ComputeKernelArgument & arg = result.arguments.at(argNum);
-            if (traceSerializer) {
-                Json::Value thisArgInfo;
-                if (arg.handler)
-                    thisArgInfo["value"] = arg.handler->toJson();
-                thisArgInfo["spec"] = paramType.print();
-                static auto vdd = getValueDescriptionDescription(true /* detailed */);
-                thisArgInfo["type"] = vdd->printJsonStructured(paramType.baseType);
-                thisArgInfo["aliases"] = jsonEncode(getValueDescriptionAliases(*paramType.baseType->type));
-                argInfo[this->clKernelInfo.args[i].name] = thisArgInfo;
+        Json::Value argInfo;
+        for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
+            std::string opName = "bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name;
+            auto tr = scopedOperation(opName);
+            int argNum = correspondingArgumentNumbers.at(i);
+            //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
+            if (argNum == -1) {
+                // Will be done via setter...
+                continue;
             }
 
-            static std::atomic<int> disamb = 0;
-            std::string opName = "bind " + this->clKernelInfo.args[i].name + std::to_string(++disamb);
-            if (!arg.handler) {
+            auto & paramType = params[argNum].type;
+
+            // Handle an argument that wasn't passed (ie, an implicit argument)
+            auto handleImplicit = [&] ()
+            {
+                if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::LOCAL) {
+                    ExcAssertEqual(paramType.dims.size(), 1);
+                    ExcAssert(paramType.dims[0].bound);
+                    auto len = result.knowns.evaluate(*paramType.dims[0].bound).asUInt();
+                    size_t nbytes = len * paramType.baseType->width;
+                    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
+                    kernel.bindArg(i, LocalArray<std::byte>(nbytes));
+                    Json::Value known;
+                    known["elAlign"] = paramType.baseType->align;
+                    known["elWidth"] = paramType.baseType->width;
+                    known["elType"] = paramType.baseType->typeName;
+                    known["length"] = len;
+                    known["type"] = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]).print();
+                    known["name"] = "<<<Local array>>>";
+                    result.knowns.setValue(this->clKernelInfo.args[i].name, std::move(known));
+                }
+                else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
+                    auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
+                    auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
+                    traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
+                    Any any(val, type.baseType.get());
+                    auto bytes = any.asBytes();
+                    kernel.bindArg(i, bytes.data(), bytes.size_bytes());
+                }
+            };
+
+            if (argNum >= result.arguments.size()) {
                 handleImplicit();
             }
-            else if (arg.handler->canGetPrimitive()) {
-                auto bytes = arg.handler->getPrimitive(opName, upcastContext);
-                traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
-                kernel.bindArg(i, bytes.data(), bytes.size());
-            }
-            else if (arg.handler->canGetHandle()) {
-                auto handle = arg.handler->getHandle(opName, upcastContext);
-                traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
-                MemoryRegionAccess access = this->params.at(argNum).type.access;
-
-                if (traceSerializer && (access & ACC_READ)) {
-                    auto [region, version] = upcastContext
-                        .getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
-                                                   true /* ignore hazards */);
-                    //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
-                    traceVersion(handle.handle->name, version, region);
+            else {
+                //cerr << "argNum = " << argNum << endl;
+                //cerr << "result.arguments.size() = " << result.arguments.size() << endl;
+                const ComputeKernelArgument & arg = result.arguments.at(argNum);
+                if (traceSerializer) {
+                    Json::Value thisArgInfo;
+                    if (arg.handler)
+                        thisArgInfo["value"] = arg.handler->toJson();
+                    thisArgInfo["spec"] = paramType.print();
+                    static auto vdd = getValueDescriptionDescription(true /* detailed */);
+                    thisArgInfo["type"] = vdd->printJsonStructured(paramType.baseType);
+                    thisArgInfo["aliases"] = jsonEncode(getValueDescriptionAliases(*paramType.baseType->type));
+                    argInfo[this->clKernelInfo.args[i].name] = thisArgInfo;
                 }
 
-                auto [pin, mem, offset] = upcastContext.getMemoryRegion(opName, *handle.handle, access);
-                bindInfo->argumentPins.emplace_back(std::move(pin));
-                ExcAssertEqual(offset, 0);  // need to get sub buffer for non-zero offset to work
-                kernel.bindArg(i, mem);
-            }
-            else if (arg.handler->canGetConstRange()) {
-                throw MLDB::Exception("param.getConstRange");
-            }
-            else {
-                throw MLDB::Exception("don't know how to handle passing parameter to OpenCL");
+                static std::atomic<int> disamb = 0;
+                std::string opName = "bind " + this->clKernelInfo.args[i].name + std::to_string(++disamb);
+                if (!arg.handler) {
+                    handleImplicit();
+                }
+                else if (arg.handler->canGetPrimitive()) {
+                    auto bytes = arg.handler->getPrimitive(opName, upcastContext);
+                    traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
+                    kernel.bindArg(i, bytes.data(), bytes.size());
+                }
+                else if (arg.handler->canGetHandle()) {
+                    auto handle = arg.handler->getHandle(opName, upcastContext);
+                    traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
+                    MemoryRegionAccess access = this->params.at(argNum).type.access;
+
+                    if (traceSerializer && (access & ACC_READ)) {
+                        auto [region, version] = upcastContext
+                            .getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
+                                                    true /* ignore hazards */);
+                        //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
+                        traceVersion(handle.handle->name, version, region);
+                    }
+
+                    auto [pin, mem, offset] = upcastContext.getMemoryRegion(opName, *handle.handle, access);
+                    bindInfo->argumentPins.emplace_back(std::move(pin));
+                    ExcAssertEqual(offset, 0);  // need to get sub buffer for non-zero offset to work
+                    kernel.bindArg(i, mem);
+                }
+                else if (arg.handler->canGetConstRange()) {
+                    throw MLDB::Exception("param.getConstRange");
+                }
+                else {
+                    throw MLDB::Exception("don't know how to handle passing parameter to OpenCL");
+                }
             }
         }
-    }
 
-    // Run the setters to set the other parameters
-    for (auto & s: this->setters) {
-        s(kernel, upcastContext);
-    }
-
-    // Look through for constraints from dimensions
-    for (size_t i = 0;  i < this->dims.size();  ++i) {
-        result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "]",
-                             "Constraint implied by variables named in dimension " + std::to_string(0));
-    }
-
-    // Look through for constraints from parameters
-    for (auto & p: this->params) {
-        if (!p.type.dims.empty() && p.type.dims[0].bound) {
-            result.addConstraint(p.type.dims[0].bound, "==", p.name + ".length",
-                                 "Constraint implied by array bounds of parameter " + p.name + ": "
-                                 + p.type.print());
+        // Run the setters to set the other parameters
+        for (auto & s: this->setters) {
+            s(kernel, upcastContext);
         }
+
+        // Look through for constraints from dimensions
+        for (size_t i = 0;  i < this->dims.size();  ++i) {
+            result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "]",
+                                "Constraint implied by variables named in dimension " + std::to_string(0));
+        }
+
+        // Look through for constraints from parameters
+        for (auto & p: this->params) {
+            if (!p.type.dims.empty() && p.type.dims[0].bound) {
+                result.addConstraint(p.type.dims[0].bound, p.type.dims[0].tight ? "==" : "<=", p.name + ".length",
+                                    "Constraint implied by array bounds of parameter " + p.name + ": "
+                                    + p.type.print());
+            }
+        }
+
+        // figure out the values of the new constraints
+        result.knowns = solve(result.knowns, result.constraints, result.preConstraints);
+
+        if (bindInfo->traceSerializer) {
+            bindInfo->traceSerializer->newObject("args", argInfo);
+            bindInfo->traceSerializer->newObject("knowns", result.knowns);
+            bindInfo->traceSerializer->newObject("constraints", result.constraints);
+            bindInfo->traceSerializer->newObject("tuneables", tuneables);
+        }
+
+    #if 0
+        cerr << "got " << result.constraints.size() << " constraints" << endl;
+        for (auto & c: result.constraints) {
+            cerr << "  " << c.print()
+                << (c.satisfied(result.knowns) ? " [SATSIFIED]" : " [UNSATISFIED]") << endl;
+        }
+    #endif
+
+        return result;
+    } MLDB_CATCH_ALL {
+        rethrowException(500, "Binding OpenCL kernel " + this->kernelName);
     }
-
-    // figure out the values of the new constraints
-    result.knowns = solve(result.knowns, result.constraints, result.preConstraints);
-
-    if (bindInfo->traceSerializer) {
-        bindInfo->traceSerializer->newObject("args", argInfo);
-        bindInfo->traceSerializer->newObject("knowns", result.knowns);
-        bindInfo->traceSerializer->newObject("constraints", result.constraints);
-        bindInfo->traceSerializer->newObject("tuneables", tuneables);
-    }
-
-#if 0
-    cerr << "got " << result.constraints.size() << " constraints" << endl;
-    for (auto & c: result.constraints) {
-        cerr << "  " << c.print()
-             << (c.satisfied(result.knowns) ? " [SATSIFIED]" : " [UNSATISFIED]") << endl;
-    }
-#endif
-
-    return result;
 }
 
 
@@ -1720,7 +1698,11 @@ static struct Init {
             result->addParameter("lengthInBytes", "r", "u64");
             result->addParameter("blockData", "r", "u8[blockLengthInBytes]");
             result->addParameter("blockLengthInBytes", "r", "u64");
-            result->setComputeFunction(program, "__blockFillArrayKernel", { 256 });
+            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("blocksPerGrid", 16);
+            result->allowGridPadding();
+            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
+            result->setComputeFunction(program, "__blockFillArrayKernel" /*, { 256 }*/);
 
             return result;
         };
@@ -1736,7 +1718,11 @@ static struct Init {
             result->addParameter("region", "w", "u8[regionLength]");
             result->addParameter("startOffsetInBytes", "r", "u64");
             result->addParameter("lengthInBytes", "r", "u64");
-            result->setComputeFunction(program, "__zeroFillArrayKernel", { 256 });
+            result->addTuneable("threadsPerBlock", 256);
+            result->addTuneable("blocksPerGrid", 16);
+            result->allowGridPadding();
+            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
+            result->setComputeFunction(program, "__zeroFillArrayKernel" /*, { 256 }*/);
 
             return result;
         };

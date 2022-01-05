@@ -624,7 +624,7 @@ define add_metal_source
 ifneq ($(PREMAKE),1)
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
-BUILD_$(CWD)/$(2).air_COMMAND:=xcrun -sdk macosx metal -frecord-sources -o $(OBJ)/$(CWD)/$(2).air -c $$(tmpDIR)/$(CWD)/$(1) $(4)
+BUILD_$(CWD)/$(2).air_COMMAND:=xcrun -sdk macosx metal -frecord-sources -I. -g -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo -o $(OBJ)/$(CWD)/$(2).air -c $$(tmpDIR)/$(CWD)/$(1) $(4)
 
 BUILD_$(CWD)/$(2).air_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).air_COMMAND))
 BUILD_$(CWD)/$(2).air_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).air_HASH).air
@@ -640,6 +640,10 @@ $$(BUILD_$(CWD)/$(2).air_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists 
 
 compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).air_OBJ)
 objs metal_objs: $$(BUILD_$(CWD)/$(2).air_OBJ)
+
+ifneq ($(__BASH_MAKE_COMPLETION__),1)
+-include $(OBJ)/$(CWD)/$(2).d
+endif
 
 endif
 endef

@@ -608,7 +608,7 @@ struct HostComputeQueue: public ComputeQueue {
             const BoundComputeKernel & kernel,
             const std::vector<uint32_t> & GenericEnumDescription) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
@@ -658,8 +658,8 @@ struct HostComputeQueue: public ComputeQueue {
 
     virtual std::shared_ptr<ComputeEvent> flush() override;
 
+    virtual void enqueueBarrier(const std::string & label) override;
     virtual void finish() override;
-
     virtual std::shared_ptr<ComputeEvent>
     makeAlreadyResolvedEvent(const std::string & label) const;
 };

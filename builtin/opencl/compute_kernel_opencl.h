@@ -54,7 +54,7 @@ struct OpenCLComputeQueue: public ComputeQueue {
             const BoundComputeKernel & kernel,
             const std::vector<uint32_t> & grid) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual void
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
@@ -104,6 +104,7 @@ struct OpenCLComputeQueue: public ComputeQueue {
 
     virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
+    virtual void enqueueBarrier(const std::string & label) override;
     virtual std::shared_ptr<ComputeEvent> flush() override;
     virtual void finish() override;
 
@@ -141,20 +142,10 @@ struct OpenCLComputeContext: public ComputeContext {
                               size_t offset, ssize_t length,
                               bool ignoreHazards) const;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
-    allocateImpl(const std::string & opName,
-                 size_t length, size_t align,
-                 const std::type_info & type,
-                 bool isConst,
-                 MemoryRegionInitialization initialization,
-                 std::any initWith = std::any()) override;
-
     virtual MemoryRegionHandle
     allocateSyncImpl(const std::string & regionName,
                      size_t length, size_t align,
-                     const std::type_info & type, bool isConst,
-                     MemoryRegionInitialization initialization,
-                     std::any initWith = std::any()) override;
+                     const std::type_info & type, bool isConst) override;
 
     virtual ComputePromiseT<MemoryRegionHandle>
     transferToDeviceImpl(const std::string & opName,
@@ -253,7 +244,10 @@ struct OpenCLComputeKernel: public ComputeKernel {
     // Add a tuneable parameter to the invocation
     void addTuneable(const std::string & variableName, int64_t defaultValue);
 
-    // Get the expression for the grid.  This will run before modifyGrid.
+    // Get the expression for the grid, with the full grid being gridExpr * blockExpr.
+    // This will run before modifyGrid.  Thus, the grid will alwaus be an integer multiple
+    // of the block size so allowGridPadding() has no effect.  Either this *or* setFullGridExpression
+    // should be called, not both.
     void setGridExpression(const std::string & gridExpr, const std::string & blockExpr);
 
     // This is called as internal documentation.  It says that we allow the runtime to pad
@@ -269,8 +263,7 @@ struct OpenCLComputeKernel: public ComputeKernel {
     void allowGridExpansion();
 
     void setComputeFunction(OpenCLProgram program,
-                            std::string kernelName,
-                            std::vector<size_t> block);
+                            std::string kernelName);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
     virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
