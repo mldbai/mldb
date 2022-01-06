@@ -51,6 +51,7 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest_kernels.cc \
 	randomforest_kernels_opencl.cc \
 	randomforest_kernels_metal.cc \
+	randomforest_kernels_host.cc \
 	randomforest_types.cc \
 	randomforest_procedure.cc \
 	randomforest_recursive.cc \
@@ -103,7 +104,7 @@ LIBMLDB_JML_PLUGIN_LINK:= \
 	command_expression \
 	randomforest_metal \
 
-$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext))
+$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext -fcoroutines-ts))
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))
 
 #$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/jml/ext))

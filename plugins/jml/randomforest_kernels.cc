@@ -39,7 +39,8 @@ void decodeRowsKernelCpu(ComputeContext & context,
                          WeightFormat weightFormat,
                          float weightMultiplier,
                          FrozenMemoryRegionT<float> weightData,
-                         std::span<float> decodedRowsOut)
+                         std::span<float> decodedRowsOut);
+#if 0
 {
     Rows rows;
     rows.rowData = rowData;
@@ -63,6 +64,7 @@ void decodeRowsKernelCpu(ComputeContext & context,
         decodedRowsOut[i] = row.weight * (1-2*row.label);
     }
 }
+#endif
 
 void
 testFeatureKernel(ComputeContext & context,
@@ -79,7 +81,9 @@ testFeatureKernel(ComputeContext & context,
 
                   std::span<const uint32_t> activeFeatureList,
 
-                  std::span<W> allWOut)
+                  std::span<W> allWOut);
+
+#if 0
 {
     uint32_t f = activeFeatureList[fidx];
 
@@ -95,6 +99,7 @@ testFeatureKernel(ComputeContext & context,
 
     testFeatureKernel(decodedRows.data(), numRows, buckets, allWOut.data() + bucketNumbers[f]);
 }
+#endif
 
 // For each feature and partition, find the split that gives the best score and
 // record it with one row per partition and one column per feature in the output

@@ -1347,9 +1347,12 @@ struct OpenCLCommandQueue {
 
         auto unmap = [=] (void * addr) throw()
             {
-                int res = clEnqueueUnmapMemObject(queue, buffer, addr, 0, nullptr, nullptr);
+                return;  // TODO hack hack
+                OpenCLEvent event;
+                int res = clEnqueueUnmapMemObject(queue, buffer, addr, 0, nullptr, event.storeMeHere());
                 try {
                     checkOpenCLError(res, "clEnququeUnmapMemObject (mapBuffer out of scope)");
+                    event.waitUntilFinished();
                 } MLDB_CATCH_ALL {
                     using namespace std;
                     cerr << getExceptionString() << endl;

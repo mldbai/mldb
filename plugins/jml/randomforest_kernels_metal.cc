@@ -34,7 +34,7 @@ EnvOption<int, true> RF_METAL_LOCAL_BUCKET_MEM("RF_METAL_LOCAL_BUCKET_MEM", 5500
 
 namespace {
 
-constexpr uint32_t maxWorkGroupSize = 1024;  // TODO: device query
+constexpr uint32_t maxWorkGroupSize = 256;  // TODO: device query
 
 static struct RegisterKernels {
 

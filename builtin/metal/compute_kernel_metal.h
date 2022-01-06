@@ -8,6 +8,7 @@
 #pragma once
 
 #include "mldb/block/compute_kernel.h"
+#include "mldb/block/compute_kernel_grid.h"
 #include "mldb/ext/mtlpp/src/mtlpp.hpp"
 
 namespace MLDB {
@@ -134,6 +135,23 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     virtual void enqueueBarrier(const std::string & label) override;
     virtual std::shared_ptr<ComputeEvent> flush() override;
     virtual void finish() override;
+
+private:
+    template<typename CommandEncoder>
+    void beginEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force);
+    template<typename CommandEncoder>
+    void endEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force);
+
+    // Commands that are active and we haven't yet waited on (used to ensure serial execution)
+    std::vector<mtlpp::Fence> activeCommands;
+
+    // Performs the necessary fences, etc to implement the scheduling type on the queue
+    void beginEncoding(const std::string & opName, mtlpp::ComputeCommandEncoder & encoder, bool force = false);
+    void beginEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, bool force = false);
+    void endEncoding(const std::string & opName, mtlpp::ComputeCommandEncoder & encoder, bool force = false);
+    void endEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, bool force = false);
+
+
 };
 
 

@@ -1084,7 +1084,7 @@ typedef struct AssignPartitionNumbersLocalState {
     uint32_t skippedRows;
     uint32_t skippedPartitions;
     uint32_t ssi;
-    uint32_t scratch;  // for SIMD reductions
+    atomic_uint scratch;  // for SIMD reductions
     uint16_t inactivePartitions[INACTIVE_PARTITIONS_LENGTH];
 } AssignPartitionNumbersLocalState;
 
@@ -1110,6 +1110,8 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
     if (workerId == 0) {
         localState->numInactivePartitions = 0;
         localState->numSmallSideRows = 0;
+        if (depth == 0)
+            treeDepthInfo->status = 0;  // for now
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -1245,8 +1247,10 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         treeDepthInfo->numSmallSideRows = localState->numSmallSideRows;
         treeDepthInfo->prevNumFinishedPartitions = depth == 0 ? 0 : treeDepthInfo->numFinishedPartitions;
         treeDepthInfo->numFinishedPartitions = treeDepthInfo->prevNumFinishedPartitions + numActivePartitions;
-        treeDepthInfo->status = 0;  // for now
         treeDepthInfo->depth += 1;
+        if (nap < localState->n2) {
+            treeDepthInfo->status = -2;
+        }
 
         // Clear partition indexes for gap partitions
         for (; localState->n < localState->numInactivePartitions;  ++localState->n) {
@@ -1413,7 +1417,7 @@ typedef struct RowPartitionInfo {
 #define MAX_WORKGROUP_THREADS 1024
 
 typedef struct UpdatePartitionNumbersLocalState {
-    uint32_t scratch[MAX_WORKGROUP_THREADS / 32];  // One per workgroup
+    atomic_uint scratch[MAX_WORKGROUP_THREADS / 32];  // One per workgroup
     // Most rows live in partitions with a number < 256; avoid main memory accesses for these
     // by caching in local memory
     uint16_t smallSideIndexesCache[SSI_CACHE_SIZE];
@@ -1473,7 +1477,7 @@ updatePartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
     // Scratch for my simdgroup
     const uint16_t simdgroup_lane = workerIdInWorkgroup % 32;
     const uint16_t simdgroup_num  = workerIdInWorkgroup / 32;
-    __local uint32_t * simdgroup_scratch = localState->scratch + simdgroup_num;
+    __local atomic_uint * simdgroup_scratch = localState->scratch + simdgroup_num;
 
     for (uint32_t i = 0;  i < numRows;  i += numWorkersInGrid) {
         uint32_t r = i + workerIdInGrid;

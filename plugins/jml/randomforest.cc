@@ -849,7 +849,7 @@ init(const std::string & debugName,
     this->serializer = &serializer;
 
     const bool debugKernelOutput = DEBUG_RF_KERNELS;
-    constexpr uint32_t maxIterations = 14;
+    constexpr uint32_t maxIterations = 15;
 
     // First, figure out the memory requirements.  This means sizing all
     // kinds of things so that we can make our allocations statically.
@@ -1361,8 +1361,6 @@ init(const std::string & debugName,
         depthQueue->finish();
     }
 
-    depthQueue->enqueueBarrier("awaiting initialization");
-
     depthQueue->enqueue("testFeature",
                         boundTestFeatureKernel,
                         { numActiveFeatures, numRows });
@@ -1451,8 +1449,6 @@ scheduleTraining()
 
         auto depthScope = trainMarker->enterScope("depth " + std::to_string(depth));
 
-        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " start");
-
         bool flushDepth = false; //false;  //true;  //false;//depth == 0;
 
 #if 0 // TODO
@@ -1477,16 +1473,12 @@ scheduleTraining()
         if (flushDepth)
             depthQueue->flush();
 
-        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " getPartitionSplits");
-
         // Now we have the best split for each feature for each partition,
         // find the best one per partition and finally record it.
 
         depthQueue->enqueue("bestPartitionSplit",
                             boundBestPartitionSplitKernel,
                             { });
-
-        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " bestPartitionSplit");
 
         if (flushDepth)
             depthQueue->flush();
@@ -1681,7 +1673,6 @@ scheduleTraining()
                             boundAssignPartitionNumbersKernel,
                             {  });
 
-        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " assignPartitionNumbers");
 
         if (flushDepth)
             depthQueue->flush();
@@ -1744,8 +1735,6 @@ scheduleTraining()
 
         if (flushDepth)
             depthQueue->flush();
-
-        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " clearBuckets and updatePartitionNumbers");
 
         if (debugKernelOutput) {
             depthQueue->finish();
@@ -1838,14 +1827,10 @@ scheduleTraining()
         if (flushDepth)
             depthQueue->flush();
 
-        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " updateBuckets");
-
         // And then subtract the small sides from the big sides
         depthQueue->enqueue("fixup buckets",
                             boundFixupBucketsKernel,
                             { numActiveBuckets });
-
-        depthQueue->enqueueBarrier("depth " + std::to_string(depth) + " fixupBuckets");
 
         if (debugKernelOutput) {
             depthQueue->finish();
@@ -2031,7 +2016,7 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
     auto depth = treeDepthInfo.depth + 1;
 
     cerr << "numActivePartitions = " << numActivePartitions << " numFinishedPartitions = " << numFinishedPartitions
-         << " depth = " << depth << " maxDepth = " << maxDepth << endl;
+         << " depth = " << depth << " maxDepth = " << maxDepth << " status " << treeDepthInfo.status << endl;
 
     Date beforeSetupRecurse = Date::now();
 
@@ -2069,6 +2054,7 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
         leaves[rightIndex] = getLeaf(tree, split.right);
     }
 
+    allPartitionSplitsRegion = {};
     cerr << "partitions: finished " << numFinishedPartitions << " active " << numActivePartitions << endl;
     
     cerr << "got " << allSplits.size() << " splits and " << leaves.size() << " leaves" << endl;
