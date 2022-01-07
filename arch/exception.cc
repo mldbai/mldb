@@ -14,6 +14,7 @@
 #include <string.h>
 #include <cxxabi.h>
 #include "demangle.h"
+#include <cstdarg>
 
 using namespace std;
 
@@ -119,6 +120,33 @@ AssertionFailure(const char * assertion,
 {
 }
 
+/*****************************************************************************/
+/* UNIMPLEMENTED EXCEPTION                                                   */
+/*****************************************************************************/
+
+UnimplementedException::
+UnimplementedException(const char * function,
+                       const char * file,
+                       int line)
+    : Exception(format("Unimplemented: %s at %s:%d",
+                    function, file, line))
+{
+}
+
+namespace {
+thread_local std::va_list unimplemented_exception_args;
+} // file scope
+
+UnimplementedException::
+UnimplementedException(const char * function,
+                       const char * file,
+                       int line,
+                       const char * msg,
+                       ...)
+    : Exception(format("Unimplemented: %s at %s:%d : ", function, file, line)
+                 + ((va_start(unimplemented_exception_args, msg), format(msg, unimplemented_exception_args))))
+{
+}
 
 
 } // namespace MLDB

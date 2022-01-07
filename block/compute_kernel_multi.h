@@ -18,6 +18,7 @@ enum class ComputeMultiMode : uint8_t {
 DECLARE_ENUM_DESCRIPTION(ComputeMultiMode);
 
 struct MultiComputeContext;
+struct MultiComputeQueue;
 
 // MultiComputeKernel
 
@@ -25,13 +26,14 @@ struct MultiComputeKernel: public ComputeKernel {
     MultiComputeKernel(MultiComputeContext * context, std::vector<std::shared_ptr<ComputeKernel>> kernelsIn);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
+    virtual BoundComputeKernel bindImpl(ComputeQueue & queue,
+                                        std::vector<ComputeKernelArgument> arguments,
                                         ComputeKernelConstraintSolution knowns) const override;
 
     MultiComputeContext * multiContext = nullptr;
     std::vector<std::shared_ptr<ComputeKernel>> kernels;
 
-    void compareParameters(bool pre, const BoundComputeKernel & boundKernel, ComputeContext & context) const;
+    void compareParameters(bool pre, const BoundComputeKernel & boundKernel, MultiComputeQueue & queue) const;
 };
 
 // MultiComputeEvent
@@ -74,7 +76,7 @@ struct MultiComputeQueue: public ComputeQueue {
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg) override;
+                         std::span<const std::byte> block) override;
 
     virtual void
     enqueueCopyFromHostImpl(const std::string & opName,
@@ -83,12 +85,12 @@ struct MultiComputeQueue: public ComputeQueue {
                             size_t deviceStartOffsetInBytes) override;
 
     virtual void
-    enqueueCopyFromHostSyncImpl(const std::string & opName,
+    copyFromHostSyncImpl(const std::string & opName,
                                 MemoryRegionHandle toRegion,
                                 FrozenMemoryRegion fromRegion,
                                 size_t deviceStartOffsetInBytes) override;
 
-    virtual ComputePromiseT<FrozenMemoryRegion>
+    virtual FrozenMemoryRegion
     enqueueTransferToHostImpl(const std::string & opName,
                               MemoryRegionHandle handle) override;
 
@@ -96,7 +98,15 @@ struct MultiComputeQueue: public ComputeQueue {
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual MutableMemoryRegion
+    enqueueTransferToHostMutableImpl(const std::string & opName,
+                                     MemoryRegionHandle handle) override;
+
+    virtual MutableMemoryRegion
+    transferToHostMutableSyncImpl(const std::string & opName,
+                                  MemoryRegionHandle handle) override;
+
+    virtual MemoryRegionHandle
     enqueueManagePinnedHostRegionImpl(const std::string & opName,
                                       std::span<const std::byte> region, size_t align,
                                       const std::type_info & type, bool isConst) override;
@@ -143,7 +153,8 @@ struct MultiComputeContext: public ComputeContext {
                      size_t length, size_t align,
                      const std::type_info & type, bool isConst) override;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+#if 0
+    virtual MemoryRegionHandle
     transferToDeviceImpl(const std::string & opName,
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) override;
@@ -153,14 +164,14 @@ struct MultiComputeContext: public ComputeContext {
                              FrozenMemoryRegion region,
                              const std::type_info & type, bool isConst) override;
 
-    virtual ComputePromiseT<FrozenMemoryRegion>
+    virtual FrozenMemoryRegion
     transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override;
 
     virtual FrozenMemoryRegion
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle) override;
 
-    virtual ComputePromiseT<MutableMemoryRegion>
+    virtual MutableMemoryRegion
     transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override;
 
     virtual MutableMemoryRegion
@@ -178,6 +189,7 @@ struct MultiComputeContext: public ComputeContext {
                                      MemoryRegionHandle deviceHandle,
                                      std::span<const std::byte> hostRegion,
                                      size_t deviceOffset = 0) override;
+#endif
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;

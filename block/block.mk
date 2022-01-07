@@ -21,6 +21,9 @@ LIBBLOCK_SOURCES:= \
 	compute_kernel_host.cc \
 	compute_kernel_multi.cc \
 
+
+#	compute_kernel_grid.cc \
+
 $(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description any command_expression))
 
 $(eval $(call include_sub_make,testing))

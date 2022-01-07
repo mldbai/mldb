@@ -151,6 +151,8 @@ struct ComputeProfilingInfo {
     virtual ~ComputeProfilingInfo() = default;
 };
 
+#if 0
+
 struct ComputePromise {
     ComputePromise() = default;  // Cannot be used; methods will throw
     ComputePromise(std::shared_ptr<ComputeEvent> event,
@@ -268,6 +270,8 @@ asType() const
     return ComputePromiseT<T>(*this);
 }
 
+#endif
+
 struct ComputeEvent {
     virtual ~ComputeEvent() = default;
     virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const = 0;
@@ -280,6 +284,7 @@ struct ComputeEvent {
     // fire once the chained function has returned
     virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label) = 0;
 
+#if 0
     template<typename Fn, typename Return = std::invoke_result_t<Fn>, typename Enable = std::enable_if_t<!std::is_same_v<Return, void>>>
     ComputePromiseT<Return> then(Fn && fn, const std::string & label)
     {
@@ -304,8 +309,10 @@ struct ComputeEvent {
     {
         return { thenImpl(std::move(fn), label), typeid(void) };
     }
+#endif
 };
 
+#if 0
 template<typename T>
 template<typename Fn, typename Return, typename Enable>
 ComputePromise
@@ -362,6 +369,7 @@ await() const
     ExcAssert(event_);
     event_->await();
 }
+#endif
 
 enum class ComputeKernelOrdering: uint16_t {
     ORDERED,  //< Data is ordered along this dimension
@@ -423,33 +431,33 @@ struct AbstractArgumentHandler {
     virtual bool canGetPrimitive() const;
 
     virtual std::span<const std::byte>
-    getPrimitive(const std::string & opName, ComputeContext & context) const;
+    getPrimitive(const std::string & opName, ComputeQueue & queue) const;
 
     virtual bool canGetRange() const;
 
     virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
-    getRange(const std::string & opName, ComputeContext & context) const;
+    getRange(const std::string & opName, ComputeQueue & queue) const;
 
     virtual bool canGetConstRange() const;
 
     virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
-    getConstRange(const std::string & opName, ComputeContext & context) const;
+    getConstRange(const std::string & opName, ComputeQueue & queue) const;
 
     virtual bool canGetHandle() const;
 
-    virtual MemoryRegionHandle getHandle(const std::string & opName, ComputeContext & context) const;
+    virtual MemoryRegionHandle getHandle(const std::string & opName, ComputeQueue & queue) const;
 
     virtual std::string info() const;
 
     virtual Json::Value toJson() const = 0;
 
     // Return the given array element from the underlying storage, converting to the JSON representation
-    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const = 0;
+    virtual Json::Value getArrayElement(uint32_t index, ComputeQueue & queue) const = 0;
 
     // Set the argument to a new value from a reference source.  This is for debugging only,
     // for ensuring that two kernels get exactly the same input so that we can compare their
     // outputs.
-    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference) = 0;
+    virtual void setFromReference(ComputeQueue & queue, std::span<const std::byte> reference) = 0;
 };
 
 
@@ -705,11 +713,13 @@ struct ComputeKernel: public ComputeKernelConstraintManager {
 
     // bind() is called with (name, value) pairs to set the value of particular parameters
     template<typename... NamesAndArgs>
-    BoundComputeKernel bind(NamesAndArgs&&... namesAndArgs);
+    BoundComputeKernel bind(ComputeQueue & queue, NamesAndArgs&&... namesAndArgs);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
-                                        ComputeKernelConstraintSolution knowns) const = 0;
+    virtual BoundComputeKernel
+    bindImpl(ComputeQueue & queue,
+             std::vector<ComputeKernelArgument> arguments,
+             ComputeKernelConstraintSolution knowns) const = 0;
 };
 
 
@@ -734,11 +744,11 @@ namespace details {
 // Forward definition as ComputeContext is defined later on
 template<typename T>
 FrozenMemoryRegionT<std::remove_const_t<T>>
-transferToHostSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
+transferToHostSync(ComputeQueue & queue, const MemoryArrayHandleT<T> & handle);
 
 template<typename T>
 MutableMemoryRegionT<T>
-transferToHostMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle);
+transferToHostMutableSync(ComputeQueue & queue, const MemoryArrayHandleT<T> & handle);
 
 struct MemoryArrayAbstractArgumentHandler: public AbstractArgumentHandler {
 
@@ -761,25 +771,25 @@ struct MemoryArrayAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual bool canGetRange() const override;
 
     virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
-    getRange(const std::string & opName, ComputeContext & context) const override;
+    getRange(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual bool canGetConstRange() const override;
 
     virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
-    getConstRange(const std::string & opName, ComputeContext & context) const override;
+    getConstRange(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual bool canGetHandle() const override;
 
     virtual MemoryRegionHandle
-    getHandle(const std::string & opName, ComputeContext & context) const override;
+    getHandle(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual std::string info() const override;
 
     virtual Json::Value toJson() const override;
 
-    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const override;
+    virtual Json::Value getArrayElement(uint32_t index, ComputeQueue & queue) const override;
 
-    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
+    virtual void setFromReference(ComputeQueue & queue, std::span<const std::byte> reference);
 };
 
 template<typename T>
@@ -807,30 +817,30 @@ struct PromiseAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual bool canGetPrimitive() const override;
 
     virtual std::span<const std::byte>
-    getPrimitive(const std::string & opName, ComputeContext & context) const override;
+    getPrimitive(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual bool canGetRange() const override;
 
     virtual std::tuple<void *, size_t, std::shared_ptr<const void>>
-    getRange(const std::string & opName, ComputeContext & context) const override;
+    getRange(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual bool canGetConstRange() const override;
 
     virtual std::tuple<const void *, size_t, std::shared_ptr<const void>>
-    getConstRange(const std::string & opName, ComputeContext & context) const override;
+    getConstRange(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual bool canGetHandle() const override;
 
     virtual MemoryRegionHandle
-    getHandle(const std::string & opName, ComputeContext & context) const override;
+    getHandle(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual std::string info() const override;
 
     virtual Json::Value toJson() const override;
 
-    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const override;
+    virtual Json::Value getArrayElement(uint32_t index, ComputeQueue & queue) const override;
 
-    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
+    virtual void setFromReference(ComputeQueue & queue, std::span<const std::byte> reference);
 };
 
 template<typename T>
@@ -860,15 +870,15 @@ struct PrimitiveAbstractArgumentHandler: public AbstractArgumentHandler {
     virtual bool canGetPrimitive() const override;
 
     virtual std::span<const std::byte>
-    getPrimitive(const std::string & opName, ComputeContext & context) const override;
+    getPrimitive(const std::string & opName, ComputeQueue & queue) const override;
 
     virtual std::string info() const override;
 
     virtual Json::Value toJson() const override;
 
-    virtual Json::Value getArrayElement(uint32_t index, ComputeContext & context) const override;
+    virtual Json::Value getArrayElement(uint32_t index, ComputeQueue & queue) const override;
 
-    virtual void setFromReference(ComputeContext & context, std::span<const std::byte> reference);
+    virtual void setFromReference(ComputeQueue & queue, std::span<const std::byte> reference);
 };
 
 template<typename T>
@@ -880,6 +890,7 @@ getArgumentHandler(T value)
 
 template<typename Arg>
 void bindOne(const ComputeKernel * owner,
+             ComputeQueue & queue,
              std::vector<ComputeKernelArgument> & arguments,
              ComputeKernelConstraintSolution & knowns,
              const std::string & argName,
@@ -923,6 +934,7 @@ void bindOne(const ComputeKernel * owner,
 }
 
 inline void bind(const ComputeKernel * owner,
+                 ComputeQueue & queue,
                  std::vector<ComputeKernelArgument> & arguments,
                  ComputeKernelConstraintSolution & knowns) // end of recursion
 {
@@ -939,18 +951,19 @@ inline void bind(const ComputeKernel * owner,
 
 template<typename Arg, typename... Rest>
 void bind(const ComputeKernel * owner,
+          ComputeQueue & queue,
           std::vector<ComputeKernelArgument> & arguments,
           ComputeKernelConstraintSolution & knowns,
           const std::string & argName, Arg&& arg, Rest&&... rest)
 {
-    details::bindOne(owner, arguments, knowns, argName, std::forward<Arg>(arg));
-    details::bind(owner, arguments, knowns, std::forward<Rest>(rest)...);
+    details::bindOne(owner, queue, arguments, knowns, argName, std::forward<Arg>(arg));
+    details::bind(owner, queue, arguments, knowns, std::forward<Rest>(rest)...);
 }
 
 } // namespace details
 
 template<typename... NamesAndArgs>
-BoundComputeKernel ComputeKernel::bind(NamesAndArgs&&... namesAndArgs)
+BoundComputeKernel ComputeKernel::bind(ComputeQueue & queue, NamesAndArgs&&... namesAndArgs)
 {
     // These are bound to the values in NamesAndArgs.  Note that we accumulate arguments in the
     // order of the parameters for the kernel, not in the calling order.  That's why arguments
@@ -963,9 +976,9 @@ BoundComputeKernel ComputeKernel::bind(NamesAndArgs&&... namesAndArgs)
     for (size_t i = 0;  i < this->params.size();  ++i)
         arguments[i].name = this->params[i].name;
 
-    details::bind(this, arguments, knowns, std::forward<NamesAndArgs>(namesAndArgs)...);
+    details::bind(this, queue, arguments, knowns, std::forward<NamesAndArgs>(namesAndArgs)...);
 
-    return this->bindImpl(std::move(arguments), std::move(knowns));
+    return this->bindImpl(queue, std::move(arguments), std::move(knowns));
 }
 
 struct ComputeQueue {
@@ -998,8 +1011,7 @@ struct ComputeQueue {
     enqueueFillArrayImpl(const std::string & opName,
                          MemoryRegionHandle region, MemoryRegionInitialization init,
                          size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         const std::any & arg);
-
+                         std::span<const std::byte> block);
 
     virtual void
     enqueueCopyFromHostImpl(const std::string & opName,
@@ -1008,12 +1020,12 @@ struct ComputeQueue {
                             size_t deviceStartOffsetInBytes) = 0;
 
     virtual void
-    enqueueCopyFromHostSyncImpl(const std::string & opName,
-                                MemoryRegionHandle toRegion,
-                                FrozenMemoryRegion fromRegion,
-                                size_t deviceStartOffsetInBytes) = 0;
+    copyFromHostSyncImpl(const std::string & opName,
+                         MemoryRegionHandle toRegion,
+                         FrozenMemoryRegion fromRegion,
+                         size_t deviceStartOffsetInBytes) = 0;
 
-    virtual ComputePromiseT<FrozenMemoryRegion>
+    virtual FrozenMemoryRegion
     enqueueTransferToHostImpl(const std::string & opName,
                               MemoryRegionHandle handle) = 0;
 
@@ -1021,10 +1033,18 @@ struct ComputeQueue {
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle);
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+    virtual MutableMemoryRegion
+    enqueueTransferToHostMutableImpl(const std::string & opName,
+                                     MemoryRegionHandle handle) = 0;
+
+    virtual MutableMemoryRegion
+    transferToHostMutableSyncImpl(const std::string & opName,
+                                  MemoryRegionHandle handle);
+
+    virtual MemoryRegionHandle
     enqueueManagePinnedHostRegionImpl(const std::string & opName,
-                               std::span<const std::byte> region, size_t align,
-                               const std::type_info & type, bool isConst) = 0;
+                                      std::span<const std::byte> region, size_t align,
+                                      const std::type_info & type, bool isConst) = 0;
 
     virtual MemoryRegionHandle
     managePinnedHostRegionSyncImpl(const std::string & opName,
@@ -1044,18 +1064,11 @@ struct ComputeQueue {
                                      size_t length) = 0;
 
     template<typename T>
-    ComputePromiseT<FrozenMemoryRegionT<std::remove_const_t<T>>>
+    FrozenMemoryRegionT<std::remove_const_t<T>>
     enqueueTransferToHost(const std::string & opName, MemoryArrayHandleT<T> array)
     {
         array.template checkTypeAccessibleAs<std::remove_const_t<T>>();
-        auto genericPromise = enqueueTransferToHostImpl(opName, array);
-
-        auto convert = [] (FrozenMemoryRegion region) -> FrozenMemoryRegionT<std::remove_const_t<T>>
-        {
-            return { std::move(region) };
-        };
-
-        return genericPromise.then(std::move(convert), opName + " then transferToHost:convert");
+        return { transferToHostImpl(opName, std::move(array)) };
     }
 
     template<typename T>
@@ -1067,7 +1080,22 @@ struct ComputeQueue {
     }
 
     template<typename T>
-    ComputePromiseT<MemoryArrayHandleT<T>>
+    MutableMemoryRegionT<T>
+    transferToHostMutableSync(const std::string & opName, MemoryArrayHandleT<T> array)
+    {
+        static_assert(!std::is_const_v<T>, "mutable transfer requires non-const type");
+        return { transferToHostMutableSyncImpl(opName, std::move(array)) };
+    }
+
+    template<typename T>
+    MemoryArrayHandleT<const T>
+    transferToDeviceImmutable(const std::string & opName, const FrozenMemoryRegionT<T> & obj)
+    {
+        return { managePinnedHostRegionSyncImpl(opName, std::as_bytes(obj.getConstSpan()), alignof(T), typeid(std::remove_const_t<T>), true /* isConst */).handle };
+    }
+
+    template<typename T>
+    MemoryArrayHandleT<T>
     enqueueManageMemoryRegion(const std::string & regionName, const std::vector<T> & obj)
     {
         return enqueueManageMemoryRegion(regionName, static_cast<std::span<const T>>(obj));
@@ -1081,7 +1109,7 @@ struct ComputeQueue {
     }
 
     template<typename T, size_t N>
-    ComputePromiseT<MemoryArrayHandleT<T>>
+    MemoryArrayHandleT<T>
     enqueueManageMemoryRegion(const std::string & regionName, const std::span<const T, N> & obj)
     {
         auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<T>
@@ -1222,7 +1250,8 @@ struct ComputeContext {
                      size_t length, size_t align,
                      const std::type_info & type, bool isConst) = 0;
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+#if 0
+    virtual MemoryRegionHandle
     transferToDeviceImpl(const std::string & opName,
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) = 0;
@@ -1232,7 +1261,7 @@ struct ComputeContext {
                              FrozenMemoryRegion region,
                              const std::type_info & type, bool isConst);
 
-    virtual ComputePromiseT<FrozenMemoryRegion>
+    virtual FrozenMemoryRegion
     transferToHostImpl(const std::string & opName,
                        MemoryRegionHandle handle) = 0;
 
@@ -1240,7 +1269,7 @@ struct ComputeContext {
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle);
 
-    virtual ComputePromiseT<MutableMemoryRegion>
+    virtual MutableMemoryRegion
     transferToHostMutableImpl(const std::string & opName,
                               MemoryRegionHandle handle) = 0;
 
@@ -1259,6 +1288,7 @@ struct ComputeContext {
                                      MemoryRegionHandle deviceHandle,
                                      std::span<const std::byte> hostRegion,
                                      size_t deviceOffset = 0) = 0;
+#endif
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) = 0;
@@ -1272,19 +1302,7 @@ struct ComputeContext {
                  size_t startOffsetInBytes, size_t lengthInBytes,
                  size_t align, const std::type_info & type, bool isConst) = 0;
 
-    template<typename T>
-    ComputePromiseT<MemoryArrayHandleT<const T>>
-    transferToDeviceImmutable(const std::string & opName, const FrozenMemoryRegionT<T> & obj)
-    {
-        auto convert = [] (MemoryRegionHandle handle) -> MemoryArrayHandleT<const T>
-        {
-            return { std::move(handle.handle) };
-        };
-
-        return transferToDeviceImpl(opName, obj, typeid(std::remove_const_t<T>), true /* isConst */)
-            .then(std::move(convert), opName + " then transferToDeviceImmutable:convert");
-    }
-
+#if 0
     template<typename T>
     ComputePromiseT<FrozenMemoryRegionT<std::remove_const_t<T>>>
     transferToHost(const std::string & opName, MemoryArrayHandleT<T> array)
@@ -1336,6 +1354,7 @@ struct ComputeContext {
     {
         return transferToHostMutableSync(opName, std::move(array));
     }
+#endif
 
     template<typename T>
     MemoryArrayHandleT<T>
@@ -1364,16 +1383,16 @@ struct ComputeContext {
 namespace details {
 template<typename T>
 FrozenMemoryRegionT<std::remove_const_t<T>>
-transferToHostSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle)
+transferToHostSync(ComputeQueue & queue, const MemoryArrayHandleT<T> & handle)
 {
-    return context.transferToHostSync(handle);
+    return queue.transferToHostSync(handle);
 }
 
 template<typename T>
 MutableMemoryRegionT<T>
-transferToHostMutableSync(ComputeContext & context, const MemoryArrayHandleT<T> & handle)
+transferToHostMutableSync(ComputeQueue & queue, const MemoryArrayHandleT<T> & handle)
 {
-    return context.transferToHostMutableSync(handle);
+    return queue.transferToHostMutableSync(handle);
 }
 
 } // namespace details

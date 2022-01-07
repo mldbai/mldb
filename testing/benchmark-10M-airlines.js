@@ -52,7 +52,7 @@ var benchmark_conf = {
         runOnCreation: true,
         modelFileUrl: "file://tmp/benchmark-airlines.cls",
         functionName: "classifyme",
-        featureVectorSamplings : 5, //5,
+        featureVectorSamplings : 1, //5,
         featureSamplings : 20, //20,
         maxDepth :19, // 0 based; maxDepth = 0 will train a depth 1 tree
         verbosity : 0,

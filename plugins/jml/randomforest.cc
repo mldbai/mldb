@@ -911,19 +911,19 @@ init(const std::string & debugName,
 
     auto initMarker = context->getScopedMarker(debugName + " initialization");
 
-    queue = context->getQueue("" /*debugName + " initialization"*/);
+    queue = context->getQueue(debugName + " initialization");
 
     // First, we need to send over the rows, as the very first thing to
     // be done is to expand them.
-    rowData = context->transferToDeviceImmutable("copyRowData", rows.rowData).get();
+    rowData = queue->transferToDeviceImmutable("copyRowData", rows.rowData);
 
     // Same for our weight data
-    weightData = context->transferToDeviceImmutable("copyWeightData", rows.weightEncoder.weightFormatTable).get();
+    weightData = queue->transferToDeviceImmutable("copyWeightData", rows.weightEncoder.weightFormatTable);
 
     // We transfer the bucket data as early as possible, as it's one of the
     // longest things to transfer
     bucketData
-        = context->transferToDeviceImmutable("copyBucketData", bucketMemory).get();
+        = queue->transferToDeviceImmutable("copyBucketData", bucketMemory);
 
     deviceFeatureIsOrdinal
         = queue->manageMemoryRegionSync("featuresIsOrdinal", featureIsOrdinal);
@@ -948,7 +948,8 @@ init(const std::string & debugName,
     // Our first kernel expands the data.  It's pretty simple, as a warm
     // up for the rest.
     auto boundKernel = decodeRowsKernel
-        ->bind(  "rowData",          rowData,
+        ->bind(*queue,
+                "rowData",          rowData,
                 "rowDataLength",    (uint32_t)rows.rowData.length(),
                 "weightBits",       (uint16_t)rows.weightEncoder.weightBits,
                 "exampleNumBits",   (uint16_t)rows.exampleNumBits,
@@ -968,7 +969,7 @@ init(const std::string & debugName,
 
         // Verify that the kernel version gives the same results as the non-kernel version
         debugExpandedRowsCpu = decodeRows(rows);
-        auto frozenExpandedRowsDevice = context->transferToHostSync("debugExpandedRows", expandedRowData);
+        auto frozenExpandedRowsDevice = queue->transferToHostSync("debugExpandedRows", expandedRowData);
         auto expandedRowsDevice = frozenExpandedRowsDevice.getConstSpan();
         ExcAssertEqual(expandedRowsDevice.size(), debugExpandedRowsCpu.size());
         bool different = false;
@@ -1169,8 +1170,11 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
 
 #   undef RF_ALLOC
 
+    queue = depthQueue = context->getQueue(debugName);
+
     boundTestFeatureKernel = owner.testFeatureKernel
-        ->bind( "decodedRows",                      expandedRowData,
+        ->bind(*queue,
+                "decodedRows",                      expandedRowData,
                 "numRows",                          (uint32_t)numRows,
                 "bucketData",                       bucketData,
                 "bucketDataOffsets",                deviceBucketDataOffsets,
@@ -1180,7 +1184,8 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
                 "partitionBuckets",                 devicePartitionBucketPool);
 
     boundGetPartitionSplitsKernel = owner.getPartitionSplitsKernel->bind
-            ("treeTrainingInfo",              deviceTreeTrainingInfo,
+            (*queue,
+            "treeTrainingInfo",              deviceTreeTrainingInfo,
             "bucketNumbers",                  deviceBucketNumbers,
             "activeFeatureList",              deviceActiveFeatureList,
             "featureIsOrdinal",               deviceFeatureIsOrdinal,
@@ -1191,7 +1196,8 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
             "numActiveBuckets",               numActiveBuckets);
 
     boundBestPartitionSplitKernel = owner.bestPartitionSplitKernel
-        ->bind("treeTrainingInfo",                deviceTreeTrainingInfo,
+        ->bind(*queue,
+                "treeTrainingInfo",                deviceTreeTrainingInfo,
                 "treeDepthInfo",                  deviceTreeDepthInfo,
                 "activeFeatureList",              deviceActiveFeatureList,
                 "featurePartitionSplits",         deviceFeaturePartitionSplitsPool,
@@ -1200,7 +1206,8 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
 
     boundAssignPartitionNumbersKernel
         = owner.assignPartitionNumbersKernel->bind
-        ("treeTrainingInfo",      deviceTreeTrainingInfo,
+        (*queue,
+        "treeTrainingInfo",      deviceTreeTrainingInfo,
         "treeDepthInfo",          deviceTreeDepthInfo,
         "allPartitionSplits",     deviceAllPartitionSplitsPool,
         "partitionIndexesOut",    devicePartitionIndexPool,
@@ -1209,7 +1216,8 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
         "smallSideIndexToPartitionOut", smallSideIndexToPartitionNumbers);
 
     boundClearBucketsKernel = owner.clearBucketsKernel->bind
-        ("treeTrainingInfo",          deviceTreeTrainingInfo,
+        (*queue,
+        "treeTrainingInfo",          deviceTreeTrainingInfo,
         "treeDepthInfo",              deviceTreeDepthInfo,
         "bucketsOut",                 devicePartitionBucketPool,
         "wAllOut",                    deviceWAllPool,
@@ -1217,7 +1225,7 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
         "smallSideIndexes",           smallSideIndexes);
 
     boundUpdatePartitionNumbersKernel = owner.updatePartitionNumbersKernel
-        ->bind(
+        ->bind(*queue,
             "treeTrainingInfo",               deviceTreeTrainingInfo,
             "treeDepthInfo",                  deviceTreeDepthInfo,
             "partitions",                     devicePartitions,
@@ -1235,7 +1243,8 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
             "decodedRows",                    expandedRowData);
 
     boundUpdateBucketsKernel = owner.updateBucketsKernel->bind
-        ("treeTrainingInfo",              deviceTreeTrainingInfo,
+        (*queue,
+        "treeTrainingInfo",              deviceTreeTrainingInfo,
         "treeDepthInfo",                  deviceTreeDepthInfo,
         "partitions",                     devicePartitions,
         "directions",                     directions,
@@ -1255,19 +1264,13 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
         "numActiveBuckets",               numActiveBuckets /* for sizing only */);
 
     boundFixupBucketsKernel = owner.fixupBucketsKernel
-        ->bind(
+        ->bind(*queue,
             "treeTrainingInfo",               deviceTreeTrainingInfo,
             "treeDepthInfo",                  deviceTreeDepthInfo,
             "buckets",                        devicePartitionBucketPool,
             "wAll",                           deviceWAllPool,
             "partitionInfo",                  devicePartitionInfoPool,
             "smallSideIndexes",               smallSideIndexes);
-
-    // Each partition has its own queue
-    queue = context->getQueue(debugName);
-
-    // This queue processes operations for this depth in serial
-    depthQueue = queue->serial(debugName);
 }
 
 void
@@ -1372,7 +1375,7 @@ init(const std::string & debugName,
         // CPU-calcualted version.
         
         auto frozenPartitionBuckets
-             = context->transferToHostSync("debug transfer partitionBuckets", devicePartitionBucketPool);
+             = depthQueue->transferToHostSync("debug transfer partitionBuckets", devicePartitionBucketPool);
         auto allWDevice = frozenPartitionBuckets.getConstSpan(0, numActiveBuckets);
 
         std::vector<W> allWCpu(numActiveBuckets);
@@ -1498,18 +1501,18 @@ scheduleTraining()
         if (debugKernelOutput) {
             depthQueue->finish();
 
-            TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
+            TreeDepthInfo depthInfo = depthQueue->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
             auto numActivePartitions = depthInfo.numActivePartitions;
             auto numFinishedPartitions = depthInfo.numFinishedPartitions;
 
             // Map back the device partition splits (note that we only use those between
             // numFinishedPartitions and numActivePartitions)
-            auto mappedPartitionSplits = context->transferToHostSync("debug partitionSplits", deviceAllPartitionSplitsPool);
+            auto mappedPartitionSplits = depthQueue->transferToHostSync("debug partitionSplits", deviceAllPartitionSplitsPool);
             auto partitionSplitsDevice
                  = mappedPartitionSplits.getConstSpan(numFinishedPartitions, numActivePartitions);
 
             // Map back the device partition numbers
-            auto mappedPartitions = context->transferToHostSync("debug partitions", devicePartitions);
+            auto mappedPartitions = depthQueue->transferToHostSync("debug partitions", devicePartitions);
             auto partitionsDevice = mappedPartitions.getConstSpan();
 
             debugPartitionsCpu = { partitionsDevice.begin(), partitionsDevice.end() };
@@ -1517,20 +1520,20 @@ scheduleTraining()
                 std::fill(debugPartitionsCpu.begin(), debugPartitionsCpu.end(), 0);
             
             // Map back the indexes
-            auto mappedIndexes = context->transferToHostSync("debug indexes", devicePartitionIndexPool);
+            auto mappedIndexes = depthQueue->transferToHostSync("debug indexes", devicePartitionIndexPool);
             auto indexesDeviceSpan = mappedIndexes.getConstSpan();
             debugPartitionIndexesCpu = { indexesDeviceSpan.begin(), indexesDeviceSpan.begin() + numActivePartitions };
             if (depth == 0)
                 debugPartitionIndexesCpu = { PartitionIndex::root() };
 
             // Construct the CPU version of buckets (and keep it around)
-            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", devicePartitionBucketPool);
+            auto mappedBuckets = depthQueue->transferToHostSync("debug partitionBuckets", devicePartitionBucketPool);
             auto mappedBucketsSpan = mappedBuckets.getConstSpan();
             debugBucketsCpu = { mappedBucketsSpan.begin(), mappedBucketsSpan.end() };
             debugBucketsCpu.resize(debugBucketsCpu.size() * 2);
 
             // Get back the CPU version of wAll
-            auto mappedWAll = context->transferToHostSync("debug wAll", deviceWAllPool);
+            auto mappedWAll = depthQueue->transferToHostSync("debug wAll", deviceWAllPool);
             auto wAllDevice = mappedWAll.getConstSpan();
             debugWAllCpu = { wAllDevice.begin(),
                              wAllDevice.begin() + numActivePartitions };
@@ -1719,7 +1722,7 @@ scheduleTraining()
         if (debugKernelOutput) {
             depthQueue->finish();
 
-            auto mappedPartitions = context->transferToHostSync("debug partitions", devicePartitions);
+            auto mappedPartitions = depthQueue->transferToHostSync("debug partitions", devicePartitions);
             auto partitions = mappedPartitions.getConstSpan();
             oldPartitions = { partitions.begin(), partitions.end() };
         }
@@ -1739,10 +1742,10 @@ scheduleTraining()
         if (debugKernelOutput) {
             depthQueue->finish();
 
-            //auto mappedDirections = context->transferToHostSync("debug directions", directions);
+            //auto mappedDirections = depthQueue->transferToHostSync("debug directions", directions);
             //auto directions = mappedDirections.getConstSpan();
 
-            auto mappedPartitions = context->transferToHostSync("debug partitions", devicePartitions);
+            auto mappedPartitions = depthQueue->transferToHostSync("debug partitions", devicePartitions);
             auto partitions = mappedPartitions.getConstSpan();
 
 #if 0
@@ -1792,10 +1795,10 @@ scheduleTraining()
 
             cerr << "got " << numPartitionChanges << " 1-directions" << endl;
 
-            auto mappedNonZeroDirectionIndices = context->transferToHostSync("debug nonZeroDirectionIndices", nonZeroDirectionIndices);
+            auto mappedNonZeroDirectionIndices = depthQueue->transferToHostSync("debug nonZeroDirectionIndices", nonZeroDirectionIndices);
             auto nonZeroDirectionIndices = mappedNonZeroDirectionIndices.getConstSpan();
 
-            auto mappednumNonZeroDirectionIndices = context->transferToHostSync("debug numNonZeroDirectionIndices", numNonZeroDirectionIndices);
+            auto mappednumNonZeroDirectionIndices = depthQueue->transferToHostSync("debug numNonZeroDirectionIndices", numNonZeroDirectionIndices);
             auto numNonZeroDirectionIndices = mappednumNonZeroDirectionIndices.getConstSpan();
 
             ExcAssertEqual(numNonZeroDirectionIndices[0], numPartitionChanges);
@@ -1835,11 +1838,11 @@ scheduleTraining()
         if (debugKernelOutput) {
             depthQueue->finish();
 
-            TreeDepthInfo depthInfo = context->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
+            TreeDepthInfo depthInfo = depthQueue->transferToHostSync("debug depthInfo", deviceTreeDepthInfo)[0];
             auto newNumActivePartitions = depthInfo.numActivePartitions;
             auto numActivePartitions = depthInfo.numFinishedPartitions - depthInfo.prevNumFinishedPartitions;
 
-            auto mappedPartitionInfo = context->transferToHostSync("debug partitionInfo", devicePartitionInfoPool);
+            auto mappedPartitionInfo = depthQueue->transferToHostSync("debug partitionInfo", devicePartitionInfoPool);
             auto partitionInfoDevice = mappedPartitionInfo.getConstSpan();
 
             // These give the partition numbers for the left (.first) and right (.second) of each partition
@@ -1882,7 +1885,7 @@ scheduleTraining()
             // version.
 
             // Construct the CPU version of buckets
-            auto mappedBuckets = context->transferToHostSync("debug partitionBuckets", devicePartitionBucketPool);
+            auto mappedBuckets = depthQueue->transferToHostSync("debug partitionBuckets", devicePartitionBucketPool);
             auto bucketsDevice = mappedBuckets.getConstSpan();
 
             for (size_t i = 0;  i < numActivePartitions;  ++i) {
@@ -1908,7 +1911,7 @@ scheduleTraining()
             }
 
             // 2.  Map back the wAll values and compare against the CPU version
-            auto mappedWAll = context->transferToHostSync("debug wAll", deviceWAllPool);
+            auto mappedWAll = depthQueue->transferToHostSync("debug wAll", deviceWAllPool);
             auto wAllDevice = mappedWAll.getConstSpan();
 
             for (size_t i = 0;  i < numActivePartitions;  ++i) {
@@ -1925,7 +1928,7 @@ scheduleTraining()
 
             // 3.  Map back the device partition numbers and compare against
             // the CPU version
-            auto mappedPartitions = context->transferToHostSync("debug partitions", devicePartitions);
+            auto mappedPartitions = depthQueue->transferToHostSync("debug partitions", devicePartitions);
             auto partitionsDevice = mappedPartitions.getConstSpan();
 
             int numDifferences = 0;
@@ -2071,15 +2074,15 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
         //cerr << "kernel wall time is " << Date::now().secondsSince(before) * 1000 << endl;
         //cerr << "numActivePartitions = " << numActivePartitions << endl;
 
-        auto bucketsUnrolledRegion = context->transferToHostSync("partitionBuckets to CPU", devicePartitionBucketPool);
+        auto bucketsUnrolledRegion = depthQueue->transferToHostSync("partitionBuckets to CPU", devicePartitionBucketPool);
         std::span<const W> bucketsUnrolled = bucketsUnrolledRegion.getConstSpan();
-        auto partitionsRegion = context->transferToHostSync("partitions to CPU", devicePartitions);
+        auto partitionsRegion = depthQueue->transferToHostSync("partitions to CPU", devicePartitions);
         std::span<const RowPartitionInfo> partitions = partitionsRegion.getConstSpan();
-        auto wAllRegion = context->transferToHostSync("wAll to CPU", deviceWAllPool);
+        auto wAllRegion = depthQueue->transferToHostSync("wAll to CPU", deviceWAllPool);
         std::span<const W> wAll = wAllRegion.getConstSpan();
-        auto decodedRowsRegion = context->transferToHostSync("expandedRowData to CPU", expandedRowData);
+        auto decodedRowsRegion = depthQueue->transferToHostSync("expandedRowData to CPU", expandedRowData);
         std::span<const float> decodedRows = decodedRowsRegion.getConstSpan();
-        auto indexesRegion = context->transferToHostSync("indexes to CPU", devicePartitionIndexPool);
+        auto indexesRegion = depthQueue->transferToHostSync("indexes to CPU", devicePartitionIndexPool);
         std::span<const PartitionIndex> indexes = indexesRegion.getConstSpan();
 
         //for (auto & row: decodedRows) {

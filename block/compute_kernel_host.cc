@@ -92,10 +92,10 @@ struct HostMemoryRegionInfo: public MemoryRegionHandleInfo {
 
 BoundComputeKernel
 HostComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> arguments, ComputeKernelConstraintSolution knowns) const
+bindImpl(ComputeQueue & queue, std::vector<ComputeKernelArgument> arguments, ComputeKernelConstraintSolution knowns) const
 {
     auto bindInfo = std::make_shared<HostComputeKernelBindInfo>();
-    bindInfo->call = createCallable(*this->context, arguments);
+    bindInfo->call = createCallable(queue, arguments);
 
     BoundComputeKernel result;
     result.arguments = std::move(arguments);
@@ -114,13 +114,13 @@ bindImpl(std::vector<ComputeKernelArgument> arguments, ComputeKernelConstraintSo
 
 void
 HostComputeKernel::
-call(const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) const
+call(ComputeQueue & queue, const BoundComputeKernel & bound, std::span<ComputeKernelGridRange> grid) const
 {
     const HostComputeKernelBindInfo * hostInfo
         = dynamic_cast<const HostComputeKernelBindInfo *>(bound.bindInfo.get());
     ExcAssert(hostInfo);
 
-    hostInfo->call(*context, grid);
+    hostInfo->call(queue, grid);
 }
 
 
@@ -155,7 +155,8 @@ struct HostComputeContext: public ComputeContext {
         return { std::move(result) };
     }
 
-    virtual ComputePromiseT<MemoryRegionHandle>
+#if 0
+    virtual MemoryRegionHandle
     transferToDeviceImpl(const std::string & opName,
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst) override
@@ -168,27 +169,9 @@ struct HostComputeContext: public ComputeContext {
         return { { {handle} }, std::make_shared<HostComputeEvent>() };
     }
 
-    virtual ComputePromiseT<FrozenMemoryRegion>
-    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override
+    virtual FrozenMemoryRegion
+    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
     {
-        ExcAssert(handle.handle);
-        auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(handle.handle));
-        ExcAssert(info);
-
-        FrozenMemoryRegion raw(info, (char *)info->data, info->lengthInBytes);
-        return { std::move(raw), std::make_shared<HostComputeEvent>() };
-    }
-
-    virtual ComputePromiseT<MutableMemoryRegion>
-    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override
-    {
-        ExcAssert(handle.handle);
-        auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(handle.handle));
-        ExcAssert(info);
-
-        MutableMemoryRegion raw(info, (char *)info->data, info->lengthInBytes );
-
-        return { raw, std::make_shared<HostComputeEvent>() };
     }
 
     virtual void
@@ -215,6 +198,7 @@ struct HostComputeContext: public ComputeContext {
 
         std::memcpy(((std::byte *)info->data) + deviceOffset, hostRegion.data(), hostRegion.size());
     }
+#endif
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override
@@ -326,7 +310,7 @@ enqueue(const std::string & opName,
 
     Timer timer;
     std::vector<ComputeKernelGridRange> ranges(grid.begin(), grid.end());
-    hostOwner->call(kernel, ranges);
+    hostOwner->call(*this, kernel, ranges);
     auto wallTime = timer.elapsed_wall();
     //using namespace std;
     //cerr << "calling " << kernel.owner->kernelName << " took " << timer.elapsed() << endl;
@@ -342,10 +326,10 @@ HostComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle regionIn, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg)
+                     std::span<const std::byte> block)
 {
     ComputeQueue::enqueueFillArrayImpl(opName, std::move(regionIn), init,
-                                       startOffsetInBytes, lengthInBytes, arg);
+                                       startOffsetInBytes, lengthInBytes, block);
 }
 
 void
@@ -355,12 +339,12 @@ enqueueCopyFromHostImpl(const std::string & opName,
                         FrozenMemoryRegion fromRegion,
                         size_t deviceStartOffsetInBytes)
 {
-    enqueueCopyFromHostSyncImpl(opName, toRegion, fromRegion, deviceStartOffsetInBytes);
+    copyFromHostSyncImpl(opName, toRegion, fromRegion, deviceStartOffsetInBytes);
 }
 
 void
 HostComputeQueue::
-enqueueCopyFromHostSyncImpl(const std::string & opName,
+copyFromHostSyncImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
                             size_t deviceStartOffsetInBytes)
@@ -373,12 +357,17 @@ enqueueCopyFromHostSyncImpl(const std::string & opName,
     std::memcpy((std::byte *)info->data + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
 }
 
-ComputePromiseT<FrozenMemoryRegion>
+FrozenMemoryRegion
 HostComputeQueue::
 enqueueTransferToHostImpl(const std::string & opName,
                           MemoryRegionHandle handle)
 {
-    return owner->transferToHostImpl(opName, std::move(handle));
+    ExcAssert(handle.handle);
+    auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(handle.handle));
+    ExcAssert(info);
+
+    FrozenMemoryRegion raw(info, (char *)info->data, info->lengthInBytes);
+    return raw;
 }
 
 FrozenMemoryRegion
@@ -386,16 +375,35 @@ HostComputeQueue::
 transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
-    return owner->transferToHostSyncImpl(opName, std::move(handle));
+    return enqueueTransferToHostImpl(opName, std::move(handle));
 }
 
-ComputePromiseT<MemoryRegionHandle>
+MutableMemoryRegion
+HostComputeQueue::
+enqueueTransferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
+{
+    ExcAssert(handle.handle);
+    auto info = std::dynamic_pointer_cast<const HostMemoryRegionInfo>(std::move(handle.handle));
+    ExcAssert(info);
+
+    MutableMemoryRegion raw(info, (char *)info->data, info->lengthInBytes );
+    return raw;
+}
+
+MutableMemoryRegion
+HostComputeQueue::
+transferToHostMutableSyncImpl(const std::string & opName, MemoryRegionHandle handle)
+{
+    return enqueueTransferToHostMutableImpl(opName, std::move(handle));
+}
+
+MemoryRegionHandle
 HostComputeQueue::
 enqueueManagePinnedHostRegionImpl(const std::string & opName,
                                   std::span<const std::byte> region, size_t align,
                                   const std::type_info & type, bool isConst)
 {
-    return { managePinnedHostRegionSyncImpl(opName, region, align, type, isConst), std::make_shared<HostComputeEvent>() };
+    return managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
 }
 
 MemoryRegionHandle

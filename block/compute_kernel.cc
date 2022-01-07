@@ -501,7 +501,7 @@ canGetPrimitive() const
 
 std::span<const std::byte>
 AbstractArgumentHandler::
-getPrimitive(const std::string & opName, ComputeContext & context) const
+getPrimitive(const std::string & opName, ComputeQueue & queue) const
 {
     if (canGetPrimitive())
         throw MLDB::Exception("getPrimitive not overriden when canGetPrimitive is true");
@@ -518,7 +518,7 @@ canGetRange() const
 
 std::tuple<void *, size_t, std::shared_ptr<const void>>
 AbstractArgumentHandler::
-getRange(const std::string & opName, ComputeContext & context) const
+getRange(const std::string & opName, ComputeQueue & queue) const
 {
     if (canGetRange())
         throw MLDB::Exception("getRange() not overriden when canGetRange() is true");
@@ -535,7 +535,7 @@ canGetConstRange() const
 
 std::tuple<const void *, size_t, std::shared_ptr<const void>>
 AbstractArgumentHandler::
-getConstRange(const std::string & opName, ComputeContext & context) const
+getConstRange(const std::string & opName, ComputeQueue & queue) const
 {
     if (canGetConstRange())
         throw MLDB::Exception("getConstRange() not overriden when canGetConstRange() is true");
@@ -552,7 +552,7 @@ canGetHandle() const
 
 MemoryRegionHandle
 AbstractArgumentHandler::
-getHandle(const std::string & opName, ComputeContext & context) const
+getHandle(const std::string & opName, ComputeQueue & queue) const
 {
     if (canGetHandle())
         throw MLDB::Exception("getHandle() not overriden when canGetHandle() is true");
@@ -585,7 +585,7 @@ ComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle regionIn, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg)
+                     std::span<const std::byte> block)
 {
     MemoryArrayHandleT<uint8_t> region{regionIn.handle};
 
@@ -604,7 +604,8 @@ switch (init) {
         return;
     case MemoryRegionInitialization::INIT_ZERO_FILLED: {
         auto kernel = owner->getKernel("__zeroFillArray");
-        auto bound = kernel->bind("region", region,
+        auto bound = kernel->bind(*this,
+                                    "region", region,
                                     "startOffsetInBytes", (uint64_t)startOffsetInBytes,
                                     "lengthInBytes", (uint64_t)lengthInBytes);
         enqueue(opName, bound, {} /* grid */);
@@ -612,11 +613,11 @@ switch (init) {
     }
     case MemoryRegionInitialization::INIT_BLOCK_FILLED: {
         auto kernel = owner->getKernel("__blockFillArray");
-        auto block = std::any_cast<std::span<const std::byte>>(arg);
         auto blockRegion = managePinnedHostRegionSyncImpl(opName + " pin block", block, 1 /* align */,
                                                                 typeid(std::byte), true /* isConst */);
         MemoryArrayHandleT<uint8_t> blockHandle{std::move(blockRegion.handle)};
-        auto bound = kernel->bind("region", region,
+        auto bound = kernel->bind(*this,
+                                    "region", region,
                                     "startOffsetInBytes", (uint64_t)startOffsetInBytes,
                                     "lengthInBytes", (uint64_t)lengthInBytes,
                                     "blockData", blockHandle,
@@ -633,7 +634,19 @@ ComputeQueue::
 transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
-    return owner->transferToHostSyncImpl(opName, std::move(handle));
+    auto result = enqueueTransferToHostImpl(opName, std::move(handle));
+    finish();
+    return result;
+}
+
+MutableMemoryRegion
+ComputeQueue::
+transferToHostMutableSyncImpl(const std::string & opName,
+                              MemoryRegionHandle handle)
+{
+    auto result = enqueueTransferToHostMutableImpl(opName, std::move(handle));   
+    finish();
+    return result;
 }
 
 
@@ -692,6 +705,7 @@ recordMarkerEvent(const std::string & event)
     // no-op
 }
 
+#if 0
 MemoryRegionHandle
 ComputeContext::
 transferToDeviceSyncImpl(const std::string & opName,
@@ -709,14 +723,7 @@ transferToHostSyncImpl(const std::string & opName,
     return transferToHostImpl(opName, std::move(handle)).move();
 }
 
-MutableMemoryRegion
-ComputeContext::
-transferToHostMutableSyncImpl(const std::string & opName,
-                                MemoryRegionHandle handle)
-{
-    return transferToHostMutableImpl(opName, std::move(handle)).move();   
-}
-
+#endif
 
 // ComputeRuntime
 
@@ -1235,9 +1242,9 @@ canGetRange() const
 
 std::tuple<void *, size_t, std::shared_ptr<const void>>
 MemoryArrayAbstractArgumentHandler::
-getRange(const std::string & opName, ComputeContext & context) const
+getRange(const std::string & opName, ComputeQueue & queue) const
 {
-    auto region = context.transferToHostMutableSyncImpl(opName, handle);
+    auto region = queue.transferToHostMutableSyncImpl(opName, handle);
     return { region.data(), region.length(), region.handle() };
 }
 
@@ -1250,9 +1257,9 @@ canGetConstRange() const
 
 std::tuple<const void *, size_t, std::shared_ptr<const void>>
 MemoryArrayAbstractArgumentHandler::
-getConstRange(const std::string & opName, ComputeContext & context) const
+getConstRange(const std::string & opName, ComputeQueue & queue) const
 {
-    auto region = context.transferToHostSyncImpl(opName, handle);
+    auto region = queue.transferToHostSyncImpl(opName, handle);
     return { region.data(), region.length(), region.handle() };
 }
 
@@ -1265,7 +1272,7 @@ canGetHandle() const
 
 MemoryRegionHandle
 MemoryArrayAbstractArgumentHandler::
-getHandle(const std::string & opName, ComputeContext & context) const
+getHandle(const std::string & opName, ComputeQueue & queue) const
 {
     return handle;
 }
@@ -1316,7 +1323,7 @@ toJson() const
 
 Json::Value
 MemoryArrayAbstractArgumentHandler::
-getArrayElement(uint32_t index, ComputeContext & context) const
+getArrayElement(uint32_t index, ComputeQueue & queue) const
 {
     if (!handle.handle)
         throw MLDB::Exception("GetArrayElement: no handler");
@@ -1325,7 +1332,7 @@ getArrayElement(uint32_t index, ComputeContext & context) const
     size_t numObjects = handle.handle ? handle.handle->lengthInBytes / objectLength : 0;
     ExcAssertLess(index, numObjects);
 
-    auto region = context.transferToHostSyncImpl("getArrayElement", handle);
+    auto region = queue.transferToHostSyncImpl("getArrayElement", handle);
     ExcAssert(type.baseType);
     const ValueDescription & desc = *type.baseType;
 
@@ -1336,10 +1343,11 @@ getArrayElement(uint32_t index, ComputeContext & context) const
 
 void
 MemoryArrayAbstractArgumentHandler::
-setFromReference(ComputeContext & context, std::span<const byte> referenceData)
+setFromReference(ComputeQueue & queue, std::span<const byte> referenceData)
 {
     std::string opName = "setFromReference " + handle.handle->name;
-    context.fillDeviceRegionFromHostSyncImpl(opName, handle, referenceData);
+    FrozenMemoryRegion region(nullptr, (const char *)referenceData.data(), referenceData.size());
+    queue.copyFromHostSyncImpl(opName, handle, region, 0 /* startOffsetInBytes */);
 }
 
 #if 0
@@ -1355,7 +1363,7 @@ canGetPrimitive() const
 
 std::span<const std::byte>
 PromiseAbstractArgumentHandler::
-getPrimitive(const std::string & opName, ComputeContext & context) const
+getPrimitive(const std::string & opName, ComputeQueue & queue) const
 {
     return subImpl->getPrimitive(opName, context);
 }
@@ -1369,7 +1377,7 @@ canGetRange() const
 
 std::tuple<void *, size_t, std::shared_ptr<const void>>
 PromiseAbstractArgumentHandler::
-getRange(const std::string & opName, ComputeContext & context) const
+getRange(const std::string & opName, ComputeQueue & queue) const
 {
     return subImpl->getRange(opName, context);
 }
@@ -1383,7 +1391,7 @@ canGetConstRange() const
 
 std::tuple<const void *, size_t, std::shared_ptr<const void>>
 PromiseAbstractArgumentHandler::
-getConstRange(const std::string & opName, ComputeContext & context) const
+getConstRange(const std::string & opName, ComputeQueue & queue) const
 {
     return subImpl->getConstRange(opName, context);
 }
@@ -1397,7 +1405,7 @@ canGetHandle() const
 
 MemoryRegionHandle
 PromiseAbstractArgumentHandler::
-getHandle(const std::string & opName, ComputeContext & context) const
+getHandle(const std::string & opName, ComputeQueue & queue) const
 {
     return subImpl->getHandle(opName, context);
 }
@@ -1418,14 +1426,14 @@ toJson() const
 
 Json::Value
 PromiseAbstractArgumentHandler::
-getArrayElement(uint32_t index, ComputeContext & context) const
+getArrayElement(uint32_t index, ComputeQueue & queue) const
 {
     return subImpl->getArrayElement(index, context);
 }
 
 void
 PromiseAbstractArgumentHandler::
-setFromReference(ComputeContext & context, std::span<const byte> referenceData)
+setFromReference(ComputeQueue & queue, std::span<const byte> referenceData)
 {
     subImpl->setFromReference(context, referenceData);
 }
@@ -1443,7 +1451,7 @@ canGetPrimitive() const
 
 std::span<const std::byte>
 PrimitiveAbstractArgumentHandler::
-getPrimitive(const std::string & opName, ComputeContext & context) const
+getPrimitive(const std::string & opName, ComputeQueue & queue) const
 {
     return mem;
 }
@@ -1463,7 +1471,7 @@ toJson() const
 
 Json::Value
 PrimitiveAbstractArgumentHandler::
-getArrayElement(uint32_t index, ComputeContext & context) const
+getArrayElement(uint32_t index, ComputeQueue & queue) const
 {
     cerr << "getting element " << index << " from " << toJson() << endl;
     const void * el = this->type.baseType->getArrayElement(mem.data(), index);
@@ -1472,7 +1480,7 @@ getArrayElement(uint32_t index, ComputeContext & context) const
 
 void
 PrimitiveAbstractArgumentHandler::
-setFromReference(ComputeContext & context, std::span<const byte> referenceData)
+setFromReference(ComputeQueue & queue, std::span<const byte> referenceData)
 {
     // TODO: how do we ensure it's pinned?
     this->mem = referenceData;

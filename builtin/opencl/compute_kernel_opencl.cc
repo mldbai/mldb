@@ -504,7 +504,7 @@ enqueue(const std::string & opName,
                     continue;
                 if (!arg.handler->canGetHandle())
                     continue;
-                auto handle = arg.handler->getHandle("readArrayElement", *bindInfo->clContext);
+                auto handle = arg.handler->getHandle("readArrayElement", *this);
                 ExcAssert(handle.handle);
                 
                 cerr << "  haystack: " << handle.handle->name << " v " << handle.handle->version << endl;
@@ -513,7 +513,7 @@ enqueue(const std::string & opName,
                     continue;
 
                 auto i = index.asUInt();
-                return arg.handler->getArrayElement(i, *bindInfo->clContext);
+                return arg.handler->getArrayElement(i, *this);
             }
 
             throw MLDB::Exception("Couldn't find array named '" + arrayName + "' in kernel arguments");
@@ -632,7 +632,7 @@ OpenCLComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
                      MemoryRegionHandle region, MemoryRegionInitialization init,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
-                     const std::any & arg)
+                     std::span<const std::byte> block)
 {
     auto op = scopedOperation("enqueueFillArrayImpl " + opName);
 
@@ -646,7 +646,7 @@ enqueueFillArrayImpl(const std::string & opName,
         throw MLDB::Exception("overflowing memory region");
     }
 
-    ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, arg);
+    ComputeQueue::enqueueFillArrayImpl(opName, region, init, startOffsetInBytes, lengthInBytes, block);
 }
 
 void
@@ -666,19 +666,20 @@ enqueueCopyFromHostImpl(const std::string & opName,
 
 void
 OpenCLComputeQueue::
-enqueueCopyFromHostSyncImpl(const std::string & opName,
+copyFromHostSyncImpl(const std::string & opName,
                             MemoryRegionHandle toRegion,
                             FrozenMemoryRegion fromRegion,
                             size_t deviceStartOffsetInBytes)
 {
-    auto op = scopedOperation("OpenCLComputeQueue enqueueCopyFromHostSyncImpl " + opName);
+    auto op = scopedOperation("OpenCLComputeQueue copyFromHostSyncImpl " + opName);
 
     ExcAssert(toRegion.handle);
 
     auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
     clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data()).waitUntilFinished();
 }
-ComputePromiseT<FrozenMemoryRegion>
+
+FrozenMemoryRegion
 OpenCLComputeQueue::
 enqueueTransferToHostImpl(const std::string & opName,
                           MemoryRegionHandle handle)
@@ -698,26 +699,6 @@ enqueueTransferToHostImpl(const std::string & opName,
     auto & memPtr = std::get<0>(res);
     auto & clEvent = std::get<1>(res);
 
-    //cerr << "clEvent is " << clEvent.event.operator cl_event() << endl;
-
-    //cerr << jsonEncode(clEvent.getInfo()) << endl;
-
-    auto event = std::make_shared<OpenCLComputeEvent>(clEvent);
-    auto promise = std::make_shared<std::promise<std::any>>();
-    auto data = (char *)memPtr.get();
-
-    auto cb = [handle, promise, data, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
-    {
-        //cerr << "transferToHostImpl callback" << endl;
-        if (status == OpenCLEventCommandExecutionStatus::ERROR)
-            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
-        else {
-            promise->set_value(FrozenMemoryRegion(memPtr, data, handle.lengthInBytes()));
-        }
-    };
-
-    clEvent.addCallback(cb);
-
     static const bool bugAsyncMapBufferDoesntComplete = true;
 
     if (bugAsyncMapBufferDoesntComplete) {
@@ -725,9 +706,7 @@ enqueueTransferToHostImpl(const std::string & opName,
         clEvent.waitUntilFinished();
     }
 
-    //cerr << jsonEncode(clEvent.getInfo()) << endl;
-
-    return { promise, event };
+    return FrozenMemoryRegion(memPtr, (const char *)memPtr.get(), handle.lengthInBytes());
 }
 
 FrozenMemoryRegion
@@ -748,15 +727,47 @@ transferToHostSyncImpl(const std::string & opName,
     return result;
 }
 
-ComputePromiseT<MemoryRegionHandle>
+MutableMemoryRegion
+OpenCLComputeQueue::
+enqueueTransferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
+{
+    auto op = scopedOperation("OpenCLComputeQueue enqueueTransferToHostMutableImpl " + opName);
+    ExcAssert(handle.handle);
+
+    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
+    OpenCLEvent clEvent;
+    std::shared_ptr<void> memPtr;
+    std::tie(memPtr, clEvent)
+        = clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
+                                    offset, handle.lengthInBytes());
+
+    return MutableMemoryRegion(memPtr, (char *)memPtr.get(), handle.lengthInBytes());
+}
+
+MutableMemoryRegion
+OpenCLComputeQueue::
+transferToHostMutableSyncImpl(const std::string & opName,
+                              MemoryRegionHandle handle)
+{
+    auto op = scopedOperation("OpenCLComputeQueue transferToHostMutableSyncImpl " + opName);
+
+    ExcAssert(handle.handle);
+
+    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
+    auto memPtr = clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ | CL_MAP_WRITE,
+                                                            offset, handle.lengthInBytes());
+    MutableMemoryRegion result(std::move(memPtr), (char *)memPtr.get(), handle.lengthInBytes());
+    return result;
+}
+
+MemoryRegionHandle
 OpenCLComputeQueue::
 enqueueManagePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst)
 {
     auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionImpl " + opName);
 
-    auto result = managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
-    return ComputePromiseT<MemoryRegionHandle>(std::move(result), makeAlreadyResolvedEvent(opName));
+    return managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
 }
 
 MemoryRegionHandle
@@ -949,6 +960,7 @@ allocateSyncImpl(const std::string & regionName,
     return result;
 }
 
+#if 0
 static MemoryRegionHandle
 doOpenCLTransferToDevice(OpenCLContext & clContext,
                          const std::string & opName, FrozenMemoryRegion region,
@@ -985,7 +997,7 @@ doOpenCLTransferToDevice(OpenCLContext & clContext,
     return result;
 }
 
-ComputePromiseT<MemoryRegionHandle>
+MemoryRegionHandle
 OpenCLComputeContext::
 transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
                      const std::type_info & type, bool isConst)
@@ -1006,7 +1018,7 @@ transferToDeviceSyncImpl(const std::string & opName,
     return result;
 }
 
-ComputePromiseT<FrozenMemoryRegion>
+FrozenMemoryRegion
 OpenCLComputeContext::
 transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
@@ -1023,52 +1035,7 @@ transferToHostSyncImpl(const std::string & opName,
     return clQueue->transferToHostSyncImpl(opName, std::move(handle));
 }
 
-ComputePromiseT<MutableMemoryRegion>
-OpenCLComputeContext::
-transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
-{
-    auto op = scopedOperation("OpenCLComputeContext transferToHostMutableImpl " + opName);
-    ExcAssert(handle.handle);
-
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
-    OpenCLEvent clEvent;
-    std::shared_ptr<void> memPtr;
-    std::tie(memPtr, clEvent)
-        = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
-                                    offset, handle.lengthInBytes());
-
-    auto event = std::make_shared<OpenCLComputeEvent>(std::move(clEvent));
-    auto promise = std::shared_ptr<std::promise<std::any>>();
-
-    auto cb = [handle, promise, memPtr, pin=pin] (const OpenCLEvent & event, auto status)
-    {
-        if (status == OpenCLEventCommandExecutionStatus::ERROR)
-            promise->set_exception(std::make_exception_ptr(MLDB::Exception("OpenCL error mapping host memory")));
-        else {
-            promise->set_value(MutableMemoryRegion(memPtr, (char *)memPtr.get(), handle.lengthInBytes()));
-        }
-    };
-
-    clEvent.addCallback(cb);
-
-    return { std::move(promise), std::move(event) };
-}
-
-MutableMemoryRegion
-OpenCLComputeContext::
-transferToHostMutableSyncImpl(const std::string & opName,
-                              MemoryRegionHandle handle)
-{
-    auto op = scopedOperation("OpenCLComputeContext transferToHostMutableSyncImpl " + opName);
-
-    ExcAssert(handle.handle);
-
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
-    auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ | CL_MAP_WRITE,
-                                                            offset, handle.lengthInBytes());
-    MutableMemoryRegion result(std::move(memPtr), (char *)memPtr.get(), handle.lengthInBytes());
-    return result;
-}
+#endif
 
 std::shared_ptr<ComputeKernel>
 OpenCLComputeContext::
@@ -1091,6 +1058,7 @@ getKernel(const std::string & kernelName)
     return result;
 }
 
+#if 0
 void
 OpenCLComputeContext::
 fillDeviceRegionFromHostImpl(const std::string & opName,
@@ -1112,8 +1080,9 @@ fillDeviceRegionFromHostSyncImpl(const std::string & opName,
 {
     FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
 
-    clQueue->enqueueCopyFromHostSyncImpl(opName, deviceHandle, region, deviceOffset);
+    clQueue->copyFromHostSyncImpl(opName, deviceHandle, region, deviceOffset);
 }
+#endif
 
 std::shared_ptr<ComputeQueue>
 OpenCLComputeContext::
@@ -1341,7 +1310,8 @@ setComputeFunction(OpenCLProgram programIn,
 
 BoundComputeKernel
 OpenCLComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
+bindImpl(ComputeQueue & queue,
+         std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
 {
     try {
         auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
@@ -1461,12 +1431,12 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraint
                     handleImplicit();
                 }
                 else if (arg.handler->canGetPrimitive()) {
-                    auto bytes = arg.handler->getPrimitive(opName, upcastContext);
+                    auto bytes = arg.handler->getPrimitive(opName, queue);
                     traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
                     kernel.bindArg(i, bytes.data(), bytes.size());
                 }
                 else if (arg.handler->canGetHandle()) {
-                    auto handle = arg.handler->getHandle(opName, upcastContext);
+                    auto handle = arg.handler->getHandle(opName, queue);
                     traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
                     MemoryRegionAccess access = this->params.at(argNum).type.access;
 

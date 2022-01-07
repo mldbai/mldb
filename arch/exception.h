@@ -56,5 +56,25 @@ struct AssertionFailure: public Exception {
                       int line);
 };
 
+/*****************************************************************************/
+/* UNIMPLEMENTED EXCEPTION                                                   */
+/*****************************************************************************/
+
+/** Exception thrown when something is unimplemented. */
+
+struct UnimplementedException: public Exception {
+    UnimplementedException(const char * function,
+                           const char * file,
+                           int line);
+    UnimplementedException(const char * function,
+                           const char * file,
+                           int line,
+                           const char * msg,
+                           ...);
+};
+
+#define MLDB_THROW_UNIMPLEMENTED(...) do { throw UnimplementedException(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
+
+
 
 } // namespace MLDB

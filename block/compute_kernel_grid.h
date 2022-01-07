@@ -1,83 +1,125 @@
-/** compute_kernel_metal.h                                                -*- C++ -*-
+/** compute_kernel_grid.h                                                -*- C++ -*-
     Jeremy Barnes, 27 March 2016
     This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 
-    Compute kernel runtime for CPU devices.
+    Compute kernel runtime for grid-based devices (normally GPU, but hopefully can be
+    emulated on the CPU for correctness).  Grid, OpenCL, CUDA, ...
 */
 
 #pragma once
 
 #include "mldb/block/compute_kernel.h"
-#include "mldb/ext/mtlpp/src/mtlpp.hpp"
+#include "mldb/arch/spinlock.h"
 
 namespace MLDB {
 
-DECLARE_ENUM_DESCRIPTION_NAMED(MtlCommandBufferStatusDescription, mtlpp::CommandBufferStatus);
+struct GridComputeContext;
+struct GridComputeKernel;
+struct GridComputeQueue;
 
-struct MetalComputeContext;
+struct GridMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
+    virtual ~GridMemoryRegionHandleInfo() = default;
 
-struct MetalComputeProfilingInfo: public ComputeProfilingInfo {
-    MetalComputeProfilingInfo();
-    virtual ~MetalComputeProfilingInfo() = default;
+    size_t offset = 0;
+    std::any buffer;  ///< Really the underlying type
+
+    // If we're managing host memory, this is where it is.
+    const std::byte * backingHostMem = nullptr;
+
+    Spinlock mutex;
+    int numReaders = 0;
+    int numWriters = 0;
+    std::set<std::string> currentWriters;
+    std::set<std::string> currentReaders;
+
+    std::tuple<FrozenMemoryRegion, int /* version */>
+    getReadOnlyHostAccessSync(const GridComputeContext & context,
+                              const std::string & opName,
+                              size_t offset,
+                              ssize_t length,
+                              bool ignoreHazards);
+
+    // Pin, implementation buffer type
+    std::tuple<std::shared_ptr<const void>, std::any>
+    getGridAccess(const std::string & opName, MemoryRegionAccess access);
+};
+
+struct GridBindInfo: public ComputeKernelBindInfo {
+    virtual ~GridBindInfo() = default;
+
+    const GridComputeKernel * owner = nullptr;
+    std::shared_ptr<StructuredSerializer> traceSerializer;
+
+    // Pins that control the lifetime of the arguments and allow the system to know
+    // when an argument is no longer needed
+    std::vector<std::shared_ptr<const void>> argumentPins;
+};
+
+struct GridComputeProfilingInfo: public ComputeProfilingInfo {
+    GridComputeProfilingInfo();
+    virtual ~GridComputeProfilingInfo() = default;
 };
 
 // enable_shared_from_this is to ensure that we can pin lifetimes of events until the
 // completion handlers have finished.
-struct MetalComputeEvent: public ComputeEvent, public std::enable_shared_from_this<MetalComputeEvent> {
-    MetalComputeEvent(const std::string & label, bool resolved);  // may or may not be already resolved
+struct GridComputeEvent: public ComputeEvent, std::enable_shared_from_this<GridComputeEvent> {
+    GridComputeEvent(const std::string & label, bool resolved,
+                     GridComputeQueue * owner);  // may or may not be already resolved
 
-    virtual ~MetalComputeEvent() = default;
-
-    void resolveFromCommandBuffer(const mtlpp::CommandBuffer & commandBuffer);
+    virtual ~GridComputeEvent() = default;
 
     virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const override;
-
-    virtual void await() const override;
 
     virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label);
 
     void resolve();
 
-    static std::shared_ptr<MetalComputeEvent> makeAlreadyResolvedEvent(const std::string & label);
-    static std::shared_ptr<MetalComputeEvent> makeUnresolvedEvent(const std::string & label);
-
-    // Return this as a completion handler
-    std::function<void ()> getCompletionHandler() const;
-
-    // Resolve the event
-    void resolve(const mtlpp::CommandBuffer & buffer);
-
     virtual std::string label() const override { return label_; }
     std::string label_;
 
+    GridComputeQueue * owner = nullptr;
+
     std::mutex mutex;
     std::atomic<bool> isResolved = false;  // always starts this way, only resolve() can change
-    mtlpp::CommandBuffer commandBuffer;
     std::promise<void> promise;
     std::shared_future<void> future;
     std::vector<std::function<void ()>> callbacks;
 };
 
+// GridDispatchType
 
-// MetalComputeQueue
+enum class GridDispatchType {
+    SERIAL,  ///< Wait for previous before dispatching next
+    PARALLEL ///< Dispatch all at once with synchronization via explicit barriers
+};
 
-struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<MetalComputeQueue> {
-    MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent,
-                      const std::string & label,
-                      mtlpp::CommandQueue queue, mtlpp::DispatchType dispatchType);
-    virtual ~MetalComputeQueue();
+DECLARE_ENUM_DESCRIPTION(GridDispatchType);
 
-    MetalComputeContext * mtlOwner = nullptr;
-    mtlpp::CommandQueue mtlQueue;
-    mtlpp::CommandBuffer commandBuffer;
-    std::weak_ptr<MetalComputeQueue> weakParent;
-    std::atomic<int> numChildren = 0;
+
+// GridBindContext
+
+struct GridBindContext {
+    virtual ~GridBindContext() = default;
+};
+
+
+// GridComputeQueue
+
+struct GridComputeQueue: public ComputeQueue, std::enable_shared_from_this<GridComputeQueue> {
+    GridComputeQueue(GridComputeContext * owner, GridComputeQueue * parent,
+                      const std::string & label, GridDispatchType dispatchType);
+    virtual ~GridComputeQueue();
+
+    GridComputeContext * gridOwner = nullptr;
+
+    // Subclasses override to create a new bind context
+    virtual std::shared_ptr<GridBindContext> newBindContext() = 0;
+
+    // Subclasses override to launch the bound kernel
+    virtual void launch(GridBindContext & context, std::vector<size_t> grid, std::vector<size_t> block) = 0;
 
     // What kind of dispatch (serial or parallel) do we do?
-    mtlpp::DispatchType dispatchType;
-
-    virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) override;
-    virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) override;
+    GridDispatchType dispatchType;
 
     virtual void
     enqueue(const std::string & opName,
@@ -110,14 +152,6 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     transferToHostSyncImpl(const std::string & opName,
                            MemoryRegionHandle handle) override;
 
-    virtual MutableMemoryRegion
-    enqueueTransferToHostMutableImpl(const std::string & opName,
-                                     MemoryRegionHandle handle) override;
-
-    virtual MutableMemoryRegion
-    transferToHostMutableSyncImpl(const std::string & opName,
-                                  MemoryRegionHandle handle) override;
-
     virtual MemoryRegionHandle
     enqueueManagePinnedHostRegionImpl(const std::string & opName,
                                       std::span<const std::byte> region, size_t align,
@@ -140,36 +174,26 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
                                      size_t fromOffset, size_t toOffset,
                                      size_t length) override;
 
-    virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
-
-    virtual void enqueueBarrier(const std::string & label) override;
-    virtual std::shared_ptr<ComputeEvent> flush() override;
     virtual void finish() override;
 
-private:
-    template<typename CommandEncoder>
-    void beginEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force);
-    template<typename CommandEncoder>
-    void endEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force);
-
-    // Commands that are active and we haven't yet waited on (used to ensure serial execution)
-    std::vector<mtlpp::Fence> activeCommands;
-
-    // Performs the necessary fences, etc to implement the scheduling type on the queue
-    void beginEncoding(const std::string & opName, mtlpp::ComputeCommandEncoder & encoder, bool force = false);
-    void beginEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, bool force = false);
-    void endEncoding(const std::string & opName, mtlpp::ComputeCommandEncoder & encoder, bool force = false);
-    void endEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, bool force = false);
-
-
+protected:
+    virtual void
+    enqueueZeroFillArrayConcrete(const std::string & opName,
+                                 MemoryRegionHandle region, MemoryRegionInitialization init,
+                                 size_t startOffsetInBytes, ssize_t lengthInBytes) = 0;
+    virtual void
+    enqueueBlockFillArrayConcrete(const std::string & opName,
+                                  MemoryRegionHandle region, MemoryRegionInitialization init,
+                                  size_t startOffsetInBytes, ssize_t lengthInBytes,
+                                  std::span<const std::byte> block) = 0;
 };
 
 
-// MetalComputeMarker
+// GridComputeMarker
 
-struct MetalComputeMarker: public ComputeMarker {
-    MetalComputeMarker(const std::string & scopeName);
-    virtual ~MetalComputeMarker();
+struct GridComputeMarker: public ComputeMarker {
+    GridComputeMarker(const std::string & scopeName);
+    virtual ~GridComputeMarker();
 
     virtual std::shared_ptr<ComputeMarker> enterScope(const std::string & scopeName);
 
@@ -177,17 +201,16 @@ struct MetalComputeMarker: public ComputeMarker {
 };
 
 
-// MetalComputeContext
+// GridComputeContext
 
-struct MetalComputeContext: public ComputeContext {
+struct GridComputeContext: public ComputeContext {
 
-    MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device);
+    GridComputeContext(ComputeDevice device);
 
-    virtual ~MetalComputeContext() = default;
+    virtual ~GridComputeContext() = default;
 
-    mtlpp::Device mtlDevice;
     ComputeDevice device;
-    mtlpp::Heap heap;
+    std::shared_ptr<GridComputeQueue> queue;
 
     virtual ComputeDevice getDevice() const override;
 
@@ -198,7 +221,7 @@ struct MetalComputeContext: public ComputeContext {
     virtual void recordMarkerEvent(const std::string & event) override;
 
     // pin, region, length in bytes
-    static std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
+    static std::tuple<std::shared_ptr<const void>, std::any, size_t>
     getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
                     MemoryRegionAccess access);
 
@@ -263,83 +286,94 @@ struct MetalComputeContext: public ComputeContext {
                  size_t align, const std::type_info & type, bool isConst) override;
 };
 
-// MetalComputeKernel helper types
+// GridComputeKernel helper types
 
-enum class MetalBindFieldActionType {
+enum class GridBindFieldActionType {
     SET_FIELD_FROM_PARAM,
     SET_FIELD_FROM_KNOWN
 };
 
-DECLARE_ENUM_DESCRIPTION(MetalBindFieldActionType);
+DECLARE_ENUM_DESCRIPTION(GridBindFieldActionType);
 
-struct MetalBindFieldAction {
-    MetalBindFieldActionType action;
+struct GridBindFieldAction {
+    GridBindFieldActionType action;
     int fieldNumber = -1;
     int argNum = -1;
     std::shared_ptr<CommandExpression> expr;  // for setting from known
 
     void apply(void * object,
                const ValueDescription & desc,
-               MetalComputeQueue & queue,
+               GridComputeContext & context,
                const std::vector<ComputeKernelArgument> & args,
                ComputeKernelConstraintSolution & knowns) const;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(MetalBindFieldAction);
+DECLARE_STRUCTURE_DESCRIPTION(GridBindFieldAction);
 
-enum class MetalBindActionType {
+enum class GridBindActionType {
     SET_BUFFER_FROM_ARG,
     SET_BUFFER_FROM_STRUCT,
     SET_BUFFER_THREAD_GROUP
 };
 
-DECLARE_ENUM_DESCRIPTION(MetalBindActionType);
+DECLARE_ENUM_DESCRIPTION(GridBindActionType);
 
-struct MetalBindAction {
-    MetalBindActionType action;
+struct GridBindAction {
+    GridBindActionType action;
     ComputeKernelType type;
-    mtlpp::Argument arg;
+    std::any arg;
     int argNum = -1;
     std::string argName;
     std::shared_ptr<CommandExpression> expr;  // for setting from known or size of thread group
-    std::vector<MetalBindFieldAction> fields; // for struct
+    std::vector<GridBindFieldAction> fields; // for struct
 
-    void apply(MetalComputeQueue & queue,
+    void apply(GridComputeContext & context,
                const std::vector<ComputeKernelArgument> & args,
                ComputeKernelConstraintSolution & knowns,
                bool setKnowns,
-               mtlpp::CommandBuffer & commandBuffer,
-               mtlpp::ComputeCommandEncoder & commandEncoder) const;
+               GridBindContext & bindContext) const;
 
 private:
-    void applyArg(MetalComputeQueue & queue,
+    void applyArg(GridComputeContext & context,
                   const std::vector<ComputeKernelArgument> & args,
                   ComputeKernelConstraintSolution & knowns,
                   bool setKnowns,
-                  mtlpp::CommandBuffer & commandBuffer,
-                  mtlpp::ComputeCommandEncoder & commandEncoder) const;
-    void applyStruct(MetalComputeQueue & queue,
+                  GridBindContext & bindContext) const;
+    void applyStruct(GridComputeContext & context,
                     const std::vector<ComputeKernelArgument> & args,
                     ComputeKernelConstraintSolution & knowns,
                     bool setKnowns,
-                    mtlpp::CommandBuffer & commandBuffer,
-                    mtlpp::ComputeCommandEncoder & commandEncoder) const;
-    void applyThreadGroup(MetalComputeQueue & queue,
+                    GridBindContext & bindContext) const;
+    void applyThreadGroup(GridComputeContext & context,
                           const std::vector<ComputeKernelArgument> & args,
                           ComputeKernelConstraintSolution & knowns,
                           bool setKnowns,
-                          mtlpp::CommandBuffer & commandBuffer,
-                          mtlpp::ComputeCommandEncoder & commandEncoder) const;
+                          GridBindContext & bindContext) const;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(MetalBindAction);
+DECLARE_STRUCTURE_DESCRIPTION(GridBindAction);
 
-// MetalComputeKernel
 
-struct MetalComputeKernel: public ComputeKernel {
+// GridComputeFunction
 
-    MetalComputeKernel(MetalComputeContext * owner)
-        : mtlContext(owner)
+struct GridComputeFunction {
+
+};
+
+
+// GridComputeFunctionLibrary
+
+struct GridComputeFunctionLibrary {
+
+};
+
+
+// GridComputeKernel
+
+struct GridComputeKernel: public ComputeKernel {
+
+    GridComputeKernel(GridComputeContext * owner)
+        : gridContext(owner)
     {
     }
 
@@ -352,26 +386,15 @@ struct MetalComputeKernel: public ComputeKernel {
     /// Do we allow the grid to be expanded?
     bool allowGridExpansionFlag = false;
 
-    using SetParameters = std::function<void (mtlpp::Function & kernel, MetalComputeContext & context)>;
-
-    /// List of functions used to set arbitrary values on the kernel (especially for calculating
-    /// sizes of local arrays or other bounds)
-    std::vector<SetParameters> setters;
-
     // Expressions for the grid dimensions, if we override them
     std::shared_ptr<CommandExpression> gridExpression;
     std::shared_ptr<CommandExpression> blockExpression;
 
-    // Function to modify the grid dimensions
-    std::function<void (std::vector<size_t> & grid, std::vector<size_t> & block)> modifyGrid;
+    GridComputeContext * gridContext = nullptr;
+    std::shared_ptr<GridComputeFunctionLibrary> gridLibrary;
+    std::shared_ptr<GridComputeFunction> gridFunction;
 
-    MetalComputeContext * mtlContext = nullptr;
-    mtlpp::Library mtlLibrary;  // Mutable as createKernel is non-const
-    mtlpp::Function mtlFunction;
-    mtlpp::ComputePipelineState computePipelineState;
-    mtlpp::ComputePipelineReflection reflection;
-
-    std::vector<MetalBindAction> bindActions;
+    std::vector<GridBindAction> bindActions;
 
     // Serializer for tracing this particular kernel
     std::shared_ptr<StructuredSerializer> traceSerializer;
@@ -381,13 +404,8 @@ struct MetalComputeKernel: public ComputeKernel {
 
     mutable std::atomic<int> numCalls;
 
-    // For each Metal argument, which is the corresponding argument number in arguments passed in?
+    // For each Grid argument, which is the corresponding argument number in arguments passed in?
     std::vector<int> correspondingArgumentNumbers;
-
-    // Parses an Metal kernel argument info structure, and turns it into a ComputeKernel type
-    static ComputeKernelType getKernelType(const mtlpp::Argument & arg);
-
-    void setParameters(SetParameters setter);
 
     // Add a tuneable parameter to the invocation
     void addTuneable(const std::string & variableName, int64_t defaultValue);
@@ -407,16 +425,20 @@ struct MetalComputeKernel: public ComputeKernel {
     // parallelism.
     void allowGridExpansion();
 
-    void setComputeFunction(mtlpp::Library program,
+    void setComputeFunction(std::shared_ptr<GridComputeFunctionLibrary> library,
                             std::string kernelName);
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(ComputeQueue & queue,
-                                        std::vector<ComputeKernelArgument> arguments,
+    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
                                         ComputeKernelConstraintSolution knowns) const override;
+
+protected:
+    // Implemented by subclass to create the GridBindInfo
+    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const = 0;
+
 };
 
-void registerMetalComputeKernel(const std::string & kernelName,
-                           std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext &)> generator);
+void registerGridComputeKernel(const std::string & kernelName,
+                               std::function<std::shared_ptr<GridComputeKernel>(GridComputeContext &)> generator);
 
 }  // namespace MLDB
