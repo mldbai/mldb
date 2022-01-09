@@ -26,20 +26,15 @@ namespace MLDB {
 
 namespace {
 
-#if 0
 std::mutex kernelRegistryMutex;
 struct KernelRegistryEntry {
-    std::function<std::shared_ptr<GridComputeKernel>(GridComputeContext & context)> generate;
+    std::function<std::shared_ptr<GridComputeKernelTemplate>(GridComputeContext & context)> generate;
 };
 
 std::map<std::string, KernelRegistryEntry> kernelRegistry;
-#endif
 
 EnvOption<int> GRID_TRACE_API_CALLS("GRID_COMPUTE_TRACE_API_CALLS", 0);
-#if 0
 EnvOption<std::string, true> GRID_KERNEL_TRACE_FILE("GRID_KERNEL_TRACE_FILE", "");
-EnvOption<std::string, true> GRID_CAPTURE_FILE("GRID_CAPTURE_FILE", "");
-EnvOption<bool, false> GRID_ENABLED("GRID_ENABLED", true);
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
 std::shared_ptr<StructuredSerializer> regionsSerializer;
@@ -114,8 +109,6 @@ struct InitTrace {
         }
     }
 } initTrace;
-
-#endif
 
 __thread int opCount = 0;
 Timer startTimer;
@@ -269,19 +262,9 @@ getReadOnlyHostAccessSync(const GridComputeContext & context,
                             ssize_t length,
                             bool ignoreHazards)
 {
+    std::shared_ptr<const void> pin;
     if (!ignoreHazards && false) {
-        unique_lock guard(mutex);
-
-        if (numWriters != 0) {
-            throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
-                                    + jsonEncodeStr(currentWriters) + " and active reader(s) "
-                                    + jsonEncodeStr(currentReaders));
-        }
-
-        if (!currentReaders.insert(opName).second) {
-            throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
-        }
-        ++numReaders;
+        pin = manager->pinAccess(opName, this, ACC_READ);
     }
 
     if (length == -1) {
@@ -311,9 +294,16 @@ getReadOnlyHostAccessSync(const GridComputeContext & context,
 #endif
 }
 
-std::tuple<std::shared_ptr<const void>, std::any>
+std::shared_ptr<const void>
 GridMemoryRegionHandleInfo::
-getGridAccess(const std::string & opName, MemoryRegionAccess access)
+pinAccess(const std::string & opName, MemoryRegionAccess access)
+{
+    return manager->pinAccess(opName, this, access);
+}
+
+std::shared_ptr<const void>
+GridMemoryRegionHandleInfo::Manager::
+pinAccess(const std::string & opName, MemoryRegionHandleInfo * info, MemoryRegionAccess access)
 {
     unique_lock guard(mutex);
 
@@ -323,12 +313,12 @@ getGridAccess(const std::string & opName, MemoryRegionAccess access)
 
     if (access == ACC_READ) {
         if (numWriters != 0 && false) {
-            throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
+            throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + info->name + "' with active writer(s) "
                                     + jsonEncodeStr(currentWriters) + " and active reader(s) "
                                     + jsonEncodeStr(currentReaders));
         }
         if (!currentReaders.insert(opName).second) {
-            throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
+            throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + info->name + "'");
         }
         ++numReaders;
 
@@ -341,22 +331,22 @@ getGridAccess(const std::string & opName, MemoryRegionAccess access)
 
         auto pin =  std::shared_ptr<void>(nullptr, done);
         //cerr << "returning r/o version " << version << " of " << name << " for " << opName << endl;
-        return { std::move(pin), this->buffer };
+        return pin;
     }
     else {  // read only or read write
         if (currentReaders.count(opName)) {
-            throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
+            throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + info->name + "'");
         }
         if (currentWriters.count(opName)) {
-            throw MLDB::Exception("Operation '" + opName + " ' is already writing region '" + name + "'");
+            throw MLDB::Exception("Operation '" + opName + " ' is already writing region '" + info->name + "'");
         }
         if ((numWriters != 0 || numReaders != 0) && false) {
             throw MLDB::Exception("Operation '" + opName + "' attempted to write region '"
-                                    + name + "' with active writer(s) "
+                                    + info->name + "' with active writer(s) "
                                     + jsonEncodeStr(currentWriters) + " and/or active reader(s) "
                                     + jsonEncodeStr(currentReaders));
         }
-        ++version;
+        ++info->version;
         ++numWriters;
         currentWriters.insert(opName);
         if (access == ACC_READ_WRITE) {
@@ -364,10 +354,10 @@ getGridAccess(const std::string & opName, MemoryRegionAccess access)
             currentReaders.insert(opName);
         }
 
-        auto done = [this, access, opName] (const void * mem)
+        auto done = [this, info, access, opName] (const void * mem)
         {
             unique_lock guard(mutex);
-            ++version;
+            ++info->version;
             --numWriters;
             currentWriters.erase(opName);
             if (access == ACC_READ_WRITE) {
@@ -380,8 +370,8 @@ getGridAccess(const std::string & opName, MemoryRegionAccess access)
 
         //this->buffer.SetPurgeableState(mtlpp::PurgeableState::NonVolatile);
 
-        auto pin =  std::shared_ptr<void>(nullptr, done);
-        return { std::move(pin), this->buffer };
+        auto pin = std::shared_ptr<void>(nullptr, done);
+        return pin;
     }
 }
 
@@ -396,7 +386,7 @@ GridComputeProfilingInfo()
 // GridComputeEvent
 
 GridComputeEvent::
-GridComputeEvent(const std::string & label, bool isResolvedIn, GridComputeQueue * owner)
+GridComputeEvent(const std::string & label, bool isResolvedIn, const GridComputeQueue * owner)
     : label_(label), owner(owner), future(promise.get_future().share())
 {
     ExcAssert(owner);
@@ -475,68 +465,32 @@ GridComputeQueue(GridComputeContext * owner, GridComputeQueue * parent, const st
                  GridDispatchType dispatchType)
     : ComputeQueue(owner, parent), gridOwner(owner), dispatchType(dispatchType)
 {
+    if (parent) {
+        weakParent = parent->weak_from_this();
+        ExcAssertEqual(parent->numChildren.fetch_add(1), 0);
+    }
 }
 
 GridComputeQueue::~GridComputeQueue()
 {
-}
+    auto sharedParent = weakParent.lock();
 
-#if 0
-template<typename CommandEncoder>
-void
-GridComputeQueue::
-beginEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force)
-{
-    ExcAssert(encoder);
-    encoder.SetLabel(opName.c_str());
-    if (force || this->dispatchType == mtlpp::DispatchType::Serial) {
-        cerr << "awaiting " << activeCommands.size() << " fences before " << opName << endl;
-        for (auto fence: activeCommands)
-            encoder.WaitForFence(fence);
-        activeCommands.clear();
+    if (parent && !sharedParent) {
+        cerr << "ERROR: parent queue was destroyed BEFORE its children" << endl;
+    }
+
+    if (sharedParent) {
+        if (sharedParent->numChildren.fetch_sub(1) == 0) {
+            cerr << "ERROR: parent queue didn't know about its children" << endl;
+            abort();
+        }
+    }
+
+    if (numChildren != 0) {
+        cerr << "ERROR: parent queue being destroyed with active children" << endl;
+        abort();
     }
 }
-
-template<typename CommandEncoder>
-void
-GridComputeQueue::
-endEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force)
-{
-    auto fence = mtlOwner->mtlDevice.NewFence();
-    ExcAssert(fence);
-    encoder.UpdateFence(fence);
-    encoder.EndEncoding();
-    activeCommands.emplace_back(std::move(fence));
-}
-
-void
-GridComputeQueue::
-beginEncoding(const std::string & opName, mtlpp::ComputeCommandEncoder & encoder, bool force)
-{
-    beginEncodingImpl(opName, encoder, force);
-}
-
-void
-GridComputeQueue::
-beginEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, bool force)
-{
-    beginEncodingImpl(opName, encoder, force);
-}
-
-void
-GridComputeQueue::
-endEncoding(const std::string & opName, mtlpp::ComputeCommandEncoder & encoder, bool force)
-{
-    endEncodingImpl(opName, encoder, force);
-}
-
-void
-GridComputeQueue::
-endEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, bool force)
-{
-    endEncodingImpl(opName, encoder, force);
-}
-#endif
 
 void
 GridComputeQueue::
@@ -663,12 +617,12 @@ enqueue(const std::string & opName,
             bindInfo->traceSerializer->commit();
         }
 
-        auto bindContext = this->newBindContext();
+        auto bindContext = this->newBindContext(opName, kernel, bindInfo);
 
         constexpr bool solveAfter = false;
 
         for (auto & action: kernel->bindActions) {
-            action.apply(*kernel->gridContext, bound.arguments, knowns, solveAfter, *bindContext);
+            action.apply(*this, bound.arguments, knowns, solveAfter, *bindContext);
         }
 
         if (solveAfter) {
@@ -676,7 +630,7 @@ enqueue(const std::string & opName,
         }
         //knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
 
-        this->launch(*bindContext, mtlGrid, mtlBlock);
+        this->launch(opName, *bindContext, mtlGrid, mtlBlock);
     } MLDB_CATCH_ALL {
         rethrowException(400, "Error launching Grid kernel " + bound.owner->kernelName);
     }
@@ -705,10 +659,10 @@ enqueueFillArrayImpl(const std::string & opName,
     case MemoryRegionInitialization::INIT_NONE:
         return;
     case MemoryRegionInitialization::INIT_ZERO_FILLED:
-        this->zeroFillArrayConcrete(opName, region, startOffsetInBytes, lengthInBytes);
+        this->enqueueZeroFillArrayConcrete(opName, region, startOffsetInBytes, lengthInBytes);
         return;
     case MemoryRegionInitialization::INIT_BLOCK_FILLED:
-        this->blockFillArrayConcrete(opName, region, startOffsetInBytes, lengthInBytes, block);
+        this->enqueueBlockFillArrayConcrete(opName, region, startOffsetInBytes, lengthInBytes, block);
         return;
     default:
         MLDB_THROW_UNIMPLEMENTED("unknown memory region initialization %d", init);
@@ -773,69 +727,7 @@ transferToHostSyncImpl(const std::string & opName,
         return { handle.handle, (const char *)upcastHandle->backingHostMem, (size_t)upcastHandle->lengthInBytes };
     }
 
-    auto [pin, buffer, offset] = GridComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ);
-
-    auto blitEncoder = commandBuffer.BlitCommandEncoder();
-    beginEncoding(opName, blitEncoder);
-
-    const void * contents;
-    auto length = buffer.GetLength();
-    ExcAssertLessEqual(handle.handle->lengthInBytes, length);
-
-    switch (buffer.GetStorageMode()) {
-    case mtlpp::StorageMode::Managed:
-        blitEncoder.Synchronize(buffer);
-        // fall through
-    case mtlpp::StorageMode::Shared:
-        contents = buffer.GetContents();
-        break;
-    case mtlpp::StorageMode::Private: {
-        // It's a private region; we need to create a new region to hold the result, and then
-        // synchronize
-        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-        auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
-        tmpBuffer.SetLabel((opName + " transferToHostSync private copy").c_str());
-        blitEncoder.Copy(buffer, offset, tmpBuffer, 0 /* offset */, length - offset);
-        blitEncoder.Synchronize(tmpBuffer);
-        contents = tmpBuffer.GetContents();
-
-        // We pin the temp buffer instead
-        auto freeTmpBuffer = [tmpBuffer] (auto arg) {};
-        pin = std::shared_ptr<const void>(nullptr, freeTmpBuffer);
-        break;
-    }
-    default:
-        throw MLDB::Exception("Cannot manage MemoryLess storage mode");
-    }
-    endEncoding(opName, blitEncoder);
-
-    auto myCommandBuffer = commandBuffer;
-
-    finish();
-
-    //ExcAssert(commandBuffer);
-    //commandBuffer.Commit();
-    //commandBuffer.WaitUntilCompleted();
-
-    auto status = myCommandBuffer.GetStatus();
-    if (status != mtlpp::CommandBufferStatus::Completed) {
-        auto error = commandBuffer.GetError();
-        throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
-    }
-
-    //auto storageMode = buffer.GetStorageMode();
-    //cerr << "storage mode is " << (int)storageMode << endl;
-
-
-    //cerr << "contents " << contents << endl;
-    //cerr << "length " << length << endl;
-
-    //cerr << "region length for region " << handle.handle->name
-    //     << " with lengthInBytes " << handle.handle->lengthInBytes
-    //     << " is " << length << " and contents " << contents << endl;
-
-    FrozenMemoryRegion result(std::move(pin), ((const char *)contents) + offset, handle.handle->lengthInBytes);
-    return result;
+    return transferToHostSyncConcrete(opName, handle);
 }
 
 MemoryRegionHandle
@@ -844,10 +736,10 @@ enqueueManagePinnedHostRegionImpl(const std::string & opName, std::span<const st
                                   const std::type_info & type, bool isConst)
 {
     auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext managePinnedHostRegionImpl " + opName);
-
     return managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
 }
 
+#if 0
 MemoryRegionHandle
 GridComputeQueue::
 managePinnedHostRegionSyncImpl(const std::string & opName,
@@ -857,36 +749,6 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
     auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext managePinnedHostRegionSyncImpl " + opName);
 
     cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
-
-    mtlpp::ResourceOptions options
-         = mtlpp::ResourceOptions::StorageModeShared;
-
-
-    traceGridOperation("region size " + std::to_string(region.size()));
-
-    // This overload calls newBufferWithBytesNoCopy
-    // Note that we require a page-aligned address and size, and a single VM region
-    // See https://developer.apple.com/documentation/grid/mtldevice/1433382-makebuffer
-    // Thus, for now we don't try; instead we copy and blit
-    mtlpp::Buffer buffer;
-    if (false) {
-        auto deallocator = [=] (auto ptr, auto len)
-        {
-            cerr << ansi::bright_red << "DEALLOCATING PINNED REGION " << opName << ansi::reset
-                << " of length " << len << endl;
-        };
-
-        buffer = mtlOwner->mtlDevice.NewBuffer((void *)region.data(), region.size(), options, deallocator);
-    }
-    else {
-        if (region.empty()) {
-            buffer = mtlOwner->mtlDevice.NewBuffer(4, options);
-        }
-        else {
-            buffer = mtlOwner->mtlDevice.NewBuffer((const void *)region.data(), region.size(), options);
-        }
-    }
-    buffer.SetLabel(opName.c_str());
 
     auto handle = std::make_shared<GridMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);
@@ -944,6 +806,7 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
     enqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length);
     finish();
 }
+#endif
 
 void
 GridComputeQueue::
@@ -979,8 +842,7 @@ enterScope(const std::string & scopeName)
 
 GridComputeContext::
 GridComputeContext(ComputeDevice device)
-    : device(device),
-      queue(std::make_shared<GridComputeQueue>(this, nullptr /* parent */, "(queue for context)", GridDispatchType::SERIAL))
+    : device(device)
 {
 }
 
@@ -1018,6 +880,7 @@ getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, Mem
 
     return { std::move(pin), mem, upcastHandle->offset };
 }
+#endif
 
 std::tuple<FrozenMemoryRegion, int /* version */>
 GridComputeContext::
@@ -1031,7 +894,6 @@ getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & h
     }
     return upcastHandle->getReadOnlyHostAccessSync(*this, opName, offset, length, ignoreHazards);
 }
-#endif
 
 #if 0
 static MemoryRegionHandle
@@ -1067,6 +929,7 @@ doGridAllocate(mtlpp::Heap & mtlHeap,
 }
 #endif
 
+#if 0
 MemoryRegionHandle
 GridComputeContext::
 allocateSyncImpl(const std::string & regionName,
@@ -1077,6 +940,7 @@ allocateSyncImpl(const std::string & regionName,
     auto result = doGridAllocate(this->heap, this->mtlDevice, regionName, length, align, type, isConst);
     return result;
 }
+#endif
 
 #if 0
 static MemoryRegionHandle
@@ -1224,12 +1088,20 @@ getKernel(const std::string & kernelName)
         throw AnnotatedException(400, "Unable to find Grid compute kernel '" + kernelName + "'",
                                         "kernelName", kernelName);
     }
-    auto result = it->second.generate(*this);
-    result->context = this;
+
+    // First, get the template
+    // TODO: cache it...
+
+    auto tmplate = it->second.generate(*this);
+
+    // Secondly, specialize the template
+    auto result = specializeKernel(*tmplate);
+
     if (traceSerializer) {
         result->traceSerializer = kernelsSerializer->newStructure(kernelName);
         result->runsSerializer = result->traceSerializer->newStructure("runs");
     }
+    
     return result;
 }
 
@@ -1337,9 +1209,8 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
         throw MLDB::Exception("getSliceImpl: end offset past the end");
     }
 
-    auto newInfo = std::make_shared<GridMemoryRegionHandleInfo>();
+    std::shared_ptr<GridMemoryRegionHandleInfo> newInfo(info->clone());
 
-    newInfo->buffer = info->buffer;
     newInfo->offset = info->offset + startOffsetInBytes;
     newInfo->isConst = isConst;
     newInfo->type = &type;
@@ -1396,7 +1267,7 @@ void
 GridBindFieldAction::
 apply(void * object,
       const ValueDescription & desc,
-      GridComputeContext & context,
+      GridComputeQueue & queue,
       const std::vector<ComputeKernelArgument> & args,
       ComputeKernelConstraintSolution & knowns) const
 {
@@ -1423,7 +1294,7 @@ apply(void * object,
         value = arg.handler->toJson();
         if (arg.handler->type.baseType->kind == ValueKind::ENUM) {
             // we need to convert to an integer
-            auto bytes = arg.handler->getPrimitive(opName, context);
+            auto bytes = arg.handler->getPrimitive(opName, queue);
             ExcAssertEqual(bytes.size_bytes(), fieldDesc.width);
             fieldDesc.description->copyValue(bytes.data(), fieldDesc.getFieldPtr(object));
             done = true;
@@ -1435,7 +1306,7 @@ apply(void * object,
         break;
     }
     default:
-        throw MLDB::Exception("Can't handle unknown GridBindFieldAction value");
+        MLDB_THROW_UNIMPLEMENTED("Can't handle unknown GridBindFieldAction value");
     }
 
     traceGridOperation("value " + jsonEncodeStr(value));
@@ -1465,7 +1336,7 @@ DEFINE_ENUM_DESCRIPTION_INLINE(GridBindActionType)
 
 void
 GridBindAction::
-applyArg(GridComputeContext & context,
+applyArg(GridComputeQueue & queue,
          const std::vector<ComputeKernelArgument> & args,
          ComputeKernelConstraintSolution & knowns,
          bool setKnowns,
@@ -1488,8 +1359,7 @@ applyArg(GridComputeContext & context,
     }
     auto op = scopedOperation(OperationType::GRID_COMPUTE, 
                               "GridComputeKernel bind arg " + argName + " type " + arg.handler->type.print()
-                              + " from " + jStr 
-                              + " at index " + std::to_string(this->arg.GetIndex()));
+                              + " from " + jStr + " at index " + std::to_string(argNum));
 
 #if 0
     if (traceSerializer) {
@@ -1509,17 +1379,13 @@ applyArg(GridComputeContext & context,
 
     ExcAssert(arg.handler);  // if there is no handler, we should be in applyStruct
 
-    mtlpp::Buffer memBuffer;
-    size_t offset = 0;
-    std::shared_ptr<const void> pin;
-
     if (arg.handler->canGetPrimitive()) {
-        auto bytes = arg.handler->getPrimitive(opName, context);
+        auto bytes = arg.handler->getPrimitive(opName, queue);
         traceGridOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
-        commandEncoder.SetBytes(bytes.data(), bytes.size_bytes(), this->arg.GetIndex());
+        bindContext.setPrimitive(opName, computeFunctionArgIndex, bytes);
     }
     else if (arg.handler->canGetHandle()) {
-        auto handle = arg.handler->getHandle(opName, context);
+        auto handle = arg.handler->getHandle(opName, queue);
         traceGridOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
         MemoryRegionAccess access = type.access;
 
@@ -1540,17 +1406,14 @@ applyArg(GridComputeContext & context,
         }
 
         if (traceSerializer && (access & ACC_READ)) {
-            auto [region, version] = context
-                .getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
+            auto [region, version] = queue.gridOwner
+                ->getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
                                             true /* ignore hazards */);
             //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
             traceVersion(handle.handle->name, version, region);
         }
 
-        std::tie(pin, memBuffer, offset)
-            = context.getMemoryRegion(opName, *handle.handle, access);
-
-        commandEncoder.SetBuffer(memBuffer, offset, this->arg.GetIndex());
+        bindContext.setBuffer(opName, computeFunctionArgIndex, dynamic_pointer_cast<GridMemoryRegionHandleInfo>(handle.handle), access);
     }
     else if (arg.handler->canGetConstRange()) {
         throw MLDB::Exception("param.getConstRange");
@@ -1562,14 +1425,14 @@ applyArg(GridComputeContext & context,
 
 void
 GridBindAction::
-applyStruct(GridComputeContext & context,
+applyStruct(GridComputeQueue & queue,
             const std::vector<ComputeKernelArgument> & args,
             ComputeKernelConstraintSolution & knowns,
             bool setKnowns,
             GridBindContext & bindContext) const
 {
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, 
-                              "GridComputeKernel bind struct to arg " + argName + " at index " + std::to_string(arg.GetIndex()));
+    std::string opName = "GridComputeKernel bind struct to arg " + argName + " at index " + std::to_string(argNum);
+    auto op = scopedOperation(OperationType::GRID_COMPUTE, opName);
 
     void * ptr = nullptr;
     if (type.baseType->align < alignof(void *)) {
@@ -1605,15 +1468,17 @@ applyStruct(GridComputeContext & context,
 
     // Fill it in
     for (auto & field: this->fields) {
-        field.apply(result.get(), *type.baseType, context, args, knowns);
+        field.apply(result.get(), *type.baseType, queue, args, knowns);
     }
 
-    commandEncoder.SetBytes(result.get(), type.baseType->width, this->arg.GetIndex());
+    std::span<const std::byte> bytes((const std::byte *)result.get(), type.baseType->width);
+
+    bindContext.setPrimitive(opName, computeFunctionArgIndex, bytes);
 }
 
 void
 GridBindAction::
-applyThreadGroup(GridComputeContext & context,
+applyThreadGroup(GridComputeQueue & queue,
                  const std::vector<ComputeKernelArgument> & args,
                  ComputeKernelConstraintSolution & knowns,
                  bool setKnowns,
@@ -1629,7 +1494,8 @@ applyThreadGroup(GridComputeContext & context,
     while (nbytes % 16 != 0)
         ++nbytes;
 
-    traceGridOperation("binding local array handle with " + std::to_string(nbytes) + " bytes " + " at index " + std::to_string(arg.GetIndex()));
+    std::string opName = "binding local array " + argName + " with " + std::to_string(nbytes) + " bytes at index " + std::to_string(argNum);
+    traceGridOperation(opName);
 
     // Set the knowns for this binding
     if (setKnowns) {
@@ -1644,13 +1510,13 @@ applyThreadGroup(GridComputeContext & context,
         knowns.setValue(this->argName, std::move(known));
     }
 
-    // Set it up in the command encoder
-    commandEncoder.SetThreadgroupMemory(nbytes, this->arg.GetIndex());
+    // Set it up
+    bindContext.setThreadGroupMemory(opName, computeFunctionArgIndex, nbytes);
 }
 
 void
 GridBindAction::
-apply(GridComputeContext & context,
+apply(GridComputeQueue & queue,
       const std::vector<ComputeKernelArgument> & args,
       ComputeKernelConstraintSolution & knowns,
       bool setKnowns,
@@ -1658,13 +1524,13 @@ apply(GridComputeContext & context,
 {
     switch (action) {
         case GridBindActionType::SET_BUFFER_FROM_ARG:
-            applyArg(context, args, knowns, setKnowns, bindContext);
+            applyArg(queue, args, knowns, setKnowns, bindContext);
             break;
         case GridBindActionType::SET_BUFFER_FROM_STRUCT:
-            applyStruct(context, args, knowns, setKnowns, bindContext);
+            applyStruct(queue, args, knowns, setKnowns, bindContext);
             break;
         case GridBindActionType::SET_BUFFER_THREAD_GROUP:
-            applyThreadGroup(context, args, knowns, setKnowns, bindContext);
+            applyThreadGroup(queue, args, knowns, setKnowns, bindContext);
             break;
         default:
             throw MLDB::Exception("Unknown grid action");
@@ -1675,75 +1541,49 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(GridBindAction)
 {
     addField("action", &GridBindAction::action, "");
     addField("type", &GridBindAction::type, "");
+    addField("computeFunctionArgIndex", &GridBindAction::computeFunctionArgIndex, "");
     addField("argNum", &GridBindAction::argNum, "");
     addField("argName", &GridBindAction::argName, "");
     addField("expr", &GridBindAction::expr, "");
     addField("fields", &GridBindAction::fields, "");
 }
 
-void
-GridComputeKernel::
-setComputeFunction(mtlpp::Library libraryIn,
-                   std::string kernelName)
+GridComputeKernelSpecialization::
+GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKernelTemplate & tmplate)
+    : GridComputeKernel(owner)
 {
-    ExcAssert(libraryIn);
+    // Initialize all of the generic fields from the template
+    *(GridComputeKernel *)this = (const GridComputeKernel &)tmplate;
 
-    this->mtlLibrary = std::move(libraryIn);
-    this->kernelName = kernelName;
+    this->gridLibrary = owner->getLibrary(tmplate.libraryName);
+    this->gridFunction = this->gridLibrary->getFunction(tmplate.kernelName);
+    auto kernelArgs = this->gridFunction->getArgumentInfo();
 
-    ns::Error error{ns::Handle()};
-    mtlpp::FunctionConstantValues constantValues;
-    this->mtlFunction = this->mtlLibrary.NewFunction(kernelName.c_str(), constantValues, &error);
-    if (error) {
-        cerr << "Error making function" << endl;
-        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
-        if (error.GetLocalizedFailureReason()) {
-            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
-        }
-    }
-    ExcAssert(this->mtlFunction);
-
-    //cerr << this->mtlFunction.GetName().GetCStr() << endl;
-
-    mtlpp::PipelineOption options = (mtlpp::PipelineOption((int)mtlpp::PipelineOption::ArgumentInfo | (int)mtlpp::PipelineOption::BufferTypeInfo));
-    this->computePipelineState
-        = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, options, reflection, &error);
-    if (error) {
-        cerr << "Error making pipeline state" << endl;
-        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
-        if (error.GetLocalizedFailureReason()) {
-            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
-        }
-    }
-    ExcAssert(computePipelineState);
-    ExcAssert(reflection);
-
-    auto arguments = reflection.GetArguments();
-
-    correspondingArgumentNumbers.resize(arguments.GetSize());
+    correspondingArgumentNumbers.resize(kernelArgs.size());
 
     std::vector<GridBindAction> actions;
 
-    for (size_t i = 0;  i < arguments.GetSize();  ++i) {
-        mtlpp::Argument arg = arguments[i];
-        std::string argName = arg.GetName().GetCStr();
-        mtlpp::ArgumentType argType = arg.GetType();
+    for (size_t i = 0;  i < kernelArgs.size();  ++i) {
+        auto & arg = kernelArgs[i];
+        const std::string & argName = arg.name;
+        ComputeKernelType type = arg.type;  // we take a copy as we modify in the function
+        auto disposition = arg.disposition;
 
         GridBindAction action;
+        action.computeFunctionArgIndex = arg.computeFunctionArgIndex;
+
         auto it = paramIndex.find(argName);
 
-        if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
+        if (disposition == GridComputeFunctionArgumentDisposition::THREADGROUP) {
             if (it == paramIndex.end()) {
-                throw MLDB::Exception("Grid ThreadGroup kernel parameter " + argName + " to kernel " + this->kernelName
+                throw MLDB::Exception("Grid thread group kernel parameter " + argName + " to kernel " + this->kernelName
                                       + " has no corresponding argument to learn its length from");
             }
             int argNum = it->second;
             auto & paramType = params[argNum].type;
 
-            auto width = arg.GetThreadgroupMemoryDataSize();
-            auto align = arg.GetThreadgroupMemoryAlignment();
+            auto width = type.baseType->width;  //arg.GetThreadgroupMemoryDataSize();
+            auto align = type.baseType->align;  //arg.GetThreadgroupMemoryAlignment();
 
             ExcAssertEqual(paramType.dims.size(), 1);
             ExcAssert(paramType.dims[0].bound);
@@ -1755,13 +1595,9 @@ setComputeFunction(mtlpp::Library libraryIn,
             action.type = paramType;
             action.argName = argName;
             action.expr = paramType.dims[0].bound;
+            action.argNum = argNum;
         }
-        else if (argType == mtlpp::ArgumentType::Buffer) {
-            auto type = getKernelType(arg);
-            //cerr << "argument " << i << " has name " << argName
-            //    << " and index " << arg.GetIndex()
-            //    << " and type " << type.print() << endl;
-
+        else if (disposition == GridComputeFunctionArgumentDisposition::BUFFER) {
             if (it == paramIndex.end()) {
                 if (type.baseType->kind == ValueKind::STRUCTURE && type.dims.empty()) {
                     std::vector<GridBindFieldAction> fieldActions;
@@ -1806,14 +1642,8 @@ setComputeFunction(mtlpp::Library libraryIn,
                     action.arg = arg;
                     action.type = type;
                     action.argName = argName;
+                    action.argNum = i;
                     action.fields = std::move(fieldActions);
-                }
-                else if (this->setters.size() > 0) {
-                    continue;  // should be done in the setter...
-                }
-                else if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
-                    throw MLDB::Exception("Thread group parameter in kernel with no setters defined; "
-                                            "implement a setter to avoid launch failure");
                 }
                 else {
                     throw MLDB::Exception("Kernel parameter " + std::to_string(i)
@@ -1832,7 +1662,7 @@ setComputeFunction(mtlpp::Library libraryIn,
                 action.arg = arg;
                 action.type = type;  // TODO: get information from param type
                 action.argNum = it->second;
-                action.argName = arg.GetName().GetCStr();
+                action.argName = argName;
 
                 //cerr << "checking compatibility" << endl;
                 //cerr << "param type " << param.type.print() << endl;
@@ -1850,7 +1680,7 @@ setComputeFunction(mtlpp::Library libraryIn,
             }
         }
         else {
-            throw MLDB::Exception("Can't do Grid buffer or texture arguments (yet)");
+            MLDB_THROW_UNIMPLEMENTED("Can't do Grid sampler or texture arguments (yet)");
         }
         //cerr << "got action\n" << jsonEncode(action) << endl;
 
@@ -1862,8 +1692,10 @@ setComputeFunction(mtlpp::Library libraryIn,
 }
 
 BoundComputeKernel
-GridComputeKernel::
-bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
+GridComputeKernelSpecialization::
+bindImpl(ComputeQueue & queue,
+         std::vector<ComputeKernelArgument> argumentsIn,
+         ComputeKernelConstraintSolution knowns) const
 {
     auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeKernel bindImpl " + kernelName);
 
@@ -1880,35 +1712,30 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraint
     //     << computePipelineState.GetThreadExecutionWidth() << " thread execution width and requires "
     //     << computePipelineState.GetStaticThreadgroupMemoryLength() << " bytes of threadgroup memory"
     //     << endl;
-
+#if 0
     if (computePipelineState.GetMaxTotalThreadsPerThreadgroup() < 1024) {
         cerr << "kernel " << kernelName << " has maximum execution width of "
              << computePipelineState.GetMaxTotalThreadsPerThreadgroup()
              << " meaning it may be occupancy limited due to register pressure"
              << endl;
     }
+#endif
 
     if (traceSerializer) {
         int callNumber = numCalls++;
         bindInfo->traceSerializer = runsSerializer->newStructure(callNumber);
 
         if (callNumber == 0) {
-            auto key = format("%016x", (uint64_t)this->mtlLibrary.GetPtr());
-
+            auto key = this->gridLibrary->getId();
             traceSerializer->newObject("program", key);
             traceSerializer->newObject("kernel", this->kernelName);
 
-#if 0
-            // Store the program so that we can replay it later
+            // Store the program metadata so that we can replay it later
             std::unique_lock guard(tracedProgramMutex);
             if (tracedPrograms.insert(key).second) {
-                auto programInfo = this->clProgram.getProgramInfo();
-                auto buildInfo = this->clProgram.getProgramBuildInfo(this->clKernel.getContext().getDevices().at(0));
                 auto entry = programsSerializer->newStructure(key);
-                entry->newStream("source") << programInfo.source;
-                entry->newObject("build", buildInfo);
+                entry->newObject("metadata", this->gridLibrary->getMetadata());
             }
-#endif
         }
     }
 
@@ -1973,71 +1800,49 @@ bindImpl(std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraint
     }
 #endif
 
-
     return result;
 }
 
+void
+GridComputeKernelTemplate::
+setComputeFunction(std::string libraryName,
+                   std::string kernelName)
+{
+    this->libraryName = libraryName;
+    this->kernelName = kernelName;
+}
 
-#if 0
+std::shared_ptr<GridBindInfo>
+GridComputeKernelTemplate::
+getGridBindInfo() const
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+BoundComputeKernel
+GridComputeKernelTemplate::
+bindImpl(ComputeQueue & queue,
+         std::vector<ComputeKernelArgument> arguments,
+         ComputeKernelConstraintSolution knowns) const
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
 
 void registerGridComputeKernel(const std::string & kernelName,
-                                 std::function<std::shared_ptr<GridComputeKernel>(GridComputeContext & context)> generator)
+                               std::function<std::shared_ptr<GridComputeKernelTemplate>(GridComputeContext & context)> generator)
 {
     kernelRegistry[kernelName].generate = generator;
 }
-
 
 namespace {
 
 static struct Init {
     Init()
     {
-        ComputeRuntime::registerRuntime(ComputeRuntimeId::GRID, "grid",
-                                        [] () { return new GridComputeRuntime(); });
-
-        auto getLibrary = [] (GridComputeContext & context) -> mtlpp::Library
+        auto createBlockFillArrayKernel = [] (GridComputeContext& context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto compileLibrary = [&] () -> mtlpp::Library
-            {
-                ns::Error error{ns::Handle()};
-                mtlpp::Library library;
-
-                if (false) {
-                    std::string fileName = "mldb/builtin/grid/base_kernels.grid";
-                    filter_istream stream(fileName);
-                    Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
-
-                    mtlpp::CompileOptions compileOptions;
-                    library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
-                }
-                else {
-                    std::string fileName = "build/arm64/lib/base_kernels_grid.gridlib";
-                    library = context.mtlDevice.NewLibrary(fileName.c_str(), &error);
-                }
-
-                if (error) {
-                    cerr << "Error compiling" << endl;
-                    cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-                    cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
-                    if (error.GetLocalizedFailureReason()) {
-                        cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
-                    }
-                }
-
-                ExcAssert(library);
-
-                return library;
-            };
-
-            static const std::string cacheKey = "base_kernels";
-            mtlpp::Library library = context.getCacheEntry(cacheKey, compileLibrary);
-            return library;
-        };
-    
-        auto createBlockFillArrayKernel = [getLibrary] (GridComputeContext& context) -> std::shared_ptr<GridComputeKernel>
-        {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<GridComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "__blockFillArray";
             result->allowGridExpansion();
             result->addParameter("region", "w", "u8[regionLength]");
@@ -2052,17 +1857,16 @@ static struct Init {
             result->addTuneable("blocksPerGrid", 16);
             result->allowGridPadding();
             result->setGridExpression("[min(blocksPerGrid,ceilDiv(numBlocks, threadsPerBlock))]", "[threadsPerBlock]");
-            result->setComputeFunction(library, "__blockFillArrayKernel");
+            result->setComputeFunction("base_kernels", "__blockFillArrayKernel");
 
             return result;
         };
 
         registerGridComputeKernel("__blockFillArray", createBlockFillArrayKernel);
 
-        auto createZeroFillArrayKernel = [getLibrary] (GridComputeContext& context) -> std::shared_ptr<GridComputeKernel>
+        auto createZeroFillArrayKernel = [] (GridComputeContext& context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<GridComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "__zeroFillArray";
             result->allowGridExpansion();
             result->addParameter("region", "w", "u8[regionLength]");
@@ -2072,7 +1876,7 @@ static struct Init {
             result->addTuneable("blocksPerGrid", 16);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
-            result->setComputeFunction(library, "__zeroFillArrayKernel");
+            result->setComputeFunction("base_kernels", "__zeroFillArrayKernel");
 
             return result;
         };
@@ -2083,7 +1887,5 @@ static struct Init {
 } init;
 
 } // file scope
-
-#endif
 
 } // namespace MLDB

@@ -25,6 +25,42 @@ using namespace std;
 
 namespace MLDB {
 
+struct MetalException: public AnnotatedException {
+    static std::string getDomain(const ns::Error & error)
+    {
+        if (!error) return "<<no error>>";
+        return error.GetDomain().GetCStr();
+    }
+
+    static std::string getDescription(const ns::Error & error)
+    {
+        if (!error) return "<<no error>>";
+        return error.GetLocalizedDescription().GetCStr();
+    }
+
+    template<typename... NamesAndParams>
+    MetalException(const ns::Error & error, const std::string & message, NamesAndParams&&... namesAndParams)
+        : AnnotatedException(500, "METAL exception: " + message,
+                             "domain", getDomain(error),
+                             "description", getDescription(error),
+                             std::forward<NamesAndParams>(namesAndParams)...),
+          error(error), message(message)
+    {
+    }
+
+    ns::Error error;
+    std::string message;
+};
+
+template<typename... NamesAndParams>
+void checkMetalError(const ns::Error & error, const std::string & message, NamesAndParams&&... namesAndParams)
+{
+    if (!error)
+        return;
+
+    throw MetalException(error, message, std::forward<NamesAndParams>(namesAndParams)...);
+}
+
 DEFINE_ENUM_DESCRIPTION_NAMED(MtlCommandBufferStatusDescription, mtlpp::CommandBufferStatus);
 
 MtlCommandBufferStatusDescription::MtlCommandBufferStatusDescription()
@@ -46,11 +82,21 @@ struct KernelRegistryEntry {
 
 std::map<std::string, KernelRegistryEntry> kernelRegistry;
 
-struct MetalBindInfo: public ComputeKernelBindInfo {
+std::mutex libraryRegistryMutex;
+struct LibraryRegistryEntry {
+    std::function<std::shared_ptr<MetalComputeFunctionLibrary>(MetalComputeContext & context)> generate;
+};
+
+std::map<std::string, LibraryRegistryEntry> libraryRegistry;
+
+struct MetalBindInfo: public GridBindInfo {
+    MetalBindInfo(const MetalComputeKernel * owner)
+        : owner(owner)
+    {        
+    }
+
     virtual ~MetalBindInfo() = default;
 
-    mtlpp::Function mtlFunction;
-    mtlpp::ComputePipelineState mtlPipelineState;
     const MetalComputeKernel * owner = nullptr;
     std::shared_ptr<StructuredSerializer> traceSerializer;
 
@@ -171,14 +217,7 @@ struct InitCapture {
 
 //            if (!captureManager.StartCapture(captureDescriptor, &error)) {
             if (!captureManager.IsCapturing()) {
-                cerr << "Error initializing capture" << endl;
-                cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-                cerr << "description: " << error.GetLocalizedDescription().GetCStr() << endl;
-                if (error.GetLocalizedFailureReason()) {
-                    cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
-                }
-                cerr << "maybe you need to set METAL_DEVICE_WRAPPER_TYPE=1 in the environment?" << endl;
-                throw MLDB::Exception("Error initializing Metal capture: " + string( error.GetLocalizedDescription().GetCStr()));
+                throw MetalException(error, "Error initializing capture (maybe you need to set METAL_DEVICE_WRAPPER_TYPE=1 in the environment?)");
             }
         }
     }
@@ -339,18 +378,13 @@ ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(OperationType opType, co
     return ScopedOperation(opType, opName, std::forward<Args>(args)...);
 }
 
-struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
+struct MetalMemoryRegionHandleInfo: public GridMemoryRegionHandleInfo {
     mtlpp::Buffer buffer;
-    size_t offset = 0;
 
-    // If we're managing host memory, this is where it is.
-    const std::byte * backingHostMem = nullptr;
-
-    Spinlock mutex;
-    int numReaders = 0;
-    int numWriters = 0;
-    std::set<std::string> currentWriters;
-    std::set<std::string> currentReaders;
+    virtual MetalMemoryRegionHandleInfo * clone() const
+    {
+        return new MetalMemoryRegionHandleInfo(*this);
+    }
 
     void init(mtlpp::Buffer mem, size_t offset)
     {
@@ -358,150 +392,16 @@ struct MetalMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
         this->offset = offset;
         this->version = 0;
     }
-
-    std::tuple<FrozenMemoryRegion, int /* version */>
-    getReadOnlyHostAccessSync(const MetalComputeContext & context,
-                              const std::string & opName,
-                              size_t offset,
-                              ssize_t length,
-                              bool ignoreHazards)
-    {
-        if (!ignoreHazards && false) {
-            unique_lock guard(mutex);
-
-            if (numWriters != 0) {
-                throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
-                                      + jsonEncodeStr(currentWriters) + " and active reader(s) "
-                                      + jsonEncodeStr(currentReaders));
-            }
-
-            if (!currentReaders.insert(opName).second) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
-            }
-            ++numReaders;
-        }
-
-        if (length == -1) {
-            length = lengthInBytes - offset;
-        }
-
-        MLDB_THROW_UNIMPLEMENTED();
-
-#if 0
-        std::shared_ptr<const void> region
-            = context.clQueue->clQueue.enqueueMapBufferBlocking(buffer, CL_MAP_READ,
-                                                                offset /* offset */, length);
-
-        auto done = [this, opName, ignoreHazards, region] (const void * mem)
-        {
-            if (!ignoreHazards) {
-                unique_lock guard(mutex);
-                --numReaders;
-                currentReaders.erase(opName);
-            }
-        };
-
-        auto pin =  std::shared_ptr<void>(nullptr, done);
-        auto data = (const char *)region.get();
-
-        return { { std::move(pin), data, lengthInBytes - offset }, this->version };
-#endif
-    }
-
-    std::tuple<std::shared_ptr<const void>, mtlpp::Buffer>
-    getMetalAccess(const std::string & opName, MemoryRegionAccess access)
-    {
-        unique_lock guard(mutex);
-
-        if (access == ACC_NONE) {
-            throw MLDB::Exception("Asked for no access to region");
-        }
-
-        if (access == ACC_READ) {
-            if (numWriters != 0 && false) {
-                throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
-                                      + jsonEncodeStr(currentWriters) + " and active reader(s) "
-                                      + jsonEncodeStr(currentReaders));
-            }
-            if (!currentReaders.insert(opName).second) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
-            }
-            ++numReaders;
-
-            auto done = [this, opName] (const void * mem)
-            {
-                unique_lock guard(mutex);
-                --numReaders;
-                currentReaders.erase(opName);
-            };
-
-            auto pin =  std::shared_ptr<void>(nullptr, done);
-            //cerr << "returning r/o version " << version << " of " << name << " for " << opName << endl;
-            return { std::move(pin), this->buffer };
-        }
-        else {  // read only or read write
-            if (currentReaders.count(opName)) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
-            }
-            if (currentWriters.count(opName)) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already writing region '" + name + "'");
-            }
-            if ((numWriters != 0 || numReaders != 0) && false) {
-                throw MLDB::Exception("Operation '" + opName + "' attempted to write region '"
-                                      + name + "' with active writer(s) "
-                                      + jsonEncodeStr(currentWriters) + " and/or active reader(s) "
-                                      + jsonEncodeStr(currentReaders));
-            }
-            ++version;
-            ++numWriters;
-            currentWriters.insert(opName);
-            if (access == ACC_READ_WRITE) {
-                ++numReaders;
-                currentReaders.insert(opName);
-            }
-
-            auto done = [this, access, opName] (const void * mem)
-            {
-                unique_lock guard(mutex);
-                ++version;
-                --numWriters;
-                currentWriters.erase(opName);
-                if (access == ACC_READ_WRITE) {
-                    --numReaders;
-                    currentReaders.erase(opName);
-                }
-            };
-
-            //cerr << "returning r/w version " << version << " of " << name << " for " << opName << endl;
-
-            //this->buffer.SetPurgeableState(mtlpp::PurgeableState::NonVolatile);
-
-            auto pin =  std::shared_ptr<void>(nullptr, done);
-            return { std::move(pin), this->buffer };
-        }
-    }
 };
 
-
 } // file scope
-
-// MetalComputeProfilingInfo
-
-MetalComputeProfilingInfo::
-MetalComputeProfilingInfo()
-{
-}
-
 
 // MetalComputeEvent
 
 MetalComputeEvent::
-MetalComputeEvent(const std::string & label, bool isResolvedIn)
-    : label_(label), future(promise.get_future().share())
+MetalComputeEvent(const std::string & label, bool isResolvedIn, const MetalComputeQueue * queue)
+    : GridComputeEvent(label, isResolvedIn, queue)
 {
-    if (isResolvedIn)
-        resolve();
-    ExcAssertEqual(this->isResolved, isResolvedIn);
 }
 
 void
@@ -527,11 +427,11 @@ resolveFromCommandBuffer(const mtlpp::CommandBuffer & buffer)
     if (buffer.GetStatus() >= mtlpp::CommandBufferStatus::Committed) {
         // https://developer.apple.com/documentation/metal/mtlcommandbuffer/1442997-addcompletedhandler?language=objc
         // You can’t add a completion handler after you commit the command buffer.
-        cerr << "buffer.GetStatus() = " << (int)buffer.GetStatus() << endl;
+        cerr << "buffer.GetStatus() = " << jsonEncodeStr(buffer.GetStatus()) << endl;
         throw MLDB::Exception("cannot create event for committed command buffer");
     }
 
-    std::weak_ptr<MetalComputeEvent> weakThis = this->shared_from_this();
+    std::weak_ptr<GridComputeEvent> weakThis = this->weak_from_this();
 
     auto onComplete = [weakThis] (const mtlpp::CommandBuffer & buffer)
     {
@@ -545,13 +445,6 @@ resolveFromCommandBuffer(const mtlpp::CommandBuffer & buffer)
 
     //cerr << ansi::red << "event from command buffer: status = " << (int)commandBuffer.GetStatus() << ansi::reset << endl;
     commandBuffer.AddCompletedHandler(onComplete);
-}
-
-std::shared_ptr<ComputeProfilingInfo>
-MetalComputeEvent::
-getProfilingInfo() const
-{
-    MLDB_THROW_UNIMPLEMENTED();
 }
 
 void
@@ -589,99 +482,37 @@ await() const
     }
 }
 
-void
-MetalComputeEvent::
-resolve()
-{
-    if (isResolved)
-        return;
-
-    std::unique_lock guard(mutex);
-
-    isResolved = true;
-    promise.set_value();
-
-    std::exception_ptr exc;
-    for (auto & callback: callbacks) {
-        try {
-            callback();
-        } catch (...) {
-            exc = std::current_exception();
-        }
-    }
-    if (exc)
-        std::rethrow_exception(exc);
-}
-
-std::shared_ptr<ComputeEvent>
-MetalComputeEvent::
-thenImpl(std::function<void ()> fn, const std::string & label)
-{
-    std::unique_lock guard(mutex);
-    if (isResolved) {
-        // If already satisfied, we simply run the callback
-        fn();
-        return makeAlreadyResolvedEvent(label);
-    }
-
-#if 1
-    callbacks.push_back(fn);
-    return this->shared_from_this();
-#else
-    // Otherwise, create a user event for the post-then part
-    auto nextEvent = makeUnresolvedEvent(label);
-    nextEvent->label_ = label + " (MetalComputeEvent::thenImpl)";
-
-    auto cb = [fn=std::move(fn), nextEvent] ()
-    {
-        fn();
-        nextEvent->resolve();
-    };
-
-    callbacks.push_back(cb);
-
-    return nextEvent;
-#endif
-}
-
 std::shared_ptr<MetalComputeEvent>
 MetalComputeEvent::
-makeAlreadyResolvedEvent(const std::string & label)
+makeAlreadyResolvedEvent(const std::string & label, const MetalComputeQueue * queue)
 {
-    auto result = std::make_shared<MetalComputeEvent>(label, true /* already resolved */);
+    auto result = std::make_shared<MetalComputeEvent>(label, true /* already resolved */, queue);
     return result;
 }
 
 std::shared_ptr<MetalComputeEvent>
 MetalComputeEvent::
-makeUnresolvedEvent(const std::string & label)
+makeUnresolvedEvent(const std::string & label, const MetalComputeQueue * queue)
 {
-    auto result = std::make_shared<MetalComputeEvent>(label, false /* already resolved */);
+    auto result = std::make_shared<MetalComputeEvent>(label, false /* already resolved */, queue);
     return result;
 }
-
-std::function<void ()>
-MetalComputeEvent::
-getCompletionHandler() const
-{
-    MLDB_THROW_UNIMPLEMENTED();
-}
-
 
 // MetalComputeQueue
+
+GridDispatchType generalizeDispatchType(mtlpp::DispatchType dispatchType)
+{
+    return dispatchType == mtlpp::DispatchType::Concurrent ? GridDispatchType::PARALLEL : GridDispatchType::SERIAL;
+}
 
 MetalComputeQueue::
 MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent,
                   const std::string & label,
                   mtlpp::CommandQueue queueIn, mtlpp::DispatchType dispatchType)
-    : ComputeQueue(owner, parent), mtlOwner(owner), mtlQueue(std::move(queueIn)),
+    : GridComputeQueue(owner, parent, label, generalizeDispatchType(dispatchType)), mtlOwner(owner),
+      mtlQueue(std::move(queueIn)),
       dispatchType(dispatchType)
 {
-    if (parent) {
-        weakParent = parent->weak_from_this();
-        ExcAssertEqual(parent->numChildren.fetch_add(1), 0);
-    }
-
     if (!mtlQueue) {
         mtlQueue = owner->mtlDevice.NewCommandQueue(32 /* max command buffer count */);
         ExcAssert(mtlQueue);
@@ -696,23 +527,6 @@ MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent,
 
 MetalComputeQueue::~MetalComputeQueue()
 {
-    auto sharedParent = weakParent.lock();
-
-    if (parent && !sharedParent) {
-        cerr << "ERROR: parent queue was destroyed BEFORE its children" << endl;
-    }
-
-    if (sharedParent) {
-        if (sharedParent->numChildren.fetch_sub(1) == 0) {
-            cerr << "ERROR: parent queue didn't know about its children" << endl;
-            abort();
-        }
-    }
-
-    if (numChildren != 0) {
-        cerr << "ERROR: parent queue being destroyed with active children" << endl;
-        abort();
-    }
 }
 
 std::shared_ptr<ComputeQueue>
@@ -727,6 +541,185 @@ MetalComputeQueue::
 serial(const std::string & opName)
 {
     return std::make_shared<MetalComputeQueue>(this->mtlOwner, this, opName, this->mtlQueue, mtlpp::DispatchType::Serial);
+}
+
+void
+MetalComputeQueue::
+enqueueZeroFillArrayConcrete(const std::string & opName,
+                                MemoryRegionHandle region,
+                                size_t startOffsetInBytes, ssize_t lengthInBytes)
+{
+    auto [pin, buffer, offset] = MetalComputeContext::getMemoryRegion(opName, *region.handle, ACC_WRITE);
+    auto length = buffer.GetLength();
+    ExcAssertLessEqual(offset + startOffsetInBytes + lengthInBytes, length);
+
+    auto blitEncoder = commandBuffer.BlitCommandEncoder();
+    beginEncoding(opName, blitEncoder);
+    blitEncoder.SetLabel((opName + " zero fill blit").c_str());
+    blitEncoder.Fill(buffer, { uint32_t(offset + startOffsetInBytes), uint32_t(lengthInBytes) }, 0);
+    endEncoding(opName, blitEncoder);
+}                                
+                                
+void
+MetalComputeQueue::
+enqueueBlockFillArrayConcrete(const std::string & opName,
+                              MemoryRegionHandle region,
+                              size_t startOffsetInBytes, ssize_t lengthInBytes,
+                              std::span<const std::byte> block)
+{
+    ComputeQueue::enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED, startOffsetInBytes, lengthInBytes, block);
+}                                
+                                
+void
+MetalComputeQueue::
+enqueueCopyFromHostConcrete(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes)
+{
+    auto [pin, buffer, offset] = MetalComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
+    auto length = buffer.GetLength();
+    ExcAssertLessEqual(offset + deviceStartOffsetInBytes + fromRegion.length(), length);
+
+    switch (buffer.GetStorageMode()) {
+    case mtlpp::StorageMode::Managed:
+    case mtlpp::StorageMode::Shared: {
+        //cerr << opName << " is managed/shared" << endl;
+        std::byte * contents = (std::byte *)buffer.GetContents();
+        ExcAssert(contents);
+        memcpy(contents + offset + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
+        buffer.DidModify({(uint32_t)(deviceStartOffsetInBytes + offset), (uint32_t)fromRegion.length()});
+        break;
+    }
+    case mtlpp::StorageMode::Private: {
+        //cerr << opName << " is private" << endl;
+        auto blitEncoder = commandBuffer.BlitCommandEncoder();
+        beginEncoding(opName, blitEncoder);
+
+        // It's a private region; we need to create a new region to hold the result, and then
+        // synchronize
+        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
+        auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer((const void *)fromRegion.data(), fromRegion.length(), options);
+        tmpBuffer.SetLabel((opName + " copyFromHostSync private copy").c_str());
+        blitEncoder.Copy(tmpBuffer, 0 /* sourceOffset */, buffer, offset + deviceStartOffsetInBytes /* dstOffset */, fromRegion.length());
+        endEncoding(opName, blitEncoder);
+
+        // We pin the temp buffer instead
+        auto freeTmpBuffer = [tmpBuffer, pin=pin] (auto arg) {};
+        pin = std::shared_ptr<const void>(nullptr, freeTmpBuffer);
+
+        break;
+    }
+    default:
+        throw MLDB::Exception("Cannot manage MemoryLess storage mode");
+    }
+}                            
+                            
+
+FrozenMemoryRegion
+MetalComputeQueue::
+enqueueTransferToHostConcrete(const std::string & opName, MemoryRegionHandle handle)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+
+FrozenMemoryRegion
+MetalComputeQueue::
+transferToHostSyncConcrete(const std::string & opName, MemoryRegionHandle handle)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+struct MetalBindContext: public GridBindContext {
+    MetalBindContext(MetalComputeQueue * queue,
+                     const std::string & opName,
+                     const GridComputeKernel * kernel,
+                     const GridBindInfo * bindInfo)
+        : kernel(dynamic_cast<const MetalComputeKernel *>(kernel)),
+          bindInfo(dynamic_cast<const MetalBindInfo *>(bindInfo)),
+          queue(queue), opName(opName)
+    {
+        ExcAssert(this->kernel);
+        ExcAssert(this->bindInfo);
+
+        commandEncoder = queue->commandBuffer.ComputeCommandEncoder();
+        queue->beginEncoding(opName, commandEncoder);
+        commandEncoder.SetComputePipelineState(this->kernel->mtlFunction->computePipelineState);
+    }
+
+    ~MetalBindContext()
+    {
+        queue->endEncoding(opName, commandEncoder);
+    }
+
+    const MetalComputeKernel * kernel = nullptr;
+    const MetalBindInfo * bindInfo = nullptr;
+    MetalComputeQueue * queue = nullptr;
+    std::string opName;
+    
+    mtlpp::ComputeCommandEncoder commandEncoder;
+
+    virtual void
+    setPrimitive(const std::string & opName, int argNum, std::span<const std::byte> bytes) override
+    {
+        cerr << "setPrimitive: argNum " << argNum << " bytes " << bytes.size_bytes() << endl;
+        commandEncoder.SetBytes(bytes.data(), bytes.size_bytes(), argNum);
+    }
+
+    virtual void
+    setBuffer(const std::string & opName, int argNum,
+              std::shared_ptr<GridMemoryRegionHandleInfo> handle,
+              MemoryRegionAccess access) override
+    {
+        cerr << "setBuffer: argNum " << argNum << " bytes " << handle->lengthInBytes << endl;
+        ExcAssert(handle);
+        auto [pin, memBuffer, offset] = MetalComputeContext::getMemoryRegion(opName, *handle, access);
+        // TODO: where do we put the pin?
+        commandEncoder.SetBuffer(memBuffer, offset, argNum);
+    }
+
+    virtual void
+    setThreadGroupMemory(const std::string & opName, int argNum, size_t nBytes) override
+    {
+        // Set it up in the command encoder
+        commandEncoder.SetThreadgroupMemory(nBytes, argNum);
+    }
+};
+
+std::shared_ptr<GridBindContext>
+MetalComputeQueue::
+newBindContext(const std::string & opName,
+               const GridComputeKernel * kernel,
+               const GridBindInfo * bindInfo)
+{
+    ExcAssert(bindInfo);
+    return std::make_shared<MetalBindContext>(this, opName, kernel, bindInfo);
+}
+
+void
+MetalComputeQueue::
+launch(const std::string & opName, GridBindContext & context, std::vector<size_t> grid, std::vector<size_t> block)
+{
+    MetalBindContext & bindContext = dynamic_cast<MetalBindContext &>(context);
+    auto * kernel = bindContext.kernel;
+
+    try {
+        grid.resize(3, 1);
+        block.resize(3, 1);
+
+        mtlpp::Size gridSize(grid[0], grid[1], grid[2]);
+        mtlpp::Size blockSize(block[0], block[1], block[2]);
+
+        auto invocations = grid[0] * grid[1] * grid[2] * block[0] * block[1] * block[2];
+        cerr << "kernel " << kernel->kernelName << " grid " << grid << " block " << block
+             << " requires " << invocations << " invocations and "
+             << invocations * 2048 / 1024.0 / 1024.0 << "MB of wired scratchpad memory" << endl;
+
+        bindContext.commandEncoder.DispatchThreadgroups(gridSize, blockSize);
+    } MLDB_CATCH_ALL {
+        rethrowException(400, "Error launching Metal kernel " + kernel->kernelName);
+    }
 }
 
 template<typename CommandEncoder>
@@ -792,170 +785,7 @@ endEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, boo
 }
 
 
-void
-MetalComputeQueue::
-enqueue(const std::string & opName,
-        const BoundComputeKernel & bound,
-        const std::vector<uint32_t> & grid)
-{
-    try {
-        auto tr = scopedOperation(OperationType::METAL_COMPUTE, "launch kernel " + bound.owner->kernelName + " as " + opName);
-
-        ExcAssert(bound.bindInfo);
-        
-        const MetalBindInfo * bindInfo
-            = dynamic_cast<const MetalBindInfo *>(bound.bindInfo.get());
-        ExcAssert(bindInfo);
-
-        const MetalComputeKernel * kernel = bindInfo->owner;
-
-        auto knowns = bound.knowns;
-
-        for (size_t i = 0;  i < grid.size();  ++i) {
-            auto & dim = kernel->dims[i];
-            knowns.setValue(dim.range, grid[i]);
-        }
-
-        std::vector<size_t> mtlGrid, mtlBlock;
-        
-        //if (kernel->allowGridExpansionFlag)
-        //    ExcAssertLessEqual(grid.size(), mtlBlock.size());
-        //else
-        //    ExcAssertEqual(grid.size(), mtlBlock.size());
-
-        for (size_t i = 0;  i < mtlBlock.size();  ++i) {
-            // Pad out the grid so we cover the whole lot.  The kernel will need to be
-            // sure to no-op if it's out of bounds.
-            auto b = mtlBlock[i];
-            auto range = i < grid.size() ? grid[i] : b;
-            auto rem = range % b;
-            if (rem > 0) {
-                if (kernel->allowGridPaddingFlag) {
-                    range += (b - rem);
-                    //cerr << "padding out dimension " << i << " from " << grid[i]
-                    //    << " to " << range << " due to block size of " << b << endl;
-                }
-                else {
-                    throw MLDB::Exception("Metal kernel '" + kernel->kernelName + "' won't launch "
-                                            "due to grid dimension " + std::to_string(i)
-                                            + " (" + std::to_string(range) + ") not being a "
-                                            + "multple of the block size (" + std::to_string(b)
-                                            + ").  Consider using allowGridPadding() or modifying "
-                                            + "grid calculations");
-                }
-            }
-            mtlGrid.push_back(range);
-        }
-
-        if (mtlGrid.empty()) {
-            mtlGrid.push_back(1);
-        }
-        if (mtlBlock.empty()) {
-            mtlBlock.push_back(1);
-        }
-
-        if (kernel->modifyGrid)
-            kernel->modifyGrid(mtlGrid, mtlBlock);
-
-        knowns.setValue("grid", grid);
-        knowns.setValue("mtlGrid", mtlGrid);
-        knowns.setValue("mtlBlock", mtlBlock);
-
-        std::function<Json::Value (const std::vector<Json::Value> &)>
-        readArrayElement = [&] (const std::vector<Json::Value> & args)
-        {
-            if (args.size() != 2)
-                throw MLDB::Exception("readArrayElement takes two arguments");
-
-            const Json::Value & array = args[0];
-            const Json::Value & index = args[1];
-            const std::string & arrayName = array["name"].asString();
-            auto version = array["version"].asInt();
-            // find the array in our arguments
-            // We have to do a scan, since we don't index by the memory region name (only the parameter name)
-
-            cerr << "needle: " << arrayName << " v " << version << endl;
-            for (auto & arg: bound.arguments) {
-                if (!arg.handler)
-                    continue;
-                if (!arg.handler->canGetHandle())
-                    continue;
-                auto handle = arg.handler->getHandle("readArrayElement", *this);
-                ExcAssert(handle.handle);
-                
-                cerr << "  haystack: " << handle.handle->name << " v " << handle.handle->version << endl;
-
-                if (handle.handle->name != arrayName || handle.handle->version != version)
-                    continue;
-
-                auto i = index.asUInt();
-                return arg.handler->getArrayElement(i, *this);
-            }
-
-            throw MLDB::Exception("Couldn't find array named '" + arrayName + "' in kernel arguments");
-        };
-
-        knowns.knowns.addFunction("readArrayElement", readArrayElement);
-
-        // figure out the values of the new constraints
-        knowns = solve(knowns, bound.preConstraints, bound.constraints);
-
-        if (kernel->gridExpression) {
-            mtlGrid = jsonDecode<decltype(mtlGrid)>(knowns.evaluate(*kernel->gridExpression));
-            knowns.setValue("mtlGrid", mtlGrid);
-        }
-
-        if (kernel->blockExpression) {
-            mtlBlock = jsonDecode<decltype(mtlBlock)>(knowns.evaluate(*kernel->blockExpression));
-            knowns.setValue("mtlBlock", mtlBlock);
-        }
-
-        //cerr << "launching kernel " << kernel->kernelName << " with grid " << mtlGrid << " and block " << mtlBlock << endl;
-        //cerr << "this->block = " << jsonEncodeStr(this->block) << endl;
-
-        if (bindInfo->traceSerializer) {
-            bindInfo->traceSerializer->newObject("grid", mtlGrid);
-            bindInfo->traceSerializer->newObject("block", mtlBlock);
-            bindInfo->traceSerializer->newObject("knowns", knowns);
-            bindInfo->traceSerializer->commit();
-        }
-
-        ExcAssert(mtlQueue);
-        ExcAssert(commandBuffer);
-
-        mtlpp::ComputeCommandEncoder commandEncoder = commandBuffer.ComputeCommandEncoder(this->dispatchType);
-        beginEncoding(opName, commandEncoder);
-        commandEncoder.SetComputePipelineState(bindInfo->mtlPipelineState);
-
-        constexpr bool solveAfter = false;
-
-        for (auto & action: kernel->bindActions) {
-            action.apply(*this, bound.arguments, knowns, solveAfter, commandBuffer, commandEncoder);
-        }
-
-        if (solveAfter) {
-            knowns = solve(knowns, bound.constraints, bound.preConstraints);
-        }
-        //knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
-
-        mtlGrid.resize(3, 1);
-        mtlBlock.resize(3, 1);
-
-        mtlpp::Size gridSize(mtlGrid[0], mtlGrid[1], mtlGrid[2]);
-        mtlpp::Size blockSize(mtlBlock[0], mtlBlock[1], mtlBlock[2]);
-
-        auto invocations = mtlGrid[0] * mtlGrid[1] * mtlGrid[2] * mtlBlock[0] * mtlBlock[1] * mtlBlock[2];
-        cerr << "kernel " << kernel->kernelName << " grid " << mtlGrid << " block " << mtlBlock
-             << " requires " << invocations << " invocations and "
-             << invocations * 2048 / 1024.0 / 1024.0 << "MB of wired scratchpad memory" << endl;
-
-        commandEncoder.DispatchThreadgroups(gridSize, blockSize);
-        endEncoding(opName, commandEncoder);
-    } MLDB_CATCH_ALL {
-        rethrowException(400, "Error launching Metal kernel " + bound.owner->kernelName);
-    }
-}
-
+#if 0
 void
 MetalComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
@@ -1013,42 +843,6 @@ enqueueCopyFromHostImpl(const std::string & opName,
         throw MLDB::Exception("cannot copy from host into a read-only host backed array");
     }
 
-    auto [pin, buffer, offset] = MetalComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
-    auto length = buffer.GetLength();
-    ExcAssertLessEqual(offset + deviceStartOffsetInBytes + fromRegion.length(), length);
-
-    switch (buffer.GetStorageMode()) {
-    case mtlpp::StorageMode::Managed:
-    case mtlpp::StorageMode::Shared: {
-        cerr << opName << " is managed/shared" << endl;
-        std::byte * contents = (std::byte *)buffer.GetContents();
-        ExcAssert(contents);
-        memcpy(contents + offset + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
-        buffer.DidModify({(uint32_t)(deviceStartOffsetInBytes + offset), (uint32_t)fromRegion.length()});
-        break;
-    }
-    case mtlpp::StorageMode::Private: {
-        //cerr << opName << " is private" << endl;
-        auto blitEncoder = commandBuffer.BlitCommandEncoder();
-        beginEncoding(opName, blitEncoder);
-
-        // It's a private region; we need to create a new region to hold the result, and then
-        // synchronize
-        mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-        auto tmpBuffer = mtlOwner->mtlDevice.NewBuffer((const void *)fromRegion.data(), fromRegion.length(), options);
-        tmpBuffer.SetLabel((opName + " copyFromHostSync private copy").c_str());
-        blitEncoder.Copy(tmpBuffer, 0 /* sourceOffset */, buffer, offset + deviceStartOffsetInBytes /* dstOffset */, fromRegion.length());
-        endEncoding(opName, blitEncoder);
-
-        // We pin the temp buffer instead
-        auto freeTmpBuffer = [tmpBuffer, pin=pin] (auto arg) {};
-        pin = std::shared_ptr<const void>(nullptr, freeTmpBuffer);
-
-        break;
-    }
-    default:
-        throw MLDB::Exception("Cannot manage MemoryLess storage mode");
-    }
 }
 
 void
@@ -1061,6 +855,7 @@ copyFromHostSyncImpl(const std::string & opName,
     enqueueCopyFromHostImpl(opName, toRegion, fromRegion, deviceStartOffsetInBytes);
     finish();
 }
+#endif
 
 FrozenMemoryRegion
 MetalComputeQueue::
@@ -1136,7 +931,7 @@ transferToHostSyncImpl(const std::string & opName,
     auto status = myCommandBuffer.GetStatus();
     if (status != mtlpp::CommandBufferStatus::Completed) {
         auto error = commandBuffer.GetError();
-        throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
+        throw MetalException(error, "Command buffer is not completed", "status", status);
     }
 
     //auto storageMode = buffer.GetStorageMode();
@@ -1321,7 +1116,7 @@ flush()
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue flush");
 
-    auto result = std::make_shared<MetalComputeEvent>("flush", false /* resolved */);
+    auto result = std::make_shared<MetalComputeEvent>("flush", false /* resolved */, this);
     ExcAssert(commandBuffer);
 
     //cerr << "flush(): " << this << " status = " << jsonEncodeStr(commandBuffer.GetStatus()) << endl;
@@ -1371,28 +1166,7 @@ std::shared_ptr<ComputeEvent>
 MetalComputeQueue::
 makeAlreadyResolvedEvent(const std::string & label) const
 {
-    return MetalComputeEvent::makeAlreadyResolvedEvent(label);
-}
-
-
-// MetalComputeMarker
-
-MetalComputeMarker::
-MetalComputeMarker(const std::string & scopeName)
-{
-    this->scope = std::make_shared<ScopedOperation>(OperationType::USER, scopeName);
-}
-
-MetalComputeMarker::
-~MetalComputeMarker()
-{
-}
-
-std::shared_ptr<ComputeMarker>
-MetalComputeMarker::
-enterScope(const std::string & scopeName)
-{
-    return std::make_shared<MetalComputeMarker>(scopeName);
+    return MetalComputeEvent::makeAlreadyResolvedEvent(label, this);
 }
 
 
@@ -1400,7 +1174,7 @@ enterScope(const std::string & scopeName)
 
 MetalComputeContext::
 MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device)
-    : mtlDevice(mtlDevice), device(device)
+    : GridComputeContext(device), mtlDevice(mtlDevice)
 {
 #if 0
     mtlpp::HeapDescriptor heapDescriptor;
@@ -1412,27 +1186,6 @@ MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device)
 #endif
 }
 
-ComputeDevice
-MetalComputeContext::
-getDevice() const
-{
-    return device;
-}
-
-std::shared_ptr<ComputeMarker>
-MetalComputeContext::
-getScopedMarker(const std::string & scopeName)
-{
-    return std::make_shared<MetalComputeMarker>(scopeName);
-}
-
-void
-MetalComputeContext::
-recordMarkerEvent(const std::string & event)
-{
-    traceOperation(OperationType::USER, event);
-}
-
 
 std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
 MetalComputeContext::
@@ -1442,9 +1195,9 @@ getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, Mem
     if (!upcastHandle) {
         throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
     }
-    auto [pin, mem] = upcastHandle->getMetalAccess(opName, access);
+    auto pin = upcastHandle->pinAccess(opName, access);
 
-    return { std::move(pin), mem, upcastHandle->offset };
+    return { std::move(pin), upcastHandle->buffer, upcastHandle->offset };
 }
 
 std::tuple<FrozenMemoryRegion, int /* version */>
@@ -1584,6 +1337,7 @@ transferToHostSyncImpl(const std::string & opName,
 
 #endif
 
+#if 0
 std::shared_ptr<ComputeKernel>
 MetalComputeContext::
 getKernel(const std::string & kernelName)
@@ -1604,6 +1358,7 @@ getKernel(const std::string & kernelName)
     }
     return result;
 }
+#endif
 
 #if 0
 void
@@ -1681,6 +1436,34 @@ getQueue(const std::string & queueName)
     return std::make_shared<MetalComputeQueue>(this, nullptr /* parent */, queueName, mtlpp::CommandQueue(), mtlpp::DispatchType::Serial);
 }
 
+std::shared_ptr<GridComputeFunctionLibrary>
+MetalComputeContext::
+getLibrary(const std::string & libraryName)
+{
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext getLibrary " + libraryName);
+
+    std::unique_lock guard(libraryRegistryMutex);
+    auto it = libraryRegistry.find(libraryName);
+    if (it == libraryRegistry.end()) {
+        throw AnnotatedException(400, "Unable to find Metal compute library '" + libraryName + "'",
+                                        "libraryName", libraryName);
+    }
+    auto result = it->second.generate(*this);
+    //if (traceSerializer) {
+    //    result->traceSerializer = kernelsSerializer->newStructure(kernelName);
+    //    result->runsSerializer = result->traceSerializer->newStructure("runs");
+    //}
+    return result;
+}
+
+std::shared_ptr<GridComputeKernelSpecialization>
+MetalComputeContext::
+specializeKernel(const GridComputeKernelTemplate & tmplate)
+{
+    return std::make_shared<MetalComputeKernel>(this, tmplate);
+}
+
+#if 0
 MemoryRegionHandle
 MetalComputeContext::
 getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
@@ -1730,6 +1513,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
 
     return { newInfo };
 }
+#endif
 
 
 // MetalComputeKernel
@@ -1980,50 +1764,7 @@ getKernelType(const mtlpp::Argument & arg)
     return type;
 }
 
-void
-MetalComputeKernel::
-setParameters(SetParameters setter)
-{
-    setters.emplace_back(std::move(setter));
-}
-
-void
-MetalComputeKernel::
-allowGridPadding()
-{
-    allowGridPaddingFlag = true;
-}
-
-void
-MetalComputeKernel::
-allowGridExpansion()
-{
-    allowGridExpansionFlag = true;
-}
-
-void
-MetalComputeKernel::
-setGridExpression(const std::string & gridExpr, const std::string & blockExpr)
-{
-    if (!gridExpr.empty())
-        this->gridExpression = CommandExpression::parseArgumentExpression(gridExpr);
-    if (!blockExpr.empty())
-        this->blockExpression = CommandExpression::parseArgumentExpression(blockExpr);
-}
-
-void
-MetalComputeKernel::
-addTuneable(const std::string & name, int64_t defaultValue)
-{
-    this->tuneables.push_back({name, defaultValue});
-}
-
-DEFINE_ENUM_DESCRIPTION_INLINE(MetalBindFieldActionType)
-{
-    addValue("SET_FIELD_FROM_PARAM", MetalBindFieldActionType::SET_FIELD_FROM_PARAM);
-    addValue("SET_FIELD_FROM_KNOWN", MetalBindFieldActionType::SET_FIELD_FROM_KNOWN);
-}
-
+#if 0
 void
 MetalBindFieldAction::
 apply(void * object,
@@ -2078,21 +1819,6 @@ apply(void * object,
         StructuredJsonParsingContext jsonContext(value);
         fieldDesc.description->parseJson(fieldDesc.getFieldPtr(object), jsonContext);
     }
-}
-
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(MetalBindFieldAction)
-{
-    addField("action", &MetalBindFieldAction::action, "");
-    addField("fieldNumber", &MetalBindFieldAction::fieldNumber, "", -1);
-    addField("argNum", &MetalBindFieldAction::argNum, "", -1);
-    addField("expr", &MetalBindFieldAction::expr, "");
-}
-
-DEFINE_ENUM_DESCRIPTION_INLINE(MetalBindActionType)
-{
-    addValue("SET_BUFFER_FROM_ARG", MetalBindActionType::SET_BUFFER_FROM_ARG, "");
-    addValue("SET_BUFFER_FROM_STRUCT", MetalBindActionType::SET_BUFFER_FROM_STRUCT, "");
-    addValue("SET_BUFFER_THREAD_GROUP", MetalBindActionType::SET_BUFFER_THREAD_GROUP, "");
 }
 
 void
@@ -2318,7 +2044,9 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(MetalBindAction)
     addField("expr", &MetalBindAction::expr, "");
     addField("fields", &MetalBindAction::fields, "");
 }
+#endif
 
+#if 0
 void
 MetalComputeKernel::
 setComputeFunction(mtlpp::Library libraryIn,
@@ -2332,14 +2060,7 @@ setComputeFunction(mtlpp::Library libraryIn,
     ns::Error error{ns::Handle()};
     mtlpp::FunctionConstantValues constantValues;
     this->mtlFunction = this->mtlLibrary.NewFunction(kernelName.c_str(), constantValues, &error);
-    if (error) {
-        cerr << "Error making function" << endl;
-        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
-        if (error.GetLocalizedFailureReason()) {
-            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
-        }
-    }
+    checkMetalError(error, "Error making metal function");
     ExcAssert(this->mtlFunction);
 
     //cerr << this->mtlFunction.GetName().GetCStr() << endl;
@@ -2347,14 +2068,7 @@ setComputeFunction(mtlpp::Library libraryIn,
     mtlpp::PipelineOption options = (mtlpp::PipelineOption((int)mtlpp::PipelineOption::ArgumentInfo | (int)mtlpp::PipelineOption::BufferTypeInfo));
     this->computePipelineState
         = mtlContext->mtlDevice.NewComputePipelineState(this->mtlFunction, options, reflection, &error);
-    if (error) {
-        cerr << "Error making pipeline state" << endl;
-        cerr << "domain: " << error.GetDomain().GetCStr() << endl;
-        cerr << "descrption: " << error.GetLocalizedDescription().GetCStr() << endl;
-        if (error.GetLocalizedFailureReason()) {
-            cerr << "reason: " << error.GetLocalizedFailureReason().GetCStr() << endl;
-        }
-    }
+    checkMetalError(error, "Error making pipeline state");
     ExcAssert(computePipelineState);
     ExcAssert(reflection);
 
@@ -2362,14 +2076,14 @@ setComputeFunction(mtlpp::Library libraryIn,
 
     correspondingArgumentNumbers.resize(arguments.GetSize());
 
-    std::vector<MetalBindAction> actions;
+    std::vector<GridBindAction> actions;
 
     for (size_t i = 0;  i < arguments.GetSize();  ++i) {
         mtlpp::Argument arg = arguments[i];
         std::string argName = arg.GetName().GetCStr();
         mtlpp::ArgumentType argType = arg.GetType();
 
-        MetalBindAction action;
+        GridBindAction action;
         auto it = paramIndex.find(argName);
 
         if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
@@ -2388,7 +2102,7 @@ setComputeFunction(mtlpp::Library libraryIn,
             ExcAssertEqual(width, paramType.baseType->width);
             ExcAssertEqual(align, paramType.baseType->align);
 
-            action.action = MetalBindActionType::SET_BUFFER_THREAD_GROUP;
+            action.action = GridBindActionType::SET_BUFFER_THREAD_GROUP;
             action.arg = arg;
             action.type = paramType;
             action.argName = argName;
@@ -2402,7 +2116,7 @@ setComputeFunction(mtlpp::Library libraryIn,
 
             if (it == paramIndex.end()) {
                 if (type.baseType->kind == ValueKind::STRUCTURE && type.dims.empty()) {
-                    std::vector<MetalBindFieldAction> fieldActions;
+                    std::vector<GridBindFieldAction> fieldActions;
 
                     // Check if we know the unpacked types
                     auto numFields = type.baseType->getFixedFieldCount();
@@ -2412,8 +2126,8 @@ setComputeFunction(mtlpp::Library libraryIn,
                         const auto & field = type.baseType->getFieldByNumber(i);
                         auto it = paramIndex.find(field.fieldName);
                         if (it != paramIndex.end()) {
-                            MetalBindFieldAction action;
-                            action.action = MetalBindFieldActionType::SET_FIELD_FROM_PARAM;
+                            GridBindFieldAction action;
+                            action.action = GridBindFieldActionType::SET_FIELD_FROM_PARAM;
                             action.argNum = it->second;
                             action.fieldNumber = i;
                             // Set expr in case the argument isn't passed, in which case it needs to come
@@ -2424,8 +2138,8 @@ setComputeFunction(mtlpp::Library libraryIn,
                         }
                         else {
                             // We're assuming it comes from somewhere...
-                            MetalBindFieldAction action;
-                            action.action = MetalBindFieldActionType::SET_FIELD_FROM_KNOWN;
+                            GridBindFieldAction action;
+                            action.action = GridBindFieldActionType::SET_FIELD_FROM_KNOWN;
                             action.fieldNumber = i;
                             action.expr = CommandExpression::parseArgumentExpression(field.fieldName);
                             fieldActions.emplace_back(std::move(action));
@@ -2440,14 +2154,11 @@ setComputeFunction(mtlpp::Library libraryIn,
                                         + " cannot be assembled because of missing fields " + jsonEncodeStr(fieldsNotFound));
                     }
 
-                    action.action = MetalBindActionType::SET_BUFFER_FROM_STRUCT;
+                    action.action = GridBindActionType::SET_BUFFER_FROM_STRUCT;
                     action.arg = arg;
                     action.type = type;
                     action.argName = argName;
                     action.fields = std::move(fieldActions);
-                }
-                else if (this->setters.size() > 0) {
-                    continue;  // should be done in the setter...
                 }
                 else if (argType == mtlpp::ArgumentType::ThreadgroupMemory) {
                     throw MLDB::Exception("Thread group parameter in kernel with no setters defined; "
@@ -2466,7 +2177,7 @@ setComputeFunction(mtlpp::Library libraryIn,
 
                 type.dims = param.type.dims;
 
-                action.action = MetalBindActionType::SET_BUFFER_FROM_ARG;
+                action.action = GridBindActionType::SET_BUFFER_FROM_ARG;
                 action.arg = arg;
                 action.type = type;  // TODO: get information from param type
                 action.argNum = it->second;
@@ -2498,122 +2209,150 @@ setComputeFunction(mtlpp::Library libraryIn,
     //cerr << "got actions\n" << jsonEncode(actions) << endl;
     this->bindActions = std::move(actions);
 }
+#endif
 
-BoundComputeKernel
 MetalComputeKernel::
-bindImpl(ComputeQueue & queue,
-         std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
+MetalComputeKernel(MetalComputeContext * owner, const GridComputeKernelTemplate & tmplate)
+    : GridComputeKernelSpecialization(owner, tmplate)
 {
-    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeKernel bindImpl " + kernelName);
+    this->mtlContext = owner;
+    this->mtlFunction = dynamic_cast<const MetalComputeFunction *>(this->gridFunction.get());
+    ExcAssert(this->mtlFunction);
+}
 
-    ExcAssert(this->context);
-    auto bindInfo = std::make_shared<MetalBindInfo>();
-    {
-        auto op = scopedOperation(OperationType::METAL_COMPUTE, "setup bindInfo");
-        bindInfo->owner = this;
-        bindInfo->mtlPipelineState = computePipelineState;
+std::shared_ptr<GridBindInfo>
+MetalComputeKernel::
+getGridBindInfo() const
+{
+    return std::make_shared<MetalBindInfo>(this);
+}
+
+
+// MetalComputeFunction
+
+MetalComputeFunction::
+MetalComputeFunction(MetalComputeContext & context, mtlpp::Function mtlFunction)
+    : mtlFunction(std::move(mtlFunction))
+{
+    ExcAssert(this->mtlFunction);
+    ns::Error error{ns::Handle()};
+
+    mtlpp::PipelineOption options = (mtlpp::PipelineOption((int)mtlpp::PipelineOption::ArgumentInfo | (int)mtlpp::PipelineOption::BufferTypeInfo));
+    this->computePipelineState
+        = context.mtlDevice.NewComputePipelineState(this->mtlFunction, options, reflection, &error);
+    checkMetalError(error, "Error making pipeline state for function");
+    ExcAssert(computePipelineState);
+    ExcAssert(reflection);
+}
+
+GridComputeFunctionArgumentDisposition getDisposition(mtlpp::ArgumentType argType)
+{
+    switch (argType) {
+    case mtlpp::ArgumentType::Buffer: return GridComputeFunctionArgumentDisposition::BUFFER;
+    case mtlpp::ArgumentType::ThreadgroupMemory: return GridComputeFunctionArgumentDisposition::THREADGROUP;
+    default:
+        MLDB_THROW_UNIMPLEMENTED("Metal sampler or texture arguments");
     }
+}
 
-    //cerr << "kernel " << kernelName << " has "
-    //     << computePipelineState.GetMaxTotalThreadsPerThreadgroup() << " max threads per thread group, "
-    //     << computePipelineState.GetThreadExecutionWidth() << " thread execution width and requires "
-    //     << computePipelineState.GetStaticThreadgroupMemoryLength() << " bytes of threadgroup memory"
-    //     << endl;
+std::vector<GridComputeFunctionArgument>
+MetalComputeFunction::
+getArgumentInfo() const
+{
+    auto arguments = reflection.GetArguments();
 
-    if (computePipelineState.GetMaxTotalThreadsPerThreadgroup() < 1024) {
-        cerr << "kernel " << kernelName << " has maximum execution width of "
-             << computePipelineState.GetMaxTotalThreadsPerThreadgroup()
-             << " meaning it may be occupancy limited due to register pressure"
-             << endl;
+    std::vector<GridComputeFunctionArgument> result;
+
+    for (size_t i = 0;  i < arguments.GetSize();  ++i) {
+        mtlpp::Argument arg = arguments[i];
+        std::string argName = arg.GetName().GetCStr();
+        GridComputeFunctionArgumentDisposition disposition = getDisposition(arg.GetType());
+        auto type = MetalComputeKernel::getKernelType(arg);
+
+        GridComputeFunctionArgument entry;
+        entry.name = argName;
+        entry.disposition = disposition;
+        entry.type = type;
+        entry.computeFunctionArgIndex = arg.GetIndex();
+
+        result.emplace_back(std::move(entry));
     }
-
-    if (traceSerializer) {
-        int callNumber = numCalls++;
-        bindInfo->traceSerializer = runsSerializer->newStructure(callNumber);
-
-        if (callNumber == 0) {
-            auto key = format("%016x", (uint64_t)this->mtlLibrary.GetPtr());
-
-            traceSerializer->newObject("program", key);
-            traceSerializer->newObject("kernel", this->kernelName);
-
-#if 0
-            // Store the program so that we can replay it later
-            std::unique_lock guard(tracedProgramMutex);
-            if (tracedPrograms.insert(key).second) {
-                auto programInfo = this->clProgram.getProgramInfo();
-                auto buildInfo = this->clProgram.getProgramBuildInfo(this->clKernel.getContext().getDevices().at(0));
-                auto entry = programsSerializer->newStructure(key);
-                entry->newStream("source") << programInfo.source;
-                entry->newObject("build", buildInfo);
-            }
-#endif
-        }
-    }
-
-    BoundComputeKernel result;
-    {
-        auto op = scopedOperation(OperationType::METAL_COMPUTE, "construct result");
-        result.arguments = std::move(argumentsIn);
-        result.owner = this;
-        result.bindInfo = bindInfo;
-
-        // Copy constraints over
-        result.constraints = this->constraints;
-        result.preConstraints = this->preConstraints;
-        result.postConstraints = this->postConstraints;
-        result.tuneables = this->tuneables;
-        result.knowns = std::move(knowns);
-
-        result.setKnownsFromArguments();
-    }
-
-    {
-        auto op = scopedOperation(OperationType::METAL_COMPUTE, "add constraints");
-        // Run the setters to set the other parameters
-        //for (auto & s: this->setters) {
-        //    s(kernel, upcastContext);
-        //}
-
-        // Look through for constraints from dimensions
-        for (size_t i = 0;  i < this->dims.size();  ++i) {
-            result.addConstraint(dims[i].range, "==", "grid[" + std::to_string(i) + "]",
-                                "Constraint implied by variables named in dimension " + std::to_string(0));
-        }
-
-        // Look through for constraints from parameters
-        for (auto & p: this->params) {
-            if (!p.type.dims.empty() && p.type.dims[0].bound) {
-                result.addConstraint(p.type.dims[0].bound, p.type.dims[0].tight ? "==" : "<=", p.name + ".length",
-                                    "Constraint implied by array bounds of parameter " + p.name + ": "
-                                    + p.type.print());
-            }
-        }
-    }
-
-    // figure out the values of the new constraints
-    {
-        auto op = scopedOperation(OperationType::METAL_COMPUTE, "solve preConstraints");
-        result.knowns = solve(result.knowns, result.constraints, result.preConstraints);
-    }
-
-    if (bindInfo->traceSerializer) {
-        //bindInfo->traceSerializer->newObject("args", argInfo);
-        bindInfo->traceSerializer->newObject("knowns", result.knowns);
-        bindInfo->traceSerializer->newObject("constraints", result.constraints);
-        bindInfo->traceSerializer->newObject("tuneables", tuneables);
-    }
-
-#if 0
-    cerr << "got " << result.constraints.size() << " constraints" << endl;
-    for (auto & c: result.constraints) {
-        cerr << "  " << c.print()
-             << (c.satisfied(result.knowns) ? " [SATSIFIED]" : " [UNSATISFIED]") << endl;
-    }
-#endif
-
 
     return result;
+}
+
+
+// MetalComputeFunctionLibrary
+
+MetalComputeFunctionLibrary::
+MetalComputeFunctionLibrary(MetalComputeContext & context, mtlpp::Library mtlLibrary)
+    : context(context), mtlLibrary(mtlLibrary)
+{
+}
+
+std::shared_ptr<GridComputeFunction>
+MetalComputeFunctionLibrary::
+getFunction(const std::string & functionName)
+{
+    ns::Error error{ns::Handle()};
+
+    mtlpp::Function function = this->mtlLibrary.NewFunction(functionName.c_str(), {} /* constantValues */, &error);
+
+    checkMetalError(error, "Error getting function from Metal library", "functionName", functionName);
+
+    ExcAssert(function);
+    return std::make_shared<MetalComputeFunction>(context, function);
+}
+
+std::string
+MetalComputeFunctionLibrary::
+getId() const
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+Json::Value
+MetalComputeFunctionLibrary::
+getMetadata() const
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+std::shared_ptr<MetalComputeFunctionLibrary>
+MetalComputeFunctionLibrary::
+compileFromSourceFile(MetalComputeContext & context, const std::string & fileName)
+{
+    filter_istream stream(fileName);
+    Utf8String source = /*"#line 1 \"" + fileName + "\"\n" +*/ stream.readAll();
+
+    return compileFromSource(context, source, fileName);
+}
+
+std::shared_ptr<MetalComputeFunctionLibrary>
+MetalComputeFunctionLibrary::
+compileFromSource(MetalComputeContext & context, const Utf8String & source, const std::string & fileNameToAppearInErrorMessages)
+{
+    ns::Error error{ns::Handle()};
+
+    mtlpp::CompileOptions compileOptions;
+    mtlpp::Library library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
+
+    checkMetalError(error, "Error compiling Metal library from source", "fileName", fileNameToAppearInErrorMessages);
+
+    return std::make_shared<MetalComputeFunctionLibrary>(context, std::move(library));
+}
+
+std::shared_ptr<MetalComputeFunctionLibrary>
+MetalComputeFunctionLibrary::
+loadMtllib(MetalComputeContext & context, const std::string & libraryFilename)
+{
+    ns::Error error{ns::Handle()};
+
+    mtlpp::Library library = context.mtlDevice.NewLibrary(libraryFilename.c_str(), &error);
+
+    checkMetalError(error, "Error loading Metal library", "fileName", libraryFilename);
+
+    return std::make_shared<MetalComputeFunctionLibrary>(context, std::move(library));
 }
 
 
@@ -2704,7 +2443,15 @@ struct MetalComputeRuntime: public ComputeRuntime {
 void registerMetalComputeKernel(const std::string & kernelName,
                                  std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext & context)> generator)
 {
+    std::unique_lock guard{kernelRegistryMutex};
     kernelRegistry[kernelName].generate = generator;
+}
+
+void registerMetalLibrary(const std::string & libraryName,
+                          std::function<std::shared_ptr<MetalComputeFunctionLibrary>(MetalComputeContext &)> generator)
+{
+    std::unique_lock guard{libraryRegistryMutex};
+    libraryRegistry[libraryName].generate = generator;
 }
 
 namespace {
@@ -2714,6 +2461,24 @@ static struct Init {
     {
         ComputeRuntime::registerRuntime(ComputeRuntimeId::METAL, "metal",
                                         [] () { return new MetalComputeRuntime(); });
+
+        auto compileLibrary = [] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeFunctionLibrary>
+        {
+            if (false) {
+                std::string fileName = "mldb/builtin/metal/base_kernels.metal";
+                return MetalComputeFunctionLibrary::compileFromSourceFile(context, fileName);
+            }
+            else {
+                std::string fileName = "build/arm64/lib/base_kernels_metal.metallib";
+                return MetalComputeFunctionLibrary::loadMtllib(context, fileName);
+            }
+        };
+
+        registerMetalLibrary("base_kernels", compileLibrary);
+        
+
+#if 0
+
 
         auto getLibrary = [] (MetalComputeContext & context) -> mtlpp::Library
         {
@@ -2798,9 +2563,11 @@ static struct Init {
         };
 
         registerMetalComputeKernel("__zeroFillArray", createZeroFillArrayKernel);
+#endif
     }
 
 } init;
+
 
 } // file scope
 

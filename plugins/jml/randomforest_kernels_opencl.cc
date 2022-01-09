@@ -33,7 +33,7 @@ EnvOption<size_t, true> RF_ROW_KERNEL_WORKGROUP_SIZE("RF_ROW_KERNEL_WORKGROUP_SI
 // On Nvidia, with 32 registers/work item and 256 work items/workgroup
 // (8 warps of 32 threads), we use 32 * 256 * 8 = 64k registers, which
 // means full occupancy.
-EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 5500);
+EnvOption<int, true> RF_OPENCL_LOCAL_BUCKET_MEM("RF_OPENCL_LOCAL_BUCKET_MEM", 5500);
 
 namespace {
 
@@ -115,7 +115,7 @@ static struct RegisterKernels {
             result->addParameter("activeFeatureList", "r", "u32[naf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
 
-            result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
+            result->addTuneable("maxLocalBuckets", RF_OPENCL_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 32);
 
@@ -149,7 +149,7 @@ static struct RegisterKernels {
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
 
             result->addTuneable("numPartitionsInParallel", maxWorkGroupSize);
-            result->addTuneable("wLocalSize", RF_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed));
+            result->addTuneable("wLocalSize", RF_OPENCL_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed));
 
             result->addParameter("wLocal", "w", "WIndexed[wLocalSize]");
             result->addParameter("wLocalSize", "r", "u32");
@@ -296,7 +296,7 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
+            result->addTuneable("maxLocalBuckets", RF_OPENCL_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 32);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");

@@ -16,21 +16,37 @@ namespace MLDB {
 struct GridComputeContext;
 struct GridComputeKernel;
 struct GridComputeQueue;
+struct GridComputeKernelTemplate;
+struct GridComputeKernelSpecialization;
 
 struct GridMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
+    GridMemoryRegionHandleInfo()
+    {
+        manager = std::make_shared<Manager>();
+    };
+
     virtual ~GridMemoryRegionHandleInfo() = default;
 
+    virtual GridMemoryRegionHandleInfo * clone() const = 0;
+
     size_t offset = 0;
-    std::any buffer;  ///< Really the underlying type
+    //std::any buffer;  ///< Really the underlying type
 
     // If we're managing host memory, this is where it is.
     const std::byte * backingHostMem = nullptr;
 
-    Spinlock mutex;
-    int numReaders = 0;
-    int numWriters = 0;
-    std::set<std::string> currentWriters;
-    std::set<std::string> currentReaders;
+    struct Manager {
+        Spinlock mutex;
+        int numReaders = 0;
+        int numWriters = 0;
+        std::set<std::string> currentWriters;
+        std::set<std::string> currentReaders;
+
+        std::shared_ptr<const void>
+        pinAccess(const std::string & opName, MemoryRegionHandleInfo * info, MemoryRegionAccess access);
+    };
+
+    std::shared_ptr<Manager> manager;
 
     std::tuple<FrozenMemoryRegion, int /* version */>
     getReadOnlyHostAccessSync(const GridComputeContext & context,
@@ -39,9 +55,9 @@ struct GridMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
                               ssize_t length,
                               bool ignoreHazards);
 
-    // Pin, implementation buffer type
-    std::tuple<std::shared_ptr<const void>, std::any>
-    getGridAccess(const std::string & opName, MemoryRegionAccess access);
+    // Returns a pin that encodes the given access type
+    std::shared_ptr<const void>
+    pinAccess(const std::string & opName, MemoryRegionAccess access);
 };
 
 struct GridBindInfo: public ComputeKernelBindInfo {
@@ -64,7 +80,7 @@ struct GridComputeProfilingInfo: public ComputeProfilingInfo {
 // completion handlers have finished.
 struct GridComputeEvent: public ComputeEvent, std::enable_shared_from_this<GridComputeEvent> {
     GridComputeEvent(const std::string & label, bool resolved,
-                     GridComputeQueue * owner);  // may or may not be already resolved
+                     const GridComputeQueue * owner);  // may or may not be already resolved
 
     virtual ~GridComputeEvent() = default;
 
@@ -77,7 +93,7 @@ struct GridComputeEvent: public ComputeEvent, std::enable_shared_from_this<GridC
     virtual std::string label() const override { return label_; }
     std::string label_;
 
-    GridComputeQueue * owner = nullptr;
+    const GridComputeQueue * owner = nullptr;
 
     std::mutex mutex;
     std::atomic<bool> isResolved = false;  // always starts this way, only resolve() can change
@@ -100,6 +116,11 @@ DECLARE_ENUM_DESCRIPTION(GridDispatchType);
 
 struct GridBindContext {
     virtual ~GridBindContext() = default;
+    virtual void setPrimitive(const std::string & opName, int argNum, std::span<const std::byte> bytes) = 0;
+    virtual void setBuffer(const std::string & opName, int argNum,
+                           std::shared_ptr<GridMemoryRegionHandleInfo> handle,
+                           MemoryRegionAccess access) = 0;
+    virtual void setThreadGroupMemory(const std::string & opName, int argNum, size_t nBytes) = 0;
 };
 
 
@@ -111,12 +132,8 @@ struct GridComputeQueue: public ComputeQueue, std::enable_shared_from_this<GridC
     virtual ~GridComputeQueue();
 
     GridComputeContext * gridOwner = nullptr;
-
-    // Subclasses override to create a new bind context
-    virtual std::shared_ptr<GridBindContext> newBindContext() = 0;
-
-    // Subclasses override to launch the bound kernel
-    virtual void launch(GridBindContext & context, std::vector<size_t> grid, std::vector<size_t> block) = 0;
+    std::weak_ptr<GridComputeQueue> weakParent;
+    std::atomic<int> numChildren = 0;
 
     // What kind of dispatch (serial or parallel) do we do?
     GridDispatchType dispatchType;
@@ -140,9 +157,9 @@ struct GridComputeQueue: public ComputeQueue, std::enable_shared_from_this<GridC
 
     virtual void
     copyFromHostSyncImpl(const std::string & opName,
-                                MemoryRegionHandle toRegion,
-                                FrozenMemoryRegion fromRegion,
-                                size_t deviceStartOffsetInBytes) override;
+                         MemoryRegionHandle toRegion,
+                         FrozenMemoryRegion fromRegion,
+                         size_t deviceStartOffsetInBytes) override;
 
     virtual FrozenMemoryRegion
     enqueueTransferToHostImpl(const std::string & opName,
@@ -157,6 +174,7 @@ struct GridComputeQueue: public ComputeQueue, std::enable_shared_from_this<GridC
                                       std::span<const std::byte> region, size_t align,
                                       const std::type_info & type, bool isConst) override;
 
+#if 0
     virtual MemoryRegionHandle
     managePinnedHostRegionSyncImpl(const std::string & opName,
                                    std::span<const std::byte> region, size_t align,
@@ -173,19 +191,41 @@ struct GridComputeQueue: public ComputeQueue, std::enable_shared_from_this<GridC
                                      MemoryRegionHandle from, MemoryRegionHandle to,
                                      size_t fromOffset, size_t toOffset,
                                      size_t length) override;
+#endif
 
     virtual void finish() override;
 
 protected:
+    // These methods are where the work is (concretely) done.  They are called by the implementations
+    // above.  This enables tracing and argument checking to be handled in one single place, versus
+    // needing to implement it for each.
     virtual void
     enqueueZeroFillArrayConcrete(const std::string & opName,
-                                 MemoryRegionHandle region, MemoryRegionInitialization init,
+                                 MemoryRegionHandle region,
                                  size_t startOffsetInBytes, ssize_t lengthInBytes) = 0;
     virtual void
     enqueueBlockFillArrayConcrete(const std::string & opName,
-                                  MemoryRegionHandle region, MemoryRegionInitialization init,
+                                  MemoryRegionHandle region,
                                   size_t startOffsetInBytes, ssize_t lengthInBytes,
                                   std::span<const std::byte> block) = 0;
+    virtual void
+    enqueueCopyFromHostConcrete(const std::string & opName,
+                                MemoryRegionHandle toRegion,
+                                FrozenMemoryRegion fromRegion,
+                                size_t deviceStartOffsetInBytes) = 0;
+
+    virtual FrozenMemoryRegion
+    enqueueTransferToHostConcrete(const std::string & opName, MemoryRegionHandle handle) = 0;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncConcrete(const std::string & opName, MemoryRegionHandle handle) = 0;
+
+    // Subclasses override to create a new bind context
+    virtual std::shared_ptr<GridBindContext>
+    newBindContext(const std::string & opName, const GridComputeKernel * kernel, const GridBindInfo * bindInfo) = 0;
+
+    // Subclasses override to launch the bound kernel
+    virtual void launch(const std::string & opName, GridBindContext & context, std::vector<size_t> grid, std::vector<size_t> block) = 0;
 };
 
 
@@ -200,6 +240,53 @@ struct GridComputeMarker: public ComputeMarker {
     std::shared_ptr<void> scope;
 };
 
+// GridComputeFunctionDisposition
+
+// Tells us what role the argument plays in the function (and ultimately, how we need
+// to pass it to the function).
+enum class GridComputeFunctionArgumentDisposition {
+    BUFFER,      ///< Argument needs to be passed a buffer
+    LITERAL,     ///< Argument needs to be passed a literal value
+    THREADGROUP  ///< Argument requires a threadgroup allocation
+};
+
+DECLARE_ENUM_DESCRIPTION(GridComputeFunctionArgumentDisposition);
+
+
+// GridComputeFunctionArgument
+
+struct GridComputeFunctionArgument {
+    std::string name;
+    int computeFunctionArgIndex = -1;
+    ComputeKernelType type;
+    GridComputeFunctionArgumentDisposition disposition;
+    Any implInfo;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(GridComputeFunctionArgument);
+
+
+// GridComputeFunction
+
+struct GridComputeFunction {
+    
+    virtual std::vector<GridComputeFunctionArgument> getArgumentInfo() const = 0;
+};
+
+
+// GridComputeFunctionLibrary
+
+struct GridComputeFunctionLibrary {
+    virtual ~GridComputeFunctionLibrary() = default;
+
+    virtual std::shared_ptr<GridComputeFunction>
+    getFunction(const std::string & kernelName) = 0;
+
+    virtual std::string getId() const = 0;
+
+    virtual Json::Value getMetadata() const = 0;
+};
+
 
 // GridComputeContext
 
@@ -210,7 +297,6 @@ struct GridComputeContext: public ComputeContext {
     virtual ~GridComputeContext() = default;
 
     ComputeDevice device;
-    std::shared_ptr<GridComputeQueue> queue;
 
     virtual ComputeDevice getDevice() const override;
 
@@ -231,59 +317,28 @@ struct GridComputeContext: public ComputeContext {
                               size_t offset, ssize_t length,
                               bool ignoreHazards) const;
 
+#if 0
     virtual MemoryRegionHandle
     allocateSyncImpl(const std::string & regionName,
                      size_t length, size_t align,
                      const std::type_info & type, bool isConst) override;
-
-#if 0
-    virtual MemoryRegionHandle
-    transferToDeviceImpl(const std::string & opName,
-                         FrozenMemoryRegion region,
-                         const std::type_info & type, bool isConst) override;
-
-    virtual MemoryRegionHandle
-    transferToDeviceSyncImpl(const std::string & opName,
-                             FrozenMemoryRegion region,
-                             const std::type_info & type, bool isConst) override;
-
-    virtual FrozenMemoryRegion
-    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override;
-
-    virtual FrozenMemoryRegion
-    transferToHostSyncImpl(const std::string & opName,
-                           MemoryRegionHandle handle) override;
-
-    virtual MutableMemoryRegion
-    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override;
-
-    virtual MutableMemoryRegion
-    transferToHostMutableSyncImpl(const std::string & opName,
-                                  MemoryRegionHandle handle) override;
-
-    virtual void
-    fillDeviceRegionFromHostImpl(const std::string & opName,
-                                 MemoryRegionHandle deviceHandle,
-                                 std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
-                                 size_t deviceOffset = 0) override;
-
-    virtual void
-    fillDeviceRegionFromHostSyncImpl(const std::string & opName,
-                                     MemoryRegionHandle deviceHandle,
-                                     std::span<const std::byte> hostRegion,
-                                     size_t deviceOffset = 0) override;
 #endif
 
     virtual std::shared_ptr<ComputeKernel>
     getKernel(const std::string & kernelName) override;
 
-    virtual std::shared_ptr<ComputeQueue>
-    getQueue(const std::string & queueName) override;
+    virtual std::shared_ptr<GridComputeFunctionLibrary>
+    getLibrary(const std::string & name) = 0;
 
     virtual MemoryRegionHandle
     getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
                  size_t startOffsetInBytes, size_t lengthInBytes,
                  size_t align, const std::type_info & type, bool isConst) override;
+
+protected:
+    // Turn a template into a concrete specialization for this context
+    virtual std::shared_ptr<GridComputeKernelSpecialization>
+    specializeKernel(const GridComputeKernelTemplate & tmplate) = 0;
 };
 
 // GridComputeKernel helper types
@@ -303,7 +358,7 @@ struct GridBindFieldAction {
 
     void apply(void * object,
                const ValueDescription & desc,
-               GridComputeContext & context,
+               GridComputeQueue & queue,
                const std::vector<ComputeKernelArgument> & args,
                ComputeKernelConstraintSolution & knowns) const;
 };
@@ -322,29 +377,30 @@ struct GridBindAction {
     GridBindActionType action;
     ComputeKernelType type;
     std::any arg;
+    int computeFunctionArgIndex = -1;
     int argNum = -1;
     std::string argName;
     std::shared_ptr<CommandExpression> expr;  // for setting from known or size of thread group
     std::vector<GridBindFieldAction> fields; // for struct
 
-    void apply(GridComputeContext & context,
+    void apply(GridComputeQueue & queue,
                const std::vector<ComputeKernelArgument> & args,
                ComputeKernelConstraintSolution & knowns,
                bool setKnowns,
                GridBindContext & bindContext) const;
 
 private:
-    void applyArg(GridComputeContext & context,
+    void applyArg(GridComputeQueue & queue,
                   const std::vector<ComputeKernelArgument> & args,
                   ComputeKernelConstraintSolution & knowns,
                   bool setKnowns,
                   GridBindContext & bindContext) const;
-    void applyStruct(GridComputeContext & context,
+    void applyStruct(GridComputeQueue & queue,
                     const std::vector<ComputeKernelArgument> & args,
                     ComputeKernelConstraintSolution & knowns,
                     bool setKnowns,
                     GridBindContext & bindContext) const;
-    void applyThreadGroup(GridComputeContext & context,
+    void applyThreadGroup(GridComputeQueue & queue,
                           const std::vector<ComputeKernelArgument> & args,
                           ComputeKernelConstraintSolution & knowns,
                           bool setKnowns,
@@ -354,31 +410,15 @@ private:
 DECLARE_STRUCTURE_DESCRIPTION(GridBindAction);
 
 
-// GridComputeFunction
-
-struct GridComputeFunction {
-
-};
-
-
-// GridComputeFunctionLibrary
-
-struct GridComputeFunctionLibrary {
-
-};
-
-
 // GridComputeKernel
+
+struct GridComputeKernelTemplate;
+
 
 struct GridComputeKernel: public ComputeKernel {
 
-    GridComputeKernel(GridComputeContext * owner)
-        : gridContext(owner)
-    {
-    }
-
     /// Block dimensions for launching the kernel
-    std::vector<size_t> block;
+    //std::vector<size_t> block;
 
     /// Do we allow the grid to be padded out?
     bool allowGridPaddingFlag = false;
@@ -391,18 +431,8 @@ struct GridComputeKernel: public ComputeKernel {
     std::shared_ptr<CommandExpression> blockExpression;
 
     GridComputeContext * gridContext = nullptr;
-    std::shared_ptr<GridComputeFunctionLibrary> gridLibrary;
-    std::shared_ptr<GridComputeFunction> gridFunction;
 
     std::vector<GridBindAction> bindActions;
-
-    // Serializer for tracing this particular kernel
-    std::shared_ptr<StructuredSerializer> traceSerializer;
-
-    // Serializer for tracing the runs of this kernel
-    std::shared_ptr<StructuredSerializer> runsSerializer;
-
-    mutable std::atomic<int> numCalls;
 
     // For each Grid argument, which is the corresponding argument number in arguments passed in?
     std::vector<int> correspondingArgumentNumbers;
@@ -425,20 +455,84 @@ struct GridComputeKernel: public ComputeKernel {
     // parallelism.
     void allowGridExpansion();
 
-    void setComputeFunction(std::shared_ptr<GridComputeFunctionLibrary> library,
-                            std::string kernelName);
+protected:
+    // Implemented by subclass to create the GridBindInfo.  The generic version throws;
+    // GridComputeKernel is only instantiated when creating a template to be later extended.
+    // That template can't be instantiated directly, it must be instantiated by a subclass
+    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const = 0;
+
+    // Used only to construct a template
+    GridComputeKernel(GridComputeContext * owner)
+        : gridContext(owner)
+    {
+        this->context = owner;
+    }
+};
+
+
+// GridComputeKernelTemplate
+
+// This is used to register a GridComputeKernel that will later be specialized for a given
+// runtime and device.  It can't be bound (getGridBindInfo will throw) but can be passed
+// to the base constructor of a concrete implementation.
+
+struct GridComputeKernelTemplate: public GridComputeKernel {
+    // Used only to construct a template
+    GridComputeKernelTemplate(GridComputeContext * owner)
+        : GridComputeKernel(owner)
+    {
+    }
+
+    std::string libraryName;
+    std::string kernelName;
+
+    void setComputeFunction(std::string libraryName, std::string kernelName);
+    
+protected:
+    // Thest two both throw; they are not relevant for a template
+    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const;
+    virtual BoundComputeKernel bindImpl(ComputeQueue & queue,
+                                        std::vector<ComputeKernelArgument> arguments,
+                                        ComputeKernelConstraintSolution knowns) const override;
+};
+
+
+// GridComputeKernelSpecialization
+
+// This is used to register a GridComputeKernel that will later be specialized for a given
+// runtime and device.  It can't be bound (getGridBindInfo will throw) but can be passed
+// to the base constructor of a concrete implementation.
+
+struct GridComputeKernelSpecialization: public GridComputeKernel {
+    // Used only to construct a template
+    GridComputeKernelSpecialization(GridComputeContext * owner)
+        : GridComputeKernel(owner)
+    {
+    }
+
+    // Serializer for tracing this particular kernel
+    std::shared_ptr<StructuredSerializer> traceSerializer;
+
+    // Serializer for tracing the runs of this kernel
+    std::shared_ptr<StructuredSerializer> runsSerializer;
+
+    std::shared_ptr<GridComputeFunctionLibrary> gridLibrary;
+    std::shared_ptr<GridComputeFunction> gridFunction;
+
+    mutable std::atomic<int> numCalls = 0;
 
     // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(std::vector<ComputeKernelArgument> arguments,
+    virtual BoundComputeKernel bindImpl(ComputeQueue & queue,
+                                        std::vector<ComputeKernelArgument> arguments,
                                         ComputeKernelConstraintSolution knowns) const override;
 
 protected:
-    // Implemented by subclass to create the GridBindInfo
-    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const = 0;
-
+    // Used by constructors of subclasses to initialize from a template kernel
+    GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKernelTemplate & tmplate);
 };
 
+
 void registerGridComputeKernel(const std::string & kernelName,
-                               std::function<std::shared_ptr<GridComputeKernel>(GridComputeContext &)> generator);
+                               std::function<std::shared_ptr<GridComputeKernelTemplate>(GridComputeContext &)> generator);
 
 }  // namespace MLDB

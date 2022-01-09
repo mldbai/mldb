@@ -8,6 +8,7 @@
 #pragma once
 
 #include "mldb/block/compute_kernel.h"
+#include "mldb/block/compute_kernel_grid.h"
 #include "mldb/ext/mtlpp/src/mtlpp.hpp"
 
 namespace MLDB {
@@ -15,53 +16,33 @@ namespace MLDB {
 DECLARE_ENUM_DESCRIPTION_NAMED(MtlCommandBufferStatusDescription, mtlpp::CommandBufferStatus);
 
 struct MetalComputeContext;
+struct MetalComputeQueue;
 
-struct MetalComputeProfilingInfo: public ComputeProfilingInfo {
-    MetalComputeProfilingInfo();
-    virtual ~MetalComputeProfilingInfo() = default;
-};
+using MetalComputeProfilingInfo = GridComputeProfilingInfo;
 
 // enable_shared_from_this is to ensure that we can pin lifetimes of events until the
 // completion handlers have finished.
-struct MetalComputeEvent: public ComputeEvent, public std::enable_shared_from_this<MetalComputeEvent> {
-    MetalComputeEvent(const std::string & label, bool resolved);  // may or may not be already resolved
+struct MetalComputeEvent: public GridComputeEvent {
+    MetalComputeEvent(const std::string & label, bool resolved, const MetalComputeQueue * owner);  // may or may not be already resolved
 
     virtual ~MetalComputeEvent() = default;
 
     void resolveFromCommandBuffer(const mtlpp::CommandBuffer & commandBuffer);
 
-    virtual std::shared_ptr<ComputeProfilingInfo> getProfilingInfo() const override;
-
     virtual void await() const override;
 
-    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label);
+    static std::shared_ptr<MetalComputeEvent>
+    makeAlreadyResolvedEvent(const std::string & label, const MetalComputeQueue * owner);
+    static std::shared_ptr<MetalComputeEvent>
+    makeUnresolvedEvent(const std::string & label, const MetalComputeQueue * owner);
 
-    void resolve();
-
-    static std::shared_ptr<MetalComputeEvent> makeAlreadyResolvedEvent(const std::string & label);
-    static std::shared_ptr<MetalComputeEvent> makeUnresolvedEvent(const std::string & label);
-
-    // Return this as a completion handler
-    std::function<void ()> getCompletionHandler() const;
-
-    // Resolve the event
-    void resolve(const mtlpp::CommandBuffer & buffer);
-
-    virtual std::string label() const override { return label_; }
-    std::string label_;
-
-    std::mutex mutex;
-    std::atomic<bool> isResolved = false;  // always starts this way, only resolve() can change
     mtlpp::CommandBuffer commandBuffer;
-    std::promise<void> promise;
-    std::shared_future<void> future;
-    std::vector<std::function<void ()>> callbacks;
 };
 
 
 // MetalComputeQueue
 
-struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<MetalComputeQueue> {
+struct MetalComputeQueue: public GridComputeQueue, std::enable_shared_from_this<MetalComputeQueue> {
     MetalComputeQueue(MetalComputeContext * owner, MetalComputeQueue * parent,
                       const std::string & label,
                       mtlpp::CommandQueue queue, mtlpp::DispatchType dispatchType);
@@ -70,37 +51,12 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     MetalComputeContext * mtlOwner = nullptr;
     mtlpp::CommandQueue mtlQueue;
     mtlpp::CommandBuffer commandBuffer;
-    std::weak_ptr<MetalComputeQueue> weakParent;
-    std::atomic<int> numChildren = 0;
 
     // What kind of dispatch (serial or parallel) do we do?
     mtlpp::DispatchType dispatchType;
 
     virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) override;
     virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) override;
-
-    virtual void
-    enqueue(const std::string & opName,
-            const BoundComputeKernel & kernel,
-            const std::vector<uint32_t> & grid) override;
-
-    virtual void
-    enqueueFillArrayImpl(const std::string & opName,
-                         MemoryRegionHandle region, MemoryRegionInitialization init,
-                         size_t startOffsetInBytes, ssize_t lengthInBytes,
-                         std::span<const std::byte> block) override;
-
-    virtual void
-    enqueueCopyFromHostImpl(const std::string & opName,
-                            MemoryRegionHandle toRegion,
-                            FrozenMemoryRegion fromRegion,
-                            size_t deviceStartOffsetInBytes) override;
-
-    virtual void
-    copyFromHostSyncImpl(const std::string & opName,
-                                MemoryRegionHandle toRegion,
-                                FrozenMemoryRegion fromRegion,
-                                size_t deviceStartOffsetInBytes) override;
 
     virtual FrozenMemoryRegion
     enqueueTransferToHostImpl(const std::string & opName,
@@ -146,6 +102,37 @@ struct MetalComputeQueue: public ComputeQueue, std::enable_shared_from_this<Meta
     virtual std::shared_ptr<ComputeEvent> flush() override;
     virtual void finish() override;
 
+protected:
+    virtual void
+    enqueueZeroFillArrayConcrete(const std::string & opName,
+                                 MemoryRegionHandle region,
+                                 size_t startOffsetInBytes, ssize_t lengthInBytes) override;
+    virtual void
+    enqueueBlockFillArrayConcrete(const std::string & opName,
+                                  MemoryRegionHandle region,
+                                  size_t startOffsetInBytes, ssize_t lengthInBytes,
+                                  std::span<const std::byte> block) override;
+    virtual void
+    enqueueCopyFromHostConcrete(const std::string & opName,
+                                MemoryRegionHandle toRegion,
+                                FrozenMemoryRegion fromRegion,
+                                size_t deviceStartOffsetInBytes) override;
+
+    virtual FrozenMemoryRegion
+    enqueueTransferToHostConcrete(const std::string & opName, MemoryRegionHandle handle) override;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncConcrete(const std::string & opName, MemoryRegionHandle handle) override;
+
+    // Subclasses override to create a new bind context
+    virtual std::shared_ptr<GridBindContext>
+    newBindContext(const std::string & opName,
+                   const GridComputeKernel * kernel, const GridBindInfo * bindInfo) override;
+
+    // Subclasses override to launch the bound kernel
+    virtual void launch(const std::string & opName, GridBindContext & context,
+                        std::vector<size_t> grid, std::vector<size_t> block) override;
+
 private:
     template<typename CommandEncoder>
     void beginEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force);
@@ -161,41 +148,25 @@ private:
     void endEncoding(const std::string & opName, mtlpp::ComputeCommandEncoder & encoder, bool force = false);
     void endEncoding(const std::string & opName, mtlpp::BlitCommandEncoder & encoder, bool force = false);
 
-
-};
-
-
-// MetalComputeMarker
-
-struct MetalComputeMarker: public ComputeMarker {
-    MetalComputeMarker(const std::string & scopeName);
-    virtual ~MetalComputeMarker();
-
-    virtual std::shared_ptr<ComputeMarker> enterScope(const std::string & scopeName);
-
-    std::shared_ptr<void> scope;
+    friend struct MetalBindContext;
 };
 
 
 // MetalComputeContext
 
-struct MetalComputeContext: public ComputeContext {
+struct MetalComputeContext: public GridComputeContext {
 
     MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device);
 
     virtual ~MetalComputeContext() = default;
 
     mtlpp::Device mtlDevice;
-    ComputeDevice device;
     mtlpp::Heap heap;
 
-    virtual ComputeDevice getDevice() const override;
-
-    // Return a marker that enters the named scope when created
-    virtual std::shared_ptr<ComputeMarker> getScopedMarker(const std::string & scopeName) override;
-
-    // Record a marker event, without creating a scope
-    virtual void recordMarkerEvent(const std::string & event) override;
+    virtual MemoryRegionHandle
+    allocateSyncImpl(const std::string & regionName,
+                     size_t length, size_t align,
+                     const std::type_info & type, bool isConst) override;
 
     // pin, region, length in bytes
     static std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
@@ -208,215 +179,85 @@ struct MetalComputeContext: public ComputeContext {
                               size_t offset, ssize_t length,
                               bool ignoreHazards) const;
 
-    virtual MemoryRegionHandle
-    allocateSyncImpl(const std::string & regionName,
-                     size_t length, size_t align,
-                     const std::type_info & type, bool isConst) override;
-
-#if 0
-    virtual MemoryRegionHandle
-    transferToDeviceImpl(const std::string & opName,
-                         FrozenMemoryRegion region,
-                         const std::type_info & type, bool isConst) override;
-
-    virtual MemoryRegionHandle
-    transferToDeviceSyncImpl(const std::string & opName,
-                             FrozenMemoryRegion region,
-                             const std::type_info & type, bool isConst) override;
-
-    virtual FrozenMemoryRegion
-    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override;
-
-    virtual FrozenMemoryRegion
-    transferToHostSyncImpl(const std::string & opName,
-                           MemoryRegionHandle handle) override;
-
-    virtual MutableMemoryRegion
-    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override;
-
-    virtual MutableMemoryRegion
-    transferToHostMutableSyncImpl(const std::string & opName,
-                                  MemoryRegionHandle handle) override;
-
-    virtual void
-    fillDeviceRegionFromHostImpl(const std::string & opName,
-                                 MemoryRegionHandle deviceHandle,
-                                 std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
-                                 size_t deviceOffset = 0) override;
-
-    virtual void
-    fillDeviceRegionFromHostSyncImpl(const std::string & opName,
-                                     MemoryRegionHandle deviceHandle,
-                                     std::span<const std::byte> hostRegion,
-                                     size_t deviceOffset = 0) override;
-#endif
-
-    virtual std::shared_ptr<ComputeKernel>
-    getKernel(const std::string & kernelName) override;
+    virtual std::shared_ptr<GridComputeFunctionLibrary>
+    getLibrary(const std::string & name) override;
 
     virtual std::shared_ptr<ComputeQueue>
     getQueue(const std::string & queueName) override;
 
-    virtual MemoryRegionHandle
-    getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
-                 size_t startOffsetInBytes, size_t lengthInBytes,
-                 size_t align, const std::type_info & type, bool isConst) override;
+protected:
+    virtual std::shared_ptr<GridComputeKernelSpecialization>
+    specializeKernel(const GridComputeKernelTemplate & tmplate) override;
 };
 
-// MetalComputeKernel helper types
+// MetalComputeFunction
 
-enum class MetalBindFieldActionType {
-    SET_FIELD_FROM_PARAM,
-    SET_FIELD_FROM_KNOWN
-};
+struct MetalComputeFunction: public GridComputeFunction {
+    MetalComputeFunction(MetalComputeContext & context, mtlpp::Function mtlFunction);
 
-DECLARE_ENUM_DESCRIPTION(MetalBindFieldActionType);
+    virtual ~MetalComputeFunction() = default;
 
-struct MetalBindFieldAction {
-    MetalBindFieldActionType action;
-    int fieldNumber = -1;
-    int argNum = -1;
-    std::shared_ptr<CommandExpression> expr;  // for setting from known
-
-    void apply(void * object,
-               const ValueDescription & desc,
-               MetalComputeQueue & queue,
-               const std::vector<ComputeKernelArgument> & args,
-               ComputeKernelConstraintSolution & knowns) const;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(MetalBindFieldAction);
-
-enum class MetalBindActionType {
-    SET_BUFFER_FROM_ARG,
-    SET_BUFFER_FROM_STRUCT,
-    SET_BUFFER_THREAD_GROUP
-};
-
-DECLARE_ENUM_DESCRIPTION(MetalBindActionType);
-
-struct MetalBindAction {
-    MetalBindActionType action;
-    ComputeKernelType type;
-    mtlpp::Argument arg;
-    int argNum = -1;
-    std::string argName;
-    std::shared_ptr<CommandExpression> expr;  // for setting from known or size of thread group
-    std::vector<MetalBindFieldAction> fields; // for struct
-
-    void apply(MetalComputeQueue & queue,
-               const std::vector<ComputeKernelArgument> & args,
-               ComputeKernelConstraintSolution & knowns,
-               bool setKnowns,
-               mtlpp::CommandBuffer & commandBuffer,
-               mtlpp::ComputeCommandEncoder & commandEncoder) const;
-
-private:
-    void applyArg(MetalComputeQueue & queue,
-                  const std::vector<ComputeKernelArgument> & args,
-                  ComputeKernelConstraintSolution & knowns,
-                  bool setKnowns,
-                  mtlpp::CommandBuffer & commandBuffer,
-                  mtlpp::ComputeCommandEncoder & commandEncoder) const;
-    void applyStruct(MetalComputeQueue & queue,
-                    const std::vector<ComputeKernelArgument> & args,
-                    ComputeKernelConstraintSolution & knowns,
-                    bool setKnowns,
-                    mtlpp::CommandBuffer & commandBuffer,
-                    mtlpp::ComputeCommandEncoder & commandEncoder) const;
-    void applyThreadGroup(MetalComputeQueue & queue,
-                          const std::vector<ComputeKernelArgument> & args,
-                          ComputeKernelConstraintSolution & knowns,
-                          bool setKnowns,
-                          mtlpp::CommandBuffer & commandBuffer,
-                          mtlpp::ComputeCommandEncoder & commandEncoder) const;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(MetalBindAction);
-
-// MetalComputeKernel
-
-struct MetalComputeKernel: public ComputeKernel {
-
-    MetalComputeKernel(MetalComputeContext * owner)
-        : mtlContext(owner)
-    {
-    }
-
-    /// Block dimensions for launching the kernel
-    std::vector<size_t> block;
-
-    /// Do we allow the grid to be padded out?
-    bool allowGridPaddingFlag = false;
-
-    /// Do we allow the grid to be expanded?
-    bool allowGridExpansionFlag = false;
-
-    using SetParameters = std::function<void (mtlpp::Function & kernel, MetalComputeContext & context)>;
-
-    /// List of functions used to set arbitrary values on the kernel (especially for calculating
-    /// sizes of local arrays or other bounds)
-    std::vector<SetParameters> setters;
-
-    // Expressions for the grid dimensions, if we override them
-    std::shared_ptr<CommandExpression> gridExpression;
-    std::shared_ptr<CommandExpression> blockExpression;
-
-    // Function to modify the grid dimensions
-    std::function<void (std::vector<size_t> & grid, std::vector<size_t> & block)> modifyGrid;
-
-    MetalComputeContext * mtlContext = nullptr;
-    mtlpp::Library mtlLibrary;  // Mutable as createKernel is non-const
     mtlpp::Function mtlFunction;
     mtlpp::ComputePipelineState computePipelineState;
     mtlpp::ComputePipelineReflection reflection;
 
-    std::vector<MetalBindAction> bindActions;
+    virtual std::vector<GridComputeFunctionArgument> getArgumentInfo() const override;
+};
 
-    // Serializer for tracing this particular kernel
-    std::shared_ptr<StructuredSerializer> traceSerializer;
 
-    // Serializer for tracing the runs of this kernel
-    std::shared_ptr<StructuredSerializer> runsSerializer;
+// MetalComputeFunctionLibrary
 
-    mutable std::atomic<int> numCalls;
+struct MetalComputeFunctionLibrary: public GridComputeFunctionLibrary {
+    MetalComputeFunctionLibrary(MetalComputeContext & context, mtlpp::Library mtlLibrary);
 
-    // For each Metal argument, which is the corresponding argument number in arguments passed in?
-    std::vector<int> correspondingArgumentNumbers;
+    virtual ~MetalComputeFunctionLibrary() = default;
+
+    MetalComputeContext & context;
+    mtlpp::Library mtlLibrary;
+
+    virtual std::shared_ptr<GridComputeFunction>
+
+    getFunction(const std::string & functionName) override;
+
+    virtual std::string getId() const override;
+
+    virtual Json::Value getMetadata() const override;
+
+    // Return a version compiled from source read from the given filename
+    static std::shared_ptr<MetalComputeFunctionLibrary>
+    compileFromSourceFile(MetalComputeContext & context, const std::string & fileName);
+
+    // Return a version compiled from source given in the sourceCode string
+    static std::shared_ptr<MetalComputeFunctionLibrary>
+    compileFromSource(MetalComputeContext & context, const Utf8String & sourceCode, const std::string & fileNameToAppearInErrorMessages);
+
+    // Load a binary library (.mtllib file)
+    static std::shared_ptr<MetalComputeFunctionLibrary>
+    loadMtllib(MetalComputeContext & context, const std::string & libraryFilename);
+};
+
+
+// MetalComputeKernel
+
+struct MetalComputeKernel: public GridComputeKernelSpecialization {
+
+    MetalComputeKernel(MetalComputeContext * owner, const GridComputeKernelTemplate & tmplate);
+
+    MetalComputeContext * mtlContext = nullptr;
+    const MetalComputeFunction * mtlFunction = nullptr;
 
     // Parses an Metal kernel argument info structure, and turns it into a ComputeKernel type
     static ComputeKernelType getKernelType(const mtlpp::Argument & arg);
 
-    void setParameters(SetParameters setter);
-
-    // Add a tuneable parameter to the invocation
-    void addTuneable(const std::string & variableName, int64_t defaultValue);
-
-    // Get the expression for the grid.  This will run before modifyGrid.
-    void setGridExpression(const std::string & gridExpr, const std::string & blockExpr);
-
-    // This is called as internal documentation.  It says that we allow the runtime to pad
-    // out the grid size so that it's a multiple of the block size.  This means however that
-    // the kernel will be called with out of range values, and the kernel grid size may be
-    // higher than the actual range, which will need to be passed in as an argument.  In
-    // pratice, the kernel needs to check if its IDs are out of range and exit if so.
-    void allowGridPadding();
-
-    // This is also internal documention; it allows the grid we're called with to be expanded
-    // to an extra dimension to accomodate the kernel which needs an extra dimension of
-    // parallelism.
-    void allowGridExpansion();
-
-    void setComputeFunction(mtlpp::Library program,
-                            std::string kernelName);
-
-    // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(ComputeQueue & queue,
-                                        std::vector<ComputeKernelArgument> arguments,
-                                        ComputeKernelConstraintSolution knowns) const override;
+protected:
+    // Implemented by subclass to create the GridBindInfo
+    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const override;
 };
 
-void registerMetalComputeKernel(const std::string & kernelName,
-                           std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext &)> generator);
+
+//void registerMetalComputeKernel(const std::string & kernelName,
+//                           std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext &)> generator);
+void registerMetalLibrary(const std::string & libraryName,
+                          std::function<std::shared_ptr<MetalComputeFunctionLibrary>(MetalComputeContext &)> generator);
 
 }  // namespace MLDB

@@ -52,6 +52,7 @@ LIBMLDB_JML_PLUGIN_SOURCES:= \
 	randomforest_kernels_opencl.cc \
 	randomforest_kernels_metal.cc \
 	randomforest_kernels_host.cc \
+	randomforest_kernels_grid.cc \
 	randomforest_types.cc \
 	randomforest_procedure.cc \
 	randomforest_recursive.cc \

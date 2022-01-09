@@ -1,4 +1,4 @@
-/** randomforest_kernels_metal.cc                              -*- C++ -*-
+/** randomforest_kernels_grid.cc                              -*- C++ -*-
     Jeremy Barnes, 8 September 2021
     Copyright (c) 2021 Jeremy Barnes.  All rights reserved.
     This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
@@ -6,61 +6,36 @@
     Kernels for random forest algorithm.
 */
 
-#include "randomforest_kernels_metal.h"
-#include "randomforest_kernels.h"
 #include "mldb/utils/environment.h"
-#include "mldb/vfs/filter_streams.h"
-#include "mldb/builtin/metal/compute_kernel_metal.h"
-#include <future>
-#include <array>
+#include "mldb/block/compute_kernel_grid.h"
+#include "randomforest_types.h"
 
 
 using namespace std;
-using namespace mtlpp;
 
 
 namespace MLDB {
 namespace RF {
-
-EnvOption<bool> DEBUG_RF_METAL_KERNELS("DEBUG_RF_METAL_KERNELS", 0);
 
 // Default of 5.5k allows 8 parallel workgroups for a 48k SM when accounting
 // for 0.5k of local memory for the kernels.
 // On Nvidia, with 32 registers/work item and 256 work items/workgroup
 // (8 warps of 32 threads), we use 32 * 256 * 8 = 64k registers, which
 // means full occupancy.
-EnvOption<int, true> RF_METAL_LOCAL_BUCKET_MEM("RF_METAL_LOCAL_BUCKET_MEM", 5500);
+EnvOption<int, true> RF_LOCAL_BUCKET_MEM("RF_LOCAL_BUCKET_MEM", 5500);
 
 
 namespace {
 
-
-//constexpr uint32_t maxWorkGroupSize = 256;  // TODO: device query
+constexpr uint32_t maxWorkGroupSize = 256;  // TODO: device query
 
 static struct RegisterKernels {
 
     RegisterKernels()
     {
-        auto compileLibrary = [] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeFunctionLibrary>
+        auto createDecodeRowsKernel = [] (GridComputeContext& context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            if (false) {
-                std::string fileName = "mldb/plugins/jml/randomforest_kernels.metal";
-                return MetalComputeFunctionLibrary::compileFromSourceFile(context, fileName);
-            }
-            else {
-                std::string fileName = "build/arm64/lib/randomforest_metal.metallib";
-                return MetalComputeFunctionLibrary::loadMtllib(context, fileName);
-            }
-        };
-
-        registerMetalLibrary("randomforest_kernels", compileLibrary);
-
-#if 0
-    
-        auto createDecodeRowsKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
-        {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "decodeRows";
             result->addDimension("r", "nr", 256);
             result->allowGridPadding();
@@ -77,17 +52,16 @@ static struct RegisterKernels {
             result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 16);
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
-            result->setComputeFunction(library, "decompressRowsKernel");
+            result->setComputeFunction("randomforest_kernels", "decompressRowsKernel");
 
             return result;
         };
 
-        registerMetalComputeKernel("decodeRows", createDecodeRowsKernel);
+        registerGridComputeKernel("decodeRows", createDecodeRowsKernel);
 
-        auto createTestFeatureKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
+        auto createTestFeatureKernel = [] (GridComputeContext& context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "testFeature";
             //result->device = ComputeDevice::host();
             result->addDimension("fidx", "naf");
@@ -102,7 +76,7 @@ static struct RegisterKernels {
             result->addParameter("activeFeatureList", "r", "u32[naf]");
             result->addParameter("partitionBuckets", "rw", "W32[numBuckets]");
 
-            result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
+            result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 32);
 
@@ -112,16 +86,15 @@ static struct RegisterKernels {
             result->setGridExpression("[naf,blocksPerGrid]", "[1,threadsPerBlock]");
             result->allowGridPadding();
 
-            result->setComputeFunction(library, "testFeatureKernel");
+            result->setComputeFunction("randomforest_kernels", "testFeatureKernel");
             return result;
         };
 
-        registerMetalComputeKernel("testFeature", createTestFeatureKernel);
+        registerGridComputeKernel("testFeature", createTestFeatureKernel);
 
-        auto createGetPartitionSplitsKernel = [getLibrary] (MetalComputeContext& context) -> std::shared_ptr<MetalComputeKernel>
+        auto createGetPartitionSplitsKernel = [] (GridComputeContext& context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "getPartitionSplits";
             //result->device = ComputeDevice::host();
             result->addDimension("fidx", "naf");
@@ -136,7 +109,7 @@ static struct RegisterKernels {
             result->addParameter("treeDepthInfo", "r", "TreeDepthInfo[1]");
 
             result->addTuneable("numPartitionsInParallel", maxWorkGroupSize);
-            result->addTuneable("wLocalSize", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed));
+            result->addTuneable("wLocalSize", RF_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed));
 
             result->addParameter("wLocal", "w", "WIndexed[wLocalSize]");
             result->addParameter("wLocalSize", "r", "u32");
@@ -146,16 +119,15 @@ static struct RegisterKernels {
 
             result->setGridExpression("[1,naf,numPartitionsInParallel]", "[64,1,1]");
             
-            result->setComputeFunction(library, "getPartitionSplitsKernel");
+            result->setComputeFunction("randomforest_kernels", "getPartitionSplitsKernel");
             return result;
         };
 
-        registerMetalComputeKernel("getPartitionSplits", createGetPartitionSplitsKernel);
+        registerGridComputeKernel("getPartitionSplits", createGetPartitionSplitsKernel);
 
-        auto createBestPartitionSplitKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
+        auto createBestPartitionSplitKernel = [] (GridComputeContext & context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "bestPartitionSplit";
             //result->device = ComputeDevice::host();
 
@@ -172,16 +144,15 @@ static struct RegisterKernels {
 
             result->addTuneable("numPartitionsAtOnce", maxWorkGroupSize);
             result->setGridExpression("[numPartitionsAtOnce]", "[1]");
-            result->setComputeFunction(library, "bestPartitionSplitKernel");
+            result->setComputeFunction("randomforest_kernels", "bestPartitionSplitKernel");
             return result;
         };
 
-        registerMetalComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
+        registerGridComputeKernel("bestPartitionSplit", createBestPartitionSplitKernel);
 
-        auto createAssignPartitionNumbersKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
+        auto createAssignPartitionNumbersKernel = [] (GridComputeContext & context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "assignPartitionNumbers";
             //result->device = ComputeDevice::host();
             result->addParameter("treeTrainingInfo", "r", "TreeTrainingInfo[1]");
@@ -193,16 +164,15 @@ static struct RegisterKernels {
             result->addParameter("smallSideIndexesOut", "w", "u8[maxActivePartitions]");
             result->addParameter("smallSideIndexToPartitionOut", "w", "u16[256]");
             result->setGridExpression("[1]", "[32]");
-            result->setComputeFunction(library, "assignPartitionNumbersKernel");
+            result->setComputeFunction("randomforest_kernels", "assignPartitionNumbersKernel");
             return result;
         };
 
-        registerMetalComputeKernel("assignPartitionNumbers", createAssignPartitionNumbersKernel);
+        registerGridComputeKernel("assignPartitionNumbers", createAssignPartitionNumbersKernel);
 
-        auto createClearBucketsKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
+        auto createClearBucketsKernel = [] (GridComputeContext & context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "clearBuckets";
             //result->device = ComputeDevice::host();
             result->addDimension("bucket", "numActiveBuckets");
@@ -216,16 +186,15 @@ static struct RegisterKernels {
             result->addTuneable("gridBlockSize", 64);
             result->addTuneable("numPartitionsAtOnce", maxWorkGroupSize);
             result->setGridExpression("[numPartitionsAtOnce,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
-            result->setComputeFunction(library, "clearBucketsKernel");
+            result->setComputeFunction("randomforest_kernels", "clearBucketsKernel");
             return result;
         };
 
-        registerMetalComputeKernel("clearBuckets", createClearBucketsKernel);
+        registerGridComputeKernel("clearBuckets", createClearBucketsKernel);
 
-        auto createUpdatePartitionNumbersKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
+        auto createUpdatePartitionNumbersKernel = [] (GridComputeContext & context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "updatePartitionNumbers";
             //result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
@@ -250,16 +219,15 @@ static struct RegisterKernels {
             result->addTuneable("blocksPerGrid", 96);
             result->allowGridPadding();
             result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
-            result->setComputeFunction(library, "updatePartitionNumbersKernel");
+            result->setComputeFunction("randomforest_kernels", "updatePartitionNumbersKernel");
             return result;
         };
 
-        registerMetalComputeKernel("updatePartitionNumbers", createUpdatePartitionNumbersKernel);
+        registerGridComputeKernel("updatePartitionNumbers", createUpdatePartitionNumbersKernel);
 
-        auto createUpdateBucketsKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
+        auto createUpdateBucketsKernel = [] (GridComputeContext & context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "updateBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("r", "numRows");
@@ -283,7 +251,7 @@ static struct RegisterKernels {
             result->addParameter("bucketEntryBits", "r", "u32[nf]");
             result->addParameter("activeFeatureList", "r", "u32[numActiveFeatures]");
             result->addParameter("featureIsOrdinal", "r", "u32[nf]");
-            result->addTuneable("maxLocalBuckets", RF_METAL_LOCAL_BUCKET_MEM.get() / sizeof(W));
+            result->addTuneable("maxLocalBuckets", RF_LOCAL_BUCKET_MEM.get() / sizeof(W));
             result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 32);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
@@ -292,16 +260,15 @@ static struct RegisterKernels {
             result->addConstraint("numActiveFeatures", "==", "naf_plus_1 - 1", "help the solver");
             result->setGridExpression("[blocksPerGrid,numActiveFeatures+1]", "[threadsPerBlock,1]");
             result->allowGridPadding();
-            result->setComputeFunction(library, "updateBucketsKernel");
+            result->setComputeFunction("randomforest_kernels", "updateBucketsKernel");
             return result;
         };
 
-        registerMetalComputeKernel("updateBuckets", createUpdateBucketsKernel);
+        registerGridComputeKernel("updateBuckets", createUpdateBucketsKernel);
 
-        auto createFixupBucketsKernel = [getLibrary] (MetalComputeContext & context) -> std::shared_ptr<MetalComputeKernel>
+        auto createFixupBucketsKernel = [] (GridComputeContext & context) -> std::shared_ptr<GridComputeKernelTemplate>
         {
-            auto library = getLibrary(context);
-            auto result = std::make_shared<MetalComputeKernel>(&context);
+            auto result = std::make_shared<GridComputeKernelTemplate>(&context);
             result->kernelName = "fixupBuckets";
             result->device = ComputeDevice::host();
             result->addDimension("bucket", "numActiveBuckets");
@@ -317,18 +284,14 @@ static struct RegisterKernels {
             result->addTuneable("numPartitionsAtOnce", maxWorkGroupSize);
             result->allowGridPadding();
             result->setGridExpression("[numPartitionsAtOnce,ceilDiv(numActiveBuckets,gridBlockSize)]", "[1,gridBlockSize]");
-            result->setComputeFunction(library, "fixupBucketsKernel");
+            result->setComputeFunction("randomforest_kernels", "fixupBucketsKernel");
             return result;
         };
 
-        registerMetalComputeKernel("fixupBuckets", createFixupBucketsKernel);
-#endif
-
+        registerGridComputeKernel("fixupBuckets", createFixupBucketsKernel);
     }
 
 } registerKernels;
-
-
 } // file scope
 
 } // namespace RF
