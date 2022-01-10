@@ -135,10 +135,6 @@ protected:
     newBindContext(const std::string & opName,
                    const GridComputeKernel * kernel, const GridBindInfo * bindInfo) override;
 
-    // Subclasses override to launch the bound kernel
-    virtual void launch(const std::string & opName, GridBindContext & context,
-                        std::vector<size_t> grid, std::vector<size_t> block) override;
-
 private:
     template<typename CommandEncoder>
     void beginEncodingImpl(const std::string & opName, CommandEncoder & encoder, bool force);
@@ -196,6 +192,7 @@ protected:
     specializeKernel(const GridComputeKernelTemplate & tmplate) override;
 };
 
+
 // MetalComputeFunction
 
 struct MetalComputeFunction: public GridComputeFunction {
@@ -222,7 +219,6 @@ struct MetalComputeFunctionLibrary: public GridComputeFunctionLibrary {
     mtlpp::Library mtlLibrary;
 
     virtual std::shared_ptr<GridComputeFunction>
-
     getFunction(const std::string & functionName) override;
 
     virtual std::string getId() const override;
@@ -254,10 +250,6 @@ struct MetalComputeKernel: public GridComputeKernelSpecialization {
 
     // Parses an Metal kernel argument info structure, and turns it into a ComputeKernel type
     static ComputeKernelType getKernelType(const mtlpp::Argument & arg);
-
-protected:
-    // Implemented by subclass to create the GridBindInfo
-    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const override;
 };
 
 

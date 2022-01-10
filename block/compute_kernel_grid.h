@@ -146,8 +146,9 @@ struct GridMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
 };
 
 struct GridBindInfo: public ComputeKernelBindInfo {
-    virtual ~GridBindInfo() = default;
+    GridBindInfo(const GridComputeKernel * owner) : owner(owner) {}
 
+    virtual ~GridBindInfo() = default;
     const GridComputeKernel * owner = nullptr;
     std::shared_ptr<StructuredSerializer> traceSerializer;
 
@@ -199,13 +200,18 @@ DECLARE_ENUM_DESCRIPTION(GridDispatchType);
 
 // GridBindContext
 
+// This is used to bind parameters and enqueue a grid launch
 struct GridBindContext {
     virtual ~GridBindContext() = default;
+
     virtual void setPrimitive(const std::string & opName, int argNum, std::span<const std::byte> bytes) = 0;
     virtual void setBuffer(const std::string & opName, int argNum,
                            std::shared_ptr<GridMemoryRegionHandleInfo> handle,
                            MemoryRegionAccess access) = 0;
     virtual void setThreadGroupMemory(const std::string & opName, int argNum, size_t nBytes) = 0;
+
+    // Subclasses override to launch the bound kernel
+    virtual void launch(const std::string & opName, GridBindContext & context, std::vector<size_t> grid, std::vector<size_t> block) = 0;
 };
 
 
@@ -305,12 +311,9 @@ protected:
     virtual FrozenMemoryRegion
     transferToHostSyncConcrete(const std::string & opName, MemoryRegionHandle handle) = 0;
 
-    // Subclasses override to create a new bind context
+    // Subclasses override to create a new bind context which binds and launches kernels
     virtual std::shared_ptr<GridBindContext>
     newBindContext(const std::string & opName, const GridComputeKernel * kernel, const GridBindInfo * bindInfo) = 0;
-
-    // Subclasses override to launch the bound kernel
-    virtual void launch(const std::string & opName, GridBindContext & context, std::vector<size_t> grid, std::vector<size_t> block) = 0;
 };
 
 
@@ -451,9 +454,10 @@ struct GridBindFieldAction {
 DECLARE_STRUCTURE_DESCRIPTION(GridBindFieldAction);
 
 enum class GridBindActionType {
-    SET_BUFFER_FROM_ARG,
-    SET_BUFFER_FROM_STRUCT,
-    SET_BUFFER_THREAD_GROUP
+    SET_FROM_ARG,
+    SET_FROM_STRUCT,
+    SET_FROM_KNOWN,
+    SET_THREAD_GROUP
 };
 
 DECLARE_ENUM_DESCRIPTION(GridBindActionType);
@@ -541,10 +545,9 @@ struct GridComputeKernel: public ComputeKernel {
     void allowGridExpansion();
 
 protected:
-    // Implemented by subclass to create the GridBindInfo.  The generic version throws;
-    // GridComputeKernel is only instantiated when creating a template to be later extended.
-    // That template can't be instantiated directly, it must be instantiated by a subclass
-    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const = 0;
+    // Implemented by subclass to create the GridBindInfo.  The generic version creates a
+    // GridBindInfo directly, which works for most subclasses.
+    virtual std::shared_ptr<GridBindInfo> getGridBindInfo() const;
 
     // Used only to construct a template
     GridComputeKernel(GridComputeContext * owner)

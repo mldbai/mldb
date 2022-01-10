@@ -23,182 +23,22 @@ namespace MLDB {
 
 namespace {
 
-std::mutex kernelRegistryMutex;
-struct KernelRegistryEntry {
-    std::function<std::shared_ptr<OpenCLComputeKernel>(OpenCLComputeContext & context)> generate;
+std::mutex libraryRegistryMutex;
+struct LibraryRegistryEntry {
+    std::function<std::shared_ptr<OpenCLComputeFunctionLibrary>(OpenCLComputeContext & context)> generate;
 };
 
-std::map<std::string, KernelRegistryEntry> kernelRegistry;
+std::map<std::string, LibraryRegistryEntry> libraryRegistry;
 
-struct OpenCLBindInfo: public ComputeKernelBindInfo {
-    virtual ~OpenCLBindInfo() = default;
-
-    OpenCLKernel clKernel;
-    const OpenCLComputeKernel * owner = nullptr;
-    OpenCLComputeContext * clContext = nullptr;
-    std::shared_ptr<StructuredSerializer> traceSerializer;
-
-    // Pins that control the lifetime of the arguments and allow the system to know
-    // when an argument is no longer needed
-    std::vector<std::shared_ptr<const void>> argumentPins;
-};
-
-EnvOption<int> OPENCL_TRACE_API_CALLS("OPENCL_COMPUTE_TRACE_API_CALLS", 0);
 EnvOption<bool, false> OPENCL_ENABLED("OPENCL_ENABLED", true);
-EnvOption<std::string> OPENCL_KERNEL_TRACE_FILE("OPENCL_KERNEL_TRACE_FILE", "");
 
-std::shared_ptr<ZipStructuredSerializer> traceSerializer;
-std::shared_ptr<StructuredSerializer> regionsSerializer;
-std::shared_ptr<StructuredSerializer> kernelsSerializer;
-std::shared_ptr<StructuredSerializer> programsSerializer;
-
-using TracedRegionKey = std::tuple<std::string, int>;
-//struct TracedRegionKey {
-//    std::string name;
-//    int version = -1;
-//    auto operator < (const TracedRegionKey & other) const = default;
-//};
-
-struct TracedRegionEntry {
-    size_t length = 0;
-};
-
-std::mutex tracedRegionMutex;
-std::map<std::string, std::shared_ptr<StructuredSerializer>> regionSerializers;
-std::map<TracedRegionKey, TracedRegionEntry> tracedRegions;
-
-std::mutex tracedProgramMutex;
-std::set<std::string> tracedPrograms;
-
-bool versionIsTraced(const std::string & name, int version)
-{
-    std::unique_lock guard(tracedRegionMutex);
-    return tracedRegions.count({name, version});
-}
-
-void traceVersion(std::string name, int version, const FrozenMemoryRegion & region)
-{
-    if (name == "") {
-        name = format("%016llx", (unsigned long long)region.data());
-    }
-    ExcAssert(name != "");
-    ExcAssertGreaterEqual(version, 0);
-
-    if (!traceSerializer)
-        return;
-
-    std::unique_lock guard(tracedRegionMutex);
-    auto it = tracedRegions.find({name, version});
-    if (it != tracedRegions.end()) {
-        ExcAssertEqual(it->second.length, region.length());
-        return;
-    }
-
-    if (!regionSerializers.count(name)) {
-        regionSerializers[name] = regionsSerializer->newStructure(name);
-    }
-    auto thisRegionSerializer = regionSerializers[name];
-    ExcAssert(thisRegionSerializer);
-    thisRegionSerializer->addRegion(region, version);
-
-    tracedRegions[{name, version}] = {region.length()};
-}
-
-struct InitTrace {
-    InitTrace()
-    {
-        if (OPENCL_KERNEL_TRACE_FILE.specified()) {
-            traceSerializer = std::make_shared<ZipStructuredSerializer>(OPENCL_KERNEL_TRACE_FILE.get());
-            regionsSerializer = traceSerializer->newStructure("regions");
-            kernelsSerializer = traceSerializer->newStructure("kernels");
-            programsSerializer = traceSerializer->newStructure("programs");
-        }
-    }
-
-    ~InitTrace()
-    {
-        if (traceSerializer) {
-            regionsSerializer->commit();
-            kernelsSerializer->commit();
-            traceSerializer->commit();
-            programsSerializer->commit();
-        }
-    }
-} initTrace;
-
-__thread int opCount = 0;
-Timer startTimer;
-
-template<typename... Args>
-void traceOperation(const std::string & opName, Args&&... args)
-{
-    if (OPENCL_TRACE_API_CALLS.get()) {
-        using namespace MLDB::ansi;
-        int tid = std::hash<std::thread::id>()(std::this_thread::get_id());
-        double elapsed = startTimer.elapsed_wall();
-
-        std::string header = format("%10.6f t%8x %2d  OPENCL COMPUTE: ", elapsed, tid, opCount);
-        std::string indent(4 * opCount, ' ');
-        std::string toDump = (string)ansi_str_cyan() + header + indent + ansi_str_bold() + opName
-                           + ansi_str_reset() + "\n";
-        cerr << toDump << flush;
-    }
-}
-
-struct ScopedOperation {
-    ScopedOperation(const ScopedOperation &) = delete;
-    auto operator = (const ScopedOperation &) = delete;
-
-    template<typename... Args>
-    ScopedOperation(const std::string & opName, Args&&... args)
-        : opName(opName)
-    {
-        traceOperation("BEGIN " + opName, std::forward<Args>(args)...);
-        ++opCount;
-    }
-
-    ~ScopedOperation()
-    {
-        if (!opName.empty()) {
-            --opCount;
-
-            double elapsed = timer.elapsed_wall();
-            std::string timerStr;
-            if (elapsed < 0.000001) {
-                timerStr = format("%.1fns", elapsed * 1000000000.0);
-            }
-            else if (elapsed < 0.001) {
-                timerStr = format("%.1fus", elapsed * 1000000.0);
-            }
-            else if (elapsed < 1) {
-                timerStr = format("%.1fms", elapsed * 1000.0);
-            }
-            else {
-                timerStr = format("%.1fs", elapsed);
-            }
-            traceOperation("END " + opName + " [" + ansi::ansi_str_underline() + timerStr + "]");
-        }
-    }
-
-    std::string opName;
-    Timer timer;
-};
-
-template<typename... Args>
-ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(const std::string & opName, Args&&... args) 
-{
-    return ScopedOperation(opName, std::forward<Args>(args)...);
-}
-
-struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
+struct OpenCLMemoryRegionHandleInfo: public GridMemoryRegionHandleInfo {
     OpenCLMemObject memBase;
-    size_t offset = 0;
 
-    std::mutex mutex;
-    int numReaders = 0;
-    int numWriters = 0;
-    std::set<std::string> currentWriters;
-    std::set<std::string> currentReaders;
+    virtual OpenCLMemoryRegionHandleInfo * clone() const
+    {
+        return new OpenCLMemoryRegionHandleInfo(*this);
+    }
 
     void init(OpenCLMemObject mem, size_t offset)
     {
@@ -207,139 +47,12 @@ struct OpenCLMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
         this->version = 0;
     }
 
-    std::tuple<FrozenMemoryRegion, int /* version */>
-    getReadOnlyHostAccessSync(const OpenCLComputeContext & context,
-                              const std::string & opName,
-                              size_t offset,
-                              ssize_t length,
-                              bool ignoreHazards)
-    {
-        if (!ignoreHazards && false) {
-            unique_lock guard(mutex);
-
-            if (numWriters != 0) {
-                throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
-                                      + jsonEncodeStr(currentWriters) + " and active reader(s) "
-                                      + jsonEncodeStr(currentReaders));
-            }
-
-            if (!currentReaders.insert(opName).second) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
-            }
-            ++numReaders;
-        }
-
-        if (length == -1) {
-            length = lengthInBytes - offset;
-        }
-
-        std::shared_ptr<const void> region
-            = context.clQueue->clQueue.enqueueMapBufferBlocking(memBase, CL_MAP_READ,
-                                                                offset /* offset */, length);
-
-        auto done = [this, opName, ignoreHazards, region] (const void * mem)
-        {
-            if (!ignoreHazards) {
-                unique_lock guard(mutex);
-                --numReaders;
-                currentReaders.erase(opName);
-            }
-        };
-
-        auto pin =  std::shared_ptr<void>(nullptr, done);
-        auto data = (const char *)region.get();
-
-        return { { std::move(pin), data, lengthInBytes - offset }, this->version };
-    }
-
-    std::tuple<std::shared_ptr<const void>, cl_mem>
+    std::tuple<std::shared_ptr<const void>, OpenCLMemObject>
     getOpenCLAccess(const std::string & opName, MemoryRegionAccess access)
     {
-        unique_lock guard(mutex);
-
-        if (access == ACC_NONE) {
-            throw MLDB::Exception("Asked for no access to region");
-        }
-
-        if (access == ACC_READ) {
-            if (numWriters != 0 && false) {
-                throw MLDB::Exception("Operation '" + opName + "' attempted to read region '" + name + "' with active writer(s) "
-                                      + jsonEncodeStr(currentWriters) + " and active reader(s) "
-                                      + jsonEncodeStr(currentReaders));
-            }
-            if (!currentReaders.insert(opName).second) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
-            }
-            ++numReaders;
-
-            auto done = [this, opName] (const void * mem)
-            {
-                unique_lock guard(mutex);
-                --numReaders;
-                currentReaders.erase(opName);
-            };
-
-            auto pin =  std::shared_ptr<void>(nullptr, done);
-            //cerr << "returning r/o version " << version << " of " << name << " for " << opName << endl;
-            return { std::move(pin), this->memBase };
-        }
-        else {  // read only or read write
-            if (currentReaders.count(opName)) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already reading region '" + name + "'");
-            }
-            if (currentWriters.count(opName)) {
-                throw MLDB::Exception("Operation '" + opName + " ' is already writing region '" + name + "'");
-            }
-            if ((numWriters != 0 || numReaders != 0) && false) {
-                throw MLDB::Exception("Operation '" + opName + "' attempted to write region '"
-                                      + name + "' with active writer(s) "
-                                      + jsonEncodeStr(currentWriters) + " and/or active reader(s) "
-                                      + jsonEncodeStr(currentReaders));
-            }
-            ++version;
-            ++numWriters;
-            currentWriters.insert(opName);
-            if (access == ACC_READ_WRITE) {
-                ++numReaders;
-                currentReaders.insert(opName);
-            }
-
-            auto done = [this, access, opName] (const void * mem)
-            {
-                unique_lock guard(mutex);
-                ++version;
-                --numWriters;
-                currentWriters.erase(opName);
-                if (access == ACC_READ_WRITE) {
-                    --numReaders;
-                    currentReaders.erase(opName);
-                }
-            };
-
-            //cerr << "returning r/w version " << version << " of " << name << " for " << opName << endl;
-
-            auto pin =  std::shared_ptr<void>(nullptr, done);
-            return { std::move(pin), this->memBase };
-        }
+        return { pinAccess(opName, access), memBase };
     }
 };
-
-OpenCLEventList toOpenCLEventList(const std::vector<std::shared_ptr<ComputeEvent>> & prereqs)
-{
-    OpenCLEventList clPrereqs;
-    for (auto & ev: prereqs) {
-        if (!ev)
-            continue;
-        auto clPrereq = std::dynamic_pointer_cast<const OpenCLComputeEvent>(ev);
-        ExcAssert(clPrereq);
-        if (!clPrereq->ev)
-            continue;  // already satisfied (dummy event)
-        clPrereqs.events.emplace_back(clPrereq->ev);
-    }
-
-    return clPrereqs;
-}
-
 
 } // file scope
 
@@ -355,8 +68,9 @@ OpenCLComputeProfilingInfo(OpenCLProfilingInfo info)
 // OpenCLComputeEvent
 
 OpenCLComputeEvent::
-OpenCLComputeEvent(OpenCLEvent ev)
-    : ev(std::move(ev))
+OpenCLComputeEvent(const std::string & label, bool resolved,
+                   const GridComputeQueue * owner, OpenCLEvent ev)
+    : GridComputeEvent(label, resolved, owner), ev(std::move(ev))
 {
 }
 
@@ -372,56 +86,24 @@ OpenCLComputeEvent::
 await() const
 {
     if (!ev) {
-        traceOperation("await(): already satisfied");
+        traceOpenCLOperation("await(): already satisfied");
         return;  // null event; already satisfied
     }
 
-    auto tr = scopedOperation("await()");
+    auto tr = scopedOperation(OperationType::OPENCL_COMPUTE, "await()");
     return ev.waitUntilFinished();
-}
-
-std::shared_ptr<ComputeEvent>
-OpenCLComputeEvent::
-thenImpl(std::function<void ()> fn, const std::string & label)
-{
-    // No event means it's an already satisfied event; we simply run the callback
-    if (!ev) {
-        fn();
-        return std::make_shared<OpenCLComputeEvent>();
-    }
-
-    // Otherwise, create a user event for the post-then part
-    auto context = ev.getContext();
-    OpenCLUserEvent userEvent(context);
-    auto nextEvent = std::make_shared<OpenCLComputeEvent>(std::move(userEvent));
-
-    auto cb = [fn=std::move(fn), nextEvent] (auto ev, auto status)
-    {
-        fn();
-        nextEvent->ev.setUserEventStatus(OpenCLEventCommandExecutionStatus::COMPLETE);
-    };
-
-    ev.addCallback(std::move(cb));
-
-    return nextEvent;
 }
 
 
 // OpenCLComputeQueue
 
 OpenCLComputeQueue::
-OpenCLComputeQueue(OpenCLComputeContext * owner, OpenCLCommandQueue queue)
-    : ComputeQueue(owner), clOwner(owner), clQueue(std::move(queue))
+OpenCLComputeQueue(OpenCLComputeContext * owner, OpenCLComputeQueue * parent,
+                   const std::string & label,
+                   OpenCLCommandQueue queue, GridDispatchType dispatchType)
+    : GridComputeQueue(owner, parent, label, dispatchType), clOwner(owner), clQueue(std::move(queue))
 {
-}
-
-OpenCLComputeQueue::
-OpenCLComputeQueue(OpenCLComputeContext * owner)
-    : ComputeQueue(owner), clOwner(owner)
-{
-    ExcAssertEqual(clOwner->clDevices.size(), 1);
-    clQueue = clOwner->clContext.createCommandQueue(clOwner->clDevices[0],
-                                                    OpenCLCommandQueueProperties::PROFILING_ENABLE);
+    ExcAssert(clQueue);
 }
 
 std::shared_ptr<ComputeQueue>
@@ -429,7 +111,7 @@ OpenCLComputeQueue::
 parallel(const std::string & opName)
 {
     // TODO: not really done yet; need to inject prereqs on parent
-    return std::make_shared<OpenCLComputeQueue>(this->clOwner, this->clQueue);
+    return std::make_shared<OpenCLComputeQueue>(this->clOwner, this, opName, clQueue, GridDispatchType::PARALLEL);
 }
 
 std::shared_ptr<ComputeQueue>
@@ -437,9 +119,10 @@ OpenCLComputeQueue::
 serial(const std::string & opName)
 {
     // TODO: not really done yet; need to inject prereqs on previous event
-    return std::make_shared<OpenCLComputeQueue>(this->clOwner, this->clQueue);
+    return std::make_shared<OpenCLComputeQueue>(this->clOwner, this, opName, clQueue, GridDispatchType::SERIAL);
 }
 
+#if 0
 void
 OpenCLComputeQueue::
 enqueue(const std::string & opName,
@@ -447,7 +130,7 @@ enqueue(const std::string & opName,
        const std::vector<uint32_t> & grid)
 {
     try {
-        auto tr = scopedOperation("enqueue kernel " + bound.owner->kernelName + " as " + opName);
+        auto tr = scopedOperation(OperationType::OPENCL_COMPUTE, "enqueue kernel " + bound.owner->kernelName + " as " + opName);
 
         ExcAssert(bound.bindInfo);
         
@@ -564,7 +247,7 @@ enqueue(const std::string & opName,
         auto doCallback = [this, kernelName, opName, execTimes, timer]
                 (const OpenCLEvent & event, OpenCLEventCommandExecutionStatus status)
         {
-            traceOperation("completion callback " + opName + " with status " + jsonEncodeStr(status));
+            traceOpenCLOperation("completion callback " + opName + " with status " + jsonEncodeStr(status));
             auto wallTime = timer->elapsed_wall();
 
             // TODO: lock?
@@ -626,7 +309,8 @@ enqueue(const std::string & opName,
         rethrowException(400, "Error launching OpenCL kernel " + bound.owner->kernelName);
     }
 }
-
+#endif
+#if 0
 void
 OpenCLComputeQueue::
 enqueueFillArrayImpl(const std::string & opName,
@@ -634,7 +318,7 @@ enqueueFillArrayImpl(const std::string & opName,
                      size_t startOffsetInBytes, ssize_t lengthInBytes,
                      std::span<const std::byte> block)
 {
-    auto op = scopedOperation("enqueueFillArrayImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "enqueueFillArrayImpl " + opName);
 
     if (startOffsetInBytes > region.lengthInBytes()) {
         throw MLDB::Exception("region is too long");
@@ -656,7 +340,7 @@ enqueueCopyFromHostImpl(const std::string & opName,
                         FrozenMemoryRegion fromRegion,
                         size_t deviceStartOffsetInBytes)
 {
-    auto op = scopedOperation("OpenCLComputeQueue enqueueCopyFromHostImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue enqueueCopyFromHostImpl " + opName);
 
     ExcAssert(toRegion.handle);
 
@@ -671,20 +355,21 @@ copyFromHostSyncImpl(const std::string & opName,
                             FrozenMemoryRegion fromRegion,
                             size_t deviceStartOffsetInBytes)
 {
-    auto op = scopedOperation("OpenCLComputeQueue copyFromHostSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue copyFromHostSyncImpl " + opName);
 
     ExcAssert(toRegion.handle);
 
     auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
     clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data()).waitUntilFinished();
 }
+#endif
 
 FrozenMemoryRegion
 OpenCLComputeQueue::
 enqueueTransferToHostImpl(const std::string & opName,
                           MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeQueue enqueueTransferToHostImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue enqueueTransferToHostImpl " + opName);
 
     ExcAssert(handle.handle);
 
@@ -714,7 +399,7 @@ OpenCLComputeQueue::
 transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeQueue transferToHostSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue transferToHostSyncImpl " + opName);
 
     ExcAssert(handle.handle);
 
@@ -731,7 +416,7 @@ MutableMemoryRegion
 OpenCLComputeQueue::
 enqueueTransferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeQueue enqueueTransferToHostMutableImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue enqueueTransferToHostMutableImpl " + opName);
     ExcAssert(handle.handle);
 
     auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
@@ -749,7 +434,7 @@ OpenCLComputeQueue::
 transferToHostMutableSyncImpl(const std::string & opName,
                               MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeQueue transferToHostMutableSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue transferToHostMutableSyncImpl " + opName);
 
     ExcAssert(handle.handle);
 
@@ -765,7 +450,7 @@ OpenCLComputeQueue::
 enqueueManagePinnedHostRegionImpl(const std::string & opName, std::span<const std::byte> region, size_t align,
                            const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext managePinnedHostRegionImpl " + opName);
 
     return managePinnedHostRegionSyncImpl(opName, region, align, type, isConst);
 }
@@ -776,7 +461,7 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
                                std::span<const std::byte> region, size_t align,
                                const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext managePinnedHostRegionSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext managePinnedHostRegionSyncImpl " + opName);
     Timer timer;
     OpenCLMemObject mem;
     if (region.size() == 0) {
@@ -824,7 +509,7 @@ doEnqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
     auto [toPin, toMem, toBaseOffset] = OpenCLComputeContext::getMemoryRegion(opName, *to.handle, ACC_WRITE);
 
     auto event = this->clQueue.enqueueCopyBuffer(fromMem, toMem, fromBaseOffset + fromOffset, toBaseOffset + toOffset, length);
-    return std::make_shared<OpenCLComputeEvent>(std::move(event));
+    return std::make_shared<OpenCLComputeEvent>(opName, false /* resolved */, this, std::move(event));
 }
 
 void
@@ -851,7 +536,7 @@ void
 OpenCLComputeQueue::
 enqueueBarrier(const std::string & label)
 {
-    auto op = scopedOperation("OpenCLComputeQueue enqueueBarrier");
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue enqueueBarrier");
     // TODO: barrier should wait for the last event...
     clQueue.enqueueBarrier({});
 }
@@ -860,18 +545,18 @@ std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
 flush()
 {
-    auto op = scopedOperation("OpenCLComputeQueue flush");
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue flush");
     // TODO: barrier should wait for the last event...
     auto ev = clQueue.enqueueBarrier({});
     clQueue.flush();
-    return std::make_shared<OpenCLComputeEvent>(ev);
+    return std::make_shared<OpenCLComputeEvent>("flush", false /* resolved */, this /* owner */, ev);
 }
 
 void
 OpenCLComputeQueue::
 finish()
 {
-    auto op = scopedOperation("OpenCLComputeQueue finish");
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue finish");
     clQueue.finish();
 }
 
@@ -879,25 +564,190 @@ std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
 makeAlreadyResolvedEvent(const std::string & label) const
 {
-    return std::make_shared<OpenCLComputeEvent>();
+    return std::make_shared<OpenCLComputeEvent>(label, true /* resolved */, this /* owner */, OpenCLEvent() /* ev */);
+}
+
+static bool isValidOpenCLFillLength(size_t length)
+{
+    static const auto validLengths = set{1,2,4,8};
+    return length % 4 == 0 && validLengths.count(length / 4);
+}
+
+void
+OpenCLComputeQueue::
+enqueueZeroFillArrayConcrete(const std::string & opName,
+                                MemoryRegionHandle region,
+                                size_t startOffsetInBytes, ssize_t lengthInBytes)
+{
+
+    if (lengthInBytes % 4 == 0 && startOffsetInBytes % 4 == 0 && lengthInBytes % 4 == 0) {
+        auto [pin, buffer, offset] = OpenCLComputeContext::getMemoryRegion(opName, *region.handle, ACC_WRITE);
+        ExcAssertEqual(lengthInBytes % 4, 0);
+        ExcAssertEqual(startOffsetInBytes % 4, 0);
+        ExcAssertEqual(offset % 4, 0);
+        clQueue.enqueueFillBuffer<int>(buffer, 0, offset + startOffsetInBytes, lengthInBytes);
+        return;
+    }
+
+    // Fall back to generic kernel
+    ComputeQueue::enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_ZERO_FILLED, startOffsetInBytes, lengthInBytes, {});
+}                                
+                                
+void
+OpenCLComputeQueue::
+enqueueBlockFillArrayConcrete(const std::string & opName,
+                              MemoryRegionHandle region,
+                              size_t startOffsetInBytes, ssize_t lengthInBytes,
+                              std::span<const std::byte> block)
+{
+    if (lengthInBytes % 4 == 0 && startOffsetInBytes % 4 == 0 && lengthInBytes % 4 == 0
+        && isValidOpenCLFillLength(block.size())) {
+        auto [pin, buffer, offset] = OpenCLComputeContext::getMemoryRegion(opName, *region.handle, ACC_WRITE);
+        clQueue.enqueueFillBuffer(buffer, block.data(), block.size(), offset + startOffsetInBytes, lengthInBytes);
+        return;
+    }
+
+    // Fall back to generic kernel
+    ComputeQueue::enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED, startOffsetInBytes, lengthInBytes, block);
+}                                
+                                
+void
+OpenCLComputeQueue::
+enqueueCopyFromHostConcrete(const std::string & opName,
+                            MemoryRegionHandle toRegion,
+                            FrozenMemoryRegion fromRegion,
+                            size_t deviceStartOffsetInBytes)
+{
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue enqueueCopyFromHostImpl " + opName);
+
+    ExcAssert(toRegion.handle);
+
+    auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
+    clQueue.enqueueWriteBuffer(mem, offset, fromRegion.length(), fromRegion.data());
+}                            
+
+FrozenMemoryRegion
+OpenCLComputeQueue::
+enqueueTransferToHostConcrete(const std::string & opName, MemoryRegionHandle handle)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+FrozenMemoryRegion
+OpenCLComputeQueue::
+transferToHostSyncConcrete(const std::string & opName, MemoryRegionHandle handle)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+struct OpenCLBindContext: public GridBindContext {
+    OpenCLBindContext(OpenCLComputeQueue * queue,
+                     const std::string & opName,
+                     const GridComputeKernel * kernel,
+                     const GridBindInfo * bindInfo)
+        : kernel(dynamic_cast<const OpenCLComputeKernel *>(kernel)),
+          queue(queue), opName(opName)
+    {
+        ExcAssert(this->kernel);
+
+        clKernel = this->kernel->clFunction->generateKernel();
+    }
+
+    virtual ~OpenCLBindContext()
+    {
+    }
+
+    const OpenCLComputeKernel * kernel = nullptr;
+    OpenCLComputeQueue * queue = nullptr;
+    std::string opName;
+    OpenCLKernel clKernel;
+    
+    virtual void
+    setPrimitive(const std::string & opName, int argNum, std::span<const std::byte> bytes) override
+    {
+        traceOpenCLOperation("setPrimitive " + opName, "argNum %d with %zd bytes", argNum, bytes.size_bytes());
+        clKernel.bindArg(argNum, bytes.data(), bytes.size());
+    }
+
+    virtual void
+    setBuffer(const std::string & opName, int argNum,
+              std::shared_ptr<GridMemoryRegionHandleInfo> handle,
+              MemoryRegionAccess access) override
+    {
+        traceOpenCLOperation("setBuffer " + opName, "argNum %d handle %s:%d with %zd bytes",
+                            argNum, handle->name.c_str(), handle->version, handle->lengthInBytes);
+        ExcAssert(handle);
+        auto [pin, memBuffer, offset] = OpenCLComputeContext::getMemoryRegion(opName, *handle, access);
+        // TODO: where do we put the pin?
+        ExcAssertEqual(offset, 0);  // OpenCL doesn't allow us to specify an offset
+        clKernel.bindArg(argNum, memBuffer);
+    }
+
+    virtual void
+    setThreadGroupMemory(const std::string & opName, int argNum, size_t nBytes) override
+    {
+        traceOpenCLOperation("setPrimitive " + opName, "argNum %d with %zd bytes", argNum, nBytes);
+        // Set it up in the command encoder
+        clKernel.bindArg(argNum, LocalArray<uint32_t>((nBytes + 3) / 4));
+    }
+
+    virtual void launch(const std::string & opName,
+                        GridBindContext & context, std::vector<size_t> grid,
+                        std::vector<size_t> block) override
+    {
+        OpenCLBindContext & bindContext = dynamic_cast<OpenCLBindContext &>(context);
+        auto * kernel = bindContext.kernel;
+
+        try {
+            auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "launch kernel " + opName);
+            grid.resize(3, 1);
+            block.resize(3, 1);
+
+            grid[0] *= block[0];
+            grid[1] *= block[1];
+            grid[2] *= block[2];
+
+            auto invocations = grid[0] * grid[1] * grid[2];
+            double memoryRequiredMb = invocations * 2048 / 1024.0 / 1024.0;
+
+            traceOpenCLOperation("grid size " + jsonEncodeStr(grid));
+            traceOpenCLOperation("block size " + jsonEncodeStr(block));
+            traceOpenCLOperation(std::to_string(invocations) + " invocations requiring " + std::to_string(memoryRequiredMb)
+                                + "MB of wired scratchpad memory");
+
+
+            auto event = queue->clQueue.launch(clKernel, grid, block);
+        } MLDB_CATCH_ALL {
+            rethrowException(400, "Error launching OpenCL kernel " + kernel->kernelName);
+        }
+    }
+};
+
+std::shared_ptr<GridBindContext>
+OpenCLComputeQueue::
+newBindContext(const std::string & opName,
+               const GridComputeKernel * kernel,
+               const GridBindInfo * bindInfo)
+{
+    ExcAssert(bindInfo);
+    return std::make_shared<OpenCLBindContext>(this, opName, kernel, bindInfo);
 }
 
 
 // OpenCLComputeContext
 
 OpenCLComputeContext::
-OpenCLComputeContext(std::vector<OpenCLDevice> clDevices, std::vector<ComputeDevice> devices)
-    : clContext(clDevices),
-        clDevices(std::move(clDevices)), devices(std::move(devices))
+OpenCLComputeContext(OpenCLDevice clDevice, ComputeDevice device)
+    : GridComputeContext(device),
+      clContext(clDevice), clDevice(clDevice), device(device)
 {
-    clQueue = std::make_shared<OpenCLComputeQueue>(this);
 }
 
 ComputeDevice
 OpenCLComputeContext::
 getDevice() const
 {
-    return devices.at(0);
+    return device;
 }
 
 std::tuple<std::shared_ptr<const void>, cl_mem, size_t>
@@ -955,7 +805,7 @@ allocateSyncImpl(const std::string & regionName,
                  size_t length, size_t align,
                  const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext allocateSyncImpl " + regionName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext allocateSyncImpl " + regionName);
     auto result = doOpenCLAllocate(clContext, regionName, length, align, type, isConst);
     return result;
 }
@@ -1002,7 +852,7 @@ OpenCLComputeContext::
 transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
                      const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToDeviceImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToDeviceImpl " + opName);
     auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
     return {std::move(result), std::make_shared<OpenCLComputeEvent>()};
 }
@@ -1013,7 +863,7 @@ transferToDeviceSyncImpl(const std::string & opName,
                          FrozenMemoryRegion region,
                          const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToDeviceSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToDeviceSyncImpl " + opName);
     auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
     return result;
 }
@@ -1022,7 +872,7 @@ FrozenMemoryRegion
 OpenCLComputeContext::
 transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToHostImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToHostImpl " + opName);
     return clQueue->enqueueTransferToHostImpl(opName, std::move(handle));
 }
 
@@ -1031,17 +881,18 @@ OpenCLComputeContext::
 transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
-    auto op = scopedOperation("OpenCLComputeContext transferToHostSyncImpl " + opName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToHostSyncImpl " + opName);
     return clQueue->transferToHostSyncImpl(opName, std::move(handle));
 }
 
 #endif
 
+#if 0
 std::shared_ptr<ComputeKernel>
 OpenCLComputeContext::
 getKernel(const std::string & kernelName)
 {
-    auto op = scopedOperation("OpenCLComputeContext getKernel " + kernelName);
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext getKernel " + kernelName);
 
     std::unique_lock guard(kernelRegistryMutex);
     auto it = kernelRegistry.find(kernelName);
@@ -1057,38 +908,14 @@ getKernel(const std::string & kernelName)
     }
     return result;
 }
-
-#if 0
-void
-OpenCLComputeContext::
-fillDeviceRegionFromHostImpl(const std::string & opName,
-                             MemoryRegionHandle deviceHandle,
-                             std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
-                             size_t deviceOffset)
-{
-    FrozenMemoryRegion region(pinnedHostRegion, (const char *)pinnedHostRegion->data(), pinnedHostRegion->size_bytes());
-
-    clQueue->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset);
-}                                     
-
-void
-OpenCLComputeContext::
-fillDeviceRegionFromHostSyncImpl(const std::string & opName,
-                                 MemoryRegionHandle deviceHandle,
-                                 std::span<const std::byte> hostRegion,
-                                 size_t deviceOffset)
-{
-    FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
-
-    clQueue->copyFromHostSyncImpl(opName, deviceHandle, region, deviceOffset);
-}
 #endif
 
 std::shared_ptr<ComputeQueue>
 OpenCLComputeContext::
 getQueue(const std::string & queueName)
 {
-    return std::make_shared<OpenCLComputeQueue>(this);
+    auto queue = clContext.createCommandQueue(clDevice, OpenCLCommandQueueProperties::PROFILING_ENABLE);
+    return std::make_shared<OpenCLComputeQueue>(this, nullptr, queueName, std::move(queue), GridDispatchType::SERIAL);
 }
 
 MemoryRegionHandle
@@ -1097,49 +924,7 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
              size_t startOffsetInBytes, size_t lengthInBytes,
              size_t align, const std::type_info & type, bool isConst)
 {
-    auto op = scopedOperation("OpenCLComputeContext getSliceImpl " + regionName);
-
-    auto info = std::dynamic_pointer_cast<const OpenCLMemoryRegionHandleInfo>(std::move(handle.handle));
-    ExcAssert(info);
-
-    if (info->isConst && !isConst) {
-        throw MLDB::Exception("getSliceImpl: attempt to take a non-const slice of a const region");
-    }
-
-    if (*info->type != type) {
-        throw MLDB::Exception("getSliceImpl: attempt to cast a slice");
-    }
-
-    if (startOffsetInBytes % align != 0) {
-        throw MLDB::Exception("getSliceImpl: unaligned start offset");
-    }
-
-    if (lengthInBytes % align != 0) {
-        throw MLDB::Exception("getSliceImpl: unaligned length");
-    }
-
-    if (startOffsetInBytes > info->lengthInBytes) {
-        throw MLDB::Exception("getSliceImpl: start offset past the end");
-    }
-
-    if (startOffsetInBytes + lengthInBytes > info->lengthInBytes) {
-        throw MLDB::Exception("getSliceImpl: end offset past the end");
-    }
-
-    auto newInfo = std::make_shared<OpenCLMemoryRegionHandleInfo>();
-
-    newInfo->memBase = OpenCLMemObject(info->memBase, false /* already retained */);
-    newInfo->offset = info->offset + startOffsetInBytes;
-    newInfo->isConst = isConst;
-    newInfo->type = &type;
-    newInfo->name = regionName;
-    newInfo->lengthInBytes = lengthInBytes;
-    newInfo->parent = info;
-    newInfo->ownerOffset = startOffsetInBytes;
-    newInfo->version = info->version;
-
-    return { newInfo };
-
+    return GridComputeContext::getSliceImpl(handle, regionName, startOffsetInBytes, lengthInBytes, align, type, isConst);
 #if 0
     cl_buffer_region region = { startOffsetInBytes, lengthInBytes };
     cl_int error = CL_NONE;
@@ -1158,6 +943,33 @@ getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
 
     return { newInfo };
 #endif
+}
+
+std::shared_ptr<GridComputeFunctionLibrary>
+OpenCLComputeContext::
+getLibrary(const std::string & libraryName)
+{
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext getLibrary " + libraryName);
+
+    std::unique_lock guard(libraryRegistryMutex);
+    auto it = libraryRegistry.find(libraryName);
+    if (it == libraryRegistry.end()) {
+        throw AnnotatedException(400, "Unable to find OpenCL compute library '" + libraryName + "'",
+                                        "libraryName", libraryName);
+    }
+    auto result = it->second.generate(*this);
+    //if (traceSerializer) {
+    //    result->traceSerializer = kernelsSerializer->newStructure(kernelName);
+    //    result->runsSerializer = result->traceSerializer->newStructure("runs");
+    //}
+    return result;
+}
+
+std::shared_ptr<GridComputeKernelSpecialization>
+OpenCLComputeContext::
+specializeKernel(const GridComputeKernelTemplate & tmplate)
+{
+    return std::make_shared<OpenCLComputeKernel>(this, tmplate);
 }
 
 
@@ -1224,44 +1036,7 @@ getKernelType(const OpenCLKernelArgInfo & info)
     return type;
 }
 
-void
-OpenCLComputeKernel::
-setParameters(SetParameters setter)
-{
-    setters.emplace_back(std::move(setter));
-}
-
-void
-OpenCLComputeKernel::
-allowGridPadding()
-{
-    allowGridPaddingFlag = true;
-}
-
-void
-OpenCLComputeKernel::
-allowGridExpansion()
-{
-    allowGridExpansionFlag = true;
-}
-
-void
-OpenCLComputeKernel::
-setGridExpression(const std::string & gridExpr, const std::string & blockExpr)
-{
-    if (!gridExpr.empty())
-        this->gridExpression = CommandExpression::parseArgumentExpression(gridExpr);
-    if (!blockExpr.empty())
-        this->blockExpression = CommandExpression::parseArgumentExpression(blockExpr);
-}
-
-void
-OpenCLComputeKernel::
-addTuneable(const std::string & name, int64_t defaultValue)
-{
-    this->tuneables.push_back({name, defaultValue});
-}
-
+#if 0
 void
 OpenCLComputeKernel::
 setComputeFunction(OpenCLProgram programIn,
@@ -1307,14 +1082,16 @@ setComputeFunction(OpenCLProgram programIn,
         }
     }
 }
+#endif
 
+#if 0
 BoundComputeKernel
 OpenCLComputeKernel::
 bindImpl(ComputeQueue & queue,
          std::vector<ComputeKernelArgument> argumentsIn, ComputeKernelConstraintSolution knowns) const
 {
     try {
-        auto op = scopedOperation("OpenCLComputeKernel bindImpl " + kernelName);
+        auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeKernel bindImpl " + kernelName);
 
         ExcAssert(this->context);
         auto & upcastContext = dynamic_cast<OpenCLComputeContext &>(*this->context);
@@ -1368,7 +1145,7 @@ bindImpl(ComputeQueue & queue,
         Json::Value argInfo;
         for (size_t i = 0;  i < this->clKernelInfo.args.size();  ++i) {
             std::string opName = "bind arg " + std::to_string(i) + " " + this->clKernelInfo.args[i].name;
-            auto tr = scopedOperation(opName);
+            auto tr = scopedOperation(OperationType::OPENCL_COMPUTE, opName);
             int argNum = correspondingArgumentNumbers.at(i);
             //cerr << "binding OpenCL parameter " << i << " from argument " << paramNum << endl;
             if (argNum == -1) {
@@ -1386,7 +1163,7 @@ bindImpl(ComputeQueue & queue,
                     ExcAssert(paramType.dims[0].bound);
                     auto len = result.knowns.evaluate(*paramType.dims[0].bound).asUInt();
                     size_t nbytes = len * paramType.baseType->width;
-                    traceOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
+                    traceOpenCLOperation("binding local array handle with " + std::to_string(nbytes) + " bytes");
                     kernel.bindArg(i, LocalArray<std::byte>(nbytes));
                     Json::Value known;
                     known["elAlign"] = paramType.baseType->align;
@@ -1400,7 +1177,7 @@ bindImpl(ComputeQueue & queue,
                 else if (this->clKernelInfo.args[i].addressQualifier == OpenCLArgAddressQualifier::PRIVATE) {
                     auto type = OpenCLComputeKernel::getKernelType(this->clKernelInfo.args[i]);
                     auto val = result.knowns.getValue(this->clKernelInfo.args[i].name);
-                    traceOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
+                    traceOpenCLOperation("binding known value " + this->clKernelInfo.args[i].name + " = " + val.toStringNoNewLine() + " as " + type.print());
                     Any any(val, type.baseType.get());
                     auto bytes = any.asBytes();
                     kernel.bindArg(i, bytes.data(), bytes.size_bytes());
@@ -1432,12 +1209,12 @@ bindImpl(ComputeQueue & queue,
                 }
                 else if (arg.handler->canGetPrimitive()) {
                     auto bytes = arg.handler->getPrimitive(opName, queue);
-                    traceOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
+                    traceOpenCLOperation("binding handle with " + std::to_string(bytes.size()) + " bytes");
                     kernel.bindArg(i, bytes.data(), bytes.size());
                 }
                 else if (arg.handler->canGetHandle()) {
                     auto handle = arg.handler->getHandle(opName, queue);
-                    traceOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
+                    traceOpenCLOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
                     MemoryRegionAccess access = this->params.at(argNum).type.access;
 
                     if (traceSerializer && (access & ACC_READ)) {
@@ -1505,6 +1282,7 @@ bindImpl(ComputeQueue & queue,
         rethrowException(500, "Binding OpenCL kernel " + this->kernelName);
     }
 }
+#endif
 
 
 // OpenCLComputeRuntime
@@ -1610,19 +1388,141 @@ struct OpenCLComputeRuntime: public ComputeRuntime {
     virtual std::shared_ptr<ComputeContext>
     getContext(std::span<const ComputeDevice> devices) const
     {
-        std::vector<OpenCLDevice> clDevices;
-        for (auto & d: devices) {
-            clDevices.emplace_back(convertDevice(d));
-        }
-        return std::make_shared<OpenCLComputeContext>(clDevices, vector<ComputeDevice>{devices.begin(), devices.end()});
+        ExcAssertEqual(devices.size(), 1);
+        return std::make_shared<OpenCLComputeContext>(convertDevice(devices[0]), devices[0]);
     }
-
 };
 
-void registerOpenCLComputeKernel(const std::string & kernelName,
-                                 std::function<std::shared_ptr<OpenCLComputeKernel>(OpenCLComputeContext & context)> generator)
+
+// OpenCLComputeKernel
+
+OpenCLComputeKernel::
+OpenCLComputeKernel(OpenCLComputeContext * owner, const GridComputeKernelTemplate & tmplate)
+    : GridComputeKernelSpecialization(owner, tmplate)
 {
-    kernelRegistry[kernelName].generate = generator;
+    this->clContext = owner;
+    this->clFunction = dynamic_cast<const OpenCLComputeFunction *>(this->gridFunction.get());
+    ExcAssert(this->clFunction);
+}
+
+
+// OpenCLComputeFunction
+
+OpenCLComputeFunction::
+OpenCLComputeFunction(OpenCLComputeContext & context, OpenCLProgram clProgram, const std::string & kernelName)
+    : clProgram(std::move(clProgram)), kernelName(kernelName)
+{
+}
+
+GridComputeFunctionArgumentDisposition getDisposition(OpenCLArgAddressQualifier argType)
+{
+    switch (argType) {
+    case OpenCLArgAddressQualifier::GLOBAL:   return GridComputeFunctionArgumentDisposition::BUFFER;
+    case OpenCLArgAddressQualifier::CONSTANT: return GridComputeFunctionArgumentDisposition::BUFFER;
+    case OpenCLArgAddressQualifier::LOCAL:    return GridComputeFunctionArgumentDisposition::THREADGROUP;
+    case OpenCLArgAddressQualifier::PRIVATE : return GridComputeFunctionArgumentDisposition::LITERAL;
+    default:
+        MLDB_THROW_UNIMPLEMENTED("OpenCL unknown argType", "argType", argType);
+    }
+}
+
+OpenCLKernel
+OpenCLComputeFunction::
+generateKernel() const
+{
+    // TODO: locking?
+    return const_cast<OpenCLProgram &>(clProgram).createKernel(kernelName);
+}
+
+std::vector<GridComputeFunctionArgument>
+OpenCLComputeFunction::
+getArgumentInfo() const
+{
+    auto argInfo = generateKernel().getInfo();
+
+    auto & arguments = argInfo.args;
+
+    std::vector<GridComputeFunctionArgument> result;
+
+    for (size_t i = 0;  i < arguments.size();  ++i) {
+        const auto & arg = arguments[i];
+        std::string argName = arg.name;
+        GridComputeFunctionArgumentDisposition disposition = getDisposition(arg.addressQualifier);
+        auto type = OpenCLComputeKernel::getKernelType(arg);
+
+        GridComputeFunctionArgument entry;
+        entry.name = argName;
+        entry.disposition = disposition;
+        entry.type = type;
+        entry.computeFunctionArgIndex = arg.argNum;
+
+        result.emplace_back(std::move(entry));
+    }
+
+    return result;
+}
+
+
+// OpenCLComputeFunctionLibrary
+
+OpenCLComputeFunctionLibrary::
+OpenCLComputeFunctionLibrary(OpenCLComputeContext & context, OpenCLProgram clProgram)
+    : context(context), clProgram(std::move(clProgram))
+{
+}
+
+std::shared_ptr<GridComputeFunction>
+OpenCLComputeFunctionLibrary::
+getFunction(const std::string & functionName)
+{
+    return std::make_shared<OpenCLComputeFunction>(context, clProgram, functionName);
+}
+
+std::string
+OpenCLComputeFunctionLibrary::
+getId() const
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+Json::Value
+OpenCLComputeFunctionLibrary::
+getMetadata() const
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+std::shared_ptr<OpenCLComputeFunctionLibrary>
+OpenCLComputeFunctionLibrary::
+compileFromSourceFile(OpenCLComputeContext & context, const std::string & fileName)
+{
+    filter_istream stream(fileName);
+    Utf8String source = /*"#line 1 \"" + fileName + "\"\n" +*/ stream.readAll();
+
+    return compileFromSource(context, source, fileName);
+}
+
+std::shared_ptr<OpenCLComputeFunctionLibrary>
+OpenCLComputeFunctionLibrary::
+compileFromSource(OpenCLComputeContext & context, const Utf8String & source, const std::string & fileNameToAppearInErrorMessages)
+{
+    OpenCLProgram program = context.clContext.createProgram(source);
+    //string options = "-cl-kernel-arg-info -cl-fp32-correctly-rounded-divide-sqrt -DWBITS=32";
+    string options = "-cl-kernel-arg-info";
+
+    // Build for all devices
+    auto buildInfo = program.build({context.clDevice}, options);
+                
+    //cerr << jsonEncode(buildInfo[0]) << endl;
+
+    return std::make_shared<OpenCLComputeFunctionLibrary>(context, std::move(program));
+}
+
+void registerOpenCLLibrary(const std::string & libraryName,
+                          std::function<std::shared_ptr<OpenCLComputeFunctionLibrary>(OpenCLComputeContext &)> generator)
+{
+    std::unique_lock guard{libraryRegistryMutex};
+    libraryRegistry[libraryName].generate = generator;
 }
 
 namespace {
@@ -1633,71 +1533,13 @@ static struct Init {
         ComputeRuntime::registerRuntime(ComputeRuntimeId::OPENCL, "opencl",
                                         [] () { return new OpenCLComputeRuntime(); });
 
-        auto getProgram = [] (OpenCLComputeContext & context) -> OpenCLProgram
+        auto compileLibrary = [] (OpenCLComputeContext & context) -> std::shared_ptr<OpenCLComputeFunctionLibrary>
         {
-
-            auto compileProgram = [&] () -> OpenCLProgram
-            {
-                std::string fileName = "mldb/builtin/opencl/base_kernels.cl";
-                filter_istream stream(fileName);
-                Utf8String source = "#line 1 \"" + fileName + "\"\n" + stream.readAll();
-
-                OpenCLProgram program = context.clContext.createProgram(source);
-                string options = "-cl-kernel-arg-info";
-
-                // Build for all devices
-                auto buildInfo = program.build(context.clDevices, options);
-                
-                cerr << jsonEncode(buildInfo[0]) << endl;
-                return program;
-            };
-
-            static const std::string cacheKey = "__base_kernels";
-            OpenCLProgram program = context.getCacheEntry(cacheKey, compileProgram);
-            return program;
-        };
-    
-        auto createBlockFillArrayKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
-        {
-            auto program = getProgram(context);
-            auto result = std::make_shared<OpenCLComputeKernel>();
-            result->kernelName = "__blockFillArray";
-            result->allowGridExpansion();
-            result->addParameter("region", "w", "u8[regionLength]");
-            result->addParameter("startOffsetInBytes", "r", "u64");
-            result->addParameter("lengthInBytes", "r", "u64");
-            result->addParameter("blockData", "r", "u8[blockLengthInBytes]");
-            result->addParameter("blockLengthInBytes", "r", "u64");
-            result->addTuneable("threadsPerBlock", 256);
-            result->addTuneable("blocksPerGrid", 16);
-            result->allowGridPadding();
-            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
-            result->setComputeFunction(program, "__blockFillArrayKernel" /*, { 256 }*/);
-
-            return result;
+            std::string fileName = "mldb/builtin/opencl/base_kernels.cl";
+            return OpenCLComputeFunctionLibrary::compileFromSourceFile(context, fileName);
         };
 
-        registerOpenCLComputeKernel("__blockFillArray", createBlockFillArrayKernel);
-
-        auto createZeroFillArrayKernel = [getProgram] (OpenCLComputeContext& context) -> std::shared_ptr<OpenCLComputeKernel>
-        {
-            auto program = getProgram(context);
-            auto result = std::make_shared<OpenCLComputeKernel>();
-            result->kernelName = "__zeroFillArray";
-            result->allowGridExpansion();
-            result->addParameter("region", "w", "u8[regionLength]");
-            result->addParameter("startOffsetInBytes", "r", "u64");
-            result->addParameter("lengthInBytes", "r", "u64");
-            result->addTuneable("threadsPerBlock", 256);
-            result->addTuneable("blocksPerGrid", 16);
-            result->allowGridPadding();
-            result->setGridExpression("[blocksPerGrid]", "[threadsPerBlock]");
-            result->setComputeFunction(program, "__zeroFillArrayKernel" /*, { 256 }*/);
-
-            return result;
-        };
-
-        registerOpenCLComputeKernel("__zeroFillArray", createZeroFillArrayKernel);
+        registerOpenCLLibrary("base_kernels", compileLibrary);
     }
 
 } init;

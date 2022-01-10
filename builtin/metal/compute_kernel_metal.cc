@@ -82,22 +82,6 @@ struct LibraryRegistryEntry {
 
 std::map<std::string, LibraryRegistryEntry> libraryRegistry;
 
-struct MetalBindInfo: public GridBindInfo {
-    MetalBindInfo(const MetalComputeKernel * owner)
-        : owner(owner)
-    {        
-    }
-
-    virtual ~MetalBindInfo() = default;
-
-    const MetalComputeKernel * owner = nullptr;
-    std::shared_ptr<StructuredSerializer> traceSerializer;
-
-    // Pins that control the lifetime of the arguments and allow the system to know
-    // when an argument is no longer needed
-    std::vector<std::shared_ptr<const void>> argumentPins;
-};
-
 EnvOption<int> METAL_TRACE_API_CALLS("METAL_COMPUTE_TRACE_API_CALLS", 0);
 EnvOption<std::string, true> METAL_KERNEL_TRACE_FILE("METAL_KERNEL_TRACE_FILE", "");
 EnvOption<std::string, true> METAL_CAPTURE_FILE("METAL_CAPTURE_FILE", "");
@@ -417,24 +401,21 @@ struct MetalBindContext: public GridBindContext {
                      const GridComputeKernel * kernel,
                      const GridBindInfo * bindInfo)
         : kernel(dynamic_cast<const MetalComputeKernel *>(kernel)),
-          bindInfo(dynamic_cast<const MetalBindInfo *>(bindInfo)),
           queue(queue), opName(opName)
     {
         ExcAssert(this->kernel);
-        ExcAssert(this->bindInfo);
 
         commandEncoder = queue->commandBuffer.ComputeCommandEncoder();
         queue->beginEncoding(opName, commandEncoder);
         commandEncoder.SetComputePipelineState(this->kernel->mtlFunction->computePipelineState);
     }
 
-    ~MetalBindContext()
+    virtual ~MetalBindContext()
     {
         queue->endEncoding(opName, commandEncoder);
     }
 
     const MetalComputeKernel * kernel = nullptr;
-    const MetalBindInfo * bindInfo = nullptr;
     MetalComputeQueue * queue = nullptr;
     std::string opName;
     
@@ -467,6 +448,35 @@ struct MetalBindContext: public GridBindContext {
         // Set it up in the command encoder
         commandEncoder.SetThreadgroupMemory(nBytes, argNum);
     }
+
+    virtual void launch(const std::string & opName,
+                        GridBindContext & context, std::vector<size_t> grid,
+                        std::vector<size_t> block) override
+    {
+        MetalBindContext & bindContext = dynamic_cast<MetalBindContext &>(context);
+        auto * kernel = bindContext.kernel;
+
+        try {
+            auto op = scopedOperation(OperationType::METAL_COMPUTE, "launch kernel " + opName);
+            grid.resize(3, 1);
+            block.resize(3, 1);
+
+            auto invocations = grid[0] * grid[1] * grid[2] * block[0] * block[1] * block[2];
+            double memoryRequiredMb = invocations * 2048 / 1024.0 / 1024.0;
+
+            traceMetalOperation("grid size " + jsonEncodeStr(grid));
+            traceMetalOperation("block size " + jsonEncodeStr(block));
+            traceMetalOperation(std::to_string(invocations) + " invocations requiring " + std::to_string(memoryRequiredMb)
+                                + "MB of wired scratchpad memory");
+
+            mtlpp::Size gridSize(grid[0], grid[1], grid[2]);
+            mtlpp::Size blockSize(block[0], block[1], block[2]);
+
+            bindContext.commandEncoder.DispatchThreadgroups(gridSize, blockSize);
+        } MLDB_CATCH_ALL {
+            rethrowException(400, "Error launching Metal kernel " + kernel->kernelName);
+        }
+    }
 };
 
 std::shared_ptr<GridBindContext>
@@ -477,35 +487,6 @@ newBindContext(const std::string & opName,
 {
     ExcAssert(bindInfo);
     return std::make_shared<MetalBindContext>(this, opName, kernel, bindInfo);
-}
-
-void
-MetalComputeQueue::
-launch(const std::string & opName, GridBindContext & context, std::vector<size_t> grid, std::vector<size_t> block)
-{
-    MetalBindContext & bindContext = dynamic_cast<MetalBindContext &>(context);
-    auto * kernel = bindContext.kernel;
-
-    try {
-        auto op = scopedOperation(OperationType::METAL_COMPUTE, "launch kernel " + opName);
-        grid.resize(3, 1);
-        block.resize(3, 1);
-
-        auto invocations = grid[0] * grid[1] * grid[2] * block[0] * block[1] * block[2];
-        double memoryRequiredMb = invocations * 2048 / 1024.0 / 1024.0;
-
-        traceMetalOperation("grid size " + jsonEncodeStr(grid));
-        traceMetalOperation("block size " + jsonEncodeStr(block));
-        traceMetalOperation(std::to_string(invocations) + " invocations requiring " + std::to_string(memoryRequiredMb)
-                            + "MB of wired scratchpad memory");
-
-        mtlpp::Size gridSize(grid[0], grid[1], grid[2]);
-        mtlpp::Size blockSize(block[0], block[1], block[2]);
-
-        bindContext.commandEncoder.DispatchThreadgroups(gridSize, blockSize);
-    } MLDB_CATCH_ALL {
-        rethrowException(400, "Error launching Metal kernel " + kernel->kernelName);
-    }
 }
 
 template<typename CommandEncoder>
@@ -1297,13 +1278,6 @@ MetalComputeKernel(MetalComputeContext * owner, const GridComputeKernelTemplate 
     this->mtlContext = owner;
     this->mtlFunction = dynamic_cast<const MetalComputeFunction *>(this->gridFunction.get());
     ExcAssert(this->mtlFunction);
-}
-
-std::shared_ptr<GridBindInfo>
-MetalComputeKernel::
-getGridBindInfo() const
-{
-    return std::make_shared<MetalBindInfo>(this);
 }
 
 

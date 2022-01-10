@@ -8,22 +8,29 @@
 #pragma once
 
 #include "mldb/block/compute_kernel.h"
+#include "mldb/block/compute_kernel_grid.h"
 #include "opencl_types.h"
 
 namespace MLDB {
 
+template<typename... Args>
+void traceOpenCLOperation(const std::string & opName, Args&&... args)
+{
+    traceOperation(OperationScope::EVENT, OperationType::OPENCL_COMPUTE, opName, std::forward<Args>(args)...);
+}
+
 struct OpenCLComputeContext;
 
-struct OpenCLComputeProfilingInfo: public ComputeProfilingInfo {
+struct OpenCLComputeProfilingInfo: public GridComputeProfilingInfo {
     OpenCLComputeProfilingInfo(OpenCLProfilingInfo info);
     virtual ~OpenCLComputeProfilingInfo() = default;
 
     OpenCLProfilingInfo clInfo;
 };
 
-struct OpenCLComputeEvent: public ComputeEvent {
-    OpenCLComputeEvent() = default;  // already resolved
-    OpenCLComputeEvent(OpenCLEvent ev);
+struct OpenCLComputeEvent: public GridComputeEvent {
+    OpenCLComputeEvent(const std::string & label, bool resolved,
+                       const GridComputeQueue * owner, OpenCLEvent ev);
 
     virtual ~OpenCLComputeEvent() = default;
 
@@ -31,16 +38,15 @@ struct OpenCLComputeEvent: public ComputeEvent {
 
     virtual void await() const override;
 
-    virtual std::shared_ptr<ComputeEvent> thenImpl(std::function<void ()> fn, const std::string & label);
-
     OpenCLEvent ev;
 };
 
 // OpenCLComputeQueue
 
-struct OpenCLComputeQueue: public ComputeQueue {
-    OpenCLComputeQueue(OpenCLComputeContext * owner);
-    OpenCLComputeQueue(OpenCLComputeContext * owner, OpenCLCommandQueue queue);
+struct OpenCLComputeQueue: public GridComputeQueue {
+    OpenCLComputeQueue(OpenCLComputeContext * owner, OpenCLComputeQueue * parent,
+                       const std::string & label,
+                       OpenCLCommandQueue queue, GridDispatchType dispatchType);
     virtual ~OpenCLComputeQueue() = default;
 
     OpenCLComputeContext * clOwner = nullptr;
@@ -49,6 +55,7 @@ struct OpenCLComputeQueue: public ComputeQueue {
     virtual std::shared_ptr<ComputeQueue> parallel(const std::string & opName) override;
     virtual std::shared_ptr<ComputeQueue> serial(const std::string & opName) override;
 
+#if 0
     virtual void
     enqueue(const std::string & opName,
             const BoundComputeKernel & kernel,
@@ -71,6 +78,7 @@ struct OpenCLComputeQueue: public ComputeQueue {
                                 MemoryRegionHandle toRegion,
                                 FrozenMemoryRegion fromRegion,
                                 size_t deviceStartOffsetInBytes) override;
+#endif
 
     virtual FrozenMemoryRegion
     enqueueTransferToHostImpl(const std::string & opName,
@@ -116,6 +124,33 @@ struct OpenCLComputeQueue: public ComputeQueue {
     virtual std::shared_ptr<ComputeEvent> flush() override;
     virtual void finish() override;
 
+protected:
+    virtual void
+    enqueueZeroFillArrayConcrete(const std::string & opName,
+                                 MemoryRegionHandle region,
+                                 size_t startOffsetInBytes, ssize_t lengthInBytes) override;
+    virtual void
+    enqueueBlockFillArrayConcrete(const std::string & opName,
+                                  MemoryRegionHandle region,
+                                  size_t startOffsetInBytes, ssize_t lengthInBytes,
+                                  std::span<const std::byte> block) override;
+    virtual void
+    enqueueCopyFromHostConcrete(const std::string & opName,
+                                MemoryRegionHandle toRegion,
+                                FrozenMemoryRegion fromRegion,
+                                size_t deviceStartOffsetInBytes) override;
+
+    virtual FrozenMemoryRegion
+    enqueueTransferToHostConcrete(const std::string & opName, MemoryRegionHandle handle) override;
+
+    virtual FrozenMemoryRegion
+    transferToHostSyncConcrete(const std::string & opName, MemoryRegionHandle handle) override;
+
+    // Subclasses override to create a new bind context
+    virtual std::shared_ptr<GridBindContext>
+    newBindContext(const std::string & opName,
+                   const GridComputeKernel * kernel, const GridBindInfo * bindInfo) override;
+
 private:
     std::shared_ptr<ComputeEvent>
     doEnqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
@@ -126,16 +161,15 @@ private:
 
 // OpenCLComputeContext
 
-struct OpenCLComputeContext: public ComputeContext {
+struct OpenCLComputeContext: public GridComputeContext {
 
-    OpenCLComputeContext(std::vector<OpenCLDevice> clDevices, std::vector<ComputeDevice> devices);
+    OpenCLComputeContext(OpenCLDevice clDevice, ComputeDevice device);
 
     virtual ~OpenCLComputeContext() = default;
 
     OpenCLContext clContext;
-    std::shared_ptr<OpenCLComputeQueue> clQueue;  // for internal operations
-    std::vector<OpenCLDevice> clDevices;
-    std::vector<ComputeDevice> devices;
+    OpenCLDevice clDevice;
+    ComputeDevice device;
 
     virtual ComputeDevice getDevice() const override;
 
@@ -155,133 +189,81 @@ struct OpenCLComputeContext: public ComputeContext {
                      size_t length, size_t align,
                      const std::type_info & type, bool isConst) override;
 
-#if 0
-    virtual MemoryRegionHandle
-    transferToDeviceImpl(const std::string & opName,
-                         FrozenMemoryRegion region,
-                         const std::type_info & type, bool isConst) override;
-
-    virtual MemoryRegionHandle
-    transferToDeviceSyncImpl(const std::string & opName,
-                             FrozenMemoryRegion region,
-                             const std::type_info & type, bool isConst) override;
-
-    virtual FrozenMemoryRegion
-    transferToHostImpl(const std::string & opName, MemoryRegionHandle handle) override;
-
-    virtual FrozenMemoryRegion
-    transferToHostSyncImpl(const std::string & opName,
-                           MemoryRegionHandle handle) override;
-
-    virtual MutableMemoryRegion
-    transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle) override;
-
-    virtual MutableMemoryRegion
-    transferToHostMutableSyncImpl(const std::string & opName,
-                                  MemoryRegionHandle handle) override;
-
-    virtual void
-    fillDeviceRegionFromHostImpl(const std::string & opName,
-                                 MemoryRegionHandle deviceHandle,
-                                 std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
-                                 size_t deviceOffset = 0) override;
-
-    virtual void
-    fillDeviceRegionFromHostSyncImpl(const std::string & opName,
-                                     MemoryRegionHandle deviceHandle,
-                                     std::span<const std::byte> hostRegion,
-                                     size_t deviceOffset = 0) override;
-#endif
-
-    virtual std::shared_ptr<ComputeKernel>
-    getKernel(const std::string & kernelName) override;
+    virtual std::shared_ptr<GridComputeFunctionLibrary>
+    getLibrary(const std::string & name) override;
 
     virtual std::shared_ptr<ComputeQueue>
     getQueue(const std::string & queueName) override;
 
+    // OpenCL has a special call to get a slice rather than just add an offset
     virtual MemoryRegionHandle
     getSliceImpl(const MemoryRegionHandle & handle, const std::string & regionName,
                  size_t startOffsetInBytes, size_t lengthInBytes,
                  size_t align, const std::type_info & type, bool isConst) override;
+
+protected:
+    virtual std::shared_ptr<GridComputeKernelSpecialization>
+    specializeKernel(const GridComputeKernelTemplate & tmplate) override;
+};
+
+
+// OpenCLComputeFunction
+
+struct OpenCLComputeFunction: public GridComputeFunction {
+    OpenCLComputeFunction(OpenCLComputeContext & context, OpenCLProgram clProgram,
+                          const std::string & kernelName);
+
+    virtual ~OpenCLComputeFunction() = default;
+
+    OpenCLProgram clProgram;
+    std::string kernelName;
+
+    OpenCLKernel generateKernel() const;
+
+    virtual std::vector<GridComputeFunctionArgument> getArgumentInfo() const override;
+};
+
+
+// OpenCLComputeFunctionLibrary
+
+struct OpenCLComputeFunctionLibrary: public GridComputeFunctionLibrary {
+    OpenCLComputeFunctionLibrary(OpenCLComputeContext & context, OpenCLProgram clProgram);
+
+    virtual ~OpenCLComputeFunctionLibrary() = default;
+
+    OpenCLComputeContext & context;
+    OpenCLProgram clProgram;
+
+    virtual std::shared_ptr<GridComputeFunction>
+    getFunction(const std::string & functionName) override;
+
+    virtual std::string getId() const override;
+
+    virtual Json::Value getMetadata() const override;
+
+    // Return a version compiled from source read from the given filename
+    static std::shared_ptr<OpenCLComputeFunctionLibrary>
+    compileFromSourceFile(OpenCLComputeContext & context, const std::string & fileName);
+
+    // Return a version compiled from source given in the sourceCode string
+    static std::shared_ptr<OpenCLComputeFunctionLibrary>
+    compileFromSource(OpenCLComputeContext & context, const Utf8String & sourceCode, const std::string & fileNameToAppearInErrorMessages);
 };
 
 // OpenCLComputeKernel
 
-struct OpenCLComputeKernel: public ComputeKernel {
+struct OpenCLComputeKernel: public GridComputeKernelSpecialization {
 
-    /// Block dimensions for launching the kernel
-    std::vector<size_t> block;
+    OpenCLComputeKernel(OpenCLComputeContext * owner, const GridComputeKernelTemplate & tmplate);
 
-    /// Do we allow the grid to be padded out?
-    bool allowGridPaddingFlag = false;
-
-    /// Do we allow the grid to be expanded?
-    bool allowGridExpansionFlag = false;
-
-    using SetParameters = std::function<void (OpenCLKernel & kernel, OpenCLComputeContext & context)>;
-
-    /// List of functions used to set arbitrary values on the kernel (especially for calculating
-    /// sizes of local arrays or other bounds)
-    std::vector<SetParameters> setters;
-
-    // Expressions for the grid dimensions, if we override them
-    std::shared_ptr<CommandExpression> gridExpression;
-    std::shared_ptr<CommandExpression> blockExpression;
-
-    // Function to modify the grid dimensions
-    std::function<void (std::vector<size_t> & grid, std::vector<size_t> & block)> modifyGrid;
-
-    mutable OpenCLProgram clProgram;  // Mutable as createKernel is non-const
-    OpenCLKernel clKernel;
-    OpenCLKernelInfo clKernelInfo;
-
-    // Serializer for tracing this particular kernel
-    std::shared_ptr<StructuredSerializer> traceSerializer;
-
-    // Serializer for tracing the runs of this kernel
-    std::shared_ptr<StructuredSerializer> runsSerializer;
-
-    mutable std::atomic<int> numCalls;
-
-    // For each OpenCL argument, which is the corresponding argument number in arguments passed in?
-    std::vector<int> correspondingArgumentNumbers;
+    OpenCLComputeContext * clContext = nullptr;
+    const OpenCLComputeFunction * clFunction = nullptr;
 
     // Parses an OpenCL kernel argument info structure, and turns it into a ComputeKernel type
     static ComputeKernelType getKernelType(const OpenCLKernelArgInfo & info);
-
-    void setParameters(SetParameters setter);
-
-    // Add a tuneable parameter to the invocation
-    void addTuneable(const std::string & variableName, int64_t defaultValue);
-
-    // Get the expression for the grid, with the full grid being gridExpr * blockExpr.
-    // This will run before modifyGrid.  Thus, the grid will alwaus be an integer multiple
-    // of the block size so allowGridPadding() has no effect.  Either this *or* setFullGridExpression
-    // should be called, not both.
-    void setGridExpression(const std::string & gridExpr, const std::string & blockExpr);
-
-    // This is called as internal documentation.  It says that we allow the runtime to pad
-    // out the grid size so that it's a multiple of the block size.  This means however that
-    // the kernel will be called with out of range values, and the kernel grid size may be
-    // higher than the actual range, which will need to be passed in as an argument.  In
-    // pratice, the kernel needs to check if its IDs are out of range and exit if so.
-    void allowGridPadding();
-
-    // This is also internal documention; it allows the grid we're called with to be expanded
-    // to an extra dimension to accomodate the kernel which needs an extra dimension of
-    // parallelism.
-    void allowGridExpansion();
-
-    void setComputeFunction(OpenCLProgram program,
-                            std::string kernelName);
-
-    // Perform the abstract bind() operation, returning a BoundComputeKernel
-    virtual BoundComputeKernel bindImpl(ComputeQueue & queue,
-                                        std::vector<ComputeKernelArgument> arguments,
-                                        ComputeKernelConstraintSolution knowns) const override;
 };
 
-void registerOpenCLComputeKernel(const std::string & kernelName,
-                           std::function<std::shared_ptr<OpenCLComputeKernel>(OpenCLComputeContext &)> generator);
+void registerOpenCLLibrary(const std::string & libraryName,
+                           std::function<std::shared_ptr<OpenCLComputeFunctionLibrary>(OpenCLComputeContext &)> generator);
 
 }  // namespace MLDB

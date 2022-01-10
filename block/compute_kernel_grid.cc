@@ -604,7 +604,7 @@ enqueue(const std::string & opName,
         }
         //knowns = fullySolve(knowns, bound.constraints, bound.preConstraints);
 
-        this->launch(opName, *bindContext, mtlGrid, mtlBlock);
+        bindContext->launch(opName, *bindContext, mtlGrid, mtlBlock);
     } MLDB_CATCH_ALL {
         rethrowException(400, "Error launching Grid kernel " + bound.owner->kernelName);
     }
@@ -966,6 +966,16 @@ addTuneable(const std::string & name, int64_t defaultValue)
     this->tuneables.push_back({name, defaultValue});
 }
 
+std::shared_ptr<GridBindInfo>
+GridComputeKernel::
+getGridBindInfo() const
+{
+    return std::make_shared<GridBindInfo>(this);
+}
+
+
+// GridBindFieldAction
+
 DEFINE_ENUM_DESCRIPTION_INLINE(GridBindFieldActionType)
 {
     addValue("SET_FIELD_FROM_PARAM", GridBindFieldActionType::SET_FIELD_FROM_PARAM);
@@ -1038,9 +1048,10 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(GridBindFieldAction)
 
 DEFINE_ENUM_DESCRIPTION_INLINE(GridBindActionType)
 {
-    addValue("SET_BUFFER_FROM_ARG", GridBindActionType::SET_BUFFER_FROM_ARG, "");
-    addValue("SET_BUFFER_FROM_STRUCT", GridBindActionType::SET_BUFFER_FROM_STRUCT, "");
-    addValue("SET_BUFFER_THREAD_GROUP", GridBindActionType::SET_BUFFER_THREAD_GROUP, "");
+    addValue("SET_FROM_ARG", GridBindActionType::SET_FROM_ARG, "");
+    addValue("SET_FROM_STRUCT", GridBindActionType::SET_FROM_STRUCT, "");
+    addValue("SET_FROM_KNOWN", GridBindActionType::SET_FROM_KNOWN, "");
+    addValue("SET_THREAD_GROUP", GridBindActionType::SET_THREAD_GROUP, "");
 }
 
 void
@@ -1053,12 +1064,24 @@ applyArg(GridComputeQueue & queue,
 {
     const ComputeKernelArgument & arg = args.at(argNum);
 
-    if (!arg.handler) {
-        throw MLDB::Exception("argument " + std::to_string(argNum) + " (" + argName
-                              + ") was not passed");
+    Json::Value j;
+    ComputeKernelType type;
+
+    if (arg.handler) {
+        j = arg.handler->toJson();
+        type = arg.handler->type;
+    }
+    else {
+        if (knowns.hasValue(argName)) {
+            j = knowns.getValue(argName);
+            type = this->type;
+        }
+        else {
+            throw MLDB::Exception("argument " + std::to_string(argNum) + " (" + argName
+                                + ") was not passed");
+        }
     }
 
-    auto j = arg.handler->toJson();
     std::string jStr;
     if (j.isObject()) {
         jStr = j["name"].asString() + ":" + j["version"].toStringNoNewLine();
@@ -1067,7 +1090,7 @@ applyArg(GridComputeQueue & queue,
         jStr = j.toStringNoNewLine();
     }
     auto op = scopedOperation(OperationType::GRID_COMPUTE, 
-                              "GridComputeKernel bind arg " + argName + " type " + arg.handler->type.print()
+                              "GridComputeKernel bind arg " + argName + " type " + type.print()
                               + " from " + jStr + " at index " + std::to_string(argNum));
 
 #if 0
@@ -1086,49 +1109,56 @@ applyArg(GridComputeQueue & queue,
     static std::atomic<int> disamb = 0;
     std::string opName = "bind " + argName + " " + std::to_string(++disamb);
 
-    ExcAssert(arg.handler);  // if there is no handler, we should be in applyStruct
-
-    if (arg.handler->canGetPrimitive()) {
-        auto bytes = arg.handler->getPrimitive(opName, queue);
-        traceGridOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
-        bindContext.setPrimitive(opName, computeFunctionArgIndex, bytes);
-    }
-    else if (arg.handler->canGetHandle()) {
-        auto handle = arg.handler->getHandle(opName, queue);
-        traceGridOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
-        MemoryRegionAccess access = type.access;
-
-        if (setKnowns) {
-            Json::Value known;
-            ExcAssert(type.baseType);
-            known["elAlign"] = type.baseType->align;
-            known["elWidth"] = type.baseType->width;
-            known["elType"] = type.baseType->typeName;
-            known["length"] = handle.lengthInBytes() / type.baseType->width;
-            known["type"] = type.print();
-            known["name"] = handle.handle->name;
-            known["version"] = handle.handle->version;
-
-            //cerr << "setting known " << argName << " to " << known << endl;
-
-            knowns.setValue(argName, known);
+    if (arg.handler) {
+        cerr << "has handler" << endl;
+        if (arg.handler->canGetPrimitive()) {
+            auto bytes = arg.handler->getPrimitive(opName, queue);
+            traceGridOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
+            bindContext.setPrimitive(opName, computeFunctionArgIndex, bytes);
         }
+        else if (arg.handler->canGetHandle()) {
+            auto handle = arg.handler->getHandle(opName, queue);
+            traceGridOperation("binding handle with " + std::to_string(handle.lengthInBytes()) + " bytes");
+            MemoryRegionAccess access = type.access;
 
-        if (traceSerializer && (access & ACC_READ)) {
-            auto [region, version] = queue.gridOwner
-                ->getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
-                                            true /* ignore hazards */);
-            //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
-            traceVersion(handle.handle->name, version, region);
+            if (setKnowns) {
+                Json::Value known;
+                ExcAssert(type.baseType);
+                known["elAlign"] = type.baseType->align;
+                known["elWidth"] = type.baseType->width;
+                known["elType"] = type.baseType->typeName;
+                known["length"] = handle.lengthInBytes() / type.baseType->width;
+                known["type"] = type.print();
+                known["name"] = handle.handle->name;
+                known["version"] = handle.handle->version;
+
+                //cerr << "setting known " << argName << " to " << known << endl;
+
+                knowns.setValue(argName, known);
+            }
+
+            if (traceSerializer && (access & ACC_READ)) {
+                auto [region, version] = queue.gridOwner
+                    ->getFrozenHostMemoryRegion(opName + " trace", *handle.handle, 0 /* offset */, -1,
+                                                true /* ignore hazards */);
+                //bindInfo->traceSerializer->addRegion(region, this->clKernelInfo.args[i].name);
+                traceVersion(handle.handle->name, version, region);
+            }
+
+            bindContext.setBuffer(opName, computeFunctionArgIndex, dynamic_pointer_cast<GridMemoryRegionHandleInfo>(handle.handle), access);
         }
-
-        bindContext.setBuffer(opName, computeFunctionArgIndex, dynamic_pointer_cast<GridMemoryRegionHandleInfo>(handle.handle), access);
-    }
-    else if (arg.handler->canGetConstRange()) {
-        throw MLDB::Exception("param.getConstRange");
+        else if (arg.handler->canGetConstRange()) {
+            throw MLDB::Exception("param.getConstRange");
+        }
+        else {
+            throw MLDB::Exception("don't know how to handle passing parameter to Grid");
+        }
     }
     else {
-        throw MLDB::Exception("don't know how to handle passing parameter to Grid");
+        cerr << "has no handler" << endl;
+        traceGridOperation("binding primitive with value " + jStr);
+        Any typedVal(j, type.baseType.get());
+        bindContext.setPrimitive(opName, computeFunctionArgIndex, typedVal.asBytes());
     }
 }
 
@@ -1232,13 +1262,16 @@ apply(GridComputeQueue & queue,
       GridBindContext & bindContext) const
 {
     switch (action) {
-        case GridBindActionType::SET_BUFFER_FROM_ARG:
+        case GridBindActionType::SET_FROM_ARG:
             applyArg(queue, args, knowns, setKnowns, bindContext);
             break;
-        case GridBindActionType::SET_BUFFER_FROM_STRUCT:
+        case GridBindActionType::SET_FROM_STRUCT:
             applyStruct(queue, args, knowns, setKnowns, bindContext);
             break;
-        case GridBindActionType::SET_BUFFER_THREAD_GROUP:
+        case GridBindActionType::SET_FROM_KNOWN:
+            applyStruct(queue, args, knowns, setKnowns, bindContext);
+            break;
+        case GridBindActionType::SET_THREAD_GROUP:
             applyThreadGroup(queue, args, knowns, setKnowns, bindContext);
             break;
         default:
@@ -1299,7 +1332,7 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
             ExcAssertEqual(width, paramType.baseType->width);
             ExcAssertEqual(align, paramType.baseType->align);
 
-            action.action = GridBindActionType::SET_BUFFER_THREAD_GROUP;
+            action.action = GridBindActionType::SET_THREAD_GROUP;
             action.arg = arg;
             action.type = paramType;
             action.argName = argName;
@@ -1347,7 +1380,7 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
                                         + " cannot be assembled because of missing fields " + jsonEncodeStr(fieldsNotFound));
                     }
 
-                    action.action = GridBindActionType::SET_BUFFER_FROM_STRUCT;
+                    action.action = GridBindActionType::SET_FROM_STRUCT;
                     action.arg = arg;
                     action.type = type;
                     action.argName = argName;
@@ -1367,7 +1400,7 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
 
                 type.dims = param.type.dims;
 
-                action.action = GridBindActionType::SET_BUFFER_FROM_ARG;
+                action.action = GridBindActionType::SET_FROM_ARG;
                 action.arg = arg;
                 action.type = type;  // TODO: get information from param type
                 action.argNum = it->second;
@@ -1381,6 +1414,43 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
 
                 if (!param.type.isCompatibleWith(type, &reason)) {
                     throw MLDB::Exception("Kernel parameter " + std::to_string(i)
+                                            + " (" + argName + ") to Grid kernel " + kernelName
+                                            + ": declared parameter type " + type.print()
+                                            + " is not compatible with kernel type " + param.type.print()
+                                            + ": " + reason);
+                }
+            }
+        }
+        else if (disposition == GridComputeFunctionArgumentDisposition::LITERAL) {
+            if (it == paramIndex.end()) {
+                // Set it from a known
+                ExcAssert(type.dims.empty());
+
+                action.action = GridBindActionType::SET_FROM_KNOWN;
+                action.arg = arg;
+                action.type = type;  // TODO: get information from param type
+                action.argNum = -1;
+                action.argName = argName;
+                action.expr = CommandExpression::parseArgumentExpression(argName);
+            }
+            else {
+                // Set it from a parameter
+                int argNum = it->second;
+                auto & param = params.at(it->second);
+                correspondingArgumentNumbers.at(i) = argNum;
+
+                type.dims = param.type.dims;
+
+                action.action = GridBindActionType::SET_FROM_ARG;
+                action.arg = arg;
+                action.type = type;  // TODO: get information from param type
+                action.argNum = argNum;
+                action.argName = argName;
+
+                std::string reason;
+
+                if (!param.type.isCompatibleWith(type, &reason)) {
+                    throw MLDB::Exception("Kernel literal parameter " + std::to_string(i)
                                             + " (" + argName + ") to Grid kernel " + kernelName
                                             + ": declared parameter type " + type.print()
                                             + " is not compatible with kernel type " + param.type.print()
