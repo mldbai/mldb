@@ -24,6 +24,8 @@ using namespace std;
 
 namespace MLDB {
 
+EnvOption<int> GRID_TRACE_API_CALLS("GRID_COMPUTE_TRACE_API_CALLS", 0);
+
 namespace {
 
 std::mutex kernelRegistryMutex;
@@ -33,7 +35,6 @@ struct KernelRegistryEntry {
 
 std::map<std::string, KernelRegistryEntry> kernelRegistry;
 
-EnvOption<int> GRID_TRACE_API_CALLS("GRID_COMPUTE_TRACE_API_CALLS", 0);
 EnvOption<std::string, true> GRID_KERNEL_TRACE_FILE("GRID_KERNEL_TRACE_FILE", "");
 
 std::shared_ptr<ZipStructuredSerializer> traceSerializer;
@@ -132,20 +133,11 @@ static std::string printTime(double elapsed)
     return timerStr;
 }
 
-enum class OperationType {
-    GRID_COMPUTE = 1,
-    USER = 2
-};
+} // file scope
 
-enum class OperationScope {
-    ENTER = 1,
-    EXIT = 2,
-    EXIT_EXC = 3,
-    EVENT = 4
-};
 
-template<typename... Args>
-void traceOperation(OperationScope opScope, OperationType opType, const std::string & opName, Args&&... args)
+void traceOperationImpl(OperationScope opScope, OperationType opType, const std::string & opName,
+                        const std::string & renderedArgs)
 {
     if (GRID_TRACE_API_CALLS.get()) {
         using namespace MLDB::ansi;
@@ -158,7 +150,19 @@ void traceOperation(OperationScope opScope, OperationType opType, const std::str
         switch (opType) {
         case OperationType::GRID_COMPUTE:
             opTypeName = "GRID:";
+            opColor = ansi::ansi_str_cyan();
+            break;
+        case OperationType::METAL_COMPUTE:
+            opTypeName = "METAL:";
             opColor = ansi::ansi_str_blue();
+            break;
+        case OperationType::OPENCL_COMPUTE:
+            opTypeName = "OPENCL:";
+            opColor = ansi::ansi_str_green();
+            break;
+        case OperationType::HOST_COMPUTE:
+            opTypeName = "HOST:";
+            opColor = ansi::ansi_str_yellow();
             break;
         case OperationType::USER:
             opTypeName = "USER:";
@@ -191,7 +195,7 @@ void traceOperation(OperationScope opScope, OperationType opType, const std::str
             std::string header = format("%10.6f%9lld t%8x %-8s", elapsed, (long long)((elapsed-lastTime)*1000000000), tid, opTypeName.c_str());
             std::string indent(4 * opCount, ' ');
             std::string toDump = opColor + header + indent + opPrefix + opName
-                               + ansi_str_reset() + "\n";
+                               + ansi_str_reset() + (renderedArgs.empty() ? "" : " ") + renderedArgs + "\n";
             cerr << toDump << flush;
         }
 
@@ -199,58 +203,28 @@ void traceOperation(OperationScope opScope, OperationType opType, const std::str
     }
 }
 
-template<typename... Args>
-void traceOperation(OperationType opType, const std::string & opName, Args&&... args)
+
+ScopedOperation::
+~ScopedOperation()
 {
-    traceOperation(OperationScope::EVENT, opType, opName, std::forward<Args>(args)...);
-}
+    if (timer) {
+        --opCount;
 
-template<typename... Args>
-void traceGridOperation(const std::string & opName, Args&&... args)
-{
-    traceOperation(OperationScope::EVENT, OperationType::GRID_COMPUTE, opName, std::forward<Args>(args)...);
-}
-
-struct ScopedOperation {
-    ScopedOperation(const ScopedOperation &) = delete;
-    auto operator = (const ScopedOperation &) = delete;
-
-    template<typename... Args>
-    ScopedOperation(OperationType opType,
-                    const std::string & opName, Args&&... args)
-        : opType(opType), opName(opName)
-    {
-        traceOperation(OperationScope::ENTER, opType, opName, std::forward<Args>(args)...);
-        ++opCount;
-    }
-
-    ~ScopedOperation()
-    {
-        if (!opName.empty()) {
-            --opCount;
-
-            if (std::uncaught_exceptions()) {
-                traceOperation(OperationScope::EXIT_EXC, opType, opName);
-                return;
-            }
-
-            double elapsed = timer.elapsed_wall();
-            traceOperation(OperationScope::EXIT, opType, opName + " [" + ansi::ansi_str_underline() + printTime(elapsed) + "]");
+        if (std::uncaught_exceptions()) {
+            traceOperation(OperationScope::EXIT_EXC, opType, opName);
+            return;
         }
+
+        double elapsed = timer->elapsed_wall();
+        traceOperation(OperationScope::EXIT, opType, opName + " [" + ansi::ansi_str_underline() + printTime(elapsed) + "]");
     }
-
-    OperationType opType;
-    std::string opName;
-    Timer timer;
-};
-
-template<typename... Args>
-ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(OperationType opType, const std::string & opName, Args&&... args) 
-{
-    return ScopedOperation(opType, opName, std::forward<Args>(args)...);
 }
 
-} // file scope
+void ScopedOperation::incrementOpCount()
+{
+    ++opCount;
+}
+
 
 // GridMemoryRegionHandleInfo
 
@@ -867,21 +841,6 @@ recordMarkerEvent(const std::string & event)
     traceOperation(OperationType::USER, event);
 }
 
-#if 0
-std::tuple<std::shared_ptr<const void>, mtlpp::Buffer, size_t>
-GridComputeContext::
-getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, MemoryRegionAccess access)
-{
-    GridMemoryRegionHandleInfo * upcastHandle = dynamic_cast<GridMemoryRegionHandleInfo *>(&handle);
-    if (!upcastHandle) {
-        throw MLDB::Exception("TODO: get memory region from block handled from elsewhere: got " + demangle(typeid(handle)));
-    }
-    auto [pin, mem] = upcastHandle->getGridAccess(opName, access);
-
-    return { std::move(pin), mem, upcastHandle->offset };
-}
-#endif
-
 std::tuple<FrozenMemoryRegion, int /* version */>
 GridComputeContext::
 getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle,
@@ -894,187 +853,6 @@ getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & h
     }
     return upcastHandle->getReadOnlyHostAccessSync(*this, opName, offset, length, ignoreHazards);
 }
-
-#if 0
-static MemoryRegionHandle
-doGridAllocate(mtlpp::Heap & mtlHeap,
-                mtlpp::Device & mtlDevice,
-                 const std::string & regionName,
-                 size_t length, size_t align,
-                 const std::type_info & type,
-                 bool isConst)
-{
-    cerr << "allocating " << length << " bytes for " << regionName << endl;
-    // TODO: align...
-    //mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModePrivate;
-    auto buffer = mtlDevice.NewBuffer(length == 0 ? 4 : length, options);
-    //auto buffer = mtlHeap.NewBuffer(length == 0 ? 4 : length, options);
-    if (!buffer) {
-        throw MLDB::Exception("Error allocating buffer from heap");
-    }
-    buffer.SetLabel(regionName.c_str());
-
-    auto handle = std::make_shared<GridMemoryRegionHandleInfo>();
-    handle->buffer = std::move(buffer);
-    handle->offset = 0;
-    handle->type = &type;
-    handle->isConst = isConst;
-    handle->lengthInBytes = length;
-    handle->name = regionName;
-    handle->version = 0;
-
-    MemoryRegionHandle result{std::move(handle)};
-    return result;
-}
-#endif
-
-#if 0
-MemoryRegionHandle
-GridComputeContext::
-allocateSyncImpl(const std::string & regionName,
-                 size_t length, size_t align,
-                 const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext allocateSyncImpl " + regionName);
-    auto result = doGridAllocate(this->heap, this->mtlDevice, regionName, length, align, type, isConst);
-    return result;
-}
-#endif
-
-#if 0
-static MemoryRegionHandle
-doGridTransferToDevice(mtlpp::Device & mtlDevice,
-                         const std::string & opName, FrozenMemoryRegion region,
-                         const std::type_info & type, bool isConst)
-{
-    Timer timer;
-
-    mtlpp::ResourceOptions options = mtlpp::ResourceOptions::StorageModeManaged;
-    
-    mtlpp::Buffer buffer;
-    if (region.length() == 0)
-        buffer = mtlDevice.NewBuffer(4, options);
-    else {
-        buffer = mtlDevice.NewBuffer(region.data(), region.length(), options);
-    }
-    buffer.SetLabel(opName.c_str());
-
-    auto handle = std::make_shared<GridMemoryRegionHandleInfo>();
-    handle->buffer = std::move(buffer);
-    handle->offset = 0;
-    handle->type = &type;
-    handle->isConst = isConst;
-    handle->lengthInBytes = region.length();
-    handle->name = opName;
-    handle->version = 0;
-    MemoryRegionHandle result{std::move(handle)};
-
-    using namespace std;
-    cerr << "transferring " << opName << " " << region.memusage() / 1000000.0 << " Mbytes of type "
-        << demangle(type.name()) << " isConst " << isConst << " to device in "
-            << timer.elapsed_wall() << " at "
-            << region.memusage() / 1000000.0 / timer.elapsed_wall() << "MB/sec" << endl;
-
-    return result;
-}
-
-MemoryRegionHandle
-GridComputeContext::
-transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
-                     const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext transferToDeviceImpl " + opName);
-    return doGridTransferToDevice(mtlDevice, opName, region, type, isConst);
-}
-
-MemoryRegionHandle
-GridComputeContext::
-transferToDeviceSyncImpl(const std::string & opName,
-                         FrozenMemoryRegion region,
-                         const std::type_info & type, bool isConst)
-{
-    MLDB_THROW_UNIMPLEMENTED();
-#if 0
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext transferToDeviceSyncImpl " + opName);
-    auto result = doGridTransferToDevice(clContext, opName, region, type, isConst);
-    return result;
-#endif
-}
-
-
-FrozenMemoryRegion
-GridComputeContext::
-transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
-{
-    // TODO: async
-    return transferToHostSyncImpl(opName, handle);
-}
-
-FrozenMemoryRegion
-GridComputeContext::
-transferToHostSyncImpl(const std::string & opName,
-                       MemoryRegionHandle handle)
-{
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext transferToHostSyncImpl " + opName);
-    return queue->transferToHostSyncImpl(opName, std::move(handle));
-}
-
-MutableMemoryRegion
-GridComputeContext::
-transferToHostMutableImpl(const std::string & opName, MemoryRegionHandle handle)
-{
-    MLDB_THROW_UNIMPLEMENTED();
-
-#if 0
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext transferToHostMutableImpl " + opName);
-    ExcAssert(handle.handle);
-
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
-    GridEvent clEvent;
-    std::shared_ptr<void> memPtr;
-    std::tie(memPtr, clEvent)
-        = clQueue->clQueue.enqueueMapBuffer(mem, CL_MAP_READ | CL_MAP_WRITE,
-                                    offset, handle.lengthInBytes());
-
-    auto event = std::make_shared<GridComputeEvent>(std::move(clEvent));
-    auto promise = std::shared_ptr<std::promise<std::any>>();
-
-    auto cb = [handle, promise, memPtr, pin=pin] (const GridEvent & event, auto status)
-    {
-        if (status == GridEventCommandExecutionStatus::ERROR)
-            promise->set_exception(std::make_exception_ptr(MLDB::Exception("Grid error mapping host memory")));
-        else {
-            promise->set_value(MutableMemoryRegion(memPtr, (char *)memPtr.get(), handle.lengthInBytes()));
-        }
-    };
-
-    clEvent.addCallback(cb);
-
-    return { std::move(promise), std::move(event) };
-#endif
-}
-
-MutableMemoryRegion
-GridComputeContext::
-transferToHostMutableSyncImpl(const std::string & opName,
-                              MemoryRegionHandle handle)
-{
-    MLDB_THROW_UNIMPLEMENTED();
-
-#if 0
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext transferToHostMutableSyncImpl " + opName);
-
-    ExcAssert(handle.handle);
-
-    auto [pin, mem, offset] = getMemoryRegion(opName, *handle.handle, ACC_READ_WRITE);
-    auto memPtr = clQueue->clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ | CL_MAP_WRITE,
-                                                            offset, handle.lengthInBytes());
-    MutableMemoryRegion result(std::move(memPtr), (char *)memPtr.get(), handle.lengthInBytes());
-    return result;
-#endif
-}
-#endif
 
 std::shared_ptr<ComputeKernel>
 GridComputeContext::
@@ -1104,75 +882,6 @@ getKernel(const std::string & kernelName)
     
     return result;
 }
-
-#if 0
-void
-GridComputeContext::
-fillDeviceRegionFromHostImpl(const std::string & opName,
-                             MemoryRegionHandle deviceHandle,
-                             std::shared_ptr<std::span<const std::byte>> pinnedHostRegion,
-                             size_t deviceOffset)
-{
-    MLDB_THROW_UNIMPLEMENTED();
-#if 0
-    FrozenMemoryRegion region(pinnedHostRegion, (const char *)pinnedHostRegion->data(), pinnedHostRegion->size_bytes());
-
-    return clQueue
-        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {}).event();
-#endif
-}                                     
-
-void
-GridComputeContext::
-fillDeviceRegionFromHostSyncImpl(const std::string & opName,
-                                 MemoryRegionHandle deviceHandle,
-                                 std::span<const std::byte> hostRegion,
-                                 size_t deviceOffset)
-{
-    FrozenMemoryRegion region(nullptr, (const char *)hostRegion.data(), hostRegion.size_bytes());
-
-    auto [pin, buffer, offset]
-        = GridComputeContext::getMemoryRegion(opName, *deviceHandle.handle, ACC_WRITE);
-
-    std::byte * contents = (std::byte *)buffer.GetContents();
-    if (contents == nullptr) {
-        MLDB_THROW_UNIMPLEMENTED();
-    }
-    uint32_t length = buffer.GetLength();
-
-    ExcAssertLessEqual(offset + deviceOffset + hostRegion.size(), length);
-
-    memcpy(contents + offset + deviceOffset, hostRegion.data(), hostRegion.size_bytes());
-
-    buffer.DidModify({(uint32_t)deviceOffset, (uint32_t)hostRegion.size_bytes()});
-
-#if 0
-    auto commandQueue = mtlDevice.NewCommandQueue();
-    ExcAssert(commandQueue);
-    auto commandBuffer = commandQueue.CommandBuffer();
-    ExcAssert(commandBuffer);
-    auto blitEncoder = commandBuffer.BlitCommandEncoder();
-    ExcAssert(blitEncoder);
-
-    blitEncoder.
-    blitEncoder.Synchronize(buffer);
-    blitEncoder.EndEncoding();
-    
-    commandBuffer.Commit();
-    commandBuffer.WaitUntilCompleted();
-
-    auto status = commandBuffer.GetStatus();
-    if (status != mtlpp::CommandBufferStatus::Completed) {
-        auto error = commandBuffer.GetError();
-        throw MLDB::Exception(std::string(error.GetDomain().GetCStr()) + ": " + error.GetLocalizedDescription().GetCStr());
-    }
-
-    clQueue
-        ->enqueueCopyFromHostImpl(opName, deviceHandle, region, deviceOffset, {})
-    .await();
-#endif
-}
-#endif
 
 MemoryRegionHandle
 GridComputeContext::

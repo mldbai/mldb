@@ -705,25 +705,6 @@ recordMarkerEvent(const std::string & event)
     // no-op
 }
 
-#if 0
-MemoryRegionHandle
-ComputeContext::
-transferToDeviceSyncImpl(const std::string & opName,
-                            FrozenMemoryRegion region,
-                            const std::type_info & type, bool isConst)
-{
-    return transferToDeviceImpl(opName, std::move(region), type, isConst).move();
-}
-
-FrozenMemoryRegion
-ComputeContext::
-transferToHostSyncImpl(const std::string & opName,
-                        MemoryRegionHandle handle)
-{
-    return transferToHostImpl(opName, std::move(handle)).move();
-}
-
-#endif
 
 // ComputeRuntime
 
@@ -1350,95 +1331,6 @@ setFromReference(ComputeQueue & queue, std::span<const byte> referenceData)
     queue.copyFromHostSyncImpl(opName, handle, region, 0 /* startOffsetInBytes */);
 }
 
-#if 0
-
-// PromiseAbstractArgumentHandler
-
-bool
-PromiseAbstractArgumentHandler::
-canGetPrimitive() const
-{
-    return subImpl->canGetPrimitive();
-}
-
-std::span<const std::byte>
-PromiseAbstractArgumentHandler::
-getPrimitive(const std::string & opName, ComputeQueue & queue) const
-{
-    return subImpl->getPrimitive(opName, context);
-}
-
-bool
-PromiseAbstractArgumentHandler::
-canGetRange() const
-{
-    return subImpl->canGetRange();
-}
-
-std::tuple<void *, size_t, std::shared_ptr<const void>>
-PromiseAbstractArgumentHandler::
-getRange(const std::string & opName, ComputeQueue & queue) const
-{
-    return subImpl->getRange(opName, context);
-}
-
-bool
-PromiseAbstractArgumentHandler::
-canGetConstRange() const
-{
-    return subImpl->canGetConstRange();
-}
-
-std::tuple<const void *, size_t, std::shared_ptr<const void>>
-PromiseAbstractArgumentHandler::
-getConstRange(const std::string & opName, ComputeQueue & queue) const
-{
-    return subImpl->getConstRange(opName, context);
-}
-
-bool
-PromiseAbstractArgumentHandler::
-canGetHandle() const
-{
-    return subImpl->canGetHandle();
-}
-
-MemoryRegionHandle
-PromiseAbstractArgumentHandler::
-getHandle(const std::string & opName, ComputeQueue & queue) const
-{
-    return subImpl->getHandle(opName, context);
-}
-
-std::string
-PromiseAbstractArgumentHandler::
-info() const
-{
-    return subImpl->info();
-}
-
-Json::Value
-PromiseAbstractArgumentHandler::
-toJson() const
-{
-    return subImpl->toJson();
-}
-
-Json::Value
-PromiseAbstractArgumentHandler::
-getArrayElement(uint32_t index, ComputeQueue & queue) const
-{
-    return subImpl->getArrayElement(index, context);
-}
-
-void
-PromiseAbstractArgumentHandler::
-setFromReference(ComputeQueue & queue, std::span<const byte> referenceData)
-{
-    subImpl->setFromReference(context, referenceData);
-}
-
-#endif
 
 // PrimitiveAbstractArgumentHandler
 

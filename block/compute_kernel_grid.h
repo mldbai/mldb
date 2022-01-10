@@ -10,6 +10,7 @@
 
 #include "mldb/block/compute_kernel.h"
 #include "mldb/arch/spinlock.h"
+#include "mldb/utils/environment.h"
 
 namespace MLDB {
 
@@ -18,6 +19,90 @@ struct GridComputeKernel;
 struct GridComputeQueue;
 struct GridComputeKernelTemplate;
 struct GridComputeKernelSpecialization;
+
+// Tracing
+
+enum class OperationType {
+    GRID_COMPUTE = 1,
+    METAL_COMPUTE = 2,
+    OPENCL_COMPUTE = 3,
+    HOST_COMPUTE = 4,
+    USER = 1000
+};
+
+enum class OperationScope {
+    ENTER = 1,
+    EXIT = 2,
+    EXIT_EXC = 3,
+    EVENT = 4
+};
+
+extern EnvOption<int> GRID_TRACE_API_CALLS;
+
+void traceOperationImpl(OperationScope opScope, OperationType opType, const std::string & opName,
+                    const std::string & renderedArgs);
+
+inline std::string renderArgs() { return {}; }
+
+template<typename... Args>
+inline std::string renderArgs(const std::string & arg1, Args&&... args)
+{
+    return MLDB::format(arg1.c_str(), std::forward<Args>(args)...);
+}
+
+template<typename... Args>
+void traceOperation(OperationScope opScope, OperationType opType, const std::string & opName, Args&&... args)
+{
+    if (GRID_TRACE_API_CALLS.get()) {
+        traceOperationImpl(opScope, opType, opName, renderArgs(std::forward<Args>(args)...));
+    }
+}
+
+template<typename... Args>
+void traceOperation(OperationType opType, const std::string & opName, Args&&... args)
+{
+    traceOperation(OperationScope::EVENT, opType, opName, std::forward<Args>(args)...);
+}
+
+template<typename... Args>
+void traceGridOperation(const std::string & opName, Args&&... args)
+{
+    traceOperation(OperationScope::EVENT, OperationType::GRID_COMPUTE, opName, std::forward<Args>(args)...);
+}
+
+struct ScopedOperation {
+    ScopedOperation(const ScopedOperation &) = delete;
+    auto operator = (const ScopedOperation &) = delete;
+
+    template<typename... Args>
+    ScopedOperation(OperationType opType,
+                    const std::string & opName, Args&&... args)
+        : opType(opType), opName(opName)
+    {
+        if (GRID_TRACE_API_CALLS.get()) {
+           traceOperation(OperationScope::ENTER, opType, opName, std::forward<Args>(args)...);
+            incrementOpCount();
+            timer.reset(new Timer);
+        }
+    }
+
+    static void incrementOpCount();
+
+    ~ScopedOperation();
+
+    OperationType opType;
+    std::string opName;
+    std::unique_ptr<Timer> timer;
+};
+
+template<typename... Args>
+ScopedOperation MLDB_WARN_UNUSED_RESULT scopedOperation(OperationType opType, const std::string & opName, Args&&... args) 
+{
+    return ScopedOperation(opType, opName, std::forward<Args>(args)...);
+}
+
+
+// Memory Handles
 
 struct GridMemoryRegionHandleInfo: public MemoryRegionHandleInfo {
     GridMemoryRegionHandleInfo()

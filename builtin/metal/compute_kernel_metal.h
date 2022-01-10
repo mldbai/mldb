@@ -13,6 +13,12 @@
 
 namespace MLDB {
 
+template<typename... Args>
+void traceMetalOperation(const std::string & opName, Args&&... args)
+{
+    traceOperation(OperationScope::EVENT, OperationType::METAL_COMPUTE, opName, std::forward<Args>(args)...);
+}
+
 DECLARE_ENUM_DESCRIPTION_NAMED(MtlCommandBufferStatusDescription, mtlpp::CommandBufferStatus);
 
 struct MetalComputeContext;
@@ -255,8 +261,6 @@ protected:
 };
 
 
-//void registerMetalComputeKernel(const std::string & kernelName,
-//                           std::function<std::shared_ptr<MetalComputeKernel>(MetalComputeContext &)> generator);
 void registerMetalLibrary(const std::string & libraryName,
                           std::function<std::shared_ptr<MetalComputeFunctionLibrary>(MetalComputeContext &)> generator);
 
