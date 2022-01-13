@@ -24,6 +24,22 @@ using namespace std;
 
 namespace MLDB {
 
+DEFINE_ENUM_DESCRIPTION_INLINE(GridComputeFunctionArgumentDisposition)
+{
+    addValue("BUFFER", GridComputeFunctionArgumentDisposition::BUFFER, "");
+    addValue("LITERAL", GridComputeFunctionArgumentDisposition::LITERAL, "");
+    addValue("THREADGROUP", GridComputeFunctionArgumentDisposition::THREADGROUP, "");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(GridComputeFunctionArgument)
+{
+    addField("name", &GridComputeFunctionArgument::name, "");
+    addField("computeFunctionArgIndex", &GridComputeFunctionArgument::computeFunctionArgIndex, "");
+    addField("type", &GridComputeFunctionArgument::type, "");
+    addField("disposition", &GridComputeFunctionArgument::disposition, "");
+    addField("implInfo", &GridComputeFunctionArgument::implInfo, "");
+}
+
 EnvOption<int> GRID_TRACE_API_CALLS("GRID_COMPUTE_TRACE_API_CALLS", 0);
 
 namespace {
@@ -160,8 +176,8 @@ void traceOperationImpl(OperationScope opScope, OperationType opType, const std:
             opTypeName = "OPENCL:";
             opColor = ansi::ansi_str_green();
             break;
-        case OperationType::HOST_COMPUTE:
-            opTypeName = "HOST:";
+        case OperationType::CPU_COMPUTE:
+            opTypeName = "CPU:";
             opColor = ansi::ansi_str_yellow();
             break;
         case OperationType::USER:
@@ -1110,7 +1126,7 @@ applyArg(GridComputeQueue & queue,
     std::string opName = "bind " + argName + " " + std::to_string(++disamb);
 
     if (arg.handler) {
-        cerr << "has handler" << endl;
+        //cerr << "has handler" << endl;
         if (arg.handler->canGetPrimitive()) {
             auto bytes = arg.handler->getPrimitive(opName, queue);
             traceGridOperation("binding primitive with " + std::to_string(bytes.size()) + " bytes and value " + jsonEncodeStr(arg.handler->toJson()));
@@ -1155,7 +1171,7 @@ applyArg(GridComputeQueue & queue,
         }
     }
     else {
-        cerr << "has no handler" << endl;
+        //cerr << "has no handler" << endl;
         traceGridOperation("binding primitive with value " + jStr);
         Any typedVal(j, type.baseType.get());
         bindContext.setPrimitive(opName, computeFunctionArgIndex, typedVal.asBytes());
@@ -1261,6 +1277,8 @@ apply(GridComputeQueue & queue,
       bool setKnowns,
       GridBindContext & bindContext) const
 {
+    cerr << "applying " << jsonEncodeStr(*this) << endl;
+
     switch (action) {
         case GridBindActionType::SET_FROM_ARG:
             applyArg(queue, args, knowns, setKnowns, bindContext);
@@ -1297,6 +1315,7 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
     // Initialize all of the generic fields from the template
     *(GridComputeKernel *)this = (const GridComputeKernel &)tmplate;
 
+    this->kernelName = tmplate.kernelName;
     this->gridLibrary = owner->getLibrary(tmplate.libraryName);
     this->gridFunction = this->gridLibrary->getFunction(tmplate.kernelName);
     auto kernelArgs = this->gridFunction->getArgumentInfo();
@@ -1384,7 +1403,6 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
                     action.arg = arg;
                     action.type = type;
                     action.argName = argName;
-                    action.argNum = i;
                     action.fields = std::move(fieldActions);
                 }
                 else {
@@ -1422,6 +1440,7 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
             }
         }
         else if (disposition == GridComputeFunctionArgumentDisposition::LITERAL) {
+            //cerr << "setting LITERAL parameter " << argName << " of type " << type.print() << endl;
             if (it == paramIndex.end()) {
                 // Set it from a known
                 ExcAssert(type.dims.empty());

@@ -162,7 +162,7 @@ getRepr(const ValueDescription & desc, bool detailed)
     case ValueKind::BOOLEAN:
         break;
     case ValueKind::ATOM:
-        result.contained = desc.containedPtr().get();
+        //result.contained = desc.containedPtr().get();
         break;
     case ValueKind::STRING:
         break;

@@ -232,6 +232,6 @@ struct SpanDescription<const T, Sz>
 };
 #endif
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(SpanDescription, std::span, typename, T, size_t, Sz);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(SpanDescription, std::span, typename, T, size_t, Sz, MLDB::has_default_description<T>::value);
 
 } // namespace MLDB

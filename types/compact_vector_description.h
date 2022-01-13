@@ -109,7 +109,8 @@ struct CompactVectorDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_6(CompactVectorDescription, compact_vector,
                                      typename, T, size_t, I, typename, S,
-                                     bool, Sf, typename, P, typename, A);
+                                     bool, Sf, typename, P, typename, A,
+                                     MLDB::has_default_description<T>::value);
 
 
 

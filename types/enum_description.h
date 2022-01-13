@@ -21,8 +21,9 @@ namespace MLDB {
 /** Enum description that's not based on a C++ type. */
 
 struct GenericEnumDescription: public ValueDescription {
-    GenericEnumDescription(std::shared_ptr<const ValueDescription> underlying, std::string typeName)
-        : ValueDescription(ValueKind::ENUM, nullptr, underlying->width, underlying->align, std::move(typeName)),
+    GenericEnumDescription(std::shared_ptr<const ValueDescription> underlying, std::string typeName,
+                           const std::type_info * type = nullptr)
+        : ValueDescription(ValueKind::ENUM, type, underlying->width, underlying->align, std::move(typeName)),
           underlying(std::move(underlying))
     {
     }

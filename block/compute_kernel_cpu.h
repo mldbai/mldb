@@ -9,6 +9,11 @@
 
 #include "mldb/block/compute_kernel.h"
 #include "mldb/block/compute_kernel_grid.h"
+#include "mldb/block/compute_kernel_host.h"
+#include "mldb/types/value_description.h"
+#include "mldb/types/vector_description.h"
+#include "mldb/types/tuple_description.h"
+#include "mldb/types/span_description.h"
 
 namespace MLDB {
 
@@ -133,6 +138,8 @@ struct CPUComputeContext: public GridComputeContext {
 
     virtual ~CPUComputeContext() = default;
 
+    std::shared_ptr<MappedSerializer> backingStore;
+
     virtual MemoryRegionHandle
     allocateSyncImpl(const std::string & regionName,
                      size_t length, size_t align,
@@ -164,22 +171,25 @@ protected:
 // CPUComputeFunction
 
 struct CPUComputeFunction: public GridComputeFunction {
-    CPUComputeFunction(CPUComputeContext & context);
+    CPUComputeFunction();
 
     virtual ~CPUComputeFunction() = default;
 
     virtual std::vector<GridComputeFunctionArgument> getArgumentInfo() const override;
+
+    std::vector<GridComputeFunctionArgument> argumentInfo;
+    HostComputeKernel kernel;
+    std::function<std::any ()> createArgTuple;
+    std::function<void (GridComputeQueue &, std::string, const std::any &, std::vector<size_t>, std::vector<size_t>)> launch;
 };
 
 
 // CPUComputeFunctionLibrary
 
 struct CPUComputeFunctionLibrary: public GridComputeFunctionLibrary {
-    CPUComputeFunctionLibrary(CPUComputeContext & context);
+    CPUComputeFunctionLibrary();
 
     virtual ~CPUComputeFunctionLibrary() = default;
-
-    CPUComputeContext & context;
 
     virtual std::shared_ptr<GridComputeFunction>
     getFunction(const std::string & functionName) override;
@@ -195,6 +205,10 @@ struct CPUComputeFunctionLibrary: public GridComputeFunctionLibrary {
     // Return a version compiled from source given in the sourceCode string
     static std::shared_ptr<CPUComputeFunctionLibrary>
     compileFromSource(CPUComputeContext & context, const Utf8String & sourceCode, const std::string & fileNameToAppearInErrorMessages);
+
+    // NOTE: protected by global CPU library mutex
+    std::map<std::string, std::function<std::shared_ptr<CPUComputeFunction> ()> > initializers;
+    std::map<std::string, std::shared_ptr<CPUComputeFunction>> functions;
 };
 
 
@@ -208,8 +222,197 @@ struct CPUComputeKernel: public GridComputeKernelSpecialization {
     const CPUComputeFunction * cpuFunction = nullptr;
 };
 
+enum class CPUComputeKernelArgKind {
+    NONE,
+    BYTES,
+    HANDLE,
+    THREADGROUP
+};
 
-void registerCPULibrary(const std::string & libraryName,
-                        std::function<std::shared_ptr<CPUComputeFunctionLibrary>(CPUComputeContext &)> generator);
+// Encodes the argument in a discriminated union
+struct CPUComputeKernelArgValue {
+    CPUComputeKernelArgValue(std::span<const std::byte> bytes)
+        : kind(CPUComputeKernelArgKind::BYTES), bytes(bytes)
+    {
+    }
+
+    CPUComputeKernelArgValue(std::shared_ptr<GridMemoryRegionHandleInfo> handle, MemoryRegionAccess access)
+        : kind(CPUComputeKernelArgKind::HANDLE), handle(handle), access(access)
+    {
+    }
+
+    CPUComputeKernelArgValue(size_t numThreadGroupBytes)
+        : kind(CPUComputeKernelArgKind::THREADGROUP), numThreadGroupBytes(numThreadGroupBytes)
+    {
+    }
+
+    CPUComputeKernelArgKind kind = CPUComputeKernelArgKind::NONE;
+    std::span<const std::byte> bytes;
+    std::shared_ptr<GridMemoryRegionHandleInfo> handle;
+    MemoryRegionAccess access;
+    ssize_t numThreadGroupBytes = -1;
+};
+
+using Pin = std::shared_ptr<const void>;
+using ArgSetter = std::function<Pin (ComputeQueue & queue, const std::string & opName, void * arg, const CPUComputeKernelArgValue & value)>;
+using TupleSetter = std::function<Pin (ComputeQueue & queue, const std::string & opName, std::any & tupleAny, const CPUComputeKernelArgValue & value)>;
+    
+template<typename T>
+std::tuple<ComputeKernelType, ArgSetter>
+handleCpuKernelCallArgument(std::span<T> *)
+{
+    ComputeKernelType result(details::getBestValueDescriptionT<T>(), "rw");
+    result.dims.emplace_back();
+
+    auto setArg = [] (ComputeQueue & queue, const std::string & opName, void * argPtr,
+                      const CPUComputeKernelArgValue & value)
+    {
+        if (value.kind != CPUComputeKernelArgKind::HANDLE) {
+            MLDB_THROW_UNIMPLEMENTED("attempt to pass non-range memory region to arg that needs a span");            
+        }
+
+        auto & arg = *reinterpret_cast<std::span<T> *>(argPtr);
+
+        auto [pin, ptr, offset] = CPUComputeContext::getMemoryRegion(opName, *value.handle, ACC_READ_WRITE);
+        arg = { (T *)(ptr + offset), value.handle->lengthInBytes / sizeof(T) };
+        return std::move(pin);
+    };
+
+    return { result, std::move(setArg) };
+}
+
+template<typename T>
+std::tuple<ComputeKernelType, ArgSetter>
+handleCpuKernelCallArgument(std::span<const T> *)
+{
+    ComputeKernelType result(details::getBestValueDescriptionT<T>(), "r");
+    result.dims.emplace_back();
+
+    auto setArg = [] (ComputeQueue & queue, const std::string & opName, void * argPtr,
+                      const CPUComputeKernelArgValue & value)
+    {
+        if (value.kind != CPUComputeKernelArgKind::HANDLE) {
+            MLDB_THROW_UNIMPLEMENTED("attempt to pass non-range memory region to arg that needs a span");            
+        }
+
+        auto & arg = *reinterpret_cast<std::span<const T> *>(argPtr);
+
+        auto [pin, ptr, offset] = CPUComputeContext::getMemoryRegion(opName, *value.handle, ACC_READ);
+        arg = { reinterpret_cast<const T *>(ptr + offset), value.handle->lengthInBytes / sizeof(T) };
+        return std::move(pin);
+    };
+
+    return { result, std::move(setArg) };
+}
+
+template<typename T>
+std::tuple<ComputeKernelType, ArgSetter>
+handleCpuKernelCallArgument(T *)
+{
+    ComputeKernelType result(details::getBestValueDescriptionT<std::remove_const_t<T>>(),
+                             "r");
+
+    auto setArg = [] (ComputeQueue & queue, const std::string & opName, void * argPtr,
+                      const CPUComputeKernelArgValue & value)
+    {
+        if (value.kind != CPUComputeKernelArgKind::BYTES) {
+            MLDB_THROW_UNIMPLEMENTED("attempt to pass non-literal to arg that needs a byte range");            
+        }
+
+        auto & arg = *reinterpret_cast<T *>(argPtr);
+        static const auto desc = details::getBestValueDescriptionT<std::remove_const_t<T>>();
+        details::copyUsingValueDescription(desc.get(), value.bytes, &arg, typeid(T));
+        return nullptr;
+    };
+
+    return { result, setArg };    
+}
+
+template<size_t N, typename Tuple>
+std::vector<GridComputeFunctionArgument>
+getArgumentInfos(const std::string & functionName, const char * const parameterNames[])
+{
+    return {};
+}
+
+template<typename T, size_t N, typename Tuple>
+GridComputeFunctionArgument
+getArgumentInfo(const std::string & parameterName, int argNumber)
+{
+    auto [outputType, setArg] = handleCpuKernelCallArgument((T*)0);
+
+    TupleSetter setEntry = [setArg=std::move(setArg), parameterName]
+        (ComputeQueue & queue, const std::string & opName,
+         std::any & tupleAny, const CPUComputeKernelArgValue & value)
+    {
+        Tuple & tuple = std::any_cast<Tuple &>(tupleAny);
+        return setArg(queue, opName, &std::get<N>(tuple), value);
+    };
+
+    GridComputeFunctionArgument arg;
+    arg.name = parameterName;
+    arg.disposition = outputType.dims.empty() ? GridComputeFunctionArgumentDisposition::LITERAL : GridComputeFunctionArgumentDisposition::BUFFER;
+    arg.type = std::move(outputType);
+    arg.marshal = setEntry;
+    arg.computeFunctionArgIndex = argNumber;
+
+    return arg;
+}
+
+template<size_t N, typename Tuple, typename First, typename... Rest>
+std::vector<GridComputeFunctionArgument>
+getArgumentInfos(const std::string & functionName, const char * const parameterNames[N + sizeof...(Rest) + 1])
+{
+    auto rest = getArgumentInfos<N + 1, Tuple, Rest...>(functionName, parameterNames);
+    
+    GridComputeFunctionArgument arg = getArgumentInfo<First, N, Tuple>(parameterNames[N], N);
+    rest.push_back(std::move(arg));
+
+    return rest;
+}
+
+void registerCpuKernelImpl(const std::string & libraryName, const std::string & functionName,
+                           std::function<std::shared_ptr<CPUComputeFunction> ()> generator);
+
+template<typename... Args>
+void registerCpuKernel(const std::string & libraryName, const std::string & functionName,
+                       void (*fn) (Args...),
+                       const char * const parameterNames[sizeof...(Args)])
+{
+    auto initialize = [=] () -> std::shared_ptr<CPUComputeFunction>
+    {
+        auto argInfos = getArgumentInfos<0, std::tuple<Args...>, Args...>(functionName, parameterNames);
+        std::reverse(argInfos.begin(), argInfos.end());
+
+        HostComputeKernel kernel;
+        for (size_t i = 0;  i < argInfos.size();  ++i) {
+            kernel.addParameter(argInfos[i].name, argInfos[i].type);
+        }
+        kernel.setGridComputeFunction(fn);
+
+        auto createArgTuple = [] () -> std::any
+        {
+            return std::tuple<Args...>();
+        };
+
+        auto launch = [fn] (GridComputeQueue & queue, const std::string & opName, const std::any & argsAny,
+                            const std::vector<size_t> & grid, const std::vector<size_t> & block)
+        {
+            const auto & args = std::any_cast<const std::tuple<Args...> &>(argsAny);
+            std::apply(fn, args);
+        };
+
+        auto function = std::make_shared<CPUComputeFunction>();
+        function->argumentInfo = std::move(argInfos);
+        function->kernel = std::move(kernel);
+
+        function->createArgTuple = std::move(createArgTuple);
+        function->launch = std::move(launch);
+
+        return function;
+    };
+
+    registerCpuKernelImpl(libraryName, functionName, std::move(initialize));
+}
 
 }  // namespace MLDB

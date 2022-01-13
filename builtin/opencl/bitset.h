@@ -194,6 +194,6 @@ struct BitsetDescription
     }
 };
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(BitsetDescription, Bitset, typename, T);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(BitsetDescription, Bitset, typename, T, MLDB::has_default_description<T>::value);
 
 } // namespace MLDB

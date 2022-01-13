@@ -26,7 +26,7 @@ enum class OperationType {
     GRID_COMPUTE = 1,
     METAL_COMPUTE = 2,
     OPENCL_COMPUTE = 3,
-    HOST_COMPUTE = 4,
+    CPU_COMPUTE = 4,
     USER = 1000
 };
 
@@ -349,6 +349,7 @@ struct GridComputeFunctionArgument {
     ComputeKernelType type;
     GridComputeFunctionArgumentDisposition disposition;
     Any implInfo;
+    std::any marshal;  ///< Helper type for marshalling; invisible
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(GridComputeFunctionArgument);

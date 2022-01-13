@@ -28,17 +28,14 @@ namespace MLDB {
 namespace {
 
 std::mutex libraryRegistryMutex;
-struct LibraryRegistryEntry {
-    std::function<std::shared_ptr<CPUComputeFunctionLibrary>(CPUComputeContext & context)> generate;
-};
-
-std::map<std::string, LibraryRegistryEntry> libraryRegistry;
+std::map<std::string, std::shared_ptr<CPUComputeFunctionLibrary>> libraryRegistry;
 
 EnvOption<bool, false> CPU_ENABLED("CPU_ENABLED", true);
 
 struct CPUMemoryRegionHandleInfo: public GridMemoryRegionHandleInfo {
     std::byte * buffer = nullptr;
     const std::byte * constBuffer = nullptr;
+    std::shared_ptr<const void> handle;  // underlying handle we want to keep around
 
     virtual CPUMemoryRegionHandleInfo * clone() const
     {
@@ -54,6 +51,7 @@ struct CPUMemoryRegionHandleInfo: public GridMemoryRegionHandleInfo {
 
     void init(const std::byte * mem, size_t offset)
     {
+        this->buffer = nullptr;
         this->constBuffer = mem;
         this->buffer = nullptr;
         this->offset = offset;
@@ -76,7 +74,7 @@ void
 CPUComputeEvent::
 await() const
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    // No-op for now as we don't have anything asynchronous happening
 }
 
 std::shared_ptr<CPUComputeEvent>
@@ -103,7 +101,6 @@ CPUComputeQueue(CPUComputeContext * owner, CPUComputeQueue * parent,
                 GridDispatchType dispatchType)
     : GridComputeQueue(owner, parent, label, dispatchType), cpuOwner(owner)
 {
-    MLDB_THROW_UNIMPLEMENTED();
 }
 
 CPUComputeQueue::~CPUComputeQueue()
@@ -131,7 +128,7 @@ enqueueZeroFillArrayConcrete(const std::string & opName,
                              size_t startOffsetInBytes, ssize_t lengthInBytes)
 {
     auto [pin, buffer, offset] = CPUComputeContext::getMemoryRegion(opName, *region.handle, ACC_WRITE);
-    MLDB_THROW_UNIMPLEMENTED();
+    std::memset((std::byte *)buffer + offset + startOffsetInBytes, 0, lengthInBytes);
 }                                
                                 
 void
@@ -141,7 +138,10 @@ enqueueBlockFillArrayConcrete(const std::string & opName,
                               size_t startOffsetInBytes, ssize_t lengthInBytes,
                               std::span<const std::byte> block)
 {
-    ComputeQueue::enqueueFillArrayImpl(opName, region, MemoryRegionInitialization::INIT_BLOCK_FILLED, startOffsetInBytes, lengthInBytes, block);
+    auto [pin, buffer, offset] = CPUComputeContext::getMemoryRegion(opName, *region.handle, ACC_WRITE);
+    for (size_t i = 0;  i < lengthInBytes;  i += block.size_bytes()) {
+        memcpy((std::byte *)buffer + offset + startOffsetInBytes + i, block.data(), block.size());
+    }
 }                                
                                 
 void
@@ -152,8 +152,8 @@ enqueueCopyFromHostConcrete(const std::string & opName,
                             size_t deviceStartOffsetInBytes)
 {
     auto [pin, buffer, offset] = CPUComputeContext::getMemoryRegion(opName, *toRegion.handle, ACC_WRITE);
-    MLDB_THROW_UNIMPLEMENTED();
-}                            
+    memcpy((std::byte *)buffer + offset + deviceStartOffsetInBytes, fromRegion.data(), fromRegion.length());
+}
                             
 
 FrozenMemoryRegion
@@ -177,25 +177,43 @@ struct CPUBindContext: public GridBindContext {
                    const GridComputeKernel * kernel,
                    const GridBindInfo * bindInfo)
         : kernel(dynamic_cast<const CPUComputeKernel *>(kernel)),
-          queue(queue), opName(opName)
+          queue(queue),
+          opName(opName)
     {
         ExcAssert(this->kernel);
-        MLDB_THROW_UNIMPLEMENTED();
+        argTuple = this->kernel->cpuFunction->createArgTuple();
+        isBound.resize(this->kernel->cpuFunction->argumentInfo.size(), false);
     }
 
     virtual ~CPUBindContext()
     {
     }
 
+    HostComputeKernel hostKernel;
     const CPUComputeKernel * kernel = nullptr;
     CPUComputeQueue * queue = nullptr;
     std::string opName;
-    
+    std::any argTuple;
+    std::vector<bool> isBound;
+    size_t numBound = 0;
+
+    void setIsBound(int argNum)
+    {
+        bool current = isBound.at(argNum);
+        if (current) {
+            throw MLDB::Exception("Attempt to double-bind argument number " + std::to_string(argNum));
+        }
+        isBound[argNum] = true;
+        ++numBound;
+    }
+
     virtual void
     setPrimitive(const std::string & opName, int argNum, std::span<const std::byte> bytes) override
     {
         traceCPUOperation("setPrimitive " + opName, "argNum %d with %zd bytes", argNum, bytes.size_bytes());
-        MLDB_THROW_UNIMPLEMENTED();
+        setIsBound(argNum);
+        const TupleSetter & argSetter = std::any_cast<const TupleSetter &>(kernel->cpuFunction->argumentInfo.at(argNum).marshal);
+        argSetter(*queue, opName, argTuple, bytes);
     }
 
     virtual void
@@ -205,14 +223,18 @@ struct CPUBindContext: public GridBindContext {
     {
         traceCPUOperation("setBuffer " + opName, "argNum %d handle %s:%d with %zd bytes",
                             argNum, handle->name.c_str(), handle->version, handle->lengthInBytes);
-        MLDB_THROW_UNIMPLEMENTED();
+        setIsBound(argNum);
+        const TupleSetter & argSetter = std::any_cast<const TupleSetter &>(kernel->cpuFunction->argumentInfo.at(argNum).marshal);
+        argSetter(*queue, opName, argTuple, {handle, access});
     }
 
     virtual void
     setThreadGroupMemory(const std::string & opName, int argNum, size_t nBytes) override
     {
         traceCPUOperation("setPrimitive " + opName, "argNum %d with %zd bytes", argNum, nBytes);
-        MLDB_THROW_UNIMPLEMENTED();
+        setIsBound(argNum);
+        const TupleSetter & argSetter = std::any_cast<const TupleSetter &>(kernel->cpuFunction->argumentInfo.at(argNum).marshal);
+        argSetter(*queue, opName, argTuple, nBytes);
     }
 
     virtual void launch(const std::string & opName,
@@ -228,14 +250,16 @@ struct CPUBindContext: public GridBindContext {
             block.resize(3, 1);
 
             auto invocations = grid[0] * grid[1] * grid[2] * block[0] * block[1] * block[2];
-            double memoryRequiredMb = invocations * 2048 / 1024.0 / 1024.0;
 
             traceCPUOperation("grid size " + jsonEncodeStr(grid));
             traceCPUOperation("block size " + jsonEncodeStr(block));
-            traceCPUOperation(std::to_string(invocations) + " invocations requiring " + std::to_string(memoryRequiredMb)
-                                + "MB of wired scratchpad memory");
+            traceCPUOperation(std::to_string(invocations) + " invocations");
 
-            MLDB_THROW_UNIMPLEMENTED();
+            if (numBound != isBound.size()) {
+                throw MLDB::Exception("not all arguments bound");
+            }
+
+            this->kernel->cpuFunction->launch(*this->queue, opName, this->argTuple, grid, block);
         } MLDB_CATCH_ALL {
             rethrowException(400, "Error launching CPU kernel " + kernel->kernelName);
         }
@@ -258,7 +282,18 @@ enqueueTransferToHostImpl(const std::string & opName,
                           MemoryRegionHandle handle)
 {
     auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue enqueueTransferToHostSyncImpl " + opName);
-    MLDB_THROW_UNIMPLEMENTED();
+
+    ExcAssert(handle.handle);
+    auto info = std::dynamic_pointer_cast<const CPUMemoryRegionHandleInfo>(std::move(handle.handle));
+    ExcAssert(info);
+    //ExcAssert(info->constBuffer);
+
+    if (!info->constBuffer) {
+        cerr << "Null buffer: " << info->name << endl;
+    }
+
+    FrozenMemoryRegion raw(info, (char *)info->constBuffer, info->lengthInBytes);
+    return raw;
 }
 
 FrozenMemoryRegion
@@ -267,7 +302,8 @@ transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
     auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue transferToHostSyncImpl " + opName);
-    MLDB_THROW_UNIMPLEMENTED();
+
+    return enqueueTransferToHostImpl(opName, std::move(handle));
 }
 
 MutableMemoryRegion
@@ -301,7 +337,24 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
                                const std::type_info & type, bool isConst)
 {
     auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeContext managePinnedHostRegionSyncImpl " + opName);
-    MLDB_THROW_UNIMPLEMENTED();
+    MemoryRegionHandle handle;
+    auto info = std::make_shared<CPUMemoryRegionHandleInfo>();
+    //ExcAssert(isConst);
+    ExcAssert(region.data() || region.size() == 0);
+    if (isConst) {
+        info->init(region.data(), 0 /* offset */);
+    }
+    else {
+        info->init((std::byte *)region.data(), 0 /* offset */);
+    }
+
+    info->lengthInBytes = region.size_bytes();
+    info->type = &type;
+    info->isConst = isConst;
+    info->name = opName;
+    handle.handle = info;
+
+    return handle;
 }
 
 void
@@ -330,7 +383,8 @@ CPUComputeQueue::
 flush()
 {
     auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue flush");
-    MLDB_THROW_UNIMPLEMENTED();
+    // No-op for now as it's all synchronous
+    return makeAlreadyResolvedEvent("flush");
 }
 
 void
@@ -338,7 +392,7 @@ CPUComputeQueue::
 enqueueBarrier(const std::string & label)
 {
     auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue enqueueBarrier " + label);
-    MLDB_THROW_UNIMPLEMENTED();
+    // No-op for now as it's all synchronous
 }
 
 void
@@ -361,7 +415,7 @@ makeAlreadyResolvedEvent(const std::string & label) const
 
 CPUComputeContext::
 CPUComputeContext()
-    : GridComputeContext(ComputeDevice::host())
+    : GridComputeContext(ComputeDevice::host()), backingStore(std::make_shared<MemorySerializer>())
 {
 }
 
@@ -375,7 +429,17 @@ getMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & handle, Mem
     }
     auto pin = upcastHandle->pinAccess(opName, access);
 
-    return { std::move(pin), upcastHandle->buffer, upcastHandle->offset };
+    switch (access) {
+    case ACC_NONE:
+        return { std::move(pin), nullptr, 0 };
+    case ACC_READ:
+        return { std::move(pin), upcastHandle->constBuffer, upcastHandle->offset };
+    case ACC_WRITE:  // fall through
+    case ACC_READ_WRITE:
+        return { std::move(pin), upcastHandle->buffer, upcastHandle->offset };
+    default:
+        MLDB_THROW_UNIMPLEMENTED("Unknown access value");
+    }
 }
 
 std::tuple<FrozenMemoryRegion, int /* version */>
@@ -391,29 +455,6 @@ getFrozenHostMemoryRegion(const std::string & opName, MemoryRegionHandleInfo & h
     return upcastHandle->getReadOnlyHostAccessSync(*this, opName, offset, length, ignoreHazards);
 }
 
-static MemoryRegionHandle
-doCPUAllocate(const std::string & regionName,
-              size_t length, size_t align,
-              const std::type_info & type,
-              bool isConst)
-{
-    cerr << "allocating " << length << " bytes for " << regionName << endl;
-    std::byte * buffer = nullptr;
-
-    MLDB_THROW_UNIMPLEMENTED();
-
-    auto handle = std::make_shared<CPUMemoryRegionHandleInfo>();
-    handle->init(buffer, 0 /* offset */);
-    handle->type = &type;
-    handle->isConst = isConst;
-    handle->lengthInBytes = length;
-    handle->name = regionName;
-    handle->version = 0;
-
-    MemoryRegionHandle result{std::move(handle)};
-    return result;
-}
-
 MemoryRegionHandle
 CPUComputeContext::
 allocateSyncImpl(const std::string & regionName,
@@ -421,7 +462,21 @@ allocateSyncImpl(const std::string & regionName,
                  const std::type_info & type, bool isConst)
 {
     auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeContext allocateSyncImpl " + regionName);
-    auto result = doCPUAllocate(regionName, length, align, type, isConst);
+    MutableMemoryRegion mem = backingStore->allocateWritable(length, align);
+
+    auto handle = std::make_shared<CPUMemoryRegionHandleInfo>();
+    handle->init((std::byte *)mem.data(), 0 /* offset */);
+    handle->type = &type;
+    handle->isConst = isConst;
+    handle->lengthInBytes = length;
+    handle->name = regionName;
+    handle->version = 0;
+    handle->handle = mem.handle();
+
+    ExcAssert(handle->buffer);
+    ExcAssert(handle->constBuffer);
+
+    MemoryRegionHandle result{std::move(handle)};
     return result;
 }
 
@@ -463,7 +518,7 @@ getLibrary(const std::string & libraryName)
         throw AnnotatedException(400, "Unable to find CPU compute library '" + libraryName + "'",
                                         "libraryName", libraryName);
     }
-    auto result = it->second.generate(*this);
+    auto result = it->second;
     //if (traceSerializer) {
     //    result->traceSerializer = kernelsSerializer->newStructure(kernelName);
     //    result->runsSerializer = result->traceSerializer->newStructure("runs");
@@ -494,7 +549,7 @@ CPUComputeKernel(CPUComputeContext * owner, const GridComputeKernelTemplate & tm
 // CPUComputeFunction
 
 CPUComputeFunction::
-CPUComputeFunction(CPUComputeContext & context)
+CPUComputeFunction()
 {
 }
 
@@ -502,36 +557,14 @@ std::vector<GridComputeFunctionArgument>
 CPUComputeFunction::
 getArgumentInfo() const
 {
-    std::vector<GridComputeFunctionArgument> result;
-
-    MLDB_THROW_UNIMPLEMENTED();
-
-#if 0
-    for (size_t i = 0;  i < arguments.GetSize();  ++i) {
-        mtlpp::Argument arg = arguments[i];
-        std::string argName = arg.GetName().GetCStr();
-        GridComputeFunctionArgumentDisposition disposition = getDisposition(arg.GetType());
-        auto type = CPUComputeKernel::getKernelType(arg);
-
-        GridComputeFunctionArgument entry;
-        entry.name = argName;
-        entry.disposition = disposition;
-        entry.type = type;
-        entry.computeFunctionArgIndex = arg.GetIndex();
-
-        result.emplace_back(std::move(entry));
-    }
-#endif
-
-    return result;
+    return argumentInfo;
 }
 
 
 // CPUComputeFunctionLibrary
 
 CPUComputeFunctionLibrary::
-CPUComputeFunctionLibrary(CPUComputeContext & context)
-    : context(context)
+CPUComputeFunctionLibrary()
 {
 }
 
@@ -539,7 +572,22 @@ std::shared_ptr<GridComputeFunction>
 CPUComputeFunctionLibrary::
 getFunction(const std::string & functionName)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    std::unique_lock guard{libraryRegistryMutex};
+
+    auto it = functions.find(functionName);
+    if (it == functions.end()) {
+
+        auto it2 = initializers.find(functionName);
+        if (it2 == initializers.end()) {
+            for (auto & [name, fn]: functions) {
+                cerr << "  have " << name << endl;
+            }
+            throw MLDB::Exception("Couldn't find CPU compute function " + functionName);
+        }
+
+        it = functions.emplace(functionName, it2->second()).first;
+    }
+    return it->second;
 }
 
 std::string
@@ -599,6 +647,27 @@ loadMtllib(CPUComputeContext & context, const std::string & libraryFilename)
 }
 #endif
 
+void registerCpuKernelImpl(const std::string & libraryName, const std::string & functionName,
+                           std::function<std::shared_ptr<CPUComputeFunction> ()> generator)
+{
+    ExcAssert(generator);
+
+    std::unique_lock guard{libraryRegistryMutex};
+
+    if (!libraryRegistry.count(libraryName)) {
+        libraryRegistry[libraryName] = std::make_shared<CPUComputeFunctionLibrary>();
+    }
+
+    auto library = libraryRegistry[libraryName];
+    ExcAssert(library);
+
+    if (library->initializers.count(functionName)) {
+        throw MLDB::Exception("Function " + functionName + " already registered in library " + libraryName);
+    }
+
+    library->initializers[functionName] = generator;
+}
+
 // CPUComputeRuntime
 
 EnvOption<int> CPU_DEFAULT_DEVICE("CPU_DEFAULT_DEVICE", -1);
@@ -651,13 +720,6 @@ struct CPUComputeRuntime: public ComputeRuntime {
     }
 
 };
-
-void registerCPULibrary(const std::string & libraryName,
-                          std::function<std::shared_ptr<CPUComputeFunctionLibrary>(CPUComputeContext &)> generator)
-{
-    std::unique_lock guard{libraryRegistryMutex};
-    libraryRegistry[libraryName].generate = generator;
-}
 
 namespace {
 

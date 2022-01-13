@@ -565,21 +565,6 @@ private:
     }
 };
 
-template<typename T, typename Enable = void>
-struct GetDefaultDescriptionMaybe {
-    static std::shared_ptr<const ValueDescription> get()
-    {
-        return nullptr;
-    }
-};
-
-template<typename T>
-struct GetDefaultDescriptionMaybe<T, decltype(getDefaultDescription((T *)0))> {
-    static std::shared_ptr<const ValueDescription> get()
-    {
-        return getDefaultDescriptionShared((T *)0);
-    }
-};
 
 /** Return the default description for the given type if it exists, or
     otherwise return a null pointer.
@@ -589,7 +574,7 @@ template<typename T>
 inline std::shared_ptr<const ValueDescription>
 maybeGetDefaultDescriptionShared(T * = 0)
 {
-    auto result = GetDefaultDescriptionMaybe<T>::get();
+    std::shared_ptr<const ValueDescription> result = getDefaultDescriptionSharedMaybe((T*)0);
     if (!result) {
         // Look to see if it's registered in the registry so that we can
         // get it

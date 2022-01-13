@@ -33,6 +33,7 @@ enum class ComputeRuntimeId : uint8_t {
     METAL = 4,   ///< Runs on the Apple Metal runtime
     CUDA = 5,    ///< Runs on the Nvidia CUDA runtime
     ROCM = 6,    ///< Runs on the AMD ROCm runtime
+    CPU = 7,     ///< Runs on the local CPU being used as a grid
     CUSTOM = 32
 };
 

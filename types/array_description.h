@@ -149,6 +149,6 @@ struct ArrayDescription
 };
 
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(ArrayDescription, std::array, typename, T, size_t, N);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(ArrayDescription, std::array, typename, T, size_t, N, MLDB::has_default_description<T>::value);
 
 } // namespace MLDB

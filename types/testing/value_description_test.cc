@@ -12,7 +12,6 @@
 #define BOOST_TEST_DYN_LINK
 #include <sstream>
 #include <string>
-#include <boost/lexical_cast.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "mldb/types/basic_value_descriptions.h"
@@ -550,4 +549,44 @@ BOOST_AUTO_TEST_CASE(test_array_description)
         BOOST_CHECK_EQUAL(std::get<1>(testArray), 2);
         BOOST_CHECK_EQUAL(std::get<2>(testArray), 3);
     }
+}
+
+
+struct ThingWithNoValueDescription {
+
+};
+
+BOOST_AUTO_TEST_CASE(test_has_default_description)
+{
+    auto return1 = getDefaultDescriptionMaybe((ThingWithNoValueDescription *)0);
+    cerr << "return type 1 = " << type_name(return1) << endl;
+    auto return2 = getDefaultDescriptionMaybe((int *)0);
+    cerr << "return type 2 = " << type_name(return2) << endl;
+    auto return3 = getDefaultDescriptionMaybe((RecursiveStructure *)0);
+    cerr << "return type 3 = " << type_name(return3) << endl;
+    auto return4 = getDefaultDescriptionMaybe((std::vector<int> *)0);
+    cerr << "return type 4 = " << type_name(return4) << endl;
+    auto return5 = getDefaultDescriptionMaybe((std::vector<ThingWithNoValueDescription> *)0);
+    cerr << "return type 5 = " << type_name(return5) << endl;
+    BOOST_CHECK_EQUAL(has_default_description<int>::value, true);
+    BOOST_CHECK_EQUAL(has_default_description<ThingWithNoValueDescription>::value, false);
+    BOOST_CHECK_EQUAL((all_have_default_descriptions<>::value), true);
+    BOOST_CHECK_EQUAL((all_have_default_descriptions<int>::value), true);
+    BOOST_CHECK_EQUAL((all_have_default_descriptions<int, float>::value), true);
+    BOOST_CHECK_EQUAL((all_have_default_descriptions<ThingWithNoValueDescription>::value), false);
+    BOOST_CHECK_EQUAL((all_have_default_descriptions<ThingWithNoValueDescription, int>::value), false);
+    BOOST_CHECK_EQUAL((all_have_default_descriptions<int, ThingWithNoValueDescription>::value), false);
+}
+
+BOOST_AUTO_TEST_CASE(containers_have_no_default_description)
+{
+    BOOST_CHECK_EQUAL((has_default_description<std::tuple<>>::value), true);
+    BOOST_CHECK_EQUAL((has_default_description<std::tuple<int>>::value), true);
+    BOOST_CHECK_EQUAL((has_default_description<std::tuple<int,int>>::value), true);
+    BOOST_CHECK_EQUAL((has_default_description<std::tuple<int,ThingWithNoValueDescription>>::value), false);
+    BOOST_CHECK_EQUAL((has_default_description<int>::value), true);
+    BOOST_CHECK_EQUAL((has_default_description<std::vector<int>>::value), true);
+    BOOST_CHECK_EQUAL((has_default_description<std::vector<ThingWithNoValueDescription>>::value), false);
+    BOOST_CHECK_EQUAL((has_default_description<std::array<int, 3>>::value), true);
+    BOOST_CHECK_EQUAL((has_default_description<std::array<ThingWithNoValueDescription, 3>>::value), false);
 }

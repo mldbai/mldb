@@ -13,6 +13,11 @@ namespace MLDB {
 
 namespace details {
 
+std::shared_ptr<const ValueDescription> getValueDescriptionForType(const std::type_info & type)
+{
+    return ValueDescription::get(type);
+}
+
 void copyUsingValueDescription(const ValueDescription * desc,
                                std::span<const std::byte> from, void * to,
                                const std::type_info & toType)
@@ -50,7 +55,7 @@ std::map<std::string, KernelRegistryEntry> kernelRegistry;
 namespace {
 
 struct HostComputeKernelBindInfo: public ComputeKernelBindInfo {
-    HostComputeKernel::Callable call;
+    HostComputeKernel::Launch launch;
 };
 
 struct HostMemoryRegionInfo: public MemoryRegionHandleInfo {
@@ -95,7 +100,7 @@ HostComputeKernel::
 bindImpl(ComputeQueue & queue, std::vector<ComputeKernelArgument> arguments, ComputeKernelConstraintSolution knowns) const
 {
     auto bindInfo = std::make_shared<HostComputeKernelBindInfo>();
-    bindInfo->call = createCallable(queue, arguments);
+    bindInfo->launch = bind(queue, arguments);
 
     BoundComputeKernel result;
     result.arguments = std::move(arguments);
@@ -120,7 +125,7 @@ call(ComputeQueue & queue, const BoundComputeKernel & bound, std::span<ComputeKe
         = dynamic_cast<const HostComputeKernelBindInfo *>(bound.bindInfo.get());
     ExcAssert(hostInfo);
 
-    hostInfo->call(queue, grid);
+    hostInfo->launch(queue, grid);
 }
 
 

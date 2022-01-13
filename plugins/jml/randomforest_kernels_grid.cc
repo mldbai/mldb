@@ -81,7 +81,7 @@ static struct RegisterKernels {
             result->addTuneable("blocksPerGrid", 32);
 
             result->addParameter("w", "w", "W[maxLocalBuckets]");
-            result->addParameter("maxLocalBuckets", "r", "u32");
+            //result->addParameter("maxLocalBuckets", "r", "u32");
 
             result->setGridExpression("[naf,blocksPerGrid]", "[1,threadsPerBlock]");
             result->allowGridPadding();

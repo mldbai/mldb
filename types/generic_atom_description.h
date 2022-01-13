@@ -19,7 +19,8 @@ struct GenericAtomDescription
 
     GenericAtomDescription(size_t width,
                            size_t align,
-                           const std::string & typeName);
+                           const std::string & typeName,
+                           const std::type_info * type = nullptr);
 
     virtual void parseJson(void * val,
                            JsonParsingContext & context) const override;

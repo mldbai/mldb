@@ -7,6 +7,7 @@
 #include "mldb/types/meta_value_description.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/set_description.h"
+#include "mldb/types/generic_atom_description.h"
 #include "mldb/utils/command_expression.h"
 #include <memory>
 
@@ -356,6 +357,14 @@ print() const
     return result;
 }
 
+std::string removeNamespaces(const std::string & typeName)
+{
+    auto it = typeName.rfind("::");
+    if (it == string::npos)
+        return typeName;
+    return typeName.substr(it + 2);
+}
+
 static bool
 typesAreCompatible(const ValueDescription & passed,
                    const ValueDescription & expected,
@@ -405,8 +414,44 @@ typesAreCompatible(const ValueDescription & passed,
     }
 
     case ValueKind::STRUCTURE: {
-        if (expected.kind != ValueKind::STRUCTURE)
+
+        bool expectedIsGenericAtom = dynamic_cast<const GenericAtomDescription *>(&expected);
+
+        if (expectedIsGenericAtom) {
+            // Make sure that the type names match and that the alignment and width are equal
+            if (passed.width != expected.width)
+                return failCompare("structure widths are not equal", passed.width, expected.width);
+
+            if (passed.align != expected.align)
+                return failCompare("structure alignments are not equal", passed.width, expected.width);
+
+            std::vector<std::string> aliases1, aliases2;
+            if (expected.type)
+                aliases1 = getValueDescriptionAliases(*expected.type);
+            if (passed.type)
+                aliases2 = getValueDescriptionAliases(*passed.type);
+
+
+            aliases1.push_back(expected.typeName);
+            aliases1.push_back(removeNamespaces(expected.typeName));
+            std::sort(aliases1.begin(), aliases1.end());
+            aliases2.push_back(passed.typeName);
+            aliases2.push_back(removeNamespaces(passed.typeName));
+            std::sort(aliases2.begin(), aliases2.end());
+
+            vector<std::string> intersection;
+            std::set_intersection(aliases1.begin(), aliases1.end(), aliases2.begin(), aliases2.end(),
+                                  std::back_insert_iterator(intersection));
+
+            if (intersection.empty())
+                return failCompare("type names are not an alias", aliases1, aliases2);
+
+            break;
+        }
+
+        if (expected.kind != ValueKind::STRUCTURE) {
             return fail("passed kind was structure but expected kind was not");
+        }
         
         if (!passed.hasFixedFieldCount() || !expected.hasFixedFieldCount())
             return fail("arrays must have fixed field counts");

@@ -13,9 +13,10 @@ namespace MLDB {
 
 GenericAtomDescription::
 GenericAtomDescription(size_t width,
-                        size_t align,
-                        const std::string & typeName)
-    : ValueDescription(ValueKind::ATOM, nullptr, width, align, typeName)
+                       size_t align,
+                       const std::string & typeName,
+                       const std::type_info * type)
+    : ValueDescription(ValueKind::ATOM, type, width, align, typeName)
 {
 }
 

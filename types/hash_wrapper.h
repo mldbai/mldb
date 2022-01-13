@@ -135,8 +135,8 @@ typedef HashWrapper<2> VH;            ///< Verb Hash
 template<int Domain> struct HashWrapperDescription;
 template<typename Int, int Domain> struct IntWrapperDescription;
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(HashWrapper, HashWrapperDescription, int, Domain);
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(IntWrapper, IntWrapperDescription, typename, Int, int, Domain);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(HashWrapper, HashWrapperDescription, int, Domain, true /*  enable */);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(IntWrapper, IntWrapperDescription, typename, Int, int, Domain, true /* enable */);
 
 
 // Allow it to be used as part of a REST interface

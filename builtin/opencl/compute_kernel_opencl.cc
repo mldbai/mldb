@@ -846,68 +846,6 @@ doOpenCLTransferToDevice(OpenCLContext & clContext,
 
     return result;
 }
-
-MemoryRegionHandle
-OpenCLComputeContext::
-transferToDeviceImpl(const std::string & opName, FrozenMemoryRegion region,
-                     const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToDeviceImpl " + opName);
-    auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
-    return {std::move(result), std::make_shared<OpenCLComputeEvent>()};
-}
-
-MemoryRegionHandle
-OpenCLComputeContext::
-transferToDeviceSyncImpl(const std::string & opName,
-                         FrozenMemoryRegion region,
-                         const std::type_info & type, bool isConst)
-{
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToDeviceSyncImpl " + opName);
-    auto result = doOpenCLTransferToDevice(clContext, opName, region, type, isConst);
-    return result;
-}
-
-FrozenMemoryRegion
-OpenCLComputeContext::
-transferToHostImpl(const std::string & opName, MemoryRegionHandle handle)
-{
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToHostImpl " + opName);
-    return clQueue->enqueueTransferToHostImpl(opName, std::move(handle));
-}
-
-FrozenMemoryRegion
-OpenCLComputeContext::
-transferToHostSyncImpl(const std::string & opName,
-                       MemoryRegionHandle handle)
-{
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext transferToHostSyncImpl " + opName);
-    return clQueue->transferToHostSyncImpl(opName, std::move(handle));
-}
-
-#endif
-
-#if 0
-std::shared_ptr<ComputeKernel>
-OpenCLComputeContext::
-getKernel(const std::string & kernelName)
-{
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeContext getKernel " + kernelName);
-
-    std::unique_lock guard(kernelRegistryMutex);
-    auto it = kernelRegistry.find(kernelName);
-    if (it == kernelRegistry.end()) {
-        throw AnnotatedException(400, "Unable to find OpenCL compute kernel '" + kernelName + "'",
-                                        "kernelName", kernelName);
-    }
-    auto result = it->second.generate(*this);
-    result->context = this;
-    if (traceSerializer) {
-        result->traceSerializer = kernelsSerializer->newStructure(kernelName);
-        result->runsSerializer = result->traceSerializer->newStructure("runs");
-    }
-    return result;
-}
 #endif
 
 std::shared_ptr<ComputeQueue>

@@ -24,11 +24,11 @@ namespace std {
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescription(tuple<T...> * = 0);
+getDefaultDescription(tuple<T...> * = 0, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> * = 0);
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescriptionUninitialized(tuple<T...> * = 0);
+getDefaultDescriptionUninitialized(tuple<T...> * = 0, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> * = 0);
 
 } // namespace std
 
@@ -238,14 +238,14 @@ namespace std {
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescription(std::tuple<T...> *)
+getDefaultDescription(std::tuple<T...> *, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> *)
 {
     return new MLDB::TupleDescription<T...>();
 }
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescriptionUninitialized(std::tuple<T...> *)
+getDefaultDescriptionUninitialized(std::tuple<T...> *, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> *)
 {
     return new MLDB::TupleDescription<T...>(MLDB::constructOnly);
 }
