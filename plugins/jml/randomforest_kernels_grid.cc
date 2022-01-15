@@ -112,7 +112,7 @@ static struct RegisterKernels {
             result->addTuneable("wLocalSize", RF_LOCAL_BUCKET_MEM.get() / sizeof(WIndexed));
 
             result->addParameter("wLocal", "w", "WIndexed[wLocalSize]");
-            result->addParameter("wLocalSize", "r", "u32");
+            //result->addParameter("wLocalSize", "r", "u32");
             //result->addPostConstraint("totalBuckets", "==", "readArrayElement(numActivePartitionsOut, 0)");
             //result->addPreConstraint("nap", "==", "maxNumActivePartitions");
             //result->addPostConstraint("nap", "==", "readArrayElement(treeDepthInfo, 0).numActivePartitions");

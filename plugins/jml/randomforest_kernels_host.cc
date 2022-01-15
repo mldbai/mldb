@@ -15,74 +15,95 @@ namespace RF {
 
 #include "randomforest_kernels_common.h"
 
-DEFINE_KERNEL(randomforest_kernels,
+DEFINE_KERNEL2(randomforest_kernels,
               decompressRowsKernel,
-              std::span<const uint64_t>,                rowData,
-              uint32_t,                                 rowDataLength,
-              uint16_t,                                 weightBits,
-              uint16_t,                                 exampleNumBits,
-              uint32_t,                                 numRows,
-              WeightFormat,                             weightFormat,
-              float,                                    weightMultiplier,
-              std::span<const float>,                   weightData,
-              std::span<float>,                         decodedRowsOut)
+              BUFFER,   const uint64_t,                           rowData,        "[rowDataLength]",
+              LITERAL,  uint32_t,                                 rowDataLength,,
+              LITERAL,  uint16_t,                                 weightBits,,
+              LITERAL,  uint16_t,                                 exampleNumBits,,
+              LITERAL,  uint32_t,                                 numRows,,
+              LITERAL,  WeightFormat,                             weightFormat,,
+              LITERAL,  float,                                    weightMultiplier,,
+              BUFFER,   const float,                              weightData,     "[weightDataLength]",
+              BUFFER,   float,                                    decodedRowsOut, "[numRows]",
+              GID0,     uint32_t,                                 id,,
+              GSZ0,     uint32_t,                                 n,)
 {
     using namespace std;
-    cerr << "rowData = " << rowData.data() << " len " << rowData.size() << endl;
-    cerr << "rowDataLength = " << rowDataLength << endl;
+    //cerr << "id = " << id << " n = " << n << endl;
     decompressRowsImpl(rowData.data(), rowDataLength, weightBits, exampleNumBits, numRows,
                        weightFormat, weightMultiplier, weightData.data(), decodedRowsOut.data(),
-                       0 /* id */, 1 /* n */);
+                       id, n);
 }
 
-DEFINE_KERNEL(randomforest_kernels,
+DEFINE_KERNEL2(randomforest_kernels,
               testFeatureKernel,
-              uint16_t,                                 numActiveFeatures,
-              std::span<const float>,                   decodedRows,
-              uint32_t,                                 numRows,
-              std::span<const uint32_t>,                bucketData,
-              std::span<const uint32_t>,                bucketDataOffsets,
-              std::span<const uint32_t>,                bucketNumbers,
-              std::span<const uint32_t>,                bucketEntryBits,
-              std::span<const uint32_t>,                activeFeatureList,
-              std::span<W>,                             partitionBuckets)
+              LITERAL,  uint16_t,                                 numActiveFeatures,,
+              BUFFER,   const float,                              decodedRows,          "[numRows]",
+              LITERAL,  uint32_t,                                 numRows,,
+              BUFFER,   const uint32_t,                           bucketData,           "[bucketDataLength]",
+              BUFFER,   const uint32_t,                           bucketDataOffsets,    "[numFeatures + 1]",
+              BUFFER,   const uint32_t,                           bucketNumbers,        "[numFeatures + 1]",
+              BUFFER,   const uint32_t,                           bucketEntryBits,      "[numFeatures]",
+              BUFFER,   const uint32_t,                           activeFeatureList,    "[numActiveFeatures]",
+              BUFFER,   W,                                        partitionBuckets,     "[numBuckets]",
+              LOCAL,    W,                                        w,                    "[maxLocalBuckets]",
+              TUNEABLE, uint16_t,                                 maxLocalBuckets,      "getenv('RF_LOCAL_BUCKET_MEM',5500) / sizeof('W')",
+              GID0,     uint16_t,                                 fidx,,
+              LID1,     uint16_t,                                 threadGroupId,,
+              LSZ1,     uint16_t,                                 threadGroupSize,,
+              GID1,     uint16_t,                                 gridId,,
+              GSZ1,     uint16_t,                                 gridSize,)
 {
-    uint32_t maxLocalBuckets = 0;
-    for (uint16_t fidx = 0;  fidx < numActiveFeatures;  ++fidx) {
-        testFeatureImpl(decodedRows.data(), numRows, bucketData.data(), bucketDataOffsets.data(), bucketNumbers.data(),
-                        bucketEntryBits.data(), activeFeatureList.data(), nullptr, maxLocalBuckets,
-                        partitionBuckets.data(), fidx,
-                        0, 1, 0, numRows);
-    }
+    testFeatureImpl(decodedRows.data(), numRows, bucketData.data(), bucketDataOffsets.data(), bucketNumbers.data(),
+                    bucketEntryBits.data(), activeFeatureList.data(), w, maxLocalBuckets,
+                    partitionBuckets.data(), fidx, threadGroupId, threadGroupSize, gridId, gridSize);
 }
 
-DEFINE_KERNEL(randomforest_kernels,
-              getPartitionSplitsKernel,
-              std::span<const TreeTrainingInfo>,         treeTrainingInfo,
-              std::span<const uint32_t>,                 bucketNumbers,                      
-              std::span<const uint32_t>,                 activeFeatureList,
-              std::span<const uint32_t>,                 featureIsOrdinal,
-              std::span<const W>,                        buckets,
-              std::span<const W>,                        wAll,
-              std::span<PartitionSplit>,                 featurePartitionSplitsOut,
-              std::span<const TreeDepthInfo>,            treeDepthInfo)
+DEFINE_KERNEL2(randomforest_kernels,
+               getPartitionSplitsKernel,
+               BUFFER,      const TreeTrainingInfo,     treeTrainingInfo,           "[1]",
+               BUFFER,      const uint32_t,             bucketNumbers,              "[numFeatures + 1]",
+               BUFFER,      const uint32_t,             activeFeatureList,          "[numActiveFeatures]",
+               BUFFER,      const uint32_t,             featureIsOrdinal,           "[numFeatures]",
+               BUFFER,      const W,                    buckets,                    "[numActiveBuckets * numActivePartitions]",
+               BUFFER,      const W,                    wAll,                       "[numActivePartitions]",
+               BUFFER,      PartitionSplit,             featurePartitionSplitsOut,  "[numActivePartitions * numActiveFeatures]",
+               BUFFER,      const TreeDepthInfo,        treeDepthInfo,              "[1]",
+               LOCAL,       WIndexed,                   wLocal,                     "[wLocalSize]",
+               TUNEABLE,    uint16_t,                   wLocalSize,                 "getenv('RF_LOCAL_BUCKET_MEM',5500) / sizeof('WIndexed')",
+
+               GID1,        uint16_t,                   featureId,,
+               GSZ1,        uint16_t,                   numActiveFeatures,,
+               LID0,        uint16_t,                   workerId,,
+               LSZ0,        uint16_t,                   workGroupSize,,
+               GID2,        uint16_t,                   partitionWorkerId,,
+               GSZ2,        uint16_t,                   partitionWorkerSize,)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    __local WIndexed wStartBest[2];
+    getPartitionSplitsImpl(treeTrainingInfo.data(), bucketNumbers.data(),
+                           activeFeatureList.data(), featureIsOrdinal.data(),
+                           buckets.data(), wAll.data(), featurePartitionSplitsOut.data(),
+                           treeDepthInfo.data(), wLocal, wLocalSize, wStartBest,
+                           featureId, numActiveFeatures,
+                           workerId, workGroupSize,
+                           partitionWorkerId, partitionWorkerId);
 }
 
-DEFINE_KERNEL(randomforest_kernels,
-              bestPartitionSplitKernel,
-              std::span<const TreeTrainingInfo>,         treeTrainingInfo,
-              std::span<const TreeDepthInfo>,            treeDepthInfo,
-              std::span<const uint32_t>,                 activeFeatureList,
-              std::span<const PartitionSplit>,           featurePartitionSplits,
-              std::span<const PartitionIndex>,           partitionIndexes,
-              std::span<IndexedPartitionSplit>,          allPartitionSplitsOut)
+DEFINE_KERNEL2(randomforest_kernels,
+               bestPartitionSplitKernel,
+               BUFFER,      const TreeTrainingInfo,         treeTrainingInfo,           "[1]",     
+               BUFFER,      const TreeDepthInfo,            treeDepthInfo,              "[1]",     
+               BUFFER,      const uint32_t,                 activeFeatureList,          "[numActiveFeatures]",     
+               BUFFER,      const PartitionSplit,           featurePartitionSplits,     "[numActivePartitions * numActiveFeatures]",     
+               BUFFER,      const PartitionIndex,           partitionIndexes,           "[numActivePartitions]",     
+               BUFFER,      IndexedPartitionSplit,          allPartitionSplitsOut,      "[numActivePartitions]",
+               GID0,        uint16_t,                       workerId,,
+               GSZ0,        uint16_t,                       numWorkers,)
 {
-    MLDB_THROW_UNIMPLEMENTED();
-    //bestPartitionSplitImpl(&treeTrainingInfo, &treeDepthInfo, activeFeatureList,
-    //                       featurePartitionSplits, partitionIndexes, allPartitionSplitsOut,
-    //                       get_global_id(0), get_global_size(0));
+    bestPartitionSplitImpl(treeTrainingInfo.data(), treeDepthInfo.data(), activeFeatureList.data(),
+                           featurePartitionSplits.data(), partitionIndexes.data(), allPartitionSplitsOut.data(),
+                           workerId, numWorkers);
 }
 
 DEFINE_KERNEL(randomforest_kernels,

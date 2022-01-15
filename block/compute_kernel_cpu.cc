@@ -196,6 +196,8 @@ struct CPUBindContext: public GridBindContext {
     std::any argTuple;
     std::vector<bool> isBound;
     size_t numBound = 0;
+    std::map<std::string, size_t> threadGroupMemoryOffsets;
+    size_t threadGroupMemoryRequired = 0;
 
     void setIsBound(int argNum)
     {
@@ -231,10 +233,12 @@ struct CPUBindContext: public GridBindContext {
     virtual void
     setThreadGroupMemory(const std::string & opName, int argNum, size_t nBytes) override
     {
-        traceCPUOperation("setPrimitive " + opName, "argNum %d with %zd bytes", argNum, nBytes);
+        traceCPUOperation("setThreadGroupMemory " + opName, "argNum %d with %zd bytes", argNum, nBytes);
         setIsBound(argNum);
-        const TupleSetter & argSetter = std::any_cast<const TupleSetter &>(kernel->cpuFunction->argumentInfo.at(argNum).marshal);
-        argSetter(*queue, opName, argTuple, nBytes);
+        auto & arg = kernel->cpuFunction->argumentInfo.at(argNum);
+
+        threadGroupMemoryOffsets[arg.name] = threadGroupMemoryRequired;
+        threadGroupMemoryRequired += nBytes;
     }
 
     virtual void launch(const std::string & opName,
@@ -259,7 +263,9 @@ struct CPUBindContext: public GridBindContext {
                 throw MLDB::Exception("not all arguments bound");
             }
 
-            this->kernel->cpuFunction->launch(*this->queue, opName, this->argTuple, grid, block);
+            this->kernel->cpuFunction->
+                launch(*this->queue, opName, this->argTuple, grid, block,
+                       this->threadGroupMemoryRequired, this->threadGroupMemoryOffsets);
         } MLDB_CATCH_ALL {
             rethrowException(400, "Error launching CPU kernel " + kernel->kernelName);
         }
@@ -720,6 +726,16 @@ struct CPUComputeRuntime: public ComputeRuntime {
     }
 
 };
+
+void throwDimensionException(unsigned dim, unsigned n)
+{
+    throw MLDB::Exception("Dimension overflow: passed dimension %d not in range 0-%d", dim, n);
+}
+
+void throwOverflow()
+{
+    throw MLDB::Exception("Sizing calculation overflow");
+}
 
 namespace {
 

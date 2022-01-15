@@ -14,6 +14,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/span_description.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 namespace MLDB {
 
@@ -180,7 +181,7 @@ struct CPUComputeFunction: public GridComputeFunction {
     std::vector<GridComputeFunctionArgument> argumentInfo;
     HostComputeKernel kernel;
     std::function<std::any ()> createArgTuple;
-    std::function<void (GridComputeQueue &, std::string, const std::any &, std::vector<size_t>, std::vector<size_t>)> launch;
+    std::function<void (GridComputeQueue &, std::string, const std::any &, std::vector<size_t>, std::vector<size_t>, size_t, const std::map<std::string, size_t> &)> launch;
 };
 
 
@@ -253,12 +254,33 @@ struct CPUComputeKernelArgValue {
     ssize_t numThreadGroupBytes = -1;
 };
 
+template<int GlobalOrLocal, int IdOrSize, int Dim, typename AsType>
+struct GridQuery {
+    operator AsType() const
+    {
+        return val;
+    }
+
+    AsType val = AsType();
+};
+
+template<typename T>
+struct LocalArray {
+};
+
 using Pin = std::shared_ptr<const void>;
 using ArgSetter = std::function<Pin (ComputeQueue & queue, const std::string & opName, void * arg, const CPUComputeKernelArgValue & value)>;
 using TupleSetter = std::function<Pin (ComputeQueue & queue, const std::string & opName, std::any & tupleAny, const CPUComputeKernelArgValue & value)>;
-    
+
+struct CPUGridKernelParameterInfo {
+    const char * name;
+    const char * kind;
+    const char * type;
+    const char * dims;
+};
+
 template<typename T>
-std::tuple<ComputeKernelType, ArgSetter>
+std::tuple<ComputeKernelType, ArgSetter, GridComputeFunctionArgumentDisposition>
 handleCpuKernelCallArgument(std::span<T> *)
 {
     ComputeKernelType result(details::getBestValueDescriptionT<T>(), "rw");
@@ -278,11 +300,11 @@ handleCpuKernelCallArgument(std::span<T> *)
         return std::move(pin);
     };
 
-    return { result, std::move(setArg) };
+    return { result, std::move(setArg), GridComputeFunctionArgumentDisposition::BUFFER };
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, ArgSetter>
+std::tuple<ComputeKernelType, ArgSetter, GridComputeFunctionArgumentDisposition>
 handleCpuKernelCallArgument(std::span<const T> *)
 {
     ComputeKernelType result(details::getBestValueDescriptionT<T>(), "r");
@@ -302,11 +324,11 @@ handleCpuKernelCallArgument(std::span<const T> *)
         return std::move(pin);
     };
 
-    return { result, std::move(setArg) };
+    return { result, std::move(setArg), GridComputeFunctionArgumentDisposition::BUFFER };
 }
 
 template<typename T>
-std::tuple<ComputeKernelType, ArgSetter>
+std::tuple<ComputeKernelType, ArgSetter, GridComputeFunctionArgumentDisposition>
 handleCpuKernelCallArgument(T *)
 {
     ComputeKernelType result(details::getBestValueDescriptionT<std::remove_const_t<T>>(),
@@ -325,12 +347,31 @@ handleCpuKernelCallArgument(T *)
         return nullptr;
     };
 
-    return { result, setArg };    
+    return { result, setArg, GridComputeFunctionArgumentDisposition::LITERAL };    
+}
+
+template<int GlobalOrLocal, int IdOrSize, int Dim, typename T>
+std::tuple<ComputeKernelType, ArgSetter, GridComputeFunctionArgumentDisposition>
+handleCpuKernelCallArgument(GridQuery<GlobalOrLocal, IdOrSize, Dim, T> *)
+{
+    ComputeKernelType result(details::getBestValueDescriptionT<std::remove_const_t<T>>(),
+                             "r");
+
+    return { result, nullptr /* no arg setter */, GridComputeFunctionArgumentDisposition::LITERAL };    
+}
+
+template<typename T>
+std::tuple<ComputeKernelType, ArgSetter, GridComputeFunctionArgumentDisposition>
+handleCpuKernelCallArgument(LocalArray<T> *)
+{
+    ComputeKernelType result(details::getBestValueDescriptionT<std::remove_const_t<T>>(),
+                             "rw");
+    return { result, nullptr /* no arg setter */, GridComputeFunctionArgumentDisposition::THREADGROUP };    
 }
 
 template<size_t N, typename Tuple>
 std::vector<GridComputeFunctionArgument>
-getArgumentInfos(const std::string & functionName, const char * const parameterNames[])
+getArgumentInfos(const std::string & functionName, const CPUGridKernelParameterInfo parameterInfo[])
 {
     return {};
 }
@@ -339,7 +380,7 @@ template<typename T, size_t N, typename Tuple>
 GridComputeFunctionArgument
 getArgumentInfo(const std::string & parameterName, int argNumber)
 {
-    auto [outputType, setArg] = handleCpuKernelCallArgument((T*)0);
+    auto [outputType, setArg, disposition] = handleCpuKernelCallArgument((T*)0);
 
     TupleSetter setEntry = [setArg=std::move(setArg), parameterName]
         (ComputeQueue & queue, const std::string & opName,
@@ -351,7 +392,7 @@ getArgumentInfo(const std::string & parameterName, int argNumber)
 
     GridComputeFunctionArgument arg;
     arg.name = parameterName;
-    arg.disposition = outputType.dims.empty() ? GridComputeFunctionArgumentDisposition::LITERAL : GridComputeFunctionArgumentDisposition::BUFFER;
+    arg.disposition = disposition;
     arg.type = std::move(outputType);
     arg.marshal = setEntry;
     arg.computeFunctionArgIndex = argNumber;
@@ -361,11 +402,11 @@ getArgumentInfo(const std::string & parameterName, int argNumber)
 
 template<size_t N, typename Tuple, typename First, typename... Rest>
 std::vector<GridComputeFunctionArgument>
-getArgumentInfos(const std::string & functionName, const char * const parameterNames[N + sizeof...(Rest) + 1])
+getArgumentInfos(const std::string & functionName, const CPUGridKernelParameterInfo parameterInfo[N + sizeof...(Rest) + 1])
 {
-    auto rest = getArgumentInfos<N + 1, Tuple, Rest...>(functionName, parameterNames);
+    auto rest = getArgumentInfos<N + 1, Tuple, Rest...>(functionName, parameterInfo);
     
-    GridComputeFunctionArgument arg = getArgumentInfo<First, N, Tuple>(parameterNames[N], N);
+    GridComputeFunctionArgument arg = getArgumentInfo<First, N, Tuple>(parameterInfo[N].name, N);
     rest.push_back(std::move(arg));
 
     return rest;
@@ -374,21 +415,304 @@ getArgumentInfos(const std::string & functionName, const char * const parameterN
 void registerCpuKernelImpl(const std::string & libraryName, const std::string & functionName,
                            std::function<std::shared_ptr<CPUComputeFunction> ()> generator);
 
+void throwDimensionException(unsigned dim, unsigned n) MLDB_NORETURN;
+void throwOverflow() MLDB_NORETURN;
+
+struct CheckedSize {
+    CheckedSize(size_t sz = std::numeric_limits<size_t>::max())
+        : sz(sz)
+    {
+    }
+
+    size_t sz;
+
+    template<typename T> operator T () const { ExcAssertEqual((T)sz, sz);  return sz; }
+
+    template<typename T1, typename T2, typename T3>
+    static CheckedSize madd(T1 x, T2 y, T3 z)
+    {
+        size_t res;
+        if (MLDB_UNLIKELY(__builtin_mul_overflow(x, y, &res))
+            || MLDB_UNLIKELY(__builtin_add_overflow(res, z, &res)))
+            throwOverflow();
+        return { res };
+    }
+
+    template<typename T1, typename T2>
+    static CheckedSize mul(T1 x, T2 y)
+    {
+        size_t res;
+        if (MLDB_UNLIKELY(__builtin_mul_overflow(x, y, &res)))
+            throwOverflow();
+        return { res };
+    }
+
+    template<typename T1, typename T2>
+    static CheckedSize add(T1 x, T2 y)
+    {
+        size_t res;
+        if (MLDB_UNLIKELY(__builtin_add_overflow(x, y, &res)))
+            throwOverflow();
+        return { res };
+    }
+};
+
+inline std::ostream & operator << (std::ostream & stream, const CheckedSize & sz)
+{
+    return stream << sz.sz;
+}
+
+struct GridBounds {
+    GridBounds(std::array<size_t, 3> bounds = { 0, 0, 0 })
+        : bounds(bounds)
+    {
+    }
+
+    GridBounds(const std::vector<size_t> & bounds)
+    {
+        ExcAssertEqual(bounds.size(), 3);
+        this->bounds = { bounds[0], bounds[1], bounds[2] };
+    }
+
+    struct Iterator;
+    Iterator begin() const;
+    Iterator end() const;
+
+    std::array<size_t, 3> bounds;
+
+    size_t getSize(unsigned n) const
+    {
+        if (MLDB_UNLIKELY(n > 2)) {
+            throwDimensionException(n, 3);
+        }
+        
+        return bounds[n];
+    }
+
+    size_t getProd(unsigned n) const
+    {
+        if (MLDB_UNLIKELY(n > 3)) {
+            throwDimensionException(n, 3);
+        }
+
+        CheckedSize result = 1;
+        for (unsigned i = 0;  i < n;  ++i) {
+            result = CheckedSize::mul(bounds[i], result.sz);
+        }
+
+        return result;
+    }
+
+    size_t getLinearSize() const { return getProd(3); }
+};
+
+inline std::ostream & operator << (std::ostream & stream, const GridBounds & bounds)
+{
+    return stream << "[" << bounds.getSize(0)
+                  << "," << bounds.getSize(1)
+                  << "," << bounds.getSize(2)
+                  << "]";
+}
+
+struct GridIndex {
+    GridIndex(size_t index, const GridBounds * bounds)
+        : index(index), bounds(bounds)
+    {
+        if (MLDB_UNLIKELY(index >= bounds->getProd(3)))
+            throwOverflow();
+    }
+
+    size_t index;  // linear index
+    const GridBounds * bounds;
+
+    CheckedSize getIndex(unsigned n) const
+    {
+        return index % bounds->getProd(n + 1) / bounds->getProd(n);
+    }
+
+    CheckedSize getSize(unsigned n) const
+    {
+        return bounds->getSize(n);
+    }
+
+    CheckedSize getLinearIndex() const
+    {
+        return index;
+    }
+
+    CheckedSize getLinearSize() const
+    {
+        return bounds->getProd(3);
+    }
+
+    GridIndex linearOffset(size_t ofs) const
+    {
+        return GridIndex(CheckedSize::add(index, ofs), bounds);
+    }
+};
+
+inline std::ostream & operator << (std::ostream & stream, const GridIndex & index)
+{
+    return stream << "[" << index.getIndex(0) << "/" << index.getSize(0)
+                  << "," << index.getIndex(1) << "/" << index.getSize(1)
+                  << "," << index.getIndex(2) << "/" << index.getSize(2)
+                  << "]";
+}
+
+struct GridBounds::Iterator {
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = GridIndex;
+    using difference_type = ssize_t;
+    using pointer = const uint32_t*;
+    using reference = const uint32_t&;
+
+    auto operator <=> (const Iterator & other) const = default;
+
+    Iterator operator++()
+    {
+        ++current;
+        return *this;
+    }
+
+    value_type operator * () const
+    {
+        return { current, bounds };
+    }
+
+    size_t current = 0;
+    const GridBounds * bounds;
+};
+
+GridBounds::Iterator GridBounds::begin() const { return { 0, this }; }
+GridBounds::Iterator GridBounds::end() const { return { getProd(3), this }; }
+
+
+struct ThreadExecutionState {
+
+    ThreadExecutionState(GridIndex localIndex,
+                         const GridIndex * globalIndex)
+        : localIndex(localIndex), globalIndex(globalIndex)
+    {
+        using namespace std;
+        cerr << "    running thread group with index " << localIndex << endl;
+    }
+
+    CheckedSize localId(unsigned n)
+    {
+        return localIndex.getIndex(n);
+    }
+
+    CheckedSize localSize(unsigned n)
+    {
+        return localIndex.getSize(n);
+    }
+
+    CheckedSize globalId(unsigned n)
+    {
+        return CheckedSize::madd(globalIndex->getIndex(n).sz, localIndex.getSize(n).sz, localIndex.getIndex(n).sz);
+    }
+
+    CheckedSize globalSize(int n)
+    {
+        return CheckedSize::mul(globalIndex->getSize(n).sz, localIndex.getSize(n).sz);
+    }
+
+    GridIndex localIndex;
+    const GridIndex * globalIndex;
+};
+
+
+struct SimdGroupExecutionState {
+
+    SimdGroupExecutionState(GridIndex firstThreadIndex,
+                            size_t threadsPerSimdGroup,
+                            const GridIndex * globalIndex)
+        : firstThreadIndex(firstThreadIndex),
+          threadsPerSimdGroup(threadsPerSimdGroup),
+          globalIndex(globalIndex)
+    {
+        using namespace std;
+        cerr << "  running SIMD group with index " << firstThreadIndex << endl;
+    }
+
+    std::vector<ThreadExecutionState> threads() const
+    {
+        std::vector<ThreadExecutionState> result;
+        for (size_t i = 0;  i < threadsPerSimdGroup;  ++i) {
+            GridIndex threadIndex = firstThreadIndex.linearOffset(i);
+            ThreadExecutionState state(threadIndex, globalIndex);
+            result.emplace_back(state);
+        }
+        return result;
+    }
+
+    GridIndex firstThreadIndex;
+    size_t threadsPerSimdGroup;
+    const GridIndex * globalIndex;
+};
+
+struct ThreadGroupExecutionState {
+    ThreadGroupExecutionState(GridIndex globalIndex, const GridBounds * localBounds,
+                              std::byte * localMem,
+                              std::map<std::string, size_t> localMemOffsets)
+        : globalIndex(globalIndex), localBounds(localBounds), localMem(localMem),
+          localMemOffsets(std::move(localMemOffsets))
+    {
+        using namespace std;
+        cerr << "running thread group with global index " << globalIndex << endl;
+    }
+
+    template<typename T>
+    T * getLocal(const char * name) const
+    {
+        auto it = localMemOffsets.find(name);
+        if (it == localMemOffsets.end()) {
+            throw MLDB::Exception("Couldn't find local memory for %s in %zd values", name, localMemOffsets.size());
+        }
+        std::byte * p = localMem + it->second;
+        size_t s = (size_t)p;
+        ExcAssertEqual(s % alignof(T), 0);
+        return (T *)p;
+    }
+
+    std::vector<SimdGroupExecutionState> simdGroups() const
+    {
+        size_t workGroupSize = localBounds->getLinearSize();
+        size_t threadsPerSimdGroup = std::min<size_t>(32, workGroupSize);
+        ExcAssertEqual(workGroupSize % threadsPerSimdGroup, 0);
+        std::vector<SimdGroupExecutionState> result;
+        for (size_t i = 0;  i < localBounds->getProd(3);  i += threadsPerSimdGroup) {
+            GridIndex firstThreadIndex(i, localBounds);
+            SimdGroupExecutionState state(firstThreadIndex, threadsPerSimdGroup, &globalIndex);
+            result.push_back(state);
+        }
+        return result;
+    }
+
+    GridIndex globalIndex;
+    const GridBounds * localBounds;
+    std::byte * localMem;
+    std::map<std::string, size_t> localMemOffsets;
+};
+
 template<typename... Args>
 void registerCpuKernel(const std::string & libraryName, const std::string & functionName,
-                       void (*fn) (Args...),
-                       const char * const parameterNames[sizeof...(Args)])
+                       void (*fn) (const ThreadGroupExecutionState &, Args...),
+                       const CPUGridKernelParameterInfo parameterInfo[sizeof...(Args)])
 {
     auto initialize = [=] () -> std::shared_ptr<CPUComputeFunction>
     {
-        auto argInfos = getArgumentInfos<0, std::tuple<Args...>, Args...>(functionName, parameterNames);
+        auto argInfos = getArgumentInfos<0, std::tuple<Args...>, Args...>(functionName, parameterInfo);
         std::reverse(argInfos.begin(), argInfos.end());
 
-        HostComputeKernel kernel;
-        for (size_t i = 0;  i < argInfos.size();  ++i) {
-            kernel.addParameter(argInfos[i].name, argInfos[i].type);
-        }
-        kernel.setGridComputeFunction(fn);
+        //HostComputeKernel kernel;
+        //for (size_t i = 0;  i < argInfos.size();  ++i) {
+        //    kernel.addParameter(argInfos[i].name, argInfos[i].type);
+        //}
+        //kernel.setGridComputeFunction(fn);
+
+        //using namespace std;
+        //cerr << jsonEncode(argInfos) << endl;
 
         auto createArgTuple = [] () -> std::any
         {
@@ -396,15 +720,24 @@ void registerCpuKernel(const std::string & libraryName, const std::string & func
         };
 
         auto launch = [fn] (GridComputeQueue & queue, const std::string & opName, const std::any & argsAny,
-                            const std::vector<size_t> & grid, const std::vector<size_t> & block)
+                            const std::vector<size_t> & grid, const std::vector<size_t> & block,
+                            size_t localMemBytesRequired, const std::map<std::string, size_t> & localMemOffsets)
         {
             const auto & args = std::any_cast<const std::tuple<Args...> &>(argsAny);
-            std::apply(fn, args);
+            GridBounds gridBounds(grid);
+            GridBounds blockBounds(block);
+
+            uint64_t localMem[(localMemBytesRequired + 7) / 8];
+
+            for (GridIndex globalIndex: gridBounds) {
+                ThreadGroupExecutionState state(globalIndex, &blockBounds, (std::byte *)&localMem, localMemOffsets);
+                HostComputeKernel::apply(fn, args, state);
+            }
         };
 
         auto function = std::make_shared<CPUComputeFunction>();
         function->argumentInfo = std::move(argInfos);
-        function->kernel = std::move(kernel);
+        //function->kernel = std::move(kernel);
 
         function->createArgTuple = std::move(createArgTuple);
         function->launch = std::move(launch);

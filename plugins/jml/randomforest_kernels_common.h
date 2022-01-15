@@ -951,6 +951,7 @@ getPartitionSplitsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
     //printf("getPartitionSplits done2 %d %d %d %d\n", partitionWorkerId, bucket, fidx, naf);
 
     for (uint16_t partition = partitionWorkerId;  partition < numActivePartitions;  partition += partitionWorkerSize) {
+        //printf("partition %d\n", (int)partition);
         PartitionSplit best = NONE;
 
         // Don't do inactive partitions
