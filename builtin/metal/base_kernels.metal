@@ -8,6 +8,8 @@
 #define barrier threadgroup_barrier
 #define CLK_LOCAL_MEM_FENCE mem_threadgroup
 #define CLK_GLOBAL_MEM_FENCE mem_global
+#define GRID_WORKGROUP_COHERENT(returntype) returntype
+
 
 using namespace metal;
 

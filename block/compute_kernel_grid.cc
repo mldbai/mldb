@@ -1180,6 +1180,41 @@ applyArg(GridComputeQueue & queue,
 
 void
 GridBindAction::
+applyKnown(GridComputeQueue & queue,
+            const std::vector<ComputeKernelArgument> & args,
+            ComputeKernelConstraintSolution & knowns,
+            bool setKnowns,
+            GridBindContext & bindContext) const
+{
+    Json::Value j;
+    ComputeKernelType type;
+    if (knowns.hasValue(argName)) {
+        j = knowns.getValue(argName);
+        type = this->type;
+    }
+    else {
+        throw MLDB::Exception("argument " + std::to_string(argNum) + " (" + argName
+                            + ") was not passed");
+    }
+
+    std::string jStr;
+    if (j.isObject()) {
+        jStr = j["name"].asString() + ":" + j["version"].toStringNoNewLine();
+    }
+    else {
+        jStr = j.toStringNoNewLine();
+    }
+
+    std::string opName = "bind " + argName + " type " + type.print() + " from known " + jStr;
+
+    auto op = scopedOperation(OperationType::GRID_COMPUTE, opName);
+
+    Any typedVal(j, type.baseType.get());
+    bindContext.setPrimitive(opName, computeFunctionArgIndex, typedVal.asBytes());
+}
+
+void
+GridBindAction::
 applyStruct(GridComputeQueue & queue,
             const std::vector<ComputeKernelArgument> & args,
             ComputeKernelConstraintSolution & knowns,
@@ -1287,7 +1322,7 @@ apply(GridComputeQueue & queue,
             applyStruct(queue, args, knowns, setKnowns, bindContext);
             break;
         case GridBindActionType::SET_FROM_KNOWN:
-            applyStruct(queue, args, knowns, setKnowns, bindContext);
+            applyKnown(queue, args, knowns, setKnowns, bindContext);
             break;
         case GridBindActionType::SET_THREAD_GROUP:
             applyThreadGroup(queue, args, knowns, setKnowns, bindContext);
@@ -1336,27 +1371,31 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
         auto it = paramIndex.find(argName);
 
         if (disposition == GridComputeFunctionArgumentDisposition::THREADGROUP) {
-            if (it == paramIndex.end()) {
-                throw MLDB::Exception("Grid thread group kernel parameter " + argName + " to kernel " + this->kernelName
-                                      + " has no corresponding argument to learn its length from");
+            if (arg.type.dims.empty() || !arg.type.dims[0].bound) {
+                if (it == paramIndex.end()) {
+                    throw MLDB::Exception("Grid thread group kernel parameter " + argName + " to kernel " + this->kernelName
+                                        + " has no corresponding argument to learn its length from");
+                }
+                int argNum = it->second;
+                auto & paramType = params[argNum].type;
+
+                auto width = type.baseType->width;  //arg.GetThreadgroupMemoryDataSize();
+                auto align = type.baseType->align;  //arg.GetThreadgroupMemoryAlignment();
+
+                ExcAssertEqual(paramType.dims.size(), 1);
+                ExcAssert(paramType.dims[0].bound);
+                ExcAssertEqual(width, paramType.baseType->width);
+                ExcAssertEqual(align, paramType.baseType->align);
+
+                action.argNum = argNum;
+                action.type = paramType;
             }
-            int argNum = it->second;
-            auto & paramType = params[argNum].type;
-
-            auto width = type.baseType->width;  //arg.GetThreadgroupMemoryDataSize();
-            auto align = type.baseType->align;  //arg.GetThreadgroupMemoryAlignment();
-
-            ExcAssertEqual(paramType.dims.size(), 1);
-            ExcAssert(paramType.dims[0].bound);
-            ExcAssertEqual(width, paramType.baseType->width);
-            ExcAssertEqual(align, paramType.baseType->align);
+            else action.type = type;
 
             action.action = GridBindActionType::SET_THREAD_GROUP;
             action.arg = arg;
-            action.type = paramType;
             action.argName = argName;
-            action.expr = paramType.dims[0].bound;
-            action.argNum = argNum;
+            action.expr = type.dims[0].bound;
         }
         else if (disposition == GridComputeFunctionArgumentDisposition::BUFFER) {
             if (it == paramIndex.end()) {

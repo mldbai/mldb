@@ -8,6 +8,7 @@ typedef long int64_t;
 typedef signed char int8_t;
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
+#define GRID_WORKGROUP_COHERENT(returntype) returntype
 
 __kernel void
 __blockFillArrayKernel(__global uint8_t * region,

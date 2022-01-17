@@ -255,7 +255,7 @@ static struct RegisterKernels {
             result->addTuneable("threadsPerBlock", maxWorkGroupSize);
             result->addTuneable("blocksPerGrid", 32);
             result->addParameter("wLocal", "w", "W[maxLocalBuckets]");
-            result->addParameter("maxLocalBuckets", "r", "u32");
+            //result->addParameter("maxLocalBuckets", "r", "u32");
             result->addConstraint("naf_plus_1", "==", "numActiveFeatures + 1", "help the solver");
             result->addConstraint("numActiveFeatures", "==", "naf_plus_1 - 1", "help the solver");
             result->setGridExpression("[blocksPerGrid,numActiveFeatures+1]", "[threadsPerBlock,1]");

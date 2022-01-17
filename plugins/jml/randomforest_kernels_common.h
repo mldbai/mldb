@@ -381,8 +381,9 @@ inline uint32_t testRow(uint32_t rowId,
     return bucket;
 }
 
-void
-testFeatureImpl(__global const float * decodedRows,
+SYNC_FUNCTION(v1,
+void, testFeatureImpl)
+                 (__global const float * decodedRows,
                   uint32_t numRows, 
                   __global const uint32_t * bucketData,
                   __global const uint32_t * bucketDataOffsets,
@@ -416,7 +417,7 @@ testFeatureImpl(__global const float * decodedRows,
         zeroW(w + i);
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    threadgroup_barrier();
 
     for (uint32_t rowId = gridId;  rowId < numRows;  rowId += gridSize) {
         //if (f == 0 && workGroupId == 0) {
@@ -428,12 +429,14 @@ testFeatureImpl(__global const float * decodedRows,
                 w, wOut, maxLocalBuckets);
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    threadgroup_barrier();
     
     for (uint32_t i = threadGroupId;  i < numBuckets && i < maxLocalBuckets;
          i += threadGroupSize) {
         incrementWOut(wOut + i, w + i);
     }
+
+    SYNC_RETURN();
 }
 
 typedef struct {
@@ -565,13 +568,14 @@ void minW(__local WIndexed * out, __local const WIndexed * in, W wAll)
 }
 #endif
 
-void prefixSumW(__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_t numThreads);
+SYNC_FUNCTION(v1, void, prefixSumW) (__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_t numThreads);
 
 #if 1
 // Post: start[0] <- start[0] + init
 //       start[n] <- sum(start[0...n]) + init
 // This is a low latency prefix sum, not work-minimizing
-void prefixSumW(__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_t numThreads)
+SYNC_FUNCTION(v1,
+void, prefixSumW) (__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_t numThreads)
 {
     // iter 0
     // a b c d e f g h i j k l m n o p
@@ -660,19 +664,26 @@ void prefixSumW(__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_t n
 
         // Make sure everything has finished on this iteration before we do the
         // next one
-        barrier(CLK_LOCAL_MEM_FENCE);
+        threadgroup_barrier();
     }
+
+    SYNC_RETURN();
 }
 #endif
 
-uint32_t argMinScanW(__local WIndexed * w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads);
+SYNC_FUNCTION(v1,
+uint32_t, argMinScanW) (__local WIndexed * w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads);
 
 #if 1
 // Return the lowest index of the W array with a score equal to the minimum
 // score.  Only get_local_id(0) knows the actual correct result; the result
 // from the others should be ignored.
-uint32_t argMinScanW(__local WIndexed * w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads)
+SYNC_FUNCTION(v1,
+uint32_t, argMinScanW) (__local WIndexed * w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads)
 {
+    if (n == 0)
+        SYNC_RETURN(0);
+
     for (uint32_t iter = 0, blockSize = 2;  blockSize < n * 2;  blockSize *= 2, iter += 1) {
         // If we need more than one round from our warp to process all elements,
         // then do  it
@@ -697,10 +708,10 @@ uint32_t argMinScanW(__local WIndexed * w, uint32_t n, W wAll, uint16_t threadId
 
         // Make sure everything has finished on this iteration before we do the
         // next one
-        barrier(CLK_LOCAL_MEM_FENCE);
+        threadgroup_barrier();
     }
 
-    return w[n - 1].index;
+    SYNC_RETURN(w[n - 1].index);
 }
 #elif 0
 uint32_t argMinScanW(__local WIndexed * w, uint32_t n, W wAll)
@@ -718,17 +729,18 @@ uint32_t argMinScanW(__local WIndexed * w, uint32_t n, W wAll)
 #endif
 
 // Function that uses a single workgroup to scan all of the buckets in a split
-PartitionSplit
-chooseSplit(__global const W * w,
-            uint32_t numBuckets,
-            W wAll,
-            __local WIndexed * wLocal,
-            uint32_t wLocalSize,
-            __local WIndexed * wStartBest,  // length 2
-            bool ordinal,
-            uint16_t threadIdx, uint16_t numThreads,
-            uint16_t f,
-            uint16_t p)
+SYNC_FUNCTION(v1,
+PartitionSplit, chooseSplit)
+    (__global const W * w,
+     uint32_t numBuckets,
+     W wAll,
+     __local WIndexed * wLocal,
+     uint32_t wLocalSize,
+     __local WIndexed * wStartBest,  // length 2
+     bool ordinal,
+     uint16_t threadIdx, uint16_t numThreads,
+     uint16_t f,
+     uint16_t p)
 {
     PartitionSplit result = PARTITION_SPLIT_INIT;
 
@@ -737,7 +749,7 @@ chooseSplit(__global const W * w,
 
     // We need some weight in both true and false for a split to make sense
     if (wAll.vals[0] == 0 || wAll.vals[1] == 0)
-        return result;
+        SYNC_RETURN(result);
     
     // Read our W array into shared memory
     
@@ -761,10 +773,13 @@ chooseSplit(__global const W * w,
     }
 
     // Shouldn't be necessary; just in case
-    barrier(CLK_LOCAL_MEM_FENCE);
+    threadgroup_barrier();
 
     //bool debug = false;//(f == 0 && p == 2 && get_global_size(2) == 8);
  
+    using namespace std;
+    //cerr << "threadIdx = " << threadIdx << " numThreads = " << numThreads << " numBuckets = " << numBuckets << endl;
+
     for (uint32_t startBucket = 0;  startBucket < numBuckets;  startBucket += wLocalSize) {
 
         //if (startBucket != 0) {
@@ -775,7 +790,12 @@ chooseSplit(__global const W * w,
         uint32_t endBucket = min(startBucket + wLocalSize, numBuckets);
         uint32_t numBucketsInIteration = endBucket - startBucket;
         
+        //cerr << "threadIdx = " << threadIdx << " startBucket = " << startBucket << " endBucket = " << endBucket
+        //     << "numBucketsInIteration = " << numBucketsInIteration << " numBuckets = " << numBuckets << endl;
+
         for (uint32_t i = threadIdx;  i < numBucketsInIteration;  i += numThreads) {
+            using namespace std;
+            //cerr << "i = " << i << " numBucketsInIteration = " << numBucketsInIteration << endl;
             wLocal[i].w = w[startBucket + i];
 
             // We don't want buckets with zero count to participate in the
@@ -812,23 +832,27 @@ chooseSplit(__global const W * w,
                 }
             }
         }
-        barrier(CLK_LOCAL_MEM_FENCE);
+
+        threadgroup_barrier();
 
         if (ordinal) {
             // Now we've read it in, we can do our prefix sum
-            prefixSumW(wLocal, numBucketsInIteration, threadIdx, numThreads);
+            SYNC_CALL(prefixSumW, wLocal, numBucketsInIteration, threadIdx, numThreads);
 
             // Seed for the next one
             *wStart = wLocal[numBucketsInIteration - 1];
         }
 
+        using namespace std;
+        //cerr << "numBucketsInIteration = " << numBucketsInIteration << endl;
+
         // And then scan that to find the index of the best score
-        argMinScanW(wLocal, numBucketsInIteration, wAll, threadIdx, numThreads);
+        SYNC_CALL(argMinScanW, wLocal, numBucketsInIteration, wAll, threadIdx, numThreads);
 
         // Find if our new bucket is better than the last champion
         minW(wBest, wLocal + numBucketsInIteration - 1, wAll);
 
-        barrier(CLK_LOCAL_MEM_FENCE);
+        threadgroup_barrier();
     }
 
 #if 0
@@ -870,6 +894,8 @@ chooseSplit(__global const W * w,
     }
 #endif
 
+    //cerr << "FINISHED chooseSplit f=" << f << " p=" << p << " threadIdx " << threadIdx << endl;
+
     result.score = scoreSplitWAll(wBest->w, wAll);
     result.feature = f;
     result.value = wBest->index + ordinal;  // ordinal indexes are offset by 1
@@ -880,7 +906,7 @@ chooseSplit(__global const W * w,
     result.right.vals[1] -= wBest->w.vals[1];
     result.right.count   -= wBest->w.count;
 
-    return result;
+    SYNC_RETURN(result);
 }
 
 typedef struct TreeDepthInfo {
@@ -903,8 +929,9 @@ typedef struct TreeTrainingInfo {
 } TreeTrainingInfo;
 
 // [bucket, feature, partition]
-static inline void
-getPartitionSplitsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
+SYNC_FUNCTION(v1,
+void, 
+getPartitionSplitsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
                          __global const uint32_t * bucketNumbers, // [nf]
                          
                          __global const uint32_t * activeFeatureList, // [naf]
@@ -925,7 +952,16 @@ getPartitionSplitsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
                          uint16_t workerId, uint16_t workGroupSize,
                          uint16_t partitionWorkerId, uint16_t partitionWorkerSize)
 {
+    //using namespace std;
+    //cerr << "getPartitionSplitsImpl: featureId " << featureId << " numActiveFeatures " << numActiveFeatures
+    //    << " workerId " << workerId << " workGroupSize " << workGroupSize
+    //    << " partitionWorkerId " << partitionWorkerId << " partitionWorkerSize " << partitionWorkerSize
+    //    << endl;
     //printf("getPartitionSplits %d\n", bucket);
+
+    assert(workGroupSize > 0);
+    assert(workGroupSize % 32 == 0);
+    assert(partitionWorkerSize > 0);
 
     const uint32_t totalBuckets = treeTrainingInfo->numActiveBuckets;
     const uint32_t numActivePartitions = treeDepthInfo->numActivePartitions;
@@ -971,9 +1007,9 @@ getPartitionSplitsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         
         bool ordinal = featureIsOrdinal[f];
 
-        best = chooseSplit(myW, numBuckets, wAll[partition],
-                           wLocal, wLocalSize, wStartBest, ordinal,
-                           workerId, workGroupSize, f, partition);
+        best = SYNC_CALL(chooseSplit, myW, numBuckets, wAll[partition],
+                         wLocal, wLocalSize, wStartBest, ordinal,
+                         workerId, workGroupSize, f, partition);
         
         if (workerId == 0) {
             if (best.score == INFINITY) {
@@ -984,6 +1020,11 @@ getPartitionSplitsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         }
 
     }
+
+    //using namespace std;
+    //cerr << "FINISHED getPartitionSplit" << " f = " << f << endl;
+
+    SYNC_RETURN();
 }
 
 typedef struct PartitionIndex {
@@ -1078,19 +1119,20 @@ inline uint32_t rightChildIndex(uint32_t parent)
 #define INACTIVE_PARTITIONS_LENGTH 16300
 
 typedef struct AssignPartitionNumbersLocalState {
-    uint32_t numInactivePartitions;
-    uint32_t numSmallSideRows;
-    uint32_t n;
-    uint32_t n2;
-    uint32_t skippedRows;
-    uint32_t skippedPartitions;
-    uint32_t ssi;
+    atomic_uint numInactivePartitions;
+    atomic_uint numSmallSideRows;
+    atomic_uint n;
+    atomic_uint n2;
+    atomic_uint skippedRows;
+    atomic_uint skippedPartitions;
+    atomic_uint ssi;
     atomic_uint scratch;  // for SIMD reductions
     uint16_t inactivePartitions[INACTIVE_PARTITIONS_LENGTH];
 } AssignPartitionNumbersLocalState;
 
-void
-assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
+SYNC_FUNCTION(v1,
+void,
+assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
                              __global TreeDepthInfo * treeDepthInfo,
                              __global const IndexedPartitionSplit * allPartitionSplits,
                              __global PartitionIndex * partitionIndexesOut,
@@ -1107,7 +1149,6 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
 
     allPartitionSplits += depth == 0 ? 0 : treeDepthInfo->numFinishedPartitions;
 
-#if 1
     if (workerId == 0) {
         localState->numInactivePartitions = 0;
         localState->numSmallSideRows = 0;
@@ -1115,7 +1156,7 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
             treeDepthInfo->status = 0;  // for now
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    threadgroup_barrier();
 
     // Note that we have to ensure that all 32 threads enter this loop, so we have a uniform
     // condition and then selectively enable for p < numActivePartitions
@@ -1129,39 +1170,54 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
             discard = discardSplit(split);
         }
 
-        uint32_t discardWhich = simdgroup_ballot(discard, workerId, &localState->scratch);
+        using namespace std;
+        cerr << "i = " << i << " p = " << p << " nap = " << numActivePartitions << " discard = " << discard << " workGroupSize = " << workgroupSize << endl;
+
+        uint32_t discardWhich = SYNC_CALL(simdgroup_ballot, discard, workerId, &localState->scratch);
+
         uint32_t numDiscarded = popcount(discardWhich);
+
+        cerr << "i = " << i << " discardWhich = " << discardWhich << " numDiscarded = " << numDiscarded << endl;
 
         if (numDiscarded + localState->numInactivePartitions >= INACTIVE_PARTITIONS_LENGTH) {
             // OVERFLOW
             treeDepthInfo->numActivePartitions = -1;
             treeDepthInfo->status = -1;
-            return;
+            SYNC_RETURN();
         }
 
         uint32_t base = localState->numInactivePartitions;
-        uint32_t index = base + simdgroup_prefix_exclusive_sum_bools(discard, workerId, &localState->scratch);
+        uint32_t index = base + SYNC_CALL(simdgroup_prefix_exclusive_sum_bools, discard, workerId, &localState->scratch);
 
-        if (p >= numActivePartitions)
-            break;
+        if (p < numActivePartitions) {
+            if (discard) {
+                smallSideIndexesOut[p] = 255;
+                localState->inactivePartitions[index] = p;
+            }
+            else {
+                smallSideIndexesOut[p] = 0;
+            }
 
-        if (discard) {
-            smallSideIndexesOut[p] = 255;
-            localState->inactivePartitions[index] = p;
+            if (workerId == 0 && numDiscarded > 0) {
+                atom_add(&localState->numInactivePartitions, numDiscarded);
+            }
         }
-        else {
-            smallSideIndexesOut[p] = 0;
-        }
 
-        localState->numInactivePartitions += numDiscarded;
+        simdgroup_barrier();
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);  // for when we use more than one SIMD group
+    threadgroup_barrier();
+
+    using namespace std;
+    cerr << "workerId = " << workerId << " numActivePartitions = " << numActivePartitions << endl;
 
     if (workerId == 0) {
         localState->n = localState->skippedRows = localState->skippedPartitions = localState->ssi = 0;
         localState->n2 = numActivePartitions;
+        smallSideIndexToPartitionOut[0] = 0;  // we never use a small side index of 0, as this means "no longer active"
     }
+
+    threadgroup_barrier();  // for when we use more than one SIMD group
 
     for (uint16_t i = 0;  i < numActivePartitions;  i += workgroupSize) {
         uint16_t p = i + workerId;
@@ -1184,22 +1240,27 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
             }
         }
 
-        uint32_t smallSideRowsIncrement = simdgroup_sum(partitionSmallSideRows, workerId, &localState->scratch);
+        uint32_t smallSideRowsIncrement = SYNC_CALL(simdgroup_sum, partitionSmallSideRows, workerId, &localState->scratch);
 
         if (workerId == 0) {
-            atom_add((__local atomic_uint *)&localState->numSmallSideRows, smallSideRowsIncrement);
+            atom_add(&localState->numSmallSideRows, smallSideRowsIncrement);
         }
 
         if (!discard) {
             bool skipped = false;
-            uint32_t minorPartitionIndex = atom_add((__local atomic_uint *)&localState->n, 1);
+            uint32_t minorPartitionIndex = atom_add(&localState->n, 1);
             uint32_t minorPartitionNumber;
             if (minorPartitionIndex < localState->numInactivePartitions) {
                 minorPartitionNumber = localState->inactivePartitions[minorPartitionIndex];
             }
             else {
-                minorPartitionNumber = atom_add((__local atomic_uint *)&localState->n2, 1);
+                minorPartitionNumber = atom_add(&localState->n2, 1);
             }
+
+            cerr << "workerId = " << workerId << " minorPartitionIndex = " << minorPartitionIndex
+                 << " numInactivePartitions " << localState->numInactivePartitions
+                 << " minorPartitionNumber = " << minorPartitionNumber << " n2 " << localState->n2 << endl;
+
             if (minorPartitionNumber >= maxNumActivePartitions) {
                 skipped = true;
             }
@@ -1207,7 +1268,8 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
                 // Attempt to allocate a small side number, and if it's possible record the
                 // mapping.
 
-                uint32_t idx = 1 + atom_add((__local atomic_uint *)&localState->ssi, 1);
+                uint32_t idx = 1 + atom_add(&localState->ssi, 1);
+                cerr << "workerId = " << workerId << " idx = " << idx << " minorPartitionNumber = " << minorPartitionNumber << endl;
                 if (idx < 255) {
                     smallSideIndexesOut[minorPartitionNumber] = idx;
                     smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
@@ -1220,8 +1282,8 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
             if (skipped) {
                 info->left = -1;
                 info->right = -1;
-                atom_add((__local atomic_uint *)&localState->skippedRows, split.left.count + split.right.count);
-                atom_add((__local atomic_uint *)&localState->skippedPartitions, 1);
+                atom_add(&localState->skippedRows, split.left.count + split.right.count);
+                atom_add(&localState->skippedPartitions, 1);
             }
             else {
                 if (direction == 0) {
@@ -1241,8 +1303,11 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         }
     }
 
+    // Make sure the previous loop is finished before things get updated...
+    threadgroup_barrier();
+
     if (workerId == 0) {
-        uint32_t nap = min(localState->n2, (uint32_t)maxNumActivePartitions);
+        uint32_t nap = min((uint32_t)localState->n2, (uint32_t)maxNumActivePartitions);
         treeDepthInfo->prevNumActivePartitions = treeDepthInfo->numActivePartitions;
         treeDepthInfo->numActivePartitions = nap;
         treeDepthInfo->numSmallSideRows = localState->numSmallSideRows;
@@ -1263,106 +1328,8 @@ assignPartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
             smallSideIndexToPartitionOut[localState->ssi+1] = 0;
         }
     }
-#else
-    if (lane_id != 0)
-        return;
 
-    uint32_t numInactivePartitions = 0;
-    uint32_t numSmallSideRows = 0;
-
-    for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
-        IndexedPartitionSplit split = allPartitionSplits[p];
-
-        if (discardSplit(split)) {
-
-            if (numInactivePartitions == inactivePartitionsLength) {
-                // OVERFLOW
-                numActivePartitionsOut[0] = -1;
-                return;
-            }
-            smallSideIndexesOut[p] = 255;
-            inactivePartitions[numInactivePartitions++] = p;
-        }
-        else {
-            smallSideIndexesOut[p] = 0;
-        }
-    }
-
-    //printf("numActivePartitions=%d, numInactivePartitions=%d\n", numActivePartitions, numInactivePartitions);
-
-    uint32_t n = 0, n2 = numActivePartitions;
-    uint32_t skippedRows = 0, skippedPartitions = 0;
-    uint16_t ssi = 0;
-
-    for (uint32_t p = 0;  p < numActivePartitions;  ++p) {
-        IndexedPartitionSplit split = allPartitionSplits[p];
-        __global PartitionInfo * info = partitionInfoOut + p;
-
-
-        if (discardSplit(split)) {
-            info->left = info->right = -1;
-            continue;
-        }
-
-        numSmallSideRows += min(split.left.count, split.right.count);
-
-        uint32_t direction = indexedPartitionSplitDirection(split);
-        // both still valid.  One needs a new partition number
-        uint32_t minorPartitionNumber;
-
-        if (n < numInactivePartitions) {
-            minorPartitionNumber = inactivePartitions[n++];
-        }
-        else if (n2 < maxNumActivePartitions) {
-            minorPartitionNumber = n2++;
-        }
-        else {
-            // Max width reached
-            skippedRows += split.left.count + split.right.count;
-            skippedPartitions += 1;
-            info->left = -1;
-            info->right = -1;
-            continue;
-        }
-
-        // Attempt to allocate a small side number, and if it's possible record the
-        // mapping.
-        if (ssi < 254) {
-            uint16_t idx = ++ssi;
-            smallSideIndexesOut[minorPartitionNumber] = idx;
-            smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
-        }
-        else {
-            smallSideIndexesOut[minorPartitionNumber] = 255;
-        }
-
-        if (direction == 0) {
-            info->left = p;
-            info->right = minorPartitionNumber;
-        }
-        else {
-            info->left = minorPartitionNumber;
-            info->right = p;
-        }
-
-        //printf("partition %d direction %d minor %d n %d n2 %d\n", p, direction, minorPartitionNumber, n, n2);
-
-        partitionIndexesOut[info->left].index = leftChildIndex(split.index);
-        partitionIndexesOut[info->right].index = rightChildIndex(split.index);
-    }
-
-
-    numActivePartitionsOut[0] = n2;
-    numActivePartitionsOut[1] = numSmallSideRows;
-
-    // Clear partition indexes for gap partitions
-    for (; n < numInactivePartitions;  ++n) {
-        uint32_t part = inactivePartitions[n];
-        smallSideIndexesOut[part] = 0;
-        partitionIndexesOut[part].index = 0;
-    }
-#endif
-
+    SYNC_RETURN();
 }
 
 typedef struct UpdateWorkEntry {
@@ -1427,8 +1394,9 @@ typedef struct UpdatePartitionNumbersLocalState {
 
 // Second part: per feature plus wAll, transfer examples
 //[rowNumber]
-void
-updatePartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
+SYNC_FUNCTION(v1,
+void,
+updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
                              __global const TreeDepthInfo * treeDepthInfo,
 
                              __global RowPartitionInfo * partitions,
@@ -1463,7 +1431,7 @@ updatePartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
     }
 
     // Wait for all buckets to be clear
-    barrier(CLK_LOCAL_MEM_FENCE);
+    threadgroup_barrier();
 
     allPartitionSplits += treeDepthInfo->prevNumFinishedPartitions;
 
@@ -1524,13 +1492,17 @@ updatePartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         //if (r + 32 >= numRows)
         //    break;
 
-        uint32_t simdDirections = simdgroup_ballot(direction, simdgroup_lane, simdgroup_scratch);
+        uint32_t simdDirections = SYNC_CALL(simdgroup_ballot, direction, simdgroup_lane, simdgroup_scratch);
 
         //if (simd_is_first() && (r / 32) * 32 < numRows) {
         //    directions[r/32] = simdDirections;
         //}
 
         uint16_t numDirections = popcount(simdDirections);
+
+        //using namespace std;
+        //cerr << "lane " << simdgroup_lane << " numDirections = " << numDirections << endl;
+
         if (numDirections == 0)
             continue;
 
@@ -1539,7 +1511,7 @@ updatePartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
             nonZeroDirectionBase = atom_add(nonZeroDirectionCount, numDirections);
         }
 
-        nonZeroDirectionBase = simdgroup_broadcast_first(nonZeroDirectionBase, simdgroup_lane, simdgroup_scratch);
+        nonZeroDirectionBase = SYNC_CALL(simdgroup_broadcast_first, nonZeroDirectionBase, simdgroup_lane, simdgroup_scratch);
 
         uint16_t n = prefix_exclusive_sum_bitmask(simdDirections, simdgroup_lane);
 
@@ -1550,7 +1522,7 @@ updatePartitionNumbersImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         }
     }
 
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    SYNC_RETURN();
 }
 
 typedef struct UpdateBucketsLocalState {
@@ -1558,11 +1530,12 @@ typedef struct UpdateBucketsLocalState {
 } UpdateBucketsLocalState;
 
 // [row, feature]
-void
-updateBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
+SYNC_FUNCTION(v1,
+void,
+updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
                     __global const TreeDepthInfo * treeDepthInfo,
                     __global const RowPartitionInfo * partitions,
-                    __global uint32_t * directions,
+                    __global const uint32_t * directions,
                     __global const uint32_t * numNonZeroDirectionIndices,
                     __global UpdateWorkEntry * nonZeroDirectionIndices,
                     __global W * buckets,
@@ -1643,7 +1616,7 @@ updateBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
     }
 
     // Wait for all buckets to be clear
-    barrier(CLK_LOCAL_MEM_FENCE);
+    threadgroup_barrier();
     
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
 
@@ -1697,7 +1670,7 @@ updateBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
     }
 
     // Wait for all buckets to be updated, before we write them back to the global mem
-    barrier(CLK_LOCAL_MEM_FENCE);
+    threadgroup_barrier();
     
     // Now write our local changes to the global
     for (uint32_t b = workerIdInWorkgroup;  b < numLocalBuckets;  b += numWorkersInWorkgroup) {

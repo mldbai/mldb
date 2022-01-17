@@ -266,6 +266,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
             // mapping.
             if (ssi < 254) {
                 uint8_t idx = ++ssi;
+                cerr << "minorPartitionNumber = " << minorPartitionNumber << " idx = " << (int)idx << endl;
                 smallSideIndexesOut[minorPartitionNumber] = idx;
                 smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
             }

@@ -273,15 +273,11 @@ parseType(const std::string & access, const std::string & type)
     return parseType(access + " " + type);
 }
 
-ComputeKernelType
-parseType(const std::string & accessAndType)
+std::vector<ComputeKernelDimension>
+expectDimensions(ParseContext & context)
 {
-    ParseContext context(accessAndType, accessAndType.data(), accessAndType.data() + accessAndType.length());
+    std::vector<ComputeKernelDimension> result;
 
-    std::string access = context.expect_text(" ");
-    context.expect_whitespace();
-
-    auto result = expectType(context);
     while (context.match_literal('[')) {
         // It's an array
         context.skip_whitespace();
@@ -294,8 +290,32 @@ parseType(const std::string & accessAndType)
                 ordering = ComputeKernelOrdering::UNORDERED;
         }
         context.expect_literal(']', "expected closing array expression");
-        result.dims.push_back({tight, bound, ordering});
+        result.push_back({tight, bound, ordering});
     }
+
+    return result;
+}
+
+std::vector<ComputeKernelDimension>
+parseDimensions(const std::string & dimensionString)
+{
+    ParseContext context(dimensionString, dimensionString.data(), dimensionString.data() + dimensionString.length());
+    auto result = expectDimensions(context);
+    context.skip_whitespace();
+    context.expect_eof();
+    return result;
+}
+
+ComputeKernelType
+parseType(const std::string & accessAndType)
+{
+    ParseContext context(accessAndType, accessAndType.data(), accessAndType.data() + accessAndType.length());
+
+    std::string access = context.expect_text(" ");
+    context.expect_whitespace();
+
+    auto result = expectType(context);
+    result.dims = expectDimensions(context);
     context.expect_eof();
     result.access = parseAccess(access);
     return result;

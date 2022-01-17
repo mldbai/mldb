@@ -376,13 +376,35 @@ getArgumentInfos(const std::string & functionName, const CPUGridKernelParameterI
     return {};
 }
 
+// If this string is C-escaped, unescape it
+std::string unescapeCEscapingMaybe(const char * s);
+
 template<typename T, size_t N, typename Tuple>
 GridComputeFunctionArgument
-getArgumentInfo(const std::string & parameterName, int argNumber)
+getArgumentInfo(const CPUGridKernelParameterInfo & parameterInfo, int argNumber)
 {
     auto [outputType, setArg, disposition] = handleCpuKernelCallArgument((T*)0);
 
-    TupleSetter setEntry = [setArg=std::move(setArg), parameterName]
+    switch (disposition) {
+    case GridComputeFunctionArgumentDisposition::BUFFER:
+    case GridComputeFunctionArgumentDisposition::THREADGROUP: {
+        using namespace std;
+        cerr << "name = " << parameterInfo.name << endl;
+        cerr << "dims = " << parameterInfo.dims << endl;
+        cerr << "outputType = " << outputType.print() << endl;
+        cerr << "disposition = " << jsonEncodeStr(disposition) << endl;
+        auto unescaped = unescapeCEscapingMaybe(parameterInfo.dims);
+        // Get the lengths
+        if (!unescaped.empty()) {
+            outputType.dims = parseDimensions(unescaped);
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    TupleSetter setEntry = [setArg=std::move(setArg)]
         (ComputeQueue & queue, const std::string & opName,
          std::any & tupleAny, const CPUComputeKernelArgValue & value)
     {
@@ -391,7 +413,7 @@ getArgumentInfo(const std::string & parameterName, int argNumber)
     };
 
     GridComputeFunctionArgument arg;
-    arg.name = parameterName;
+    arg.name = parameterInfo.name;
     arg.disposition = disposition;
     arg.type = std::move(outputType);
     arg.marshal = setEntry;
@@ -406,7 +428,7 @@ getArgumentInfos(const std::string & functionName, const CPUGridKernelParameterI
 {
     auto rest = getArgumentInfos<N + 1, Tuple, Rest...>(functionName, parameterInfo);
     
-    GridComputeFunctionArgument arg = getArgumentInfo<First, N, Tuple>(parameterInfo[N].name, N);
+    GridComputeFunctionArgument arg = getArgumentInfo<First, N, Tuple>(parameterInfo[N], N);
     rest.push_back(std::move(arg));
 
     return rest;
@@ -471,6 +493,9 @@ struct GridBounds {
     GridBounds(const std::vector<size_t> & bounds)
     {
         ExcAssertEqual(bounds.size(), 3);
+        ExcAssertGreater(bounds[0], 0);
+        ExcAssertGreater(bounds[1], 0);
+        ExcAssertGreater(bounds[2], 0);
         this->bounds = { bounds[0], bounds[1], bounds[2] };
     }
 
@@ -500,6 +525,8 @@ struct GridBounds {
             result = CheckedSize::mul(bounds[i], result.sz);
         }
 
+        ExcAssertGreater(result.sz, 0);
+
         return result;
     }
 
@@ -515,6 +542,8 @@ inline std::ostream & operator << (std::ostream & stream, const GridBounds & bou
 }
 
 struct GridIndex {
+    GridIndex() = default;
+
     GridIndex(size_t index, const GridBounds * bounds)
         : index(index), bounds(bounds)
     {
@@ -522,8 +551,8 @@ struct GridIndex {
             throwOverflow();
     }
 
-    size_t index;  // linear index
-    const GridBounds * bounds;
+    size_t index = 0;  // linear index
+    const GridBounds * bounds = nullptr;
 
     CheckedSize getIndex(unsigned n) const
     {
@@ -532,7 +561,9 @@ struct GridIndex {
 
     CheckedSize getSize(unsigned n) const
     {
-        return bounds->getSize(n);
+        auto result = bounds->getSize(n);
+        ExcAssertGreater(result, 0);
+        return result;
     }
 
     CheckedSize getLinearIndex() const
@@ -589,40 +620,51 @@ GridBounds::Iterator GridBounds::end() const { return { getProd(3), this }; }
 
 struct ThreadExecutionState {
 
+    ThreadExecutionState() = default;
+
     ThreadExecutionState(GridIndex localIndex,
                          const GridIndex * globalIndex)
         : localIndex(localIndex), globalIndex(globalIndex)
     {
-        using namespace std;
-        cerr << "    running thread group with index " << localIndex << endl;
+        //using namespace std;
+        //cerr << "    running thread with index " << localIndex << endl;
+        //cerr << "       globalId = [ " << globalId(0) << ", " << globalId(1) << ", " << globalId(2) << "]" << endl;
+        //cerr << "       globalSize = [ " << globalSize(0) << ", " << globalSize(1) << ", " << globalSize(2) << "]" << endl;
+        //cerr << "       globalIndex = " << *globalIndex << endl;
     }
 
-    CheckedSize localId(unsigned n)
+    CheckedSize localId(unsigned n) const
     {
         return localIndex.getIndex(n);
     }
 
-    CheckedSize localSize(unsigned n)
+    CheckedSize localSize(unsigned n) const
     {
-        return localIndex.getSize(n);
+        auto result = localIndex.getSize(n);
+        ExcAssertGreater(result.sz, 0);
+        return result;
     }
 
-    CheckedSize globalId(unsigned n)
+    CheckedSize globalId(unsigned n) const
     {
         return CheckedSize::madd(globalIndex->getIndex(n).sz, localIndex.getSize(n).sz, localIndex.getIndex(n).sz);
     }
 
-    CheckedSize globalSize(int n)
+    CheckedSize globalSize(int n) const
     {
-        return CheckedSize::mul(globalIndex->getSize(n).sz, localIndex.getSize(n).sz);
+        auto result = CheckedSize::mul(globalIndex->getSize(n).sz, localIndex.getSize(n).sz);
+        ExcAssertGreater(result.sz, 0);
+        return result;
     }
 
     GridIndex localIndex;
-    const GridIndex * globalIndex;
+    const GridIndex * globalIndex = nullptr;
 };
 
 
 struct SimdGroupExecutionState {
+
+    SimdGroupExecutionState() = default;
 
     SimdGroupExecutionState(GridIndex firstThreadIndex,
                             size_t threadsPerSimdGroup,
@@ -631,8 +673,8 @@ struct SimdGroupExecutionState {
           threadsPerSimdGroup(threadsPerSimdGroup),
           globalIndex(globalIndex)
     {
-        using namespace std;
-        cerr << "  running SIMD group with index " << firstThreadIndex << endl;
+        //using namespace std;
+        //cerr << "  running SIMD group with index " << firstThreadIndex << endl;
     }
 
     std::vector<ThreadExecutionState> threads() const
@@ -647,8 +689,8 @@ struct SimdGroupExecutionState {
     }
 
     GridIndex firstThreadIndex;
-    size_t threadsPerSimdGroup;
-    const GridIndex * globalIndex;
+    size_t threadsPerSimdGroup = 0;
+    const GridIndex * globalIndex = nullptr;
 };
 
 struct ThreadGroupExecutionState {
@@ -658,8 +700,8 @@ struct ThreadGroupExecutionState {
         : globalIndex(globalIndex), localBounds(localBounds), localMem(localMem),
           localMemOffsets(std::move(localMemOffsets))
     {
-        using namespace std;
-        cerr << "running thread group with global index " << globalIndex << endl;
+        //using namespace std;
+        //cerr << "running thread group with global index " << globalIndex << endl;
     }
 
     template<typename T>
@@ -673,6 +715,14 @@ struct ThreadGroupExecutionState {
         size_t s = (size_t)p;
         ExcAssertEqual(s % alignof(T), 0);
         return (T *)p;
+    }
+
+    size_t numSimdGroups() const
+    {
+        size_t workGroupSize = localBounds->getLinearSize();
+        size_t threadsPerSimdGroup = std::min<size_t>(32, workGroupSize);
+        ExcAssertEqual(workGroupSize % threadsPerSimdGroup, 0);
+        return workGroupSize / threadsPerSimdGroup;
     }
 
     std::vector<SimdGroupExecutionState> simdGroups() const
@@ -694,6 +744,53 @@ struct ThreadGroupExecutionState {
     std::byte * localMem;
     std::map<std::string, size_t> localMemOffsets;
 };
+
+enum BarrierKind {
+    SIMD_GROUP_BARRIER = 0,
+    THREAD_GROUP_BARRIER = 1,
+    GLOBAL_BARRIER = 2
+};
+
+DECLARE_ENUM_DESCRIPTION(BarrierKind);
+
+// Holds a const char * with static lifetime (that will never be modified and never be deallocated)
+struct StaticConstCharPtr {
+    constexpr StaticConstCharPtr(const char * p = nullptr) : p(p) {}
+    const char * p = nullptr;
+    std::strong_ordering operator <=> (const StaticConstCharPtr & other) const;
+    operator const char * () const { return p; }
+};
+
+PREDECLARE_VALUE_DESCRIPTION(StaticConstCharPtr);
+
+struct BarrierOp {
+    BarrierKind kind;
+    StaticConstCharPtr file;
+    int line;
+    bool operator == (const BarrierOp & other) const = default;
+    bool operator != (const BarrierOp & other) const = default;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(BarrierOp);
+
+enum CoroReturnKind {
+    CRT_NONE,
+    CRT_BARRIER,
+    CRT_VALUE,
+    CRT_EXCEPTION
+};
+
+DECLARE_ENUM_DESCRIPTION(CoroReturnKind);
+
+// Either returns a no-op or throws an exception
+void verify_barriers_in_sync(const BarrierOp & barrier1, const BarrierOp & barrier2);
+
+// Throw that a barrier is out of sync because one thread (tid0) has a barrier (barrier0) and
+// the other (tid1) doesn't
+void throw_barriers_out_of_sync(int tid0, const BarrierOp & barrier0, int tid1) MLDB_NORETURN;
+
+// If hasResult is false, throws an exception
+void throw_thread_has_no_result(int tid) MLDB_NORETURN;
 
 template<typename... Args>
 void registerCpuKernel(const std::string & libraryName, const std::string & functionName,

@@ -490,6 +490,11 @@ private:
                     ComputeKernelConstraintSolution & knowns,
                     bool setKnowns,
                     GridBindContext & bindContext) const;
+    void applyKnown(GridComputeQueue & queue,
+                    const std::vector<ComputeKernelArgument> & args,
+                    ComputeKernelConstraintSolution & knowns,
+                    bool setKnowns,
+                    GridBindContext & bindContext) const;
     void applyThreadGroup(GridComputeQueue & queue,
                           const std::vector<ComputeKernelArgument> & args,
                           ComputeKernelConstraintSolution & knowns,

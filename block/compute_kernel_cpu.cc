@@ -19,6 +19,7 @@
 #include "mldb/utils/command_expression_impl.h"
 #include "mldb/arch/spinlock.h"
 #include "mldb/arch/exception.h"
+#include "mldb/types/comparable_value_descriptions.h"
 #include <compare>
 
 using namespace std;
@@ -735,6 +736,104 @@ void throwDimensionException(unsigned dim, unsigned n)
 void throwOverflow()
 {
     throw MLDB::Exception("Sizing calculation overflow");
+}
+
+std::strong_ordering
+StaticConstCharPtr::operator <=> (const StaticConstCharPtr & other) const
+{
+    if (p == nullptr || other.p == nullptr)
+        return p < other.p ? std::strong_ordering::less : (p == other.p ? std::strong_ordering::equal : std::strong_ordering::greater);
+    int r = std::strcmp(p, other.p);
+    return r < 0 ? std::strong_ordering::less : (r == 0 ? std::strong_ordering::equal : std::strong_ordering::greater);
+}
+
+struct StaticConstCharPtrDescription
+    : public OrderedComparableValueDescriptionI<StaticConstCharPtr, ValueKind::STRING, StaticConstCharPtrDescription> {
+
+    virtual void parseJsonTyped(StaticConstCharPtr * val,
+                                JsonParsingContext & context) const
+    {
+        MLDB_THROW_UNIMPLEMENTED("Cannot parse StaticConstCharPtr objects");
+    }
+
+    virtual void printJsonTyped(const StaticConstCharPtr * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeString(val->p);
+    }
+
+    virtual bool isDefaultTyped(const StaticConstCharPtr * val) const
+    {
+        return val->p == nullptr;
+    }
+};
+
+DEFINE_VALUE_DESCRIPTION(StaticConstCharPtr, StaticConstCharPtrDescription);
+
+DEFINE_ENUM_DESCRIPTION_INLINE(BarrierKind)
+{
+    addValue("SIMD_GROUP", SIMD_GROUP_BARRIER, "");
+    addValue("THREAD_GROUP", THREAD_GROUP_BARRIER, "");
+    addValue("GLOBAL", GLOBAL_BARRIER, "");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(BarrierOp)
+{
+    addField("file", &BarrierOp::file, "");
+    addField("line", &BarrierOp::line, "");
+    addField("kind", &BarrierOp::kind, "");
+}
+
+DEFINE_ENUM_DESCRIPTION_INLINE(CoroReturnKind)
+{
+    addValue("NONE", CRT_NONE, "");
+    addValue("BARRIER", CRT_BARRIER, "");
+    addValue("VALUE", CRT_VALUE, "");
+    addValue("EXCEPTION", CRT_EXCEPTION, "");
+}
+
+void verify_barriers_in_sync(const BarrierOp & barrier1, const BarrierOp & barrier2)
+{
+    if (barrier1 != barrier2) {
+        throw AnnotatedException(500, "Barriers out of sync", "barrier1", barrier1, "barrier2", barrier2);
+    }
+}
+
+void throw_barriers_out_of_sync(int tid0, const BarrierOp & barrier0, int tid1)
+{
+    throw AnnotatedException(500, "Barriers out of sync: one thread is in a barrier, the other is not",
+                             "tid0", tid0, "barrier0", barrier0, "tid1", tid1);
+}
+
+// If hasResult is false, throws an exception
+void throw_thread_has_no_result(int tid)
+{
+    throw AnnotatedException(500, "First thread reached end without this thread providing a result", "tid", tid);
+}
+
+std::string unescapeCEscapingMaybe(const char * s)
+{
+    std::string result;
+
+    size_t len = strlen(s);
+    
+    cerr << "unescaping " << s << " with length " << len << endl;
+
+    if (len < 2 || s[0] != '"' || s[len - 1] != '"') {
+        return result = s;
+    }
+    
+    result.reserve(strlen(s) - 2);
+
+    for (size_t i = 1;  i < len - 1;  ++i) {
+        if (s[i] == '\\')
+            ++i;
+        result += s[i];
+    }
+
+    cerr << "  returning " << result << endl;
+
+    return result;
 }
 
 namespace {

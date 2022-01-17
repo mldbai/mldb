@@ -385,6 +385,9 @@ FrozenMemoryRegion genericSorted(FrozenMemoryRegion regionIn, const ValueDescrip
     std::shared_ptr<std::byte[]> sorted(new std::byte[regionIn.length()]);
     size_t n = regionIn.length() / desc.width;
 
+    cerr << "generically sorting " << n << " objects of size " << desc.width << " for a total of " << regionIn.length()
+         << " bytes" << endl;
+
     // Make a copy of each with the copy constructor
     for (size_t i = 0;  i < n;  ++i) {
         desc.initializeCopy(sorted.get() + i * desc.width, regionIn.data() + i * desc.width);
@@ -526,6 +529,8 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, MultiCompute
 
         const auto referenceData = referenceRegion.data();
 
+        size_t comparisonLength = n * desc->width;
+
         for (size_t j = 1;  j < this->kernels.size();  ++j) {
             auto kernelGenerated = bindInfo.boundKernels.at(j).arguments.at(i);
             //auto & h = *kernelGenerated.handler; 
@@ -558,7 +563,9 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, MultiCompute
 
             ExcAssertNotEqual(referenceData, kernelGeneratedData);
 
-            if (memcmp(referenceData, kernelGeneratedData, referenceLength) == 0) {
+            cerr << "reference length = " << referenceLength << endl;
+
+            if (memcmp(referenceData, kernelGeneratedData, comparisonLength) == 0) {
                 if (printedBanner)
                     cerr << ansi::magenta << "  kernel " << j << " is bit-identical; continuing" << ansi::reset << endl;
                 continue;

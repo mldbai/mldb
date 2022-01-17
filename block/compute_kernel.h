@@ -216,6 +216,8 @@ DECLARE_STRUCTURE_DESCRIPTION(ComputeKernelType);
 
 ComputeKernelType parseType(const std::string & access, const std::string & type);
 ComputeKernelType parseType(const std::string & accessAndType);
+std::vector<ComputeKernelDimension> parseDimensions(const std::string & dimensionString);
+
 
 /// Class used to handle arguments
 struct AbstractArgumentHandler {
