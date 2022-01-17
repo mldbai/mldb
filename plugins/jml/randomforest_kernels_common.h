@@ -417,7 +417,7 @@ void, testFeatureImpl)
         zeroW(w + i);
     }
 
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
 
     for (uint32_t rowId = gridId;  rowId < numRows;  rowId += gridSize) {
         //if (f == 0 && workGroupId == 0) {
@@ -429,7 +429,7 @@ void, testFeatureImpl)
                 w, wOut, maxLocalBuckets);
     }
 
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
     
     for (uint32_t i = threadGroupId;  i < numBuckets && i < maxLocalBuckets;
          i += threadGroupSize) {
@@ -664,7 +664,7 @@ void, prefixSumW) (__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_
 
         // Make sure everything has finished on this iteration before we do the
         // next one
-        threadgroup_barrier();
+        ukl_threadgroup_barrier();
     }
 
     SYNC_RETURN();
@@ -708,7 +708,7 @@ uint32_t, argMinScanW) (__local WIndexed * w, uint32_t n, W wAll, uint16_t threa
 
         // Make sure everything has finished on this iteration before we do the
         // next one
-        threadgroup_barrier();
+        ukl_threadgroup_barrier();
     }
 
     SYNC_RETURN(w[n - 1].index);
@@ -773,11 +773,11 @@ PartitionSplit, chooseSplit)
     }
 
     // Shouldn't be necessary; just in case
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
 
     //bool debug = false;//(f == 0 && p == 2 && get_global_size(2) == 8);
  
-    using namespace std;
+    //using namespace std;
     //cerr << "threadIdx = " << threadIdx << " numThreads = " << numThreads << " numBuckets = " << numBuckets << endl;
 
     for (uint32_t startBucket = 0;  startBucket < numBuckets;  startBucket += wLocalSize) {
@@ -794,7 +794,7 @@ PartitionSplit, chooseSplit)
         //     << "numBucketsInIteration = " << numBucketsInIteration << " numBuckets = " << numBuckets << endl;
 
         for (uint32_t i = threadIdx;  i < numBucketsInIteration;  i += numThreads) {
-            using namespace std;
+            //using namespace std;
             //cerr << "i = " << i << " numBucketsInIteration = " << numBucketsInIteration << endl;
             wLocal[i].w = w[startBucket + i];
 
@@ -833,7 +833,7 @@ PartitionSplit, chooseSplit)
             }
         }
 
-        threadgroup_barrier();
+        ukl_threadgroup_barrier();
 
         if (ordinal) {
             // Now we've read it in, we can do our prefix sum
@@ -843,7 +843,7 @@ PartitionSplit, chooseSplit)
             *wStart = wLocal[numBucketsInIteration - 1];
         }
 
-        using namespace std;
+        //using namespace std;
         //cerr << "numBucketsInIteration = " << numBucketsInIteration << endl;
 
         // And then scan that to find the index of the best score
@@ -852,7 +852,7 @@ PartitionSplit, chooseSplit)
         // Find if our new bucket is better than the last champion
         minW(wBest, wLocal + numBucketsInIteration - 1, wAll);
 
-        threadgroup_barrier();
+        ukl_threadgroup_barrier();
     }
 
 #if 0
@@ -1150,13 +1150,13 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
     allPartitionSplits += depth == 0 ? 0 : treeDepthInfo->numFinishedPartitions;
 
     if (workerId == 0) {
-        localState->numInactivePartitions = 0;
-        localState->numSmallSideRows = 0;
+        atom_store(&localState->numInactivePartitions, 0);
+        atom_store(&localState->numSmallSideRows, 0);
         if (depth == 0)
             treeDepthInfo->status = 0;  // for now
     }
 
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
 
     // Note that we have to ensure that all 32 threads enter this loop, so we have a uniform
     // condition and then selectively enable for p < numActivePartitions
@@ -1170,23 +1170,23 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
             discard = discardSplit(split);
         }
 
-        using namespace std;
-        cerr << "i = " << i << " p = " << p << " nap = " << numActivePartitions << " discard = " << discard << " workGroupSize = " << workgroupSize << endl;
+        //using namespace std;
+        //cerr << "i = " << i << " p = " << p << " nap = " << numActivePartitions << " discard = " << discard << " workGroupSize = " << workgroupSize << endl;
 
         uint32_t discardWhich = SYNC_CALL(simdgroup_ballot, discard, workerId, &localState->scratch);
 
         uint32_t numDiscarded = popcount(discardWhich);
 
-        cerr << "i = " << i << " discardWhich = " << discardWhich << " numDiscarded = " << numDiscarded << endl;
+        //cerr << "i = " << i << " discardWhich = " << discardWhich << " numDiscarded = " << numDiscarded << endl;
 
-        if (numDiscarded + localState->numInactivePartitions >= INACTIVE_PARTITIONS_LENGTH) {
+        if (numDiscarded + atom_load(&localState->numInactivePartitions) >= INACTIVE_PARTITIONS_LENGTH) {
             // OVERFLOW
             treeDepthInfo->numActivePartitions = -1;
             treeDepthInfo->status = -1;
             SYNC_RETURN();
         }
 
-        uint32_t base = localState->numInactivePartitions;
+        uint32_t base = atom_load(&localState->numInactivePartitions);
         uint32_t index = base + SYNC_CALL(simdgroup_prefix_exclusive_sum_bools, discard, workerId, &localState->scratch);
 
         if (p < numActivePartitions) {
@@ -1203,21 +1203,24 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
             }
         }
 
-        simdgroup_barrier();
+        ukl_simdgroup_barrier();
     }
 
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
 
-    using namespace std;
-    cerr << "workerId = " << workerId << " numActivePartitions = " << numActivePartitions << endl;
+    //using namespace std;
+    //cerr << "workerId = " << workerId << " numActivePartitions = " << numActivePartitions << endl;
 
     if (workerId == 0) {
-        localState->n = localState->skippedRows = localState->skippedPartitions = localState->ssi = 0;
-        localState->n2 = numActivePartitions;
-        smallSideIndexToPartitionOut[0] = 0;  // we never use a small side index of 0, as this means "no longer active"
+        atom_store(&localState->n, 0);
+        atom_store(&localState->skippedRows, 0);
+        atom_store(&localState->skippedPartitions, 0);
+        atom_store(&localState->ssi, 0);
+        atom_store(&localState->n2, numActivePartitions);
+        smallSideIndexToPartitionOut[0] = smallSideIndexToPartitionOut[255] = 0;  // we never use a small side index of 0, as this means "no longer active"
     }
 
-    threadgroup_barrier();  // for when we use more than one SIMD group
+    ukl_threadgroup_barrier();  // for when we use more than one SIMD group
 
     for (uint16_t i = 0;  i < numActivePartitions;  i += workgroupSize) {
         uint16_t p = i + workerId;
@@ -1250,16 +1253,16 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
             bool skipped = false;
             uint32_t minorPartitionIndex = atom_add(&localState->n, 1);
             uint32_t minorPartitionNumber;
-            if (minorPartitionIndex < localState->numInactivePartitions) {
+            if (minorPartitionIndex < atom_load(&localState->numInactivePartitions)) {
                 minorPartitionNumber = localState->inactivePartitions[minorPartitionIndex];
             }
             else {
                 minorPartitionNumber = atom_add(&localState->n2, 1);
             }
 
-            cerr << "workerId = " << workerId << " minorPartitionIndex = " << minorPartitionIndex
-                 << " numInactivePartitions " << localState->numInactivePartitions
-                 << " minorPartitionNumber = " << minorPartitionNumber << " n2 " << localState->n2 << endl;
+            //cerr << "workerId = " << workerId << " minorPartitionIndex = " << minorPartitionIndex
+            //     << " numInactivePartitions " << localState->numInactivePartitions
+            //     << " minorPartitionNumber = " << minorPartitionNumber << " n2 " << localState->n2 << endl;
 
             if (minorPartitionNumber >= maxNumActivePartitions) {
                 skipped = true;
@@ -1269,7 +1272,7 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
                 // mapping.
 
                 uint32_t idx = 1 + atom_add(&localState->ssi, 1);
-                cerr << "workerId = " << workerId << " idx = " << idx << " minorPartitionNumber = " << minorPartitionNumber << endl;
+                //cerr << "workerId = " << workerId << " idx = " << idx << " minorPartitionNumber = " << minorPartitionNumber << endl;
                 if (idx < 255) {
                     smallSideIndexesOut[minorPartitionNumber] = idx;
                     smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
@@ -1304,28 +1307,28 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
     }
 
     // Make sure the previous loop is finished before things get updated...
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
 
     if (workerId == 0) {
-        uint32_t nap = min((uint32_t)localState->n2, (uint32_t)maxNumActivePartitions);
+        uint32_t nap = min((uint32_t)atom_load(&localState->n2), (uint32_t)maxNumActivePartitions);
         treeDepthInfo->prevNumActivePartitions = treeDepthInfo->numActivePartitions;
         treeDepthInfo->numActivePartitions = nap;
-        treeDepthInfo->numSmallSideRows = localState->numSmallSideRows;
+        treeDepthInfo->numSmallSideRows = atom_load(&localState->numSmallSideRows);
         treeDepthInfo->prevNumFinishedPartitions = depth == 0 ? 0 : treeDepthInfo->numFinishedPartitions;
         treeDepthInfo->numFinishedPartitions = treeDepthInfo->prevNumFinishedPartitions + numActivePartitions;
         treeDepthInfo->depth += 1;
-        if (nap < localState->n2) {
+        if (nap < atom_load(&localState->n2)) {
             treeDepthInfo->status = -2;
         }
 
         // Clear partition indexes for gap partitions
-        for (; localState->n < localState->numInactivePartitions;  ++localState->n) {
-            uint32_t part = localState->inactivePartitions[localState->n];
+        for (uint32_t n = atom_load(&localState->n), nap = atom_load(&localState->numInactivePartitions); n < nap;  ++n) {
+            uint32_t part = localState->inactivePartitions[n];
             smallSideIndexesOut[part] = 0;
             partitionIndexesOut[part].index = 0;
         }
-        for (; localState->ssi < 255 && localState->ssi < nap/2;  ++localState->ssi) {
-            smallSideIndexToPartitionOut[localState->ssi+1] = 0;
+        for (uint32_t ssi = atom_load(&localState->ssi); ssi < 255 && ssi < nap/2;  ++ssi) {
+            smallSideIndexToPartitionOut[ssi+1] = 0;
         }
     }
 
@@ -1431,7 +1434,7 @@ updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
     }
 
     // Wait for all buckets to be clear
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
 
     allPartitionSplits += treeDepthInfo->prevNumFinishedPartitions;
 
@@ -1616,7 +1619,7 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
     }
 
     // Wait for all buckets to be clear
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
     
     //numLocalBuckets = 0;  // DEBUG DO NOT COMMIT
 
@@ -1670,7 +1673,7 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
     }
 
     // Wait for all buckets to be updated, before we write them back to the global mem
-    threadgroup_barrier();
+    ukl_threadgroup_barrier();
     
     // Now write our local changes to the global
     for (uint32_t b = workerIdInWorkgroup;  b < numLocalBuckets;  b += numWorkersInWorkgroup) {

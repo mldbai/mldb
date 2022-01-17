@@ -295,10 +295,6 @@ enqueueTransferToHostImpl(const std::string & opName,
     ExcAssert(info);
     //ExcAssert(info->constBuffer);
 
-    if (!info->constBuffer) {
-        cerr << "Null buffer: " << info->name << endl;
-    }
-
     FrozenMemoryRegion raw(info, (char *)info->constBuffer, info->lengthInBytes);
     return raw;
 }
@@ -371,7 +367,26 @@ enqueueCopyBetweenDeviceRegionsImpl(const std::string & opName,
                                     size_t fromOffset, size_t toOffset,
                                     size_t length)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue enqueueCopyBetweenDeviceRegionsImpl " + opName);
+
+    ExcAssert(from.handle);
+    auto fromInfo = std::dynamic_pointer_cast<const CPUMemoryRegionHandleInfo>(std::move(from.handle));
+    ExcAssert(fromInfo);
+
+    ExcAssert(fromInfo->constBuffer);
+
+    ExcAssert(to.handle);
+    auto toInfo = std::dynamic_pointer_cast<const CPUMemoryRegionHandleInfo>(std::move(to.handle));
+    ExcAssert(toInfo);
+
+    ExcAssert(toInfo->buffer);
+
+    ExcAssertLessEqual(fromInfo->offset + fromOffset + length, fromInfo->lengthInBytes);
+    ExcAssertLessEqual(toInfo->offset + toOffset + length, toInfo->lengthInBytes);
+
+    memcpy(toInfo->buffer + toInfo->offset + toOffset,
+           fromInfo->constBuffer + fromInfo->offset + fromOffset,
+           length);
 }
 
 void
@@ -381,6 +396,7 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
                                  size_t fromOffset, size_t toOffset,
                                  size_t length)
 {
+    auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue enqueueCopyBetweenDeviceRegionsSyncImpl " + opName);
     enqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length);
     finish();
 }

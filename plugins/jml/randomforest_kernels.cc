@@ -547,8 +547,8 @@ updateBucketsKernel(ComputeContext & context,
 
                     std::span<W> partitionBuckets,
                     std::span<W> wAll,
-                    std::span<uint8_t> smallSideIndexes,
-                    std::span<uint16_t> smallSideIndexToPartition,
+                    std::span<const uint8_t> smallSideIndexes,
+                    std::span<const uint16_t> smallSideIndexToPartition,
 
                     // Row data
                     std::span<const float> decodedRows,
@@ -899,7 +899,7 @@ static struct RegisterKernels {
             result->addParameter("buckets", "w", "W32[numActiveBuckets * newNumActivePartitions]");
             result->addParameter("wAll", "rw", "W32[newNumActivePartitions]");
             result->addParameter("smallSideIndexes", "r", "u8[numActivePartitions]");
-            result->addParameter("smallSideIndexToPartition", "w", "u16[min(256,numActivePartitions)]");
+            result->addParameter("smallSideIndexToPartition", "r", "u16[min(256,newNumActivePartitions/2)]");
             result->addParameter("decodedRows", "r", "f32[nr]");
             result->addParameter("bucketData", "r", "u32[bucketDataLength]");
             result->addParameter("bucketDataOffsets", "r", "u32[nf + 1]");

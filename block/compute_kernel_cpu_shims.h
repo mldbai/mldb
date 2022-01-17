@@ -190,6 +190,18 @@ static inline float reinterpretIntAsFloat(int32_t val)
     return *(float *)(&val);
 }
 
+template<typename T>
+T atom_load(std::atomic<T> * v)
+{
+    return v->load();
+}
+
+template<typename T, typename T2>
+void atom_store(std::atomic<T> * v, T2 && arg)
+{
+    return v->store(arg);
+}
+
 template<typename T, typename T2>
 T atom_add(std::atomic<T> * v, T2 && arg)
 {
@@ -231,8 +243,8 @@ T atom_or(std::atomic<T> * v, T2 && arg)
 //}
 
 
-#define simdgroup_barrier() co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_BARRIER, __FILE__, __LINE__}
-#define threadgroup_barrier() co_yield MLDB::BarrierOp{MLDB::THREAD_GROUP_BARRIER, __FILE__, __LINE__}
+#define ukl_simdgroup_barrier() co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_BARRIER, __FILE__, __LINE__}
+#define ukl_threadgroup_barrier() co_yield MLDB::BarrierOp{MLDB::THREAD_GROUP_BARRIER, __FILE__, __LINE__}
 
 #define SYNC_FUNCTION(Version, Return, Name) MLDB::coro_state_t<Return> MLDB_WARN_UNUSED_RESULT Name
 #define SYNC_RETURN(Val) co_return Val;
@@ -245,7 +257,7 @@ T atom_or(std::atomic<T> * v, T2 && arg)
 SYNC_FUNCTION(v1,
 uint32_t, simdgroup_ballot) (bool val, uint16_t simd_lane, __local atomic_uint * tmp)
 {
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
 
     if (simd_lane == 0) {
         tmp[0] = 0;
@@ -253,13 +265,13 @@ uint32_t, simdgroup_ballot) (bool val, uint16_t simd_lane, __local atomic_uint *
 
     //using namespace std;
     //cerr << "thread " << simd_lane << " arriving at barrier A tmp = " << tmp << " *tmp = " << *tmp << endl;
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
     //cerr << "thread " << simd_lane << " after barrier A" << endl;
 
     atom_or(tmp + 0, (uint32_t)val << simd_lane);
 
     //cerr << "thread " << simd_lane << " arriving at barrier B" << " *tmp = " << *tmp << endl;
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
     //cerr << "thread " << simd_lane << " after barrier B returning " << tmp[0] << endl;
 
     SYNC_RETURN(tmp[0]);
@@ -268,17 +280,17 @@ uint32_t, simdgroup_ballot) (bool val, uint16_t simd_lane, __local atomic_uint *
 SYNC_FUNCTION(v1,
 uint32_t, simdgroup_sum) (uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
 {
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
 
     if (simd_lane == 0) {
         tmp[0] = 0;
     }
 
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
 
     atom_add(tmp + 0, val);
 
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
 
     SYNC_RETURN(tmp[0]);
 }
@@ -299,13 +311,13 @@ uint32_t, simdgroup_prefix_exclusive_sum_bools) (bool val, uint16_t simd_lane, _
 SYNC_FUNCTION(v1,
 uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
 {
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
 
     if (simd_lane == 0) {
         tmp[0] = val;
     }
 
-    simdgroup_barrier();
+    ukl_simdgroup_barrier();
 
     SYNC_RETURN(tmp[0]);
 }

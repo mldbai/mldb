@@ -16,11 +16,15 @@
 #define __global device
 #define __local threadgroup
 #define W W32
-#define barrier threadgroup_barrier
-#define CLK_LOCAL_MEM_FENCE mem_flags::mem_threadgroup
-#define CLK_GLOBAL_MEM_FENCE mem_flags::mem_device
+#define ukl_simdgroup_barrier()
+#define ukl_threadgroup_barrier() threadgroup_barrier(mem_flags::mem_threadgroup)
 #define printf(...) 
+#define SYNC_FUNCTION(Version, Return, Name) Return Name
+#define SYNC_RETURN(...) return __VA_ARGS__
+#define SYNC_CALL(Fn, ...) Fn(__VA_ARGS__)
 
+#define atom_load(x) atomic_load_explicit(x, memory_order_relaxed)
+#define atom_store(x, y) atomic_store_explicit(x, y, memory_order_relaxed)
 #define atom_add(x,y) atomic_fetch_add_explicit(x, y, memory_order_relaxed)
 #define atom_sub(x,y) atomic_fetch_sub_explicit(x, y, memory_order_relaxed)
 #define atom_or(x,y) atomic_fetch_or_explicit(x, y, memory_order_relaxed)
@@ -31,46 +35,6 @@
 #define get_global_size(n) global_size[n]
 #define get_local_id(n) local_id[n]
 #define get_local_size(n) local_size[n]
-
-static inline int32_t reinterpretFloatAsInt(float val)
-{
-    return as_type<int32_t>(val);
-}
-
-static inline float reinterpretIntAsFloat(int32_t val)
-{
-    return as_type<float>(val);
-}
-
-static inline uint32_t simdgroup_ballot(bool val, uint16_t simd_lane, __local uint32_t * tmp)
-{
-    using namespace metal;
-    return (simd_vote::vote_t)simd_ballot(val);
-}
-
-static inline uint32_t simdgroup_sum(uint32_t val, uint16_t simd_lane, __local uint32_t * tmp)
-{
-    using namespace metal;
-    return simd_sum(val);
-}
-
-static inline uint32_t simdgroup_prefix_exclusive_sum_bools(bool val, uint16_t simd_lane, __local uint32_t * tmp)
-{
-    using namespace metal;
-    return simd_prefix_exclusive_sum((uint16_t)val);
-}
-
-static inline uint32_t simdgroup_broadcast_first(uint32_t val, uint16_t simd_lane, __local uint32_t * tmp)
-{
-    using namespace metal;
-    return simd_broadcast_first(val);
-}
-
-static inline uint32_t prefix_exclusive_sum_bitmask(uint32_t bits, uint16_t n)
-{
-    using namespace metal;
-    return popcount(bits & ((1U << n)-1));
-}
 
 using namespace metal;
 
@@ -83,6 +47,48 @@ typedef long int64_t;
 typedef signed char int8_t;
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
+typedef metal::atomic_uint atomic_uint;
+typedef metal::atomic_int atomic_int;
+
+static inline int32_t reinterpretFloatAsInt(float val)
+{
+    return as_type<int32_t>(val);
+}
+
+static inline float reinterpretIntAsFloat(int32_t val)
+{
+    return as_type<float>(val);
+}
+
+static inline uint32_t simdgroup_ballot(bool val, uint16_t simd_lane, __local atomic_uint * tmp)
+{
+    using namespace metal;
+    return (simd_vote::vote_t)simd_ballot(val);
+}
+
+static inline uint32_t simdgroup_sum(uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
+{
+    using namespace metal;
+    return simd_sum(val);
+}
+
+static inline uint32_t simdgroup_prefix_exclusive_sum_bools(bool val, uint16_t simd_lane, __local atomic_uint * tmp)
+{
+    using namespace metal;
+    return simd_prefix_exclusive_sum((uint16_t)val);
+}
+
+static inline uint32_t simdgroup_broadcast_first(uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
+{
+    using namespace metal;
+    return simd_broadcast_first(val);
+}
+
+static inline uint32_t prefix_exclusive_sum_bitmask(uint32_t bits, uint16_t n)
+{
+    using namespace metal;
+    return popcount(bits & ((1U << n)-1));
+}
 
 #include "mldb/plugins/jml/randomforest_kernels_common.h"
 
