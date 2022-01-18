@@ -58,6 +58,7 @@ struct coro_state_t {
     // 1) Yield as many Barrier operations as there are synchronization points in the function
     // 2) Return the final value
     struct promise_type: public value_holder<T> {
+
         BarrierOp barrier_;
         std::exception_ptr exc_;
         using value_holder<T>::kind_;
@@ -67,6 +68,28 @@ struct coro_state_t {
         void unhandled_exception() { kind_ = CRT_EXCEPTION; exc_ = std::current_exception(); }
         std::suspend_always yield_value(BarrierOp barrier) { kind_ = CRT_BARRIER; barrier_ = barrier; return {}; }
     };
+
+#if 0
+    struct await_reduction: public promise_type {
+        std::coroutine_handle<promise_type> * hp_ = nullptr;
+
+        await_reduction(StaticConstCharPtr file, int line, SimdGroupReductionKind kind, uint32_t arg)
+        {
+            using namespace std;
+            cerr << "await_reduction at " << this << endl;
+            this->yield_value(BarrierOp(SIMD_GROUP_REDUCTION, file, line, arg, kind));
+        }
+
+        bool await_ready()
+        {
+            return false;
+        }
+
+        void await_suspend(std::coroutine_handle<promise_type> h) { hp_ = &h; }
+
+        constexpr uint32_t await_resume() const noexcept { return hp_->promise().value_; }
+    };
+#endif
 
     handle_type h_;
 
@@ -125,6 +148,8 @@ struct coro_state_t {
         ExcAssertEqual(p.kind_, CRT_VALUE);
         return std::move(p.value_);
     }
+
+    auto & get_promise() { return h_.promise(); }
 
 private:
     bool full_ = false;
@@ -246,16 +271,35 @@ T atom_or(std::atomic<T> * v, T2 && arg)
 #define ukl_simdgroup_barrier() co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_BARRIER, __FILE__, __LINE__}
 #define ukl_threadgroup_barrier() co_yield MLDB::BarrierOp{MLDB::THREAD_GROUP_BARRIER, __FILE__, __LINE__}
 
-#define SYNC_FUNCTION(Version, Return, Name) MLDB::coro_state_t<Return> MLDB_WARN_UNUSED_RESULT Name
+#define SYNC_FUNCTION(Version, Return, Name) MLDB_ALWAYS_INLINE MLDB::coro_state_t<Return> MLDB_WARN_UNUSED_RESULT Name
 #define SYNC_RETURN(Val) co_return Val;
 #define SYNC_CALL(Fn, ...) \
     ({ auto coro = Fn(__VA_ARGS__);  while (coro.has_barrier()) { co_yield coro.get_barrier(); } get_result(coro); })
 
+#define SYNC_CALL_0(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_1(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_2(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_3(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_4(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_5(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_6(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_7(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_8(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_9(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_10(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_11(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_12(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_13(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_14(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_15(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_16(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_17(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_18(...) SYNC_CALL(__VA_ARGS__)
+#define SYNC_CALL_19(...) SYNC_CALL(__VA_ARGS__)
 
-#define barrier(X) { co_yield BarrierOp{X, __FILE__, __LINE__}; }
 
 SYNC_FUNCTION(v1,
-uint32_t, simdgroup_ballot) (bool val, uint16_t simd_lane, __local atomic_uint * tmp)
+uint32_t, simdgroup_ballot2) (bool val, uint16_t simd_lane, __local atomic_uint * tmp)
 {
     ukl_simdgroup_barrier();
 
@@ -277,6 +321,41 @@ uint32_t, simdgroup_ballot) (bool val, uint16_t simd_lane, __local atomic_uint *
     SYNC_RETURN(tmp[0]);
 }
 
+inline void simdgroup_sum_reducer(std::span<uint32_t> vals)
+{
+    uint32_t res = 0;
+    for (auto v: vals)
+        res += v;
+    for (auto & v: vals)
+        v = res;
+}
+
+#define simdgroup_sum(val, Lane, Tmp) ({ (void)(Lane); (void)(Tmp); uint32_t res;  co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_REDUCTION, __FILE__, __LINE__, val, &simdgroup_sum_reducer, &res};  res;})
+
+inline void simdgroup_ballot_reducer(std::span<uint32_t> vals)
+{
+    uint32_t res = 0;
+    for (size_t i = 0;  i < vals.size();  ++i)
+        res |= (vals[i] ? 1 : 0) << i;
+    for (auto & v: vals)
+        v = res;
+}
+
+#define simdgroup_ballot(val, Lane, Tmp) ({ (void)(Lane); (void)(Tmp); uint32_t res;  co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_REDUCTION, __FILE__, __LINE__, val, &simdgroup_ballot_reducer, &res};  res;})
+
+#if 0
+SYNC_FUNCTION(v1,
+uint32_t, simdgroup_ballot) (bool val, uint16_t simd_lane, __local atomic_uint * tmp)
+{
+    uint32_t res;
+    co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_REDUCTION, __FILE__, __LINE__, val, &simdgroup_sum_reducer, &res};
+    co_return res;
+}
+uint32_t simdgroup_ballot(bool val, uint16_t simd_lane, __local atomic_uint * tmp)
+{
+    return co_await MLDB::coro_state_t<uint32_t>::await_reduction{__FILE__, __LINE__, MLDB::SIMDGROUP_BALLOT, val};
+}
+
 SYNC_FUNCTION(v1,
 uint32_t, simdgroup_sum) (uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
 {
@@ -295,6 +374,8 @@ uint32_t, simdgroup_sum) (uint32_t val, uint16_t simd_lane, __local atomic_uint 
     SYNC_RETURN(tmp[0]);
 }
 
+#endif
+
 static inline uint32_t prefix_exclusive_sum_bitmask(uint32_t bits, uint16_t n)
 {
     return popcount(bits & ((1U << n)-1));
@@ -304,10 +385,19 @@ static inline uint32_t prefix_exclusive_sum_bitmask(uint32_t bits, uint16_t n)
 SYNC_FUNCTION(v1,
 uint32_t, simdgroup_prefix_exclusive_sum_bools) (bool val, uint16_t simd_lane, __local atomic_uint * tmp)
 {
-    uint32_t ballots = SYNC_CALL(simdgroup_ballot, val, simd_lane, tmp);
+    uint32_t ballots = simdgroup_ballot(val, simd_lane, tmp);
     SYNC_RETURN(prefix_exclusive_sum_bitmask(ballots, simd_lane));
 }
 
+inline void simdgroup_broadcast_first_reducer(std::span<uint32_t> vals)
+{
+    for (auto & v: vals)
+        v = vals[0];
+}
+
+#define simdgroup_broadcast_first(val, Lane, Tmp) ({ (void)(Lane); (void)(Tmp); uint32_t res;  co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_REDUCTION, __FILE__, __LINE__, val, &simdgroup_broadcast_first_reducer, &res};  res;})
+
+#if 0
 SYNC_FUNCTION(v1,
 uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
 {
@@ -321,6 +411,7 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 
     SYNC_RETURN(tmp[0]);
 }
+#endif
 
 #define KERNEL_RETURN() co_return -1
 
@@ -645,18 +736,42 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
         } \
         /*std::cerr << "done init" << std::endl;*/ \
         while (__coros[0].has_barrier()) { \
-            auto __barrier = __coros[0].get_barrier(); \
+            std::vector<BarrierOp> __barriers(__nthreads); \
+            auto & __barrier = __barriers[0] = __coros[0].get_barrier(); \
             /*std::cerr << "got barrier from simd group 0" << std::endl;*/ \
             for (size_t __n = 1;  __n < __nthreads;  ++__n) { \
                 /*std::cerr << "checking thread " << __n << std::endl;*/ \
                 if (!__coros[__n].has_barrier()) { \
                     throw_barriers_out_of_sync(0, __barrier, __n); \
                 } \
-                auto __barrier2 = __coros[__n].get_barrier(); \
+                auto & __barrier2 = __barriers[__n] = __coros[__n].get_barrier(); \
                 verify_barriers_in_sync(__barrier, __barrier2); \
             } \
-            if (__barrier.kind != SIMD_GROUP_BARRIER) { \
+            switch (__barrier.kind) { \
+            case THREAD_GROUP_BARRIER: \
                 co_yield __barrier; \
+                break; \
+            case SIMD_GROUP_REDUCTION: { \
+                /*std::cerr << "simd group reduction" << std::endl;*/ \
+                std::vector<uint32_t> reductions_in(__nthreads); \
+                for (size_t __n = 0;  __n < __nthreads;  ++__n) { \
+                    uint32_t arg = __barriers[__n].arg; \
+                    reductions_in[__n] = arg; \
+                } \
+                /*std::cerr << "running reducer" << std::endl; */ \
+                /*std::cerr << jsonEncodeStr(__barrier) << std::endl;*/ \
+                ExcAssert(__barrier.reducer); \
+                __barrier.reducer(reductions_in); \
+                /*std::cerr << "done running reducer" << std::endl; */ \
+                for (size_t __n = 0;  __n < __nthreads;  ++__n) { \
+                    ExcAssert(__barriers[__n].res); \
+                    *__barriers[__n].res = reductions_in[__n]; \
+                } \
+                /*std::cerr << "done simd group reduction" << std::endl;*/ \
+                break; \
+            }\
+            default:\
+                break; \
             } \
         } \
         for (size_t __n = 0;  __n < __nthreads;  ++__n) { \

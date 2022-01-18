@@ -1312,7 +1312,7 @@ apply(GridComputeQueue & queue,
       bool setKnowns,
       GridBindContext & bindContext) const
 {
-    cerr << "applying " << jsonEncodeStr(*this) << endl;
+    //cerr << "applying " << jsonEncodeStr(*this) << endl;
 
     switch (action) {
         case GridBindActionType::SET_FROM_ARG:
@@ -1389,13 +1389,16 @@ GridComputeKernelSpecialization(GridComputeContext * owner, const GridComputeKer
 
                 action.argNum = argNum;
                 action.type = paramType;
+                action.expr = paramType.dims[0].bound;
             }
-            else action.type = type;
+            else {
+                action.type = type;
+                action.expr = type.dims[0].bound;
+            }
 
             action.action = GridBindActionType::SET_THREAD_GROUP;
             action.arg = arg;
             action.argName = argName;
-            action.expr = type.dims[0].bound;
         }
         else if (disposition == GridComputeFunctionArgumentDisposition::BUFFER) {
             if (it == paramIndex.end()) {

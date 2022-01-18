@@ -388,11 +388,11 @@ getArgumentInfo(const CPUGridKernelParameterInfo & parameterInfo, int argNumber)
     switch (disposition) {
     case GridComputeFunctionArgumentDisposition::BUFFER:
     case GridComputeFunctionArgumentDisposition::THREADGROUP: {
-        using namespace std;
-        cerr << "name = " << parameterInfo.name << endl;
-        cerr << "dims = " << parameterInfo.dims << endl;
-        cerr << "outputType = " << outputType.print() << endl;
-        cerr << "disposition = " << jsonEncodeStr(disposition) << endl;
+        //using namespace std;
+        //cerr << "name = " << parameterInfo.name << endl;
+        //cerr << "dims = " << parameterInfo.dims << endl;
+        //cerr << "outputType = " << outputType.print() << endl;
+        //cerr << "disposition = " << jsonEncodeStr(disposition) << endl;
         auto unescaped = unescapeCEscapingMaybe(parameterInfo.dims);
         // Get the lengths
         if (!unescaped.empty()) {
@@ -746,9 +746,11 @@ struct ThreadGroupExecutionState {
 };
 
 enum BarrierKind {
-    SIMD_GROUP_BARRIER = 0,
-    THREAD_GROUP_BARRIER = 1,
-    GLOBAL_BARRIER = 2
+    NO_BARRIER = 0,
+    SIMD_GROUP_BARRIER = 1,
+    THREAD_GROUP_BARRIER = 2,
+    SIMD_GROUP_REDUCTION = 3,
+    GLOBAL_BARRIER = 4
 };
 
 DECLARE_ENUM_DESCRIPTION(BarrierKind);
@@ -763,12 +765,35 @@ struct StaticConstCharPtr {
 
 PREDECLARE_VALUE_DESCRIPTION(StaticConstCharPtr);
 
+enum SimdGroupReductionKind {
+    SIMDGROUP_NO_REDUCTION,
+    SIMDGROUP_BALLOT,
+    SIMDGROUP_SUM,
+};
+
+DECLARE_ENUM_DESCRIPTION(SimdGroupReductionKind);
+
+typedef void (*Reducer) (std::span<uint32_t> vals);
+
 struct BarrierOp {
+    BarrierOp(BarrierKind kind = NO_BARRIER, StaticConstCharPtr file = {}, int line = -1, uint32_t arg = 0,
+              Reducer reducer = nullptr, uint32_t * res = nullptr)
+        : kind(kind), file(file), line(line), arg(arg), reducer(reducer), res(res)
+    {
+        if (kind == SIMD_GROUP_REDUCTION) {
+            ExcAssert(reducer);
+            ExcAssert(res);
+        }
+    }
+
     BarrierKind kind;
     StaticConstCharPtr file;
     int line;
-    bool operator == (const BarrierOp & other) const = default;
-    bool operator != (const BarrierOp & other) const = default;
+    uint32_t arg;
+    Reducer reducer;
+    uint32_t * res = nullptr;
+
+    bool isCompatible(const BarrierOp & other) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BarrierOp);

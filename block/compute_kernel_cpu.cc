@@ -788,9 +788,18 @@ DEFINE_VALUE_DESCRIPTION(StaticConstCharPtr, StaticConstCharPtrDescription);
 
 DEFINE_ENUM_DESCRIPTION_INLINE(BarrierKind)
 {
+    addValue("NO_BARRIER", NO_BARRIER, "");
     addValue("SIMD_GROUP", SIMD_GROUP_BARRIER, "");
+    addValue("SIMD_GROUP_REDUCTION", SIMD_GROUP_REDUCTION, "");
     addValue("THREAD_GROUP", THREAD_GROUP_BARRIER, "");
     addValue("GLOBAL", GLOBAL_BARRIER, "");
+}
+
+DEFINE_ENUM_DESCRIPTION_INLINE(SimdGroupReductionKind)
+{
+    addValue("NO_REDUCTION", SIMDGROUP_NO_REDUCTION, "");
+    addValue("BALLOT", SIMDGROUP_BALLOT, "");
+    addValue("SUM", SIMDGROUP_SUM, "");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(BarrierOp)
@@ -798,6 +807,12 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(BarrierOp)
     addField("file", &BarrierOp::file, "");
     addField("line", &BarrierOp::line, "");
     addField("kind", &BarrierOp::kind, "");
+    addField("arg", &BarrierOp::arg, "");
+}
+
+bool BarrierOp::isCompatible(const BarrierOp & other) const
+{
+    return file == other.file && line == other.line && kind == other.kind && reducer == other.reducer;
 }
 
 DEFINE_ENUM_DESCRIPTION_INLINE(CoroReturnKind)
@@ -810,7 +825,7 @@ DEFINE_ENUM_DESCRIPTION_INLINE(CoroReturnKind)
 
 void verify_barriers_in_sync(const BarrierOp & barrier1, const BarrierOp & barrier2)
 {
-    if (barrier1 != barrier2) {
+    if (!barrier1.isCompatible(barrier2)) {
         throw AnnotatedException(500, "Barriers out of sync", "barrier1", barrier1, "barrier2", barrier2);
     }
 }
@@ -833,7 +848,7 @@ std::string unescapeCEscapingMaybe(const char * s)
 
     size_t len = strlen(s);
     
-    cerr << "unescaping " << s << " with length " << len << endl;
+    //cerr << "unescaping " << s << " with length " << len << endl;
 
     if (len < 2 || s[0] != '"' || s[len - 1] != '"') {
         return result = s;
@@ -847,7 +862,7 @@ std::string unescapeCEscapingMaybe(const char * s)
         result += s[i];
     }
 
-    cerr << "  returning " << result << endl;
+    //cerr << "  returning " << result << endl;
 
     return result;
 }

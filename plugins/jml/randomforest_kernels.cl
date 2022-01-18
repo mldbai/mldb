@@ -25,6 +25,28 @@ typedef unsigned short uint16_t;
 typedef int32_t atomic_int;
 typedef uint32_t atomic_uint;
 
+#define ukl_simdgroup_barrier()
+#define ukl_threadgroup_barrier() barrier(CLK_LOCAL_MEM_FENCE)
+#define atom_load(addr) (*(addr))
+#define atom_store(addr, val) ((*(addr)) = val)
+
+#define SYNC_FUNCTION(Version, Return, Name) Return Name
+#define SYNC_RETURN(Val) return Val;
+#define SYNC_CALL_0(Fn) Fn()
+#define SYNC_CALL_1(Fn, a1) Fn(a1)
+#define SYNC_CALL_2(Fn, a1, a2) Fn(a1, a2)
+#define SYNC_CALL_3(Fn, a1, a2, a3) Fn(a1, a2, a3)
+#define SYNC_CALL_4(Fn, a1, a2, a3, a4) Fn(a1, a2, a3, a4)
+#define SYNC_CALL_5(Fn, a1, a2, a3, a4, a5) Fn(a1, a2, a3, a4, a5)
+#define SYNC_CALL_6(Fn, a1, a2, a3, a4, a5, a6) Fn(a1, a2, a3, a4, a5, a6)
+#define SYNC_CALL_7(Fn, a1, a2, a3, a4, a5, a6, a7) Fn(a1, a2, a3, a4, a5, a6, a7)
+#define SYNC_CALL_8(Fn, a1, a2, a3, a4, a5, a6, a7, a8) Fn(a1, a2, a3, a4, a5, a6, a7, a8)
+#define SYNC_CALL_9(Fn, a1, a2, a3, a4, a5, a6, a7, a8, a9) Fn(a1, a2, a3, a4, a5, a6, a7, a8, a9)
+#define SYNC_CALL_10(Fn, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) Fn(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+#define SYNC_CALL_11(Fn, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) Fn(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
+#define SYNC_CALL_12(Fn, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) Fn(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12)
+#define assert(x)
+
 inline uint32_t createMask32(uint32_t numBits);
 
 static inline uint32_t extract_bits(uint32_t val, uint16_t offset, uint32_t bits)

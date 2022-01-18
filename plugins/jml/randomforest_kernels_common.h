@@ -837,7 +837,7 @@ PartitionSplit, chooseSplit)
 
         if (ordinal) {
             // Now we've read it in, we can do our prefix sum
-            SYNC_CALL(prefixSumW, wLocal, numBucketsInIteration, threadIdx, numThreads);
+            SYNC_CALL_4(prefixSumW, wLocal, numBucketsInIteration, threadIdx, numThreads);
 
             // Seed for the next one
             *wStart = wLocal[numBucketsInIteration - 1];
@@ -847,7 +847,7 @@ PartitionSplit, chooseSplit)
         //cerr << "numBucketsInIteration = " << numBucketsInIteration << endl;
 
         // And then scan that to find the index of the best score
-        SYNC_CALL(argMinScanW, wLocal, numBucketsInIteration, wAll, threadIdx, numThreads);
+        SYNC_CALL_5(argMinScanW, wLocal, numBucketsInIteration, wAll, threadIdx, numThreads);
 
         // Find if our new bucket is better than the last champion
         minW(wBest, wLocal + numBucketsInIteration - 1, wAll);
@@ -1007,7 +1007,7 @@ getPartitionSplitsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
         
         bool ordinal = featureIsOrdinal[f];
 
-        best = SYNC_CALL(chooseSplit, myW, numBuckets, wAll[partition],
+        best = SYNC_CALL_11(chooseSplit, myW, numBuckets, wAll[partition],
                          wLocal, wLocalSize, wStartBest, ordinal,
                          workerId, workGroupSize, f, partition);
         
@@ -1173,7 +1173,7 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
         //using namespace std;
         //cerr << "i = " << i << " p = " << p << " nap = " << numActivePartitions << " discard = " << discard << " workGroupSize = " << workgroupSize << endl;
 
-        uint32_t discardWhich = SYNC_CALL(simdgroup_ballot, discard, workerId, &localState->scratch);
+        uint32_t discardWhich = simdgroup_ballot(discard, workerId, &localState->scratch);
 
         uint32_t numDiscarded = popcount(discardWhich);
 
@@ -1187,7 +1187,7 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
         }
 
         uint32_t base = atom_load(&localState->numInactivePartitions);
-        uint32_t index = base + SYNC_CALL(simdgroup_prefix_exclusive_sum_bools, discard, workerId, &localState->scratch);
+        uint32_t index = base + SYNC_CALL_3(simdgroup_prefix_exclusive_sum_bools, discard, workerId, &localState->scratch);
 
         if (p < numActivePartitions) {
             if (discard) {
@@ -1243,7 +1243,7 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
             }
         }
 
-        uint32_t smallSideRowsIncrement = SYNC_CALL(simdgroup_sum, partitionSmallSideRows, workerId, &localState->scratch);
+        uint32_t smallSideRowsIncrement = simdgroup_sum(partitionSmallSideRows, workerId, &localState->scratch);
 
         if (workerId == 0) {
             atom_add(&localState->numSmallSideRows, smallSideRowsIncrement);
@@ -1495,7 +1495,7 @@ updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
         //if (r + 32 >= numRows)
         //    break;
 
-        uint32_t simdDirections = SYNC_CALL(simdgroup_ballot, direction, simdgroup_lane, simdgroup_scratch);
+        uint32_t simdDirections = simdgroup_ballot(direction, simdgroup_lane, simdgroup_scratch);
 
         //if (simd_is_first() && (r / 32) * 32 < numRows) {
         //    directions[r/32] = simdDirections;
@@ -1514,7 +1514,7 @@ updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
             nonZeroDirectionBase = atom_add(nonZeroDirectionCount, numDirections);
         }
 
-        nonZeroDirectionBase = SYNC_CALL(simdgroup_broadcast_first, nonZeroDirectionBase, simdgroup_lane, simdgroup_scratch);
+        nonZeroDirectionBase = simdgroup_broadcast_first(nonZeroDirectionBase, simdgroup_lane, simdgroup_scratch);
 
         uint16_t n = prefix_exclusive_sum_bitmask(simdDirections, simdgroup_lane);
 
