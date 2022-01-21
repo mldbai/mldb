@@ -22,7 +22,7 @@ pivottablejs==0.1.0
 tqdm==4.11.0
 
 # notebook and friends
-ipython==5.1.0
+ipython==7.16.3
 jupyter==1.0.0
 jupyter-client==4.4.0
 jupyter-console==5.0.0
