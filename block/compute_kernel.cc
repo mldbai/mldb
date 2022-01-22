@@ -39,13 +39,14 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ComputeKernelType)
 
 DEFINE_ENUM_DESCRIPTION_INLINE(ComputeRuntimeId)
 {
-    addValue("NONE", ComputeRuntimeId::NONE, "No runtime selected");
-    addValue("HOST", ComputeRuntimeId::HOST, "Runs on the host CPU");
-    addValue("MULTI", ComputeRuntimeId::MULTI, "Runs across multiple runtimes");
+    addValue("NONE",   ComputeRuntimeId::NONE,   "No runtime selected");
+    addValue("HOST",   ComputeRuntimeId::HOST,   "Runs on the host CPU");
+    addValue("MULTI",  ComputeRuntimeId::MULTI,  "Runs across multiple runtimes");
     addValue("OPENCL", ComputeRuntimeId::OPENCL, "Runs on the OpenCL runtime");
-    addValue("METAL", ComputeRuntimeId::METAL, "Runs on the Apple Metal runtime");
-    addValue("CUDA", ComputeRuntimeId::CUDA, "Runs on the Nvidia CUDA runtime");
-    addValue("ROCM", ComputeRuntimeId::ROCM, "Runs on the AMD ROCM runtime");
+    addValue("METAL",  ComputeRuntimeId::METAL,  "Runs on the Apple Metal runtime");
+    addValue("CUDA",   ComputeRuntimeId::CUDA,   "Runs on the Nvidia CUDA runtime");
+    addValue("ROCM",   ComputeRuntimeId::ROCM,   "Runs on the AMD ROCM runtime");
+    addValue("CPU",    ComputeRuntimeId::CPU,    "Runs on the local CPU in Grid mode");
 }
 
 DEFINE_ENUM_DESCRIPTION_INLINE(MemoryRegionAccess)

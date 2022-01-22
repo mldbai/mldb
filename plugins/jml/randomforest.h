@@ -77,7 +77,9 @@ struct PartitionData {
 
     // Calls the trainPartitionedEndToEnd() kernel driver on this partition.
     ML::Tree::Ptr
-    trainPartitioned(const std::string & debugName,
+    trainPartitioned(int featureVectorSampling,
+                     int featureSampling,
+                     const std::string & debugName,
                      int depth, int maxDepth,
                      ML::Tree & tree,
                      MappedSerializer & serializer) const;
@@ -90,7 +92,9 @@ struct PartitionData {
     };
 
     // Train a decision tree from this partition.
-    ML::Tree::Ptr train(const std::string & debugName,
+    ML::Tree::Ptr train(int featureVectorSampling,
+                        int featureSampling,
+                        const std::string & debugName,
                         int depth, int maxDepth,
                         ML::Tree & tree,
                         MappedSerializer & serializer,
@@ -98,7 +102,8 @@ struct PartitionData {
     
     // Train a small forest, with the same rows but a different feature sampling
     std::vector<ML::Tree>
-    trainMultipleSamplings(const std::string & debugName,
+    trainMultipleSamplings(int featureVectorSampling,
+                           const std::string & debugName,
                            int maxDepth, const std::vector<std::vector<int>> & featuresActive,
                            MappedSerializer & serializer,
                            TrainingScheme trainingScheme = PARTITIONED) const;

@@ -15,6 +15,7 @@
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/span_description.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/base/parallel.h"
 
 namespace MLDB {
 
@@ -28,6 +29,142 @@ struct CPUComputeContext;
 struct CPUComputeQueue;
 
 using CPUComputeProfilingInfo = GridComputeProfilingInfo;
+
+// Version of Span that can check all of the prerequisites on access provided by the kernel
+// and act as if it were a pointer type in pointer arithmetic.
+
+template<typename T, bool CanRead, bool CanWrite>
+struct Span;
+
+// Read only span
+template<typename T>
+struct Span<T, true, false>: public std::span<const T> {
+    using std::span<const T>::span;
+    Span(std::span<const T> s)
+        : std::span<const T>(s)
+    {
+    }
+
+    Span operator + (size_t other) const
+    {
+        return this->subspan(other);
+    }
+
+    Span & operator += (ssize_t other)
+    {
+        *this = *this + other;
+        return *this;
+    }
+
+    template<typename T2, bool CanRead2, bool CanWrite2>
+    Span<T2, true, false> cast() const
+    {
+        static_assert(!CanWrite2);
+        size_t lengthBytes = sizeof(T) * this->size();
+        //ExcAssert(lengthBytes % sizeof(T2) == 0);
+        size_t newSize = lengthBytes / sizeof(T2);
+        // TODO: alignment
+        return std::span{ reinterpret_cast<const T2 *>(this->data()), newSize};
+    }
+
+    const T * operator -> () const
+    {
+        return this->data();
+    }
+
+    const T & operator * () const
+    {
+        return (*this)[0];
+    }
+};
+
+void throwDimensionException(unsigned dim, unsigned n) MLDB_NORETURN;
+void throwOverflow() MLDB_NORETURN;
+
+struct CheckedSize {
+    CheckedSize(size_t sz = std::numeric_limits<size_t>::max())
+        : sz(sz)
+    {
+    }
+
+    size_t sz;
+
+    template<typename T> operator T () const { ExcAssertEqual((T)sz, sz);  return sz; }
+
+    template<typename T1, typename T2, typename T3>
+    static CheckedSize madd(T1 x, T2 y, T3 z)
+    {
+        size_t res;
+        if (MLDB_UNLIKELY(__builtin_mul_overflow(x, y, &res))
+            || MLDB_UNLIKELY(__builtin_add_overflow(res, z, &res)))
+            throwOverflow();
+        return { res };
+    }
+
+    template<typename T1, typename T2>
+    static CheckedSize mul(T1 x, T2 y)
+    {
+        size_t res;
+        if (MLDB_UNLIKELY(__builtin_mul_overflow(x, y, &res)))
+            throwOverflow();
+        return { res };
+    }
+
+    template<typename T1, typename T2>
+    static CheckedSize add(T1 x, T2 y)
+    {
+        size_t res;
+        if (MLDB_UNLIKELY(__builtin_add_overflow(x, y, &res)))
+            throwOverflow();
+        return { res };
+    }
+};
+
+inline std::ostream & operator << (std::ostream & stream, const CheckedSize & sz)
+{
+    return stream << sz.sz;
+}
+
+// Read-write span
+template<typename T>
+struct Span<T, true, true>: public std::span<T> {
+    using std::span<T>::span;
+    Span(std::span<T> s)
+        : std::span<T>(s)
+    {
+    }
+
+    Span operator + (CheckedSize other) const
+    {
+        return this->subspan(other);
+    }
+
+    Span & operator += (CheckedSize other)
+    {
+        *this = *this + other;
+        return *this;
+    }
+
+    template<typename T2, bool CanRead2, bool CanWrite2>
+    Span<T2, true, true> cast() const
+    {
+        size_t lengthBytes = sizeof(T) * this->size();
+        ExcAssert(lengthBytes % sizeof(T2) == 0);
+        size_t newSize = lengthBytes / sizeof(T2);
+        // TODO: alignment
+        return std::span{ reinterpret_cast<T2 *>(this->data()), newSize};
+    }
+
+    T * operator -> () const
+    {
+        return this->data();
+    }
+
+    T & operator * () const
+    {
+        return (*this)[0];
+    }
+};
 
 // enable_shared_from_this is to ensure that we can pin lifetimes of events until the
 // completion handlers have finished.
@@ -181,7 +318,7 @@ struct CPUComputeFunction: public GridComputeFunction {
     std::vector<GridComputeFunctionArgument> argumentInfo;
     HostComputeKernel kernel;
     std::function<std::any ()> createArgTuple;
-    std::function<void (GridComputeQueue &, std::string, const std::any &, std::vector<size_t>, std::vector<size_t>, size_t, const std::map<std::string, size_t> &)> launch;
+    std::function<void (GridComputeQueue &, std::string, const std::any &, std::vector<size_t>, std::vector<size_t>, size_t, const std::map<std::string, std::tuple<size_t, size_t>> &)> launch;
 };
 
 
@@ -437,52 +574,115 @@ getArgumentInfos(const std::string & functionName, const CPUGridKernelParameterI
 void registerCpuKernelImpl(const std::string & libraryName, const std::string & functionName,
                            std::function<std::shared_ptr<CPUComputeFunction> ()> generator);
 
-void throwDimensionException(unsigned dim, unsigned n) MLDB_NORETURN;
-void throwOverflow() MLDB_NORETURN;
+#if 0
+template<typename T, bool CanRead, bool CanWrite>
+struct GridSpanDescription
+    : public ValueDescriptionI<std::span<T, Sz>, ValueKind::ARRAY, SpanDescription<T, Sz> > {
 
-struct CheckedSize {
-    CheckedSize(size_t sz = std::numeric_limits<size_t>::max())
-        : sz(sz)
+    using InnerT = std::remove_const_t<T>;
+    std::shared_ptr<const ValueDescriptionT<InnerT> > inner;
+
+    SpanDescription(ValueDescriptionT<InnerT> * inner)
+        : inner(inner)
     {
     }
 
-    size_t sz;
-
-    template<typename T> operator T () const { ExcAssertEqual((T)sz, sz);  return sz; }
-
-    template<typename T1, typename T2, typename T3>
-    static CheckedSize madd(T1 x, T2 y, T3 z)
+    SpanDescription(std::shared_ptr<const ValueDescriptionT<InnerT> > inner
+                       = getDefaultDescriptionShared((InnerT *)0))
+        : inner(std::move(inner))
     {
-        size_t res;
-        if (MLDB_UNLIKELY(__builtin_mul_overflow(x, y, &res))
-            || MLDB_UNLIKELY(__builtin_add_overflow(res, z, &res)))
-            throwOverflow();
-        return { res };
     }
 
-    template<typename T1, typename T2>
-    static CheckedSize mul(T1 x, T2 y)
+    // Constructor to create a partially-evaluated span description.
+    SpanDescription(ConstructOnly)
     {
-        size_t res;
-        if (MLDB_UNLIKELY(__builtin_mul_overflow(x, y, &res)))
-            throwOverflow();
-        return { res };
     }
 
-    template<typename T1, typename T2>
-    static CheckedSize add(T1 x, T2 y)
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
-        size_t res;
-        if (MLDB_UNLIKELY(__builtin_add_overflow(x, y, &res)))
-            throwOverflow();
-        return { res };
+        throw MLDB::Exception("Can't parse Spans");
+    }
+
+    virtual void parseJsonTyped(std::span<T, Sz> * val, JsonParsingContext & context) const override
+    {
+        throw MLDB::Exception("Can't parse Spans");
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
+    {
+        const std::span<T, Sz> * val2 = reinterpret_cast<const std::span<T, Sz> *>(val);
+        return printJsonTyped(val2, context);
+    }
+
+    virtual void printJsonTyped(const std::span<T, Sz> * val, JsonPrintingContext & context) const override
+    {
+        size_t sz = val->size();
+        context.startArray(sz);
+
+        auto it = val->begin();
+        for (size_t i = 0;  i < sz;  ++i, ++it) {
+            ExcAssert(it != val->end());
+            context.newArrayElement();
+            InnerT v(*it);
+            inner->printJsonTyped(&v, context);
+        }
+        
+        context.endArray();
+    }
+
+    virtual bool isDefault(const void * val) const override
+    {
+        const std::span<T, Sz> * val2 = reinterpret_cast<const std::span<T, Sz> *>(val);
+        return isDefaultTyped(val2);
+    }
+
+    virtual bool isDefaultTyped(const std::span<T, Sz> * val) const override
+    {
+        return val->empty();
+    }
+
+    virtual size_t getArrayLength(void * val) const override
+    {
+        const std::span<T, Sz> * val2 = reinterpret_cast<const std::span<T, Sz> *>(val);
+        return val2->size();
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const override
+    {
+        throw MLDB::Exception("Can't mutate Spans");
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const override
+    {
+        const std::span<T, Sz> * val2 = reinterpret_cast<const std::span<T, Sz> *>(val);
+        ExcAssertLess(element, val2->size());
+        return &val2[element];
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const override
+    {
+        throw MLDB::Exception("Can't mutate Spans");
+    }
+    
+    virtual const ValueDescription & contained() const override
+    {
+        return *this->inner;
+    }
+
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    {
+        return this->inner;
+    }
+
+    virtual void initialize() override
+    {
+        this->inner = getDefaultDescriptionSharedT<InnerT>();
     }
 };
 
-inline std::ostream & operator << (std::ostream & stream, const CheckedSize & sz)
-{
-    return stream << sz.sz;
-}
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_3(GridSpanDescription, MLDB::Span, typename, T, bool, CanRead, bool, CanWrite, MLDB::has_default_description<T>::value);
+
+#endif
 
 struct GridBounds {
     GridBounds(std::array<size_t, 3> bounds = { 0, 0, 0 })
@@ -599,11 +799,13 @@ struct GridBounds::Iterator {
 
     auto operator <=> (const Iterator & other) const = default;
 
-    Iterator operator++()
+    Iterator & operator++()
     {
         ++current;
         return *this;
     }
+
+    Iterator operator + (ssize_t n) const { return { current + n, bounds}; }
 
     value_type operator * () const
     {
@@ -677,16 +879,37 @@ struct SimdGroupExecutionState {
         //cerr << "  running SIMD group with index " << firstThreadIndex << endl;
     }
 
-    std::vector<ThreadExecutionState> threads() const
-    {
-        std::vector<ThreadExecutionState> result;
-        for (size_t i = 0;  i < threadsPerSimdGroup;  ++i) {
-            GridIndex threadIndex = firstThreadIndex.linearOffset(i);
-            ThreadExecutionState state(threadIndex, globalIndex);
-            result.emplace_back(state);
+    struct ThreadIterator {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = ThreadExecutionState;
+        using difference_type = ssize_t;
+        using pointer = const uint32_t*;
+        using reference = const uint32_t&;
+
+        bool operator == (const ThreadIterator & other) const
+        {
+            return current == other.current;
         }
-        return result;
-    }
+        bool operator != (const ThreadIterator & other) const = default;
+
+        ThreadIterator & operator++()
+        {
+            ++current;
+            return *this;
+        }
+
+        value_type operator * () const
+        {
+            return { firstThreadIndex.linearOffset(current), globalIndex };
+        }
+
+        size_t current = 0;
+        GridIndex firstThreadIndex;
+        const GridIndex * globalIndex = nullptr;
+    };
+
+    ThreadIterator begin() const { return { 0, firstThreadIndex, globalIndex }; }
+    ThreadIterator end() const { return { threadsPerSimdGroup, firstThreadIndex, globalIndex }; }
 
     GridIndex firstThreadIndex;
     size_t threadsPerSimdGroup = 0;
@@ -696,7 +919,7 @@ struct SimdGroupExecutionState {
 struct ThreadGroupExecutionState {
     ThreadGroupExecutionState(GridIndex globalIndex, const GridBounds * localBounds,
                               std::byte * localMem,
-                              std::map<std::string, size_t> localMemOffsets)
+                              const std::map<std::string, std::tuple<size_t, size_t> > & localMemOffsets)
         : globalIndex(globalIndex), localBounds(localBounds), localMem(localMem),
           localMemOffsets(std::move(localMemOffsets))
     {
@@ -705,16 +928,18 @@ struct ThreadGroupExecutionState {
     }
 
     template<typename T>
-    T * getLocal(const char * name) const
+    Span<T, true, true> getLocal(const char * name) const
     {
         auto it = localMemOffsets.find(name);
         if (it == localMemOffsets.end()) {
             throw MLDB::Exception("Couldn't find local memory for %s in %zd values", name, localMemOffsets.size());
         }
-        std::byte * p = localMem + it->second;
+        auto [start, length] = it->second;
+        std::byte * p = localMem + start;
         size_t s = (size_t)p;
         ExcAssertEqual(s % alignof(T), 0);
-        return (T *)p;
+        //ExcAssertEqual(length % sizeof(T), 0);  // TODO: code smell... why does this throw?
+        return {(T *)p, length / sizeof(T)};
     }
 
     size_t numSimdGroups() const
@@ -723,6 +948,54 @@ struct ThreadGroupExecutionState {
         size_t threadsPerSimdGroup = std::min<size_t>(32, workGroupSize);
         ExcAssertEqual(workGroupSize % threadsPerSimdGroup, 0);
         return workGroupSize / threadsPerSimdGroup;
+    }
+
+    struct SimdGroupIterator {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = SimdGroupExecutionState;
+        using difference_type = ssize_t;
+        using pointer = const uint32_t*;
+        using reference = const uint32_t&;
+
+        bool operator == (const SimdGroupIterator & other) const
+        {
+            return current == other.current;
+        }
+        bool operator != (const SimdGroupIterator & other) const = default;
+
+        SimdGroupIterator & operator++()
+        {
+            current += threadsPerSimdGroup;
+            return *this;
+        }
+
+        value_type operator * () const
+        {
+            return { {current, localBounds}, threadsPerSimdGroup, globalIndex };
+        }
+
+        size_t current = 0;
+        size_t threadsPerSimdGroup;
+        const GridBounds * localBounds;
+        const GridIndex * globalIndex;
+    };
+
+    SimdGroupIterator begin() const
+    {
+        size_t workGroupSize = localBounds->getLinearSize();
+        size_t threadsPerSimdGroup = std::min<size_t>(32, workGroupSize);
+        ExcAssertEqual(workGroupSize % threadsPerSimdGroup, 0);
+
+        return { 0, threadsPerSimdGroup, localBounds, &globalIndex };
+    }
+
+    SimdGroupIterator end() const
+    {
+        size_t workGroupSize = localBounds->getLinearSize();
+        size_t threadsPerSimdGroup = std::min<size_t>(32, workGroupSize);
+        ExcAssertEqual(workGroupSize % threadsPerSimdGroup, 0);
+
+        return { localBounds->getProd(3), threadsPerSimdGroup, localBounds, &globalIndex };
     }
 
     std::vector<SimdGroupExecutionState> simdGroups() const
@@ -742,7 +1015,7 @@ struct ThreadGroupExecutionState {
     GridIndex globalIndex;
     const GridBounds * localBounds;
     std::byte * localMem;
-    std::map<std::string, size_t> localMemOffsets;
+    const std::map<std::string, std::tuple<size_t, size_t> > & localMemOffsets;
 };
 
 enum BarrierKind {
@@ -843,17 +1116,32 @@ void registerCpuKernel(const std::string & libraryName, const std::string & func
 
         auto launch = [fn] (GridComputeQueue & queue, const std::string & opName, const std::any & argsAny,
                             const std::vector<size_t> & grid, const std::vector<size_t> & block,
-                            size_t localMemBytesRequired, const std::map<std::string, size_t> & localMemOffsets)
+                            size_t localMemBytesRequired, const std::map<std::string, std::tuple<size_t, size_t> > & localMemOffsets)
         {
             const auto & args = std::any_cast<const std::tuple<Args...> &>(argsAny);
             GridBounds gridBounds(grid);
             GridBounds blockBounds(block);
 
-            uint64_t localMem[(localMemBytesRequired + 7) / 8];
+            if (true) {
+                uint64_t localMem[(localMemBytesRequired + 7) / 8];
+                for (GridIndex globalIndex: gridBounds) {
+                    ThreadGroupExecutionState state(globalIndex, &blockBounds, (std::byte *)&localMem, localMemOffsets);
+                    HostComputeKernel::apply(fn, args, state);
+                }
+            }
+            else {
+                GridBounds::Iterator first = gridBounds.begin();
 
-            for (GridIndex globalIndex: gridBounds) {
-                ThreadGroupExecutionState state(globalIndex, &blockBounds, (std::byte *)&localMem, localMemOffsets);
-                HostComputeKernel::apply(fn, args, state);
+                auto runThread = [&] (size_t n)
+                {
+                    GridBounds::Iterator it = first + n;
+                    GridIndex globalIndex = *it;
+                    uint64_t localMem[(localMemBytesRequired + 7) / 8];
+                    ThreadGroupExecutionState state(globalIndex, &blockBounds, (std::byte *)&localMem, localMemOffsets);
+                    HostComputeKernel::apply(fn, args, state);
+                };
+
+                MLDB::parallelMap(0, gridBounds.getLinearSize(), runThread);
             }
         };
 
@@ -869,5 +1157,6 @@ void registerCpuKernel(const std::string & libraryName, const std::string & func
 
     registerCpuKernelImpl(libraryName, functionName, std::move(initialize));
 }
+
 
 }  // namespace MLDB

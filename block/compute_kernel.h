@@ -64,6 +64,7 @@ DECLARE_ENUM_DESCRIPTION(MemoryRegionInitialization);
 struct ComputeDevice {
     static constexpr ComputeDevice none() { return { ComputeRuntimeId::NONE, 0, 0, 0, 0 }; }
     static constexpr ComputeDevice host() { return { ComputeRuntimeId::HOST, 0, 0, 0, 0 }; }
+    static constexpr ComputeDevice cpu()  { return { ComputeRuntimeId::CPU,  0, 0, 0, 0 }; }
 
     // Return the default device for the given runtime (as chosen by the runtime
     // itself).

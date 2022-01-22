@@ -11,7 +11,7 @@ var import_data_conf = {
         runOnCreation: true,
         encoding: 'ascii',
         ignoreBadLines: true,
-        limit: 10000000,//10000000,
+        limit: 100,//10000000,
     }
 };
 
@@ -53,8 +53,8 @@ var benchmark_conf = {
         modelFileUrl: "file://tmp/benchmark-airlines.cls",
         functionName: "classifyme",
         featureVectorSamplings : 1, //5,
-        featureSamplings : 20, //20,
-        maxDepth :19, // 0 based; maxDepth = 0 will train a depth 1 tree
+        featureSamplings : 2, //20,
+        maxDepth :2, // 0 based; maxDepth = 0 will train a depth 1 tree
         verbosity : 0,
     }
 };

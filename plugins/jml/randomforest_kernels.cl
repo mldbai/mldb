@@ -29,6 +29,13 @@ typedef uint32_t atomic_uint;
 #define ukl_threadgroup_barrier() barrier(CLK_LOCAL_MEM_FENCE)
 #define atom_load(addr) (*(addr))
 #define atom_store(addr, val) ((*(addr)) = val)
+#define atom_load_local atom_load
+#define atom_store_local atom_store
+#define atom_add_local atom_add
+#define atom_sub_local atom_sub
+#define atom_or_local atom_or
+#define atom_inc_local atom_inc
+#define atom_dec_local atom_dec
 
 #define SYNC_FUNCTION(Version, Return, Name) Return Name
 #define SYNC_RETURN(Val) return Val;

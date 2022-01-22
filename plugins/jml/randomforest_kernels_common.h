@@ -20,7 +20,7 @@ inline uint64_t createMask64(uint32_t numBits)
     return numBits >= 64 ? -1 : (((uint64_t)1 << numBits) - 1);
 }
 
-inline uint64_t extractBitRange64(__global const uint64_t * data,
+inline uint64_t extractBitRange64(ROBUFFER(uint64_t) data,
                                   uint32_t numBits,
                                   uint32_t entryNumber,
                                   uint64_t mask,
@@ -70,7 +70,7 @@ inline uint64_t extractBitRange64(__global const uint64_t * data,
     return val;
 }
 
-inline uint16_t extract16BitRange32(__global const uint32_t * data,
+inline uint16_t extract16BitRange32(ROBUFFER(uint32_t) data,
                                     uint16_t numBits,
                                     uint32_t entryNumber)
 {
@@ -85,7 +85,7 @@ inline uint16_t extract16BitRange32(__global const uint32_t * data,
         return extract_bits(data[wordNumber], wordOffset, bottomBits);
     }
     else {
-        uint2 words = *(const __global uint2 *)(data + wordNumber);
+        uint2 words = CAST_ROBUFFER(data + wordNumber, uint2)[0];
         uint16_t bottom = extract_bits(words[0], wordOffset, bottomBits);
         return bottom | extract_bits(words[1], 0, topBits) << bottomBits;
     }
@@ -98,7 +98,7 @@ typedef enum WeightFormat {
 } WeightFormat;
 
 inline float decodeWeight(uint32_t bits, WeightFormat floatEncoding, float baseMultiplier,
-                   __global const float * table)
+                   ROBUFFER(float) table)
 {
     if (floatEncoding == WF_INT_MULTIPLE || true) {
         return bits * baseMultiplier;
@@ -120,7 +120,7 @@ typedef struct DecodedRow {
 
 DecodedRow getDecodedRow(uint32_t rowNumber,
 
-                   __global const uint64_t * rowData,
+                   ROBUFFER(uint64_t) rowData,
                    uint32_t rowDataLength,
                    uint32_t totalBits,
                    uint32_t weightBits,
@@ -129,7 +129,7 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
 
                    WeightFormat weightEncoding,
                    float weightMultiplier,
-                   __global const float * weightTable,
+                   ROBUFFER(float) weightTable,
                    
                    uint64_t mask,
                    uint32_t exampleMask,
@@ -138,7 +138,7 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
 
 DecodedRow getDecodedRow(uint32_t rowNumber,
 
-                   __global const uint64_t * rowData,
+                   ROBUFFER(uint64_t) rowData,
                    uint32_t rowDataLength,
                    uint32_t totalBits,
                    uint32_t weightBits,
@@ -147,7 +147,7 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
 
                    WeightFormat weightEncoding,
                    float weightMultiplier,
-                   __global const float * weightTable,
+                   ROBUFFER(float) weightTable,
                    
                    uint64_t mask,
                    uint32_t exampleMask,
@@ -174,7 +174,7 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
 }
 
 inline uint16_t getBucket(uint32_t exampleNum,
-                          __global const uint32_t * bucketData,
+                          ROBUFFER(uint32_t) bucketData,
                           uint32_t bucketDataLength,
                           uint32_t bucketBits,
                           uint32_t numBuckets)
@@ -203,7 +203,7 @@ typedef struct WIndexed {
 #define W_INIT { { 0, 0}, 0 }
 #define W_INDEXED_INIT { W_INIT, 0 }
 
-inline void zeroW(__local W * w)
+inline void zeroW(RWLOCAL(W) w)
 {
     w->vals[0] = 0;
     w->vals[1] = 0;
@@ -234,16 +234,17 @@ inline void incrementWLocal(__local W * wIn, bool label, float weight)
 {
     __local WAtomic * w = (__local WAtomic *)wIn;
     int32_t inc = encodeW(weight);
-    atom_add(&w->vals[label ? 1 : 0], inc);
-    atom_inc(&w->count);
+    atom_add_local(&w->vals[label ? 1 : 0], inc);
+    atom_inc_local(&w->count);
 }
 
 inline void decrementWLocal(__local W * wIn, bool label, float weight)
 {
     __local WAtomic * w = (__local WAtomic *)wIn;
     int32_t inc = encodeW(weight);
-    atom_sub(&w->vals[label ? 1 : 0], inc);
-    atom_dec(&w->count);
+    ExcAssert(wIn->count > 0);
+    atom_sub_local(&w->vals[label ? 1 : 0], inc);
+    atom_dec_local(&w->count);
 }
 
 inline void incrementWGlobal(__global W * wIn, bool label, float weight)
@@ -271,11 +272,12 @@ inline void decrementWOutGlobal(__global W * wOut_, __global const W * wIn)
     __global WAtomic * wOut = (__global WAtomic *)wOut_;
     if (wIn->count == 0)
         return;
+    ExcAssert(wOut->count >= wIn->count);
     if (wIn->vals[0] != 0)
         atom_sub(&wOut->vals[0], wIn->vals[0]);
     if (wIn->vals[1] != 0)
         atom_sub(&wOut->vals[1], wIn->vals[1]);
-    atom_sub(&wOut->count,   wIn->count);
+    atom_sub(&wOut->count, wIn->count);
 }
 
 // Take a bit-compressed representation of rows, and turn it into a
@@ -285,7 +287,7 @@ inline void decrementWOutGlobal(__global W * wOut_, __global const W * wIn)
 // This is a 1D kernel over the array of rows, not very complicated
 
 inline void
-decompressRowsImpl(__global const uint64_t * rowData,
+decompressRowsImpl(ROBUFFER(uint64_t) rowData,
                          uint32_t rowDataLength,
                          uint16_t weightBits,
                          uint16_t exampleNumBits,
@@ -293,9 +295,9 @@ decompressRowsImpl(__global const uint64_t * rowData,
                      
                          WeightFormat weightFormat,
                          float weightMultiplier,
-                         __global const float * weightData,
+                         ROBUFFER(float) weightData,
                      
-                         __global float * decodedRowsOut,
+                         RWBUFFER(float) decodedRowsOut,
                          uint32_t workerId, uint32_t numWorkers)
 {
     uint32_t totalBits = weightBits + exampleNumBits + 1;  // 1 is for the label
@@ -319,34 +321,34 @@ decompressRowsImpl(__global const uint64_t * rowData,
 }
 
 uint32_t testRow(uint32_t rowId,
-                 __global const float * rowData,
+                 ROBUFFER(float) rowData,
                  uint32_t numRows,
                  
-                 __global const uint32_t * bucketData,
+                 ROBUFFER(uint32_t) bucketData,
                  uint32_t bucketDataLength,
                  uint32_t bucketBits,
                  uint32_t numBuckets,
 
-                 __local W * w,
-                 __global W * wOut,
+                 RWLOCAL(W) w,
+                 RWBUFFER(W) wOut,
                  uint32_t maxLocalBuckets);
 
-inline void printW(__global W * w)
+inline void printW(RWBUFFER(W) w)
 {
     //printf("{\"v\":[%f,%f],\"c\":%d}", decodeWf(w->vals[0]), decodeWf(w->vals[1]), w->count);
 }
 
 inline uint32_t testRow(uint32_t rowId,
-                 __global const float * rowData,
+                 ROBUFFER(float) rowData,
                  uint32_t numRows,
                  
-                 __global const uint32_t * bucketData,
+                 ROBUFFER(uint32_t) bucketData,
                  uint32_t bucketDataLength,
                  uint32_t bucketBits,
                  uint32_t numBuckets,
 
-                 __local W * w,
-                 __global W * wOut,
+                 RWLOCAL(W) w,
+                 RWBUFFER(W) wOut,
                  uint32_t maxLocalBuckets)
 {
     uint32_t exampleNum = rowId;
@@ -372,10 +374,10 @@ inline uint32_t testRow(uint32_t rowId,
     //}
 
     if (bucket < maxLocalBuckets) {
-        incrementWLocal(w + bucket, label, weight);
+        incrementWLocal(&w[bucket], label, weight);
     }
     else {
-        incrementWGlobal(wOut + bucket, label, weight);
+        incrementWGlobal(&wOut[bucket], label, weight);
     }
 
     return bucket;
@@ -383,19 +385,19 @@ inline uint32_t testRow(uint32_t rowId,
 
 SYNC_FUNCTION(v1,
 void, testFeatureImpl)
-                 (__global const float * decodedRows,
+                 (ROBUFFER(float) decodedRows,
                   uint32_t numRows, 
-                  __global const uint32_t * bucketData,
-                  __global const uint32_t * bucketDataOffsets,
-                  __global const uint32_t * bucketNumbers,
-                  __global const uint32_t * bucketEntryBits,
+                  ROBUFFER(uint32_t) bucketData,
+                  ROBUFFER(uint32_t) bucketDataOffsets,
+                  ROBUFFER(uint32_t) bucketNumbers,
+                  ROBUFFER(uint32_t) bucketEntryBits,
  
-                __global const uint32_t * activeFeatureList,
+                  ROBUFFER(uint32_t) activeFeatureList,
  
-                  __local W * w,
+                  RWLOCAL(W) w,
                   uint32_t maxLocalBuckets,
 
-                  __global W * partitionBuckets,
+                  RWBUFFER(W) partitionBuckets,
 
                   uint32_t featureIndex,
                   uint32_t threadGroupId, uint32_t threadGroupSize,
@@ -409,7 +411,7 @@ void, testFeatureImpl)
     bucketData += bucketDataOffset;
     uint32_t bucketBits = bucketEntryBits[f];
 
-    __global W * wOut = partitionBuckets + bucketNumbers[f];
+    RWBUFFER(W) wOut = partitionBuckets + bucketNumbers[f];
 
     //maxLocalBuckets = 0;  // TODO DEBUG ONLY
 
@@ -433,13 +435,13 @@ void, testFeatureImpl)
     
     for (uint32_t i = threadGroupId;  i < numBuckets && i < maxLocalBuckets;
          i += threadGroupSize) {
-        incrementWOut(wOut + i, w + i);
+        incrementWOut(&wOut[i], &w[i]);
     }
 
     SYNC_RETURN();
 }
 
-typedef struct {
+typedef struct PartitionSplit {
     float score;
     int16_t feature;
     int16_t value;
@@ -449,7 +451,7 @@ typedef struct {
 
 #define PARTITION_SPLIT_INIT { INFINITY, -1, -1, W_INIT, W_INIT }
 
-typedef struct {
+typedef struct IndexedPartitionSplit {
     float score;
     int16_t feature;
     int16_t value;
@@ -470,7 +472,7 @@ inline bool indexedPartitionSplitDirection(IndexedPartitionSplit split)
     return split.feature != -1 && split.left.count < split.right.count;
 }
 
-inline bool partitionSplitDirectionGlobal(__global const PartitionSplit * split)
+inline bool partitionSplitDirectionGlobal(ROBUFFER(PartitionSplit) split)
 {
     return partitionSplitDirection(*split);
 }
@@ -534,12 +536,12 @@ float scoreSplitWAll(W wTrue, W wAll)
 }
 
 #if 1
-void minW(__local WIndexed * out, __local const WIndexed * in, W wAll);
+void minW(RWLOCAL(WIndexed) out, RWLOCAL(const WIndexed) in, W wAll);
 
 /* In this function, we identify empty buckets (that should not be scored)
    by marking their index with -1.
 */
-void minW(__local WIndexed * out, __local const WIndexed * in, W wAll)
+void minW(RWLOCAL(WIndexed) out, RWLOCAL(const WIndexed) in, W wAll)
 {
     if (in->w.count == 0 || in->index < 0)
         return;
@@ -568,14 +570,14 @@ void minW(__local WIndexed * out, __local const WIndexed * in, W wAll)
 }
 #endif
 
-SYNC_FUNCTION(v1, void, prefixSumW) (__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_t numThreads);
+SYNC_FUNCTION(v1, void, prefixSumW) (RWLOCAL(WIndexed) w, uint32_t n, uint16_t threadIdx, uint16_t numThreads);
 
 #if 1
 // Post: start[0] <- start[0] + init
 //       start[n] <- sum(start[0...n]) + init
 // This is a low latency prefix sum, not work-minimizing
 SYNC_FUNCTION(v1,
-void, prefixSumW) (__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_t numThreads)
+void, prefixSumW) (RWLOCAL(WIndexed) w, uint32_t n, uint16_t threadIdx, uint16_t numThreads)
 {
     // iter 0
     // a b c d e f g h i j k l m n o p
@@ -658,6 +660,8 @@ void, prefixSumW) (__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_
 
                 // All threads read the same value (argIndex) and write a different
                 // element of the block (resultIndex)
+                // RWLOCAL_VALUE turns an expression giving an object with an address into a length
+                // one RWLOCAL array with the object.
                 incrementW(&w[resultIndex].w, &w[argIndex].w);
             }
         }
@@ -672,14 +676,14 @@ void, prefixSumW) (__local WIndexed * w, uint32_t n, uint16_t threadIdx, uint16_
 #endif
 
 SYNC_FUNCTION(v1,
-uint32_t, argMinScanW) (__local WIndexed * w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads);
+uint32_t, argMinScanW) (RWLOCAL(WIndexed) w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads);
 
 #if 1
 // Return the lowest index of the W array with a score equal to the minimum
 // score.  Only get_local_id(0) knows the actual correct result; the result
 // from the others should be ignored.
 SYNC_FUNCTION(v1,
-uint32_t, argMinScanW) (__local WIndexed * w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads)
+uint32_t, argMinScanW) (RWLOCAL(WIndexed) w, uint32_t n, W wAll, uint16_t threadIdx, uint16_t numThreads)
 {
     if (n == 0)
         SYNC_RETURN(0);
@@ -714,7 +718,7 @@ uint32_t, argMinScanW) (__local WIndexed * w, uint32_t n, W wAll, uint16_t threa
     SYNC_RETURN(w[n - 1].index);
 }
 #elif 0
-uint32_t argMinScanW(__local WIndexed * w, uint32_t n, W wAll)
+uint32_t argMinScanW(RWLOCAL(WIndexed) w, uint32_t n, W wAll)
 {
     if (get_local_id(0) == 0) {
         for (uint32_t i = 1;  i < n;  ++i) {
@@ -731,12 +735,12 @@ uint32_t argMinScanW(__local WIndexed * w, uint32_t n, W wAll)
 // Function that uses a single workgroup to scan all of the buckets in a split
 SYNC_FUNCTION(v1,
 PartitionSplit, chooseSplit)
-    (__global const W * w,
+    (ROBUFFER(W) w,
      uint32_t numBuckets,
      W wAll,
-     __local WIndexed * wLocal,
+     RWLOCAL(WIndexed) wLocal,
      uint32_t wLocalSize,
-     __local WIndexed * wStartBest,  // length 2
+     RWLOCAL(WIndexed) wStartBest,  // length 2
      bool ordinal,
      uint16_t threadIdx, uint16_t numThreads,
      uint16_t f,
@@ -757,10 +761,10 @@ PartitionSplit, chooseSplit)
     // do the prefix sum multiple times to fill it up completely
 
     // Contains the prefix sum from the previous iteration
-    __local WIndexed * wStart = wStartBest + 0;
+    RWLOCAL(WIndexed) wStart = wStartBest + 0;
 
     // Contains the best split from the previous iteration
-    __local WIndexed * wBest = wStartBest + 1;
+    RWLOCAL(WIndexed) wBest = wStartBest + 1;
     
     if (threadIdx == 0) {
         // Initialize wBest
@@ -850,7 +854,7 @@ PartitionSplit, chooseSplit)
         SYNC_CALL_5(argMinScanW, wLocal, numBucketsInIteration, wAll, threadIdx, numThreads);
 
         // Find if our new bucket is better than the last champion
-        minW(wBest, wLocal + numBucketsInIteration - 1, wAll);
+        minW(wBest, wLocal + (numBucketsInIteration - 1), wAll);
 
         ukl_threadgroup_barrier();
     }
@@ -926,29 +930,31 @@ typedef struct TreeTrainingInfo {
     uint16_t numFeatures;         ///< Number of total features
     uint16_t maxNumActivePartitions; ///< Maximum width of active partition tree
     uint32_t numActiveBuckets;    ///< Number of buckets across all active features
+    uint16_t featureSampling;     ///< Which feature sampling bag we belong to
+    uint16_t featureVectorSampling; ///< Which feature vector sampling bag we belong to
 } TreeTrainingInfo;
 
 // [bucket, feature, partition]
 SYNC_FUNCTION(v1,
 void, 
-getPartitionSplitsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
-                         __global const uint32_t * bucketNumbers, // [nf]
+getPartitionSplitsImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+                         ROBUFFER(uint32_t) bucketNumbers, // [nf]
                          
-                         __global const uint32_t * activeFeatureList, // [naf]
-                         __global const uint32_t * featureIsOrdinal, // [nf]
+                         ROBUFFER(uint32_t) activeFeatureList, // [naf]
+                         ROBUFFER(uint32_t) featureIsOrdinal, // [nf]
                          
-                         __global const W * buckets, // [np x totalBuckets]
+                         ROBUFFER(W) buckets, // [np x totalBuckets]
 
-                         __global const W * wAll,  // one per partition
-                         __global PartitionSplit * featurePartitionSplitsOut, // [np x nf]
+                         ROBUFFER(W) wAll,  // one per partition
+                         RWBUFFER(PartitionSplit) featurePartitionSplitsOut, // [np x nf]
 
-                         __global const TreeDepthInfo * treeDepthInfo,
+                         ROBUFFER(TreeDepthInfo) treeDepthInfo,
 
-                         __local WIndexed * wLocal,  // [wLocalSize]
+                         RWLOCAL(WIndexed) wLocal,  // [wLocalSize]
                          uint32_t wLocalSize,
-                         __local WIndexed * wStartBest, //[2]
+                         RWLOCAL(WIndexed) wStartBest, //[2]
 
-                         uint16_t featureId, uint16_t numActiveFeatures,
+                         uint16_t featureId, uint16_t numFeatureIds,
                          uint16_t workerId, uint16_t workGroupSize,
                          uint16_t partitionWorkerId, uint16_t partitionWorkerSize)
 {
@@ -963,11 +969,13 @@ getPartitionSplitsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
     assert(workGroupSize % 32 == 0);
     assert(partitionWorkerSize > 0);
 
-    const uint32_t totalBuckets = treeTrainingInfo->numActiveBuckets;
-    const uint32_t numActivePartitions = treeDepthInfo->numActivePartitions;
+    const uint32_t totalBuckets = treeTrainingInfo[0].numActiveBuckets;
+    const uint32_t numActivePartitions = treeDepthInfo[0].numActivePartitions;
 
     const uint16_t fidx = featureId;
-    const uint16_t naf = numActiveFeatures;
+    const uint16_t naf = treeTrainingInfo[0].numActiveFeatures;
+    if (fidx >= naf)
+        SYNC_RETURN();
 
     const uint16_t f = activeFeatureList[fidx];
 
@@ -991,7 +999,7 @@ getPartitionSplitsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
         PartitionSplit best = NONE;
 
         // Don't do inactive partitions
-        if (wAll[partition].count == 0) {
+        if (wAll[partition].count == 0 || wAll[partition].vals[0] == 0 || wAll[partition].vals[1] == 0) {
             if (workerId == 0) {
                 //printf("writing out inactive PartitionSplit part %d f %d idx %x\n", partition, f, partition * nf + f);
                 featurePartitionSplitsOut[partition * naf + fidx] = best;            
@@ -1000,7 +1008,7 @@ getPartitionSplitsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
         }
         
         // Find where our bucket data starts
-        __global const W * myW
+        ROBUFFER(W) myW
             = buckets
             + (totalBuckets * partition)
             + bucketStart;
@@ -1033,13 +1041,13 @@ typedef struct PartitionIndex {
 
 // id 0: partition number
 void
-bestPartitionSplitImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
-                         __global const TreeDepthInfo * treeDepthInfo,
-                         __global const uint32_t * activeFeatureList, // [numActiveFeatures]
-                         __global const PartitionSplit * featurePartitionSplits,
-                         __global const PartitionIndex * partitionIndexes,
-                         __global IndexedPartitionSplit * allPartitionSplitsOut,
-                         uint16_t workerId, uint16_t numWorkers)
+bestPartitionSplitImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+                       ROBUFFER(TreeDepthInfo) treeDepthInfo,
+                       ROBUFFER(uint32_t) activeFeatureList, // [numActiveFeatures]
+                       ROBUFFER(PartitionSplit) featurePartitionSplits,
+                       ROBUFFER(PartitionIndex) partitionIndexes,
+                       RWBUFFER(IndexedPartitionSplit) allPartitionSplitsOut,
+                       uint16_t workerId, uint16_t numWorkers)
 {
     const uint16_t numActiveFeatures = treeTrainingInfo->numActiveFeatures;
     const uint16_t numActivePartitions = treeDepthInfo->numActivePartitions;
@@ -1053,7 +1061,7 @@ bestPartitionSplitImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         //printf("partition %d has index %d\n", p, best.index);
         if (best.index == 0) {
             allPartitionSplitsOut[partition] = best;
-            return;
+            continue;
         }
         
         //printf("bestPartitionSplitKernel for partition %d\n", p);
@@ -1061,6 +1069,15 @@ bestPartitionSplitImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         // TODO: with lots of features this will become slow; we can have a workgroup cooperate
         for (uint32_t fidx = 0;  fidx < numActiveFeatures;  ++fidx) {
             const PartitionSplit split = featurePartitionSplits[partition * numActiveFeatures + fidx];
+            if (true) {
+                using namespace std;
+                std::ofstream splitsStream("tree-best-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                        + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                        + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                        + ".txt", std::ios_base::app);
+                splitsStream << "feat " << fidx << " part " << partition << " " << MLDB::RF::printPartitionSplit(split) << endl;
+            }
+
             //printf("feature %d active %d split %d score %f\n", f, activeFeatureList[f], featurePartitionSplits[f].value, featurePartitionSplits[f].score);
             if (split.value < 0)
                 continue;
@@ -1077,6 +1094,16 @@ bestPartitionSplitImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         //printf("partition %d offset %d feature %d value %d score %f\n", p, best.feature, best.value, best.score);
 
         allPartitionSplitsOut[partition] = best;
+
+        if (true) {
+            using namespace std;
+            std::ofstream splitsStream("tree-best-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                    + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                    + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                    + ".txt", std::ios_base::app);
+            splitsStream << "part " << partition << " best " << printIndexedPartitionSplit(best) << endl;
+        }
+
     }
 }
 
@@ -1132,14 +1159,14 @@ typedef struct AssignPartitionNumbersLocalState {
 
 SYNC_FUNCTION(v1,
 void,
-assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
-                             __global TreeDepthInfo * treeDepthInfo,
-                             __global const IndexedPartitionSplit * allPartitionSplits,
-                             __global PartitionIndex * partitionIndexesOut,
-                             __global PartitionInfo * partitionInfoOut,
-                             __global uint8_t * smallSideIndexesOut,
-                             __global uint16_t * smallSideIndexToPartitionOut,
-                             __local AssignPartitionNumbersLocalState * localState,
+assignPartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+                             RWBUFFER(TreeDepthInfo) treeDepthInfo,
+                             ROBUFFER(IndexedPartitionSplit) allPartitionSplits,
+                             RWBUFFER(PartitionIndex) partitionIndexesOut,
+                             RWBUFFER(PartitionInfo) partitionInfoOut,
+                             RWBUFFER(uint8_t) smallSideIndexesOut,
+                             RWBUFFER(uint16_t) smallSideIndexToPartitionOut,
+                             RWLOCAL(AssignPartitionNumbersLocalState) localState,
                              uint16_t workerId,
                              uint16_t workgroupSize)
 {
@@ -1224,7 +1251,7 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
 
     for (uint16_t i = 0;  i < numActivePartitions;  i += workgroupSize) {
         uint16_t p = i + workerId;
-        __global PartitionInfo * info = partitionInfoOut + p;
+        RWBUFFER(PartitionInfo) info = partitionInfoOut + p;
 
         bool discard = true;
         bool direction = false;
@@ -1332,6 +1359,13 @@ assignPartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
         }
     }
 
+#if UKL_CPU_BACKEND
+    if (workerId == 0) {
+        using namespace std;
+        cerr << printTreeDepthInfo(*treeDepthInfo) << endl;
+    }
+#endif
+
     SYNC_RETURN();
 }
 
@@ -1344,12 +1378,12 @@ typedef struct UpdateWorkEntry {
 
 // [partition, bucket]
 void
-clearBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
-                   __global const TreeDepthInfo * treeDepthInfo,
-                   __global W * bucketsOut,
-                   __global W * wAllOut,
-                   __global uint32_t * numNonZeroDirectionIndices,
-                   __constant const uint8_t * smallSideIndexes,
+clearBucketsImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+                   ROBUFFER(TreeDepthInfo) treeDepthInfo,
+                   RWBUFFER(W) bucketsOut,
+                   RWBUFFER(W) wAllOut,
+                   RWBUFFER(uint32_t) numNonZeroDirectionIndices,
+                   CONSTBUFFER(uint8_t) smallSideIndexes,
                    uint16_t partitionWorkerId, uint16_t partitionWorkgroupSize,
                    uint32_t bucket)
 {
@@ -1370,7 +1404,7 @@ clearBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
         if (!smallSideIndexes[partition])
             continue;
 
-        __global W * buckets = bucketsOut + partition * numActiveBuckets;
+        RWBUFFER(W) buckets = bucketsOut + partition * numActiveBuckets;
         
         buckets[bucket] = empty;
         if (bucket == 0) {
@@ -1399,26 +1433,26 @@ typedef struct UpdatePartitionNumbersLocalState {
 //[rowNumber]
 SYNC_FUNCTION(v1,
 void,
-updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
-                             __global const TreeDepthInfo * treeDepthInfo,
+updatePartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+                             ROBUFFER(TreeDepthInfo) treeDepthInfo,
 
-                             __global RowPartitionInfo * partitions,
-                             __global uint32_t * directions,
-                             __global uint32_t * numNonZeroDirectionIndices,
-                             __global UpdateWorkEntry * nonZeroDirectionIndices,
-                             __global const uint8_t * smallSideIndexes,
+                             RWBUFFER(RowPartitionInfo) partitions,
+                             RWBUFFER(uint32_t) directions,
+                             RWBUFFER(uint32_t) numNonZeroDirectionIndices,
+                             RWBUFFER(UpdateWorkEntry) nonZeroDirectionIndices,
+                             ROBUFFER(uint8_t) smallSideIndexes,
 
-                             __global const IndexedPartitionSplit * allPartitionSplits,
-                             __global const PartitionInfo * partitionInfo,
+                             ROBUFFER(IndexedPartitionSplit) allPartitionSplits,
+                             ROBUFFER(PartitionInfo) partitionInfo,
 
-                             __global const uint32_t * bucketData,
-                             __constant const uint32_t * bucketDataOffsets,
-                             __constant const uint32_t * bucketNumbers,
-                             __constant const uint32_t * bucketEntryBits,
-                             __constant const uint32_t * featureIsOrdinal,
+                             ROBUFFER(uint32_t) bucketData,
+                             CONSTBUFFER(uint32_t) bucketDataOffsets,
+                             CONSTBUFFER(uint32_t) bucketNumbers,
+                             CONSTBUFFER(uint32_t) bucketEntryBits,
+                             CONSTBUFFER(uint32_t) featureIsOrdinal,
 
-                             __global const float * decodedRows,
-                             __local UpdatePartitionNumbersLocalState * localState,
+                             ROBUFFER(float) decodedRows,
+                             RWLOCAL(UpdatePartitionNumbersLocalState) localState,
                              uint32_t workerIdInGrid, uint32_t numWorkersInGrid,
                              uint16_t workerIdInWorkgroup, uint16_t numWorkersInWorkgroup)
 {
@@ -1426,7 +1460,7 @@ updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
     uint32_t numRows = treeTrainingInfo->numRows;
     uint16_t numActivePartitions = treeDepthInfo->numActivePartitions;
 
-    __local uint16_t * smallSideIndexesCache = localState->smallSideIndexesCache;
+    RWLOCAL(uint16_t) smallSideIndexesCache = localState->smallSideIndexesCache;
 
     // Populate the cache of smallSideIndexes
     for (uint32_t b = workerIdInWorkgroup;  b < SSI_CACHE_SIZE && b < numActivePartitions; b += numWorkersInWorkgroup) {
@@ -1442,9 +1476,9 @@ updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
     //uint16_t simdGroupNum = get_local_id(0) / 32;
     //uint16_t simdLaneNum = get_local_id(0) % 32;
 
-    //__local uint32_t work_group_directions[32];  // 32 * 32 = 1024 bits at once, which is the SIMD width
+    //RWLOCAL(uint32_t work_group_directions[32];  // 32) 32 = 1024 bits at once, which is the SIMD width
 
-    __global atomic_uint * nonZeroDirectionCount = (__global atomic_uint *)numNonZeroDirectionIndices;
+    __global atomic_uint * nonZeroDirectionCount = &CAST_RWBUFFER(numNonZeroDirectionIndices, atomic_uint)[0];
 
     // Scratch for my simdgroup
     const uint16_t simdgroup_lane = workerIdInWorkgroup % 32;
@@ -1473,7 +1507,7 @@ updatePartitionNumbersImpl) (__constant const TreeTrainingInfo * treeTrainingInf
                 uint32_t splitBucketDataOffset = bucketDataOffsets[splitFeature];
                 //uint32_t splitBucketDataLength = bucketDataOffsets[splitFeature + 1] - splitBucketDataOffset;
                 //uint32_t splitNumBuckets = bucketNumbers[splitFeature + 1] - bucketNumbers[splitFeature];
-                __global const uint32_t * splitBucketData = bucketData + splitBucketDataOffset;
+                ROBUFFER(uint32_t) splitBucketData = bucketData + splitBucketDataOffset;
                 uint16_t splitBucketBits = bucketEntryBits[splitFeature];
 
                 uint16_t bucket = getBucket(r,
@@ -1535,40 +1569,44 @@ typedef struct UpdateBucketsLocalState {
 // [row, feature]
 SYNC_FUNCTION(v1,
 void,
-updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
-                    __global const TreeDepthInfo * treeDepthInfo,
-                    __global const RowPartitionInfo * partitions,
-                    __global const uint32_t * directions,
-                    __global const uint32_t * numNonZeroDirectionIndices,
-                    __global UpdateWorkEntry * nonZeroDirectionIndices,
-                    __global W * buckets,
-                    __global W * wAll,
-                    __constant const uint8_t * smallSideIndexes,
-                    __constant const uint16_t * smallSideIndexToPartition,
+updateBucketsImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+                    ROBUFFER(TreeDepthInfo) treeDepthInfo,
+                    ROBUFFER(RowPartitionInfo) partitions,
+                    ROBUFFER(uint32_t) directions,
+                    ROBUFFER(uint32_t) numNonZeroDirectionIndices,
+                    RWBUFFER(UpdateWorkEntry) nonZeroDirectionIndices,
+                    RWBUFFER(W) buckets,
+                    RWBUFFER(W) wAll,
+                    CONSTBUFFER(uint8_t) smallSideIndexes,
+                    CONSTBUFFER(uint16_t) smallSideIndexToPartition,
 
                     // Row data
-                    __global const float * decodedRows,
+                    ROBUFFER(float) decodedRows,
                     
                     // Feature data
-                    __global const uint32_t * bucketData,
-                    __global const uint32_t * bucketDataOffsets,
-                    __global const uint32_t * bucketNumbers,
-                    __global const uint32_t * bucketEntryBits,
+                    ROBUFFER(uint32_t) bucketData,
+                    ROBUFFER(uint32_t) bucketDataOffsets,
+                    ROBUFFER(uint32_t) bucketNumbers,
+                    ROBUFFER(uint32_t) bucketEntryBits,
 
-                    __global const uint32_t * activeFeatureList,
-                    __global const uint32_t * featureIsOrdinal,
+                    ROBUFFER(uint32_t) activeFeatureList,
+                    ROBUFFER(uint32_t) featureIsOrdinal,
 
-                    __local W * wLocal,
+                    RWLOCAL(W) wLocal,
                     uint16_t maxLocalBuckets,
-                    __local UpdateBucketsLocalState * localState,
+                    RWLOCAL(UpdateBucketsLocalState) localState,
 
                     int16_t featureWorkerId,
                     uint16_t workerIdInWorkgroup, uint16_t numWorkersInWorkgroup,
                     uint16_t workerIdInGrid, uint16_t numWorkersInGrid)
 {
     int16_t fidx = featureWorkerId - 1;  // -1 means wAll, otherwise it's the feature number
-    const uint16_t numActivePartitions = treeDepthInfo->numActivePartitions;
-    const uint32_t numActiveBuckets = treeTrainingInfo->numActiveBuckets;
+    const uint16_t numActivePartitions = treeDepthInfo[0].numActivePartitions;
+    const uint32_t numActiveBuckets = treeTrainingInfo[0].numActiveBuckets;
+    const uint16_t numActiveFeatures = treeTrainingInfo[0].numActiveFeatures;
+
+    if (fidx >= numActiveFeatures)
+        SYNC_RETURN();
 
     int16_t f = fidx == -1 ? -1 : activeFeatureList[fidx];
 
@@ -1583,7 +1621,7 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
     uint16_t numLocalBuckets;
             
     // Pointer to the global array we eventually want to update
-    __global W * wGlobal;
+    RWBUFFER(W) wGlobal;
 
     if (f == -1) {
         numBucketsPerPartition = 1;
@@ -1606,7 +1644,7 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
 
     // Most rows live in partitions with a number < 256; avoid main memory accesses for these
     // by caching in local memory
-    __local uint16_t * smallSideIndexCache = localState->smallSideIndexesCache;
+    RWLOCAL(uint16_t) smallSideIndexCache = localState->smallSideIndexesCache;
 
     // Clear our local accumulation buckets to get started
     for (uint32_t b = workerIdInWorkgroup;  b < numLocalBuckets; b += numWorkersInWorkgroup) {
@@ -1662,13 +1700,18 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
                 toBucketLocal = (smallPartitionIndex - 1) * numBucketsPerPartition + bucket;
         }
 
+        using namespace std;
+        cerr << "transferring " << i << " of " << numNonZero << " partition " << partition << " feature " << f 
+             << " ssr " << smallPartitionIndex
+             << " row " << r << ":" << decodedRow << " toBucketLocal " << toBucketLocal << " toBucketGlobal " << toBucketGlobal << endl;
+
         if (toBucketLocal < numLocalBuckets) {
             //atom_inc(&numLocalUpdates);
-            incrementWLocal(wLocal + toBucketLocal, label, weight);
+            incrementWLocal(&wLocal[toBucketLocal], label, weight);
         }
         else {
             //atom_inc(&numGlobalUpdates);
-            incrementWGlobal(wGlobal + toBucketGlobal, label, weight);
+            incrementWGlobal(&wGlobal[toBucketGlobal], label, weight);
         }
     }
 
@@ -1681,7 +1724,7 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
             //++numCopyLocalToGlobal;
             if (f == -1) {
                 uint32_t bucketNumberGlobal = smallSideIndexToPartition[b + 1];
-                incrementWOut(wGlobal + bucketNumberGlobal, wLocal + b);
+                incrementWOut(&wGlobal[bucketNumberGlobal], &wLocal[b]);
                 continue;
             }
 
@@ -1697,7 +1740,7 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
                     wLocal[b].count);
             }
 
-            incrementWOut(wGlobal + bucketNumberGlobal, wLocal + b);
+            incrementWOut(&wGlobal[bucketNumberGlobal], &wLocal[b]);
             //atomic_inc(&numGlobalUpdates);
         }
     }
@@ -1715,12 +1758,12 @@ updateBucketsImpl) (__constant const TreeTrainingInfo * treeTrainingInfo,
 // Dimension 1 = bucket number (from 0 to the number of active buckets); may be padded
 
 void
-fixupBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
-                   __global const TreeDepthInfo * treeDepthInfo,
-                   __global W * buckets,
-                   __global W * wAll,
-                   __global const PartitionInfo * partitionInfo,
-                   __global const uint8_t * smallSideIndexes,
+fixupBucketsImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+                   ROBUFFER(TreeDepthInfo) treeDepthInfo,
+                   RWBUFFER(W) buckets,
+                   RWBUFFER(W) wAll,
+                   ROBUFFER(PartitionInfo) partitionInfo,
+                   ROBUFFER(uint8_t) smallSideIndexes,
                    uint32_t bucket,
                    uint16_t partitionWorkerIdInGrid,
                    uint16_t partitionNumWorkersInGrid)
@@ -1731,9 +1774,17 @@ fixupBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
     if (j >= numActiveBuckets)
         return;
 
+    using namespace std;
+
     for (uint32_t partition = partitionWorkerIdInGrid;  partition < numActivePartitions;  partition += partitionNumWorkersInGrid) {
 
         PartitionInfo info = partitionInfo[partition];
+
+        using namespace std;
+        if (j == 0) {
+            cerr << "partition " << partition << " info.left = " << info.left << " info.right = " << info.right << endl;
+        }
+
         if (info.left == -1 || info.right == -1)
             continue;
 
@@ -1748,12 +1799,22 @@ fixupBucketsImpl(__constant const TreeTrainingInfo * treeTrainingInfo,
             from = info.right;
         }
 
-        __global W * bucketsFrom = buckets + from * numActiveBuckets;
-        __global W * bucketsTo = buckets + to * numActiveBuckets;
-        
-        decrementWOutGlobal(bucketsTo + j, bucketsFrom + j);
         if (j == 0) {
-            decrementWOutGlobal(wAll + to, wAll + from);
+            using namespace std;
+            cerr << "moving buckets from " << from << " to " << to << endl;
+        }
+
+        RWBUFFER(W) bucketsFrom = buckets + from * numActiveBuckets;
+        RWBUFFER(W) bucketsTo = buckets + to * numActiveBuckets;
+        
+        if (bucketsFrom[j].count > 0) {
+            cerr << "  bucket " << j << " subtracting "
+                 << printWYouFucker(&bucketsFrom[j]) << " from " << printWYouFucker(&bucketsTo[j]) << endl;
+        }
+
+        decrementWOutGlobal(&bucketsTo[j], &bucketsFrom[j]);
+        if (j == 0) {
+            decrementWOutGlobal(&wAll[to], &wAll[from]);
         }
     }
 }

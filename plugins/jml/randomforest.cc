@@ -590,7 +590,9 @@ extern EnvOption<bool> DEBUG_RF_KERNELS;
 
 ML::Tree::Ptr
 PartitionData::
-train(const std::string & debugName,
+train(int featureVectorSampling,
+      int featureSampling,
+      const std::string & debugName,
       int depth, int maxDepth,
       ML::Tree & tree,
       MappedSerializer & serializer,
@@ -611,13 +613,13 @@ train(const std::string & debugName,
     ML::Tree::Ptr part;
 
     if (trainingScheme == PARTITIONED && !DEBUG_RF_KERNELS) {
-        return trainPartitioned(debugName, depth, maxDepth, tree, serializer);
+        return trainPartitioned(featureVectorSampling, featureSampling, debugName, depth, maxDepth, tree, serializer);
     }
     else if (trainingScheme == BOTH_AND_COMPARE || DEBUG_RF_KERNELS) {
         if (depth == 0) {
             Timer timer;
             Date before = Date::now();
-            part = trainPartitioned(debugName, depth, maxDepth, tree, serializer);
+            part = trainPartitioned(featureVectorSampling, featureSampling, debugName, depth, maxDepth, tree, serializer);
             Date after = Date::now();
             cerr << "partitioned took " << after.secondsSince(before) * 1000.0
                 << "ms " << timer.elapsed() << endl;
@@ -671,8 +673,8 @@ train(const std::string & debugName,
     //cerr << "right had " << splits.second.rows.size() << " rows" << endl;
 
     ML::Tree::Ptr left, right;
-    auto runLeft = [&] () { left = splits.first.train(debugName, depth + 1, maxDepth, tree, serializer); splits.first.clear(); };
-    auto runRight = [&] () { right = splits.second.train(debugName, depth + 1, maxDepth, tree, serializer); splits.second.clear(); };
+    auto runLeft = [&] () { left = splits.first.train(featureVectorSampling, featureSampling, debugName, depth + 1, maxDepth, tree, serializer); splits.first.clear(); };
+    auto runRight = [&] () { right = splits.second.train(featureVectorSampling, featureSampling, debugName, depth + 1, maxDepth, tree, serializer); splits.second.clear(); };
 
     size_t leftRows = splits.first.rows.rowCount();
     size_t rightRows = splits.second.rows.rowCount();
@@ -745,7 +747,7 @@ struct FeatureSamplingTrainerKernel {
               const DatasetFeatureSpace & fs,
               const ComputeDevice & device);
 
-    std::vector<ML::Tree> trainPartitioned(const std::string & debugName, const std::vector<std::vector<int>> & featuresActive);
+    std::vector<ML::Tree> trainPartitioned(int featureVectorSampling, const std::string & debugName, const std::vector<std::vector<int>> & featuresActive);
 
     // Debugging name we use to identify this bucket
     std::string debugName;
@@ -1011,14 +1013,17 @@ struct FeatureSamplingTrainerPartition {
     void allocate(const std::vector<std::vector<int>> & allActiveFeaturesIn);
 
     // Initialize for a given activeFeatures
-    void init(const std::string & debugName,
+    void init(int featureSampling,
+              int featureVectorSampling,
+              const std::string & debugName,
               const std::vector<int> & activeFeaturesIn);
 
     // Train the currently initialized version
     std::tuple<std::shared_ptr<ComputeEvent>, MemoryArrayHandleT<IndexedPartitionSplit>, MemoryArrayHandleT<TreeDepthInfo>>
     scheduleTraining();
 
-    ML::Tree finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
+    ML::Tree finish(int treeNumber,
+                    MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
                     MemoryArrayHandleT<TreeDepthInfo> resultTreeDepthInfo);
 
     Date before, startDepth, startDescent, beforeMapping;
@@ -1275,7 +1280,9 @@ allocate(const std::vector<std::vector<int>> & activeFeaturesIn)
 
 void
 FeatureSamplingTrainerPartition::
-init(const std::string & debugName,
+init(int featureSampling,
+     int featureVectorSampling,
+     const std::string & debugName,
      const std::vector<int> & activeFeaturesIn)
 {
     const auto & context = owner.context;
@@ -1332,6 +1339,8 @@ init(const std::string & debugName,
     treeTrainingInfo.numFeatures = nf;
     treeTrainingInfo.maxNumActivePartitions = owner.maxPartitionCount;
     treeTrainingInfo.numRows = numRows;
+    treeTrainingInfo.featureSampling = featureSampling;
+    treeTrainingInfo.featureVectorSampling = featureVectorSampling;
 
     span<const TreeTrainingInfo> treeTrainingInfoSpan(&treeTrainingInfo, 1);
     depthQueue->enqueueCopyFromHost("fill treeTrainingInfo", deviceTreeTrainingInfo, treeTrainingInfo);
@@ -1452,7 +1461,7 @@ scheduleTraining()
 
         auto depthScope = trainMarker->enterScope("depth " + std::to_string(depth));
 
-        bool flushDepth = false; //false;  //true;  //false;//depth == 0;
+        bool flushDepth = true;//false; //false;  //true;  //false;//depth == 0;
 
 #if 0 // TODO
         // How big does our output partition splits array need to be to hold the maximum
@@ -1989,7 +1998,8 @@ scheduleTraining()
 
 ML::Tree
 FeatureSamplingTrainerPartition::
-finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
+finish(int treeNumber,
+       MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
        MemoryArrayHandleT<TreeDepthInfo> resultTreeDepthInfo)
 {
     const auto & context = owner.context;
@@ -2011,6 +2021,7 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
     auto allPartitionSplitsRegion = finishQueue->transferToHostSync("partitionSplits to CPU", resultPartitionSplits);
     std::span<const IndexedPartitionSplit> allPartitionSplits = allPartitionSplitsRegion.getConstSpan();
 
+
     finishQueue->finish();
     finishQueue.reset();
 
@@ -2018,7 +2029,7 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
     auto numFinishedPartitions = treeDepthInfo.numFinishedPartitions;
     auto depth = treeDepthInfo.depth + 1;
 
-    cerr << "numActivePartitions = " << numActivePartitions << " numFinishedPartitions = " << numFinishedPartitions
+    cerr << "tree number " << treeNumber << " numActivePartitions = " << numActivePartitions << " numFinishedPartitions = " << numFinishedPartitions
          << " depth = " << depth << " maxDepth = " << maxDepth << " status " << treeDepthInfo.status << endl;
 
     Date beforeSetupRecurse = Date::now();
@@ -2034,8 +2045,13 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
 
     ML::Tree tree;
 
+    std::ofstream resultsStream("tree-" + std::to_string(treeNumber) + ".txt");
+
+    resultsStream << jsonEncode(treeDepthInfo) << endl;
+
     for (size_t i = 0;  i < numFinishedPartitions;  ++i) {
         const IndexedPartitionSplit & split = allPartitionSplits[i];
+        resultsStream << jsonEncodeStr(split) << endl;
         if (split.index == PartitionIndex::none() || !split.valid()) {
             //cerr << "index " << i << " is not valid" << endl;
             continue;
@@ -2058,7 +2074,7 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
     }
 
     allPartitionSplitsRegion = {};
-    cerr << "partitions: finished " << numFinishedPartitions << " active " << numActivePartitions << endl;
+    cerr << this->debugName << " finishing partitions: finished " << numFinishedPartitions << " active " << numActivePartitions << endl;
     
     cerr << "got " << allSplits.size() << " splits and " << leaves.size() << " leaves" << endl;
 
@@ -2154,7 +2170,7 @@ finish(MemoryArrayHandleT<IndexedPartitionSplit> resultPartitionSplits,
 
 std::vector<ML::Tree>
 FeatureSamplingTrainerKernel::
-trainPartitioned(const std::string & debugName, const std::vector<std::vector<int>> & allActiveFeaturesIn)
+trainPartitioned(int featureVectorSampling, const std::string & debugName, const std::vector<std::vector<int>> & allActiveFeaturesIn)
 {
     FeatureSamplingTrainerPartition partition(*this, debugName);
     partition.allocate(allActiveFeaturesIn);
@@ -2168,7 +2184,7 @@ trainPartitioned(const std::string & debugName, const std::vector<std::vector<in
     for (size_t i = 0;  i < allActiveFeaturesIn.size();  ++i) {
         cerr << endl << ">>> scheduling bag " << i << " of " << allActiveFeaturesIn.size() << endl;
         try {
-            partition.init(debugName + " partition " + std::to_string(i), allActiveFeaturesIn[i]);
+            partition.init(i, featureVectorSampling, debugName + " partition " + std::to_string(i), allActiveFeaturesIn[i]);
             auto output = partition.scheduleTraining();
             outputs.emplace_back(std::move(output));
         } MLDB_CATCH_ALL {
@@ -2177,9 +2193,10 @@ trainPartitioned(const std::string & debugName, const std::vector<std::vector<in
     }
 
     // Now, wait for it to happen and turn the result into trees
-    for (auto [event, splits, info]: outputs) {
+    for (size_t i = 0;  i < outputs.size();  ++i) {
+        auto [event, splits, info] = outputs[i];
         event->await();
-        result.push_back(partition.finish(splits, info));
+        result.push_back(partition.finish(i, splits, info));
     }
 
     return result;
@@ -2187,10 +2204,13 @@ trainPartitioned(const std::string & debugName, const std::vector<std::vector<in
 
 EnvOption<bool> RF_USE_OPENCL("RF_USE_OPENCL", 1);
 EnvOption<bool> RF_USE_METAL("RF_USE_METAL", 1);
+EnvOption<bool> RF_USE_CPU("RF_USE_CPU", 0);
 EnvOption<bool> RF_DEBUG_COMPARE_KERNELS("RF_DEBUG_COMPARE_KERNELS", 1);
 
 ML::Tree::Ptr
-trainPartitionedEndToEnd(const std::string & debugName,
+trainPartitionedEndToEnd(int featureVectorSampling,
+                         int featureSampling,
+                         const std::string & debugName,
                          int depth, int maxDepth,
                          ML::Tree & tree,
                          MappedSerializer & serializer,
@@ -2201,7 +2221,7 @@ trainPartitionedEndToEnd(const std::string & debugName,
 {
     if (depth != 0) {
         return trainPartitionedEndToEndCpu(debugName, depth, maxDepth, tree, serializer,
-                                        rows, features, bucketMemory, fs);
+                                           rows, features, bucketMemory, fs);
     }
 
     ComputeDevice device;
@@ -2228,18 +2248,20 @@ trainPartitionedEndToEnd(const std::string & debugName,
 
     FeatureSamplingTrainerKernel trainer;
     trainer.init(debugName, maxDepth, serializer, rows, features, bucketMemory, fs, device);
-    tree = trainer.trainPartitioned(debugName, {featuresActive})[0];
+    tree = trainer.trainPartitioned(featureVectorSampling, /* featureSampling, */ debugName, {featuresActive})[0];
     return tree.root;
 }
 
 ML::Tree::Ptr
 PartitionData::
-trainPartitioned(const std::string & debugName,
+trainPartitioned(int featureVectorSampling,
+                 int featureSampling,
+                 const std::string & debugName,
                  int depth, int maxDepth,
                  ML::Tree & tree,
                  MappedSerializer & serializer) const
 {
-    return trainPartitionedEndToEnd(debugName, depth, maxDepth, tree, serializer,
+    return trainPartitionedEndToEnd(featureVectorSampling, featureSampling, debugName, depth, maxDepth, tree, serializer,
                                     rows, features, bucketMemory, *fs);
 }
 
@@ -2248,7 +2270,8 @@ trainPartitioned(const std::string & debugName,
 // Will eventually reuse much of the work in the partitioned case
 std::vector<ML::Tree>
 PartitionData::
-trainMultipleSamplings(const std::string & debugName,
+trainMultipleSamplings(int featureVectorSampling,
+                       const std::string & debugName,
                        int maxDepth,
                        const std::vector<std::vector<int>> & featuresActive,
                        MappedSerializer & serializer,
@@ -2268,6 +2291,9 @@ trainMultipleSamplings(const std::string & debugName,
         else if (RF_USE_OPENCL) {
             device = ComputeDevice::defaultFor(ComputeRuntimeId::OPENCL);
         }
+        else if (RF_USE_CPU) {
+            device = ComputeDevice::defaultFor(ComputeRuntimeId::CPU);
+        }
         else {
             device = ComputeDevice::host();
         }
@@ -2277,7 +2303,7 @@ trainMultipleSamplings(const std::string & debugName,
         try {
             FeatureSamplingTrainerKernel trainer;
             trainer.init(debugName, maxDepth, serializer, rows, features, bucketMemory, *fs, device);
-            result = trainer.trainPartitioned(debugName, featuresActive);
+            result = trainer.trainPartitioned(featureVectorSampling, debugName, featuresActive);
         } MLDB_CATCH_ALL {
             rethrowException(400, "Error training partition " + debugName);
         }
@@ -2294,7 +2320,7 @@ trainMultipleSamplings(const std::string & debugName,
                 for (auto & f: featuresActive.at(i))
                     myData.features.at(f).active = true;
                 
-                result[i].root = myData.train(debugName, 0, maxDepth, result[i], serializer, trainingScheme);
+                result[i].root = myData.train(featureVectorSampling, i, debugName, 0, maxDepth, result[i], serializer, trainingScheme);
                 ExcAssert(result[i].root);
             } MLDB_CATCH_ALL {
                 rethrowException(400, "Error training tree " + std::to_string(i), "tree", i);

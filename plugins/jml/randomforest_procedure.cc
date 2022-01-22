@@ -447,7 +447,7 @@ run(const ProcedureRunConfig & run,
             std::vector<ML::Tree> trees;
 
             try {
-                trees = data.trainMultipleSamplings(debugName, runProcConf.maxDepth, samplingActiveFeatures, serializer);
+                trees = data.trainMultipleSamplings(bag, debugName, runProcConf.maxDepth, samplingActiveFeatures, serializer);
             } MLDB_CATCH_ALL {
                 rethrowException(400, "error training " + debugName, "bag", bag);
             }

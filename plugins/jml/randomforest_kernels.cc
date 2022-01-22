@@ -138,6 +138,23 @@ getPartitionSplitsKernel(ComputeContext & context,
             = chooseSplitKernel(wFeature, maxBucket, featureIsOrdinal[f], wAll[p], false /* debug */);
         result.feature = result.score == INFINITY ? -1 : f;
     }
+
+    if (true) {
+        using namespace std;
+        std::ofstream splitsStream("tree-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        splitsStream << "feat " << fidx << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  " << i << jsonEncodeStr(splitsOut[i * naf + fidx]) << endl;
+        }
+        splitsStream << "wall " << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  " << i << jsonEncodeStr(wAll[i]) << endl;
+        }
+    }
+
 }
 
 // Reduction over the feature columns from the getPartitionSplitsKernel, where
@@ -168,6 +185,16 @@ bestPartitionSplitKernel(ComputeContext & context,
 
         for (size_t fidx = 0;  fidx < naf;  ++fidx) {
             const PartitionSplit & fp = featurePartitionSplits[p * naf + fidx];
+
+            if (true) {
+                using namespace std;
+                std::ofstream splitsStream("tree-best-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                        + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                        + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                        + ".txt", std::ios_base::app);
+                splitsStream << "feat " << fidx << " part " << p << " " << jsonEncodeStr(fp) << endl;
+            }
+
             if (fp.score == INFINITY)
                 continue;
             //cerr << "kernel: partition " << p << " feature " << f << " score " << fp.score << endl;
@@ -175,6 +202,16 @@ bestPartitionSplitKernel(ComputeContext & context,
                 result.PartitionSplit::operator = (fp);
             }
         }
+
+        if (true) {
+            using namespace std;
+            std::ofstream splitsStream("tree-best-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                    + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                    + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                    + ".txt", std::ios_base::app);
+            splitsStream << "part " << p << " best " << jsonEncodeStr(result) << endl;
+        }
+
     }
 }
 
@@ -266,7 +303,7 @@ assignPartitionNumbersKernel(ComputeContext & context,
             // mapping.
             if (ssi < 254) {
                 uint8_t idx = ++ssi;
-                cerr << "minorPartitionNumber = " << minorPartitionNumber << " idx = " << (int)idx << endl;
+                //cerr << "minorPartitionNumber = " << minorPartitionNumber << " idx = " << (int)idx << endl;
                 smallSideIndexesOut[minorPartitionNumber] = idx;
                 smallSideIndexToPartitionOut[idx] = minorPartitionNumber;
             }
@@ -339,6 +376,31 @@ assignPartitionNumbersKernel(ComputeContext & context,
     }
 
     cerr << "on exit: treeDepthInfo = " << jsonEncodeStr(treeDepthInfo[0]) << endl;
+
+    if (true) {
+        using namespace std;
+        std::ofstream splitsStream("tree-partition-numbers-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        splitsStream << jsonEncodeStr(treeDepthInfo[0]) << endl;
+        splitsStream << "partitionIndexes" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << i << " " << partitionIndexesOut[i].index << endl;
+        }
+        splitsStream << "partitionInfo" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].prevNumActivePartitions;  ++i) {
+            splitsStream << i << " " << partitionInfoOut[i].left << "," << partitionInfoOut[i].right << endl;
+        }
+        splitsStream << "smallSideIndexes" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << i << " " << (int)smallSideIndexesOut[i] << endl;
+        }
+        splitsStream << "smallSideIndexToPartition" << endl;
+        for (size_t i = 0;  i < min<size_t>(256, treeDepthInfo[0].numActivePartitions/2);  ++i) {
+            splitsStream << i << " " << smallSideIndexToPartitionOut[i] << endl;
+        }
+    }
 }
 
 // After doubling the number of buckets, this clears the wAll and allPartitionBuckets
@@ -530,6 +592,18 @@ updatePartitionNumbersKernel(ComputeContext & context,
 
     writeDirection();
     numNonZeroDirectionIndices[0] =  numNonZero;
+
+    if (true) {
+        using namespace std;
+        std::ofstream splitsStream("tree-partitions-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        for (size_t i = 0;  i < treeTrainingInfo[0].numRows;  ++i) {
+            splitsStream << "  " << i << " " << partitions[i].partition() << endl;
+        }
+    }
+
 }
 
 void
@@ -625,6 +699,10 @@ updateBucketsKernel(ComputeContext & context,
             toBucket = partition * numActiveBuckets + startBucket + bucket;
         }
 
+        using namespace std;
+        cerr << "transferring " << i << " of " << numWorkItems << " partition " << partition << " feature " << f
+             << " row " << r << ":" << decodedRow << " toBucket " << toBucket << endl;
+
         //cerr << "  " << i << " transferring row " << r << " to partition " << partition << " bucket " << toBucket << endl;
 
         float weight = fabs(decodedRow);
@@ -665,6 +743,10 @@ fixupBucketsKernel(ComputeContext & context,
     for (uint32_t partition = 0;  partition < numActivePartitions;  ++partition) {
 
         const PartitionInfo & info = partitionInfo[partition];
+
+        using namespace std;
+        cerr << "partition " << partition << " info.left = " << info.left << " info.right = " << info.right << endl;
+
         if (info.ignore())
             continue;
 
@@ -685,6 +767,8 @@ fixupBucketsKernel(ComputeContext & context,
 
         ExcAssertGreaterEqual(wAll[to].count(), wAll[from].count());
 
+        cerr << "moving buckets from " << from << " to " << to << endl;
+
         std::span<W> bucketsFrom
             = allPartitionBuckets.subspan(from * numActiveBuckets, numActiveBuckets);
         std::span<W> bucketsTo
@@ -693,6 +777,11 @@ fixupBucketsKernel(ComputeContext & context,
         bool hasZero = false;
         for (uint32_t bucket: bucketRange) {
             hasZero = hasZero || bucket == 0;
+            if (bucketsFrom[bucket].count() > 0) {
+                cerr << "  bucket " << bucket << " subtracting "
+                    << jsonEncodeStr(bucketsFrom[bucket]) << " from " << jsonEncodeStr(bucketsTo[bucket]) << endl;
+            }
+
             bucketsTo[bucket] -= bucketsFrom[bucket];
         }
 
@@ -701,6 +790,23 @@ fixupBucketsKernel(ComputeContext & context,
             // wAll: partitions " << from << " = " << jsonEncodeStr(wAll[from])
             //     << " by subtracting " << to << " = " << jsonEncodeStr(wAll[to]) << endl;
             wAll[to] -= wAll[from];
+        }
+    }
+
+    if (true) {
+        std::ofstream splitsStream("tree-buckets-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        splitsStream << "wAll" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  " << i << " " << jsonEncodeStr(wAll[i]) << endl;
+        }
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  part " << i << endl;
+            for (size_t j = 0;  j < treeTrainingInfo[0].numActiveBuckets;  ++j) {
+                splitsStream << "    bucket " << j << jsonEncodeStr(allPartitionBuckets[i * treeTrainingInfo[0].numActiveBuckets + j]) << endl;
+            }
         }
     }
 }

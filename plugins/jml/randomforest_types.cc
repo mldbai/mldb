@@ -241,6 +241,30 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(TreeDepthInfo)
 REGISTER_VALUE_DESCRIPTION(TreeDepthInfo);
 REGISTER_VALUE_DESCRIPTION_ALIAS(TreeDepthInfo);
 
+std::string printTreeDepthInfo(const TreeDepthInfo & info)
+{
+    return jsonEncodeStr(info);
+}
+
+std::string printPartitionSplit(const PartitionSplit & split)
+{
+    return jsonEncodeStr(split);
+}
+
+std::string printIndexedPartitionSplit(const IndexedPartitionSplit & split)
+{
+    return jsonEncodeStr(split);
+}
+
+std::string printW(const void * w)
+{
+    return jsonEncodeStr(*reinterpret_cast<const W32 *>(w));
+}
+
+std::string printWYouFucker(const void * w)
+{
+    return jsonEncodeStr(*reinterpret_cast<const W32 *>(w));
+}
 
 } // namespace RF
 } // namespace MLDB

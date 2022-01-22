@@ -197,7 +197,7 @@ struct CPUBindContext: public GridBindContext {
     std::any argTuple;
     std::vector<bool> isBound;
     size_t numBound = 0;
-    std::map<std::string, size_t> threadGroupMemoryOffsets;
+    std::map<std::string, std::tuple<size_t, size_t>> threadGroupMemoryOffsets;
     size_t threadGroupMemoryRequired = 0;
 
     void setIsBound(int argNum)
@@ -238,7 +238,7 @@ struct CPUBindContext: public GridBindContext {
         setIsBound(argNum);
         auto & arg = kernel->cpuFunction->argumentInfo.at(argNum);
 
-        threadGroupMemoryOffsets[arg.name] = threadGroupMemoryRequired;
+        threadGroupMemoryOffsets[arg.name] = { threadGroupMemoryRequired, nBytes };
         threadGroupMemoryRequired += nBytes;
     }
 
@@ -693,8 +693,6 @@ void registerCpuKernelImpl(const std::string & libraryName, const std::string & 
 
 // CPUComputeRuntime
 
-EnvOption<int> CPU_DEFAULT_DEVICE("CPU_DEFAULT_DEVICE", -1);
-
 struct CPUComputeRuntime: public ComputeRuntime {
 
     CPUComputeRuntime()
@@ -722,13 +720,13 @@ struct CPUComputeRuntime: public ComputeRuntime {
 
     virtual ComputeDevice getDefaultDevice() const
     {
-        return ComputeDevice::host();
+        return ComputeDevice::cpu();
     }
 
     // Enumerate the devices available for this runtime
     virtual std::vector<ComputeDevice> enumerateDevices() const
     {
-        return { ComputeDevice::host() };
+        return { ComputeDevice::cpu() };
     }
 
     // Get a compute context for this runtime
@@ -738,7 +736,7 @@ struct CPUComputeRuntime: public ComputeRuntime {
         if (devices.size() != 1) {
             throw MLDB::Exception("CPU Compute Kernel driver only can accept a single device");
         }
-        ExcAssertEqual(devices[0], ComputeDevice::host());
+        ExcAssertEqual(devices[0], ComputeDevice::cpu());
         return std::make_shared<CPUComputeContext>();
     }
 

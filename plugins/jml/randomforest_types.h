@@ -656,6 +656,8 @@ struct TreeTrainingInfo {
     uint16_t numFeatures = 0;         ///< Number of total features
     uint16_t maxNumActivePartitions = 0; ///< Maximum width of active partition tree
     uint32_t numActiveBuckets = 0;    ///< Number of buckets across all active features
+    uint16_t featureSampling = 0;     ///< Which feature sampling bag we belong to
+    uint16_t featureVectorSampling = 0; ///< Which feature vector sampling bag we belong to
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(TreeTrainingInfo);

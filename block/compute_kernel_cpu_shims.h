@@ -131,13 +131,13 @@ struct coro_state_t {
         return h_.done() && h_.promise().kind_ == CRT_VALUE;
     }
 
-    BarrierOp get_barrier()
+    const BarrierOp & get_barrier()
     {
         fill();
         full_ = false;
         const auto & p = h_.promise();
         ExcAssertEqual(p.kind_, CRT_BARRIER);
-        return std::move(p.barrier_);
+        return p.barrier_;
     }
 
     T get_result()
@@ -218,49 +218,108 @@ static inline float reinterpretIntAsFloat(int32_t val)
 template<typename T>
 T atom_load(std::atomic<T> * v)
 {
-    return v->load();
+    return v->load(std::memory_order_relaxed);
 }
 
 template<typename T, typename T2>
 void atom_store(std::atomic<T> * v, T2 && arg)
 {
-    return v->store(arg);
+    return v->store(arg, std::memory_order_relaxed);
 }
 
 template<typename T, typename T2>
 T atom_add(std::atomic<T> * v, T2 && arg)
 {
-    return v->fetch_add(arg);
+    return v->fetch_add(arg, std::memory_order_relaxed);
 }
 
 template<typename T, typename T2>
 T atom_sub(std::atomic<T> * v, T2 && arg)
 {
-    return v->fetch_sub(arg);
+    return v->fetch_sub(arg, std::memory_order_relaxed);
 }
 
 template<typename T>
 T atom_inc(std::atomic<T> * v)
 {
-    return v->fetch_add(1);
+    return v->fetch_add(1, std::memory_order_relaxed);
 }
 
 template<typename T>
 T atom_dec(std::atomic<T> * v)
 {
-    return v->fetch_sub(1);
+    return v->fetch_sub(1, std::memory_order_relaxed);
+}
+
+template<typename T, typename T2>
+T atom_or(std::atomic<T> * v, T2 && arg)
+{
+    return v->fetch_or(arg, std::memory_order_relaxed);
+}
+
+template<typename T>
+T atom_load_local(std::atomic<T> * av)
+{
+    T * v = reinterpret_cast<T *>(av);
+    return *v;
+}
+
+template<typename T, typename T2>
+void atom_store_local(std::atomic<T> * av, T2 && arg)
+{
+    T * v = reinterpret_cast<T *>(av);
+    *v = arg;
+}
+
+template<typename T, typename T2>
+T atom_add_local(std::atomic<T> * av, T2 && arg)
+{
+    T * v = reinterpret_cast<T *>(av);
+    T result = *v;
+    *v += arg;
+    return result;
+}
+
+template<typename T, typename T2>
+T atom_sub_local(std::atomic<T> * av, T2 && arg)
+{
+    T * v = reinterpret_cast<T *>(av);
+    T result = *v;
+    *v -= arg;
+    return result;
+}
+
+template<typename T>
+T atom_inc_local(std::atomic<T> * av)
+{
+    T * v = reinterpret_cast<T *>(av);
+    T result = *v;
+    *v += 1;
+    return result;
+}
+
+template<typename T>
+T atom_dec_local(std::atomic<T> * av)
+{
+    T * v = reinterpret_cast<T *>(av);
+    T result = *v;
+    *v -= 1;
+    return result;
+}
+
+template<typename T, typename T2>
+T atom_or_local(std::atomic<T> * av, T2 && arg)
+{
+    T * v = reinterpret_cast<T *>(av);
+    T result = *v;
+    *v |= arg;
+    return result;
 }
 
 template<typename T>
 auto clz(T && arg)
 {
     return std::countl_zero(arg);
-}
-
-template<typename T, typename T2>
-T atom_or(std::atomic<T> * v, T2 && arg)
-{
-    return v->fetch_or(arg);
 }
 
 //void barrier(LocalBarrier)
@@ -297,6 +356,7 @@ T atom_or(std::atomic<T> * v, T2 && arg)
 #define SYNC_CALL_18(...) SYNC_CALL(__VA_ARGS__)
 #define SYNC_CALL_19(...) SYNC_CALL(__VA_ARGS__)
 
+#define UKL_CPU_BACKEND 1
 
 SYNC_FUNCTION(v1,
 uint32_t, simdgroup_ballot2) (bool val, uint16_t simd_lane, __local atomic_uint * tmp)
@@ -414,6 +474,22 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 #endif
 
 #define KERNEL_RETURN() co_return -1
+
+#define ROBUFFER(Type) MLDB::Span<Type, true, false>
+#define RWBUFFER(Type) MLDB::Span<Type, true, true>
+#define WOBUFFER(Type) MLDB::Span<Type, false, true>
+
+#define RWLOCAL(Type) MLDB::Span<Type, true, true>
+
+#define CONSTBUFFER(Type) MLDB::Span<Type, true, false>
+
+#define CAST_RWBUFFER(Buf, Type) (Buf).template cast<Type, true, true>()
+#define CAST_ROBUFFER(Buf, Type) (Buf).template cast<Type, true, false>()
+
+#define CAST_RWLOCAL(Buf, Type) (Buf).template cast<Type, true, true>()
+#define CAST_ROLOCAL(Buf, Type) (Buf).template cast<Type, true, false>()
+
+#define RWLOCAL_VALUE(Expr) MLDB::Span<decltype(Expr), true, true>(&(Expr))
 
 // Returns the hundred and first argument in the list.  Used to implement COUNT_ARGS.
 #define TWO_HUNDRED_AND_FIRST_ARGUMENT(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, \
@@ -585,9 +661,10 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
     } \
     void Name(const ThreadGroupExecutionState &, FOREACH_PAIR(GEN_PARAMETER, __VA_ARGS__) )
 
-#define GEN_TYPE_BUFFER(Type) std::span<Type>
+#define GEN_TYPE_RWBUFFER(Type) MLDB::Span<Type, true, true>
+#define GEN_TYPE_ROBUFFER(Type) MLDB::Span<Type, true, false>
 #define GEN_TYPE_LITERAL(Type) Type
-#define GEN_TYPE_LOCAL(Type) LocalArray<Type>
+#define GEN_TYPE_RWLOCAL(Type) LocalArray<Type>
 #define GEN_TYPE_TUNEABLE(Type) Type
 #define GEN_TYPE_GID0(Type) GridQuery<0,0,0,Type>
 #define GEN_TYPE_GID1(Type) GridQuery<0,0,1,Type>
@@ -606,9 +683,10 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 //#define GEN_PARAMETER2(Access, Type, Name, Bounds) Type Name
 #define GEN_NAME_STRING2(Access, Type, Name, Bounds) #Name
 
-#define GEN_INNER_TYPE_BUFFER(Type) std::span<Type>
+#define GEN_INNER_TYPE_RWBUFFER(Type) MLDB::Span<Type, true, true>
+#define GEN_INNER_TYPE_ROBUFFER(Type) MLDB::Span<Type, true, false>
 #define GEN_INNER_TYPE_LITERAL(Type) Type
-#define GEN_INNER_TYPE_LOCAL(Type) Type *
+#define GEN_INNER_TYPE_RWLOCAL(Type) MLDB::Span<Type, true, true>
 #define GEN_INNER_TYPE_TUNEABLE(Type) Type
 #define GEN_INNER_TYPE_GID0(Type) const Type
 #define GEN_INNER_TYPE_GID1(Type) const Type
@@ -625,9 +703,10 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 
 #define GEN_INNER_PARAMETER2(Access, Type, Name, Bounds) CALL2_A(GEN_INNER_TYPE_, Access, Type) Name
 
-#define GEN_OUTER_ARG_BUFFER(Type, Name) std::span<Type> Name
+#define GEN_OUTER_ARG_RWBUFFER(Type, Name) std::span<Type> Name
+#define GEN_OUTER_ARG_ROBUFFER(Type, Name) std::span<const Type> Name
 #define GEN_OUTER_ARG_LITERAL(Type, Name) Type Name
-#define GEN_OUTER_ARG_LOCAL(Type, Name) LocalArray<Type> Name
+#define GEN_OUTER_ARG_RWLOCAL(Type, Name) LocalArray<Type> Name
 #define GEN_OUTER_ARG_TUNEABLE(Type, Name) Type Name
 #define GEN_OUTER_ARG_GID0(Type, Name)
 #define GEN_OUTER_ARG_GID1(Type, Name)
@@ -644,9 +723,10 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 
 #define GEN_OUTER_PARAMETER2(Access, Type, Name, Bounds) CALL2_A(GEN_OUTER_ARG_, Access, Type, Name)
 
-#define GEN_SIMDGROUP_PARAMETER_BUFFER(Type, Name) std::span<Type> Name
+#define GEN_SIMDGROUP_PARAMETER_RWBUFFER(Type, Name) MLDB::Span<Type, true, true> Name
+#define GEN_SIMDGROUP_PARAMETER_ROBUFFER(Type, Name) MLDB::Span<Type, true, false> Name
 #define GEN_SIMDGROUP_PARAMETER_LITERAL(Type, Name) Type Name
-#define GEN_SIMDGROUP_PARAMETER_LOCAL(Type, Name) Type * Name
+#define GEN_SIMDGROUP_PARAMETER_RWLOCAL(Type, Name) MLDB::Span<Type, true, true> Name
 #define GEN_SIMDGROUP_PARAMETER_TUNEABLE(Type, Name) Type Name
 #define GEN_SIMDGROUP_PARAMETER_GID0(Type, Name)
 #define GEN_SIMDGROUP_PARAMETER_GID1(Type, Name)
@@ -663,9 +743,10 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 
 #define GEN_SIMDGROUP_PARAMETER2(Access, Type, Name, Bounds) CALL2_A(GEN_SIMDGROUP_PARAMETER_, Access, Type, Name)
 
-#define PASS_INNER_ARG_BUFFER(Type, Name) Name
+#define PASS_INNER_ARG_RWBUFFER(Type, Name) Name
+#define PASS_INNER_ARG_ROBUFFER(Type, Name) Name
 #define PASS_INNER_ARG_LITERAL(Type, Name) Name
-#define PASS_INNER_ARG_LOCAL(Type, Name) Name
+#define PASS_INNER_ARG_RWLOCAL(Type, Name) Name
 #define PASS_INNER_ARG_TUNEABLE(Type, Name) Name
 #define PASS_INNER_ARG_GID0(Type, Name) __threadState.globalId(0)
 #define PASS_INNER_ARG_GID1(Type, Name) __threadState.globalId(1)
@@ -682,9 +763,10 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 
 #define PASS_INNER_ARG2(Access, Type, Name, Bounds) CALL2_A(PASS_INNER_ARG_, Access, Type, Name)
 
-#define PASS_SIMDGROUP_ARG_BUFFER(Type, Name) Name
+#define PASS_SIMDGROUP_ARG_RWBUFFER(Type, Name) Name
+#define PASS_SIMDGROUP_ARG_ROBUFFER(Type, Name) Name
 #define PASS_SIMDGROUP_ARG_LITERAL(Type, Name) Name
-#define PASS_SIMDGROUP_ARG_LOCAL(Type, Name) __state.getLocal<Type>(#Name)
+#define PASS_SIMDGROUP_ARG_RWLOCAL(Type, Name) __state.getLocal<Type>(#Name)
 #define PASS_SIMDGROUP_ARG_TUNEABLE(Type, Name) Name
 #define PASS_SIMDGROUP_ARG_GID0(Type, Name)
 #define PASS_SIMDGROUP_ARG_GID1(Type, Name)
@@ -703,9 +785,10 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 
 
 #define GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds) { #Name, #Access, #Type, #Bounds } 
-#define GEN_ARG_INFO_BUFFER(Access, Type, Name, Bounds) GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds)
+#define GEN_ARG_INFO_RWBUFFER(Access, Type, Name, Bounds) GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds)
+#define GEN_ARG_INFO_ROBUFFER(Access, Type, Name, Bounds) GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds)
 #define GEN_ARG_INFO_LITERAL(Access, Type, Name, Bounds) GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds)
-#define GEN_ARG_INFO_LOCAL(Access, Type, Name, Bounds) GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds)
+#define GEN_ARG_INFO_RWLOCAL(Access, Type, Name, Bounds) GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds)
 #define GEN_ARG_INFO_TUNEABLE(Access, Type, Name, Bounds) GEN_ARG_INFO_STRUCT(Access, Type, Name, Bounds)
 #define GEN_ARG_INFO_GID0(Access, Type, Name, Bounds) 
 #define GEN_ARG_INFO_GID1(Access, Type, Name, Bounds) 
@@ -730,7 +813,7 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
         size_t __nthreads = __state.threadsPerSimdGroup; \
         std::vector<kernel_coro> __coros; __coros.reserve(__nthreads); \
         std::vector<ThreadExecutionState> __states;  __states.reserve(__nthreads); \
-        for (auto && __threadState: __state.threads()) { \
+        for (const auto & __threadState: __state) { \
             __states.emplace_back(__threadState); \
             __coros.emplace_back(Name ## _inner(__states.back() FOREACH_QUAD(PASS_INNER_ARG2, __VA_ARGS__))); \
         } \
@@ -789,7 +872,7 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
         kernel_coro __coros[__nsimdgroups]; \
         SimdGroupExecutionState __states[__nsimdgroups]; \
         size_t __n = 0; \
-        for (auto & __simdGroupState: __state.simdGroups()) { \
+        for (const auto & __simdGroupState: __state) { \
             __states[__n] = __simdGroupState; \
             __coros[__n] = Name ## _simdgroup(__states[__n] FOREACH_QUAD(PASS_SIMDGROUP_ARG2, __VA_ARGS__)); \
             ++__n; \
@@ -803,7 +886,7 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
                 if (!__coros[__n].has_barrier()) { \
                     throw_barriers_out_of_sync(0, __barrier, __n); \
                 } \
-                auto __barrier2 = __coros[__n].get_barrier(); \
+                auto & __barrier2 = __coros[__n].get_barrier(); \
                 verify_barriers_in_sync(__barrier, __barrier2); \
             } \
         } \

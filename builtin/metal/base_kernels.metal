@@ -10,7 +10,6 @@
 #define CLK_GLOBAL_MEM_FENCE mem_global
 #define GRID_WORKGROUP_COHERENT(returntype) returntype
 
-
 using namespace metal;
 
 typedef unsigned uint32_t;

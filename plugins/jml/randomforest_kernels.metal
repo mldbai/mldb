@@ -50,6 +50,13 @@
 #define atom_or(x,y) atomic_fetch_or_explicit(x, y, memory_order_relaxed)
 #define atom_inc(x) atomic_fetch_add_explicit(x, 1, memory_order_relaxed)
 #define atom_dec(x) atomic_fetch_sub_explicit(x, 1, memory_order_relaxed)
+#define atom_load_local atom_load
+#define atom_store_local atom_store
+#define atom_add_local atom_add
+#define atom_sub_local atom_sub
+#define atom_or_local atom_or
+#define atom_inc_local atom_inc
+#define atom_dec_local atom_dec
 
 #define get_global_id(n) global_id[n]
 #define get_global_size(n) global_size[n]

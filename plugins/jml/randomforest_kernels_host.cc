@@ -13,41 +13,52 @@ namespace RF {
 
 #define W W32
 
+struct TreeDepthInfo;
+std::string printTreeDepthInfo(const TreeDepthInfo & info);
+struct PartitionSplit;
+std::string printPartitionSplit(const PartitionSplit & split);
+struct IndexedPartitionSplit;
+std::string printIndexedPartitionSplit(const IndexedPartitionSplit & split);
+std::string printW(const void * w);
+std::string printWYouFucker(const void * w);
+
 #include "randomforest_kernels_common.h"
+
+
 
 DEFINE_KERNEL2(randomforest_kernels,
               decompressRowsKernel,
-              BUFFER,   const uint64_t,                           rowData,        "[rowDataLength]",
+              ROBUFFER, uint64_t,                                 rowData,        "[rowDataLength]",
               LITERAL,  uint32_t,                                 rowDataLength,,
               LITERAL,  uint16_t,                                 weightBits,,
               LITERAL,  uint16_t,                                 exampleNumBits,,
               LITERAL,  uint32_t,                                 numRows,,
               LITERAL,  WeightFormat,                             weightFormat,,
               LITERAL,  float,                                    weightMultiplier,,
-              BUFFER,   const float,                              weightData,     "[weightDataLength]",
-              BUFFER,   float,                                    decodedRowsOut, "[numRows]",
+              ROBUFFER, float,                                    weightData,     "[weightDataLength]",
+              RWBUFFER, float,                                    decodedRowsOut, "[numRows]",
               GID0,     uint32_t,                                 id,,
               GSZ0,     uint32_t,                                 n,)
 {
     using namespace std;
     //cerr << "id = " << id << " n = " << n << endl;
-    decompressRowsImpl(rowData.data(), rowDataLength, weightBits, exampleNumBits, numRows,
-                       weightFormat, weightMultiplier, weightData.data(), decodedRowsOut.data(),
+    decompressRowsImpl(rowData, rowDataLength, weightBits, exampleNumBits, numRows,
+                       weightFormat, weightMultiplier, weightData, decodedRowsOut,
                        id, n);
     KERNEL_RETURN();
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
               testFeatureKernel,
-              BUFFER,   const float,                              decodedRows,          "[numRows]",
+              ROBUFFER, float,                                    decodedRows,          "[numRows]",
               LITERAL,  uint32_t,                                 numRows,,
-              BUFFER,   const uint32_t,                           bucketData,           "[bucketDataLength]",
-              BUFFER,   const uint32_t,                           bucketDataOffsets,    "[numFeatures + 1]",
-              BUFFER,   const uint32_t,                           bucketNumbers,        "[numFeatures + 1]",
-              BUFFER,   const uint32_t,                           bucketEntryBits,      "[numFeatures]",
-              BUFFER,   const uint32_t,                           activeFeatureList,    "[numActiveFeatures]",
-              BUFFER,   W,                                        partitionBuckets,     "[numBuckets]",
-              LOCAL,    W,                                        w,                    "[maxLocalBuckets]",
+              ROBUFFER, uint32_t,                                 bucketData,           "[bucketDataLength]",
+              ROBUFFER, uint32_t,                                 bucketDataOffsets,    "[numFeatures + 1]",
+              ROBUFFER, uint32_t,                                 bucketNumbers,        "[numFeatures + 1]",
+              ROBUFFER, uint32_t,                                 bucketEntryBits,      "[numFeatures]",
+              ROBUFFER, uint32_t,                                 activeFeatureList,    "[numActiveFeatures]",
+              RWBUFFER, W,                                        partitionBuckets,     "[numBuckets]",
+              RWLOCAL,  W,                                        w,                    "[maxLocalBuckets]",
               TUNEABLE, uint16_t,                                 maxLocalBuckets,      "getenv('RF_LOCAL_BUCKET_MEM',5500) / sizeof('W')",
               GID0,     uint16_t,                                 fidx,,
               GSZ0,     uint16_t,                                 numActiveFeatures,,
@@ -57,25 +68,25 @@ DEFINE_KERNEL2(randomforest_kernels,
               GSZ1,     uint16_t,                                 gridSize,)
 {
     SYNC_CALL(testFeatureImpl,
-              decodedRows.data(), numRows, bucketData.data(), bucketDataOffsets.data(), bucketNumbers.data(),
-              bucketEntryBits.data(), activeFeatureList.data(), w, maxLocalBuckets,
-              partitionBuckets.data(), fidx, threadGroupId, threadGroupSize, gridId, gridSize);
+              decodedRows, numRows, bucketData, bucketDataOffsets, bucketNumbers,
+              bucketEntryBits, activeFeatureList, w, maxLocalBuckets,
+              partitionBuckets, fidx, threadGroupId, threadGroupSize, gridId, gridSize);
     KERNEL_RETURN();
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
                getPartitionSplitsKernel,
-               BUFFER,      const TreeTrainingInfo,     treeTrainingInfo,           "[1]",
-               BUFFER,      const uint32_t,             bucketNumbers,              "[numFeatures + 1]",
-               BUFFER,      const uint32_t,             activeFeatureList,          "[numActiveFeatures]",
-               BUFFER,      const uint32_t,             featureIsOrdinal,           "[numFeatures]",
-               BUFFER,      const W,                    buckets,                    "[numActiveBuckets * numActivePartitions]",
-               BUFFER,      const W,                    wAll,                       "[numActivePartitions]",
-               BUFFER,      PartitionSplit,             featurePartitionSplitsOut,  "[numActivePartitions * numActiveFeatures]",
-               BUFFER,      const TreeDepthInfo,        treeDepthInfo,              "[1]",
-               LOCAL,       WIndexed,                   wLocal,                     "[wLocalSize]",
+               ROBUFFER,    TreeTrainingInfo,           treeTrainingInfo,           "[1]",
+               ROBUFFER,    uint32_t,                   bucketNumbers,              "[numFeatures + 1]",
+               ROBUFFER,    uint32_t,                   activeFeatureList,          "[numActiveFeatures]",
+               ROBUFFER,    uint32_t,                   featureIsOrdinal,           "[numFeatures]",
+               ROBUFFER,    W,                          buckets,                    "[numActiveBuckets * numActivePartitions]",
+               ROBUFFER,    W,                          wAll,                       "[numActivePartitions]",
+               RWBUFFER,    PartitionSplit,             featurePartitionSplitsOut,  "[numActivePartitions * numActiveFeatures]",
+               ROBUFFER,    TreeDepthInfo,              treeDepthInfo,              "[1]",
+               RWLOCAL,     WIndexed,                   wLocal,                     "[wLocalSize]",
                TUNEABLE,    uint16_t,                   wLocalSize,                 "getenv('RF_LOCAL_BUCKET_MEM',5500) / sizeof('WIndexed')",
-               LOCAL,       WIndexed,                   wStartBest,                 "[2]",
+               RWLOCAL,     WIndexed,                   wStartBest,                 "[2]",
 
                GID1,        uint16_t,                   featureId,,
                GSZ1,        uint16_t,                   numActiveFeatures,,
@@ -85,130 +96,193 @@ DEFINE_KERNEL2(randomforest_kernels,
                GSZ2,        uint16_t,                   partitionWorkerSize,)
 {
     SYNC_CALL(getPartitionSplitsImpl,
-              treeTrainingInfo.data(), bucketNumbers.data(),
-              activeFeatureList.data(), featureIsOrdinal.data(),
-              buckets.data(), wAll.data(), featurePartitionSplitsOut.data(),
-              treeDepthInfo.data(), wLocal, wLocalSize, wStartBest,
+              treeTrainingInfo, bucketNumbers,
+              activeFeatureList, featureIsOrdinal,
+              buckets, wAll, featurePartitionSplitsOut,
+              treeDepthInfo, wLocal, wLocalSize, wStartBest,
               featureId, numActiveFeatures,
               workerId, workGroupSize,
               partitionWorkerId, partitionWorkerSize);
+
+    if (true) {
+        ukl_threadgroup_barrier();
+        if (workerId != 0 || partitionWorkerId != partitionWorkerSize - 1)
+            KERNEL_RETURN();
+        using namespace std;
+        std::ofstream splitsStream("tree-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        splitsStream << "feat " << featureId << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  " << i << printPartitionSplit(featurePartitionSplitsOut[i * numActiveFeatures + featureId]) << endl;
+        }
+        splitsStream << "wall " << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  " << i << printW(&wAll[i]) << endl;
+        }
+    }
+
     KERNEL_RETURN();
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
                bestPartitionSplitKernel,
-               BUFFER,      const TreeTrainingInfo,         treeTrainingInfo,           "[1]",     
-               BUFFER,      const TreeDepthInfo,            treeDepthInfo,              "[1]",     
-               BUFFER,      const uint32_t,                 activeFeatureList,          "[numActiveFeatures]",     
-               BUFFER,      const PartitionSplit,           featurePartitionSplits,     "[numActivePartitions * numActiveFeatures]",     
-               BUFFER,      const PartitionIndex,           partitionIndexes,           "[numActivePartitions]",     
-               BUFFER,      IndexedPartitionSplit,          allPartitionSplitsOut,      "[numActivePartitions]",
+               ROBUFFER,    TreeTrainingInfo,               treeTrainingInfo,           "[1]",     
+               ROBUFFER,    TreeDepthInfo,                  treeDepthInfo,              "[1]",     
+               ROBUFFER,    uint32_t,                       activeFeatureList,          "[numActiveFeatures]",     
+               ROBUFFER,    PartitionSplit,                 featurePartitionSplits,     "[numActivePartitions * numActiveFeatures]",     
+               ROBUFFER,    PartitionIndex,                 partitionIndexes,           "[numActivePartitions]",     
+               RWBUFFER,    IndexedPartitionSplit,          allPartitionSplitsOut,      "[numActivePartitions]",
                GID0,        uint16_t,                       workerId,,
                GSZ0,        uint16_t,                       numWorkers,)
 {
-    bestPartitionSplitImpl(treeTrainingInfo.data(), treeDepthInfo.data(), activeFeatureList.data(),
-                           featurePartitionSplits.data(), partitionIndexes.data(), allPartitionSplitsOut.data(),
+    bestPartitionSplitImpl(treeTrainingInfo, treeDepthInfo, activeFeatureList,
+                           featurePartitionSplits, partitionIndexes, allPartitionSplitsOut,
                            workerId, numWorkers);
     KERNEL_RETURN();
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
                assignPartitionNumbersKernel,
-               BUFFER,      const TreeTrainingInfo,         treeTrainingInfo,               "[1]",
-               BUFFER,      TreeDepthInfo,                  treeDepthInfo,                  "[1]",
-               BUFFER,      const IndexedPartitionSplit,    allPartitionSplits,             "[numActivePartitions]",
-               BUFFER,      PartitionIndex,                 partitionIndexesOut,            "[maxActivePartitions]",
-               BUFFER,      PartitionInfo,                  partitionInfoOut,               "[numActivePartitions]",
-               BUFFER,      uint8_t,                        smallSideIndexesOut,            "[maxActivePartitions]",
-               BUFFER,      uint16_t,                       smallSideIndexToPartitionOut,   "[256]",
-               LOCAL,       AssignPartitionNumbersLocalState, localState,                   "[1]",
+               ROBUFFER,    TreeTrainingInfo,               treeTrainingInfo,               "[1]",
+               RWBUFFER,    TreeDepthInfo,                  treeDepthInfo,                  "[1]",
+               ROBUFFER,    IndexedPartitionSplit,          allPartitionSplits,             "[numActivePartitions]",
+               RWBUFFER,    PartitionIndex,                 partitionIndexesOut,            "[maxActivePartitions]",
+               RWBUFFER,    PartitionInfo,                  partitionInfoOut,               "[numActivePartitions]",
+               RWBUFFER,    uint8_t,                        smallSideIndexesOut,            "[maxActivePartitions]",
+               RWBUFFER,    uint16_t,                       smallSideIndexToPartitionOut,   "[256]",
+               RWLOCAL,     AssignPartitionNumbersLocalState, localState,                   "[1]",
                GID0,        uint16_t,                       workerId,,
                GSZ0,        uint16_t,                       numWorkers,)
 {
     SYNC_CALL(assignPartitionNumbersImpl,
-              treeTrainingInfo.data(), treeDepthInfo.data(), allPartitionSplits.data(),
-              partitionIndexesOut.data(), partitionInfoOut.data(),
-              smallSideIndexesOut.data(), smallSideIndexToPartitionOut.data(),
+              treeTrainingInfo, treeDepthInfo, allPartitionSplits,
+              partitionIndexesOut, partitionInfoOut,
+              smallSideIndexesOut, smallSideIndexToPartitionOut,
               localState, workerId, numWorkers);
+
+    if (true) {
+        ukl_threadgroup_barrier();
+        if (workerId != numWorkers - 1)
+            KERNEL_RETURN();
+        using namespace std;
+        std::ofstream splitsStream("tree-partition-numbers-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        splitsStream << printTreeDepthInfo(treeDepthInfo[0]) << endl;
+        splitsStream << "partitionIndexes" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << i << " " << partitionIndexesOut[i].index << endl;
+        }
+        splitsStream << "partitionInfo" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].prevNumActivePartitions;  ++i) {
+            splitsStream << i << " " << partitionInfoOut[i].left << "," << partitionInfoOut[i].right << endl;
+        }
+        splitsStream << "smallSideIndexes" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << i << " " << (int)smallSideIndexesOut[i] << endl;
+        }
+        splitsStream << "smallSideIndexToPartition" << endl;
+        for (size_t i = 0;  i < min<size_t>(256, treeDepthInfo[0].numActivePartitions/2);  ++i) {
+            splitsStream << i << " " << smallSideIndexToPartitionOut[i] << endl;
+        }
+    }
+
     KERNEL_RETURN();
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
                clearBucketsKernel,
-               BUFFER,      const TreeTrainingInfo,       treeTrainingInfo,                 "[1]",
-               BUFFER,      TreeDepthInfo,                treeDepthInfo,                    "[1]",
-               BUFFER,      W,                            bucketsOut,                       "[numActiveBuckets * numActivePartitions]",
-               BUFFER,      W,                            wAllOut,                          "[numActivePartitions]",
-               BUFFER,      uint32_t,                     numNonZeroDirectionIndices,       "[1]",
-               BUFFER,      const uint8_t,                smallSideIndexes,                 "[numActivePartitions]",
+               ROBUFFER,    TreeTrainingInfo,             treeTrainingInfo,                 "[1]",
+               RWBUFFER,    TreeDepthInfo,                treeDepthInfo,                    "[1]",
+               RWBUFFER,    W,                            bucketsOut,                       "[numActiveBuckets * numActivePartitions]",
+               RWBUFFER,    W,                            wAllOut,                          "[numActivePartitions]",
+               RWBUFFER,    uint32_t,                     numNonZeroDirectionIndices,       "[1]",
+               ROBUFFER,    uint8_t,                      smallSideIndexes,                 "[numActivePartitions]",
                GID0,        uint16_t,                     partitionWorkerId,,
                GSZ0,        uint16_t,                     partitionWorkgroupSize,,
                GID1,        uint32_t,                     bucket,)
 {
     clearBucketsImpl(
-              treeTrainingInfo.data(), treeDepthInfo.data(), bucketsOut.data(), wAllOut.data(), numNonZeroDirectionIndices.data(),
-              smallSideIndexes.data(),
+              treeTrainingInfo, treeDepthInfo, bucketsOut, wAllOut, numNonZeroDirectionIndices,
+              smallSideIndexes,
               partitionWorkerId, partitionWorkgroupSize, bucket);
     KERNEL_RETURN();
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
                updatePartitionNumbersKernel,
-               BUFFER,      const TreeTrainingInfo,        treeTrainingInfo,                "[1]",
-               BUFFER,      TreeDepthInfo,                 treeDepthInfo,                   "[1]",
-               BUFFER,      RowPartitionInfo,              partitions,                      "",
-               BUFFER,      uint32_t,                      directions,                      "",
-               BUFFER,      uint32_t,                      numNonZeroDirectionIndices,      "",
-               BUFFER,      UpdateWorkEntry,               nonZeroDirectionIndices,         "",
-               BUFFER,      const uint8_t,                 smallSideIndexes,                "",
-               BUFFER,      const IndexedPartitionSplit,   allPartitionSplits,              "",
-               BUFFER,      const PartitionInfo,           partitionInfo,                   "",
-               BUFFER,      const uint32_t,                bucketData,                      "",
-               BUFFER,      const uint32_t,                bucketDataOffsets,               "",
-               BUFFER,      const uint32_t,                bucketNumbers,                   "",
-               BUFFER,      const uint32_t,                bucketEntryBits,                 "",
-               BUFFER,      const uint32_t,                featureIsOrdinal,                "",
-               BUFFER,      const float,                   decodedRows,                     "",
-               LOCAL,       UpdatePartitionNumbersLocalState,localState,                    "[1]",
+               ROBUFFER,    TreeTrainingInfo,              treeTrainingInfo,                "[1]",
+               RWBUFFER,    TreeDepthInfo,                 treeDepthInfo,                   "[1]",
+               RWBUFFER,    RowPartitionInfo,              partitions,                      "",
+               RWBUFFER,    uint32_t,                      directions,                      "",
+               RWBUFFER,    uint32_t,                      numNonZeroDirectionIndices,      "",
+               RWBUFFER,    UpdateWorkEntry,               nonZeroDirectionIndices,         "",
+               ROBUFFER,    uint8_t,                       smallSideIndexes,                "",
+               ROBUFFER,    IndexedPartitionSplit,         allPartitionSplits,              "",
+               ROBUFFER,    PartitionInfo,                 partitionInfo,                   "",
+               ROBUFFER,    uint32_t,                      bucketData,                      "",
+               ROBUFFER,    uint32_t,                      bucketDataOffsets,               "",
+               ROBUFFER,    uint32_t,                      bucketNumbers,                   "",
+               ROBUFFER,    uint32_t,                      bucketEntryBits,                 "",
+               ROBUFFER,    uint32_t,                      featureIsOrdinal,                "",
+               ROBUFFER,    float,                         decodedRows,                     "",
+               RWLOCAL,     UpdatePartitionNumbersLocalState,localState,                    "[1]",
                GID0,        uint32_t,                      workerIdInGrid,,
                GSZ0,        uint32_t,                      numWorkersInGrid,,
                LID0,        uint16_t,                      workerIdInWorkgroup,,
                LSZ0,        uint16_t,                      numWorkersInWorkgroup,)
 {
     SYNC_CALL(updatePartitionNumbersImpl,
-              treeTrainingInfo.data(), treeDepthInfo.data(), partitions.data(), directions.data(),
-              numNonZeroDirectionIndices.data(), nonZeroDirectionIndices.data(), smallSideIndexes.data(),
-              allPartitionSplits.data(), partitionInfo.data(),
-              bucketData.data(), bucketDataOffsets.data(), bucketNumbers.data(), bucketEntryBits.data(),
-              featureIsOrdinal.data(), decodedRows.data(),
+              treeTrainingInfo, treeDepthInfo, partitions, directions,
+              numNonZeroDirectionIndices, nonZeroDirectionIndices, smallSideIndexes,
+              allPartitionSplits, partitionInfo,
+              bucketData, bucketDataOffsets, bucketNumbers, bucketEntryBits,
+              featureIsOrdinal, decodedRows,
               localState,
               workerIdInGrid, numWorkersInGrid,
               workerIdInWorkgroup, numWorkersInWorkgroup);
+
+    if (true) {
+        ukl_threadgroup_barrier();
+        if (workerIdInGrid != numWorkersInGrid - 1)
+            KERNEL_RETURN();
+        using namespace std;
+        std::ofstream splitsStream("tree-partitions-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        for (size_t i = 0;  i < treeTrainingInfo[0].numRows;  ++i) {
+            splitsStream << "  " << i << " " << partitions[i].num << endl;
+        }
+    }
 
     KERNEL_RETURN();
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
                updateBucketsKernel,
-               BUFFER,      const TreeTrainingInfo,        treeTrainingInfo,                "",
-               BUFFER,      TreeDepthInfo,                 treeDepthInfo,                   "",
-               BUFFER,      const RowPartitionInfo,        partitions,                      "",
-               BUFFER,      const uint32_t,                directions,                      "",
-               BUFFER,      const uint32_t,                numNonZeroDirectionIndices,      "",
-               BUFFER,      UpdateWorkEntry,               nonZeroDirectionIndices,         "",
-               BUFFER,      W,                             buckets,                         "",
-               BUFFER,      W,                             wAll,                            "",
-               BUFFER,      const uint8_t,                 smallSideIndexes,                "",
-               BUFFER,      const uint16_t,                smallSideIndexToPartition,       "",
-               BUFFER,      const float,                   decodedRows,                     "",
-               BUFFER,      const uint32_t,                bucketData,                      "",
-               BUFFER,      const uint32_t,                bucketDataOffsets,               "",
-               BUFFER,      const uint32_t,                bucketNumbers,                   "",
-               BUFFER,      const uint32_t,                bucketEntryBits,                 "",
-               BUFFER,      const uint32_t,                activeFeatureList,               "",
-               BUFFER,      const uint32_t,                featureIsOrdinal,                "",
-               LOCAL,       W,                             wLocal,                          "[maxLocalBuckets]",
-               LOCAL,       UpdateBucketsLocalState,       localState,                      "[1]",
+               ROBUFFER,    TreeTrainingInfo,              treeTrainingInfo,                "",
+               RWBUFFER,    TreeDepthInfo,                 treeDepthInfo,                   "",
+               ROBUFFER,    RowPartitionInfo,              partitions,                      "",
+               ROBUFFER,    uint32_t,                      directions,                      "",
+               ROBUFFER,    uint32_t,                      numNonZeroDirectionIndices,      "",
+               RWBUFFER,    UpdateWorkEntry,               nonZeroDirectionIndices,         "",
+               RWBUFFER,    W,                             buckets,                         "",
+               RWBUFFER,    W,                             wAll,                            "",
+               ROBUFFER,    uint8_t,                       smallSideIndexes,                "",
+               ROBUFFER,    uint16_t,                      smallSideIndexToPartition,       "",
+               ROBUFFER,    float,                         decodedRows,                     "",
+               ROBUFFER,    uint32_t,                      bucketData,                      "",
+               ROBUFFER,    uint32_t,                      bucketDataOffsets,               "",
+               ROBUFFER,    uint32_t,                      bucketNumbers,                   "",
+               ROBUFFER,    uint32_t,                      bucketEntryBits,                 "",
+               ROBUFFER,    uint32_t,                      activeFeatureList,               "",
+               ROBUFFER,    uint32_t,                      featureIsOrdinal,                "",
+               RWLOCAL,     W,                             wLocal,                          "[maxLocalBuckets]",
+               RWLOCAL,     UpdateBucketsLocalState,       localState,                      "[1]",
                TUNEABLE,    uint16_t,                      maxLocalBuckets,                 "getenv('RF_LOCAL_BUCKET_MEM',5500) / sizeof('W')",
                GID1,        uint16_t,                      featureWorkerId,,
                GID0,        uint32_t,                      workerIdInGrid,,
@@ -217,11 +291,11 @@ DEFINE_KERNEL2(randomforest_kernels,
                LSZ0,        uint16_t,                      numWorkersInWorkgroup,)
 {
     SYNC_CALL(updateBucketsImpl,
-              treeTrainingInfo.data(), treeDepthInfo.data(), partitions.data(), directions.data(),
-              numNonZeroDirectionIndices.data(), nonZeroDirectionIndices.data(), buckets.data(), wAll.data(),
-              smallSideIndexes.data(), smallSideIndexToPartition.data(),
-              decodedRows.data(), bucketData.data(), bucketDataOffsets.data(), bucketNumbers.data(), bucketEntryBits.data(),
-              activeFeatureList.data(), featureIsOrdinal.data(),
+              treeTrainingInfo, treeDepthInfo, partitions, directions,
+              numNonZeroDirectionIndices, nonZeroDirectionIndices, buckets, wAll,
+              smallSideIndexes, smallSideIndexToPartition,
+              decodedRows, bucketData, bucketDataOffsets, bucketNumbers, bucketEntryBits,
+              activeFeatureList, featureIsOrdinal,
               wLocal, maxLocalBuckets, localState,
               featureWorkerId, workerIdInWorkgroup, numWorkersInWorkgroup,
               workerIdInGrid, numWorkersInGrid);
@@ -230,23 +304,47 @@ DEFINE_KERNEL2(randomforest_kernels,
 }
 
 DEFINE_KERNEL2(randomforest_kernels,
-              fixupBucketsKernel,
-               BUFFER,      const TreeTrainingInfo,        treeTrainingInfo,                "[1]",
-               BUFFER,      TreeDepthInfo,                 treeDepthInfo,                   "[1]",
-               BUFFER,      W,                             buckets,                         "",
-               BUFFER,      W,                             wAll,                            "",
-               BUFFER,      const PartitionInfo,           partitionInfo,                   "",
-               BUFFER,      const uint8_t,                 smallSideIndexes,                "",
-               GID1,        uint16_t,                      featureWorkerId,,
+               fixupBucketsKernel,
+               ROBUFFER,    TreeTrainingInfo,              treeTrainingInfo,                "[1]",
+               RWBUFFER,    TreeDepthInfo,                 treeDepthInfo,                   "[1]",
+               RWBUFFER,    W,                             buckets,                         "",
+               RWBUFFER,    W,                             wAll,                            "",
+               ROBUFFER,    PartitionInfo,                 partitionInfo,                   "",
+               ROBUFFER,    uint8_t,                       smallSideIndexes,                "",
+               GID1,        uint16_t,                      bucketWorkerId,,
+               GSZ1,        uint16_t,                      numBucketsInGrid,,
                GID0,        uint32_t,                      workerIdInGrid,,
                GSZ0,        uint32_t,                      numWorkersInGrid,,
                LID0,        uint16_t,                      workerIdInWorkgroup,,
                LSZ0,        uint16_t,                      numWorkersInWorkgroup,)
 
 {
-    fixupBucketsImpl(treeTrainingInfo.data(), treeDepthInfo.data(), buckets.data(), wAll.data(),
-                     partitionInfo.data(), smallSideIndexes.data(),
-                     featureWorkerId, workerIdInGrid, numWorkersInGrid);
+    fixupBucketsImpl(treeTrainingInfo, treeDepthInfo, buckets, wAll,
+                     partitionInfo, smallSideIndexes,
+                     bucketWorkerId, workerIdInGrid, numWorkersInGrid);
+
+    if (true) {
+        ukl_threadgroup_barrier();
+        if (workerIdInGrid != numWorkersInGrid - 1 || bucketWorkerId != numBucketsInGrid - 1)
+            KERNEL_RETURN();
+        using namespace std;
+        std::ofstream splitsStream("tree-buckets-" + std::to_string(treeTrainingInfo[0].featureSampling)
+                                + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
+                                + "-depth" + std::to_string(treeDepthInfo[0].depth)
+                                + ".txt", std::ios_base::app);
+        splitsStream << "wAll" << endl;
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  " << i << " " << MLDB::RF::printWYouFucker(&wAll[i]) << endl;
+        }
+
+        for (size_t i = 0;  i < treeDepthInfo[0].numActivePartitions;  ++i) {
+            splitsStream << "  part " << i << endl;
+            for (size_t j = 0;  j < treeTrainingInfo[0].numActiveBuckets;  ++j) {
+                splitsStream << "    bucket " << j << MLDB::RF::printWYouFucker(&buckets[i * treeTrainingInfo[0].numActiveBuckets + j]) << endl;
+            }
+        }
+    }
+
     KERNEL_RETURN();
 }
 
