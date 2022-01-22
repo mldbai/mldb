@@ -688,15 +688,24 @@ struct GridBounds {
     GridBounds(std::array<size_t, 3> bounds = { 0, 0, 0 })
         : bounds(bounds)
     {
+        initProds();
     }
 
     GridBounds(const std::vector<size_t> & bounds)
     {
         ExcAssertEqual(bounds.size(), 3);
-        ExcAssertGreater(bounds[0], 0);
-        ExcAssertGreater(bounds[1], 0);
-        ExcAssertGreater(bounds[2], 0);
         this->bounds = { bounds[0], bounds[1], bounds[2] };
+        initProds();
+    }
+
+    void initProds()
+    {
+        CheckedSize result = 1;
+        for (unsigned i = 0;  i < 3;  ++i) {
+            prods[i] = result = CheckedSize::mul(bounds[i], result.sz);
+        }
+
+        ExcAssertGreater(result.sz, 0);
     }
 
     struct Iterator;
@@ -704,6 +713,7 @@ struct GridBounds {
     Iterator end() const;
 
     std::array<size_t, 3> bounds;
+    std::array<size_t, 3> prods;
 
     size_t getSize(unsigned n) const
     {
@@ -720,14 +730,7 @@ struct GridBounds {
             throwDimensionException(n, 3);
         }
 
-        CheckedSize result = 1;
-        for (unsigned i = 0;  i < n;  ++i) {
-            result = CheckedSize::mul(bounds[i], result.sz);
-        }
-
-        ExcAssertGreater(result.sz, 0);
-
-        return result;
+        return n == 0 ? 1 : prods[n-1];
     }
 
     size_t getLinearSize() const { return getProd(3); }
@@ -1122,7 +1125,7 @@ void registerCpuKernel(const std::string & libraryName, const std::string & func
             GridBounds gridBounds(grid);
             GridBounds blockBounds(block);
 
-            if (true) {
+            if (false) {
                 uint64_t localMem[(localMemBytesRequired + 7) / 8];
                 for (GridIndex globalIndex: gridBounds) {
                     ThreadGroupExecutionState state(globalIndex, &blockBounds, (std::byte *)&localMem, localMemOffsets);

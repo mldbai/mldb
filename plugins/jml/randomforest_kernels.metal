@@ -15,6 +15,30 @@
 #define __kernel kernel
 #define __global device
 #define __local threadgroup
+
+#define ukl_assert(x)
+#define ukl_assert_equal(x, y)
+#define ukl_assert_not_equal(x, y)
+#define ukl_assert_less(x, y)
+#define ukl_assert_less_equal(x, y)
+#define ukl_assert_greater(x, y)
+#define ukl_assert_greater_equal(x, y)
+
+#define ROBUFFER(Type) device const Type *
+#define RWBUFFER(Type) device Type *
+#define WOBUFFER(Type) device Type *
+
+#define RWLOCAL(Type) threadgroup Type *
+
+#define CONSTBUFFER(Type) constant const Type *
+
+#define CAST_RWBUFFER(Buf, Type) reinterpret_cast<Type device *>(Buf)
+#define CAST_ROBUFFER(Buf, Type) reinterpret_cast<const Type device *>(Buf)
+
+#define CAST_RWLOCAL(Buf, Type) reinterpret_cast<Type threadgroup *>(Buf)
+#define CAST_ROLOCAL(Buf, Type) reinterpret_cast<const Type threadgroup *>(Buf)
+
+
 #define W W32
 #define ukl_simdgroup_barrier()
 #define ukl_threadgroup_barrier() threadgroup_barrier(mem_flags::mem_threadgroup)

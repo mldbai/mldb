@@ -222,6 +222,8 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(TreeTrainingInfo)
     addField("numFeatures", &TreeTrainingInfo::numFeatures, "Number of features in tree");
     addField("maxNumActivePartitions", &TreeTrainingInfo::maxNumActivePartitions, "Maximum width of active partition tree");
     addField("numActiveBuckets", &TreeTrainingInfo::numActiveBuckets, "Number of buckets active across all partitions");
+    addField("featureSampling", &TreeTrainingInfo::featureSampling, "Feature sampling (dim 1 of bag index)");
+    addField("featureVectorSampling", &TreeTrainingInfo::featureVectorSampling, "Feature vector sampling (dim 2 of bag index)");
 }
 
 REGISTER_VALUE_DESCRIPTION(TreeTrainingInfo);

@@ -242,7 +242,7 @@ inline void decrementWLocal(__local W * wIn, bool label, float weight)
 {
     __local WAtomic * w = (__local WAtomic *)wIn;
     int32_t inc = encodeW(weight);
-    ExcAssert(wIn->count > 0);
+    ukl_assert(wIn->count > 0);
     atom_sub_local(&w->vals[label ? 1 : 0], inc);
     atom_dec_local(&w->count);
 }
@@ -272,7 +272,7 @@ inline void decrementWOutGlobal(__global W * wOut_, __global const W * wIn)
     __global WAtomic * wOut = (__global WAtomic *)wOut_;
     if (wIn->count == 0)
         return;
-    ExcAssert(wOut->count >= wIn->count);
+    ukl_assert_greater_equal(wOut->count, wIn->count);
     if (wIn->vals[0] != 0)
         atom_sub(&wOut->vals[0], wIn->vals[0]);
     if (wIn->vals[1] != 0)
@@ -1069,7 +1069,9 @@ bestPartitionSplitImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
         // TODO: with lots of features this will become slow; we can have a workgroup cooperate
         for (uint32_t fidx = 0;  fidx < numActiveFeatures;  ++fidx) {
             const PartitionSplit split = featurePartitionSplits[partition * numActiveFeatures + fidx];
-            if (true) {
+
+#if UKL_CPU_BACKEND
+            if (false) {
                 using namespace std;
                 std::ofstream splitsStream("tree-best-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
                                         + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
@@ -1077,6 +1079,7 @@ bestPartitionSplitImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
                                         + ".txt", std::ios_base::app);
                 splitsStream << "feat " << fidx << " part " << partition << " " << MLDB::RF::printPartitionSplit(split) << endl;
             }
+#endif
 
             //printf("feature %d active %d split %d score %f\n", f, activeFeatureList[f], featurePartitionSplits[f].value, featurePartitionSplits[f].score);
             if (split.value < 0)
@@ -1095,7 +1098,8 @@ bestPartitionSplitImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
 
         allPartitionSplitsOut[partition] = best;
 
-        if (true) {
+#if UKL_CPU_BACKEND
+        if (false) {
             using namespace std;
             std::ofstream splitsStream("tree-best-splits-" + std::to_string(treeTrainingInfo[0].featureSampling)
                                     + "-" + std::to_string(treeTrainingInfo[0].featureVectorSampling)
@@ -1103,6 +1107,7 @@ bestPartitionSplitImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
                                     + ".txt", std::ios_base::app);
             splitsStream << "part " << partition << " best " << printIndexedPartitionSplit(best) << endl;
         }
+#endif
 
     }
 }
@@ -1700,10 +1705,12 @@ updateBucketsImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
                 toBucketLocal = (smallPartitionIndex - 1) * numBucketsPerPartition + bucket;
         }
 
+#if 0
         using namespace std;
         cerr << "transferring " << i << " of " << numNonZero << " partition " << partition << " feature " << f 
              << " ssr " << smallPartitionIndex
              << " row " << r << ":" << decodedRow << " toBucketLocal " << toBucketLocal << " toBucketGlobal " << toBucketGlobal << endl;
+#endif
 
         if (toBucketLocal < numLocalBuckets) {
             //atom_inc(&numLocalUpdates);
@@ -1774,16 +1781,16 @@ fixupBucketsImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
     if (j >= numActiveBuckets)
         return;
 
-    using namespace std;
-
     for (uint32_t partition = partitionWorkerIdInGrid;  partition < numActivePartitions;  partition += partitionNumWorkersInGrid) {
 
         PartitionInfo info = partitionInfo[partition];
 
+#if UKL_CPU_BACKEND
         using namespace std;
-        if (j == 0) {
+        if (j == 0 && false) {
             cerr << "partition " << partition << " info.left = " << info.left << " info.right = " << info.right << endl;
         }
+#endif
 
         if (info.left == -1 || info.right == -1)
             continue;
@@ -1799,18 +1806,22 @@ fixupBucketsImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
             from = info.right;
         }
 
-        if (j == 0) {
+#if UKL_CPU_BACKEND
+        if (j == 0 && false) {
             using namespace std;
             cerr << "moving buckets from " << from << " to " << to << endl;
         }
+#endif
 
         RWBUFFER(W) bucketsFrom = buckets + from * numActiveBuckets;
         RWBUFFER(W) bucketsTo = buckets + to * numActiveBuckets;
-        
-        if (bucketsFrom[j].count > 0) {
+
+#if UKL_CPU_BACKEND
+        if (bucketsFrom[j].count > 0 && false) {
             cerr << "  bucket " << j << " subtracting "
                  << printWYouFucker(&bucketsFrom[j]) << " from " << printWYouFucker(&bucketsTo[j]) << endl;
         }
+#endif
 
         decrementWOutGlobal(&bucketsTo[j], &bucketsFrom[j]);
         if (j == 0) {

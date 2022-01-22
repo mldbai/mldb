@@ -104,7 +104,7 @@ DEFINE_KERNEL2(randomforest_kernels,
               workerId, workGroupSize,
               partitionWorkerId, partitionWorkerSize);
 
-    if (true) {
+    if (false) {
         ukl_threadgroup_barrier();
         if (workerId != 0 || partitionWorkerId != partitionWorkerSize - 1)
             KERNEL_RETURN();
@@ -162,7 +162,7 @@ DEFINE_KERNEL2(randomforest_kernels,
               smallSideIndexesOut, smallSideIndexToPartitionOut,
               localState, workerId, numWorkers);
 
-    if (true) {
+    if (false) {
         ukl_threadgroup_barrier();
         if (workerId != numWorkers - 1)
             KERNEL_RETURN();
@@ -245,7 +245,7 @@ DEFINE_KERNEL2(randomforest_kernels,
               workerIdInGrid, numWorkersInGrid,
               workerIdInWorkgroup, numWorkersInWorkgroup);
 
-    if (true) {
+    if (false) {
         ukl_threadgroup_barrier();
         if (workerIdInGrid != numWorkersInGrid - 1)
             KERNEL_RETURN();
@@ -323,7 +323,7 @@ DEFINE_KERNEL2(randomforest_kernels,
                      partitionInfo, smallSideIndexes,
                      bucketWorkerId, workerIdInGrid, numWorkersInGrid);
 
-    if (true) {
+    if (false) {
         ukl_threadgroup_barrier();
         if (workerIdInGrid != numWorkersInGrid - 1 || bucketWorkerId != numBucketsInGrid - 1)
             KERNEL_RETURN();

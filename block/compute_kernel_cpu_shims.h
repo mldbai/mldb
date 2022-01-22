@@ -473,6 +473,14 @@ uint32_t, simdgroup_broadcast_first) (uint32_t val, uint16_t simd_lane, __local 
 }
 #endif
 
+#define ukl_assert(x) ExcAssert(x)
+#define ukl_assert_equal(x, y) ExcAssertEqual(x, y)
+#define ukl_assert_not_equal(x, y) ExcAssertNotEqual(x, y)
+#define ukl_assert_less(x, y) ExcAssertLess(x, y)
+#define ukl_assert_less_equal(x, y) ExcAssertLessEqual(x, y)
+#define ukl_assert_greater(x, y) ExcAssertGreater(x, y)
+#define ukl_assert_greater_equal(x, y) ExcAssertGreaterEqual(x, y)
+
 #define KERNEL_RETURN() co_return -1
 
 #define ROBUFFER(Type) MLDB::Span<Type, true, false>
