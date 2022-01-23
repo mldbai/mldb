@@ -4,7 +4,7 @@
 -r python_requirements.txt
 # math / science / graph stuff
 bokeh==0.11.1
-numpy==1.10.4
+numpy==1.21.0
 pandas==0.17.1
 scipy==0.17.0
 openpyxl==2.3.3
