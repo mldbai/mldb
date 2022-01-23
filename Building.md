@@ -81,12 +81,12 @@ You will first need to have a Github account with [SSH keys](https://help.github
 ssh -T git@github.com
 ```
 
-**Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest) which is tracked by the `release_latest` branch.
+We endeavour to maintain a functional `master` branch, which is tested using our CI pipeline on Gitlab (https://gitlab.com/mldbai/mldb/).  The following instructions are out of date; you can browse the build instructions used for the CI/CD directly at https://gitlab.com/mldbai/mldb/-/blob/master/.gitlab-ci.yml.
 
 ```bash
 git clone git@github.com:mldbai/mldb.git
 cd mldb
-git checkout release_latest
+git checkout master
 git submodule update --init --recursive
 make dependencies toolchain=<see above>
 make -k compile toolchain=<see above>
