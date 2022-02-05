@@ -109,3 +109,6 @@
 [submodule "ext/fast_float"]
 	path = ext/fast_float
 	url = https://github.com/mldbai/fast_float.git
+[submodule "ext/cuda-api-wrappers"]
+	path = ext/cuda-api-wrappers
+	url = https://github.com/mldbai/cuda-api-wrappers.git
