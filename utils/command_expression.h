@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "command_expression_fwd.h"
+
 #include <set>
 #include <map>
 #include <vector>
@@ -800,9 +802,6 @@ struct TimesExpression: public BinaryArithmeticExpression {
     }
 };
 
-PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<CommandExpression>);
-PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<const CommandExpression>);
-
 /** Renders the given JSON expression as a shell command. */
 std::vector<std::string> commandRender(const Json::Value & val);
 
@@ -856,8 +855,6 @@ struct StringTemplate {
     /** Apply the template to a list of variables. */
     std::string operator () (const std::initializer_list<std::pair<std::string, std::string> > & vals) const;
 };
-
-PREDECLARE_VALUE_DESCRIPTION(StringTemplate);
 
 inline std::ostream & operator << (std::ostream & stream, const StringTemplate & tmpl)
 {

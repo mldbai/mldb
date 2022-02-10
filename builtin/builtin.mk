@@ -78,6 +78,10 @@ $(eval $(call include_mldb_plugin,metal))
 MLDB_METAL_PLUGIN_NAME:=mldb_metal_plugin
 endif
 
+ifeq ($(CUDA_ENABLED),1)
+$(eval $(call include_mldb_plugin,cuda))
+MLDB_CUDA_PLUGIN_NAME:=mldb_cuda_plugin
+endif
 
 LIBMLDB_BUILTIN_LINK := \
 	mldb_builtin_base \
@@ -85,6 +89,7 @@ LIBMLDB_BUILTIN_LINK := \
 	mldb_python_plugin \
 	mldb_opencl_plugin \
 	$(MLDB_METAL_PLUGIN_NAME) \
+	$(MLDB_CUDA_PLUGIN_NAME) \
 
 
 $(eval $(call library,mldb_builtin,,$(LIBMLDB_BUILTIN_LINK)))

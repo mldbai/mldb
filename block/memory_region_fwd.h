@@ -23,4 +23,9 @@ struct MappedSerializer;
 struct StructuredSerializer;
 struct StructuredReconstituter;
 
+struct MemoryRegionHandleInfo;
+struct MemoryRegionHandle;
+template<typename T>
+struct MemoryArrayHandleT;
+
 } // namespace MLDB

@@ -6,7 +6,7 @@
     Kernels for random forest algorithm.
 */
 
-#include "mldb/block/compute_kernel_cpu_shims.h"
+#include "mldb/block/ukl/ukl_cpu_shim.h"
 
 namespace MLDB {
 namespace RF {

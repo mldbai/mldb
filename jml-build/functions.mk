@@ -213,6 +213,7 @@ ifneq ($(PREMAKE),1)
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
 $(if $(trace),$$(warning called add_c++_source "$(1)" "$(2)" "$(3)" "$(4)"))
+#BUILD_$(CWD)/$(2).lo_COMMAND:=$$(PRECXX) $$(CXX) $$(CXXFLAGS) -fobjc-arc -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS)) $$(POSTCXXFLAGS) $$(OPTIONS_$(CWD)/$(1))
 BUILD_$(CWD)/$(2).lo_COMMAND:=$$(PRECXX) $$(CXX) $$(CXXFLAGS) -o $(OBJ)/$(CWD)/$(2).lo -c $$(tmpDIR)/$(CWD)/$(1) -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo $(4) $(if $(findstring $(strip $(1)),$(DEBUG_FILES)),$(warning compiling $(1) for debug)$$(CXXDEBUGFLAGS),$$(CXXNODEBUGFLAGS)) $$(POSTCXXFLAGS) $$(OPTIONS_$(CWD)/$(1))
 $(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
 
@@ -624,7 +625,7 @@ define add_metal_source
 ifneq ($(PREMAKE),1)
 $$(eval tmpDIR := $$(if $(3),$(3),$(SRC)))
 
-BUILD_$(CWD)/$(2).air_COMMAND:=xcrun -sdk macosx metal -frecord-sources -I. -g -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).lo -o $(OBJ)/$(CWD)/$(2).air -c $$(tmpDIR)/$(CWD)/$(1) $(4)
+BUILD_$(CWD)/$(2).air_COMMAND:=xcrun -sdk macosx metal -frecord-sources -I. -I./block/ukl -I./builtin/metal/ukl -g -MP -MMD -MF $(OBJ)/$(CWD)/$(2).d -MQ $(OBJ)/$(CWD)/$(2).air -o $(OBJ)/$(CWD)/$(2).air -c $$(tmpDIR)/$(CWD)/$(1) $(4)
 
 BUILD_$(CWD)/$(2).air_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).air_COMMAND))
 BUILD_$(CWD)/$(2).air_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).air_HASH).air
@@ -648,7 +649,7 @@ endif
 endif
 endef
 
-# add a library
+# add a Metal library
 # $(1): name of the library
 # $(2): source files to include in the library
 # $(3): libraries to link with

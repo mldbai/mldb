@@ -25,6 +25,28 @@ typedef unsigned short uint16_t;
 typedef int32_t atomic_int;
 typedef uint32_t atomic_uint;
 
+#define ukl_assert(x)
+#define ukl_assert_equal(x, y)
+#define ukl_assert_not_equal(x, y)
+#define ukl_assert_less(x, y)
+#define ukl_assert_less_equal(x, y)
+#define ukl_assert_greater(x, y)
+#define ukl_assert_greater_equal(x, y)
+
+#define ROBUFFER(Type) __global const Type *
+#define RWBUFFER(Type) __global Type *
+#define WOBUFFER(Type) __global Type *
+
+#define RWLOCAL(Type) __local Type *
+
+#define CONSTBUFFER(Type) __constant const Type *
+
+#define CAST_RWBUFFER(Buf, Type) ((Type __global *)(Buf))
+#define CAST_ROBUFFER(Buf, Type) ((Type const __global *)(Buf))
+
+#define CAST_RWLOCAL(Buf, Type) ((Type __local *)(Buf))
+#define CAST_ROLOCAL(Buf, Type) ((Type const __local *)(Buf))
+
 #define ukl_simdgroup_barrier()
 #define ukl_threadgroup_barrier() barrier(CLK_LOCAL_MEM_FENCE)
 #define atom_load(addr) (*(addr))

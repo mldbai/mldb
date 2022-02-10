@@ -287,6 +287,7 @@ struct GenericArrayValue {
 
     bool operator < (const GenericArrayValue & other) const
     {
+        return std::memcmp(p, other.p, desc->width) < 0;
         bool result = desc->compareLessThan(p, other.p);
         //cerr << "comparing " << p << " " << desc->printJsonString(p)
         //     << " to " << other.p << " " << desc->printJsonString(other.p)
@@ -384,6 +385,9 @@ FrozenMemoryRegion genericSorted(FrozenMemoryRegion regionIn, const ValueDescrip
 {
     std::shared_ptr<std::byte[]> sorted(new std::byte[regionIn.length()]);
     size_t n = regionIn.length() / desc.width;
+
+    // Zero so that we won't get spurious binary comparisons
+    std::memset(sorted.get(), 0, regionIn.length());
 
     cerr << "generically sorting " << n << " objects of size " << desc.width << " for a total of " << regionIn.length()
          << " bytes" << endl;
@@ -563,7 +567,7 @@ compareParameters(bool pre, const BoundComputeKernel & boundKernel, MultiCompute
 
             ExcAssertNotEqual(referenceData, kernelGeneratedData);
 
-            cerr << "reference length = " << referenceLength << endl;
+            //cerr << "reference length = " << referenceLength << endl;
 
             if (memcmp(referenceData, kernelGeneratedData, comparisonLength) == 0) {
                 if (printedBanner)
@@ -918,19 +922,19 @@ enqueue(const std::string & opName,
     cerr << endl << "--------------- finished kernel " << multiKernel->kernelName << endl;
 
     if (compareMode) {
-        finish();
+        finish("multi: complete work before compare");
         multiKernel->compareParameters(false /* pre */, kernel, *this /**compareParametersQueue*/);
     }
 }
 
 std::shared_ptr<ComputeEvent>
 MultiComputeQueue::
-flush()
+flush(const std::string & opName)
 {
     std::vector<std::shared_ptr<ComputeEvent>> events;
 
     for (auto & q: queues) {
-        events.emplace_back(q->flush());
+        events.emplace_back(q->flush(opName));
     }
 
     return std::make_shared<MultiComputeEvent>(std::move(events));
@@ -947,10 +951,10 @@ enqueueBarrier(const std::string & label)
 
 void
 MultiComputeQueue::
-finish()
+finish(const std::string & opName)
 {
     for (auto & q: queues) {
-        q->finish();
+        q->finish(opName);
     }
 }
 

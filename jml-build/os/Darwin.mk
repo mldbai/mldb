@@ -73,3 +73,12 @@ LIB_Cocoa_HAS_NO_SHLIB:=1
 LIB_CoreFoundation_LINKER_OPTIONS:=-framework CoreFoundation
 LIB_CoreFoundation_HAS_NO_SHLIB:=1
 CXXEXEPOSTFLAGS += "-Wl,-sectcreate,__TEXT,__info_plist,Info.plist"
+
+ifeq ($(CUDA_ENABLED),1)
+CUDA_INSTALL_PATH ?= /Library/Developer/NVIDIA/CUDA-10.2/
+CUDA_PATH := $(CUDA_INSTALL_PATH)
+CUDA_BIN_PATH := $(CUDA_PATH)/bin
+CUDA_INCLUDE_PATH := $(CUDA_PATH)/include
+CUDA_LIBRARY_PATH := $(CUDA_PATH)/lib
+NVCC := $(CUDA_PATH)/bin/nvcc
+endif

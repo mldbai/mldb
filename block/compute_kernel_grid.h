@@ -9,10 +9,12 @@
 #pragma once
 
 #include "mldb/block/compute_kernel.h"
-#include "mldb/arch/spinlock.h"
-#include "mldb/utils/environment.h"
+#include "compute_kernel_call_utils.h"
+#include <future>
 
 namespace MLDB {
+
+struct Timer;
 
 struct GridComputeContext;
 struct GridComputeKernel;
@@ -27,6 +29,7 @@ enum class OperationType {
     METAL_COMPUTE = 2,
     OPENCL_COMPUTE = 3,
     CPU_COMPUTE = 4,
+    CUDA_COMPUTE = 5,
     USER = 1000
 };
 
@@ -37,7 +40,7 @@ enum class OperationScope {
     EVENT = 4
 };
 
-extern EnvOption<int> GRID_TRACE_API_CALLS;
+bool gridTraceApiCalls();
 
 void traceOperationImpl(OperationScope opScope, OperationType opType, const std::string & opName,
                     const std::string & renderedArgs);
@@ -53,7 +56,7 @@ inline std::string renderArgs(const std::string & arg1, Args&&... args)
 template<typename... Args>
 void traceOperation(OperationScope opScope, OperationType opType, const std::string & opName, Args&&... args)
 {
-    if (GRID_TRACE_API_CALLS.get()) {
+    if (MLDB_UNLIKELY(gridTraceApiCalls())) {
         traceOperationImpl(opScope, opType, opName, renderArgs(std::forward<Args>(args)...));
     }
 }
@@ -79,20 +82,21 @@ struct ScopedOperation {
                     const std::string & opName, Args&&... args)
         : opType(opType), opName(opName)
     {
-        if (GRID_TRACE_API_CALLS.get()) {
-           traceOperation(OperationScope::ENTER, opType, opName, std::forward<Args>(args)...);
+        if (MLDB_UNLIKELY(gridTraceApiCalls())) {
+            traceOperation(OperationScope::ENTER, opType, opName, std::forward<Args>(args)...);
             incrementOpCount();
-            timer.reset(new Timer);
+            createTimer();
         }
     }
 
     static void incrementOpCount();
+    void createTimer();
 
     ~ScopedOperation();
 
     OperationType opType;
     std::string opName;
-    std::unique_ptr<Timer> timer;
+    std::shared_ptr<Timer> timer;
 };
 
 template<typename... Args>
@@ -284,7 +288,7 @@ struct GridComputeQueue: public ComputeQueue, std::enable_shared_from_this<GridC
                                      size_t length) override;
 #endif
 
-    virtual void finish() override;
+    virtual void finish(const std::string & opName) override;
 
 protected:
     // These methods are where the work is (concretely) done.  They are called by the implementations
@@ -628,5 +632,59 @@ protected:
 
 void registerGridComputeKernel(const std::string & kernelName,
                                std::function<std::shared_ptr<GridComputeKernelTemplate>(GridComputeContext &)> generator);
+
+// Shared specializations
+
+
+struct GridKernelParameterInfo {
+    const char * name;
+    const char * kind;
+    const char * type;
+    const char * dims;
+};
+
+enum class GridComputeKernelArgKind {
+    NONE,
+    BYTES,
+    HANDLE,
+    THREADGROUP
+};
+
+// Encodes the argument in a discriminated union
+struct GridComputeKernelArgValue {
+    GridComputeKernelArgValue(std::span<const std::byte> bytes)
+        : kind(GridComputeKernelArgKind::BYTES), bytes(bytes)
+    {
+    }
+
+    GridComputeKernelArgValue(std::shared_ptr<GridMemoryRegionHandleInfo> handle, MemoryRegionAccess access)
+        : kind(GridComputeKernelArgKind::HANDLE), handle(handle), access(access)
+    {
+    }
+
+    GridComputeKernelArgValue(size_t numThreadGroupBytes)
+        : kind(GridComputeKernelArgKind::THREADGROUP), numThreadGroupBytes(numThreadGroupBytes)
+    {
+    }
+
+    GridComputeKernelArgKind kind = GridComputeKernelArgKind::NONE;
+    std::span<const std::byte> bytes;
+    std::shared_ptr<GridMemoryRegionHandleInfo> handle;
+    MemoryRegionAccess access;
+    ssize_t numThreadGroupBytes = -1;
+};
+
+using Pin = std::shared_ptr<const void>;
+using ArgSetter = std::function<Pin (ComputeQueue & queue, const std::string & opName, void * arg, const GridComputeKernelArgValue & value)>;
+using TupleSetter = std::function<Pin (ComputeQueue & queue, const std::string & opName, std::any & tupleAny, const GridComputeKernelArgValue & value)>;
+
+#if 0
+template<typename T>
+struct LocalArray {
+};
+#endif
+
+// If this string is C-escaped, unescape it
+std::string unescapeCEscapingMaybe(const char * s);
 
 }  // namespace MLDB

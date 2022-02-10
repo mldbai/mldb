@@ -15,6 +15,7 @@
 #include "mldb/arch/ansi.h"
 #include "mldb/block/zip_serializer.h"
 #include "mldb/utils/command_expression_impl.h"
+#include "mldb/arch/timers.h"
 #include <compare>
 
 using namespace std;
@@ -404,7 +405,7 @@ transferToHostSyncImpl(const std::string & opName,
     ExcAssert(handle.handle);
 
     auto [pin, mem, offset] = OpenCLComputeContext::getMemoryRegion(opName, *handle.handle, ACC_READ);
-    finish();  // TODO: instead of blocking here, put the last submitted command as a prereq
+    finish("transferToHostSync");  // TODO: instead of blocking here, put the last submitted command as a prereq
     auto memPtr = clQueue.enqueueMapBufferBlocking(mem, CL_MAP_READ,
                                                    offset, handle.lengthInBytes());
     const char * data = (const char *)memPtr.get();
@@ -536,27 +537,27 @@ void
 OpenCLComputeQueue::
 enqueueBarrier(const std::string & label)
 {
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue enqueueBarrier");
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue enqueueBarrier " + label);
     // TODO: barrier should wait for the last event...
     clQueue.enqueueBarrier({});
 }
 
 std::shared_ptr<ComputeEvent>
 OpenCLComputeQueue::
-flush()
+flush(const std::string & opName)
 {
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue flush");
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, opName + " OpenCLComputeQueue flush");
     // TODO: barrier should wait for the last event...
     auto ev = clQueue.enqueueBarrier({});
     clQueue.flush();
-    return std::make_shared<OpenCLComputeEvent>("flush", false /* resolved */, this /* owner */, ev);
+    return std::make_shared<OpenCLComputeEvent>(opName, false /* resolved */, this /* owner */, ev);
 }
 
 void
 OpenCLComputeQueue::
-finish()
+finish(const std::string & opName)
 {
-    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, "OpenCLComputeQueue finish");
+    auto op = scopedOperation(OperationType::OPENCL_COMPUTE, opName + " OpenCLComputeQueue finish");
     clQueue.finish();
 }
 

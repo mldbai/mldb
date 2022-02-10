@@ -22,8 +22,9 @@ LIBBLOCK_SOURCES:= \
 	compute_kernel_multi.cc \
 	compute_kernel_grid.cc \
 	compute_kernel_cpu.cc \
+	compute_kernel_call_utils.cc \
 
 $(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description any command_expression watch))
 
+$(eval $(call include_sub_make,ukl))
 $(eval $(call include_sub_make,testing))
-

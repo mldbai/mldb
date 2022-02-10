@@ -105,7 +105,7 @@ LIBMLDB_JML_PLUGIN_LINK:= \
 	command_expression \
 	randomforest_metal \
 
-$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext -fcoroutines-ts))
+$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/ext -fcoroutines-ts -isystem mldb/block/ukl))
 $(eval $(call library,mldb_jml_plugin,$(LIBMLDB_JML_PLUGIN_SOURCES),$(LIBMLDB_JML_PLUGIN_LINK)))
 
 #$(eval $(call set_compile_option,$(LIBMLDB_JML_PLUGIN_SOURCES),-Imldb/jml/ext))

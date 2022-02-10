@@ -40,6 +40,7 @@ LIBTYPES_SOURCES := \
 	regex.cc \
 	periodic_utils_value_descriptions.cc \
 	path.cc \
+	exception_description.cc \
 	annotated_exception.cc \
 	../utils/json_utils.cc \
 

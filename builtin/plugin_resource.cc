@@ -123,8 +123,8 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
         // if not, create a /mldb_data in the working directory to mimic
         // the behaviour of when we'll be dockyfied
         else {
-            fs::create_directories(fs::path("./mldb_data/plugins"));
-            plugin_working_dir = fs::path("./mldb_data/plugins") / fs::path(pluginId.rawString());
+            fs::create_directories(fs::path("./tmp/mldb_data/plugins"));
+            plugin_working_dir = fs::path("./tmp/mldb_data/plugins") / fs::path(pluginId.rawString());
             cerr << " PLUGIN INIT. NOT inside docker. Plugin working dir: " << plugin_working_dir << endl;
         }
     }

@@ -41,8 +41,6 @@
 #define CAST_RWLOCAL(Buf, Type) reinterpret_cast<Type __shared__ *>(Buf)
 #define CAST_ROLOCAL(Buf, Type) reinterpret_cast<const Type __shared__ *>(Buf)
 
-
-#define W W32
 #define ukl_simdgroup_barrier()
 #define ukl_threadgroup_barrier() __syncthreads()
 #define printf(...)

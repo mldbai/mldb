@@ -11,15 +11,13 @@
 #pragma once
 
 #include "memory_region.h"
-#include <string>
-#include "mldb/types/annotated_exception.h"
-#include "mldb/arch/demangle.h"
+#include "mldb/types/value_description_fwd.h"
 #include "mldb/utils/command_expression.h"
-#include "mldb/arch/timers.h"
+#include "mldb/types/annotated_exception.h"
+#include <string>
 #include <any>
 #include <iostream>
 #include <compare>
-#include <future>
 #include <set>
 
 namespace MLDB {
@@ -928,9 +926,9 @@ struct ComputeQueue {
 
     virtual void enqueueBarrier(const std::string & label) = 0;
 
-    virtual std::shared_ptr<ComputeEvent> flush() = 0;
+    virtual std::shared_ptr<ComputeEvent> flush(const std::string & opName) = 0;
 
-    virtual void finish() = 0;
+    virtual void finish(const std::string & opName) = 0;
 };
 
 

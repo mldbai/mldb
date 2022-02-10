@@ -398,14 +398,14 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
 {
     auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue enqueueCopyBetweenDeviceRegionsSyncImpl " + opName);
     enqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length);
-    finish();
+    finish(opName + " waiting for copyBetweenDeviceRegions");
 }
 
 std::shared_ptr<ComputeEvent>
 CPUComputeQueue::
-flush()
+flush(const std::string & opName)
 {
-    auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue flush");
+    auto op = scopedOperation(OperationType::CPU_COMPUTE, opName + " CPUComputeQueue flush");
     // No-op for now as it's all synchronous
     return makeAlreadyResolvedEvent("flush");
 }
@@ -420,10 +420,10 @@ enqueueBarrier(const std::string & label)
 
 void
 CPUComputeQueue::
-finish()
+finish(const std::string & opName)
 {
-    auto op = scopedOperation(OperationType::CPU_COMPUTE, "CPUComputeQueue finish");
-    flush()->await();
+    auto op = scopedOperation(OperationType::CPU_COMPUTE, opName + " CPUComputeQueue finish");
+    flush(opName)->await();
 }
 
 std::shared_ptr<ComputeEvent>

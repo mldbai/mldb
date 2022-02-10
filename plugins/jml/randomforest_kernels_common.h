@@ -6,21 +6,25 @@
     Common files for OpenCL kernels.
 */
 
+#include "mldb/block/ukl/ukl_shim.h"
+
+#define W W32
+
 static const __constant float VAL_2_HL = 1.0f * (1UL << 30);
 static const __constant float HL_2_VAL = 1.0f / (1UL << 30);
 static const __constant float ADD_TO_ROUND = 0.5f / (1UL << 30);
 
-inline uint32_t createMask32(uint32_t numBits)
+UKL_FUNCTION(v1,uint32_t,createMask32)(uint32_t numBits)
 {
     return numBits >= 32 ? -1 : (((uint32_t)1 << numBits) - 1);
 }
 
-inline uint64_t createMask64(uint32_t numBits)
+UKL_FUNCTION(v1,uint64_t,createMask64)(uint32_t numBits)
 {
     return numBits >= 64 ? -1 : (((uint64_t)1 << numBits) - 1);
 }
 
-inline uint64_t extractBitRange64(ROBUFFER(uint64_t) data,
+UKL_FUNCTION(v1,uint64_t,extractBitRange64)(ROBUFFER(uint64_t) data,
                                   uint32_t numBits,
                                   uint32_t entryNumber,
                                   uint64_t mask,
@@ -70,7 +74,7 @@ inline uint64_t extractBitRange64(ROBUFFER(uint64_t) data,
     return val;
 }
 
-inline uint16_t extract16BitRange32(ROBUFFER(uint32_t) data,
+UKL_FUNCTION(v1,uint16_t,extract16BitRange32)(ROBUFFER(uint32_t) data,
                                     uint16_t numBits,
                                     uint32_t entryNumber)
 {
@@ -86,8 +90,8 @@ inline uint16_t extract16BitRange32(ROBUFFER(uint32_t) data,
     }
     else {
         uint2 words = CAST_ROBUFFER(data + wordNumber, uint2)[0];
-        uint16_t bottom = extract_bits(words[0], wordOffset, bottomBits);
-        return bottom | extract_bits(words[1], 0, topBits) << bottomBits;
+        uint16_t bottom = extract_bits(ukl_vec_el(words, x), wordOffset, bottomBits);
+        return bottom | extract_bits(ukl_vec_el(words, y), 0, topBits) << bottomBits;
     }
 }
 
@@ -97,7 +101,7 @@ typedef enum WeightFormat {
     WF_FLOAT          ///< Stored directly as a 32 bit float
 } WeightFormat;
 
-inline float decodeWeight(uint32_t bits, WeightFormat floatEncoding, float baseMultiplier,
+UKL_FUNCTION(v1,float,decodeWeight)(uint32_t bits, WeightFormat floatEncoding, float baseMultiplier,
                    ROBUFFER(float) table)
 {
     if (floatEncoding == WF_INT_MULTIPLE || true) {
@@ -118,25 +122,7 @@ typedef struct DecodedRow {
     bool label;
 } DecodedRow;
 
-DecodedRow getDecodedRow(uint32_t rowNumber,
-
-                   ROBUFFER(uint64_t) rowData,
-                   uint32_t rowDataLength,
-                   uint32_t totalBits,
-                   uint32_t weightBits,
-                   uint32_t exampleBits,
-                   uint32_t numRows,
-
-                   WeightFormat weightEncoding,
-                   float weightMultiplier,
-                   ROBUFFER(float) weightTable,
-                   
-                   uint64_t mask,
-                   uint32_t exampleMask,
-                   uint32_t weightMask,
-                   uint32_t labelMask);
-
-DecodedRow getDecodedRow(uint32_t rowNumber,
+UKL_FUNCTION(v1,DecodedRow,getDecodedRow)(uint32_t rowNumber,
 
                    ROBUFFER(uint64_t) rowData,
                    uint32_t rowDataLength,
@@ -173,7 +159,7 @@ DecodedRow getDecodedRow(uint32_t rowNumber,
     return result;
 }
 
-inline uint16_t getBucket(uint32_t exampleNum,
+UKL_FUNCTION(v1,uint16_t,getBucket)(uint32_t exampleNum,
                           ROBUFFER(uint32_t) bucketData,
                           uint32_t bucketDataLength,
                           uint32_t bucketBits,
@@ -203,14 +189,14 @@ typedef struct WIndexed {
 #define W_INIT { { 0, 0}, 0 }
 #define W_INDEXED_INIT { W_INIT, 0 }
 
-inline void zeroW(RWLOCAL(W) w)
+UKL_FUNCTION(v1,void,zeroW)(RWLOCAL(W) w)
 {
     w->vals[0] = 0;
     w->vals[1] = 0;
     w->count = 0;
 }
 
-static inline int32_t encodeW(float f)
+UKL_FUNCTION(v1,int32_t,encodeW)(float f)
 {
     int32_t result = (f + ADD_TO_ROUND) * VAL_2_HL;
     //printf("encoding %g (%08x) to %g (%08x) to %ld, ADD_TO_ROUND = %g, VAL_2_HL = %g\n",
@@ -220,44 +206,44 @@ static inline int32_t encodeW(float f)
     return result;
 }
 
-static inline float decodeW(int32_t v)
+UKL_FUNCTION(v1,float,decodeW)(int32_t v)
 {
     return v * HL_2_VAL;
 }
 
-static inline float decodeWf(int32_t v)
+UKL_FUNCTION(v1,float,decodeWf)(int32_t v)
 {
     return v * HL_2_VAL;
 }
 
-inline void incrementWLocal(__local W * wIn, bool label, float weight)
+UKL_FUNCTION(v1,void,incrementWLocal)(__local W * wIn, bool label, float weight)
 {
-    __local WAtomic * w = (__local WAtomic *)wIn;
+    UKL_LOCAL_PTR(WAtomic) w = UKL_LOCAL_PTR_CAST(WAtomic)wIn;
     int32_t inc = encodeW(weight);
     atom_add_local(&w->vals[label ? 1 : 0], inc);
     atom_inc_local(&w->count);
 }
 
-inline void decrementWLocal(__local W * wIn, bool label, float weight)
+UKL_FUNCTION(v1,void,decrementWLocal)(__local W * wIn, bool label, float weight)
 {
-    __local WAtomic * w = (__local WAtomic *)wIn;
+    UKL_LOCAL_PTR(WAtomic) w = UKL_LOCAL_PTR_CAST(WAtomic)wIn;
     int32_t inc = encodeW(weight);
     ukl_assert(wIn->count > 0);
     atom_sub_local(&w->vals[label ? 1 : 0], inc);
     atom_dec_local(&w->count);
 }
 
-inline void incrementWGlobal(__global W * wIn, bool label, float weight)
+UKL_FUNCTION(v1,void,incrementWGlobal)(UKL_GLOBAL_PTR(W) wIn, bool label, float weight)
 {
-    __global WAtomic * w = (__global WAtomic *)wIn;
+    UKL_GLOBAL_PTR(WAtomic) w = UKL_GLOBAL_PTR_CAST(WAtomic)wIn;
     int32_t inc = encodeW(weight);
     atom_add(&w->vals[label ? 1 : 0], inc);
     atom_inc(&w->count);
 }
 
-inline void incrementWOut(__global W * wOut_, __local const W * wIn)
+UKL_FUNCTION(v1,void,incrementWOut)(UKL_GLOBAL_PTR(W) wOut_, __local const W * wIn)
 {
-    __global WAtomic * wOut = (__global WAtomic *)wOut_;
+    UKL_GLOBAL_PTR(WAtomic) wOut = UKL_GLOBAL_PTR_CAST(WAtomic)wOut_;
     if (wIn->count == 0)
         return;
     if (wIn->vals[0] != 0)
@@ -267,9 +253,9 @@ inline void incrementWOut(__global W * wOut_, __local const W * wIn)
     atom_add(&wOut->count,   wIn->count);
 }
 
-inline void decrementWOutGlobal(__global W * wOut_, __global const W * wIn)
+UKL_FUNCTION(v1,void,decrementWOutGlobal)(UKL_GLOBAL_PTR(W) wOut_, UKL_GLOBAL_PTR(const W) wIn)
 {
-    __global WAtomic * wOut = (__global WAtomic *)wOut_;
+    UKL_GLOBAL_PTR(WAtomic) wOut = UKL_GLOBAL_PTR_CAST(WAtomic)wOut_;
     if (wIn->count == 0)
         return;
     ukl_assert_greater_equal(wOut->count, wIn->count);
@@ -286,8 +272,8 @@ inline void decrementWOutGlobal(__global W * wOut_, __global const W * wIn)
 //
 // This is a 1D kernel over the array of rows, not very complicated
 
-inline void
-decompressRowsImpl(ROBUFFER(uint64_t) rowData,
+UKL_FUNCTION(v1,void,
+decompressRowsImpl)(ROBUFFER(uint64_t) rowData,
                          uint32_t rowDataLength,
                          uint16_t weightBits,
                          uint16_t exampleNumBits,
@@ -333,12 +319,13 @@ uint32_t testRow(uint32_t rowId,
                  RWBUFFER(W) wOut,
                  uint32_t maxLocalBuckets);
 
-inline void printW(RWBUFFER(W) w)
+UKL_FUNCTION(v1,void,printW)(RWBUFFER(W) w)
 {
     //printf("{\"v\":[%f,%f],\"c\":%d}", decodeWf(w->vals[0]), decodeWf(w->vals[1]), w->count);
 }
 
-inline uint32_t testRow(uint32_t rowId,
+UKL_FUNCTION(v1,uint32_t,testRow)
+                (uint32_t rowId,
                  ROBUFFER(float) rowData,
                  uint32_t numRows,
                  
@@ -462,22 +449,22 @@ typedef struct IndexedPartitionSplit {
 
 #define INDEXED_PARTITION_SPLIT_INIT { INFINITY, -1, -1, W_INIT, W_INIT, 0 }
 
-inline bool partitionSplitDirection(PartitionSplit split)
+UKL_FUNCTION(v1,bool,partitionSplitDirection)(PartitionSplit split)
 {
     return split.feature != -1 && split.left.count < split.right.count;
 }
 
-inline bool indexedPartitionSplitDirection(IndexedPartitionSplit split)
+UKL_FUNCTION(v1,bool,indexedPartitionSplitDirection)(IndexedPartitionSplit split)
 {
     return split.feature != -1 && split.left.count < split.right.count;
 }
 
-inline bool partitionSplitDirectionGlobal(ROBUFFER(PartitionSplit) split)
+UKL_FUNCTION(v1,bool,partitionSplitDirectionGlobal)(ROBUFFER(PartitionSplit) split)
 {
     return partitionSplitDirection(*split);
 }
 
-inline float nextFloat(float val, int32_t n)
+UKL_FUNCTION(v1,float,nextFloat)(float val, int32_t n)
 {
     int32_t ival = reinterpretFloatAsInt(val);
     ival += n;
@@ -485,7 +472,7 @@ inline float nextFloat(float val, int32_t n)
 }
 
 // Stable SQRT: take the largest value which when squared is less than or equal to the desired value
-inline float sqrt3(float val)
+UKL_FUNCTION(v1,float,sqrt3)(float val)
 {
     constexpr float SQRT3_MULT_BEFORE = 65536.0f;
     constexpr float SQRT3_MULT_AFTER  = 1.0f / 256.0f;
@@ -498,10 +485,10 @@ inline float sqrt3(float val)
     return approx * SQRT3_MULT_AFTER;
 }
 
-float scoreSplit(W wFalse, W wTrue);
+UKL_FUNCTION(v1,float,scoreSplit)(W wFalse, W wTrue);
 
 #if 1
-float scoreSplit(W wFalse, W wTrue)
+UKL_FUNCTION(v1,float,scoreSplit)(W wFalse, W wTrue)
 {
     float arg1 = decodeWf(wFalse.vals[0]) * decodeWf(wFalse.vals[1]);
     float arg2 = decodeWf(wTrue.vals[0])  * decodeWf(wTrue.vals[1]);
@@ -512,9 +499,9 @@ float scoreSplit(W wFalse, W wTrue)
 };
 #endif
 
-void incrementW(__local W * out, __local const W * in);
+UKL_FUNCTION(v1,void,incrementW)(__local W * out, __local const W * in);
 
-void incrementW(__local W * out, __local const W * in)
+UKL_FUNCTION(v1,void,incrementW)(__local W * out, __local const W * in)
 {
     if (in->count == 0)
         return;
@@ -523,9 +510,9 @@ void incrementW(__local W * out, __local const W * in)
     out->count += in->count;
 }
 
-float scoreSplitWAll(W wTrue, W wAll);
+UKL_FUNCTION(v1,float,scoreSplitWAll)(W wTrue, W wAll);
 
-float scoreSplitWAll(W wTrue, W wAll)
+UKL_FUNCTION(v1,float,scoreSplitWAll)(W wTrue, W wAll)
 {
     W wFalse = { { wAll.vals[0] - wTrue.vals[0],
                    wAll.vals[1] - wTrue.vals[1] },
@@ -536,12 +523,12 @@ float scoreSplitWAll(W wTrue, W wAll)
 }
 
 #if 1
-void minW(RWLOCAL(WIndexed) out, RWLOCAL(const WIndexed) in, W wAll);
+UKL_FUNCTION(v1,void,minW)(RWLOCAL(WIndexed) out, RWLOCAL(const WIndexed) in, W wAll);
 
 /* In this function, we identify empty buckets (that should not be scored)
    by marking their index with -1.
 */
-void minW(RWLOCAL(WIndexed) out, RWLOCAL(const WIndexed) in, W wAll)
+UKL_FUNCTION(v1,void,minW)(RWLOCAL(WIndexed) out, RWLOCAL(const WIndexed) in, W wAll)
 {
     if (in->w.count == 0 || in->index < 0)
         return;
@@ -965,9 +952,9 @@ getPartitionSplitsImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
     //    << endl;
     //printf("getPartitionSplits %d\n", bucket);
 
-    assert(workGroupSize > 0);
-    assert(workGroupSize % 32 == 0);
-    assert(partitionWorkerSize > 0);
+    ukl_assert(workGroupSize > 0);
+    ukl_assert(workGroupSize % 32 == 0);
+    ukl_assert(partitionWorkerSize > 0);
 
     const uint32_t totalBuckets = treeTrainingInfo[0].numActiveBuckets;
     const uint32_t numActivePartitions = treeDepthInfo[0].numActivePartitions;
@@ -1040,8 +1027,8 @@ typedef struct PartitionIndex {
 } PartitionIndex;
 
 // id 0: partition number
-void
-bestPartitionSplitImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+UKL_FUNCTION(v1,void,
+bestPartitionSplitImpl)(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
                        ROBUFFER(TreeDepthInfo) treeDepthInfo,
                        ROBUFFER(uint32_t) activeFeatureList, // [numActiveFeatures]
                        ROBUFFER(PartitionSplit) featurePartitionSplits,
@@ -1117,24 +1104,24 @@ typedef struct PartitionInfo {
     int32_t right;
 } PartitionInfo;
 
-inline bool discardSplit(IndexedPartitionSplit split)
+UKL_FUNCTION(v1,bool,discardSplit)(IndexedPartitionSplit split)
 {
     return split.feature == -1
         || ((split.left.vals[0] == 0 || split.left.vals[1] == 0)
              && (split.right.vals[0] == 0 || split.right.vals[1] == 0));
 }
 
-inline int32_t indexDepth(uint32_t index)
+UKL_FUNCTION(v1,int32_t,indexDepth)(uint32_t index)
 {
-    return index == 0 ? -1 : 31 - clz(index);
+    return index == 0 ? -1 : 31 - ukl_clz(index);
 }
 
-inline uint32_t leftChildIndex(uint32_t parent)
+UKL_FUNCTION(v1,uint32_t,leftChildIndex)(uint32_t parent)
 {
     return parent + (1 << indexDepth(parent));
 }
 
-inline uint32_t rightChildIndex(uint32_t parent)
+UKL_FUNCTION(v1,uint32_t,rightChildIndex)(uint32_t parent)
 {
     return parent + (2 << indexDepth(parent));
 }
@@ -1205,9 +1192,9 @@ assignPartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
         //using namespace std;
         //cerr << "i = " << i << " p = " << p << " nap = " << numActivePartitions << " discard = " << discard << " workGroupSize = " << workgroupSize << endl;
 
-        uint32_t discardWhich = simdgroup_ballot(discard, workerId, &localState->scratch);
+        uint32_t discardWhich = ukl_simdgroup_ballot(discard, workerId, &localState->scratch);
 
-        uint32_t numDiscarded = popcount(discardWhich);
+        uint32_t numDiscarded = ukl_popcount(discardWhich);
 
         //cerr << "i = " << i << " discardWhich = " << discardWhich << " numDiscarded = " << numDiscarded << endl;
 
@@ -1219,7 +1206,7 @@ assignPartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
         }
 
         uint32_t base = atom_load(&localState->numInactivePartitions);
-        uint32_t index = base + SYNC_CALL_3(simdgroup_prefix_exclusive_sum_bools, discard, workerId, &localState->scratch);
+        uint32_t index = base + SYNC_CALL_3(ukl_simdgroup_prefix_exclusive_sum_bools, discard, workerId, &localState->scratch);
 
         if (p < numActivePartitions) {
             if (discard) {
@@ -1275,7 +1262,7 @@ assignPartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
             }
         }
 
-        uint32_t smallSideRowsIncrement = simdgroup_sum(partitionSmallSideRows, workerId, &localState->scratch);
+        uint32_t smallSideRowsIncrement = ukl_simdgroup_sum(partitionSmallSideRows, workerId, &localState->scratch);
 
         if (workerId == 0) {
             atom_add(&localState->numSmallSideRows, smallSideRowsIncrement);
@@ -1382,8 +1369,8 @@ typedef struct UpdateWorkEntry {
 } UpdateWorkEntry;
 
 // [partition, bucket]
-void
-clearBucketsImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+UKL_FUNCTION(v1,void,
+clearBucketsImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
                    ROBUFFER(TreeDepthInfo) treeDepthInfo,
                    RWBUFFER(W) bucketsOut,
                    RWBUFFER(W) wAllOut,
@@ -1483,12 +1470,12 @@ updatePartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
 
     //RWLOCAL(uint32_t work_group_directions[32];  // 32) 32 = 1024 bits at once, which is the SIMD width
 
-    __global atomic_uint * nonZeroDirectionCount = &CAST_RWBUFFER(numNonZeroDirectionIndices, atomic_uint)[0];
+    UKL_GLOBAL_PTR(atomic_uint) nonZeroDirectionCount = &CAST_RWBUFFER(numNonZeroDirectionIndices, atomic_uint)[0];
 
     // Scratch for my simdgroup
     const uint16_t simdgroup_lane = workerIdInWorkgroup % 32;
     const uint16_t simdgroup_num  = workerIdInWorkgroup / 32;
-    __local atomic_uint * simdgroup_scratch = localState->scratch + simdgroup_num;
+    UKL_LOCAL_PTR(atomic_uint) simdgroup_scratch = localState->scratch + simdgroup_num;
 
     for (uint32_t i = 0;  i < numRows;  i += numWorkersInGrid) {
         uint32_t r = i + workerIdInGrid;
@@ -1534,13 +1521,13 @@ updatePartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
         //if (r + 32 >= numRows)
         //    break;
 
-        uint32_t simdDirections = simdgroup_ballot(direction, simdgroup_lane, simdgroup_scratch);
+        uint32_t simdDirections = ukl_simdgroup_ballot(direction, simdgroup_lane, simdgroup_scratch);
 
         //if (simd_is_first() && (r / 32) * 32 < numRows) {
         //    directions[r/32] = simdDirections;
         //}
 
-        uint16_t numDirections = popcount(simdDirections);
+        uint16_t numDirections = ukl_popcount(simdDirections);
 
         //using namespace std;
         //cerr << "lane " << simdgroup_lane << " numDirections = " << numDirections << endl;
@@ -1553,9 +1540,9 @@ updatePartitionNumbersImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
             nonZeroDirectionBase = atom_add(nonZeroDirectionCount, numDirections);
         }
 
-        nonZeroDirectionBase = simdgroup_broadcast_first(nonZeroDirectionBase, simdgroup_lane, simdgroup_scratch);
+        nonZeroDirectionBase = ukl_simdgroup_broadcast_first(nonZeroDirectionBase, simdgroup_lane, simdgroup_scratch);
 
-        uint16_t n = prefix_exclusive_sum_bitmask(simdDirections, simdgroup_lane);
+        uint16_t n = ukl_prefix_exclusive_sum_bitmask(simdDirections, simdgroup_lane);
 
         if (direction) {
             uint16_t smallPartitionIndex = /*partition < SSI_CACHE_SIZE ? smallSideIndexesCache[partition] :*/ smallSideIndexes[partition];
@@ -1764,8 +1751,8 @@ updateBucketsImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
 // Dimension 0 = partition number (from 0 to the old number of partitions)
 // Dimension 1 = bucket number (from 0 to the number of active buckets); may be padded
 
-void
-fixupBucketsImpl(CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
+UKL_FUNCTION(v1,void,
+fixupBucketsImpl) (CONSTBUFFER(TreeTrainingInfo) treeTrainingInfo,
                    ROBUFFER(TreeDepthInfo) treeDepthInfo,
                    RWBUFFER(W) buckets,
                    RWBUFFER(W) wAll,

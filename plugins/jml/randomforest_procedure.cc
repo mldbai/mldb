@@ -136,7 +136,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     //Todo: we will need heuristics for those. (MLDB-1449)
-    int maxBagsAtOnce = 5;
+    int maxBagsAtOnce = 8;
     //int maxTreesAtOnce = 20;
 
     RandomForestProcedureConfig runProcConf =
@@ -408,38 +408,57 @@ run(const ProcedureRunConfig & run,
             std::vector<std::vector<int>> samplingActiveFeatures;
             samplingActiveFeatures.reserve(runProcConf.featureSamplings);
 
+            // List of active features, that we will shuffle around
+            std::vector<int> activeFeatureList;
+            for (unsigned i = 0;  i < data.features.size();  ++i) {
+                if (data.features[i].active) {
+                    activeFeatureList.push_back(i);
+                }
+            }
+
             for (size_t i = 0;  i < runProcConf.featureSamplings;  ++i) {
                 mt19937 rng(bag + 371 + i);
                 uniform_real_distribution<> uniform01(0, 1);
 
                 std::vector<int> activeFeatures;
 
-                // Cull the features according to the sampling proportion
-                for (int attempt = 0;  true /* break in loop */; ++attempt) {
-                    activeFeatures.clear();
-                    int numActiveFeatures = 0;
-
+                if (false) {
                     // Cull the features according to the sampling proportion
-                    for (unsigned i = 0;  i < data.features.size();  ++i) {
-                        if (data.features[i].active
-                            && uniform01(rng) <= procedureConfig.featureSamplingProp) {
-                            activeFeatures.push_back(i);
-                            ++numActiveFeatures;
+                    for (int attempt = 0;  true /* break in loop */; ++attempt) {
+                        activeFeatures.clear();
+                        int numActiveFeatures = 0;
+
+                        // Cull the features according to the sampling proportion
+                        for (unsigned i = 0;  i < data.features.size();  ++i) {
+                            if (data.features[i].active
+                                && uniform01(rng) <= procedureConfig.featureSamplingProp) {
+                                activeFeatures.push_back(i);
+                                ++numActiveFeatures;
+                            }
                         }
-                    }
-                    
-                    if (numActiveFeatures == 0) {
-                        if (attempt == 9) {
-                            throw AnnotatedException
-                                (400, "Feature partition had no features; "
-                                 "consider increasing featureVectorSamplingProp");
+                        
+                        if (numActiveFeatures == 0) {
+                            if (attempt == 9) {
+                                throw AnnotatedException
+                                    (400, "Feature partition had no features; "
+                                    "consider increasing featureVectorSamplingProp");
+                            }
                         }
-                    }
-                    else {
-                        samplingActiveFeatures.emplace_back(std::move(activeFeatures));
-                        break;
+                        else break;
                     }
                 }
+                else {
+                    int numFeaturesRequired = std::ceil(std::sqrt(1.0 * activeFeatureList.size()));
+                    cerr << "choosing " << numFeaturesRequired << " of " << activeFeatureList.size() << " features" << endl;
+                    if (numFeaturesRequired > activeFeatureList.size())
+                        numFeaturesRequired = activeFeatureList.size();
+                    ExcAssertGreater(numFeaturesRequired, 0);
+                    std::shuffle(activeFeatureList.begin(), activeFeatureList.end(), rng);
+
+                    activeFeatures = { activeFeatureList.begin(), activeFeatureList.begin() + numFeaturesRequired };
+                }
+
+                samplingActiveFeatures.emplace_back(std::move(activeFeatures));
             }
 
             Timer timer;

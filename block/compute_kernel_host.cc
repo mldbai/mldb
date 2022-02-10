@@ -7,6 +7,7 @@
 
 #include "compute_kernel_host.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/arch/timers.h"
 
 
 namespace MLDB {
@@ -470,14 +471,14 @@ enqueueBarrier(const std::string & label)
 
 std::shared_ptr<ComputeEvent>
 HostComputeQueue::
-flush()
+flush(const std::string & opName)
 {
-    return makeAlreadyResolvedEvent("flush");
+    return makeAlreadyResolvedEvent(opName);
 }
 
 void
 HostComputeQueue::
-finish()
+finish(const std::string & opName)
 {
     // no-op
 }

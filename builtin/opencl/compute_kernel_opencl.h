@@ -121,8 +121,8 @@ struct OpenCLComputeQueue: public GridComputeQueue {
     virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
     virtual void enqueueBarrier(const std::string & label) override;
-    virtual std::shared_ptr<ComputeEvent> flush() override;
-    virtual void finish() override;
+    virtual std::shared_ptr<ComputeEvent> flush(const std::string & opName) override;
+    virtual void finish(const std::string & opName) override;
 
 protected:
     virtual void

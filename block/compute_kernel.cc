@@ -701,7 +701,7 @@ transferToHostSyncImpl(const std::string & opName,
                        MemoryRegionHandle handle)
 {
     auto result = enqueueTransferToHostImpl(opName, std::move(handle));
-    finish();
+    finish("transferToHostSyncImpl");
     return result;
 }
 
@@ -711,7 +711,7 @@ transferToHostMutableSyncImpl(const std::string & opName,
                               MemoryRegionHandle handle)
 {
     auto result = enqueueTransferToHostMutableImpl(opName, std::move(handle));   
-    finish();
+    finish("transferToHostMutableSyncImpl");
     return result;
 }
 

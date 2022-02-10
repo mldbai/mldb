@@ -33,7 +33,7 @@ struct MetalComputeEvent: public GridComputeEvent {
 
     virtual ~MetalComputeEvent() = default;
 
-    void resolveFromCommandBuffer(const mtlpp::CommandBuffer & commandBuffer);
+    void resolveFromCommandBuffer(mtlpp::CommandBuffer & commandBuffer);
 
     virtual void await() const override;
 
@@ -42,6 +42,7 @@ struct MetalComputeEvent: public GridComputeEvent {
     static std::shared_ptr<MetalComputeEvent>
     makeUnresolvedEvent(const std::string & label, const MetalComputeQueue * owner);
 
+    mutable std::mutex mutex;
     mtlpp::CommandBuffer commandBuffer;
 };
 
@@ -105,8 +106,8 @@ struct MetalComputeQueue: public GridComputeQueue, std::enable_shared_from_this<
     virtual std::shared_ptr<ComputeEvent> makeAlreadyResolvedEvent(const std::string & label) const override;
 
     virtual void enqueueBarrier(const std::string & label) override;
-    virtual std::shared_ptr<ComputeEvent> flush() override;
-    virtual void finish() override;
+    virtual std::shared_ptr<ComputeEvent> flush(const std::string & opName) override;
+    virtual void finish(const std::string & opName) override;
 
 protected:
     virtual void

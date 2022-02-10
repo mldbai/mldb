@@ -36,8 +36,11 @@ METAL_PLUGIN_LINK := \
 	command_expression \
 	mtlpp \
 	base_kernels_metal \
-
+	runner \
 
 $(eval $(call set_compile_option,$(METAL_PLUGIN_SOURCE),-Imldb/ext))
 $(eval $(call library,mldb_metal_plugin,$(METAL_PLUGIN_SOURCE),value_description sql_expression $(METAL_PLUGIN_LINK)))
+
+$(eval $(call include_sub_make,metal_testing,testing))
+
 endif

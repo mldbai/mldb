@@ -51,14 +51,14 @@
 #define CALL(Fn, ...) Fn(__VA_ARGS__)
 
 // Call the macro given by concatenating Name1 and Name2 with the given args
-#define CALL2(Name1, Name2, ...) CALL(Name1 ## Name2, __VA_ARGS__)
+#define CALL2(Name1, Name2, ...) CALL(Name1##Name2, __VA_ARGS__)
 
 // Another version so we can apply call when evaluating call
 #define CALL_A(Fn, ...) Fn(__VA_ARGS__)
-#define CALL2_A(Name1, Name2, ...) CALL_A(Name1 ## Name2, __VA_ARGS__)
+#define CALL2_A(Name1, Name2, ...) CALL_A(Name1##Name2, __VA_ARGS__)
 
 #define CALL_B(Fn, ...) Fn(__VA_ARGS__)
-#define CALL2_B(Name1, Name2, ...) CALL_B(Name1 ## Name2, __VA_ARGS__)
+#define CALL2_B(Name1, Name2, ...) CALL_B(Name1##Name2, __VA_ARGS__)
 
 #define FOREACH_PAIR_0(Fn) \
 

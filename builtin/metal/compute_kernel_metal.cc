@@ -12,6 +12,7 @@
 #include "mldb/types/set_description.h"
 #include "mldb/types/generic_array_description.h"
 #include "mldb/types/generic_atom_description.h"
+#include "mldb/types/exception_description.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/environment.h"
 #include "mldb/arch/ansi.h"
@@ -19,7 +20,10 @@
 #include "mldb/utils/command_expression_impl.h"
 #include "mldb/arch/spinlock.h"
 #include "mldb/arch/exception.h"
+#include "mldb/arch/timers.h"
+#include "mldb/utils/string_functions.h"
 #include <compare>
+#include <regex>
 
 using namespace std;
 
@@ -144,6 +148,11 @@ struct InitCapture {
 struct MetalMemoryRegionHandleInfo: public GridMemoryRegionHandleInfo {
     mtlpp::Buffer buffer;
 
+    virtual ~MetalMemoryRegionHandleInfo()
+    {
+        cerr << "destroying MetalMemoryRegionHandleInfo " << name << " with buffer use count " << buffer.GetRetainCount() << endl;
+    }
+
     virtual MetalMemoryRegionHandleInfo * clone() const
     {
         return new MetalMemoryRegionHandleInfo(*this);
@@ -170,12 +179,12 @@ MetalComputeEvent(const std::string & label, bool isResolvedIn, const MetalCompu
 
 void
 MetalComputeEvent::
-resolveFromCommandBuffer(const mtlpp::CommandBuffer & buffer)
+resolveFromCommandBuffer(mtlpp::CommandBuffer & buffer)
 {
+    std::unique_lock guard{mutex};
+
     ExcAssert(!isResolved);
     ExcAssert(!this->commandBuffer);
-
-    this->commandBuffer = buffer;
 
     if (buffer.GetStatus() == mtlpp::CommandBufferStatus::Completed) {
         this->resolve();
@@ -199,15 +208,18 @@ resolveFromCommandBuffer(const mtlpp::CommandBuffer & buffer)
 
     auto onComplete = [weakThis] (const mtlpp::CommandBuffer & buffer)
     {
-        auto sharedThis = weakThis.lock();
+        auto sharedThis = std::reinterpret_pointer_cast<MetalComputeEvent>(weakThis.lock());
         if (!sharedThis)
             return;
 
-        //cerr << ansi::red << "onComplete for event " << sharedThis->label() << ansi::reset << endl;
+        std::unique_lock guard(sharedThis->mutex);
+        cerr << ansi::red << "onComplete for event " << sharedThis->label() << ansi::reset << endl;
         sharedThis->resolve();
+        sharedThis->commandBuffer = {};
     };
 
     //cerr << ansi::red << "event from command buffer: status = " << (int)commandBuffer.GetStatus() << ansi::reset << endl;
+    this->commandBuffer = buffer;
     commandBuffer.AddCompletedHandler(onComplete);
 }
 
@@ -219,11 +231,14 @@ await() const
     if (isResolved)
         return;
 
+    std::unique_lock guard{mutex};
+
     // If we're actively waiting, we can do so in this thread and avoid having to wait for
     // the asynchronous mechanisms to eventually notice that it's done.
     if (commandBuffer) {
         auto tr = scopedOperation(OperationType::METAL_COMPUTE, "awaiting " + label() + " on command buffer");
-        auto & mutableCommandBuffer = const_cast<mtlpp::CommandBuffer &>(commandBuffer);
+        auto mutableCommandBuffer = const_cast<mtlpp::CommandBuffer &>(commandBuffer);
+        guard.unlock();
 
         //cerr << "await(): status = " << jsonEncodeStr(commandBuffer.GetStatus()) << endl;
 
@@ -235,11 +250,15 @@ await() const
 
         mutableCommandBuffer.WaitUntilCompleted();
 
+
+        guard.lock();
         //cerr << "await(): status = " << jsonEncodeStr(commandBuffer.GetStatus()) << endl;
 
-        ((MetalComputeEvent *)this)->resolve();
+        if (!isResolved)
+            ((MetalComputeEvent *)this)->resolve();
     }
     else {
+        guard.unlock();
         auto tr = scopedOperation(OperationType::METAL_COMPUTE, "awaiting " + label() + " on future");        
         future.get();
         ExcAssert(isResolved);
@@ -616,7 +635,7 @@ transferToHostSyncImpl(const std::string & opName,
 
     auto myCommandBuffer = commandBuffer;
 
-    finish();
+    finish("transferToHostSync");
 
     //ExcAssert(commandBuffer);
     //commandBuffer.Commit();
@@ -715,7 +734,7 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
 {
     auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeContext managePinnedHostRegionSyncImpl " + opName);
 
-    cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
+    //cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
 
     mtlpp::ResourceOptions options
          = mtlpp::ResourceOptions::StorageModeShared;
@@ -801,16 +820,16 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
                                  size_t length)
 {
     enqueueCopyBetweenDeviceRegionsImpl(opName, from, to, fromOffset, toOffset, length);
-    finish();
+    finish("copyBetweenDeviceRegionsSyncImpl");
 }
 
 std::shared_ptr<ComputeEvent>
 MetalComputeQueue::
-flush()
+flush(const std::string & opName)
 {
-    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue flush");
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, opName + " MetalComputeQueue flush");
 
-    auto result = std::make_shared<MetalComputeEvent>("flush", false /* resolved */, this);
+    auto result = std::make_shared<MetalComputeEvent>(opName, false /* resolved */, this);
     ExcAssert(commandBuffer);
 
     //cerr << "flush(): " << this << " status = " << jsonEncodeStr(commandBuffer.GetStatus()) << endl;
@@ -850,10 +869,10 @@ enqueueBarrier(const std::string & label)
 
 void
 MetalComputeQueue::
-finish()
+finish(const std::string & opName)
 {
-    auto op = scopedOperation(OperationType::METAL_COMPUTE, "MetalComputeQueue finish");
-    flush()->await();
+    auto op = scopedOperation(OperationType::METAL_COMPUTE, opName + " MetalComputeQueue finish");
+    flush(opName)->await();
 }
 
 std::shared_ptr<ComputeEvent>
@@ -870,6 +889,25 @@ MetalComputeContext::
 MetalComputeContext(mtlpp::Device mtlDevice, ComputeDevice device)
     : GridComputeContext(device), mtlDevice(mtlDevice)
 {
+    {
+#if 0
+        mtlpp::Buffer buffer;
+
+        for (size_t i = 0;  i < 1000;  ++i) {
+            cerr << endl << "creating buffer " << i << endl;
+            buffer = mtlDevice.NewBuffer(100000000, mtlpp::ResourceOptions::StorageModePrivate);
+            cerr << endl << "done creating buffer " << i << endl;
+            if (!buffer) {
+                throw MLDB::Exception("Error creating buffer number " + std::to_string(i));
+            }
+            //buffer.SetLabel(format("test buffer %zd", i).c_str());
+            //ns::GarbageCollectExhaustively();
+        }
+
+        cerr << "done creating buffers" << endl;
+#endif
+    }
+
 #if 0
     mtlpp::HeapDescriptor heapDescriptor;
     heapDescriptor.SetStorageMode(mtlpp::StorageMode::Private);
@@ -1351,7 +1389,17 @@ getFunction(const std::string & functionName)
 
     mtlpp::Function function = this->mtlLibrary.NewFunction(functionName.c_str(), {} /* constantValues */, &error);
 
-    checkMetalError(error, "Error getting function from Metal library", "functionName", functionName);
+    try {
+        checkMetalError(error, "Error getting function '" + functionName + "' from Metal library", "functionName", functionName);
+    } MLDB_CATCH_ALL {
+        std::vector<std::string> functionNames;
+        auto nm = this->mtlLibrary.GetFunctionNames();
+        for (size_t i = 0;  i < nm.GetSize();  ++i) {
+            functionNames.push_back(nm[i].GetCStr());
+        }
+        cerr << "function names: " << jsonEncodeStr(functionNames) << endl;
+        throw;
+    }
 
     ExcAssert(function);
     return std::make_shared<MetalComputeFunction>(context, function);
@@ -1371,6 +1419,46 @@ getMetadata() const
     MLDB_THROW_UNIMPLEMENTED();
 }
 
+std::string runCommand(const std::vector<std::string> & command, const std::string & debugName)
+{
+    std::ostringstream preprocessedOutput;
+    std::ostringstream preprocessorErrors;
+
+    auto stdOutSink = std::make_shared<OStreamInputSink>(&preprocessedOutput);
+    auto stdErrSink = std::make_shared<OStreamInputSink>(&preprocessorErrors);
+
+    RunResult result = execute(command, stdOutSink, stdErrSink);
+
+    switch (result.state) {
+    case RunResult::LAUNCH_ERROR:
+        throw MLDB::AnnotatedException(500, debugName + " launch error",
+                                        "command", command,
+                                        "error", result.launchError);
+    case RunResult::LAUNCH_EXCEPTION:
+        throw MLDB::AnnotatedException(500, debugName + " launch exception",
+                                        "command", command,
+                                        "exc", result.launchExc);
+    case RunResult::SIGNALED:
+        throw MLDB::AnnotatedException(500, debugName + " returned signal",
+                                        "command", command,
+                                        "signal", result.signum,
+                                        "cerr", preprocessorErrors.str());
+    case RunResult::RETURNED:
+        if (result.returnCode != 0)
+            throw MLDB::AnnotatedException(500, debugName + " returned non-zero result",
+                                        "command", command,
+                                           "result", result.returnCode,
+                                           "cerr", MLDB::split(preprocessorErrors.str(), '\n'));
+        break;
+    case RunResult::PARENT_EXITED:
+        throw MLDB::AnnotatedException(500, debugName + " parent exited (logic error)");
+    case RunResult::UNKNOWN:
+        throw MLDB::AnnotatedException(500, debugName + " state unknown (logic error)");
+    }
+
+    return preprocessedOutput.str();
+}
+
 std::shared_ptr<MetalComputeFunctionLibrary>
 MetalComputeFunctionLibrary::
 compileFromSourceFile(MetalComputeContext & context, const std::string & fileName)
@@ -1378,17 +1466,61 @@ compileFromSourceFile(MetalComputeContext & context, const std::string & fileNam
     filter_istream stream(fileName);
     Utf8String source = /*"#line 1 \"" + fileName + "\"\n" +*/ stream.readAll();
 
-    return compileFromSource(context, source, fileName);
+    static const struct MetalQuery {
+        MetalQuery()
+        {
+            std::string output = runCommand({"/usr/bin/env", "xcrun",
+                                             "-sdk", "macosx", "metal",
+                                             "-E", "mldb/builtin/metal/query_metal.metal"}, "Metal version query");
+
+            std::regex get_version("mldb_metal_version=([0-9]+)", std::regex_constants::syntax_option_type::multiline);
+            std::smatch match;
+            if (!std::regex_search(output, match, get_version)) {
+                throw AnnotatedException(500, "did not find metal version");
+            }
+            version = match[1].str();
+            cerr << "Metal Query: version = " << version << endl;
+        }
+
+        std::string version;
+    } metalQuery;
+
+    // TODO: preprocessor that simply expands the __UKL macros and includes non-metal includes, rather than do the whole lot...
+    std::string preprocessedOutput
+         = runCommand({"/usr/bin/env", "c++", "-C", "-CC", "-xc++",
+                      "-I./mldb/block/ukl",
+                      "-I./mldb/builtin/metal/ukl",
+                      "-D__METAL_VERSION__=" + metalQuery.version,
+                      "-D__METAL_MACOS__=1",
+                      "-D__UKL_METAL_PREPROCESSING=1",
+                      "-E", fileName }, "Preprocessor");
+
+    //RunResult result = execute({"/usr/bin/env", "xcrun",
+    //                            "-sdk", "macosx", "metal",
+    //                            "-frecord-sources",
+    //                            "-I.", "-I./block/ukl", "-I./builtin/metal/ukl",
+    //                            "-E", fileName },
+    //                            stdOutSink, stdErrSink);
+
+
+    cerr << "got preprocessed source: " << endl << preprocessedOutput << endl;
+
+    return compileFromSource(context, preprocessedOutput, fileName);
 }
 
 std::shared_ptr<MetalComputeFunctionLibrary>
 MetalComputeFunctionLibrary::
-compileFromSource(MetalComputeContext & context, const Utf8String & source, const std::string & fileNameToAppearInErrorMessages)
+compileFromSource(MetalComputeContext & context, const Utf8String & preprocessedSource, const std::string & fileNameToAppearInErrorMessages)
 {
     ns::Error error{ns::Handle()};
 
     mtlpp::CompileOptions compileOptions;
-    mtlpp::Library library = context.mtlDevice.NewLibrary(source.rawData(), compileOptions, &error);
+
+    const char * macros[][2] = {
+    };
+    size_t nMacros = sizeof(macros) / sizeof(macros[0]);
+    compileOptions.SetPreprocessorMacros(nMacros, macros);
+    mtlpp::Library library = context.mtlDevice.NewLibrary(preprocessedSource.rawData(), compileOptions, &error);
 
     checkMetalError(error, "Error compiling Metal library from source", "fileName", fileNameToAppearInErrorMessages);
 

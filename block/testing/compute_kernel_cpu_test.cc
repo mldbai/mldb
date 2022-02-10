@@ -23,7 +23,7 @@ using boost::unit_test::test_suite;
 #include "mldb/block/compute_kernel_cpu_shims.h"
 
 SYNC_FUNCTION(v1,
-uint32_t, simdgroup_sum3) (uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
+uint32_t, simdgroup_sum3) (uint32_t val, uint16_t simd_lane, RWLOCAL(atomic_uint) tmp)
 {
     uint32_t res;
     co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_REDUCTION, __FILE__, __LINE__, val, &simdgroup_sum_reducer, &res};
@@ -32,7 +32,8 @@ uint32_t, simdgroup_sum3) (uint32_t val, uint16_t simd_lane, __local atomic_uint
 
 #define simdgroup_sum4(val, Lane, Tmp) ({ uint32_t res;  co_yield MLDB::BarrierOp{MLDB::SIMD_GROUP_REDUCTION, __FILE__, __LINE__, val, &simdgroup_sum_reducer, &res};  res;})
 
-SYNC_FUNCTION(v1, uint32_t, simdgroup_sum2) (uint32_t val, uint16_t simd_lane, __local atomic_uint * tmp)
+SYNC_FUNCTION(v1,
+uint32_t, simdgroup_sum2) (uint32_t val, uint16_t simd_lane, RWLOCAL(atomic_uint) tmp)
 {
     if (simd_lane == 0) {
         tmp[0] = 0;
@@ -40,14 +41,14 @@ SYNC_FUNCTION(v1, uint32_t, simdgroup_sum2) (uint32_t val, uint16_t simd_lane, _
 
     ukl_simdgroup_barrier();
 
-    atom_add(tmp + 0, val);
+    atom_add(&tmp[0], val);
 
     ukl_simdgroup_barrier();
 
     SYNC_RETURN(tmp[0]);
 }
 
-SYNC_FUNCTION(v1, uint32_t, threadgroup_sum2) (uint32_t val, uint16_t wg_lane, __local atomic_uint * tmp)
+SYNC_FUNCTION(v1, uint32_t, threadgroup_sum2) (uint32_t val, uint16_t wg_lane, RWLOCAL(atomic_uint) tmp)
 {
     auto simdgroup_lane = wg_lane % 32;
     auto simdgroup_num = wg_lane / 32;
@@ -57,7 +58,7 @@ SYNC_FUNCTION(v1, uint32_t, threadgroup_sum2) (uint32_t val, uint16_t wg_lane, _
     ukl_threadgroup_barrier();
 
     if (simdgroup_lane == 0 && simdgroup_num != 0) {
-        atom_add(tmp, wg_sum);
+        atom_add(&tmp[0], wg_sum);
     }
 
     ukl_threadgroup_barrier();
@@ -67,10 +68,10 @@ SYNC_FUNCTION(v1, uint32_t, threadgroup_sum2) (uint32_t val, uint16_t wg_lane, _
 
 DEFINE_KERNEL2(test_kernels,
                simdGroupBarrierTestKernel,
-               BUFFER,  uint32_t,           result,              "[32]",
-               LOCAL,   atomic_uint,        tmp,                 "[1]",
-               GID0,    uint16_t,           id,,
-               GSZ0,    uint16_t,           n,)
+               RWBUFFER, uint32_t,           result,              "[32]",
+               RWLOCAL,  atomic_uint,        tmp,                 "[1]",
+               GID0,     uint16_t,           id,,
+               GSZ0,     uint16_t,           n,)
 {
     uint32_t res = simdgroup_sum4(id, id, tmp);  //SYNC_CALL(simdgroup_sum3, id, id, tmp);
 
@@ -81,10 +82,10 @@ DEFINE_KERNEL2(test_kernels,
 
 DEFINE_KERNEL2(test_kernels,
                threadGroupBarrierTestKernel,
-               BUFFER,  uint32_t,           result,              "[256]",
-               LOCAL,   atomic_uint,        tmp,                 "[256/32]",
-               GID0,    uint16_t,           id,,
-               GSZ0,    uint16_t,           n,)
+               RWBUFFER, uint32_t,           result,              "[256]",
+               RWLOCAL,  atomic_uint,        tmp,                 "[256/32]",
+               GID0,     uint16_t,           id,,
+               GSZ0,     uint16_t,           n,)
 {
     uint32_t res = SYNC_CALL(threadgroup_sum2, id, id, tmp);
 
@@ -128,7 +129,7 @@ static struct RegisterKernels {
 BOOST_AUTO_TEST_CASE( test_simdgroup_barrier )
 {
     auto runtime = ComputeRuntime::getRuntimeForId(ComputeRuntimeId::CPU);
-    auto context = runtime->getContext(array{ComputeDevice::host()});
+    auto context = runtime->getContext(array{ComputeDevice::cpu()});
     auto queue = context->getQueue("test");
     auto kernel = context->getKernel("simdGroupBarrierTest");
     auto result = context->allocUninitializedArraySync<uint32_t>("result", 32);

@@ -10,6 +10,7 @@
 #include "compute_kernel.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/generic_atom_description.h"
+#include "compute_kernel_call_utils.h"
 
 namespace MLDB {
 
@@ -80,42 +81,6 @@ struct HostComputeEvent: public ComputeEvent {
 };
 
 namespace details {
-
-using Pin = std::shared_ptr<const void>;
-
-template<typename T>
-auto getBestValueDescription(T *, std::enable_if_t<MLDB::has_default_description_v<T>> * = 0)
-{
-    return getDefaultDescriptionSharedT<T>();
-}
-
-std::shared_ptr<const ValueDescription> getValueDescriptionForType(const std::type_info & type);
-
-template<typename T>
-std::shared_ptr<const ValueDescription>
-getBestValueDescription(T *, std::enable_if_t<!MLDB::has_default_description_v<T>> * = 0)
-{
-    auto result = getValueDescriptionForType(typeid(T));
-
-    if (result) {
-        return result;
-    }
-
-    if constexpr (std::is_enum_v<T>) {
-        return std::make_shared<GenericEnumDescription>(getDefaultDescriptionSharedT<std::underlying_type_t<T>>(), type_name<T>(), &typeid(T));
-    }
-    else {
-        return std::make_shared<GenericAtomDescription>(sizeof(T), alignof(T), type_name<T>(), &typeid(T));
-    }
-
-    throw MLDB::Exception("Couldn't find any kind of value description for type " + type_name<T>());
-}
-
-template<typename T>
-auto getBestValueDescriptionT()
-{
-    return getBestValueDescription((T*)0);
-}
 
 template<typename T>
 std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, MemoryArrayHandleT<T> & out, ComputeKernelArgument & in, ComputeQueue & queue)>>
@@ -246,14 +211,6 @@ marshalParameterForCpuKernelCall(std::span<const T> *)
 
     return { result, convertParam };
 }
-
-// Implemented in .cc file to avoid including value_description.h
-// Copies from to to via the value description
-void copyUsingValueDescription(const ValueDescription * desc,
-                               std::span<const std::byte> from, void * to,
-                               const std::type_info & toType);
-
-const std::type_info & getTypeFromValueDescription(const ValueDescription * desc);
 
 template<typename T>
 std::tuple<ComputeKernelType, std::function<Pin(const std::string & opName, T & out, ComputeKernelArgument & in, ComputeQueue & queue)>>
@@ -701,10 +658,10 @@ struct HostComputeQueue: public ComputeQueue {
                                      size_t fromOffset, size_t toOffset,
                                      size_t length) override;
 
-    virtual std::shared_ptr<ComputeEvent> flush() override;
+    virtual std::shared_ptr<ComputeEvent> flush(const std::string & opName) override;
 
     virtual void enqueueBarrier(const std::string & label) override;
-    virtual void finish() override;
+    virtual void finish(const std::string & opName) override;
     virtual std::shared_ptr<ComputeEvent>
     makeAlreadyResolvedEvent(const std::string & label) const;
 };

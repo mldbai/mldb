@@ -18,6 +18,7 @@
 #include "mldb/block/zip_serializer.h"
 #include "mldb/utils/command_expression_impl.h"
 #include "mldb/arch/spinlock.h"
+#include "mldb/arch/timers.h"
 #include <compare>
 
 using namespace std;
@@ -41,6 +42,11 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(GridComputeFunctionArgument)
 }
 
 EnvOption<int> GRID_TRACE_API_CALLS("GRID_COMPUTE_TRACE_API_CALLS", 0);
+
+bool gridTraceApiCalls()
+{
+    return GRID_TRACE_API_CALLS.get();
+}
 
 namespace {
 
@@ -180,6 +186,10 @@ void traceOperationImpl(OperationScope opScope, OperationType opType, const std:
             opTypeName = "CPU:";
             opColor = ansi::ansi_str_yellow();
             break;
+        case OperationType::CUDA_COMPUTE:
+            opTypeName = "CUDA:";
+            opColor = ansi::ansi_str_blue();
+            break;
         case OperationType::USER:
             opTypeName = "USER:";
             opColor = ansi::ansi_str_bright_blue();
@@ -234,6 +244,11 @@ ScopedOperation::
         double elapsed = timer->elapsed_wall();
         traceOperation(OperationScope::EXIT, opType, opName + " [" + ansi::ansi_str_underline() + printTime(elapsed) + "]");
     }
+}
+
+void ScopedOperation::createTimer()
+{
+    timer = std::make_shared<Timer>();
 }
 
 void ScopedOperation::incrementOpCount()
@@ -689,7 +704,7 @@ copyFromHostSyncImpl(const std::string & opName,
 {
     auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeQueue copyFromHostSyncImpl " + opName);
     enqueueCopyFromHostImpl(opName, toRegion, fromRegion, deviceStartOffsetInBytes);
-    finish();
+    finish("copyFromHostSyncImpl");
 }
 
 FrozenMemoryRegion
@@ -738,7 +753,7 @@ managePinnedHostRegionSyncImpl(const std::string & opName,
 {
     auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeContext managePinnedHostRegionSyncImpl " + opName);
 
-    cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
+    //cerr << "managing pinned host region " << opName << " of length " << region.size() << endl;
 
     auto handle = std::make_shared<GridMemoryRegionHandleInfo>();
     handle->buffer = std::move(buffer);
@@ -800,10 +815,10 @@ copyBetweenDeviceRegionsSyncImpl(const std::string & opName,
 
 void
 GridComputeQueue::
-finish()
+finish(const std::string & opName)
 {
-    auto op = scopedOperation(OperationType::GRID_COMPUTE, "GridComputeQueue finish");
-    flush()->await();
+    auto op = scopedOperation(OperationType::GRID_COMPUTE, opName + " GridComputeQueue finish");
+    flush(opName)->await();
 }
 
 
