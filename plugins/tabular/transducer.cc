@@ -1033,7 +1033,7 @@ trainIdTransducer(const std::vector<std::string> & blobs,
             writtenBits += 64;
             total = 1;
             ++intNum;
-            bits = 0;
+            bits = positionBits;
         }
 
         //cerr << positionBits << " " << intNum << " " << total << " " << endl;
@@ -1051,7 +1051,8 @@ trainIdTransducer(const std::vector<std::string> & blobs,
     writtenBits += std::ceil(bits);
 
     cerr << endl << "totalBits = " << totalBits << " writtenBits = " << writtenBits << endl;
-
+    ExcAssertGreaterEqual(writtenBits, totalBits);
+              
     //cerr << " bits = " << bits << " totalOutputBytes = " << totalOutputBytes
     //     << " total = " << total << endl;
     
