@@ -1539,7 +1539,7 @@ struct TimestampFrozenColumn
 
     virtual std::string format() const
     {
-        return "T";
+        return "Timestamp";
     }
 
     virtual void serialize(StructuredSerializer & serializer) const
