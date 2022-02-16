@@ -630,6 +630,20 @@ newHash() const
     return highwayHash(defaultSeedStable.u64, data(), dataLength());
 }
 
+std::array<uint64_t, 2>
+PathElement::
+newHash128() const
+{
+    return highwayHash128(defaultSeedStable.u64, data(), dataLength());
+}
+
+std::array<uint64_t, 4>
+PathElement::
+newHash256() const
+{
+    return highwayHash256(defaultSeedStable.u64, data(), dataLength());
+}
+
 Path
 PathElement::
 operator + (const PathElement & other) const
@@ -1334,6 +1348,40 @@ newHash() const
     return result;
 }
 
+std::array<uint64_t, 2>
+Path::
+newHash128() const
+{
+    //auto startTicks = Date::now();
+    std::array<uint64_t, 2> result{0,0};
+    if (empty())
+        return result;
+    result = newHashElement128(0);
+    for (size_t i = 1;  i < size();  ++i) {
+        result = Hash256to128(result, newHashElement128(i));
+    }
+    //cerr << "newHash() of " << *this << " took "
+    //     << Date::now().secondsSince(startTicks) * 1000000 << "us" << endl;
+    return result;
+}
+
+std::array<uint64_t, 4>
+Path::
+newHash256() const
+{
+    //auto startTicks = Date::now();
+    std::array<uint64_t, 4> result{0,0,0,0};
+    if (empty())
+        return result;
+    result = newHashElement256(0);
+    for (size_t i = 1;  i < size();  ++i) {
+        result = Hash512to256(result, newHashElement256(i));
+    }
+    //cerr << "newHash() of " << *this << " took "
+    //     << Date::now().secondsSince(startTicks) * 1000000 << "us" << endl;
+    return result;
+}
+
 uint64_t
 Path::
 oldHashElement(size_t el) const
@@ -1348,6 +1396,22 @@ newHashElement(size_t el) const
 {
     auto sv = getStringView(el);
     return highwayHash(defaultSeedStable.u64, sv.first, sv.second);
+}
+
+std::array<uint64_t, 2>
+Path::
+newHashElement128(size_t el) const
+{
+    auto sv = getStringView(el);
+    return highwayHash128(defaultSeedStable.u64, sv.first, sv.second);
+}
+
+std::array<uint64_t, 4>
+Path::
+newHashElement256(size_t el) const
+{
+    auto sv = getStringView(el);
+    return highwayHash256(defaultSeedStable.u64, sv.first, sv.second);
 }
 
 size_t

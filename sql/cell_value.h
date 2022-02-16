@@ -343,6 +343,8 @@ struct CellValue {
         on the raw.
     */
     CellValueHash hash() const;
+    std::array<uint64_t, 2> hash128() const;
+    std::array<uint64_t, 4> hash256() const;
 
     operator CellValueHash() const
     {

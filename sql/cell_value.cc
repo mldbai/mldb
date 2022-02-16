@@ -927,7 +927,7 @@ isFalse() const
     throw AnnotatedException(400, "unknown CellValue type");
 }
 
-const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+const HashSeed defaultSeedStable { .u64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL, 0xb4de473517bb7b44ULL, 0xee14868f2037839cULL } };
 
 template<typename T>
 static uint64_t highwayhash_bin(const T & v, const HashSeed & key)
@@ -937,6 +937,21 @@ static uint64_t highwayhash_bin(const T & v, const HashSeed & key)
     return highwayHash(key.u64, c, sizeof(v));
 }
 
+template<typename T>
+static std::array<uint64_t, 2> highwayhash128_bin(const T & v, const HashSeed & key)
+{
+    char c[sizeof(v)];
+    std::memcpy(c, &v, sizeof(v));
+    return highwayHash128(key.u64, c, sizeof(v));
+}
+
+template<typename T>
+static std::array<uint64_t, 4> highwayhash256_bin(const T & v, const HashSeed & key)
+{
+    char c[sizeof(v)];
+    std::memcpy(c, &v, sizeof(v));
+    return highwayHash256(key.u64, c, sizeof(v));
+}
 CellValueHash
 CellValue::
 hash() const
@@ -963,6 +978,58 @@ hash() const
             cerr << "hashing " << jsonEncodeStr(*this) << endl;
         ExcAssertEqual(bits2, 0);
         return CellValueHash(highwayhash_bin(bits1, defaultSeedStable));
+    }
+}
+
+std::array<uint64_t, 2>
+CellValue::
+hash128() const
+{
+    switch (type) {
+    case ST_ASCII_SHORT_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_SHORT_BLOB:
+        return highwayHash128(defaultSeedStable.u64, shortString, strLength);
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
+        return highwayHash128(defaultSeedStable.u64, longString->repr, strLength);
+    case ST_TIMEINTERVAL:
+        return highwayHash128(defaultSeedStable.u64, shortString, 12);
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return coerceToPath().newHash128();
+    default:
+        if (bits2 != 0)
+            cerr << "hashing " << jsonEncodeStr(*this) << endl;
+        ExcAssertEqual(bits2, 0);
+        return highwayhash128_bin(bits1, defaultSeedStable);
+    }
+}
+
+std::array<uint64_t, 4>
+CellValue::
+hash256() const
+{
+    switch (type) {
+    case ST_ASCII_SHORT_STRING:
+    case ST_UTF8_SHORT_STRING:
+    case ST_SHORT_BLOB:
+        return highwayHash256(defaultSeedStable.u64, shortString, strLength);
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
+        return highwayHash256(defaultSeedStable.u64, longString->repr, strLength);
+    case ST_TIMEINTERVAL:
+        return highwayHash256(defaultSeedStable.u64, shortString, 12);
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return coerceToPath().newHash256();
+    default:
+        if (bits2 != 0)
+            cerr << "hashing " << jsonEncodeStr(*this) << endl;
+        ExcAssertEqual(bits2, 0);
+        return highwayhash256_bin(bits1, defaultSeedStable);
     }
 }
 
