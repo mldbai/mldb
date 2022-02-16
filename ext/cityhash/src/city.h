@@ -46,6 +46,7 @@
 #include <stdlib.h>  // for size_t.
 #include <stdint.h>
 #include <utility>
+#include <array>
 
 typedef uint8_t uint8;
 typedef uint32_t uint32;
@@ -85,6 +86,26 @@ inline uint64 Hash128to64(const uint128& x) {
   b ^= (b >> 47);
   b *= kMul;
   return b;
+}
+
+// Hash 256 input bits down to 128 bits of output.
+
+inline std::array<uint64_t, 2> Hash256to128(const std::array<uint64_t, 2>& x1, const std::array<uint64_t, 2>& x2) {
+  uint128 i1 = { x1[0] ^ x2[0], x1[1] ^ x2[1] };
+  uint128 i2 = { x1[0] ^ x2[1], x1[1] ^ x2[0] };
+  std::array<uint64_t, 2> result { Hash128to64(i1), Hash128to64(i2) };
+  return result;
+}
+
+inline std::array<uint64_t, 4> Hash512to256(const std::array<uint64_t, 4>& x1, const std::array<uint64_t, 4> & x2) {
+  std::array<uint64_t, 2> i1 = { x1[0] ^ x2[0], x1[1] ^ x2[1]};
+  std::array<uint64_t, 2> i2 = { x1[2] ^ x2[2], x1[3] ^ x2[3] };
+  std::array<uint64_t, 2> i3 = { x1[1] ^ x2[2], x1[2] ^ x2[3]};
+  std::array<uint64_t, 2> i4 = { x1[3] ^ x2[0], x1[0] ^ x2[1] };
+  std::array<uint64_t, 2> o1 = Hash256to128(i1, i2);
+  std::array<uint64_t, 2> o2 = Hash256to128(i3, i4);
+  std::array<uint64_t, 4> result { Hash128to64({o1[0], o1[1]}), Hash128to64({o2[0],o2[1]}) };
+  return result;
 }
 
 #endif  // CITY_HASH_H_

@@ -182,6 +182,9 @@ struct PathElement {
     /// with legacy hashes.
     uint64_t newHash() const;
 
+    std::array<uint64_t, 2> newHash128() const;
+    std::array<uint64_t, 4> newHash256() const;
+
     inline bool null() const
     {
         return storage_.empty();
@@ -595,6 +598,9 @@ struct Path {
     /// with legacy hashes.
     uint64_t newHash() const;
 
+    std::array<uint64_t, 2> newHash128() const;
+    std::array<uint64_t, 4> newHash256() const;
+
     size_t size() const
     {
         return length_;
@@ -667,6 +673,8 @@ private:
 
     uint64_t oldHashElement(size_t el) const;
     uint64_t newHashElement(size_t el) const;
+    std::array<uint64_t, 2> newHashElement128(size_t el) const;
+    std::array<uint64_t, 4> newHashElement256(size_t el) const;
 
     bool externalOfs() const
     {
