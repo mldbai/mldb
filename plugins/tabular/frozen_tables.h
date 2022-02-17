@@ -75,17 +75,33 @@ struct FrozenIntegerTable {
     template<typename Fn>
     bool forEachDistinctValue(Fn && onValue) const
     {
+        auto fn2 = [&] (auto val, auto rowCount)
+        {
+            return onValue(val);
+        };
+
+        return forEachDistinctValueWithRowCount(fn2);
+    }
+
+    template<typename Fn>
+    bool forEachDistinctValueWithRowCount(Fn && onValue) const
+    {
         std::vector<uint64_t> allValues;
         allValues.reserve(size());
         forEach([&] (int, uint64_t val) { allValues.push_back(val); return true;});
         // TODO: shouldn't need to do 3 passes through, and we can also
         // make use of when it's monotonic...
         std::sort(allValues.begin(), allValues.end());
-        auto endIt = std::unique(allValues.begin(), allValues.end());
 
-        for (auto it = allValues.begin();  it != endIt; ++it) {
-            if (!onValue(*it))
+        for (auto it = allValues.begin(), endIt = allValues.end();  it != endIt; /* no inc */) {
+            auto eit = it;
+            ++eit;
+            while (eit != endIt && *it == *eit) {
+                ++eit;
+            }
+            if (!onValue(*it, std::distance(it, eit)))
                 return false;
+            it = eit;
         }
 
         return true;
@@ -298,17 +314,29 @@ struct FrozenCellValueTable {
     template<typename Fn>
     bool forEachDistinctValue(Fn && fn) const
     {
+        auto fn2 = [&] (auto val, auto rowCount)
+        {
+            return fn(val);
+        };
+        return forEachDistinctValueWithRowCount(fn2);
+    }
+
+    template<typename Fn>
+    bool forEachDistinctValueWithRowCount(Fn && fn) const
+    {
         std::vector<CellValue> vals;
         vals.reserve(size());
         for (size_t i = 0;  i < size();  ++i) {
             vals.emplace_back(operator [] (i));
         }
         std::sort(vals.begin(), vals.end());
-        for (size_t i = 0;  i < vals.size();  ++i) {
-            if (i > 0 && vals[i] == vals[i - 1])
-                continue;
-            if (!fn(vals[i]))
+        for (size_t i = 0;  i < vals.size(); /* no inc */) {
+            size_t i2 = i + 1;
+            while (i2 < vals.size() && vals[i] == vals[i2])
+                ++i2;
+            if (!fn(vals[i], i2 - i))
                 return false;
+            i = i2;
         }
         return true;
     }

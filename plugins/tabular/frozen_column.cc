@@ -206,6 +206,19 @@ struct DirectFrozenColumn
         return true;
     }
 
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        auto fn2 = [&] (const CellValue & val, size_t n)
+            {
+                if (val.empty())
+                    return true;
+                return fn(val, n);
+            };
+
+        return values.forEachDistinctValueWithRowCount(fn2);
+    }
+
     virtual size_t nonNullRowCount() const override
     {
         return numNonNullEntries;
@@ -454,6 +467,22 @@ struct TableFrozenColumn
         }
         
         return true;
+    }
+
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        auto onValue = [&] (auto index, size_t count)
+        {
+            if (hasNulls) {
+                if (index == 0)
+                    return true;  // null
+                index -= 1;
+            }
+            return fn(table[index], count);
+        };
+
+        return indexes.forEachDistinctValueWithRowCount(onValue);
     }
 
     virtual size_t nonNullRowCount() const override
@@ -734,6 +763,16 @@ struct SparseTableFrozenColumn
         }
 
         return table.forEachDistinctValue(fn);
+    }
+
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        auto onValue = [&] (auto value, auto count)
+        {
+            return fn(table[value], count);
+        };
+        return index.forEachDistinctValueWithRowCount(onValue);
     }
 
     virtual size_t nonNullRowCount() const override
@@ -1097,6 +1136,17 @@ struct IntegerFrozenColumn
         return table.forEachDistinctValue(onVal);
     }
 
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        auto onVal = [&] (uint64_t val, size_t count) -> bool
+            {
+                return fn(decode(val), count);
+            };
+
+        return table.forEachDistinctValueWithRowCount(onVal);
+    }
+
     virtual size_t nonNullRowCount() const override
     {
         return numNonNullRows;
@@ -1350,6 +1400,38 @@ struct DoubleFrozenColumn
         return true;
     }
 
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        std::vector<double> allVals;
+        allVals.reserve(numEntries);
+
+        for (size_t i = 0;  i < numEntries;  ++i) {
+            const Entry & entry = storage[i];
+            if (!entry.isNull())
+                allVals.emplace_back(entry.value());
+        }
+
+        /** Like std::less<Float>, but has a well defined order for nan
+            values, which allows us to sort ranges that might contain
+            nan values without crashing.
+        */
+        std::sort(allVals.begin(), allVals.end(), safe_less<double>());
+        
+        for (auto it = allVals.begin(), endIt = allVals.end();  it != endIt;  /* no inc */) {
+            auto it2 = it;
+            ++it2;
+            while (it2 != endIt && *it == *it2) {
+                ++it2;
+            }
+            if (!fn(*it, it2 - it))
+                return false;
+            it = it2;
+        }
+        
+        return true;
+    }
+
     virtual size_t nonNullRowCount() const override
     {
         return numNonNullRows;
@@ -1525,6 +1607,17 @@ struct TimestampFrozenColumn
             };
 
         return unwrapped->forEachDistinctValue(fn2);
+    }
+
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        auto fn2 = [&] (const CellValue & v, size_t n)
+            {
+                return fn(wrap(v), n);
+            };
+
+        return unwrapped->forEachDistinctValueWithRowCount(fn2);
     }
 
     virtual size_t nonNullRowCount() const override

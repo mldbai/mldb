@@ -55,6 +55,10 @@ struct FrozenColumn {
     forEachDistinctValue(std::function<bool (const CellValue &)> fn)
         const = 0;
 
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t rowCount)> fn)
+        const = 0;
+
     virtual ColumnTypes getColumnTypes() const = 0;
 
     /** How many non-null rows are in this column? */
