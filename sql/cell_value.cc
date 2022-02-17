@@ -703,7 +703,12 @@ coerceToTimestamp() const
     if (type == ST_EMPTY)
         return Date::notADate();
     if (isAsciiString()) {
-        return Date::parseIso8601DateTime(toString());
+        try {
+            MLDB_TRACE_EXCEPTIONS(false);
+            return Date::parseIso8601DateTime(toString());
+        } MLDB_CATCH_ALL {
+            return CellValue();
+        }
     }
     if (type == ST_TIMESTAMP)
         return *this;
