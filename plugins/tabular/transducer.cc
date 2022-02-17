@@ -175,6 +175,7 @@ void
 IdentityStringTransducer::
 serializeParameters(StructuredSerializer & serializer) const
 {
+    serializer.newObject("dummy", string());
     // Nothing to freeze here
 }
 
