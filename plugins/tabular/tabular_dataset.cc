@@ -1011,15 +1011,15 @@ struct TabularDataset::TabularDataStore
 
             for (auto & c: columns.at(it->second).chunks) {
 
-                auto onValue = [&] (const CellValue & value)
+                auto onValue = [&] (const CellValue & value, size_t rowCount)
                     {
                         if (!value.isNumber())
                             isNumeric = false;
-                        stats.values[value].rowCount_ += 1;
+                        stats.values[value].rowCount_ += rowCount;
                         return true;
                     };
                                 
-                c.second->forEachDistinctValue(onValue);
+                c.second->forEachDistinctValueWithRowCount(onValue);
             }
 
             stats.isNumeric_ = isNumeric && !chunks.empty();

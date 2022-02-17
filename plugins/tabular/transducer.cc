@@ -79,7 +79,7 @@ std::shared_ptr<StringTransducer>
 StringTransducer::
 thaw(StructuredReconstituter & reconst)
 {
-    cerr << "reconst is " << reconst.getContext() << endl;
+    //cerr << "reconst is " << reconst.getContext() << endl;
 
     for (auto & d: reconst.getDirectory()) {
         cerr << "contains " << d.name << endl;

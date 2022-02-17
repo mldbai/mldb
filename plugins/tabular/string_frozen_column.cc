@@ -107,6 +107,17 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
         return unwrapped->forEachDistinctValue(fn2);
     }
 
+    virtual bool
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        auto fn2 = [&] (const CellValue & v, size_t n)
+            {
+                return fn(wrap(v), n);
+            };
+
+        return unwrapped->forEachDistinctValueWithRowCount(fn2);
+    }
+
     virtual size_t nonNullRowCount() const override
     {
         return unwrapped->nonNullRowCount();
