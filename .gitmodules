@@ -112,3 +112,9 @@
 [submodule "ext/robin-map"]
 	path = ext/robin-map
 	url = https://github.com/Tessil/robin-map
+[submodule "ext/sais-lite-lcp"]
+	path = ext/sais-lite-lcp
+	url = https://github.com/mldbai/sais-lite-lcp.git
+[submodule "ext/fastmod"]
+	path = ext/fastmod
+	url = https://github.com/mldbai/fastmod.git
