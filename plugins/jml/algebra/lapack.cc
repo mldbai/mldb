@@ -150,6 +150,15 @@ extern "C" {
        important thing is that if n < 0, it will return zero in tau. */
     void slarfp_(const int * n, float * alpha, float * X, const int * incx,
                  float * tau);
+
+    // LU decomoposition of a general matrix
+    int dgetrf_(const int * m, const int * n, double * A, const int * lda, int * ipiv, int * info);
+    int sgetrf_(const int * m, const int * n, float * A, const int * lda, int * ipiv, int * info);
+
+    // generate inverse of a matrix given its LU decomposition
+    int dgetri_(const int * n, double * A, const int * lda, int * ipiv, double * work, int * lwork, int * info);
+    int sgetri_(const int * n, float * A, const int * lda, int * ipiv, float * work, int * lwork, int * info);
+
 } // extern "C"
 
 namespace MLDB {
@@ -591,6 +600,56 @@ int geqp3(int m, int n, double * A, int lda, int * jpvt, double * tau)
     dgeqp3_(&m, &n, A, &lda, jpvt, tau, workspace.get(), &workspace_size,
             &info);
     
+    return info;
+}
+
+int getrf(int m, int n, double * A, int lda, int * ipiv)
+{
+    int info = 0;
+    dgetrf_(&m, &n, A, &lda, ipiv, &info);
+    return info;
+}
+
+int getrf(int m, int n, float * A, int lda, int * ipiv)
+{
+    int info = 0;
+    sgetrf_(&m, &n, A, &lda, ipiv, &info);
+    return info;
+}
+
+int getri(int n, double * A, int lda, int * ipiv)
+{
+    int info = 0;
+    int workspace_size = -1;
+    double ws_return;
+
+    dgetri_(&n, A, &lda, ipiv, &ws_return, &workspace_size, &info);
+    if (info != 0) return info;
+    workspace_size = (int)ws_return;
+
+    std::shared_ptr<double> workspace(new double[workspace_size], [] (double * p) { delete[] p; });
+    
+    /* Perform the computation. */
+    dgetri_(&n, A, &lda, ipiv, workspace.get(), &workspace_size, &info);
+
+    return info;
+}
+
+int getri(int n, float * A, int lda, int * ipiv)
+{
+    int info = 0;
+    int workspace_size = -1;
+    float ws_return;
+
+    sgetri_(&n, A, &lda, ipiv, &ws_return, &workspace_size, &info);
+    if (info != 0) return info;
+    workspace_size = (int)ws_return;
+
+    std::shared_ptr<float> workspace(new float[workspace_size], [] (float * p) { delete[] p; });
+    
+    /* Perform the computation. */
+    sgetri_(&n, A, &lda, ipiv, workspace.get(), &workspace_size, &info);
+
     return info;
 }
 

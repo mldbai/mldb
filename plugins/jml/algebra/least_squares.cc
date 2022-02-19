@@ -878,4 +878,32 @@ svd_square(MLDB::MatrixRef<double, 2> X)
     return svd_square_impl(X);
 }
 
+#if 0
+std::tuple<Matrix<float, 2>, Matrix<float, 2>, distribution<float>>
+svd_square(const MatrixRef<float, 2> & X)
+{
+    Matrix<float, 2> X2 = X;
+    Matrix<float, 2> VT;
+    Matrix<float, 2> U;
+    distribution<float> svalues;
+
+    svd_square(X2, VT, U, svalues);
+
+    return std::make_tuple(std::move(VT), std::move(U), std::move(svalues));
+}
+
+std::tuple<Matrix<double, 2>, Matrix<double, 2>, distribution<double>>
+svd_square(const MatrixRef<double, 2> & X)
+{
+    Matrix<double, 2> X2 = X;
+    Matrix<double, 2> VT;
+    Matrix<double, 2> U;
+    distribution<double> svalues;
+
+    svd_square(X2, VT, U, svalues);
+
+    return std::make_tuple(std::move(VT), std::move(U), std::move(svalues));
+}
+#endif
+
 } // namespace MLDB

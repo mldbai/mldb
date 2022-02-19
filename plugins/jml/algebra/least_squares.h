@@ -16,10 +16,104 @@
 #include "mldb/arch/timers.h"
 #include <iostream>
 #include "mldb/types/db/persistent.h"
-#include "plugins/jml/enum_info.h"
 #include "matrix_ops.h"
 
 namespace MLDB {
+
+/** Analytical solution of the ordinary least squares problem whick minimizes ||ax + b - y||^2
+  
+    returns { b, a } WARNING!!!!! this is backwards as to how you may be expecting it...
+*/
+template<typename Float>
+std::array<Float, 2>
+ordinary_least_squares(const distribution<Float> & x,
+                       const distribution<Float> & y)
+{
+    size_t n = x.size();
+
+    if (x.size() != y.size()) {
+        throw std::runtime_error("ordinary_least_squares: misshaped input");
+    }
+
+    // OLS fitting (closed form)
+    double sumx = 0.0, sumy = 0.0;
+    for (size_t i = 0;  i < n;  ++i) {
+        sumx += x[i];
+        sumy += y[i];
+    }
+    
+    double meanx = sumx / n;
+    double meany = sumy / n;
+
+    double covxy = 0.0, varx = 0.0;
+    auto sqr = [] (auto x) { return x * x; };
+    for (size_t i = 0;  i < n;  ++i) {
+        auto xval = x[i];
+        auto yval = y[i];
+        covxy += (xval - meanx) * (yval - meany);
+        varx += sqr(xval - meanx);
+    }
+
+    auto slope = covxy / varx;
+    auto intercept = meany - slope * meanx;
+
+    return { intercept, slope };
+}
+
+/** Analytical solution of the ordinary least squares problem whick minimizes ||ax^2 + bx + c - y||^2
+  
+    returns { c, b, a } WARNING!!!!! this is backwards as to how you may be expecting it...
+*/
+template<typename Float>
+std::array<Float, 3>
+ordinary_least_squares_degree_2(const distribution<Float> & x,
+                                const distribution<Float> & y)
+{
+    size_t n = x.size();
+
+    if (x.size() != y.size()) {
+        throw std::runtime_error("ordinary_least_squares: misshaped input");
+    }
+
+    auto sqr = [] (auto x) { return x * x; };
+
+    // OLS fitting (closed form)
+    double sumx1 = 0.0, sumx2 = 0.0, sumy = 0.0;
+    for (size_t i = 0;  i < n;  ++i) {
+        sumx1 += x[i];
+        sumx2 += sqr(x);
+        sumy += y[i];
+    }
+    
+    double meanx1 = sumx1 / n;
+    double meanx2 = sumx2 / n;
+    double meany = sumy / n;
+
+    double covx1y = 0.0, covx1x1 = 0.0, covx1x2 = 0.0, covx2y = 0.0, covx2x2 = 0.0;
+    for (size_t i = 0;  i < n;  ++i) {
+        auto x1 = x[i];
+        auto x2 = sqr(x[i]);
+        auto yval = y[i];
+
+        auto x1n = x1 - meanx1;
+        auto x2n = x2 - meanx2;
+        auto yn = yval - meany;
+
+        covx1x1 += x1n * x1n;
+        covx1x2 += x1n * x2n;
+        covx2x2 += x2n * x2n;
+        covx1y +=  x1n * yn;
+        covx2y +=  x2n * yn;
+    }
+
+    auto det = 1.0 / (covx1x1 * covx2x2) - sqr(covx1x2);
+
+    auto b = (covx1y * covx2x2 - covx2y * covx1x2) * det;  // parameter for x1
+    auto a = (covx2y * covx1x1 - covx1y * covx1x2) * det;  // parameter for x2
+    auto c = meany - a * meanx2 - b * meanx1;              // parameter for 1
+
+    return { c, b, a };
+}
 
 /*****************************************************************************/
 /* LEAST_SQUARES                                                             */
@@ -104,6 +198,13 @@ svd_square(MLDB::MatrixRef<float, 2> X);
 std::tuple<distribution<double>, MLDB::Matrix<double, 2>, MLDB::Matrix<double, 2>>
 svd_square(MLDB::MatrixRef<double, 2> X);
 
+#if 0
+std::tuple<Matrix<float, 2>, Matrix<float, 2>, distribution<float>>
+svd_square(const MatrixRef<float, 2> & X);
+
+std::tuple<Matrix<double, 2>, Matrix<double, 2>, distribution<double>>
+svd_square(const MatrixRef<double, 2> & X);
+#endif
 
 /** Solve a least squares linear problem using ridge regression.
 
