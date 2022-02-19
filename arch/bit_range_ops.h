@@ -356,6 +356,34 @@ MLDB_ALWAYS_INLINE signed long long fixup_extract(signed long long e, shift_t bi
     return sign_extend(e, bits);
 }
 
+// Index of the nth set bit
+// https://stackoverflow.com/questions/7669057/find-nth-set-bit-in-an-int
+//__attribute__((target("default")))
+inline uint64_t nthSetBit(uint64_t v, unsigned n)
+{
+    if (n > (unsigned)__builtin_popcountll(v)/* std::popcount(v) */)
+        return 0;
+
+    for (unsigned i=0; n > 0 && i<n; i++) {
+        v &= v-1; // remove the least significant bit
+    }
+    return v & ~(v-1); // extract the least significant bit
+}
+
+#if 0
+__attribute__((target("bmi2")))
+inline uint64_t nthSetBit(uint64_t x, unsigned n)
+{
+    return _pdep_u64(1ULL << n, x);
+}
+#endif
+
+inline int nthSetBitIndex(uint64_t x, unsigned n)
+{
+    uint64_t bit = nthSetBit(x, n);
+    return bit == 0 ? -1 : std::countr_zero(bit);
+}
+
 /*****************************************************************************/
 /* MEM_BUFFER                                                                */
 /*****************************************************************************/

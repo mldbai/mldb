@@ -453,3 +453,31 @@ BOOST_AUTO_TEST_CASE(testExtraBits)
         BOOST_CHECK_EQUAL(data[1], MINUS1);
     }        
 }
+
+BOOST_AUTO_TEST_CASE(nth_bit_index)
+{
+    BOOST_CHECK_EQUAL(nthSetBit(1, 0), 1);
+    BOOST_CHECK_EQUAL(nthSetBit(2, 0), 2);
+    BOOST_CHECK_EQUAL(nthSetBit(4, 0), 4);
+
+    BOOST_CHECK_EQUAL(nthSetBit(1, 1), 0);
+    BOOST_CHECK_EQUAL(nthSetBit(2, 1), 0);
+    BOOST_CHECK_EQUAL(nthSetBit(4, 1), 0);
+
+    BOOST_CHECK_EQUAL(nthSetBit(7, 0), 1);
+    BOOST_CHECK_EQUAL(nthSetBit(7, 1), 2);
+    BOOST_CHECK_EQUAL(nthSetBit(7, 2), 4);
+    BOOST_CHECK_EQUAL(nthSetBit(7, 3), 0);
+
+    BOOST_CHECK_EQUAL(nthSetBit(0, 64), 0);
+    BOOST_CHECK_EQUAL(nthSetBit(1, 64), 0);
+    BOOST_CHECK_EQUAL(nthSetBit(std::numeric_limits<uint64_t>::max(), 64), 0);
+
+    for (int i = 0;  i < 63;  ++i) {
+        BOOST_CHECK_EQUAL(nthSetBitIndex(1ULL<<i, 0), i);
+        BOOST_CHECK_EQUAL(nthSetBitIndex(1ULL<<i, 1), -1);
+        BOOST_CHECK_EQUAL(nthSetBitIndex(std::numeric_limits<uint64_t>::max(), i), i);
+    }
+    BOOST_CHECK_EQUAL(nthSetBitIndex(2, 0), 1);
+    BOOST_CHECK_EQUAL(nthSetBitIndex(3, 1), 1);
+}
