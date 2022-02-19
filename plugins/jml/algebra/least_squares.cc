@@ -854,4 +854,31 @@ void svd_square(boost::multi_array<double, 2> & X,
     return svd_square_impl(X, VT, U, svalues);
 }
 
+std::tuple<boost::multi_array<float, 2>, boost::multi_array<float, 2>, distribution<float>>
+svd_square(const boost::multi_array<float, 2> & X)
+{
+    boost::multi_array<float, 2> X2 = X;
+    boost::multi_array<float, 2> VT;
+    boost::multi_array<float, 2> U;
+    distribution<float> svalues;
+
+    svd_square(X2, VT, U, svalues);
+
+    return std::make_tuple(std::move(VT), std::move(U), std::move(svalues));
+}
+
+std::tuple<boost::multi_array<double, 2>, boost::multi_array<double, 2>, distribution<double>>
+svd_square(const boost::multi_array<double, 2> & X)
+{
+    boost::multi_array<double, 2> X2 = X;
+    boost::multi_array<double, 2> VT;
+    boost::multi_array<double, 2> U;
+    distribution<double> svalues;
+
+    svd_square(X2, VT, U, svalues);
+
+    return std::make_tuple(std::move(VT), std::move(U), std::move(svalues));
+}
+
+
 } // namespace ML

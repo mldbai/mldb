@@ -129,5 +129,13 @@ int gemm(char transa, char transb, int m, int n, int k, double alpha,
          const double * A, int lda, const double * b, int ldb,
          double beta, double * C, int ldc);
 
+// LU decomoposition of a general matrix
+[[nodiscard]] int getrf(int m, int n, double * A, int lda, int * ipiv);
+[[nodiscard]] int getrf(int m, int n, float * A, int lda, int * ipiv);
+
+// generate inverse of a matrix given its LU decomposition
+[[nodiscard]] int getri(int n, double * A, int lda, int * ipiv);
+[[nodiscard]] int getri(int n, float * A, int lda, int * ipiv);
+
 } // namespace LAPack
 } // namespace ML
