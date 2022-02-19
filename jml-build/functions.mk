@@ -545,7 +545,10 @@ $$(eval $$(call add_sources,$$(_testsrc)))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
+$(if $(findstring catch2,$(3)),$(eval OPTIONS_$(CWD)/$(if $(5),$(5),$(1).cc):=-Imldb/ext/catch2/src))
+$(if $(findstring catch2,$(3)),$(eval $(TESTS)/$(1): $(LIB)/libcatch2$(SO_EXTENSION)))
+
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $(if $(findstring catch2,$(3)), -lcatch2) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")
@@ -554,7 +557,7 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && (($(call TEST_PRE_PRE_OPTIONS,$(3)) set -o pipefail && $(call write_timing_to,$(TESTS)/$(1).timing) $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && (($(call TEST_PRE_PRE_OPTIONS,$(3)) set -o pipefail && $(call write_timing_to,$(TESTS)/$(1).timing) $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(if $(findstring boost,$(3)),$(TESTS)/$(1)) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)

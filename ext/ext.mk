@@ -25,4 +25,5 @@ $(eval $(call library,easyexif,$(EASYEXIF_CC_FILES)))
 $(eval $(call include_sub_make,libgit2,libgit2,../libgit2.mk))
 $(eval $(call include_sub_make,cryptopp,cryptopp,../cryptopp.mk))
 $(eval $(call include_sub_make,libarchive,libarchive,../libarchive.mk))
+$(eval $(call include_sub_make,catch2,catch2,../catch2.mk))
 

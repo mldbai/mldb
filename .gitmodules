@@ -100,3 +100,6 @@
 [submodule "mldb_test_data"]
 	path = mldb_test_data
 	url = https://gitlab.com/mldbai/mldb_test_data.git
+[submodule "ext/catch2"]
+	path = ext/catch2
+	url = https://github.com/mldbai/Catch2.git
