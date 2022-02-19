@@ -100,6 +100,12 @@
 [submodule "mldb_test_data"]
 	path = mldb_test_data
 	url = https://gitlab.com/mldbai/mldb_test_data.git
+[submodule "ext/sais-lite-lcp"]
+	path = ext/sais-lite-lcp
+	url = https://github.com/mldbai/sais-lite-lcp.git
+[submodule "ext/fastmod"]
+	path = ext/fastmod
+	url = https://github.com/mldbai/fastmod.git
 [submodule "ext/catch2"]
 	path = ext/catch2
 	url = https://github.com/mldbai/Catch2.git
