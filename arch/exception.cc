@@ -3,7 +3,7 @@
 /* exception.cc
    Jeremy Barnes, 7 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-      
+
 
 
    Exception class.
@@ -14,6 +14,7 @@
 #include <string.h>
 #include <cxxabi.h>
 #include "demangle.h"
+#include <cstdarg>
 
 using namespace std;
 
@@ -83,6 +84,9 @@ std::string getExceptionString()
     catch (const std::bad_alloc & exc) {
         return "Out of memory (std::bad_alloc)";
     }
+    catch (const BadAlloc & exc) {
+        return "Out of memory (BadAlloc)";
+    }
     catch (const std::exception & exc) {
         return exc.what();
     }
@@ -119,6 +123,77 @@ AssertionFailure(const char * assertion,
 {
 }
 
+namespace {
+thread_local std::va_list exception_args;
+} /* file scope */
 
+
+#define MLDB_IMPLEMENT_EXCEPTION_CLASS(Name)                                        \
+Name::                                                                              \
+Name(const char * function,                                                         \
+                       const char * file,                                           \
+                       int line)                                                    \
+    : Exception(format(#Name ": %s at %s:%d",                                       \
+                    function, file, line))                                          \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+Name::                                                                              \
+Name(const std::string & message)                                                   \
+    : Exception(message)                                                            \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+Name::                                                                              \
+Name(const char * function,                                                         \
+                       const char * file,                                           \
+                       int line,                                                    \
+                       const char * msg,                                            \
+                       ...)                                                         \
+    : Exception(format(#Name ": %s at %s:%d : ", function, file, line)              \
+                 + ((va_start(exception_args, msg), format(msg, exception_args))))  \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+Name::                                                                              \
+Name(const char * function,                                                         \
+                       const char * file,                                           \
+                       int line,                                                    \
+                       const std::string msg,                                       \
+                       ...)                                                         \
+    : Exception(format(#Name ": %s at %s:%d : ", function, file, line)              \
+                 + ((va_start(exception_args, msg), format(msg.c_str(), exception_args))))  \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+void throw##Name(const char * function, const char * file, int line, const char * msg, ...) \
+{                                                                                   \
+    if (msg) {                                                                      \
+        throw Name(format(#Name ": %s at %s:%d : ", function, file, line)           \
+                          + ((va_start(exception_args, msg), format(msg, exception_args)))); \
+    }                                                                               \
+    else {                                                                          \
+        throw Name(function, file, line);                                           \
+    }                                                                               \
+}                                                                                   \
+                                                                                    \
+void throw##Name(const char * function, const char * file, int line, const std::string msg, ...) \
+{                                                                                   \
+    throw Name(format(#Name ": %s at %s:%d : ", function, file, line)               \
+                        + ((va_start(exception_args, msg), format(msg.c_str(), exception_args)))); \
+}                                                                                   \
+
+MLDB_IMPLEMENT_EXCEPTION_CLASS(UnimplementedException);
+MLDB_IMPLEMENT_EXCEPTION_CLASS(RuntimeError);
+MLDB_IMPLEMENT_EXCEPTION_CLASS(LogicError);
+MLDB_IMPLEMENT_EXCEPTION_CLASS(RangeError);
+MLDB_IMPLEMENT_EXCEPTION_CLASS(BadAlloc);
+
+void throwUnimplementedException(const std::type_info & thisType, const char * function, const char * file, int line, const std::string msg, ...)
+{
+    throw UnimplementedException(format("Unimplemented: type %s does not implement operation at %s:%d : ",
+                                        demangle(thisType.name()).c_str(), file, line)
+                                 + ((va_start(exception_args, msg), format(msg.c_str(), exception_args))));
+}
 
 } // namespace MLDB
