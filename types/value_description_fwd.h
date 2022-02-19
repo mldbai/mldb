@@ -106,11 +106,23 @@ std::shared_ptr<const ValueDescriptionT<T> >
 getDefaultDescriptionShared(T *);
 
 template<typename T>
+std::shared_ptr<const ValueDescription>
+getDefaultDescriptionSharedGeneric(T *);
+
+template<typename T>
 std::shared_ptr<const ValueDescriptionT<T> >
 getDefaultDescriptionSharedT()
 {
     using namespace MLDB;
     return getDefaultDescriptionShared((T *)0);
+}
+
+template<typename T>
+std::shared_ptr<const ValueDescription>
+getDefaultDescriptionSharedGenericT()
+{
+    using namespace MLDB;
+    return getDefaultDescriptionSharedGeneric((T *)0);
 }
 
 template<typename T>
@@ -127,19 +139,19 @@ getDefaultDescriptionUninitialized(T *)
 #define DECLARE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)         \
     struct Name;                                                \
                                                                 \
-    MLDB::ValueDescriptionT<Type> *                       \
+    MLDB::ValueDescriptionT<Type> *                             \
     getDefaultDescription(Type *);                              \
                                                                 \
-    MLDB::ValueDescriptionT<Type> *                       \
+    MLDB::ValueDescriptionT<Type> *                             \
     getDefaultDescriptionUninitialized(Type *);                 \
 
 #define DEFINE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
                                                                 \
     struct Name                                                 \
-        :  public MLDB::StructureDescription<Type> {      \
+        :  public MLDB::StructureDescription<Type> {            \
         Name();                                                 \
                                                                 \
-        Name(const MLDB::ConstructOnly &);                \
+        Name(const MLDB::ConstructOnly &);                      \
                                                                 \
         virtual void initialize()                               \
         {                                                       \
@@ -158,22 +170,22 @@ getDefaultDescriptionUninitialized(T *)
             : done(false)                                               \
         {                                                               \
             MLDB::registerValueDescriptionFunctions                     \
-                (typeid(Type), creator, true);           \
+                (typeid(Type), creator, true);                          \
         }                                                               \
     };                                                                  \
                                                                         \
-    Name::Name(const MLDB::ConstructOnly &)                       \
+    Name::Name(const MLDB::ConstructOnly &)                             \
     {                                                                   \
         regme.done = true;                                              \
     }                                                                   \
                                                                         \
-    MLDB::ValueDescriptionT<Type> *                               \
+    MLDB::ValueDescriptionT<Type> *                                     \
     getDefaultDescription(Type *)                                       \
     {                                                                   \
         return new Name();                                              \
     }                                                                   \
                                                                         \
-    MLDB::ValueDescriptionT<Type> *                               \
+    MLDB::ValueDescriptionT<Type> *                                     \
     getDefaultDescriptionUninitialized(Type *)                          \
     {                                                                   \
         return new Name(::MLDB::constructOnly);                         \
@@ -197,28 +209,28 @@ getDefaultDescriptionUninitialized(T *)
     type##Description::type##Description()
 
 
-#define DECLARE_ENUM_DESCRIPTION_NAMED(Name, Type)              \
-                                                                \
-    MLDB::ValueDescriptionT<Type> *                       \
-    getDefaultDescription(Type *);                              \
-                                                                \
-    MLDB::ValueDescriptionT<Type> *                       \
-    getDefaultDescriptionUninitialized(Type *);                 \
+#define DECLARE_ENUM_DESCRIPTION_NAMED(Name, Type)                  \
+                                                                    \
+    MLDB::ValueDescriptionT<Type> *                                 \
+    getDefaultDescription(Type *);                                  \
+                                                                    \
+    MLDB::ValueDescriptionT<Type> *                                 \
+    getDefaultDescriptionUninitialized(Type *);                     \
     
 #define DEFINE_ENUM_DESCRIPTION_NAMED(Name, Type)                   \
                                                                     \
     struct Name                                                     \
-        : public MLDB::EnumDescription<Type> {                \
+        : public MLDB::EnumDescription<Type> {                      \
         Name();                                                     \
     };                                                              \
                                                                     \
-    MLDB::ValueDescriptionT<Type> *                           \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescription(Type *)                                   \
     {                                                               \
         return new Name();                                          \
     }                                                               \
                                                                     \
-    MLDB::ValueDescriptionT<Type> *                           \
+    MLDB::ValueDescriptionT<Type> *                                 \
     getDefaultDescriptionUninitialized(Type *)                      \
     {                                                               \
         return new Name();                                          \
@@ -241,35 +253,43 @@ getDefaultDescriptionUninitialized(T *)
     type##Description::type##Description()
 
 #define PREDECLARE_VALUE_DESCRIPTION(T)                                 \
-    MLDB::ValueDescriptionT<T> *                                  \
+    MLDB::ValueDescriptionT<T> *                                        \
     getDefaultDescription(T * = 0);                                     \
-    MLDB::ValueDescriptionT<T> *                                  \
+    MLDB::ValueDescriptionT<T> *                                        \
     getDefaultDescriptionUninitialized(T * = 0);                        \
-    std::shared_ptr<MLDB::ValueDescriptionT<T> >                  \
+    std::shared_ptr<MLDB::ValueDescriptionT<T> >                        \
     getDefaultDescriptionShared(T * = 0);                               \
+    std::shared_ptr<MLDB::ValueDescription>                             \
+    getDefaultDescriptionSharedGeneric(T * = 0);                        \
     
 #define DECLARE_VALUE_DESCRIPTION(T)                                    \
     PREDECLARE_VALUE_DESCRIPTION(T)                                     \
-    extern template struct ValueDescriptionT<T>;                         \
+    extern template struct ValueDescriptionT<T>;                        \
 
 #define DEFINE_VALUE_DESCRIPTION_NS(T, Desc)                            \
-    MLDB::ValueDescriptionT<T> * \
+    MLDB::ValueDescriptionT<T> *                                        \
     getDefaultDescription(T *)                                          \
     {                                                                   \
         return new Desc();                                              \
     }                                                                   \
                                                                         \
-    MLDB::ValueDescriptionT<T> *                                  \
+    MLDB::ValueDescriptionT<T> *                                        \
     getDefaultDescriptionUninitialized(T *)                             \
     {                                                                   \
         return new Desc();                                              \
     }                                                                   \
                                                                         \
-    std::shared_ptr<MLDB::ValueDescriptionT<T> >                  \
+    std::shared_ptr<MLDB::ValueDescriptionT<T> >                        \
     getDefaultDescriptionShared(T *)                                    \
     {                                                                   \
         static std::shared_ptr<Desc> result = std::make_shared<Desc>(); \
         return result;                                                  \
+    }                                                                   \
+                                                                        \
+    std::shared_ptr<MLDB::ValueDescription>                             \
+    getDefaultDescriptionSharedGeneric(T *)                             \
+    {                                                                   \
+        return getDefaultDescriptionShared((T*)0);                      \
     }                                                                   \
 
 #define DEFINE_VALUE_DESCRIPTION(T, Desc)                               \
