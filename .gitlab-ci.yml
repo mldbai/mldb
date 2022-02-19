@@ -7,7 +7,9 @@ build:
   stage: build
   interruptible: true
   before_script:
-     - apt update && apt -y install wget
+     - apt update && apt -y install software-properties-common
+     - add-apt-repository -y ppa:ubuntu-toolchain-r/test
+     - apt update && apt -y install wget gcc-11 g++-11 gfortran-11
      - wget -qO - https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-x86_64-linux.gz | gzip -d > sccache
      - chmod +x ./sccache
   script:
@@ -20,6 +22,7 @@ build:
     - declare -x SCCACHE_REGION=us-east-2
     - declare -x POSTCFLAGS='-O2 -g0' POSTCXXFLAGS='-O2 -g0'
     - declare -x PRECXX=./sccache
+    - declare -x toolchain=gcc11
     - make -j4 -k dependencies
     - ./sccache --show-stats
     - make -j32 -k compile || make -j32 -k compile || make -j32 -k compile
@@ -41,7 +44,9 @@ sanitize:
   stage: build
   interruptible: true
   before_script:
-     - apt update && apt -y install wget clang-12
+     - apt update && apt -y install software-properties-common
+     - add-apt-repository -y ppa:ubuntu-toolchain-r/test
+     - apt update && apt -y install wget clang-13
      - wget -qO - https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-x86_64-linux.gz | gzip -d > sccache
      - chmod +x ./sccache
   script:
