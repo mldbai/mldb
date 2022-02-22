@@ -271,6 +271,29 @@ struct UnsignedLongLongDescription
     }
 };
 
+struct HalfValueDescription
+    : public PartialComparableValueDescriptionI<half, ValueKind::FLOAT, HalfValueDescription> {
+
+    virtual void parseJsonTyped(half * val,
+                                JsonParsingContext & context) const
+    {
+        *val = context.expectFloat();
+    }
+
+    virtual void parseJson(void * val,
+                           JsonParsingContext & context) const
+    {
+        *(half *)val = context.expectFloat();
+    }
+
+    virtual void printJsonTyped(const half * val,
+                                JsonPrintingContext & context) const
+    {
+        context.writeFloat(*val);
+    }
+};
+
+
 struct FloatValueDescription
     : public ValueDescriptionI<float, ValueKind::FLOAT, FloatValueDescription> {
 
@@ -365,6 +388,7 @@ DEFINE_VALUE_DESCRIPTION(signed long, SignedLongDescription);
 DEFINE_VALUE_DESCRIPTION(unsigned long, UnsignedLongDescription);
 DEFINE_VALUE_DESCRIPTION(signed long long, SignedLongLongDescription);
 DEFINE_VALUE_DESCRIPTION(unsigned long long, UnsignedLongLongDescription);
+DEFINE_VALUE_DESCRIPTION(half, HalfValueDescription);
 DEFINE_VALUE_DESCRIPTION(float, FloatValueDescription);
 DEFINE_VALUE_DESCRIPTION(double, DoubleValueDescription);
 DEFINE_VALUE_DESCRIPTION(Json::Value, JsonValueDescription);
