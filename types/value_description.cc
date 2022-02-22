@@ -294,6 +294,13 @@ getConstLink(const void* obj) const
     MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' is not a link");
 }
 
+const void*
+ValueDescription::
+getConstLink(const void* obj) const
+{
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a link");
+}
+
 void
 ValueDescription::
 set(void* obj, void* value, const ValueDescription* valueDesc) const
