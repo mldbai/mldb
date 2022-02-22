@@ -148,6 +148,21 @@ struct TupleDescription
         return sizeof...(T);
     }
 
+    virtual size_t getArrayFixedLength() const override
+    {
+        return sizeof...(T);
+    }
+
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::FIXED;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::NONE;
+    }
+
     virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         return ((char*) val) + elements.at(element).offset;

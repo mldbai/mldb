@@ -75,6 +75,16 @@ struct VectorDescription
         return val->empty();
     }
 
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::VARIABLE;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::UNIQUE;
+    }
+
     virtual size_t getArrayLength(void * val) const override
     {
         const std::vector<T, A> * val2 = reinterpret_cast<const std::vector<T, A> *>(val);

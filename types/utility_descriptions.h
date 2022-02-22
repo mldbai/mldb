@@ -47,7 +47,10 @@ struct BridgedValueDescription: public ValueDescription {
     virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override;
     virtual void * optionalMakeValue(void * val) const override;
     virtual const void * optionalGetValue(const void * val) const override;
+    virtual size_t getArrayFixedLength() const override;
     virtual size_t getArrayLength(void * val) const override;
+    virtual LengthModel getArrayLengthModel() const override;
+    virtual OwnershipModel getArrayIndirectionModel() const override;
     virtual void * getArrayElement(void * val, uint32_t element) const override;
     virtual const void * getArrayElement(const void * val, uint32_t element) const override;
     virtual const ValueDescription &
@@ -223,6 +226,21 @@ struct DescriptionFromBase
     virtual size_t getArrayLength(void * val) const
     {
         return inner->getArrayLength(fixPtr(val));
+    }
+
+    virtual size_t getArrayFixedLength() const override
+    {
+        return inner->getArrayFixedLength();
+    }
+
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return inner->getArrayLengthModel();
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return inner->getArrayIndirectionModel();
     }
 
     virtual void * getArrayElement(void * val, uint32_t element) const

@@ -146,6 +146,16 @@ getRepr(const ValueDescription & desc, bool detailed)
         break;
     case ValueKind::ARRAY:
         result.contained = &desc.contained();
+        result.lengthModel.emplace(desc.getArrayLengthModel());
+        result.elementModel.emplace(desc.getArrayIndirectionModel());
+
+        switch (desc.getArrayLengthModel()) {
+        case LengthModel::FIXED:
+            result.fixedLength.emplace(desc.getArrayFixedLength());
+            break;
+        case LengthModel::VARIABLE:
+            break;
+        }
         break;
     case ValueKind::STRUCTURE: {
         if (!detailed)

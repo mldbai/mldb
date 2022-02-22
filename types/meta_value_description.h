@@ -10,10 +10,13 @@
 #include "mldb/types/value_description_fwd.h"
 #include <vector>
 #include "mldb/ext/jsoncpp/value.h"
+#include "mldb/types/optional.h"
 
 namespace MLDB {
 
 DECLARE_ENUM_DESCRIPTION(ValueKind);
+DECLARE_ENUM_DESCRIPTION(OwnershipModel);
+DECLARE_ENUM_DESCRIPTION(LengthModel);
 
 struct EnumValueRepr {
     int val;
@@ -44,6 +47,9 @@ struct ValueDescriptionRepr {
     std::vector<EnumValueRepr> enumValues;
     std::vector<const ValueDescription *> tupleElements;
     const ValueDescription * contained = nullptr;
+    Optional<LengthModel> lengthModel;
+    Optional<OwnershipModel> elementModel;
+    Optional<size_t> fixedLength;
 
     size_t width = 0;  // for atomic types
     size_t align = 0;  // for atomic types

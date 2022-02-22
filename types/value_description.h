@@ -82,11 +82,13 @@ struct ValueDescription {
     virtual bool hasPartialOrderingComparison() const;
     virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const;
 
-    
     virtual void * optionalMakeValue(void * val) const;
     virtual const void * optionalGetValue(const void * val) const;
 
+    virtual size_t getArrayFixedLength() const;
     virtual size_t getArrayLength(void * val) const;
+    virtual LengthModel getArrayLengthModel() const;
+    virtual OwnershipModel getArrayIndirectionModel() const;  // NONE = inline, SHARED = external, shared, UNIQUE = external, unique
     virtual void * getArrayElement(void * val, uint32_t element) const;
     virtual const void * getArrayElement(const void * val, uint32_t element) const;
 

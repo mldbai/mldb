@@ -86,6 +86,16 @@ struct DistributionValueDescription
         return val2->size();
     }
 
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::VARIABLE;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::UNIQUE;
+    }
+
     virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         distribution<T, Underlying> * val2 = reinterpret_cast<distribution<T, Underlying> *>(val);

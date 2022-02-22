@@ -183,14 +183,35 @@ size_t
 ValueDescription::
 getArrayLength(void * val) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
+}
+
+size_t
+ValueDescription::
+getArrayFixedLength() const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
+}
+
+LengthModel
+ValueDescription::
+getArrayLengthModel() const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
+}
+
+OwnershipModel
+ValueDescription::
+getArrayIndirectionModel() const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
 }
 
 void *
 ValueDescription::
 getArrayElement(void * val, uint32_t element) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array");
 }
 
 std::vector<std::shared_ptr<const ValueDescription> >
@@ -211,7 +232,7 @@ const void *
 ValueDescription::
 getArrayElement(const void * val, uint32_t element) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array");
 }
 
 /** Return the value description for the nth array element.  This is
@@ -229,7 +250,7 @@ void
 ValueDescription::
 setArrayLength(void * val, size_t newLength) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array");
 }
 
 const ValueDescription &
@@ -698,10 +719,34 @@ optionalGetValue(const void * val) const
 
 size_t
 BridgedValueDescription::
+getArrayFixedLength() const
+{
+    ExcAssert(impl);
+    return impl->getArrayFixedLength();
+}
+
+size_t
+BridgedValueDescription::
 getArrayLength(void * val) const
 {
     ExcAssert(impl);
     return impl->getArrayLength(val);
+}
+
+LengthModel
+BridgedValueDescription::
+getArrayLengthModel() const
+{
+    ExcAssert(impl);
+    return impl->getArrayLengthModel();
+}
+
+OwnershipModel
+BridgedValueDescription::
+getArrayIndirectionModel() const
+{
+    ExcAssert(impl);
+    return impl->getArrayIndirectionModel();
 }
 
 void *
