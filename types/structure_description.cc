@@ -470,6 +470,47 @@ swapValues(void * from, void * to) const
     }
 }
 
+void
+GenericStructureDescription::
+initializeDefault(void * mem) const
+{
+    for (auto & [name, desc]: this->fields) {
+        desc.description->initializeDefault(desc.getFieldPtr(mem));
+    }
+}
+
+void
+GenericStructureDescription::
+initializeCopy(void * mem, const void * val) const
+{
+    for (auto & [name, desc]: this->fields) {
+        auto fromField = desc.getFieldPtr(val);
+        auto toField = desc.getFieldPtr(mem);
+        desc.description->initializeCopy(toField, fromField);
+    }
+}
+
+void
+GenericStructureDescription::
+initializeMove(void * mem, void * val) const
+{
+    for (auto & [name, desc]: this->fields) {
+        auto fromField = desc.getFieldPtr(val);
+        auto toField = desc.getFieldPtr(mem);
+        desc.description->initializeMove(toField, fromField);
+    }
+}
+
+void
+GenericStructureDescription::
+destruct(void * val) const
+{
+    for (auto & [name, desc]: this->fields) {
+        auto field = desc.getFieldPtr(val);
+        desc.description->destruct(field);
+    }
+}
+
 bool
 GenericStructureDescription::
 onEntry(void * output, JsonParsingContext & context) const

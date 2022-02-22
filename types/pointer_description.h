@@ -221,8 +221,9 @@ struct SharedPtrDescription
             context.expectNull();
             return;
         }
-        val->reset(new T());
-        inner->parseJsonTyped(val->get(), context);
+        auto newVal = std::make_shared<std::remove_const_t<T>>();
+        inner->parseJsonTyped(newVal.get(), context);
+        *val = std::move(newVal);
     }
 
     virtual void printJsonTyped(const std::shared_ptr<T> * val,

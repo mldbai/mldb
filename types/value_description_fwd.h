@@ -121,16 +121,14 @@ auto getDefaultDescriptionSharedT()
 }
 
 template<typename T>
-std::shared_ptr<const ValueDescription>
-getDefaultDescriptionSharedGenericT()
+auto getDefaultDescriptionSharedGenericT()
 {
     using namespace MLDB;
     return getDefaultDescriptionSharedGeneric((T *)0);
 }
 
 template<typename T>
-ValueDescriptionT<T> *
-getDefaultDescriptionUninitialized(T *)
+auto getDefaultDescriptionUninitialized(T *)
 {
     using namespace MLDB;
     return getDefaultDescription((T *)0);
@@ -327,7 +325,7 @@ getDefaultDescriptionUninitialized(T *)
     struct ValueDescriptionInit<Type<ArgList> >: public ValueDescriptionInitBase { \
         static ValueDescription * create()                              \
         {                                                               \
-            return new Impl<ArgList>(MLDB::ConstructOnly());      \
+            return new Impl<ArgList>(MLDB::ConstructOnly());            \
         }                                                               \
     };                                                                  \
                                                                         \

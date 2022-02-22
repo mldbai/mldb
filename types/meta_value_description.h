@@ -14,6 +14,10 @@
 
 namespace MLDB {
 
+// Return a JSON representation of the default value of this particular
+// value description.
+Json::Value getDefaultValue(const ValueDescription & description);
+
 DECLARE_ENUM_DESCRIPTION(ValueKind);
 DECLARE_ENUM_DESCRIPTION(OwnershipModel);
 DECLARE_ENUM_DESCRIPTION(LengthModel);

@@ -65,10 +65,10 @@ struct ValueDescription {
     virtual void copyValue(const void * from, void * to) const = 0;
     virtual void moveValue(void * from, void * to) const = 0;
     virtual void swapValues(void * from, void * to) const = 0;
-    virtual void * constructDefault() const = 0;
-    virtual void * constructCopy(const void * other) const = 0;
-    virtual void * constructMove(void * other) const = 0;
-    virtual void destroy(void *) const = 0;
+    virtual void initializeDefault(void * obj) const = 0;
+    virtual void initializeCopy(void * obj, const void * other) const = 0;
+    virtual void initializeMove(void * obj, void * other) const = 0;
+    virtual void destruct(void *) const = 0;
 
     // Comparisons
     virtual bool hasEqualityComparison() const;
@@ -378,24 +378,24 @@ struct ValueDescriptionT : public ValueDescription {
         doSwap(*from2, *to2);
     }
 
-    virtual void * constructDefault() const override
+    virtual void initializeDefault(void * obj) const override
     {
-        return constructDefault(typename std::is_default_constructible<T>::type());
+        return initializeDefault(obj, typename std::is_default_constructible<T>::type());
     }
 
-    virtual void * constructCopy(const void * val) const override
+    virtual void initializeCopy(void * obj, const void * val) const override
     {
-        return constructCopy(val, typename std::is_copy_constructible<T>::type());
+        return initializeCopy(obj, val, typename std::is_copy_constructible<T>::type());
     }
 
-    virtual void * constructMove(void * val) const override
+    virtual void initializeMove(void * obj, void * val) const override
     {
-        return constructMove(val, typename std::is_move_constructible<T>::type());
+        return initializeMove(obj, val, typename std::is_move_constructible<T>::type());
     }
 
-    virtual void destroy(void * val) const override
+    virtual void destruct(void * val) const override
     {
-        delete (T*)val;
+        ((T*)val)->~T();
     }
 
     virtual void set(
@@ -486,23 +486,43 @@ private:
     {
         throw MLDB::Exception("type is not move constructible");
     }
-};
 
-template<typename T, typename Enable = void>
-struct GetDefaultDescriptionMaybe {
-    static std::shared_ptr<const ValueDescription> get()
+    // Template parameter so not instantiated for types that are not
+    // default constructible
+    template<typename X>
+    void initializeDefault(void * obj, X) const
     {
-        return nullptr;
+        new (obj) T();
+    }
+
+    void initializeDefault(void * obj, std::false_type) const
+    {
+        throw MLDB::Exception("type is not default initializable");
+    }
+
+    template<typename X>
+    void initializeCopy(void * obj, const void * from, X) const
+    {
+        new (obj) T(*((T*)from));
+    }
+
+    void initializeCopy(void * obj, const void *, std::false_type) const
+    {
+        throw MLDB::Exception("type is not copy initializable");
+    }
+
+    template<typename X>
+    void initializeMove(void * obj, void * from, X) const
+    {
+        new (obj) T(std::move(*((T*)from)));
+    }
+
+    void initializeMove(void * obj, void *, std::false_type) const
+    {
+        throw MLDB::Exception("type is not move initializable");
     }
 };
 
-template<typename T>
-struct GetDefaultDescriptionMaybe<T, decltype(getDefaultDescription((T *)0))> {
-    static std::shared_ptr<const ValueDescription> get()
-    {
-        return getDefaultDescriptionShared((T *)0);
-    }
-};
 
 /** Return the default description for the given type if it exists, or
     otherwise return a null pointer.
@@ -512,7 +532,7 @@ template<typename T>
 inline std::shared_ptr<const ValueDescription>
 maybeGetDefaultDescriptionShared(T * = 0)
 {
-    auto result = GetDefaultDescriptionMaybe<T>::get();
+    std::shared_ptr<const ValueDescription> result = getDefaultDescriptionSharedMaybe((T*)0);
     if (!result) {
         // Look to see if it's registered in the registry so that we can
         // get it

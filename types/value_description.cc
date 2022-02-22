@@ -589,36 +589,36 @@ swapValues(void * from, void * to) const
     swapValues(from, to);
 }
 
-void *
+void
 BridgedValueDescription::
-constructDefault() const
+initializeDefault(void * mem) const
 {
     ExcAssert(impl);
-    return impl->constructDefault();
-}
-
-void *
-BridgedValueDescription::
-constructCopy(const void * from) const
-{
-    ExcAssert(impl);
-    return impl->constructCopy(from);
-}
-
-void *
-BridgedValueDescription::
-constructMove(void * from) const
-{
-    ExcAssert(impl);
-    return impl->constructMove(from);
+    impl->initializeDefault(mem);
 }
 
 void
 BridgedValueDescription::
-destroy(void * val) const
+initializeCopy(void * mem, const void * from) const
 {
     ExcAssert(impl);
-    impl->destroy(val);
+    return impl->initializeCopy(mem, from);
+}
+
+void
+BridgedValueDescription::
+initializeMove(void * mem, void * from) const
+{
+    ExcAssert(impl);
+    return impl->initializeMove(mem, from);
+}
+
+void
+BridgedValueDescription::
+destruct(void * val) const
+{
+    ExcAssert(impl);
+    impl->destruct(val);
 }
 
 void *

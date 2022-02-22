@@ -12,14 +12,14 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/pointer_description.h"
+#include "mldb/types/optional_description.h"
+#include <iostream>
 
+using namespace std;
 
 namespace MLDB {
 
-DEFINE_ENUM_DESCRIPTION(ValueKind);
-
-ValueKindDescription::
-ValueKindDescription()
+DEFINE_ENUM_DESCRIPTION_INLINE(ValueKind)
 {
     addValue("ATOM",     ValueKind::ATOM,     "Atomic structured type; normally JSON");
     addValue("INTEGER",  ValueKind::INTEGER,  "Integral type");
@@ -37,10 +37,20 @@ ValueKindDescription()
     addValue("ANY",      ValueKind::ANY,      "Can be any type");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(EnumValueRepr);
+DEFINE_ENUM_DESCRIPTION_INLINE(OwnershipModel)
+{
+    addValue("NONE",     OwnershipModel::NONE,      "Indirect values are not owned");
+    addValue("SHARED",   OwnershipModel::SHARED,    "Ownership of indirect values is shared");
+    addValue("UNIQUE",   OwnershipModel::UNIQUE,    "Ownership of indirect values is exclusive");
+}
 
-EnumValueReprDescription::
-EnumValueReprDescription()
+DEFINE_ENUM_DESCRIPTION_INLINE(LengthModel)
+{
+    addValue("FIXED",       LengthModel::FIXED,       "Length is fixed & implicit");
+    addValue("VARIABLE",    LengthModel::VARIABLE,    "Length is variable & stored with data");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(EnumValueRepr)
 {
     addField("val", &EnumValueRepr::val,
              "Integral value of enumeration");
@@ -50,10 +60,7 @@ EnumValueReprDescription()
              "Human-readable comment on meaning of value");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(StructureFieldRepr);
-
-StructureFieldReprDescription::
-StructureFieldReprDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(StructureFieldRepr)
 {
     addField("name", &StructureFieldRepr::fieldName,
              "Name of the field in the structure");
@@ -67,10 +74,7 @@ StructureFieldReprDescription()
              "Default value of field");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(ValueDescriptionRepr);
-
-ValueDescriptionReprDescription::
-ValueDescriptionReprDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(ValueDescriptionRepr)
 {
     addField("kind", &ValueDescriptionRepr::kind,
              "Broad categorization of type");
@@ -90,17 +94,61 @@ ValueDescriptionReprDescription()
              "Type that is contained");
     addField("elements", &ValueDescriptionRepr::tupleElements,
              "Elements of tuple");
+    addField("lengthModel", &ValueDescriptionRepr::lengthModel,
+             "Array or map length model");
+    addField("elementModel", &ValueDescriptionRepr::elementModel,
+             "Array element ownership model");
+    addField("fixedLength", &ValueDescriptionRepr::fixedLength,
+             "Array length when this is fixed and implicit in the definition");
+    addField("width", &ValueDescriptionRepr::width,
+             "width in bytes of an ATOM type", (size_t)0);
+    addField("align", &ValueDescriptionRepr::align,
+             "alignment in bytes of an ATOM type", (size_t)0);
 }
 
-static Json::Value getDefaultValue(const ValueDescription & description)
+Json::Value getDefaultValue(const ValueDescription & description)
 {
-    void * val = description.constructDefault();
-    if (!val)
-        return Json::Value();
+    void * ptr = nullptr;
+    if (description.align < 8) {
+        ptr = malloc(description.width);
+        if (!ptr) {
+            MLDB_THROW_BAD_ALLOC("Couldn't allocate memory for default value");
+        }
+        ExcAssertEqual(((size_t)ptr) % description.align, 0);
+    }
+    else {
+        int res = posix_memalign(&ptr, description.align, description.width);
+        if (res != 0) {
+            using namespace std;
+            cerr << "align: " << description.align << endl;
+            cerr << "width: " << description.width << endl;
+            cerr << "type: " << description.typeName << endl;
+            throw MLDB::Exception(errno, "posix_memalign");
+        }
+    }
+    try {
+        description.initializeDefault(ptr);
+    } MLDB_CATCH_ALL {
+        free(ptr);
+        throw;
+    }
+
+    auto destruct = [desc=&description] (void * ptr)
+    {
+        try {
+            desc->destruct(ptr);
+        } MLDB_CATCH_ALL {
+            free(ptr);
+            throw;
+        }
+        free(ptr);
+    };
+
+    std::shared_ptr<void> result(ptr, std::move(destruct));
+
     Json::Value jval;
     StructuredJsonPrintingContext context(jval);
-    description.printJson(val, context);
-    description.destroy(val);
+    description.printJson(result.get(), context);
 
     return jval;
 }

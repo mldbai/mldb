@@ -151,6 +151,10 @@ struct GenericStructureDescription:
     virtual void copyValue(const void * from, void * to) const override;
     virtual void moveValue(void * from, void * to) const override;
     virtual void swapValues(void * from, void * to) const override;
+    virtual void initializeDefault(void * mem) const override;
+    virtual void initializeCopy(void * mem, const void * other) const override;
+    virtual void initializeMove(void * mem, void * other) const override;
+    virtual void destruct(void *) const override;
 
     virtual bool onEntry(void * output, JsonParsingContext & context) const override;
     virtual void onExit(void * output, JsonParsingContext & context) const override;
