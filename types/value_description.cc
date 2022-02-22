@@ -92,53 +92,122 @@ printJsonString(const void * val) const
     return result;
 }
 
+bool
+ValueDescription::
+hasEqualityComparison() const
+{
+    return false;
+}
+
+bool
+ValueDescription::
+compareEquality(const void * val1, const void * val2) const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support equality comparison");
+}
+
+bool
+ValueDescription::
+hasLessThanComparison() const
+{
+    return false;
+}
+
+bool
+ValueDescription::
+compareLessThan(const void * val1, const void * val2) const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support less than comparison");
+}
+
+bool
+ValueDescription::
+hasStrongOrderingComparison() const
+{
+    return false;
+}
+
+std::strong_ordering
+ValueDescription::
+compareStrong(const void * val1, const void * val2) const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support strongly ordered comparison");
+}
+
+bool
+ValueDescription::
+hasWeakOrderingComparison() const
+{
+    return false;
+}
+
+std::weak_ordering
+ValueDescription::
+compareWeak(const void * val1, const void * val2) const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support weakly ordered comparison");
+}
+
+bool
+ValueDescription::
+hasPartialOrderingComparison() const
+{
+    return false;
+}
+
+std::partial_ordering
+ValueDescription::
+comparePartial(const void * val1, const void * val2) const
+{
+    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support partially ordered comparison");
+}
 void *
 ValueDescription::
 optionalMakeValue(void * val) const
 {
-    throw MLDB::Exception("type is not optional");
+    MLDB_THROW_UNIMPLEMENTED("type is not optional");
 }
 
 const void *
 ValueDescription::
 optionalGetValue(const void * val) const
 {
-    throw MLDB::Exception("type is not optional");
+    MLDB_THROW_UNIMPLEMENTED("type is not optional");
 }
 
 size_t
 ValueDescription::
 getArrayLength(void * val) const
 {
-    throw MLDB::Exception("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type is not an array");
 }
 
 void *
 ValueDescription::
 getArrayElement(void * val, uint32_t element) const
 {
-    throw MLDB::Exception("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type is not an array");
 }
 
 std::vector<std::shared_ptr<const ValueDescription> >
 ValueDescription::
 getTupleElementDescriptions() const
 {
-    throw MLDB::Exception("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
 }
 
 size_t
 ValueDescription::
 getTupleLength() const
 {
-    throw MLDB::Exception("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
 }
 
 const void *
 ValueDescription::
 getArrayElement(const void * val, uint32_t element) const
 {
-    throw MLDB::Exception("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type is not an array");
 }
 
 /** Return the value description for the nth array element.  This is
@@ -156,70 +225,70 @@ void
 ValueDescription::
 setArrayLength(void * val, size_t newLength) const
 {
-    throw MLDB::Exception("type is not an array");
+    MLDB_THROW_UNIMPLEMENTED("type is not an array");
 }
 
 const ValueDescription &
 ValueDescription::
 getKeyValueDescription() const
 {
-    throw MLDB::Exception("type '" + typeName + "' has no key");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' has no key");
 }
 
 const ValueDescription &
 ValueDescription::
 contained() const
 {
-    throw MLDB::Exception("type '" + typeName + "' does not contain another");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' does not contain another");
 }
 
 std::shared_ptr<const ValueDescription>
 ValueDescription::
 containedPtr() const
 {
-    throw MLDB::Exception("type '" + typeName + "' does not contain another");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' does not contain another");
 }
 
 OwnershipModel
 ValueDescription::
 getOwnershipModel() const
 {
-    throw MLDB::Exception("type '" + typeName + "' does not define an ownership type");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' does not define an ownership type");
 }
 
 void*
 ValueDescription::
 getLink(void* obj) const
 {
-    throw MLDB::Exception("type '" + typeName + "' is not a link");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a link");
 }
 
 void
 ValueDescription::
 set(void* obj, void* value, const ValueDescription* valueDesc) const
 {
-    throw MLDB::Exception("type '" + typeName + "' can't be written to");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' can't be written to");
 }
 
 size_t
 ValueDescription::
 getFieldCount(const void * val) const
 {
-    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription *
 ValueDescription::
 hasField(const void * val, const std::string & name) const
 {
-    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription *
 ValueDescription::
 getFieldDescription(const void * val, const void * field) const
 {
-    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
 }
 
 void
@@ -227,35 +296,35 @@ ValueDescription::
 forEachField(const void * val,
              const std::function<void (const FieldDescription &)> & onField) const
 {
-    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription & 
 ValueDescription::
 getField(const std::string & field) const
 {
-    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription & 
 ValueDescription::
 getFieldByNumber(int fieldNum) const
 {
-    throw MLDB::Exception("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
 }
 
 const std::vector<std::string>
 ValueDescription::
 getEnumKeys() const
 {
-    throw MLDB::Exception("type '" + typeName + "' is not an enum");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not an enum");
 }
 
 std::vector<std::tuple<int, std::string, std::string> >
 ValueDescription::
 getEnumValues() const
 {
-    throw MLDB::Exception("type '" + typeName + "' is not an enum");
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not an enum");
 }
 
 int
@@ -421,171 +490,6 @@ convertAndCopy(const void * from,
     parseJson(to, context2);
 }
 
-/*****************************************************************************/
-/* STRUCTURE DESCRIPTION BASE                                                */
-/*****************************************************************************/
-
-
-StructureDescriptionBase::
-StructureDescriptionBase(const std::type_info * type,
-                         ValueDescription * owner,
-                         const std::string & structName,
-                         bool nullAccepted)
-    : type(type),
-      structName(structName.empty() ? demangle(type->name()) : structName),
-      nullAccepted(nullAccepted),
-      owner(owner)
-{
-}
-
-void
-StructureDescriptionBase::
-operator = (const StructureDescriptionBase & other)
-{
-    type = other.type;
-    structName = other.structName;
-    nullAccepted = other.nullAccepted;
-
-    fieldNames.clear();
-    orderedFields.clear();
-    fields.clear();
-    fieldNames.reserve(other.fields.size());
-
-    // Don't set owner
-    for (auto & f: other.orderedFields) {
-        const char * s = f->first;
-        fieldNames.emplace_back(::strdup(s));
-        auto it = fields.insert(make_pair(fieldNames.back().get(), f->second))
-            .first;
-        orderedFields.push_back(it);
-    }
-}
-
-void
-StructureDescriptionBase::
-operator = (StructureDescriptionBase && other)
-{
-    type = std::move(other.type);
-    structName = std::move(other.structName);
-    nullAccepted = std::move(other.nullAccepted);
-    fields = std::move(other.fields);
-    fieldNames = std::move(other.fieldNames);
-    orderedFields = std::move(other.orderedFields);
-    // don't set owner
-}
-
-StructureDescriptionBase::Exception::
-Exception(JsonParsingContext & context,
-          const std::string & message)
-    : MLDB::Exception("at " + context.printPath() + ": " + message)
-{
-}
-
-StructureDescriptionBase::Exception::
-~Exception() throw ()
-{
-}
-
-void
-StructureDescriptionBase::
-parseJson(void * output, JsonParsingContext & context) const
-{
-    try {
-
-        if (!onEntry(output, context)) return;
-
-        if (nullAccepted && context.isNull()) {
-            context.expectNull();
-            return;
-        }
-        
-        if (!context.isObject()) {
-            std::string typeName;
-            if (context.isNumber())
-                typeName = "number";
-            else if (context.isBool())
-                typeName = "boolean";
-            else if (context.isString())
-                typeName = "string";
-            else if (context.isNull())
-                typeName = "null";
-            else if (context.isArray())
-                typeName = "array";
-            else typeName = "<<unknown type>>";
-                    
-            std::string msg
-                = "expected object of type "
-                + structName + ", but instead a "
-                + typeName + " was provided";
-
-            if (context.isString())
-                msg += ".  Did you accidentally JSON encode your object into a string?";
-
-            context.exception(msg);
-        }
-
-        auto onMember = [&] ()
-            {
-                try {
-                    auto n = context.fieldNamePtr();
-
-                    auto it = fields.find(n);
-                    if (it == fields.end()) {
-                        context.onUnknownField(owner);
-                    }
-                    else {
-                        it->second.description
-                        ->parseJson(addOffset(output,
-                                              it->second.offset),
-                                    context);
-                    }
-                }
-                catch (const Exception & exc) {
-                    throw;
-                }
-                catch (const std::exception & exc) {
-                    throw Exception(context, exc.what());
-                }
-                catch (...) {
-                    throw;
-                }
-            };
-
-        
-        context.forEachMember(onMember);
-
-        onExit(output, context);
-    }
-    catch (const Exception & exc) {
-        throw;
-    }
-    catch (const std::exception & exc) {
-        throw Exception(context, exc.what());
-    }
-    catch (...) {
-        throw;
-    }
-}
-
-void
-StructureDescriptionBase::
-printJson(const void * input, JsonPrintingContext & context) const
-{
-    context.startObject();
-
-    for (const auto & it: orderedFields) {
-        auto & fd = it->second;
-
-        const void * mbr = addOffset(input, fd.offset);
-        if (fd.description->isDefault(mbr))
-            continue;
-        context.startMember(it->first);
-        fd.description->printJson(mbr, context);
-    }
-        
-    context.endObject();
-}
-
 
 /*****************************************************************************/
 /* BRIDGED VALUE DESCRIPTION                                                 */
@@ -698,6 +602,86 @@ optionalMakeValue(void * val) const
 {
     ExcAssert(impl);
     return impl->optionalMakeValue(val);
+}
+
+bool
+BridgedValueDescription::
+hasEqualityComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasEqualityComparison();
+}
+
+bool
+BridgedValueDescription::
+compareEquality(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareEquality(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasLessThanComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasLessThanComparison();
+}
+
+bool
+BridgedValueDescription::
+compareLessThan(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareLessThan(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasStrongOrderingComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasStrongOrderingComparison();
+}
+
+std::strong_ordering
+BridgedValueDescription::
+compareStrong(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareStrong(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasWeakOrderingComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasWeakOrderingComparison();
+}
+
+std::weak_ordering
+BridgedValueDescription::
+compareWeak(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->compareWeak(val1, val2);
+}
+
+bool
+BridgedValueDescription::
+hasPartialOrderingComparison() const
+{
+    ExcAssert(impl);
+    return impl->hasPartialOrderingComparison();
+}
+
+std::partial_ordering
+BridgedValueDescription::
+comparePartial(const void * val1, const void * val2) const
+{
+    ExcAssert(impl);
+    return impl->comparePartial(val1, val2);
 }
 
 const void *

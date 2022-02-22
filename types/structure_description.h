@@ -41,6 +41,8 @@ struct StructureDescriptionBase {
 
     int version = -1;   ///< The version number of this structure
 
+    bool hasLess = true, hasEquality = true, hasWeak = true, hasStrong = true, hasPartial = true;
+
     struct OldVersion {
         int version = -1;
         std::shared_ptr<ValueDescription> desc;
@@ -62,23 +64,7 @@ struct StructureDescriptionBase {
     // in the map and so for comparisons to be done with no memory
     // allocations.
     struct StrCompare {
-        inline bool operator () (const char * s1, const char * s2) const
-        {
-            char c1 = *s1++, c2 = *s2++;
-
-            if (c1 < c2) return true;
-            if (c1 > c2) return false;
-            if (c1 == 0) return false;
-
-            c1 = *s1++; c2 = *s2++;
-            
-            if (c1 < c2) return true;
-            if (c1 > c2) return false;
-            if (c1 == 0) return false;
-
-            return std::strcmp(s1, s2) < 0;
-        }
-
+        bool operator () (const char * s1, const char * s2) const;
     };
 
     typedef std::map<const char *, FieldDescription, StrCompare> Fields;
@@ -108,6 +94,159 @@ struct StructureDescriptionBase {
 
     virtual bool onEntry(void * output, JsonParsingContext & context) const = 0;
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
+
+    void addFieldDesc(std::string name,
+                      size_t offset,
+                      std::string comment,
+                      std::shared_ptr<const ValueDescription> description);
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const;
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const;
+    
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const;
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const;
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const;
+
+    virtual int getVersion() const;
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) = 0;
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const;
+    virtual bool compareEquality(const void * val1, const void * val2) const;
+    virtual bool hasLessThanComparison() const;
+    virtual bool compareLessThan(const void * val1, const void * val2) const;
+    virtual bool hasStrongOrderingComparison() const;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const;
+    virtual bool hasWeakOrderingComparison() const;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const;
+    virtual bool hasPartialOrderingComparison() const;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const;
+};
+
+
+/*****************************************************************************/
+/* GENERIC STRUCTURE DESCRIPTION                                             */
+/*****************************************************************************/
+
+struct GenericStructureDescription:
+    public ValueDescription,
+    public StructureDescriptionBase {
+
+    GenericStructureDescription(bool nullAccepted,
+                                const std::string & structName);
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const override;
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override;
+    virtual bool isDefault(const void * val) const override;
+    virtual void setDefault(void * val) const override;
+    virtual void copyValue(const void * from, void * to) const override;
+    virtual void moveValue(void * from, void * to) const override;
+    virtual void swapValues(void * from, void * to) const override;
+
+    virtual bool onEntry(void * output, JsonParsingContext & context) const override;
+    virtual void onExit(void * output, JsonParsingContext & context) const override;
+
+    virtual size_t getFieldCount(const void * val) const override
+    {
+        return fields.size();
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const override
+    {
+        return StructureDescriptionBase::hasField(val, field);
+    }
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const override
+    {
+        return StructureDescriptionBase::getFieldDescription(val, field);
+    }
+    
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const override
+    {
+        return StructureDescriptionBase::forEachField(val, onField);
+    }
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const override
+    {
+        return StructureDescriptionBase::getField(field);
+    }
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const override
+    {
+        return StructureDescriptionBase::getFieldByNumber(fieldNum);
+    }
+
+    virtual int getVersion() const override
+    {
+        return StructureDescriptionBase::getVersion();
+    }
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override;
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const override
+    {
+        return StructureDescriptionBase::hasEqualityComparison();
+    }
+
+    virtual bool compareEquality(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareEquality(val1, val2);
+    }
+
+    virtual bool hasLessThanComparison() const override
+    {
+        return StructureDescriptionBase::hasLessThanComparison();
+    }
+
+    virtual bool compareLessThan(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareLessThan(val1, val2);
+    }
+
+    virtual bool hasStrongOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasStrongOrderingComparison();
+    }
+
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareStrong(val1, val2);
+    }
+
+    virtual bool hasWeakOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasWeakOrderingComparison();
+    }
+
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareWeak(val1, val2);
+    }
+
+    virtual bool hasPartialOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasPartialOrderingComparison();
+    }
+
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::comparePartial(val1, val2);
+    }
 };
 
 
@@ -356,6 +495,61 @@ struct StructureDescription
 
                 getEntry(0, obj->*member) = context.expectJson();
             };
+    }
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override
+    {
+    }
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const override
+    {
+        return StructureDescriptionBase::hasEqualityComparison();
+    }
+
+    virtual bool compareEquality(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareEquality(val1, val2);
+    }
+
+    virtual bool hasLessThanComparison() const override
+    {
+        return StructureDescriptionBase::hasLessThanComparison();
+    }
+
+    virtual bool compareLessThan(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareLessThan(val1, val2);
+    }
+
+    virtual bool hasStrongOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasStrongOrderingComparison();
+    }
+
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareStrong(val1, val2);
+    }
+
+    virtual bool hasWeakOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasWeakOrderingComparison();
+    }
+
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareWeak(val1, val2);
+    }
+
+    virtual bool hasPartialOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasPartialOrderingComparison();
+    }
+
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::comparePartial(val1, val2);
     }
 };
 

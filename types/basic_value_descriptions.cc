@@ -5,13 +5,14 @@
     Jeremy Barnes, 19 August 2015
 */
 
+
 #include "basic_value_descriptions.h"
+#include "comparable_value_descriptions.h"
 
 namespace MLDB {
 
-
 struct StringDescription
-    : public ValueDescriptionI<std::string, ValueKind::STRING, StringDescription> {
+    : public OrderedComparableValueDescriptionI<std::string, ValueKind::STRING, StringDescription> {
 
     virtual void parseJsonTyped(std::string * val,
                                 JsonParsingContext & context) const
@@ -34,7 +35,7 @@ struct StringDescription
 template class ValueDescriptionI<std::string, ValueKind::STRING, StringDescription>;
 
 struct Utf8StringDescription
-    : public ValueDescriptionI<Utf8String, ValueKind::STRING, Utf8StringDescription> {
+    : public OrderedComparableValueDescriptionI<Utf8String, ValueKind::STRING, Utf8StringDescription> {
 
     virtual void parseJsonTyped(Utf8String * val,
                                 JsonParsingContext & context) const
@@ -57,7 +58,7 @@ struct Utf8StringDescription
 template class ValueDescriptionI<Utf8String, ValueKind::STRING, Utf8StringDescription>;
 
 struct Utf32StringDescription
-    : public ValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription> {
+    : public OrderedComparableValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription> {
     virtual void parseJsonTyped(Utf32String *val,
                                 JsonParsingContext & context) const
     {
@@ -82,7 +83,7 @@ struct Utf32StringDescription
 template class ValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription>;
 
 struct CharDescription
-    : public ValueDescriptionI<char, ValueKind::INTEGER, CharDescription> {
+    : public StrongComparableValueDescriptionI<char, ValueKind::INTEGER, CharDescription> {
 
     virtual void parseJsonTyped(char * val,
                                 JsonParsingContext & context) const
@@ -100,7 +101,7 @@ struct CharDescription
 template class ValueDescriptionI<char, ValueKind::INTEGER, CharDescription>;
 
 struct SignedCharDescription
-    : public ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription> {
+    : public StrongComparableValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription> {
 
     virtual void parseJsonTyped(signed char * val,
                                 JsonParsingContext & context) const
@@ -118,7 +119,7 @@ struct SignedCharDescription
 template class ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription>;
 
 struct UnsignedCharDescription
-    : public ValueDescriptionI<unsigned char, ValueKind::INTEGER, UnsignedCharDescription> {
+    : public StrongComparableValueDescriptionI<unsigned char, ValueKind::INTEGER, UnsignedCharDescription> {
 
     virtual void parseJsonTyped(unsigned char * val,
                                 JsonParsingContext & context) const
@@ -134,7 +135,7 @@ struct UnsignedCharDescription
 };
 
 struct SignedShortIntDescription
-    : public ValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription> {
+    : public StrongComparableValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription> {
 
     virtual void parseJsonTyped(signed short int * val,
                                 JsonParsingContext & context) const
@@ -152,7 +153,7 @@ struct SignedShortIntDescription
 template class ValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription>;
 
 struct UnsignedShortIntDescription
-    : public ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription> {
+    : public StrongComparableValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription> {
 
     virtual void parseJsonTyped(unsigned short int * val,
                                 JsonParsingContext & context) const
@@ -170,7 +171,7 @@ struct UnsignedShortIntDescription
 template class ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription>;
 
 struct SignedIntDescription
-    : public ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription> {
+    : public StrongComparableValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription> {
 
     virtual void parseJsonTyped(signed int * val,
                                 JsonParsingContext & context) const
@@ -188,7 +189,7 @@ struct SignedIntDescription
 template class ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription>;
 
 struct UnsignedIntDescription
-    : public ValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription> {
+    : public StrongComparableValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription> {
 
     virtual void parseJsonTyped(unsigned int * val,
                                 JsonParsingContext & context) const
@@ -206,7 +207,7 @@ struct UnsignedIntDescription
 template class ValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription>;
 
 struct SignedLongDescription
-    : public ValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription> {
+    : public StrongComparableValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription> {
 
     virtual void parseJsonTyped(signed long * val,
                                 JsonParsingContext & context) const
@@ -224,7 +225,7 @@ struct SignedLongDescription
 template class ValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription>;
 
 struct UnsignedLongDescription
-    : public ValueDescriptionI<unsigned long, ValueKind::INTEGER, UnsignedLongDescription> {
+    : public StrongComparableValueDescriptionI<unsigned long, ValueKind::INTEGER, UnsignedLongDescription> {
 
     virtual void parseJsonTyped(unsigned long * val,
                                 JsonParsingContext & context) const
@@ -240,7 +241,7 @@ struct UnsignedLongDescription
 };
 
 struct SignedLongLongDescription
-    : public ValueDescriptionI<signed long long, ValueKind::INTEGER, SignedLongLongDescription> {
+    : public StrongComparableValueDescriptionI<signed long long, ValueKind::INTEGER, SignedLongLongDescription> {
 
     virtual void parseJsonTyped(signed long long * val,
                                 JsonParsingContext & context) const
@@ -256,7 +257,7 @@ struct SignedLongLongDescription
 };
 
 struct UnsignedLongLongDescription
-    : public ValueDescriptionI<unsigned long long, ValueKind::INTEGER, UnsignedLongLongDescription> {
+    : public StrongComparableValueDescriptionI<unsigned long long, ValueKind::INTEGER, UnsignedLongLongDescription> {
 
     virtual void parseJsonTyped(unsigned long long * val,
                                 JsonParsingContext & context) const
@@ -295,7 +296,7 @@ struct HalfValueDescription
 
 
 struct FloatValueDescription
-    : public ValueDescriptionI<float, ValueKind::FLOAT, FloatValueDescription> {
+    : public PartialComparableValueDescriptionI<float, ValueKind::FLOAT, FloatValueDescription> {
 
     virtual void parseJsonTyped(float * val,
                                 JsonParsingContext & context) const
@@ -317,7 +318,7 @@ struct FloatValueDescription
 };
 
 struct DoubleValueDescription
-    : public ValueDescriptionI<double, ValueKind::FLOAT, DoubleValueDescription> {
+    : public PartialComparableValueDescriptionI<double, ValueKind::FLOAT, DoubleValueDescription> {
 
     virtual void parseJsonTyped(double * val,
                                 JsonParsingContext & context) const
@@ -333,7 +334,7 @@ struct DoubleValueDescription
 };
 
 struct JsonValueDescription
-    : public ValueDescriptionI<Json::Value, ValueKind::ANY, JsonValueDescription> {
+    : public EqualityComparableValueDescriptionI<Json::Value, ValueKind::ANY, JsonValueDescription> {
 
     virtual void parseJsonTyped(Json::Value * val,
                                 JsonParsingContext & context) const
@@ -354,7 +355,7 @@ struct JsonValueDescription
 };
 
 struct BoolDescription
-    : public ValueDescriptionI<bool, ValueKind::BOOLEAN, BoolDescription> {
+    : public StrongComparableValueDescriptionI<bool, ValueKind::BOOLEAN, BoolDescription> {
 
     virtual void parseJsonTyped(bool * val,
                                 JsonParsingContext & context) const

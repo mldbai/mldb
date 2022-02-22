@@ -23,6 +23,7 @@
 #include "json_printing.h"
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/string.h"
+#include <compare>
 
 namespace MLDB {
 
@@ -64,6 +65,18 @@ struct ValueDescription {
     virtual void * constructCopy(const void * other) const = 0;
     virtual void * constructMove(void * other) const = 0;
     virtual void destroy(void *) const = 0;
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const;
+    virtual bool compareEquality(const void * val1, const void * val2) const;
+    virtual bool hasLessThanComparison() const;
+    virtual bool compareLessThan(const void * val1, const void * val2) const;
+    virtual bool hasStrongOrderingComparison() const;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const;
+    virtual bool hasWeakOrderingComparison() const;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const;
+    virtual bool hasPartialOrderingComparison() const;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const;
 
     
     virtual void * optionalMakeValue(void * val) const;
