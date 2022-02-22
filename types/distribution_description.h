@@ -126,7 +126,7 @@ struct DistributionValueDescription
     }
 };
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(DistributionValueDescription, distribution, typename, T, class, Underlying);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(DistributionValueDescription, distribution, typename, T, class, Underlying, MLDB::has_default_description<T>::value);
 
 MLDB::ValueDescriptionT<distribution<float> > *
 getDefaultDescription(const distribution<float> * = 0);

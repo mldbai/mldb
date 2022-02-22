@@ -189,7 +189,7 @@ struct UniquePtrDescription
     }
 };
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(UniquePtrDescription, std::unique_ptr, typename, T);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(UniquePtrDescription, std::unique_ptr, typename, T, MLDB::has_default_description<T>::value);
 
 
 template<typename T>
@@ -282,7 +282,7 @@ struct SharedPtrDescription
     }
 };
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(SharedPtrDescription, std::shared_ptr, typename, T);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(SharedPtrDescription, std::shared_ptr, typename, T, MLDB::has_default_description<T>::value);
 
 #if 0
 template<typename T>

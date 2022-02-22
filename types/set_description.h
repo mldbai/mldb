@@ -128,7 +128,7 @@ struct SetDescription
 };
 
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(SetDescription, std::set, typename, T);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(SetDescription, std::set, typename, T, MLDB::has_default_description<T>::value);
 
 } // namespace MLDB
 

@@ -91,6 +91,6 @@ struct OptionalDescription
     }
 };
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(OptionalDescription, Optional, typename, T);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(OptionalDescription, Optional, typename, T, MLDB::has_default_description<T>::value);
 
 } // namespace MLDB

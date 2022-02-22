@@ -126,6 +126,6 @@ struct VectorDescription
 };
 
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(VectorDescription, std::vector, typename, T, typename, A);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(VectorDescription, std::vector, typename, T, typename, A, MLDB::has_default_description<T>::value);
 
 } // namespace MLDB

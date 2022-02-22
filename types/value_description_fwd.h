@@ -307,10 +307,10 @@ getDefaultDescriptionUninitialized(T *)
 #define VD_SINGLE_ARG(...) __VA_ARGS__
 
 
-#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, ParamList, ArgList) \
+#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, ParamList, ArgList, Enable) \
     template<ParamList>                                                 \
     ValueDescriptionT<Type<ArgList> > *                                 \
-    getDefaultDescription(Type<ArgList> * = 0)                          \
+    getDefaultDescription(Type<ArgList> * = 0, std::enable_if_t<Enable> * = 0)                          \
     {                                                                   \
         return new Impl<ArgList>();                                     \
     }                                                                   \
@@ -321,25 +321,29 @@ getDefaultDescriptionUninitialized(T *)
         {                                                               \
             return new Impl<ArgList>(MLDB::ConstructOnly());      \
         }                                                               \
-    }                                                                   \
+    };                                                                   \
+                                                                        \
+    template<ParamList>                                \
+    struct has_default_description<Type<ArgList>> : std::integral_constant<bool, Enable> {} \
 
-#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(Impl, Type, ArgType1, Arg1) \
-    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1), VD_SINGLE_ARG(Arg1))
 
-#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(Impl, Type, ArgType1, Arg1, ArgType2, Arg2) \
-    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2), VD_SINGLE_ARG(Arg1, Arg2))
+#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(Impl, Type, ArgType1, Arg1, Enable) \
+    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1), VD_SINGLE_ARG(Arg1), Enable)
 
-#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_3(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3) \
-    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3), VD_SINGLE_ARG(Arg1, Arg2, Arg3))
+#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, Enable) \
+    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2), VD_SINGLE_ARG(Arg1, Arg2), Enable)
 
-#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_4(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3, ArgType4, Arg4) \
-    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3, ArgType4 Arg4), VD_SINGLE_ARG(Arg1, Arg2, Arg3, Arg4))
+#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_3(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3, Enable) \
+    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3), VD_SINGLE_ARG(Arg1, Arg2, Arg3), Enable)
 
-#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_5(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3, ArgType4, Arg4, ArgType5, Arg5) \
-    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3, ArgType4 Arg4, ArgType5 Arg5), VD_SINGLE_ARG(Arg1, Arg2, Arg3, Arg4, Arg5))
+#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_4(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3, ArgType4, Arg4, Enable) \
+    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3, ArgType4 Arg4), VD_SINGLE_ARG(Arg1, Arg2, Arg3, Arg4), Enable)
 
-#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_6(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3, ArgType4, Arg4, ArgType5, Arg5, ArgType6, Arg6) \
-    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3, ArgType4 Arg4, ArgType5 Arg5, ArgType6 Arg6), VD_SINGLE_ARG(Arg1, Arg2, Arg3, Arg4, Arg5, Arg6))
+#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_5(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3, ArgType4, Arg4, ArgType5, Arg5, Enable) \
+    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3, ArgType4 Arg4, ArgType5 Arg5), VD_SINGLE_ARG(Arg1, Arg2, Arg3, Arg4, Arg5), Enable)
+
+#define DECLARE_TEMPLATE_VALUE_DESCRIPTION_6(Impl, Type, ArgType1, Arg1, ArgType2, Arg2, ArgType3, Arg3, ArgType4, Arg4, ArgType5, Arg5, ArgType6, Arg6, Enable) \
+    DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, VD_SINGLE_ARG(ArgType1 Arg1, ArgType2 Arg2, ArgType3 Arg3, ArgType4 Arg4, ArgType5 Arg5, ArgType6 Arg6), VD_SINGLE_ARG(Arg1, Arg2, Arg3, Arg4, Arg5, Arg6), Enable)
 
 
 
@@ -369,5 +373,68 @@ PREDECLARE_VALUE_DESCRIPTION(bool);
 
 template<typename T>
 ValueDescriptionT<T *> * getDefaultDescription(T ** ptr);
+
+// Base case where there is no default description defined, return nullptr_t
+inline std::nullptr_t getDefaultDescriptionMaybe(...)
+{
+    return nullptr;
+}
+
+// If there is a default description defined, return it
+template<typename T>
+auto getDefaultDescriptionMaybe(T *) -> decltype(getDefaultDescription((T*)0))
+{
+    return getDefaultDescription((T*)0);
+}
+
+// Base case where there is no default description defined, return nullptr_t
+inline std::nullptr_t getDefaultDescriptionSharedMaybe(...)
+{
+    return nullptr;
+}
+
+// If there is a default description defined, return it
+template<typename T>
+auto getDefaultDescriptionSharedMaybe(T *) -> decltype(getDefaultDescription((T*)0), getDefaultDescriptionShared((T*)0))
+{
+    return getDefaultDescriptionShared((T*)0);
+}
+
+// Allow overriding based on whether a type has a default description defined or not
+template<typename T, typename Return = decltype(getDefaultDescriptionMaybe((T*)0))>
+struct has_default_description_probe : std::true_type {};
+
+template<typename T>
+struct has_default_description_probe<T, std::nullptr_t> : std::false_type {};
+
+template<typename T> struct has_default_description : has_default_description_probe<T> {};
+
+template<typename T>
+inline constexpr bool has_default_description_v = has_default_description<T>::value;
+
+template<typename T>
+using has_default_description_t = typename has_default_description<T>::type;
+
+template<bool v1, bool v2>
+struct and_base : std::false_type {};
+
+template<>
+struct and_base<true, true> : std::true_type {};
+
+template<typename... Types>
+struct all_have_default_descriptions;
+
+template<>
+struct all_have_default_descriptions<> : std::true_type {};
+
+template<typename T1, typename... Rest>
+struct all_have_default_descriptions<T1, Rest...>
+  : and_base<all_have_default_descriptions<Rest...>::value, has_default_description_v<T1>> {};
+
+template<typename... Ts>
+inline constexpr bool all_have_default_descriptions_v = all_have_default_descriptions<Ts...>::value;
+
+template<typename... Ts>
+using all_have_default_descriptions_t = typename all_have_default_descriptions<Ts...>::type;
 
 } // namespace MLDB
