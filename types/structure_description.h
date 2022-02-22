@@ -499,6 +499,8 @@ struct StructureDescription
 
     virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override
     {
+        ExcAssertLessEqual(knownWidth, this->width);
+        ExcAssertLessEqual(knownAlign, this->align);
     }
 
     // Comparisons

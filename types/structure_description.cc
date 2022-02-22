@@ -227,10 +227,13 @@ addFieldDesc(std::string name,
     fd.comment = comment;
     fd.description = description;
     fd.offset = offset;
+    fd.width = description->width;
     fd.fieldNum = fields.size() - 1;
     orderedFields.push_back(it);
     //using namespace std;
     //cerr << "offset = " << fd.offset << endl;
+
+    fixupAlign(offset + description->width, description->align);
 
     hasLess = hasLess && description->hasLessThanComparison();
     hasEquality = hasEquality && description->hasLessThanComparison();
@@ -398,7 +401,7 @@ comparePartial(const void * val1, const void * val2) const
 GenericStructureDescription::
 GenericStructureDescription(bool nullAccepted,
                             const std::string & structName)
-    : ValueDescription(ValueKind::STRUCTURE, nullptr, structName),
+    : ValueDescription(ValueKind::STRUCTURE, nullptr, 0 /* width */, 0 /* align */, structName),
       StructureDescriptionBase(nullptr, this, structName, nullAccepted)
 {
 }
@@ -484,6 +487,15 @@ void
 GenericStructureDescription::
 fixupAlign(size_t knownWidth, size_t knownAlign)
 {
+    if (knownAlign > this->align) {
+        this->align = knownAlign;
+    }
+
+    if (knownWidth > this->width) {
+        this->width = knownWidth;
+        while (this->width % this->align != 0)
+            ++this->width;
+    }
 }
 
 } // namespace MLDB

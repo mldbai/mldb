@@ -44,6 +44,9 @@ struct ValueDescriptionRepr {
     std::vector<EnumValueRepr> enumValues;
     std::vector<const ValueDescription *> tupleElements;
     const ValueDescription * contained = nullptr;
+
+    size_t width = 0;  // for atomic types
+    size_t align = 0;  // for atomic types
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ValueDescriptionRepr);

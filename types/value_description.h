@@ -41,12 +41,16 @@ namespace MLDB {
 struct ValueDescription {
     ValueDescription(ValueKind kind,
                      const std::type_info * type,
+                     uint32_t width,
+                     uint32_t align,
                      const std::string & typeName = "");
 
     virtual ~ValueDescription();
     
     ValueKind kind;
     const std::type_info * type;
+    uint32_t width;
+    uint32_t align;
     std::string typeName;
     std::string documentationUri;
 
@@ -294,7 +298,7 @@ template<typename T>
 struct ValueDescriptionT : public ValueDescription {
 
     ValueDescriptionT(ValueKind kind = ValueKind::ATOM)
-        : ValueDescription(kind, &typeid(T))
+        : ValueDescription(kind, &typeid(T), sizeof(T), alignof(T))
     {
     }
 

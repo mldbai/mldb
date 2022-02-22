@@ -115,7 +115,10 @@ getRepr(const ValueDescription & desc, bool detailed)
         result.cppType = demangle(desc.type->name());
     result.documentationUri = desc.documentationUri;
     //result.parents = desc.parents;
-    
+
+    result.width = desc.width;
+    result.align = desc.align;
+
     switch (desc.kind) {
     case ValueKind::ATOM:
     case ValueKind::INTEGER:
