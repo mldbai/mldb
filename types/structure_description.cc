@@ -30,7 +30,7 @@ StructureDescriptionBase(const std::type_info * type,
       nullAccepted(nullAccepted),
       owner(owner)
 {
-    //ExcAssert(!structName.empty());
+    ExcAssert(!structName.empty());
 }
 
 void

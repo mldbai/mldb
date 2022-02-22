@@ -26,8 +26,8 @@ struct StructureDescriptionBase {
 
     StructureDescriptionBase(const std::type_info * type,
                              ValueDescription * owner,
-                             const std::string & structName = "",
-                             bool nullAccepted = false);
+                             const std::string & structName,
+                             bool nullAccepted);
 
     StructureDescriptionBase(const StructureDescriptionBase & other) = delete;
     StructureDescriptionBase(StructureDescriptionBase && other) = delete;
@@ -164,6 +164,16 @@ struct GenericStructureDescription:
         return fields.size();
     }
 
+    virtual bool hasFixedFieldCount() const override
+    {
+        return true;
+    }
+
+    virtual size_t getFixedFieldCount() const override
+    {
+        return fields.size();
+    }
+
     virtual const FieldDescription *
     hasField(const void * val, const std::string & field) const override
     {
@@ -267,7 +277,7 @@ struct StructureDescription
     : public ValueDescriptionT<Struct>,
       public StructureDescriptionBase {
     StructureDescription(bool nullAccepted = false,
-                         const std::string & structName = "")
+                         const std::string & structName = type_name<Struct>())
         : ValueDescriptionT<Struct>(ValueKind::STRUCTURE),
           StructureDescriptionBase(&typeid(Struct), this, structName,
                                    nullAccepted)
@@ -324,6 +334,15 @@ struct StructureDescription
         addFieldDesc(name, field, comment, getDefaultDescriptionSharedT<V>());
     }
 
+    template<typename V, typename Base1, typename Base2>
+    void addField(std::string name,
+                  Base2 Base1::* field1,
+                  V Base2::* field2,
+                  std::string comment)
+    {
+        addFieldDesc(name, field1, field2, comment, getDefaultDescriptionSharedT<V>());
+    }
+
     /** Add a field, but override the default value description to use.
         Note that description needs to be convertible to
         std::shared_ptr<const ValueDescriptionT<V> >, but GCC 5.1 is confused
@@ -335,29 +354,28 @@ struct StructureDescription
                       std::string comment,
                       std::shared_ptr<Desc> description)
     {
-        ExcAssert(description);
-
-        if (fields.count(name.c_str()))
-            throw MLDB::Exception("field '" + name + "' added twice");
-
-        fieldNames.emplace_back(::strdup(name.c_str()));
-        const char * fieldName = fieldNames.back().get();
-        
-        auto it = fields.insert
-            (Fields::value_type(fieldName, FieldDescription()))
-            .first;
-        
-        FieldDescription & fd = it->second;
-        fd.fieldName = fieldName;
-        fd.comment = comment;
-        fd.description = description;
         Struct * p = nullptr;
-        fd.offset = (size_t)&(p->*field);
-        fd.width = sizeof(V);
-        fd.fieldNum = fields.size() - 1;
-        orderedFields.push_back(it);
-        //using namespace std;
-        //cerr << "offset = " << fd.offset << endl;
+        size_t offset = (size_t)&(p->*field);
+        StructureDescriptionBase::addFieldDesc(std::move(name), offset, std::move(comment), std::move(description));
+    }
+
+    /** Add a field, but override the default value description to use.
+        Note that description needs to be convertible to
+        std::shared_ptr<const ValueDescriptionT<V> >, but GCC 5.1 is confused
+        by it and rejects it.
+    */
+    template<typename V, typename Base1, typename Base2, typename Desc>
+    void addFieldDesc(std::string name,
+                      Base2 Base1::* field1,
+                      V Base2::* field2,
+                      std::string comment,
+                      std::shared_ptr<Desc> description)
+    {
+        Struct * p1 = nullptr;
+        Base2 * p2 = nullptr;
+        size_t offset1 = (size_t)&(p1->*field1);
+        size_t offset2 = (size_t)&(p2->*field2);
+        StructureDescriptionBase::addFieldDesc(std::move(name), offset1 + offset2, std::move(comment), std::move(description));
     }
 
     /** Add a description with a default value. */
@@ -370,27 +388,8 @@ struct StructureDescription
                   std::shared_ptr<const ValueDescriptionT<V> > baseDesc
                       = getDefaultDescriptionSharedT<V>())
     {
-        if (fields.count(name.c_str()))
-            throw MLDB::Exception("field '" + name + "' added twice");
-
-        fieldNames.emplace_back(::strdup(name.c_str()));
-        const char * fieldName = fieldNames.back().get();
-        
-        auto it = fields.insert
-            (Fields::value_type(fieldName, FieldDescription()))
-            .first;
-        
         auto desc = std::make_shared<Desc>(defaultValue, baseDesc);
-        
-        FieldDescription & fd = it->second;
-        fd.fieldName = fieldName;
-        fd.comment = comment;
-        fd.description = std::move(desc);
-        Struct * p = nullptr;
-        fd.offset = (size_t)&(p->*field);
-        fd.width = sizeof(V);
-        fd.fieldNum = fields.size() - 1;
-        orderedFields.push_back(it);
+        return addFieldDesc(std::move(name), field, std::move(comment), std::move(desc));
     }
 
     /** Add a description with an automatic default value derived
@@ -414,73 +413,64 @@ struct StructureDescription
     void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0));
 
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
+    {
+        return StructureDescriptionBase::parseJson(val, context);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
+    {
+        return StructureDescriptionBase::printJson(val, context);
+    }
+
     virtual size_t getFieldCount(const void * val) const override
     {
         return fields.size();
     }
 
-    virtual const FieldDescription *
-    hasField(const void * val, const std::string & field) const
+    virtual bool hasFixedFieldCount() const override
     {
-        auto it = fields.find(field.c_str());
-        if (it != fields.end())
-            return &it->second;
-        return nullptr;
+        return true;
+    }
+
+    virtual size_t getFixedFieldCount() const override
+    {
+        return fields.size();
     }
 
     virtual const FieldDescription *
-    getFieldDescription(const void * val, const void * field) const
+    hasField(const void * val, const std::string & field) const override
     {
-        ssize_t offset = (const char *)field - (const char *)val;
-        for (auto & f: fields) {
-            if (f.second.offset >= offset
-                && f.second.offset + f.second.width <= offset)
-                return &f.second;
-        }
-        return nullptr;
+        return StructureDescriptionBase::hasField(val, field);
+    }
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const override
+    {
+        return StructureDescriptionBase::getFieldDescription(val, field);
     }
     
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const
+                              const std::function<void (const FieldDescription &)> & onField) const override
     {
-        for (auto f: orderedFields) {
-            onField(f->second);
-        }
+        return StructureDescriptionBase::forEachField(val, onField);
     }
 
     virtual const FieldDescription & 
-    getField(const std::string & field) const
+    getField(const std::string & field) const override
     {
-        auto it = fields.find(field.c_str());
-        if (it != fields.end())
-            return it->second;
-        throw MLDB::Exception("structure has no field " + field);
+        return StructureDescriptionBase::getField(field);
     }
 
     virtual const FieldDescription & 
-    getFieldByNumber(int fieldNum) const
+    getFieldByNumber(int fieldNum) const override
     {
-        for (auto & f: fields) {
-            if (f.second.fieldNum == fieldNum)
-                return f.second;
-        }
-
-        throw MLDB::Exception("structure has no field with given number");
+        return StructureDescriptionBase::getFieldByNumber(fieldNum);
     }
 
     virtual int getVersion() const override
     {
-        return this->version;
-    }
-
-    virtual void parseJson(void * val, JsonParsingContext & context) const
-    {
-        return StructureDescriptionBase::parseJson(val, context);
-    }
-
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
-    {
-        return StructureDescriptionBase::printJson(val, context);
+        return StructureDescriptionBase::getVersion();
     }
 
     void collectUnparseableJson(Json::Value Struct::* member)

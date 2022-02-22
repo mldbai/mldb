@@ -151,6 +151,10 @@ struct ValueDescription {
 
     virtual size_t getFieldCount(const void * val) const;
 
+    virtual bool hasFixedFieldCount() const;
+
+    virtual size_t getFixedFieldCount() const;
+
     virtual const FieldDescription *
     hasField(const void * val, const std::string & name) const;
 
