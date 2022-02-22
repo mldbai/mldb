@@ -288,6 +288,13 @@ getLink(void* obj) const
     MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a link");
 }
 
+const void*
+ValueDescription::
+getConstLink(const void* obj) const
+{
+    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a link");
+}
+
 void
 ValueDescription::
 set(void* obj, void* value, const ValueDescription* valueDesc) const
@@ -827,6 +834,14 @@ getLink(void* obj) const
 {
     ExcAssert(impl);
     return impl->getLink(obj);
+}
+
+const void*
+BridgedValueDescription::
+getConstLink(const void* obj) const
+{
+    ExcAssert(impl);
+    return impl->getConstLink(obj);
 }
 
 void

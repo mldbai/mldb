@@ -119,6 +119,7 @@ struct ValueDescription {
     virtual OwnershipModel getOwnershipModel() const;
 
     virtual void* getLink(void* obj) const;
+    virtual const void* getConstLink(const void* obj) const;
 
     virtual void set(void* obj, void* value, const ValueDescription* valueDesc) const;
 
