@@ -18,14 +18,13 @@ namespace MLDB {
 /* ENUM DESCRIPTION                                                          */
 /*****************************************************************************/
 
-template<typename Enum>
+template<typename Enum, typename Underlying = std::underlying_type_t<Enum>>
 struct EnumDescription: public ValueDescriptionT<Enum> {
 
-    using Underlying = std::underlying_type_t<Enum>;
-
-    EnumDescription()
+    EnumDescription(std::shared_ptr<const ValueDescription> underlying = getDefaultDescriptionSharedT<Underlying>())
         : ValueDescriptionT<Enum>(ValueKind::ENUM),
-          hasDefault(false), defaultValue(Enum(0))
+          hasDefault(false), defaultValue(Enum(0)),
+          underlying(std::move(underlying))
     {
     }
 
@@ -44,7 +43,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     {
         auto it = print.find(e);
         if (it == print.end())
-            return std::to_string((int)e);
+            return std::to_string((Underlying)e);
         else return it->second.first;
     }
 
@@ -89,8 +88,19 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         *val = defaultValue;
     }
 
+    virtual const ValueDescription & contained() const
+    {
+        return *underlying;
+    }
+
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    {
+        return underlying;
+    }
+
     bool hasDefault;
     Enum defaultValue;
+    std::shared_ptr<const ValueDescription> underlying;
 
     void setDefaultValue(Enum value)
     {
@@ -104,7 +114,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
             throw MLDB::Exception("double added name '" + name + "' to enum '"
                                   + this->typeName + "'");
         
-        print.insert({ value, { name, "" } });
+        print.insert({ static_cast<Underlying>(value), { name, "" } });
     }
 
     void addValue(const std::string & name, Enum value,
