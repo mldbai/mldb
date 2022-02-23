@@ -17,6 +17,8 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	dtoa.c \
 	meta_value_description.cc \
 	distribution_description.cc \
+	generic_array_description.cc \
+	generic_atom_description.cc \
 	../ext/jsoncpp/json_reader.cpp \
 	../ext/jsoncpp/json_writer.cpp \
 	../ext/jsoncpp/json_value.cpp

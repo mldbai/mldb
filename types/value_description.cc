@@ -14,7 +14,6 @@
 #include "value_description.h"
 #include "structure_description.h"
 
-
 using namespace std;
 
 
