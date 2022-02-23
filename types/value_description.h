@@ -260,6 +260,19 @@ void registerValueDescriptionFunctions(const std::type_info & type,
                               void (*initialize) (ValueDescription &),
                               bool isDefault);
 
+/** Register an alias to a pre-existing type.  This allows non-C++ names to be used
+    whilst maintaining the ability to find the equivalent C++ type.
+*/
+void registerValueDescriptionAlias(const std::type_info & type, const std::string & alias);
+
+// Return the aliases for this type
+std::vector<std::string> getValueDescriptionAliases(const std::type_info & type);
+
+// Register a foreign value description (for a type that doesn't have a C++ equivalent)
+void registerForeignValueDescription(const std::string & typeName,
+                                     std::shared_ptr<const ValueDescription> desc,
+                                     const std::vector<std::string> & aliases = {});
+
 template<typename T>
 struct RegisterValueDescription {
     static ValueDescription * create() { return getDefaultDescription((T*)0); }
@@ -285,6 +298,11 @@ struct RegisterValueDescriptionI {
     namespace {                                                         \
     static const RegisterValueDescription<type> registerValueDescription##type; \
     }
+
+#define REGISTER_VALUE_DESCRIPTION_ALIAS_NAMED(type, name) \
+namespace { static const struct DoRegisterAlias##type##name { DoRegisterAlias##type##name() { MLDB::registerValueDescriptionAlias(typeid(type), #name); }} doRegisterAlias##type##name; }
+
+#define REGISTER_VALUE_DESCRIPTION_ALIAS(type) REGISTER_VALUE_DESCRIPTION_ALIAS_NAMED(type, type)
 
 template<typename T1, typename T2>
 void doSwap(T1 & t1, T2 & t2)

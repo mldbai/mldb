@@ -428,9 +428,13 @@ initialize()
 namespace {
 
 std::recursive_mutex registryMutex;
-std::unordered_map<std::string, std::shared_ptr<const ValueDescription> > & registry()
+struct RegistryEntry {
+    std::shared_ptr<const ValueDescription> desc;
+    std::vector<std::string> aliases;
+};
+std::unordered_map<std::string, RegistryEntry> & registry()
 {
-    static std::unordered_map<std::string, std::shared_ptr<const ValueDescription> > result;
+    static std::unordered_map<std::string, RegistryEntry> result;
     return result;
 }
 
@@ -442,7 +446,7 @@ get(std::string const & name)
 {
     std::unique_lock<std::recursive_mutex> guard(registryMutex);
     auto i = registry().find(name);
-    return registry().end() != i ? i->second : nullptr;
+    return registry().end() != i ? i->second.desc : nullptr;
 }
 
 std::shared_ptr<const ValueDescription>
@@ -481,9 +485,9 @@ registerValueDescription(const std::type_info & type,
 
     std::shared_ptr<ValueDescription> desc(createFn());
     ExcAssert(desc);
-    registry()[desc->typeName] = desc;
-    registry()[type.name()] = desc;
-    registry()[demangle(type.name())] = desc;
+    registry()[desc->typeName].desc = desc;
+    registry()[type.name()].desc = desc;
+    registry()[demangle(type.name())].desc = desc;
     initFn(*desc);
 #if 0
     cerr << "type " << demangle(type.name())
@@ -506,9 +510,9 @@ registerValueDescriptionFunctions(const std::type_info & type,
 
     std::shared_ptr<ValueDescription> desc(create());
     ExcAssert(desc);
-    registry()[desc->typeName] = desc;
-    registry()[type.name()] = desc;
-    registry()[demangle(type.name())] = desc;
+    registry()[desc->typeName].desc = desc;
+    registry()[type.name()].desc = desc;
+    registry()[demangle(type.name())].desc = desc;
     initialize(*desc);
 #if 0
     cerr << "type " << demangle(type.name())
@@ -519,6 +523,47 @@ registerValueDescriptionFunctions(const std::type_info & type,
         throw MLDB::Exception("attempt to double register "
                             + demangle(type.name()));
 #endif
+}
+
+void registerValueDescriptionAlias(const std::type_info & type, const std::string & alias)
+{
+    auto desc = ValueDescription::get(type);
+    if (!desc) {
+        throw MLDB::Exception("registering value description alias '" + alias + "' of type '"
+                              + demangle(type.name()) + "': type isn't registered");
+    }
+    
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
+    registry()[alias].desc = desc;
+    registry()[type.name()].aliases.push_back(alias);
+}
+
+std::vector<std::string>
+getValueDescriptionAliases(const std::type_info & type)
+{
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
+    auto it = registry().find(type.name());
+    if (it == registry().end()) {
+        return {};
+    }
+    return it->second.aliases;
+}
+
+void registerForeignValueDescription(const std::string & typeName,
+                                     std::shared_ptr<const ValueDescription> desc,
+                                     const std::vector<std::string> & aliases)
+{
+    std::unique_lock<std::recursive_mutex> guard(registryMutex);
+    if (registry().count(typeName))
+        throw MLDB::Exception("Foreign value description overwrites a native one");
+    registry()[typeName].desc = desc;
+    registry()[typeName].aliases = aliases;
+
+    for (auto & alias: aliases) {
+        if (registry().count(alias))
+            throw MLDB::Exception("Foreign value description alias overwrites a native one");
+        registry()[alias].desc = desc;
+    }
 }
 
 void
