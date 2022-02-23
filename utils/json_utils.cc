@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include "json_utils.h"
-#include "mldb/utils/string_functions.h"
 #include "mldb/ext/highwayhash.h"
 #include "mldb/types/json_parsing.h"
 #include "mldb/types/json_printing.h"
@@ -20,6 +19,42 @@ using namespace std;
 
 
 namespace {
+
+/** Implementation of "isspace" that emulates the use of the "C" locale only,
+ * without actually executing any locale code. */
+// Copied from string_functions.cc to avoid a circular dependency
+inline int isspace_nolocale(int c)
+{
+    return (c == ' ' || c == '\t' || c == '\n' || c == '\r'
+            || c == '\v' || c == '\f');
+}
+
+// Copy of the function in string_functions.cc to avoid a circular dependency
+string trim(const string & other)
+{
+    size_t len = other.size();
+
+    size_t start(0);
+    while (start < len && isspace_nolocale(other[start])) {
+        start++;
+    }
+
+    size_t end(len);
+    while (end > start && isspace_nolocale(other[end-1])) {
+        end--;
+    }
+
+    if (start == 0 && end == len) {
+        return other;
+    }
+
+    string result;
+    if (start != end) {
+        result = other.substr(start, end-start);
+    }
+
+    return result;
+}
 
 uint64_t highwayhash(const void *src, unsigned long src_sz,
                      const MLDB::HashSeed & key)
@@ -49,7 +84,7 @@ std::string
 jsonPrintAbbreviatedString(const Json::Value & val,
                            int maxLength)
 {
-    string s = MLDB::trim(val.toString());
+    string s = trim(val.toString());
     if (maxLength < 0)
         return s;
     if (s.length() < maxLength)
@@ -60,7 +95,7 @@ jsonPrintAbbreviatedString(const Json::Value & val,
     string contents = val.asString();
     string reduced(contents, 0, maxLength);
 
-    return MLDB::trim(Json::Value(reduced).toString()) + "...";
+    return trim(Json::Value(reduced).toString()) + "...";
 }
 
 std::string
@@ -131,7 +166,7 @@ jsonPrintAbbreviated(const Json::Value & val,
     case Json::stringValue:
         return jsonPrintAbbreviatedString(val, maxLengthPerItem);
     default:
-        return MLDB::trim(val.toString());
+        return trim(val.toString());
     }
 }
 
