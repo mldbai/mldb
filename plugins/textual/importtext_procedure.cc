@@ -1394,7 +1394,7 @@ struct ImportTextProcedureWorkInstance
                 if(!prevLine.empty()) {
                     t_line.assign(std::move(line));
                     line.assign(std::move(prevLine));
-                    line += ' ' + t_line;
+                    line += '\n' + t_line;
                 }
 
                 LineInfo lineInfo {
