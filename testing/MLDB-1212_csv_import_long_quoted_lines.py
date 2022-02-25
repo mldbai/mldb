@@ -65,7 +65,7 @@ class Mldb1212(MldbUnitTest):
             [
                 ["_rowName", "colA", "colB  B B", "colC"],
                 [       "2",  "a", "b", "c" ],
-                [       "3",  "a", "bouya , hoho", "c2" ],
+                [       "3",  "a", "bouya ,\nhoho", "c2" ],
                 [       "4",  "a5", "b5", "c5" ],
             ]
         )
@@ -90,7 +90,7 @@ class Mldb1212(MldbUnitTest):
             [
                 ["_rowName", "colA", "colB  B B", "colC"],
                 [       "2",  "a", "b", "c" ],
-                [       "3",  "a", "bouya , hoho", "c2" ]
+                [       "3",  "a", "bouya ,\nhoho", "c2" ]
             ]
         )
    

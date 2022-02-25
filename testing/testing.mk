@@ -550,3 +550,5 @@ $(eval $(call mldb_unit_test,js_module_test.js))
 $(eval $(call mldb_unit_test,benchmark-nyc-taxicabs.js,,manual))
 $(eval $(call mldb_unit_test,benchmark-tweets.js,,manual))
 $(eval $(call mldb_unit_test,benchmark-airlines.js,,manual))
+
+$(eval $(call mldb_unit_test,csv_line_breaks_test.py))
