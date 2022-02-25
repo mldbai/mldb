@@ -7,6 +7,7 @@
 
 #pragma once
 #include "raw_mapped_int_table.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace MLDB {
 
@@ -38,11 +39,16 @@ struct SelectorTableStats: public IntTableStats<uint8_t> {
 // Only 256 different entries can be selected between using this data structure.
 
 struct MappedSelectorTable {
-    uint32_t maxSelector_:8 = 0;       // What is the highest value of the selector?
-    uint32_t skippedSelector_:8 = 0;   // Which selector is skipped?   Only meaningful if skipSelector_ is true
-    uint32_t countEveryNBits_:5 = 0;   // We store a cumulative count every 2^n of selector totals
-    uint32_t skipSelector_:1 = 0;      // Do we skip a selector?
-    uint32_t unused_:10 = 0;
+    union {
+        struct {
+            uint32_t maxSelector_:8 = 0;       // What is the highest value of the selector?
+            uint32_t skippedSelector_:8 = 0;   // Which selector is skipped?   Only meaningful if skipSelector_ is true
+            uint32_t countEveryNBits_:5 = 0;   // We store a cumulative count every 2^n of selector totals
+            uint32_t skipSelector_:1 = 0;      // Do we skip a selector?
+            uint32_t unused_:10 = 0;
+        };
+        uint32_t flags_;
+    };
 
     RawMappedIntTable selector_;      // For each entry, which selector is chosen
     RawMappedIntTable countEntries_;  // Sparse periodic table of cumulative selector counts to limit countValues range
@@ -60,5 +66,7 @@ struct MappedSelectorTable {
 size_t mapped_selector_table_bytes_required(const SelectorTableStats & stats);
 
 void freeze(MappingContext & context, MappedSelectorTable & output, const std::span<const uint8_t> & inputs);
+
+DECLARE_STRUCTURE_DESCRIPTION(MappedSelectorTable);
 
 } // namespace MLDB

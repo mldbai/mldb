@@ -2,8 +2,8 @@
 
 # These are in the process of being packaged as full plugins
 $(eval $(call include_sub_make,behavior))
-$(eval $(call include_sub_make,tabular))
 $(eval $(call include_sub_make,jml))
+$(eval $(call include_sub_make,tabular))
 $(eval $(call include_sub_make,nlp))
 $(eval $(call include_sub_make,feature_gen))
 $(eval $(call include_sub_make,textual))

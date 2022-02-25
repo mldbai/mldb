@@ -57,6 +57,7 @@ struct MappedBitCompressedIntTable {
             uint32_t size_:23 = 0;  // If <= 1024, it's internal storage only, otherwise external
             uint32_t width_:6 = 0;
         };
+        uint32_t flags_;
         uint32_t bits_[1];
     };
     uint32_t width() const { return width_; }
@@ -91,7 +92,7 @@ struct MappedBitCompressedIntTable {
     const MappedBitCompressedIntTableImpl & impl() const { return reinterpret_cast<const MappedBitCompressedIntTableImpl &>(*this); }
 };
 
-PREDECLARE_VALUE_DESCRIPTION(MappedBitCompressedIntTable);
+DECLARE_STRUCTURE_DESCRIPTION(MappedBitCompressedIntTable);
 
 template<size_t ExtraWords>
 struct InternalMappedBitCompressedIntTable: public MappedBitCompressedIntTable {
@@ -102,6 +103,9 @@ struct InternalMappedBitCompressedIntTable: public MappedBitCompressedIntTable {
     static size_t indirectBytesRequired(const IntTableStats<uint32_t> & stats);
     static constexpr bool indirectBytesRequiredIsExact = true;
 };
+
+template<size_t ExtraWords> struct InternalMappedBitCompressedIntTableDescription;
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(InternalMappedBitCompressedIntTableDescription, InternalMappedBitCompressedIntTable, size_t, ExtraWords, true /* enable */);
 
 extern template struct InternalMappedBitCompressedIntTable<1>;
 extern template struct InternalMappedBitCompressedIntTable<2>;

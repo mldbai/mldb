@@ -13,6 +13,8 @@
 #include "mmap.h"
 #include <bit>
 #include <vector>
+#include "mldb/types/structure_description.h"
+
 
 namespace MLDB {
 
@@ -219,5 +221,24 @@ struct MappedBitCompressedIntTableImpl: public BitCompressedIntTableImplT<Mapped
 };
 
 extern template struct BitCompressedIntTableImplT<MappedBitCompressedIntTable>;
+
+template<size_t ExtraWords>
+struct InternalMappedBitCompressedIntTableDescription: public StructureDescription<InternalMappedBitCompressedIntTable<ExtraWords>> {
+    InternalMappedBitCompressedIntTableDescription(ConstructOnly)
+    {
+    }
+
+    InternalMappedBitCompressedIntTableDescription()
+        : StructureDescription<InternalMappedBitCompressedIntTable<ExtraWords>>(true /* null accepted */)
+    {
+        this->template addParent<MappedBitCompressedIntTable>();
+    }
+
+    void initialize()
+    {
+        InternalMappedBitCompressedIntTableDescription newMe;
+        *this = std::move(newMe);
+    }
+};
 
 } // namespace MLDB

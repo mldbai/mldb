@@ -7,6 +7,7 @@
 
 #include "mapped_selector_table.h"
 #include "utils/bits.h"
+#include "mldb/types/structure_description.h"
 
 using namespace std;
 
@@ -191,6 +192,17 @@ size_t mapped_selector_table_bytes_required(const SelectorTableStats & stats)
 {
     SelectorTableBuilder builder(stats);
     return builder.bytesRequired();
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MappedSelectorTable)
+{
+    addBitField("maxSelector",     &MappedSelectorTable::flags_, 0, 8, "Highest value of the selector");
+    addBitField("skippedSelector", &MappedSelectorTable::flags_, 8, 8, "Which selector is skipped?  Only meaningful is skipSelector_ is true");
+    addBitField("countEveryNBits", &MappedSelectorTable::flags_, 16, 5, "We store a cumulative count every 2^n of selector totals");
+    addBitField("skipSelector",    &MappedSelectorTable::flags_, 21, 1, "We store a cumulative count every 2^n of selector totals");
+
+    addField("selector", &MappedSelectorTable::selector_, "For each entry, which selector is chosen");
+    addField("countEntries", &MappedSelectorTable::countEntries_, "Sparse periodic table of cumulative selector counts to limit countValues range");
 }
 
 } // namespace MLDB

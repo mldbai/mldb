@@ -455,8 +455,20 @@ void dumpAnnotated(const MappingContext::Stats & stats, std::ostream & stream)
             if (firstLine && !tag.empty())
                 stream << " " << tag;
 
-            for (auto & ch: childrenStarted)
+            for (auto & ch: childrenStarted) {
                 activeChildren.insert(ch);
+                auto & entry = stats.entries.at(ch);
+                if (entry.info) {
+                    if (entry.info->kind == ValueKind::STRUCTURE) {
+                        stream << "structure: " << entry.info->printJsonString(entry.start + entry.offset) << endl;
+                    }
+                    else {
+                        stream << "non-structure: " << entry.info->printJsonString(entry.start + entry.offset) << endl;
+                    }
+                } else {
+                    stream << "type " << entry.typeName() << " has no value description" << endl;
+                }
+            }
 
             for (auto c: activeChildren) {
                 //bool started = childrenStarted.count(c);
