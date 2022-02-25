@@ -473,11 +473,13 @@ The following functions return numerical constants:
 - `length(string)` returns the length of the string.
 - `remove_prefix(string, prefix)` returns the string with the specified prefix removed if present.
 - `remove_suffix(string, suffix)` returns the string with the specified suffix removed if present.
-- `regex_replace(string, regex, replacement)` will return the given string with
+- `regex_replace(string, regex, replacement, [all=FALSE])` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
   expressions are supported.  It is normally preferable that the `regex` be a
   constant string; performance will be very poor if not as the regular expression
-  will need to be recompiled on every application.
+  will need to be recompiled on every application.  The "all" argument, which defaults to
+  `FALSE`, will when true cause _all_ matches to be replaced, rather than just the
+  first match. 
 - `regex_match(string, regex)` will return true if the *entire* string matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
   It is normally preferable that the `regex` be a

@@ -95,14 +95,20 @@ apply(const std::vector<ExpressionValue> & args,
       const SqlRowScope & scope,
       const Regex & regex) const
 {
-    checkArgsSize(args.size(), 3);
+    checkArgsSize(args.size(), 3, 4);
 
     if (args[0].empty() || args[1].empty() || args[2].empty())
         return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
 
+    std::regex_constants::match_flag_type flags = std::regex_constants::match_default;
+    if (args.size() == 4 && args[3].coerceToBoolean().asBool()) {
+        flags = std::regex_constants::match_any;
+    }
+
     auto result = regex_replace(args[0].toUtf8String(),
                                 regex,
-                                args[2].toUtf8String());
+                                args[2].toUtf8String(),
+                                flags);
     
     return ExpressionValue(std::move(result), calcTs(args[0], args[1], args[2]));
 }
