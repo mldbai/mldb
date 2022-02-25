@@ -23,12 +23,10 @@ namespace MLDB {
 
 struct MemUsageOptions;
 
-std::shared_ptr<const ValueDescription> getDescriptionMaybe(const std::type_info * type);
-
 template<typename T>
 std::shared_ptr<const ValueDescription> getDescriptionMaybeT()
 {
-    return getDescriptionMaybe(&typeid(T));
+    return getDefaultDescriptionSharedGenericMaybe((T*)0);
 }
 
 struct MappingOptionBase {
@@ -461,6 +459,9 @@ void freeze(MappingContext & context, MappedPtr<T, Ofs> & output, const T * inpu
     output.set(input);
 }
 
+template<typename T, typename Ofs> struct MappedPtrDescription;
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(MappedPtrDescription, MappedPtr, typename, T, typename, Ofs, true /* enable */);
+
 // We freeze a string into a pointer by simply copying it in and returning the pointer.  Note that
 // we don't store null terminators; it is assumed that the length of the string is known from
 // elsewhere.
@@ -482,17 +483,17 @@ void freeze(MappingContext & context, MappedString & output, const std::string &
 // outside of the current object.
 //
 // The representation is simple: a length and an array of objects.
-template<typename T>
+template<typename T, typename Ofs = uint32_t>
 struct MappedVector {
-    uint32_t size_;
-    MappedPtr<T> data_;
+    Ofs size_;
+    MappedPtr<T, Ofs> data_;
 
     size_t memUsageIndirect(const MemUsageOptions & /* opt */) const
     {
         return 0;
     }
 
-    const T & at(uint32_t pos) const
+    const T & at(Ofs pos) const
     {
         //using namespace std;
         //cerr << "getting element " << pos << " of " << size_ << " for MappedVector of " << demangleTypeName(typeid(T).name())
@@ -508,13 +509,16 @@ struct MappedVector {
         return size() == 0;
     }
 
-    size_t size() const
+    Ofs size() const
     {
         return size_;
     }
 
     const T * data() const { return data_.get(); }
 };
+
+template<typename T, typename Ofs> struct MappedVectorDescription;
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(MappedVectorDescription, MappedVector, typename, T, typename, Ofs, true /* enable */);
 
 template<typename T>
 struct WritableMappedVector: public MappedVector<T> {

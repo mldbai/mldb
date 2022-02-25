@@ -7,6 +7,8 @@
 
 #include "factored_int_table.h"
 #include "factored_int_table_impl.h"
+#include "mldb/types/structure_description.h"
+#include "mmap_impl.h"
 
 using namespace std;
 
@@ -164,5 +166,26 @@ auto factoredAtAddress = &FactoredIntTable::at;
 auto mappedFactoredAtAddress = &MappedFactoredIntTable::at;
 auto mappedFactoredCountValuesAddress = &MappedFactoredIntTable::countValues;
 auto mappedFactoredIndirectBytesRequiredAddress = &MappedFactoredIntTable::indirectBytesRequired;
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MappedFactoredIntTable)
+{
+    addBitField("type", &MappedFactoredIntTable::flags_, 0, 3, "== FACTORED");
+    addBitField("size", &MappedFactoredIntTable::flags_, 3, 22, "Size of the factored table (< 1024 internal, > 1024 external and must subtract 1024");
+    addBitField("is64", &MappedFactoredIntTable::flags_, 25, 1, "Are we factoring 32 bit(0) or 64 bit(1) integers?");
+    addBitField("numFactors", &MappedFactoredIntTable::flags_, 26, 6, "Number of factors per integer");
+    addField("factor", &MappedFactoredIntTable::factor_, "Factor used in factorization");
+
+    auto dataEnabled = [] (const void * obj) -> bool
+    {
+        return reinterpret_cast<const MappedFactoredIntTable *>(obj)->size_ >= MappedFactoredIntTable::INTERNAL_OFFSET;
+    };
+
+    addDiscriminatedField("data", &MappedFactoredIntTable::data_, dataEnabled, "Pointer to external data", "size_ >= 1024");
+}
+
+// Take addresses of methods to ensure instantiation even when the impl
+// header is not included
+auto factoredIntTableInitializeAddress = &FactoredIntTable::initialize;
+auto factoredIntTableSetAddress = &FactoredIntTable::set;
 
 } // namespace MLDB

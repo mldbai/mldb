@@ -8,6 +8,9 @@
 #include "raw_mapped_int_table.h"
 #include "mldb/vfs/compressibility.h"
 #include "mldb/utils/ostream_span.h"
+#include "mldb/types/structure_description.h"
+#include "bit_compressed_int_table_impl.h"
+#include "factored_int_table_impl.h"
 
 using namespace std;
 
@@ -203,6 +206,30 @@ void freeze(MappingContext & context, RawMappedIntTable & output, std::span<cons
 void freeze(MappingContext & context, RawMappedIntTable & output, std::span<const uint8_t> input)
 {
     freeze(context, output, std::vector<uint32_t>(input.begin(), input.end()));
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(RawMappedIntTable)
+{
+    addBitField("type", &RawMappedIntTable::__type, 0, 3, "Which underlying implementation is it?");
+    
+    auto getType = [] (const void * table) -> IntTableType
+    {
+        auto rmit = reinterpret_cast<const RawMappedIntTable *>(table);
+        //cerr << "    table = " << table << endl;
+        //cerr << "    getType: type = " << (int)rmit->type_ << " " << rmit->type_ << endl;
+        //cerr << "    getType: __type = " << (int)rmit->__type << " " << rmit->type_ << endl;
+        return rmit->type_;
+    };
+
+    addDiscriminatedField("bitcmp", &RawMappedIntTable::bitcmp_,
+                          [=] (const void * table) { return getType(table) == IntTableType::BIT_COMPRESSED; },
+                          "Bit compressed representation", "type == BIT_COMPRESSED");
+    addDiscriminatedField("rle", &RawMappedIntTable::rle_,
+                          [=] (const void * table) { return getType(table) == IntTableType::RLE; },
+                          "Run length encoding implementation", "type == RLE");
+    addDiscriminatedField("factored", &RawMappedIntTable::factored_,
+                          [=] (const void * table) { return getType(table) == IntTableType::FACTORED; },
+                          "Factored implementation", "type == FACTORED");
 }
 
 } // namespace MLDB

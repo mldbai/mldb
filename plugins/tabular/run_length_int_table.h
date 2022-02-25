@@ -13,6 +13,8 @@
 #include <vector>
 #include <span>
 #include <map>
+#include "mldb/types/value_description_fwd.h"
+
 
 namespace MLDB {
 
@@ -68,5 +70,7 @@ void freeze(MappingContext & context, MappedRunLengthIntTable & output, const Ru
 
 size_t run_length_indirect_bytes(const IntTableStats<uint32_t> & stats);
 RunLengthIntTable runLengthEncode(const std::span<const uint32_t> & values, bool validate = false);
+
+DECLARE_STRUCTURE_DESCRIPTION(MappedRunLengthIntTable);
 
 } // namespace MLDB

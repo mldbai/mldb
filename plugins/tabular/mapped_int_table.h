@@ -14,6 +14,7 @@
 #include "mapped_selector_table.h"
 #include "predictor.h"
 #include "mldb/utils/map_to.h"
+#include "mldb/types/value_description_fwd.h"
 
 namespace MLDB {
 
@@ -35,25 +36,38 @@ T from_int(unsigned val, const T * = nullptr, typename std::enable_if<std::is_in
     return val;
 }
 
-struct MappedIntTableBase {
-    MappedVector<Predictor> predictors_;  // the actual predictors
-
-    struct Range {
-        uint32_t isIndexed_:1;
-        uint32_t unused:31;
-        RawMappedIntTable activePredictors_;
-        union {
-            struct {
-                MappedSelectorTable selectors_; // selects which of the predictors encodes it
-                MappedVector<RawMappedIntTable> residuals_; // holds the residual after decoding, per selector
-            } indexed;
-            struct {
-                RawMappedIntTable selectors_;
-                RawMappedIntTable residuals_;
-            } raw;
+struct MappedIntTableRange {
+    union {
+        struct {
+            uint32_t isIndexed_:1;
+            uint32_t unused:31;
         };
-        size_t numPoints() const { return isIndexed_ ? indexed.selectors_.size() : raw.selectors_.size(); }
+        uint32_t flagBits_;
     };
+    RawMappedIntTable activePredictors_;
+    struct Indexed {
+        MappedSelectorTable selectors_; // selects which of the predictors encodes it
+        MappedVector<RawMappedIntTable> residuals_; // holds the residual after decoding, per selector
+    };
+    struct Raw {
+        RawMappedIntTable selectors_;
+        RawMappedIntTable residuals_;
+    };
+
+    union {
+        Indexed indexed;
+        Raw raw;
+    };
+
+    size_t numPoints() const { return isIndexed_ ? indexed.selectors_.size() : raw.selectors_.size(); }
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(MappedIntTableRange);
+
+struct MappedIntTableBase {
+    using Range = MappedIntTableRange;
+
+    MappedVector<Predictor> predictors_;  // the actual predictors
 
     RawMappedIntTable rangeStarts_;
     MappedVector<Range> ranges_;
@@ -81,6 +95,8 @@ struct MappedIntTableBase {
     static constexpr bool indirectBytesRequiredIsExact = false;
 };
 
+DECLARE_STRUCTURE_DESCRIPTION(MappedIntTableBase);
+
 // Mapped version of a table of integers or integer-like objects.  The to_int and 
 // from_int functions must be defined for this type for it to work.
 template<typename T>
@@ -98,6 +114,9 @@ struct MappedIntTable: public MappedIntTableBase {
     Iterator begin() const { return { {0}, this }; }
     Iterator end() const { return { {size()}, this }; }
 };
+
+template<typename T> struct MappedIntTableDescription;
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(MappedIntTableDescription, MappedIntTable, typename, T, true /* enable */);
 
 template<typename T>
 std::ostream & operator << (std::ostream & stream, const MappedIntTable<T> & t)

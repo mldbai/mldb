@@ -8,6 +8,8 @@
 #include "run_length_int_table.h"
 #include "run_length_int_table_impl.h"
 #include "factored_int_table.h"
+#include "mldb/types/structure_description.h"
+
 
 using namespace std;
 
@@ -80,5 +82,11 @@ RunLengthIntTable runLengthEncode(const std::span<const uint32_t> & values, bool
 auto runLengthAtAddress = &MappedRunLengthIntTable::at;
 auto runLengthcountValuesAddress = &MappedRunLengthIntTable::countValues;
 auto runLengthindirectBytesRequiredAddress = &MappedRunLengthIntTable::indirectBytesRequired;
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MappedRunLengthIntTable)
+{
+    addField("runs", &MappedRunLengthIntTable::runs, "Sorted position of beginning of run, with a zero at the start");
+    addField("values", &MappedRunLengthIntTable::values, "Value corresponding to each run");
+}
 
 } // namespace MLDB

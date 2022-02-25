@@ -211,6 +211,7 @@ DEFINE_STRUCT_INFO(MappedBitCompressedIntTable)
 
 #endif
 
+#if 0
 struct MappedBitCompressedIntTableDescription
     : public ValueDescriptionI<MappedBitCompressedIntTable, ValueKind::ARRAY,
                                MappedBitCompressedIntTableDescription>,
@@ -312,5 +313,14 @@ struct MappedBitCompressedIntTableDescription
 DEFINE_VALUE_DESCRIPTION(MappedBitCompressedIntTable, MappedBitCompressedIntTableDescription);
 
 thread_local uint32_t MappedBitCompressedIntTableDescription::getArrayElementResult;
+
+#endif
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MappedBitCompressedIntTable)
+{
+    addBitFieldCast<IntTableType>("type", &MappedBitCompressedIntTable::flags_, 0, 3, "== FACTORED");
+    addBitField("size", &MappedBitCompressedIntTable::flags_, 3, 23, "Size of the factored table (< 1024 internal, > 1024 external and must subtract 1024");
+    addBitField("width", &MappedBitCompressedIntTable::flags_, 26, 6, "Bit width per entry");
+}
 
 } // namespace MLDB

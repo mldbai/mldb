@@ -46,7 +46,7 @@ TEST_CASE("real world 1") {
     auto [context, table] = freeze_table<MappedIntTable<uint32_t>>(input, DUMP_MEMORY_MAP=true, DUMP_TYPE_STATS=true, INT_TABLE_TRACE_LEVEL=5);
     double bits_per_element = 8.0 * context.getOffset() / input.size();
 
-    CHECK(bits_per_element < 1);
+    CHECK(bits_per_element < 5);
 }
 #endif
 

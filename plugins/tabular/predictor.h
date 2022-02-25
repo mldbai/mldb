@@ -10,6 +10,8 @@
 #include <array>
 #include <numeric>
 #include <limits>
+#include "mldb/types/value_description_fwd.h"
+
 
 namespace MLDB {
 
@@ -35,5 +37,7 @@ struct Predictor {
 
     int64_t predict(uint32_t x) const;
 };
+
+DECLARE_STRUCTURE_DESCRIPTION(Predictor);
 
 } // namespace MLDB

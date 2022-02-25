@@ -12,6 +12,8 @@
 #include <bit>
 #include <cmath>
 #include <span>
+#include "mldb/types/value_description_fwd.h"
+
 
 namespace MLDB {
 
@@ -42,7 +44,10 @@ struct MappedFactoredIntTableImpl;
 
 struct FactoredIntTable {
     FactoredIntTable() = default;
-    FactoredIntTable(uint32_t size, uint32_t maxValue, bool allow64Bits = allow64BitFactors);
+    FactoredIntTable(uint32_t size, uint32_t maxValue, bool allow64Bits = allow64BitFactors)
+    {
+        initialize(size, maxValue, allow64Bits);
+    }
 
     uint32_t size_ = 0;
     uint32_t factor_ = 0;
@@ -86,14 +91,20 @@ struct FactoredIntTable {
     friend struct FactoredIntTableImpl;
     FactoredIntTableImpl & impl() { return reinterpret_cast<FactoredIntTableImpl &>(*this); }
     const FactoredIntTableImpl & impl() const { return reinterpret_cast<const FactoredIntTableImpl &>(*this); }
+    void initialize(uint32_t size, uint32_t maxValue, bool allow64Bits);
 };
 
 struct MappedFactoredIntTable {
-    IntTableType type_:3 = FACTORED;
-    uint32_t size_:22 = 0;
-    uint32_t is64_:1 = 1;
-    uint32_t numFactors_:6 = 0;
-    uint32_t factor_:32 = 0;
+    union {
+        struct {
+            IntTableType type_:3 = FACTORED;
+            uint32_t size_:22 = 0;
+            uint32_t is64_:1 = 1;
+            uint32_t numFactors_:6 = 0;
+            uint32_t factor_ = 0;
+        };
+        uint32_t flags_;
+    };
 
     union {
         MappedPtr<uint32_t> data_ = MappedPtr<uint32_t>();
@@ -146,6 +157,9 @@ struct InternalMappedFactoredIntTable: public MappedFactoredIntTable {
     static constexpr bool indirectBytesRequiredIsExact = true;
 };
 
+template<size_t ExtraWords> struct InternalMappedFactoredIntTableDescription;
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_1(InternalMappedFactoredIntTableDescription, InternalMappedFactoredIntTable, size_t, ExtraWords, true /* enable */);
+
 extern template struct InternalMappedFactoredIntTable<1>;
 extern template struct InternalMappedFactoredIntTable<2>;
 
@@ -161,5 +175,7 @@ void freeze(MappingContext & context, InternalMappedFactoredIntTable<2> & output
 
 size_t factored_table_indirect_bytes(const IntTableStats<uint32_t> & stats, bool allow64Bits = allow64BitFactors);
 size_t factored_table_indirect_bytes(size_t size, uint32_t maxValue, bool allow64Bits = allow64BitFactors);
+
+DECLARE_STRUCTURE_DESCRIPTION(MappedFactoredIntTable);
 
 } // namespace MLDB

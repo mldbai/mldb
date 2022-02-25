@@ -8,7 +8,7 @@
 using namespace std;
 using namespace MLDB;
 
-static_assert(std::is_default_constructible_v<MappedFactoredIntTable>);
+//static_assert(std::is_default_constructible_v<MappedFactoredIntTable>);
 
 #define ALL_FACTORED_TABLES MappedFactoredIntTable, \
                             InternalMappedFactoredIntTable<1>, \

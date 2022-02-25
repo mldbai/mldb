@@ -1,6 +1,8 @@
 #include "predictor.h"
 #include "mmap.h"
 #include "mldb/utils/safe_clamp.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/types/array_description.h"
 
 namespace MLDB {
 
@@ -26,6 +28,12 @@ int64_t Predictor::predict(uint32_t x) const
     }
 
     return res;
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(Predictor)
+{
+    addField("params", &Predictor::params, "Parameter values");
+    addField("offset", &Predictor::offset, "Offset for predicted value");
 }
 
 } // namespace MLDB

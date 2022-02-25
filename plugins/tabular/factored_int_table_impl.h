@@ -11,6 +11,8 @@
 #include "mldb/ext/fastmod.h"
 #include "mldb/utils/min_max.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/types/structure_description.h"
+
 
 namespace MLDB {
 
@@ -229,7 +231,7 @@ struct FactoredIntTableImpl: public WritableFactoredIntTableImplT<FactoredIntTab
     }
 };
 
-FactoredIntTable::FactoredIntTable(uint32_t size, uint32_t maxValue, bool allow64Bits)
+inline void FactoredIntTable::initialize(uint32_t size, uint32_t maxValue, bool allow64Bits)
 {
     impl().initialize(size, maxValue, allow64Bits);
 }
@@ -249,7 +251,7 @@ inline uint32_t FactoredIntTable::countValues(uint32_t startPos, uint32_t endPos
     return impl().countValues(startPos, endPos, value);
 }
 
-void FactoredIntTable::set(uint32_t pos, uint32_t value)
+inline void FactoredIntTable::set(uint32_t pos, uint32_t value)
 {
     impl().set(pos, value);
 }
@@ -328,5 +330,24 @@ size_t InternalMappedFactoredIntTable<InternalWords>::indirectBytesRequired(cons
         return 0;
     return numWords * sizeof(uint32_t);
 }
+
+template<size_t ExtraWords>
+struct InternalMappedFactoredIntTableDescription: public StructureDescription<InternalMappedFactoredIntTable<ExtraWords>> {
+    InternalMappedFactoredIntTableDescription(ConstructOnly)
+    {
+    }
+
+    InternalMappedFactoredIntTableDescription()
+        : StructureDescription<InternalMappedFactoredIntTable<ExtraWords>>(true /* null accepted */)
+    {
+        this->template addParent<MappedFactoredIntTable>();
+    }
+
+    void initialize()
+    {
+        InternalMappedFactoredIntTableDescription newMe;
+        *this = std::move(newMe);
+    }
+};
 
 } // namespace MLDB

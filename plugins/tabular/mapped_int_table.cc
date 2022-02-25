@@ -6,6 +6,7 @@
 */
 
 #include "mapped_int_table.h"
+#include "mmap_impl.h"
 #include "cluster.h"
 #include "mldb/vfs/compressibility.h"
 #include "mldb/utils/ostream_array.h"
@@ -13,6 +14,7 @@
 #include "mldb/utils/min_max.h"
 #include "mldb/utils/bits.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/types/structure_description.h"
 #include <set>
 #include <fstream>
 
@@ -1115,7 +1117,7 @@ void freeze(MappingContext & context, MappedIntTableBase & output, std::span<con
                 << 100.0 * compressionRatio << "% ratio) in table " << tableNum << endl;
 
             {
-                std::ofstream writeTable("compressible-int-table-" + std::to_string(tableNum) + ".txt");
+                std::ofstream writeTable("tmp/compressible-int-table-" + std::to_string(tableNum) + ".txt");
                 for (auto v: input) {
                     char buf[128];
                     ::snprintf(buf, 128, "%d\n", to_int(v));
@@ -1125,14 +1127,14 @@ void freeze(MappingContext & context, MappedIntTableBase & output, std::span<con
             }
 
             {
-                std::ofstream writeBinary("compressible-int-table-" + std::to_string(tableNum) + ".bin");
+                std::ofstream writeBinary("tmp/compressible-int-table-" + std::to_string(tableNum) + ".bin");
                 writeBinary.write(start, offsetAfter - offsetBefore);
             }
 
     #if 1
     #if 0
             {
-                std::ofstream writeTable("compressible-int-table-" + std::to_string(tableNum) + "-residuals.txt");
+                std::ofstream writeTable("tmp/compressible-int-table-" + std::to_string(tableNum) + "-residuals.txt");
                 for (auto v: residuals) {
                     char buf[128];
                     ::snprintf(buf, 128, "%d\n", to_int(v));
@@ -1143,7 +1145,7 @@ void freeze(MappingContext & context, MappedIntTableBase & output, std::span<con
     #endif
     #if 0
             {
-                std::ofstream writeTable("compressible-int-table-" + std::to_string(tableNum) + "-slopes.txt");
+                std::ofstream writeTable("tmp/compressible-int-table-" + std::to_string(tableNum) + "-slopes.txt");
                 for (auto v: predictiveAnalyzer.slopes) {
                     char buf[128];
                     ::snprintf(buf, 128, "%f %d %d %d %d\n", (double)v, v.element, v.numerator, v.denominator, v.value);
@@ -1154,7 +1156,7 @@ void freeze(MappingContext & context, MappedIntTableBase & output, std::span<con
     #endif
 
             {
-                std::ofstream writeTable("compressible-int-table-" + std::to_string(tableNum) + "-clusters.txt");
+                std::ofstream writeTable("tmp/compressible-int-table-" + std::to_string(tableNum) + "-clusters.txt");
                 writeTable << "x,y,range,cluster,residual,predicted";
                 for (unsigned i = 0;  i < predictors.size();  ++i) {
                     writeTable << ",cluster" + std::to_string(i);
@@ -1165,17 +1167,28 @@ void freeze(MappingContext & context, MappedIntTableBase & output, std::span<con
                     auto x = i;
 
                     char buf[128];
-                    uint32_t range = std::lower_bound(rangeStarts.begin(), rangeStarts.end(), x) - rangeStarts.begin();
-                    if (rangeStarts.at(range) > x)
-                        --range;
-                    auto ri = x - rangeStarts.at(range);
-                    uint32_t selector = ranges.at(range).selectors.at(ri);
+                    uint32_t rangeNum = std::lower_bound(rangeStarts.begin(), rangeStarts.end(), x) - rangeStarts.begin();
+                    if (rangeStarts.at(rangeNum) > x)
+                        --rangeNum;
+                    auto ri = x - rangeStarts.at(rangeNum);
 
-                    uint32_t cluster = output.ranges_.at(range).activePredictors_.at(selector);
-                    uint32_t residual = ranges.at(range).residuals.at(ri);
+                    uint32_t selector, residual;
+                    const auto & range = output.ranges_.at(rangeNum);
+
+                    if (range.isIndexed_) {
+                        uint32_t index;
+                        std::tie(selector, index) = range.indexed.selectors_.at(ri);
+                        residual = range.indexed.residuals_.at(selector).at(index);
+                    }
+                    else {
+                        selector = range.raw.selectors_.at(ri);
+                        residual = range.raw.residuals_.at(ri);
+                    }
+
+                    uint32_t cluster = range.activePredictors_.at(selector);
                     uint32_t predicted = predictors.at(cluster).predict(x);
 
-                    ::snprintf(buf, 128, "%d,%d,%d,%d,%d,%d", x, y, range, cluster, residual, predicted);
+                    ::snprintf(buf, 128, "%d,%d,%d,%d,%d,%d", x, y, rangeNum, cluster, residual, predicted);
                     writeTable << buf;
 
                     for (size_t j = 0;  j < predictors.size();  ++j) {
@@ -1196,6 +1209,59 @@ void freeze(MappingContext & context, MappedIntTableBase & output, std::span<con
             ++tableNum;
         } 
     }
+}
+
+IMPLEMENT_STRUCTURE_DESCRIPTION_NAMED(MappedIntTableRangeIndexedDescription, MappedIntTableRange::Indexed)
+{
+    addField("selectors", &MappedIntTableRange::Indexed::selectors_,
+             "Selectors of which predictors to use per point in the range");
+    addField("residuals", &MappedIntTableRange::Indexed::residuals_,
+             "Residuals per point in the range");
+}
+
+IMPLEMENT_STRUCTURE_DESCRIPTION_NAMED(MappedIntTableRangeRawDescription, MappedIntTableRange::Raw)
+{
+    addField("selectors", &MappedIntTableRange::Raw::selectors_,
+             "Selectors of which predictors to use per point in the range");
+    addField("residuals", &MappedIntTableRange::Raw::residuals_,
+             "Residuals per point in the range");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MappedIntTableRange)
+{
+    std::function<uint32_t (const void *)> isIndexed = [] (const void * obj) -> uint32_t
+    {
+        return reinterpret_cast<const MappedIntTableRange *>(obj)->isIndexed_;
+    };
+
+    auto isRaw = [] (const void * obj) -> uint32_t
+    {
+        return !reinterpret_cast<const MappedIntTableRange *>(obj)->isIndexed_;
+    };
+
+    addBitField("isIndexed", &MappedIntTableRange::flagBits_, 0, 1, isIndexed,
+                "Discriminant: are we using an indexed (1) or raw (0) residual table?");
+    addField("activePredictors", &MappedIntTableRange::activePredictors_,
+             "Indexes of predictors active in this range");
+    //addDiscriminatedField("selectors", &MappedIntTableRange::Indexed::selectors_,
+    //         "Selectors of which predictors to use per point in the range");
+    //addField("residuals", &MappedIntTableRange::Indexed::residuals_,
+    //         "Residuals per point in the range");
+
+
+    addDiscriminatedField("indexed", &MappedIntTableRange::indexed, isIndexed,
+                          "Indexed selectors and residuals",
+                          "isIndexed == 1");
+    addDiscriminatedField("raw", &MappedIntTableRange::raw, isRaw,
+                          "Raw selectors and residuals",
+                          "isIndexed == 0");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MappedIntTableBase)
+{
+    addField("predictors", &MappedIntTableBase::predictors_, "");
+    addField("rangeStarts", &MappedIntTableBase::rangeStarts_, "");
+    addField("ranges", &MappedIntTableBase::ranges_, "");
 }
 
 } // namespace MLDB
