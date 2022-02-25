@@ -115,14 +115,14 @@ JSONImporterConfigDescription()
     };
 }
 
-struct JsonRowScope : SqlRowScope {
+struct JsonRowScope : public SqlRowScope {
     JsonRowScope(const ExpressionValue & expr, ssize_t lineNumber)
         : expr(expr), lineNumber(lineNumber) {}
     const ExpressionValue & expr;
     ssize_t lineNumber;
 };
 
-struct JsonScope : SqlExpressionMldbScope {
+struct JsonScope : public SqlExpressionMldbScope {
 
 
     JsonScope(MldbEngine * engine) : SqlExpressionMldbScope(engine){}
@@ -166,10 +166,11 @@ struct JsonScope : SqlExpressionMldbScope {
                 }
                 return true;
             };
-            row.expr.forEachColumnDestructive(onCol);
+            row.expr.forEachColumn(onCol);
             result.shrink_to_fit();
             return result;
         };
+
         GetAllColumnsOutput result;
         result.exec = exec;
         result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
@@ -356,9 +357,11 @@ struct JSONImporter: public Procedure {
             }
 
             RowPath rowName(actualLineNum);
+            ExpressionValue storage;
+            const ExpressionValue * selectOutput = &expr;
+
             if (useWhere || useSelect || useNamed) {
                 JsonRowScope row(expr, actualLineNum);
-                ExpressionValue storage;
                 if (useWhere) {
                     if (!whereBound(row, storage, GET_ALL).isTrue()) {
                         return true;
@@ -371,10 +374,8 @@ struct JSONImporter: public Procedure {
                 }
 
                 if (useSelect) {
-                    expr = selectBound(row, storage, GET_ALL);
-                    storage = expr;
+                    selectOutput = &selectBound(row, storage, GET_ALL);
                 }
-
             }
 
             int numLines = recordedLines.fetch_add(1);
@@ -386,8 +387,13 @@ struct JSONImporter: public Procedure {
                 keepGoing = onProgress(jsonEncode(progress));
             }
 
-            threadAccum.threadRecorder->recordRowExprDestructive(
-                std::move(rowName), std::move(expr));
+            if (selectOutput == &expr)
+                threadAccum.threadRecorder->recordRowExprDestructive(
+                    std::move(rowName), std::move(expr));
+            else if (selectOutput == &storage)
+                threadAccum.threadRecorder->recordRowExprDestructive(
+                    std::move(rowName), std::move(storage));
+            else threadAccum.threadRecorder->recordRowExpr(std::move(rowName), *selectOutput);
 
             return keepGoing;
         };
