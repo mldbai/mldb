@@ -114,12 +114,7 @@ std::shared_ptr<const ValueDescriptionT<T> >
 getDefaultDescriptionShared(T *);
 
 template<typename T>
-std::shared_ptr<const ValueDescription>
-getDefaultDescriptionSharedGeneric(T *);
-
-template<typename T>
-std::shared_ptr<const ValueDescriptionT<T> >
-getDefaultDescriptionSharedT()
+auto getDefaultDescriptionSharedT()
 {
     using namespace MLDB;
     return getDefaultDescriptionShared((T *)0);
@@ -152,6 +147,9 @@ getDefaultDescriptionUninitialized(T *)
                                                                 \
     MLDB::ValueDescriptionT<Type> *                             \
     getDefaultDescriptionUninitialized(Type *);                 \
+                                                                \
+    std::shared_ptr<const MLDB::ValueDescription>               \
+    getDefaultDescriptionSharedGeneric(Type *);                 \
 
 #define DEFINE_STRUCTURE_DESCRIPTION_NAMED(Name, Type)          \
                                                                 \
@@ -198,6 +196,12 @@ getDefaultDescriptionUninitialized(T *)
     {                                                                   \
         return new Name(::MLDB::constructOnly);                         \
     }                                                                   \
+                                                                        \
+    std::shared_ptr<const MLDB::ValueDescription>                       \
+    getDefaultDescriptionSharedGeneric(Type *)                          \
+    {                                                                   \
+        return ValueDescription::get(typeid(Type));                     \
+    }                                                                   \
     Name::Regme Name::regme;                                            \
     
 
@@ -216,6 +220,10 @@ getDefaultDescriptionUninitialized(T *)
     DEFINE_STRUCTURE_DESCRIPTION(type) \
     type##Description::type##Description()
 
+#define IMPLEMENT_STRUCTURE_DESCRIPTION_NAMED(name, type)   \
+    DECLARE_STRUCTURE_DESCRIPTION_NAMED(name, type) \
+    DEFINE_STRUCTURE_DESCRIPTION_NAMED(name, type) \
+    name::name()
 
 #define DECLARE_ENUM_DESCRIPTION_NAMED(Name, Type)                  \
                                                                     \
@@ -267,7 +275,7 @@ getDefaultDescriptionUninitialized(T *)
     getDefaultDescriptionUninitialized(T * = 0);                        \
     std::shared_ptr<MLDB::ValueDescriptionT<T> >                        \
     getDefaultDescriptionShared(T * = 0);                               \
-    std::shared_ptr<MLDB::ValueDescription>                             \
+    std::shared_ptr<const MLDB::ValueDescription>                       \
     getDefaultDescriptionSharedGeneric(T * = 0);                        \
     
 #define DECLARE_VALUE_DESCRIPTION(T)                                    \
@@ -294,7 +302,7 @@ getDefaultDescriptionUninitialized(T *)
         return result;                                                  \
     }                                                                   \
                                                                         \
-    std::shared_ptr<MLDB::ValueDescription>                             \
+    std::shared_ptr<const MLDB::ValueDescription>                       \
     getDefaultDescriptionSharedGeneric(T *)                             \
     {                                                                   \
         return getDefaultDescriptionShared((T*)0);                      \
@@ -321,9 +329,9 @@ getDefaultDescriptionUninitialized(T *)
         {                                                               \
             return new Impl<ArgList>(MLDB::ConstructOnly());      \
         }                                                               \
-    };                                                                   \
+    };                                                                  \
                                                                         \
-    template<ParamList>                                \
+    template<ParamList>                                                 \
     struct has_default_description<Type<ArgList>> : std::integral_constant<bool, Enable> {} \
 
 
@@ -398,6 +406,19 @@ template<typename T>
 auto getDefaultDescriptionSharedMaybe(T *) -> decltype(getDefaultDescription((T*)0), getDefaultDescriptionShared((T*)0))
 {
     return getDefaultDescriptionShared((T*)0);
+}
+
+// Base case where there is no default description defined, return nullptr_t
+inline std::shared_ptr<const ValueDescription> getDefaultDescriptionSharedGenericMaybe(...)
+{
+    return nullptr;
+}
+
+// If there is a default description defined, return it
+template<typename T>
+auto getDefaultDescriptionSharedGenericMaybe(T *) -> decltype(getDefaultDescriptionSharedGeneric((T*)0))
+{
+    return getDefaultDescriptionSharedGeneric((T*)0);
 }
 
 // Allow overriding based on whether a type has a default description defined or not
