@@ -14,10 +14,74 @@
 #include <functional>
 #include <string>
 #include <memory>
+#include <any>
 
 namespace MLDB {
 
 struct ContentHandler;
+
+/* Structure that encapsulates logic to split a block of memory into separate
+ * chunks that can be handled in parallel.  The simplest is to split per line
+ * of text, but this interface allows state to be carried around which allows
+ * for other splitting schemes that can handle quoted or structured records
+ * like CSV and JSON.
+ */ 
+struct BlockSplitter {
+    virtual ~BlockSplitter() = default;
+    virtual std::any newState() const = 0;
+    virtual bool isStateless() const { return false; };
+    virtual std::pair<const char *, std::any>
+    nextBlock(const char * current, size_t n, const std::any & state) const = 0;
+};
+
+/* BlockSplitter with a specific state type. */
+template<typename State>
+struct BlockSplitterT: public BlockSplitter {
+    virtual ~BlockSplitterT() = default;
+    virtual State newStateT() const { return State(); }
+    virtual std::pair<const char *, State>
+    nextBlockT(const char * current, size_t n, const State & state) = 0;
+    virtual std::any newState() const override
+    {
+        return newStateT();
+    }
+    virtual std::pair<const char *, std::any>
+    nextBlock(const char * current, size_t n, const std::any & state) const override
+    {
+        const State & stateT = std::any_cast<State>(state);
+        auto [newPos, newState] = nextBlockT(current, n, stateT);
+        return { newPos, std::move(newState) };
+    };
+};
+
+/* BlockSplitter with no state. */
+template<>
+struct BlockSplitterT<void>: public BlockSplitter {
+    virtual ~BlockSplitterT() = default;
+    virtual std::any newState() const override
+    {
+        return {};
+    }
+    virtual bool isStateless() const { return true; };
+    virtual const char * nextBlockT(const char * current, size_t n) const = 0;
+    virtual std::pair<const char *, std::any>
+    nextBlock(const char * current, size_t n, const std::any & state) const override
+    {
+        auto newPos = nextBlockT(current, n);
+        return { newPos, {} };
+    };
+};
+
+/* BlockSplitter that splits on the newline character. */
+struct NewlineSplitter: public BlockSplitterT<void> {
+    virtual const char * nextBlockT(const char * current, size_t n) const override
+    {
+        return (const char *)memchr(current, '\n', n);
+    }
+};
+
+/* Instance of the newline splitter that we can use for default reference arguments. */
+extern const NewlineSplitter newLineSplitter;
 
 
 /** Run the given lambda over every line read from the stream, with the
@@ -122,7 +186,8 @@ void forEachLineBlock(std::istream & stream,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> startBlock
                           = nullptr,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock
-                          = nullptr);
+                          = nullptr,
+                      const BlockSplitter & splitter = newLineSplitter);
 
 /** Run the given lambda over every line read from the file, with the
     work distributed over threads each of which receive one block.  The
@@ -154,7 +219,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                       std::function<bool (int64_t blockNumber,
                                           int64_t lineNumber)> endBlock
                           = nullptr,
-                      size_t blockSize = 20'000'000);
+                      size_t blockSize = 20'000'000,
+                      const BlockSplitter & splitter = newLineSplitter);
 
 /** Run the given lambda over fixed size chunks read from the stream, in parallel
     as much as possible.  If there is a smaller chunk at the end (EOF is obtained),

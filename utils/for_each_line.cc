@@ -27,6 +27,10 @@ using namespace std;
 using moodycamel::BlockingConcurrentQueue;
 
 
+namespace MLDB {
+
+const NewlineSplitter newLineSplitter;
+
 namespace {
 
 struct Processing {
@@ -58,8 +62,6 @@ struct Processing {
 };
 
 } // file scope
-
-namespace MLDB {
 
 
 /*****************************************************************************/
@@ -255,7 +257,8 @@ void forEachLineBlock(std::istream & stream,
                       int64_t maxLines,
                       int maxParallelism,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> startBlock,
-                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock)
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock,
+                      const BlockSplitter & splitter)
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
     static constexpr int64_t BLOCK_SIZE = 20000000;  // 20MB blocks
@@ -288,6 +291,8 @@ void forEachLineBlock(std::istream & stream,
     std::atomic<int> hasExc(false);
     std::exception_ptr exc;
 
+    std::any splitterState = splitter.newState();
+
     std::function<void ()> doBlock = [&] ()
         {
             std::shared_ptr<const char> blockOut;
@@ -298,7 +303,6 @@ void forEachLineBlock(std::istream & stream,
             bool lastBlock = false;
             size_t myChunkNumber = 0;
 
-            
             try {
                 //MLDB-1426
                 if (mapped) {
@@ -311,7 +315,7 @@ void forEachLineBlock(std::istream & stream,
 
                     while (current && current < end && (current - start) < BLOCK_SIZE
                            && (maxLines == -1 || doneLines < maxLines)) { //stop processing new line when we have enough)
-                        current = (const char *)memchr(current, '\n', end - current);
+                        std::tie(current, splitterState) = splitter.nextBlock(current, end - current, splitterState);
                         if (current && current < end) {
                             ExcAssertEqual(*current, '\n');
                             lineOffsets.push_back(current - start);
@@ -342,7 +346,7 @@ void forEachLineBlock(std::istream & stream,
                     blockOut = std::shared_ptr<const char>(start,
                                                            [] (const char *) {});
                 }
-                else {
+                else { // not memory mapped
                     // How far through our block are we?
                     size_t offset = 0;
 
@@ -372,7 +376,7 @@ void forEachLineBlock(std::istream & stream,
                         const char * end = block.get() + offset;
 
                         while (current && current < end) {
-                            current = (const char *)memchr(current, '\n', end - current);
+                            std::tie(current, splitterState) = splitter.nextBlock(current, end - current, splitterState);
                             if (current && current < end) {
                                 ExcAssertEqual(*current, '\n');
                                 if (lineOffsets.back() != current - block.get()) {
@@ -426,41 +430,41 @@ void forEachLineBlock(std::istream & stream,
 
                     myChunkNumber = chunkNumber++;
 
-                    if (stream && !stream.eof() &&
-                        (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
+                    if (stream && !stream.eof()
+                        && (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
                         {
                             // Ready for another chunk
                             tp.add(doBlock);
                         } else if (stream.eof()) {
-                        lastBlock = true;
+                            lastBlock = true;
+                        }
                     }
-                }
                     
-                int64_t chunkLineNumber = startLine;
-                size_t lastLineOffset = lineOffsets[0];
+                    int64_t chunkLineNumber = startLine;
+                    size_t lastLineOffset = lineOffsets[0];
 
-                if (startBlock)
-                    if (!startBlock(myChunkNumber, chunkLineNumber))
-                        return;
-
-                for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines++ < maxLines);  ++i) {
-                    if (hasExc.load(std::memory_order_relaxed))
-                        return;
-                    const char * line = blockOut.get() + lastLineOffset;
-                    size_t len = lineOffsets[i] - lastLineOffset;
-
-                    // Skip \r for DOS line endings
-                    if (len > 0 && line[len - 1] == '\r')
-                        --len;
-
-                    // if we are not at the last line
-                    if (!lastBlock || len != 0 || i != lineOffsets.size() - 1)
-                        if (!onLine(line, len, chunkNumber, chunkLineNumber++))
+                    if (startBlock)
+                        if (!startBlock(myChunkNumber, chunkLineNumber))
                             return;
-                
-                    lastLineOffset = lineOffsets[i] + 1;
 
-                }
+                    for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines++ < maxLines);  ++i) {
+                        if (hasExc.load(std::memory_order_relaxed))
+                            return;
+                        const char * line = blockOut.get() + lastLineOffset;
+                        size_t len = lineOffsets[i] - lastLineOffset;
+
+                        // Skip \r for DOS line endings
+                        if (len > 0 && line[len - 1] == '\r')
+                            --len;
+
+                        // if we are not at the last line
+                        if (!lastBlock || len != 0 || i != lineOffsets.size() - 1)
+                            if (!onLine(line, len, chunkNumber, chunkLineNumber++))
+                                return;
+                    
+                        lastLineOffset = lineOffsets[i] + 1;
+
+                    }
 
                 if (endBlock)
                     if (!endBlock(myChunkNumber, chunkLineNumber))
@@ -503,7 +507,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                                           uint64_t numLines)> startBlock,
                       std::function<bool (int64_t blockNumber,
                                           int64_t lineNumber)> endBlock,
-                      size_t blockSize)
+                      size_t blockSize,
+                      const BlockSplitter & splitter)
 {
     std::atomic<int> hasExc(false);
     std::exception_ptr exc;
@@ -514,6 +519,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
         FrozenMemoryRegion leftoverFromPreviousBlock;
         uint64_t doneLines = 0;
         bool bail = false;  ///< Should we bail out (stop) immediately?
+        std::any splitterState;
     };
 
     // Set of queues, one per block, that grows with the amount of data
@@ -535,7 +541,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
     
     
     auto doBlock
-        = [&hasExc,&exc,maxLines,&onLine,&startBlock,&endBlock,&getQueues]
+        = [&hasExc,&exc,maxLines,&onLine,&startBlock,&endBlock,&getQueues, &splitter]
         (int chunkNumber,
          uint64_t offset,
          FrozenMemoryRegion mem) -> bool
@@ -570,6 +576,10 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 toNextQueue->enqueue(std::move(toNext));
             };
 
+            if (!splitter.isStateless())
+                MLDB_THROW_UNIMPLEMENTED("non-stateless parallel record processing");
+            std::any splitterState;  // if not stateless, needs to come from previous block
+
             try {
                 //cerr << endl << endl
                 //     << "------------- starting block " << chunkNumber
@@ -598,10 +608,13 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 //     << (void *)mem.data() << endl;
 
                 //hex_dump(mem.data(), mem.length());
-                    
+                
                 size_t length = mem.length();
                 const char * start = mem.data();
-                const char * current = (const char *)memchr(start, '\n', length);
+                const char * current = start;
+                if (length > 0) {
+                    std::tie(current, splitterState) = splitter.nextBlock(start, length, splitterState);
+                }
                 const char * end = start + length;
                 size_t numLinesInBlock = 0;
                 
@@ -642,7 +655,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                             return false;
                         }
 
-                        current = (const char *)memchr(current, '\n', end - current);
+                        std::tie(current, splitterState) = splitter.nextBlock(current, end - current, splitterState);
 
                         //cerr << " current now = " << (void *)current << endl;
 
@@ -691,7 +704,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     = std::move(fromPrev.leftoverFromPreviousBlock);
                 int64_t startLine = fromPrev.doneLines;
                 uint64_t doneLines = startLine + numLinesInBlock;
-                    
+                std::any splitterState = std::move(fromPrev.splitterState);
+
                 if (noBreakInChunk && mem) {
                     // No line break in the whole chunk; it's all a partial
                     // last line
@@ -726,6 +740,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     toNext.leftoverFromPreviousBlock
                         = std::move(partialLastLine);
                     toNext.doneLines = doneLines;
+                    toNext.splitterState = std::move(splitterState);
                     toNextQueue->enqueue(std::move(toNext));
                 }
                 else {
@@ -809,6 +824,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
     // Unblock the first block by writing to it
     PassToNextBlock pass;
     pass.doneLines = 0;
+    pass.splitterState = splitter.newState();
     queues[0]->enqueue(std::move(pass));
     
     content->forEachBlockParallel(startOffset, blockSize, maxParallelism, doBlock);
