@@ -95,10 +95,28 @@ struct StructureDescriptionBase {
     virtual bool onEntry(void * output, JsonParsingContext & context) const = 0;
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
 
-    void addFieldDesc(std::string name,
-                      size_t offset,
-                      std::string comment,
-                      std::shared_ptr<const ValueDescription> description);
+    FieldDescription &
+    addFieldDesc(std::string name,
+                 size_t offset,
+                 std::string comment,
+                 std::shared_ptr<const ValueDescription> description);
+
+    /// Add a bit field, specified by the containing field and a bit offset
+    void addBitFieldDesc(std::string name,
+                         size_t offset,
+                         std::string comment,
+                         std::shared_ptr<const ValueDescription> containingDescription,
+                         uint32_t bitOffset,
+                         uint32_t bitWidth);
+
+    /// Add a discriminated field, including the function used to know whether it is active
+    /// or not and a string description of that function.
+    void addDiscriminatedFieldDesc(std::string name,
+                                   size_t offset,
+                                   std::string comment,
+                                   std::shared_ptr<const ValueDescription> desc,
+                                   std::function<bool (const void *)> isActive,
+                                   std::string isActiveStr);
 
     virtual const FieldDescription *
     hasField(const void * val, const std::string & field) const;
@@ -359,10 +377,7 @@ struct StructureDescription
         StructureDescriptionBase::addFieldDesc(std::move(name), offset, std::move(comment), std::move(description));
     }
 
-    /** Add a field, but override the default value description to use.
-        Note that description needs to be convertible to
-        std::shared_ptr<const ValueDescriptionT<V> >, but GCC 5.1 is confused
-        by it and rejects it.
+    /** Add a field, which is part of a sub-structure.
     */
     template<typename V, typename Base1, typename Base2, typename Desc>
     void addFieldDesc(std::string name,
@@ -406,6 +421,118 @@ struct StructureDescription
         V defValue = Base() .* field;
         addField(std::move(name), field, comment, defValue, baseDesc);
     }
+
+    template<typename V, typename Base>
+    void addBitField(std::string name,
+                     V Base::* containingField,
+                     uint32_t bitStart,
+                     uint32_t bitWidth,
+                     std::function<V (const void *)> extract,
+                     std::string comment)
+    {
+        addBitFieldDesc(std::move(name), containingField, bitStart, bitWidth,
+                        std::move(extract), std::move(comment),
+                        getDefaultDescriptionSharedT<V>());
+    }
+
+    template<typename V, typename Bits, typename Base>
+    void addBitFieldCast(std::string name,
+                         Bits Base::* containingFieldBits,
+                         uint32_t bitStart,
+                         uint32_t bitWidth,
+                         std::function<V (const void *)> extract,
+                         std::string comment)
+    {
+        static_assert(sizeof(Bits) == sizeof(V));
+        typedef V Base::* ContainingField; 
+        auto containingField = (ContainingField)containingFieldBits;
+        addBitFieldDesc(std::move(name), containingField, bitStart, bitWidth,
+                        std::move(extract), std::move(comment),
+                        getDefaultDescriptionSharedT<V>());
+    }
+
+    template<typename V, typename Base>
+    void addBitField(std::string name,
+                     V Base::* containingField,
+                     uint32_t bitStart,
+                     uint32_t bitWidth,
+                     std::string comment)
+    {
+        addBitFieldCast<V>(std::move(name), containingField, bitStart, bitWidth, std::move(comment));
+    }
+
+    template<typename Field, typename V, typename Base>
+    void addBitFieldCast(std::string name,
+                         V Base::* containingFieldBits,
+                         uint32_t bitStart,
+                         uint32_t bitWidth,
+                         std::string comment)
+    {
+        static_assert(sizeof(Field) == sizeof(V));
+        typedef Field Base::* ContainingField; 
+        auto containingField = (ContainingField)containingFieldBits;
+
+        std::shared_ptr<const ValueDescription> desc = getDefaultDescriptionSharedT<Field>();
+
+        std::function<Field (const void *)> extract = [bitStart,bitWidth,containingField,desc] (const void * obj) -> Field
+        {
+            const Field * containing = &(reinterpret_cast<const Struct *>(obj)->*containingField);
+            //using namespace std;
+            //cerr << "    extract: containing = " << (uint64_t)*containing << endl;
+            Field result;
+            desc->extractBitField(containing, &result, bitStart, bitWidth);
+            //cerr << "    extract: result = " << (uint64_t)result << endl;
+            return result;
+        };
+
+        addBitFieldDesc(std::move(name), containingField, bitStart, bitWidth,
+                        std::move(extract), std::move(comment),
+                        desc);
+    }
+
+    template<typename V, typename Base, typename Desc>
+    void addBitFieldDesc(std::string name,
+                         V Base::* containingField,
+                         uint32_t bitStart,
+                         uint32_t bitWidth,
+                         std::function<V (const void *)> extract,
+                         std::string comment,
+                         std::shared_ptr<Desc> description)
+    {
+        Struct * p = nullptr;
+        size_t offset = (size_t)&(p->*containingField);
+        StructureDescriptionBase::addBitFieldDesc(std::move(name), offset, std::move(comment), std::move(description),
+                                                  bitStart, bitWidth);
+    }
+
+    template<typename V, typename Base>
+    void addDiscriminatedField(std::string name,
+                               V Base::* field,
+                               std::function<bool (const void * obj)> isActive,
+                               std::string comment,
+                               std::string isActiveComment)
+    {
+        addDiscriminatedFieldDesc(std::move(name), field, std::move(isActive),
+                                  std::move(comment),
+                                  std::move(isActiveComment),
+                                  getDefaultDescriptionSharedT<V>());
+    }
+
+    template<typename V, typename Base, typename Desc>
+    void addDiscriminatedFieldDesc(std::string name,
+                                   V Base::* field,
+                                   std::function<bool (const void *)> isActive,
+                                   std::string comment,
+                                   std::string isActiveComment,
+                                   std::shared_ptr<Desc> description)
+    {
+        Struct * p = nullptr;
+        size_t offset = (size_t)&(p->*field);
+        StructureDescriptionBase::
+        addDiscriminatedFieldDesc(std::move(name), offset, std::move(comment), std::move(description),
+                                  isActive, isActiveComment);
+    }
+
 
     using ValueDescriptionT<Struct>::parents;
 
@@ -584,8 +711,9 @@ addParent(ValueDescriptionT<V> * description_)
     StructureDescription<V> * desc2
         = dynamic_cast<StructureDescription<V> *>(description_);
     if (!desc2) {
+        auto name = type_name(*description_);
         delete description_;
-        throw MLDB::Exception("parent description is not a structure");
+        throw MLDB::Exception("parent description is not a structure: it is " + name);
     }
 
     std::shared_ptr<StructureDescription<V> > description(desc2);
@@ -622,6 +750,18 @@ addParent(ValueDescriptionT<V> * description_)
         fd.offset = ofd.offset + ofs;
         fd.width = ofd.width;
         fd.fieldNum = fields.size() - 1;
+
+        if (ofd.isActive) {
+            fd.isActive = ofd.isActive;
+            //MLDB_THROW_UNIMPLEMENTED("TODO: copy isActive");
+        }
+        fd.isActiveStr = ofd.isActiveStr;
+
+        if (ofd.bitField.has_value()) {
+            fd.bitField = *ofd.bitField;
+            //MLDB_THROW_UNIMPLEMENTED("TODO: copy bitfield");
+        }
+
         orderedFields.push_back(it);
     }
 }

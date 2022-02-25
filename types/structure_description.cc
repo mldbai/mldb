@@ -166,16 +166,47 @@ void
 StructureDescriptionBase::
 printJson(const void * input, JsonPrintingContext & context) const
 {
+    //cerr << "--- Start object " << demangle(this->type->name()) << " at " << input << endl;
+
     context.startObject();
 
     for (const auto & it: orderedFields) {
         auto & fd = it->second;
-
         const void * mbr = addOffset(input, fd.offset);
-        if (fd.description->isDefault(mbr))
+
+        //cerr << "field " << demangle(this->type->name()) << "::" << fd.fieldName << " at " << mbr << endl;
+        //const unsigned char * mbrc = (const unsigned char *)mbr;
+        //cerr << "  first 4 bytes: " << format("%02x %02x %02x %02x", mbrc[0], mbrc[1], mbrc[2], mbrc[3]) << endl;
+
+        // Skip inactive fields
+        if (fd.isActive && !fd.isActive(input)) {
+            //cerr << "  skipping field " << fd.fieldName << " as isActive is false" << endl;
             continue;
-        context.startMember(it->first);
-        fd.description->printJson(mbr, context);
+        }
+
+        if (fd.bitField.has_value()) {
+            auto & bitField = *fd.bitField;
+            char data[fd.description->width];
+            memset(data, 0, fd.description->width);            
+            //bitField.extract(mbr, data);
+            fd.description->extractBitField(mbr, data, bitField.startBit, bitField.bitWidth);
+            //cerr << "Extracting bit field " << it->first << ": bytes ";
+            //const unsigned char * mbrBytes = (const unsigned char *)mbr;
+            //cerr << format("%02x %02x %02x %02x", mbrBytes[0], mbrBytes[1], mbrBytes[2], mbrBytes[3]);
+            //cerr << " bits " << bitField.startBit << ":" << bitField.bitWidth << " = " << fd.description->printJsonString(data) << endl;
+            context.startMember(it->first);
+            fd.description->printJson(data, context);
+            //cerr << "  bit field value " << fd.description->printJsonString(data) << endl;
+        }
+        else {
+            if (fd.description->isDefault(mbr)) {
+                //cerr << "  skipping due to default value" << endl;
+                continue;
+            }
+            context.startMember(it->first);
+            fd.description->printJson(mbr, context);
+            //cerr << "  member value " << fd.description->printJsonString(mbr);
+        }
     }
         
     context.endObject();
@@ -203,7 +234,7 @@ operator () (const char * s1, const char * s2) const
     return std::strcmp(s1, s2) < 0;
 }
 
-void
+StructureDescriptionBase::FieldDescription &
 StructureDescriptionBase::
 addFieldDesc(std::string name,
              size_t offset,
@@ -240,7 +271,56 @@ addFieldDesc(std::string name,
     hasPartial = hasPartial && description->hasPartialOrderingComparison();
     hasWeak = hasWeak && description->hasWeakOrderingComparison();
     hasStrong = hasStrong && description->hasStrongOrderingComparison();
+
+    return fd;
 }
+
+/// Add a bit field, specified by the containing field and a bit offset
+void
+StructureDescriptionBase::
+addBitFieldDesc(std::string name,
+                size_t offset,
+                std::string comment,
+                std::shared_ptr<const ValueDescription> containingDescription,
+                uint32_t bitOffset,
+                uint32_t bitWidth)
+{
+    size_t containingWidth = containingDescription->width * 8;
+    ExcAssertLessEqual(bitOffset + bitWidth, containingWidth);
+    FieldDescription & fd = addFieldDesc(std::move(name), offset, std::move(comment), containingDescription);
+
+#if 0
+    auto extract = [=] (const void * obj, void * val)
+    {
+        containingDescription->extractBitField(obj, val, bitOffset, bitWidth);
+    };
+
+    auto insert = [=] (void * obj, const void * val)
+    {
+        containingDescription->insertBitField(val, obj, bitOffset, bitWidth);
+    };
+#endif
+
+    ValueDescription::BitFieldDescription bitFieldDescription = { bitOffset, bitWidth };
+
+    fd.bitField.emplace(std::move(bitFieldDescription));
+}                
+
+/// Add a discriminated field, including the function used to know whether it is active
+/// or not and a string description of that function.
+void
+StructureDescriptionBase::
+addDiscriminatedFieldDesc(std::string name,
+                          size_t offset,
+                          std::string comment,
+                          std::shared_ptr<const ValueDescription> desc,
+                          std::function<bool (const void *)> isActive,
+                          std::string isActiveStr)
+{
+    FieldDescription & fd = addFieldDesc(std::move(name), offset, std::move(comment), std::move(desc));
+    fd.isActive = std::move(isActive);
+    fd.isActiveStr = std::move(isActiveStr);
+}                          
 
 const StructureDescriptionBase::FieldDescription *
 StructureDescriptionBase::

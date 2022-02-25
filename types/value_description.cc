@@ -106,7 +106,7 @@ bool
 ValueDescription::
 compareEquality(const void * val1, const void * val2) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support equality comparison");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " does not support equality comparison");
 }
 
 bool
@@ -120,7 +120,7 @@ bool
 ValueDescription::
 compareLessThan(const void * val1, const void * val2) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support less than comparison");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " does not support less than comparison");
 }
 
 bool
@@ -134,7 +134,7 @@ std::strong_ordering
 ValueDescription::
 compareStrong(const void * val1, const void * val2) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support strongly ordered comparison");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " does not support strongly ordered comparison");
 }
 
 bool
@@ -148,7 +148,7 @@ std::weak_ordering
 ValueDescription::
 compareWeak(const void * val1, const void * val2) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support weakly ordered comparison");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " does not support weakly ordered comparison");
 }
 
 bool
@@ -162,76 +162,76 @@ std::partial_ordering
 ValueDescription::
 comparePartial(const void * val1, const void * val2) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " does not support partially ordered comparison");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " does not support partially ordered comparison");
 }
 void *
 ValueDescription::
 optionalMakeValue(void * val) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type is not optional");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type is not optional");
 }
 
 const void *
 ValueDescription::
 optionalGetValue(const void * val) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type is not optional");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type is not optional");
 }
 
 size_t
 ValueDescription::
 getArrayLength(void * val) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " is not an array");
 }
 
 size_t
 ValueDescription::
 getArrayFixedLength() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " is not an array");
 }
 
 LengthModel
 ValueDescription::
 getArrayLengthModel() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " is not an array");
 }
 
 OwnershipModel
 ValueDescription::
 getArrayIndirectionModel() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array: " + type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " is not an array");
 }
 
 void *
 ValueDescription::
 getArrayElement(void * val, uint32_t element) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " is not an array");
 }
 
 std::vector<std::shared_ptr<const ValueDescription> >
 ValueDescription::
 getTupleElementDescriptions() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
 }
 
 size_t
 ValueDescription::
 getTupleLength() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' is not a tuple " + MLDB::type_name(*this));
 }
 
 const void *
 ValueDescription::
 getArrayElement(const void * val, uint32_t element) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " is not an array");
 }
 
 /** Return the value description for the nth array element.  This is
@@ -249,91 +249,91 @@ void
 ValueDescription::
 setArrayLength(void * val, size_t newLength) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type " + typeName + " is not an array");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type " + typeName + " is not an array");
 }
 
 const ValueDescription &
 ValueDescription::
 getKeyValueDescription() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' has no key");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' has no key");
 }
 
 const ValueDescription &
 ValueDescription::
 contained() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' does not contain another");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' does not contain another");
 }
 
 std::shared_ptr<const ValueDescription>
 ValueDescription::
 containedPtr() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' does not contain another");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' does not contain another");
 }
 
 OwnershipModel
 ValueDescription::
 getOwnershipModel() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' does not define an ownership type");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' does not define an ownership type");
 }
 
 void*
 ValueDescription::
 getLink(void* obj) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a link");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' is not a link");
 }
 
 const void*
 ValueDescription::
 getConstLink(const void* obj) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not a link");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' is not a link");
 }
 
 void
 ValueDescription::
 set(void* obj, void* value, const ValueDescription* valueDesc) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' can't be written to");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' can't be written to");
 }
 
 size_t
 ValueDescription::
 getFieldCount(const void * val) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 bool
 ValueDescription::
 hasFixedFieldCount() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 size_t
 ValueDescription::
 getFixedFieldCount() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription *
 ValueDescription::
 hasField(const void * val, const std::string & name) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription *
 ValueDescription::
 getFieldDescription(const void * val, const void * field) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 void
@@ -341,35 +341,35 @@ ValueDescription::
 forEachField(const void * val,
              const std::function<void (const FieldDescription &)> & onField) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription & 
 ValueDescription::
 getField(const std::string & field) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 const ValueDescription::FieldDescription & 
 ValueDescription::
 getFieldByNumber(int fieldNum) const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' doesn't support fields");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' doesn't support fields");
 }
 
 const std::vector<std::string>
 ValueDescription::
 getEnumKeys() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not an enum");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' is not an enum");
 }
 
 std::vector<std::tuple<int, std::string, std::string> >
 ValueDescription::
 getEnumValues() const
 {
-    MLDB_THROW_UNIMPLEMENTED("type '" + typeName + "' is not an enum");
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("type '" + typeName + "' is not an enum");
 }
 
 int
@@ -564,6 +564,20 @@ void registerForeignValueDescription(const std::string & typeName,
             throw MLDB::Exception("Foreign value description alias overwrites a native one");
         registry()[alias].desc = desc;
     }
+}
+
+void
+ValueDescription::
+extractBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const
+{
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("Only integral types support insertion/extraction of bit fields");    
+}
+
+void
+ValueDescription::
+insertBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const
+{
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("Only integral types support insertion/extraction of bit fields");    
 }
 
 void

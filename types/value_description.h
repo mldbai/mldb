@@ -130,6 +130,22 @@ struct ValueDescription {
                                 const ValueDescription & fromDesc,
                                 void * to) const;
 
+    // Extract the bit range.  From points to an initialized object from this
+    // ValueDescription, to points to an initialized object of the same type.
+    virtual void extractBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const;
+
+    // Extract the bit range.  From points to an initialized object from this
+    // ValueDescription to insert into, to points to an initialized object of the same type into
+    // which the value should be inserted.
+    virtual void insertBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const;
+
+    struct BitFieldDescription {
+        uint32_t startBit;
+        uint32_t bitWidth;
+        //std::function<void (const void * obj, void * resultStorage)> extract;
+        //std::function<void (void * obj, const void * newValue)> insert;
+    };
+
     struct FieldDescription {
         std::string fieldName;
         std::string comment;
@@ -137,6 +153,13 @@ struct ValueDescription {
         int offset;
         int width;
         int fieldNum;
+
+        /// For unions: return whether the field is active or not based upon the
+        /// state of the object.
+        std::function<bool (const void * obj)> isActive;
+
+        /// String version of active condition
+        std::string isActiveStr;
 
         void* getFieldPtr(void* obj) const
         {
@@ -147,6 +170,8 @@ struct ValueDescription {
         {
             return ((const char*) obj) + offset;
         }
+
+        std::optional<BitFieldDescription> bitField;
     };
 
     virtual size_t getFieldCount(const void * val) const;
@@ -378,7 +403,7 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual void setDefaultTyped(T * val) const
     {
-        *val = T();
+        return setDefault(val, typename std::is_default_constructible<T>::type());
     }
 
     virtual void copyValue(const void * from, void * to) const override
@@ -512,6 +537,17 @@ private:
 
     // Template parameter so not instantiated for types that are not
     // default constructible
+    template<typename X>
+    void setDefault(void * obj, X) const
+    {
+        *reinterpret_cast<T *>(obj) = T();
+    }
+
+    void setDefault(void * obj, std::false_type) const
+    {
+        throw MLDB::Exception("type is not default initializable");
+    }
+
     template<typename X>
     void initializeDefault(void * obj, X) const
     {

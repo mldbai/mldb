@@ -142,6 +142,16 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         return res;
     }
 
+    virtual void extractBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const override
+    {
+        underlying->extractBitField(from, to, bitOffset, bitWidth);
+    }
+
+    virtual void insertBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const override
+    {
+        underlying->insertBitField(from, to, bitOffset, bitWidth);
+    }
+
     std::unordered_map<std::string, Enum> parse;
     std::map<Underlying, std::pair<std::string, std::string> > print;
 };

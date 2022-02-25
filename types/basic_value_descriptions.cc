@@ -8,6 +8,8 @@
 
 #include "basic_value_descriptions.h"
 #include "comparable_value_descriptions.h"
+#include <type_traits>
+#include <iostream>
 
 namespace MLDB {
 
@@ -82,195 +84,94 @@ struct Utf32StringDescription
 
 template class ValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription>;
 
-struct CharDescription
-    : public StrongComparableValueDescriptionI<char, ValueKind::INTEGER, CharDescription> {
+template<typename T, typename Desc>
+struct IntegralValueDescription: public StrongComparableValueDescriptionI<T, ValueKind::INTEGER, Desc> {
 
-    virtual void parseJsonTyped(char * val,
-                                JsonParsingContext & context) const
+    static constexpr int Width = sizeof(T);
+    static constexpr bool Signed = std::is_signed_v<T>;
+
+    virtual void parseJsonTyped(T * val,
+                                JsonParsingContext & context) const override
     {
-        *val = context.expectInt();
+        if constexpr (Signed) {
+            if constexpr (Width <= sizeof(int))
+                *val = context.expectInt();
+            else if constexpr (Width <= sizeof(long))
+                *val = context.expectLong();
+            else
+                *val = context.expectLongLong();
+        }
+        else {
+            if constexpr (Width <= sizeof(int))
+                *val = context.expectUnsignedInt();
+            else if constexpr (Width <= sizeof(long))
+                *val = context.expectUnsignedLong();
+            else
+                *val = context.expectUnsignedLongLong();
+        }
     }
     
-    virtual void printJsonTyped(const char * val,
-                                JsonPrintingContext & context) const
+    virtual void printJsonTyped(const T * val,
+                                JsonPrintingContext & context) const override
     {
-        context.writeInt(*val);
+        if constexpr (Signed) {
+            if constexpr (Width <= sizeof(int))
+                context.writeInt(*val);
+            else if constexpr (Width <= sizeof(long))
+                context.writeLong(*val);
+            else
+                context.writeLongLong(*val);
+        }
+        else {
+            if constexpr (Width <= sizeof(int))
+                context.writeUnsignedInt(*val);
+            else if constexpr (Width <= sizeof(long))
+                context.writeUnsignedLong(*val);
+            else
+                context.writeUnsignedLongLong(*val);
+        }
     }
-};
 
-template class ValueDescriptionI<char, ValueKind::INTEGER, CharDescription>;
-
-struct SignedCharDescription
-    : public StrongComparableValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription> {
-
-    virtual void parseJsonTyped(signed char * val,
-                                JsonParsingContext & context) const
+    virtual void extractBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const override
     {
-        *val = context.expectInt();
+        const auto & fromV = *reinterpret_cast<const T *>(from);
+        auto & toV = *reinterpret_cast<T *>(to);
+        ExcAssertLess(bitWidth, Width * 8);
+        ExcAssertLessEqual(bitOffset + bitWidth, Width * 8);
+        toV = (fromV >> bitOffset) & ((T(1) << bitWidth)-1);
     }
-    
-    virtual void printJsonTyped(const signed char * val,
-                                JsonPrintingContext & context) const
+
+    virtual void insertBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const override
     {
-        context.writeInt(*val);
-    }
-};
-
-template class ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription>;
-
-struct UnsignedCharDescription
-    : public StrongComparableValueDescriptionI<unsigned char, ValueKind::INTEGER, UnsignedCharDescription> {
-
-    virtual void parseJsonTyped(unsigned char * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectInt();
-    }
-    
-    virtual void printJsonTyped(const unsigned char * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeInt(*val);
-    }
-};
-
-struct SignedShortIntDescription
-    : public StrongComparableValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription> {
-
-    virtual void parseJsonTyped(signed short int * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectInt();
+        const auto & fromV = *reinterpret_cast<const T *>(from);
+        auto & toV = *reinterpret_cast<T *>(to);
+        ExcAssertLessEqual(bitWidth, Width * 8);
+        ExcAssertLessEqual(bitOffset + bitWidth, Width * 8);
+        auto fromMask = (T(1) << bitWidth) - 1;
+        auto toMask = fromMask << bitOffset;
+        ExcAssertEqual((fromV & fromMask), 0);
+        toV = (toV & ~toMask) | (fromV << bitWidth);
     }
     
-    virtual void printJsonTyped(const signed short int * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeInt(*val);
-    }
 };
 
-template class ValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription>;
+#define DEFINE_INTEGRAL_DESCRIPTION(Type, Desc)                                           \
+struct Desc##Description : public IntegralValueDescription<Type, Desc##Description> {};   \
+template class ValueDescriptionI<Type, ValueKind::INTEGER, Desc##Description>;            \
+DEFINE_VALUE_DESCRIPTION(Type, Desc##Description)
 
-struct UnsignedShortIntDescription
-    : public StrongComparableValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription> {
+DEFINE_INTEGRAL_DESCRIPTION(char, Char);
+DEFINE_INTEGRAL_DESCRIPTION(unsigned char, UnsignedChar);
+DEFINE_INTEGRAL_DESCRIPTION(signed char, SignedChar);
+DEFINE_INTEGRAL_DESCRIPTION(unsigned short, UnsignedShort);
+DEFINE_INTEGRAL_DESCRIPTION(signed short, SignedShort);
+DEFINE_INTEGRAL_DESCRIPTION(unsigned int, UnsignedInt);
+DEFINE_INTEGRAL_DESCRIPTION(signed int, SignedInt);
+DEFINE_INTEGRAL_DESCRIPTION(unsigned long, UnsignedLong);
+DEFINE_INTEGRAL_DESCRIPTION(signed long, SignedLong);
+DEFINE_INTEGRAL_DESCRIPTION(unsigned long long, UnsignedLongLong);
+DEFINE_INTEGRAL_DESCRIPTION(signed long long, SignedLongLong);
 
-    virtual void parseJsonTyped(unsigned short int * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectInt();
-    }
-    
-    virtual void printJsonTyped(const unsigned short int * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeInt(*val);
-    }
-};
-
-template class ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription>;
-
-struct SignedIntDescription
-    : public StrongComparableValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription> {
-
-    virtual void parseJsonTyped(signed int * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectInt();
-    }
-    
-    virtual void printJsonTyped(const signed int * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeInt(*val);
-    }
-};
-
-template class ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription>;
-
-struct UnsignedIntDescription
-    : public StrongComparableValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription> {
-
-    virtual void parseJsonTyped(unsigned int * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectInt();
-    }
-    
-    virtual void printJsonTyped(const unsigned int * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeInt(*val);
-    }
-};
-
-template class ValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription>;
-
-struct SignedLongDescription
-    : public StrongComparableValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription> {
-
-    virtual void parseJsonTyped(signed long * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectLong();
-    }
-    
-    virtual void printJsonTyped(const signed long * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeLong(*val);
-    }
-};
-
-template class ValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription>;
-
-struct UnsignedLongDescription
-    : public StrongComparableValueDescriptionI<unsigned long, ValueKind::INTEGER, UnsignedLongDescription> {
-
-    virtual void parseJsonTyped(unsigned long * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectUnsignedLong();
-    }
-    
-    virtual void printJsonTyped(const unsigned long * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeUnsignedLong(*val);
-    }
-};
-
-struct SignedLongLongDescription
-    : public StrongComparableValueDescriptionI<signed long long, ValueKind::INTEGER, SignedLongLongDescription> {
-
-    virtual void parseJsonTyped(signed long long * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectLongLong();
-    }
-    
-    virtual void printJsonTyped(const signed long long * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeLongLong(*val);
-    }
-};
-
-struct UnsignedLongLongDescription
-    : public StrongComparableValueDescriptionI<unsigned long long, ValueKind::INTEGER, UnsignedLongLongDescription> {
-
-    virtual void parseJsonTyped(unsigned long long * val,
-                                JsonParsingContext & context) const
-    {
-        *val = context.expectUnsignedLongLong();
-    }
-    
-    virtual void printJsonTyped(const unsigned long long * val,
-                                JsonPrintingContext & context) const
-    {
-        context.writeUnsignedLongLong(*val);
-    }
-};
 
 struct HalfValueDescription
     : public PartialComparableValueDescriptionI<half, ValueKind::FLOAT, HalfValueDescription> {
@@ -378,17 +279,6 @@ struct BoolDescription
 DEFINE_VALUE_DESCRIPTION(std::string, StringDescription);
 DEFINE_VALUE_DESCRIPTION(Utf8String, Utf8StringDescription);
 DEFINE_VALUE_DESCRIPTION(Utf32String, Utf32StringDescription);
-DEFINE_VALUE_DESCRIPTION(char, CharDescription);
-DEFINE_VALUE_DESCRIPTION(signed char, SignedCharDescription);
-DEFINE_VALUE_DESCRIPTION(unsigned char, UnsignedCharDescription);
-DEFINE_VALUE_DESCRIPTION(signed short int, SignedShortIntDescription);
-DEFINE_VALUE_DESCRIPTION(unsigned short int, UnsignedShortIntDescription);
-DEFINE_VALUE_DESCRIPTION(signed int, SignedIntDescription);
-DEFINE_VALUE_DESCRIPTION(unsigned int, UnsignedIntDescription);
-DEFINE_VALUE_DESCRIPTION(signed long, SignedLongDescription);
-DEFINE_VALUE_DESCRIPTION(unsigned long, UnsignedLongDescription);
-DEFINE_VALUE_DESCRIPTION(signed long long, SignedLongLongDescription);
-DEFINE_VALUE_DESCRIPTION(unsigned long long, UnsignedLongLongDescription);
 DEFINE_VALUE_DESCRIPTION(half, HalfValueDescription);
 DEFINE_VALUE_DESCRIPTION(float, FloatValueDescription);
 DEFINE_VALUE_DESCRIPTION(double, DoubleValueDescription);
