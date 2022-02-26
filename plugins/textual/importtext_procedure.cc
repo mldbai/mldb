@@ -421,7 +421,7 @@ parseFixedWidthCsvRow(const char * & line,
 
             values[colNum++] = finishString(s, len, eightBit);
         }
-        else if ((isdigit(c) || c == '-') && !isTextLine) {
+        else if ((isdigit(c) || (c == '-' && line != lineEnd && *line != separator)) && !isTextLine) {
             // Special case for something that looks like a number, in order to
             // save on parsing it.  We short circuit out when we get to a length
             // where we could start to lose digits, and fall back on parsing the

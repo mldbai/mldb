@@ -162,3 +162,34 @@ try {
     throw e;
 }
 
+var config = {
+    type: "import.text",
+    params: {
+        dataFileUrl : "file://mldb/testing/csv_int_parsing.csv",
+        outputDataset: {
+            id: "csvIntParsing",
+        },
+        runOnCreation: true,
+        encoding: 'ascii'
+    }
+}
+
+mldb.put("/v1/procedures/csv_proc", config);
+
+res = mldb.get("/v1/datasets/csvIntParsing");
+unittest.assertEqual(res['json']['status']['rowCount'], 6);
+
+var res = mldb.get("/v1/query", {
+    q: 'SELECT * FROM csvIntParsing ORDER BY rowName()',
+    format: 'soa' }
+);
+
+mldb.log(res);
+
+try {
+    unittest.assertEqual(res['json']['a'].length, 6);
+    unittest.assertEqual(res['json']['a'], ["-", "+", 0, 0, 0, 0, ]);
+} catch (e) {
+    mldb.log(res);
+    throw e;
+}
