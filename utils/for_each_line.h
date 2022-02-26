@@ -40,7 +40,7 @@ struct BlockSplitterT: public BlockSplitter {
     virtual ~BlockSplitterT() = default;
     virtual State newStateT() const { return State(); }
     virtual std::pair<const char *, State>
-    nextBlockT(const char * current, size_t n, const State & state) = 0;
+    nextBlockT(const char * current, size_t n, const State & state) const = 0;
     virtual std::any newState() const override
     {
         return newStateT();
