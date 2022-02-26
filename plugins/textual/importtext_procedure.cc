@@ -1327,15 +1327,6 @@ struct ImportTextProcedureWorkInstance
                                                 scope.columnsUsed);
 
                 if (errorMsg) {
-                    if(config.allowMultiLines) {
-                        // check if we hit an error meaning we probably
-                        // have a multiline error
-                        if(errorMsg == unclosedQuoteError ||
-                           errorMsg == notEnoughColsError) {
-                            return false;
-                        }
-                    }
-
                     return handleError(errorMsg, actualLineNum,
                                            line - lineStart + 1,
                                            string(line, length));
@@ -1531,67 +1522,12 @@ struct ImportTextProcedureWorkInstance
             return false;
         };
 
-        if(!config.allowMultiLines || true) {
-            CSVSplitter splitter { config.quoter[0], config.allowMultiLines, parseEncoding(config.encoding) };
-            forEachLineBlock(content, offset, onLine, config.limit,
-                             numCpus() /* parallelism */,
-                             startChunk, doneChunk,
-                             20'000'000, /* blockSize */
-                             splitter);
-        }
-        else {
-
-            auto stream = content->getStream();
-
-            {
-                //stream.seekg(offset, std::ios_base::cur);
-                // not all streams support seeking
-
-                constexpr size_t BUFFER_SIZE = 4096;
-                char buffer[BUFFER_SIZE];
-                size_t currentOffset = 0;
-                
-                while (currentOffset < offset) {
-                    size_t n = std::min<size_t>(offset - currentOffset, BUFFER_SIZE);
-                    stream.read(buffer, n);
-                    currentOffset += stream.gcount();
-                }
-            }
-            
-            // very simplistic and not efficient way of doing multi-line. we send
-            // lines one by one to the 'onLine' function, and if
-            // we get an error that probably is caused by a multi-
-            // line string, we concat the current line with the next
-            // one and try again. 
-            startChunk(0, 0, -1 /* num lines is unknown */);
-
-            string line;
-            string t_line;
-            string prevLine;
-            int64_t lineNum = 0;
-
-            while(getline(stream, line)) {
-                // prepend previous line if we're tagging it along
-                if(!prevLine.empty()) {
-                    t_line.assign(std::move(line));
-                    line.assign(std::move(prevLine));
-                    line += '\n' + t_line;
-                }
-
-                if(!onLine(line.c_str(), line.size(),
-                           0 /* chunkNum */, lineNum)) {
-                    prevLine.assign(std::move(line));
-                } else {
-                    prevLine.erase();
-                    lineNum++;
-                }
-
-                if(config.limit > 0 && lineNum >= config.limit)
-                    break;
-            }
-
-            doneChunk(0, lineNum);
-        }
+        CSVSplitter splitter { config.quoter[0], config.allowMultiLines, parseEncoding(config.encoding) };
+        forEachLineBlock(content, offset, onLine, config.limit,
+                         numCpus() /* parallelism */,
+                         startChunk, doneChunk,
+                         20'000'000, /* blockSize */
+                         splitter);
 
         if (deferredEmptyLineNumber != -1
             && deferredEmptyLineNumber < lineCount - 1) {

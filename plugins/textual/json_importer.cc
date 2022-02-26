@@ -25,6 +25,7 @@
 #include "mldb/rest/cancellation_exception.h"
 #include "mldb/core/dataset_scope.h"
 #include "mldb/utils/log.h"
+#include "mldb/base/thread_pool.h"
 
 using namespace std;
 
@@ -398,7 +399,7 @@ struct JSONImporter: public Procedure {
             return keepGoing;
         };
 
-        forEachLineBlock(stream, onLine, runProcConf.limit, 32,
+        forEachLineBlock(stream, onLine, runProcConf.limit, numCpus(),
                          startChunk, doneChunk);
         if (!keepGoing) {
             throw MLDB::CancellationException("Procedure import.json cancelled");
