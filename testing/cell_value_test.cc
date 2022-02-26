@@ -311,6 +311,13 @@ BOOST_AUTO_TEST_CASE (test_realistic_int)
 
     BOOST_CHECK_EQUAL(cell4.cellType(), CellValue::INTEGER);
     BOOST_CHECK_EQUAL(cell4.toInt(), LLONG_MIN);
+
+    // Check we don't parse "+" or "-" as integers
+    auto cell5 = CellValue::parse(string("+"));
+    BOOST_CHECK_EQUAL(cell5.cellType(), CellValue::ASCII_STRING);
+
+    auto cell6 = CellValue::parse(string("-"));
+    BOOST_CHECK_EQUAL(cell6.cellType(), CellValue::ASCII_STRING);
 }
 
 
