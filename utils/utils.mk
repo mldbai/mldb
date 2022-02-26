@@ -24,6 +24,7 @@ LIBUTILS_LINK := \
 	arch \
 	base \
 	types \
+	value_description \
 	$(STD_FILESYSTEM_LIBNAME)
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
