@@ -581,17 +581,19 @@ freeze(MappedSerializer & serializer)
     Date after = Date::now();
     double elapsed = after.secondsSince(before);
 
-    cerr << "compressed " << numSamples << " samples with "
-         << uncompressedBytes << " bytes to " << compressedBytes
-         << " bytes at " << 100.0 * compressedBytes / uncompressedBytes
-         << "% compression at "
-         << numSamples / elapsed << "/s" << endl;
+    if (numSamples > 1000) {
+        cerr << "compressed " << numSamples << " samples with "
+            << uncompressedBytes << " bytes to " << compressedBytes
+            << " bytes at " << 100.0 * compressedBytes / uncompressedBytes
+            << "% compression at "
+            << numSamples / elapsed << "/s" << endl;
+    }
 
     FrozenBlobTable frozenCompressedBlobs
         = compressedBlobs.freezeUncompressed(serializer);
     
-    cerr << "frozenCompressedBlobs.memusage() = "
-         << frozenCompressedBlobs.memusage() << endl;
+    //cerr << "frozenCompressedBlobs.memusage() = "
+    //     << frozenCompressedBlobs.memusage() << endl;
 
     FrozenBlobTable result;
 
