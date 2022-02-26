@@ -63,6 +63,7 @@ operator<< (const std::string & val)
         // TODO: use std::quoted when we switch to C++20
         auto newVal = MLDB::replace_all_copy(val, quoteChar, quoteChar + quoteChar);
         if (val.find(delimiterChar) != std::string::npos
+            || val.find('\n') != std::string::npos
             || newVal.size() != val.size())
         {
             out << quoteChar << newVal << quoteChar;
