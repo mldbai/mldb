@@ -214,6 +214,161 @@ MLDB_ALWAYS_INLINE bool isascii(int c)
     return (c & (~127)) == 0;
 }
 
+/* BlockSplitter that splits on the newline character. */
+struct CSVSplitterState {
+
+};
+
+
+struct CSVSplitter: public BlockSplitterT<CSVSplitterState> {
+    CSVSplitter(char quoteChar,
+                bool allowMultiLine,
+                Encoding encoding)
+        : quoteChar(quoteChar), allowMultiLine(allowMultiLine), encoding(encoding)
+    {
+    }
+
+    virtual std::pair<const char *, CSVSplitterState>
+    nextBlockT(const char * current, size_t n, const CSVSplitterState & state) const override
+    {
+        const char * p = current;
+        const char * e = current + n;
+
+        //cerr << "looking for next block with " << n << " characters" << endl;
+
+        bool has8bit = false;
+
+        auto find_next_match = [&] (auto && match) -> char
+        {
+            if (MLDB_LIKELY(!has8bit)) {
+                for (; p < e;  ++p) {
+                    if (match(*p))
+                        return *p++;
+                    if ((*p & 128) && encoding == Encoding::UTF8) {
+                        has8bit = true;
+                        break;
+                    }
+                }
+            }
+            if (MLDB_UNLIKELY(has8bit)) {
+                // 8 bit characters means UTF-8 encodings
+                for (; p < e; /* no inc */) {
+                    if (*p & 128) {
+                        // If we're near the end, it's possible that the block ends
+                        // in the middle of an UTF-8 character.
+                        if (MLDB_UNLIKELY(p - e < 5)) {
+                            auto len = utf8::internal::sequence_length(p);
+                            if (len > (e - p)) {
+                                cerr << " (((( TRUNCATED IN MID CHARACTER )))" << endl;
+                                return 0;  // truncated
+                            }
+                        }
+                        utf8::advance(p, 1, e);
+                    }
+                    else {
+                        if (match(*p))
+                            return *p++;
+                        ++p;
+                    }
+                }
+            }
+            return 0;
+        };
+
+        auto find_next_of_1 = [&] (char c) -> char
+        {
+            if (MLDB_LIKELY(encoding == Encoding::ASCII)) {
+                auto p2 = (const char *)memchr(p, c, e - p);
+                //cerr << " memchr skipped " << (p2 - p) << " characters" << endl;
+                if (!p2) return 0;
+                p = p2 + 1;
+                return *p2;
+            }
+
+            auto match = [c] (char cin) { return cin == c; };
+            return find_next_match(match);
+        };
+
+        auto find_next_of_2 = [&] (char c1, char c2) -> char
+        {
+            if (MLDB_LIKELY(encoding == Encoding::ASCII)) {
+                for (; p < e;  ++p) {
+                    if (*p == c1 || *p == c2)
+                        return *p++;
+                }
+                return 0;
+            }
+
+            auto match = [c1,c2] (char cin) { return cin == c1 || cin == c2; };
+            return find_next_match(match);
+        };
+
+        auto truncated = [] () -> std::pair<const char *, CSVSplitterState>
+        {
+            return { nullptr, {} };
+        };
+
+        while (p < e) {
+            unsigned char c = find_next_of_2('\n', quoteChar);
+            //cerr << "found char " << (int)c << c << " at " << (p - current) << endl;
+            if (c == quoteChar) {
+                //cerr << "  in quote; *p = " << (int)*p << endl;
+                // end of string means we're truncated
+                if (p == e)
+                    return truncated();
+                if (*p == quoteChar) {
+                    ++p;
+                    continue;  // double quote char means literal quote
+                }
+
+                // We're in a string; continue until we get a non-doubled quote
+                for (;;) {
+                    unsigned char c;
+                    if (allowMultiLine) {
+                        c = find_next_of_1(quoteChar);
+                    }
+                    else {
+                        c = find_next_of_2('\n', quoteChar);
+                        if (c == '\n') {
+                            // Newline in quoted field without allowMultiLine
+                            // Will eventually result in an error, but let the parser
+                            // deal with that
+                            return { --p, {} };
+                        }
+                    }
+                    //cerr << "  got another quote char " << (int)c << " at " << (p - current) << endl;
+                    if (c != quoteChar || p == e)
+                        return truncated();
+                    //cerr << "    following char is " << (int)*p << endl;
+
+                    // Double quote
+                    if (*p == quoteChar) {
+                        ++p;
+                        continue;
+                    }
+                    
+                    // Finished the string
+                    break;
+                }
+            }
+            else if (c == '\n') {
+                //cerr << "*** FINISHED LINE OUTSIDE OF STRING with " << (e - p) << " chars remaining" << endl;
+                //cerr << string(current, p - 1) << endl;
+                //cerr << "  *(p-1) = " << (int)(*(p-1)) << endl;
+                return { --p, {} };
+            }
+            else break;
+        }
+        //cerr << "*** FINISHED TRUNCATED" << endl;
+        return truncated();
+    }
+
+    char quoteChar;
+    bool allowMultiLine;
+    Encoding encoding;
+};
+
+
 /** Parse a single row of CSV into an array of CellValues.
 
     Carefully designed to not perform any memory allocations in the
@@ -1353,10 +1508,13 @@ struct ImportTextProcedureWorkInstance
             return false;
         };
 
-
-        if(!config.allowMultiLines) {
-            namespace o = ForEachLine::options;
-            forEachLineBlock(stream, onLine, startChunk, doneChunk, o::maxLines=config.limit, o::outputTrailingEmptyLines=false);
+        if(!config.allowMultiLines || true) {
+            CSVSplitter splitter { config.quoter[0], config.allowMultiLines, parseEncoding(config.encoding) };
+            forEachLineBlock(content, offset, onLine, config.limit,
+                             numCpus() /* parallelism */,
+                             startChunk, doneChunk,
+                             20'000'000, /* blockSize */
+                             splitter);
         }
         else {
 
