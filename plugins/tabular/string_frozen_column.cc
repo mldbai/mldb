@@ -271,12 +271,14 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
         after = Date::now();
         elapsed = after.secondsSince(before);
 
-        cerr << "compressed " << numSamples << " samples with "
-             << uncompressedBytes << " bytes to " << compressedBytes
-             << " bytes at " << 100.0 * compressedBytes / uncompressedBytes
-             << "% compression at "
-             << numSamples / elapsed << "/s" << endl;
-
+        if (numSamples > 1000) {
+            cerr << "compressed " << numSamples << " samples with "
+                << uncompressedBytes << " bytes to " << compressedBytes
+                << " bytes at " << 100.0 * compressedBytes / uncompressedBytes
+                << "% compression at "
+                << numSamples / elapsed << "/s" << endl;
+        }
+        
         ssize_t totalBytesRequired = sizeof(CompressedStringFrozenColumn)
             + dictionarySize
             + compressedBytes
