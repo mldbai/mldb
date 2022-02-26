@@ -31,7 +31,7 @@ struct BlockSplitter {
     virtual std::any newState() const = 0;
     virtual bool isStateless() const { return false; };
     virtual std::pair<const char *, std::any>
-    nextBlock(const char * current, size_t n, const std::any & state) const = 0;
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2, const std::any & state) const = 0;
 };
 
 /* BlockSplitter with a specific state type. */
@@ -40,16 +40,16 @@ struct BlockSplitterT: public BlockSplitter {
     virtual ~BlockSplitterT() = default;
     virtual State newStateT() const { return State(); }
     virtual std::pair<const char *, State>
-    nextBlockT(const char * current, size_t n, const State & state) const = 0;
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2, const State & state) const = 0;
     virtual std::any newState() const override
     {
         return newStateT();
     }
     virtual std::pair<const char *, std::any>
-    nextBlock(const char * current, size_t n, const std::any & state) const override
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2, const std::any & state) const override
     {
         const State & stateT = std::any_cast<State>(state);
-        auto [newPos, newState] = nextBlockT(current, n, stateT);
+        auto [newPos, newState] = nextBlockT(block1, n1, block2, n2, stateT);
         return { newPos, std::move(newState) };
     };
 };
@@ -63,20 +63,23 @@ struct BlockSplitterT<void>: public BlockSplitter {
         return {};
     }
     virtual bool isStateless() const { return true; };
-    virtual const char * nextBlockT(const char * current, size_t n) const = 0;
+    virtual const char * nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2) const = 0;
     virtual std::pair<const char *, std::any>
-    nextBlock(const char * current, size_t n, const std::any & state) const override
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2, const std::any & state) const override
     {
-        auto newPos = nextBlockT(current, n);
+        auto newPos = nextBlockT(block1, n1, block2, n2);
         return { newPos, {} };
     };
 };
 
 /* BlockSplitter that splits on the newline character. */
 struct NewlineSplitter: public BlockSplitterT<void> {
-    virtual const char * nextBlockT(const char * current, size_t n) const override
+    virtual const char * nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2) const override
     {
-        return (const char *)memchr(current, '\n', n);
+        auto result = (const char *)memchr(block1, '\n', n1);
+        if (!result && block2)
+            result = (const char *)memchr(block2, '\n', n2);
+        return result;
     }
 };
 

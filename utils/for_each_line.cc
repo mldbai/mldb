@@ -261,7 +261,8 @@ void forEachLineBlock(std::istream & stream,
                       const BlockSplitter & splitter)
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
-    static constexpr int64_t BLOCK_SIZE = 20000000;  // 20MB blocks
+    //static constexpr int64_t BLOCK_SIZE = 20000000;  // 20MB blocks
+    int64_t BLOCK_SIZE = 20000000;
     static constexpr int64_t READ_SIZE = 200000;  // read&scan 200kb to fit in cache
 
     std::atomic<int64_t> doneLines(0); //number of lines processed but not yet returned
@@ -282,6 +283,11 @@ void forEachLineBlock(std::istream & stream,
         // saves us having to copy data.  mapped will be set to
         // nullptr if it's not possible to memory map this stream.
         std::tie(mapped, mappedSize) = fistream->mapped();
+        auto info = fistream->info();
+        if (info.size > 0) {
+            BLOCK_SIZE = std::max<int64_t>(1000000, info.size / maxParallelism);
+            BLOCK_SIZE = std::min<int64_t>(BLOCK_SIZE, 20000000);
+        }
     }
 
     //cerr << "mapped = " << (void *)mapped << endl;
@@ -293,11 +299,17 @@ void forEachLineBlock(std::istream & stream,
 
     std::any splitterState = splitter.newState();
 
+    // These are used to pass leftover data from the previous block to the next
+    // one
+    std::shared_ptr<char> nextBlock;
+    size_t nextBlockSize = 0;
+    size_t nextBlockUsed = 0;
+
     std::function<void ()> doBlock = [&] ()
         {
             std::shared_ptr<const char> blockOut;
 
-            int64_t startOffset = byteOffset;
+            //int64_t startOffset = byteOffset;
             int64_t startLine = doneLines;
             vector<size_t> lineOffsets = {0};
             bool lastBlock = false;
@@ -315,7 +327,7 @@ void forEachLineBlock(std::istream & stream,
 
                     while (current && current < end && (current - start) < BLOCK_SIZE
                            && (maxLines == -1 || doneLines < maxLines)) { //stop processing new line when we have enough)
-                        std::tie(current, splitterState) = splitter.nextBlock(current, end - current, splitterState);
+                        std::tie(current, splitterState) = splitter.nextBlock(current, end - current, nullptr, 0, splitterState);
                         if (current && current < end) {
                             ExcAssertEqual(*current, '\n');
                             lineOffsets.push_back(current - start);
@@ -348,35 +360,40 @@ void forEachLineBlock(std::istream & stream,
                 }
                 else { // not memory mapped
                     // How far through our block are we?
-                    size_t offset = 0;
 
-                    // How much extra space to allocate for the last line?
-                    static constexpr size_t EXTRA_SIZE = 10000;
+                    std::shared_ptr<char> block = nextBlock;
+                    size_t blockSize = nextBlockSize;
+                    size_t blockUsed = nextBlockUsed;
 
-                    std::shared_ptr<char> block(new char[BLOCK_SIZE + EXTRA_SIZE],
-                                                [] (char * c) { delete[] c; });
+                    if (!block) {
+                        block = std::shared_ptr<char>(new char[BLOCK_SIZE], [] (char * c) { delete[] c; });
+                        blockSize = BLOCK_SIZE;
+                        blockUsed = 0;
+                    }
+
                     blockOut = block;
+                    size_t offset = blockUsed;
 
                     // First line starts at offset 0
 
                     while (stream && !stream.eof()
                            && (maxLines == -1 || doneLines < maxLines)  //stop processing new line when we have enough
-                           && (byteOffset - startOffset < BLOCK_SIZE)) {
+                           && (offset < blockSize)) {
                         
                         stream.read((char *)block.get() + offset,
-                                    std::min<size_t>(READ_SIZE, BLOCK_SIZE - offset));
+                                    std::min<size_t>(READ_SIZE, blockSize - offset));
 
                         // Check how many bytes we actually read
                         size_t bytesRead = stream.gcount();
                         
                         offset += bytesRead;
 
-                        // Scan for end of line characters
+                        // Scan for the end of the block
                         const char * current = block.get() + lineOffsets.back();
                         const char * end = block.get() + offset;
 
                         while (current && current < end) {
-                            std::tie(current, splitterState) = splitter.nextBlock(current, end - current, splitterState);
+                            std::tie(current, splitterState) = splitter.nextBlock(current, end - current, nullptr, 0, splitterState);
                             if (current && current < end) {
                                 ExcAssertEqual(*current, '\n');
                                 if (lineOffsets.back() != current - block.get()) {
@@ -401,31 +418,17 @@ void forEachLineBlock(std::istream & stream,
                         }
                     }
                     else {
-                        // If we are not at the end of the stream
-                        // get the last line, as we probably got just a partial
-                        // line in the last one
-                        std::string lastLine;
-                        getline(stream, lastLine);
-                
-                        if (!lastLine.empty()) {
-                            // Check for overflow on the buffer size
-                            if (offset + lastLine.size() + 1 > BLOCK_SIZE + EXTRA_SIZE) {
-                                // reallocate and copy
-                                std::shared_ptr<char> newBlock(new char[offset + lastLine.size() + 1],
-                                                               [] (char * c) { delete[] c; });
-                                std::copy(block.get(), block.get() + offset,
-                                          newBlock.get());
-                                block = newBlock;
-                                blockOut = block;
-                            }
+                        // Package up the leftover (truncated) block for the next
+                        // block.
+                        nextBlockUsed = offset - lineOffsets.back();
+                        if (lineOffsets.size() == 1)
+                            nextBlockSize = blockSize + nextBlockUsed;
+                        else nextBlockSize = BLOCK_SIZE + nextBlockUsed;
 
-                            std::copy(lastLine.data(), lastLine.data() + lastLine.length(),
-                                      block.get() + offset);
-                    
-                            lineOffsets.emplace_back(offset + lastLine.length());
-                            ++doneLines;
-                            offset += lastLine.size() + 1;
-                        }                
+                        nextBlock = std::shared_ptr<char>(new char[nextBlockSize],
+                                                          [] (char * c) { delete[] c; });
+                        std::copy(block.get() + lineOffsets.back(), block.get() + offset,
+                                  nextBlock.get());
                     }
 
                     myChunkNumber = chunkNumber++;
@@ -613,7 +616,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 const char * start = mem.data();
                 const char * current = start;
                 if (length > 0) {
-                    std::tie(current, splitterState) = splitter.nextBlock(start, length, splitterState);
+                    std::tie(current, splitterState) = splitter.nextBlock(start, length, nullptr, 0, splitterState);
                 }
                 const char * end = start + length;
                 size_t numLinesInBlock = 0;
@@ -655,7 +658,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                             return false;
                         }
 
-                        std::tie(current, splitterState) = splitter.nextBlock(current, end - current, splitterState);
+                        std::tie(current, splitterState) = splitter.nextBlock(current, end - current, nullptr, 0, splitterState);
 
                         //cerr << " current now = " << (void *)current << endl;
 

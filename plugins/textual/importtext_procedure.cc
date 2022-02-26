@@ -228,48 +228,72 @@ struct CSVSplitter: public BlockSplitterT<CSVSplitterState> {
     }
 
     virtual std::pair<const char *, CSVSplitterState>
-    nextBlockT(const char * current, size_t n, const CSVSplitterState & state) const override
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
+               const CSVSplitterState & state) const override
     {
-        const char * p = current;
-        const char * e = current + n;
+        const char * p = block1;
+        const char * e = block1 + n1;
+        int blockNum = 1;
 
         //cerr << "looking for next block with " << n << " characters" << endl;
 
         bool has8bit = false;
 
+        auto use_next_block = [&] () -> bool
+        {
+            if (blockNum != 1 || !block2 || n2 == 0)
+                return false;
+            ExcAssert(p == e);
+            p = block2;
+            e = block2 + n2;
+            return true;
+        };
+
         auto find_next_match = [&] (auto && match) -> char
         {
             if (MLDB_LIKELY(!has8bit)) {
-                for (; p < e;  ++p) {
-                    if (match(*p))
-                        return *p++;
-                    if ((*p & 128) && encoding == Encoding::UTF8) {
-                        has8bit = true;
-                        break;
+                do {
+                    for (; p < e;  ++p) {
+                        if (match(*p))
+                            return *p++;
+                        if ((*p & 128) && encoding == Encoding::UTF8) {
+                            has8bit = true;
+                            break;
+                        }
                     }
-                }
+                } while (use_next_block());
             }
             if (MLDB_UNLIKELY(has8bit)) {
                 // 8 bit characters means UTF-8 encodings
-                for (; p < e; /* no inc */) {
-                    if (*p & 128) {
-                        // If we're near the end, it's possible that the block ends
-                        // in the middle of an UTF-8 character.
-                        if (MLDB_UNLIKELY(p - e < 5)) {
-                            auto len = utf8::internal::sequence_length(p);
-                            if (len > (e - p)) {
+
+                do {
+                    for (; p < e; /* no inc */) {
+                        if (*p & 128) {
+                            auto charlen = utf8::internal::sequence_length(p);
+
+                            // If we're near the end, it's possible that the block ends
+                            // in the middle of an UTF-8 character.
+                            if (MLDB_UNLIKELY(charlen > (e - p))) {
                                 cerr << " (((( TRUNCATED IN MID CHARACTER )))" << endl;
-                                return 0;  // truncated
+                                int n = e - p;  // num chars from the previous block
+                                p = e;
+                                if (!use_next_block())
+                                    return 0;  // truncated
+                                p += charlen - n;
+                                if (p > e)
+                                    return 0;  // new block is truncated
+                            }
+                            else {
+                                p += charlen;
                             }
                         }
-                        utf8::advance(p, 1, e);
+                        else {
+                            if (match(*p))
+                                return *p++;
+                            ++p;
+                        }
                     }
-                    else {
-                        if (match(*p))
-                            return *p++;
-                        ++p;
-                    }
-                }
+                } while (use_next_block());
             }
             return 0;
         };

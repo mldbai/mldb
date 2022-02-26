@@ -17,7 +17,7 @@ from mldb import mldb, MldbUnitTest, ResponseException
 
 tmp_dir = os.getenv('TMP')
 
-languages = { 'en' } # { "de", "en", "es", "fr", "ja", "zh" }
+languages = { "de", "en", "es", "fr", "ja", "zh" }
 dataset = "train"  # "dev"  # "train"
 limit = 200000
 
