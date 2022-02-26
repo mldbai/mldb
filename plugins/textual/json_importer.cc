@@ -25,6 +25,7 @@
 #include "mldb/rest/cancellation_exception.h"
 #include "mldb/core/dataset_scope.h"
 #include "mldb/utils/log.h"
+#include "mldb/base/thread_pool.h"
 
 using namespace std;
 
