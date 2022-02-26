@@ -62,6 +62,7 @@ operator<< (const std::string & val)
         auto newVal = boost::replace_all_copy(val, quoteChar,
                                                 quoteChar + quoteChar);
         if (val.find(delimiterChar) != std::string::npos
+            || val.find('\n') != std::string::npos
             || newVal.size() != val.size())
         {
             out << quoteChar << newVal << quoteChar;
