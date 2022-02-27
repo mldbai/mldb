@@ -626,9 +626,9 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
     size_t capacity;
 
     std::tie(addr, size, capacity) = stream1.mapped();
-    cerr << "addr = " << (void *)addr << endl;
-    cerr << "size = " << size << endl;
-    cerr << "capacity = " << capacity << endl;
+    //cerr << "addr = " << (void *)addr << endl;
+    //cerr << "size = " << size << endl;
+    //cerr << "capacity = " << capacity << endl;
 
     BOOST_REQUIRE(addr != nullptr);
     BOOST_CHECK_EQUAL(strncmp(addr, "hello", 5), 0);
