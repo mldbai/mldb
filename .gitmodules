@@ -118,3 +118,6 @@
 [submodule "ext/fastmod"]
 	path = ext/fastmod
 	url = https://github.com/mldbai/fastmod.git
+[submodule "ext/simdjson"]
+	path = ext/simdjson
+	url = https://github.com/mldbai/simdjson.git
