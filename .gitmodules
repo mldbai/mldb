@@ -109,3 +109,6 @@
 [submodule "ext/catch2"]
 	path = ext/catch2
 	url = https://github.com/mldbai/Catch2.git
+[submodule "ext/simdjson"]
+	path = ext/simdjson
+	url = https://github.com/mldbai/simdjson.git
