@@ -275,6 +275,7 @@ void forEachLineBlock(std::istream & stream,
     // Memory map if possible
     const char * mapped = nullptr;
     size_t mappedSize = 0;
+    size_t mappedCapacity = 0;
 
     filter_istream * fistream = dynamic_cast<filter_istream *>(&stream);
 
@@ -282,7 +283,7 @@ void forEachLineBlock(std::istream & stream,
         // Can we get a memory mapped version of our stream?  It
         // saves us having to copy data.  mapped will be set to
         // nullptr if it's not possible to memory map this stream.
-        std::tie(mapped, mappedSize) = fistream->mapped();
+        std::tie(mapped, mappedSize, mappedCapacity) = fistream->mapped();
         auto info = fistream->info();
         if (info.size > 0) {
             BLOCK_SIZE = std::max<int64_t>(1000000, info.size / maxParallelism);

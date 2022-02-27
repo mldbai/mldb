@@ -31,6 +31,13 @@
 #include <unordered_map>
 #include "fs_utils.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/arch/vm.h"
+
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 
 
 using namespace std;
@@ -358,7 +365,7 @@ filter_ostream::
         close();
     }
     catch (...) {
-        cerr << "~filter_ostream: ignored exception\n";
+        cerr << "~filter_ostream: ignored exception\n" + MLDB::getExceptionString() + "\n";
     }
 }
 
@@ -1005,11 +1012,11 @@ fork(const std::map<std::string, std::string> & options) const
     return result;
 }
 
-std::pair<const char *, size_t>
+std::tuple<const char *, size_t, size_t>
 filter_istream::
 mapped() const
 {
-    return { handlerOptions.mapped, handlerOptions.mappedSize };
+    return { handlerOptions.mapped, handlerOptions.mappedSize, handlerOptions.mappedCapacity };
 }
 
 FsObjectInfo
@@ -1104,13 +1111,50 @@ struct RegisterFileHandler {
             } 
             else {
                 try {
-                    mapped_file_source source(resource);
+                    // Here is where we stick things we need to 
+                    using KeepMeAround = std::vector<std::shared_ptr<const void>>;
+                    auto keepMe = std::make_shared<KeepMeAround>();
+
+                    mapped_file_params params(resource);
+                    mapped_file_source source(params);
+
+                    cerr << "mapped file at " << (void *)source.data() << endl;
+
+                    size_t capacity = roundUpToPageSize(info.size);
+                    if (capacity - info.size < MAPPING_EXTRA_CAPACITY) {
+                        void * hint = (void *)(source.data() + capacity);
+                        // Attempt to map a guard page
+                        std::shared_ptr<void> addr
+                            (mmap(hint, page_size,
+                                PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0),
+                            [=] (void * p) { munmap(p, page_size); });
+
+                        if (addr.get() == MAP_FAILED) {
+                            throw Exception
+                                ("Failed to open memory map file: "
+                                + string(strerror(errno)));
+                        }
+                        if (addr.get() != (source.data() + capacity)) {
+                            cerr << "addr.get() = " << (void *)addr.get() << endl;
+                            cerr << "hint = " << hint << endl;
+                            cerr << "couldn't map guard page or didn't map at the right address" << endl;
+                        }
+                        else {
+                            keepMe->emplace_back(std::move(addr));
+                            capacity += page_size;
+                        }
+                    }
+
                     shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
                 
                     UriHandlerOptions options;
                     options.mapped = source.data();
-                    options.mappedSize = source.size();
-                    return UriHandler(buf.get(), buf, info, options);
+                    options.mappedSize = info.size;
+                    options.mappedCapacity = capacity;
+
+                    keepMe->emplace_back(buf);
+
+                    return UriHandler(buf.get(), std::move(keepMe), info, options);
                 } catch (const std::exception & exc) {
                     throw MLDB::Exception("Opening file " + resource + ": "
                                         + exc.what());

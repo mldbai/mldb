@@ -607,8 +607,15 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
     filter_istream stream1("file://mldb/utils/testing/fixtures/hello.txt",
                            { { "mapped", "true" } });
 
-    BOOST_REQUIRE(stream1.mapped().first != nullptr);
-    BOOST_CHECK_EQUAL(strncmp(stream1.mapped().first, "hello", 5), 0);
+    const char * addr;
+    size_t size;
+    size_t capacity;
+
+    std::tie(addr, size, capacity) = stream1.mapped();
+
+    BOOST_REQUIRE(addr != nullptr);
+    BOOST_CHECK_EQUAL(strncmp(addr, "hello", 5), 0);
+    BOOST_CHECK_GE(strncmp(std::get<0>(stream1.mapped()), "hello", 5), 0);
 
     std::string str;
     getline(stream1, str);
@@ -623,6 +630,34 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
 
     BOOST_CHECK_EQUAL(str, "hello");
     stream2.close();
+
+    // Verify that the mapped stream has extra space beyond the end even when it's
+    // a multiple of the page size (16kb is chosen instead of 4k because that's the
+    // page size of arm64 based macs, which have the largest pages of supported
+    // hosts for MLDB).
+    filter_istream stream3("file://mldb/utils/testing/fixtures/16kbofones.txt",
+                           { { "mapped", "true" } });
+    
+    std::tie(addr, size, capacity) = stream3.mapped();
+    cerr << "addr = " << (const void *)addr << endl;
+    cerr << "size = " << size << endl;
+    cerr << "capacity = " << capacity << endl;
+
+    BOOST_REQUIRE(addr != nullptr);
+    BOOST_REQUIRE_EQUAL(size, 16384);
+    BOOST_REQUIRE_GE(capacity, 16384 + MAPPING_EXTRA_CAPACITY);
+
+    // Verify the contents of the mapped file
+    for (size_t i = 0;  i < 16384;  ++i) {
+        BOOST_CHECK_EQUAL(addr[i], '1');
+    }
+
+    // Verify that we can read beyond the end and that it returns zeros (anything
+    // else indicates uninitialized memory which is a security risk and will trigger
+    // undefined behaviour / address sanitizer / valgrind issues).
+    for (size_t i = size;  i < capacity;  ++i) {
+        BOOST_CHECK_EQUAL(addr[i], 0);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(test_empty_filter_stream_mapped)
@@ -631,9 +666,9 @@ BOOST_AUTO_TEST_CASE(test_empty_filter_stream_mapped)
     stream.open("file://mldb/utils/testing/fixtures/empty.txt",
                 { { "mapped", "true" } });
     // we cannot map an empty file
-    auto mapped = stream.mapped();
-    BOOST_CHECK_EQUAL(mapped.first, (char *)nullptr);
-    BOOST_CHECK_EQUAL(mapped.second, 0);
+    auto [addr, size, capacity] = stream.mapped();
+    BOOST_CHECK_EQUAL(addr, (char *)nullptr);
+    BOOST_CHECK_EQUAL(size, 0);
     // but we can read it without failing
     BOOST_CHECK_EQUAL(stream.readAll(), "");
 }

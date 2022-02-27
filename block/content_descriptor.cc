@@ -649,8 +649,9 @@ struct UrlContentHandler
     {
         const char * data;
         size_t len;
+        size_t capacity;
 
-        std::tie(data, len) = stream.mapped();
+        std::tie(data, len, capacity) = stream.mapped();
         if (data && length) {
             if (length == -1)
                 length = len - offset;
