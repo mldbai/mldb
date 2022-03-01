@@ -14,6 +14,7 @@
 #include <cstring>
 #include <iostream>
 #include <utility>
+#include <string_view>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -49,6 +50,12 @@ struct PathElement {
     PathElement(std::string str);
     PathElement(const char * str, size_t len);
     PathElement(const char * str, size_t len, int digits);
+
+    PathElement(const std::string_view & str)
+        : PathElement(str.data(), str.length())
+    {
+    }
+
     PathElement(const char * str)
         : PathElement(str, std::strlen(str))
     {

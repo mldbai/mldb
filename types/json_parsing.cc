@@ -85,20 +85,31 @@ bool matchJsonNumber(ParseContext & context, JsonNumber & num);
 /* JSON UTILITIES                                                            */
 /*****************************************************************************/
 
-void skipJsonWhitespace(ParseContext & context)
+bool skipJsonWhitespace(ParseContext & context)
 {
     // Fast-path for the usual case for not EOF and no whitespace
     if (MLDB_LIKELY(!context.eof())) {
         char c = *context;
         if (c > ' ') {
-            return;
+            return false;
         }
         if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
-            return;
+            return false;
     }
 
-    while (!context.eof()
-           && (context.match_whitespace() || context.match_eol()));
+    bool result = false;
+    while (!context.eof()) {
+        if (*context == '\n')
+            result = true;
+
+        if (context.match_whitespace() || context.match_eol())
+            continue;
+        break;
+    }
+
+    ExcAssert(context.eof() || !isspace(*context));
+
+    return result;
 }
 
 bool matchJsonString(ParseContext & context, std::string & str)
@@ -713,20 +724,21 @@ JsonNumber expectJsonNumber(ParseContext & context)
 
 JsonPathEntry::
 JsonPathEntry(int index)
-    : index(index), keyStr(0), keyPtr(0), fieldNumber(0)
+    : index(index), keyStr(0), keyPtr(0), keyLength(0), fieldNumber(0)
 {
 }
     
 JsonPathEntry::
-JsonPathEntry(const std::string & key)
-    : index(-1), keyStr(new std::string(key)), keyPtr(keyStr->c_str()),
+JsonPathEntry(std::string key)
+    : index(-1), keyStr(new std::string(std::move(key))), keyPtr(keyStr->c_str()),
+      keyLength(keyStr->size()), fieldNumber(0)
+{
+}
+    
+JsonPathEntry::
+JsonPathEntry(std::string_view keyView)
+    : index(-1), keyStr(nullptr), keyPtr(keyView.data()), keyLength(keyView.length()),
       fieldNumber(0)
-{
-}
-    
-JsonPathEntry::
-JsonPathEntry(const char * keyPtr)
-    : index(-1), keyStr(nullptr), keyPtr(keyPtr), fieldNumber(0)
 {
 }
 
@@ -743,6 +755,7 @@ operator = (JsonPathEntry && other) noexcept
     index = other.index;
     keyPtr = other.keyPtr;
     keyStr = other.keyStr;
+    keyLength = other.keyLength;
     fieldNumber = other.fieldNumber;
     other.keyStr = nullptr;
     other.keyPtr = nullptr;
@@ -760,14 +773,14 @@ std::string
 JsonPathEntry::
 fieldName() const
 {
-    return keyStr ? *keyStr : std::string(keyPtr);
+    return keyStr ? *keyStr : string(fieldNameView());
 }
 
-const char *
+std::string_view
 JsonPathEntry::
-fieldNamePtr() const
+fieldNameView() const
 {
-    return keyPtr;
+    return {keyPtr, keyLength};
 }
 
 
@@ -803,11 +816,11 @@ fieldName() const
     return this->back().fieldName();
 }
 
-const char *
+std::string_view
 JsonPath::
-fieldNamePtr() const
+fieldNameView() const
 {
-    return this->back().fieldNamePtr();
+    return this->back().fieldNameView();
 }
 
 int
@@ -885,11 +898,11 @@ fieldName() const
     return path->fieldName();
 }
 
-const char *
+std::string_view
 JsonParsingContext::
-fieldNamePtr() const
+fieldNameView() const
 {
-    return path->fieldNamePtr();
+    return path->fieldNameView();
 }
 
 int
@@ -1043,6 +1056,14 @@ init(const std::string & filename, std::istream & stream,
 
 void
 StreamingJsonParsingContext::
+skipJsonWhitespace() const
+{
+    bool newNewlines = MLDB::skipJsonWhitespace(*context);
+    hasEmbeddedNewlines = hasEmbeddedNewlines || newNewlines;
+}
+
+void
+StreamingJsonParsingContext::
 forEachMember(const std::function<void ()> & fn)
 {
     return forEachMember<std::function<void ()> >(fn);
@@ -1171,7 +1192,7 @@ bool
 StreamingJsonParsingContext::
 isObject() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == '{';
 }
@@ -1180,7 +1201,7 @@ bool
 StreamingJsonParsingContext::
 isString() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == '\"';
 }
@@ -1189,7 +1210,7 @@ bool
 StreamingJsonParsingContext::
 isArray() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == '[';
 }
@@ -1198,7 +1219,7 @@ bool
 StreamingJsonParsingContext::
 isBool() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == 't' || c == 'f';
         
@@ -1208,7 +1229,7 @@ bool
 StreamingJsonParsingContext::
 isInt() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     // Short circuit for EOF or not a digit or negative sign
     if (!context || (!isdigit(*context) && (char(*context) != '-')))
@@ -1237,7 +1258,7 @@ bool
 StreamingJsonParsingContext::
 isUnsigned() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     // Find the offset at which an integer finishes
     size_t offset1;
@@ -1262,7 +1283,7 @@ bool
 StreamingJsonParsingContext::
 isNumber() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     ParseContext::Revert_Token token(*context);
     double d;
     if (context->match_double(d))
@@ -1274,7 +1295,7 @@ bool
 StreamingJsonParsingContext::
 isNull() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     ParseContext::Revert_Token token(*context);
     if (context->match_literal("null"))
         return true;
@@ -1337,7 +1358,7 @@ expectStringUtf8(char * buffer, size_t maxLen)
 {
     ParseContext::Revert_Token token(*context);
 
-    skipJsonWhitespace((*context));
+    skipJsonWhitespace();
     context->expect_literal('"');
 
     size_t pos = 0;
@@ -1393,55 +1414,56 @@ expectStringUtf8()
 
 void
 StreamingJsonParsingContext::
-expectJsonObjectUtf8(const std::function<void (const char *, size_t)> & onEntry)
+expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry)
 {
-    MLDB::skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     if (context->match_literal("null"))
         return;
 
     context->expect_literal('{');
 
-    MLDB::skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     if (context->match_literal('}')) return;
 
     for (;;) {
-        MLDB::skipJsonWhitespace(*context);
+        skipJsonWhitespace();
 
         char keyBuffer[1024];
-
         ssize_t done = expectStringUtf8(keyBuffer, 1024);
+        cerr << "done = " << done << endl;
+
         if (done != -1) {
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
 
             context->expect_literal(':');
 
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
 
-            onEntry(keyBuffer, done);
+            cerr << "onEntry: key = " << string_view{keyBuffer, (size_t)done} << endl;
+            onEntry(string_view{keyBuffer, (size_t)done});
 
-            skipJsonWhitespace(*context);
-
+            skipJsonWhitespace();
         }
         else {
             Utf8String name = expectStringUtf8();
             
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
             
             context->expect_literal(':');
             
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
 
-            onEntry(name.rawData(), name.rawLength());
+            onEntry(string_view{name.rawData(), name.rawLength()});
         }
 
-        skipJsonWhitespace(*context);
+        skipJsonWhitespace();
 
         if (!context->match_literal(',')) break;
     }
 
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     context->expect_literal('}');
 }
 
@@ -1449,14 +1471,14 @@ bool
 StreamingJsonParsingContext::
 eof() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     return context->eof();
 }
 
 Json::Value
 expectJson(ParseContext & context)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     if (*context == '"')
         return expectJsonStringUtf8(context);
     else if (context.match_literal("null"))
@@ -1496,46 +1518,193 @@ expectJson(ParseContext & context)
     }
 }
 
-Json::Value
+// Returns true if there was a valid record, or false if there wasn't
+bool skipJson(ParseContext & context);
+
+bool skipJsonNumber(ParseContext & context)
+{
+    if (context.match_literal('-')) {
+    }
+
+    if (context.match_literal('N')) {
+        if (!context.match_literal("aN"))
+            return false;
+        return true;
+    }
+    else if (context.match_literal('n')) {
+        if (!context.match_literal("an"))
+            return false;
+        return true;
+    }
+    else if (context.match_literal('I') || context.match_literal('i')) {
+        if (!context.match_literal("nf"))
+            return false;
+        return true;
+    }
+
+    bool hasDigit = false;
+    while (context && isdigit(*context)) {
+        context++;
+        hasDigit = true;
+    }
+
+    if (context.match_literal('.')) {
+        while (context && isdigit(*context)) {
+            context++;
+            hasDigit = true;
+        }
+    }
+
+    if (!hasDigit)
+        return false;
+
+    char sci = context ? *context : '\0';
+    if (sci == 'e' || sci == 'E') {
+        context++;
+
+        char sign = context ? *context : '\0';
+        if (sign == '+' || sign == '-') {
+            context++;
+        }
+
+        while (context && isdigit(*context)) {
+            context++;
+        }
+    }
+
+    return true;
+}
+
+inline bool skipEscapedJsonCharacterPointUtf8(ParseContext & context)
+{
+    if (!context)
+        return false;
+
+    int c = *context++;
+
+    switch (c) {
+    case 't':
+    case 'n':
+    case 'r':
+    case 'f':
+    case 'b':
+    case '/':
+    case '\\':
+    case '"':
+        return true;
+    case 'u':
+        return context.match_hex4(c);
+    default:
+        return false;
+    }
+
+    return true;
+    return c;
+}
+
+bool skipJsonStringUtf8(ParseContext & context)
+{
+    skipJsonWhitespace(context);
+    if (!context.match_literal('"'))
+        return false;
+
+    for (;;) {
+        if (!context)
+            return false;
+        if (context.match_literal('"'))
+            return true;
+
+        int c = *context;
+        if (c < 0 || c > 127) {
+            // Unicode
+            c = utf8::unchecked::next(context);
+            continue;
+        }
+        ++context;
+
+        if (c == '\\') {
+            if (!skipEscapedJsonCharacterPointUtf8(context))
+                return false;
+        }
+    }
+}
+
+bool skipJsonArray(ParseContext & context)
+{
+    skipJsonWhitespace(context);
+    if (context.match_literal("null"))
+        return true;
+    if (!context.match_literal('['))
+        return false;
+    skipJsonWhitespace(context);
+    if (context.match_literal(']')) return true;
+
+    for (int i = 0;  ; ++i) {
+        skipJsonWhitespace(context);
+        if (!skipJson(context))
+            return false;
+        skipJsonWhitespace(context);
+
+        if (!context.match_literal(',')) break;
+    }
+
+    skipJsonWhitespace(context);
+    return context.match_literal(']');
+}
+
+bool
+skipJsonObject(ParseContext & context)
+{
+    skipJsonWhitespace(context);
+
+    if (context.match_literal("null"))
+        return true;
+
+    if (!context.match_literal('{'))
+        return false;
+
+    skipJsonWhitespace(context);
+
+    if (context.match_literal('}')) return true;
+
+    for (;;) {
+        skipJsonWhitespace(context);
+        if (!skipJsonStringUtf8(context))
+            return false;
+        skipJsonWhitespace(context);
+        if (!context.match_literal(':'))
+            return false;
+        skipJsonWhitespace(context);
+        if (!skipJson(context))
+            return false;
+        skipJsonWhitespace(context);
+        if (!context.match_literal(',')) break;
+    }
+
+    skipJsonWhitespace(context);
+    return context.match_literal('}');
+}
+
+bool
 skipJson(ParseContext & context)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
+    if (!context)
+        return false;
     if (*context == '"')
-        return expectJsonStringUtf8(context);
+        return skipJsonStringUtf8(context);
     else if (context.match_literal("null"))
-        return Json::Value();
+        return true;
     else if (context.match_literal("true"))
-        return Json::Value(true);
+        return true;
     else if (context.match_literal("false"))
-        return Json::Value(false);
+        return true;
     else if (*context == '[') {
-        Json::Value result(Json::arrayValue);
-        expectJsonArray(context,
-                        [&] (int i, ParseContext & context)
-                        {
-                            result[i] = expectJson(context);
-                        });
-        return result;
+        return skipJsonArray(context);
     } else if (*context == '{') {
-        Json::Value result(Json::objectValue);
-        expectJsonObject(context,
-                         [&] (const std::string & key, ParseContext & context)
-                         {
-                             result[key] = expectJson(context);
-                         });
-        return result;
+        return skipJsonObject(context);
     } else {
-        JsonNumber number = expectJsonNumber(context);
-        switch (number.type) {
-        case JsonNumber::UNSIGNED_INT:
-            return number.uns;
-        case JsonNumber::SIGNED_INT:
-            return number.sgn;
-        case JsonNumber::FLOATING_POINT:
-            return number.fp;
-        default:
-            throw MLDB::Exception("logic error in expectJson");
-        }
+        return skipJsonNumber(context);
     }
 }
 

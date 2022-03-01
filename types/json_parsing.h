@@ -11,6 +11,7 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <string_view>
 
 namespace Json {
 struct Value;
@@ -95,7 +96,8 @@ bool
 matchJsonObject(ParseContext & context,
                 const std::function<bool (const std::string &, ParseContext &)> & onEntry);
 
-void skipJsonWhitespace(ParseContext & context);
+/// Skip the whitespace.  Returns true if a newline was skipped.
+bool skipJsonWhitespace(ParseContext & context);
 
 Json::Value expectJson(ParseContext & context);
 
@@ -117,10 +119,10 @@ struct JsonPathEntry {
     JsonPathEntry(int index);
     
     /// Construct to hold an element name.  Key must be UTF-8 encoded.
-    JsonPathEntry(const std::string & key);
+    JsonPathEntry(std::string key);
     
     /// Construct to hold an element name.  Key must be UTF-8 encoded.
-    JsonPathEntry(const char * keyPtr);
+    JsonPathEntry(std::string_view key);
 
     /// Move constructor
     JsonPathEntry(JsonPathEntry && other) noexcept;
@@ -133,6 +135,7 @@ struct JsonPathEntry {
     int index;            ///< For an array index, the index, otherwise -1
     std::string * keyStr; ///< Owned string version of the key
     const char * keyPtr;  ///< Pointer to owned const char * of key
+    uint32_t keyLength;   ///< Length of key when keyPtr is used
     int fieldNumber;      ///< Field number in owning structure
 
     /// Return the name of the field.  Throws if it's an array index
@@ -140,7 +143,7 @@ struct JsonPathEntry {
 
     /// Return a zero-allocation name of the field.  Throws if it's an array
     /// index.  String is owned by this and reference must not outlive it.
-    const char * fieldNamePtr() const;
+    std::string_view fieldNameView() const;
 };
 
 struct JsonPath;
@@ -181,7 +184,7 @@ struct JsonParsingContext {
     /// Return the outermost field name.  Throws if currently in an array or
     /// at the root.  Zero allocation but string is only valid until path is
     /// modified.
-    const char * fieldNamePtr() const;
+    std::string_view fieldNameView() const;
 
     /// Returns the outermost array index.  Throws if not currently in an
     /// array.
@@ -420,6 +423,14 @@ struct StreamingJsonParsingContext
     ParseContext * context;
     std::unique_ptr<ParseContext> ownedContext;
 
+    /// Will be set to true wherever there are embedded newlines in the parsed text.
+    /// This can be used to figure out if optimizations to look for JSON record
+    /// boundaries on newlines can be used.
+    mutable bool hasEmbeddedNewlines = false;
+
+    /// Skip the whitespace
+    void skipJsonWhitespace() const;
+
     template<typename Fn>
     void forEachMember(const Fn & fn)
     {
@@ -429,7 +440,7 @@ struct StreamingJsonParsingContext
         // path entry.  It will make sure the member is always
         // popped no matter what.  Out of line here for clang 3.4.
         struct PathPusher {
-        PathPusher(const char * memberName,
+        PathPusher(std::string_view memberName,
                    int memberNum,
                    StreamingJsonParsingContext * context)
         : context(context)
@@ -445,7 +456,7 @@ struct StreamingJsonParsingContext
             StreamingJsonParsingContext * const context;
         };
 
-        auto onMember = [&] (const char * memberName, size_t nameLen)
+        auto onMember = [&] (std::string_view memberName)
             {
                 PathPusher pusher(memberName, memberNum++, this);
                 fn();
@@ -540,7 +551,7 @@ struct StreamingJsonParsingContext
 
     virtual std::string printCurrent();
 
-    void expectJsonObjectUtf8(const std::function<void (const char *, size_t)> & onEntry);
+    void expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry);
 
     virtual bool eof() const;
 };

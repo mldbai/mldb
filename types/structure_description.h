@@ -12,6 +12,7 @@
 #include "value_description.h"
 #include "utility_descriptions.h"
 #include <cstring>
+#include <string_view>
 
 namespace MLDB {
 
@@ -64,10 +65,10 @@ struct StructureDescriptionBase {
     // in the map and so for comparisons to be done with no memory
     // allocations.
     struct StrCompare {
-        bool operator () (const char * s1, const char * s2) const;
+        bool operator () (const std::string_view & s1, const std::string_view & s2) const;
     };
 
-    typedef std::map<const char *, FieldDescription, StrCompare> Fields;
+    typedef std::map<std::string_view, FieldDescription, StrCompare> Fields;
     Fields fields;
 
     /* A deleter that works with buffers allocated with malloc */

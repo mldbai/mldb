@@ -27,6 +27,12 @@ void jsonEscape(const std::string & str, std::ostream & out);
 
 void jsonEscape(const std::string & str, std::string & out);
 
+void jsonEscape(const char * str, size_t len, std::ostream & out);
+
+void jsonEscape(const char * str, size_t len, std::string & out);
+
+std::string jsonEscape(const char * str, size_t len);
+
 bool isJsonValidAscii(char c);
 
 /*****************************************************************************/

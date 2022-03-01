@@ -31,7 +31,7 @@ struct JsonPath: public compact_vector<JsonPathEntry, 8> {
 
     /// Zero allocation return of name of the outermost element.  Throws if
     /// in an array.  String is owned by this and reference must not outlive it.
-    const char * fieldNamePtr() const;
+    std::string_view fieldNameView() const;
 
     /// Field number of the outermost element.  Throws if not in an array.
     int fieldNumber() const;

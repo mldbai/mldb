@@ -1647,10 +1647,9 @@ parseJson(JsonParsingContext & context,
 
         auto onObjectField = [&] ()
             {
-                const char * fieldName = context.fieldNamePtr();
-                out.emplace_back
-                    (PathElement(fieldName, strlen(fieldName)),
-                 parseJson(context, timestamp, arrays));
+                std::string_view fieldName = context.fieldNameView();
+                out.emplace_back(PathElement(fieldName),
+                                 parseJson(context, timestamp, arrays));
             };
         context.forEachMember(onObjectField);
 

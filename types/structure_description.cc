@@ -48,8 +48,8 @@ operator = (const StructureDescriptionBase & other)
 
     // Don't set owner
     for (auto & f: other.orderedFields) {
-        const char * s = f->first;
-        fieldNames.emplace_back(::strdup(s));
+        std::string_view s = f->first;
+        fieldNames.emplace_back(::strndup(s.data(), s.size()));
         auto it = fields.insert(make_pair(fieldNames.back().get(), f->second))
             .first;
         orderedFields.push_back(it);
@@ -122,7 +122,7 @@ parseJson(void * output, JsonParsingContext & context) const
         auto onMember = [&] ()
             {
                 try {
-                    auto n = context.fieldNamePtr();
+                    auto n = context.fieldNameView();
 
                     auto it = fields.find(n);
                     if (it == fields.end()) {
@@ -194,7 +194,7 @@ printJson(const void * input, JsonPrintingContext & context) const
             //const unsigned char * mbrBytes = (const unsigned char *)mbr;
             //cerr << format("%02x %02x %02x %02x", mbrBytes[0], mbrBytes[1], mbrBytes[2], mbrBytes[3]);
             //cerr << " bits " << bitField.startBit << ":" << bitField.bitWidth << " = " << fd.description->printJsonString(data) << endl;
-            context.startMember(it->first);
+            context.startMember(it->first.data(), it->first.length());
             fd.description->printJson(data, context);
             //cerr << "  bit field value " << fd.description->printJsonString(data) << endl;
         }
@@ -203,7 +203,7 @@ printJson(const void * input, JsonPrintingContext & context) const
                 //cerr << "  skipping due to default value" << endl;
                 continue;
             }
-            context.startMember(it->first);
+            context.startMember(it->first.data(), it->first.length());
             fd.description->printJson(mbr, context);
             //cerr << "  member value " << fd.description->printJsonString(mbr);
         }
@@ -217,8 +217,11 @@ printJson(const void * input, JsonPrintingContext & context) const
 // allocations.
 bool
 StructureDescriptionBase::StrCompare::
-operator () (const char * s1, const char * s2) const
+operator () (const std::string_view & v1, const std::string_view & v2) const
 {
+    return v1 < v2;
+
+#if 0
     char c1 = *s1++, c2 = *s2++;
 
     if (c1 < c2) return true;
@@ -232,6 +235,7 @@ operator () (const char * s1, const char * s2) const
     if (c1 == 0) return false;
 
     return std::strcmp(s1, s2) < 0;
+#endif
 }
 
 StructureDescriptionBase::FieldDescription &
