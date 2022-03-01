@@ -18,8 +18,9 @@ from mldb import mldb, MldbUnitTest, ResponseException
 tmp_dir = os.getenv('TMP')
 
 languages = { "de", "en", "es", "fr", "ja", "zh" }
-dataset = "train"  # "dev"  # "train"
-limit = 200000
+languages = {}
+dataset = "dev"  # "dev"  # "train"
+limit = 5000
 
 for language in languages:
     res = mldb.put(f'/v1/procedures/load_json_multilingual_reviews_{language}', {
@@ -75,9 +76,10 @@ for language in languages:
         mldb.log(res)
         assert len(res) == 1, str(res)
 
-datafile = "file://mldb_test_data/reviews_Digital_Music_5.json.zstd"
-#datafile = "file://mldb_test_data/Books_5.json.zstd"
-limit = 64706
+#datafile = "file://mldb_test_data/reviews_Digital_Music_5.json.zstd"
+datafile = "file://mldb_test_data/Books_5.json.zstd"
+#limit = 64706
+limit=1000000
 
 res = mldb.put('/v1/procedures/load_json_reviews', {
     "type": "import.json",
