@@ -581,7 +581,7 @@ freeze(MappedSerializer & serializer)
     Date after = Date::now();
     double elapsed = after.secondsSince(before);
 
-    if (numSamples > 1000) {
+    if (numSamples > 1000 && false) {
         cerr << "compressed " << numSamples << " samples with "
             << uncompressedBytes << " bytes to " << compressedBytes
             << " bytes at " << 100.0 * compressedBytes / uncompressedBytes

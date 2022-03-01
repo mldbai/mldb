@@ -367,7 +367,7 @@ train(const std::vector<std::string> & blobs,
         valNumber += 1;
     }
 
-    Date before = Date::now();
+    //Date before = Date::now();
 
     // Perform the dictionary training
     size_t res = ZDICT_trainFromBuffer(dictionary.data(),
@@ -382,12 +382,12 @@ train(const std::vector<std::string> & blobs,
         
     dictionary.resize(res);
 
-    Date after = Date::now();
-    double elapsed = after.secondsSince(before);
+    //Date after = Date::now();
+    //double elapsed = after.secondsSince(before);
 
-    cerr << "created dictionary of " << res << " bytes from "
-         << currentOffset << " bytes of samples in "
-         << elapsed << " seconds" << endl;
+    //cerr << "created dictionary of " << res << " bytes from "
+    //     << currentOffset << " bytes of samples in "
+    //     << elapsed << " seconds" << endl;
 
     auto itl = std::make_shared<Itl>();
     auto dictRegion
