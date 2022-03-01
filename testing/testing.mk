@@ -552,3 +552,4 @@ $(eval $(call mldb_unit_test,benchmark-tweets.js,,manual))
 $(eval $(call mldb_unit_test,benchmark-airlines.js,,manual))
 
 $(eval $(call mldb_unit_test,csv_line_breaks_test.py))
+$(eval $(call mldb_unit_test,json_import_flavor_test.py))

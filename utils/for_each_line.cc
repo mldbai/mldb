@@ -329,10 +329,11 @@ void forEachLineBlock(std::istream & stream,
                     while (current && current < end && (current - start) < BLOCK_SIZE
                            && (maxLines == -1 || doneLines < maxLines)) { //stop processing new line when we have enough)
                         std::tie(current, splitterState) = splitter.nextBlock(current, end - current, nullptr, 0, splitterState);
-                        if (current && current < end) {
-                            ExcAssertEqual(*current, '\n');
+                        if (current) {
                             lineOffsets.push_back(current - start);
                             ++doneLines;
+                            if (current == end)
+                                break;
                             ++current;
                         }
                     }
@@ -396,7 +397,7 @@ void forEachLineBlock(std::istream & stream,
                         while (current && current < end) {
                             std::tie(current, splitterState) = splitter.nextBlock(current, end - current, nullptr, 0, splitterState);
                             if (current && current < end) {
-                                ExcAssertEqual(*current, '\n');
+                                //ExcAssertEqual(*current, '\n');
                                 if (lineOffsets.back() != current - block.get()) {
                                     lineOffsets.push_back(current - block.get());
                                     ++doneLines;

@@ -30,6 +30,7 @@ struct BlockSplitter {
     virtual ~BlockSplitter() = default;
     virtual std::any newState() const = 0;
     virtual bool isStateless() const { return false; };
+    virtual size_t requiredBlockPadding() const { return 0; }
     virtual std::pair<const char *, std::any>
     nextBlock(const char * block1, size_t n1, const char * block2, size_t n2, const std::any & state) const = 0;
 };
