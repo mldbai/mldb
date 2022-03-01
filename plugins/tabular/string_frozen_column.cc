@@ -229,9 +229,9 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
         double elapsed = after.secondsSince(before);
         before = after;
 
-        cerr << "created dictionary of " << result << " bytes from "
-             << currentOffset << " bytes of samples in "
-             << elapsed << " seconds" << endl;
+        //cerr << "created dictionary of " << result << " bytes from "
+        //     << currentOffset << " bytes of samples in "
+        //     << elapsed << " seconds" << endl;
 
         // Now compress another 1MB to see what the ratio is...
         std::shared_ptr<ZSTD_CDict> dict
@@ -271,7 +271,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
         after = Date::now();
         elapsed = after.secondsSince(before);
 
-        if (numSamples > 1000) {
+        if (numSamples > 1000 && false) {
             cerr << "compressed " << numSamples << " samples with "
                 << uncompressedBytes << " bytes to " << compressedBytes
                 << " bytes at " << 100.0 * compressedBytes / uncompressedBytes
