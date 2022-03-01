@@ -164,11 +164,15 @@ struct ParseContext {
         if (*cur_ == c) { operator ++();  return true; }
         return false;
     }
-    
+
+    [[noreturn]] void throw_expect_literal_char_error(char c, const char * error);
+
     /** Expect a literal character.  Throws if the character is not matched. */
-    void expect_literal(char c, const char * error = "expected '%c', got '%c'")
+    void expect_literal(char c, const char * error = "expected '%c', got '%c' (%i)")
     {
-        if (!match_literal(c)) exception_fmt(error, c, (eof() ? '\0' : *cur_));
+        if (MLDB_UNLIKELY(!match_literal(c))) {
+            throw_expect_literal_char_error(c, error);
+        }
     }
     
     /** Match a literal string.  Returns true if it was matched and false if

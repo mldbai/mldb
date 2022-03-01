@@ -466,6 +466,17 @@ exception_fmt(const char * fmt, ...) const
     exception(str);
 }
 
+void
+ParseContext::
+throw_expect_literal_char_error(char c, const char * error)
+{
+    unsigned char ccur = (eof() ? '\xff' : *cur_);
+    if (ccur == 0)
+        ccur = '0';
+    int icur = eof() ? -1 : *cur_;
+    exception_fmt(error, c, ccur, icur);
+}
+
 bool
 ParseContext::
 match_literal_str(const char * start, size_t len)
