@@ -3433,7 +3433,7 @@ bind(SqlBindingScope & context) const
                          const VariableFilter & filter) -> const ExpressionValue &
             {
                 StructValue result;
-                result.reserve(boundClauses.size());
+                result.reserve(std::min<size_t>(boundClauses.size(), 32));
                 for (auto & c: boundClauses) {
                     ExpressionValue storage;
                     const ExpressionValue & v = c(context, storage, filter);
