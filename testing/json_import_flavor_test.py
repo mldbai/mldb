@@ -76,7 +76,7 @@ res = mldb.put('/v1/procedures/load_json_reviews', {
     "params": {
         'runOnCreation': True,
         'outputDataset':{'id' : 'reviews_json', 'type' : 'tabular'},
-        'select': "* EXCLUDING (image), lineNumber() AS linenumber",
+        'select': "* EXCLUDING (image)",
         "dataFileUrl": datafile,
         'limit': limit
     }
