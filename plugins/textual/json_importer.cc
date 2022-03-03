@@ -270,7 +270,7 @@ struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
 };
 
 /*****************************************************************************/
-/* STRUCTURED JSON PARSING CONTEXT                                           */
+/* SIMDJSON PARSING CONTEXT                                                  */
 /*****************************************************************************/
 
 /** This allows an already parsed generic JSON object to be presented to
@@ -504,11 +504,518 @@ struct SimdJsonParsingContext: public JsonParsingContext {
     }
 };
 
+struct PredictiveExpressionValueParser {
+
+    virtual ~PredictiveExpressionValueParser() = default;
+
+    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
+                       Date timestamp, JsonArrayHandling arrays) = 0;
+
+    virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
+    {
+        return nullptr;
+    }
+
+    //virtual bool fallback(ExpressionValue & val, JsonParsingContext & context)
+    //{
+    //    val = ExpressionValue::parseJson(context, timestamp, arrays);
+    //    return false;
+    //}
+
+    static std::shared_ptr<PredictiveExpressionValueParser>
+    create(ExpressionValue & val, JsonParsingContext & context,
+           Date timestamp, JsonArrayHandling arrays);
+};
+
+struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
+
+    /// Information about a field we're parsing
+    struct FieldEntry {
+        /// Key we're expecting to find
+        PathElement key;
+
+        /// Specialized parser for when we encounter it
+        std::shared_ptr<PredictiveExpressionValueParser> parser;
+
+        /// Position of this field in the output
+        int position = -1;
+
+        struct OutEdge {
+            PathElement key;
+            int fieldNumber = -1;
+            uint32_t takenCount = 0;
+        };
+
+        /// Next possible fields, in order of probability.
+        std::vector<OutEdge> outEdges;
+
+        /// How many times have we seen it present
+        uint32_t isPresentCount = 0;
+
+        /// How many times did we successfully parse it?
+        uint32_t parserSuccessCount = 0;
+
+        void learn()
+        {
+            if (parser && parserSuccessCount < isPresentCount) {
+                auto newParser = parser->learn();
+                if (newParser)
+                    parser = newParser;
+                parserSuccessCount = isPresentCount;
+            }
+
+            auto compareEdges = [] (const OutEdge & e1, const OutEdge & e2)
+            {
+                return e1.takenCount > e2.takenCount;   
+            };
+
+            std::sort(outEdges.begin(), outEdges.end(), compareEdges);
+        }
+    };
+
+    /// Graph origin/start node (doesn't have a key or a position, just out edges)
+    FieldEntry origin;
+
+    /// Graph of all nodes (the fields)
+    std::vector<FieldEntry> fields;
+
+    /// Number of fixed fields (fixed fields have an assigned position in the output)
+    int numFixedFields = 0;
+
+    /// Index of key name to order of encounter
+    std::map<PathElement, int> keysIndex;
+
+    int32_t numCalls = 0;
+    int32_t numSuccesses = 0;
+    int32_t numFailures = 0;
+    int32_t extraFields = 0;
+    int32_t missingFields = 0;
+
+    virtual ~StructureExpressionValueParser()
+    {
+        if (numCalls >= 0) {
+            cerr << "calls: " << numCalls << " successes: " << numSuccesses << " failures: " << numFailures
+                 << " extraFields: " << extraFields << " missingFields: " << missingFields << endl;
+        }
+        cerr << "  field origin has " << origin.outEdges.size() << " edges" << endl;
+        for (int i = -1;  i < (int)fields.size();  ++i) {
+            auto & field = (i == -1 ? origin : fields[i]);
+            cerr << "  " << i << ": field " << field.key << " has " << field.outEdges.size() << " edges" << endl;
+            for (auto & [name, to, count]: field.outEdges) {
+                cerr << "    to " << to << " : " << count << endl;
+            }
+        }
+        //for (auto & [name, entry]: fallback) {
+        //    cerr << "  " << name << endl;
+        //}
+    }
+
+    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
+                       Date timestamp, JsonArrayHandling arrays)
+    {
+        //cerr << "apply at " << context.printPath() << " with " << endl;
+        ++numCalls;
+        StructValue out;
+        bool isSorted = true;
+        bool hasDuplicates = false;
+        out.resize(numFixedFields);
+        int numFilledIn = 0;
+
+        bool success = true;
+
+        // Node number we're currently at
+        int32_t current = -1;
+
+        auto onMember = [&] ()
+        {
+            auto fieldName = context.fieldNameView();
+
+            //cerr << "member " << fieldName << " current " << current << endl;
+
+            auto & currentField = current == -1 ? origin : fields[current];
+            int next = -1;
+
+            // Look for an out edge to a known destination
+            for (size_t i = 0;  i < currentField.outEdges.size();  ++i) {
+                auto & [key, fieldNumber, takenCount] = currentField.outEdges[i];
+                if (MLDB_LIKELY(fieldName == key)) {
+                    next = fieldNumber;
+                    ++takenCount;
+                    if (MLDB_UNLIKELY(i > 0) && takenCount > currentField.outEdges[i-1].takenCount + 128) {
+                        // Badly un-sorted taken counts are a failure
+                        success = false;
+                    }
+                    break;
+                }
+            }
+
+            ExpressionValue fieldVal;
+            bool alreadyParsed = false;
+
+            // Didn't find it.  We have a new (or rare) edge.  Look it up in the
+            // index and add it to the list of out edges.
+            if (MLDB_UNLIKELY(next == -1)) {
+                success = false;
+                auto it = keysIndex.find(fieldName);
+                if (it == keysIndex.end()) {
+                    // Unhappy path... we have a new field, so the destination node is unknown
+                    // Add the new node
+                    FieldEntry newField;
+                    newField.key = context.fieldNameView();
+                    newField.parser = PredictiveExpressionValueParser::create(fieldVal, context, timestamp, arrays);
+                    alreadyParsed = true;
+                    newField.isPresentCount = 1;
+                    newField.parserSuccessCount = 1;
+
+                    // No position in output, it gets added to the end
+                    newField.position = -1;
+                    next = fields.size();
+                    keysIndex[newField.key] = next;
+                    fields.emplace_back(std::move(newField));
+                }
+                else {
+                    next = it->second;
+                }
+
+                // We may have reallocated fields above, so we need to get a new reference
+                auto & currentField = current == -1 ? origin : fields[current];
+
+                //cerr << "new edge from " << current << " to " << fieldName << ":" << next
+                //     << " which had " << currentField.outEdges.size() << " edges" << endl;
+
+                // Record the new edge
+                currentField.outEdges.push_back({fieldName, next, 1 /* takenCount */});
+            }
+
+            auto & nextField = fields[next];
+            ExcAssertEqual(nextField.key, fieldName);
+            int position = nextField.position;
+            if (position == -1 || !std::get<0>(out[position]).null()) {
+                // We didn't know about this field, or it's a duplicate so there is not a
+                // place for it in out
+                //cerr << "field " << fieldName << " needs new position; out.size() = " << out.size() << " fields.size() = " << fields.size() << endl;
+                if (position != -1)
+                    hasDuplicates = true;
+                position = out.size();
+                out.emplace_back();
+                isSorted = false;
+            }
+
+            auto & [name, value] = out.at(position);
+            name = nextField.key;
+            if (alreadyParsed) {
+                value = std::move(fieldVal);
+            }
+            else {
+                bool fieldSuccess = nextField.parser->apply(value, context, timestamp, arrays);
+                nextField.isPresentCount += 1;
+                nextField.parserSuccessCount += fieldSuccess;
+                success = success && fieldSuccess;
+            }
+
+            //cerr << "set " << name << " to " << value << endl;
+
+            current = next;
+            ++numFilledIn;
+
+#if 0
+                success = false;
+                PathElement key(context.fieldNameView());
+
+
+                //cerr << "member " << i << " key " << context.fieldName() << " expected " << fields[i].key << " position " << fields[i].position << endl;
+                if (success) {
+                    // skip any optional keys, assuming that the rest are in order
+                    bool matched = false;
+                    while (i < numFields && !(matched = (fieldName == fields[i].key)) && fields[i].isOptional) {
+                        //cerr << "skipping optional key " << fields[i].key << endl;
+                        ++i;
+                    }
+                    if (i < numFields && matched) {
+                        FieldEntry & field = fields[i];
+                        int position = field.position;
+
+                        // happy path
+                        auto & parser = *field.parser;
+                        //cerr << "position = " << position << " out.size() = " << out.size() << endl;
+                        auto & [name, value] = out.at(position);
+                        field.isPresentCount += 1;
+                        lastWrittenPosition = position;
+
+                        ExcAssert(name.null());
+                        name = field.key;
+                        //cerr << "parsing..." << endl;
+                        //cerr << "parser type is " << type_name(parser) << endl;
+                        bool fieldSuccess = parser.apply(value, context, timestamp, arrays);
+                        if (!fieldSuccess)
+                            success = false;
+                        //cerr << "i = " << i << " name = " << name << " value = " << value << endl;
+                        return;
+                    }
+                }
+            }
+            //cerr << "*** sad path" << endl;
+
+            // Sad path
+            success = false;
+            PathElement key(context.fieldNameView());
+
+            if (keysIndex.empty()) {
+                for (size_t i = 0;  i < numFields;  ++i) {
+                    keysIndex[fields[i].key] = i;
+                }
+            }
+
+            // Find out if it's in our index (we've already learnt it) or it's a brand
+            // new key
+            auto it = keysIndex.find(key);
+            if (it == keysIndex.end()) {
+                // New key
+                auto fbit = fallback.find(key);
+                if (fbit == fallback.end()) {
+                    FallbackFieldEntry fallbackEntry;
+                    fallbackEntry.isOptional = true;
+                    fallbackEntry.key = key;
+                    fallbackEntry.parser = PredictiveExpressionValueParser::create(val, context, timestamp, arrays);
+                    fbit = fallback.emplace(key, std::move(fallbackEntry)).first;
+                }
+                else {
+                    fbit->second.parser->apply(val, context, timestamp, arrays);
+                }
+                fbit->second.isPresentCount += 1;
+                ++extraFields;
+                out.emplace_back(std::move(key), std::move(val));
+            }
+            else {
+                int index = it->second;
+                FieldEntry & field = fields.at(index);
+                int position = field.position;
+                lastWrittenPosition = position;
+                auto & [name, value] = out.at(position);
+
+                if (!name.null()) {
+                    // Already filled in, must be a duplicate key
+                    cerr << "key = " << key << " it->second = " << it->second << " position " << field.position
+                         << " name = " << name << " value = " << value << endl; 
+
+                    for (size_t i = 0;  i < out.size();  ++i) {
+                        cerr << "  " << i << ": " << std::get<0>(out[i]) << endl;
+                    }
+
+                    // duplicate key
+                    MLDB_THROW_UNIMPLEMENTED("Duplicated JSON keys");
+                }
+                else {
+                    ++missingFields;
+                    // Unordered keys
+                    name = std::move(key);
+                    field.parser->apply(value, context, timestamp, arrays);
+                    field.isPresentCount += 1;
+                }
+            }
+#endif            
+        };
+
+        context.forEachMember(onMember);
+
+        if (numFilledIn < out.size()) {
+            // Not all were filled in... remove the empty ones
+            // Actually it doesn't hurt to record nulls so long as there aren't too many...
+            if (false) {
+                auto it = std::partition(out.begin(), out.end(), [] (auto kv) { return !std::get<0>(kv).null(); });
+                out.erase(it, out.end());
+            }
+            else {
+                for (auto & f: fields) {
+                    if (f.position == -1)
+                        break;
+                    auto & [name, value] = out[f.position];
+                    if (name.null())
+                        name = f.key;
+                }
+            }
+        }
+
+        bool hasNullInName = false;
+        for (auto & [name, value]: out) {
+            if (name.null())
+                hasNullInName = true;
+            //ExcAssert(!name.null());
+        }
+
+        if (hasNullInName) {
+            for (size_t i = 0;  i < out.size();  ++i) {
+                cerr << "  " << i << " " << std::get<0>(out[i]) << endl;
+            }
+
+            for (size_t i = 0;  i < fields.size();  ++i) {
+                auto & field = fields[i];
+                cerr << "  field " << i << " " << field.key << " " << field.position << endl;
+            }
+
+            ExcAssert(false);
+        }
+
+        val = ExpressionValue(std::move(out),
+                              isSorted ? ExpressionValue::SORTED : ExpressionValue::NOT_SORTED,
+                              hasDuplicates ? ExpressionValue::HAS_DUPLICATES: ExpressionValue::NO_DUPLICATES);
+
+        (success ? numSuccesses : numFailures) += 1;
+
+        return success;
+    }
+
+    virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
+    {
+        if (numFailures == 0)
+            return nullptr;  // nothing to learn
+
+        //cerr << "learning over " << fields.size() << " fields with " << numCalls << " calls" << endl;
+
+        // Learn each of them individually
+        origin.learn();
+        for (auto & field: fields) {
+            field.learn();
+        }
+
+        // Sort the keys so we can insert things in the right order
+        std::vector<std::pair<PathElement, int>> sortedKeys;
+        int i = 0;
+        for (auto & field: fields) {
+            sortedKeys.emplace_back(field.key, i++);
+        }
+
+        std::sort(sortedKeys.begin(), sortedKeys.end());
+
+        for (size_t i = 0;  i < sortedKeys.size();  ++i) {
+            auto & [key, index] = sortedKeys[i];
+            fields[index].position = index;
+        }
+
+        numFixedFields = fields.size();
+
+        numSuccesses += numFailures;
+        numFailures = 0;
+
+#if 0
+        std::vector<std::tuple<PathElement, int>> keys;
+        std::vector<std::shared_ptr<PredictiveExpressionValueParser>> parsers;
+
+        StructValue out;
+        out.reserve(16);
+
+        int n = 0;
+        auto onMember = [&] ()
+        {
+            PathElement key(context.fieldNameView());
+            ExpressionValue val;
+            auto parser = PredictiveExpressionValueParser::create(val, context, timestamp, arrays);
+            out.emplace_back(key, std::move(val));
+            keys.emplace_back(std::move(key), n++);
+            parsers.emplace_back(std::move(parser));
+        };
+
+        context.forEachMember(onMember);
+
+        std::sort(keys.begin(), keys.end());
+
+        bool hasDuplicates = false;
+        for (size_t i = 1;  i < keys.size() && !hasDuplicates;  ++i) {
+            hasDuplicates = (keys[i - 1] == keys[i]);
+        }
+
+        auto result = std::make_shared<StructureExpressionValueParser>();
+        result->fields.resize(n);
+
+        cerr << keys.size() << " fields: " << endl;
+        for (size_t i = 0;  i < keys.size();  ++i) {
+            auto & [key, position] = keys[i];
+            auto & field = result->fields.at(position);
+            field.parser = std::move(parsers.at(position));
+            field.key = std::move(key);
+            field.position = i;
+
+            cerr << "  " << i << ": key " << key << " position " << position << " parser " << type_name(*field.parser) << endl;
+        }
+
+        val = ExpressionValue(std::move(out));
+
+        // Construct the index so we can find keys when there is no edge recorded
+        for (size_t i = 0;  i < keys.size();  ++i) {
+            result->keysIndex[result->fields[i].key] = i;
+        }
+
+        return result;
+#endif
+
+        return nullptr;  // we learned in place, so we return nullptr
+    }
+
+    static std::shared_ptr<PredictiveExpressionValueParser>
+    create(ExpressionValue & val, JsonParsingContext & context,
+           Date timestamp, JsonArrayHandling arrays)
+    {
+        auto result = std::make_shared<StructureExpressionValueParser>();
+        result->apply(val, context, timestamp, arrays);
+        ExcAssertGreater(result->numFailures, 0);
+        auto learnt = result->learn();
+        return learnt ? std::move(learnt) : std::move(result);
+    }
+
+};
+
+struct GenericExpressionValueParser: public PredictiveExpressionValueParser {
+
+    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
+                       Date timestamp, JsonArrayHandling arrays)
+    {
+        if (context.isObject()) {
+
+        }
+        val = ExpressionValue::parseJson(context, timestamp, arrays);
+        return true;  // it matched
+    }
+    std::shared_ptr<StructureExpressionValueParser> object;
+};
+
+std::shared_ptr<PredictiveExpressionValueParser>
+PredictiveExpressionValueParser::
+create(ExpressionValue & val, JsonParsingContext & context,
+        Date timestamp, JsonArrayHandling arrays)
+{
+    if (context.isObject()) {
+        return StructureExpressionValueParser::create(val, context, timestamp, arrays);
+    }
+    else return std::make_shared<GenericExpressionValueParser>();
+}
+
+#if 0
+struct NullExpressionValueParser: public PredictiveExpressionValueParser {
+    virtual ~NullExpressionValueParser();
+
+    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
+                       Date timestamp, JsonArrayHandling arrays)
+    {
+        if (context.isNull()) {
+            val = ExpressionValue();
+            return true;
+        }
+        return fallback(val, context);
+    }
+};
+#endif
+
+//std::shared_ptr<PredictiveExpressionValueParser>
+//learn(JsonParsingContext & context);
+
 
 struct JsonScope : public SqlExpressionMldbScope {
 
 
-    JsonScope(MldbEngine * engine) : SqlExpressionMldbScope(engine){}
+    JsonScope(MldbEngine * engine)
+        : SqlExpressionMldbScope(engine)
+    {
+    }
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
                                 const ColumnPath & columnName) override
@@ -799,8 +1306,24 @@ struct JSONImporter: public Procedure {
             /// Bytes done in this thread
             uint64_t bytesDone = 0;
 
-            // JSON parser for this thread
+            /// JSON parser for this thread
             simdjson::ondemand::parser parser;
+
+            /// Predictive structured JSON parser
+            std::shared_ptr<PredictiveExpressionValueParser> predictor;
+
+            /// Number of times called and successful for this predictor, as well
+            /// as the number of failures until we attempt to re-learn
+            uint32_t numCalls = 0, numSuccesses = 0, learningRate = 16;
+
+            /// Special function to allow rapid insertion of fixed set of
+            /// atom valued columns.  Only for isIdentitySelect.
+            std::function<void (RowPath rowName,
+                                Date timestamp,
+                                CellValue * vals,
+                                size_t numVals,
+                                std::vector<std::pair<ColumnPath, CellValue> > extra)>
+            specializedRecorder;
         };
 
         PerThreadAccumulator<ThreadAccum> accum;
@@ -916,7 +1439,31 @@ struct JSONImporter: public Procedure {
                     auto parsed = threadAccum.parser.iterate(lineView);
                     //cerr << "parsing error: " << parsed.error() << endl;
                     SimdJsonParsingContext context(parsed.value());
-                    expr = ExpressionValue::parseJson(context, timestamp, config.arrays);
+                    if (!threadAccum.predictor) {
+                        threadAccum.predictor = PredictiveExpressionValueParser::create(expr, context, timestamp, config.arrays);
+                        ExcAssert(threadAccum.predictor);
+                        threadAccum.numCalls = 1;
+                        threadAccum.numSuccesses = 1;
+                    }
+                    else {
+                        bool success = threadAccum.predictor->apply(expr, context, timestamp, config.arrays);
+                        threadAccum.numCalls += 1;
+                        threadAccum.numSuccesses += success;
+                    }
+
+                    auto numFailures = threadAccum.numCalls - threadAccum.numSuccesses;
+                    if (numFailures >= threadAccum.learningRate) {
+                        cerr << "numFailures = " << numFailures
+                             << " numCalls = " << threadAccum.numCalls << " learningRate = " << threadAccum.learningRate << endl;
+                        // Re-learn the predictive parser
+                        auto newPredictor = threadAccum.predictor->learn();
+                        if (newPredictor)
+                            threadAccum.predictor = std::move(newPredictor);
+                        threadAccum.numCalls = 0;
+                        threadAccum.numSuccesses = 0;
+                        threadAccum.learningRate *= 2;
+                    }
+                    //expr = ExpressionValue::parseJson(context, timestamp, config.arrays);
                     //cerr << "returned: " << expr << endl;
                 } catch (const std::exception & exc) {
                     return handleError(exc.what(), actualLineNum, string(line, lineLength));
