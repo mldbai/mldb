@@ -29,8 +29,13 @@
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/scope.h"
 #include "mldb/types/json_parsing_impl.h"
+#include "dataset_builder.h"
+#include "sql_csv_scope.h"
+#include "mldb/utils/lightweight_hash.h"
+#include "mldb/sql/decompose.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
-#define SIMDJSON_DEVELOPMENT_CHECKS 1
+//#define SIMDJSON_DEVELOPMENT_CHECKS 1
 #include "mldb/ext/simdjson.h"
 
 using namespace std;
@@ -44,19 +49,15 @@ namespace MLDB {
 /* JSON IMPORTER                                                             */
 /*****************************************************************************/
 
-struct JSONImporterConfig : ProcedureConfig {
+struct JSONImporterConfig : ProcedureConfig, public DatasetBuilderConfig {
 
     static constexpr const char * name = "import.json";
 
     Url dataFileUrl;
-    PolyConfigT<Dataset> outputDataset = DefaultType("tabular");
 
     int64_t limit = -1;
     int64_t offset = 0;
     bool ignoreBadLines = false;
-    SelectExpression select = SelectExpression::STAR;
-    std::shared_ptr<SqlExpression> where = SqlExpression::TRUE;
-    std::shared_ptr<SqlExpression> named = SqlExpression::TRUE;
     JsonArrayHandling arrays = PARSE_ARRAYS;
     bool oneRecordPerLine = true;
 };
@@ -70,9 +71,9 @@ JSONImporterConfigDescription()
 {
     addField("dataFileUrl", &JSONImporterConfig::dataFileUrl,
              "URL to load text file from");
-    addField("outputDataset", &JSONImporterConfig::outputDataset,
-             "Configuration for output dataset",
-             PolyConfigT<Dataset>().withType("tabular"));
+
+    addParent<DatasetBuilderConfig>();
+
     addField("limit", &JSONImporterConfig::limit,
              "Maximum number of lines to process");
     addField("offset", &JSONImporterConfig::offset,
@@ -80,16 +81,6 @@ JSONImporterConfigDescription()
     addField("ignoreBadLines", &JSONImporterConfig::ignoreBadLines,
              "If true, any line causing an error will be skipped. Any line "
              "with an invalid JSON object will cause an error.", false);
-    addField("select", &JSONImporterConfig::select,
-             "Which columns to use.",
-             SelectExpression::STAR);
-    addField("where", &JSONImporterConfig::where,
-             "Which lines to use to create rows.",
-             SqlExpression::TRUE);
-    addField("named", &JSONImporterConfig::named,
-             "Row name expression for output dataset. Note that each row "
-             "must have a unique name and that names cannot be objects.",
-             SqlExpression::parse("lineNumber()"));
     addField("arrays", &JSONImporterConfig::arrays,
             "Describes how arrays are encoded in the JSON output.  For "
             "''parse' (default), the arrays become structured values. "
@@ -155,118 +146,16 @@ struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
             MLDB_TRACE_EXCEPTIONS(false);
             if (!skipJson(*context.context))
                 return truncated();
-            //context.skip();
             return { block1 + context.context->get_offset(), {} };
         }
         catch (const std::exception & exc) {
+            // TODO: verify that context's position is at the end otherwise pass
+            // on the exception
             return truncated();
         }
-
-
-        //cerr << "trying block with " << n1 << " bytes at " << (void *)block1 << endl;
-        //cerr << "first char is " << (int)block1[0] << endl;
-        cerr << string(block1, std::min<size_t>(n1, 100)) << endl;
-        using namespace simdjson;
-        ondemand::parser parser;
-        padded_string_view document(block1, n1, n1 + SIMDJSON_PADDING);
-        size_t length;
-
-#if 0
-        auto docs = parser.iterate_many(document);
-        if (docs.error()) {
-            cerr << "documents error: " << docs.error() << endl;
-            MLDB_THROW_UNIMPLEMENTED();
-        }
-
-        auto it = docs.value().begin();
-        auto parsed = *it;
-
-#else
-        auto parsed = parser.iterate(document);
-        length = parsed.current_location() - document.data();
-#endif
-        cerr << "parsed.error() = " << parsed.error() << endl;
-        if (!parsed.error()) {
-            //auto begin = parsed.begin();
-            //auto end = parsed.end();
-            //auto location = parsed.current_location();
-            //auto source = it.source().data();
-            //auto length = it.source().size();
-            cerr << "length " << length << endl;
-
-            return { block1 + length, {} };
-        }
-
-        if (parsed.error()) {
-
-
-            cerr << "Parsing error: " << parsed.error() << endl;
-            //MLDB_THROW_UNIMPLEMENTED();
-
-            switch (parsed.error()) {
-                // Fatal errrors... not caused by a truncated document
-                case simdjson::error_code::CAPACITY:                   ///< This parser can't support a document that big
-                case simdjson::error_code::UNSUPPORTED_ARCHITECTURE:   ///< unsupported architecture
-                case simdjson::error_code::MEMALLOC:                   ///< Error allocating memory, most likely out of memory
-                case simdjson::error_code::TAPE_ERROR:                 ///< Something went wrong while writing to the tape (stage 2), this is a generic error
-                case simdjson::error_code::DEPTH_ERROR:                ///< Your document exceeds the user-specified depth limitation
-                case simdjson::error_code::IO_ERROR:                   ///< Error reading a file
-                case simdjson::error_code::INVALID_JSON_POINTER:       ///< Invalid JSON pointer reference
-                case simdjson::error_code::INVALID_URI_FRAGMENT:       ///< Invalid URI fragment
-                case simdjson::error_code::UNEXPECTED_ERROR:           ///< indicative of a bug in simdjson
-                case simdjson::error_code::PARSER_IN_USE:              ///< parser is already in use.
-                case simdjson::error_code::INSUFFICIENT_PADDING:       ///< The JSON doesn't have enough padding for simdjson to safely parse it.
-                case simdjson::error_code::OUT_OF_BOUNDS:              ///< Attempted to access location outside of document.
-                case simdjson::error_code::INCORRECT_TYPE:             ///< JSON element has a different type than user expected
-                case simdjson::error_code::INDEX_OUT_OF_BOUNDS:        ///< JSON array index too large
-                case simdjson::error_code::NO_SUCH_FIELD:              ///< JSON field not found in object
-                case simdjson::error_code::OUT_OF_ORDER_ITERATION:     ///< tried to iterate an array or object out of order
-                case simdjson::error_code::UNINITIALIZED:              ///< unknown error, or uninitialized document
-                    throw MLDB::Exception("parsing of document: %s", simdjson::error_message(parsed.error()));
-
-                case simdjson::error_code::STRING_ERROR:               ///< Problem while parsing a string
-                case simdjson::error_code::T_ATOM_ERROR:               ///< Problem while parsing an atom starting with the letter 't'
-                case simdjson::error_code::F_ATOM_ERROR:               ///< Problem while parsing an atom starting with the letter 'f'
-                case simdjson::error_code::N_ATOM_ERROR:               ///< Problem while parsing an atom starting with the letter 'n'
-                case simdjson::error_code::NUMBER_ERROR:               ///< Problem while parsing a number
-                case simdjson::error_code::UTF8_ERROR:                 ///< the input is not valid UTF-8
-                case simdjson::error_code::UNESCAPED_CHARS:            ///< found unescaped characters in a string.
-                case simdjson::error_code::UNCLOSED_STRING:            ///< missing quote at the end
-                case simdjson::error_code::NUMBER_OUT_OF_RANGE:        ///< JSON number does not fit in 64 bits
-                case simdjson::error_code::INCOMPLETE_ARRAY_OR_OBJECT: ///< The document ends early.
-                case simdjson::error_code::SCALAR_DOCUMENT_AS_VALUE:   ///< A scalar document is treated as a value.
-                    return truncated();
-
-                case simdjson::error_code::EMPTY:                      ///< no structural element found
-                    //cerr << "index " << it.current_index() << endl;
-                    //cerr << "current_location " << (void *)parsed.current_location().value() << endl;
-                    return truncated();
-
-                case simdjson::error_code::SUCCESS:
-                    MLDB_THROW_LOGIC_ERROR("success value in switch");
-                case simdjson::error_code::NUM_ERROR_CODES:
-                    MLDB_THROW_LOGIC_ERROR("Got guard value; are SIMDJson library and headers out of sync?");
-            }
-
-            // This will happen if we update the simdjson library and new error
-            // codes are created
-            const char * msg = simdjson::error_message(parsed.error());
-            MLDB_THROW_UNIMPLEMENTED("parsing of new SIMDJson error code %s", msg);
-        }
-        //auto begin = parsed.begin();
-        //auto end = parsed.end();
-        //simdjson::error_code::  code;
-        //parsed.end();
-        auto end = parsed.current_location();
-        if (end.error()) {
-            cerr << "End error: " << end.error() << endl;
-
-            MLDB_THROW_UNIMPLEMENTED("TODO");
-        }
-        return { end.value(), {} };
     }
 
-    virtual size_t requiredBlockPadding() const override { return simdjson::SIMDJSON_PADDING; }
+    virtual size_t requiredBlockPadding() const override { return 0; }
 };
 
 /*****************************************************************************/
@@ -508,7 +397,10 @@ struct PredictiveExpressionValueParser {
 
     virtual ~PredictiveExpressionValueParser() = default;
 
-    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
+    virtual bool apply(std::span<CellValue> fixed,
+                       std::vector<std::pair<Path, CellValue>> & extra,
+                       JsonParsingContext & context,
+                       const Path & prefix, 
                        Date timestamp, JsonArrayHandling arrays) = 0;
 
     virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
@@ -516,14 +408,31 @@ struct PredictiveExpressionValueParser {
         return nullptr;
     }
 
-    //virtual bool fallback(ExpressionValue & val, JsonParsingContext & context)
-    //{
-    //    val = ExpressionValue::parseJson(context, timestamp, arrays);
-    //    return false;
-    //}
+    virtual size_t getFixedColumnCount() const
+    {
+        return 1;
+    }
+
+    virtual std::vector<ColumnPath> getFixedColumnNames() const
+    {
+        return { {} };
+    } 
+
+    virtual bool canReturnValue() const
+    {
+        return true;
+    }
+
+    virtual bool hasNestedColumns() const
+    {
+        return false;
+    }
 
     static std::shared_ptr<PredictiveExpressionValueParser>
-    create(ExpressionValue & val, JsonParsingContext & context,
+    create(std::span<CellValue> fixedValues,
+           std::vector<std::pair<Path, CellValue>> & extraValues,
+           JsonParsingContext & context,
+           const Path & path,
            Date timestamp, JsonArrayHandling arrays);
 };
 
@@ -537,8 +446,12 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
         /// Specialized parser for when we encounter it
         std::shared_ptr<PredictiveExpressionValueParser> parser;
 
-        /// Position of this field in the output
-        int position = -1;
+        /// Position of the output at which this field starts.  It will produce
+        /// fields from startPosition to numFixedOutputFields.
+        int startPosition = -1;
+
+        /// How many fixed output fields do we produce?
+        int numFixedOutputFields = -1;
 
         struct OutEdge {
             PathElement key;
@@ -579,11 +492,15 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
     /// Graph of all nodes (the fields)
     std::vector<FieldEntry> fields;
 
-    /// Number of fixed fields (fixed fields have an assigned position in the output)
-    int numFixedFields = 0;
+    /// Number of fixed input fields (those for which we have assigned output fields)
+    /// They are first in the fields array
+    int numFixedInputFields = 0;
+
+    /// The names of the fixed output fields we produce
+    std::vector<ColumnPath> fixedOutputFields;
 
     /// Index of key name to order of encounter
-    std::map<PathElement, int> keysIndex;
+    LightweightHash<uint64_t, int> keysIndex;
 
     int32_t numCalls = 0;
     int32_t numSuccesses = 0;
@@ -610,16 +527,25 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
         //}
     }
 
-    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
+    virtual bool canReturnValue() const
+    {
+        return false;
+    }
+
+    virtual bool hasNestedColumns() const
+    {
+        return true;
+    }
+
+    virtual bool apply(std::span<CellValue> fixed,
+                       std::vector<std::pair<Path, CellValue>> & extra,
+                       JsonParsingContext & context,
+                       const Path & prefix, 
                        Date timestamp, JsonArrayHandling arrays)
     {
         //cerr << "apply at " << context.printPath() << " with " << endl;
         ++numCalls;
-        StructValue out;
-        bool isSorted = true;
-        bool hasDuplicates = false;
-        out.resize(numFixedFields);
-        int numFilledIn = 0;
+        ExcAssertEqual(fixed.size(), fixedOutputFields.size());
 
         bool success = true;
 
@@ -649,31 +575,44 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
                 }
             }
 
-            ExpressionValue fieldVal;
+            //cerr << "next = " << next << endl;
             bool alreadyParsed = false;
 
             // Didn't find it.  We have a new (or rare) edge.  Look it up in the
             // index and add it to the list of out edges.
             if (MLDB_UNLIKELY(next == -1)) {
                 success = false;
-                auto it = keysIndex.find(fieldName);
+                auto fieldNameElement = PathElement(fieldName);
+                auto fieldNameHash = fieldNameElement.hash();
+                auto it = keysIndex.find(fieldNameHash);
                 if (it == keysIndex.end()) {
+                    //cerr << "not in keys" << endl;
                     // Unhappy path... we have a new field, so the destination node is unknown
                     // Add the new node
                     FieldEntry newField;
-                    newField.key = context.fieldNameView();
-                    newField.parser = PredictiveExpressionValueParser::create(fieldVal, context, timestamp, arrays);
+                    newField.key = fieldName;
+                    std::vector<CellValue> newFixed;
+                    std::vector<std::pair<Path, CellValue>> newExtra;
+                    newField.parser = PredictiveExpressionValueParser::create(newFixed, newExtra, context, prefix + fieldNameElement, timestamp, arrays);
                     alreadyParsed = true;
                     newField.isPresentCount = 1;
                     newField.parserSuccessCount = 1;
 
+                    //cerr << "newExtra = " << jsonEncode(newExtra) << endl;
+
                     // No position in output, it gets added to the end
-                    newField.position = -1;
+                    newField.startPosition = -1;
                     next = fields.size();
-                    keysIndex[newField.key] = next;
+                    if (!keysIndex.insert({fieldNameHash, next}).second)
+                        MLDB_THROW_LOGIC_ERROR("Key hash");
                     fields.emplace_back(std::move(newField));
+
+                    for (auto & [path, value]: newExtra) {
+                        extra.emplace_back(std::move(path), std::move(value));
+                    }
                 }
                 else {
+                    // TODO: verify no hash collision
                     next = it->second;
                 }
 
@@ -689,25 +628,33 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
 
             auto & nextField = fields[next];
             ExcAssertEqual(nextField.key, fieldName);
-            int position = nextField.position;
-            if (position == -1 || !std::get<0>(out[position]).null()) {
-                // We didn't know about this field, or it's a duplicate so there is not a
-                // place for it in out
-                //cerr << "field " << fieldName << " needs new position; out.size() = " << out.size() << " fields.size() = " << fields.size() << endl;
-                if (position != -1)
-                    hasDuplicates = true;
-                position = out.size();
-                out.emplace_back();
-                isSorted = false;
+            int startPosition = nextField.startPosition;
+            if (startPosition == -1 && !alreadyParsed) {
+                ExcAssert(!alreadyParsed);
+                // We don't yet have an assigned place
+                // Create one, and add to the extra fields
+                nextField.numFixedOutputFields = nextField.parser->getFixedColumnCount();
+                PossiblyDynamicBuffer<CellValue> fixed(nextField.numFixedOutputFields);
+                //cerr << "doing " << nextField.numFixedOutputFields << " fields for " << nextField.key << endl;
+                nextField.parser->apply(fixed, extra, context, prefix + nextField.key, timestamp, arrays);
+                //cerr << jsonEncode(extra) << endl;
+                if (fixed.size() != 0) {
+                    //cerr << "fixed.size() = " << fixed.size() << endl;
+                    //cerr << "extra.size() = " << extra.size() << endl;
+                    auto fieldNames = nextField.parser->getFixedColumnNames();
+                    ExcAssertEqual(fieldNames.size(), nextField.numFixedOutputFields);
+                    for (size_t i = 0;  i < nextField.numFixedOutputFields;  ++i) {
+                        //cerr << "adding to extra " << prefix << " . " << fieldNames[i] << " = " << fixed[i] << endl;
+                        extra.emplace_back(prefix + nextField.key + std::move(fieldNames[i]), std::move(fixed[i]));
+                    }
+                }
+                alreadyParsed = true;
             }
 
-            auto & [name, value] = out.at(position);
-            name = nextField.key;
-            if (alreadyParsed) {
-                value = std::move(fieldVal);
-            }
-            else {
-                bool fieldSuccess = nextField.parser->apply(value, context, timestamp, arrays);
+            if (!alreadyParsed) {
+                bool fieldSuccess = nextField.parser
+                    ->apply(fixed.subspan(startPosition, nextField.numFixedOutputFields),
+                            extra, context, prefix + nextField.key, timestamp, arrays);
                 nextField.isPresentCount += 1;
                 nextField.parserSuccessCount += fieldSuccess;
                 success = success && fieldSuccess;
@@ -716,108 +663,11 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
             //cerr << "set " << name << " to " << value << endl;
 
             current = next;
-            ++numFilledIn;
-
-#if 0
-                success = false;
-                PathElement key(context.fieldNameView());
-
-
-                //cerr << "member " << i << " key " << context.fieldName() << " expected " << fields[i].key << " position " << fields[i].position << endl;
-                if (success) {
-                    // skip any optional keys, assuming that the rest are in order
-                    bool matched = false;
-                    while (i < numFields && !(matched = (fieldName == fields[i].key)) && fields[i].isOptional) {
-                        //cerr << "skipping optional key " << fields[i].key << endl;
-                        ++i;
-                    }
-                    if (i < numFields && matched) {
-                        FieldEntry & field = fields[i];
-                        int position = field.position;
-
-                        // happy path
-                        auto & parser = *field.parser;
-                        //cerr << "position = " << position << " out.size() = " << out.size() << endl;
-                        auto & [name, value] = out.at(position);
-                        field.isPresentCount += 1;
-                        lastWrittenPosition = position;
-
-                        ExcAssert(name.null());
-                        name = field.key;
-                        //cerr << "parsing..." << endl;
-                        //cerr << "parser type is " << type_name(parser) << endl;
-                        bool fieldSuccess = parser.apply(value, context, timestamp, arrays);
-                        if (!fieldSuccess)
-                            success = false;
-                        //cerr << "i = " << i << " name = " << name << " value = " << value << endl;
-                        return;
-                    }
-                }
-            }
-            //cerr << "*** sad path" << endl;
-
-            // Sad path
-            success = false;
-            PathElement key(context.fieldNameView());
-
-            if (keysIndex.empty()) {
-                for (size_t i = 0;  i < numFields;  ++i) {
-                    keysIndex[fields[i].key] = i;
-                }
-            }
-
-            // Find out if it's in our index (we've already learnt it) or it's a brand
-            // new key
-            auto it = keysIndex.find(key);
-            if (it == keysIndex.end()) {
-                // New key
-                auto fbit = fallback.find(key);
-                if (fbit == fallback.end()) {
-                    FallbackFieldEntry fallbackEntry;
-                    fallbackEntry.isOptional = true;
-                    fallbackEntry.key = key;
-                    fallbackEntry.parser = PredictiveExpressionValueParser::create(val, context, timestamp, arrays);
-                    fbit = fallback.emplace(key, std::move(fallbackEntry)).first;
-                }
-                else {
-                    fbit->second.parser->apply(val, context, timestamp, arrays);
-                }
-                fbit->second.isPresentCount += 1;
-                ++extraFields;
-                out.emplace_back(std::move(key), std::move(val));
-            }
-            else {
-                int index = it->second;
-                FieldEntry & field = fields.at(index);
-                int position = field.position;
-                lastWrittenPosition = position;
-                auto & [name, value] = out.at(position);
-
-                if (!name.null()) {
-                    // Already filled in, must be a duplicate key
-                    cerr << "key = " << key << " it->second = " << it->second << " position " << field.position
-                         << " name = " << name << " value = " << value << endl; 
-
-                    for (size_t i = 0;  i < out.size();  ++i) {
-                        cerr << "  " << i << ": " << std::get<0>(out[i]) << endl;
-                    }
-
-                    // duplicate key
-                    MLDB_THROW_UNIMPLEMENTED("Duplicated JSON keys");
-                }
-                else {
-                    ++missingFields;
-                    // Unordered keys
-                    name = std::move(key);
-                    field.parser->apply(value, context, timestamp, arrays);
-                    field.isPresentCount += 1;
-                }
-            }
-#endif            
         };
 
         context.forEachMember(onMember);
 
+#if 0
         if (numFilledIn < out.size()) {
             // Not all were filled in... remove the empty ones
             // Actually it doesn't hurt to record nulls so long as there aren't too many...
@@ -859,10 +709,21 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
         val = ExpressionValue(std::move(out),
                               isSorted ? ExpressionValue::SORTED : ExpressionValue::NOT_SORTED,
                               hasDuplicates ? ExpressionValue::HAS_DUPLICATES: ExpressionValue::NO_DUPLICATES);
+#endif
 
         (success ? numSuccesses : numFailures) += 1;
 
         return success;
+    }
+
+    virtual size_t getFixedColumnCount() const
+    {
+        return fixedOutputFields.size();
+    }
+
+    virtual std::vector<ColumnPath> getFixedColumnNames() const
+    {
+        return fixedOutputFields;
     }
 
     virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
@@ -887,128 +748,186 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
 
         std::sort(sortedKeys.begin(), sortedKeys.end());
 
+        fixedOutputFields.clear();
         for (size_t i = 0;  i < sortedKeys.size();  ++i) {
             auto & [key, index] = sortedKeys[i];
-            fields[index].position = index;
+            auto & field = fields[index];
+            field.startPosition = fixedOutputFields.size();
+            if (field.parser->canReturnValue()) {
+                fixedOutputFields.emplace_back(key);
+            }
+            if (field.parser->hasNestedColumns()) {
+                auto columnNames = field.parser->getFixedColumnNames();
+                for (auto & c: columnNames) {
+                    fixedOutputFields.emplace_back(key + std::move(c));
+                }
+            }
+            field.numFixedOutputFields = fixedOutputFields.size() - field.startPosition;
         }
 
-        numFixedFields = fields.size();
+        numFixedInputFields = fields.size();
 
         numSuccesses += numFailures;
         numFailures = 0;
-
-#if 0
-        std::vector<std::tuple<PathElement, int>> keys;
-        std::vector<std::shared_ptr<PredictiveExpressionValueParser>> parsers;
-
-        StructValue out;
-        out.reserve(16);
-
-        int n = 0;
-        auto onMember = [&] ()
-        {
-            PathElement key(context.fieldNameView());
-            ExpressionValue val;
-            auto parser = PredictiveExpressionValueParser::create(val, context, timestamp, arrays);
-            out.emplace_back(key, std::move(val));
-            keys.emplace_back(std::move(key), n++);
-            parsers.emplace_back(std::move(parser));
-        };
-
-        context.forEachMember(onMember);
-
-        std::sort(keys.begin(), keys.end());
-
-        bool hasDuplicates = false;
-        for (size_t i = 1;  i < keys.size() && !hasDuplicates;  ++i) {
-            hasDuplicates = (keys[i - 1] == keys[i]);
-        }
-
-        auto result = std::make_shared<StructureExpressionValueParser>();
-        result->fields.resize(n);
-
-        cerr << keys.size() << " fields: " << endl;
-        for (size_t i = 0;  i < keys.size();  ++i) {
-            auto & [key, position] = keys[i];
-            auto & field = result->fields.at(position);
-            field.parser = std::move(parsers.at(position));
-            field.key = std::move(key);
-            field.position = i;
-
-            cerr << "  " << i << ": key " << key << " position " << position << " parser " << type_name(*field.parser) << endl;
-        }
-
-        val = ExpressionValue(std::move(out));
-
-        // Construct the index so we can find keys when there is no edge recorded
-        for (size_t i = 0;  i < keys.size();  ++i) {
-            result->keysIndex[result->fields[i].key] = i;
-        }
-
-        return result;
-#endif
 
         return nullptr;  // we learned in place, so we return nullptr
     }
 
     static std::shared_ptr<PredictiveExpressionValueParser>
-    create(ExpressionValue & val, JsonParsingContext & context,
+    create(std::span<CellValue> fixedValues,
+           std::vector<std::pair<Path, CellValue>> & extraValues,
+           JsonParsingContext & context,
+           const Path & prefix,
            Date timestamp, JsonArrayHandling arrays)
     {
         auto result = std::make_shared<StructureExpressionValueParser>();
-        result->apply(val, context, timestamp, arrays);
+        ExcAssertEqual(extraValues.size(), 0);
+        result->apply(fixedValues, extraValues, context, prefix, timestamp, arrays);
         ExcAssertGreater(result->numFailures, 0);
+        ExcAssert(fixedValues.empty());
         auto learnt = result->learn();
-        return learnt ? std::move(learnt) : std::move(result);
+        std::sort(extraValues.begin(), extraValues.end());
+        auto resultOut = learnt ? std::move(learnt) : std::move(result);
+        // Debug
+        {
+            //auto names = resultOut->getFixedColumnNames();
+            //cerr << "prefix = " << prefix << endl;
+            //cerr << "names = " << jsonEncodeStr(names) << endl;
+            //cerr << "extraValues = " << jsonEncode(extraValues) << endl;
+            //ExcAssertEqual(extraValues.size(), names.size());
+            //for (size_t i = 0;  i < extraValues.size();  ++i) {
+            //    ExcAssertEqual(extraValues[i].first.hasSuffix(names[i]));
+            //}
+        }
+
+        return resultOut;
     }
 
 };
 
-struct GenericExpressionValueParser: public PredictiveExpressionValueParser {
+struct ArrayExpressionValueParser: public PredictiveExpressionValueParser {
 
-    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
+    virtual ~ArrayExpressionValueParser() = default;
+
+    virtual bool apply(std::span<CellValue> fixed,
+                       std::vector<std::pair<Path, CellValue>> & extra,
+                       JsonParsingContext & context,
+                       const Path & prefix, 
                        Date timestamp, JsonArrayHandling arrays)
     {
-        if (context.isObject()) {
+        ExcAssertEqual(fixed.size(), 0);
+        ExpressionValue expr = ExpressionValue::parseJson(context, timestamp, arrays);
+        auto onAtom = [&] (auto && path, auto && value, Date timestamp) -> bool
+        {
+            extra.emplace_back(prefix + std::move(path), std::move(value));
+            return true;
+        };
+        expr.forEachAtomDestructive(onAtom);
+        return true;
+    }
 
+    virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
+    {
+        return nullptr;
+    }
+
+    virtual size_t getFixedColumnCount() const
+    {
+        return 0;
+    }
+
+    virtual std::vector<ColumnPath> getFixedColumnNames() const
+    {
+        return {};
+    } 
+
+    virtual bool canReturnValue() const
+    {
+        return false;
+    }
+
+    virtual bool hasNestedColumns() const
+    {
+        return true;
+    }
+
+    static std::shared_ptr<PredictiveExpressionValueParser>
+    create(std::span<CellValue> fixedValues,
+           std::vector<std::pair<Path, CellValue>> & extraValues,
+           JsonParsingContext & context,
+           const Path & prefix,
+           Date timestamp, JsonArrayHandling arrays)
+    {
+        auto result = std::make_shared<ArrayExpressionValueParser>();
+        ExcAssertEqual(extraValues.size(), 0);
+        result->apply(fixedValues, extraValues, context, prefix, timestamp, arrays);
+        ExcAssert(fixedValues.empty());
+        auto learnt = result->learn();
+        auto resultOut = learnt ? std::move(learnt) : std::move(result);
+        return resultOut;
+    }
+};
+
+struct ScalarExpressionValueParser: public PredictiveExpressionValueParser {
+
+    virtual bool apply(std::span<CellValue> values, std::vector<std::pair<Path, CellValue>> & extra,
+                       JsonParsingContext & context, const Path & prefix,
+                       Date timestamp, JsonArrayHandling arrays) override
+    {
+        if (context.isArray()) {
+            MLDB_THROW_UNIMPLEMENTED("isArray");
         }
-        val = ExpressionValue::parseJson(context, timestamp, arrays);
+        else if (context.isObject()) {
+            MLDB_THROW_UNIMPLEMENTED("isObject");
+        }
+        else {
+            static const auto desc = getDefaultDescriptionSharedT<CellValue>();
+            CellValue val;
+            desc->parseJsonTyped(&val, context);
+            if (values.size() == 1) {
+                values[0] = std::move(val);
+            }
+            else if (values.size() == 0) {
+                extra.emplace_back(prefix, std::move(val));
+            }
+            else {
+                MLDB_THROW_LOGIC_ERROR("scalar with too much storage");
+            }
+        }
+
         return true;  // it matched
     }
-    std::shared_ptr<StructureExpressionValueParser> object;
+
+    static std::shared_ptr<PredictiveExpressionValueParser>
+    create(std::span<CellValue> fixed,
+           std::vector<std::pair<Path, CellValue>> & extra,
+           JsonParsingContext & context, const Path & prefix,
+           Date timestamp, JsonArrayHandling arrays)
+    {
+        auto result = std::make_shared<ScalarExpressionValueParser>();
+        result->apply(fixed, extra, context, prefix, timestamp, arrays);
+        return result;
+    }
 };
 
 std::shared_ptr<PredictiveExpressionValueParser>
 PredictiveExpressionValueParser::
-create(ExpressionValue & val, JsonParsingContext & context,
+create(std::span<CellValue> fixed, std::vector<std::pair<Path, CellValue>> & extra,
+        JsonParsingContext & context, const Path & prefix,
         Date timestamp, JsonArrayHandling arrays)
 {
     if (context.isObject()) {
-        return StructureExpressionValueParser::create(val, context, timestamp, arrays);
+        return StructureExpressionValueParser::create(fixed, extra, context, prefix, timestamp, arrays);
     }
-    else return std::make_shared<GenericExpressionValueParser>();
+    else if (context.isArray()) {
+        return ArrayExpressionValueParser::create(fixed, extra, context, prefix, timestamp, arrays);
+    }
+    else {
+        return ScalarExpressionValueParser::create(fixed, extra, context, prefix, timestamp, arrays);
+    }
 }
 
 #if 0
-struct NullExpressionValueParser: public PredictiveExpressionValueParser {
-    virtual ~NullExpressionValueParser();
-
-    virtual bool apply(ExpressionValue & val, JsonParsingContext & context,
-                       Date timestamp, JsonArrayHandling arrays)
-    {
-        if (context.isNull()) {
-            val = ExpressionValue();
-            return true;
-        }
-        return fallback(val, context);
-    }
-};
-#endif
-
-//std::shared_ptr<PredictiveExpressionValueParser>
-//learn(JsonParsingContext & context);
-
-
 struct JsonScope : public SqlExpressionMldbScope {
 
 
@@ -1018,7 +937,7 @@ struct JsonScope : public SqlExpressionMldbScope {
     }
 
     ColumnGetter doGetColumn(const Utf8String & tableName,
-                                const ColumnPath & columnName) override
+                             const ColumnPath & columnName) override
     {
         return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
@@ -1090,6 +1009,7 @@ struct JsonScope : public SqlExpressionMldbScope {
     }
 
 };
+#endif
 
 struct JSONImporter: public Procedure {
 
@@ -1113,9 +1033,6 @@ struct JSONImporter: public Procedure {
             make_pair("iterating", "lines")
         });
 
-        // Create the output dataset
-        std::shared_ptr<Dataset> outputDataset;
-
         if (runProcConf.outputDataset.type == "tabular") {
             if (runProcConf.outputDataset.params == nullptr) {
                  Json::Value params;
@@ -1131,12 +1048,9 @@ struct JSONImporter: public Procedure {
                 }
             }
         }
-        outputDataset = createDataset(engine, runProcConf.outputDataset,
-                                      onProgress, true);
 
-        if(!outputDataset) {
-            throw MLDB::Exception("Unable to obtain output dataset");
-        }
+        DatasetBuilder builder;
+        builder.initialize(*engine, logger, runProcConf, onProgress);
 
         Date zeroTs;
 
@@ -1147,8 +1061,6 @@ struct JSONImporter: public Procedure {
         auto filename = runProcConf.dataFileUrl.toDecodedString();
 
         filter_istream stream(filename, { { "mapped", "true" } });
-
-        cerr << "stream size is " << stream.info().size << endl;
 
         bool isArray = false;
         bool separatedWithNewlines = false;
@@ -1207,44 +1119,6 @@ struct JSONImporter: public Procedure {
         }
 
         cerr << "firstRecord " << firstRecord << endl;
-#if 0
-        while (stream) {
-            int c = stream.peek();
-            char discard;
-            if (c == '[') {
-                isArray = true;
-                stream.get(discard);
-                break;
-            }
-            if (c == '\n') {
-                stream.get(discard);
-                continue;
-            }
-            if (!isspace(c)) {
-                break;
-            }
-        };
-
-        {
-            ParseContext parseContext(filename, stream);
-            StreamingJsonParsingContext jsonContext(parseContext);
-            auto firstRecord = jsonContext.expectJson();
-            cerr << "firstRecord = " << firstRecord << endl;
-            if (isArray) {
-                if (jsonContext.eof()) {
-                    throw MLDB::Exception("Truncated JSON array");
-                }
-            }
-            else {
-                bool hasNewlineInternal = jsonContext.hasEmbeddedNewlines;
-                jsonContext.skipJsonWhitespace();
-                separatedWithNewlines = (!hasNewlineInternal) && jsonContext.hasEmbeddedNewlines;
-            }
-        
-            oneRecordPerLine = oneRecordPerLine && (!jsonContext.hasEmbeddedNewlines);
-        }
-#endif
-
         cerr << "isArray = " << isArray << endl;
         cerr << "separatedWithNewlines = " << separatedWithNewlines << endl;
         cerr << "oneRecordPerLine = " << oneRecordPerLine << endl;
@@ -1262,13 +1136,6 @@ struct JSONImporter: public Procedure {
                 ExcAssertEqual(stream.tellg(), startChar);
             }
         }
-
-        //while (parseContext) {
-        //    parseContext.skip_whitespace();
-        //    //char next = *parseContext;
-        //}
-
-        //size_t endChar = stream.tellg();
 
         Date timestamp = stream.info().lastModified;
 
@@ -1292,22 +1159,24 @@ struct JSONImporter: public Procedure {
                                       "line", line);
         };
 
-        Dataset::MultiChunkRecorder recorder
-            = outputDataset->getChunkRecorder();
+        struct OptimizedRecorder {
+            BoundDatasetBuilder boundBuilder;
+
+        };
 
         struct ThreadAccum {
-            /// Recorder object for this thread that the dataset gives us
-            /// to record into the dataset.
-            std::unique_ptr<Recorder> threadRecorder;
-
-            /// Lines done in this thread
-            uint64_t linesDone = 0;
-            
-            /// Bytes done in this thread
-            uint64_t bytesDone = 0;
-
             /// JSON parser for this thread
             simdjson::ondemand::parser parser;
+
+            /// Dataset builder
+            DatasetBuilder * datasetBuilder = nullptr;
+
+            /// Info used in the binding scope
+            Date fileTimestamp;
+            Utf8String dataFileUrl;
+
+            /// Dataset builder bound to our current predictor
+            BoundDatasetBuilder boundBuilder;
 
             /// Predictive structured JSON parser
             std::shared_ptr<PredictiveExpressionValueParser> predictor;
@@ -1316,14 +1185,122 @@ struct JSONImporter: public Procedure {
             /// as the number of failures until we attempt to re-learn
             uint32_t numCalls = 0, numSuccesses = 0, learningRate = 16;
 
-            /// Special function to allow rapid insertion of fixed set of
-            /// atom valued columns.  Only for isIdentitySelect.
-            std::function<void (RowPath rowName,
-                                Date timestamp,
-                                CellValue * vals,
-                                size_t numVals,
-                                std::vector<std::pair<ColumnPath, CellValue> > extra)>
-            specializedRecorder;
+            /// List of known (fixed) columns.  The SqlCSVScope has a reference to
+            /// this, so if we change it we need to reinitialize the recordScope.
+            std::vector<ColumnPath> knownColumns;
+
+            /// Scope (specialized to the learned input distribution)
+            SqlCsvScope recordScope;
+
+            /// Recorder object for this thread that the dataset gives us
+            /// to record into the dataset.
+            DatasetBuilderChunkRecorder recorder;
+
+            /// Lines done in this thread
+            uint64_t linesDone = 0;
+            
+            /// Bytes done in this thread
+            uint64_t bytesDone = 0;
+
+            /// Have we been initialized yet?
+            bool isInitialized = false;
+
+            void initialize(DatasetBuilder & builder,
+                            std::span<const ColumnPath> knownColumns,
+                            Date fileTimestamp,
+                            Utf8String dataFileUrl)
+            {
+                this->datasetBuilder = &builder;
+                this->fileTimestamp = fileTimestamp;
+                this->dataFileUrl = std::move(dataFileUrl);
+                this->learn();
+                isInitialized = true;
+            }
+
+            /// Start a new chunk
+            void newChunk(int64_t chunkNumber)
+            {
+
+                recorder = boundBuilder.newChunk(chunkNumber);
+            }
+
+            /// Finish a chunk
+            void finishChunk()
+            {
+                recorder.finish();
+                recorder = {};
+            }
+
+            void learn()
+            {
+                //auto oldFixedColumns = predictor->getFixedColumnNames();
+
+                if (predictor) {
+                    auto newPredictor = predictor->learn();
+                    if (newPredictor)
+                        predictor = std::move(newPredictor);
+                    numCalls = 0;
+                    numSuccesses = 0;
+                    learningRate *= 2;
+                    knownColumns = predictor->getFixedColumnNames();
+                }
+
+                cerr << "creating recordScope with " << knownColumns.size() << " known columns" << endl;
+                recordScope = SqlCsvScope(datasetBuilder->engine, knownColumns, fileTimestamp, dataFileUrl, true /* canHaveExtra */);
+                this->boundBuilder = datasetBuilder->bind(recordScope, knownColumns);
+                this->recorder = this->boundBuilder.newChunk(-1 /*chunkNumber*/); // TODO: figure out chunk number
+                cerr << "finished with learn()" << endl;
+            }
+
+            void recordLine(const char * line, size_t len, size_t capacity,
+                            Date timestamp, JsonArrayHandling arrays,
+                            uint64_t lineNumber, uint64_t lineOffset)
+            {
+                //cerr << endl << endl << "recording line " << lineNumber << endl;
+                std::vector<CellValue> fixedValues;
+                std::vector<std::pair<Path, CellValue>> extraValues;
+
+                simdjson::padded_string_view lineView(line, len, capacity);
+                auto parsed = parser.iterate(lineView);
+                //cerr << "parsing error: " << parsed.error() << endl;
+                SimdJsonParsingContext context(parsed.value());
+                bool needLearn = false;
+                if (!predictor) {
+                    predictor = PredictiveExpressionValueParser::create(fixedValues, extraValues, context, {}, timestamp, arrays);
+                    ExcAssert(predictor);
+                    numCalls = 1;
+                    numSuccesses = 1;
+                    needLearn = true;
+                }
+                else {
+                    fixedValues.resize(predictor->getFixedColumnCount());
+                    bool success = predictor->apply(fixedValues, extraValues, context, {}, timestamp, arrays);
+                    numCalls += 1;
+                    numSuccesses += success && extraValues.empty();
+                }
+
+                //expr = ExpressionValue::parseJson(context, timestamp, config.arrays);
+                //cerr << "returned: " << expr << endl;
+
+                //cerr << format("got %zd fixed and %zd extra values\n", fixedValues.size(), extraValues.size());
+
+                //cerr << "fixedValues.size() = " << fixedValues.size() << endl;
+                //cerr << "recordScope.columnNames.size() = " << recordScope.columnNames.size() << endl;
+
+                auto rowScope = recordScope.bindRow(fixedValues.data(), fixedValues.size(),
+                                                    extraValues.data(), extraValues.size(),
+                                                    timestamp, lineNumber, lineOffset);
+
+                recorder.recordRow(rowScope, fixedValues, extraValues, lineNumber);
+
+                auto numFailures = numCalls - numSuccesses;
+                if (needLearn || numFailures >= learningRate) {
+                    //cerr << "numFailures = " << numFailures
+                    //        << " numCalls = " << numCalls << " learningRate = " << learningRate << endl;
+                    // Re-learn the predictive parser
+                    learn();
+                }
+            }
         };
 
         PerThreadAccumulator<ThreadAccum> accum;
@@ -1331,29 +1308,21 @@ struct JSONImporter: public Procedure {
         auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
-                threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
+                if (!threadAccum.isInitialized) {
+                    threadAccum.initialize(builder, {} /* knownColumns */, timestamp,
+                                           runProcConf.dataFileUrl.toDecodedUtf8String());
+                }
+                threadAccum.newChunk(chunkNumber);
                 return true;
             };
 
         auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
-                ExcAssert(threadAccum.threadRecorder.get());
-                threadAccum.threadRecorder->finishedChunk();
-                threadAccum.threadRecorder.reset(nullptr);
+                threadAccum.finishChunk();
                 return true;
             };
 
-        bool useSelect = config.select != SelectExpression::STAR;
-        bool useWhere = config.where != SqlExpression::TRUE;
-
-        // using incorrect default value to ease check
-        bool useNamed = config.named != SqlExpression::TRUE;
-
-        JsonScope jsonScope(engine);
-        const auto whereBound = config.where->bind(jsonScope);
-        const auto selectBound = config.select.bind(jsonScope);
-        const auto namedBound = config.named->bind(jsonScope);
         bool keepGoing = true;
         mutex progressMutex;
 
@@ -1427,99 +1396,31 @@ struct JSONImporter: public Procedure {
             if(lineLength == 0)
                 return handleError("empty line", actualLineNum, "");
 
-            ExpressionValue expr;
-            StreamingJsonParsingContext parser(filename, line, lineLength,
-                                            actualLineNum);
-
-            if (true) {
-                size_t len = e - line;
-                //cerr << "parsing line of length " << len << endl;
-                try {
-                    simdjson::padded_string_view lineView(line, len, len + simdjson::SIMDJSON_PADDING);
-                    auto parsed = threadAccum.parser.iterate(lineView);
-                    //cerr << "parsing error: " << parsed.error() << endl;
-                    SimdJsonParsingContext context(parsed.value());
-                    if (!threadAccum.predictor) {
-                        threadAccum.predictor = PredictiveExpressionValueParser::create(expr, context, timestamp, config.arrays);
-                        ExcAssert(threadAccum.predictor);
-                        threadAccum.numCalls = 1;
-                        threadAccum.numSuccesses = 1;
-                    }
-                    else {
-                        bool success = threadAccum.predictor->apply(expr, context, timestamp, config.arrays);
-                        threadAccum.numCalls += 1;
-                        threadAccum.numSuccesses += success;
-                    }
-
-                    auto numFailures = threadAccum.numCalls - threadAccum.numSuccesses;
-                    if (numFailures >= threadAccum.learningRate) {
-                        cerr << "numFailures = " << numFailures
-                             << " numCalls = " << threadAccum.numCalls << " learningRate = " << threadAccum.learningRate << endl;
-                        // Re-learn the predictive parser
-                        auto newPredictor = threadAccum.predictor->learn();
-                        if (newPredictor)
-                            threadAccum.predictor = std::move(newPredictor);
-                        threadAccum.numCalls = 0;
-                        threadAccum.numSuccesses = 0;
-                        threadAccum.learningRate *= 2;
-                    }
-                    //expr = ExpressionValue::parseJson(context, timestamp, config.arrays);
-                    //cerr << "returned: " << expr << endl;
-                } catch (const std::exception & exc) {
-                    return handleError(exc.what(), actualLineNum, string(line, lineLength));
-                }
+            size_t len = e - line;
+            try {
+                threadAccum.recordLine(line, len, len + simdjson::SIMDJSON_PADDING, timestamp,
+                                       config.arrays, actualLineNum, lineOffset);
+            } catch (const std::exception & exc) {
+                return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
-            else {
+
+#if 0
+            if (isArray) {
                 skipJsonWhitespace(*parser.context);
-                if (parser.context->eof()) {
-                    return handleError("empty line", actualLineNum, "");
-                }
-
-                try {
-                    expr = ExpressionValue::parseJson(parser, timestamp,
-                                                    config.arrays);
-                } catch (const std::exception & exc) {
-                    return handleError(exc.what(), actualLineNum, string(line, lineLength));
-                }
-
-                if (isArray) {
-                    skipJsonWhitespace(*parser.context);
-                    if (parser.context->match_literal(',')) ;
-                    else if (parser.context->match_literal(']')) {
-                        if (lastLine != -1 && lastLine != lineNumber) {
-                            throw MLDB::Exception("multiple last lines (without comma separators)");
-                        }
-                        lastLine = lineNumber;
+                if (parser.context->match_literal(',')) ;
+                else if (parser.context->match_literal(']')) {
+                    if (lastLine != -1 && lastLine != lineNumber) {
+                        throw MLDB::Exception("multiple last lines (without comma separators)");
                     }
-                }
-
-                skipJsonWhitespace(*parser.context);
-                if (!parser.context->eof()) {
-                    return handleError("extra characters at end of line", actualLineNum, "");
+                    lastLine = lineNumber;
                 }
             }
 
-            RowPath rowName(actualLineNum);
-            ExpressionValue storage;
-            const ExpressionValue * selectOutput = &expr;
-
-            if (useWhere || useSelect || useNamed) {
-                JsonRowScope row(expr, actualLineNum);
-                if (useWhere) {
-                    if (!whereBound(row, storage, GET_ALL).isTrue()) {
-                        return true;
-                    }
-                }
-
-                if (useNamed) {
-                    rowName = RowPath(
-                        namedBound(row, storage, GET_ALL).toUtf8String());
-                }
-
-                if (useSelect) {
-                    selectOutput = &selectBound(row, storage, GET_ALL);
-                }
+            skipJsonWhitespace(*parser.context);
+            if (!parser.context->eof()) {
+                return handleError("extra characters at end of line", actualLineNum, "");
             }
+#endif
 
             int numLines = recordedLines.fetch_add(1);
             if (numLines % PROGRESS_RATE_LOW == 0) {
@@ -1529,14 +1430,6 @@ struct JSONImporter: public Procedure {
                 }
                 keepGoing = onProgress(jsonEncode(progress));
             }
-
-            if (selectOutput == &expr)
-                threadAccum.threadRecorder->recordRowExprDestructive(
-                    std::move(rowName), std::move(expr));
-            else if (selectOutput == &storage)
-                threadAccum.threadRecorder->recordRowExprDestructive(
-                    std::move(rowName), std::move(storage));
-            else threadAccum.threadRecorder->recordRowExpr(std::move(rowName), *selectOutput);
 
             return keepGoing;
         };
@@ -1574,7 +1467,7 @@ struct JSONImporter: public Procedure {
 
         timer.restart();
 
-        recorder.commit();
+        builder.commit();
 
         INFO_MSG(logger) << "Committing took " << timer.elapsed();
 
