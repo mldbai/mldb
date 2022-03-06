@@ -31,7 +31,6 @@ SqlExpressionMldbScope::
 SqlExpressionMldbScope(const MldbEngine * mldb)
     : mldb(const_cast<MldbEngine *>(mldb))
 {
-    ExcAssert(mldb);
 }
 
 BoundFunction
@@ -41,6 +40,8 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
+    ExcAssert(mldb);
+
     // User functions don't live in table scope
     if (tableName.empty()) {
         // 1.  Try to get a function entity
@@ -91,6 +92,7 @@ std::shared_ptr<Dataset>
 SqlExpressionMldbScope::
 doGetDataset(const Utf8String & datasetName)
 {
+    ExcAssert(mldb);
     return mldb->getDataset(datasetName);
 }
 
@@ -98,6 +100,7 @@ std::shared_ptr<Dataset>
 SqlExpressionMldbScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
+    ExcAssert(mldb);
     return obtainDataset(mldb, datasetConfig.convert<PolyConfig>());
 }
 
@@ -109,6 +112,7 @@ TableOperations
 SqlExpressionMldbScope::
 doGetTable(const Utf8String & tableName)
 {
+    ExcAssert(mldb);
     return bindDataset(doGetDataset(tableName), Utf8String()).table;
 }
 
@@ -116,6 +120,7 @@ MldbEngine *
 SqlExpressionMldbScope::
 getMldbEngine() const
 {
+    ExcAssert(mldb);
     return mldb;
 }
 
