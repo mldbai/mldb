@@ -2041,17 +2041,15 @@ struct TabularDataset::TabularDataStore
     */
     struct ChunkRecorder: public Recorder {
         ChunkRecorder(TabularDataStore * store)
-            : Recorder(store->engine),
-              store(store), doneFirst(store->mutableChunks.load())
+            : Recorder(store->engine), store(store)
         {
             // Note that this may return a null pointer, if nothing has
             // been loaded yet.
             chunk = store->createNewChunk();
+            cerr << "Creating new ChunkRecorder at " << this << " with chunk " << (bool)chunk << endl;
         }
 
-        TabularDataStore * store;
-        bool doneFirst;
-
+        TabularDataStore * store = nullptr;
         std::shared_ptr<MutableTabularDatasetChunk> chunk;
 
         virtual void
