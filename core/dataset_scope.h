@@ -36,9 +36,11 @@ struct BoundTableExpression;
 
 struct SqlExpressionMldbScope: public SqlBindingScope {
 
+    SqlExpressionMldbScope() = default;
+
     SqlExpressionMldbScope(const MldbEngine * mldb);
 
-    MldbEngine * mldb;
+    MldbEngine * mldb = nullptr;
       
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
