@@ -7,6 +7,7 @@
 #include "sql_csv_scope.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/span_description.h"
 
 using namespace std;
 
@@ -23,42 +24,67 @@ namespace MLDB {
 
 SqlCsvScope::
 SqlCsvScope(MldbEngine * engine,
-            const std::vector<ColumnPath> & columnNames,
-            Date fileTimestamp, Utf8String dataFileUrl)
-    : SqlExpressionMldbScope(engine), columnNames(columnNames),
+            const std::span<const ColumnPath> columnNames,
+            Date fileTimestamp, Utf8String dataFileUrl,
+            bool canHaveExtra)
+    : SqlExpressionMldbScope(engine),
+      columnNames(columnNames),
+      canHaveExtra(canHaveExtra),
       fileTimestamp(fileTimestamp),
       dataFileUrl(std::move(dataFileUrl))
 {
     columnsUsed.resize(columnNames.size(), false);
-    lineNumberUsed = false;
 }
 
 ColumnGetter
 SqlCsvScope::
 doGetColumn(const Utf8String & tableName,
-                                 const ColumnPath & columnName)
+            const ColumnPath & columnName)
 {
     if (!tableName.empty()) {
-        throw AnnotatedException(400, "Unknown table name in import.text procedure",
+        throw AnnotatedException(400, "Unknown table name in import procedure",
                                   "tableName", tableName);
     }
 
     int index = std::find(columnNames.begin(), columnNames.end(), columnName)
         - columnNames.begin();
-    if (index == columnNames.size())
-        throw AnnotatedException(400, "Unknown column name in import.text procedure",
-                                  "columnName", columnName,
-                                  "knownColumnNames", columnNames);
 
-    columnsUsed[index] = true;
+    if (index != columnNames.size()) {
+        // The column name is in the index... extracting it is simply a case of
+        // returning the indexed element.
+        columnsUsed[index] = true;
 
+        return {[=] (const SqlRowScope & scope,
+                    ExpressionValue & storage,
+                    const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    auto & row = scope.as<RowScope>();
+                    return storage = ExpressionValue(row.row[index],
+                                                    row.ts);
+                },
+                std::make_shared<AtomValueInfo>()};
+    }
+
+    if (!canHaveExtra) {
+        throw AnnotatedException(400, "Unknown column name in import procedure",
+                                "columnName", columnName,
+                                "knownColumnNames", columnNames);
+    }
+
+    extraUsed = true;
+
+    // We have to look it up in extra, which is not indexed
     return {[=] (const SqlRowScope & scope,
-                 ExpressionValue & storage,
-                 const VariableFilter & filter) -> const ExpressionValue &
+                ExpressionValue & storage,
+                const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto & row = scope.as<RowScope>();
-                return storage = ExpressionValue(row.row[index],
-                                                 row.ts);
+                for (size_t i = 0;  i < row.numExtra;  ++i) {
+                    auto & [path, value] = row.extra[i];
+                    if (path == columnName)
+                        return storage = ExpressionValue(value, row.ts);
+                }
+                return storage = ExpressionValue();
             },
             std::make_shared<AtomValueInfo>()};
 }
@@ -74,8 +100,7 @@ doGetAllColumns(const Utf8String & tableName,
 
     for (unsigned i = 0;  i < columnNames.size();  ++i) {
         const ColumnPath & columnName = columnNames[i];
-        ColumnPath outputName(keep(columnName));
-
+        const ColumnPath & outputName(keep(columnName));
         bool keep = !outputName.empty();
         toKeep.emplace_back(outputName);
         if (keep) {
@@ -91,7 +116,10 @@ doGetAllColumns(const Utf8String & tableName,
     for (size_t i = 0;  i < columnsWithInfo.size();  ++i) {
         columnsWithInfo[i].offset = i;
     }
-        
+
+    if (canHaveExtra)
+        extraUsed = true;
+
     auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
         {
             /* 
@@ -99,6 +127,8 @@ doGetAllColumns(const Utf8String & tableName,
                only used when importing tabular data and there is no way to 
                specify a timestamp for this data.
             */
+
+            ExcAssertEqual(columnNames.size(), toKeep.size());
 
             auto & row = scope.as<RowScope>();
 
@@ -112,13 +142,26 @@ doGetAllColumns(const Utf8String & tableName,
 
             ExcAssertEqual(result.size(), numToKeep);
 
+            if (canHaveExtra) {
+                //cerr << "doing " << row.numExtra << " extra columns" << endl;
+                // Filter the extra columns and keep those matching the expression
+                for (size_t i = 0;  i < row.numExtra;  ++i) {
+                    auto & [path, value] = row.extra[i]; 
+                    //cerr << "  name " << path << " value " << value << endl;                   
+                    ColumnPath outputName(keep(path));
+                    if (!outputName.empty()) {
+                        result.emplace_back(path, value, row.ts);
+                    }
+                }
+            }
+
             return result;
         };
 
     GetAllColumnsOutput result;
     result.exec = exec;
     result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
-                                                 SCHEMA_CLOSED);
+                                                 canHaveExtra ? SCHEMA_OPEN : SCHEMA_CLOSED);
     return result;
 }
 

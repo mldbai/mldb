@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <span>
+
 namespace MLDB {
 
 // Made to init and hold a non POD array of dynamic size in a memory safe
@@ -57,6 +59,14 @@ struct PossiblyDynamicBuffer {
         T stackEntries[MAX_STACK_ENTRIES];
         T * heapEntries;
     };
+
+    operator std::span<T> () const { return { data(), size() }; }
+
+    const T * begin() const { return data(); }
+    const T * end() const { return data() + size(); }
+    T * begin() { return data(); }
+    T * end() { return data() + size(); }
+
 
 private:
     PossiblyDynamicBuffer(const PossiblyDynamicBuffer & other);

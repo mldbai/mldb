@@ -16,6 +16,7 @@
 #include "mldb/types/optional.h"
 #include "mldb/types/regex.h"
 #include "mldb/block/content_descriptor.h"
+#include "dataset_builder.h"
 
 namespace MLDB {
 
@@ -24,10 +25,10 @@ namespace MLDB {
 /* IMPORT TEXT CONFIG                                                        */
 /*****************************************************************************/
 
-struct ImportTextConfig : public ProcedureConfig  {
+struct ImportTextConfig : public ProcedureConfig, public DatasetBuilderConfig  {
     static constexpr const char * name = "import.text";
+
     ContentDescriptor dataFileUrl;
-    PolyConfigT<Dataset> outputDataset = DefaultType("tabular");
     std::vector<Utf8String> headers;
     std::string delimiter = ",";
     std::string quoter = "\"";
@@ -40,21 +41,6 @@ struct ImportTextConfig : public ProcedureConfig  {
     bool structuredColumnNames = false;
     bool allowMultiLines = false;
     bool autoGenerateHeaders = false;
-
-    /// What to select from the CSV
-    SelectExpression select = SelectExpression::STAR; 
-
-    /// Filter for the CSV
-    std::shared_ptr<SqlExpression> where = SqlExpression::TRUE;
-
-    ///< Row name to output
-    std::shared_ptr<SqlExpression> named
-        = SqlExpression::parse("lineNumber()");
-
-    ///< Timestamp for row    
-    std::shared_ptr<SqlExpression> timestamp
-        = SqlExpression::parse("fileTimestamp()");
-
     bool ignoreExtraColumns = false;
     bool processExcelFormulas = true;
     Regex skipLineRegex;
