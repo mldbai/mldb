@@ -13,6 +13,7 @@ LIBMLDB_TEXTUAL_PLUGIN_SOURCES:= \
 	importtext_procedure.cc \
 	sql_csv_scope.cc \
 	tokensplit.cc \
+	dataset_builder.cc \
 
 LIBMLDB_TEXTUAL_PLUGIN_LINK:= \
 	mldb_core \

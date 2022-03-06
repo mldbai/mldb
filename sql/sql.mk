@@ -35,7 +35,7 @@ SQL_EXPRESSION_SOURCES := \
 	eval_sql.cc \
 	expression_value_conversions.cc \
 	expression_value_description.cc \
-	
+	decompose.cc \
 
 # Unfortunately the S2 library needs you to mess with the include path as its includes
 # aren't prefixed.
