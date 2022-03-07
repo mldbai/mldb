@@ -34,6 +34,7 @@
 #include "mldb/engine/dataset_utils.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/block/zip_serializer.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 #include <mutex>
 
 
@@ -2046,7 +2047,7 @@ struct TabularDataset::TabularDataStore
             // Note that this may return a null pointer, if nothing has
             // been loaded yet.
             chunk = store->createNewChunk();
-            cerr << "Creating new ChunkRecorder at " << this << " with chunk " << (bool)chunk << endl;
+            //cerr << "Creating new ChunkRecorder at " << this << " with chunk " << (bool)chunk << endl;
         }
 
         TabularDataStore * store = nullptr;
@@ -2177,6 +2178,25 @@ struct TabularDataset::TabularDataStore
                needing to do any manipulation of column names at all.
             */
 
+            //cerr << "specializing recorder " << this << " for " << columnNames.size() << " columns" << endl;
+            //cerr << "hasChunk = " << (bool)chunk << endl;
+
+            // Currently we can't add new fixed columns, they are frozen once determined
+            // So this function needs to identify which ones map, map them, and add those
+            // which don't to extra.
+
+            std::vector<int> outputPositions(columnNames.size());
+            for (size_t i = 0;  i < columnNames.size();  ++i) {
+                const auto & columnName = columnNames[i];
+                auto it = store->fixedColumnIndex.find(columnName.hash());
+                if (it == store->fixedColumnIndex.end()) {
+                    outputPositions[i] = -1;
+                }
+                else {
+                    outputPositions[i] = it->second;
+                }
+            }
+
             return [=,this] (RowPath rowName, Date timestamp,
                              CellValue * vals, size_t numVals,
                              std::vector<std::pair<ColumnPath, CellValue> > extra)
@@ -2198,11 +2218,29 @@ struct TabularDataset::TabularDataStore
                         chunk = store->createNewChunk();
                     }
                     ExcAssert(chunk);
+                    ExcAssertEqual(numVals, columnNames.size());
 
+                    auto numInputColumns = columnNames.size();
+                    auto numOutputColumns = store->fixedColumns.size();
+
+                    PossiblyDynamicBuffer<CellValue> output(numOutputColumns);
+                    for (size_t i = 0;  i < numInputColumns;  ++i) {
+                        int pos = outputPositions[i];
+                        if (pos == -1) {
+                            extra.emplace_back(columnNames[i], std::move(vals[i]));
+                        }
+                        else {
+                            output[pos] = std::move(vals[i]);
+                        }
+                    }
+
+                    //cerr << "recording " << numVals << " values and " << extra.size()
+                    //     << " extra into specialized recorder for " << chunk->columns.size()
+                    //     << " columns specialized for " << columnNames.size() << " columns" << endl;
 
                     for (;;) {
                         int written = chunk->add(rowName, timestamp,
-                                                 vals, numVals,
+                                                 output.data(), output.size(),
                                                  extra);
                         if (written == MutableTabularDatasetChunk::ADD_SUCCEEDED)
                             break;
