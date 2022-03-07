@@ -49,13 +49,31 @@ CellValue(unsigned long intValue) noexcept
         type = ST_UNSIGNED;
 }
 
+namespace {
+
+size_t ptrmod(const void * ptr, size_t mod)
+{
+    return ((intptr_t)ptr) % mod;
+}
+
+} // file scope
+
 bool 
 CellValue::
 hasNonAsciiChar(const char *start, unsigned int len) const
 {
-    for(unsigned i = 0 ; i < len;++i)
-    {
-        if ((unsigned int)start[i] > 127)
+    for (; len && ptrmod(start, 8) != 0; ++start,--len) {
+        if (*start & 0x80)
+            return true;        
+    }
+    for (; len >= 8;  start += 8, len -= 8) {
+        constexpr uint64_t mask = 0x8080808080808080ULL;
+        uint64_t chars = *((const uint64_t *)start);
+        if (chars & mask)
+            return true;
+    }
+    for (; len;  ++start,--len) {
+        if (*start & 0x80)
             return true;
     }
     return false;
