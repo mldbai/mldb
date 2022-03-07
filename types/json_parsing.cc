@@ -1432,7 +1432,6 @@ expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry)
 
         char keyBuffer[1024];
         ssize_t done = expectStringUtf8(keyBuffer, 1024);
-        cerr << "done = " << done << endl;
 
         if (done != -1) {
             skipJsonWhitespace();
@@ -1441,7 +1440,6 @@ expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry)
 
             skipJsonWhitespace();
 
-            cerr << "onEntry: key = " << string_view{keyBuffer, (size_t)done} << endl;
             onEntry(string_view{keyBuffer, (size_t)done});
 
             skipJsonWhitespace();
