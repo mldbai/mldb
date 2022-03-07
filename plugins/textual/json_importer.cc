@@ -403,6 +403,8 @@ struct PredictiveExpressionValueParser {
                        const Path & prefix, 
                        Date timestamp, JsonArrayHandling arrays) = 0;
 
+    virtual PredictiveExpressionValueParser * clone() const = 0;
+
     virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
     {
         return nullptr;
@@ -508,31 +510,45 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
     int32_t extraFields = 0;
     int32_t missingFields = 0;
 
-    virtual ~StructureExpressionValueParser()
+    virtual ~StructureExpressionValueParser() override
     {
+        if (std::uncaught_exceptions())
+            return;
         if (numCalls >= 0) {
             cerr << "calls: " << numCalls << " successes: " << numSuccesses << " failures: " << numFailures
                  << " extraFields: " << extraFields << " missingFields: " << missingFields << endl;
         }
-        cerr << "  field origin has " << origin.outEdges.size() << " edges" << endl;
+        dump();
+    }
+
+    void dump()
+    {
         for (int i = -1;  i < (int)fields.size();  ++i) {
             auto & field = (i == -1 ? origin : fields[i]);
             cerr << "  " << i << ": field " << field.key << " has " << field.outEdges.size() << " edges" << endl;
+            if (i != -1)
+                cerr << "    from " << field.startPosition << " for " << field.numFixedOutputFields << endl;
             for (auto & [name, to, count]: field.outEdges) {
-                cerr << "    to " << to << " : " << count << endl;
+                cerr << "    " << name << " to " << to << " : " << count << endl;
             }
         }
-        //for (auto & [name, entry]: fallback) {
-        //    cerr << "  " << name << endl;
-        //}
     }
 
-    virtual bool canReturnValue() const
+    virtual PredictiveExpressionValueParser * clone() const override
+    {
+        auto result = std::make_unique<StructureExpressionValueParser>(*this);
+        for (auto & field: result->fields) {
+            field.parser.reset(field.parser->clone()); 
+        }
+        return result.release();
+    }
+
+    virtual bool canReturnValue() const override
     {
         return false;
     }
 
-    virtual bool hasNestedColumns() const
+    virtual bool hasNestedColumns() const override
     {
         return true;
     }
@@ -541,10 +557,19 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
                        std::vector<std::pair<Path, CellValue>> & extra,
                        JsonParsingContext & context,
                        const Path & prefix, 
-                       Date timestamp, JsonArrayHandling arrays)
+                       Date timestamp, JsonArrayHandling arrays) override
     {
         //cerr << "apply at " << context.printPath() << " with " << endl;
         ++numCalls;
+
+        if (fixed.size() != fixedOutputFields.size()) {
+            static std::mutex mutex;
+            std::unique_lock guard{mutex};
+            cerr << "fixed.size() = " << fixed.size()
+                 << " fixedOutputFields.size() = " << fixedOutputFields.size()
+                 << " prefix = " << prefix << endl;
+            dump();
+        }
         ExcAssertEqual(fixed.size(), fixedOutputFields.size());
 
         bool success = true;
@@ -652,12 +677,19 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
             }
 
             if (!alreadyParsed) {
-                bool fieldSuccess = nextField.parser
-                    ->apply(fixed.subspan(startPosition, nextField.numFixedOutputFields),
-                            extra, context, prefix + nextField.key, timestamp, arrays);
-                nextField.isPresentCount += 1;
-                nextField.parserSuccessCount += fieldSuccess;
-                success = success && fieldSuccess;
+                try {
+                    bool fieldSuccess = nextField.parser
+                        ->apply(fixed.subspan(startPosition, nextField.numFixedOutputFields),
+                                extra, context, prefix + nextField.key, timestamp, arrays);
+                    nextField.isPresentCount += 1;
+                    nextField.parserSuccessCount += fieldSuccess;
+                    success = success && fieldSuccess;
+                } catch (...) {
+                    cerr << "startPosition = " << startPosition << endl;
+                    cerr << "nextField.numFixedOutputFields = " << nextField.numFixedOutputFields << endl;
+                    cerr << "nextField.parser->getFixedColumnCount = " << nextField.parser->getFixedColumnCount() << endl;
+                    throw;
+                }
             }
 
             //cerr << "set " << name << " to " << value << endl;
@@ -667,71 +699,27 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
 
         context.forEachMember(onMember);
 
-#if 0
-        if (numFilledIn < out.size()) {
-            // Not all were filled in... remove the empty ones
-            // Actually it doesn't hurt to record nulls so long as there aren't too many...
-            if (false) {
-                auto it = std::partition(out.begin(), out.end(), [] (auto kv) { return !std::get<0>(kv).null(); });
-                out.erase(it, out.end());
-            }
-            else {
-                for (auto & f: fields) {
-                    if (f.position == -1)
-                        break;
-                    auto & [name, value] = out[f.position];
-                    if (name.null())
-                        name = f.key;
-                }
-            }
-        }
-
-        bool hasNullInName = false;
-        for (auto & [name, value]: out) {
-            if (name.null())
-                hasNullInName = true;
-            //ExcAssert(!name.null());
-        }
-
-        if (hasNullInName) {
-            for (size_t i = 0;  i < out.size();  ++i) {
-                cerr << "  " << i << " " << std::get<0>(out[i]) << endl;
-            }
-
-            for (size_t i = 0;  i < fields.size();  ++i) {
-                auto & field = fields[i];
-                cerr << "  field " << i << " " << field.key << " " << field.position << endl;
-            }
-
-            ExcAssert(false);
-        }
-
-        val = ExpressionValue(std::move(out),
-                              isSorted ? ExpressionValue::SORTED : ExpressionValue::NOT_SORTED,
-                              hasDuplicates ? ExpressionValue::HAS_DUPLICATES: ExpressionValue::NO_DUPLICATES);
-#endif
-
         (success ? numSuccesses : numFailures) += 1;
 
         return success;
     }
 
-    virtual size_t getFixedColumnCount() const
+    virtual size_t getFixedColumnCount() const override
     {
         return fixedOutputFields.size();
     }
 
-    virtual std::vector<ColumnPath> getFixedColumnNames() const
+    virtual std::vector<ColumnPath> getFixedColumnNames() const override
     {
         return fixedOutputFields;
     }
 
-    virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
+    virtual std::shared_ptr<PredictiveExpressionValueParser> learn() override
     {
         if (numFailures == 0)
             return nullptr;  // nothing to learn
 
-        //cerr << "learning over " << fields.size() << " fields with " << numCalls << " calls" << endl;
+        cerr << "learning over " << fields.size() << " fields with " << numCalls << " calls" << endl;
 
         // Learn each of them individually
         origin.learn();
@@ -809,16 +797,24 @@ struct ArrayExpressionValueParser: public PredictiveExpressionValueParser {
 
     virtual ~ArrayExpressionValueParser() = default;
 
+    virtual PredictiveExpressionValueParser * clone() const override
+    {
+        return new ArrayExpressionValueParser(*this);
+    }
+
     virtual bool apply(std::span<CellValue> fixed,
                        std::vector<std::pair<Path, CellValue>> & extra,
                        JsonParsingContext & context,
                        const Path & prefix, 
-                       Date timestamp, JsonArrayHandling arrays)
+                       Date timestamp, JsonArrayHandling arrays) override
     {
         ExcAssertEqual(fixed.size(), 0);
         ExpressionValue expr = ExpressionValue::parseJson(context, timestamp, arrays);
         auto onAtom = [&] (auto && path, auto && value, Date timestamp) -> bool
         {
+            //static std::mutex mutex;
+            //std::unique_lock guard{mutex};
+            //cerr << "array atom " << prefix << " " << path << " " << value << endl;
             extra.emplace_back(prefix + std::move(path), std::move(value));
             return true;
         };
@@ -826,27 +822,27 @@ struct ArrayExpressionValueParser: public PredictiveExpressionValueParser {
         return true;
     }
 
-    virtual std::shared_ptr<PredictiveExpressionValueParser> learn()
+    virtual std::shared_ptr<PredictiveExpressionValueParser> learn() override
     {
         return nullptr;
     }
 
-    virtual size_t getFixedColumnCount() const
+    virtual size_t getFixedColumnCount() const override
     {
         return 0;
     }
 
-    virtual std::vector<ColumnPath> getFixedColumnNames() const
+    virtual std::vector<ColumnPath> getFixedColumnNames() const override
     {
         return {};
     } 
 
-    virtual bool canReturnValue() const
+    virtual bool canReturnValue() const override
     {
         return false;
     }
 
-    virtual bool hasNestedColumns() const
+    virtual bool hasNestedColumns() const override
     {
         return true;
     }
@@ -869,6 +865,11 @@ struct ArrayExpressionValueParser: public PredictiveExpressionValueParser {
 };
 
 struct ScalarExpressionValueParser: public PredictiveExpressionValueParser {
+
+    virtual PredictiveExpressionValueParser * clone() const override
+    {
+        return new ScalarExpressionValueParser(*this);
+    }
 
     virtual bool apply(std::span<CellValue> values, std::vector<std::pair<Path, CellValue>> & extra,
                        JsonParsingContext & context, const Path & prefix,
@@ -926,90 +927,6 @@ create(std::span<CellValue> fixed, std::vector<std::pair<Path, CellValue>> & ext
         return ScalarExpressionValueParser::create(fixed, extra, context, prefix, timestamp, arrays);
     }
 }
-
-#if 0
-struct JsonScope : public SqlExpressionMldbScope {
-
-
-    JsonScope(MldbEngine * engine)
-        : SqlExpressionMldbScope(engine)
-    {
-    }
-
-    ColumnGetter doGetColumn(const Utf8String & tableName,
-                             const ColumnPath & columnName) override
-    {
-        return {[=] (const SqlRowScope & scope, ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &
-            {
-                const auto & row = scope.as<JsonRowScope>();
-                const ExpressionValue * res =
-                    row.expr.tryGetNestedColumn(columnName, storage, filter);
-                if (res) {
-                    return *res;
-                }
-                return storage = ExpressionValue();
-            },
-            std::make_shared<AtomValueInfo>()
-        };
-    }
-
-    GetAllColumnsOutput
-    doGetAllColumns(const Utf8String & tableName,
-                    const ColumnFilter& keep) override
-    {
-        std::vector<KnownColumn> columnsWithInfo;
-
-        auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
-        {
-            const auto & row = scope.as<JsonRowScope>();
-            StructValue result;
-            result.reserve(row.expr.rowLength());
-
-            const auto onCol = [&] (const PathElement & columnName,
-                                    const ExpressionValue & val)
-            {
-                const auto & newColName = keep(columnName);
-                if (!newColName.empty()) {
-                    result.emplace_back(newColName.front(), val);
-                }
-                return true;
-            };
-            row.expr.forEachColumn(onCol);
-            result.shrink_to_fit();
-            return result;
-        };
-
-        GetAllColumnsOutput result;
-        result.exec = exec;
-        result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
-                                                     SCHEMA_OPEN);
-        return result;
-    }
-
-    BoundFunction
-    doGetFunction(const Utf8String & tableName,
-                  const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args,
-                  SqlBindingScope & argScope) override
-    {
-        if (functionName == "lineNumber") {
-            return {[=] (const std::vector<ExpressionValue> & args,
-                         const SqlRowScope & scope)
-                {
-                    const auto & row = scope.as<JsonRowScope>();
-                    return ExpressionValue(row.lineNumber,
-                                           Date::negativeInfinity());
-                },
-                std::make_shared<IntegerValueInfo>()
-            };
-        }
-        return SqlBindingScope::doGetFunction(tableName, functionName, args,
-                                              argScope);
-    }
-
-};
-#endif
 
 struct JSONImporter: public Procedure {
 
@@ -1118,6 +1035,28 @@ struct JSONImporter: public Procedure {
                 oneRecordPerLine = true;
         }
 
+        StructuredJsonParsingContext firstContext(firstRecord);
+        std::vector<CellValue> fixed;
+        std::vector<std::pair<ColumnPath, CellValue>> extra;
+        auto predictor = PredictiveExpressionValueParser::
+            create(fixed, extra, firstContext, {} /* prefix */, Date(), runProcConf.arrays);
+
+        // Now we scan through the initial records to figure out the schema
+        // This is only necessary because the tabular dataset infers its schema
+        // from the first record only
+        // Once that changes, we can stop doing this
+        for (size_t i = 0;  i < 100 && !jsonContext.eof();  ++i) {
+            fixed.resize(predictor->getFixedColumnCount());
+            extra.clear();
+            predictor->apply(fixed, extra, jsonContext, {}, Date(), runProcConf.arrays);
+        }
+        auto initialPredictor = predictor->learn();
+        if (!initialPredictor)
+            initialPredictor = predictor;
+
+        auto fixedColumns = initialPredictor->getFixedColumnNames();
+        cerr << "Importing for " << fixedColumns.size() << " fixed columns: " << jsonEncodeStr(fixedColumns) << endl;
+
         cerr << "firstRecord " << firstRecord << endl;
         cerr << "isArray = " << isArray << endl;
         cerr << "separatedWithNewlines = " << separatedWithNewlines << endl;
@@ -1157,11 +1096,6 @@ struct JSONImporter: public Procedure {
                                       "filename", filename,
                                       "lineNumber", lineNumber,
                                       "line", line);
-        };
-
-        struct OptimizedRecorder {
-            BoundDatasetBuilder boundBuilder;
-
         };
 
         struct ThreadAccum {
@@ -1208,13 +1142,25 @@ struct JSONImporter: public Procedure {
             void initialize(DatasetBuilder & builder,
                             std::span<const ColumnPath> knownColumns,
                             Date fileTimestamp,
-                            Utf8String dataFileUrl)
+                            Utf8String dataFileUrl,
+                            const PredictiveExpressionValueParser & predictor)
             {
                 this->datasetBuilder = &builder;
                 this->fileTimestamp = fileTimestamp;
                 this->dataFileUrl = std::move(dataFileUrl);
-                this->learn();
+                this->predictor.reset(predictor.clone());
+                this->bind();
                 isInitialized = true;
+            }
+
+            void bind()
+            {
+                knownColumns = predictor->getFixedColumnNames();
+                //cerr << "creating recordScope with " << knownColumns.size() << " known columns" << endl;
+                recordScope = SqlCsvScope(datasetBuilder->engine, knownColumns, fileTimestamp, dataFileUrl, true /* canHaveExtra */);
+                this->boundBuilder = datasetBuilder->bind(recordScope, knownColumns);
+                this->recorder = this->boundBuilder.newChunk(-1 /*chunkNumber*/); // TODO: figure out chunk number
+                //cerr << "finished with bind()" << endl;
             }
 
             /// Start a new chunk
@@ -1234,22 +1180,13 @@ struct JSONImporter: public Procedure {
             void learn()
             {
                 //auto oldFixedColumns = predictor->getFixedColumnNames();
-
-                if (predictor) {
-                    auto newPredictor = predictor->learn();
-                    if (newPredictor)
-                        predictor = std::move(newPredictor);
-                    numCalls = 0;
-                    numSuccesses = 0;
-                    learningRate *= 2;
-                    knownColumns = predictor->getFixedColumnNames();
-                }
-
-                cerr << "creating recordScope with " << knownColumns.size() << " known columns" << endl;
-                recordScope = SqlCsvScope(datasetBuilder->engine, knownColumns, fileTimestamp, dataFileUrl, true /* canHaveExtra */);
-                this->boundBuilder = datasetBuilder->bind(recordScope, knownColumns);
-                this->recorder = this->boundBuilder.newChunk(-1 /*chunkNumber*/); // TODO: figure out chunk number
-                cerr << "finished with learn()" << endl;
+                auto newPredictor = predictor->learn();
+                if (newPredictor)
+                    predictor = std::move(newPredictor);
+                numCalls = 0;
+                numSuccesses = 0;
+                learningRate *= 2;
+                bind();
             }
 
             void recordLine(const char * line, size_t len, size_t capacity,
@@ -1257,27 +1194,16 @@ struct JSONImporter: public Procedure {
                             uint64_t lineNumber, uint64_t lineOffset)
             {
                 //cerr << endl << endl << "recording line " << lineNumber << endl;
-                std::vector<CellValue> fixedValues;
+                PossiblyDynamicBuffer<CellValue> fixedValues(predictor->getFixedColumnCount());
                 std::vector<std::pair<Path, CellValue>> extraValues;
 
                 simdjson::padded_string_view lineView(line, len, capacity);
                 auto parsed = parser.iterate(lineView);
                 //cerr << "parsing error: " << parsed.error() << endl;
                 SimdJsonParsingContext context(parsed.value());
-                bool needLearn = false;
-                if (!predictor) {
-                    predictor = PredictiveExpressionValueParser::create(fixedValues, extraValues, context, {}, timestamp, arrays);
-                    ExcAssert(predictor);
-                    numCalls = 1;
-                    numSuccesses = 1;
-                    needLearn = true;
-                }
-                else {
-                    fixedValues.resize(predictor->getFixedColumnCount());
-                    bool success = predictor->apply(fixedValues, extraValues, context, {}, timestamp, arrays);
-                    numCalls += 1;
-                    numSuccesses += success && extraValues.empty();
-                }
+                bool success = predictor->apply(fixedValues, extraValues, context, {}, timestamp, arrays);
+                numCalls += 1;
+                numSuccesses += success && extraValues.empty();
 
                 //expr = ExpressionValue::parseJson(context, timestamp, config.arrays);
                 //cerr << "returned: " << expr << endl;
@@ -1294,7 +1220,7 @@ struct JSONImporter: public Procedure {
                 recorder.recordRow(rowScope, fixedValues, extraValues, lineNumber);
 
                 auto numFailures = numCalls - numSuccesses;
-                if (needLearn || numFailures >= learningRate) {
+                if (numFailures >= learningRate) {
                     //cerr << "numFailures = " << numFailures
                     //        << " numCalls = " << numCalls << " learningRate = " << learningRate << endl;
                     // Re-learn the predictive parser
@@ -1310,7 +1236,8 @@ struct JSONImporter: public Procedure {
                 auto & threadAccum = accum.get();
                 if (!threadAccum.isInitialized) {
                     threadAccum.initialize(builder, {} /* knownColumns */, timestamp,
-                                           runProcConf.dataFileUrl.toDecodedUtf8String());
+                                           runProcConf.dataFileUrl.toDecodedUtf8String(),
+                                           *initialPredictor);
                 }
                 threadAccum.newChunk(chunkNumber);
                 return true;

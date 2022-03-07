@@ -46,7 +46,7 @@ recordRow(SqlCsvScope::RowScope & row,
           std::span<std::pair<RowPath, CellValue>> extraValues,
           uint64_t actualLineNum)
 {
-    cerr << "recordRow with " << fixedValues.size() << " values and threadRecorder " << threadRecorder.get() << endl;
+    //cerr << "recordRow with " << fixedValues.size() << " values and threadRecorder " << threadRecorder.get() << endl;
 
     ExpressionValue nameStorage;
     RowPath rowName;
@@ -203,13 +203,13 @@ bind(SqlBindingScope & scope,
     //if (isIdentitySelect)
     //    ExcAssertEqual(inputColumnNames, knownColumnNames);
 
-    INFO_MSG(logger)
-        << "reading " << inputColumnNames.size() << " columns "
-        << jsonEncodeStr(inputColumnNames);
+    //INFO_MSG(logger)
+    //    << "reading " << inputColumnNames.size() << " columns "
+    //    << jsonEncodeStr(inputColumnNames);
 
-    INFO_MSG(logger)
-        << "writing " << result.knownColumnNames.size() << " columns "
-        << jsonEncodeStr(result.knownColumnNames);
+    //INFO_MSG(logger)
+    //    << "writing " << result.knownColumnNames.size() << " columns "
+    //    << jsonEncodeStr(result.knownColumnNames);
 
     auto decomposition = decompose(result.selectBound, scope);
     result.decomposition.reset(new Decomposition(std::move(decomposition)));
