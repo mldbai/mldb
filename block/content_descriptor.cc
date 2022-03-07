@@ -460,7 +460,7 @@ getStream(const std::map<Utf8String, Any> & options) const
     //cerr << "url = " << descriptor.getUrlStringUtf8() << " compression = "
     //     << compression << " mapped = " << isMapped << endl;
 
-    if (isMapped) {
+    while (isMapped) {  // actually an if, but now we can break out
         // Just get one single big block
         auto contentHandler = getContent(descriptor);
 
@@ -502,7 +502,10 @@ getStream(const std::map<Utf8String, Any> & options) const
                                    vals->mem.length());
 
             if (outputSize < 0) {
-                throw Exception("decompressed size unknown");
+                if (outputSize == Decompressor::LENGTH_UNKNOWN)
+                    break;  // do as an istream as we can't run the splitting algorithm
+
+                throw Exception("decompressed size unknown: %i", (int)outputSize);
             }
 
             static MemorySerializer serializer;
