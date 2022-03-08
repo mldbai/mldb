@@ -147,3 +147,18 @@ BOOST_AUTO_TEST_CASE( test_compressed_random_access )
 {
     
 }
+
+BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
+{
+    string input_file = "mldb_test_data/Books_5.json.zstd";
+    ContentDescriptor descriptor = jsonDecode<ContentDescriptor>("file://" + input_file);
+    std::shared_ptr<ContentHandler> handler = getDecompressedContent(descriptor);
+
+    auto onBlock = [&] (size_t blockNum, uint64_t blockOffset,
+                        FrozenMemoryRegion block)
+    {
+        return true;
+    };
+
+    handler->forEachBlockParallel(0, 1024 * 1024 /* requested block size */, 1 /* maxParallelism */, onBlock);
+}

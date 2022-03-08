@@ -45,6 +45,20 @@ std::map<std::string, Decompressor::Info> decompressors;
 
 } // file scope
 
+bool
+Compressor::
+canFixupLength() const
+{
+    return false;
+}
+
+std::string
+Compressor::
+newHeaderForLength(uint64_t lengthWritten) const
+{
+    throw MLDB::Exception("Attempt to call newHeaderForLength for class that doesn't support it");
+}
+
 std::string
 Compressor::
 filenameToCompression(const std::string & filename)
