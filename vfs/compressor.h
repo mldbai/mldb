@@ -44,7 +44,7 @@ struct Compressor {
         passed to compress.  Some of the compression formats can put this
         into their header to enable better decisions on allocation.
 
-        This must be called either never or ponce before compress(), flush() or
+        This must be called either never or once before compress(), flush() or
         finish(), and behavior is undefined if the exact same amount of data
         is not then passed to compress().
 
@@ -68,6 +68,19 @@ struct Compressor {
     /** Finish the stream... no more data can be written to it afterwards.
     */
     virtual void finish(const OnData & onData) = 0;
+
+    /** Returns true if the compressor is able to write a new header with
+        a fixed-up length once closed.
+
+        Default implementation returns false.
+    */
+    virtual bool canFixupLength() const;
+
+    /** Return a new header that will overwrite the one written before.  The
+     *  new header MUST have the same length as the old one.  Will only be
+     *  called if canFixupLength() returns true.
+     */
+    virtual std::string newHeaderForLength(uint64_t lengthWritten) const;
 
     /** Convert a filename to a compression scheme.  Returns the empty
         string if it isn't found.

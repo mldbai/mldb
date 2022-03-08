@@ -75,9 +75,19 @@ UriHandler(std::streambuf * buf,
 
 struct BoostCompressor: public boost::iostreams::multichar_output_filter {
 
-    BoostCompressor(Compressor * compressor)
-        : compressor(compressor)
+    BoostCompressor(Compressor * compressor, std::streambuf & buf)
+        : compressor(compressor), buf(buf)
     {
+        // Record the start position so that once we know the actual written
+        // size we can go back and rewrite the header wiht the right size.
+        if (compressor->canFixupLength()) {
+            try {
+                MLDB_TRACE_EXCEPTIONS(false);
+                startPos = buf.pubseekoff(0, ios::cur, ios_base::in);
+            } catch (std::ios_base::failure exc) {
+                startPos = -1;
+            }
+        }
     }
 
     template<typename Sink>
@@ -89,6 +99,7 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
             
             data += written;
             size -= written;
+            bytesWritten += written;
         }
     }
 
@@ -102,19 +113,40 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
             };
         
         compressor->compress(s, n, onData);
+        bytesRead += n;
         return n;
     }
 
     template<typename Sink>
     void close(Sink& sink)
     {
+        if (alreadyClosed)
+            return;
+
         auto onData = [&] (const char * data, size_t len) -> size_t
             {
                 writeAll(sink, data, len);
                 return len;
             };
         
+        if (bytesRead == 0) {
+            compressor->notifyInputSize(0);            
+        }
         compressor->finish(onData);
+
+        if (bytesRead != 0 && startPos != -1 && compressor->canFixupLength()) {
+            std::string data = compressor->newHeaderForLength(bytesRead);
+            {
+                std::ostream stream(&buf);
+                auto oldPos = stream.tellp();
+                stream.seekp(startPos, std::ios::beg);
+                stream.write(data.data(), data.size());
+                stream.flush();
+                stream.seekp(oldPos, std::ios::beg);
+            }
+        }
+
+        alreadyClosed = true;
     }
 
     template<typename Sink>
@@ -130,6 +162,11 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
     }
 
     std::shared_ptr<Compressor> compressor;
+    std::streambuf & buf;
+    uint64_t bytesWritten = 0;
+    uint64_t bytesRead = 0;
+    int64_t startPos = -1;
+    bool alreadyClosed = false;
 };
 
 
@@ -361,7 +398,7 @@ void addCompression(streambuf & buf,
             = Compressor::create(compression, compressionLevel);
         if (!compressor)
             throw MLDB::Exception("unknown filter compression " + compression);
-        stream.push(BoostCompressor(compressor));
+        stream.push(BoostCompressor(compressor, buf));
     }
     else {
         std::string compressionFromFilename
@@ -371,7 +408,7 @@ void addCompression(streambuf & buf,
                 = Compressor::create(compressionFromFilename, compressionLevel);
             if (!compressor)
                 throw MLDB::Exception("unknown filter compression " + compression);
-            stream.push(BoostCompressor(compressor));
+            stream.push(BoostCompressor(compressor, buf));
         }
     }
 }
@@ -635,11 +672,11 @@ close()
 {
     if (stream) {
         boost::iostreams::flush(*stream);
-        boost::iostreams::close(*stream);
+        //boost::iostreams::close(*stream);  // will be called on stream.reset();
     }
+    stream.reset();
     exceptions(ios::goodbit);
     rdbuf(0);
-    stream.reset();
     sink.reset();
     options.clear();
     if (deferredExcPtr) {

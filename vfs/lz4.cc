@@ -159,6 +159,19 @@ struct MLDB_PACKED Header
         return sizeof(*this);
     }
 
+    std::string asString(uint64_t lengthWritten)
+    {
+        std::string result;
+        const std::function<size_t (const char *, size_t)> onData
+            = [&] (const char * data, size_t len) -> size_t
+        {
+            result.append(data, len);
+            return len;
+        };
+        write(onData, lengthWritten);
+        return result;
+    }
+
     uint8_t checksumOptions(const uint64_le & knownContentSize) const
     {
         if (contentSize()) {
@@ -192,7 +205,7 @@ struct Lz4Compressor : public Compressor {
     typedef Compressor::FlushLevel FlushLevel;
     
     Lz4Compressor(int level, uint8_t blockSizeId = 7,
-                  uint64_t contentSize = 0)
+                  uint64_t contentSize = -1)
         : head(blockSizeId,
                true /* independent blocks */,
                false /* block checksum */,
@@ -222,16 +235,31 @@ struct Lz4Compressor : public Compressor {
     virtual void notifyInputSize(uint64_t inputSize) override
     {
         if (!writeHeader) {
-            throw Exception("lz4 input size already notified");
+            throw Exception("lz4 input size notified too late");
         }
         head.setContentSize(true);
         this->contentSize = inputSize;
     }
-    
+
+    virtual bool canFixupLength() const override
+    {
+        return true;
+    }
+
+    virtual std::string newHeaderForLength(uint64_t lengthWritten) const override
+    {
+        lz4::Header fixedHeader = this->head;
+        fixedHeader.setContentSize(lengthWritten);
+        std::string result = fixedHeader.asString(lengthWritten);
+        return result;
+    }
+
     virtual void compress(const char * s, size_t n,
                           const OnData & onData) override
     {
         if (writeHeader) {
+            auto asStringDebug = head.asString(contentSize);
+            hex_dump(asStringDebug);
             head.write(onData, contentSize);
             writeHeader = false;
         }

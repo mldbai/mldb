@@ -89,3 +89,28 @@ BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4_content_size )
 
     BOOST_CHECK_EQUAL(size, stream2.readAll().length());
 }
+
+BOOST_AUTO_TEST_CASE( test_compress_decompress_zstd_content_size )
+{
+    string input_file = "mldb/vfs/testing/filter_streams_test.cc";
+    string output_file = "tmp/compressor_test.zstd";
+    string zstd_cmd = binDir / string("zstd -f " + input_file + " -o " + output_file);
+
+    Scope_Exit(::unlink(output_file.c_str()));
+    system(zstd_cmd);
+
+    std::ifstream stream(output_file.c_str());
+
+    char buf[200];
+    stream.read(buf, 200);
+
+    int numRead = stream.gcount();
+
+    auto decomp = Decompressor::create("zstd");
+    
+    auto size = decomp->decompressedSize(buf, numRead, -1 /* total len unknown */);
+
+    filter_istream stream2(output_file);
+
+    BOOST_CHECK_EQUAL(size, stream2.readAll().length());
+}
