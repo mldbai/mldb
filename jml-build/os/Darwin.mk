@@ -11,7 +11,7 @@ READLINK:=readlink
 linker_rpath=
 SO_EXTENSION:=.dylib
 
-VIRTUALENV ?= virtualenv
+VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)
 PYTHON ?= $(VIRTUALENV)/bin/python
 PIP ?= $(VIRTUALENV)/bin/pip
 PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==21.2.3
