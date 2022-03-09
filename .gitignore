@@ -53,3 +53,4 @@ file::test*
 *.DS_Store
 airlines
 airlines.*
+virtualenv-*-*-*
