@@ -259,7 +259,6 @@ struct Lz4Compressor : public Compressor {
     {
         if (writeHeader) {
             auto asStringDebug = head.asString(contentSize);
-            hex_dump(asStringDebug);
             head.write(onData, contentSize);
             writeHeader = false;
         }

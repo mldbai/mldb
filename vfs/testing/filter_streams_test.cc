@@ -31,6 +31,7 @@
 #include "mldb/arch/exception_handler.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/demangle.h"
+#include "mldb/base/hex_dump.h"
 
 using namespace std;
 namespace fs = std::filesystem;
