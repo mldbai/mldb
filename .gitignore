@@ -58,3 +58,4 @@ airlines.*
 *.rej
 /scratch
 /build*
+/virtualenv-*-*-*

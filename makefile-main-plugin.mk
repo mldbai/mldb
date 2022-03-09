@@ -2,6 +2,7 @@
 
 # Empty default suffixes to speed up initialization
 .SUFFIXES:
+OSNAME:=$(shell uname -s)
 
 toolchain ?= gcc
 PYTHON_ENABLED:=1
@@ -35,27 +36,28 @@ default: all
 
 BUILD   ?= build
 ARCH    ?= $(call exec-shell, uname -m)
-OBJ     := $(BUILD)/$(ARCH)/obj
-BIN     := $(BUILD)/$(ARCH)/bin
+OBJ     := $(BUILD)/$(ARCH)-$(OSNAME)/obj
+BIN     := $(BUILD)/$(ARCH)-$(OSNAME)/bin
 LIB	:= $(BUILD)/$(ARCH)/lib
-TESTS   := $(BUILD)/$(ARCH)/tests
-TMPBIN	:= $(BUILD)/$(ARCH)/tmp
-INC     := $(BUILD)/$(ARCH)/include
+TESTS   := $(BUILD)/$(ARCH)-$(OSNAME)/tests
+TMPBIN	:= $(BUILD)/$(ARCH)-$(OSNAME)/tmp
+INC     := $(BUILD)/$(ARCH)-$(OSNAME)/include
 SRC     := .
-TMP     ?= $(BUILD)/$(ARCH)/tmp
+TMP     ?= $(BUILD)/$(ARCH)-$(OSNAME)/tmp
 
 # These are for cross-compilation, where binaries used in the build need
 # be be built for the host.
 HOSTARCH ?= $(ARCH)
-HOSTBIN ?= $(BUILD)/$(HOSTARCH)/bin
-HOSTLIB ?= $(BUILD)/$(HOSTARCH)/lib
-HOSTINC ?= $(BUILD)/$(HOSTARCH)/include
+HOSTOSNAME ?= $(OSNAME)
+HOSTBIN ?= $(BUILD)/$(HOSTARCH)-$(HOSTOSNAME)/bin
+HOSTLIB ?= $(BUILD)/$(HOSTARCH)-$(HOSTOSNAME)/lib
+HOSTINC ?= $(BUILD)/$(HOSTARCH)-$(HOSTOSNAME)/include
 
 TEST_TMP := $(TESTS)
 # Vars for configuration files or files that live outside bin and lib
 ALTROOT := $(BUILD)/$(ARCH)/altroot
 ETC     := $(ALTROOT)/etc
-PLUGINS := $(BUILD)/$(ARCH)/mldb_plugins
+PLUGINS := $(BUILD)/$(ARCH)-$(OSNAME)/mldb_plugins
 
 JML_BUILD := mldb/jml-build
 INCLUDE := -I. -Imldb
