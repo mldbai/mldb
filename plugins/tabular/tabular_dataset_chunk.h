@@ -136,7 +136,9 @@ private:
 
 struct MutableTabularDatasetChunk {
 
-    MutableTabularDatasetChunk(size_t numColumns, size_t maxSize);
+    MutableTabularDatasetChunk(std::span<const ColumnPath> fixedColumnNames,
+                               const LightweightHash<uint64_t, int> * fixedColumnIndex,
+                               size_t maxSize);
 
     MutableTabularDatasetChunk(MutableTabularDatasetChunk && other) noexcept = delete;
     MutableTabularDatasetChunk & operator = (MutableTabularDatasetChunk && other) noexcept = delete;
@@ -146,6 +148,11 @@ struct MutableTabularDatasetChunk {
 
     /// Protect access in a multithreaded context
     mutable std::mutex mutex;
+
+    std::span<const ColumnPath> fixedColumnNames;
+
+    /// Index of columns, may be nullptr if the caller doesn't have it
+    const LightweightHash<uint64_t, int> * fixedColumnIndex = nullptr;
 
     /// Maximum size, in rows
     size_t maxSize;

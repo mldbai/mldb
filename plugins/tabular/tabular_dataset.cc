@@ -689,7 +689,7 @@ struct TabularDataset::TabularDataStore
                             std::move(sortedStrings),
                             maxNumBuckets);
 
-            cerr << "Tabular getColumnBuckets " << column << " has " << desc.numBuckets() << " buckets " << endl;
+            //cerr << "Tabular getColumnBuckets " << column << " has " << desc.numBuckets() << " buckets " << endl;
 
             // In parallel, create a bucket list for each chunk, then
             // add them together in order.
@@ -2121,7 +2121,7 @@ struct TabularDataset::TabularDataStore
                 finishedChunk();
                 chunk.reset
                     (new MutableTabularDatasetChunk
-                     (orderedVals.size(),
+                     (store->fixedColumns, &store->fixedColumnIndex,
                       chunkSizeForNumColumns(orderedVals.size())));
             }
         }
@@ -2177,6 +2177,20 @@ struct TabularDataset::TabularDataStore
                set of columns.  This allows us to directly record them without
                needing to do any manipulation of column names at all.
             */
+            std::unique_lock<std::mutex> guard(store->datasetMutex);
+
+            if (!chunk) {
+                // We create a sample set of values for the
+                // column to analyze, so it can identify the
+                // column names.
+                std::vector<std::tuple<ColumnPath, CellValue, Date> > sampleVals;
+                sampleVals.reserve(columnNames.size());
+                for (unsigned i = 0;  i < columnNames.size();  ++i)
+                    sampleVals.emplace_back(columnNames[i], CellValue(), Date());
+        
+                store->createFirstChunks(sampleVals);
+                chunk = store->createNewChunk();             
+            }
 
             //cerr << "specializing recorder " << this << " for " << columnNames.size() << " columns" << endl;
             //cerr << "hasChunk = " << (bool)chunk << endl;
@@ -2197,31 +2211,17 @@ struct TabularDataset::TabularDataStore
                 }
             }
 
+            //cerr << "outputPositions = " << jsonEncode(outputPositions) << endl;
+
+            auto numInputColumns = columnNames.size();
+            auto numOutputColumns = store->fixedColumns.size();
+
             return [=,this] (RowPath rowName, Date timestamp,
                              CellValue * vals, size_t numVals,
                              std::vector<std::pair<ColumnPath, CellValue> > extra)
                 {
-                    if (!chunk) {
-                        {
-                            std::unique_lock<std::mutex> guard(store->datasetMutex);
-
-                            // We create a sample set of values for the
-                            // column to analyze, so it can identify the
-                            // column names.
-                            std::vector<std::tuple<ColumnPath, CellValue, Date> > sampleVals;
-                            for (unsigned i = 0;  i < columnNames.size();  ++i)
-                                sampleVals.emplace_back(columnNames[i], vals[i], timestamp);
-                   
-                            store->createFirstChunks(sampleVals);
-                        }
-
-                        chunk = store->createNewChunk();
-                    }
                     ExcAssert(chunk);
-                    ExcAssertEqual(numVals, columnNames.size());
-
-                    auto numInputColumns = columnNames.size();
-                    auto numOutputColumns = store->fixedColumns.size();
+                    ExcAssertEqual(numVals, numInputColumns);
 
                     PossiblyDynamicBuffer<CellValue> output(numOutputColumns);
                     for (size_t i = 0;  i < numInputColumns;  ++i) {
@@ -2250,8 +2250,8 @@ struct TabularDataset::TabularDataStore
                         finishedChunk();
                         chunk.reset
                             (new MutableTabularDatasetChunk
-                             (columnNames.size(),
-                              chunkSizeForNumColumns(columnNames.size())));
+                             (store->fixedColumns, &store->fixedColumnIndex,
+                              chunkSizeForNumColumns(numOutputColumns)));
                     }
                 };
         }
@@ -2264,7 +2264,7 @@ struct TabularDataset::TabularDataStore
 
         for (auto & c: *newChunks) {
             auto newChunk = std::make_shared<MutableTabularDatasetChunk>
-                (fixedColumns.size(), chunkSizeForNumColumns(fixedColumns.size()));
+                (fixedColumns, &fixedColumnIndex, chunkSizeForNumColumns(fixedColumns.size()));
             c.store(std::move(newChunk));
         }
             
@@ -2404,7 +2404,7 @@ struct TabularDataset::TabularDataStore
             return nullptr;
 
         return std::make_shared<MutableTabularDatasetChunk>
-            (fixedColumns.size(),
+            (fixedColumns, &fixedColumnIndex,
              expectedSize == -1
              ? chunkSizeForNumColumns(fixedColumns.size())
              : expectedSize);
@@ -2435,7 +2435,7 @@ struct TabularDataset::TabularDataStore
 
             for (auto & c: *newChunks) {
                 auto newChunk = std::make_shared<MutableTabularDatasetChunk>
-                    (fixedColumns.size(), chunkSizeForNumColumns(fixedColumns.size()));
+                    (fixedColumns, &fixedColumnIndex, chunkSizeForNumColumns(fixedColumns.size()));
                 c.store(std::move(newChunk));
             }
             
@@ -2529,7 +2529,7 @@ struct TabularDataset::TabularDataStore
                      == MutableTabularDatasetChunk::ADD_PERFORM_ROTATION) {
                 // We need a rotation, and we've been selected to do it
                 auto newChunk = std::make_shared<MutableTabularDatasetChunk>
-                    (fixedColumns.size(), chunkSizeForNumColumns(fixedColumns.size()));
+                    (fixedColumns, &fixedColumnIndex, chunkSizeForNumColumns(fixedColumns.size()));
                 if (mc->chunks[chunkNum]
                     .compare_exchange_strong(chunkPtr, newChunk)) {
                     // Successful rotation.  First we background freeze
