@@ -67,8 +67,8 @@ $(eval $(call test,dataset_select_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_pee
 $(eval $(call test,embedding_dataset_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) rest_entity,boost))
 $(eval $(call test,procedure_run_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS) mldb_embedding_plugin,boost))
 $(eval $(call test,python_procedure_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost manual)) #manual -- unclear why
-$(eval $(call test,mldb_internal_plugin_doc_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
-
+$(eval $(call test,mldb_internal_plugin_doc_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost manual)) #manual -- build order relies on plugins built first
+$(eval $(call set_compile_option,mldb_internal_plugin_doc_test.cc,-DMLDB_ARCH=$(ARCH) -DMLDB_OSNAME=$(OSNAME)))
 $(TEST)/mldb_internal_plugin_doc_test: $(foreach plugin,tensorflow mongodb postgres,$(MLDB_PLUGIN_FILES_$(plugin)))
 
 $(eval $(call mldb_unit_test,MLDB-987-beh-time-quantization-test.py))
