@@ -554,3 +554,4 @@ $(eval $(call mldb_unit_test,benchmark-airlines.js,,manual))
 
 $(eval $(call mldb_unit_test,csv_line_breaks_test.py))
 $(eval $(call mldb_unit_test,json_import_flavor_test.py))
+$(eval $(call test,csv_line_splitter_test,$(MLDB_PLUGIN_AUTO_LIBS) block utils mldb_textual_plugin,boost))

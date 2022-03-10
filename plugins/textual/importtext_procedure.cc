@@ -26,6 +26,7 @@
 #include "mldb/utils/log.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "sql_csv_scope.h"
+#include "csv_splitter.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/base/optimized_path.h"
@@ -96,9 +97,7 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ImportTextConfig)
             "Regex used to skip lines.  This regex must match the entire line, in "
             "other words it is automatically anchored at the beginning and the "
             "end of the line, so `#.*` will skip lines that have a `#` in the "
-            "first character position.  Default skips no lines.  This option applies "
-            "to the text, not to the CSV rows, and so may interact strangely with the "
-            "`allowMultiLines` option.");
+            "first character position.  Default skips no lines.");
 
     addParent<ProcedureConfig>();
     addParent<DatasetBuilderConfig>();
@@ -141,35 +140,6 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(ImportTextConfig)
 
 namespace {
 
-enum Encoding {
-    ASCII,
-    UTF8,
-    LATIN1
-};
-
-Encoding parseEncoding(const std::string & encodingStr_)
-{
-    std::string encodingStr;
-    for (auto & c: encodingStr_)
-        encodingStr += tolower(c);
-
-    Encoding encoding;
-    if (encodingStr == "us-ascii" || encodingStr == "ascii") {
-        encoding = ASCII;
-    }
-    else if (encodingStr == "utf-8" || encodingStr == "utf8") {
-        encoding = UTF8;
-    }
-    else if (encodingStr == "latin1" || encodingStr == "iso8859-1")
-        encoding = LATIN1;
-    else throw AnnotatedException(400, "Unknown encoding '" + encodingStr_
-                                   + "'for import.text parser: accepted are "
-                                   "'us-ascii', 'ascii', 'utf-8', 'utf8', "
-                                   "'latin1', 'iso8859-1'",
-                                   "encoding", encodingStr);
-    return encoding;
-}
-
 const char * findInvalidAscii(const char * start, size_t length, char*buf, char replaceInvalidCharactersWith) {
 
     memcpy(buf, start, length);
@@ -197,185 +167,6 @@ MLDB_ALWAYS_INLINE bool isascii(int c)
 {
     return (c & (~127)) == 0;
 }
-
-/* BlockSplitter that splits on the newline character. */
-struct CSVSplitterState {
-
-};
-
-
-struct CSVSplitter: public BlockSplitterT<CSVSplitterState> {
-    CSVSplitter(char quoteChar,
-                bool allowMultiLine,
-                Encoding encoding)
-        : quoteChar(quoteChar), allowMultiLine(allowMultiLine), encoding(encoding)
-    {
-    }
-
-    virtual std::pair<const char *, CSVSplitterState>
-    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
-               const CSVSplitterState & state) const override
-    {
-        const char * p = block1;
-        const char * e = block1 + n1;
-        int blockNum = 1;
-
-        //cerr << "looking for next block with " << n << " characters" << endl;
-
-        bool has8bit = false;
-
-        auto use_next_block = [&] () -> bool
-        {
-            if (blockNum != 1 || !block2 || n2 == 0)
-                return false;
-            ExcAssert(p == e);
-            p = block2;
-            e = block2 + n2;
-            return true;
-        };
-
-        auto find_next_match = [&] (auto && match) -> char
-        {
-            if (MLDB_LIKELY(!has8bit)) {
-                do {
-                    for (; p < e;  ++p) {
-                        if (match(*p))
-                            return *p++;
-                        if ((*p & 128) && encoding == Encoding::UTF8) {
-                            has8bit = true;
-                            break;
-                        }
-                    }
-                } while (use_next_block());
-            }
-            if (MLDB_UNLIKELY(has8bit)) {
-                // 8 bit characters means UTF-8 encodings
-
-                do {
-                    for (; p < e; /* no inc */) {
-                        if (*p & 128) {
-                            auto charlen = utf8::internal::sequence_length(p);
-
-                            // If we're near the end, it's possible that the block ends
-                            // in the middle of an UTF-8 character.
-                            if (MLDB_UNLIKELY(charlen > (e - p))) {
-                                cerr << " (((( TRUNCATED IN MID CHARACTER )))" << endl;
-                                int n = e - p;  // num chars from the previous block
-                                p = e;
-                                if (!use_next_block())
-                                    return 0;  // truncated
-                                p += charlen - n;
-                                if (p > e)
-                                    return 0;  // new block is truncated
-                            }
-                            else {
-                                p += charlen;
-                            }
-                        }
-                        else {
-                            if (match(*p))
-                                return *p++;
-                            ++p;
-                        }
-                    }
-                } while (use_next_block());
-            }
-            return 0;
-        };
-
-        auto find_next_of_1 = [&] (char c) -> char
-        {
-            if (MLDB_LIKELY(encoding == Encoding::ASCII)) {
-                auto p2 = (const char *)memchr(p, c, e - p);
-                //cerr << " memchr skipped " << (p2 - p) << " characters" << endl;
-                if (!p2) return 0;
-                p = p2 + 1;
-                return *p2;
-            }
-
-            auto match = [c] (char cin) { return cin == c; };
-            return find_next_match(match);
-        };
-
-        auto find_next_of_2 = [&] (char c1, char c2) -> char
-        {
-            if (MLDB_LIKELY(encoding == Encoding::ASCII)) {
-                for (; p < e;  ++p) {
-                    if (*p == c1 || *p == c2)
-                        return *p++;
-                }
-                return 0;
-            }
-
-            auto match = [c1,c2] (char cin) { return cin == c1 || cin == c2; };
-            return find_next_match(match);
-        };
-
-        auto truncated = [] () -> std::pair<const char *, CSVSplitterState>
-        {
-            return { nullptr, {} };
-        };
-
-        while (p < e) {
-            unsigned char c = find_next_of_2('\n', quoteChar);
-            //cerr << "found char " << (int)c << c << " at " << (p - current) << endl;
-            if (c == quoteChar) {
-                //cerr << "  in quote; *p = " << (int)*p << endl;
-                // end of string means we're truncated
-                if (p == e)
-                    return truncated();
-                if (*p == quoteChar) {
-                    ++p;
-                    continue;  // double quote char means literal quote
-                }
-
-                // We're in a string; continue until we get a non-doubled quote
-                for (;;) {
-                    unsigned char c;
-                    if (allowMultiLine) {
-                        c = find_next_of_1(quoteChar);
-                    }
-                    else {
-                        c = find_next_of_2('\n', quoteChar);
-                        if (c == '\n') {
-                            // Newline in quoted field without allowMultiLine
-                            // Will eventually result in an error, but let the parser
-                            // deal with that
-                            return { --p, {} };
-                        }
-                    }
-                    //cerr << "  got another quote char " << (int)c << " at " << (p - current) << endl;
-                    if (c != quoteChar || p == e)
-                        return truncated();
-                    //cerr << "    following char is " << (int)*p << endl;
-
-                    // Double quote
-                    if (*p == quoteChar) {
-                        ++p;
-                        continue;
-                    }
-                    
-                    // Finished the string
-                    break;
-                }
-            }
-            else if (c == '\n') {
-                //cerr << "*** FINISHED LINE OUTSIDE OF STRING with " << (e - p) << " chars remaining" << endl;
-                //cerr << string(current, p - 1) << endl;
-                //cerr << "  *(p-1) = " << (int)(*(p-1)) << endl;
-                return { --p, {} };
-            }
-            else break;
-        }
-        //cerr << "*** FINISHED TRUNCATED" << endl;
-        return truncated();
-    }
-
-    char quoteChar;
-    bool allowMultiLine;
-    Encoding encoding;
-};
-
 
 /** Parse a single row of CSV into an array of CellValues.
 
@@ -411,7 +202,7 @@ parseFixedWidthCsvRow(const char * & line,
                       size_t numColumns,
                       char separator,
                       char quote,
-                      Encoding encoding,
+                      CsvLineEncoding encoding,
                       int replaceInvalidCharactersWith,
                       bool isTextLine,
                       bool hasQuoteChar,
@@ -663,22 +454,21 @@ parseFixedWidthCsvRow(const char * & line,
 /* Manages all the temporary data and work to load a text file               */
 /*****************************************************************************/
 
-struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
-    //std::shared_ptr<spdlog::logger> logger;
+struct ImportTextProcedureWorkInstance {
     BoundDatasetBuilder builder;
     //vector<ColumnPath> knownColumnNames;
-    //LightweightHash<ColumnHash, int> inputColumnIndex;
+    LightweightHash<ColumnHash, int> inputColumnIndex;
     //LightweightHash<ColumnHash, int> columnIndex; //To check for duplicates column names
     int64_t lineOffset = 1;  // we start at line 1
     // Column names in the CSV file.  This is distinct from the
     // output column names that will be created once parsing has
     // happened.
-    //vector<ColumnPath> inputColumnNames;
+    vector<ColumnPath> inputColumnNames;
     bool isTextLine = false;
     char separator = 0;
     char quote = 0;
     int replaceInvalidCharactersWith = -1;
-    Encoding encoding;
+    CsvLineEncoding encoding;
     bool hasQuoteChar = false;
     Date ts;
 
@@ -686,7 +476,7 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
     uint64_t numLineErrors = 0;
 
     /*    Load a text file and filter according to the configuration  */
-    void loadText(const DatasetBuilder & datasetBuilder,
+    void loadText(DatasetBuilder & datasetBuilder,
                   const ImportTextConfig& config)
     {
         auto filename = config.dataFileUrl.toDecodedString();
@@ -698,7 +488,7 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
 
         // For some operations, we need a stream.  Get this from the
         // content handler, so that the underlying data is all shared.
-        filter_istream stream = content->getStream({ { "mapped", true } });
+        filter_istream stream = content->getStream( /*{ { "mapped", true } }*/);
         
         // Get the file timestamp out, to be used internally
         ts = content->getLastModified();
@@ -739,7 +529,7 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
             replaceInvalidCharactersWith = *config.replaceInvalidCharactersWith.begin();
         }
 
-        encoding = parseEncoding(config.encoding);
+        encoding = parseCsvLineEncoding(config.encoding);
 
         if (isTextLine) {
             //MLDB-1312 optimize if there is no delimiter: only 1 column
@@ -861,7 +651,7 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
                           Utf8String(config.dataFileUrl.getUrlString()),
                           false /* can have extra columns */);
 
-        builder = datasetBuilder.bind(scope, inputColumnNames);
+        this->builder = datasetBuilder.bind(scope, inputColumnNames);
 
         // Skip those up to the offset now we've done the header
         // TODO: do this skipping later on
@@ -869,20 +659,21 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
             getline(stream, line);
         }
 
-        loadTextData(dataset, content, stream.tellg(), config, scope, onProgress);
+        loadTextData(content, stream.tellg(), config, scope, datasetBuilder.onProgress);
 
-        dataset->commit();
+        datasetBuilder.commit();
     }
 
     /*    Load, filter and format all lines and process them  */
     void
-    loadTextData(std::shared_ptr<Dataset> dataset,
-                 std::shared_ptr<ContentHandler> content,
+    loadTextData(std::shared_ptr<ContentHandler> content,
                  uint64_t offset,
                  const ImportTextConfig& config,
                  SqlCsvScope& scope,
                  const std::function<bool (const Json::Value &)> & onProgress)
     {
+        auto & logger = builder.logger;
+
         Progress progress;
         std::shared_ptr<Step> iterationStep = progress.steps({
             make_pair("iterating", "lines"),
@@ -903,14 +694,14 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
 
             cerr << "lineNumber " << lineNumber << endl;
             cerr << "columnNumber " << columnNumber << endl;
-            cerr << "line " << line << endl;
-            hex_dump(line.data(), line.length());
+            //cerr << "line " << line << endl;
+            //hex_dump(line.data(), line.length());
             
             throw AnnotatedException(400, "Error parsing CSV row: "
                                       + message,
                                       "lineNumber", lineNumber,
-                                      "columnNumber", columnNumber,
-                                      "line", line);
+                                      "columnNumber", columnNumber /*,
+                                      "line", line*/);
         };
 
         struct ThreadAccum {
@@ -941,6 +732,7 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
             {
                 auto & threadAccum = accum.get();
                 threadAccum.recorder.finish();
+                threadAccum.recorder = {};
                 return true;
             };
 
@@ -967,7 +759,7 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
                         = lineCount.fetch_add(threadAccum.linesDone)
                         + threadAccum.linesDone;
 
-                    if (linesDone % PROGRESS_RATE_LOW < PROGRESS_RATE_LOW) {
+                    if (onProgress && linesDone % PROGRESS_RATE_LOW < PROGRESS_RATE_LOW) {
                         iterationStep->value = linesDone;
                         onProgress(jsonEncode(iterationStep));
                     }
@@ -975,7 +767,7 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
                     // Look for the wraparound of the modulus
                     if (linesDone % 100000 < threadAccum.linesDone) {
                         double wall = timer.elapsed_wall();
-                        INFO_MSG(this->logger)
+                        INFO_MSG(logger)
                             << "done " << linesDone << " in " << wall
                             << "s at " << linesDone / wall * 0.000001
                             << "M lines/second on "
@@ -1007,7 +799,6 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
                 // Values that come in from the CSV file
                 PossiblyDynamicBuffer<CellValue> values(numInputColumns);
 
-                const char * lineStart = line;
 
                 const char * errorMsg
                         = parseFixedWidthCsvRow(line, length, values.data(),
@@ -1041,7 +832,12 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
             return false;
         };
 
-        CSVSplitter splitter { config.quoter[0], config.allowMultiLines, parseEncoding(config.encoding) };
+        CSVSplitter csvSplitter { config.quoter[0], config.allowMultiLines, parseCsvLineEncoding(config.encoding) };
+        NewlineSplitter newlineSplitter;
+        const BlockSplitter & splitter
+            = config.allowMultiLines
+            ? (const BlockSplitter &)csvSplitter
+            : (const BlockSplitter &)newlineSplitter;
         forEachLineBlock(content, offset, onLine, config.limit,
                          numCpus() /* parallelism */,
                          startChunk, doneChunk,
@@ -1071,8 +867,6 @@ struct ImportTextProcedureWorkInstance: public BoundDatasetBuilder {
             << byteCount / timer.elapsed_wall() * 0.000001 << " megabytes/sec";
         INFO_MSG(logger) << "processed " << lineCount << " lines";
         
-        recorder->commit();
-
         numLineErrors = numSkipped;
         rowCount = lineCount;
     }

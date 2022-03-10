@@ -14,6 +14,7 @@ LIBMLDB_TEXTUAL_PLUGIN_SOURCES:= \
 	sql_csv_scope.cc \
 	tokensplit.cc \
 	dataset_builder.cc \
+	csv_splitter.cc \
 
 LIBMLDB_TEXTUAL_PLUGIN_LINK:= \
 	mldb_core \

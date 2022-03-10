@@ -38,6 +38,13 @@ namespace MLDB {
 // a set of lines plus a state containing leftover data to pass to the
 // next block.
 
+std::span<const char>
+BlockSplitter::
+fixupBlock(std::span<const char> block) const
+{
+    return block;
+}
+
 namespace {
 
 struct ForEachLineProcessor: public ComputeContext {

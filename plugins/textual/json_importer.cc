@@ -133,7 +133,7 @@ struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
 
     virtual std::pair<const char *, JsonSplitterState>
     nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
-               const JsonSplitterState & state) const override
+               bool noMoreData, const JsonSplitterState & state) const override
     {
         auto truncated = [] () -> std::pair<const char *, JsonSplitterState>
         {
