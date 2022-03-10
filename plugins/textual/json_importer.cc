@@ -864,11 +864,34 @@ struct ArrayExpressionValueParser: public PredictiveExpressionValueParser {
     }
 };
 
+namespace {
+void learnPredictor(std::shared_ptr<PredictiveExpressionValueParser> & predictor)
+{
+    if (!predictor)
+        return;
+    auto newPredictor = predictor->learn();
+    if (newPredictor)
+        predictor = std::move(newPredictor);
+}
+}
+
 struct ScalarExpressionValueParser: public PredictiveExpressionValueParser {
 
     virtual PredictiveExpressionValueParser * clone() const override
     {
-        return new ScalarExpressionValueParser(*this);
+        auto result = std::make_unique<ScalarExpressionValueParser>(*this);
+        if (result->arrays)
+            result->arrays.reset(result->arrays->clone());
+        if (result->objects)
+            result->objects.reset(result->objects->clone());
+        return result.release();
+    }
+
+    virtual std::shared_ptr<PredictiveExpressionValueParser> learn() override
+    {
+        learnPredictor(arrays);
+        learnPredictor(objects);
+        return nullptr;
     }
 
     virtual bool apply(std::span<CellValue> values, std::vector<std::pair<Path, CellValue>> & extra,
@@ -876,10 +899,20 @@ struct ScalarExpressionValueParser: public PredictiveExpressionValueParser {
                        Date timestamp, JsonArrayHandling arrays) override
     {
         if (context.isArray()) {
-            MLDB_THROW_UNIMPLEMENTED("isArray");
+            if (!this->arrays) {
+                this->arrays = ArrayExpressionValueParser::create(values, extra, context, prefix, timestamp, arrays);
+            }
+            else {
+                this->arrays->apply(values, extra, context, prefix, timestamp, arrays);
+            }
         }
         else if (context.isObject()) {
-            MLDB_THROW_UNIMPLEMENTED("isObject");
+            if (!objects) {
+                objects = ArrayExpressionValueParser::create(values, extra, context, prefix, timestamp, arrays);
+            }
+            else {
+                objects->apply(values, extra, context, prefix, timestamp, arrays);
+            }
         }
         else {
             static const auto desc = getDefaultDescriptionSharedT<CellValue>();
@@ -909,6 +942,29 @@ struct ScalarExpressionValueParser: public PredictiveExpressionValueParser {
         result->apply(fixed, extra, context, prefix, timestamp, arrays);
         return result;
     }
+
+    virtual bool canReturnValue() const override
+    {
+        return true;
+    }
+
+    virtual bool hasNestedColumns() const override
+    {
+        return !!arrays || !!objects;
+    }
+
+    virtual size_t getFixedColumnCount() const override
+    {
+        return 0;
+    }
+
+    virtual std::vector<ColumnPath> getFixedColumnNames() const override
+    {
+        return {};
+    } 
+
+    std::shared_ptr<PredictiveExpressionValueParser> objects;
+    std::shared_ptr<PredictiveExpressionValueParser> arrays;
 };
 
 std::shared_ptr<PredictiveExpressionValueParser>
