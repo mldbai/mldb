@@ -20,6 +20,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "frozen_tables.h"
 #include <mutex>
+#include <bit>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>

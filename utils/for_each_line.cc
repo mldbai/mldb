@@ -31,6 +31,13 @@ namespace MLDB {
 
 const NewlineSplitter newLineSplitter;
 
+std::span<const char>
+BlockSplitter::
+fixupBlock(std::span<const char> block) const
+{
+    return block;
+}
+
 namespace {
 
 struct Processing {
@@ -328,7 +335,9 @@ void forEachLineBlock(std::istream & stream,
 
                     while (current && current < end && (current - start) < BLOCK_SIZE
                            && (maxLines == -1 || doneLines < maxLines)) { //stop processing new line when we have enough)
-                        std::tie(current, splitterState) = splitter.nextBlock(current, end - current, nullptr, 0, splitterState);
+                        std::tie(current, splitterState)
+                            = splitter.nextBlock(current, end - current, nullptr, 0,
+                                                 true /* no more data */, splitterState);
                         if (current) {
                             lineOffsets.push_back(current - start);
                             ++doneLines;
@@ -395,7 +404,9 @@ void forEachLineBlock(std::istream & stream,
                         const char * end = block.get() + offset;
 
                         while (current && current < end) {
-                            std::tie(current, splitterState) = splitter.nextBlock(current, end - current, nullptr, 0, splitterState);
+                            std::tie(current, splitterState)
+                                = splitter.nextBlock(current, end - current, nullptr, 0,
+                                                     stream.eof(), splitterState);
                             if (current && current < end) {
                                 //ExcAssertEqual(*current, '\n');
                                 if (lineOffsets.back() != current - block.get()) {
@@ -409,15 +420,16 @@ void forEachLineBlock(std::istream & stream,
                         byteOffset += bytesRead;
                     }
 
-                
                     if (stream.eof()) {
+#if 0
                         // If we are at the end of the stream
-                        // make sure we include the last line 
+                        // make sure we include the last line
                         // if there was no newline
                         if (lineOffsets.back() != offset - 1) {
                             lineOffsets.push_back(offset);
                             ++doneLines;
                         }
+#endif
                     }
                     else {
                         // Package up the leftover (truncated) block for the next
@@ -458,13 +470,11 @@ void forEachLineBlock(std::istream & stream,
                         const char * line = blockOut.get() + lastLineOffset;
                         size_t len = lineOffsets[i] - lastLineOffset;
 
-                        // Skip \r for DOS line endings
-                        if (len > 0 && line[len - 1] == '\r')
-                            --len;
+                        auto fixedup = splitter.fixupBlock({line, len});
 
                         // if we are not at the last line
-                        if (!lastBlock || len != 0 || i != lineOffsets.size() - 1)
-                            if (!onLine(line, len, chunkNumber, chunkLineNumber++))
+                        if (!lastBlock || fixedup.size() != 0 || i != lineOffsets.size() - 1)
+                            if (!onLine(fixedup.data(), fixedup.size(), chunkNumber, chunkLineNumber++))
                                 return;
                     
                         lastLineOffset = lineOffsets[i] + 1;
@@ -562,7 +572,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
             FrozenMemoryRegion partialLastLine;
             
             // Offset in otherLines of line start characters
-            vector<size_t> lineOffsets;
+            vector<std::span<const char>> lines;
             
             // What we got from the last block
             PassToNextBlock fromPrev;
@@ -575,45 +585,16 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
             // safe to call at any time, including before the next block has
             // been launched and after the next block has already been told to
             // do something else.
-            auto bailNextBlock = [&] () {
+            auto bailNextBlock = [&] ()
+            {
                 PassToNextBlock toNext;
                 toNext.bail = true;
                 toNextQueue->enqueue(std::move(toNext));
             };
 
-            if (!splitter.isStateless())
-                MLDB_THROW_UNIMPLEMENTED("non-stateless parallel record processing");
-            std::any splitterState;  // if not stateless, needs to come from previous block
-
-            try {
-                //cerr << endl << endl
-                //     << "------------- starting block " << chunkNumber
-                //     << " at offset "
-                //     << offset << endl;
-                //cerr << "with " << leftoverFromPreviousBlock.length()
-                //     << " characters leftover" << endl;
-                //hex_dump(leftoverFromPreviousBlock.data(),
-                //         leftoverFromPreviousBlock.length());
-                //cerr << "getting block at offset " << offset
-                //     << " with " << leftoverFromPreviousBlock.length()
-                //     << " bytes left over" << endl;
-
-                //Date start = Date::now();
-                
-                //Date gotData = Date::now();
-
-                //double elapsed = gotData.secondsSince(start);
-                
-                //cerr << "  chunk " << chunkNumber << " got "
-                //     << mem.length() << " bytes in " << elapsed << " seconds"
-                //     << " at " << mem.length() / elapsed / 1000000 << " MB/s"
-                //     << endl;
-                
-                //cerr << "got " << mem.length() << " bytes at "
-                //     << (void *)mem.data() << endl;
-
-                //hex_dump(mem.data(), mem.length());
-                
+            if (splitter.isStateless()) {
+#if 0  // can scan before previous block is finished (TODO: re-enable)                
+                std::any splitterState;
                 size_t length = mem.length();
                 const char * start = mem.data();
                 const char * current = start;
@@ -676,24 +657,16 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                             ++current;
                         }
                     }
-                    
-                    // Whatever is left over is the last line, which we pass
-                    // through to the next block
-                    if (!current && mem) {
-                        //cerr << "lastLineStart - start = "
-                        //     << lastLineStart - start << endl;
-                        //cerr << "mem.length() = " << mem.length() << endl;
-                        partialLastLine = mem.range(lastLineStart - start,
-                                                    mem.length());
-                        //cerr << "partial last line" << endl;
-                    }
                 }
-
+#endif
+            }
+                
+            try {
                 if (hasExc.load(std::memory_order_relaxed)) {
                     bailNextBlock();
                     return false;
                 }
-                    
+                
                 fromPrevQueue->wait_dequeue(fromPrev);
 
                 // Do we bail out?  If our previous block says it has bailed,
@@ -703,47 +676,114 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     return false;
                 }
 
-                // Now we have information from the previous block, we can reconstruct
-                // our first line and know our real line numbers
                 FrozenMemoryRegion leftoverFromPreviousBlock
                     = std::move(fromPrev.leftoverFromPreviousBlock);
                 int64_t startLine = fromPrev.doneLines;
-                uint64_t doneLines = startLine + numLinesInBlock;
                 std::any splitterState = std::move(fromPrev.splitterState);
 
-                if (noBreakInChunk && mem) {
-                    // No line break in the whole chunk; it's all a partial
-                    // last line
-                    partialLastLine
-                        = FrozenMemoryRegion::combined
-                        (leftoverFromPreviousBlock,
-                         mem);
+                cerr << "processing block with " << leftoverFromPreviousBlock.length()
+                     << " and " << mem.length() << " bytes and splitter " << type_name(splitter) << endl;
+
+                const char * start1   = leftoverFromPreviousBlock.data();
+                const char * end1     = start1 + leftoverFromPreviousBlock.length();
+                const char * start2   = mem.data();
+                const char * end2     = start2 + mem.length();
+                const char * current = start1 == end1 ? start2 : start1;
+                FrozenMemoryRegion leftover;
+                FrozenMemoryRegion firstRecord;
+                bool noMoreData = mem.length() == 0;  // We signal the last block by sending over a null block
+
+                //cerr << "leftoverFromPreviousBlock.length() = " << leftoverFromPreviousBlock.length() << endl;
+                //cerr << "mem.length() = " << mem.length() << endl;
+
+                if (noMoreData && leftoverFromPreviousBlock.length() != 0) {
+                    cerr << "doing last line" << endl;
+                    auto [newCurrent, newState] = splitter.nextBlock(start1, end1 - start1, nullptr, 0,
+                                                                     true /* noMoreData */, splitterState);
+
+                    cerr << "newCurrent = " << (const void *)newCurrent << endl;
+                    cerr << "current = " << (const void *)current << endl;
+                    cerr << "start1 = " << (const void *)start1 << endl;
+                    cerr << "end1 = " << (const void *)end1 << endl;
+                    cerr << "start2 = " << (const void *)start2 << endl;
+                    cerr << "end2 = " << (const void *)end2 << endl;
+
+                    //cerr << "newCurrent = " << (const void *)newCurrent << endl;
+                    if (!newCurrent) {
+                        throw MLDB::Exception("File is truncated in the middle of a record");
+                    }
+                    ExcAssertEqual((const void *)newCurrent, (const void *)end1);
+                    lines.emplace_back(start1, end1 - start1);
+                    //cerr << "got last line " << string(firstRecord.data(), firstRecord.length()) << endl;
+                    current = 0;
                 }
-                else if (mem) {
-                    firstLine
-                        = FrozenMemoryRegion::combined
-                        (leftoverFromPreviousBlock,
-                         mem.range(0, charsUntilFirstLineBreak));
+
+                // Scan the combined leftover and new blocks, normally it should only be once
+                // to complete the partial last record.
+                while (current && current >= start1 && current < end1) {
+                    ExcAssert(start2 != 0);
+                    cerr << "doing current line" << endl;
+                    auto [newCurrent, newState] = splitter.nextBlock(current, end1 - current, start2, end2 - start2, noMoreData, splitterState);
+                    if (!newCurrent) {
+                        // No break in the whole lot... it's all a partial record
+                        leftover = FrozenMemoryRegion::combined(leftoverFromPreviousBlock, mem);
+                        current = nullptr;
+                        break;
+                    }
+
+                    if (newCurrent >= start1 && newCurrent < end1) {
+                        lines.emplace_back(current, newCurrent - current);
+                    }
+                    else {
+                        if (newCurrent < start2 || newCurrent > end2) {
+                            cerr << "newCurrent = " << (const void *)newCurrent << endl;
+                            cerr << "current = " << (const void *)current << endl;
+                            cerr << "start1 = " << (const void *)start1 << endl;
+                            cerr << "end1 = " << (const void *)end1 << endl;
+                            cerr << "start2 = " << (const void *)start2 << endl;
+                            cerr << "end2 = " << (const void *)end2 << endl;
+                        }
+                        ExcAssertGreaterEqual((const void *)newCurrent, (const void *)start2);
+                        ExcAssertLessEqual((const void *)newCurrent, (const void *)end2);
+                        //cerr << "doing combined" << endl;
+                        firstRecord = FrozenMemoryRegion::combined(leftoverFromPreviousBlock, mem.rangeAtStart(newCurrent - start2));
+                        lines.emplace_back(firstRecord.data(), firstRecord.length());
+                    }
+                    //cerr << "got first line " << string(lines.back().data(), lines.back().size()) << endl;
+                    current = newCurrent;
+                    splitterState = std::move(newState);
                 }
-                else {
-                    firstLine = std::move(leftoverFromPreviousBlock);
-                    if (firstLine.length() == 0)
-                        return false;
+
+                // Scan the current block
+                while (current && current >= start2 && current < end2) {
+                    auto [newCurrent, newState] = splitter.nextBlock(current, end2 - current, nullptr, 0, noMoreData, splitterState);
+                    if (!newCurrent) {
+                        // We've gotten all we can
+                        leftover = mem.rangeAtEnd(end2 - current);
+                        current = nullptr;
+                        break;
+                    }
+                    lines.emplace_back(current, newCurrent - current);
+                    //cerr << "got line " << string(current, newCurrent) << endl;
+                    ExcAssertGreater((const void *)newCurrent, (const void *)current);
+                    current = newCurrent;
+                    splitterState = std::move(newState);
                 }
+
+                cerr << "done " << lines.size() << " lines" << endl;
+                cerr << "leftover.length() = " << leftover.length() << endl;
+
+                if (hasExc.load(std::memory_order_relaxed)) {
+                    bailNextBlock();
+                    return false;
+                }
+
+                uint64_t doneLines = startLine + lines.size();
 
                 if (maxLines == -1 || doneLines < maxLines) {
-
-                    //cerr << "sending on partial last line with "
-                    //     << partialLastLine.length() << " characters"
-                    //     << endl;
-                    //hex_dump(partialLastLine.data(),
-                    //         partialLastLine.length());
-
-
                     // What we pass on to the next block
                     PassToNextBlock toNext;
-                    toNext.leftoverFromPreviousBlock
-                        = std::move(partialLastLine);
+                    toNext.leftoverFromPreviousBlock = std::move(leftover);
                     toNext.doneLines = doneLines;
                     toNext.splitterState = std::move(splitterState);
                     toNextQueue->enqueue(std::move(toNext));
@@ -753,16 +793,13 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 }
                     
                 int64_t chunkLineNumber = startLine;
-                size_t numLines = (firstLine ? 1 : 0)
-                                + (lineOffsets.empty() ? 0 : lineOffsets.size() - 1);
+                size_t numLines = lines.size();
                 
                 auto doLine = [&] (const char * line, size_t len)
                     {
-                        // Skip \r for DOS line endings
-                        if (len > 0 && line[len - 1] == '\r')
-                            --len;
+                        auto fixedup = splitter.fixupBlock({line, len});
 
-                        return onLine(line, len, chunkNumber, chunkLineNumber++);
+                        return onLine(fixedup.data(), fixedup.size(), chunkNumber, chunkLineNumber++);
                     };
             
                 if (startBlock)
@@ -771,39 +808,17 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 
                 auto returnedLines = startLine;
                 
-                if (firstLine) {
-                    //cerr << "doing first line" << endl;
-                    if (maxLines == -1 || returnedLines++ < maxLines) {
-                        if (!doLine(firstLine.data(), firstLine.length())) {
-                            return false;
-                        }
-                    }
-                }
-                
-                if (!lineOffsets.empty()) {
-                    size_t lastLineOffset = lineOffsets[0];
+                for (unsigned i = 0;  i < lines.size() && (maxLines == -1 || returnedLines++ < maxLines); ++i) {
+                    //cerr << "i = " << i << " maxLines = " << maxLines << " returnedLines = " << returnedLines << endl;
+                    // Check for exception bailout every 256 lines
+                    if (i % 256 == 0 && hasExc.load(std::memory_order_relaxed))
+                        return false;
 
-                    for (unsigned i = 1;
-                         i < lineOffsets.size()
-                             && (maxLines == -1 || returnedLines++ < maxLines);
-                         ++i) {
+                    const char * line = lines[i].data();
+                    size_t len = lines[i].size();
 
-                        // Check for exception bailout every 256 lines
-                        if (i % 256 == 0
-                            && hasExc.load(std::memory_order_relaxed))
-                            return false;
-
-                        const char * line = mem.data() + lastLineOffset;
-                        size_t len = lineOffsets[i] - lastLineOffset;
-
-                        //cerr << "doing other line " << i << " with "
-                        //     << len << " chars" << endl;
-                        
-                        if (!doLine(line, len))
-                            return false;
-                        
-                        lastLineOffset = lineOffsets[i] + 1;  // skip \n
-                    }
+                    if (!doLine(line, len))
+                        return false;
                 }
                     
                 if (endBlock)

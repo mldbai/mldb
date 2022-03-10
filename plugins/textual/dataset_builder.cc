@@ -74,7 +74,8 @@ recordRow(SqlCsvScope::RowScope & row,
     //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 
     if (owner->isIdentitySelect && extraValues.empty()) {
-        cerr << "identity select" << endl;
+        //cerr << "identity select" << endl;
+        //cerr << jsonEncode(fixedValues) << endl;
         // If it's a select *, we don't really need to run the
         // select clause.  We simply record the values directly.
         specializedRecorder(std::move(rowName),
@@ -82,7 +83,7 @@ recordRow(SqlCsvScope::RowScope & row,
                             fixedValues.size(), {});
     }
     else if (owner->decomposition && owner->decomposition->canUseDecomposed) {
-        cerr << "owner->decomposition has " << owner->decomposition->knownColumnNames.size() << " columns" << endl;
+        //cerr << "owner->decomposition has " << owner->decomposition->knownColumnNames.size() << " columns" << endl;
         auto [outputValues, extra] = owner->decomposition->apply(row, fixedValues);
         //extra.insert(extra.end(),
         //             std::make_move_iterator(extraValues.begin())
@@ -126,7 +127,7 @@ DatasetBuilderChunkRecorder
 BoundDatasetBuilder::
 newChunk(int chunkNumber) const
 {
-    cerr << "BoundDatasetBuilder: newChunk with " << knownColumnNames.size() << " columns" << endl;
+    //cerr << "BoundDatasetBuilder: newChunk with " << knownColumnNames.size() << " columns" << endl;
     
     DatasetBuilderChunkRecorder result;
     result.owner = this;
@@ -137,7 +138,7 @@ newChunk(int chunkNumber) const
             = result.threadRecorder
             ->specializeRecordTabular(knownColumnNames);
     }
-    cerr << "  NewChunk recorder at " << result.threadRecorder.get() << endl;
+    //cerr << "  NewChunk recorder at " << result.threadRecorder.get() << endl;
     return result;
 }
 
@@ -148,6 +149,8 @@ bind(SqlBindingScope & scope,
 {
     BoundDatasetBuilder result;
     result.recorder = &recorder;
+    result.logger = logger;
+    result.onProgress = onProgress;
 
     // Early check for duplicate column names in input
     for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {

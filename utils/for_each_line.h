@@ -15,6 +15,7 @@
 #include <string>
 #include <memory>
 #include <any>
+#include <span>
 
 namespace MLDB {
 
@@ -32,7 +33,9 @@ struct BlockSplitter {
     virtual bool isStateless() const { return false; };
     virtual size_t requiredBlockPadding() const { return 0; }
     virtual std::pair<const char *, std::any>
-    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2, const std::any & state) const = 0;
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
+              bool noMoreData, const std::any & state) const = 0;
+    virtual std::span<const char> fixupBlock(std::span<const char> block) const;
 };
 
 /* BlockSplitter with a specific state type. */
@@ -41,16 +44,18 @@ struct BlockSplitterT: public BlockSplitter {
     virtual ~BlockSplitterT() = default;
     virtual State newStateT() const { return State(); }
     virtual std::pair<const char *, State>
-    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2, const State & state) const = 0;
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
+               bool noMoreData, const State & state) const = 0;
     virtual std::any newState() const override
     {
         return newStateT();
     }
     virtual std::pair<const char *, std::any>
-    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2, const std::any & state) const override
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
+              bool noMoreData, const std::any & state) const override
     {
         const State & stateT = std::any_cast<State>(state);
-        auto [newPos, newState] = nextBlockT(block1, n1, block2, n2, stateT);
+        auto [newPos, newState] = nextBlockT(block1, n1, block2, n2, noMoreData, stateT);
         return { newPos, std::move(newState) };
     };
 };
@@ -64,23 +69,52 @@ struct BlockSplitterT<void>: public BlockSplitter {
         return {};
     }
     virtual bool isStateless() const { return true; };
-    virtual const char * nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2) const = 0;
+    virtual const char *
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
+               bool noMoreData) const = 0;
     virtual std::pair<const char *, std::any>
-    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2, const std::any & state) const override
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
+              bool noMoreData, const std::any & state) const override
     {
-        auto newPos = nextBlockT(block1, n1, block2, n2);
+        auto newPos = nextBlockT(block1, n1, block2, n2, noMoreData);
         return { newPos, {} };
     };
 };
 
 /* BlockSplitter that splits on the newline character. */
 struct NewlineSplitter: public BlockSplitterT<void> {
-    virtual const char * nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2) const override
+    virtual const char *
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
+               bool noMoreData) const override
     {
         auto result = (const char *)memchr(block1, '\n', n1);
         if (!result && block2)
             result = (const char *)memchr(block2, '\n', n2);
-        return result;
+
+        // Found a newline, skip it and return
+        if (result)
+            return result + 1;
+
+        // No newline but EOF, return up to the last character
+        if (noMoreData)
+            return n2 ? block2 + n2 : block1 + n1;
+
+        // No newline and not EOF, we need more data
+        return nullptr;
+    }
+
+    static std::span<const char> removeNewlines(std::span<const char> block)
+    {
+        const char * p = block.data();
+        const char * e = p + block.size();
+        if (e > p && e[-1] == '\n') --e;
+        if (e > p && e[-1] == '\r') --e;
+        return { p, size_t(e - p) };
+    }
+
+    virtual std::span<const char> fixupBlock(std::span<const char> block) const
+    {
+        return removeNewlines(block);
     }
 };
 
