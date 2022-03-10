@@ -6,7 +6,7 @@ start = datetime.datetime.now();
 mldb.put("/v1/procedures/airline", {
     "type":"import.text",
     "params": {
-        "dataFileUrl": "file://mldb_test_data/test.csv",
+        "dataFileUrl": "file://mldb_test_data/train-1m.csv.lz4",
         "offset" : 0,
         "ignoreBadLines" : True,
         "outputDataset": {
@@ -22,8 +22,8 @@ start = datetime.datetime.now();
 mldb.put("/v1/procedures/airline", {
     "type":"import.text",
     "params": {
-        "dataFileUrl": "file://mldb_test_data/test.csv",
-        "offset" : 10000,
+        "dataFileUrl": "file://mldb_test_data/test.csv.zst",
+        "offset" : 0,
         "ignoreBadLines" : True,
         "outputDataset": {
             "id": "airline_test"

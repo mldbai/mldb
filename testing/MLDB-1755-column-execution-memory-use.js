@@ -5,7 +5,7 @@ var unittest = require('mldb/unittest')
 var resp = mldb.put("/v1/procedures/airline", {
     "type":"import.text",
     "params": {
-        "dataFileUrl": "file://mldb_test_data/test.csv",
+        "dataFileUrl": "file://mldb_test_data/train-1m.csv.lz4",
         "offset" : 0,
         "ignoreBadLines" : true,
         "outputDataset": {
