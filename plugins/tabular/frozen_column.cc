@@ -14,6 +14,7 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/atomic_shared_ptr.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/arch/vm.h"
 #include "mldb/arch/endian.h"
 #include "mldb/vfs/filter_streams.h"
@@ -1369,16 +1370,27 @@ struct DoubleFrozenColumn
     {
         bool hasNulls = false;
 
-        std::vector<double> allVals;
-        allVals.reserve(numEntries);
+        PossiblyDynamicBuffer<double> allVals(numEntries);
+        size_t n = 0;
+
+        auto eq = [] (double d1, double d2)
+        {
+            return memcmp(&d1, &d2, sizeof(double)) == 0;
+        };
+
+        auto addEntry = [&] (double val)
+        {
+            if (n == 0 || !eq(val, allVals[n-1])) {
+                allVals[n++] = val;
+            }
+        };
 
         for (size_t i = 0;  i < numEntries;  ++i) {
             const Entry & entry = storage[i];
             if (entry.isNull())
                 hasNulls = true;
-            else {
-                allVals.emplace_back(entry.value());
-            }
+            else
+                addEntry(entry.value());
         }
 
         // Handle nulls first so we don't have to do them later
@@ -1389,39 +1401,60 @@ struct DoubleFrozenColumn
             values, which allows us to sort ranges that might contain
             nan values without crashing.
         */
-        std::sort(allVals.begin(), allVals.end(), safe_less<double>());
-        auto endIt = std::unique(allVals.begin(), allVals.end());
+        std::sort(allVals.data(), allVals.data() + n, safe_less<double>());
         
-        for (auto it = allVals.begin();  it != endIt;  ++it) {
+        for (auto it = allVals.data(), endIt = allVals.data() + n;  it != endIt;  /* no inc */) {
+            auto it2 = it;
+            ++it2;
+            while (it2 != endIt && eq(*it, *it2)) {
+                ++it2;
+            }
             if (!fn(*it))
                 return false;
+            it = it2;
         }
-        
+
         return true;
     }
 
     virtual bool
     forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
     {
-        std::vector<double> allVals;
-        allVals.reserve(numEntries);
+        PossiblyDynamicBuffer<double> allVals(numEntries);
+        size_t n = 0;
+        size_t numNulls = 0;
+
+        auto eq = [] (double d1, double d2)
+        {
+            return memcmp(&d1, &d2, sizeof(double)) == 0;
+        };
+
+        auto addEntry = [&] (double val)
+        {
+            allVals[n++] = val;
+        };
 
         for (size_t i = 0;  i < numEntries;  ++i) {
             const Entry & entry = storage[i];
-            if (!entry.isNull())
-                allVals.emplace_back(entry.value());
+            if (entry.isNull())
+                ++numNulls;
+            else
+                addEntry(entry.value());
         }
+
+        if (numNulls > 0 && !fn(CellValue(), numNulls))
+            return false;
 
         /** Like std::less<Float>, but has a well defined order for nan
             values, which allows us to sort ranges that might contain
             nan values without crashing.
         */
-        std::sort(allVals.begin(), allVals.end(), safe_less<double>());
+        std::sort(allVals.data(), allVals.data() + n, safe_less<double>());
         
-        for (auto it = allVals.begin(), endIt = allVals.end();  it != endIt;  /* no inc */) {
+        for (auto it = allVals.data(), endIt = allVals.data() + n;  it != endIt;  /* no inc */) {
             auto it2 = it;
             ++it2;
-            while (it2 != endIt && *it == *it2) {
+            while (it2 != endIt && eq(*it, *it2)) {
                 ++it2;
             }
             if (!fn(*it, it2 - it))
