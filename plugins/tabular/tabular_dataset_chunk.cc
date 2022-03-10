@@ -271,15 +271,19 @@ TabularDatasetChunk(StructuredReconstituter & reconstituter)
 /*****************************************************************************/
 
 MutableTabularDatasetChunk::
-MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
-    : maxSize(maxSize), rowCount_(0),
-      columns(numColumns), isFrozen(false),
+MutableTabularDatasetChunk(std::span<const ColumnPath> fixedColumns,
+                           const LightweightHash<uint64_t, int> * fixedColumnIndex,
+                           size_t maxSize)
+    : fixedColumnNames(fixedColumns), fixedColumnIndex(fixedColumnIndex),
+      maxSize(maxSize), rowCount_(0),
+      columns(fixedColumns.size()), isFrozen(false),
       addFailureNotified(false)
 {
+    ExcAssert(fixedColumnIndex);
     timestamps.reserve(maxSize);
     rowNames.reserve(maxSize);
-    for (unsigned i = 0;  i < numColumns;  ++i)
-        columns[i].reserve(maxSize);
+    for (auto & c: columns)
+        c.reserve(maxSize);
 }
 
 TabularDatasetChunk
@@ -340,12 +344,19 @@ add(RowPath & rowName,
     timestamps.add(numRows, ts.secondsSinceEpoch());
 
     for (unsigned i = 0;  i < columns.size();  ++i) {
-        columns[i].add(numRows, std::move(vals[i]));
+        if (!vals[i].empty())
+            columns[i].add(numRows, std::move(vals[i]));
     }
 
-    for (auto & e: extra) {
-        auto it = sparseColumns.emplace(std::move(e.first), TabularDatasetColumn()).first;
-        it->second.add(numRows, std::move(e.second));
+    for (auto & [key, value]: extra) {
+        auto it1 = this->fixedColumnIndex->find(key.hash());
+        if (it1 != this->fixedColumnIndex->end()) {
+            columns[it1->second].add(numRows, std::move(value));
+        }
+        else {
+            auto it = sparseColumns.emplace(std::move(key), TabularDatasetColumn()).first;
+            it->second.add(numRows, std::move(value));
+        }
     }
 
     ++rowCount_;
