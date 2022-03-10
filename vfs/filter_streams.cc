@@ -1118,7 +1118,7 @@ struct RegisterFileHandler {
                     mapped_file_params params(resource);
                     mapped_file_source source(params);
 
-                    cerr << "mapped file at " << (void *)source.data() << endl;
+                    //cerr << "mapped file at " << (void *)source.data() << endl;
 
                     size_t capacity = roundUpToPageSize(info.size);
                     if (capacity - info.size < MAPPING_EXTRA_CAPACITY) {
