@@ -14,6 +14,8 @@
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
+#define xstr(a) xxstr(a)
+#define xxstr(a) #a
 
 #include <boost/test/unit_test.hpp>
 
@@ -29,9 +31,9 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
     server.init();
 
     // Load plugins, so we can also test them for documentation
-    server.scanPlugins("file://build/x86_64/mldb_plugins/tensorflow");
-    server.scanPlugins("file://build/x86_64/mldb_plugins/postgresql");
-    server.scanPlugins("file://build/x86_64/mldb_plugins/mongodb");
+    server.scanPlugins("file://build/" xstr(MLDB_ARCH) "-" xstr(MLDB_OSNAME) "/mldb_plugins/tensorflow");
+    server.scanPlugins("file://build/" xstr(MLDB_ARCH) "-" xstr(MLDB_OSNAME) "/mldb_plugins/postgresql");
+    server.scanPlugins("file://build/" xstr(MLDB_ARCH) "-" xstr(MLDB_OSNAME) "/mldb_plugins/mongodb");
     
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
     
