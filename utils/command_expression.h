@@ -8,10 +8,16 @@
 
 #pragma once
 
+#include "command_expression_fwd.h"
+
+#include <set>
+#include <map>
+#include <vector>
+#include <memory>
+
 #include "mldb/ext/jsoncpp/json.h"
 #include <functional>
 #include "mldb/arch/exception.h"
-#include <memory>
 #include "mldb/base/parse_context.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/base/exc_assert.h"
@@ -80,7 +86,7 @@ struct CommandExpressionVariables {
     }
 
     /// Outer context we look in if we don't find something here
-    const CommandExpressionVariables * outer;
+    const CommandExpressionVariables * outer = nullptr;
 
     /// Value of local variables
     std::map<std::string, Json::Value> values;
@@ -90,7 +96,7 @@ struct CommandExpressionVariables {
     
     bool hasValue(const std::string & name) const
     {
-        return values.count(name);
+        return values.count(name) || (outer && outer->hasValue(name));
     }
 
     void setValue(const std::string & key, const Json::Value & val)
@@ -119,8 +125,14 @@ struct CommandExpressionVariables {
         return it->second;
     }
     
+    // Need to include command_expression_impl.h if you want to use this method
     template<typename T>
     void setValue(const std::string & key, const T & val);
+
+    bool hasFunction(const std::string & name) const
+    {
+        return functions.count(name) || (outer && outer->hasFunction(name));
+    }
 
     Json::Value applyFunction(const std::string & functionName,
                               const std::vector<Json::Value> & functionArgs) const;
@@ -257,6 +269,27 @@ struct CommandExpression {
         }
     }
 
+    // Return all child clauses that make up this one.  Default returns no clauses.
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const
+    {
+        return {};
+    }
+
+    // Return variables which are not set and would definitely need to be to evaluate this
+    // expression.
+    virtual std::set<std::string> unknowns(const CommandExpressionVariables & knowns) const
+    {
+        std::set<std::string> result;
+
+        for (auto & clause: childClauses()) {
+            for (auto & var: clause->unknowns(knowns)) {
+                result.insert(var);
+            }
+        }
+
+        return result;
+    }
+
     // Original form that was parsed to get it... used for printing
     std::string surfaceForm;
 
@@ -264,17 +297,15 @@ struct CommandExpression {
     parseExpression(ParseContext & context, bool stopOnWhitespace = false);
 
     static std::shared_ptr<CommandExpression>
-    parseArgumentExpression(ParseContext & context);
+    parseArgumentExpression(ParseContext & context, int precedence = 0);
 
     static std::shared_ptr<CommandExpression>
     parse(const std::string & val);
     
     static std::shared_ptr<CommandExpression>
-    parseArgumentExpression(const std::string & expr);
+    parseArgumentExpression(const std::string & expr, int precedence = 0);
     
     static std::shared_ptr<CommandExpression> parse(const std::vector<std::string> & vals);
-
-
 };
 
 // Convert to strings and concatenate
@@ -290,6 +321,11 @@ struct ConcatExpression : public CommandExpression {
         return result;
     }
 
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return clauses;
+    }
+
     std::vector<std::shared_ptr<CommandExpression> > clauses;
 };
 
@@ -303,6 +339,11 @@ struct ArrayExpression: public CommandExpression {
             result.append(c->apply(vars));
         
         return result;
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return clauses;
     }
 
     std::vector<std::shared_ptr<CommandExpression> > clauses;
@@ -324,6 +365,16 @@ struct ObjectExpression: public CommandExpression {
             result[c.first->applyString(vars)] = c.second->apply(vars);
         
         return result;
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        std::vector<std::shared_ptr<CommandExpression>> result;
+        for (auto & [c1, c2]: clauses) {
+            result.push_back(c1);
+            result.push_back(c2);
+        }
+        return result;;
     }
 
     std::vector<std::pair<std::shared_ptr<CommandExpression>,
@@ -374,7 +425,31 @@ struct InlineArrayExpression: public CommandExpression {
         return result;
     }
 
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return elements;
+    }
+
     std::vector<std::shared_ptr<CommandExpression> > elements;
+};
+
+struct ParenthesisExpression: public CommandExpression {
+    ParenthesisExpression(std::shared_ptr<CommandExpression> expr)
+        : expr(expr)
+    {
+    }
+
+    virtual Json::Value apply(const CommandExpressionContext & vars) const
+    {
+        return expr->apply(vars);
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return {expr};
+    }
+
+    std::shared_ptr<CommandExpression> expr;
 };
 
 /** Expression that iterates over one or more lists and calls an inner
@@ -432,6 +507,26 @@ struct MapExpression: public CommandExpression {
         }
     }
 
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        std::vector<std::shared_ptr<CommandExpression>> result;
+        result.push_back(outputExpression);
+        for (auto & [name, expr]: iterExpressions)
+            result.push_back(expr);
+        return result;
+    }
+
+    virtual std::set<std::string> unknowns(const CommandExpressionVariables & knowns) const override
+    {
+        auto outputUnknowns = outputExpression->unknowns(knowns);
+        for (auto & e: iterExpressions) {
+            auto iterUnknowns = e.expression->unknowns(knowns);
+            outputUnknowns.insert(iterUnknowns.begin(), iterUnknowns.end());
+            outputUnknowns.erase(e.variableName);
+        }
+        return outputUnknowns;
+    }
+
     std::vector<IterExpression> iterExpressions;
     std::shared_ptr<CommandExpression> outputExpression;
 };
@@ -460,6 +555,12 @@ struct FunctionExpression : public CommandExpression {
 
         return context.applyFunction(functionNameValue, argValues);
     }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return args;
+    }
+
 };
 
 struct VariableExpression : public CommandExpression {
@@ -475,7 +576,12 @@ struct VariableExpression : public CommandExpression {
     {
         return vars.getValue(variableName);
     }
-    
+
+    virtual std::set<std::string> unknowns(const CommandExpressionVariables & knowns) const override
+    {
+        if (knowns.hasValue(variableName)) return {};
+        return { variableName };
+    }
 };
 
 struct ExtractFieldExpression: public CommandExpression {
@@ -494,6 +600,11 @@ struct ExtractFieldExpression: public CommandExpression {
 
     std::string fieldName;
     std::shared_ptr<CommandExpression> expr;
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return { expr };
+    }
 };
 
 struct ExtractElementExpression: public CommandExpression {
@@ -507,14 +618,26 @@ struct ExtractElementExpression: public CommandExpression {
 
     virtual Json::Value apply(const CommandExpressionContext & vars) const
     {
+        Json::Value val = expr->apply(vars);
         Json::Value index = element->apply(vars);
-        if (index.isString())
+        if (index.isString()) {
+            if (!val.isMember(index.asString()))
+                throw MLDB::Exception("couldn't find field " + index.asString());
             return expr->apply(vars)[index.asString()];
+        }
+        if (!val.isValidIndex(index.asInt())) {
+            throw MLDB::Exception("couldn't find field " + std::to_string(index.asInt()));
+        }
         return expr->apply(vars)[index.asInt()];
     }
 
     std::shared_ptr<CommandExpression> element;
     std::shared_ptr<CommandExpression> expr;
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return { element, expr };
+    }
 };
 
 struct ArithmeticExpression: public CommandExpression {
@@ -540,6 +663,11 @@ struct BinaryArithmeticExpression: public CommandExpression {
         Json::Value r = rhs->apply(vars);
 
         return op(l, r);
+    }
+
+    virtual std::vector<std::shared_ptr<CommandExpression>> childClauses() const override
+    {
+        return { lhs, rhs };
     }
 };
 
@@ -576,6 +704,29 @@ struct PlusExpression: public BinaryArithmeticExpression {
     }
 };
 
+struct MinusExpression: public BinaryArithmeticExpression {
+
+    MinusExpression(std::shared_ptr<CommandExpression> lhs,
+                    std::shared_ptr<CommandExpression> rhs)
+        : BinaryArithmeticExpression(lhs, rhs)
+    {
+    }
+
+    virtual Json::Value op(const Json::Value & lhs,
+                           const Json::Value & rhs) const
+    {
+        if (lhs.isNumeric() && rhs.isNumeric()) {
+            if (lhs.isDouble() || rhs.isDouble()) {
+                return lhs.asDouble() + rhs.asDouble();
+            }
+            return lhs.asInt() - rhs.asInt();
+        }
+        else throw MLDB::Exception("don't know how to subtract %s and %s",
+                                 lhs.toString().c_str(),
+                                 rhs.toString().c_str());
+    }
+};
+
 struct DivideExpression: public BinaryArithmeticExpression {
 
     DivideExpression(std::shared_ptr<CommandExpression> lhs,
@@ -589,7 +740,13 @@ struct DivideExpression: public BinaryArithmeticExpression {
     {
         if (lhs.isNumeric() && rhs.isNumeric()) {
             if (lhs.isDouble() || rhs.isDouble()) {
+                if (rhs.asDouble() == 0.0) {
+                    throw MLDB::Exception("divide by zero");
+                }
                 return lhs.asDouble() / rhs.asDouble();
+            }
+            if (rhs.asInt() == 0) {
+                throw MLDB::Exception("divide by zero");
             }
             return lhs.asInt() / rhs.asInt();
         }
@@ -599,7 +756,51 @@ struct DivideExpression: public BinaryArithmeticExpression {
     }
 };
 
-PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<CommandExpression>);
+struct ModulusExpression: public BinaryArithmeticExpression {
+
+    ModulusExpression(std::shared_ptr<CommandExpression> lhs,
+                      std::shared_ptr<CommandExpression> rhs)
+        : BinaryArithmeticExpression(lhs, rhs)
+    {
+    }
+
+    virtual Json::Value op(const Json::Value & lhs,
+                           const Json::Value & rhs) const
+    {
+        if (lhs.isNumeric() && rhs.isNumeric()) {
+            if (rhs.asInt() == 0) {
+                throw MLDB::Exception("divide by zero in modulus");
+            }
+            return lhs.asInt() % rhs.asInt();
+        }
+        else throw MLDB::Exception("don't know how to take %s modulo %s",
+                                 lhs.toString().c_str(),
+                                 rhs.toString().c_str());
+    }
+};
+
+struct TimesExpression: public BinaryArithmeticExpression {
+
+    TimesExpression(std::shared_ptr<CommandExpression> lhs,
+                    std::shared_ptr<CommandExpression> rhs)
+        : BinaryArithmeticExpression(lhs, rhs)
+    {
+    }
+
+    virtual Json::Value op(const Json::Value & lhs,
+                           const Json::Value & rhs) const
+    {
+        if (lhs.isNumeric() && rhs.isNumeric()) {
+            if (lhs.isDouble() || rhs.isDouble()) {
+                return lhs.asDouble() * rhs.asDouble();
+            }
+            return lhs.asInt() * rhs.asInt();
+        }
+        else throw MLDB::Exception("don't know how to multiply %s by %s",
+                                 lhs.toString().c_str(),
+                                 rhs.toString().c_str());
+    }
+};
 
 /** Renders the given JSON expression as a shell command. */
 std::vector<std::string> commandRender(const Json::Value & val);
@@ -655,8 +856,6 @@ struct StringTemplate {
     std::string operator () (const std::initializer_list<std::pair<std::string, std::string> > & vals) const;
 };
 
-PREDECLARE_VALUE_DESCRIPTION(StringTemplate);
-
 inline std::ostream & operator << (std::ostream & stream, const StringTemplate & tmpl)
 {
     return stream << tmpl.toString();
@@ -710,5 +909,10 @@ struct CommandTemplate {
 DECLARE_STRUCTURE_DESCRIPTION(CommandTemplate);
 
 } // namespace PluginCommand
+
+using PluginCommand::CommandExpression;
+using PluginCommand::CommandExpressionContext;
+using PluginCommand::CommandExpressionVariables;
+
 } // namespace MLDB
 

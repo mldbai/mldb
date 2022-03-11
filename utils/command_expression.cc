@@ -17,8 +17,6 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/utils/json_utils.h"
-#include <boost/lexical_cast.hpp>
-#include <boost/range/adaptor/reversed.hpp>
 
 
 using namespace std;
@@ -189,6 +187,29 @@ Json::Value hash(const std::vector<Json::Value> & params)
     return jsonHash(params[0]);
 }
 
+// ceilDiv(x, y) = ceil(x/y)
+Json::Value ceilDiv(const std::vector<Json::Value> & params)
+{
+    if (params.size() != 2)
+        throw MLDB::Exception("ceilDiv() function takes exactly two arguments");
+    auto modulus = params[1].asUInt();
+    if (modulus == 0)
+        throw MLDB::Exception("ceilDiv(): divide by zero");
+
+    if (params[1].isUInt()) {
+        auto val = params[0].asUInt();
+        //cerr << "ceilDiv(" << params[0].toStringNoNewLine() << "," << params[1].toStringNoNewLine() << ") = "
+        //     << (val + (modulus - 1)) / modulus << endl; 
+        return (val + (modulus - 1)) / modulus;
+    }
+    if (params[1].isInt()) {
+        auto val = params[0].asInt();
+        // hmmm... plus or minus if it's negative?
+        return (val + (modulus - 1)) / modulus;
+    }
+    return ceil(params[0].asDouble() / params[1].asDouble());
+}
+
 } // file scope
 
 
@@ -223,6 +244,7 @@ builtins()
     value->addFunction("max", jsonMaxVector);
     value->addFunction("flatten", flatten);
     value->addFunction("hash", hash);
+    value->addFunction("ceilDiv", ceilDiv);
 
     return value;
 }
@@ -250,8 +272,7 @@ applyFunction(const std::string & functionName,
         return it->second(functionArgs);
     } catch (const std::exception & exc) {
         throw MLDB::Exception("error trying to apply %s to args %s: %s",
-                            functionName.c_str(),
-                            boost::lexical_cast<std::string>(functionArgs).c_str(),
+                            functionName.c_str(), jsonEncodeStr(functionArgs).c_str(),
                             exc.what());
     }
 }
@@ -280,11 +301,11 @@ parse(const std::string & val)
 
 std::shared_ptr<CommandExpression>
 CommandExpression::
-parseArgumentExpression(const std::string & val)
+parseArgumentExpression(const std::string & val, int precedence)
 {
     ParseContext context(val, val.c_str(), val.c_str() + val.length());
     
-    auto res = parseArgumentExpression(context);
+    auto res = parseArgumentExpression(context, precedence);
     
     context.expect_eof();
     
@@ -376,7 +397,7 @@ parseExpression(ParseContext & context, bool stopOnWhitespace)
 
 std::shared_ptr<CommandExpression>
 CommandExpression::
-parseArgumentExpression(ParseContext & context)
+parseArgumentExpression(ParseContext & context, int precedence)
 {
     ParseContext::Hold_Token token(context);
 
@@ -387,6 +408,10 @@ parseArgumentExpression(ParseContext & context)
         };
 
     context.skip_whitespace();
+
+    if (context.eof()) {
+        context.exception("expected expression");
+    }
 
     std::shared_ptr<CommandExpression> result;
 
@@ -445,6 +470,13 @@ parseArgumentExpression(ParseContext & context)
         }
         result = std::make_shared<ObjectExpression>(elements);
     }
+    else if (context.match_literal('(')) {
+        // Parenthesis
+        auto contained = parseArgumentExpression(context, 0 /* precedence */);
+        context.skip_whitespace();
+        context.expect_literal(')');
+        result = std::make_shared<ParenthesisExpression>(contained);
+    }
     else if (context.match_literal('%')) {
         context.exception("nested expression literals not yet supported");
     }
@@ -483,17 +515,17 @@ parseArgumentExpression(ParseContext & context)
 
         result = std::make_shared<MapExpression>(expressions, applyExpr);
     }
-    else if (isalpha(*context) || *context == '_') {
+    else if (context && (isalpha(*context) || *context == '_')) {
         // Must be a variable or argument name
 
         string entityName;
         bool isFunction = false;
         vector<shared_ptr<CommandExpression> > args;
 
-        while (isalnum(*context) || *context == '_')
+        while (context && (isalnum(*context) || *context == '_'))
             entityName += *context++;
 
-        if (*context == ' ' && false) {
+        if (context && *context == ' ' && false) {
             context.skip_whitespace();
             // Expression with space separated args
             isFunction = true;
@@ -527,14 +559,25 @@ parseArgumentExpression(ParseContext & context)
     else result = addContext(std::make_shared<JsonLiteralExpression>(expectJson(context)));
     
     // Now look for operators that modify the output of the previous
-    while (true) {
+    while (context) {
         context.skip_whitespace();
+
+        // -> gets greedily consumed as - if we don't check here
+        {
+            ParseContext::Revert_Token token(context);
+            if (context.match_literal("->")) {
+                break;
+            }
+        }
 
         if (context.match_literal('.')) {
             string fieldName;
-            while (isalnum(*context) || *context == '_')
+            while (context && (isalnum(*context) || *context == '_'))
                 fieldName += *context++;
         
+            if (fieldName == "")
+                context.exception("expected field name after '.'");
+
             result = std::make_shared<ExtractFieldExpression>(fieldName, result);
         }
         else if (context.match_literal('[')) {
@@ -543,70 +586,30 @@ parseArgumentExpression(ParseContext & context)
             context.skip_whitespace();
             context.expect_literal(']');
         }
-        else if (context.match_literal('+')) {
-            auto rhs = parseArgumentExpression(context);
+        else if (precedence <= 10 && context.match_literal('+')) {
+            auto rhs = parseArgumentExpression(context, 10);
             result = std::make_shared<PlusExpression>(result, rhs);
         }
-        else if (context.match_literal('/')) {
-            auto rhs = parseArgumentExpression(context);
+        else if (precedence <= 10 && context.match_literal('-')) {
+            auto rhs = parseArgumentExpression(context, 10);
+            result = std::make_shared<MinusExpression>(result, rhs);
+        }
+        else if (precedence <= 20 && context.match_literal('*')) {
+            auto rhs = parseArgumentExpression(context, 20);
+            result = std::make_shared<TimesExpression>(result, rhs);
+        }
+        else if (precedence <= 20 && context.match_literal('/')) {
+            auto rhs = parseArgumentExpression(context, 20);
             result = std::make_shared<DivideExpression>(result, rhs);
+        }
+        else if (precedence <= 20 && context.match_literal('%')) {
+            auto rhs = parseArgumentExpression(context, 20);
+            result = std::make_shared<ModulusExpression>(result, rhs);
         }
         else break;
     }
 
     return addContext(result);
-}
-
-std::string
-argumentRender(const Json::Value & val)
-{
-    using std::to_string;
-
-    switch (val.type()) {
-    case Json::nullValue:    return "";
-    case Json::intValue:     return to_string(val.asInt());
-    case Json::uintValue:    return to_string(val.asUInt());
-    case Json::realValue:    return to_string(val.asDouble());
-    case Json::booleanValue: return to_string(val.asBool());
-    case Json::stringValue:  return val.asString();
-    case Json::arrayValue: {
-        std::string str;
-        for (auto & v: val) {
-            if (!str.empty())
-                str += " ";
-            str += shellEscape(argumentRender(v));
-        }
-        return str;
-    }
-    default:
-        throw MLDB::Exception("can't render value " + val.toString() + " as string");
-    }
-}
-
-std::vector<std::string>
-commandRender(const Json::Value & val)
-{
-    //cerr << "commandRender " << val << endl;
-
-    using std::to_string;
-
-    switch (val.type()) {
-    case Json::nullValue:    return { "" };
-    case Json::intValue:     return { to_string(val.asInt()) };
-    case Json::uintValue:    return { to_string(val.asUInt()) };
-    case Json::realValue:    return { to_string(val.asDouble()) };
-    case Json::booleanValue: return { to_string(val.asBool()) };
-    case Json::stringValue:  return { val.asString() };
-    case Json::arrayValue: {
-        std::vector<std::string> str;
-        for (auto & v: val) {
-            str.push_back(argumentRender(v));
-        }
-        return str;
-    }
-    default:
-        throw MLDB::Exception("can't render value " + val.toString() + " as command");
-    }
 }
 
 std::string
@@ -637,7 +640,7 @@ stringRender(const Json::Value & val)
 
 
 /*****************************************************************************/
-/* COMMAND TEMPLATE                                                          */
+/* STRING TEMPLATE                                                           */
 /*****************************************************************************/
 
 void
@@ -669,81 +672,8 @@ operator () (const std::initializer_list<std::pair<std::string, std::string> > &
 }
 
 
-/*****************************************************************************/
-/* COMMAND TEMPLATE                                                          */
-/*****************************************************************************/
-
-void
-CommandTemplate::
-parse(const std::string & command)
-{
-    ParseContext context(command,
-                              command.c_str(), command.c_str() + command.size());
-
-    while (context) {
-        commandLine.push_back
-            (CommandExpression::parseExpression
-             (context, true /* stop on whitespace */));
-        context.skip_whitespace();
-    }
-}
-
-void
-CommandTemplate::
-parse(const std::vector<std::string> & cmdline)
-{
-    for (unsigned i = 0;  i < cmdline.size();  ++i)
-        commandLine.push_back(CommandExpression::parse(cmdline[i]));
-}
-
-Command
-CommandTemplate::
-operator () (CommandExpressionContext & context) const
-{
-    Command result;
-
-    for (auto & c: commandLine) {
-        Json::Value r = c->apply(context);
-        //cerr << "result of " << c->surfaceForm << " is " << r << endl;
-        vector<string> vals = commandRender(r);
-        result.cmdLine.insert(result.cmdLine.end(), vals.begin(), vals.end());
-    }
-
-    return result;
-}
-
-
-Command
-CommandTemplate::
-operator () (const std::initializer_list<std::pair<std::string, std::string> > & vals) const
-{
-    CommandExpressionContext context(vals);
-    return operator () (context);
-}
-
-#if 0
-struct CommandTemplateDescription
-    : public StructureDescriptionImpl<CommandTemplate, CommandTemplateDescription> {
-
-    CommandTemplateDescription();
-};
-
-inline CommandTemplateDescription * getDefaultDescription(CommandTemplate*)
-{
-    return new CommandTemplateDescription();
-}
-#endif
-
-DEFINE_STRUCTURE_DESCRIPTION(CommandTemplate);
-
-CommandTemplateDescription::
-CommandTemplateDescription()
-{
-    //addField("env", &CommandTemplate::env, "expression to generate the environment");
-    addField("commandLine", &CommandTemplate::commandLine, "expression to generate the command line");
-}
-
 DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<CommandExpression>, CommandExpressionDescription);
+DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<const CommandExpression>, ConstCommandExpressionDescription);
 DEFINE_VALUE_DESCRIPTION_NS(StringTemplate, StringTemplateDescription);
 
 } // namespace PluginCommand
