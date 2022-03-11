@@ -343,21 +343,23 @@ add(RowPath & rowName,
 
     timestamps.add(numRows, ts.secondsSinceEpoch());
 
-    for (unsigned i = 0;  i < columns.size();  ++i) {
-        if (!vals[i].empty())
-            columns[i].add(numRows, std::move(vals[i]));
-    }
-
     for (auto & [key, value]: extra) {
         auto it1 = this->fixedColumnIndex->find(key.hash());
         if (it1 != this->fixedColumnIndex->end()) {
-            columns[it1->second].add(numRows, std::move(value));
+            auto i = it1->second;
+            ExcAssert(vals[i].empty());
+            vals[i] = std::move(value);
         }
         else {
             auto it = sparseColumns.emplace(std::move(key), TabularDatasetColumn()).first;
             it->second.add(numRows, std::move(value));
         }
     }
+
+    for (unsigned i = 0;  i < columns.size();  ++i) {
+        columns[i].add(numRows, std::move(vals[i]));
+    }
+
 
     ++rowCount_;
 
