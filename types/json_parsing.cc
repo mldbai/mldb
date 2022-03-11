@@ -1994,14 +1994,14 @@ bool
 StructuredJsonParsingContext::
 isInt() const
 {
-    return current->isIntegral();
+    return current->isIntegral() && current->isConvertibleTo(Json::intValue);
 }
 
 bool
 StructuredJsonParsingContext::
 isUnsigned() const
 {
-    return current->isUInt();
+    return current->isIntegral() && current->isConvertibleTo(Json::uintValue);
 }
 
 bool

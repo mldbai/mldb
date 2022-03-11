@@ -531,3 +531,18 @@ BOOST_AUTO_TEST_CASE (test_sorting_absolute_order)
         }
     }
 }
+
+BOOST_AUTO_TEST_CASE(test_json_large_ints)
+{
+    string str = "1624665611631";
+    Json::Value val = Json::parse(str);
+
+    StringJsonParsingContext context1(str);
+    StructuredJsonParsingContext context2(val);
+    
+    CellValue val1 = jsonDecodeStr<CellValue>(str);
+    CellValue val2 = jsonDecode<CellValue>(val);
+
+    BOOST_CHECK_EQUAL(val1.toString(), str);
+    BOOST_CHECK_EQUAL(val2.toString(), str);
+}
