@@ -27,6 +27,9 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "behavior_utils.h"
 #include "mldb/engine/dataset_utils.h"
+#include "mldb/rest/rest_request_router.h"
+#include "mldb/rest/rest_request_params.h"
+#include "mldb/rest/rest_request_binding.h"
 #include <future>
 
 using namespace std;
@@ -44,10 +47,7 @@ BehaviorManager behManager;
 /* BEHAVIOR DATASET CONFIG                                                  */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(BehaviorDatasetConfig);
-
-BehaviorDatasetConfigDescription::
-BehaviorDatasetConfigDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(BehaviorDatasetConfig)
 {
     nullAccepted = true;
 
@@ -89,10 +89,7 @@ struct BehaviorValueInfo {
     }
 };
 
-DEFINE_STRUCTURE_DESCRIPTION(BehaviorValueInfo);
-
-BehaviorValueInfoDescription::
-BehaviorValueInfoDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(BehaviorValueInfo)
 {
     addField("rc", &BehaviorValueInfo::rowCount, "Number of rows");
     addField("behs", &BehaviorValueInfo::itl, "Behaviors with this value");
@@ -135,10 +132,7 @@ struct BehaviorColumnInfo {
 #endif
 };
 
-DEFINE_STRUCTURE_DESCRIPTION(BehaviorColumnInfo);
-
-BehaviorColumnInfoDescription::
-BehaviorColumnInfoDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(BehaviorColumnInfo)
 {
     addField("rowCount", &BehaviorColumnInfo::rowCount, "Number of rows with this column");
     addField("columnName", &BehaviorColumnInfo::columnName, "Name of column");
@@ -444,7 +438,7 @@ struct BehaviorColumnIndex: public ColumnIndex {
                 auto subjTs = behs->getSubjectHashesAndAllTimestamps(beh, SH::max(),
                                                                      true /* sorted */);
                 for (auto & ts: subjTs)
-                    result.rows.emplace_back(toPathElement(behs->getSubjectId(ts.first)), v.first, ts.second);
+                    result.rows.emplace_back(toPath(behs->getSubjectId(ts.first)), v.first, ts.second);
             }
         }
 
@@ -478,7 +472,7 @@ struct BehaviorColumnIndex: public ColumnIndex {
                 auto subjTs = behs->getSubjectHashes(beh, SH::max(),
                                                      true /* sorted */);
                 for (auto & ts: subjTs)
-                    result.emplace_back(toPathElement(behs->getSubjectId(ts)), v.first);
+                    result.emplace_back(toPath(behs->getSubjectId(ts)), v.first);
             }
         }
 
@@ -561,7 +555,7 @@ struct BehaviorMatrixView: public MatrixView {
         result.reserve(limit);
 
         for (size_t i = start;  i < start + limit && i < subs.size();  ++i)
-            result.emplace_back(toPathElement(behs->getSubjectId(subs[i])));
+            result.emplace_back(toPath(behs->getSubjectId(subs[i])));
         
         return result;
     }
@@ -617,7 +611,7 @@ struct BehaviorMatrixView: public MatrixView {
 
     virtual RowPath getRowPath(const RowHash & rowHash) const
     {
-        return toPathElement(behs->getSubjectId(rowHash));
+        return toPath(behs->getSubjectId(rowHash));
     }
 
     virtual MatrixEvent getEvent(const RowHash & rowHash, Date ts) const
@@ -627,7 +621,7 @@ struct BehaviorMatrixView: public MatrixView {
         LightweightHash<BH, int> ev = behs->getSubjectTimestamp(rowHash, ts);
 
         MatrixEvent result;
-        result.rowName = toPathElement(behs->getSubjectId(rowHash));
+        result.rowName = toPath(behs->getSubjectId(rowHash));
         result.rowHash = rowHash;
         result.timestamp = ts;
 
@@ -675,17 +669,168 @@ struct BehaviorMatrixView: public MatrixView {
 
 
 /*****************************************************************************/
+/* BEHAVIOR DATASET BASE                                                     */
+/*****************************************************************************/
+
+BehaviorDatasetBase::
+BehaviorDatasetBase(MldbEngine * owner)
+    : Dataset(owner)
+{
+    router.reset(new RestRequestRouter());
+    initRoutes();
+}
+
+BehaviorDatasetBase::
+~BehaviorDatasetBase()
+{
+}
+
+Any
+BehaviorDatasetBase::
+getStatus() const
+{
+    Json::Value result;
+    result["rowCount"] = behs->subjectCount();
+    result["columnCount"] = columns->index->columnInfo.size();
+    result["valueCount"] = behs->behaviorCount();
+    result["memUsageMb"] = behs->approximateMemoryUsage() / 1000000.0;
+    return result;
+}
+
+std::pair<Date, Date>
+BehaviorDatasetBase::
+getTimestampRange() const
+{
+    return { behs->earliestTime(), behs->latestTime() };
+}
+
+Date
+BehaviorDatasetBase::
+quantizeTimestamp(Date timestamp) const
+{
+    return behs->unQuantizeTime(behs->quantizeTime(timestamp));
+}
+
+std::shared_ptr<MatrixView>
+BehaviorDatasetBase::
+getMatrixView() const
+{
+    return matrix;
+}
+
+std::shared_ptr<ColumnIndex>
+BehaviorDatasetBase::
+getColumnIndex() const
+{
+    return columns;
+}
+
+struct BehaviorDatasetRowStream : public MLDB::RowStream
+{
+    BehaviorDatasetRowStream(std::shared_ptr<const BehaviorDomain> source)
+        : source(std::move(source))
+    {
+    }
+
+    virtual std::shared_ptr<RowStream> clone() const
+    {
+        return make_shared<BehaviorDatasetRowStream>(source);
+    }
+
+    /* set where the stream should start*/
+    virtual void initAt(size_t start)
+    {
+        shStream = source->getSubjectStream(start);
+    }
+
+    virtual MLDB::RowPath next()
+    {
+        Id result = shStream->current();
+        advance();
+        return toPath(result);
+    }
+   
+    virtual bool supportsExtendedInterface() const
+    {
+        return false;
+        // Once extractColumns is implemented, we can return true
+    }
+
+    virtual const MLDB::RowPath & rowName(MLDB::RowPath & storage) const
+    {
+        return storage = toPath(shStream->current());
+    }
+
+    virtual void advance()
+    {
+        shStream->advance();
+    }
+
+    virtual void advanceBy(size_t n)
+    {
+        shStream->advanceBy(n);
+    }
+
+    unique_ptr<BehaviorDomain::SubjectStream> shStream;
+    std::shared_ptr<const BehaviorDomain> source;
+    Id lastSubjectId;
+};
+
+std::shared_ptr<RowStream> 
+BehaviorDatasetBase::
+getRowStream() const
+{
+    return make_shared<BehaviorDatasetRowStream>(this->behs);
+}
+
+RestRequestMatchResult
+BehaviorDatasetBase::
+handleRequest(RestConnection & connection,
+                const RestRequest & request,
+                RestRequestParsingContext & context) const
+{
+    return router->processRequest(connection, request, context);
+}
+
+void
+BehaviorDatasetBase::
+initRoutes()
+{
+    addRouteSyncJsonReturn(*router, "/saves", {"POST"},
+                            "Save the dataset to the given artifact",
+                            "Information about the saved artifact",
+                            &BehaviorDatasetBase::save,
+                            this,
+                            JsonParam<Url>("dataFileUrl", "URI of artifact to save under"));
+}
+
+PolyConfigT<Dataset>
+BehaviorDatasetBase::
+save(Url dataFileUrl) const
+{
+    MLDB::makeUriDirectory(dataFileUrl.toString());
+    behs->save(dataFileUrl.toString());
+
+    PolyConfigT<Dataset> result;
+    result.type = "beh";
+    
+    PersistentDatasetConfig params;
+    params.dataFileUrl = dataFileUrl;
+    result.params = params;
+
+    return result;
+}
+
+/*****************************************************************************/
 /* BEHAVIOR DATASET                                                         */
 /*****************************************************************************/
 
 BehaviorDataset::
 BehaviorDataset(MldbEngine * owner,
-                 PolyConfig config,
-                 const ProgressFunc & onProgress)
-    : Dataset(owner)
+                PolyConfig config,
+                const ProgressFunc & onProgress)
+    : BehaviorDatasetBase(owner)
 {
-    ExcAssert(!config.id.empty());
-    
     auto params = config.params.convert<BehaviorDatasetConfig>();
     
     //TODO - MLDB-2110 pass progress further down
@@ -715,126 +860,23 @@ BehaviorDataset::
 {
 }
 
-Any
-BehaviorDataset::
-getStatus() const
-{
-    Json::Value result;
-    result["rowCount"] = behs->subjectCount();
-    result["columnCount"] = columns->index->columnInfo.size();
-    result["valueCount"] = behs->behaviorCount();
-    result["memUsageMb"] = behs->approximateMemoryUsage() / 1000000.0;
-    return result;
-}
-
-std::pair<Date, Date>
-BehaviorDataset::
-getTimestampRange() const
-{
-    return { behs->earliestTime(), behs->latestTime() };
-}
-
-Date
-BehaviorDataset::
-quantizeTimestamp(Date timestamp) const
-{
-    return behs->unQuantizeTime(behs->quantizeTime(timestamp));
-}
-
-std::shared_ptr<MatrixView>
-BehaviorDataset::
-getMatrixView() const
-{
-    return matrix;
-}
-
-std::shared_ptr<ColumnIndex>
-BehaviorDataset::
-getColumnIndex() const
-{
-    return columns;
-}
-
-struct BehaviorDatasetRowStream : public MLDB::RowStream
-{
-    BehaviorDatasetRowStream(std::shared_ptr<const BehaviorDomain> source)
-        : source(std::move(source))
-    {
-    }
-
-    virtual std::shared_ptr<RowStream> clone() const
-    {
-        return make_shared<BehaviorDatasetRowStream>(source);
-    }
-
-    /* set where the stream should start*/
-    virtual void initAt(size_t start)
-    {
-        shStream = source->getSubjectStream(start);
-    }
-
-    virtual MLDB::RowPath next()
-    {
-        Id result = shStream->current();
-        advance();
-        return toPathElement(result);
-    }
-   
-    virtual bool supportsExtendedInterface() const
-    {
-        return false;
-        // Once extractColumns is implemented, we can return true
-    }
-
-    virtual const MLDB::RowPath & rowName(MLDB::RowPath & storage) const
-    {
-        return storage = toPathElement(shStream->current());
-    }
-
-    virtual void advance()
-    {
-        shStream->advance();
-    }
-
-    virtual void advanceBy(size_t n)
-    {
-        shStream->advanceBy(n);
-    }
-
-    unique_ptr<BehaviorDomain::SubjectStream> shStream;
-    std::shared_ptr<const BehaviorDomain> source;
-    Id lastSubjectId;
-};
-
-std::shared_ptr<RowStream> 
-BehaviorDataset::
-getRowStream() const
-{
-    return make_shared<BehaviorDatasetRowStream>(this->behs);
-}
-
 
 /*****************************************************************************/
 /* MUTABLE BEHAVIOR DATASET CONFIG                                          */
 /*****************************************************************************/
 
-MutableBehaviorDatasetConfig::
-MutableBehaviorDatasetConfig() 
-    : timeQuantumSeconds(1.0)
-{
-}
-
-DEFINE_STRUCTURE_DESCRIPTION(MutableBehaviorDatasetConfig);
-
-MutableBehaviorDatasetConfigDescription::
-MutableBehaviorDatasetConfigDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MutableBehaviorDatasetConfig)
 {
     nullAccepted = true;
     addParent<BehaviorDatasetConfig>();
-    addField("timeQuantumSeconds", &MutableBehaviorDatasetConfig::timeQuantumSeconds,
-             "a number that controls the resolution of timestamps stored in the dataset, "
-             "in seconds. 1 means one second, 0.001 means one millisecond, 60 means one minute. "
-             "Higher resolution requires more memory to store timestamps.", 1.0);
+    addAuto("timeQuantum", &MutableBehaviorDatasetConfig::timeQuantum,
+            "a number that controls the resolution of timestamps stored in the dataset, "
+            "in seconds. `1s` means one second, `1ms` means one millisecond, `60s` means one minute, etc. "
+            "Higher resolution requires more memory to store timestamps.");
+    addAuto("recordNulls", &MutableBehaviorDatasetConfig::recordNulls,
+            "Determines whether we record or ignore nulls.  This is an application-specific "
+            "choice; columns that are referred to return null in either case, but will only be "
+            "listed (and stored) if this is true.");
 }
 
 /*****************************************************************************/
@@ -843,15 +885,17 @@ MutableBehaviorDatasetConfigDescription()
 
 MutableBehaviorDataset::
 MutableBehaviorDataset(MldbEngine * owner,
-                        PolyConfig config,
-                        const ProgressFunc & onProgress)
-    : Dataset(owner)
+                       PolyConfig config,
+                       const ProgressFunc & onProgress)
+    : BehaviorDatasetBase(owner)
 {
     ExcAssert(!config.id.empty());
     auto params = config.params.convert<MutableBehaviorDatasetConfig>();
     behs.reset(new MutableBehaviorDomain());
-    behs->timeQuantum = params.timeQuantumSeconds;
+    behs->timeQuantum = params.timeQuantum.toSeconds();
     this->address = params.dataFileUrl.toString();
+    this->recordNulls = params.recordNulls;
+    BehaviorDatasetBase::behs = behs;
 }
 
 MutableBehaviorDataset::
@@ -918,13 +962,12 @@ recordRowItl(const RowPath & rowName,
 
     vector<MutableBehaviorDomain::ManyEntryId> toRecord;
     toRecord.reserve(vals.size());
-    for (auto & b: vals) {
-        const ColumnPath& name = std::get<0>(b);
-        const CellValue& value = std::get<1>(b);
-
+    for (auto & [name, value, ts]: vals) {
+        if (value.empty() && !recordNulls)
+            continue;
         MutableBehaviorDomain::ManyEntryId entry;
         entry.behavior = behaviors::encodeColumn(name, value);
-        entry.timestamp = std::get<2>(b);
+        entry.timestamp = ts;
         entry.count = 1;
 
         toRecord.emplace_back(std::move(entry));
@@ -955,7 +998,7 @@ recordRows(const std::vector<std::pair<RowPath, std::vector<std::tuple<ColumnPat
 
     auto getColumnIndex = [&] (const ColumnPath & column, const CellValue & val)
         {
-            ColumnPath name = toPathElement(behaviors::encodeColumn(column, val));
+            ColumnPath name = toPath(behaviors::encodeColumn(column, val));
             ColumnHash ch(name);
             int64_t index
                 = columnIndex.insert(make_pair(ch, columnIndex.size())).first->second;
