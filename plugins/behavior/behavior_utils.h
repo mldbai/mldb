@@ -37,8 +37,8 @@ ColumnPath decodeLegacyColumnPath(Id id);
 std::pair<ColumnPath, CellValue>
 decodeColumn(const Id & id, bool couldBeLegacy);
 
-// Efficient conversion from Id to PathElement and from PathElement to Id
-PathElement toPathElement(const Id & id);
+// Efficient conversion from Id to Path and from Path to Id
+Path toPath(const Id & id);
 Id toId(const PathElement & coord);
 Id toId(const Path & coord);
 

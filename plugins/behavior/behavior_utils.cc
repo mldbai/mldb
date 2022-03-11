@@ -144,13 +144,14 @@ decodeColumn(const Id & id, bool couldBeLegacy)
     
     if (!couldBeLegacy || (s.size() > 0 && s[0] == '"')) {
         StreamingJsonParsingContext context(s, s.c_str(), s.length());
+        static const auto pathDecoder = getDefaultDescriptionSharedT<Path>();
         Utf8String key = context.expectStringUtf8();
         context.context->expect_literal('=');
         CellValue value;
         cellValueDescription->parseJsonTyped(&value, context);
         context.context->expect_eof();
 
-        return { ColumnPath(key), value };
+        return { ColumnPath::parse(key), value };
     }
     
     auto split = splitColumn(id);
@@ -162,7 +163,12 @@ decodeColumn(const Id & id, bool couldBeLegacy)
 Id
 encodeColumn(const ColumnPath& name, const CellValue& value)
 {
-    return Id(jsonEncodeStr(name.toUtf8String()) + "=" + jsonEncodeStr(value));
+    Id result(jsonEncodeStr(name.toUtf8String()) + "=" + jsonEncodeStr(value));
+    //cerr << "result = " << result << endl;
+    //auto [decodedName, decodedValue] = decodeColumn(result, false /* could be legacy */);
+    //ExcAssertEqual(decodedName, name);
+    //ExcAssertEqual(decodedValue, value);
+    return result;
 }
 
 PathElement 
@@ -176,6 +182,27 @@ toPathElement(const Id & id)
         PathElement coord;
         coord.initStringUnchecked(id.toUtf8String());
         return coord;
+    }
+}
+
+Path
+toPath(const Id & id)
+{
+    try {
+        if (id.type == Id::SHORTSTR) {
+            return Path::parse(id.shortStr, strnlen(id.shortStr, 16));
+        }
+        else if (id.type == Id::STR) {
+            return Path::parse(id.stringData(), id.toStringLength());
+        }
+        else {
+            //some legacy data contains null chars in the string, lets skip the check for now.
+            return Path::parse(id.toUtf8String());
+        }
+    }
+    catch (...) {
+        cerr << "parsing '" << id << "'" << endl;
+        throw;
     }
 }
 

@@ -2568,14 +2568,14 @@ allSubjectPath(ssize_t start /*= 0*/, ssize_t limit /*= -1*/) const
         if (numToGet < 10000) {
             result.reserve(numToGet);
             for (size_t i = start;  i < upperbound;  ++i)
-                result.emplace_back(MLDB::behaviors::toPathElement(getSubjectId(subs[i])));
+                result.emplace_back(MLDB::behaviors::toPath(getSubjectId(subs[i])));
         }
         else {
 
             auto doGetSubjectId = [&] (size_t x0, size_t x1)
             {
                 for (size_t i = x0;  i < x1;  ++i)
-                    result[i-start] = MLDB::behaviors::toPathElement(getSubjectId(subs[i]));
+                    result[i-start] = MLDB::behaviors::toPath(getSubjectId(subs[i]));
                 return true;
             };
 

@@ -112,7 +112,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         }
 
         for (auto & ts: subjTs)
-            result.rows.emplace_back(toPathElement(behs->getSubjectId(ts.first)), CellValue(1), ts.second);
+            result.rows.emplace_back(toPath(behs->getSubjectId(ts.first)), CellValue(1), ts.second);
         
         std::sort(result.rows.begin(), result.rows.end());
 
@@ -131,7 +131,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         
         for (auto & ts: behs->getSubjectHashes
                  (BH(column.hash()), SH::max(), true /* sorted */))
-            result.emplace_back(toPathElement(behs->getSubjectId(ts)), CellValue(1));
+            result.emplace_back(toPath(behs->getSubjectId(ts)), CellValue(1));
 
         std::sort(result.begin(), result.end());
         
@@ -157,7 +157,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
 
         auto onBehavior = [&] (BH, const BehaviorIterInfo &, const BehaviorStats & stats)
             {
-                result.push_back(toPathElement(stats.id));
+                result.push_back(toPath(stats.id));
                 return true;
             };
         
@@ -212,9 +212,9 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
             // In the mutable case, we may have inserted it, so we ask
             // the behavior object for the Id if we can't find it
             // locally.
-            return toPathElement(behs->getBehaviorId(beh));
+            return toPath(behs->getBehaviorId(beh));
         }
-        else return toPathElement(it->second);
+        else return toPath(it->second);
     }
 
     virtual MatrixNamedRow getRow(const RowPath & rowName) const
@@ -238,7 +238,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
     {
         MatrixRow result;
         result.rowHash = rowHash;
-        result.rowName = toPathElement(behs->getSubjectId(rowHash));
+        result.rowName = toPath(behs->getSubjectId(rowHash));
 
         auto onBeh = [&] (BH beh, Date ts, int)
             {
@@ -254,7 +254,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
 
     virtual RowPath getRowPath(const RowHash & rowHash) const
     {
-        return toPathElement(behs->getSubjectId(rowHash));
+        return toPath(behs->getSubjectId(rowHash));
     }
 
     virtual MatrixEvent getEvent(const RowHash & rowHash, Date ts) const
@@ -262,7 +262,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         LightweightHash<BH, int> ev = behs->getSubjectTimestamp(rowHash, ts);
 
         MatrixEvent result;
-        result.rowName = toPathElement(behs->getSubjectId(rowHash));
+        result.rowName = toPath(behs->getSubjectId(rowHash));
         result.rowHash = rowHash;
         result.timestamp = ts;
 
@@ -347,7 +347,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
         {
             Id result = shStream->current();
             advance();
-            return toPathElement(result);
+            return toPath(result);
         }
    
         virtual bool supportsExtendedInterface() const
@@ -358,7 +358,7 @@ struct BinaryBehaviorDataset::Itl: public ColumnIndex, public MatrixView {
 
         virtual const MLDB::RowPath & rowName(MLDB::RowPath & storage) const
         {
-            return storage = toPathElement(shStream->current());
+            return storage = toPath(shStream->current());
         }
 
         virtual void advance()

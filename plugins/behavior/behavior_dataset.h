@@ -6,6 +6,7 @@
 */
 
 #include "mldb/core/dataset.h"
+#include "mldb/types/periodic_utils.h"
 
 #pragma once
 
@@ -23,6 +24,54 @@ extern BehaviorManager behManager;
 
 
 /*****************************************************************************/
+/* BEHAVIOR DATASET                                                          */
+/*****************************************************************************/
+
+struct BehaviorDatasetBase: public Dataset {
+
+    friend class BehaviorDatasetRowStream;
+
+    BehaviorDatasetBase(MldbEngine * owner);
+    
+    void initRoutes();
+
+    virtual ~BehaviorDatasetBase();
+    
+    virtual Any getStatus() const override;
+
+    virtual void recordRowItl(const RowPath & rowName,
+          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals) override
+    {
+        throw MLDB::Exception("Dataset type doesn't allow recording");
+    }
+
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
+
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
+
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
+
+    virtual std::pair<Date, Date> getTimestampRange() const override;
+    virtual Date quantizeTimestamp(Date timestamp) const override;
+
+    virtual RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const override;
+
+    PolyConfigT<Dataset> save(Url dataFileUrl) const;
+
+protected:
+    /// Handler for special routes called on this dataset
+    std::unique_ptr<RestRequestRouter> router;
+
+    std::shared_ptr<BehaviorDomain> behs;
+    std::shared_ptr<BehaviorColumnIndex> columns;
+    std::shared_ptr<BehaviorMatrixView> matrix;
+};
+
+
+/*****************************************************************************/
 /* BEHAVIOR DATASET CONFIG                                                  */
 /*****************************************************************************/
 
@@ -35,42 +84,21 @@ DECLARE_STRUCTURE_DESCRIPTION(BehaviorDatasetConfig);
 
 
 /*****************************************************************************/
-/* BEHAVIOR DATASET                                                         */
+/* BEHAVIOR DATASET                                                          */
 /*****************************************************************************/
 
-struct BehaviorDataset: public Dataset {
+struct BehaviorDataset: public BehaviorDatasetBase {
 
     friend class PandasRollupPlugin;
     friend struct BehaviorDatasetRowStream;
 
     BehaviorDataset(MldbEngine * owner,
-                     PolyConfig config,
-                     const ProgressFunc & onProgress);
+                    PolyConfig config,
+                    const ProgressFunc & onProgress);
     
     virtual ~BehaviorDataset();
-    
-    virtual Any getStatus() const;
-
-    virtual void recordRowItl(const RowPath & rowName,
-          const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)
-    {
-        throw MLDB::Exception("Dataset type doesn't allow recording");
-    }
-
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-
-    virtual std::shared_ptr<RowStream> getRowStream() const;
-
-    virtual std::pair<Date, Date> getTimestampRange() const;
-    virtual Date quantizeTimestamp(Date timestamp) const;
-
-private:
-    std::shared_ptr<BehaviorDomain> behs;
-    std::shared_ptr<BehaviorColumnIndex> columns;
-    std::shared_ptr<BehaviorMatrixView> matrix;
 };
+
 
 /*****************************************************************************/
 /* MUTABLE BEHAVIOR DATASET CONFIG                                          */
@@ -78,21 +106,22 @@ private:
 
 struct MutableBehaviorDatasetConfig : BehaviorDatasetConfig
 {
-    MutableBehaviorDatasetConfig();
-    double timeQuantumSeconds; 
+    TimePeriod timeQuantum = "1s";
+    bool recordNulls = false;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MutableBehaviorDatasetConfig);
+
 
 /*****************************************************************************/
 /* MUTABLE BEHAVIOR DATASET                                                 */
 /*****************************************************************************/
 
-struct MutableBehaviorDataset: public Dataset {
+struct MutableBehaviorDataset: public BehaviorDatasetBase {
 
     MutableBehaviorDataset(MldbEngine * owner,
-                            PolyConfig config,
-                            const ProgressFunc & onProgress);
+                           PolyConfig config,
+                           const ProgressFunc & onProgress);
     
     virtual ~MutableBehaviorDataset();
     
@@ -119,9 +148,8 @@ private:
     friend struct MutableBehaviorDatasetRowStream;
 
     Utf8String address;
-    std::shared_ptr<MutableBehaviorDomain> behs;
-    std::shared_ptr<BehaviorColumnIndex> columns;
-    std::shared_ptr<BehaviorMatrixView> matrix;
+    bool recordNulls = false;
+    std::shared_ptr<MutableBehaviorDomain> behs;  // Shadows and must be equal to that in the base
 };
 
 
