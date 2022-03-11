@@ -208,7 +208,8 @@ parseFixedWidthCsvRow(const char * & line,
                       const shared_ptr<spdlog::logger> & logger,
                       bool ignoreExtraColumns,
                       bool processExcelFormulas,
-                      const std::vector<int> & columnIsUsed)
+                      const std::vector<int> & columnIsUsed,
+                      const std::vector<ColumnPath> & inputColumnNames)
 {
     ExcAssert(!(hasQuoteChar && isTextLine));
 
@@ -817,7 +818,8 @@ struct ImportTextProcedureWorkInstance {
                                                 hasQuoteChar, logger,
                                                 config.ignoreExtraColumns,
                                                 config.processExcelFormulas,
-                                                scope.columnsUsed);
+                                                scope.columnsUsed,
+                                                inputColumnNames);
 
                 if (errorMsg) {
                     return handleError(errorMsg, actualLineNum,

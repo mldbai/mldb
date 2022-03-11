@@ -477,7 +477,7 @@ void forEachLineBlock(std::istream & stream,
                             if (!onLine(fixedup.data(), fixedup.size(), chunkNumber, chunkLineNumber++))
                                 return;
                     
-                        lastLineOffset = lineOffsets[i] + 1;
+                        lastLineOffset = lineOffsets[i];
 
                     }
 
@@ -681,8 +681,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 int64_t startLine = fromPrev.doneLines;
                 std::any splitterState = std::move(fromPrev.splitterState);
 
-                cerr << "processing block with " << leftoverFromPreviousBlock.length()
-                     << " and " << mem.length() << " bytes and splitter " << type_name(splitter) << endl;
+                //cerr << "processing block with " << leftoverFromPreviousBlock.length()
+                //     << " and " << mem.length() << " bytes and splitter " << type_name(splitter) << endl;
 
                 const char * start1   = leftoverFromPreviousBlock.data();
                 const char * end1     = start1 + leftoverFromPreviousBlock.length();
@@ -697,16 +697,16 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 //cerr << "mem.length() = " << mem.length() << endl;
 
                 if (noMoreData && leftoverFromPreviousBlock.length() != 0) {
-                    cerr << "doing last line" << endl;
+                    //cerr << "doing last line" << endl;
                     auto [newCurrent, newState] = splitter.nextBlock(start1, end1 - start1, nullptr, 0,
                                                                      true /* noMoreData */, splitterState);
 
-                    cerr << "newCurrent = " << (const void *)newCurrent << endl;
-                    cerr << "current = " << (const void *)current << endl;
-                    cerr << "start1 = " << (const void *)start1 << endl;
-                    cerr << "end1 = " << (const void *)end1 << endl;
-                    cerr << "start2 = " << (const void *)start2 << endl;
-                    cerr << "end2 = " << (const void *)end2 << endl;
+                    //cerr << "newCurrent = " << (const void *)newCurrent << endl;
+                    //cerr << "current = " << (const void *)current << endl;
+                    //cerr << "start1 = " << (const void *)start1 << endl;
+                    //cerr << "end1 = " << (const void *)end1 << endl;
+                    //cerr << "start2 = " << (const void *)start2 << endl;
+                    //cerr << "end2 = " << (const void *)end2 << endl;
 
                     //cerr << "newCurrent = " << (const void *)newCurrent << endl;
                     if (!newCurrent) {
@@ -722,7 +722,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 // to complete the partial last record.
                 while (current && current >= start1 && current < end1) {
                     ExcAssert(start2 != 0);
-                    cerr << "doing current line" << endl;
+                    //cerr << "doing current line" << endl;
                     auto [newCurrent, newState] = splitter.nextBlock(current, end1 - current, start2, end2 - start2, noMoreData, splitterState);
                     if (!newCurrent) {
                         // No break in the whole lot... it's all a partial record
@@ -770,8 +770,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     splitterState = std::move(newState);
                 }
 
-                cerr << "done " << lines.size() << " lines" << endl;
-                cerr << "leftover.length() = " << leftover.length() << endl;
+                //cerr << "done " << lines.size() << " lines" << endl;
+                //cerr << "leftover.length() = " << leftover.length() << endl;
 
                 if (hasExc.load(std::memory_order_relaxed)) {
                     bailNextBlock();
@@ -797,7 +797,9 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 
                 auto doLine = [&] (const char * line, size_t len)
                     {
+                        //cerr << "doLine: " << string(line, len) << endl;
                         auto fixedup = splitter.fixupBlock({line, len});
+                        //cerr << "fixedup: " << string(fixedup.data(), fixedup.size()) << endl;
 
                         return onLine(fixedup.data(), fixedup.size(), chunkNumber, chunkLineNumber++);
                     };
