@@ -3449,6 +3449,8 @@ mergeToRowDestructive(RowValue & row)
         };
 
     forEachAtomDestructiveT(onSubexpr);
+
+    *this = ExpressionValue();
 }
 
 bool

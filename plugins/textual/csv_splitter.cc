@@ -44,8 +44,8 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
             bool noMoreData,
             const CSVSplitterState & state) const
 {
-    const char * p = block1;
-    const char * e = block1 + n1;
+    const unsigned char * p = (const unsigned char *)block1;
+    const unsigned char * e = p + n1;
     int blockNum = 1;
 
     //cerr << "looking for next block with " << n << " characters" << endl;
@@ -63,7 +63,7 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
     {
         if (blockNum != 1 || !block2 || n2 == 0)
             return false;
-        cerr << "new block" << endl;
+        //cerr << "new block" << endl;
         if (p != e) {
             cerr << "blockNum = " << blockNum << endl;
             cerr << "p = " << (const void *)p << endl;
@@ -75,8 +75,8 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
             cerr << "has8bit = " << has8bit << endl;
         }
         ExcAssert(p == e);
-        p = block2;
-        e = block2 + n2;
+        p = (const unsigned char *)block2;
+        e = p + n2;
         return true;
     };
 
@@ -124,6 +124,8 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
 
     auto char_8bit = [&] (int c)
     {
+        if (c < 0 || c > 255)
+            cerr << "c = " << c << endl;
         ExcAssert(c >= 0 && c <= 255);
         return c & 128;
     };
@@ -157,9 +159,12 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
                         return 0;  // ends in middle of utf-8 character
                 }
                 else {
-                    if (match(*p))
-                        return *p++;
-                    ++p;
+                    if (match(c)) {
+                        auto res = c;
+                        next();
+                        return res;
+                    }
+                    next();
                 }
             }
         }
@@ -171,7 +176,7 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
         if (MLDB_LIKELY(encoding == CsvLineEncoding::ASCII)) {
             while (!atEnd) {
                 auto p2 = (const char *)memchr(p, tofind, e - p);
-                size_t n = p2 ? p2 - p : e - p;
+                size_t n = p2 ? (const unsigned char *)p2 - p : e - p;
                 bool success = skip(n);
                 ExcAssert(success);
                 if (c == tofind) {
@@ -239,7 +244,7 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
                         // Newline in quoted field without allowMultiLine
                         // Will eventually result in an error, but let the parser
                         // deal with that
-                        return { p, {} };
+                        return { (const char *)p, {} };
                     }
                 }
 
@@ -261,7 +266,7 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
             //cerr << string(current, p - 1) << endl;
             //cerr << "  *(p-1) = " << (int)(*(p-1)) << endl;
 
-            return { p, {} };
+            return { (const char *)p, {} };
         }
         else break;
     }

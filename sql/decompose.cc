@@ -34,6 +34,9 @@ Decomposition decompose(const BoundSqlExpression & selectBound,
     LightweightHash<ColumnHash, int> columnIndex; //To check for duplicates column names
 
     auto cols = selectBound.info->getKnownColumns();
+    auto completeness = selectBound.info->getSchemaCompletenessRecursive();
+    if (completeness == SchemaCompleteness::SCHEMA_OPEN)
+        return {};
 
     for (unsigned i = 0;  i < cols.size();  ++i) {
         const auto& col = cols[i];
@@ -236,6 +239,7 @@ Decomposition::apply(SqlRowScope & row,
     // Extra values we couldn't analyze statically, which will
     // be recorded when one of the columns has extra values
     std::vector<std::pair<ColumnPath, CellValue> > extra;
+    extra.reserve(32);
     
     for (auto & clause: otherClauses) {
         ExpressionValue clauseStorage;
@@ -246,8 +250,8 @@ Decomposition::apply(SqlRowScope & row,
         // merged together
         if (&clauseOutput == &clauseStorage) {
             auto recordAtom = [&] (Path & columnName,
-                                CellValue & value,
-                                Date ts) -> bool
+                                   CellValue & value,
+                                   Date ts) -> bool
                 {
                     // Is it the first time we've set this column?
                     auto it = columnIndex.find(columnName);
@@ -260,7 +264,7 @@ Decomposition::apply(SqlRowScope & row,
                     else {
                         // If not, put it in the extra values
                         extra.emplace_back(std::move(columnName),
-                                        std::move(value));
+                                           std::move(value));
                     }
                     return true;
                 };

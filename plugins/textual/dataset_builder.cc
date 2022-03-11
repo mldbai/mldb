@@ -70,6 +70,7 @@ recordRow(SqlCsvScope::RowScope & row,
     ExpressionValue tsStorage;
     Date rowTs = owner->timestampBound(row, tsStorage, GET_ALL)
             .coerceToTimestamp().toTimestamp();
+    row.ts = rowTs;
 
     //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 
@@ -82,7 +83,7 @@ recordRow(SqlCsvScope::RowScope & row,
                             rowTs, fixedValues.data(),
                             fixedValues.size(), {});
     }
-    else if (owner->decomposition && owner->decomposition->canUseDecomposed) {
+    else if (extraValues.empty() && owner->decomposition && owner->decomposition->canUseDecomposed) {
         //cerr << "owner->decomposition has " << owner->decomposition->knownColumnNames.size() << " columns" << endl;
         auto [outputValues, extra] = owner->decomposition->apply(row, fixedValues);
         //extra.insert(extra.end(),

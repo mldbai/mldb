@@ -155,6 +155,16 @@ struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
         }
     }
 
+    virtual std::span<const char> fixupBlock(std::span<const char> block) const
+    {
+        const char * p = block.data();
+        const char * e = p + block.size();
+        // Skip spaces and trailing commas that separate the records
+        while (e > p && (isspace(e[-1]) || e[-1] == ','))
+            --e;
+        return { p, size_t(e - p) };
+    }
+
     virtual size_t requiredBlockPadding() const override { return 0; }
 };
 
@@ -170,7 +180,7 @@ struct SimdJsonParsingContext: public JsonParsingContext {
     SimdJsonParsingContext(simdjson::ondemand::document & doc)
         : doc(doc)
     {
-        values.reserve(64);
+        values.reserve(64);  // recursion depth
         values.emplace_back(doc.get_value());
     }
 
@@ -512,7 +522,7 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
 
     virtual ~StructureExpressionValueParser() override
     {
-        if (std::uncaught_exceptions())
+        if (true || std::uncaught_exceptions())
             return;
         if (numCalls >= 0) {
             cerr << "calls: " << numCalls << " successes: " << numSuccesses << " failures: " << numFailures
@@ -900,18 +910,18 @@ struct ScalarExpressionValueParser: public PredictiveExpressionValueParser {
     {
         if (context.isArray()) {
             if (!this->arrays) {
-                this->arrays = ArrayExpressionValueParser::create(values, extra, context, prefix, timestamp, arrays);
+                this->arrays = ArrayExpressionValueParser::create(values.subspan(0, 0), extra, context, prefix, timestamp, arrays);
             }
             else {
-                this->arrays->apply(values, extra, context, prefix, timestamp, arrays);
+                this->arrays->apply(values.subspan(0,0), extra, context, prefix, timestamp, arrays);
             }
         }
         else if (context.isObject()) {
             if (!objects) {
-                objects = ArrayExpressionValueParser::create(values, extra, context, prefix, timestamp, arrays);
+                objects = ArrayExpressionValueParser::create(values.subspan(0,0), extra, context, prefix, timestamp, arrays);
             }
             else {
-                objects->apply(values, extra, context, prefix, timestamp, arrays);
+                objects->apply(values.subspan(0,0), extra, context, prefix, timestamp, arrays);
             }
         }
         else {
@@ -950,7 +960,7 @@ struct ScalarExpressionValueParser: public PredictiveExpressionValueParser {
 
     virtual bool hasNestedColumns() const override
     {
-        return !!arrays || !!objects;
+        return false;  //!!arrays || !!objects;
     }
 
     virtual size_t getFixedColumnCount() const override
@@ -1079,6 +1089,12 @@ struct JSONImporter: public Procedure {
             }
             else {
                 startChar = parseContext.get_offset();
+                jsonContext.hasEmbeddedNewlines = false;
+                firstRecord = jsonContext.expectJson();
+                bool hadEmbeddedNewlines = jsonContext.hasEmbeddedNewlines;
+                jsonContext.skipJsonWhitespace();
+                if (jsonContext.hasEmbeddedNewlines && !hadEmbeddedNewlines)
+                    oneRecordPerLine = true;
             }
         }
         else {
@@ -1431,7 +1447,7 @@ struct JSONImporter: public Procedure {
             throw MLDB::CancellationException("Procedure import.json cancelled");
         }
 
-        if (isArray && lastLine == -1) {
+        if (isArray && lastLine == -1 && runProcConf.limit == -1) {
             throw MLDB::Exception("Whole-file JSON array never terminated");
         }
 
