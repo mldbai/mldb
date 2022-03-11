@@ -7,8 +7,7 @@
    Arithmetic functions for time.
 */
 
-#ifndef __logger__periodic_utils_h__
-#define __logger__periodic_utils_h__
+#pragma once
 
 #include "date.h"
 #include "value_description_fwd.h"
@@ -144,6 +143,9 @@ struct TimePeriod {
 
     void parse(const std::string & val);
 
+    // Return the granularity mapped to a number of seconds
+    double toSeconds() const;
+
     TimePeriod operator + (const TimePeriod & other) const;
 
     TimePeriod & operator += (const TimePeriod & other)
@@ -218,6 +220,3 @@ TimePeriod restDecode(const std::string & str, TimePeriod *);
 Utf8String restEncode(const TimePeriod & p);
 
 } // namespace MLDB
-
-#endif /*  __logger__periodic_utils_h__ */
-

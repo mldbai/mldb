@@ -324,6 +324,24 @@ toString() const
     }
 }
 
+double
+TimePeriod::
+toSeconds() const
+{
+    switch (granularity) {
+    case MILLISECONDS:  return number * 0.001;
+    case SECONDS:       return number;
+    case MINUTES:       return number * 60;
+    case HOURS:         return number * 3600;
+    case DAYS:          return number * 86400;
+    case WEEKS:         return number * 86400 * 7;
+    case MONTHS:        return number * 86400 * 30;
+    case YEARS:         return number * 86400 * 365.25;
+    default:
+        throw MLDB::Exception("unknown time period");
+    }
+}
+
 void
 TimePeriod::
 parse(const std::string & str)
