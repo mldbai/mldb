@@ -93,18 +93,15 @@ enum TransactionFavor {
 
 DECLARE_ENUM_DESCRIPTION(TransactionFavor);
 
-struct MutableSparseMatrixDatasetConfig
-{
-    MutableSparseMatrixDatasetConfig();
-
+struct MutableSparseMatrixDatasetConfig {
     /// Precision for the timestamps
-    double timeQuantumSeconds;
+    double timeQuantumSeconds = 1.0;
 
     /// Write transaction level.  Can data be read straight away or after commit
-    WriteTransactionLevel consistencyLevel;
+    WriteTransactionLevel consistencyLevel = WT_READ_AFTER_COMMIT;
 
     /// Transaction favor.  When reads and writes are mixed, which do we favor?
-    TransactionFavor favor;
+    TransactionFavor favor = TF_FAVOR_READS;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(MutableSparseMatrixDatasetConfig);

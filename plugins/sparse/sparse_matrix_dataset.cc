@@ -29,10 +29,7 @@ using namespace std;
 
 namespace MLDB {
 
-DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
-
-BaseEntryDescription::
-BaseEntryDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(BaseEntry)
 {
     addField("rowcol", &BaseEntry::rowcol,
              "Row or column ID");
@@ -1714,10 +1711,7 @@ struct MutableBaseMatrix: public BaseMatrix {
 /* MUTABLE SPARSE MATRIX DATASET CONFIG                                       */
 /******************************************************************************/
 
-DEFINE_ENUM_DESCRIPTION(WriteTransactionLevel);
-
-WriteTransactionLevelDescription::
-WriteTransactionLevelDescription()
+DEFINE_ENUM_DESCRIPTION_INLINE(WriteTransactionLevel)
 {
     addValue("consistentAfterWrite", WT_READ_AFTER_WRITE,
              "A value written will be available immediately after writing.  "
@@ -1730,10 +1724,7 @@ WriteTransactionLevelDescription()
              "performance and should be used in any batch insertion scenario.");
 }
 
-DEFINE_ENUM_DESCRIPTION(TransactionFavor);
-
-TransactionFavorDescription::
-TransactionFavorDescription()
+DEFINE_ENUM_DESCRIPTION_INLINE(TransactionFavor)
 {
     addValue("favorReads", TF_FAVOR_READS,
              "Values will be written in an indexed manner that favors "
@@ -1746,18 +1737,7 @@ TransactionFavorDescription()
              "no indexes maintained on recent writes.");
 }
 
-MutableSparseMatrixDatasetConfig::
-MutableSparseMatrixDatasetConfig()
-    : timeQuantumSeconds(1.0),
-      consistencyLevel(WT_READ_AFTER_COMMIT),
-      favor(TF_FAVOR_READS)
-{
-}
-
-DEFINE_STRUCTURE_DESCRIPTION(MutableSparseMatrixDatasetConfig);
-
-MutableSparseMatrixDatasetConfigDescription::
-MutableSparseMatrixDatasetConfigDescription()
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(MutableSparseMatrixDatasetConfig)
 {
     nullAccepted = true;
     addField("timeQuantumSeconds", &MutableSparseMatrixDatasetConfig::timeQuantumSeconds,
