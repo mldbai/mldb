@@ -725,6 +725,23 @@ public:
         }
     };
 
+    /** A token that, if apply() is called, will rewind the parse context to
+        the state it was in when the token was obtained.
+    */
+    struct Rewind_Token : public Token {
+        Rewind_Token(ParseContext & context)
+            : Token(context)
+        {
+        }
+
+        ~Rewind_Token()
+        {
+            if (context) remove(true /* in destructor */);
+        }
+
+        using Token::apply;
+    };
+
 private:
     /** Go to the next buffer, creating and populating a new one if
         necessary. */

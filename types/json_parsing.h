@@ -12,6 +12,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <any>
 
 namespace Json {
 struct Value;
@@ -160,8 +161,6 @@ struct JsonPath;
 */
 
 struct JsonParsingContext {
-
-
     JsonParsingContext();
     ~JsonParsingContext();
 
@@ -360,6 +359,13 @@ struct JsonParsingContext {
     /// Expect that we are at an EOF position, or throw an exception if not.
     /// Default uses eof() and exception().
     virtual void expectEof() const;
+
+    /// Save the current position to the token, which allows it to later be
+    /// reset.
+    virtual std::any savePosition() = 0;
+
+    /// Restore the current position from the saved token.
+    virtual void restorePosition(const std::any & token) = 0;
 };
 
 
@@ -554,6 +560,10 @@ struct StreamingJsonParsingContext
     void expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry);
 
     virtual bool eof() const;
+
+    virtual std::any savePosition() override;
+
+    virtual void restorePosition(const std::any & token) override;
 };
 
 
@@ -567,6 +577,8 @@ struct StreamingJsonParsingContext
 struct StructuredJsonParsingContext: public JsonParsingContext {
 
     StructuredJsonParsingContext(const Json::Value & val);
+
+    void reset(const Json::Value & val);
 
     const Json::Value * current;
     const Json::Value * top;
@@ -636,6 +648,10 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     virtual std::string printCurrent();
 
     virtual bool eof() const;
+
+    virtual std::any savePosition() override;
+
+    virtual void restorePosition(const std::any & token) override;
 };
 
 

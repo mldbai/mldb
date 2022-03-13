@@ -843,8 +843,16 @@ Utf8StringJsonPrintingContext(Utf8String & str)
 
 StructuredJsonPrintingContext::
 StructuredJsonPrintingContext(Json::Value & output)
-    : output(output), current(&output)
 {
+    reset(output);
+}
+
+void
+StructuredJsonPrintingContext::
+reset(Json::Value & newOutput)
+{
+    output = current = &newOutput;
+    path.clear();
     path.reserve(8);
 }
 

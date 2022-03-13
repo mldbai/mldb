@@ -329,7 +329,7 @@ std::string expectJsonStringAscii(ParseContext & context)
     return result;
 }
 
-inline int getEscapedJsonCharacterPointUtf8(ParseContext & context)
+int getEscapedJsonCharacterPointUtf8(ParseContext & context)
 {
     int c = *context++;
 
@@ -1473,6 +1473,23 @@ eof() const
     return context->eof();
 }
 
+std::any
+StreamingJsonParsingContext::
+savePosition()
+{
+    auto token = std::make_shared<ParseContext::Rewind_Token>(*context);
+    return token;
+}
+
+void
+StreamingJsonParsingContext::
+restorePosition(const std::any & atoken)
+{
+    auto token = std::any_cast<std::shared_ptr<ParseContext::Rewind_Token>>(atoken);
+    ExcAssert(token);
+    token->apply();
+}
+
 Json::Value
 expectJson(ParseContext & context)
 {
@@ -1758,6 +1775,15 @@ StructuredJsonParsingContext::
 StructuredJsonParsingContext(const Json::Value & val)
     : current(&val), top(&val)
 {
+}
+
+void
+StructuredJsonParsingContext::
+reset(const Json::Value & val)
+{
+    current = &val;
+    top = &val;
+    path.reset(new JsonPath());
 }
 
 void
@@ -2102,6 +2128,22 @@ StructuredJsonParsingContext::
 eof() const
 {
     return current == nullptr;
+}
+
+std::any
+StructuredJsonParsingContext::
+savePosition()
+{
+    return std::make_tuple(top, current);
+}
+
+void
+StructuredJsonParsingContext::
+restorePosition(const std::any & atoken)
+{
+    auto [newTop, newCurrent] = std::any_cast<std::tuple<const Json::Value *, const Json::Value *>>(atoken);
+    ExcAssertEqual(top, newTop);
+    current = newCurrent;
 }
 
 
