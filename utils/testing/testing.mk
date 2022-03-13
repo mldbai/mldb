@@ -37,3 +37,5 @@ $(eval $(call test,round_test,,boost))
 $(eval $(call test,for_each_line_test,utils log arch block types value_description vfs,boost))
 $(eval $(call test,floating_point_test,utils log arch,boost))
 $(eval $(call test,safe_clamp_test,utils log arch,catch2))
+
+$(eval $(call test,json_stream_test,utils log arch json_diff types value_description,catch2))
