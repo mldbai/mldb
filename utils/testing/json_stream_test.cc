@@ -24,55 +24,103 @@ TEST_CASE("basics", "[none]")
 
 }
 
-const std::vector<std::string> & getTest(const std::string & file)
+struct Test {
+    int lineStart;
+    std::string program;
+    std::string input;
+    std::vector<std::string> expected;
+    bool expectedFail = false;
+};
+
+const std::vector<Test> & getTests(const std::string & file)
 {
-    static std::map<std::string, std::vector<std::string>> tests;
+    static std::map<std::string, std::vector<Test>> tests;
     if (tests.count(file))
         return tests[file];
     else {
-        std::vector<std::string> lines;
+        std::vector<Test> parsed;
 
         std::ifstream stream("mldb/utils/testing/fixtures/jq/" + file);
         if (!stream)
             throw MLDB::Exception("couldn't open test file");
 
+        int lineNumber = 1;
         while (stream) {
             std::string line;
             std::getline(stream, line);
-            if (line.empty())
+            ++lineNumber;
+            if (line.empty()) {
                 continue;
-            if (line[0] == '#')
+            }
+            if (line[0] == '#') {
+                ++lineNumber;
                 continue;
-            lines.emplace_back(std::move(line));
+            }
+
+            Test test;
+            test.lineStart = lineNumber;
+
+            if (line == "%%FAIL") {
+                ++lineNumber;
+                std::getline(stream, line);
+                test.expectedFail = true;
+            }
+            test.program = line;
+            if (!test.expectedFail) {
+                std::getline(stream, test.input);
+                ++lineNumber;
+            }
+            for (;;) {
+                std::getline(stream, line);
+                ++lineNumber;
+                if (line.empty())
+                    break;
+                test.expected.emplace_back(std::move(line));
+            }
+
+            parsed.emplace_back(std::move(test));
         }
 
-        cerr << "read " << lines.size() << " lines from file " << file << endl;
-        return tests[file] = std::move(lines);
+        cerr << "read " << parsed.size() << " tests from file " << file << endl;
+        return tests[file] = std::move(parsed);
     }
 }
 
 void runTestFile(const std::string & file)
 {
-    auto lines = getTest(file);
+    auto tests = getTests(file);
 
-    for (int i = 0;  i < 48 /*lines.size()*/;  i += 3) {
+    int n = tests.size();
+    n = 40;
+    for (int i = 0;  i < n;  ++i) {
 
-        SECTION(file + ":" + std::to_string(i/3) + ": " + lines.at(i)) {
-            const string & source   = lines.at(i + 0);
-            const string & input    = lines.at(i + 1);
-            const string & expected = lines.at(i + 2);
+        SECTION(file + ":" + std::to_string(i) + " (" + file + ":" + std::to_string(tests[i].lineStart) + "): " + tests.at(i).program) {
+            const Test & test = tests[i];
 
             // Strip byte order mark
-            string input2 = input;
-            if (input.size() >= 3
-                && (unsigned char)input[0] == 0xef
-                && (unsigned char)input[1] == 0xbb
-                && (unsigned char)input[2] == 0xbf) {
+            string input2 = test.input;
+            if (test.input.size() >= 3
+                && (unsigned char)test.input[0] == 0xef
+                && (unsigned char)test.input[1] == 0xbb
+                && (unsigned char)test.input[2] == 0xbf) {
                 input2 = string(input2, 3);
             }
-            string expected2 = jsonDecodeStr<Json::Value>(expected).toStringNoNewLine();
 
-            auto program = createJqStreamProcessor(source);
+            std::vector<std::string> expected2;
+            for (auto & line: test.expected) {
+                if (test.expectedFail)
+                    expected2.emplace_back(line);
+                else
+                    expected2.emplace_back(jsonDecodeStr<Json::Value>(line).toStringNoNewLine());
+            }
+
+            //cerr << "program " << test.program << endl;
+            //cerr << "fail " << test.expectedFail << endl;
+            //cerr << "input " << test.program << endl;
+
+            auto program = createJqStreamProcessor(test.program);
+            cerr << format("-%45s -> ", test.program) << program->toLisp() << endl;
+#if 0            
             auto json = jsonDecodeStr<Json::Value>(input2);
 
             //std::vector<Json::Value> array = { json };
@@ -80,12 +128,13 @@ void runTestFile(const std::string & file)
             ArrayJsonStreamPrintingContext outputContext;
             program->process(inputContext, outputContext);
 
-            std::string result;
+            std::vector<std::string> result;
             for (auto & val: outputContext.values()) {
-                result += val.toStringNoNewLine();
+                result.emplace_back(val.toStringNoNewLine());
             }
 
             CHECK(result == expected2);
+#endif
         }
     }
 }

@@ -1485,6 +1485,7 @@ void
 StreamingJsonParsingContext::
 restorePosition(const std::any & atoken)
 {
+    cerr << "streaming token type is " << demangle(atoken.type().name()) << endl;
     auto token = std::any_cast<std::shared_ptr<ParseContext::Rewind_Token>>(atoken);
     ExcAssert(token);
     token->apply();
@@ -2134,13 +2135,14 @@ std::any
 StructuredJsonParsingContext::
 savePosition()
 {
-    return std::make_tuple(top, current);
+    return std::tuple<const Json::Value *, const Json::Value *>(top, current);
 }
 
 void
 StructuredJsonParsingContext::
 restorePosition(const std::any & atoken)
 {
+    cerr << "structured token type is " << demangle(atoken.type().name()) << endl;
     auto [newTop, newCurrent] = std::any_cast<std::tuple<const Json::Value *, const Json::Value *>>(atoken);
     ExcAssertEqual(top, newTop);
     current = newCurrent;

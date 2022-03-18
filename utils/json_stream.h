@@ -83,7 +83,7 @@ struct ArrayJsonStreamParsingContext: public JsonStreamParsingContext {
         else {
             current_.reset(DUMMY);
         }
-        current_.restorePosition(position);
+        current_.restorePosition(position.position);
     }
 
 private:
@@ -108,6 +108,13 @@ struct JsonStreamPrintingContext {
             next();
             context.next();
         }
+    }
+    
+    virtual void take(JsonParsingContext & context)
+    {
+        Json::Value val = context.expectJson();
+        this->current().writeJson(std::move(val));
+        next();
     }
 };
 
@@ -148,6 +155,7 @@ private:
 struct JsonStreamProcessor {
     virtual ~JsonStreamProcessor() = default;
     virtual void process(JsonStreamParsingContext & in, JsonStreamPrintingContext & out) const = 0;
+    virtual Utf8String toLisp() const = 0;
 };
 
 std::shared_ptr<JsonStreamProcessor> createJqStreamProcessor(ParseContext & program);
