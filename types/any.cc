@@ -231,7 +231,15 @@ bool operator==(const Any & lhs, const Any & rhs)
         // we have no way to interpret the value - the best we can do is compare pointers
         return lhs.obj_ == rhs.obj_;
     }
-    else return lhs.asJsonStr() == rhs.asJsonStr();
+    else if (typeid(lhs.desc_) != typeid(rhs.desc_)) {
+        return false;
+    }
+    else if (lhs.desc_->hasEqualityComparison()) {
+        return lhs.desc_->compareEquality(lhs.obj_.get(), rhs.obj_.get());
+    }
+    else {
+        return lhs.asJsonStr() == rhs.asJsonStr();
+    }
 }
 
 struct AnyRep {
