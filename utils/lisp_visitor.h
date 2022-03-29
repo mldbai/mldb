@@ -9,9 +9,13 @@
 
 #include "lisp_value.h"
 #include <utility>
+#include <iostream>
 
 namespace MLDB {
 namespace Lisp {
+
+template<typename Visitor, typename... ExtraTypes, typename Value>
+auto visit(Visitor && visitor, Value && value) -> typename std::decay_t<Visitor>::return_type;
 
 template<typename Return>
 struct Visitor {
@@ -60,6 +64,51 @@ constexpr bool isVisitable()
     return IsVisitable<Visitor, Method>::value;
 }
 
+template<typename Unknown>
+struct HandleUnknown {
+    using return_type = std::invoke_result_t<Unknown, Value>;
+    Unknown unknown;
+    HandleUnknown(Unknown&&unknown) : unknown(std::move(unknown)) {}
+};
+
+template<typename Unknown, class... Ops>
+struct LambdaVisitor
+    : HandleUnknown<Unknown>, Ops... {
+    using visitor_base = LambdaVisitor;
+    using Ops::operator ()...;
+    using HandleUnknown<Unknown>::unknown;
+
+    template<typename Arg>
+    auto visit(Arg&& arg) -> std::invoke_result_t<LambdaVisitor, Arg>
+    {
+        return (*this)(std::forward<Arg>(arg));
+    }
+};
+
+template<typename Unknown, class... Ts>
+LambdaVisitor(Unknown, Ts...) -> LambdaVisitor<Unknown, Ts...>;
+
+template<class... Ops>
+struct RecursiveLambdaVisitor
+    : Ops... {
+    using return_type = Value;
+    using Ops::operator ()...;
+
+    template<typename Arg>
+    auto visit(Arg&& arg) -> std::invoke_result_t<RecursiveLambdaVisitor, Arg>
+    {
+        return (*this)(std::forward<Arg>(arg));
+    }
+
+    template<typename ValueIn>
+    Value unknown(ValueIn&&value)
+    {
+        return std::forward<ValueIn>(value);
+    }
+};
+template<class... Ts> RecursiveLambdaVisitor(Ts...) -> RecursiveLambdaVisitor<Ts...>;
+
+
 template<typename Visitor, typename... ExtraTypes, typename Value>
 auto visit(Visitor && visitor, Value && value) -> typename std::decay_t<Visitor>::return_type
 {
@@ -82,6 +131,32 @@ auto visit(Visitor && visitor, Value && value) -> typename std::decay_t<Visitor>
     return visitor.unknown(value);    
 }
 
+template<typename Visitor, typename... ExtraTypes, typename ValueIn>
+Value recurse(Visitor && visitor, ValueIn && value)
+{
+    using DecayedVisitor = typename std::decay_t<Visitor>;
+    using Return = typename DecayedVisitor::return_type;
+    static_assert(std::is_convertible_v<Return, Value>, "recursive visitor must return value");
+
+    if (value.template is<List>()) {
+        auto && list = value.template as<List>();
+        List recursed;
+        recursed.reserve(list.size());
+        for (auto && val: list) {
+            recursed.emplace_back(recurse(visitor, val));
+        }
+        if constexpr(isVisitable<DecayedVisitor, Return(List)>()) {
+            return visitor.visit(std::move(recursed));
+        }
+        else {
+            Value result{ value.getContext(), std::move(recursed) };
+            return result;
+        }
+    }
+    else {
+        return visit(std::forward<Visitor>(visitor), std::forward<ValueIn>(value));
+    }
+}
 
 } // namespace Lisp
 } // namespace MLDB

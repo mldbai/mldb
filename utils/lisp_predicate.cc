@@ -229,13 +229,8 @@ Value
 Substitution::
 substImpl(Context & context, const Value & source, const UnifiedValues & vals)
 {
-    struct SubstVisitor: public Visitor<Value> {
-        SubstVisitor(Context & context, const UnifiedValues & vals) : context(context), vals(vals) {}
-        //using visitor_base::visit;
-        Context & context;
-        const UnifiedValues & vals;
-
-        Value visit(const Variable & var) const
+    RecursiveLambdaVisitor visitor {
+        [&] (const Variable & var)
         {
             auto it = vals.find(var.var);
             if (it == vals.end()) {
@@ -243,48 +238,9 @@ substImpl(Context & context, const Value & source, const UnifiedValues & vals)
             }
             return it->second;
         }
+    };
 
-        Value visit(const List & list) const
-        {
-            List result;
-            result.reserve(list.size());
-            for (auto & val: list) {
-                result.emplace_back(substImpl(context, val, vals));
-            }
-            return { context, std::move(result) };
-        }
-
-        Value unknown(const Value & value) const
-        {
-            return value;
-        }
-    } visitor(context, vals);
-
-    return visit(visitor, source);
-
-#if 0
-    if (source.is<Variable>()) {
-        const Variable & var = source.as<Variable>();
-        auto it = vals.find(var.var);
-        if (it == vals.end()) {
-            throw MLDB::Exception("Substituting unset variable " + var.var.toUtf8String());
-        }
-        return it->second;
-    }
-    else if (source.is<List>()) {
-        const List & list = source.as<List>();
-        List result;
-        result.reserve(list.size());
-        for (auto & val: list) {
-            result.emplace_back(substImpl(context, val, vals));
-        }
-        return { context, std::move(result) };
-
-    }
-    else {
-        return source;  // it's a literal
-    }
-#endif
+    return recurse(visitor, source);
 }
 
 

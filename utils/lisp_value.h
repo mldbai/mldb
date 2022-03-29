@@ -62,6 +62,18 @@ PREDECLARE_VALUE_DESCRIPTION(Wildcard);
 struct List: public std::vector<Value> {
     using std::vector<Value>::vector;
     Path functionName() const;
+
+    template<typename T, typename UpdateFn, typename FoldFn>
+    T fold(UpdateFn && updater, FoldFn && folder, T before = T(), T between = T(), T after = T()) const
+    {
+        T result = before;
+        for (size_t i = 0, n = size();  i < n;  ++i) {
+            if (i != 0) updater(result, between);
+            updater(result, folder(at(i)));
+        }
+        updater(result, after);
+        return result;
+    }
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(List);

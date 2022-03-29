@@ -7,6 +7,7 @@
 
 #include "lisp.h"
 #include "lisp_lib.h"
+#include "lisp_visitor.h"
 #include "mldb/types/json_parsing.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -479,54 +480,36 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
     }
 }
 
+struct StrAdd {
+    template<typename Str, typename ToAdd> void operator () (Str & s, ToAdd && toAdd) const { s += toAdd; }
+};
+
 Utf8String
 Value::
 print() const
 {
     if (!context_)
         return {};
-    else if (value_.is<bool>()) {
-        return value_.as<bool>() ? "true" : "false";
-    }
-    else if (value_.is<int64_t>()) {
-        return std::to_string(value_.as<int64_t>());
-    }
-    else if (value_.is<uint64_t>()) {
-        return std::to_string(value_.as<uint64_t>());
-    }
-    else if (value_.is<Utf8String>()) {
-        return jsonEncodeStr(value_.as<Utf8String>());
-    }
-    else if (value_.is<Null>()) {
-        return "null";
-    }
-    else if (value_.is<List>()) {
-        Utf8String result = "(";
-        bool first = true;
-        for (auto & i: value_.as<List>()) {
-            if (!first) {
-                result += " ";
-            }
-            first = false;
-            result += i.print();
-        }
-        result += ")";
-        return result;
-    }
-    else if (value_.is<Variable>()) {
-        return value_.as<Variable>().var.toUtf8String();
-    }
-    else if (value_.is<Function>()) {
-        return value_.as<Function>().fn.toUtf8String();
-    }
-    else if (value_.is<Wildcard>()) {
-        return "_";
-    }
-    else if (value_.is<Symbol>()) {
-        return "`" + value_.as<Symbol>().sym.toUtf8String();
-    }
 
-    MLDB_THROW_UNIMPLEMENTED(("print of lisp value with type " + demangle(value_.type())).c_str());
+    LambdaVisitor visitor {
+        [] (const Value & val) -> Utf8String // first is for unmatched values
+        {
+            MLDB_THROW_UNIMPLEMENTED(("print of lisp value with type " + demangle(val.value_.type())).c_str());
+        },
+        [] (bool b)               { return b ? "true" : "false"; },
+        [] (int64_t i)            { return std::to_string(i); },
+        [] (uint64_t i)           { return std::to_string(i); },
+        [] (double d)             { return std::to_string(d); },
+        [] (const Utf8String & s) { return jsonEncodeStr(s); },
+        [] (Null)                 { return "null"; },
+        [] (Wildcard)             { return "_"; },
+        [] (const Variable& v)    { return v.var.toUtf8String(); },
+        [] (const Symbol& s)      { return "`" + s.sym.toUtf8String(); },
+        [] (const Function& f)    { return f.fn.toUtf8String(); },
+        [] (const List & l)       { return l.fold<Utf8String>(StrAdd(), std::mem_fn(&Value::print), "(", " ", ")"); }
+    };
+
+    return visit(visitor, *this);
 }
 
 std::optional<PathElement>
