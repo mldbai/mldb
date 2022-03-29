@@ -1,0 +1,22 @@
+Program:
+    Number:
+        (@i64 i)                    -> i
+        (@u64 i)                    -> i
+        (@f64 d)                    -> d
+
+    Literal:
+        'true'                      -> true
+        'false'                     -> false
+        'null'                      -> null
+        (Number n)                  -> n
+        (@jsonstring s)             -> s
+
+    Struct:
+        Member:
+            (Path k) ':' (Expr v)   -> k v
+            (Path k)                -> k k
+
+        '{' (Member m)* '}'         -> *m
+
+    (Literal l)                     -> l
+    (Struct s)                      -> s
