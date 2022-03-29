@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <algorithm>
 #include <atomic>
+#include <bit>
 #include <boost/iterator/iterator_facade.hpp>
 
 

@@ -1375,7 +1375,7 @@ expectStringUtf8(char * buffer, size_t maxLen)
 
         if (c < 0 || c > 127) {
             // Unicode
-            c = utf8::unchecked::next(*context);
+            c = context->expect_utf8_code_point();
 
             char * p1 = buffer + pos;
             char * p2 = p1;
@@ -1633,7 +1633,7 @@ bool skipJsonStringUtf8(ParseContext & context)
         int c = *context;
         if (c < 0 || c > 127) {
             // Unicode
-            c = utf8::unchecked::next(context);
+            context.expect_utf8_code_point();
             continue;
         }
         ++context;

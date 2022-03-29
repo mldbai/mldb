@@ -536,9 +536,6 @@ struct Lz4Decompressor: public Decompressor {
                         }
                     }
                     else {
-                        uint32_t blockSize = blockHeader;
-                        blockSize &= ~lz4::NotCompressedMask;
-
                         blockData = allocate(blockLength());
 
                         setCur(BLOCK_DATA, blockData.get(), blockLength());
@@ -785,8 +782,7 @@ struct Lz4Decompressor: public Decompressor {
     uint64_le knownContentSize = 0;
     uint8_t checkBits = 0;
     uint32_le blockHeader = 0;
-    uint32_t blockLength() const { return blockHeader & ~lz4::NotCompressedMask; }
-;
+    uint32_t blockLength() const { return blockHeader & ~lz4::NotCompressedMask; };
     std::shared_ptr<char> blockData;
     uint32_le blockChecksum = 0;
     uint32_le streamChecksum = 0;
