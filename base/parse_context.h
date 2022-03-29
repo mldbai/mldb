@@ -87,6 +87,9 @@ struct ParseContext {
 
     ~ParseContext();
 
+    ParseContext(ParseContext&& other);
+    ParseContext & operator = (ParseContext&& other);
+
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
     void init(const std::string & filename);
@@ -467,6 +470,9 @@ struct ParseContext {
         return result;
     }
 
+    /// Parses and returns a Unicode code point encoded as utf-8
+    int expect_utf8_code_point();
+
     /** Return a message giving filename:line:col */
     std::string where() const;
     
@@ -761,38 +767,38 @@ private:
     /** This contains a single contiguous block of text. */
     struct Buffer {
         Buffer(uint64_t ofs = 0, const char * pos = 0, size_t size = 0,
-               bool del = false)
-            : ofs(ofs), pos(pos), size(size), del(del)
+               std::shared_ptr<const void> pin = nullptr)
+            : ofs(ofs), pos(pos), size(size), pin(std::move(pin))
         {
         }
 
         uint64_t ofs;         ///< Offset of first character
         const char * pos;     ///< First character
         size_t size;          ///< Length
-        bool del;             ///< Do we delete it once finished with?
+        std::shared_ptr<const void> pin;  ///< Keeps the memory alive
     };
 
     /** Read a new buffer if possible, and update everything.  Doesn't
         do anything if it fails. */
     std::list<Buffer>::iterator read_new_buffer();
 
-    std::istream * stream_;   ///< Stream we read from; zero if none
-    size_t chunk_size_;       ///< Size of chunks we read in
+    std::istream * stream_ = nullptr;   ///< Stream we read from; zero if none
+    size_t chunk_size_ = 0;             ///< Size of chunks we read in
 
-    Token * first_token_;     ///< The earliest token
-    Token * last_token_;      ///< The latest token
+    Token * first_token_ = nullptr;     ///< The earliest token
+    Token * last_token_ = nullptr;      ///< The latest token
 
     std::list<Buffer> buffers_;
     std::list<Buffer>::iterator current_;
 
-    std::string filename_;    ///< For reporting errors only
+    std::string filename_;              ///< For reporting errors only
 
-    const char * cur_;        ///< Current position (points inside buffer)
-    const char * ebuf_;       ///< Position for the end of the buffer
+    const char * cur_ = nullptr;        ///< Current position (points inside buffer)
+    const char * ebuf_ = nullptr;       ///< Position for the end of the buffer
 
-    size_t line_;             ///< Line number at current position
-    size_t col_;              ///< Column number at current position
-    uint64_t ofs_;            ///< Offset of current position (chars since 0)
+    size_t line_ = 1;                   ///< Line number at current position
+    size_t col_ = 1;                    ///< Column number at current position
+    uint64_t ofs_ = 0;                  ///< Offset of current position (chars since 0)
 
     std::shared_ptr<std::istream> ownedStream_;
 };

@@ -13,6 +13,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/string.h"
+#include "mldb/base/scope.h"
 #include <errno.h>
 
 using namespace std;
@@ -169,6 +170,7 @@ std::string expectJsonStringAsciiPermissive(ParseContext & context, char sub)
     char * buffer = internalBuffer;
     size_t bufferSize = 4096;
     size_t pos = 0;
+    Scope_Exit(if (buffer != internalBuffer) delete[] buffer);
 
     // Try multiple times to make it fit
     while (!context.match_literal('"')) {
@@ -207,10 +209,7 @@ std::string expectJsonStringAsciiPermissive(ParseContext & context, char sub)
         buffer[pos++] = c;
     }
 
-    string result(buffer, buffer + pos);
-    if (buffer != internalBuffer)
-        delete[] buffer;
-    
+    string result(buffer, buffer + pos);    
     return result;
 }
 
@@ -271,6 +270,7 @@ std::string expectJsonStringAscii(ParseContext & context)
     char * buffer = internalBuffer;
     size_t bufferSize = 4096;
     size_t pos = 0;
+    Scope_Exit(if (buffer != internalBuffer) delete[] buffer);
 
     // Try multiple times to make it fit
     while (!context.match_literal('"')) {
@@ -322,10 +322,7 @@ std::string expectJsonStringAscii(ParseContext & context)
         buffer[pos++] = c;
     }
     
-    string result(buffer, buffer + pos);
-    if (buffer != internalBuffer)
-        delete[] buffer;
-    
+    string result(buffer, buffer + pos);    
     return result;
 }
 
@@ -379,6 +376,7 @@ Utf8String expectJsonStringUtf8(ParseContext & context)
     char * buffer = internalBuffer;
     size_t bufferSize = 4096;
     size_t pos = 0;
+    Scope_Exit(if (buffer != internalBuffer) delete[] buffer);
 
     // Keep expanding until it fits
     while (!context.match_literal('"')) {
@@ -399,8 +397,9 @@ Utf8String expectJsonStringUtf8(ParseContext & context)
 
         if (c < 0 || c > 127) {
             // Unicode
-            c = utf8::unchecked::next(context);
+            c = context.expect_utf8_code_point();
 
+            // 3.  Write the decoded character to the buffer
             char * p1 = buffer + pos;
             char * p2 = p1;
             pos += utf8::append(c, p2) - p1;
@@ -421,10 +420,7 @@ Utf8String expectJsonStringUtf8(ParseContext & context)
         else buffer[pos++] = c;
     }
 
-    Utf8String result(string(buffer, buffer + pos));
-    if (buffer != internalBuffer)
-        delete[] buffer;
-    
+    Utf8String result(string(buffer, buffer + pos));    
     return result;
 }
 
