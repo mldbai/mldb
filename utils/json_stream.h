@@ -109,7 +109,7 @@ struct JsonStreamPrintingContext {
             context.next();
         }
     }
-    
+
     virtual void take(JsonParsingContext & context)
     {
         Json::Value val = context.expectJson();
@@ -154,7 +154,8 @@ private:
 
 struct JsonStreamProcessor {
     virtual ~JsonStreamProcessor() = default;
-    virtual void process(JsonStreamParsingContext & in, JsonStreamPrintingContext & out) const = 0;
+    virtual void process(JsonStreamParsingContext & in, JsonStreamPrintingContext & out) const;
+    virtual void transform(JsonParsingContext & in, JsonPrintingContext & out) const;
     virtual Utf8String toLisp() const = 0;
 };
 

@@ -91,7 +91,7 @@ void runTestFile(const std::string & file)
     auto tests = getTests(file);
 
     int n = tests.size();
-    n = 40;
+    n = 60;
     for (int i = 0;  i < n;  ++i) {
 
         SECTION(file + ":" + std::to_string(i) + " (" + file + ":" + std::to_string(tests[i].lineStart) + "): " + tests.at(i).program) {
@@ -139,10 +139,12 @@ void runTestFile(const std::string & file)
     }
 }
 
+#if 0
 TEST_CASE("jq-compat-jq", "[none]")
 {
     runTestFile("jq.test");
 }
+#endif
 
 #if 0
 TEST_CASE("jq-compat-base64", "[none]")

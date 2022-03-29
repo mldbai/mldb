@@ -49,6 +49,21 @@ stringRender(const Json::Value & val)
 
 } // file scope
 
+void
+JsonStreamProcessor::
+process(JsonStreamParsingContext & in, JsonStreamPrintingContext & out) const
+{
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("subclass needs to override process()");
+}
+
+void
+JsonStreamProcessor::
+transform(JsonParsingContext & in, JsonPrintingContext & out) const
+{
+    MLDB_THROW_UNIMPLEMENTED_ON_THIS("subclass needs to override transform");
+}
+
+#if 0
 struct JsonTransformer: public JsonStreamProcessor {
 
     virtual Json::Value transform(const Json::Value & input) const
@@ -89,11 +104,32 @@ struct JsonTransformer: public JsonStreamProcessor {
         return Path::parse(val.asStringUtf8());
     }
 };
+#endif
 
-struct SubscriptExpression {
+struct SubscriptExpression: public JsonStreamProcessor {
     virtual ~SubscriptExpression() = default;
     virtual Utf8String toLisp() const = 0;
+    virtual Path getPath() const
+    {
+        MLDB_THROW_UNIMPLEMENTED_ON_THIS("This class of subscript expression cannot generate paths");
+    }
     // TODO: execution
+};
+
+struct MaybeSubscript: public SubscriptExpression {
+
+    MaybeSubscript(std::shared_ptr<JsonStreamProcessor> expr)
+        : expr(expr)
+    {
+    }
+
+    std::shared_ptr<JsonStreamProcessor> expr;
+
+    virtual ~MaybeSubscript() = default;
+    virtual Utf8String toLisp() const
+    {
+        return "(maybe " + expr->toLisp() + ")";
+    }
 };
 
 struct AllRange: public SubscriptExpression {
@@ -105,16 +141,16 @@ struct AllRange: public SubscriptExpression {
 
 struct SteppedRange: public SubscriptExpression {
 
-    SteppedRange(std::shared_ptr<JsonTransformer> start,
-                 std::optional<std::shared_ptr<JsonTransformer>> step,
-                 std::shared_ptr<JsonTransformer> end)
+    SteppedRange(std::shared_ptr<JsonStreamProcessor> start,
+                 std::optional<std::shared_ptr<JsonStreamProcessor>> step,
+                 std::shared_ptr<JsonStreamProcessor> end)
         : start(std::move(start)), step(std::move(step)), end(std::move(end))
     {
     }
 
-    std::shared_ptr<JsonTransformer> start;
-    std::optional<std::shared_ptr<JsonTransformer>> step;
-    std::shared_ptr<JsonTransformer> end;
+    std::shared_ptr<JsonStreamProcessor> start;
+    std::optional<std::shared_ptr<JsonStreamProcessor>> step;
+    std::shared_ptr<JsonStreamProcessor> end;
 
     virtual Utf8String toLisp() const
     {
@@ -128,12 +164,12 @@ struct SteppedRange: public SubscriptExpression {
 
 struct SingleItemRange: public SubscriptExpression {
 
-    SingleItemRange(std::shared_ptr<JsonTransformer> expr)
+    SingleItemRange(std::shared_ptr<JsonStreamProcessor> expr)
         : expr(std::move(expr))
     {
     }
 
-    std::shared_ptr<JsonTransformer> expr;
+    std::shared_ptr<JsonStreamProcessor> expr;
 
     virtual Utf8String toLisp() const
     {
@@ -168,6 +204,20 @@ struct JsonApplyEach: public JsonStreamProcessor {
             result += " " + processor->toLisp();
         }
         result += ")";
+        return result;
+    }
+};
+
+struct JsonStreamIdentity: public JsonStreamProcessor {
+
+    virtual void process(JsonStreamParsingContext & in, JsonStreamPrintingContext & out) const override
+    {
+        MLDB_THROW_UNIMPLEMENTED("apply identity");
+    }
+
+    virtual Utf8String toLisp() const override
+    {
+        Utf8String result = "(identity)";
         return result;
     }
 };
@@ -216,6 +266,7 @@ struct LiteralPathElement: public SubscriptExpression {
     }
 };
 
+#if 0
 struct MaybeLiteralPathElement: public SubscriptExpression {
     MaybeLiteralPathElement(PathElement path)
         : path(path)
@@ -234,15 +285,16 @@ struct MaybeLiteralPathElement: public SubscriptExpression {
         return "(maybe ."+ path.toUtf8String() + ")";
     }
 };
+#endif
 
 #if 0
 struct ExpressionPathElement: public SubscriptExpression {
-    ExpressionPathElement(std::shared_ptr<JsonTransformer> expr)
+    ExpressionPathElement(std::shared_ptr<JsonStreamProcessor> expr)
         : expr(expr)
     {
     }
 
-    std::shared_ptr<JsonTransformer> expr;
+    std::shared_ptr<JsonStreamProcessor> expr;
 
     virtual void enter(JsonParsingContext & context) const
     {
@@ -256,7 +308,8 @@ struct ExpressionPathElement: public SubscriptExpression {
 };
 #endif
 
-struct PathExpression: public JsonTransformer {
+#if 0
+struct PathExpression: public JsonStreamProcessor {
     virtual Path getPath(JsonStreamParsingContext & in) = 0;
     virtual Path getPath(JsonParsingContext & in) = 0;
 };
@@ -294,24 +347,15 @@ struct StructuredPathExpression: public PathExpression {
         return result;
     }
 };
+#endif
 
-struct EvaluatePathExpression: public PathExpression {
-    EvaluatePathExpression(std::shared_ptr<JsonTransformer> expr)
+struct EvaluatePathExpression: public SubscriptExpression {
+    EvaluatePathExpression(std::shared_ptr<JsonStreamProcessor> expr)
         : expr(std::move(expr))
     {
     }
 
-    std::shared_ptr<JsonTransformer> expr;
-
-    virtual Path getPath(JsonStreamParsingContext & in)
-    {
-        MLDB_THROW_UNIMPLEMENTED();
-    }
-
-    virtual Path getPath(JsonParsingContext & in)
-    {
-        MLDB_THROW_UNIMPLEMENTED();
-    }
+    std::shared_ptr<JsonStreamProcessor> expr;
 
     virtual void transform(JsonParsingContext & in, JsonPrintingContext & out) const override
     {
@@ -325,7 +369,7 @@ struct EvaluatePathExpression: public PathExpression {
     }
 };
 
-
+#if 0
 struct LiteralPath: public PathExpression {
     LiteralPath(Path literal)
         : literal(std::move(literal))
@@ -355,9 +399,10 @@ struct LiteralPath: public PathExpression {
         return result;
     }
 };
+#endif
 
-
-struct PathJsonStreamProcessor: public JsonTransformer {
+#if 0
+struct PathJsonStreamProcessor: public JsonStreamProcessor {
     PathJsonStreamProcessor(std::shared_ptr<PathExpression> path)
         : path(path)
     {
@@ -378,7 +423,7 @@ struct PathJsonStreamProcessor: public JsonTransformer {
             out.take(in);
         }
         else {
-            JsonTransformer::process(in, out);
+            JsonStreamProcessor::process(in, out);
         }
 #endif
     }
@@ -389,11 +434,12 @@ struct PathJsonStreamProcessor: public JsonTransformer {
         return result;
     }
 };
+#endif
 
-struct IterateJsonStreamProcessor: public PathJsonStreamProcessor {
-    IterateJsonStreamProcessor(std::shared_ptr<PathExpression> path,
-                               std::shared_ptr<SubscriptExpression> range)
-        : PathJsonStreamProcessor(std::move(path)), range(std::move(range))
+#if 0
+struct IterateJsonStreamProcessor: public JsonStreamProcessor {
+    IterateJsonStreamProcessor(std::shared_ptr<SubscriptExpression> range)
+        : range(std::move(range))
     {
     }
 
@@ -431,12 +477,13 @@ struct IterateJsonStreamProcessor: public PathJsonStreamProcessor {
 
     virtual Utf8String toLisp() const override
     {
-        Utf8String result = "(iterate " + path->toLisp() + " " + range->toLisp() + ")";
+        Utf8String result = "(iterate " + range->toLisp() + ")";
         return result;
     }
 };
+#endif
 
-struct LiteralJsonStreamProcessor: public JsonTransformer {
+struct LiteralJsonStreamProcessor: public JsonStreamProcessor {
     LiteralJsonStreamProcessor(Json::Value literal)
         : literal(std::move(literal))
     {
@@ -456,13 +503,71 @@ struct LiteralJsonStreamProcessor: public JsonTransformer {
     }
 };
 
-struct ConcatenationStreamProcessor: public JsonTransformer {
-    ConcatenationStreamProcessor(std::vector<std::shared_ptr<JsonTransformer>> elements)
+// Always returns nothing
+struct JsonNone: public JsonStreamProcessor {
+    virtual void transform(JsonParsingContext & in, JsonPrintingContext & out) const override
+    {
+        // Do nothing
+    }
+
+    virtual Utf8String toLisp() const override
+    {
+        Utf8String result = "(none)";
+        return result;
+    }
+};
+
+struct JsonRange: public JsonStreamProcessor {
+
+    JsonRange(std::vector<std::shared_ptr<JsonStreamProcessor>> args_)
+        : args(std::move(args_))
+    {
+        if (args.size() < 1 || args.size() > 3) {
+            throw MLDB::Exception("invalid number of range arguments");
+        }
+    }
+
+    std::vector<std::shared_ptr<JsonStreamProcessor>> args;
+
+    virtual Utf8String toLisp() const override
+    {
+        Utf8String result = "(range";
+        for (auto & arg: args)
+            result += " " + arg->toLisp();
+        result += ")";
+        return result;
+    }
+};
+
+struct JsonWhile: public JsonStreamProcessor {
+
+    JsonWhile(std::vector<std::shared_ptr<JsonStreamProcessor>> args_)
+        : args(std::move(args_))
+    {
+        if (args.size() != 2) {
+            throw MLDB::Exception("invalid number of while arguments");
+        }
+    }
+
+    std::vector<std::shared_ptr<JsonStreamProcessor>> args;
+
+    virtual Utf8String toLisp() const override
+    {
+        Utf8String result = "(while";
+        for (auto & arg: args)
+            result += " " + arg->toLisp();
+        result += ")";
+        return result;
+    }
+};
+
+struct ConcatenationStreamProcessor: public JsonStreamProcessor {
+    ConcatenationStreamProcessor(std::vector<std::shared_ptr<JsonStreamProcessor>> elements)
         : elements(std::move(elements))
     {
     }
 
-    std::vector<std::shared_ptr<JsonTransformer>> elements;
+    std::vector<std::shared_ptr<JsonStreamProcessor>> elements;
 
     virtual void transform(JsonParsingContext & in, JsonPrintingContext & out) const override
     {
@@ -486,22 +591,25 @@ struct ConcatenationStreamProcessor: public JsonTransformer {
     }
 };
 
-struct StructureJsonStreamProcessor: public JsonTransformer {
-    StructureJsonStreamProcessor(std::vector<std::pair<std::shared_ptr<PathExpression>, std::shared_ptr<JsonTransformer>>> members)
+struct StructureJsonStreamProcessor: public JsonStreamProcessor {
+    StructureJsonStreamProcessor(std::vector<std::pair<std::shared_ptr<SubscriptExpression>, std::shared_ptr<JsonStreamProcessor>>> members)
         : members(std::move(members))
     {
     }
 
-    std::vector<std::pair<std::shared_ptr<PathExpression>, std::shared_ptr<JsonTransformer>>> members;
+    std::vector<std::pair<std::shared_ptr<SubscriptExpression>, std::shared_ptr<JsonStreamProcessor>>> members;
 
     virtual void transform(JsonParsingContext & in, JsonPrintingContext & out) const override
     {
+        MLDB_THROW_UNIMPLEMENTED();
+#if 0        
         out.startObject();
         for (auto & [name, value]: members) {
             out.startMember(name->getPath(in).toUtf8String());
             value->transform(in, out);
         }
         out.endObject();
+#endif
     }
 
     virtual Utf8String toLisp() const override
@@ -569,14 +677,14 @@ struct RecurseJsonStreamProcessor: public JsonStreamProcessor {
     }
 };
 
-struct JsonArithmetic: public JsonTransformer {
-    JsonArithmetic(std::shared_ptr<JsonTransformer> lhs,
-                   std::shared_ptr<JsonTransformer> rhs)
+struct JsonArithmetic: public JsonStreamProcessor {
+    JsonArithmetic(std::shared_ptr<JsonStreamProcessor> lhs,
+                   std::shared_ptr<JsonStreamProcessor> rhs)
         : lhs(std::move(lhs)), rhs(std::move(rhs))
     {
     }
 
-    std::shared_ptr<JsonTransformer> lhs, rhs;
+    std::shared_ptr<JsonStreamProcessor> lhs, rhs;
 
     virtual Json::Value apply(Json::Value l, Json::Value r) const = 0;
 
@@ -722,14 +830,46 @@ struct JsonModulus: public JsonArithmetic {
     }
 };
 
-struct JsonFormatter: public JsonTransformer {
-    JsonFormatter(Utf8String formatter, std::vector<std::shared_ptr<JsonTransformer>> args)
+struct JsonAssign: public JsonStreamProcessor {
+    JsonAssign(std::shared_ptr<JsonStreamProcessor> lhs,
+               std::shared_ptr<JsonStreamProcessor> rhs)
+        : lhs(std::move(lhs)), rhs(std::move(rhs))
+    {
+    }
+
+    std::shared_ptr<JsonStreamProcessor> lhs;
+    std::shared_ptr<JsonStreamProcessor> rhs;
+
+    Utf8String toLisp() const override
+    {
+        return "(assign " + lhs->toLisp() + " " + rhs->toLisp() + ")";
+    }
+};
+
+struct JsonSubscript: public JsonStreamProcessor {
+    JsonSubscript(std::shared_ptr<JsonStreamProcessor> lhs,
+                  std::shared_ptr<JsonStreamProcessor> rhs)
+        : lhs(std::move(lhs)), rhs(std::move(rhs))
+    {
+    }
+
+    std::shared_ptr<JsonStreamProcessor> lhs;
+    std::shared_ptr<JsonStreamProcessor> rhs;
+
+    Utf8String toLisp() const override
+    {
+        return "(subscript " + lhs->toLisp() + " " + rhs->toLisp() + ")";
+    }
+};
+
+struct JsonFormatter: public JsonStreamProcessor {
+    JsonFormatter(Utf8String formatter, std::vector<std::shared_ptr<JsonStreamProcessor>> args)
         : formatter(std::move(formatter)), args(std::move(args))
     {
     }
 
     Utf8String formatter;
-    std::vector<std::shared_ptr<JsonTransformer>> args;
+    std::vector<std::shared_ptr<JsonStreamProcessor>> args;
 
     virtual void transform(JsonParsingContext & in, JsonPrintingContext & out) const override
     {
@@ -747,14 +887,14 @@ struct JsonFormatter: public JsonTransformer {
     }
 };
 
-struct JsonApplyFunction: public JsonTransformer {
-    JsonApplyFunction(Utf8String functionName, std::vector<std::shared_ptr<JsonTransformer>> args)
+struct JsonApplyFunction: public JsonStreamProcessor {
+    JsonApplyFunction(Utf8String functionName, std::vector<std::shared_ptr<JsonStreamProcessor>> args)
         : functionName(std::move(functionName)), args(std::move(args))
     {
     }
 
     Utf8String functionName;
-    std::vector<std::shared_ptr<JsonTransformer>> args;
+    std::vector<std::shared_ptr<JsonStreamProcessor>> args;
 
     virtual void transform(JsonParsingContext & in, JsonPrintingContext & out) const override
     {
@@ -789,10 +929,11 @@ struct JsonTryCatch: public JsonStreamProcessor {
     }
 };
 
-std::shared_ptr<JsonTransformer> createJqTransformer(ParseContext & context, int minPrecedence = 0);
-std::optional<shared_ptr<JsonTransformer>>
-matchJqTransformer(ParseContext & context, int minPrecedence);
 std::optional<std::shared_ptr<SubscriptExpression>> matchSubscriptExpression(ParseContext & context);
+std::shared_ptr<JsonStreamProcessor> createJqStreamProcessor(ParseContext & context, int minPrecedence);
+std::optional<shared_ptr<JsonStreamProcessor>>
+matchJqStreamProcessor(ParseContext & context, int minPrecedence);
+
 
 
 std::optional<Utf8String> match_identifier(ParseContext & context)
@@ -824,12 +965,16 @@ std::optional<PathElement> match_path_element_literal(ParseContext & context)
 {
     std::string segment;
     segment.reserve(18);
+    context.skip_whitespace();
     if (context.match_literal('"')) {
         // quoted segment name
         // TODO: embedded quotes in name
         segment += context.expect_text("\"");
         context.expect_literal('\"');
         return PathElement(segment);
+    }
+    else if (!context) {
+        return nullopt;
     }
     else {
         char c = *context;
@@ -846,19 +991,17 @@ std::optional<PathElement> match_path_element_literal(ParseContext & context)
     }
 }
 
-std::optional<std::shared_ptr<SubscriptExpression>> match_path_element_expression(ParseContext & context)
+#if 1
+std::optional<std::shared_ptr<SubscriptExpression>>
+match_path_element_expression(ParseContext & context)
 {
     ParseContext::Revert_Token token(context);
     context.skip_whitespace();
+    std::shared_ptr<SubscriptExpression> result;
     auto element = match_path_element_literal(context);
     if (element) {
-        context.skip_whitespace();
-        bool optional = context.match_literal('?');
         token.ignore();
-        if (optional)
-            return std::make_shared<MaybeLiteralPathElement>(*element);
-        else
-            return std::make_shared<LiteralPathElement>(*element);
+        result = std::make_shared<LiteralPathElement>(*element);
     }
     else if (context.match_literal('[')) {
         auto range = matchSubscriptExpression(context);
@@ -866,27 +1009,22 @@ std::optional<std::shared_ptr<SubscriptExpression>> match_path_element_expressio
             context.exception("expected range expression");
         context.skip_whitespace();
         context.expect_literal(']', "expected end of path range expression");
-        return std::move(*range);
+        result = std::move(*range);
+    }
+    else {
+        return nullopt;
+    }
+    ExcAssert(result);
+    context.skip_whitespace();
+    token.ignore();
+    return std::move(result);
+}
+#endif
 
 #if 0
-        context.skip_whitespace();
-        if (context.match_literal(']'))
-            return nullopt;  // it's a take all expression
-        auto expr = createJqTransformer(context, 0 /* precedence */);
-        if (!expr)
-            context.exception("expected jq path expression");
-        context.skip_whitespace();
-        context.expect_literal(']', "expected end of path element");
-        token.ignore();
-        return std::make_shared<ExpressionPathElement>(expr);
-#endif
-    }
-    return nullopt;
-}
-
 std::optional<std::shared_ptr<PathExpression>> match_path(ParseContext & context)
 {
-    std::vector<std::shared_ptr<JsonTransformer>> elements;
+    std::vector<std::shared_ptr<JsonStreamProcessor>> elements;
 
     //cerr << "match_path: *context = " << *context << (int)*context << endl;
     context.skip_whitespace();
@@ -910,12 +1048,13 @@ std::optional<std::shared_ptr<PathExpression>> match_path(ParseContext & context
 
     return std::make_shared<StructuredPathExpression>(std::move(segments));
 }
+#endif
 
 int getEscapedJsonCharacterPointUtf8(ParseContext & context);  // in json_parsing.cc
 
-std::shared_ptr<JsonTransformer> expectStringTemplateUtf8(ParseContext & context)
+std::shared_ptr<JsonStreamProcessor> expectStringTemplateUtf8(ParseContext & context)
 {
-    std::vector<std::shared_ptr<JsonTransformer>> result;
+    std::vector<std::shared_ptr<JsonStreamProcessor>> result;
 
     skipJsonWhitespace(context);
     context.expect_literal('"');
@@ -952,7 +1091,7 @@ std::shared_ptr<JsonTransformer> expectStringTemplateUtf8(ParseContext & context
 
         if (c < 0 || c > 127) {
             // Unicode
-            c = utf8::unchecked::next(context);
+            c = context.expect_utf8_code_point();
 
             char * p1 = buffer + pos;
             char * p2 = p1;
@@ -968,7 +1107,7 @@ std::shared_ptr<JsonTransformer> expectStringTemplateUtf8(ParseContext & context
                 // Interpolated string... we parse out an expression
                 // inter\("pol" + "ation")" -> "interpolation"
                 pushResult();
-                auto interpolation = createJqTransformer(context);
+                auto interpolation = createJqStreamProcessor(context, 0);
                 result.emplace_back(std::move(interpolation));
                 context.skip_whitespace();
                 context.expect_literal(')');
@@ -998,21 +1137,19 @@ std::shared_ptr<JsonTransformer> expectStringTemplateUtf8(ParseContext & context
     return std::make_shared<ConcatenationStreamProcessor>(std::move(result));
 }
 
-std::shared_ptr<JsonStreamProcessor> createJqStreamProcessor(ParseContext & context, int minPrecedence);
-
 std::optional<std::shared_ptr<SubscriptExpression>>
 matchSubscriptExpression(ParseContext & context)
 {
-    auto start = matchJqTransformer(context, 0 /* minPrecedence */);
+    auto start = matchJqStreamProcessor(context, 0 /* minPrecedence */);
     if (!start)
         return std::make_shared<AllRange>();
     context.skip_whitespace();
     if (context.match_literal(':')) {
-        auto stepOrEnd = matchJqTransformer(context, 0 /* minPrecedence */);
+        auto stepOrEnd = matchJqStreamProcessor(context, 0 /* minPrecedence */);
         if (!stepOrEnd)
             context.exception("expected step/end of range");
         if (context.match_literal(':')) {
-            auto end = matchJqTransformer(context, 0 /* minPrecedence */);
+            auto end = matchJqStreamProcessor(context, 0 /* minPrecedence */);
             if (!end)
                 context.exception("expected end of range");
             return std::make_shared<SteppedRange>(*start, *stepOrEnd, *end);
@@ -1026,41 +1163,71 @@ matchSubscriptExpression(ParseContext & context)
     }
 }
 
-std::optional<shared_ptr<JsonTransformer>>
-matchJqTransformer(ParseContext & context, int minPrecedence)
+std::optional<shared_ptr<JsonStreamProcessor>>
+matchJqPathExpression(ParseContext & context)
+{
+    shared_ptr<JsonStreamProcessor> result;
+
+    context.skip_whitespace();
+    if (context.eof()) {
+        return nullopt;
+    }
+    if (context.match_literal('[') || context.match_literal(".[")) {
+        auto range = matchSubscriptExpression(context);
+        if (!range)
+            context.exception("Expected iteration range");
+        context.skip_whitespace();
+        context.expect_literal(']', "expected end of iteration range");
+        result = *range;
+    }
+    else if (context.match_literal('.')) {
+        auto path = match_path_element_expression(context);
+        if (path)
+            result = *path;
+        else {
+            result = std::make_shared<JsonStreamIdentity>();
+        }
+    }
+    else {
+        return nullopt;
+    }
+    ExcAssert(result);
+
+    context.skip_whitespace();
+    if (context.match_literal('?')) {
+        result = std::make_shared<MaybeSubscript>(std::move(result));
+        context.skip_whitespace();
+    }
+
+    auto next = matchJqPathExpression(context);
+    if (next) {
+        return std::make_shared<JsonApplyChain>(vector{result, *next});
+    }
+    else return result;
+}
+
+std::optional<shared_ptr<JsonStreamProcessor>>
+matchJqStreamProcessor(ParseContext & context, int minPrecedence)
 {
     ParseContext::Revert_Token token(context);
 
-    std::shared_ptr<JsonTransformer> result;
+    std::shared_ptr<JsonStreamProcessor> result;
     context.skip_whitespace();
     if (*context == '.') {
-        auto path = match_path(context);
-        if (context.match_literal("[")) {
-            auto range = matchSubscriptExpression(context);
-            if (!range)
-                context.exception("Expected iteration range");
-            context.skip_whitespace();
-            context.expect_literal(']', "expected end of iteration range");
-            result = std::make_shared<IterateJsonStreamProcessor>(std::move(*path), std::move(*range));
-        }
-        else {
-            result = std::make_shared<PathJsonStreamProcessor>(*path);
-        }
-        context.skip_whitespace();
-        if (context.match_literal('?')) {
-            /// TODO...
-        }
+        auto expr = matchJqPathExpression(context);
+        ExcAssert(expr);
+        result = *expr;
     }
     else if (context.match_literal('{')) {
         context.skip_whitespace();
-        std::vector<std::pair<std::shared_ptr<PathExpression>, std::shared_ptr<JsonTransformer>>> members;
+        std::vector<std::pair<std::shared_ptr<SubscriptExpression>, std::shared_ptr<JsonStreamProcessor>>> members;
         while (!context.match_literal('}')) {
             context.skip_whitespace();
-            std::shared_ptr<PathExpression> key;
-            std::shared_ptr<JsonTransformer> value;
+            std::shared_ptr<SubscriptExpression> key;
+            std::shared_ptr<JsonStreamProcessor> value;
             if (context.match_literal('(')) {
                 // key expression
-                auto keyExpr = createJqTransformer(context);
+                auto keyExpr = createJqStreamProcessor(context, 0);
                 ExcAssert(keyExpr);
                 key = std::make_shared<EvaluatePathExpression>(keyExpr);
                 context.skip_whitespace();
@@ -1070,19 +1237,20 @@ matchJqTransformer(ParseContext & context, int minPrecedence)
                 auto keyo = match_path_element_literal(context);
                 if (!keyo)
                     context.exception("expected structure member name");
-                std::vector<std::shared_ptr<SubscriptExpression>> elements;
-                elements.emplace_back(std::make_shared<LiteralPathElement>(*keyo));
-                key = std::make_shared<StructuredPathExpression>(elements);
+                key = std::make_shared<LiteralPathElement>(*keyo);
             }
             context.skip_whitespace();
+            //cerr << "after name " << key->toLisp() << ", c = " << *context << endl;
             if (context.match_literal(':')) {
                 context.skip_whitespace();
-                value = createJqTransformer(context);
+                // Need minPrecedence of 3 so comma isn't matched
+                value = createJqStreamProcessor(context, 3 /* minPrecedence */);
                 ExcAssert(value);
             }
             else {
-                value = std::make_shared<PathJsonStreamProcessor>(key);
+                value = key;  // when used in this context, will extract the same thing as its name
             }
+            //cerr << "got member " << key->toLisp() << " = " << value->toLisp() << endl;
             members.emplace_back(std::move(key), std::move(value));
             if (context.match_literal(','))
                 continue;
@@ -1094,28 +1262,33 @@ matchJqTransformer(ParseContext & context, int minPrecedence)
     else if (*context == '"') {
         result = expectStringTemplateUtf8(context);
     }
-#if 0
     else if (context.match_literal('(')) {
         // Parenthesis
-        result = createJqTransformer(context, 0 /* precedence */);
+        result = createJqStreamProcessor(context, 0 /* precedence */);
         context.skip_whitespace();
         context.expect_literal(')');
     }
     else if (context.match_literal('[')) {
         context.skip_whitespace();
-        std::vector<std::shared_ptr<JsonTransformer>> elements;
-        while (!context.match_literal(']')) {
+        if (context.match_literal("..")) {
             context.skip_whitespace();
-            auto value = createJqTransformer(context);
-            elements.emplace_back(std::move(value));
-            if (context.match_literal(','))
-                continue;
-            context.expect_literal(']', "expected ] to close array");
-            break;
+            context.expect_literal(']', "expected end of recurse operator ..");
+            result = std::make_shared<RecurseJsonStreamProcessor>();
         }
-        result = std::make_shared<ArrayJsonStreamProcessor>(std::move(elements));
+        else { 
+            std::vector<std::shared_ptr<JsonStreamProcessor>> elements;
+            while (!context.match_literal(']')) {
+                context.skip_whitespace();
+                auto value = createJqStreamProcessor(context, 0 /* precedence */);
+                elements.emplace_back(std::move(value));
+                if (context.match_literal(','))
+                    continue;
+                context.expect_literal(']', "expected ] to close array");
+                break;
+            }
+            result = std::make_shared<ArrayJsonStreamProcessor>(std::move(elements));
+        }
     }
-#endif
     else if (*context == '$') {
         MLDB_THROW_UNIMPLEMENTED("variables");
     }
@@ -1132,19 +1305,44 @@ matchJqTransformer(ParseContext & context, int minPrecedence)
             result = std::make_shared<LiteralJsonStreamProcessor>(Json::Value(false));
         }
         else if (name == "try") {
-            auto tryExpr = matchJqTransformer(context, minPrecedence);
+            auto tryExpr = matchJqStreamProcessor(context, minPrecedence);
             if (!tryExpr)
                 context.exception("Expected try expression");
             context.skip_whitespace();
-            auto catchExpr = matchJqTransformer(context, minPrecedence);
+            context.expect_literal("catch");
+            auto catchExpr = matchJqStreamProcessor(context, minPrecedence);
             if (!catchExpr)
                 context.exception("Expected catch expression");
             result = std::make_shared<JsonTryCatch>(std::move(*tryExpr), std::move(*catchExpr));
         }
+        else if (name == "catch") {
+            return nullopt;
+        }
+        else if (name == "range" || name == "while") {
+            context.skip_whitespace();
+            context.expect_literal('(');
+            std::vector<std::shared_ptr<JsonStreamProcessor>> args;
+            do {
+                auto arg = matchJqStreamProcessor(context, 0 /* minPrecedence */);
+                if (!arg)
+                    context.exception("expected range argument");
+                args.emplace_back(std::move(*arg));
+                context.skip_whitespace();
+            } while (args.size() < 3 && context.match_literal(';'));
+            context.expect_literal(')', "expected end of range arguments");
+            if (args.size() < 1 || args.size() > 3)
+                context.exception("range should have one to three ;-separated arugments");
+
+            if (name == "range")
+                result = std::make_shared<JsonRange>(std::move(args));
+            else if (name == "while")
+                result = std::make_shared<JsonWhile>(std::move(args));
+            else context.exception("logic error in range/while");
+        }
         else {
-            std::vector<std::shared_ptr<JsonTransformer>> args;
+            std::vector<std::shared_ptr<JsonStreamProcessor>> args;
             while (context && context.match_whitespace()) {
-                auto arg = matchJqTransformer(context, minPrecedence);
+                auto arg = matchJqStreamProcessor(context, minPrecedence);
                 if (!arg)
                     break;
                 args.emplace_back(std::move(*arg));
@@ -1174,83 +1372,34 @@ matchJqTransformer(ParseContext & context, int minPrecedence)
 
     while (context) {
         if (minPrecedence <= 10 && context.match_literal('+')) {
-            auto rhs = createJqTransformer(context, 10);
+            auto rhs = createJqStreamProcessor(context, 10);
             result = std::make_shared<JsonAddition>(result, rhs);
         }
         else if (minPrecedence <= 10 && context.match_literal('-')) {
-            auto rhs = createJqTransformer(context, 10);
+            auto rhs = createJqStreamProcessor(context, 10);
             result = std::make_shared<JsonSubtraction>(result, rhs);
         }
         else if (minPrecedence <= 20 && context.match_literal('*')) {
-            auto rhs = createJqTransformer(context, 20);
+            auto rhs = createJqStreamProcessor(context, 20);
             result = std::make_shared<JsonMultiplication>(result, rhs);
         }
         else if (minPrecedence <= 20 && context.match_literal('/')) {
-            auto rhs = createJqTransformer(context, 20);
+            auto rhs = createJqStreamProcessor(context, 20);
             result = std::make_shared<JsonDivision>(result, rhs);
         }
         else if (minPrecedence <= 20 && context.match_literal('%')) {
-            auto rhs = createJqTransformer(context, 20);
+            auto rhs = createJqStreamProcessor(context, 20);
             result = std::make_shared<JsonModulus>(result, rhs);
         }
-        else break;
-    }
-
-    token.ignore();
-    return result;
-}
-
-std::shared_ptr<JsonTransformer>
-createJqTransformer(ParseContext & context, int minPrecedence)
-{
-    auto matched = matchJqTransformer(context, minPrecedence);
-    if (!matched.has_value()) {
-        context.exception("expected jq transformer expression");
-    }
-    return std::move(*matched);
-}
-
-
-std::shared_ptr<JsonStreamProcessor> createJqStreamProcessor(ParseContext & context, int minPrecedence)
-{
-    std::shared_ptr<JsonStreamProcessor> result;
-    context.skip_whitespace();
-
-    if (context.match_literal('(')) {
-        // Parenthesis
-        result = createJqStreamProcessor(context, 0 /* precedence */);
-        context.skip_whitespace();
-        context.expect_literal(')');
-    }
-    else if (context.match_literal('[')) {
-        context.skip_whitespace();
-        if (context.match_literal("..")) {
-            context.skip_whitespace();
-            context.expect_literal(']', "expected end of recurse operator ..");
-            result = std::make_shared<RecurseJsonStreamProcessor>();
+        else if (minPrecedence <= 4 && context.match_literal('=')) {
+            //auto lhs = dynamic_pointer_cast<SubscriptExpression>(result);
+            // Later...
+            //if (!lhs)
+            //    context.exception(("Attempt to assign to non-lvalue " + result->toLisp()).rawString());
+            auto rhs = createJqStreamProcessor(context, 4);
+            result = std::make_shared<JsonAssign>(result, rhs);
         }
-        else { 
-            std::vector<std::shared_ptr<JsonStreamProcessor>> elements;
-            while (!context.match_literal(']')) {
-                context.skip_whitespace();
-                auto value = createJqStreamProcessor(context, 0 /* precedence */);
-                elements.emplace_back(std::move(value));
-                if (context.match_literal(','))
-                    continue;
-                context.expect_literal(']', "expected ] to close array");
-                break;
-            }
-            result = std::make_shared<ArrayJsonStreamProcessor>(std::move(elements));
-        }
-    }
-    else {
-        result = createJqTransformer(context, minPrecedence);
-    }
-
-    context.skip_whitespace();
-
-    while (context) {
-        if (minPrecedence <= 2 && *context == ',') {
+        else if (minPrecedence <= 2 && *context == ',') {
             std::vector<std::shared_ptr<JsonStreamProcessor>> clauses = { result };
             while (context.match_literal(',')) {
                 auto clause = createJqStreamProcessor(context, 3 /* minPrecedence */);
@@ -1268,11 +1417,32 @@ std::shared_ptr<JsonStreamProcessor> createJqStreamProcessor(ParseContext & cont
             }
             result = std::make_shared<JsonApplyChain>(std::move(clauses));
         }
+        else if (*context == '[') {
+            context.expect_literal('[');
+            auto subscripts = matchJqStreamProcessor(context, 0 /* min precedence */);
+            if (!subscripts)
+                subscripts = std::make_shared<JsonNone>();
+            context.skip_whitespace();
+            context.expect_literal(']');
+            result = std::make_shared<JsonSubscript>(result, *subscripts);
+        }
         else break;
     }
 
+    token.ignore();
     return result;
 }
+
+std::shared_ptr<JsonStreamProcessor>
+createJqStreamProcessor(ParseContext & context, int minPrecedence)
+{
+    auto matched = matchJqStreamProcessor(context, minPrecedence);
+    if (!matched.has_value()) {
+        context.exception("expected jq transformer expression");
+    }
+    return std::move(*matched);
+}
+
 
 std::shared_ptr<JsonStreamProcessor> createJqStreamProcessor(ParseContext & context)
 {
