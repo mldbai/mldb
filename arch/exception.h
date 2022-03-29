@@ -16,9 +16,14 @@
 
 namespace MLDB {
 
+class Utf8String;
+
 class Exception : public std::exception {
 public:
     Exception(const std::string & msg);
+    Exception(std::string && msg);
+    Exception(const Utf8String & msg);  // implemented in types
+    Exception(Utf8String && msg);  // implemented in types
     Exception(const char * msg, ...);
     Exception(const char * msg, va_list ap);
     Exception(int errnum, const std::string & msg, const char * function = 0);

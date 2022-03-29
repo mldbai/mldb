@@ -27,6 +27,12 @@ Exception::Exception(const std::string & msg)
     message.c_str();  // make sure we have a null terminator
 }
 
+Exception::Exception(std::string && msg)
+    : message(std::move(msg))
+{
+    message.c_str();  // make sure we have a null terminator
+}
+
 Exception::Exception(const char * msg, ...)
 {
     va_list ap;

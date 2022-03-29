@@ -23,10 +23,24 @@ using namespace std;
 
 namespace MLDB {
 
+/*****************************************************************************/
+/* EXCEPTION UTF8STRING CONSTRUCTOR                                          */
+/*****************************************************************************/
+
+Exception::Exception(const Utf8String & str)
+    : Exception(str.rawString())
+{
+}
+
+Exception::Exception(Utf8String && str)
+    : Exception(str.stealRawString())
+{
+}
+
 
 /*****************************************************************************/
 /* UTF8STRING                                                                */
-/****************************************************************************/
+/*****************************************************************************/
 
 Utf8String
 Utf8String::fromLatin1(const std::string & lat1Str)
