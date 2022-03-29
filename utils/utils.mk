@@ -34,7 +34,7 @@ $(eval $(call set_compile_option,hash.cc,-fpermissive))
 $(eval $(call set_compile_option,confidence_intervals.cc,-O3))
 
 $(eval $(call library,progress,progress.cc,types value_description arch))
-$(eval $(call library,json_diff,json_diff.cc json_utils.cc json_stream.cc,arch base value_description types utils highwayhash))
+$(eval $(call library,json_diff,json_diff.cc json_utils.cc json_stream.cc grammar.cc,arch base value_description types utils highwayhash any))
 
 # Runner Common
 
