@@ -713,6 +713,22 @@ JsonNumber expectJsonNumber(ParseContext & context)
     return result;
 }
 
+/** Match a JSON number. */
+bool matchJsonNumber(ParseContext & context, JsonNumber & num)
+{
+    ParseContext::Revert_Token token(context);
+    try {
+        MLDB_TRACE_EXCEPTIONS(false);
+        auto res = expectJsonNumber(context);
+        token.ignore();
+        num = res;
+        return true;
+    }
+    MLDB_CATCH_ALL {
+        return false;
+    }
+}
+
 
 /*****************************************************************************/
 /* JSON PATH ENTRY                                                           */
