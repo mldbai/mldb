@@ -541,6 +541,10 @@ struct StructureDescription
     void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0));
 
+    template<typename V>
+    void addParentAsField(const std::string & name, const std::string & comment,
+                          std::shared_ptr<const ValueDescriptionT<V>> description_ = getDefaultDescriptionSharedT<V>());
+
     virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
         return StructureDescriptionBase::parseJson(val, context);
@@ -700,6 +704,15 @@ RegisterValueDescriptionI<Struct, Impl>
 StructureDescriptionImpl<Struct, Impl>::
 regme;
 
+template<typename Struct, typename Parent>
+/*constexpr*/ size_t getParentOffset()
+{
+    constexpr size_t BASE = 0x1000;  // can't use a null pointer
+    Struct * p = reinterpret_cast<Struct *>(BASE);
+    Parent * p2 = static_cast<Parent *>(p);
+    size_t ofs = reinterpret_cast<size_t>(p2) - BASE;
+    return ofs;
+}
 
 template<typename Struct>
 template<typename V>
@@ -724,7 +737,7 @@ addParent(ValueDescriptionT<V> * description_)
     Struct * p = reinterpret_cast<Struct *>(BASE);
     V * p2 = static_cast<V *>(p);
 
-    size_t ofs = reinterpret_cast<size_t>(p2) - BASE;
+    size_t ofs = getParentOffset<Struct, V>();
 
     //using namespace std;
     //cerr << "parent " << description_->typeName << " of " << this->typeName << " is at offset " << ofs << endl;
@@ -765,6 +778,15 @@ addParent(ValueDescriptionT<V> * description_)
 
         orderedFields.push_back(it);
     }
+}
+
+template<typename Struct>
+template<typename V>
+void StructureDescription<Struct>::
+addParentAsField(const std::string & name, const std::string & comment,
+                 std::shared_ptr<const ValueDescriptionT<V>> description)
+{
+    StructureDescriptionBase::addFieldDesc(name, getParentOffset<Struct, V>(), comment, description);
 }
 
 } // namespace MLDB
