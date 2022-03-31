@@ -6,6 +6,8 @@
 */
 
 #include "lisp_lib.h"
+#include "lisp_predicate.h"
+#include "lisp_visitor.h"
 #include <shared_mutex>
 #include <map>
 
@@ -90,10 +92,53 @@ const FunctionCompiler & getFunctionCompiler(const PathElement & name)
 }
 #endif
 
+Value
+recursePatterns(const std::vector<Pattern> & patterns,
+                const Value & input)
+{
+    auto applyPatterns = [&] (const Value & input) -> Value
+    {
+        Value current = input;
 
+        for (bool matched = true; matched; matched = false) {
+            for (auto & p: patterns) {
+                auto res = p.apply(current);
+                if (res) {
+                    //cerr << "matched: " << current << " : " << p.toLisp() << " -> " << *res << endl;
+                    current = *res;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+ 
+        return current;
+    };
+
+    RecursiveLambdaVisitor visitor { applyPatterns };
+
+    return recurse(visitor, applyPatterns(input));
+}
 
 DEFINE_LISP_FUNCTION_COMPILER(plus, std, "+")
 {
+    auto & context = scope.getContext();
+    std::vector<Pattern> patterns {
+        Pattern::parse(context, "(+ x:i64) -> x"),
+        Pattern::parse(context, "(+ x:u64) -> x"),
+        Pattern::parse(context, "(+ x:i64 y:i64) -> (`addi64 x y)"),
+        Pattern::parse(context, "(+ x:i64 y:i64) -> (`addi64 x y)"),
+        Pattern::parse(context, "(+ x:i64 y:i64) -> (`addi64 x y)"),
+        Pattern::parse(context, "(+ x:i64 y:u64) -> (`addi64 x (`tosigned64 y))"),
+        Pattern::parse(context, "(+ x:u64 y:i64) -> (`addi64 (`tosigned64 x y))"),
+        Pattern::parse(context, "(+ x:u64 y:u64) -> (`addu64 x y)"),
+        Pattern::parse(context, "(+ x y rest...) -> (+ (+ x y) (+ rest...))"),
+    };
+
+    auto source = Value{ context, expr };
+    auto current = recursePatterns(patterns, source);
+    cerr << "compiled " << source << " to " << current << endl;
+
     std::vector<CreateExecutionScope> scopeCreators;
     std::vector<Executor> argExecutors;
 
