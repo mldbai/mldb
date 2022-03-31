@@ -17,6 +17,7 @@
 #include <cxxabi.h>
 #include <unicode/unistr.h>
 #include <clocale>
+#include "mldb/base/parse_context.h"
 
 using namespace std;
 
@@ -35,6 +36,13 @@ Exception::Exception(const Utf8String & str)
 Exception::Exception(Utf8String && str)
     : Exception(str.stealRawString())
 {
+}
+
+void
+ParseContext::
+exception(const Utf8String & message) const
+{
+    throw Exception(where() + ": " + message, filename_, line_, col_);
 }
 
 

@@ -54,6 +54,17 @@ struct ParseContext {
         {
         }
          
+        Exception(const Utf8String & what,
+                  std::string filename,
+                  int row,
+                  int col) noexcept
+            : MLDB::Exception(what),
+              filename(std::move(filename)),
+              row(row),
+              col(col)
+        {
+        }
+         
         ~Exception() throw()
         {
         }
@@ -475,7 +486,9 @@ struct ParseContext {
 
     /** Return a message giving filename:line:col */
     std::string where() const;
-    
+
+    void exception(const Utf8String & message) const MLDB_NORETURN;
+
     void exception(const std::string & message) const MLDB_NORETURN;
 
     void exception(const char * message) const MLDB_NORETURN;

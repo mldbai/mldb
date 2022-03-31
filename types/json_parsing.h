@@ -211,7 +211,7 @@ struct JsonParsingContext {
 
     /// Format an exception with the current context within the object so that
     /// a reasonable error message can be provided to the user.
-    virtual void exception(const std::string & message) const = 0;
+    virtual void exception(const Utf8String & message) const = 0;
 
     /** Return a string that gives the context of where the parsing is
         at, for example line number and column.
@@ -511,55 +511,55 @@ struct StreamingJsonParsingContext
 
     virtual unsigned long long expectUnsignedLongLong();
 
-    virtual float expectFloat();
+    virtual float expectFloat() override;
 
-    virtual double expectDouble();
+    virtual double expectDouble() override;
 
-    virtual bool expectBool();
+    virtual bool expectBool() override;
 
-    virtual void expectNull();
+    virtual void expectNull() override;
 
-    virtual bool matchUnsignedLongLong(unsigned long long & val);
+    virtual bool matchUnsignedLongLong(unsigned long long & val) override;
 
-    virtual bool matchLongLong(long long & val);
+    virtual bool matchLongLong(long long & val) override;
 
-    virtual bool matchDouble(double & val);
+    virtual bool matchDouble(double & val) override;
 
-    virtual std::string expectStringAscii();
+    virtual std::string expectStringAscii() override;
 
-    virtual ssize_t expectStringAscii(char * value, size_t maxLen);
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen) override;
 
-    virtual Utf8String expectStringUtf8();
+    virtual Utf8String expectStringUtf8() override;
 
-    virtual ssize_t expectStringUtf8(char * value, size_t maxLen);
+    virtual ssize_t expectStringUtf8(char * value, size_t maxLen) override;
 
-    virtual bool isObject() const;
+    virtual bool isObject() const override;
 
-    virtual bool isString() const;
+    virtual bool isString() const override;
 
-    virtual bool isArray() const;
+    virtual bool isArray() const override;
 
-    virtual bool isBool() const;
+    virtual bool isBool() const override;
 
-    virtual bool isInt() const;
+    virtual bool isInt() const override;
     
-    virtual bool isUnsigned() const;
+    virtual bool isUnsigned() const override;
     
-    virtual bool isNumber() const;
+    virtual bool isNumber() const override;
 
-    virtual bool isNull() const;
+    virtual bool isNull() const override;
 
-    virtual void exception(const std::string & message) const;
+    virtual void exception(const Utf8String & message) const override;
 
-    virtual std::string getContext() const;
+    virtual std::string getContext() const override;
 
-    virtual Json::Value expectJson();
+    virtual Json::Value expectJson() override;
 
-    virtual std::string printCurrent();
+    virtual std::string printCurrent() override;
 
     void expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry);
 
-    virtual bool eof() const;
+    virtual bool eof() const override;
 
     virtual std::any savePosition() override;
 
@@ -583,71 +583,73 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     const Json::Value * current;
     const Json::Value * top;
 
-    virtual void exception(const std::string & message) const;
+    virtual void exception(const Utf8String & message) const override;
     
-    virtual std::string getContext() const;
+    virtual std::string getContext() const override;
 
-    virtual int expectInt();
+    virtual JsonNumber expectNumber() override;
 
-    virtual unsigned int expectUnsignedInt();
+    virtual int expectInt() override;
 
-    virtual long expectLong();
+    virtual unsigned int expectUnsignedInt() override;
 
-    virtual unsigned long expectUnsignedLong();
+    virtual long expectLong() override;
 
-    virtual long long expectLongLong();
+    virtual unsigned long expectUnsignedLong() override;
 
-    virtual unsigned long long expectUnsignedLongLong();
+    virtual long long expectLongLong() override;
 
-    virtual float expectFloat();
+    virtual unsigned long long expectUnsignedLongLong() override;
 
-    virtual double expectDouble();
+    virtual float expectFloat() override;
 
-    virtual bool expectBool();
+    virtual double expectDouble() override;
 
-    virtual void expectNull();
+    virtual bool expectBool() override;
 
-    virtual bool matchUnsignedLongLong(unsigned long long & val);
+    virtual void expectNull() override;
 
-    virtual bool matchLongLong(long long & val);
+    virtual bool matchUnsignedLongLong(unsigned long long & val) override;
 
-    virtual bool matchDouble(double & val);
+    virtual bool matchLongLong(long long & val) override;
 
-    virtual std::string expectStringAscii();
+    virtual bool matchDouble(double & val) override;
 
-    virtual ssize_t expectStringAscii(char * value, size_t maxLen);
+    virtual std::string expectStringAscii() override;
 
-    virtual Utf8String expectStringUtf8();
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen) override;
 
-    virtual ssize_t expectStringUtf8(char * value, size_t maxLen);
+    virtual Utf8String expectStringUtf8() override;
 
-    virtual Json::Value expectJson();
+    virtual ssize_t expectStringUtf8(char * value, size_t maxLen) override;
 
-    virtual bool isObject() const;
+    virtual Json::Value expectJson() override;
 
-    virtual bool isString() const;
+    virtual bool isObject() const override;
 
-    virtual bool isArray() const;
+    virtual bool isString() const override;
 
-    virtual bool isBool() const;
+    virtual bool isArray() const override;
 
-    virtual bool isInt() const;
+    virtual bool isBool() const override;
 
-    virtual bool isUnsigned() const;
+    virtual bool isInt() const override;
 
-    virtual bool isNumber() const;
+    virtual bool isUnsigned() const override;
 
-    virtual bool isNull() const;
+    virtual bool isNumber() const override;
 
-    virtual void skip();
+    virtual bool isNull() const override;
 
-    virtual void forEachMember(const std::function<void ()> & fn);
+    virtual void skip() override;
 
-    virtual void forEachElement(const std::function<void ()> & fn);
+    virtual void forEachMember(const std::function<void ()> & fn) override;
 
-    virtual std::string printCurrent();
+    virtual void forEachElement(const std::function<void ()> & fn) override;
 
-    virtual bool eof() const;
+    virtual std::string printCurrent() override;
+
+    virtual bool eof() const override;
 
     virtual std::any savePosition() override;
 

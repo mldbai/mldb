@@ -1332,7 +1332,7 @@ isNumber() const
 
 void
 StreamingJsonParsingContext::
-exception(const std::string & message) const
+exception(const Utf8String & message) const
 {
     context->exception("at " + printPath() + ": " + message);
 }
@@ -1801,7 +1801,7 @@ reset(const Json::Value & val)
 
 void
 StructuredJsonParsingContext::
-exception(const std::string & message) const
+exception(const Utf8String & message) const
 {
     //using namespace std;
     //cerr << *current << endl;
