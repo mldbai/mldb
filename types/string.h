@@ -151,6 +151,7 @@ public:
     const std::string & utf8String() const { return data_; }
     const char * rawData() const { return data_.c_str(); }
     size_t rawLength() const { return data_.length() ; }
+    const char * c_str() const { return data_.c_str(); }
 
     bool startsWith(const Utf8String & prefix) const;
     bool startsWith(const char * prefix) const;
