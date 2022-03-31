@@ -14,6 +14,7 @@
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/string.h"
 #include "mldb/base/scope.h"
+#include "mldb/utils/safe_clamp.h"
 #include <errno.h>
 
 using namespace std;
@@ -80,6 +81,67 @@ JsonNumber expectJsonNumber(ParseContext & context);
 
 /** Match a JSON number. */
 bool matchJsonNumber(ParseContext & context, JsonNumber & num);
+
+/*****************************************************************************/
+/* JSON NUMBER                                                               */
+/*****************************************************************************/
+
+Json::Value JsonNumber::toJson() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return uns;
+    case JsonNumber::SIGNED_INT:
+        return sgn;
+    case JsonNumber::FLOATING_POINT:
+        return fp;
+    default:
+        throw MLDB::Exception("logic error in expectJson");
+    }
+}
+
+bool JsonNumber::isExactUnsigned() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return true;
+    case JsonNumber::SIGNED_INT:
+        return sgn >= 0;
+    case JsonNumber::FLOATING_POINT:
+        return safe_clamp<uint64_t>(fp) == fp;
+    default:
+        MLDB_THROW_LOGIC_ERROR();
+    }
+
+}
+
+bool JsonNumber::isExactSigned() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return sgn <= std::numeric_limits<int64_t>::max();
+    case JsonNumber::SIGNED_INT:
+        return true;
+    case JsonNumber::FLOATING_POINT:
+        return safe_clamp<int64_t>(fp) == fp;
+    default:
+        MLDB_THROW_LOGIC_ERROR();
+    }
+}
+
+bool JsonNumber::isNegative() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return false;
+    case JsonNumber::SIGNED_INT:
+        return std::signbit(sgn);
+    case JsonNumber::FLOATING_POINT:
+        return std::signbit(fp);
+    default:
+        MLDB_THROW_LOGIC_ERROR();
+    }
+}
 
 
 /*****************************************************************************/
@@ -924,6 +986,28 @@ fieldNumber() const
     return path->fieldNumber();
 }
 
+bool
+JsonParsingContext::
+inField(const char * fieldName)
+{
+    return fieldNameView() == fieldName;    
+}
+
+bool
+JsonParsingContext::
+inField(const std::string & fieldName)
+{
+    return fieldNameView() == fieldName;    
+}
+
+bool
+JsonParsingContext::
+inField(const Utf8String & fieldName)
+{
+    return fieldNameView() == fieldName.c_str();
+}
+
+
 void
 JsonParsingContext::
 pushPath(JsonPathEntry entry, int memberNumber)
@@ -1303,6 +1387,13 @@ isNumber() const
     return false;
 }
 
+JsonNumber
+StreamingJsonParsingContext::
+expectNumber()
+{
+    return expectJsonNumber(*context);
+}
+
 bool
 StreamingJsonParsingContext::
 isNull() const
@@ -1533,16 +1624,7 @@ expectJson(ParseContext & context)
         return result;
     } else {
         JsonNumber number = expectJsonNumber(context);
-        switch (number.type) {
-        case JsonNumber::UNSIGNED_INT:
-            return number.uns;
-        case JsonNumber::SIGNED_INT:
-            return number.sgn;
-        case JsonNumber::FLOATING_POINT:
-            return number.fp;
-        default:
-            throw MLDB::Exception("logic error in expectJson");
-        }
+        return number.toJson();
     }
 }
 
@@ -2049,6 +2131,27 @@ isNumber() const
 {
     return current->isNumeric();
 }
+
+JsonNumber
+StructuredJsonParsingContext::
+expectNumber()
+{
+    JsonNumber result;
+    if (current->isInt()) {
+        result.type = JsonNumber::SIGNED_INT;
+        result.sgn = current->asInt();
+    }
+    else if (current->isUInt()) {
+        result.type = JsonNumber::UNSIGNED_INT;
+        result.uns = current->asUInt();
+    }
+    else {
+        result.type = JsonNumber::FLOATING_POINT;
+        result.fp = current->asDouble();
+    }
+    return result;
+}
+
 
 bool
 StructuredJsonParsingContext::

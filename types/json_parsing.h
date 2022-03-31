@@ -44,6 +44,11 @@ struct JsonNumber {
         long long sgn;
         double fp;
     };    
+
+    Json::Value toJson() const;
+    bool isExactUnsigned() const;
+    bool isExactSigned() const;
+    bool isNegative() const;
 };
 
 bool expectJsonBool(ParseContext & context);
@@ -185,6 +190,15 @@ struct JsonParsingContext {
     /// modified.
     std::string_view fieldNameView() const;
 
+    /// Checks if we're in a field with the given name
+    bool inField(const char * fieldName);
+
+    /// Checks if we're in a field with the given name
+    bool inField(const std::string & fieldName);
+
+    /// Checks if we're in a field with the given name
+    bool inField(const Utf8String & fieldName);
+
     /// Returns the outermost array index.  Throws if not currently in an
     /// array.
     int fieldNumber() const;
@@ -218,6 +232,10 @@ struct JsonParsingContext {
     */
     virtual std::string getContext() const = 0;
     
+    /// Expect a number of any kind at the current position and return it.
+    /// Throws if not found
+    virtual JsonNumber expectNumber() = 0;
+
     /// Expect an integer at the current position and consume and return it.
     /// Throws if not found or overflow.
     virtual int expectInt() = 0;
@@ -495,21 +513,23 @@ struct StreamingJsonParsingContext
             popPath();
     }
 
-    virtual void forEachElement(const std::function<void ()> & fn);
+    virtual void forEachElement(const std::function<void ()> & fn) override;
 
-    virtual void skip();
+    virtual void skip() override;
 
-    virtual int expectInt();
+    virtual JsonNumber expectNumber() override;
 
-    virtual unsigned int expectUnsignedInt();
+    virtual int expectInt() override;
 
-    virtual long expectLong();
+    virtual unsigned int expectUnsignedInt() override;
 
-    virtual unsigned long expectUnsignedLong();
+    virtual long expectLong() override;
 
-    virtual long long expectLongLong();
+    virtual unsigned long expectUnsignedLong() override;
 
-    virtual unsigned long long expectUnsignedLongLong();
+    virtual long long expectLongLong() override;
+
+    virtual unsigned long long expectUnsignedLongLong() override;
 
     virtual float expectFloat() override;
 
