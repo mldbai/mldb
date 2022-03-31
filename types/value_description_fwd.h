@@ -169,7 +169,7 @@ auto getDefaultDescriptionUninitialized(T *)
                                                                 \
     struct Name::Regme {                                                \
         bool done;                                                      \
-        static ValueDescription * creator() { return new Name(); }      \
+        static MLDB::ValueDescription * creator() { return new Name(); } \
         Regme()                                                         \
             : done(false)                                               \
         {                                                               \
@@ -198,7 +198,7 @@ auto getDefaultDescriptionUninitialized(T *)
     std::shared_ptr<const MLDB::ValueDescription>                       \
     getDefaultDescriptionSharedGeneric(Type *)                          \
     {                                                                   \
-        return ValueDescription::get(typeid(Type));                     \
+        return MLDB::ValueDescription::get(typeid(Type));               \
     }                                                                   \
     Name::Regme Name::regme;                                            \
     
@@ -316,14 +316,14 @@ auto getDefaultDescriptionUninitialized(T *)
 #define DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, ParamList, ArgList, Enable) \
     template<ParamList>                                                 \
     ValueDescriptionT<Type<ArgList> > *                                 \
-    getDefaultDescription(Type<ArgList> * = 0, std::enable_if_t<Enable> * = 0)                          \
+    getDefaultDescription(Type<ArgList> * = 0, std::enable_if_t<Enable> * = 0) \
     {                                                                   \
         return new Impl<ArgList>();                                     \
     }                                                                   \
                                                                         \
     template<ParamList>                                                 \
     struct ValueDescriptionInit<Type<ArgList> >: public ValueDescriptionInitBase { \
-        static ValueDescription * create()                              \
+        static MLDB::ValueDescription * create()                        \
         {                                                               \
             return new Impl<ArgList>(MLDB::ConstructOnly());            \
         }                                                               \
