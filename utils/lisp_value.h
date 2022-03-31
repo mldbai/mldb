@@ -7,22 +7,17 @@
 
 #pragma once
 
+#include "lisp_fwd.h"
 #include <optional>
-#include "mldb/base/parse_context.h"
 #include <vector>
 #include <memory>
+#include <map>
 #include "mldb/types/string.h"
 #include "mldb/types/path.h"
 #include "mldb/types/any.h"
 
 namespace MLDB {
 namespace Lisp {
-
-struct CompilationScope;
-struct ExecutionScope;
-struct Value;
-struct CompilationState;
-
 
 /*******************************************************************************/
 /* LISP VALUE                                                                  */
@@ -32,8 +27,6 @@ struct Variable {
     PathElement var;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(Variable);
-
 struct FunctionHandle;
 
 struct Function {
@@ -41,23 +34,18 @@ struct Function {
     std::shared_ptr<FunctionHandle> handle;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(Function);
-
 struct Symbol {
     PathElement sym;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(Symbol);
-
 struct Null {
 };
-
-DECLARE_STRUCTURE_DESCRIPTION(Null);
 
 struct Wildcard {
 };
 
-PREDECLARE_VALUE_DESCRIPTION(Wildcard);
+struct Ellipsis {
+};
 
 struct List: public std::vector<Value> {
     using std::vector<Value>::vector;
@@ -75,10 +63,6 @@ struct List: public std::vector<Value> {
         return result;
     }
 };
-
-DECLARE_STRUCTURE_DESCRIPTION(List);
-
-struct Context;
 
 struct Value {
     Value();
@@ -109,6 +93,7 @@ struct Value {
     Value(Context & context, Variable var);
     Value(Context & context, Function fn);
     Value(Context & context, Wildcard);
+    Value(Context & context, Ellipsis);
     Value(Context & context, List list);
     Value(Context & context, Null);
 
@@ -131,10 +116,26 @@ struct Value {
     void toJson(JsonPrintingContext & context) const;
     static Value fromJson(Context & lcontext, JsonParsingContext & pcontext);
 
+    bool hasMetadata() const;
+    void addMetadata(Value md);
+    Value getMetadata() const;
+
     Utf8String print() const;
     static std::optional<Value> match(Context & lcontext, ParseContext & pcontext);
     static Value parse(Context & lcontext, ParseContext & pcontext);
     static Value parse(Context & lcontext, const Utf8String & str);
+
+    static Value parseAtom(Context & lcontext, ParseContext & pcontext);
+    static std::optional<Value> matchAtom(Context & lcontext, ParseContext & pcontext);
+
+    static std::optional<Value>
+    matchRecursive(Context & lcontext, ParseContext & pcontext,
+                   const std::function<std::optional<Value>(Context &, ParseContext &)> & matchAtom,
+                   const std::function<std::optional<Value>(Context &, ParseContext &)> & recurse);
+    static Value
+    parseRecursive(Context & lcontext, ParseContext & pcontext,
+                   const std::function<Value(Context &, ParseContext &)> & parseAtom,
+                   const std::function<Value(Context &, ParseContext &)> & recurse);
 
     // Verify that the context matches the expected, or throw an exception
     void verifyContext(Context * expectedContext) const
@@ -149,16 +150,20 @@ struct Value {
         return *context_;
     }
 
+    bool isInitialized() const { return context_ != nullptr; }
+    bool isUninitialized() const { return context_ == nullptr; }
+
     template<typename T> bool is() const { return value_.is<T>(); }
     template<typename T> const T & as() const { return value_.as<T>(); }
 
     PathElement getVariableName() const { return as<Variable>().var; }
-private:
-    Context * context_;
-    Any value_;
-};
 
-PREDECLARE_VALUE_DESCRIPTION(Value);
+private:
+    Context * context_ = nullptr;
+    Any value_;
+    Any md_;
+    friend class ValueDescription;
+};
 
 inline std::ostream & operator << (std::ostream & stream, Value val)
 {

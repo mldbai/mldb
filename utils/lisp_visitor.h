@@ -8,6 +8,7 @@
 #pragma once
 
 #include "lisp_value.h"
+#include "mldb/types/is_visitable.h"
 #include <utility>
 #include <iostream>
 
@@ -28,41 +29,6 @@ struct Visitor<Value> {
     using return_type = Value;
     using visitor_base = Visitor;
 };
-
-template<typename Visitor, typename Method>
-struct IsVisitable {
-    static_assert(
-        std::integral_constant<Method, false>::value,
-        "Second template parameter (Method) needs to be of function type.");
-};
-
-// specialization that does the checking
-
-template<typename Visitor, typename Ret, typename... Args>
-struct IsVisitable<Visitor, Ret(Args...)> {
-private:
-    template<typename T>
-    static constexpr auto check(T*)
-    -> typename
-        std::is_convertible<
-            decltype( std::declval<T>().visit( std::declval<Args>()... ) ),
-            Ret
-        >::type;  // attempt to call it and see if the return type is correct
-
-    template<typename>
-    static constexpr std::false_type check(...);
-
-    typedef decltype(check<Visitor>(nullptr)) type;
-
-public:
-    static constexpr bool value = type::value;
-};
-
-template<typename Visitor, typename Method>
-constexpr bool isVisitable()
-{
-    return IsVisitable<Visitor, Method>::value;
-}
 
 template<typename Unknown>
 struct HandleUnknown {
@@ -120,6 +86,7 @@ auto visit(Visitor && visitor, Value && value) -> typename std::decay_t<Visitor>
     LISP_TRY_VISIT(Function);
     LISP_TRY_VISIT(Symbol);
     LISP_TRY_VISIT(Wildcard);
+    LISP_TRY_VISIT(Ellipsis);
     LISP_TRY_VISIT(Variable);
     LISP_TRY_VISIT(Null);
     LISP_TRY_VISIT(uint64_t);
@@ -145,11 +112,14 @@ Value recurse(Visitor && visitor, ValueIn && value)
         for (auto && val: list) {
             recursed.emplace_back(recurse(visitor, val));
         }
-        if constexpr(isVisitable<DecayedVisitor, Return(List)>()) {
+        if constexpr(isVisitable<DecayedVisitor, Value(List)>()) {
             return visitor.visit(std::move(recursed));
         }
+        Value result{ value.getContext(), std::move(recursed) };
+        if constexpr(isVisitable<DecayedVisitor, Value(Value)>()) {
+            return visitor.visit(std::move(result));
+        }
         else {
-            Value result{ value.getContext(), std::move(recursed) };
             return result;
         }
     }

@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "lisp_fwd.h"
 #include "lisp_value.h"
 #include <optional>
 #include <vector>
@@ -16,12 +17,6 @@
 
 namespace MLDB {
 namespace Lisp {
-
-struct CompilationScope;
-struct ExecutionScope;
-struct Value;
-struct CompilationState;
-
 
 /*******************************************************************************/
 /* LISP EXECUTION SCOPE                                                        */
@@ -55,6 +50,7 @@ struct CompiledExpression {
     //LispValue type_;
 };
 
+
 /*******************************************************************************/
 /* LISP COMPILATION SCOPE                                                      */
 /*******************************************************************************/
@@ -73,6 +69,12 @@ struct CompilationScope {
 
     CompiledExpression compile(const Value & program) const;
     FunctionCompiler getFunctionCompiler(const Path & fn) const;
+
+    Context & getContext() const
+    {
+        ExcAssert(context_);
+        return *context_;
+    }
 
 private:
     CompilationScope();
@@ -117,9 +119,44 @@ private:
 struct Context {
     virtual ~Context() = default;
     Value null() { return Value(*this, Null{}); }
-    Value list(PathElement head);
-    Value list(PathElement head, std::vector<Value> vals);
+    Value call(PathElement head);
+    Value call(PathElement head, std::vector<Value> args);
     Value path(PathElement path);
+
+    Value operator () ()
+    {
+        return Value{ *this, List{} };
+    }
+
+    template<typename T>
+    void addArg(List & l, T&&arg)
+    {
+        l.emplace_back(*this, std::forward<T>(arg));
+    }
+
+    void addArg(List & l, Value val)
+    {
+        val.verifyContext(this);
+        l.emplace_back(std::move(val));
+    }
+
+    template<typename First, typename... Rest>
+    void addArgs(List & l, First&&first, Rest&&... rest)
+    {
+        addArg(l, std::forward<First>(first));
+        addArgs(l, std::forward<Rest>(rest)...);
+    }
+
+    void addArgs(List & l) {}
+
+    template<typename... Args>
+    Value make_list(Args&&... args)
+    {
+        List l;
+        l.reserve(sizeof...(Args));
+        addArgs(l, std::forward<Args>(args)...);
+        return Value{*this, std::move(l)};
+    }
 };
 
 } // namespace Lisp

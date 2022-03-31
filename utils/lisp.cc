@@ -51,7 +51,6 @@ CompilationScope::
 CompilationScope(CompilationScope & parent)
     : context_(parent.context_)
 {
-
 }
 
 CompiledExpression
@@ -118,14 +117,14 @@ getFunctionCompiler(const Path & fn) const
 /* LISP CONTEXT                                                                */
 /*******************************************************************************/
 
-Value Context::list(PathElement head)
+Value Context::call(PathElement head)
 {
     List l;
     l.emplace_back(*this, Function{std::move(head), nullptr});
     return { *this, std::move(l) };
 }
 
-Value Context::list(PathElement head, std::vector<Value> vals)
+Value Context::call(PathElement head, std::vector<Value> vals)
 {
     List l;
     l.emplace_back(*this, Function{std::move(head), nullptr});

@@ -10,6 +10,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/utils/lisp.h"
 #include "mldb/utils/lisp_predicate.h"
+#include "mldb/base/parse_context.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -34,6 +35,13 @@ void testParsingPrinting(const Value & val)
         auto parsed = Value::parse(val.getContext(), printed);
         
         CHECK(parsed == val);
+
+        ParseContext pcontext(printed.rawString(), printed.rawData(), printed.rawLength());
+        auto matched = Value::match(val.getContext(), pcontext);
+
+        REQUIRE(matched);
+        CHECK(matched == val);
+        CHECK(pcontext.eof());
     }
 }
 
@@ -55,17 +63,20 @@ TEST_CASE("test-lisp-parsing", "[none]")
         }
     };
 
-    runTest("true", "true");
-    runTest("false", "false");
-    runTest("null", "null");
-    runTest("()", "[]");
-    runTest("(true)", "[true]");
-    runTest("(false)", "[false]");
-    runTest("(null)", "[null]");
+    CHECK(jsonEncodeStr(Value()) == "null");
+
+    runTest("true", "{\"atom\":true}");
+    runTest("false", "{\"atom\":false}");
+    runTest("null", "{\"atom\":null}");
+    runTest("()", "{\"list\":[]}");
+    runTest("(true)", "{\"list\":[{\"atom\":true}]}");
+    runTest("(false)", "{\"list\":[{\"atom\":false}]}");
+    runTest("(null)", "{\"list\":[{\"atom\":null}]}");
     runTest("x", "{\"var\":\"x\"}");
     runTest("`x", "{\"sym\":\"x\"}");
     runTest("_", "{\"wc\":\"_\"}");
-    runTest("\"hello\"", "\"hello\"");
+    runTest("...", "{\"wc\":\"...\"}");
+    runTest("\"hello\"", "{\"atom\":\"hello\"}");
 }
 
 TEST_CASE("test-lisp-compilation", "[none]")
@@ -95,7 +106,23 @@ TEST_CASE("test-lisp-compilation", "[none]")
 
     runTest("(+ 1 2)", "()", "3");
     runTest("(+ 1 2 -1 -2)", "()", "0");
-    //runTest("(+ \"hello\" \" \" \"world!\")", "()", "\"hello world\"");
+    runTest("(+ \"hello\" \" \" \"world!\")", "()", "\"hello world\"");
+}
+
+TEST_CASE("test-lisp-predicates-parsing", "[none]")
+{
+    auto runTest = [] (const std::string & pred)
+    {
+        SECTION(pred) {
+            Context lcontext;
+            ParseContext pcontext(pred, pred.data(), pred.length());
+            auto p = Predicate::parse(lcontext, pred);
+            CHECK(p.toLisp().print() == pred);
+            testParsingPrinting(p.toLisp());
+        }
+    };
+
+    runTest("(+ x:i64)");
 }
 
 TEST_CASE("test-lisp-predicates", "[none]")
@@ -123,8 +150,15 @@ TEST_CASE("test-lisp-predicates", "[none]")
     runTest("(* (- x y) (+ x y))", "(* (- 1 3) (+ 1 3))", "(matched x 1 y 3)");
     runTest("(* (- x y) (+ x y))", "(* (- 1 3) (+ 1 2))", "()");
     runTest("(* _ _)", "(* (- 1 3) (+ 1 2))", "(matched)");
+    runTest("(+ x rest...)", "(+ 1)", "(matched rest () x 1)");
+    runTest("(+ x rest...)", "(+ 1 2)", "(matched rest (2) x 1)");
+    runTest("(+ x rest...)", "(+ 1 (* 2 3))", "(matched rest ((* 2 3)) x 1)");
+    runTest("(+ (- x y)...)", "(+)", "(matched x () y ())");
+    runTest("(+ (- x y)...)", "(+ (- 1 2))", "(matched x (1) y (2))");
+    runTest("(+ (- x y)...)", "(+ (- 1 2) (- 3 4)))", "(matched x (1 3) y (2 4))");
 }
 
+#if 0
 TEST_CASE("test-lisp-substitutions", "[none]")
 {
     auto runTest = [] (const std::string & pred, const std::string & subst, const std::string & input, const std::string & expectedOut)
@@ -150,4 +184,9 @@ TEST_CASE("test-lisp-substitutions", "[none]")
 
     runTest("(+ x)", "x", "(+ 1)", "1");
     runTest("(+ x x)", "(* 2 x)", "(+ 1 1)", "(* 2 1)");
+    runTest("(+ x y rest...)", "(+ (+ x y) rest...)", "(+ 1 2 3)", "(+ (+ 1 2) 3)");
+    runTest("(+ x y rest...)", "(+ (+ x y) rest...)", "(+ 1 2 3 (4 5))", "(+ (+ 1 2) 3 (4 5))");
+    runTest("(+ x y rest...)", "(+ (+ x y) rest...)", "(+ 1 2)", "(+ (+ 1 2))");
+    runTest("(+ (- x y)...)", "(- (+ x...) (+ y...))", "(+ (- 1 2) (- 3 4) (- 5 6))", "(- (+ 1 3 5) (+ 2 4 6))");
 }
+#endif
